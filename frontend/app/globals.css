@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #020617;
+}
+
+label { display: grid; gap: 0.35rem; color: #94a3b8; font-size: 0.8rem; }
+label input, label select { width: 100%; border: 1px solid #334155; border-radius: 0.5rem; background: #020617; padding: 0.55rem 0.65rem; color: #f1f5f9; }
