@@ -93,7 +93,9 @@ export default function HomePage() {
       <header className="border-b border-sys-border bg-sys-bg/80">
         <div className="mx-auto flex max-w-[1800px] flex-col md:flex-row md:items-center justify-between gap-4 px-3 py-5 sm:px-5 lg:px-6 xl:px-8">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-sys-accent">ДФКР</p>
+            <a href="https://kre.dp.ua/" target="_blank" rel="noopener noreferrer" className="inline-block hover:opacity-80 transition-opacity" title="Головна сторінка закладу">
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-sys-accent">ДФКР</p>
+            </a>
             <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">Розклад занять</h1>
           </div>
           <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 w-full md:w-auto">

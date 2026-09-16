@@ -110,7 +110,9 @@ function AdminContent() {
       <header className="border-b-[0.5px] border-sys-border bg-sys-bg px-4 py-4">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-sys-accent">ДФКР</p>
+            <a href="https://kre.dp.ua/" target="_blank" rel="noopener noreferrer" className="inline-block hover:opacity-80 transition-opacity" title="Головна сторінка закладу">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-sys-accent">ДФКР</p>
+            </a>
             <h1 className="text-xl font-bold">Адміністрування</h1>
           </div>
           <div className="flex gap-3">
