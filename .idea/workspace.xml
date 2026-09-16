@@ -4,7 +4,7 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="508baa33-f415-4e56-bdba-95be05473423" name="Changes" comment="Merge remote-tracking branch 'origin/main'&#10;&#10;# Conflicts:&#10;#&#9;frontend/lib/hooks.ts" />
+    <list default="true" id="508baa33-f415-4e56-bdba-95be05473423" name="Changes" comment="Форми для викладачей v1" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -31,23 +31,23 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.413101227537419" />
-      <entry key="MS500" value="3.0805817961847124" />
-      <entry key="S2" value="7.577412983410469" />
-      <entry key="S5" value="10.964951722858881" />
-      <entry key="S10" value="12.731339347882098" />
-      <entry key="S30" value="14.2324543804583" />
-      <entry key="S60" value="17.332869121043565" />
-      <entry key="M2" value="38.600719108505665" />
-      <entry key="M5" value="128.90672903061932" />
-      <entry key="M10" value="252.86313420198204" />
-      <entry key="M15" value="349.8633579992687" />
-      <entry key="M30" value="567.0285740131707" />
-      <entry key="H1" value="887.0785220159158" />
-      <entry key="H2" value="1491.7155295455639" />
-      <entry key="H4" value="2518.3895916359975" />
-      <entry key="D1" value="4932.081015355181" />
-      <entry key="W1" value="5668.179015778967" />
+      <entry key="MS100" value="1.0" />
+      <entry key="MS500" value="1.0000002656251912" />
+      <entry key="S2" value="1.0645487396621567" />
+      <entry key="S5" value="1.8859521041874023" />
+      <entry key="S10" value="4.140409835774319" />
+      <entry key="S30" value="22.73868249038331" />
+      <entry key="S60" value="43.94319528605131" />
+      <entry key="M2" value="64.22833742738746" />
+      <entry key="M5" value="113.46784932059292" />
+      <entry key="M10" value="216.49256424619256" />
+      <entry key="M15" value="313.48191356264886" />
+      <entry key="M30" value="545.4288630656621" />
+      <entry key="H1" value="885.9697051445044" />
+      <entry key="H2" value="1503.5893872657382" />
+      <entry key="H4" value="2541.8972999166303" />
+      <entry key="D1" value="5000.8490702416175" />
+      <entry key="W1" value="5755.522996244724" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -69,23 +69,23 @@
       <entry key="W1" value="0.0" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="1.384021198896443" />
-      <entry key="MS500" value="3.0678337416277874" />
-      <entry key="S2" value="7.569424329354326" />
-      <entry key="S5" value="10.960255720107844" />
-      <entry key="S10" value="12.72859474647352" />
-      <entry key="S30" value="14.231426811833817" />
-      <entry key="S60" value="17.332247903989174" />
-      <entry key="M2" value="38.60004599088618" />
-      <entry key="M5" value="128.9058342194578" />
-      <entry key="M10" value="252.86221824171622" />
-      <entry key="M15" value="349.86247929536745" />
-      <entry key="M30" value="567.0278259767603" />
-      <entry key="H1" value="887.0779352022407" />
-      <entry key="H2" value="1491.7150489781636" />
-      <entry key="H4" value="2518.3891900624826" />
-      <entry key="D1" value="4932.08088263492" />
-      <entry key="W1" value="5668.178993886413" />
+      <entry key="MS100" value="0.46009382531243753" />
+      <entry key="MS500" value="0.8561885489562948" />
+      <entry key="S2" value="1.0263237599765513" />
+      <entry key="S5" value="1.8696160986784343" />
+      <entry key="S10" value="4.131311650519331" />
+      <entry key="S30" value="22.73411572213281" />
+      <entry key="S60" value="43.94010726256163" />
+      <entry key="M2" value="64.22641448533246" />
+      <entry key="M5" value="113.46672985536489" />
+      <entry key="M10" value="216.49162525443052" />
+      <entry key="M15" value="313.4810312394148" />
+      <entry key="M30" value="545.4281016752615" />
+      <entry key="H1" value="885.9690983514329" />
+      <entry key="H2" value="1503.5888917498849" />
+      <entry key="H4" value="2541.8968888873806" />
+      <entry key="D1" value="5000.8489347501045" />
+      <entry key="W1" value="5755.522973884942" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -144,7 +144,7 @@
       <workItem from="1789479796635" duration="1639000" />
       <workItem from="1789493822320" duration="11611000" />
       <workItem from="1789534531255" duration="23252000" />
-      <workItem from="1789581181856" duration="3135000" />
+      <workItem from="1789581181856" duration="3735000" />
     </task>
     <task id="LOCAL-00001" summary="НА всякий">
       <option name="closed" value="true" />
@@ -346,7 +346,15 @@
       <option name="project" value="LOCAL" />
       <updated>1789584152001</updated>
     </task>
-    <option name="localTasksCounter" value="26" />
+    <task id="LOCAL-00026" summary="Форми для викладачей v1">
+      <option name="closed" value="true" />
+      <created>1789584924297</created>
+      <option name="number" value="00026" />
+      <option name="presentableId" value="LOCAL-00026" />
+      <option name="project" value="LOCAL" />
+      <updated>1789584924297</updated>
+    </task>
+    <option name="localTasksCounter" value="27" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -370,7 +378,8 @@
     <MESSAGE value="feat(ui): always use the first ordered group as the default for new visitors" />
     <MESSAGE value="ласт" />
     <MESSAGE value="Merge remote-tracking branch 'origin/main'&#10;&#10;# Conflicts:&#10;#&#9;frontend/lib/hooks.ts" />
-    <option name="LAST_COMMIT_MESSAGE" value="Merge remote-tracking branch 'origin/main'&#10;&#10;# Conflicts:&#10;#&#9;frontend/lib/hooks.ts" />
+    <MESSAGE value="Форми для викладачей v1" />
+    <option name="LAST_COMMIT_MESSAGE" value="Форми для викладачей v1" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
