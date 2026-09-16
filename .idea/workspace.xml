@@ -4,7 +4,7 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="508baa33-f415-4e56-bdba-95be05473423" name="Changes" comment="1" />
+    <list default="true" id="508baa33-f415-4e56-bdba-95be05473423" name="Changes" comment="feat(ui): always use the first ordered group as the default for new visitors" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -31,23 +31,23 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.6155732066819748" />
-      <entry key="MS500" value="2.160415936374995" />
-      <entry key="S2" value="8.39712816408981" />
-      <entry key="S5" value="21.660007652394" />
-      <entry key="S10" value="38.10035456601146" />
-      <entry key="S30" value="65.58674268676681" />
-      <entry key="S60" value="81.90640989444722" />
-      <entry key="M2" value="106.03341951742026" />
-      <entry key="M5" value="160.2944132099362" />
-      <entry key="M10" value="236.02028626170778" />
-      <entry key="M15" value="302.08667404146064" />
-      <entry key="M30" value="467.88956884120665" />
-      <entry key="H1" value="746.1864774261786" />
-      <entry key="H2" value="1329.8765146662497" />
-      <entry key="H4" value="2337.6015137107256" />
-      <entry key="D1" value="4670.1768731898355" />
-      <entry key="W1" value="5372.76853787988" />
+      <entry key="MS100" value="1.5849442644786607" />
+      <entry key="MS500" value="4.578592516472781" />
+      <entry key="S2" value="13.332815484224138" />
+      <entry key="S5" value="25.812701067349728" />
+      <entry key="S10" value="37.4075551461061" />
+      <entry key="S30" value="61.091839749725686" />
+      <entry key="S60" value="85.422671561691" />
+      <entry key="M2" value="116.8216682513563" />
+      <entry key="M5" value="184.75887020003708" />
+      <entry key="M10" value="276.76124028312165" />
+      <entry key="M15" value="353.82328986926353" />
+      <entry key="M30" value="539.0407225821839" />
+      <entry key="H1" value="833.844868043108" />
+      <entry key="H2" value="1425.0450509868713" />
+      <entry key="H4" value="2440.7800609265987" />
+      <entry key="D1" value="4813.805081474315" />
+      <entry key="W1" value="5533.416377625274" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -69,23 +69,23 @@
       <entry key="W1" value="0.0" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="1.578160623444822" />
-      <entry key="MS500" value="2.1500631007944495" />
-      <entry key="S2" value="8.387806584550638" />
-      <entry key="S5" value="21.650580400566476" />
-      <entry key="S10" value="38.09201875372091" />
-      <entry key="S30" value="65.58190412154786" />
-      <entry key="S60" value="81.90337607195823" />
-      <entry key="M2" value="106.03144573644107" />
-      <entry key="M5" value="160.29317797834656" />
-      <entry key="M10" value="236.01930169014952" />
-      <entry key="M15" value="302.08579969702475" />
-      <entry key="M30" value="467.888881344919" />
-      <entry key="H1" value="746.1859518041313" />
-      <entry key="H2" value="1329.876073856997" />
-      <entry key="H4" value="2337.6011354499897" />
-      <entry key="D1" value="4670.1767465179955" />
-      <entry key="W1" value="5372.768516980646" />
+      <entry key="MS100" value="1.5553365163504795" />
+      <entry key="MS500" value="4.561958673338997" />
+      <entry key="S2" value="13.320275809074946" />
+      <entry key="S5" value="25.80265427264482" />
+      <entry key="S10" value="37.400165394086336" />
+      <entry key="S30" value="61.08779247381417" />
+      <entry key="S60" value="85.41983176519444" />
+      <entry key="M2" value="116.81970961012055" />
+      <entry key="M5" value="184.75758614797476" />
+      <entry key="M10" value="276.7602087268706" />
+      <entry key="M15" value="353.82236745590046" />
+      <entry key="M30" value="539.0399862866855" />
+      <entry key="H1" value="833.8443040363187" />
+      <entry key="H2" value="1425.0445870164901" />
+      <entry key="H4" value="2440.779669535669" />
+      <entry key="D1" value="4813.804951527947" />
+      <entry key="W1" value="5533.416356192394" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -144,7 +144,7 @@
       <workItem from="1789479796635" duration="1639000" />
       <workItem from="1789493822320" duration="11611000" />
       <workItem from="1789534531255" duration="23252000" />
-      <workItem from="1789581181856" duration="1824000" />
+      <workItem from="1789581181856" duration="2448000" />
     </task>
     <task id="LOCAL-00001" summary="НА всякий">
       <option name="closed" value="true" />
@@ -298,7 +298,31 @@
       <option name="project" value="LOCAL" />
       <updated>1789582861639</updated>
     </task>
-    <option name="localTasksCounter" value="20" />
+    <task id="LOCAL-00020" summary="1">
+      <option name="closed" value="true" />
+      <created>1789583071269</created>
+      <option name="number" value="00020" />
+      <option name="presentableId" value="LOCAL-00020" />
+      <option name="project" value="LOCAL" />
+      <updated>1789583071269</updated>
+    </task>
+    <task id="LOCAL-00021" summary="feat(ui): always use the first ordered group as the default for new visitors">
+      <option name="closed" value="true" />
+      <created>1789583531402</created>
+      <option name="number" value="00021" />
+      <option name="presentableId" value="LOCAL-00021" />
+      <option name="project" value="LOCAL" />
+      <updated>1789583531402</updated>
+    </task>
+    <task id="LOCAL-00022" summary="feat(ui): always use the first ordered group as the default for new visitors">
+      <option name="closed" value="true" />
+      <created>1789583631509</created>
+      <option name="number" value="00022" />
+      <option name="presentableId" value="LOCAL-00022" />
+      <option name="project" value="LOCAL" />
+      <updated>1789583631509</updated>
+    </task>
+    <option name="localTasksCounter" value="23" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -308,7 +332,8 @@
     <MESSAGE value="НА всякий" />
     <MESSAGE value="fix(docker): inject missing restore scripts to container" />
     <MESSAGE value="1" />
-    <option name="LAST_COMMIT_MESSAGE" value="1" />
+    <MESSAGE value="feat(ui): always use the first ordered group as the default for new visitors" />
+    <option name="LAST_COMMIT_MESSAGE" value="feat(ui): always use the first ordered group as the default for new visitors" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
