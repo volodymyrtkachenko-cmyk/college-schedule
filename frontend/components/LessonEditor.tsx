@@ -3,10 +3,15 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { api, DirectoryItem, Lesson, LessonMutation, WeekType } from "../lib/api";
 
+import { ReferenceRecord } from "../lib/api";
+
 type Props = {
   lesson?: Lesson;
   date: string;
-  groupId: number;
+  scheduleMode: "student" | "teacher";
+  defaultGroupId: number | null;
+  defaultTeacherId: number | null;
+  groups: ReferenceRecord[];
   initialWeekType?: WeekType;
   onSave: (payload: LessonMutation) => Promise<void>;
   onDelete?: () => Promise<void>;
@@ -33,25 +38,25 @@ function dayFromDate(date: string) {
   return day >= 1 && day <= 5 ? day : 1;
 }
 
-function initial(lesson: Lesson | undefined, date: string, initialWeekType: WeekType = "both"): LessonMutation {
+function initial(lesson: Lesson | undefined, date: string, scheduleMode: "student"|"teacher", defaultGroupId: number|null, defaultTeacherId: number|null, initialWeekType: WeekType = "both"): LessonMutation {
   return {
-    group_id: 0,
+    group_id: lesson?.group_id ?? (scheduleMode === "student" ? (defaultGroupId ?? 0) : 0),
     date,
     day_of_week: lesson?.day_of_week ?? dayFromDate(date),
     lesson_number: lesson?.lesson_number ?? 1,
     subject_id: lesson?.subject_id,
-    teacher_id: lesson?.teacher_id ?? null,
+    teacher_id: lesson?.teacher_id ?? (scheduleMode === "teacher" ? defaultTeacherId : null),
     second_teacher_id: lesson?.second_teacher_id ?? null,
     week_type: lesson?.week_type ?? initialWeekType,
   };
 }
 
-export function LessonEditor({ lesson, date, groupId, initialWeekType = "both", onSave, onDelete, onClose }: Props) {
+export function LessonEditor({ lesson, date, scheduleMode, defaultGroupId, defaultTeacherId, groups, initialWeekType = "both", onSave, onDelete, onClose }: Props) {
   const dialogRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
      setTimeout(() => dialogRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
   }, []);
-  const [form, setForm] = useState(() => initial(lesson, date, initialWeekType));
+  const [form, setForm] = useState(() => initial(lesson, date, scheduleMode, defaultGroupId, defaultTeacherId, initialWeekType));
   const [subjects, setSubjects] = useState<DirectoryItem[]>([]);
   const [teachers, setTeachers] = useState<DirectoryItem[]>([]);
   const [busy, setBusy] = useState(false);
@@ -90,7 +95,12 @@ export function LessonEditor({ lesson, date, groupId, initialWeekType = "both", 
     setBusy(true);
     setError(null);
     try {
-      await onSave({ ...form, group_id: groupId, date });
+
+      if (!form.group_id) {
+        setError("Оберіть групу.");
+        return;
+      }
+      await onSave({ ...form, date });
       onClose();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Не вдалося зберегти");
@@ -135,6 +145,14 @@ export function LessonEditor({ lesson, date, groupId, initialWeekType = "both", 
             </select>
           </label>
           <label>Тиждень<select value={form.week_type} onChange={(e) => update("week_type", e.target.value as WeekType)}><option value="both">Щотижня</option><option value="numerator">Чисельник</option><option value="denominator">Знаменник</option></select></label>
+          {scheduleMode === "teacher" && (
+            <label>Група
+              <select required value={form.group_id || ""} onChange={(e) => update("group_id", Number(e.target.value))}>
+                <option value="">Оберіть групу</option>
+                {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+              </select>
+            </label>
+          )}
           <label>Викладач
             <select disabled={loadingDirectories} value={form.teacher_id ?? ""} onChange={(e) => update("teacher_id", Number(e.target.value) || null)}>
               <option value="">Без викладача</option>

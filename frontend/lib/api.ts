@@ -25,6 +25,7 @@ export interface ReferenceRecord extends DirectoryItem {
 export type ReferenceMutation = Omit<Partial<ReferenceRecord>, "id" | "is_active"> & { name: string };
 
 export interface Lesson {
+    group_id?: number;
     id: number;
     lesson_number: number;
     time: string;
@@ -81,7 +82,7 @@ export interface AuthSession {
 }
 
 export interface LessonMutation {
-    group_id: number;
+    group_id?: number;
     date?: string;
     day_of_week?: number;
     subject_id?: number;
