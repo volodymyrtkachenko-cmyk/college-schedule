@@ -25,6 +25,7 @@ export function ReferenceTable({ resource, items, faculties = [], teachers = [],
             <th className="px-5 py-3 font-medium">Назва</th>
             {resource === "groups" && <th className="px-5 py-3 font-medium">Спеціальність</th>}
             {resource === "groups" && <th className="px-5 py-3 font-medium">Куратор</th>}
+            {resource === "teachers" && <th className="px-5 py-3 font-medium">Аудиторія</th>}
             <th className="px-5 py-3 text-right font-medium">Дії</th>
           </tr>
         </thead>
@@ -40,6 +41,11 @@ export function ReferenceTable({ resource, items, faculties = [], teachers = [],
               {resource === "groups" && (
                 <td className="px-5 py-3 text-sys-text-secondary">
                   {item.curator_id ? teacherNames.get(item.curator_id) ?? "Невідомий куратор" : "Без куратора"}
+                </td>
+              )}
+              {resource === "teachers" && (
+                <td className="px-5 py-3 text-sys-text-secondary">
+                  {item.room || "—"}
                 </td>
               )}
               <td className="px-5 py-3 text-right space-x-3">
