@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 
+import subprocess
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -11,6 +12,13 @@ from app.routers import auth, directory, lesson_notes, schedule, settings as set
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    # Automatically run migrations on startup (Perfect for Render)
+    try:
+        subprocess.run(["alembic", "upgrade", "head"], check=True)
+        print("Database migrations applied successfully!")
+    except Exception as e:
+        print(f"Error applying migrations: {e}")
+        
     yield
     await engine.dispose()
 
