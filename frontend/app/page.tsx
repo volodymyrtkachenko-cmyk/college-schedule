@@ -16,18 +16,17 @@ import { motion, AnimatePresence } from "framer-motion";
 export default function HomePage() {
   const [weekAnchorDate, setWeekAnchorDate] = useState(() => {
     const date = new Date();
+    date.setDate(date.getDate() - (date.getDay() || 7) + 1);
+    date.setHours(12, 0, 0, 0);
+    return date;
+  });
+
   const isCurrentWeek = useMemo(() => {
     const todayAnchor = new Date();
     todayAnchor.setDate(todayAnchor.getDate() - (todayAnchor.getDay() || 7) + 1);
     todayAnchor.setHours(12, 0, 0, 0);
     return Math.abs(weekAnchorDate.getTime() - todayAnchor.getTime()) < 1000 * 60 * 60 * 24;
   }, [weekAnchorDate]);
-
-
-    date.setDate(date.getDate() - (date.getDay() || 7) + 1);
-    date.setHours(12, 0, 0, 0);
-    return date;
-  });
   const { mode, toggleMode, teachers, teacherId, setTeacherId, groups, groupId, setGroupId, today, week, loading, error, setToday, setWeek, updateLesson, removeLesson, addLesson } = useSchedule(weekAnchorDate);
   const { user, loading: authLoading, login, logout } = useAuth();
   const [view, setView] = useState<"today" | "week">("today");
