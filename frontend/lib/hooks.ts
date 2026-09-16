@@ -55,7 +55,7 @@ export function useSchedule(weekAnchorDate: Date) {
           ?? items.find((item) => item.name === DEFAULT_GROUP_NAME);
         const visibleGroups = items;
         setGroups(visibleGroups);
-        if (!groupId) setGroupId(defaultGroup?.id ?? null);
+        if (!groupId) setGroupId(defaultGroup?.id ?? (items.length > 0 ? items[0].id : null));
         if (!teacherId && ts.length > 0) setTeacherId(ts[0].id);
         window.sessionStorage.setItem("schedule:groups", JSON.stringify(visibleGroups));
       })
