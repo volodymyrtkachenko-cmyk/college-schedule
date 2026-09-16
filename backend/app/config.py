@@ -10,7 +10,7 @@ class Settings(BaseSettings):
         "postgresql+psycopg://college_schedule:college_schedule_dev"
         "@localhost:5432/college_schedule"
     )
-    backend_cors_origins: str = "http://localhost:3000"
+    backend_cors_origins: str = "*"
     semester_start: str = "2025-09-01"
     # Stable only for local development; deployments must override this.
     jwt_secret_key: str = DEFAULT_DEV_JWT_SECRET
