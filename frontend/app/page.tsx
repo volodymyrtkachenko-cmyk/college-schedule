@@ -145,13 +145,10 @@ export default function HomePage() {
             <p className="text-sm text-sys-text-secondary">{view === "today" ? "Поточний день" : "Навчальний тиждень"}</p>
             <h2 className="text-xl font-semibold">{view === "today" ? "Сьогодні" : "Усі дні"}</h2>
           </div>
-          <div className="flex rounded-lg border border-sys-border bg-sys-card p-1 relative">
-            {(["today", "week"] as const).map((item) => (
-              <button key={item} onClick={() => setView(item)} className={`relative z-10 rounded-md px-4 py-2 text-sm font-medium transition-colors ${view === item ? "text-slate-900" : "text-sys-text-secondary hover:text-sys-text-primary"}`}>
-                {item === "today" ? "Сьогодні" : "Тиждень"}
-                {view === item && <motion.div layoutId="view-pill" className="absolute inset-0 z-[-1] rounded-md bg-cyan-400 shadow-sm" transition={{ type: "spring", bounce: 0.2, duration: 0.6 }} />}
-              </button>
-            ))}
+          <div className="flex rounded-lg border border-sys-border bg-sys-card p-1 text-sm relative">
+            <div className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-sys-accent/10 border border-sys-accent/20 rounded-md shadow-sm transition-all duration-300 ease-out z-0" style={{ left: view === 'today' ? '4px' : 'calc(50% + 2px)' }}></div>
+            <button key="today" onClick={() => setView("today")} className={`w-24 relative z-10 rounded-md px-4 py-2 text-sm font-medium transition-colors ${view === 'today' ? 'text-sys-accent' : 'text-sys-text-secondary hover:text-sys-text-primary'}`}>Сьогодні</button>
+            <button key="week" onClick={() => setView("week")} className={`w-24 relative z-10 rounded-md px-4 py-2 text-sm font-medium transition-colors ${view === 'week' ? 'text-sys-accent' : 'text-sys-text-secondary hover:text-sys-text-primary'}`}>Тиждень</button>
           </div>
         </div>
 
