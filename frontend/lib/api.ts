@@ -131,18 +131,43 @@ function localDate(date: Date) {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
+const FIELD_NAMES: Record<string, string> = {
+    name: "Назва/Ім'я", short_name: "Скорочення", email: "Електронна пошта", room: "Аудиторія",
+    username: "Логін", password: "Пароль", group_id: "Група", subject_id: "Предмет",
+    teacher_id: "Викладач", lesson_number: "Номер пари"
+};
+
 async function parseError(response: Response) {
     try {
         const body = await response.json();
+        
+        // Custom backend string messages
+        if (typeof body.detail === "string") {
+            const raw = body.detail.toLowerCase();
+            if (raw.includes("unique constraint failed")) {
+                if (raw.includes("username")) return "Користувач з таким логіном вже існує.";
+                if (raw.includes("name")) return "Такий запис уже існує (назва має бути унікальною).";
+                return "Запис з такими даними вже існує.";
+            }
+            if (raw.includes("incorrect username")) return "Неправильний логін або пароль.";
+            return body.detail;
+        }
+        
+        // Pydantic validation arrays
         if (body.detail && Array.isArray(body.detail)) {
             const err = body.detail[0];
-            const field = err.loc?.slice(-1)[0] ?? 'Поле';
-            if (err.type === 'value_error.missing' || err.type === 'missing') return `Поле "${field}" обов'язкове.`;
-            return `Помилка в полі "${field}": ${err.msg}`;
+            const rawField = String(err.loc?.slice(-1)[0] ?? 'Поле');
+            const field = FIELD_NAMES[rawField] ?? rawField;
+            
+            if (err.type.includes('missing')) return `Поле "${field}" обов'язкове.`;
+            if (err.type.includes('too_short')) return `Обов'язкове поле "${field}" не може бути пустим.`;
+            if (err.type.includes('string_pattern_mismatch')) return `Недопустимі символи у полі "${field}".`;
+            return `Перевірте правильність заповнення: "${field}".`;
         }
-        return body.detail ?? `Помилка сервера (${response.status})`;
+        
+        return body.detail ?? `Внутрішня помилка сервера (${response.status})`;
     } catch {
-        return `Помилка сервера (${response.status})`;
+        return `Невідома помилка збереження (${response.status}).`;
     }
 }
 
