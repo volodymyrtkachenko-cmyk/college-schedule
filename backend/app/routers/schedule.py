@@ -37,7 +37,7 @@ def to_item(item, week_type, target_date):
             t_rooms.append(item.second_teacher.room)
     teacher_name = " / ".join(t_names) if t_names else None
     room_name = " / ".join(t_rooms) if t_rooms else None
-    return ScheduleItem(id=item.id, subject_id=item.subject_id, teacher_id=item.teacher_id, second_teacher_id=item.second_teacher_id,
+    return ScheduleItem(id=item.id, group_id=item.group_id, subject_id=item.subject_id, teacher_id=item.teacher_id, second_teacher_id=item.second_teacher_id,
         day_of_week=item.day_of_week, lesson_number=item.lesson_number,
         time=f"{item.start_time.strftime('%H:%M')}-{item.end_time.strftime('%H:%M')}",
         subject=item.subject.name, teacher=teacher_name, room=room_name,
