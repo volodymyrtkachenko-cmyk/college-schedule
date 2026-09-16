@@ -111,6 +111,7 @@ class ScheduleItem(BaseModel):
     teacher_name: str | None = None
     week_type: str
     is_relevant_this_week: bool
+    group_id: int | None = None
     group_name: str | None = None
     note: str | None = None
     note_id: int | None = None
