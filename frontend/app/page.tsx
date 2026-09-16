@@ -23,12 +23,6 @@ export default function HomePage() {
     return Math.abs(weekAnchorDate.getTime() - todayAnchor.getTime()) < 1000 * 60 * 60 * 24;
   }, [weekAnchorDate]);
 
-  const isNextWeek = useMemo(() => {
-    const nextAnchor = new Date();
-    nextAnchor.setDate(nextAnchor.getDate() - (nextAnchor.getDay() || 7) + 1 + 7);
-    nextAnchor.setHours(12, 0, 0, 0);
-    return Math.abs(weekAnchorDate.getTime() - nextAnchor.getTime()) < 1000 * 60 * 60 * 24;
-  }, [weekAnchorDate]);
 
     date.setDate(date.getDate() - (date.getDay() || 7) + 1);
     date.setHours(12, 0, 0, 0);
@@ -171,10 +165,15 @@ export default function HomePage() {
                       <svg width="1.2em" height="1.2em" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-sys-accent"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
                       {weekRange}
                     </div>
-                    <div className="flex w-full sm:w-auto rounded-lg border border-sys-border bg-sys-bg p-1 text-sm relative isolate hover:border-sys-border/80 transition-colors">
-                      <div className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-sys-card rounded-md shadow-sm border border-sys-border/50 transition-all duration-300 ease-out z-0" style={{ left: isCurrentWeek ? '4px' : isNextWeek ? 'calc(50% + 2px)' : '100%', opacity: (isCurrentWeek || isNextWeek) ? 1 : 0 }} />
-                      <button type="button" onClick={resetWeek} className={`relative z-10 flex-1 sm:fixed-w sm:w-28 text-center rounded-md px-3 py-1.5 font-medium transition-colors ${isCurrentWeek ? 'text-sys-text-primary' : 'text-sys-text-secondary hover:text-sys-text-primary'} active:scale-[0.98]`}>Поточний</button>
-                      <button type="button" onClick={() => !isNextWeek && moveWeek(1)} className={`relative z-10 flex-1 sm:fixed-w sm:w-28 text-center rounded-md px-3 py-1.5 font-medium transition-colors ${isNextWeek ? 'text-sys-text-primary' : 'text-sys-text-secondary hover:text-sys-text-primary'} active:scale-[0.98]`}>Наступний</button>
+                    <div className="flex w-full sm:w-auto rounded-lg border border-sys-border bg-sys-card p-1 text-sm relative">
+                      <div className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-sys-bg border border-sys-border/50 rounded-md shadow-sm transition-all duration-300 ease-out z-0" style={{ left: isCurrentWeek ? '4px' : 'calc(50% + 2px)' }} />
+                      <button type="button" onClick={resetWeek} className={`relative z-10 flex-1 sm:flex-none sm:w-28 text-center rounded-md px-3 py-1.5 font-medium transition-colors ${isCurrentWeek ? 'text-sys-text-primary' : 'text-sys-text-secondary hover:text-sys-text-primary'}`}>Поточний</button>
+                      <button type="button" onClick={() => {
+                        const nextAnchor = new Date();
+                        nextAnchor.setDate(nextAnchor.getDate() - (nextAnchor.getDay() || 7) + 1 + 7);
+                        nextAnchor.setHours(12, 0, 0, 0);
+                        setWeekAnchorDate(nextAnchor);
+                      }} className={`relative z-10 flex-1 sm:flex-none sm:w-28 text-center rounded-md px-3 py-1.5 font-medium transition-colors ${!isCurrentWeek ? 'text-sys-text-primary' : 'text-sys-text-secondary hover:text-sys-text-primary'}`}>Наступний</button>
                     </div>
                  </div>
                 <ScheduleWeekGrid week={week} scheduleMode={mode} canEdit={canEdit} onEdit={(lesson) => { const date = week.find((day) => day.lessons.some((item) => item.id === lesson.id))?.date ?? today.date; setEditor({ lesson, date }); }} onCreate={(date) => setEditor({ date })}
