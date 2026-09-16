@@ -4,7 +4,9 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="508baa33-f415-4e56-bdba-95be05473423" name="Changes" comment="1" />
+    <list default="true" id="508baa33-f415-4e56-bdba-95be05473423" name="Changes" comment="1">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -31,23 +33,23 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.6000910585379424" />
-      <entry key="MS500" value="3.656043519982409" />
-      <entry key="S2" value="8.420908588586869" />
-      <entry key="S5" value="15.515623728227835" />
-      <entry key="S10" value="25.903086879690846" />
-      <entry key="S30" value="57.389376083697876" />
-      <entry key="S60" value="85.17870436322572" />
-      <entry key="M2" value="119.2240863509699" />
-      <entry key="M5" value="176.01087876912842" />
-      <entry key="M10" value="235.06244147655198" />
-      <entry key="M15" value="281.89838776176657" />
-      <entry key="M30" value="390.4798942140583" />
-      <entry key="H1" value="623.0890750848409" />
-      <entry key="H2" value="1210.1967096242422" />
-      <entry key="H4" value="2188.884631416513" />
-      <entry key="D1" value="4268.3018128310205" />
-      <entry key="W1" value="4862.960263441514" />
+      <entry key="MS100" value="1.7854280378833023" />
+      <entry key="MS500" value="4.168220143311668" />
+      <entry key="S2" value="10.89416030846508" />
+      <entry key="S5" value="15.348627816154746" />
+      <entry key="S10" value="17.4562343324802" />
+      <entry key="S30" value="19.097675800076185" />
+      <entry key="S60" value="19.541626063893187" />
+      <entry key="M2" value="19.771760552256726" />
+      <entry key="M5" value="22.347187035432924" />
+      <entry key="M10" value="48.256717981672544" />
+      <entry key="M15" value="89.68975105895066" />
+      <entry key="M30" value="217.58628106114904" />
+      <entry key="H1" value="466.4962471393391" />
+      <entry key="H2" value="1044.8376708061649" />
+      <entry key="H4" value="2036.3822018542587" />
+      <entry key="D1" value="4246.915032062412" />
+      <entry key="W1" value="4897.089728578371" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -69,23 +71,23 @@
       <entry key="W1" value="0.0" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="1.5777812250496892" />
-      <entry key="MS500" value="3.645120035792721" />
-      <entry key="S2" value="8.414263172610756" />
-      <entry key="S5" value="15.510568350187198" />
-      <entry key="S10" value="25.89879588684464" />
-      <entry key="S30" value="57.386169896878734" />
-      <entry key="S60" value="85.17631451630093" />
-      <entry key="M2" value="119.22240120097581" />
-      <entry key="M5" value="176.0098643719686" />
-      <entry key="M10" value="235.0617420349163" />
-      <entry key="M15" value="281.89781420980614" />
-      <entry key="M30" value="390.4794805983006" />
-      <entry key="H1" value="623.0887362650078" />
-      <entry key="H2" value="1210.196366575633" />
-      <entry key="H4" value="2188.8843063060854" />
-      <entry key="D1" value="4268.301701484485" />
-      <entry key="W1" value="4862.960245141758" />
+      <entry key="MS100" value="1.7486846635547049" />
+      <entry key="MS500" value="4.15138525942364" />
+      <entry key="S2" value="10.883484915862859" />
+      <entry key="S5" value="15.342545937884736" />
+      <entry key="S10" value="17.45275337826425" />
+      <entry key="S30" value="19.096399803415196" />
+      <entry key="S60" value="19.54097232099427" />
+      <entry key="M2" value="19.7714295818232" />
+      <entry key="M5" value="22.34703640277816" />
+      <entry key="M10" value="48.256555303758276" />
+      <entry key="M15" value="89.68954983804245" />
+      <entry key="M30" value="217.58603557123598" />
+      <entry key="H1" value="466.49598375124083" />
+      <entry key="H2" value="1044.8373693907317" />
+      <entry key="H4" value="2036.3818968346445" />
+      <entry key="D1" value="4246.914920873671" />
+      <entry key="W1" value="4897.089710093883" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -143,7 +145,7 @@
       <workItem from="1789477911087" duration="1869000" />
       <workItem from="1789479796635" duration="1639000" />
       <workItem from="1789493822320" duration="11611000" />
-      <workItem from="1789534531255" duration="19378000" />
+      <workItem from="1789534531255" duration="23252000" />
     </task>
     <task id="LOCAL-00001" summary="НА всякий">
       <option name="closed" value="true" />
@@ -249,7 +251,23 @@
       <option name="project" value="LOCAL" />
       <updated>1789556944813</updated>
     </task>
-    <option name="localTasksCounter" value="14" />
+    <task id="LOCAL-00014" summary="1">
+      <option name="closed" value="true" />
+      <created>1789557030811</created>
+      <option name="number" value="00014" />
+      <option name="presentableId" value="LOCAL-00014" />
+      <option name="project" value="LOCAL" />
+      <updated>1789557030811</updated>
+    </task>
+    <task id="LOCAL-00015" summary="1">
+      <option name="closed" value="true" />
+      <created>1789557172364</created>
+      <option name="number" value="00015" />
+      <option name="presentableId" value="LOCAL-00015" />
+      <option name="project" value="LOCAL" />
+      <updated>1789557172364</updated>
+    </task>
+    <option name="localTasksCounter" value="16" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -257,6 +275,7 @@
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="НА всякий" />
+    <MESSAGE value="fix(docker): inject missing restore scripts to container" />
     <MESSAGE value="1" />
     <option name="LAST_COMMIT_MESSAGE" value="1" />
   </component>
