@@ -136,7 +136,7 @@ function AdminContent() {
            </div>
            
            <button onClick={() => setEditor(null)} className="shrink-0 rounded-[6px] bg-sys-accent px-4 py-2 text-sm font-semibold text-[#0b1120] hover:opacity-90 transition-opacity">
-              + Додати {referenceLabels[resource].slice(0, -1).toLowerCase()}
+              + Додати {{ faculties: "спеціальність", groups: "групу", teachers: "викладача", subjects: "предмет" }[resource]}
            </button>
         </div>
 
