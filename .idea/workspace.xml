@@ -4,7 +4,7 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="508baa33-f415-4e56-bdba-95be05473423" name="Changes" comment="НА всякий">
+    <list default="true" id="508baa33-f415-4e56-bdba-95be05473423" name="Changes" comment="1">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -33,23 +33,23 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.4148963551888016" />
-      <entry key="MS500" value="3.887024124136427" />
-      <entry key="S2" value="10.709641592637213" />
-      <entry key="S5" value="19.71271115406326" />
-      <entry key="S10" value="27.795768245477117" />
-      <entry key="S30" value="45.416635680576874" />
-      <entry key="S60" value="66.09645482090896" />
-      <entry key="M2" value="103.28797417075944" />
-      <entry key="M5" value="212.90302572814585" />
-      <entry key="M10" value="376.67072800904987" />
-      <entry key="M15" value="506.002116930155" />
-      <entry key="M30" value="777.6964997435338" />
-      <entry key="H1" value="1191.2659669480163" />
-      <entry key="H2" value="1874.2700374020167" />
-      <entry key="H4" value="2689.5335068712416" />
-      <entry key="D1" value="3986.0050966638746" />
-      <entry key="W1" value="4302.700662033397" />
+      <entry key="MS100" value="1.4348268223118061" />
+      <entry key="MS500" value="3.1378992335833313" />
+      <entry key="S2" value="7.145396590862036" />
+      <entry key="S5" value="15.684529091731934" />
+      <entry key="S10" value="24.367419294330016" />
+      <entry key="S30" value="35.04851061279381" />
+      <entry key="S60" value="38.74670111291378" />
+      <entry key="M2" value="40.87412666219774" />
+      <entry key="M5" value="45.630538709501" />
+      <entry key="M10" value="55.652321281541326" />
+      <entry key="M15" value="64.76690844943234" />
+      <entry key="M30" value="121.72552600398886" />
+      <entry key="H1" value="376.5225654980699" />
+      <entry key="H2" value="1018.5422059095358" />
+      <entry key="H4" value="1985.648480122607" />
+      <entry key="D1" value="3852.0300619679574" />
+      <entry key="W1" value="4358.984572500612" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -71,23 +71,23 @@
       <entry key="W1" value="0.0" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="1.3936538328400458" />
-      <entry key="MS500" value="3.8747474337575776" />
-      <entry key="S2" value="10.701213101468648" />
-      <entry key="S5" value="19.706565537675985" />
-      <entry key="S10" value="27.791425066770053" />
-      <entry key="S30" value="45.41421119892706" />
-      <entry key="S60" value="66.09465705375656" />
-      <entry key="M2" value="103.28655333557907" />
-      <entry key="M5" value="212.90183043853202" />
-      <entry key="M10" value="376.66964890871134" />
-      <entry key="M15" value="506.0011372224166" />
-      <entry key="M30" value="777.6957197825182" />
-      <entry key="H1" value="1191.265329968354" />
-      <entry key="H2" value="1874.2694984867346" />
-      <entry key="H4" value="2689.5330997576693" />
-      <entry key="D1" value="3986.004991041575" />
-      <entry key="W1" value="4302.700645602064" />
+      <entry key="MS100" value="1.4014636606335298" />
+      <entry key="MS500" value="3.1204104478313868" />
+      <entry key="S2" value="7.135541386940085" />
+      <entry key="S5" value="15.675972778825484" />
+      <entry key="S10" value="24.36071181916099" />
+      <entry key="S30" value="35.04525731320996" />
+      <entry key="S60" value="38.74489651087443" />
+      <entry key="M2" value="40.87317292560798" />
+      <entry key="M5" value="45.630112039593115" />
+      <entry key="M10" value="55.65206116265928" />
+      <entry key="M15" value="64.76670864864562" />
+      <entry key="M30" value="121.72536240044698" />
+      <entry key="H1" value="376.5223438168057" />
+      <entry key="H2" value="1018.5419039986198" />
+      <entry key="H4" value="1985.6481755663362" />
+      <entry key="D1" value="3852.02995932844" />
+      <entry key="W1" value="4358.984555775957" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -99,27 +99,33 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;KEY_CHAT_IN_TOOLWINDOW&quot;: &quot;false&quot;,
-    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
-    &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
-    &quot;com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;python.packages.toolwindow.project.migrated.to.right.top.v2&quot;: &quot;true&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;ml.llm.AcpAgentsConfigurable&quot;,
-    &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;,
-    &quot;ts.external.directory.path&quot;: &quot;/Users/volodimir/PycharmProjects/college-schedule/frontend/node_modules/typescript/lib&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "KEY_CHAT_IN_TOOLWINDOW": "false",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.MCP Project settings loaded": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "codeWithMe.voiceChat.enabledByDefault": "false",
+    "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
+    "git-widget-placeholder": "main",
+    "junie.onboarding.icon.badge.shown": "true",
+    "last_opened_file_path": "/Users/volodimir/PycharmProjects/college-schedule/backend",
+    "node.js.detected.package.eslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "python.packages.toolwindow.project.migrated.to.right.top.v2": "true",
+    "settings.editor.selected.configurable": "ml.llm.AcpAgentsConfigurable",
+    "to.speed.mode.migration.done": "true",
+    "ts.external.directory.path": "/Users/volodimir/PycharmProjects/college-schedule/frontend/node_modules/typescript/lib"
   }
-}</component>
+}]]></component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/backend" />
+    </key>
+  </component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
@@ -139,7 +145,7 @@
       <workItem from="1789477911087" duration="1869000" />
       <workItem from="1789479796635" duration="1639000" />
       <workItem from="1789493822320" duration="11611000" />
-      <workItem from="1789534531255" duration="13722000" />
+      <workItem from="1789534531255" duration="16091000" />
     </task>
     <task id="LOCAL-00001" summary="НА всякий">
       <option name="closed" value="true" />
@@ -157,7 +163,23 @@
       <option name="project" value="LOCAL" />
       <updated>1789549920711</updated>
     </task>
-    <option name="localTasksCounter" value="3" />
+    <task id="LOCAL-00003" summary="1">
+      <option name="closed" value="true" />
+      <created>1789550930426</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1789550930426</updated>
+    </task>
+    <task id="LOCAL-00004" summary="1">
+      <option name="closed" value="true" />
+      <created>1789551037024</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1789551037024</updated>
+    </task>
+    <option name="localTasksCounter" value="5" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -165,7 +187,8 @@
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="НА всякий" />
-    <option name="LAST_COMMIT_MESSAGE" value="НА всякий" />
+    <MESSAGE value="1" />
+    <option name="LAST_COMMIT_MESSAGE" value="1" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
