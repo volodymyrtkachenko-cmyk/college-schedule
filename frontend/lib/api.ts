@@ -11,14 +11,14 @@ export interface DirectoryItem {
     name: string;
 }
 
-export type ReferenceResource = "faculties" | "groups" | "teachers" | "rooms" | "subjects";
+export type ReferenceResource = "faculties" | "groups" | "teachers" | "subjects";
 
 export interface ReferenceRecord extends DirectoryItem {
     short_name?: string | null;
     faculty_id?: number;
+    curator_id?: number | null;
     email?: string | null;
-    building?: string | null;
-    capacity?: number | null;
+    room?: string | null;
     is_active: boolean;
 }
 
@@ -31,15 +31,15 @@ export interface Lesson {
     subject: string;
     subject_id: number;
     teacher_id: number | null;
-    room_id: number | null;
+    second_teacher_id: number | null;
     day_of_week: number;
     teacher: string | null;
     room: string | null;
     subject_name: string;
     teacher_name: string | null;
-    room_name: string | null;
     week_type: WeekType;
     is_relevant_this_week: boolean;
+    group_name?: string;
     note: string | null;
     note_id?: number | null;
     note_date?: string | null;
@@ -86,10 +86,8 @@ export interface LessonMutation {
     day_of_week?: number;
     subject_id?: number;
     teacher_id?: number | null;
-    room_id?: number | null;
+    second_teacher_id?: number | null;
     lesson_number: number;
-    start_time: string;
-    end_time: string;
     subject?: string;
     teacher?: string | null;
     room?: string | null;
@@ -134,10 +132,16 @@ function localDate(date: Date) {
 
 async function parseError(response: Response) {
     try {
-        const body = await response.json() as { detail?: string };
-        return body.detail ?? `API request failed (${response.status})`;
+        const body = await response.json();
+        if (body.detail && Array.isArray(body.detail)) {
+            const err = body.detail[0];
+            const field = err.loc?.slice(-1)[0] ?? 'Поле';
+            if (err.type === 'value_error.missing' || err.type === 'missing') return `Поле "${field}" обов'язкове.`;
+            return `Помилка в полі "${field}": ${err.msg}`;
+        }
+        return body.detail ?? `Помилка сервера (${response.status})`;
     } catch {
-        return `API request failed (${response.status})`;
+        return `Помилка сервера (${response.status})`;
     }
 }
 
@@ -264,13 +268,12 @@ export const api = {
             forgetRefreshToken();
         },
     },
-    groups: () => request<DirectoryItem[]>("/api/groups"),
+    groups: () => request<ReferenceRecord[]>("/api/groups"),
     directory: {
-        faculties: () => request<ReferenceRecord[]>("/api/faculties", {}, true, true),
-        subjects: () => request<ReferenceRecord[]>("/api/subjects", {}, true, true),
-        teachers: () => request<ReferenceRecord[]>("/api/teachers", {}, true, true),
-        rooms: () => request<ReferenceRecord[]>("/api/rooms", {}, true, true),
-    },
+        faculties: () => request<ReferenceRecord[]>("/api/faculties"),
+        subjects: () => request<ReferenceRecord[]>("/api/subjects"),
+        teachers: () => request<ReferenceRecord[]>("/api/teachers"),
+        },
     references: {
         request: <T>(path: string, method: string, token: string, payload?: unknown) => request<T>(
             `/api/admin/${path}`,
@@ -287,8 +290,8 @@ export const api = {
         update: (resource: ReferenceResource, id: number, payload: Partial<ReferenceMutation>, token: string) => api.references.request<ReferenceRecord>(`${resource}/${id}`, "PATCH", token, payload),
         remove: (resource: ReferenceResource, id: number, token: string) => api.references.request<void>(`${resource}/${id}`, "DELETE", token),
     },
-    today: (groupId: number) => request<ScheduleResponse>(`/api/schedule/today?group_id=${groupId}`),
-    week: (groupId: number, date = new Date()) => request<ScheduleResponse[]>(`/api/schedule/week?group_id=${groupId}&target_date=${localDate(date)}`),
+    today: (groupId?: number, teacherId?: number) => request<ScheduleResponse>(`/api/schedule/today?${groupId ? `group_id=${groupId}` : `teacher_id=${teacherId}`}`),
+    week: (groupId?: number, teacherId?: number, date = new Date()) => request<ScheduleResponse[]>(`/api/schedule/week?${groupId ? `group_id=${groupId}` : `teacher_id=${teacherId}`}&target_date=${localDate(date)}`),
     settings: {semesterStart: () => request<SemesterStartSetting>("/api/settings/semester-start")},
     lessons: {
         create: (payload: LessonMutation) => authenticatedRequest<Lesson>("/api/schedule", {

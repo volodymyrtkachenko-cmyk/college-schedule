@@ -4,7 +4,6 @@ from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, Tex
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
-
 class User(Base):
     __tablename__ = "users"
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -15,7 +14,6 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(20), default="viewer")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
-
 class Faculty(Base):
     __tablename__ = "faculties"
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -24,37 +22,29 @@ class Faculty(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     groups: Mapped[list["Group"]] = relationship(back_populates="faculty")
 
-
 class Group(Base):
     __tablename__ = "groups"
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(100), unique=True, index=True)
     faculty_id: Mapped[Optional[int]] = mapped_column(ForeignKey("faculties.id"), nullable=True)
+    curator_id: Mapped[Optional[int]] = mapped_column(ForeignKey("teachers.id", ondelete="SET NULL"), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     faculty: Mapped["Faculty"] = relationship(back_populates="groups")
     schedules: Mapped[list["Schedule"]] = relationship(back_populates="group")
-
 
 class Teacher(Base):
     __tablename__ = "teachers"
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(255), index=True)
     email: Mapped[Optional[str]] = mapped_column(String(255))
-    room_id: Mapped[Optional[int]] = mapped_column(ForeignKey("rooms.id"), nullable=True)
+    room: Mapped[Optional[str]] = mapped_column(String(100))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    room: Mapped[Optional["Room"]] = relationship()
-    schedules: Mapped[list["Schedule"]] = relationship(back_populates="teacher", foreign_keys="Schedule.teacher_id")
+    
+    schedules: Mapped[list["Schedule"]] = relationship(
+        back_populates="teacher", foreign_keys="Schedule.teacher_id"
+    )
 
-
-class Room(Base):
-    __tablename__ = "rooms"
-    id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(100), unique=True)
-    building: Mapped[Optional[str]] = mapped_column(String(100))
-    capacity: Mapped[Optional[int]] = mapped_column(Integer)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    schedules: Mapped[list["Schedule"]] = relationship(back_populates="room")
-
+    
 
 class Subject(Base):
     __tablename__ = "subjects"
@@ -64,28 +54,26 @@ class Subject(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     schedules: Mapped[list["Schedule"]] = relationship(back_populates="subject")
 
-
 class Schedule(Base):
     __tablename__ = "schedule"
     id: Mapped[int] = mapped_column(primary_key=True)
     group_id: Mapped[int] = mapped_column(ForeignKey("groups.id"), index=True)
     teacher_id: Mapped[Optional[int]] = mapped_column(ForeignKey("teachers.id"))
     second_teacher_id: Mapped[Optional[int]] = mapped_column(ForeignKey("teachers.id"), nullable=True)
-    room_id: Mapped[Optional[int]] = mapped_column(ForeignKey("rooms.id"))
     subject_id: Mapped[int] = mapped_column(ForeignKey("subjects.id"))
     day_of_week: Mapped[int] = mapped_column(Integer, index=True)
     lesson_number: Mapped[int] = mapped_column(Integer)
     start_time: Mapped[time] = mapped_column(Time)
     end_time: Mapped[time] = mapped_column(Time)
-    week_type: Mapped[str] = mapped_column(String(20), default="both")
+    week_type: Mapped[str] = mapped_column(String(20), default="both")  # numerator, denominator, both
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     group: Mapped["Group"] = relationship(back_populates="schedules")
-    teacher: Mapped[Optional["Teacher"]] = relationship(back_populates="schedules", foreign_keys=[teacher_id])
+    teacher: Mapped[Optional["Teacher"]] = relationship(
+        back_populates="schedules", foreign_keys=[teacher_id]
+    )
     second_teacher: Mapped[Optional["Teacher"]] = relationship(foreign_keys=[second_teacher_id])
-    room: Mapped[Optional["Room"]] = relationship(back_populates="schedules")
     subject: Mapped["Subject"] = relationship(back_populates="schedules")
     notes: Mapped[list["LessonNote"]] = relationship(back_populates="schedule")
-
 
 class LessonNote(Base):
     __tablename__ = "lesson_notes"
@@ -96,14 +84,12 @@ class LessonNote(Base):
     note: Mapped[str] = mapped_column(Text)
     schedule: Mapped["Schedule"] = relationship(back_populates="notes")
 
-
 class Feedback(Base):
     __tablename__ = "feedback"
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"))
     message: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-
 
 class Setting(Base):
     __tablename__ = "settings"

@@ -83,24 +83,24 @@ async def get_current_user(
     if credentials is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication required",
+            detail="Потрібна авторизація",
             headers={"WWW-Authenticate": "Bearer"},
         )
     payload = decode_token(credentials.credentials, "access")
     try:
         user_id = int(payload["sub"])
     except (TypeError, ValueError) as exc:
-        raise HTTPException(status_code=401, detail="Invalid token subject") from exc
+        raise HTTPException(status_code=401, detail="Некоректний токен") from exc
     user = await db.scalar(select(User).where(User.id == user_id))
     if user is None or not user.is_active:
-        raise HTTPException(status_code=401, detail="User is inactive or does not exist")
+        raise HTTPException(status_code=401, detail="Користувач не активний або не існує")
     return user
 
 
 def require_roles(*roles: str):
     async def dependency(user: User = Depends(get_current_user)) -> User:
         if user.role not in roles:
-            raise HTTPException(status_code=403, detail="Insufficient permissions")
+            raise HTTPException(status_code=403, detail="Недостатньо прав")
         return user
 
     return dependency

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { BottomNav } from "../components/BottomNav";
 import { OfflineIndicator } from "../components/OfflineIndicator";
 import { InstallPrompt } from "../components/InstallPrompt";
@@ -11,6 +11,7 @@ import { LessonEditor } from "../components/LessonEditor";
 import { Lesson, LessonMutation, api } from "../lib/api";
 import { useSchedule } from "../lib/hooks";
 import { useAuth } from "../lib/auth";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function HomePage() {
   const [weekAnchorDate, setWeekAnchorDate] = useState(() => {
@@ -19,15 +20,20 @@ export default function HomePage() {
     date.setHours(12, 0, 0, 0);
     return date;
   });
-  const { groups, groupId, setGroupId, today, week, loading, error, setToday, setWeek, updateLesson, removeLesson, addLesson } = useSchedule(weekAnchorDate);
+  const { mode, toggleMode, teachers, teacherId, setTeacherId, groups, groupId, setGroupId, today, week, loading, error, setToday, setWeek, updateLesson, removeLesson, addLesson } = useSchedule(weekAnchorDate);
   const { user, loading: authLoading, login, logout } = useAuth();
-  const [loginForm, setLoginForm] = useState({ username: "", password: "" });
-  const [loginError, setLoginError] = useState<string | null>(null);
   const [view, setView] = useState<"today" | "week">("today");
+  const [isPending, startTransition] = useTransition();
   const [editor, setEditor] = useState<{ lesson?: Lesson; date: string } | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const weekType = view === "week" ? (week[0]?.week_type ?? "both") : (today?.week_type ?? "both");
   const canEdit = user?.role === "admin" || user?.role === "editor";
+  useEffect(() => {
+    if (message) {
+      const timer = setTimeout(() => setMessage(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [message]);
   const weekRange = useMemo(() => {
     const end = new Date(weekAnchorDate);
     end.setDate(end.getDate() + 6);
@@ -44,9 +50,11 @@ export default function HomePage() {
     date.setHours(12, 0, 0, 0);
     setWeekAnchorDate(date);
   };
+  const LESSON_TIMES: Record<number, string> = { 1: "09:00-10:20", 2: "10:40-12:00", 3: "12:30-13:50", 4: "14:00-15:20" };
   const edit = async (lesson: Lesson, date: string, payload: LessonMutation) => {
     const previousToday = today, previousWeek = week;
-    updateLesson({ ...lesson, lesson_number: payload.lesson_number, time: `${payload.start_time}-${payload.end_time}`, subject: payload.subject ?? lesson.subject, subject_name: payload.subject ?? lesson.subject_name, teacher: payload.teacher ?? null, teacher_name: payload.teacher ?? null, room: payload.room ?? null, room_name: payload.room ?? null, week_type: payload.week_type });
+    const time = LESSON_TIMES[payload.lesson_number] ?? "09:00-10:20";
+    updateLesson({ ...lesson, lesson_number: payload.lesson_number, time, subject: (payload as any).subject ?? lesson.subject, subject_name: (payload as any).subject_name ?? lesson.subject_name, teacher: (payload as any).teacher ?? null, teacher_name: (payload as any).teacher_name ?? null, room: (payload as any).room ?? null, week_type: payload.week_type });
     try { const saved = await api.lessons.update(lesson.id, payload); updateLesson(saved); setMessage("Заняття збережено."); }
     catch (e) { setToday(previousToday); setWeek(previousWeek); throw e; }
   };
@@ -72,84 +80,101 @@ export default function HomePage() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-950 pb-24 text-slate-100 md:pb-8">
+    <main className="min-h-screen bg-sys-bg pb-24 text-sys-text-primary md:pb-8">
       <OfflineIndicator />
       <InstallPrompt />
-      <header className="border-b border-slate-800/80 bg-slate-950/80">
-        <div className="mx-auto flex max-w-[1800px] flex-wrap items-center justify-between gap-4 px-3 py-5 sm:px-5 lg:px-6 xl:px-8">
+      <header className="border-b border-sys-border bg-sys-bg/80">
+        <div className="mx-auto flex max-w-[1800px] flex-col md:flex-row md:items-center justify-between gap-4 px-3 py-5 sm:px-5 lg:px-6 xl:px-8">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-400">College Schedule</p>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-sys-accent">ДФКР</p>
             <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">Розклад занять</h1>
           </div>
-          <div className="flex items-center gap-3">
-            {groups.length > 0 && (
-              <label className="flex items-center gap-2 text-sm text-slate-400">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 w-full md:w-auto">
+            <div className="flex w-full sm:w-auto rounded-lg border border-sys-border bg-sys-card p-1 text-sm relative">
+                <div className="absolute top-1 bottom-1 w-[50%] bg-sys-accent rounded-md shadow-sm transition-all duration-300 ease-out" style={{ left: mode === 'student' ? '4px' : 'calc(50% - 2px)' }}></div>
+                <button type="button" onClick={() => startTransition(() => toggleMode('student'))} className={`relative z-10 flex-1 rounded-md px-3 py-2 sm:py-1 transition-colors ${mode === 'student' ? 'text-[#0b1120] font-medium' : 'text-sys-text-secondary hover:text-sys-text-primary'}`}>Студент</button>
+                <button type="button" onClick={() => startTransition(() => toggleMode('teacher'))} className={`relative z-10 flex-1 rounded-md px-3 py-2 sm:py-1 transition-colors ${mode === 'teacher' ? 'text-[#0b1120] font-medium' : 'text-sys-text-secondary hover:text-sys-text-primary'}`}>Викладач</button>
+            </div>
+            {mode === 'student' && groups.length > 0 && (
+              <label className="flex items-center gap-2 text-sm text-sys-text-secondary w-full sm:w-auto">
                 <span className="hidden sm:inline">Група</span>
-                <select value={groupId ?? ""} onChange={(event) => setGroupId(Number(event.target.value))} className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 font-medium text-slate-100 outline-none focus:border-cyan-400">
+                <select value={groupId ?? ""} onChange={(event) => startTransition(() => setGroupId(Number(event.target.value)))} className="w-full sm:w-auto rounded-lg border border-sys-border bg-sys-card px-3 py-2 font-medium text-sys-text-primary outline-none focus:border-sys-accent">
                   {groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
+                </select>
+              </label>
+            )}
+            {mode === 'teacher' && teachers.length > 0 && (
+              <label className="flex items-center gap-2 text-sm text-sys-text-secondary w-full sm:w-auto">
+                <span className="hidden sm:inline">Викладач</span>
+                <select value={teacherId ?? ""} onChange={(event) => startTransition(() => setTeacherId(Number(event.target.value)))} className="w-full sm:w-64 rounded-lg border border-sys-border bg-sys-card px-3 py-2 font-medium text-sys-text-primary outline-none focus:border-sys-accent truncate">
+                  {teachers.map((teacher) => <option key={teacher.id} value={teacher.id}>{teacher.name}</option>)}
                 </select>
               </label>
             )}
             <div className="flex items-center gap-2">
               <WeekTypeBadge weekType={weekType} />
             </div>
-            {view === "week" && (
-              <div className="flex flex-wrap items-center justify-end gap-2">
-                <span className="hidden text-xs text-slate-400 sm:inline">{weekRange}</span>
-                <button type="button" onClick={resetWeek} className="rounded-lg border border-cyan-400/40 px-3 py-2 text-sm text-cyan-300 hover:bg-cyan-400/10">Поточний тиждень</button>
-                <button type="button" onClick={() => moveWeek(1)} className="rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-300 hover:border-cyan-400 hover:text-cyan-300">Наступний тиждень</button>
-              </div>
-            )}
-            {user ? (
+
+            {user && (
               <div className="flex items-center gap-2">
                 {user.role === "admin" && <a href="/admin" className="rounded-lg border border-cyan-400/40 px-3 py-2 text-sm text-cyan-300">Адмін</a>}
-                <button onClick={logout} className="rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-300">Вийти ({user.name})</button>
+                <button onClick={logout} className="rounded-lg border border-sys-border px-3 py-2 text-sm text-slate-300">Вийти ({user.name})</button>
               </div>
-            ) : !authLoading && (
-              <form onSubmit={async (event) => { event.preventDefault(); setLoginError(null); try { await login(loginForm.username, loginForm.password); setLoginForm({ username: "", password: "" }); } catch (error) { setLoginError(error instanceof Error ? error.message : "Помилка входу"); } }} className="flex items-center gap-2">
-                <input aria-label="Логін" value={loginForm.username} onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })} placeholder="Логін" className="w-24 rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm" />
-                <input aria-label="Пароль" type="password" value={loginForm.password} onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })} placeholder="Пароль" className="w-24 rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm" />
-                <button className="rounded-lg bg-cyan-400 px-3 py-2 text-sm font-semibold text-slate-950">Увійти</button>
-              </form>
             )}
           </div>
         </div>
-        {loginError && <p className="mx-auto max-w-[1800px] px-3 pb-3 text-right text-sm text-rose-300 sm:px-5 lg:px-6 xl:px-8">{loginError}</p>}
       </header>
 
       <div className="mx-auto max-w-[1800px] px-3 py-6 sm:px-5 lg:px-6 xl:px-8">
         <div className="mb-6 hidden items-center justify-between md:flex">
           <div>
-            <p className="text-sm text-slate-400">{view === "today" ? "Поточний день" : "Навчальний тиждень"}</p>
+            <p className="text-sm text-sys-text-secondary">{view === "today" ? "Поточний день" : "Навчальний тиждень"}</p>
             <h2 className="text-xl font-semibold">{view === "today" ? "Сьогодні" : "Усі дні"}</h2>
           </div>
-          <div className="flex rounded-lg border border-slate-800 bg-slate-900 p-1">
+          <div className="flex rounded-lg border border-sys-border bg-sys-card p-1 relative">
             {(["today", "week"] as const).map((item) => (
-              <button key={item} onClick={() => setView(item)} className={`rounded-md px-4 py-2 text-sm font-medium ${view === item ? "bg-cyan-400/15 text-cyan-300" : "text-slate-400 hover:text-slate-100"}`}>
+              <button key={item} onClick={() => setView(item)} className={`relative z-10 rounded-md px-4 py-2 text-sm font-medium transition-colors ${view === item ? "text-slate-900" : "text-sys-text-secondary hover:text-sys-text-primary"}`}>
                 {item === "today" ? "Сьогодні" : "Тиждень"}
+                {view === item && <motion.div layoutId="view-pill" className="absolute inset-0 z-[-1] rounded-md bg-cyan-400 shadow-sm" transition={{ type: "spring", bounce: 0.2, duration: 0.6 }} />}
               </button>
             ))}
           </div>
         </div>
 
-        {loading && <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-12 text-center text-slate-400">Завантаження розкладу…</div>}
-        {!loading && error && <div className="rounded-2xl border border-rose-400/20 bg-rose-400/5 p-8 text-center text-rose-200">{error}</div>}
-        {!loading && !error && today && (
-          <>
-            <div className={view === "today" ? "block" : "hidden"}>
-              <ScheduleDay schedule={today} isToday canEdit={canEdit} onEdit={(lesson) => setEditor({ lesson, date: today.date })} onCreate={(date) => setEditor({ date })}
-                onNoteSave={saveNote} onNoteDelete={deleteNote} />
+        
+        
+        
+          {loading ? (
+            <div className="rounded-2xl border border-sys-border bg-sys-card/50 p-12 text-center text-sys-text-secondary">Завантаження розкладу…</div>
+          ) : error ? (
+            <div className="rounded-2xl border border-rose-400/20 bg-rose-400/5 p-8 text-center text-rose-200">{error}</div>
+          ) : today ? (
+            <div>
+              <div className={view === "today" ? "block" : "hidden"}>
+                <ScheduleDay schedule={today} isToday scheduleMode={mode} canEdit={canEdit} onEdit={(lesson) => setEditor({ lesson, date: today.date })} onCreate={(date) => setEditor({ date })}
+                  onNoteSave={saveNote} onNoteDelete={deleteNote} />
+              </div>
+                            <div className={view === "week" ? "block w-full min-w-0" : "hidden"}>
+                 <div className="mb-4 mt-2 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center rounded-xl bg-sys-card p-3 border border-sys-border/50">
+                    <div className="text-[13px] font-medium text-sys-text-primary flex items-center gap-2">
+                      <svg width="1.2em" height="1.2em" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-sys-accent"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                      {weekRange}
+                    </div>
+                    <div className="flex w-full sm:w-auto rounded-lg border border-sys-border bg-sys-bg p-1 text-sm relative">
+                      <button type="button" onClick={resetWeek} className="relative z-10 flex-1 sm:flex-none rounded-md px-3 py-1.5 font-medium transition-colors text-sys-text-primary hover:bg-sys-card active:scale-[0.98]">Поточний</button>
+                      <button type="button" onClick={() => moveWeek(1)} className="relative z-10 flex-1 sm:flex-none rounded-md px-3 py-1.5 font-medium transition-colors text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-card active:scale-[0.98]">Наступний</button>
+                    </div>
+                 </div>
+                <ScheduleWeekGrid week={week} scheduleMode={mode} canEdit={canEdit} onEdit={(lesson) => { const date = week.find((day) => day.lessons.some((item) => item.id === lesson.id))?.date ?? today.date; setEditor({ lesson, date }); }} onCreate={(date) => setEditor({ date })}
+                  onNoteSave={saveNote} onNoteDelete={deleteNote} />
+              </div>
             </div>
-            <div className={view === "week" ? "block" : "hidden"}>
-              <ScheduleWeekGrid week={week} canEdit={canEdit} onEdit={(lesson) => { const date = week.find((day) => day.lessons.some((item) => item.id === lesson.id))?.date ?? today.date; setEditor({ lesson, date }); }} onCreate={(date) => setEditor({ date })}
-                onNoteSave={saveNote} onNoteDelete={deleteNote} />
-            </div>
-          </>
-        )}
-        {!loading && !error && !groups.length && <div className="rounded-2xl border border-dashed border-slate-800 p-12 text-center text-slate-400">Активних груп поки немає.</div>}
+          ) : null}
+        
+        {!loading && !error && !groups.length && <div className="rounded-2xl border border-dashed border-sys-border p-12 text-center text-sys-text-secondary">Активних груп поки немає.</div>}
         {message && <p role="status" className="mt-4 rounded-lg border border-emerald-400/30 bg-emerald-400/5 px-4 py-3 text-sm text-emerald-200">{message}</p>}
       </div>
-      {canEdit && editor && groupId !== null && <LessonEditor lesson={editor.lesson} date={editor.date} groupId={groupId} onClose={() => setEditor(null)} onSave={(payload) => editor.lesson ? edit(editor.lesson, editor.date, payload) : create(payload)} onDelete={editor.lesson ? () => remove(editor.lesson!) : undefined} />}
+      {canEdit && editor && groupId !== null && <LessonEditor key={editor.lesson?.id ?? editor.date + "-" + (editor.lesson?.lesson_number ?? "new")} initialWeekType={weekType} lesson={editor.lesson} date={editor.date} groupId={groupId} onClose={() => setEditor(null)} onSave={(payload) => editor.lesson ? edit(editor.lesson, editor.date, payload) : create(payload)} onDelete={editor.lesson ? () => remove(editor.lesson!) : undefined} />}
       <BottomNav view={view} onViewChange={setView} />
     </main>
   );

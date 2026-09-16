@@ -23,15 +23,14 @@ class FacultyResource(DirectoryResource):
 
 class GroupResource(DirectoryResource):
     faculty_id: int | None = None
+    curator_id: int | None = None
 
 
 class TeacherResource(DirectoryResource):
     email: str | None = None
+    room: str | None = None
 
 
-class RoomResource(DirectoryResource):
-    building: str | None = None
-    capacity: int | None = None
 
 
 class SubjectResource(DirectoryResource):
@@ -51,33 +50,29 @@ class FacultyUpdate(BaseModel):
 class GroupCreate(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     faculty_id: int | None = Field(default=None, gt=0)
+    curator_id: int | None = Field(default=None, gt=0)
 
 
 class GroupUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=100)
     faculty_id: int | None = Field(default=None, gt=0)
+    curator_id: int | None = Field(default=None, gt=0)
 
 
 class TeacherCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     email: str | None = Field(default=None, max_length=255)
+    room: str | None = Field(default=None, max_length=100)
 
 
 class TeacherUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     email: str | None = Field(default=None, max_length=255)
+    room: str | None = Field(default=None, max_length=100)
 
 
-class RoomCreate(BaseModel):
-    name: str = Field(min_length=1, max_length=100)
-    building: str | None = Field(default=None, max_length=100)
-    capacity: int | None = Field(default=None, ge=0)
 
 
-class RoomUpdate(BaseModel):
-    name: str | None = Field(default=None, min_length=1, max_length=100)
-    building: str | None = Field(default=None, max_length=100)
-    capacity: int | None = Field(default=None, ge=0)
 
 
 class SubjectCreate(BaseModel):
@@ -89,12 +84,23 @@ class SubjectUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     short_name: str | None = Field(default=None, max_length=50)
 
+
+# Фіксований розклад часу пар за номером пари.
+# Вхідні start_time/end_time від клієнта ігноруються — час завжди підставляється звідси.
+LESSON_TIMES: dict[int, tuple[time, time]] = {
+    1: (time(9, 0), time(10, 20)),
+    2: (time(10, 40), time(12, 0)),
+    3: (time(12, 30), time(13, 50)),
+    4: (time(14, 0), time(15, 20)),
+}
+
+
 class ScheduleItem(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     subject_id: int
     teacher_id: int | None = None
-    room_id: int | None = None
+    second_teacher_id: int | None = None
     day_of_week: int
     lesson_number: int
     time: str
@@ -103,9 +109,9 @@ class ScheduleItem(BaseModel):
     room: str | None = None
     subject_name: str
     teacher_name: str | None = None
-    room_name: str | None = None
     week_type: str
-    is_relevant_this_week: bool = True
+    is_relevant_this_week: bool
+    group_name: str | None = None
     note: str | None = None
     note_id: int | None = None
 
@@ -123,7 +129,7 @@ class LessonMutation(BaseModel):
     group_id: int | None = None
     subject_id: int | None = None
     teacher_id: int | None = None
-    room_id: int | None = None
+    second_teacher_id: int | None = None
     day_of_week: int | None = None
     date: DateType | None = None
     lesson_number: int | None = None
@@ -138,8 +144,8 @@ class LessonMutation(BaseModel):
     @field_validator("day_of_week")
     @classmethod
     def valid_day(cls, value):
-        if value is not None and not 1 <= value <= 7:
-            raise ValueError("day_of_week must be between 1 and 7")
+        if value is not None and not 1 <= value <= 5:
+            raise ValueError("day_of_week must be between 1 and 5")
         return value
 
     @field_validator("lesson_number")
@@ -157,7 +163,10 @@ class LessonMutation(BaseModel):
         return value
 
     @model_validator(mode="after")
-    def valid_times(self):
+    def apply_fixed_times(self):
+        # Час пари завжди визначається за lesson_number, а не за введеними значеннями.
+        if self.lesson_number is not None and self.lesson_number in LESSON_TIMES:
+            self.start_time, self.end_time = LESSON_TIMES[self.lesson_number]
         if self.start_time is not None and self.end_time is not None and self.start_time >= self.end_time:
             raise ValueError("start_time must be before end_time")
         return self

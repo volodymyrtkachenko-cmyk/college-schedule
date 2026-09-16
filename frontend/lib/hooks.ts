@@ -22,8 +22,11 @@ export function useOnlineStatus() {
 }
 
 export function useSchedule(weekAnchorDate: Date) {
-  const [groups, setGroups] = useState<DirectoryItem[]>([]);
+  const [mode, setMode] = useState<"student" | "teacher">("student");
+  const [groups, setGroups] = useState<import("./api").ReferenceRecord[]>([]);
+  const [teachers, setTeachers] = useState<import("./api").ReferenceRecord[]>([]);
   const [groupId, setGroupId] = useState<number | null>(null);
+  const [teacherId, setTeacherId] = useState<number | null>(null);
   const [today, setToday] = useState<ScheduleResponse | null>(null);
   const [week, setWeek] = useState<ScheduleResponse[]>([]);
   const [semesterStart, setSemesterStart] = useState<string | null>(null);
@@ -31,10 +34,13 @@ export function useSchedule(weekAnchorDate: Date) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const cachedMode = window.localStorage.getItem("schedule:mode") as "student" | "teacher" | null;
+    if (cachedMode) setMode(cachedMode);
+
     const cachedGroups = window.sessionStorage.getItem("schedule:groups");
     if (cachedGroups) {
       try {
-        const items = JSON.parse(cachedGroups) as DirectoryItem[];
+        const items = JSON.parse(cachedGroups) as import("./api").ReferenceRecord[];
         setGroups(items);
         setGroupId(items[0]?.id ?? null);
         setLoading(false);
@@ -42,12 +48,15 @@ export function useSchedule(weekAnchorDate: Date) {
         window.sessionStorage.removeItem("schedule:groups");
       }
     }
-    api.groups().then((items) => {
+    
+    Promise.all([api.groups(), api.directory.teachers()]).then(([items, ts]) => {
+        setTeachers(ts);
         const defaultGroup = items.find((item) => item.id === DEFAULT_GROUP_ID)
           ?? items.find((item) => item.name === DEFAULT_GROUP_NAME);
-        const visibleGroups = defaultGroup ? [defaultGroup, ...items.filter((item) => item.id !== defaultGroup.id)] : items;
+        const visibleGroups = items;
         setGroups(visibleGroups);
-        setGroupId(defaultGroup?.id ?? null);
+        if (!groupId) setGroupId(defaultGroup?.id ?? null);
+        if (!teacherId && ts.length > 0) setTeacherId(ts[0].id);
         window.sessionStorage.setItem("schedule:groups", JSON.stringify(visibleGroups));
       })
       .catch(() => {
@@ -56,11 +65,20 @@ export function useSchedule(weekAnchorDate: Date) {
       .finally(() => setLoading(false));
   }, []);
 
+  const toggleMode = (newMode: "student" | "teacher") => {
+    setMode(newMode);
+    window.localStorage.setItem("schedule:mode", newMode);
+  };
+
   useEffect(() => {
-    if (groupId === null) return;
+    if (mode === "student" && groupId === null) return;
+    if (mode === "teacher" && teacherId === null) return;
+    
     const dateKey = `${weekAnchorDate.getFullYear()}-${String(weekAnchorDate.getMonth() + 1).padStart(2, "0")}-${String(weekAnchorDate.getDate()).padStart(2, "0")}`;
-    const todayKey = `schedule:today:${groupId}`;
-    const weekKey = `schedule:week:${groupId}:${dateKey}`;
+    const targetKey = mode === "student" ? `groupId:${groupId}` : `teacherId:${teacherId}`;
+    const todayKey = `schedule:today:${targetKey}`;
+    const weekKey = `schedule:week:${targetKey}:${dateKey}`;
+    
     let hasCachedSchedule = false;
     try {
       const cachedToday = window.sessionStorage.getItem(todayKey);
@@ -79,7 +97,11 @@ export function useSchedule(weekAnchorDate: Date) {
     }
     setLoading(!hasCachedSchedule);
     setError(null);
-    Promise.all([api.today(groupId), api.week(groupId, weekAnchorDate)])
+    
+    const targetGroupId = mode === "student" ? (groupId as number) : undefined;
+    const targetTeacherId = mode === "teacher" ? (teacherId as number) : undefined;
+
+    Promise.all([api.today(targetGroupId, targetTeacherId), api.week(targetGroupId, targetTeacherId, weekAnchorDate)])
       .then(([todayResponse, weekResponse]) => {
         setToday(todayResponse);
         setWeek(weekResponse);
@@ -90,7 +112,7 @@ export function useSchedule(weekAnchorDate: Date) {
         if (!hasCachedSchedule) setError("Не вдалося завантажити розклад. Перевірте з'єднання.");
       })
       .finally(() => setLoading(false));
-  }, [groupId, weekAnchorDate]);
+  }, [mode, groupId, teacherId, weekAnchorDate]);
 
   useEffect(() => {
     let active = true;
@@ -112,5 +134,5 @@ export function useSchedule(weekAnchorDate: Date) {
     setToday((value) => value && value.date === date ? { ...value, lessons: [...value.lessons, lesson].sort((a, b) => a.lesson_number - b.lesson_number) } : value);
     setWeek((days) => days.map((day) => day.date === date ? { ...day, lessons: [...day.lessons, lesson].sort((a, b) => a.lesson_number - b.lesson_number) } : day));
   }
-  return { groups, groupId, setGroupId, today, week, semesterStart, loading, error, setToday, setWeek, updateLesson, removeLesson, addLesson };
+  return { mode, toggleMode, teachers, teacherId, setTeacherId, groups, groupId, setGroupId, today, week, semesterStart, loading, error, setToday, setWeek, updateLesson, removeLesson, addLesson };
 }

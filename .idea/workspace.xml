@@ -4,49 +4,39 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="508baa33-f415-4e56-bdba-95be05473423" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/backend/Dockerfile" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/alembic.ini" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/alembic/env.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/alembic/script.py.mako" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/alembic/versions/0001_initial.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/alembic/versions/0002_auth.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/alembic/versions/0003_expand_schedule_week_type.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/alembic/versions/0004_lesson_note_uniqueness.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/alembic/versions/0005_directory_integrity.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/app/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/app/config.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/app/core/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/app/core/security.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/app/database.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/app/main.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/app/models/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/app/models/entities.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/app/routers/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/app/routers/auth.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/app/routers/directory.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/app/routers/health.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/app/routers/lesson_notes.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/app/routers/schedule.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/app/routers/settings.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/app/schemas/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/app/schemas/common.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/app/services/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/app/services/schedule.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/app/services/settings.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/app/services/week.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/pytest.ini" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/requirements.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/seed.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/tests/test_auth.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/tests/test_directory_admin.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/tests/test_lesson_notes.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/tests/test_schedule_crud.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/tests/test_seed.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/tests/test_settings.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/tests/test_week.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/college-schedule.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/college-schedule.iml" afterDir="false" />
+    <list default="true" id="508baa33-f415-4e56-bdba-95be05473423" name="Changes" comment="НА всякий">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/core/security.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/core/security.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/models/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/models/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/models/entities.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/models/entities.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/routers/auth.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/routers/auth.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/routers/directory.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/routers/directory.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/routers/lesson_notes.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/routers/lesson_notes.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/routers/schedule.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/routers/schedule.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/schemas/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/schemas/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/schemas/common.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/schemas/common.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/services/schedule.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/services/schedule.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/seed.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/seed.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/app/admin/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/app/admin/page.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/app/layout.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/app/layout.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/app/manifest.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/app/manifest.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/app/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/app/page.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/components/BottomNav.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/components/BottomNav.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/components/LessonCard.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/components/LessonCard.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/components/LessonEditor.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/components/LessonEditor.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/components/ScheduleDay.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/components/ScheduleDay.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/components/ScheduleWeekGrid.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/components/ScheduleWeekGrid.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/components/WeekTypeBadge.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/components/WeekTypeBadge.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/components/admin/AdminNav.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/components/admin/AdminNav.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/components/admin/ReferenceForm.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/components/admin/ReferenceForm.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/components/admin/ReferenceTable.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/components/admin/ReferenceTable.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/lib/api.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/lib/api.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/lib/hooks.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/lib/hooks.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/package-lock.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/public/icon-192.svg" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/public/icon-192.svg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/public/icon-512.svg" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/public/icon-512.svg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/tailwind.config.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/tailwind.config.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -74,23 +64,23 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.0" />
-      <entry key="MS500" value="1.0" />
-      <entry key="S2" value="1.0" />
-      <entry key="S5" value="1.0" />
-      <entry key="S10" value="1.0" />
-      <entry key="S30" value="1.0" />
-      <entry key="S60" value="1.0" />
-      <entry key="M2" value="1.0" />
-      <entry key="M5" value="1.0" />
-      <entry key="M10" value="1.0" />
-      <entry key="M15" value="1.0" />
-      <entry key="M30" value="1.0" />
-      <entry key="H1" value="1.0" />
-      <entry key="H2" value="1.0" />
-      <entry key="H4" value="1.0" />
-      <entry key="D1" value="1.0" />
-      <entry key="W1" value="1.0" />
+      <entry key="MS100" value="1.3310830053085492" />
+      <entry key="MS500" value="4.228602311653647" />
+      <entry key="S2" value="7.700585685152761" />
+      <entry key="S5" value="14.65288011278535" />
+      <entry key="S10" value="29.022559808496037" />
+      <entry key="S30" value="72.55328506088114" />
+      <entry key="S60" value="108.37466686720542" />
+      <entry key="M2" value="161.6153888826288" />
+      <entry key="M5" value="279.0489487870287" />
+      <entry key="M10" value="418.2704484652172" />
+      <entry key="M15" value="521.2540259984381" />
+      <entry key="M30" value="741.1850108384477" />
+      <entry key="H1" value="1117.0150272470785" />
+      <entry key="H2" value="1774.0217281548403" />
+      <entry key="H4" value="2560.2411701412007" />
+      <entry key="D1" value="3799.0778547922346" />
+      <entry key="W1" value="4099.644044087932" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -112,23 +102,23 @@
       <entry key="W1" value="0.0" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="0.47302882336279795" />
-      <entry key="MS500" value="0.860949188338904" />
-      <entry key="S2" value="0.963261894020148" />
-      <entry key="S5" value="0.9851395437128618" />
-      <entry key="S10" value="0.9925419606811905" />
-      <entry key="S30" value="0.9975077808975293" />
-      <entry key="S60" value="0.9987531130852756" />
-      <entry key="M2" value="0.9993763620805105" />
-      <entry key="M5" value="0.9997504981457643" />
-      <entry key="M10" value="0.9998752412905143" />
-      <entry key="M15" value="0.9999168257974986" />
-      <entry key="M30" value="0.9999584120339698" />
-      <entry key="H1" value="0.9999792058007856" />
-      <entry key="H2" value="0.9999896028463424" />
-      <entry key="H4" value="0.9999948014096585" />
-      <entry key="D1" value="0.9999991335663997" />
-      <entry key="W1" value="0.9999998762237254" />
+      <entry key="MS100" value="1.3112501211384417" />
+      <entry key="MS500" value="4.214258590771012" />
+      <entry key="S2" value="7.693694204695785" />
+      <entry key="S5" value="14.647807512105727" />
+      <entry key="S10" value="29.017680380570187" />
+      <entry key="S30" value="72.54915677297788" />
+      <entry key="S60" value="108.37153459871168" />
+      <entry key="M2" value="161.61303232076028" />
+      <entry key="M5" value="279.0473088306735" />
+      <entry key="M10" value="418.2692082098979" />
+      <entry key="M15" value="521.2529854999507" />
+      <entry key="M30" value="741.184245775439" />
+      <entry key="H1" value="1117.014412528061" />
+      <entry key="H2" value="1774.0212053697762" />
+      <entry key="H4" value="2560.240774786729" />
+      <entry key="D1" value="3799.0777525819863" />
+      <entry key="W1" value="4099.644028205657" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -142,6 +132,7 @@
   </component>
   <component name="PropertiesComponent">{
   &quot;keyToString&quot;: {
+    &quot;KEY_CHAT_IN_TOOLWINDOW&quot;: &quot;false&quot;,
     &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
@@ -155,6 +146,7 @@
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
     &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
     &quot;python.packages.toolwindow.project.migrated.to.right.top.v2&quot;: &quot;true&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;ml.llm.AcpAgentsConfigurable&quot;,
     &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;,
     &quot;ts.external.directory.path&quot;: &quot;/Users/volodimir/PycharmProjects/college-schedule/frontend/node_modules/typescript/lib&quot;
   }
@@ -175,19 +167,35 @@
       <option name="presentableId" value="Default" />
       <updated>1789451231606</updated>
       <workItem from="1789451232618" duration="14037000" />
-      <workItem from="1789477911087" duration="1001000" />
+      <workItem from="1789477911087" duration="1869000" />
+      <workItem from="1789479796635" duration="1639000" />
+      <workItem from="1789493822320" duration="11611000" />
+      <workItem from="1789534531255" duration="10129000" />
     </task>
+    <task id="LOCAL-00001" summary="НА всякий">
+      <option name="closed" value="true" />
+      <created>1789478943935</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1789478943936</updated>
+    </task>
+    <option name="localTasksCounter" value="2" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="НА всякий" />
+    <option name="LAST_COMMIT_MESSAGE" value="НА всякий" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
       <breakpoints>
         <line-breakpoint enabled="true" type="javascript">
           <url>file://$PROJECT_DIR$/frontend/app/admin/page.tsx</url>
-          <line>2</line>
+          <line>3</line>
           <option name="timeStamp" value="1" />
         </line-breakpoint>
       </breakpoints>

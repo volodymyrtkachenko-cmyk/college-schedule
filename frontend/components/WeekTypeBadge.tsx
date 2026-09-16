@@ -9,7 +9,7 @@ const labels: Record<WeekType, string> = {
 export function WeekTypeBadge({ weekType }: { weekType: WeekType }) {
   const styles: Record<WeekType, string> = {
     numerator: "bg-amber-400/10 text-amber-300 ring-amber-400/20",
-    denominator: "bg-cyan-400/10 text-cyan-300 ring-cyan-400/20",
+    denominator: "bg-purple-400/10 text-purple-300 ring-purple-400/20",
     both: "bg-emerald-400/10 text-emerald-300 ring-emerald-400/20",
   };
   return (

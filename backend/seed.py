@@ -4,7 +4,7 @@ from datetime import time
 from sqlalchemy import select
 from app.database import async_session_factory
 from app.core.security import hash_password
-from app.models import Faculty, Group, Room, Schedule, Subject, Teacher, User
+from app.models import Faculty, Group, Schedule, Subject, Teacher, User
 from app.services.settings import settings_service
 
 WEEK_TYPES = ("denominator", "both", "numerator")
@@ -36,7 +36,7 @@ async def ensure_faculty(db):
     return faculty
 
 
-async def ensure_schedule_rows(db, group, teachers, subjects, rooms):
+async def ensure_schedule_rows(db, group, teachers, subjects):
     """Fill the demo schedule for the target group without duplicating rows."""
     existing = {
         (row.day_of_week, row.lesson_number)
@@ -52,7 +52,6 @@ async def ensure_schedule_rows(db, group, teachers, subjects, rooms):
             db.add(Schedule(
                 group_id=group.id,
                 teacher_id=teachers[(day + lesson) % len(teachers)].id,
-                room_id=rooms[(day + lesson) % len(rooms)].id,
                 subject_id=subjects[(day + lesson) % len(subjects)].id,
                 day_of_week=day,
                 lesson_number=lesson,
@@ -99,16 +98,8 @@ async def seed():
                 await db.flush()
             subjects.append(subject)
 
-        rooms = []
-        for name in ["101", "102", "201", "202", "301"]:
-            room = await db.scalar(select(Room).where(Room.name == name))
-            if not room:
-                room = Room(name=name)
-                db.add(room)
-                await db.flush()
-            rooms.append(room)
 
-        await ensure_schedule_rows(db, group, teachers, subjects, rooms)
+        await ensure_schedule_rows(db, group, teachers, subjects)
 
         # Don't clobber a semester_start the admin already changed via the UI.
         existing_semester_start = await settings_service.get(db, "semester_start")

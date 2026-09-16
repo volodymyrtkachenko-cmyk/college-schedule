@@ -60,9 +60,9 @@ def set_refresh_cookie(response: Response, token: str) -> None:
 async def login(payload: LoginRequest, response: Response, db: AsyncSession = Depends(get_db)):
     user = await db.scalar(select(User).where(User.username == payload.username))
     if user is None or not user.password_hash or not verify_password(payload.password, user.password_hash):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid username or password")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Неправильне ім\'я користувача або пароль")
     if not user.is_active:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User account is inactive")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Обліковий запис неактивний")
     refresh_token = create_refresh_token(user)
     set_refresh_cookie(response, refresh_token)
     return TokenResponse(
@@ -81,15 +81,15 @@ async def refresh(
 ):
     token = (payload.refresh_token if payload else None) or refresh_cookie
     if not token:
-        raise HTTPException(status_code=401, detail="Authentication required")
+        raise HTTPException(status_code=401, detail="Потрібна авторизація")
     claims = decode_token(token, "refresh")
     try:
         user_id = int(claims["sub"])
     except (TypeError, ValueError) as exc:
-        raise HTTPException(status_code=401, detail="Invalid token subject") from exc
+        raise HTTPException(status_code=401, detail="Некоректний токен") from exc
     user = await db.scalar(select(User).where(User.id == user_id))
     if user is None or not user.is_active:
-        raise HTTPException(status_code=401, detail="User is inactive or does not exist")
+        raise HTTPException(status_code=401, detail="Користувач не активний або не існує")
     new_refresh = create_refresh_token(user)
     set_refresh_cookie(response, new_refresh)
     return TokenResponse(access_token=create_access_token(user), refresh_token=new_refresh, user=user)

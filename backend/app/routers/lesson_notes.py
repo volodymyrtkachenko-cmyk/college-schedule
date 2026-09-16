@@ -16,7 +16,7 @@ router = APIRouter(prefix="/lesson-notes", tags=["lesson notes"])
 async def _active_schedule(db: AsyncSession, schedule_id: int) -> Schedule:
     schedule = await db.get(Schedule, schedule_id)
     if schedule is None or not schedule.is_active:
-        raise HTTPException(status_code=404, detail="Schedule lesson not found")
+        raise HTTPException(status_code=404, detail="Заняття в розкладі не знайдено")
     return schedule
 
 
@@ -60,7 +60,7 @@ async def list_notes(
     db: AsyncSession = Depends(get_db),
 ):
     if note_date is not None and target_date is not None and note_date != target_date:
-        raise HTTPException(status_code=422, detail="note_date and target_date must match")
+        raise HTTPException(status_code=422, detail="Дата примітки та дата розкладу не збігаються")
     note_date = target_date or note_date
     if schedule_id is not None:
         await _active_schedule(db, schedule_id)
@@ -80,7 +80,7 @@ async def get_note(note_id: int, db: AsyncSession = Depends(get_db)):
         )
     )
     if note is None:
-        raise HTTPException(status_code=404, detail="Lesson note not found")
+        raise HTTPException(status_code=404, detail="Примітку не знайдено")
     return note
 
 
@@ -97,7 +97,7 @@ async def update_note(
         )
     )
     if note is None:
-        raise HTTPException(status_code=404, detail="Lesson note not found")
+        raise HTTPException(status_code=404, detail="Примітку не знайдено")
     schedule_id = payload.schedule_id if payload.schedule_id is not None else note.schedule_id
     await _active_schedule(db, schedule_id)
     note_date = payload.note_date if payload.note_date is not None else note.note_date
@@ -142,7 +142,7 @@ async def delete_note(
         )
     )
     if note is None:
-        raise HTTPException(status_code=404, detail="Lesson note not found")
+        raise HTTPException(status_code=404, detail="Примітку не знайдено")
     await db.delete(note)
     await db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
