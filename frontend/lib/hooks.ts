@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { api, DirectoryItem, ScheduleResponse } from "./api";
 
+const DEFAULT_GROUP_ID = Number(process.env.NEXT_PUBLIC_DEFAULT_GROUP_ID ?? "85");
+const DEFAULT_GROUP_NAME = process.env.NEXT_PUBLIC_DEFAULT_GROUP_NAME ?? "85";
 
 export function useOnlineStatus() {
   const [online, setOnline] = useState(true);
@@ -36,14 +38,11 @@ export function useSchedule(weekAnchorDate: Date) {
     if (cachedMode) setMode(cachedMode);
 
     const cachedGroups = window.sessionStorage.getItem("schedule:groups");
-    const cachedGroupId = window.localStorage.getItem("schedule:groupId");
-    const cachedTeacherId = window.localStorage.getItem("schedule:teacherId");
-    
     if (cachedGroups) {
       try {
         const items = JSON.parse(cachedGroups) as import("./api").ReferenceRecord[];
         setGroups(items);
-        setGroupId(cachedGroupId ? Number(cachedGroupId) : (items[0]?.id ?? null));
+        setGroupId(items[0]?.id ?? null);
         setLoading(false);
       } catch {
         window.sessionStorage.removeItem("schedule:groups");
@@ -52,14 +51,13 @@ export function useSchedule(weekAnchorDate: Date) {
     
     Promise.all([api.groups(), api.directory.teachers()]).then(([items, ts]) => {
         setTeachers(ts);
-        setGroups(items);
-        if (!cachedGroupId && items.length > 0) setGroupId(items[0].id);
-        else if (cachedGroupId && !groupId) setGroupId(Number(cachedGroupId));
-        
-        if (!cachedTeacherId && ts.length > 0) setTeacherId(ts[0].id);
-        else if (cachedTeacherId && !teacherId) setTeacherId(Number(cachedTeacherId));
-        
-        window.sessionStorage.setItem("schedule:groups", JSON.stringify(items));
+        const defaultGroup = items.find((item) => item.id === DEFAULT_GROUP_ID)
+          ?? items.find((item) => item.name === DEFAULT_GROUP_NAME);
+        const visibleGroups = items;
+        setGroups(visibleGroups);
+        if (!groupId) setGroupId(defaultGroup?.id ?? (items.length > 0 ? items[0].id : null));
+        if (!teacherId && ts.length > 0) setTeacherId(ts[0].id);
+        window.sessionStorage.setItem("schedule:groups", JSON.stringify(visibleGroups));
       })
       .catch(() => {
         if (!cachedGroups) setError("Не вдалося завантажити групи. Спробуйте ще раз.");
@@ -136,15 +134,5 @@ export function useSchedule(weekAnchorDate: Date) {
     setToday((value) => value && value.date === date ? { ...value, lessons: [...value.lessons, lesson].sort((a, b) => a.lesson_number - b.lesson_number) } : value);
     setWeek((days) => days.map((day) => day.date === date ? { ...day, lessons: [...day.lessons, lesson].sort((a, b) => a.lesson_number - b.lesson_number) } : day));
   }
-    const updateGroupId = (id: number | null) => {
-    setGroupId(id);
-    if (id !== null) window.localStorage.setItem("schedule:groupId", id.toString());
-  };
-
-  const updateTeacherId = (id: number | null) => {
-    setTeacherId(id);
-    if (id !== null) window.localStorage.setItem("schedule:teacherId", id.toString());
-  };
-
-  return { mode, toggleMode, teachers, teacherId, setTeacherId: updateTeacherId, groups, groupId, setGroupId: updateGroupId, today, week, semesterStart, loading, error, setToday, setWeek, updateLesson, removeLesson, addLesson };
+  return { mode, toggleMode, teachers, teacherId, setTeacherId, groups, groupId, setGroupId, today, week, semesterStart, loading, error, setToday, setWeek, updateLesson, removeLesson, addLesson };
 }
