@@ -4,7 +4,7 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="508baa33-f415-4e56-bdba-95be05473423" name="Changes" comment="feat(ui): always use the first ordered group as the default for new visitors" />
+    <list default="true" id="508baa33-f415-4e56-bdba-95be05473423" name="Changes" comment="Merge remote-tracking branch 'origin/main'&#10;&#10;# Conflicts:&#10;#&#9;frontend/lib/hooks.ts" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -31,23 +31,23 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.5849442644786607" />
-      <entry key="MS500" value="4.578592516472781" />
-      <entry key="S2" value="13.332815484224138" />
-      <entry key="S5" value="25.812701067349728" />
-      <entry key="S10" value="37.4075551461061" />
-      <entry key="S30" value="61.091839749725686" />
-      <entry key="S60" value="85.422671561691" />
-      <entry key="M2" value="116.8216682513563" />
-      <entry key="M5" value="184.75887020003708" />
-      <entry key="M10" value="276.76124028312165" />
-      <entry key="M15" value="353.82328986926353" />
-      <entry key="M30" value="539.0407225821839" />
-      <entry key="H1" value="833.844868043108" />
-      <entry key="H2" value="1425.0450509868713" />
-      <entry key="H4" value="2440.7800609265987" />
-      <entry key="D1" value="4813.805081474315" />
-      <entry key="W1" value="5533.416377625274" />
+      <entry key="MS100" value="1.0" />
+      <entry key="MS500" value="1.0" />
+      <entry key="S2" value="1.000000008172756" />
+      <entry key="S5" value="1.0043872052189036" />
+      <entry key="S10" value="1.5252531782247574" />
+      <entry key="S30" value="18.91035389879425" />
+      <entry key="S60" value="51.5079071590419" />
+      <entry key="M2" value="103.01116725619829" />
+      <entry key="M5" value="204.78792703159067" />
+      <entry key="M10" value="318.87466871833675" />
+      <entry key="M15" value="407.11255401215993" />
+      <entry key="M30" value="608.664144483316" />
+      <entry key="H1" value="915.7177035830629" />
+      <entry key="H2" value="1513.2097256095099" />
+      <entry key="H4" value="2534.132786004817" />
+      <entry key="D1" value="4927.093753230898" />
+      <entry key="W1" value="5654.822099896629" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -69,23 +69,23 @@
       <entry key="W1" value="0.0" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="1.5553365163504795" />
-      <entry key="MS500" value="4.561958673338997" />
-      <entry key="S2" value="13.320275809074946" />
-      <entry key="S5" value="25.80265427264482" />
-      <entry key="S10" value="37.400165394086336" />
-      <entry key="S30" value="61.08779247381417" />
-      <entry key="S60" value="85.41983176519444" />
-      <entry key="M2" value="116.81970961012055" />
-      <entry key="M5" value="184.75758614797476" />
-      <entry key="M10" value="276.7602087268706" />
-      <entry key="M15" value="353.82236745590046" />
-      <entry key="M30" value="539.0399862866855" />
-      <entry key="H1" value="833.8443040363187" />
-      <entry key="H2" value="1425.0445870164901" />
-      <entry key="H4" value="2440.779669535669" />
-      <entry key="D1" value="4813.804951527947" />
-      <entry key="W1" value="5533.416356192394" />
+      <entry key="MS100" value="0.9726549474122855" />
+      <entry key="MS500" value="0.9944701686732144" />
+      <entry key="S2" value="0.9986146742654479" />
+      <entry key="S5" value="1.0038310758319373" />
+      <entry key="S10" value="1.5248702228832138" />
+      <entry key="S30" value="18.909047785556325" />
+      <entry key="S60" value="51.50614589797186" />
+      <entry key="M2" value="103.00941248352622" />
+      <entry key="M5" value="204.7865134226116" />
+      <entry key="M10" value="318.8735135795515" />
+      <entry key="M15" value="407.1115297289052" />
+      <entry key="M30" value="608.6633396585033" />
+      <entry key="H1" value="915.7170969074788" />
+      <entry key="H2" value="1513.2092378023635" />
+      <entry key="H4" value="2534.132381789869" />
+      <entry key="D1" value="4927.093620618204" />
+      <entry key="W1" value="5654.822078051593" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -144,7 +144,7 @@
       <workItem from="1789479796635" duration="1639000" />
       <workItem from="1789493822320" duration="11611000" />
       <workItem from="1789534531255" duration="23252000" />
-      <workItem from="1789581181856" duration="2448000" />
+      <workItem from="1789581181856" duration="2755000" />
     </task>
     <task id="LOCAL-00001" summary="НА всякий">
       <option name="closed" value="true" />
@@ -322,18 +322,47 @@
       <option name="project" value="LOCAL" />
       <updated>1789583631509</updated>
     </task>
-    <option name="localTasksCounter" value="23" />
+    <task id="LOCAL-00023" summary="ласт">
+      <option name="closed" value="true" />
+      <created>1789583806119</created>
+      <option name="number" value="00023" />
+      <option name="presentableId" value="LOCAL-00023" />
+      <option name="project" value="LOCAL" />
+      <updated>1789583806119</updated>
+    </task>
+    <task id="LOCAL-00024" summary="Merge remote-tracking branch 'origin/main'&#10;&#10;# Conflicts:&#10;#&#9;frontend/lib/hooks.ts">
+      <option name="closed" value="true" />
+      <created>1789583939793</created>
+      <option name="number" value="00024" />
+      <option name="presentableId" value="LOCAL-00024" />
+      <option name="project" value="LOCAL" />
+      <updated>1789583939793</updated>
+    </task>
+    <option name="localTasksCounter" value="25" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="НА всякий" />
     <MESSAGE value="fix(docker): inject missing restore scripts to container" />
     <MESSAGE value="1" />
     <MESSAGE value="feat(ui): always use the first ordered group as the default for new visitors" />
-    <option name="LAST_COMMIT_MESSAGE" value="feat(ui): always use the first ordered group as the default for new visitors" />
+    <MESSAGE value="ласт" />
+    <MESSAGE value="Merge remote-tracking branch 'origin/main'&#10;&#10;# Conflicts:&#10;#&#9;frontend/lib/hooks.ts" />
+    <option name="LAST_COMMIT_MESSAGE" value="Merge remote-tracking branch 'origin/main'&#10;&#10;# Conflicts:&#10;#&#9;frontend/lib/hooks.ts" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
