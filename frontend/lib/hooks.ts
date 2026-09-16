@@ -3,8 +3,6 @@
 import { useEffect, useState } from "react";
 import { api, DirectoryItem, ScheduleResponse } from "./api";
 
-const DEFAULT_GROUP_ID = Number(process.env.NEXT_PUBLIC_DEFAULT_GROUP_ID ?? "85");
-const DEFAULT_GROUP_NAME = process.env.NEXT_PUBLIC_DEFAULT_GROUP_NAME ?? "85";
 
 export function useOnlineStatus() {
   const [online, setOnline] = useState(true);
@@ -51,11 +49,9 @@ export function useSchedule(weekAnchorDate: Date) {
     
     Promise.all([api.groups(), api.directory.teachers()]).then(([items, ts]) => {
         setTeachers(ts);
-        const defaultGroup = items.find((item) => item.id === DEFAULT_GROUP_ID)
-          ?? items.find((item) => item.name === DEFAULT_GROUP_NAME);
         const visibleGroups = items;
         setGroups(visibleGroups);
-        if (!groupId) setGroupId(defaultGroup?.id ?? (items.length > 0 ? items[0].id : null));
+        if (!groupId) setGroupId(items.length > 0 ? items[0].id : null);
         if (!teacherId && ts.length > 0) setTeacherId(ts[0].id);
         window.sessionStorage.setItem("schedule:groups", JSON.stringify(visibleGroups));
       })
