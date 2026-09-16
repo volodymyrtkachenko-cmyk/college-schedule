@@ -113,8 +113,11 @@ async def _save(item, payload, db, *, create=False):
                                             lesson_number=lesson_number, week_type=week_type,
                                             exclude_id=None if create else item.id)
         if conflict:
-            raise HTTPException(409, f"Конфлікт з існуючим заняттям (ID: {conflict.id}) "
-                                    f"(group {group_id}, day {day}, lesson {lesson_number}, {conflict.week_type})")
+            day_names = {1: "Понеділок", 2: "Вівторок", 3: "Середу", 4: "Четвер", 5: "П'ятницю", 6: "Суботу", 7: "Неділю"}
+            week_names = {"numerator": "по чисельнику", "denominator": "по знаменнику", "both": "щотижня"}
+            d_name = day_names.get(day, str(day))
+            w_name = week_names.get(conflict.week_type, conflict.week_type)
+            raise HTTPException(409, f"Неможливо зберегти: на {d_name} ({lesson_number}-а пара, {w_name}) уже призначене інше заняття.")
         group = await _entity(db, Group, group_id, None, "group", required=True)
         if not create and payload.subject_id is None and payload.subject is None:
             subject = await db.get(Subject, item.subject_id)
@@ -145,7 +148,7 @@ async def _save(item, payload, db, *, create=False):
         await db.refresh(item, ["subject", "teacher", "second_teacher", "notes"])
     except IntegrityError as exc:
         await db.rollback()
-        raise HTTPException(409, "Конфлікт з існуючим записом у розкладі") from exc
+        raise HTTPException(409, "Неможливо зберегти: такий запис або графік вже існує і перетинається з іншим.") from exc
     return to_item(item, item.week_type, payload.date or date.today())
 
 @router.post("/schedule", response_model=ScheduleItem, status_code=status.HTTP_201_CREATED)
