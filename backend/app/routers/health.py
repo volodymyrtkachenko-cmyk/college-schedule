@@ -21,7 +21,7 @@ def force_migrate():
 @router.get("/health/seed")
 def force_seed():
     try:
-        result = subprocess.run(["python", "seed.py"], capture_output=True, text=True, check=True)
+        result = subprocess.run(["python", "restore_remote.py"], capture_output=True, text=True, check=True)
         return PlainTextResponse(f"Успіх! Базу наповнено.\n\nЛогін: admin\nПароль: admin123\n\nSTDOUT:\n{result.stdout}")
     except subprocess.CalledProcessError as e:
         return PlainTextResponse(f"Failed!\n\nExit Code: {e.returncode}\n\nSTDOUT:\n{e.stdout}\n\nSTDERR:\n{e.stderr}", status_code=500)
