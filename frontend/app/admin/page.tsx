@@ -142,7 +142,7 @@ function AdminContent() {
            <div className="flex gap-2">
              {resource === "groups" && (
                 <button onClick={() => setBulkOpen(true)} className="shrink-0 rounded-[6px] border border-sys-accent/50 text-sys-accent px-4 py-2 text-sm font-semibold hover:bg-sys-accent/10 transition-colors">
-                  ⚡ Виховні години
+                  Виховні години
                 </button>
              )}
              <button onClick={() => setEditor(null)} className="shrink-0 rounded-[6px] bg-sys-accent px-4 py-2 text-sm font-semibold text-[#0b1120] hover:opacity-90 transition-opacity">
