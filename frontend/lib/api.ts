@@ -270,7 +270,7 @@ async function request<T>(
                 const session = await refresh();
                 return await request<T>(path, init, false, true, session.access_token);
             } catch (refreshErr) {
-                api.auth.logout();
+                api.auth.clear();
                 throw refreshErr;
             }
         }
