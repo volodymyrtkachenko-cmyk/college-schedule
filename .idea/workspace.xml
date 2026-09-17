@@ -31,23 +31,23 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.33988602227334" />
-      <entry key="MS500" value="3.3876191962767486" />
-      <entry key="S2" value="9.720500319639871" />
-      <entry key="S5" value="14.71099673667735" />
-      <entry key="S10" value="17.41266423049595" />
-      <entry key="S30" value="19.96744902699455" />
-      <entry key="S60" value="24.553507765416867" />
-      <entry key="M2" value="44.14942493410736" />
-      <entry key="M5" value="103.81347409626215" />
-      <entry key="M10" value="152.16267178254932" />
-      <entry key="M15" value="174.43401376939582" />
-      <entry key="M30" value="200.78664720229506" />
-      <entry key="H1" value="216.62129446983258" />
-      <entry key="H2" value="271.5791515854309" />
-      <entry key="H4" value="682.8634159792139" />
-      <entry key="D1" value="4014.1893750920513" />
-      <entry key="W1" value="5808.172191808423" />
+      <entry key="MS100" value="1.2320187960619027" />
+      <entry key="MS500" value="2.907894603208108" />
+      <entry key="S2" value="8.630365437713406" />
+      <entry key="S5" value="16.259932352839286" />
+      <entry key="S10" value="25.80798629146313" />
+      <entry key="S30" value="69.62886945434946" />
+      <entry key="S60" value="126.47059733940463" />
+      <entry key="M2" value="194.71127500395133" />
+      <entry key="M5" value="297.85719438382785" />
+      <entry key="M10" value="378.97396782063396" />
+      <entry key="M15" value="419.16345074683363" />
+      <entry key="M30" value="469.4447693227177" />
+      <entry key="H1" value="500.1657479458822" />
+      <entry key="H2" value="562.1576652012833" />
+      <entry key="H4" value="972.6311033741085" />
+      <entry key="D1" value="4305.171947057601" />
+      <entry key="W1" value="6107.11317933387" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -69,23 +69,23 @@
       <entry key="W1" value="0.0" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="1.3123175963925247" />
-      <entry key="MS500" value="3.3744957828128124" />
-      <entry key="S2" value="9.71149792585834" />
-      <entry key="S5" value="14.705363229568517" />
-      <entry key="S10" value="17.409256670490073" />
-      <entry key="S30" value="19.96612318404255" />
-      <entry key="S60" value="24.55269321503169" />
-      <entry key="M2" value="44.14870066482019" />
-      <entry key="M5" value="103.81279794488321" />
-      <entry key="M10" value="152.16217682318148" />
-      <entry key="M15" value="174.43363557776473" />
-      <entry key="M30" value="200.78642956536254" />
-      <entry key="H1" value="216.6211769505621" />
-      <entry key="H2" value="271.579075234727" />
-      <entry key="H4" value="682.8633116226821" />
-      <entry key="D1" value="4014.1892674460123" />
-      <entry key="W1" value="5808.172169410387" />
+      <entry key="MS100" value="1.2066644011812764" />
+      <entry key="MS500" value="2.896172769835282" />
+      <entry key="S2" value="8.6224234700593" />
+      <entry key="S5" value="16.254187050083093" />
+      <entry key="S10" value="25.80349516283274" />
+      <entry key="S30" value="69.62486065376905" />
+      <entry key="S60" value="126.46695742100792" />
+      <entry key="M2" value="194.70845841829492" />
+      <entry key="M5" value="297.8554400790464" />
+      <entry key="M10" value="378.9728361824125" />
+      <entry key="M15" value="419.16261144685274" />
+      <entry key="M30" value="469.4442963427531" />
+      <entry key="H1" value="500.165494991551" />
+      <entry key="H2" value="562.1575193788689" />
+      <entry key="H4" value="972.630964543098" />
+      <entry key="D1" value="4305.171833653827" />
+      <entry key="W1" value="6107.113156083033" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -144,7 +144,7 @@
       <workItem from="1789479796635" duration="1639000" />
       <workItem from="1789493822320" duration="11611000" />
       <workItem from="1789534531255" duration="23252000" />
-      <workItem from="1789581181856" duration="5675000" />
+      <workItem from="1789581181856" duration="6045000" />
     </task>
     <task id="LOCAL-00001" summary="НА всякий">
       <option name="closed" value="true" />
@@ -378,7 +378,15 @@
       <option name="project" value="LOCAL" />
       <updated>1789620746842</updated>
     </task>
-    <option name="localTasksCounter" value="30" />
+    <task id="LOCAL-00030" summary="Формулювання помилок">
+      <option name="closed" value="true" />
+      <created>1789620886633</created>
+      <option name="number" value="00030" />
+      <option name="presentableId" value="LOCAL-00030" />
+      <option name="project" value="LOCAL" />
+      <updated>1789620886633</updated>
+    </task>
+    <option name="localTasksCounter" value="31" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
