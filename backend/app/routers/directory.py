@@ -112,22 +112,22 @@ async def _soft_delete(db, model, entity_id: int):
 admin = Depends(require_roles("admin"))
 
 
-@router.post("/faculties", response_model=FacultyResource, status_code=201)
+@admin_router.post("/faculties", response_model=FacultyResource, status_code=201)
 async def create_faculty(payload: FacultyCreate, db: AsyncSession = Depends(get_db), _: object = admin):
     return await _create(db, Faculty, payload, FacultyResource)
 
 
-@router.patch("/faculties/{entity_id}", response_model=FacultyResource)
+@admin_router.patch("/faculties/{entity_id}", response_model=FacultyResource)
 async def update_faculty(entity_id: int, payload: FacultyUpdate, db: AsyncSession = Depends(get_db), _: object = admin):
     return await _update(db, Faculty, entity_id, payload)
 
 
-@router.delete("/faculties/{entity_id}", status_code=204)
+@admin_router.delete("/faculties/{entity_id}", status_code=204)
 async def delete_faculty(entity_id: int, db: AsyncSession = Depends(get_db), _: object = admin):
     return await _soft_delete(db, Faculty, entity_id)
 
 
-@router.post("/groups", response_model=GroupResource, status_code=201)
+@admin_router.post("/groups", response_model=GroupResource, status_code=201)
 async def create_group(payload: GroupCreate, db: AsyncSession = Depends(get_db), _: object = admin):
     await _active_fk(db, Faculty, payload.faculty_id, "faculty")
     if "curator_id" in payload.model_fields_set:
@@ -135,7 +135,7 @@ async def create_group(payload: GroupCreate, db: AsyncSession = Depends(get_db),
     return await _create(db, Group, payload, GroupResource)
 
 
-@router.patch("/groups/{entity_id}", response_model=GroupResource)
+@admin_router.patch("/groups/{entity_id}", response_model=GroupResource)
 async def update_group(entity_id: int, payload: GroupUpdate, db: AsyncSession = Depends(get_db), _: object = admin):
     if "faculty_id" in payload.model_fields_set:
         await _active_fk(db, Faculty, payload.faculty_id, "faculty")
@@ -144,37 +144,37 @@ async def update_group(entity_id: int, payload: GroupUpdate, db: AsyncSession = 
     return await _update(db, Group, entity_id, payload)
 
 
-@router.delete("/groups/{entity_id}", status_code=204)
+@admin_router.delete("/groups/{entity_id}", status_code=204)
 async def delete_group(entity_id: int, db: AsyncSession = Depends(get_db), _: object = admin):
     return await _soft_delete(db, Group, entity_id)
 
 
-@router.post("/teachers", response_model=TeacherResource, status_code=201)
+@admin_router.post("/teachers", response_model=TeacherResource, status_code=201)
 async def create_teacher(payload: TeacherCreate, db: AsyncSession = Depends(get_db), _: object = admin):
     return await _create(db, Teacher, payload, TeacherResource)
 
 
-@router.patch("/teachers/{entity_id}", response_model=TeacherResource)
+@admin_router.patch("/teachers/{entity_id}", response_model=TeacherResource)
 async def update_teacher(entity_id: int, payload: TeacherUpdate, db: AsyncSession = Depends(get_db), _: object = admin):
     return await _update(db, Teacher, entity_id, payload)
 
 
-@router.delete("/teachers/{entity_id}", status_code=204)
+@admin_router.delete("/teachers/{entity_id}", status_code=204)
 async def delete_teacher(entity_id: int, db: AsyncSession = Depends(get_db), _: object = admin):
     return await _soft_delete(db, Teacher, entity_id)
 
 
-@router.post("/subjects", response_model=SubjectResource, status_code=201)
+@admin_router.post("/subjects", response_model=SubjectResource, status_code=201)
 async def create_subject(payload: SubjectCreate, db: AsyncSession = Depends(get_db), _: object = admin):
     return await _create(db, Subject, payload, SubjectResource)
 
 
-@router.patch("/subjects/{entity_id}", response_model=SubjectResource)
+@admin_router.patch("/subjects/{entity_id}", response_model=SubjectResource)
 async def update_subject(entity_id: int, payload: SubjectUpdate, db: AsyncSession = Depends(get_db), _: object = admin):
     return await _update(db, Subject, entity_id, payload)
 
 
-@router.delete("/subjects/{entity_id}", status_code=204)
+@admin_router.delete("/subjects/{entity_id}", status_code=204)
 async def delete_subject(entity_id: int, db: AsyncSession = Depends(get_db), _: object = admin):
     return await _soft_delete(db, Subject, entity_id)
 
