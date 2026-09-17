@@ -325,6 +325,15 @@ export const api = {
     today: (groupId?: number, teacherId?: number) => request<ScheduleResponse>(`/api/schedule/today?${groupId ? `group_id=${groupId}` : `teacher_id=${teacherId}`}`),
     week: (groupId?: number, teacherId?: number, date = new Date()) => request<ScheduleResponse[]>(`/api/schedule/week?${groupId ? `group_id=${groupId}` : `teacher_id=${teacherId}`}&target_date=${localDate(date)}`),
     settings: {semesterStart: () => request<SemesterStartSetting>("/api/settings/semester-start")},
+    schedule: {
+        async bulkCurator(payload: { day_of_week: number, lesson_number: number, week_type: string, group_ids: number[], action: string }) {
+            const session = await api.auth.ensureAuthenticated();
+            return request<{created?: number, deleted?: number, skipped?: number}>("/api/schedule/bulk-curator", {
+                method: "POST",
+                body: JSON.stringify(payload)
+            }, true, true, session.access_token);
+        }
+    },
     lessons: {
         create: (payload: LessonMutation) => authenticatedRequest<Lesson>("/api/schedule", {
             method: "POST",
