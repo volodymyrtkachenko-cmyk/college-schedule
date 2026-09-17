@@ -205,8 +205,7 @@ async def bulk_curator_hours(payload: BulkCuratorRequest, db: AsyncSession = Dep
         subject_name = "Виховна година"
         
         # Find or create subject
-        sub_query = await db.execute(select(Subject).where(Subject.name == subject_name))
-        subject = sub_query.scalar_first()
+        subject = await db.scalar(select(Subject).where(Subject.name == subject_name))
         if not subject:
             subject = Subject(name=subject_name)
             db.add(subject)
