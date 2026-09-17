@@ -158,7 +158,7 @@ function AdminContent() {
         <ReferenceTable resource={resource} items={filteredAndSortedItems} faculties={faculties} teachers={teachers} loading={loading} error={error} onEdit={setEditor} onDelete={remove} />
         
         {/* Toast */}
-        {bulkOpen && <BulkCuratorsModal groups={items} onClose={() => setBulkOpen(false)} onSuccess={(msg) => { showMessage(msg); }} />}
+        {bulkOpen && <BulkCuratorsModal groups={items} onClose={() => setBulkOpen(false)} onSuccess={(msg) => { setMessage(msg); }} />}
         
         {message && (
           <div className="fixed bottom-6 right-6 z-50 flex animate-in slide-in-from-bottom-5 items-center gap-2 rounded-[8px] border-[0.5px] border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300 shadow-xl">
