@@ -198,66 +198,66 @@ class BulkCuratorRequest(BaseModel):
     action: str = "create" # "create" or "delete"
 
 import traceback
+
 @router.post("/schedule/bulk-curator")
 async def bulk_curator_hours(payload: BulkCuratorRequest, db: AsyncSession = Depends(get_db), _: object = Depends(require_roles("admin"))):
     try:
         subject_name = "Виховна година"
+        
         # Find or create subject
-    sub_query = await db.execute(select(Subject).where(Subject.name == subject_name))
-    subject = sub_query.scalar_first()
-    if not subject:
-        subject = Subject(name=subject_name)
-        db.add(subject)
-        await db.flush()
-        
-    query = select(Group).where(Group.is_active == True)
-    if payload.group_ids:
-        query = query.where(Group.id.in_(payload.group_ids))
-    groups = (await db.scalars(query)).all()
-    
-    deleted_count = 0
-    created_count = 0
-    skipped_count = 0
-    
-    for group in groups:
-        # Delete existing curator hour at this specific time slot to avoid duplicates when creating,
-        # or if action is simply 'delete'
-        del_query = delete(Schedule).where(
-            Schedule.group_id == group.id,
-            Schedule.subject_id == subject.id,
-            Schedule.day_of_week == payload.day_of_week,
-            Schedule.lesson_number == payload.lesson_number
-        )
-        # If specific week type passed for deletion, maybe filter it? We'll just delete any matching the time slot.
-        res = await db.execute(del_query)
-        deleted_count += res.rowcount
-        
-        if payload.action == "create":
-            # Check for conflict with OTHER subjects
-            conflict = await conflicting_lesson(
-                db, group_id=group.id, day_of_week=payload.day_of_week,
-                lesson_number=payload.lesson_number, week_type=payload.week_type
-            )
-            if conflict:
-                skipped_count += 1
-                continue
-                
-            new_lesson = Schedule(
-                group_id=group.id,
-                subject_id=subject.id,
-                teacher_id=group.curator_id, # Can be null if no curator
-                day_of_week=payload.day_of_week,
-                lesson_number=payload.lesson_number,
-                week_type=payload.week_type,
-                start_time=time(9,0) if payload.lesson_number == 1 else time(10,40) if payload.lesson_number == 2 else time(12,30) if payload.lesson_number == 3 else time(14,0),
-                end_time=time(10,20) if payload.lesson_number == 1 else time(12,0) if payload.lesson_number == 2 else time(13,50) if payload.lesson_number == 3 else time(15,20),
-                is_active=True
-            )
-            db.add(new_lesson)
-            created_count += 1
+        sub_query = await db.execute(select(Subject).where(Subject.name == subject_name))
+        subject = sub_query.scalar_first()
+        if not subject:
+            subject = Subject(name=subject_name)
+            db.add(subject)
+            await db.flush()
             
-    await db.commit()
-    return {"created": created_count, "deleted": deleted_count, "skipped": skipped_count}
+        query = select(Group).where(Group.is_active == True)
+        if payload.group_ids:
+            query = query.where(Group.id.in_(payload.group_ids))
+        groups = (await db.scalars(query)).all()
+        
+        deleted_count = 0
+        created_count = 0
+        skipped_count = 0
+        
+        for group in groups:
+            # Delete existing curator hour at this specific time slot
+            del_query = delete(Schedule).where(
+                Schedule.group_id == group.id,
+                Schedule.subject_id == subject.id,
+                Schedule.day_of_week == payload.day_of_week,
+                Schedule.lesson_number == payload.lesson_number
+            )
+            res = await db.execute(del_query)
+            deleted_count += res.rowcount
+            
+            if payload.action == "create":
+                # Check for conflict with OTHER subjects
+                conflict = await conflicting_lesson(
+                    db, group_id=group.id, day_of_week=payload.day_of_week,
+                    lesson_number=payload.lesson_number, week_type=payload.week_type
+                )
+                if conflict:
+                    skipped_count += 1
+                    continue
+                    
+                new_lesson = Schedule(
+                    group_id=group.id,
+                    subject_id=subject.id,
+                    teacher_id=group.curator_id,
+                    day_of_week=payload.day_of_week,
+                    lesson_number=payload.lesson_number,
+                    week_type=payload.week_type,
+                    start_time=time(9,0) if payload.lesson_number == 1 else time(10,40) if payload.lesson_number == 2 else time(12,30) if payload.lesson_number == 3 else time(14,0),
+                    end_time=time(10,20) if payload.lesson_number == 1 else time(12,0) if payload.lesson_number == 2 else time(13,50) if payload.lesson_number == 3 else time(15,20),
+                    is_active=True
+                )
+                db.add(new_lesson)
+                created_count += 1
+                
+        await db.commit()
+        return {"created": created_count, "deleted": deleted_count, "skipped": skipped_count}
     except Exception as e:
         await db.rollback()
         raise HTTPException(status_code=500, detail=traceback.format_exc())
