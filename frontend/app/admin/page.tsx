@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { AdminNav, referenceLabels } from "../../components/admin/AdminNav";
 import { ReferenceForm } from "../../components/admin/ReferenceForm";
 import { ReferenceTable } from "../../components/admin/ReferenceTable";
+import { BulkCuratorsModal } from "../../components/admin/BulkCuratorsModal";
 import { api, ReferenceMutation, ReferenceRecord, ReferenceResource } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 
@@ -28,6 +29,7 @@ function AdminContent() {
   
   // undefined = list view, null = add new, object = edit existing
   const [editor, setEditor] = useState<ReferenceRecord | null | undefined>(undefined);
+  const [bulkOpen, setBulkOpen] = useState(false);
   
   const [message, setMessage] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -137,9 +139,16 @@ function AdminContent() {
              />
            </div>
            
-           <button onClick={() => setEditor(null)} className="shrink-0 rounded-[6px] bg-sys-accent px-4 py-2 text-sm font-semibold text-[#0b1120] hover:opacity-90 transition-opacity">
-              + Додати {{ faculties: "спеціальність", groups: "групу", teachers: "викладача", subjects: "предмет" }[resource]}
-           </button>
+           <div className="flex gap-2">
+             {resource === "groups" && (
+                <button onClick={() => setBulkOpen(true)} className="shrink-0 rounded-[6px] border border-sys-accent/50 text-sys-accent px-4 py-2 text-sm font-semibold hover:bg-sys-accent/10 transition-colors">
+                  ⚡ Виховні години
+                </button>
+             )}
+             <button onClick={() => setEditor(null)} className="shrink-0 rounded-[6px] bg-sys-accent px-4 py-2 text-sm font-semibold text-[#0b1120] hover:opacity-90 transition-opacity">
+                + Додати {{ faculties: "спеціальність", groups: "групу", teachers: "викладача", subjects: "предмет" }[resource]}
+             </button>
+           </div>
         </div>
 
         {editor !== undefined && (
@@ -149,6 +158,8 @@ function AdminContent() {
         <ReferenceTable resource={resource} items={filteredAndSortedItems} faculties={faculties} teachers={teachers} loading={loading} error={error} onEdit={setEditor} onDelete={remove} />
         
         {/* Toast */}
+        {bulkOpen && <BulkCuratorsModal groups={items} onClose={() => setBulkOpen(false)} onSuccess={(msg) => { showMessage(msg); }} />}
+        
         {message && (
           <div className="fixed bottom-6 right-6 z-50 flex animate-in slide-in-from-bottom-5 items-center gap-2 rounded-[8px] border-[0.5px] border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300 shadow-xl">
              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l5 5l10 -10"/></svg>
