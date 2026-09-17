@@ -150,6 +150,7 @@ async function parseError(response: Response) {
                 return "Запис з такими даними вже існує.";
             }
             if (raw.includes("incorrect username")) return "Неправильний логін або пароль.";
+            if (raw.includes("invalid or expired token")) return "Ваша сесія завершилася. Будь ласка, увійдіть знову.";
             return body.detail;
         }
         
@@ -265,8 +266,13 @@ async function request<T>(
         return await rawRequest<T>(path, {...init, headers});
     } catch (error) {
         if (requiresAuth && retry && error instanceof ApiError && error.status === 401) {
-            const session = await refresh();
-            return request<T>(path, init, false, true, session.access_token);
+            try {
+                const session = await refresh();
+                return await request<T>(path, init, false, true, session.access_token);
+            } catch (refreshErr) {
+                api.auth.logout();
+                throw refreshErr;
+            }
         }
         throw error;
     }
