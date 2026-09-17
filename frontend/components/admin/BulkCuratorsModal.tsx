@@ -21,22 +21,17 @@ export function BulkCuratorsModal({ groups, onClose, onSuccess }: Props) {
     
     setBusy(true);
     try {
-      const response = await api.auth.ensureAuthenticated().then((s) => fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://college-schedule-dpyg.onrender.com"}/api/schedule/bulk-curator`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${s.access_token}` },
-        body: JSON.stringify({
+      const response = await api.schedule.bulkCurator({
           day_of_week: day,
           lesson_number: lesson,
           week_type: week,
           group_ids: selectedGroups,
           action: action
-        })
-      }).then(res => res.json()));
-      
+      });
       onSuccess(action === "create" ? `Успішно створено: ${response.created} пар. Пропущено (через існуючі пари): ${response.skipped}.` : `Успішно видалено: ${response.deleted} виховних годин.`);
       onClose();
-    } catch (e) {
-      alert("Сталася помилка при масовій операції.");
+    } catch (e: any) {
+      alert("Сталася помилка при масовій операції: " + (e.message || "Невідома помилка"));
     } finally {
       setBusy(false);
     }
@@ -69,15 +64,27 @@ export function BulkCuratorsModal({ groups, onClose, onSuccess }: Props) {
           </label>
         </div>
         
-        <label className="flex flex-col gap-1 text-sm text-sys-text-secondary mb-6">
-          <span className="flex justify-between">Групи (залишіть порожнім, щоб застосувати <strong>ДО ВСІХ</strong>)
-            {selectedGroups.length > 0 && <button type="button" onClick={() => setSelectedGroups([])} className="text-sys-accent text-xs">Очистити</button>}
+        <div className="flex flex-col gap-1 text-sm text-sys-text-secondary mb-5">
+          <span className="flex justify-between mb-1">Оберіть групи (пусто = ДО ВСІХ)
+            {selectedGroups.length > 0 && <button type="button" onClick={() => setSelectedGroups([])} className="text-sys-accent text-xs hover:underline">Очистити виділення</button>}
           </span>
-          <select multiple size={5} value={selectedGroups.map(String)} onChange={(e) => setSelectedGroups(Array.from(e.target.selectedOptions, o => Number(o.value)))} className="rounded-[6px] border border-sys-border bg-sys-input px-2 py-2 outline-none focus:border-sys-accent text-sys-text-primary text-[13px] h-[120px]">
-            {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-          </select>
-          <span className="text-[10px] text-sys-text-muted mt-1">Використовуйте CTRL або CMD, щоб обрати кілька.</span>
-        </label>
+          <div className="h-[140px] overflow-y-auto rounded-[6px] border border-sys-border bg-sys-input p-2 space-y-1">
+            {groups.map(g => (
+              <label key={g.id} className="flex items-center gap-2 px-1 cursor-pointer hover:bg-slate-800/50 rounded transition-colors text-sys-text-primary text-[13px]">
+                <input 
+                  type="checkbox" 
+                  checked={selectedGroups.includes(g.id)} 
+                  onChange={(e) => {
+                    if (e.target.checked) setSelectedGroups([...selectedGroups, g.id]);
+                    else setSelectedGroups(selectedGroups.filter(id => id !== g.id));
+                  }} 
+                  className="rounded border-sys-border bg-sys-bg text-sys-accent focus:ring-sys-accent h-3.5 w-3.5"
+                />
+                {g.name}
+              </label>
+            ))}
+          </div>
+        </div>
         
         <div className="flex gap-2">
           <button type="button" disabled={busy} onClick={() => submit("create")} className="flex-1 rounded-[6px] bg-sys-accent px-4 py-2 text-sm font-semibold text-[#0b1120] hover:opacity-90">
