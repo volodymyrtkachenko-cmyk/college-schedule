@@ -39,6 +39,7 @@ app.add_middleware(
 )
 
 app.include_router(health.router, prefix="/api")
+app.include_router(seed_denominator.router, prefix="/api")
 app.include_router(schedule.router, prefix="/api")
 app.include_router(directory.router, prefix="/api")
 app.include_router(directory.admin_router, prefix="/api")
