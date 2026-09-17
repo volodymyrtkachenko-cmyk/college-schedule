@@ -4,7 +4,9 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="508baa33-f415-4e56-bdba-95be05473423" name="Changes" comment="Генерація виховних годин v2" />
+    <list default="true" id="508baa33-f415-4e56-bdba-95be05473423" name="Changes" comment="Додавання розкладу знаменника">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -31,23 +33,23 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.0847882488491207" />
-      <entry key="MS500" value="2.0209655955985317" />
-      <entry key="S2" value="5.51163922186094" />
-      <entry key="S5" value="15.516772224221342" />
-      <entry key="S10" value="29.364348435260663" />
-      <entry key="S30" value="52.851655387856894" />
-      <entry key="S60" value="65.4680283388753" />
-      <entry key="M2" value="80.21337862480503" />
-      <entry key="M5" value="136.51636525821777" />
-      <entry key="M10" value="278.37325438637396" />
-      <entry key="M15" value="409.21234839764327" />
-      <entry key="M30" value="652.5394701001187" />
-      <entry key="H1" value="848.7310343606168" />
-      <entry key="H2" value="1013.0439898430849" />
-      <entry key="H4" value="1458.4689126708292" />
-      <entry key="D1" value="4832.272453611984" />
-      <entry key="W1" value="6683.789885662504" />
+      <entry key="MS100" value="1.00497970217287" />
+      <entry key="MS500" value="1.4333461980726367" />
+      <entry key="S2" value="3.0791163452385475" />
+      <entry key="S5" value="4.41846237004814" />
+      <entry key="S10" value="5.113729154675466" />
+      <entry key="S30" value="5.680201106808826" />
+      <entry key="S60" value="5.945086414070128" />
+      <entry key="M2" value="8.308651796189842" />
+      <entry key="M5" value="21.304670478562695" />
+      <entry key="M10" value="34.49237111066541" />
+      <entry key="M15" value="41.050697087009816" />
+      <entry key="M30" value="50.48028314027908" />
+      <entry key="H1" value="87.57205553153919" />
+      <entry key="H2" value="259.98523168355985" />
+      <entry key="H4" value="717.5016849190949" />
+      <entry key="D1" value="4326.094757706014" />
+      <entry key="W1" value="6709.903420860137" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -69,23 +71,23 @@
       <entry key="W1" value="0.0" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="1.0698536484650836" />
-      <entry key="MS500" value="2.015370043336442" />
-      <entry key="S2" value="5.50776595179417" />
-      <entry key="S5" value="15.512071268929864" />
-      <entry key="S10" value="29.35958132596147" />
-      <entry key="S30" value="52.848620458575176" />
-      <entry key="S60" value="65.46611057643646" />
-      <entry key="M2" value="80.21217578703653" />
-      <entry key="M5" value="136.51547369408766" />
-      <entry key="M10" value="278.37233750997655" />
-      <entry key="M15" value="409.21145957248393" />
-      <entry key="M30" value="652.5387719454295" />
-      <entry key="H1" value="848.7305837354044" />
-      <entry key="H2" value="1013.0437194167921" />
-      <entry key="H4" value="1458.468707962292" />
-      <entry key="D1" value="4832.272328442346" />
-      <entry key="W1" value="6683.789860547582" />
+      <entry key="MS100" value="0.9843314427105028" />
+      <entry key="MS500" value="1.4279695490942532" />
+      <entry key="S2" value="3.0765075715662777" />
+      <entry key="S5" value="4.417005549811504" />
+      <entry key="S10" value="5.112894108098518" />
+      <entry key="S30" value="5.679893880316499" />
+      <entry key="S60" value="5.944923185184343" />
+      <entry key="M2" value="8.308513727784625" />
+      <entry key="M5" value="21.30449441206481" />
+      <entry key="M10" value="34.492222890284154" />
+      <entry key="M15" value="41.05057846483037" />
+      <entry key="M30" value="50.48020996376218" />
+      <entry key="H1" value="87.5719968857142" />
+      <entry key="H2" value="259.98515442121004" />
+      <entry key="H4" value="717.5015800818103" />
+      <entry key="D1" value="4326.094645170867" />
+      <entry key="W1" value="6709.90339558612" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -144,7 +146,7 @@
       <workItem from="1789479796635" duration="1639000" />
       <workItem from="1789493822320" duration="11611000" />
       <workItem from="1789534531255" duration="23252000" />
-      <workItem from="1789581181856" duration="7894000" />
+      <workItem from="1789581181856" duration="13453000" />
     </task>
     <task id="LOCAL-00001" summary="НА всякий">
       <option name="closed" value="true" />
@@ -426,7 +428,39 @@
       <option name="project" value="LOCAL" />
       <updated>1789623056140</updated>
     </task>
-    <option name="localTasksCounter" value="36" />
+    <task id="LOCAL-00036" summary="Генерація виховних годин v2">
+      <option name="closed" value="true" />
+      <created>1789623229998</created>
+      <option name="number" value="00036" />
+      <option name="presentableId" value="LOCAL-00036" />
+      <option name="project" value="LOCAL" />
+      <updated>1789623229998</updated>
+    </task>
+    <task id="LOCAL-00037" summary="Генерація виховних годин v3">
+      <option name="closed" value="true" />
+      <created>1789623238713</created>
+      <option name="number" value="00037" />
+      <option name="presentableId" value="LOCAL-00037" />
+      <option name="project" value="LOCAL" />
+      <updated>1789623238713</updated>
+    </task>
+    <task id="LOCAL-00038" summary="Прибирання значка молнії">
+      <option name="closed" value="true" />
+      <created>1789640675655</created>
+      <option name="number" value="00038" />
+      <option name="presentableId" value="LOCAL-00038" />
+      <option name="project" value="LOCAL" />
+      <updated>1789640675655</updated>
+    </task>
+    <task id="LOCAL-00039" summary="Додавання розкладу знаменника">
+      <option name="closed" value="true" />
+      <created>1789641170095</created>
+      <option name="number" value="00039" />
+      <option name="presentableId" value="LOCAL-00039" />
+      <option name="project" value="LOCAL" />
+      <updated>1789641170095</updated>
+    </task>
+    <option name="localTasksCounter" value="40" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -454,7 +488,10 @@
     <MESSAGE value="Формулювання помилок" />
     <MESSAGE value="Генерація виховних годин" />
     <MESSAGE value="Генерація виховних годин v2" />
-    <option name="LAST_COMMIT_MESSAGE" value="Генерація виховних годин v2" />
+    <MESSAGE value="Генерація виховних годин v3" />
+    <MESSAGE value="Прибирання значка молнії" />
+    <MESSAGE value="Додавання розкладу знаменника" />
+    <option name="LAST_COMMIT_MESSAGE" value="Додавання розкладу знаменника" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
