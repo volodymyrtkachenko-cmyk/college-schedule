@@ -4,7 +4,9 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="508baa33-f415-4e56-bdba-95be05473423" name="Changes" comment="Форми для викладачей v1" />
+    <list default="true" id="508baa33-f415-4e56-bdba-95be05473423" name="Changes" comment="Формулювання помилок">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -31,23 +33,23 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.5739595294526554" />
-      <entry key="MS500" value="3.799409176340209" />
-      <entry key="S2" value="11.441237823905206" />
-      <entry key="S5" value="21.248237665242318" />
-      <entry key="S10" value="29.191822106053785" />
-      <entry key="S30" value="37.92303605200908" />
-      <entry key="S60" value="40.891358437764225" />
-      <entry key="M2" value="45.51395193198318" />
-      <entry key="M5" value="77.37955956140019" />
-      <entry key="M10" value="162.26173632477798" />
-      <entry key="M15" value="253.6556413246215" />
-      <entry key="M30" value="490.17900795634154" />
-      <entry key="H1" value="845.3621264234887" />
-      <entry key="H2" value="1474.0162767490415" />
-      <entry key="H4" value="2522.9381349087744" />
-      <entry key="D1" value="5023.991143639392" />
-      <entry key="W1" value="5796.08753434781" />
+      <entry key="MS100" value="1.508017050418337" />
+      <entry key="MS500" value="4.189724604677613" />
+      <entry key="S2" value="11.573400746660656" />
+      <entry key="S5" value="22.17569245569983" />
+      <entry key="S10" value="39.16860685129668" />
+      <entry key="S30" value="87.48363302374085" />
+      <entry key="S60" value="118.1715613825076" />
+      <entry key="M2" value="139.96783813865045" />
+      <entry key="M5" value="155.91755455099715" />
+      <entry key="M10" value="161.80223469733252" />
+      <entry key="M15" value="163.83244834979186" />
+      <entry key="M30" value="165.89877472148015" />
+      <entry key="H1" value="167.91283374885865" />
+      <entry key="H2" value="217.4087957516767" />
+      <entry key="H4" value="632.4400111870309" />
+      <entry key="D1" value="3964.0954712180364" />
+      <entry key="W1" value="5747.051730674923" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -69,23 +71,23 @@
       <entry key="W1" value="0.0" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="1.5445354867546517" />
-      <entry key="MS500" value="3.7850763709373574" />
-      <entry key="S2" value="11.429679209843451" />
-      <entry key="S5" value="21.239242763027665" />
-      <entry key="S10" value="29.185463113239024" />
-      <entry key="S30" value="37.92021097918579" />
-      <entry key="S60" value="40.889820695423" />
-      <entry key="M2" value="45.51305965500784" />
-      <entry key="M5" value="77.37889648785934" />
-      <entry key="M10" value="162.26105697386325" />
-      <entry key="M15" value="253.6549403171821" />
-      <entry key="M30" value="490.1783296608442" />
-      <entry key="H1" value="845.3615498520386" />
-      <entry key="H2" value="1474.015791617145" />
-      <entry key="H4" value="2522.9377271288263" />
-      <entry key="D1" value="5023.9910075577545" />
-      <entry key="W1" value="5796.08751183634" />
+      <entry key="MS100" value="1.4772420454687134" />
+      <entry key="MS500" value="4.173635453261626" />
+      <entry key="S2" value="11.562505771985654" />
+      <entry key="S5" value="22.167452960858636" />
+      <entry key="S10" value="39.16131027351776" />
+      <entry key="S30" value="87.47808483645908" />
+      <entry key="S60" value="118.16777487010707" />
+      <entry key="M2" value="139.96558188646213" />
+      <entry key="M5" value="155.91654521591343" />
+      <entry key="M10" value="161.80171026635261" />
+      <entry key="M15" value="163.83209417923192" />
+      <entry key="M30" value="165.898595319508" />
+      <entry key="H1" value="167.91274280318785" />
+      <entry key="H2" value="217.40873404940118" />
+      <entry key="H4" value="632.4399134539702" />
+      <entry key="D1" value="3964.095364650572" />
+      <entry key="W1" value="5747.051708473212" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -144,7 +146,7 @@
       <workItem from="1789479796635" duration="1639000" />
       <workItem from="1789493822320" duration="11611000" />
       <workItem from="1789534531255" duration="23252000" />
-      <workItem from="1789581181856" duration="4052000" />
+      <workItem from="1789581181856" duration="5344000" />
     </task>
     <task id="LOCAL-00001" summary="НА всякий">
       <option name="closed" value="true" />
@@ -362,7 +364,15 @@
       <option name="project" value="LOCAL" />
       <updated>1789585242395</updated>
     </task>
-    <option name="localTasksCounter" value="28" />
+    <task id="LOCAL-00028" summary="Формулювання помилок">
+      <option name="closed" value="true" />
+      <created>1789585423447</created>
+      <option name="number" value="00028" />
+      <option name="presentableId" value="LOCAL-00028" />
+      <option name="project" value="LOCAL" />
+      <updated>1789585423447</updated>
+    </task>
+    <option name="localTasksCounter" value="29" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -387,7 +397,8 @@
     <MESSAGE value="ласт" />
     <MESSAGE value="Merge remote-tracking branch 'origin/main'&#10;&#10;# Conflicts:&#10;#&#9;frontend/lib/hooks.ts" />
     <MESSAGE value="Форми для викладачей v1" />
-    <option name="LAST_COMMIT_MESSAGE" value="Форми для викладачей v1" />
+    <MESSAGE value="Формулювання помилок" />
+    <option name="LAST_COMMIT_MESSAGE" value="Формулювання помилок" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
