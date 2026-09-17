@@ -197,10 +197,12 @@ class BulkCuratorRequest(BaseModel):
     group_ids: list[int]
     action: str = "create" # "create" or "delete"
 
+import traceback
 @router.post("/schedule/bulk-curator")
 async def bulk_curator_hours(payload: BulkCuratorRequest, db: AsyncSession = Depends(get_db), _: object = Depends(require_roles("admin"))):
-    subject_name = "Виховна година"
-    # Find or create subject
+    try:
+        subject_name = "Виховна година"
+        # Find or create subject
     sub_query = await db.execute(select(Subject).where(Subject.name == subject_name))
     subject = sub_query.scalar_first()
     if not subject:
@@ -256,3 +258,6 @@ async def bulk_curator_hours(payload: BulkCuratorRequest, db: AsyncSession = Dep
             
     await db.commit()
     return {"created": created_count, "deleted": deleted_count, "skipped": skipped_count}
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=traceback.format_exc())
