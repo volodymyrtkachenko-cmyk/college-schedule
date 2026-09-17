@@ -4,9 +4,7 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="508baa33-f415-4e56-bdba-95be05473423" name="Changes" comment="Генерація виховних годин v2">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-    </list>
+    <list default="true" id="508baa33-f415-4e56-bdba-95be05473423" name="Changes" comment="Генерація виховних годин v2" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -33,23 +31,23 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.4254863869050414" />
-      <entry key="MS500" value="3.2430909445067715" />
-      <entry key="S2" value="8.537417048916385" />
-      <entry key="S5" value="17.709707099319427" />
-      <entry key="S10" value="26.727230720097243" />
-      <entry key="S30" value="37.38142436013072" />
-      <entry key="S60" value="42.063773156203084" />
-      <entry key="M2" value="54.11831220209062" />
-      <entry key="M5" value="131.2591250306391" />
-      <entry key="M10" value="299.3522391256877" />
-      <entry key="M15" value="432.38432270822466" />
-      <entry key="M30" value="654.2507557020514" />
-      <entry key="H1" value="819.1083530225703" />
-      <entry key="H2" value="960.230122888178" />
-      <entry key="H4" value="1396.4898706005522" />
-      <entry key="D1" value="4759.538333230273" />
-      <entry key="W1" value="6599.618177463202" />
+      <entry key="MS100" value="1.0847882488491207" />
+      <entry key="MS500" value="2.0209655955985317" />
+      <entry key="S2" value="5.51163922186094" />
+      <entry key="S5" value="15.516772224221342" />
+      <entry key="S10" value="29.364348435260663" />
+      <entry key="S30" value="52.851655387856894" />
+      <entry key="S60" value="65.4680283388753" />
+      <entry key="M2" value="80.21337862480503" />
+      <entry key="M5" value="136.51636525821777" />
+      <entry key="M10" value="278.37325438637396" />
+      <entry key="M15" value="409.21234839764327" />
+      <entry key="M30" value="652.5394701001187" />
+      <entry key="H1" value="848.7310343606168" />
+      <entry key="H2" value="1013.0439898430849" />
+      <entry key="H4" value="1458.4689126708292" />
+      <entry key="D1" value="4832.272453611984" />
+      <entry key="W1" value="6683.789885662504" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -71,23 +69,23 @@
       <entry key="W1" value="0.0" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="1.4053077845766497" />
-      <entry key="MS500" value="3.232965616903104" />
-      <entry key="S2" value="8.530660335136847" />
-      <entry key="S5" value="17.703993136139008" />
-      <entry key="S10" value="26.722860207437275" />
-      <entry key="S30" value="37.379362696442755" />
-      <entry key="S60" value="42.06256990414304" />
-      <entry key="M2" value="54.117400741009654" />
-      <entry key="M5" value="131.25816359947652" />
-      <entry key="M10" value="299.3512157351232" />
-      <entry key="M15" value="432.3833646368605" />
-      <entry key="M30" value="654.250049138006" />
-      <entry key="H1" value="819.107915444759" />
-      <entry key="H2" value="960.2298651372291" />
-      <entry key="H4" value="1396.4896732839197" />
-      <entry key="D1" value="4759.5382095109935" />
-      <entry key="W1" value="6599.618152597783" />
+      <entry key="MS100" value="1.0698536484650836" />
+      <entry key="MS500" value="2.015370043336442" />
+      <entry key="S2" value="5.50776595179417" />
+      <entry key="S5" value="15.512071268929864" />
+      <entry key="S10" value="29.35958132596147" />
+      <entry key="S30" value="52.848620458575176" />
+      <entry key="S60" value="65.46611057643646" />
+      <entry key="M2" value="80.21217578703653" />
+      <entry key="M5" value="136.51547369408766" />
+      <entry key="M10" value="278.37233750997655" />
+      <entry key="M15" value="409.21145957248393" />
+      <entry key="M30" value="652.5387719454295" />
+      <entry key="H1" value="848.7305837354044" />
+      <entry key="H2" value="1013.0437194167921" />
+      <entry key="H4" value="1458.468707962292" />
+      <entry key="D1" value="4832.272328442346" />
+      <entry key="W1" value="6683.789860547582" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -146,7 +144,7 @@
       <workItem from="1789479796635" duration="1639000" />
       <workItem from="1789493822320" duration="11611000" />
       <workItem from="1789534531255" duration="23252000" />
-      <workItem from="1789581181856" duration="7495000" />
+      <workItem from="1789581181856" duration="7894000" />
     </task>
     <task id="LOCAL-00001" summary="НА всякий">
       <option name="closed" value="true" />
@@ -412,7 +410,23 @@
       <option name="project" value="LOCAL" />
       <updated>1789622232136</updated>
     </task>
-    <option name="localTasksCounter" value="34" />
+    <task id="LOCAL-00034" summary="Генерація виховних годин v2">
+      <option name="closed" value="true" />
+      <created>1789622919206</created>
+      <option name="number" value="00034" />
+      <option name="presentableId" value="LOCAL-00034" />
+      <option name="project" value="LOCAL" />
+      <updated>1789622919206</updated>
+    </task>
+    <task id="LOCAL-00035" summary="Генерація виховних годин v2">
+      <option name="closed" value="true" />
+      <created>1789623056140</created>
+      <option name="number" value="00035" />
+      <option name="presentableId" value="LOCAL-00035" />
+      <option name="project" value="LOCAL" />
+      <updated>1789623056140</updated>
+    </task>
+    <option name="localTasksCounter" value="36" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
