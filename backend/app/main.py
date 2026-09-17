@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.database import engine
-from app.routers import health
+from app.routers import health, seed_denominator
 from app.routers import auth, directory, lesson_notes, schedule, settings as settings_router
 
 
