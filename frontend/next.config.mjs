@@ -8,10 +8,10 @@ const withPwa = withPWA({
   disable: process.env.NODE_ENV === "development",
   runtimeCaching: [
     {
-      urlPattern: /^https?:\/\/.*\/api\/schedule(?:\/|[?])/i,
+      urlPattern: /^https?:\/\/.*\/api\/.*/i,
       handler: "NetworkFirst",
       options: {
-        cacheName: "schedule-api-v1",
+        cacheName: "full-api-v1",
         networkTimeoutSeconds: 3,
         expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 },
         cacheableResponse: { statuses: [0, 200] }

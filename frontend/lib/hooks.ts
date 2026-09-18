@@ -37,7 +37,7 @@ export function useSchedule(weekAnchorDate: Date) {
 
     const cachedGroupId = window.localStorage.getItem("schedule:groupId");
     const cachedTeacherId = window.localStorage.getItem("schedule:teacherId");
-    const cachedGroups = window.sessionStorage.getItem("schedule:groups");
+    const cachedGroups = window.localStorage.getItem("schedule:groups");
 
     if (cachedGroups) {
       try {
@@ -46,7 +46,7 @@ export function useSchedule(weekAnchorDate: Date) {
         setGroupId(cachedGroupId ? Number(cachedGroupId) : (items[0]?.id ?? null));
         setLoading(false);
       } catch {
-        window.sessionStorage.removeItem("schedule:groups");
+        window.localStorage.removeItem("schedule:groups");
       }
     }
     
@@ -68,7 +68,7 @@ export function useSchedule(weekAnchorDate: Date) {
             setGroupId(Number(cachedGroupId));
         }
 
-        window.sessionStorage.setItem("schedule:groups", JSON.stringify(items));
+        window.localStorage.setItem("schedule:groups", JSON.stringify(items));
       })
       .catch(() => {
         if (!cachedGroups) setError("Не вдалося завантажити групи. Спробуйте ще раз.");
@@ -92,8 +92,8 @@ export function useSchedule(weekAnchorDate: Date) {
     
     let hasCachedSchedule = false;
     try {
-      const cachedToday = window.sessionStorage.getItem(todayKey);
-      const cachedWeek = window.sessionStorage.getItem(weekKey);
+      const cachedToday = window.localStorage.getItem(todayKey);
+      const cachedWeek = window.localStorage.getItem(weekKey);
       if (cachedToday) {
         setToday(JSON.parse(cachedToday) as ScheduleResponse);
         hasCachedSchedule = true;
@@ -103,8 +103,8 @@ export function useSchedule(weekAnchorDate: Date) {
         hasCachedSchedule = true;
       }
     } catch {
-      window.sessionStorage.removeItem(todayKey);
-      window.sessionStorage.removeItem(weekKey);
+      window.localStorage.removeItem(todayKey);
+      window.localStorage.removeItem(weekKey);
     }
     setLoading(!hasCachedSchedule);
     setError(null);
@@ -116,8 +116,8 @@ export function useSchedule(weekAnchorDate: Date) {
       .then(([todayResponse, weekResponse]) => {
         setToday(todayResponse);
         setWeek(weekResponse);
-        window.sessionStorage.setItem(todayKey, JSON.stringify(todayResponse));
-        window.sessionStorage.setItem(weekKey, JSON.stringify(weekResponse));
+        window.localStorage.setItem(todayKey, JSON.stringify(todayResponse));
+        window.localStorage.setItem(weekKey, JSON.stringify(weekResponse));
       })
       .catch(() => {
         if (!hasCachedSchedule) setError("Не вдалося завантажити розклад. Перевірте з'єднання.");
