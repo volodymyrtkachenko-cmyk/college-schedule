@@ -28,11 +28,11 @@ def to_item(item, week_type, target_date):
     t_names = []
     t_rooms = []
     if item.teacher:
-        t_names.append(format_teacher_name(item.teacher.name))
+        t_names.append(item.teacher.name)
         if item.teacher.room:
             t_rooms.append(item.teacher.room)
     if getattr(item, "second_teacher", None):
-        t_names.append(format_teacher_name(item.second_teacher.name))
+        t_names.append(item.second_teacher.name)
         if item.second_teacher.room:
             t_rooms.append(item.second_teacher.room)
     teacher_name = " / ".join(t_names) if t_names else None
