@@ -6,9 +6,9 @@ export function formatTeacherName(value: string): string {
   if (parts.length < 2) return name;
   if (parts.some((part) => part.length <= 2)) return name;
 
-  const surname = parts[parts.length - 1];
+  const surname = parts[0];
   const initials = parts
-    .slice(0, -1)
+    .slice(1)
     .map((part) => part[0]?.toUpperCase())
     .filter(Boolean)
     .join(".");
