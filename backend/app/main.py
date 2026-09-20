@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.database import engine
-from app.routers import health, seed_denominator
+from app.routers import health, seed_denominator, fix_subjects
 from app.routers import auth, directory, lesson_notes, schedule, settings as settings_router
 
 
@@ -51,6 +51,7 @@ async def analytics_middleware(request: Request, call_next):
 
 app.include_router(health.router, prefix="/api")
 app.include_router(seed_denominator.router, prefix="/api")
+app.include_router(fix_subjects.router, prefix="/api")
 app.include_router(schedule.router, prefix="/api")
 app.include_router(directory.router, prefix="/api")
 app.include_router(directory.admin_router, prefix="/api")
