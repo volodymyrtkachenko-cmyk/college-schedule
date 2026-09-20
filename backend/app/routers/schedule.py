@@ -59,7 +59,10 @@ async def schedule(group_id: int | None = None, teacher_id: int | None = None,
 
 @router.get("/schedule/today", response_model=ScheduleResponse)
 async def today(group_id: int | None = None, teacher_id: int | None = None, db: AsyncSession = Depends(get_db)):
-    return await schedule(group_id=group_id, teacher_id=teacher_id, day_of_week=None, db=db)
+    target = date.today()
+    if target.isoweekday() > 5:
+        target = target + timedelta(days=8 - target.isoweekday())
+    return await schedule(group_id=group_id, teacher_id=teacher_id, target_date=target, day_of_week=target.isoweekday(), db=db)
 
 @router.get("/schedule/week")
 async def week(group_id: int | None = None, teacher_id: int | None = None, target_date: date | None = None,
