@@ -126,7 +126,6 @@ export default function HomePage() {
                      Змінити
                    </button>
                 </div>
-                <WeekTypeBadge weekType={weekType} />
               </div>
             ) : (
               <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 w-full md:w-auto">
@@ -152,8 +151,7 @@ export default function HomePage() {
                   </label>
                 )}
                 <div className="flex items-center gap-2">
-                  <WeekTypeBadge weekType={weekType} />
-                </div>
+                  </div>
               </div>
             )}
 
@@ -190,16 +188,22 @@ export default function HomePage() {
           ) : today ? (
             <div>
               <div className={view === "today" ? "block" : "hidden"}>
+                <div className="mb-4 mt-2 flex justify-end">
+                   <WeekTypeBadge weekType={today.week_type} />
+                </div>
                 <ScheduleDay schedule={today} isToday scheduleMode={mode} canEdit={canEdit} onEdit={(lesson) => setEditor({ lesson, date: today.date })} onCreate={(date) => setEditor({ date })}
                   onNoteSave={saveNote} onNoteDelete={deleteNote} />
               </div>
                             <div className={view === "week" ? "block w-full min-w-0" : "hidden"}>
                  <div className="mb-4 mt-2 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center rounded-xl bg-sys-card p-3 border border-sys-border/50">
-                    <div className="text-[13px] font-medium text-sys-text-primary flex items-center gap-2">
-                      <svg width="1.2em" height="1.2em" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-sys-accent"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                      {weekRange}
+                    <div className="text-[13px] font-medium text-sys-text-primary flex items-center gap-2 w-full sm:w-auto overflow-hidden">
+                      <svg width="1.2em" height="1.2em" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-sys-accent shrink-0"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                      <span className="truncate">{weekRange}</span>
+                      <div className="ml-2 hidden sm:block shrink-0"><WeekTypeBadge weekType={weekType} /></div>
                     </div>
-                    <div className="flex w-full sm:w-auto rounded-lg border border-sys-border bg-sys-card p-1 text-sm relative">
+                    <div className="flex w-full sm:w-auto items-center justify-between gap-3">
+                       <div className="sm:hidden shrink-0"><WeekTypeBadge weekType={weekType} /></div>
+                       <div className="flex w-full sm:w-auto rounded-lg border border-sys-border bg-sys-card p-1 text-sm relative">
                       <div className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-sys-bg border border-sys-border/50 rounded-md shadow-sm transition-all duration-300 ease-out z-0" style={{ left: isCurrentWeek ? '4px' : 'calc(50% + 2px)' }} />
                       <button type="button" onClick={resetWeek} className={`relative z-10 flex-1 sm:flex-none sm:w-28 text-center rounded-md px-3 py-1.5 font-medium transition-colors ${isCurrentWeek ? 'text-sys-text-primary' : 'text-sys-text-secondary hover:text-sys-text-primary'}`}>Поточний</button>
                       <button type="button" onClick={() => {
@@ -209,6 +213,7 @@ export default function HomePage() {
                         setWeekAnchorDate(nextAnchor);
                       }} className={`relative z-10 flex-1 sm:flex-none sm:w-28 text-center rounded-md px-3 py-1.5 font-medium transition-colors ${!isCurrentWeek ? 'text-sys-text-primary' : 'text-sys-text-secondary hover:text-sys-text-primary'}`}>Наступний</button>
                     </div>
+                  </div>
                  </div>
                 <ScheduleWeekGrid week={week} scheduleMode={mode} canEdit={canEdit} onEdit={(lesson) => { const date = week.find((day) => day.lessons.some((item) => item.id === lesson.id))?.date ?? today.date; setEditor({ lesson, date }); }} onCreate={(date) => setEditor({ date })}
                   onNoteSave={saveNote} onNoteDelete={deleteNote} />
