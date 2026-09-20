@@ -59,12 +59,7 @@ export default function HomePage() {
   });
   const resetWeek = () => {
     const date = new Date();
-    const day = date.getDay();
-    if (day === 0 || day === 6) {
-        date.setDate(date.getDate() + (day === 0 ? 1 : 2));
-    } else {
-        date.setDate(date.getDate() - (day || 7) + 1);
-    }
+    date.setDate(date.getDate() - (date.getDay() || 7) + 1);
     date.setHours(12, 0, 0, 0);
     setWeekAnchorDate(date);
   };
