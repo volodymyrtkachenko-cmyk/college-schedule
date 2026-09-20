@@ -20,6 +20,7 @@ export function useOnlineStatus() {
 }
 
 export function useSchedule(weekAnchorDate: Date) {
+  const [isSetupComplete, setIsSetupComplete] = useState(false);
   const [mode, setMode] = useState<"student" | "teacher">("student");
   const [groups, setGroups] = useState<import("./api").ReferenceRecord[]>([]);
   const [teachers, setTeachers] = useState<import("./api").ReferenceRecord[]>([]);
@@ -32,6 +33,9 @@ export function useSchedule(weekAnchorDate: Date) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const cachedSetup = window.localStorage.getItem("schedule:setupComplete");
+    if (cachedSetup === "1") setIsSetupComplete(true);
+
     const cachedMode = window.localStorage.getItem("schedule:mode") as "student" | "teacher" | null;
     if (cachedMode) setMode(cachedMode);
 
@@ -155,5 +159,8 @@ export function useSchedule(weekAnchorDate: Date) {
     if (id !== null) window.localStorage.setItem("schedule:teacherId", id.toString());
   };
 
-  return { mode, toggleMode, teachers, teacherId, setTeacherId: updateTeacherId, groups, groupId, setGroupId: updateGroupId, today, week, semesterStart, loading, error, setToday, setWeek, updateLesson, removeLesson, addLesson };
+  const completeSetup = () => { window.localStorage.setItem("schedule:setupComplete", "1"); setIsSetupComplete(true); };
+  const resetSetup = () => { window.localStorage.removeItem("schedule:setupComplete"); setIsSetupComplete(false); };
+
+  return { isSetupComplete, completeSetup, resetSetup, mode, toggleMode, teachers, teacherId, setTeacherId: updateTeacherId, groups, groupId, setGroupId: updateGroupId, today, week, semesterStart, loading, error, setToday, setWeek, updateLesson, removeLesson, addLesson };
 }
