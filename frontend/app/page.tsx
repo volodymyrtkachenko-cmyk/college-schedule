@@ -16,7 +16,13 @@ import { motion, AnimatePresence } from "framer-motion";
 export default function HomePage() {
   const [weekAnchorDate, setWeekAnchorDate] = useState(() => {
     const date = new Date();
-    date.setDate(date.getDate() - (date.getDay() || 7) + 1);
+    const day = date.getDay();
+    // If it's Saturday (6) or Sunday (0), shift to next week's Monday
+    if (day === 0 || day === 6) {
+        date.setDate(date.getDate() + (day === 0 ? 1 : 2));
+    } else {
+        date.setDate(date.getDate() - (day || 7) + 1);
+    }
     date.setHours(12, 0, 0, 0);
     return date;
   });
@@ -53,7 +59,12 @@ export default function HomePage() {
   });
   const resetWeek = () => {
     const date = new Date();
-    date.setDate(date.getDate() - (date.getDay() || 7) + 1);
+    const day = date.getDay();
+    if (day === 0 || day === 6) {
+        date.setDate(date.getDate() + (day === 0 ? 1 : 2));
+    } else {
+        date.setDate(date.getDate() - (day || 7) + 1);
+    }
     date.setHours(12, 0, 0, 0);
     setWeekAnchorDate(date);
   };
