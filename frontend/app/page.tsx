@@ -93,7 +93,7 @@ export default function HomePage() {
     setMessage("Примітку видалено.");
   };
 
-  if (!loading && !isSetupComplete) {
+  if (!loading && !isSetupComplete && !canEdit) {
     return <WelcomeScreen groups={groups} teachers={teachers} initialMode={mode} onComplete={(m, id) => {
         toggleMode(m);
         if (m === "student") setGroupId(id);
@@ -114,23 +114,53 @@ export default function HomePage() {
             </a>
             <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">Розклад занять</h1>
           </div>
-          <div className="flex flex-col sm:flex-row sm:items-center gap-4 w-full md:w-auto">
-            <div className="flex items-center justify-between sm:justify-start gap-4">
-              <div className="flex items-center gap-2 bg-sys-card border border-sys-border px-4 py-2 rounded-xl">
-                 <span className="font-medium text-white truncate max-w-[200px]">
-                   {mode === "student" ? groups.find(g => g.id === groupId)?.name || "Не обрано" : teachers.find(t => t.id === teacherId)?.name || "Не обрано"}
-                 </span>
-                 <button onClick={resetSetup} className="ml-2 text-sys-text-secondary hover:text-white transition-colors" title="Змінити налаштування" type="button">
-                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
-                 </button>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4 w-full md:w-auto overflow-hidden">
+            {!canEdit ? (
+              <div className="flex items-center justify-between sm:justify-start gap-4">
+                <div className="flex items-center gap-2 bg-sys-card border border-sys-border px-4 py-2 rounded-xl">
+                   <span className="font-medium text-white truncate max-w-[200px]">
+                     {mode === "student" ? groups.find(g => g.id === groupId)?.name || "Не обрано" : teachers.find(t => t.id === teacherId)?.name || "Не обрано"}
+                   </span>
+                   <button onClick={resetSetup} className="ml-3 flex items-center gap-1.5 text-xs font-medium text-sys-text-secondary hover:text-white transition-colors bg-sys-bg/50 px-2.5 py-1 rounded-md border border-sys-border" title="Змінити налаштування" type="button">
+                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                     Змінити
+                   </button>
+                </div>
+                <WeekTypeBadge weekType={weekType} />
               </div>
-              <WeekTypeBadge weekType={weekType} />
-            </div>
+            ) : (
+              <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 w-full md:w-auto">
+                <div className="flex w-full sm:w-auto rounded-lg border border-sys-border bg-sys-card p-1 text-sm relative">
+                  <div className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-sys-accent rounded-md shadow-sm transition-all duration-300 ease-out z-0" style={{ left: mode === 'student' ? '4px' : '50%' }}></div>
+                  <button type="button" onClick={() => startTransition(() => toggleMode('student'))} className={`relative z-10 flex-1 rounded-md px-3 py-2 sm:py-1 transition-colors ${mode === 'student' ? 'text-[#0b1120] font-medium' : 'text-sys-text-secondary hover:text-sys-text-primary'}`}>Студент</button>
+                  <button type="button" onClick={() => startTransition(() => toggleMode('teacher'))} className={`relative z-10 flex-1 rounded-md px-3 py-2 sm:py-1 transition-colors ${mode === 'teacher' ? 'text-[#0b1120] font-medium' : 'text-sys-text-secondary hover:text-sys-text-primary'}`}>Викладач</button>
+                </div>
+                {mode === 'student' && groups.length > 0 && (
+                  <label className="flex items-center gap-2 text-sm text-sys-text-secondary w-full sm:w-auto">
+                    <span className="hidden sm:inline">Група</span>
+                    <select value={groupId ?? ""} onChange={(event) => startTransition(() => setGroupId(Number(event.target.value)))} className="w-full sm:w-auto rounded-lg border border-sys-border bg-sys-card px-3 py-2 font-medium text-sys-text-primary outline-none focus:border-sys-accent leading-none">
+                      {groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
+                    </select>
+                  </label>
+                )}
+                {mode === 'teacher' && teachers.length > 0 && (
+                  <label className="flex items-center gap-2 text-sm text-sys-text-secondary w-full sm:w-auto">
+                    <span className="hidden sm:inline">Викл.</span>
+                    <select value={teacherId ?? ""} onChange={(event) => startTransition(() => setTeacherId(Number(event.target.value)))} className="w-full sm:w-48 rounded-lg border border-sys-border bg-sys-card px-3 py-2 font-medium text-sys-text-primary outline-none focus:border-sys-accent truncate leading-none">
+                      {teachers.map((teacher) => <option key={teacher.id} value={teacher.id}>{teacher.name}</option>)}
+                    </select>
+                  </label>
+                )}
+                <div className="flex items-center gap-2">
+                  <WeekTypeBadge weekType={weekType} />
+                </div>
+              </div>
+            )}
 
             {user && (
               <div className="flex items-center gap-2 ml-auto sm:ml-0 mt-2 sm:mt-0">
-                {user.role === "admin" && <a href="/admin" className="rounded-lg border border-cyan-400/40 px-3 py-2 text-sm text-cyan-300">Адмін</a>}
-                <button onClick={logout} className="rounded-lg border border-sys-border px-3 py-2 text-sm text-slate-300">Вийти ({user.name})</button>
+                {user.role === "admin" && <a href="/admin" className="rounded-lg border border-cyan-400/40 px-3 py-2 text-sm text-cyan-300 whitespace-nowrap">Адмін</a>}
+                <button onClick={logout} className="rounded-lg border border-sys-border px-3 py-2 text-sm text-slate-300 truncate max-w-[120px]">Вийти</button>
               </div>
             )}
           </div>
