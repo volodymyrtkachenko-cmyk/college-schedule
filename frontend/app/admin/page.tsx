@@ -22,11 +22,19 @@ const resourceConfig: Record<ReferenceResource, {
   hasBulkAction?: boolean;
   affectsSchedule?: boolean;
   searchFields?: (keyof ReferenceRecord)[];
+  searchRelations?: (item: ReferenceRecord, faculties: ReferenceRecord[], teachers: ReferenceRecord[]) => (string | undefined | null)[];
 }> = {
   faculties: { addLabel: "спеціальність", searchFields: ["name", "short_name"] },
-  groups: { addLabel: "групу", needsFaculties: true, needsTeachers: true, hasBulkAction: true, affectsSchedule: true },
+  groups: { 
+    addLabel: "групу", needsFaculties: true, needsTeachers: true, hasBulkAction: true, affectsSchedule: true,
+    searchFields: ["name"],
+    searchRelations: (item, faculties, teachers) => [
+      faculties.find(f => f.id === item.faculty_id)?.name,
+      teachers.find(t => t.id === item.curator_id)?.name,
+    ],
+  },
   teachers: { addLabel: "викладача", affectsSchedule: true, searchFields: ["name", "room"] },
-  subjects: { addLabel: "предмет", affectsSchedule: true },
+  subjects: { addLabel: "предмет", affectsSchedule: true, searchFields: ["name"] },
 };
 
 
@@ -133,28 +141,19 @@ function AdminContent() {
     }
   }
   
-  const searchFields = resourceConfig[resource].searchFields || ["name"];
   const filteredAndSortedItems = items
     .filter(item => {
       const q = searchTerm.toLowerCase();
       
+      const searchFields = resourceConfig[resource].searchFields || ["name"];
       const matchesField = searchFields.some(field => {
         const val = item[field];
         return val && String(val).toLowerCase().includes(q);
       });
-      
       if (matchesField) return true;
 
-      if (resource === "groups") {
-        if (item.faculty_id) {
-           const faculty = faculties.find(f => f.id === item.faculty_id);
-           if (faculty && faculty.name.toLowerCase().includes(q)) return true;
-        }
-        if (item.curator_id) {
-           const teacher = teachers.find(t => t.id === item.curator_id);
-           if (teacher && teacher.name.toLowerCase().includes(q)) return true;
-        }
-      }
+      const rels = resourceConfig[resource].searchRelations?.(item, faculties, teachers) || [];
+      if (rels.some(r => r && r.toLowerCase().includes(q))) return true;
       
       return false;
     })
@@ -226,12 +225,14 @@ function AdminContent() {
              {toast.message}
           </div>
         )}
-        <ConfirmModal 
-           isOpen={itemToDelete !== null} 
-           title={`Видалити запис «${itemToDelete?.name}»?`} 
-           onConfirm={() => itemToDelete && confirmRemove(itemToDelete)} 
-           onCancel={() => setItemToDelete(null)} 
-        />
+        {itemToDelete && (
+          <ConfirmModal 
+             isOpen 
+             title={`Видалити запис «${itemToDelete.name}»?`} 
+             onConfirm={() => confirmRemove(itemToDelete)} 
+             onCancel={() => setItemToDelete(null)} 
+          />
+        )}
       </div>
     </main>
   );

@@ -3,7 +3,6 @@ import { useState, useEffect } from "react";
 import { Lesson, ScheduleResponse } from "../lib/api";
 import { ScheduleDay } from "./ScheduleDay";
 import { motion, AnimatePresence } from "framer-motion";
-  // Wait we don't have this, let me just hardcode it
 
 export function ScheduleWeekGrid({ week, scheduleMode = "student", canEdit = false, onEdit, onCreate, onNoteSave, onNoteDelete }: {
   week: ScheduleResponse[]; scheduleMode?: "student"|"teacher"; canEdit?: boolean; onEdit?: (lesson: Lesson) => void; onCreate?: (date: string) => void;
@@ -31,8 +30,11 @@ export function ScheduleWeekGrid({ week, scheduleMode = "student", canEdit = fal
     setActiveIdx(idx);
   };
 
-  const dayNames = ["Пн", "Вт", "Ср", "Чт", "Пт"];
   const activeDay = week[activeIdx];
+  const getDayName = (dateStr: string) => {
+     const d = new Date(dateStr);
+     return new Intl.DateTimeFormat("uk-UA", { weekday: "short" }).format(d);
+  };
 
   const variants = {
     enter: (dir: number) => ({
@@ -76,7 +78,7 @@ export function ScheduleWeekGrid({ week, scheduleMode = "student", canEdit = fal
                   activeIdx === idx ? 'text-[#0b1120]' : 'text-sys-text-secondary hover:text-sys-text-primary'
                 }`}
               >
-                {dayNames[idx] || dayNames[0]}
+                {getDayName(day.date)}
               </button>
             ))}
             <div 

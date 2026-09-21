@@ -204,10 +204,13 @@ async function authenticatedRequest<T>(path: string, init: RequestInit = {}): Pr
 async function refresh(): Promise<AuthSession> {
     if (!refreshPromise) {
         const token = refreshToken ?? storedRefreshToken();
-        if (token) refreshToken = token;
+        if (!token) {
+            return Promise.reject(new ApiError(401, "Немає токена для оновлення сесії."));
+        }
+        refreshToken = token;
         refreshPromise = rawRequest<AuthSession>("/api/auth/refresh", {
             method: "POST",
-            body: token ? JSON.stringify({refresh_token: token}) : undefined
+            body: JSON.stringify({refresh_token: token})
         })
             .then((session) => {
                 accessToken = session.access_token;
