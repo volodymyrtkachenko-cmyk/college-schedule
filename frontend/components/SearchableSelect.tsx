@@ -32,10 +32,13 @@ export function SearchableSelect({
       <input
         type="text"
         disabled={disabled}
-        placeholder={selected ? selected.name : placeholder}
-        value={open ? query : ""}
+        placeholder={open && selected ? selected.name : placeholder}
+        value={open ? query : (selected ? selected.name : "")}
         onFocus={() => { setOpen(true); setQuery(""); }}
-        onChange={(e) => setQuery(e.target.value)}
+        onChange={(e) => { 
+          if (!open) setOpen(true);
+          setQuery(e.target.value); 
+        }}
         className="w-full rounded-lg border border-sys-border bg-sys-card px-3 py-2.5 text-sys-text-primary outline-none focus:border-sys-accent transition-colors"
       />
       {open && (
