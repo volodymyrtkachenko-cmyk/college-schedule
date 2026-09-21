@@ -31,12 +31,13 @@ export default function HomePage() {
   }, [weekAnchorDate]);
   const { isSetupComplete, completeSetup, resetSetup, mode, toggleMode, teachers, teacherId, setTeacherId, groups, groupId, setGroupId, today, week, loading, error, setToday, setWeek, updateLesson, removeLesson, addLesson } = useSchedule(weekAnchorDate);
   const { user, loading: authLoading, login, logout } = useAuth();
-  const [view, setView] = useState<"today" | "week">("today");
+  const canEdit = user?.role === "admin" || user?.role === "editor";
+  const [viewState, setView] = useState<"today" | "week">("today");
+  const view = canEdit ? "week" : viewState;
   const [isPending, startTransition] = useTransition();
   const [editor, setEditor] = useState<{ lesson?: Lesson; date: string } | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const weekType = view === "week" ? (week[0]?.week_type ?? "both") : (today?.week_type ?? "both");
-  const canEdit = user?.role === "admin" || user?.role === "editor";
   useEffect(() => {
     if (toast) {
       const timer = setTimeout(() => setToast(null), 4000);
@@ -187,11 +188,13 @@ export default function HomePage() {
             <p className="text-sm text-sys-text-secondary">{view === "today" ? "Поточний день" : "Навчальний тиждень"}</p>
             <h2 className="text-xl font-semibold">{view === "today" ? "Сьогодні" : "Усі дні"}</h2>
           </div>
+          {!canEdit && (
           <div className="flex rounded-lg border border-sys-border bg-sys-card p-1 text-sm relative">
             <div className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-sys-accent/10 border border-sys-accent/20 rounded-md shadow-sm transition-all duration-300 ease-out z-0" style={{ left: view === 'today' ? '4px' : 'calc(50% + 2px)' }}></div>
             <button key="today" onClick={() => setView("today")} className={`w-24 relative z-10 rounded-md px-4 py-2 text-sm font-medium transition-colors ${view === 'today' ? 'text-sys-accent' : 'text-sys-text-secondary hover:text-sys-text-primary'}`}>Сьогодні</button>
             <button key="week" onClick={() => setView("week")} className={`w-24 relative z-10 rounded-md px-4 py-2 text-sm font-medium transition-colors ${view === 'week' ? 'text-sys-accent' : 'text-sys-text-secondary hover:text-sys-text-primary'}`}>Тиждень</button>
           </div>
+          )}
         </div>
 
         
@@ -252,7 +255,7 @@ export default function HomePage() {
         )}
       </div>
       {canEdit && editor && <LessonEditor key={editor.lesson?.id ?? editor.date + "-" + (editor.lesson?.lesson_number ?? "new")} initialWeekType={weekType} lesson={editor.lesson} date={editor.date} scheduleMode={mode} defaultGroupId={groupId} defaultTeacherId={teacherId} groups={groups} onClose={() => setEditor(null)} onSave={(payload) => editor.lesson ? edit(editor.lesson, editor.date, payload) : create(payload)} onDelete={editor.lesson ? () => remove(editor.lesson!) : undefined} />}
-      <BottomNav view={view} onViewChange={setView} />
+      {!canEdit && <BottomNav view={view} onViewChange={setView} />}
     </main>
   );
 }
