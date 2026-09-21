@@ -137,10 +137,26 @@ function AdminContent() {
   const filteredAndSortedItems = items
     .filter(item => {
       const q = searchTerm.toLowerCase();
-      return searchFields.some(field => {
+      
+      const matchesField = searchFields.some(field => {
         const val = item[field];
         return val && String(val).toLowerCase().includes(q);
       });
+      
+      if (matchesField) return true;
+
+      if (resource === "groups") {
+        if (item.faculty_id) {
+           const faculty = faculties.find(f => f.id === item.faculty_id);
+           if (faculty && faculty.name.toLowerCase().includes(q)) return true;
+        }
+        if (item.curator_id) {
+           const teacher = teachers.find(t => t.id === item.curator_id);
+           if (teacher && teacher.name.toLowerCase().includes(q)) return true;
+        }
+      }
+      
+      return false;
     })
     .sort((a, b) => a.name.localeCompare(b.name, "uk"));
 
