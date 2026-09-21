@@ -11,6 +11,7 @@ import { LessonEditor } from "../components/LessonEditor";
 import { Lesson, LessonMutation, api } from "../lib/api";
 import { useSchedule } from "../lib/hooks";
 import { useAuth } from "../lib/auth";
+import { useRouter } from "next/navigation";
 import { getMondayOf } from "../lib/date";
 import { WelcomeScreen } from "../components/WelcomeScreen";
 import { motion, AnimatePresence } from "framer-motion";
@@ -31,6 +32,28 @@ export default function HomePage() {
   }, [weekAnchorDate]);
   const { isSetupComplete, completeSetup, resetSetup, mode, toggleMode, teachers, teacherId, setTeacherId, groups, groupId, setGroupId, today, week, loading, error, setToday, setWeek, updateLesson, removeLesson, addLesson } = useSchedule(weekAnchorDate);
   const { user, loading: authLoading, login, logout } = useAuth();
+  
+  // Easter Egg states
+  const router = useRouter();
+  const [clickCount, setClickCount] = useState(0);
+
+  useEffect(() => {
+    if (clickCount > 0) {
+      const timer = setTimeout(() => setClickCount(0), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [clickCount]);
+
+  const handleSecretClick = () => {
+    setClickCount(prev => {
+      if (prev + 1 >= 5) {
+        router.push("/login");
+        return 0;
+      }
+      return prev + 1;
+    });
+  };
+
   const canEdit = user?.role === "admin" || user?.role === "editor";
   const [viewState, setView] = useState<"today" | "week">("today");
   const view = canEdit ? "week" : viewState;
@@ -129,7 +152,7 @@ export default function HomePage() {
             <a href="https://kre.dp.ua/" target="_blank" rel="noopener noreferrer" className="inline-block hover:opacity-80 transition-opacity" title="Головна сторінка закладу">
               <p className="text-xs font-bold uppercase tracking-[0.2em] text-sys-accent">ДФКР</p>
             </a>
-            <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">Розклад занять</h1>
+            <h1 onClick={handleSecretClick} className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl cursor-pointer select-none">Розклад занять</h1>
           </div>
           <div className="flex flex-col sm:flex-row sm:items-center gap-4 w-full md:w-auto overflow-hidden">
             {!canEdit ? (
