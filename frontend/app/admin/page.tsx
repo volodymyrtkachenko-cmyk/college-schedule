@@ -60,32 +60,6 @@ function AdminContent() {
   const [toast, setToast] = useState<{message: string, type: "success" | "error"} | null>(null);
   const [itemToDelete, setItemToDelete] = useState<ReferenceRecord | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [wipeModalOpen, setWipeModalOpen] = useState(false);
-  const [wipePassword, setWipePassword] = useState("");
-  const [wipeBusy, setWipeBusy] = useState(false);
-
-  async function handleWipe() {
-    setWipeBusy(true);
-    try {
-      const session = await api.auth.ensureAuthenticated();
-      await api.schedule.wipe(session.access_token, wipePassword);
-      // clear cache 
-      for (let i = 0; i < window.localStorage.length; i++) {
-         const key = window.localStorage.key(i);
-         if (key && (key.startsWith("schedule:today:") || key.startsWith("schedule:week:"))) {
-             window.localStorage.removeItem(key);
-             i--; 
-         }
-      }
-      setToast({ message: "Увесь розклад успішно видалено!", type: "success" });
-      setWipeModalOpen(false);
-      setWipePassword("");
-    } catch (e) {
-      setToast({ message: e instanceof Error ? e.message : "Помилка очищення", type: "error" });
-    } finally {
-      setWipeBusy(false);
-    }
-  }
 
 
   useEffect(() => {

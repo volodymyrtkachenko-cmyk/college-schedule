@@ -264,30 +264,3 @@ async def bulk_curator_hours(payload: BulkCuratorRequest, db: AsyncSession = Dep
         await db.rollback()
         raise HTTPException(status_code=500, detail=traceback.format_exc())
 
-from pydantic import BaseModel
-from app.config import settings
-from app.models import LessonNote
-
-class WipeRequest(BaseModel):
-    secret: str
-
-@router.post("/wipe")
-async def wipe_all_schedule(
-    payload: WipeRequest,
-    db: AsyncSession = Depends(get_db),
-    user: dict = Depends(require_roles(["admin"]))
-):
-    if not settings.wipe_secret:
-        raise HTTPException(status_code=403, detail="WIPE_SECRET is not configured on the server.")
-    
-    if payload.secret != settings.wipe_secret:
-        raise HTTPException(status_code=403, detail="Невірний пароль для очищення.")
-        
-    try:
-        await db.execute(delete(LessonNote))
-        await db.execute(delete(Schedule))
-        await db.commit()
-        return {"message": "Розклад та нотатки успішно очищено."}
-    except Exception as e:
-        await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
