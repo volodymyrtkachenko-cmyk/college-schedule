@@ -9,8 +9,26 @@ import { ReferenceTable } from "../../components/admin/ReferenceTable";
 import { BulkCuratorsModal } from "../../components/admin/BulkCuratorsModal";
 import { api, ReferenceMutation, ReferenceRecord, ReferenceResource } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
+import { ConfirmModal } from "../../components/admin/ConfirmModal";
+import { ApiError } from "../../lib/api";
+
 
 const resources = Object.keys(referenceLabels) as ReferenceResource[];
+
+const resourceConfig: Record<ReferenceResource, {
+  addLabel: string;
+  needsFaculties?: boolean;
+  needsTeachers?: boolean;
+  hasBulkAction?: boolean;
+  affectsSchedule?: boolean;
+  searchFields?: (keyof ReferenceRecord)[];
+}> = {
+  faculties: { addLabel: "спеціальність", searchFields: ["name", "short_name"] },
+  groups: { addLabel: "групу", needsFaculties: true, needsTeachers: true, hasBulkAction: true, affectsSchedule: true },
+  teachers: { addLabel: "викладача", affectsSchedule: true, searchFields: ["name", "room"] },
+  subjects: { addLabel: "предмет", affectsSchedule: true },
+};
+
 
 function SearchIcon() {
   return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /><path d="M21 21l-6 -6" /></svg>;
@@ -31,7 +49,8 @@ function AdminContent() {
   const [editor, setEditor] = useState<ReferenceRecord | null | undefined>(undefined);
   const [bulkOpen, setBulkOpen] = useState(false);
   
-  const [message, setMessage] = useState<string | null>(null);
+  const [toast, setToast] = useState<{message: string, type: "success" | "error"} | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<ReferenceRecord | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
@@ -45,8 +64,8 @@ function AdminContent() {
     api.auth.ensureAuthenticated()
       .then((session) => Promise.all([
         api.references.list(resource, session.access_token),
-        resource === "groups" ? api.directory.faculties() : Promise.resolve([]),
-        resource === "groups" ? api.directory.teachers() : Promise.resolve([]),
+        resourceConfig[resource].needsFaculties ? api.directory.faculties() : Promise.resolve([]),
+        resourceConfig[resource].needsTeachers ? api.directory.teachers() : Promise.resolve([]),
       ]))
       .then(([nextItems, nextFaculties, nextTeachers]) => {
         if (!cancelled) {
@@ -64,11 +83,11 @@ function AdminContent() {
 
   // Toast auto-hide
   useEffect(() => {
-    if (message) {
-      const timer = setTimeout(() => setMessage(null), 4000);
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 4000);
       return () => clearTimeout(timer);
     }
-  }, [message]);
+  }, [toast]);
 
   if (authLoading) return <main className="min-h-screen bg-sys-bg p-8 text-sys-text-secondary">Перевірка доступу…</main>;
   if (!user || user.role !== "admin") return <main className="flex min-h-screen items-center justify-center bg-sys-bg p-6 text-center text-sys-text-primary"><div><h1 className="text-2xl font-bold">Доступ заборонено</h1><p className="mt-2 text-sys-text-secondary">Розділ доступний лише адміністраторам.</p><a href="/" className="mt-5 inline-block text-sys-accent hover:underline">Повернутися до розкладу</a></div></main>;
@@ -79,33 +98,51 @@ function AdminContent() {
       ? await api.references.update(resource, editor.id, payload, session.access_token)
       : await api.references.create(resource, payload, session.access_token);
     setItems((current) => editor ? current.map((item) => item.id === saved.id ? saved : item) : [...current, saved]);
-    if (resource === "groups") window.sessionStorage.removeItem("schedule:groups");
+    if (resourceConfig[resource].affectsSchedule) {
+      // Wiping related schedule caches to force a refetch on main page
+      window.localStorage.removeItem("schedule:groups");
+      for (let i = 0; i < window.localStorage.length; i++) {
+         const key = window.localStorage.key(i);
+         if (key && (key.startsWith("schedule:today:") || key.startsWith("schedule:week:"))) {
+             window.localStorage.removeItem(key);
+             i--; // adjust index since we just removed an item
+         }
+      }
+    }
     setEditor(undefined); 
-    setMessage(editor ? "Запис оновлено." : "Запис створено.");
+    setToast({ message: editor ? "Запис оновлено." : "Запис створено.", type: "success" });
   }
 
-  async function remove(item: ReferenceRecord) {
-    if (!window.confirm(`Видалити запис «${item.name}»?`)) return;
+  async function confirmRemove(item: ReferenceRecord) {
     try {
       const session = await api.auth.ensureAuthenticated();
       await api.references.remove(resource, item.id, session.access_token);
       setItems((current) => current.filter((value) => value.id !== item.id)); 
-      setMessage("Запис успішно видалено.");
+      setToast({ message: "Запис успішно видалено.", type: "success" });
     }
     catch (e) {
-      if (e instanceof Error) {
-         if (e.message.toLowerCase().includes("conflict") || e.message.toLowerCase().includes("used") || e.message.includes("конфлікт")) {
-            alert("Помилка видалення: цей запис вже використовується в розкладі або інших даних!");
-         } else {
-            alert(e.message);
-         }
-      } else alert("Не вдалося видалити запис.");
+      if (e instanceof ApiError && e.status === 409) {
+         setToast({ message: "Помилка: запис вже використовується в розкладі!", type: "error" });
+      } else if (e instanceof Error) {
+         setToast({ message: e.message, type: "error" });
+      } else {
+         setToast({ message: "Не вдалося видалити запис.", type: "error" });
+      }
+    } finally {
+      setItemToDelete(null);
     }
   }
   
+  const searchFields = resourceConfig[resource].searchFields || ["name"];
   const filteredAndSortedItems = items
-    .filter(item => item.name.toLowerCase().includes(searchTerm.toLowerCase()))
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .filter(item => {
+      const q = searchTerm.toLowerCase();
+      return searchFields.some(field => {
+        const val = item[field];
+        return val && String(val).toLowerCase().includes(q);
+      });
+    })
+    .sort((a, b) => a.name.localeCompare(b.name, "uk"));
 
   return (
     <main className="min-h-screen bg-sys-bg pb-10 text-sys-text-primary">
@@ -140,13 +177,13 @@ function AdminContent() {
            </div>
            
            <div className="flex gap-2">
-             {resource === "groups" && (
+             {resourceConfig[resource].hasBulkAction && (
                 <button onClick={() => setBulkOpen(true)} className="shrink-0 rounded-[6px] border border-sys-accent/50 text-sys-accent px-4 py-2 text-sm font-semibold hover:bg-sys-accent/10 transition-colors">
                   Виховні години
                 </button>
              )}
              <button onClick={() => setEditor(null)} className="shrink-0 rounded-[6px] bg-sys-accent px-4 py-2 text-sm font-semibold text-[#0b1120] hover:opacity-90 transition-opacity">
-                + Додати {{ faculties: "спеціальність", groups: "групу", teachers: "викладача", subjects: "предмет" }[resource]}
+                + Додати {resourceConfig[resource].addLabel}
              </button>
            </div>
         </div>
@@ -155,17 +192,30 @@ function AdminContent() {
           <ReferenceForm resource={resource} item={editor ?? undefined} faculties={faculties} teachers={teachers} onCancel={() => setEditor(undefined)} onSubmit={save} />
         )}
         
-        <ReferenceTable resource={resource} items={filteredAndSortedItems} faculties={faculties} teachers={teachers} loading={loading} error={error} onEdit={setEditor} onDelete={remove} />
+        <ReferenceTable resource={resource} items={filteredAndSortedItems} faculties={faculties} teachers={teachers} loading={loading} error={error} onEdit={setEditor} onDelete={setItemToDelete} />
         
         {/* Toast */}
-        {bulkOpen && <BulkCuratorsModal groups={items} onClose={() => setBulkOpen(false)} onSuccess={(msg) => { setMessage(msg); }} />}
+        {bulkOpen && <BulkCuratorsModal groups={items} onClose={() => setBulkOpen(false)} onSuccess={(msg) => { setToast({ message: msg, type: "success" }); }} />}
         
-        {message && (
-          <div className="fixed bottom-6 right-6 z-50 flex animate-in slide-in-from-bottom-5 items-center gap-2 rounded-[8px] border-[0.5px] border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300 shadow-xl">
-             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l5 5l10 -10"/></svg>
-             {message}
+        {toast && (
+          <div className={`fixed bottom-6 right-6 z-50 flex animate-in slide-in-from-bottom-5 items-center gap-2 rounded-[8px] border-[0.5px] px-4 py-3 text-sm shadow-xl ${
+            toast.type === "success" 
+            ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" 
+            : "border-rose-500/30 bg-rose-500/10 text-rose-300"
+          }`}>
+             {toast.type === "success" 
+               ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l5 5l10 -10"/></svg>
+               : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+             }
+             {toast.message}
           </div>
         )}
+        <ConfirmModal 
+           isOpen={itemToDelete !== null} 
+           title={`Видалити запис «${itemToDelete?.name}»?`} 
+           onConfirm={() => itemToDelete && confirmRemove(itemToDelete)} 
+           onCancel={() => setItemToDelete(null)} 
+        />
       </div>
     </main>
   );
