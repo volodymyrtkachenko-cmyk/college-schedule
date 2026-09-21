@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     )
     backend_cors_origins: str = "*"
     semester_start: str = "2025-09-01"
+    wipe_secret: str | None = None
     # Stable only for local development; deployments must override this.
     jwt_secret_key: str = DEFAULT_DEV_JWT_SECRET
     jwt_algorithm: str = "HS256"
