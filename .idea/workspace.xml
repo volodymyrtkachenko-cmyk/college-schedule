@@ -151,23 +151,7 @@
       <workItem from="1789932717410" duration="3800000" />
       <workItem from="1790007699866" duration="379000" />
       <workItem from="1790008091798" duration="46000" />
-      <workItem from="1790008150287" duration="6387000" />
-    </task>
-    <task id="LOCAL-00015" summary="1">
-      <option name="closed" value="true" />
-      <created>1789557172364</created>
-      <option name="number" value="00015" />
-      <option name="presentableId" value="LOCAL-00015" />
-      <option name="project" value="LOCAL" />
-      <updated>1789557172364</updated>
-    </task>
-    <task id="LOCAL-00016" summary="1">
-      <option name="closed" value="true" />
-      <created>1789581402137</created>
-      <option name="number" value="00016" />
-      <option name="presentableId" value="LOCAL-00016" />
-      <option name="project" value="LOCAL" />
-      <updated>1789581402137</updated>
+      <workItem from="1790008150287" duration="6702000" />
     </task>
     <task id="LOCAL-00017" summary="1">
       <option name="closed" value="true" />
@@ -545,7 +529,23 @@
       <option name="project" value="LOCAL" />
       <updated>1790014032461</updated>
     </task>
-    <option name="localTasksCounter" value="64" />
+    <task id="LOCAL-00064" summary="Покращення адмінки">
+      <option name="closed" value="true" />
+      <created>1790014658468</created>
+      <option name="number" value="00064" />
+      <option name="presentableId" value="LOCAL-00064" />
+      <option name="project" value="LOCAL" />
+      <updated>1790014658468</updated>
+    </task>
+    <task id="LOCAL-00065" summary="Покращення адмінки">
+      <option name="closed" value="true" />
+      <created>1790014698053</created>
+      <option name="number" value="00065" />
+      <option name="presentableId" value="LOCAL-00065" />
+      <option name="project" value="LOCAL" />
+      <updated>1790014698053</updated>
+    </task>
+    <option name="localTasksCounter" value="66" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
