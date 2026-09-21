@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import { api, DirectoryItem, ScheduleResponse } from "./api";
 
 
+const memoryCache = new Map<string, { time: number; today: ScheduleResponse; week: ScheduleResponse[] }>();
+const CACHE_TTL = 1000 * 60 * 5; // 5 minutes
+
 export function useOnlineStatus() {
   const [online, setOnline] = useState(true);
   useEffect(() => {
@@ -115,6 +118,15 @@ export function useSchedule(weekAnchorDate: Date) {
     
     const targetGroupId = mode === "student" ? (groupId as number) : undefined;
     const targetTeacherId = mode === "teacher" ? (teacherId as number) : undefined;
+    const memKey = `${todayKey}|${weekKey}`;
+
+    const cached = memoryCache.get(memKey);
+    if (cached && Date.now() - cached.time < CACHE_TTL) {
+       setToday(cached.today);
+       setWeek(cached.week);
+       setLoading(false);
+       return;
+    }
 
     Promise.all([api.today(targetGroupId, targetTeacherId), api.week(targetGroupId, targetTeacherId, weekAnchorDate)])
       .then(([todayResponse, weekResponse]) => {
@@ -122,6 +134,7 @@ export function useSchedule(weekAnchorDate: Date) {
         setWeek(weekResponse);
         window.localStorage.setItem(todayKey, JSON.stringify(todayResponse));
         window.localStorage.setItem(weekKey, JSON.stringify(weekResponse));
+        memoryCache.set(memKey, { time: Date.now(), today: todayResponse, week: weekResponse });
       })
       .catch(() => {
         if (!hasCachedSchedule) setError("Не вдалося завантажити розклад. Перевірте з'єднання.");
