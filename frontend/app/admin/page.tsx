@@ -68,13 +68,7 @@ function AdminContent() {
     setWipeBusy(true);
     try {
       const session = await api.auth.ensureAuthenticated();
-      const res = await fetch("/api/schedule/wipe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session.access_token}` },
-        body: JSON.stringify({ secret: wipePassword })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Не вдалося очистити розклад");
+      await api.schedule.wipe(session.access_token, wipePassword);
       // clear cache 
       for (let i = 0; i < window.localStorage.length; i++) {
          const key = window.localStorage.key(i);

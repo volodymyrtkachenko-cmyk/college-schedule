@@ -98,7 +98,7 @@ export interface LessonMutation {
 // NEXT_PUBLIC_* values are embedded by Next.js at build time. Keep the
 // browser-facing local Docker default explicit so an omitted build arg never
 // turns API requests into relative frontend URLs.
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_URL = "https://college-schedule-dpyg.onrender.com";
 let accessToken: string | null = null;
 let refreshToken: string | null = null;
 let currentSession: AuthSession | null = null;
