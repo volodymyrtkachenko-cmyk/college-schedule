@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, FormEvent } from "react";
 import { ReferenceMutation, ReferenceRecord, ReferenceResource } from "../../lib/api";
 
 type Props = {
