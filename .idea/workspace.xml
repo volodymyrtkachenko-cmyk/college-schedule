@@ -4,7 +4,7 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="508baa33-f415-4e56-bdba-95be05473423" name="Changes" comment="Додавання розкладу знаменника">
+    <list default="true" id="508baa33-f415-4e56-bdba-95be05473423" name="Changes" comment="Покращення адмінки">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -33,23 +33,23 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.00497970217287" />
-      <entry key="MS500" value="1.4333461980726367" />
-      <entry key="S2" value="3.0791163452385475" />
-      <entry key="S5" value="4.41846237004814" />
-      <entry key="S10" value="5.113729154675466" />
-      <entry key="S30" value="5.680201106808826" />
-      <entry key="S60" value="5.945086414070128" />
-      <entry key="M2" value="8.308651796189842" />
-      <entry key="M5" value="21.304670478562695" />
-      <entry key="M10" value="34.49237111066541" />
-      <entry key="M15" value="41.050697087009816" />
-      <entry key="M30" value="50.48028314027908" />
-      <entry key="H1" value="87.57205553153919" />
-      <entry key="H2" value="259.98523168355985" />
-      <entry key="H4" value="717.5016849190949" />
-      <entry key="D1" value="4326.094757706014" />
-      <entry key="W1" value="6709.903420860137" />
+      <entry key="MS100" value="1.921721011653596" />
+      <entry key="MS500" value="3.977612464926068" />
+      <entry key="S2" value="11.652131039450184" />
+      <entry key="S5" value="24.13284837061286" />
+      <entry key="S10" value="35.11517477025497" />
+      <entry key="S30" value="47.41614134727852" />
+      <entry key="S60" value="51.48893177542691" />
+      <entry key="M2" value="54.08833689692664" />
+      <entry key="M5" value="57.13760251292665" />
+      <entry key="M10" value="61.508649982877735" />
+      <entry key="M15" value="79.01905350563565" />
+      <entry key="M30" value="226.96601236069264" />
+      <entry key="H1" value="580.6543781522678" />
+      <entry key="H2" value="1003.5591948298276" />
+      <entry key="H4" value="1432.5198052984194" />
+      <entry key="D1" value="4864.841921760876" />
+      <entry key="W1" value="8420.045589974396" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -71,23 +71,23 @@
       <entry key="W1" value="0.0" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="0.9843314427105028" />
-      <entry key="MS500" value="1.4279695490942532" />
-      <entry key="S2" value="3.0765075715662777" />
-      <entry key="S5" value="4.417005549811504" />
-      <entry key="S10" value="5.112894108098518" />
-      <entry key="S30" value="5.679893880316499" />
-      <entry key="S60" value="5.944923185184343" />
-      <entry key="M2" value="8.308513727784625" />
-      <entry key="M5" value="21.30449441206481" />
-      <entry key="M10" value="34.492222890284154" />
-      <entry key="M15" value="41.05057846483037" />
-      <entry key="M30" value="50.48020996376218" />
-      <entry key="H1" value="87.5719968857142" />
-      <entry key="H2" value="259.98515442121004" />
-      <entry key="H4" value="717.5015800818103" />
-      <entry key="D1" value="4326.094645170867" />
-      <entry key="W1" value="6709.90339558612" />
+      <entry key="MS100" value="1.8463551999682906" />
+      <entry key="MS500" value="3.944713275740424" />
+      <entry key="S2" value="11.628281261842858" />
+      <entry key="S5" value="24.113136085557493" />
+      <entry key="S10" value="35.10078945312828" />
+      <entry key="S30" value="47.409642287930296" />
+      <entry key="S60" value="51.48539939096777" />
+      <entry key="M2" value="54.08648255607115" />
+      <entry key="M5" value="57.13682222730998" />
+      <entry key="M10" value="61.50823129874186" />
+      <entry key="M15" value="79.01869625872186" />
+      <entry key="M30" value="226.96551233818494" />
+      <entry key="H1" value="580.6537546099804" />
+      <entry key="H2" value="1003.558665390661" />
+      <entry key="H4" value="1432.5194412276162" />
+      <entry key="D1" value="4864.841765305439" />
+      <entry key="W1" value="8420.045553896498" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -99,28 +99,28 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;KEY_CHAT_IN_TOOLWINDOW&quot;: &quot;false&quot;,
-    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
-    &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
-    &quot;com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/Users/volodimir/PycharmProjects/college-schedule/backend&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;python.packages.toolwindow.project.migrated.to.right.top.v2&quot;: &quot;true&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;ml.llm.AcpAgentsConfigurable&quot;,
-    &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;,
-    &quot;ts.external.directory.path&quot;: &quot;/Users/volodimir/PycharmProjects/college-schedule/frontend/node_modules/typescript/lib&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "KEY_CHAT_IN_TOOLWINDOW": "false",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.MCP Project settings loaded": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "codeWithMe.voiceChat.enabledByDefault": "false",
+    "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
+    "git-widget-placeholder": "main",
+    "junie.onboarding.icon.badge.shown": "true",
+    "last_opened_file_path": "/Users/volodimir/PycharmProjects/college-schedule/backend",
+    "node.js.detected.package.eslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "python.packages.toolwindow.project.migrated.to.right.top.v2": "true",
+    "settings.editor.selected.configurable": "ml.llm.AcpAgentsConfigurable",
+    "to.speed.mode.migration.done": "true",
+    "ts.external.directory.path": "/Users/volodimir/PycharmProjects/college-schedule/frontend/node_modules/typescript/lib"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/backend" />
@@ -146,119 +146,14 @@
       <workItem from="1789479796635" duration="1639000" />
       <workItem from="1789493822320" duration="11611000" />
       <workItem from="1789534531255" duration="23252000" />
-      <workItem from="1789581181856" duration="13453000" />
-    </task>
-    <task id="LOCAL-00001" summary="НА всякий">
-      <option name="closed" value="true" />
-      <created>1789478943935</created>
-      <option name="number" value="00001" />
-      <option name="presentableId" value="LOCAL-00001" />
-      <option name="project" value="LOCAL" />
-      <updated>1789478943936</updated>
-    </task>
-    <task id="LOCAL-00002" summary="НА всякий">
-      <option name="closed" value="true" />
-      <created>1789549920711</created>
-      <option name="number" value="00002" />
-      <option name="presentableId" value="LOCAL-00002" />
-      <option name="project" value="LOCAL" />
-      <updated>1789549920711</updated>
-    </task>
-    <task id="LOCAL-00003" summary="1">
-      <option name="closed" value="true" />
-      <created>1789550930426</created>
-      <option name="number" value="00003" />
-      <option name="presentableId" value="LOCAL-00003" />
-      <option name="project" value="LOCAL" />
-      <updated>1789550930426</updated>
-    </task>
-    <task id="LOCAL-00004" summary="1">
-      <option name="closed" value="true" />
-      <created>1789551037024</created>
-      <option name="number" value="00004" />
-      <option name="presentableId" value="LOCAL-00004" />
-      <option name="project" value="LOCAL" />
-      <updated>1789551037024</updated>
-    </task>
-    <task id="LOCAL-00005" summary="1">
-      <option name="closed" value="true" />
-      <created>1789553904424</created>
-      <option name="number" value="00005" />
-      <option name="presentableId" value="LOCAL-00005" />
-      <option name="project" value="LOCAL" />
-      <updated>1789553904424</updated>
-    </task>
-    <task id="LOCAL-00006" summary="1">
-      <option name="closed" value="true" />
-      <created>1789554121072</created>
-      <option name="number" value="00006" />
-      <option name="presentableId" value="LOCAL-00006" />
-      <option name="project" value="LOCAL" />
-      <updated>1789554121072</updated>
-    </task>
-    <task id="LOCAL-00007" summary="1">
-      <option name="closed" value="true" />
-      <created>1789554409204</created>
-      <option name="number" value="00007" />
-      <option name="presentableId" value="LOCAL-00007" />
-      <option name="project" value="LOCAL" />
-      <updated>1789554409204</updated>
-    </task>
-    <task id="LOCAL-00008" summary="1">
-      <option name="closed" value="true" />
-      <created>1789554775437</created>
-      <option name="number" value="00008" />
-      <option name="presentableId" value="LOCAL-00008" />
-      <option name="project" value="LOCAL" />
-      <updated>1789554775437</updated>
-    </task>
-    <task id="LOCAL-00009" summary="1">
-      <option name="closed" value="true" />
-      <created>1789555332449</created>
-      <option name="number" value="00009" />
-      <option name="presentableId" value="LOCAL-00009" />
-      <option name="project" value="LOCAL" />
-      <updated>1789555332449</updated>
-    </task>
-    <task id="LOCAL-00010" summary="1">
-      <option name="closed" value="true" />
-      <created>1789555967638</created>
-      <option name="number" value="00010" />
-      <option name="presentableId" value="LOCAL-00010" />
-      <option name="project" value="LOCAL" />
-      <updated>1789555967638</updated>
-    </task>
-    <task id="LOCAL-00011" summary="1">
-      <option name="closed" value="true" />
-      <created>1789556210635</created>
-      <option name="number" value="00011" />
-      <option name="presentableId" value="LOCAL-00011" />
-      <option name="project" value="LOCAL" />
-      <updated>1789556210635</updated>
-    </task>
-    <task id="LOCAL-00012" summary="1">
-      <option name="closed" value="true" />
-      <created>1789556376228</created>
-      <option name="number" value="00012" />
-      <option name="presentableId" value="LOCAL-00012" />
-      <option name="project" value="LOCAL" />
-      <updated>1789556376228</updated>
-    </task>
-    <task id="LOCAL-00013" summary="1">
-      <option name="closed" value="true" />
-      <created>1789556944813</created>
-      <option name="number" value="00013" />
-      <option name="presentableId" value="LOCAL-00013" />
-      <option name="project" value="LOCAL" />
-      <updated>1789556944813</updated>
-    </task>
-    <task id="LOCAL-00014" summary="1">
-      <option name="closed" value="true" />
-      <created>1789557030811</created>
-      <option name="number" value="00014" />
-      <option name="presentableId" value="LOCAL-00014" />
-      <option name="project" value="LOCAL" />
-      <updated>1789557030811</updated>
+      <workItem from="1789581181856" duration="20262000" />
+      <workItem from="1789654638510" duration="12093000" />
+      <workItem from="1789738583579" duration="1678000" />
+      <workItem from="1789901344434" duration="1868000" />
+      <workItem from="1789932717410" duration="3800000" />
+      <workItem from="1790007699866" duration="379000" />
+      <workItem from="1790008091798" duration="46000" />
+      <workItem from="1790008150287" duration="5939000" />
     </task>
     <task id="LOCAL-00015" summary="1">
       <option name="closed" value="true" />
@@ -460,7 +355,199 @@
       <option name="project" value="LOCAL" />
       <updated>1789641170095</updated>
     </task>
-    <option name="localTasksCounter" value="40" />
+    <task id="LOCAL-00040" summary="Додавання розкладу знаменника">
+      <option name="closed" value="true" />
+      <created>1789641333464</created>
+      <option name="number" value="00040" />
+      <option name="presentableId" value="LOCAL-00040" />
+      <option name="project" value="LOCAL" />
+      <updated>1789641333464</updated>
+    </task>
+    <task id="LOCAL-00041" summary="Додавання розкладу знаменника">
+      <option name="closed" value="true" />
+      <created>1789641436035</created>
+      <option name="number" value="00041" />
+      <option name="presentableId" value="LOCAL-00041" />
+      <option name="project" value="LOCAL" />
+      <updated>1789641436035</updated>
+    </task>
+    <task id="LOCAL-00042" summary="Виправлення видалення">
+      <option name="closed" value="true" />
+      <created>1789642321791</created>
+      <option name="number" value="00042" />
+      <option name="presentableId" value="LOCAL-00042" />
+      <option name="project" value="LOCAL" />
+      <updated>1789642321791</updated>
+    </task>
+    <task id="LOCAL-00043" summary="Онлайн">
+      <option name="closed" value="true" />
+      <created>1789642987151</created>
+      <option name="number" value="00043" />
+      <option name="presentableId" value="LOCAL-00043" />
+      <option name="project" value="LOCAL" />
+      <updated>1789642987151</updated>
+    </task>
+    <task id="LOCAL-00044" summary="Онлайн">
+      <option name="closed" value="true" />
+      <created>1789643190410</created>
+      <option name="number" value="00044" />
+      <option name="presentableId" value="LOCAL-00044" />
+      <option name="project" value="LOCAL" />
+      <updated>1789643190410</updated>
+    </task>
+    <task id="LOCAL-00045" summary="Розширенн онлайн режиму">
+      <option name="closed" value="true" />
+      <created>1789709031398</created>
+      <option name="number" value="00045" />
+      <option name="presentableId" value="LOCAL-00045" />
+      <option name="project" value="LOCAL" />
+      <updated>1789709031398</updated>
+    </task>
+    <task id="LOCAL-00046" summary="Розширенн офлайн режиму">
+      <option name="closed" value="true" />
+      <created>1789709300445</created>
+      <option name="number" value="00046" />
+      <option name="presentableId" value="LOCAL-00046" />
+      <option name="project" value="LOCAL" />
+      <updated>1789709300445</updated>
+    </task>
+    <task id="LOCAL-00047" summary="Прізвище І.П.">
+      <option name="closed" value="true" />
+      <created>1789738851464</created>
+      <option name="number" value="00047" />
+      <option name="presentableId" value="LOCAL-00047" />
+      <option name="project" value="LOCAL" />
+      <updated>1789738851464</updated>
+    </task>
+    <task id="LOCAL-00048" summary="Прізвище І.П.">
+      <option name="closed" value="true" />
+      <created>1789739227738</created>
+      <option name="number" value="00048" />
+      <option name="presentableId" value="LOCAL-00048" />
+      <option name="project" value="LOCAL" />
+      <updated>1789739227738</updated>
+    </task>
+    <task id="LOCAL-00049" summary="Додавання розкладу">
+      <option name="closed" value="true" />
+      <created>1789901668268</created>
+      <option name="number" value="00049" />
+      <option name="presentableId" value="LOCAL-00049" />
+      <option name="project" value="LOCAL" />
+      <updated>1789901668268</updated>
+    </task>
+    <task id="LOCAL-00050" summary="Додавання розкладу">
+      <option name="closed" value="true" />
+      <created>1789901862448</created>
+      <option name="number" value="00050" />
+      <option name="presentableId" value="LOCAL-00050" />
+      <option name="project" value="LOCAL" />
+      <updated>1789901862448</updated>
+    </task>
+    <task id="LOCAL-00051" summary="Додавання розкладу">
+      <option name="closed" value="true" />
+      <created>1789902008181</created>
+      <option name="number" value="00051" />
+      <option name="presentableId" value="LOCAL-00051" />
+      <option name="project" value="LOCAL" />
+      <updated>1789902008181</updated>
+    </task>
+    <task id="LOCAL-00052" summary="Зміна відображення розкладу">
+      <option name="closed" value="true" />
+      <created>1789902381964</created>
+      <option name="number" value="00052" />
+      <option name="presentableId" value="LOCAL-00052" />
+      <option name="project" value="LOCAL" />
+      <updated>1789902381964</updated>
+    </task>
+    <task id="LOCAL-00053" summary="Зміна відображення розкладу">
+      <option name="closed" value="true" />
+      <created>1789902647264</created>
+      <option name="number" value="00053" />
+      <option name="presentableId" value="LOCAL-00053" />
+      <option name="project" value="LOCAL" />
+      <updated>1789902647264</updated>
+    </task>
+    <task id="LOCAL-00054" summary="Зміна відображення розкладу">
+      <option name="closed" value="true" />
+      <created>1789903035203</created>
+      <option name="number" value="00054" />
+      <option name="presentableId" value="LOCAL-00054" />
+      <option name="project" value="LOCAL" />
+      <updated>1789903035203</updated>
+    </task>
+    <task id="LOCAL-00055" summary="Вибір групи/викладача, якщо перший захід на сайт">
+      <option name="closed" value="true" />
+      <created>1789933150315</created>
+      <option name="number" value="00055" />
+      <option name="presentableId" value="LOCAL-00055" />
+      <option name="project" value="LOCAL" />
+      <updated>1789933150316</updated>
+    </task>
+    <task id="LOCAL-00056" summary="Вибір групи/викладача, якщо перший захід на сайт">
+      <option name="closed" value="true" />
+      <created>1789933416280</created>
+      <option name="number" value="00056" />
+      <option name="presentableId" value="LOCAL-00056" />
+      <option name="project" value="LOCAL" />
+      <updated>1789933416280</updated>
+    </task>
+    <task id="LOCAL-00057" summary="Вибір групи/викладача, якщо перший захід на сайт">
+      <option name="closed" value="true" />
+      <created>1789933905716</created>
+      <option name="number" value="00057" />
+      <option name="presentableId" value="LOCAL-00057" />
+      <option name="project" value="LOCAL" />
+      <updated>1789933905716</updated>
+    </task>
+    <task id="LOCAL-00058" summary="Вигляд позкладу для телефонів">
+      <option name="closed" value="true" />
+      <created>1790008361521</created>
+      <option name="number" value="00058" />
+      <option name="presentableId" value="LOCAL-00058" />
+      <option name="project" value="LOCAL" />
+      <updated>1790008361521</updated>
+    </task>
+    <task id="LOCAL-00059" summary="Вигляд позкладу для телефонів">
+      <option name="closed" value="true" />
+      <created>1790008676396</created>
+      <option name="number" value="00059" />
+      <option name="presentableId" value="LOCAL-00059" />
+      <option name="project" value="LOCAL" />
+      <updated>1790008676396</updated>
+    </task>
+    <task id="LOCAL-00060" summary="Покращення адмінки">
+      <option name="closed" value="true" />
+      <created>1790012656893</created>
+      <option name="number" value="00060" />
+      <option name="presentableId" value="LOCAL-00060" />
+      <option name="project" value="LOCAL" />
+      <updated>1790012656893</updated>
+    </task>
+    <task id="LOCAL-00061" summary="Покращення адмінки">
+      <option name="closed" value="true" />
+      <created>1790012781426</created>
+      <option name="number" value="00061" />
+      <option name="presentableId" value="LOCAL-00061" />
+      <option name="project" value="LOCAL" />
+      <updated>1790012781426</updated>
+    </task>
+    <task id="LOCAL-00062" summary="Покращення адмінки">
+      <option name="closed" value="true" />
+      <created>1790013172052</created>
+      <option name="number" value="00062" />
+      <option name="presentableId" value="LOCAL-00062" />
+      <option name="project" value="LOCAL" />
+      <updated>1790013172052</updated>
+    </task>
+    <task id="LOCAL-00063" summary="Покращення адмінки">
+      <option name="closed" value="true" />
+      <created>1790014032461</created>
+      <option name="number" value="00063" />
+      <option name="presentableId" value="LOCAL-00063" />
+      <option name="project" value="LOCAL" />
+      <updated>1790014032461</updated>
+    </task>
+    <option name="localTasksCounter" value="64" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -491,7 +578,17 @@
     <MESSAGE value="Генерація виховних годин v3" />
     <MESSAGE value="Прибирання значка молнії" />
     <MESSAGE value="Додавання розкладу знаменника" />
-    <option name="LAST_COMMIT_MESSAGE" value="Додавання розкладу знаменника" />
+    <MESSAGE value="Виправлення видалення" />
+    <MESSAGE value="Онлайн" />
+    <MESSAGE value="Розширенн онлайн режиму" />
+    <MESSAGE value="Розширенн офлайн режиму" />
+    <MESSAGE value="Прізвище І.П." />
+    <MESSAGE value="Додавання розкладу" />
+    <MESSAGE value="Зміна відображення розкладу" />
+    <MESSAGE value="Вибір групи/викладача, якщо перший захід на сайт" />
+    <MESSAGE value="Вигляд позкладу для телефонів" />
+    <MESSAGE value="Покращення адмінки" />
+    <option name="LAST_COMMIT_MESSAGE" value="Покращення адмінки" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import { api, DirectoryItem, Lesson, LessonMutation, WeekType } from "../lib/api";
 
 import { ReferenceRecord } from "../lib/api";
+import { SearchableSelect } from "./SearchableSelect";
 
 type Props = {
   lesson?: Lesson;
@@ -127,10 +128,13 @@ export function LessonEditor({ lesson, date, scheduleMode, defaultGroupId, defau
         </div>
         <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2">
           <label className="sm:col-span-2">Предмет
-            <select required disabled={loadingDirectories} value={form.subject_id ?? ""} onChange={(e) => update("subject_id", Number(e.target.value) || undefined)}>
-              <option value="">{loadingDirectories ? "Завантаження…" : "Оберіть предмет"}</option>
-              {subjects.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-            </select>
+            <SearchableSelect
+              options={subjects}
+              value={form.subject_id ?? null}
+              onChange={(id) => update("subject_id", id ?? undefined)}
+              disabled={loadingDirectories}
+              placeholder={loadingDirectories ? "Завантаження…" : "Пошук предмета..."}
+            />
           </label>
           <label>День
             <select value={form.day_of_week ?? dayFromDate(date)} onChange={(e) => update("day_of_week", Number(e.target.value))}>
@@ -147,23 +151,31 @@ export function LessonEditor({ lesson, date, scheduleMode, defaultGroupId, defau
           <label>Тиждень<select value={form.week_type} onChange={(e) => update("week_type", e.target.value as WeekType)}><option value="both">Щотижня</option><option value="numerator">Чисельник</option><option value="denominator">Знаменник</option></select></label>
           {scheduleMode === "teacher" && (
             <label>Група
-              <select required value={form.group_id || ""} onChange={(e) => update("group_id", Number(e.target.value))}>
-                <option value="">Оберіть групу</option>
-                {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-              </select>
+              <SearchableSelect
+                options={groups}
+                value={form.group_id || null}
+                onChange={(id) => update("group_id", id ?? 0)}
+                placeholder="Пошук групи..."
+              />
             </label>
           )}
           <label>Викладач
-            <select disabled={loadingDirectories} value={form.teacher_id ?? ""} onChange={(e) => update("teacher_id", Number(e.target.value) || null)}>
-              <option value="">Без викладача</option>
-              {teachers.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-            </select>
+            <SearchableSelect
+              options={teachers}
+              value={form.teacher_id}
+              onChange={(id) => update("teacher_id", id)}
+              disabled={loadingDirectories}
+              placeholder="Пошук викладача..."
+            />
           </label>
           <label>Другий викладач (опційно)
-            <select disabled={loadingDirectories} value={form.second_teacher_id ?? ""} onChange={(e) => update("second_teacher_id", Number(e.target.value) || null)}>
-              <option value="">Немає</option>
-              {teachers.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-            </select>
+            <SearchableSelect
+              options={teachers}
+              value={form.second_teacher_id}
+              onChange={(id) => update("second_teacher_id", id)}
+              disabled={loadingDirectories}
+              placeholder="Немає"
+            />
           </label>
           {error && <p role="alert" className="sm:col-span-2 text-sm text-rose-300">{error}</p>}
           <div className="flex gap-2 sm:col-span-2">
