@@ -82,8 +82,8 @@ export function ScheduleWeekGrid({ week, scheduleMode = "student", canEdit = fal
             <div 
               className="absolute top-1 bottom-1 bg-sys-accent rounded-lg transition-all duration-300 ease-out z-0 shadow-sm"
               style={{ 
-                width: `calc(${100 / week.length}% - 1.6px)`, 
-                left: `calc(${(100 / week.length) * activeIdx}% + 4px)` 
+                width: week.length > 0 ? `calc((100% - 8px) / ${week.length})` : '0px', 
+                left: week.length > 0 ? `calc(4px + (100% - 8px) * ${activeIdx} / ${week.length})` : '0px'
               }}
             />
           </div>
