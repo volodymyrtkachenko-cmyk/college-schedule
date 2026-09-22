@@ -311,6 +311,13 @@ export const api = {
         teachers: () => request<ReferenceRecord[]>("/api/teachers"),
         teacherSubjects: () => request<Record<number, number[]>>("/api/teacher-subjects"),
         },
+
+    users: {
+        list: (token: string) => request<UserResource[]>("/api/admin/users", { headers: { Authorization: `Bearer ${token}` } }),
+        create: (payload: any, token: string) => request<UserResource>("/api/admin/users", { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) }),
+        update: (id: number, payload: any, token: string) => request<UserResource>(`/api/admin/users/${id}`, { method: "PATCH", headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) }),
+        remove: (id: number, token: string) => request<void>(`/api/admin/users/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } }),
+    },
     references: {
         request: <T>(path: string, method: string, token: string, payload?: unknown) => request<T>(
             `/api/admin/${path}`,
@@ -363,3 +370,12 @@ export const api = {
         remove: (id: number) => authenticatedRequest<void>(`/api/lesson-notes/${id}`, {method: "DELETE"}),
     },
 };
+export interface UserResource {
+    id: number;
+    username: string;
+    email: string | null;
+    name: string;
+    role: "admin" | "editor" | "viewer" | string;
+    is_active: boolean;
+    allowed_groups: number[];
+}

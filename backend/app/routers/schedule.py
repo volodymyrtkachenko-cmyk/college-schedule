@@ -6,10 +6,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.schemas import LessonMutation, ScheduleItem, ScheduleResponse
 from app.core.security import require_roles
-from app.models import Group, Schedule, Subject, Teacher
+from app.models import Group, Schedule, Subject, Teacher, User
 from app.services.schedule import fetch_schedule, fetch_week_schedule, conflicting_lesson
 
 router = APIRouter()
+
+def check_group_access(user: User, user_allowed_groups: list[int], group_id: int):
+    if user.role == "admin": return
+    if group_id not in user_allowed_groups:
+        raise HTTPException(status_code=403, detail="Ви не маєте доступу до зміни розкладу цієї групи")
+
+async def load_user_groups(db: AsyncSession, user: User) -> list[int]:
+    from sqlalchemy.orm import selectinload
+    u = await db.scalar(select(User).options(selectinload(User.allowed_groups)).where(User.id == user.id))
+    return [g.id for g in u.allowed_groups] if u else []
 
 
 def format_teacher_name(name: str) -> str:
@@ -158,12 +168,14 @@ async def _save(item, payload, db, *, create=False):
 
 @router.post("/schedule", response_model=ScheduleItem, status_code=status.HTTP_201_CREATED)
 async def create_lesson(payload: LessonMutation, db: AsyncSession = Depends(get_db),
-                        _: object = Depends(require_roles("admin", "editor"))):
+                        current_user: User = Depends(require_roles("admin", "editor"))):
     if payload.group_id is None or payload.subject_id is None and payload.subject is None or \
             payload.lesson_number is None or payload.start_time is None or payload.end_time is None or \
             payload.day_of_week is None and payload.date is None:
         raise HTTPException(422, "Не всі обов\'язкові поля заповнені")
-    # NOTE: Schedule is intentionally created with only start_time/end_time/is_active here.
+
+    user_groups = await load_user_groups(db, current_user)
+    check_group_access(current_user, user_groups, payload.group_id)    # NOTE: Schedule is intentionally created with only start_time/end_time/is_active here.
     # The remaining NOT NULL columns (group_id, subject_id, day_of_week, lesson_number, ...)
     # are filled in by _save() below, which also runs the conflict check and commits.
     # Do NOT call db.flush()/db.commit() between db.add(item) and _save(item, ...) --
@@ -175,18 +187,26 @@ async def create_lesson(payload: LessonMutation, db: AsyncSession = Depends(get_
 
 @router.patch("/schedule/{lesson_id}", response_model=ScheduleItem)
 async def update_lesson(lesson_id: int, payload: LessonMutation, db: AsyncSession = Depends(get_db),
-                        _: object = Depends(require_roles("admin", "editor"))):
+                        current_user: User = Depends(require_roles("admin", "editor"))):
     item = await db.get(Schedule, lesson_id)
     if item is None or not item.is_active:
         raise HTTPException(404, "Заняття не знайдено")
+
+    user_groups = await load_user_groups(db, current_user)
+    check_group_access(current_user, user_groups, item.group_id)
+    if payload.group_id is not None and payload.group_id != item.group_id:
+        check_group_access(current_user, user_groups, payload.group_id)
     return await _save(item, payload, db)
 
 @router.delete("/schedule/{lesson_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_lesson(lesson_id: int, db: AsyncSession = Depends(get_db),
-                        _: object = Depends(require_roles("admin", "editor"))):
+                        current_user: User = Depends(require_roles("admin", "editor"))):
     item = await db.get(Schedule, lesson_id)
     if item is None or not item.is_active:
         raise HTTPException(404, "Заняття не знайдено")
+
+    user_groups = await load_user_groups(db, current_user)
+    check_group_access(current_user, user_groups, item.group_id)
     item.is_active = False
     try:
         await db.commit()
