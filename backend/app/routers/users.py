@@ -4,9 +4,9 @@ from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.security import get_current_admin, get_password_hash
+from app.core.security import require_roles, hash_password
 from app.database import get_db
-from app.models.entities import User, Group
+from app.models import User, Group
 
 router = APIRouter(prefix="/admin/users", tags=["admin_users"])
 
@@ -35,7 +35,7 @@ class UserResourceResponse(BaseModel):
     allowed_groups: list[int] = []
 
 @router.get("", response_model=list[UserResourceResponse])
-async def get_users(db: AsyncSession = Depends(get_db), _: User = Depends(get_current_admin)):
+async def get_users(db: AsyncSession = Depends(get_db), _: User = Depends(require_roles("admin"))):
     result = await db.scalars(select(User).options(selectinload(User.allowed_groups)))
     users = result.all()
     # Manual map to extract group ids
@@ -48,7 +48,7 @@ async def get_users(db: AsyncSession = Depends(get_db), _: User = Depends(get_cu
     return resp
 
 @router.post("", response_model=UserResourceResponse, status_code=201)
-async def create_user(payload: UserCreate, db: AsyncSession = Depends(get_db), _: User = Depends(get_current_admin)):
+async def create_user(payload: UserCreate, db: AsyncSession = Depends(get_db), _: User = Depends(require_roles("admin"))):
     user = await db.scalar(select(User).where(User.username == payload.username))
     if user:
         raise HTTPException(status_code=400, detail="Користувач вже існує")
@@ -56,7 +56,7 @@ async def create_user(payload: UserCreate, db: AsyncSession = Depends(get_db), _
     new_user = User(
         username=payload.username,
         name=payload.name,
-        password_hash=get_password_hash(payload.password),
+        password_hash=hash_password(payload.password),
         role=payload.role
     )
     if payload.role == "editor" and payload.allowed_groups:
@@ -73,7 +73,7 @@ async def create_user(payload: UserCreate, db: AsyncSession = Depends(get_db), _
     )
 
 @router.patch("/{user_id}", response_model=UserResourceResponse)
-async def update_user(user_id: int, payload: UserUpdate, db: AsyncSession = Depends(get_db), _: User = Depends(get_current_admin)):
+async def update_user(user_id: int, payload: UserUpdate, db: AsyncSession = Depends(get_db), _: User = Depends(require_roles("admin"))):
     user = await db.scalar(select(User).where(User.id == user_id).options(selectinload(User.allowed_groups)))
     if not user:
         raise HTTPException(status_code=404, detail="Користувач не знайдений")
@@ -81,7 +81,7 @@ async def update_user(user_id: int, payload: UserUpdate, db: AsyncSession = Depe
     if payload.name is not None:
         user.name = payload.name
     if payload.password:
-        user.password_hash = get_password_hash(payload.password)
+        user.password_hash = hash_password(payload.password)
     if payload.role is not None:
         user.role = payload.role
     if payload.is_active is not None:
@@ -100,7 +100,7 @@ async def update_user(user_id: int, payload: UserUpdate, db: AsyncSession = Depe
     )
 
 @router.delete("/{user_id}", status_code=204)
-async def delete_user(user_id: int, db: AsyncSession = Depends(get_db), _: User = Depends(get_current_admin)):
+async def delete_user(user_id: int, db: AsyncSession = Depends(get_db), _: User = Depends(require_roles("admin"))):
     user = await db.scalar(select(User).where(User.id == user_id))
     if not user:
         raise HTTPException(status_code=404, detail="Не знайдено")
