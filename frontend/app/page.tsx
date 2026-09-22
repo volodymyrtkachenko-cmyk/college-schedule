@@ -9,7 +9,7 @@ import { ScheduleWeekGrid } from "../components/ScheduleWeekGrid";
 import { WeekTypeBadge } from "../components/WeekTypeBadge";
 import { LessonEditor } from "../components/LessonEditor";
 import { Lesson, LessonMutation, api } from "../lib/api";
-import { useSchedule } from "../lib/hooks";
+import { useSchedule, useIsStandalonePwa, downloadForOffline } from "../lib/hooks";
 import { useAuth } from "../lib/auth";
 import { useRouter } from "next/navigation";
 import { getMondayOf } from "../lib/date";
@@ -33,6 +33,22 @@ export default function HomePage() {
   }, [weekAnchorDate]);
   const { isSetupComplete, completeSetup, resetSetup, mode, toggleMode, teachers, teacherId, setTeacherId, groups, groupId, setGroupId, today, week, loading, error, setToday, setWeek, updateLesson, removeLesson, addLesson } = useSchedule(weekAnchorDate);
   const { user, loading: authLoading, login, logout } = useAuth();
+  const isStandalone = useIsStandalonePwa();
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleDownloadOffline = async () => {
+    setIsDownloading(true);
+    try {
+      const target = mode === "student" ? { groupId: groupId ?? undefined } : { teacherId: teacherId ?? undefined };
+      await downloadForOffline(target, weekAnchorDate);
+      setToast({ message: "Розклад збережено для офлайн-режиму", type: "success" });
+    } catch (e) {
+      console.error(e);
+      setToast({ message: "Не вдалось завантажити. Перевірте інтернет.", type: "error" });
+    } finally {
+      setIsDownloading(false);
+    }
+  };
   
   // Easter Egg states
   const router = useRouter();
@@ -156,6 +172,18 @@ export default function HomePage() {
             <h1 onClick={handleSecretClick} className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl cursor-pointer select-none">Розклад занять</h1>
           </div>
           <div className="flex flex-col sm:flex-row sm:items-center gap-4 w-full md:w-auto">
+            {isStandalone && !canEdit && (
+              <button 
+                type="button" 
+                onClick={handleDownloadOffline} 
+                disabled={isDownloading} 
+                className="flex items-center gap-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-4 py-2 rounded-xl text-sm font-medium transition-colors hover:bg-emerald-500/20 disabled:opacity-50 h-[38px] sm:h-auto"
+              >
+                {isDownloading ? (
+                  <span className="flex items-center gap-2"><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25"></circle><path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" className="opacity-75"></path></svg> Завантаження...</span>
+                ) : "📥 Завантажити для офлайн"}
+              </button>
+            )}
             {!canEdit ? (
               <div className="flex items-center justify-between sm:justify-start gap-4">
                 <div className="flex items-center gap-2 bg-sys-card border border-sys-border px-4 py-2 rounded-xl">
