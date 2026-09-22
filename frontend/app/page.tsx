@@ -33,6 +33,14 @@ export default function HomePage() {
   
   const isStandalone = useIsStandalonePwa();
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isDownloaded, setIsDownloaded] = useState(false);
+
+  useEffect(() => {
+    const targetKey = mode === "student" ? `groupId:${groupId}` : `teacherId:${teacherId}`;
+    if (typeof window !== "undefined") {
+      setIsDownloaded(!!localStorage.getItem(`offline_marker:${targetKey}`));
+    }
+  }, [mode, groupId, teacherId]);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
   const handleDownloadOffline = async () => {
@@ -40,6 +48,7 @@ export default function HomePage() {
     try {
       const target = mode === "student" ? { groupId: groupId ?? undefined } : { teacherId: teacherId ?? undefined };
       await downloadForOffline(target, weekAnchorDate);
+      setIsDownloaded(true);
       setToast({ message: "Розклад збережено для офлайн-режиму", type: "success" });
     } catch (e) {
       console.error(e);
@@ -110,7 +119,7 @@ export default function HomePage() {
             <h1 onClick={handleSecretClick} className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl cursor-pointer select-none">Розклад занять</h1>
           </div>
           <div className="flex flex-col sm:flex-row sm:items-center gap-4 w-full md:w-auto">
-            {isStandalone && (
+            {isStandalone && !isDownloaded && (
               <button 
                 type="button" 
                 onClick={handleDownloadOffline} 
