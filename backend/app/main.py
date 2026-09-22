@@ -12,10 +12,6 @@ from app.routers import auth, directory, lesson_notes, schedule, users, settings
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    # Automatically create missing tables on startup
-    async with engine.begin() as conn:
-        from app.models.entities import Base
-        await conn.run_sync(Base.metadata.create_all)
     yield
     await engine.dispose()
 
@@ -35,7 +31,11 @@ app.add_middleware(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"^https?://.*",
+    allow_origins=[
+        "https://college-schedule-flame.vercel.app",
+        "http://localhost:3000",
+        "http://localhost:5173", # pwa dev
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
