@@ -29,3 +29,4 @@ frontend/public/workbox-*.js
 
 # Local Docker data
 postgres-data/
+public/fallback-*.js
