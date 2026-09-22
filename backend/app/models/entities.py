@@ -1,6 +1,6 @@
 from datetime import date, datetime, time
 from typing import Optional
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, Text, Time, UniqueConstraint
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, Text, Time, UniqueConstraint, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
@@ -56,6 +56,10 @@ class Subject(Base):
 
 class Schedule(Base):
     __tablename__ = "schedule"
+    __table_args__ = (
+        Index("ix_schedule_group_day", "group_id", "day_of_week"),
+        Index("ix_schedule_teacher_day", "teacher_id", "day_of_week"),
+    )
     id: Mapped[int] = mapped_column(primary_key=True)
     group_id: Mapped[int] = mapped_column(ForeignKey("groups.id"), index=True)
     teacher_id: Mapped[Optional[int]] = mapped_column(ForeignKey("teachers.id"))

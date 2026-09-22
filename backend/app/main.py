@@ -1,8 +1,8 @@
 from contextlib import asynccontextmanager
 
-import subprocess
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 
 from app.config import settings
 from app.database import engine
@@ -13,14 +13,6 @@ from app.routers import auth, directory, lesson_notes, schedule, settings as set
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     # Automatically run migrations on startup (Perfect for Render)
-    try:
-        subprocess.run(["alembic", "upgrade", "head"], check=True)
-        print("Database migrations applied successfully!")
-    except Exception as e:
-        import sys
-        print(f"CRITICAL: Error applying migrations: {e}")
-        sys.exit(1)
-        
     yield
     await engine.dispose()
 
@@ -31,6 +23,12 @@ app = FastAPI(
     description="Backend API for the College Schedule project.",
     lifespan=lifespan,
 )
+
+app.add_middleware(
+    GZipMiddleware,
+    minimum_size=500
+)
+
 
 app.add_middleware(
     CORSMiddleware,

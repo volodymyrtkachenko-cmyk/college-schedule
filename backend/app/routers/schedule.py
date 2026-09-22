@@ -58,15 +58,17 @@ async def schedule(group_id: int | None = None, teacher_id: int | None = None,
                             lessons=[to_item(x, week_type, target_date) for x in lessons])
 
 @router.get("/schedule/today", response_model=ScheduleResponse)
-async def today(group_id: int | None = None, teacher_id: int | None = None, db: AsyncSession = Depends(get_db)):
+async def today(response: Response, group_id: int | None = None, teacher_id: int | None = None, db: AsyncSession = Depends(get_db)):
+    response.headers["Cache-Control"] = "public, max-age=60"
     target = date.today()
     if target.isoweekday() > 5:
         target = target + timedelta(days=8 - target.isoweekday())
     return await schedule(group_id=group_id, teacher_id=teacher_id, target_date=target, day_of_week=target.isoweekday(), db=db)
 
 @router.get("/schedule/week")
-async def week(group_id: int | None = None, teacher_id: int | None = None, target_date: date | None = None,
+async def week(response: Response, group_id: int | None = None, teacher_id: int | None = None, target_date: date | None = None,
                db: AsyncSession = Depends(get_db)):
+    response.headers["Cache-Control"] = "public, max-age=60"
     requested = target_date or date.today()
     start = requested - timedelta(days=requested.isoweekday() - 1)
     week_type, lessons = await fetch_week_schedule(db, start, group_id, teacher_id)

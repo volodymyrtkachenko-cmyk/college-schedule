@@ -11,12 +11,17 @@ def normalize_database_url(url: str) -> str:
         return url.replace("sqlite://", "sqlite+aiosqlite://", 1)
     return url
 
-
 class Base(DeclarativeBase):
     pass
 
+# Setup engine with explicit pool params (for PostgreSQL)
+_db_url = normalize_database_url(settings.database_url)
+_engine_kwargs = {"pool_pre_ping": True}
+if "postgresql" in _db_url:
+    _engine_kwargs["pool_size"] = 5
+    _engine_kwargs["max_overflow"] = 10
 
-engine: AsyncEngine = create_async_engine(normalize_database_url(settings.database_url), pool_pre_ping=True)
+engine: AsyncEngine = create_async_engine(_db_url, **_engine_kwargs)
 async_session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
 
