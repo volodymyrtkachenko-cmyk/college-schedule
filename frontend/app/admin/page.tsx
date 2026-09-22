@@ -175,10 +175,10 @@ function AdminContent() {
     .sort((a, b) => a.name.localeCompare(b.name, "uk"));
 
   return (
-    <main className="flex min-h-[100dvh] bg-sys-bg text-sys-text-primary">
+    <main className="flex flex-col sm:flex-row h-[100dvh] bg-sys-bg text-sys-text-primary overflow-hidden">
       <AdminNav active={currentTab} />
       
-      <div className="flex-1 overflow-x-hidden pb-10">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden pb-20 relative">
         <div className="mx-auto max-w-6xl space-y-5 px-4 py-6 sm:p-8">
         
         {currentTab === "schedule" ? (
