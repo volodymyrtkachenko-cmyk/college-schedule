@@ -12,7 +12,10 @@ from app.routers import auth, directory, lesson_notes, schedule, users, settings
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    # Automatically run migrations on startup (Perfect for Render)
+    # Automatically create missing tables on startup
+    async with engine.begin() as conn:
+        from app.models.entities import Base
+        await conn.run_sync(Base.metadata.create_all)
     yield
     await engine.dispose()
 
