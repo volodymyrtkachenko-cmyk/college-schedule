@@ -221,31 +221,54 @@ export async function downloadForOffline(
   const currDateKey = `${currentWeekAnchor.getFullYear()}-${String(currentWeekAnchor.getMonth() + 1).padStart(2, "0")}-${String(currentWeekAnchor.getDate()).padStart(2, "0")}`;
   const nextDateKey = `${nextWeekAnchor.getFullYear()}-${String(nextWeekAnchor.getMonth() + 1).padStart(2, "0")}-${String(nextWeekAnchor.getDate()).padStart(2, "0")}`;
 
-  const todayKey = `schedule:today:${targetKey}`;
-  const currWeekKey = `schedule:week:${targetKey}:${currDateKey}`;
-  const nextWeekKey = `schedule:week:${targetKey}:${nextDateKey}`;
+  const keys = {
+    today: `schedule:today:${targetKey}`,
+    currWeek: `schedule:week:${targetKey}:${currDateKey}`,
+    nextWeek: `schedule:week:${targetKey}:${nextDateKey}`,
+  };
 
-  // Fetching data from network
-  const [todayRes, currWeekRes, nextWeekRes, groups, teachers, semesterStart] = await Promise.all([
-    api.today(target.groupId, target.teacherId),
-    api.week(target.groupId, target.teacherId, currentWeekAnchor),
-    api.week(target.groupId, target.teacherId, nextWeekAnchor),
-    api.groups(),
-    api.directory.teachers(),
-    api.settings.semesterStart()
+  const results = await Promise.allSettled([
+    api.today(target.groupId, target.teacherId).then(res => {
+      window.localStorage.setItem(keys.today, JSON.stringify(res));
+      return res;
+    }),
+    api.week(target.groupId, target.teacherId, currentWeekAnchor).then(res => {
+      window.localStorage.setItem(keys.currWeek, JSON.stringify(res));
+      return res;
+    }),
+    api.week(target.groupId, target.teacherId, nextWeekAnchor).then(res => {
+      window.localStorage.setItem(keys.nextWeek, JSON.stringify(res));
+      return res;
+    })
   ]);
 
-  // Saving exclusively on successful promise resolution
-  window.localStorage.setItem("schedule:groups", JSON.stringify(groups));
-  window.localStorage.setItem("schedule:teachers", JSON.stringify(teachers));
-  window.localStorage.setItem("schedule:semesterStart", semesterStart.value);
-  window.localStorage.setItem(todayKey, JSON.stringify(todayRes));
-  window.localStorage.setItem(currWeekKey, JSON.stringify(currWeekRes));
-  window.localStorage.setItem(nextWeekKey, JSON.stringify(nextWeekRes));
+  let successCount = 0;
+  
+  if (results[0].status === "rejected") {
+    console.error(`[Offline] Запит впав | Ключ: ${keys.today} | Помилка:`, results[0].reason);
+  } else {
+    successCount++;
+  }
+
+  if (results[1].status === "rejected") {
+    console.error(`[Offline] Запит впав | Ключ: ${keys.currWeek} | Помилка:`, results[1].reason);
+  } else {
+    successCount++;
+  }
+
+  if (results[2].status === "rejected") {
+    console.error(`[Offline] Запит впав | Ключ: ${keys.nextWeek} | Помилка:`, results[2].reason);
+  } else {
+    successCount++;
+  }
+
+  if (successCount === 0) {
+    throw new Error("Не вдалось завантажити дані. Перевірте інтернет.");
+  }
 
   try {
     const saved = JSON.parse(window.localStorage.getItem("schedule:offlineSaved") || "[]");
-    if (!saved.includes(targetKey)) {
+    if (Array.isArray(saved) && !saved.includes(targetKey)) {
       saved.push(targetKey);
       window.localStorage.setItem("schedule:offlineSaved", JSON.stringify(saved));
     }
