@@ -14,6 +14,7 @@ import { useAuth } from "../lib/auth";
 import { useRouter } from "next/navigation";
 import { getMondayOf } from "../lib/date";
 import { WelcomeScreen } from "../components/WelcomeScreen";
+import { SearchableSelect } from "../components/SearchableSelect";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function HomePage() {
@@ -177,17 +178,29 @@ export default function HomePage() {
                 {mode === 'student' && groups.length > 0 && (
                   <label className="flex items-center gap-2 text-sm text-sys-text-secondary w-full sm:w-auto">
                     <span className="hidden sm:inline">Група</span>
-                    <select disabled={isPending} value={groupId ?? ""} onChange={(event) => startTransition(() => setGroupId(Number(event.target.value)))} className="w-full sm:w-auto rounded-lg border border-sys-border bg-sys-card px-3 py-2 font-medium text-sys-text-primary outline-none focus:border-sys-accent leading-none">
-                      {groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
-                    </select>
+                    <div className="w-full sm:w-48 text-sys-text-primary">
+                      <SearchableSelect
+                         value={groupId ?? null}
+                         onChange={(val) => startTransition(() => setGroupId(val ? Number(val) : 0))}
+                         options={groups}
+                         placeholder="Оберіть групу..."
+                         disabled={isPending}
+                      />
+                    </div>
                   </label>
                 )}
                 {mode === 'teacher' && teachers.length > 0 && (
                   <label className="flex items-center gap-2 text-sm text-sys-text-secondary w-full sm:w-auto">
                     <span className="hidden sm:inline">Викл.</span>
-                    <select disabled={isPending} value={teacherId ?? ""} onChange={(event) => startTransition(() => setTeacherId(Number(event.target.value)))} className="w-full sm:w-48 rounded-lg border border-sys-border bg-sys-card px-3 py-2 font-medium text-sys-text-primary outline-none focus:border-sys-accent truncate leading-none">
-                      {teachers.map((teacher) => <option key={teacher.id} value={teacher.id}>{teacher.name}</option>)}
-                    </select>
+                    <div className="w-full sm:w-64 text-sys-text-primary">
+                      <SearchableSelect
+                         value={teacherId ?? null}
+                         onChange={(val) => startTransition(() => setTeacherId(val ? Number(val) : 0))}
+                         options={teachers}
+                         placeholder="Оберіть викладача..."
+                         disabled={isPending}
+                      />
+                    </div>
                   </label>
                 )}
                 <div className="flex items-center gap-2">
