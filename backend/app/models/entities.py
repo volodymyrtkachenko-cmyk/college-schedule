@@ -1,8 +1,15 @@
 from datetime import date, datetime, time
 from typing import Optional
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, Text, Time, UniqueConstraint, Index
+from sqlalchemy import Table, Column, Boolean, Date, DateTime, ForeignKey, Integer, String, Text, Time, UniqueConstraint, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
+
+user_group_access = Table(
+    "user_group_access",
+    Base.metadata,
+    Column("user_id", ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+    Column("group_id", ForeignKey("groups.id", ondelete="CASCADE"), primary_key=True),
+)
 
 class User(Base):
     __tablename__ = "users"
@@ -13,6 +20,7 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(255))
     role: Mapped[str] = mapped_column(String(20), default="viewer")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    allowed_groups: Mapped[list["Group"]] = relationship(secondary=user_group_access, back_populates="managers")
 
 class Faculty(Base):
     __tablename__ = "faculties"
@@ -31,6 +39,7 @@ class Group(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     faculty: Mapped["Faculty"] = relationship(back_populates="groups")
     schedules: Mapped[list["Schedule"]] = relationship(back_populates="group")
+    managers: Mapped[list["User"]] = relationship(secondary=user_group_access, back_populates="allowed_groups")
 
 class Teacher(Base):
     __tablename__ = "teachers"

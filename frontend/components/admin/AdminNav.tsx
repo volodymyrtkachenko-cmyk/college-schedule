@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useAuth } from "../../lib/auth";
+
 import { useEffect, useState } from "react";
 import { api, ReferenceResource } from "../../lib/api";
 
@@ -8,7 +10,7 @@ export const referenceLabels: Record<ReferenceResource, string> = {
   faculties: "Спеціальності", groups: "Групи", teachers: "Викладачі", subjects: "Предмети",
 };
 
-export function AdminNav({ active }: { active: ReferenceResource | "schedule" }) {
+export function AdminNav({ active }: { active: string }) { const { user } = useAuth();
   const [online, setOnline] = useState<number | null>(null);
 
   useEffect(() => {
@@ -47,7 +49,8 @@ export function AdminNav({ active }: { active: ReferenceResource | "schedule" })
       <nav aria-label="Адміністрування" className="flex flex-wrap gap-1 rounded-[8px] bg-sys-card p-1 border-[0.5px] border-sys-border">
         {[
           { id: "schedule", label: "Розклад" },
-          ...(resources.map(r => ({ id: r, label: referenceLabels[r] })))
+          ...(resources.map(r => ({ id: r, label: referenceLabels[r] }))),
+          ...(user?.role === "admin" ? [{ id: "users", label: "Менеджери" }] : [])
         ].map((tab) => (
           <Link 
             key={tab.id} 

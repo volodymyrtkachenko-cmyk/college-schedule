@@ -11,6 +11,7 @@ import { api, ReferenceMutation, ReferenceRecord, ReferenceResource } from "../.
 import { useAuth } from "../../lib/auth";
 import { ConfirmModal } from "../../components/admin/ConfirmModal";
 import { AdminScheduleEditor } from "../../components/admin/AdminScheduleEditor";
+import { UsersPanel } from "../../components/admin/users/UsersPanel";
 import { ApiError } from "../../lib/api";
 
 
@@ -47,10 +48,17 @@ function AdminContent() {
   const { user, loading: authLoading, logout } = useAuth();
   const searchParams = useSearchParams();
   const requested = searchParams.get("resource");
-  const isSchedule = requested === "schedule";
-  const resource = (!isSchedule && requested && resources.includes(requested as ReferenceResource)) ? requested as ReferenceResource : (isSchedule ? undefined : "groups");
-  const currentTab = isSchedule ? "schedule" : (resource || "faculties");
-  const activeResource = typeof currentTab === "string" && currentTab !== "schedule" ? currentTab as ReferenceResource : "groups";
+  
+  let currentTab = requested || "schedule";
+  if (user && user.role !== "admin") {
+      currentTab = "schedule";
+  }
+  
+  const isSchedule = currentTab === "schedule";
+  const isUsers = currentTab === "users";
+  
+  const resource = (!isSchedule && !isUsers && requested && resources.includes(requested as ReferenceResource)) ? requested as ReferenceResource : (currentTab === "schedule" || currentTab === "users" ? undefined : "groups");
+  const activeResource = typeof currentTab === "string" && !isSchedule && !isUsers ? currentTab as ReferenceResource : "groups";
   const [items, setItems] = useState<ReferenceRecord[]>([]);
   const [faculties, setFaculties] = useState<ReferenceRecord[]>([]);
   const [teachers, setTeachers] = useState<ReferenceRecord[]>([]);
