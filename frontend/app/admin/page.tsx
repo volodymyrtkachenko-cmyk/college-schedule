@@ -194,6 +194,8 @@ function AdminContent() {
         
         {currentTab === "schedule" ? (
           <AdminScheduleEditor />
+        ) : currentTab === "users" && user?.role === "admin" ? (
+          <UsersPanel />
         ) : (
           <>
             <div className="flex flex-wrap items-center justify-between gap-4 mt-2">

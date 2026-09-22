@@ -80,7 +80,7 @@ export function UsersPanel() {
                     </label>
                     <label className="block">
                         <span className="block text-sm mb-1 text-sys-text-secondary">Роль</span>
-                        <select required value={editor.role || "editor"} onChange={e => setEditor({...editor, role: e.target.value as any})} className="w-full bg-sys-input border border-sys-border rounded-lg px-3 py-2 text-sys-text-primary">
+                        <select required disabled={editor.id === 1} value={editor.role || "editor"} onChange={e => setEditor({...editor, role: e.target.value as any})} className="w-full bg-sys-input border border-sys-border rounded-lg px-3 py-2 text-sys-text-primary disabled:opacity-50">
                             <option value="editor">Редактор розкладу (Куратор)</option>
                             <option value="admin">Головний адміністратор</option>
                         </select>
@@ -164,7 +164,7 @@ export function UsersPanel() {
                                 </td>
                                 <td className="py-3 px-4 text-right space-x-2">
                                     <button onClick={() => setEditor(u)} className="text-sys-accent hover:underline text-sm p-1">Ред</button>
-                                    <button onClick={() => remove(u.id)} disabled={u.id === currentUser?.id} className="text-rose-400 hover:underline text-sm p-1 disabled:opacity-30 disabled:hover:no-underline">Вид</button>
+                                    <button onClick={() => remove(u.id)} disabled={u.id === currentUser?.id || u.id === 1} className="text-rose-400 hover:underline text-sm p-1 disabled:opacity-30 disabled:hover:no-underline">Вид</button>
                                 </td>
                             </tr>
                         ))}
