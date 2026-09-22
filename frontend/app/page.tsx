@@ -155,7 +155,7 @@ export default function HomePage() {
             </a>
             <h1 onClick={handleSecretClick} className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl cursor-pointer select-none">Розклад занять</h1>
           </div>
-          <div className="flex flex-col sm:flex-row sm:items-center gap-4 w-full md:w-auto overflow-hidden">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4 w-full md:w-auto">
             {!canEdit ? (
               <div className="flex items-center justify-between sm:justify-start gap-4">
                 <div className="flex items-center gap-2 bg-sys-card border border-sys-border px-4 py-2 rounded-xl">
@@ -176,7 +176,7 @@ export default function HomePage() {
                   <button role="tab" aria-selected={mode === 'teacher'} type="button" onClick={() => startTransition(() => toggleMode('teacher'))} className={`relative z-10 flex-1 rounded-md px-3 py-2 sm:py-1 transition-colors ${mode === 'teacher' ? 'text-[#0b1120] font-medium' : 'text-sys-text-secondary hover:text-sys-text-primary'}`}>Викладач</button>
                 </div>
                 {mode === 'student' && groups.length > 0 && (
-                  <label className="flex items-center gap-2 text-sm text-sys-text-secondary w-full sm:w-auto">
+                  <div className="flex items-center gap-2 text-sm text-sys-text-secondary w-full sm:w-auto">
                     <span className="hidden sm:inline">Група</span>
                     <div className="w-full sm:w-48 text-sys-text-primary">
                       <SearchableSelect
@@ -187,10 +187,10 @@ export default function HomePage() {
                          disabled={isPending}
                       />
                     </div>
-                  </label>
+                  </div>
                 )}
                 {mode === 'teacher' && teachers.length > 0 && (
-                  <label className="flex items-center gap-2 text-sm text-sys-text-secondary w-full sm:w-auto">
+                  <div className="flex items-center gap-2 text-sm text-sys-text-secondary w-full sm:w-auto">
                     <span className="hidden sm:inline">Викл.</span>
                     <div className="w-full sm:w-64 text-sys-text-primary">
                       <SearchableSelect
@@ -201,7 +201,7 @@ export default function HomePage() {
                          disabled={isPending}
                       />
                     </div>
-                  </label>
+                  </div>
                 )}
                 <div className="flex items-center gap-2">
                   </div>
