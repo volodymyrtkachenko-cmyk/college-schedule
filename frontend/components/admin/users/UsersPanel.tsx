@@ -17,7 +17,7 @@ export function UsersPanel() {
             const session = await api.auth.ensureAuthenticated();
             const [data, groupsData] = await Promise.all([
                  api.users.list(session.access_token),
-                 api.groups()
+                 api.references.list("groups", session.access_token)
             ]);
             setUsers(data);
             setGroups(groupsData);
