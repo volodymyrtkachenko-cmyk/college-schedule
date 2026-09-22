@@ -5,7 +5,6 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="508baa33-f415-4e56-bdba-95be05473423" name="Changes" comment="Зміна адмінки">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/fix_danger_zone.py" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/fix_modal.py" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/fix_persistence.py" beforeDir="false" />
@@ -59,23 +58,23 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.2915901515656747" />
-      <entry key="MS500" value="3.273046631416947" />
-      <entry key="S2" value="7.0918605285178" />
-      <entry key="S5" value="9.827616359818833" />
-      <entry key="S10" value="11.257896114042072" />
-      <entry key="S30" value="18.60730451491604" />
-      <entry key="S60" value="40.01272258557221" />
-      <entry key="M2" value="72.88947078446338" />
-      <entry key="M5" value="128.4745385038458" />
-      <entry key="M10" value="203.5218247647849" />
-      <entry key="M15" value="270.65889492746265" />
-      <entry key="M30" value="431.3952546119334" />
-      <entry key="H1" value="711.5421898535584" />
-      <entry key="H2" value="1180.9695607260478" />
-      <entry key="H4" value="1762.1376663628926" />
-      <entry key="D1" value="5407.779350458856" />
-      <entry key="W1" value="9178.147746404424" />
+      <entry key="MS100" value="1.5144342165868938" />
+      <entry key="MS500" value="4.111214625029707" />
+      <entry key="S2" value="11.283993389008796" />
+      <entry key="S5" value="18.49482465000313" />
+      <entry key="S10" value="22.86309977810873" />
+      <entry key="S30" value="32.42846115353659" />
+      <entry key="S60" value="54.00606330225906" />
+      <entry key="M2" value="87.18053911875873" />
+      <entry key="M5" value="143.31341011040587" />
+      <entry key="M10" value="218.61985504222298" />
+      <entry key="M15" value="285.8660644696898" />
+      <entry key="M30" value="446.7696428198507" />
+      <entry key="H1" value="727.0297132017098" />
+      <entry key="H2" value="1196.5460511643566" />
+      <entry key="H4" value="1777.8223677780145" />
+      <entry key="D1" value="5423.618554168355" />
+      <entry key="W1" value="9194.108782740499" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -97,23 +96,23 @@
       <entry key="W1" value="0.0" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="1.2521053236155826" />
-      <entry key="MS500" value="3.254891820038519" />
-      <entry key="S2" value="7.081180064809815" />
-      <entry key="S5" value="9.821487605704043" />
-      <entry key="S10" value="11.254341240274712" />
-      <entry key="S30" value="18.60535472856431" />
-      <entry key="S60" value="40.010650738391874" />
-      <entry key="M2" value="72.88760247862183" />
-      <entry key="M5" value="128.4732894251367" />
-      <entry key="M10" value="203.52091074323897" />
-      <entry key="M15" value="270.6581175328521" />
-      <entry key="M30" value="431.39464686578714" />
-      <entry key="H1" value="711.5416449080727" />
-      <entry key="H2" value="1180.9690619734263" />
-      <entry key="H4" value="1762.137279463208" />
-      <entry key="D1" value="5407.779179220844" />
-      <entry key="W1" value="9178.147707208183" />
+      <entry key="MS100" value="1.4378248412120227" />
+      <entry key="MS500" value="4.070362433109872" />
+      <entry key="S2" value="11.252627329261216" />
+      <entry key="S5" value="18.47408671103919" />
+      <entry key="S10" value="22.85039396908612" />
+      <entry key="S30" value="32.42297603899576" />
+      <entry key="S60" value="54.00217915003616" />
+      <entry key="M2" value="87.17774760302171" />
+      <entry key="M5" value="143.31178335888416" />
+      <entry key="M10" value="218.61875022596303" />
+      <entry key="M15" value="285.86515937124375" />
+      <entry key="M30" value="446.76897092072994" />
+      <entry key="H1" value="727.0291361200833" />
+      <entry key="H2" value="1196.5455363234735" />
+      <entry key="H4" value="1777.821972813341" />
+      <entry key="D1" value="5423.618381579646" />
+      <entry key="W1" value="9194.108743350731" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -180,15 +179,7 @@
       <workItem from="1790007699866" duration="379000" />
       <workItem from="1790008091798" duration="46000" />
       <workItem from="1790008150287" duration="12327000" />
-      <workItem from="1790066966060" duration="336000" />
-    </task>
-    <task id="LOCAL-00024" summary="Merge remote-tracking branch 'origin/main'&#10;&#10;# Conflicts:&#10;#&#9;frontend/lib/hooks.ts">
-      <option name="closed" value="true" />
-      <created>1789583939793</created>
-      <option name="number" value="00024" />
-      <option name="presentableId" value="LOCAL-00024" />
-      <option name="project" value="LOCAL" />
-      <updated>1789583939793</updated>
+      <workItem from="1790066966060" duration="776000" />
     </task>
     <task id="LOCAL-00025" summary="Merge remote-tracking branch 'origin/main'&#10;&#10;# Conflicts:&#10;#&#9;frontend/lib/hooks.ts">
       <option name="closed" value="true" />
@@ -574,7 +565,15 @@
       <option name="project" value="LOCAL" />
       <updated>1790020489974</updated>
     </task>
-    <option name="localTasksCounter" value="73" />
+    <task id="LOCAL-00073" summary="Зміна адмінки">
+      <option name="closed" value="true" />
+      <created>1790067512146</created>
+      <option name="number" value="00073" />
+      <option name="presentableId" value="LOCAL-00073" />
+      <option name="project" value="LOCAL" />
+      <updated>1790067512146</updated>
+    </task>
+    <option name="localTasksCounter" value="74" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
