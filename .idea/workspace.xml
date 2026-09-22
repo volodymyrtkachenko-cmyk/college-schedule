@@ -4,33 +4,13 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="508baa33-f415-4e56-bdba-95be05473423" name="Changes" comment="Зміна адмінки">
-      <change beforePath="$PROJECT_DIR$/fix_danger_zone.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/fix_modal.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/fix_persistence.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/app/admin/page.tsx.bak" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/lib/api.ts.bak" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/patch_admin.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/patch_admin2.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/patch_admin_filter.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/patch_admin_wipe.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/patch_api.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/patch_backend_wipe.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/patch_filter.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/patch_form.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/patch_grid.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/patch_hooks.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/patch_lesson_editor.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/patch_migration.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/patch_page.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/patch_ref_form.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/patch_search.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/patch_select.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/patch_toasts.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/patch_wipe_client.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/remove_wipe_admin.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/remove_wipe_api.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/remove_wipe_backend.py" beforeDir="false" />
+    <list default="true" id="508baa33-f415-4e56-bdba-95be05473423" name="Changes" comment="ix(api): auto-create missing database tables on startup">
+      <change afterPath="$PROJECT_DIR$/backend/alembic/versions/b3f8c9eb05d9_add_user_group_access.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/public/fallback-ce627215c0e4a9af.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/public/swe-worker-5c72df51bb1f6ee0.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/entrypoint.sh" beforeDir="false" afterPath="$PROJECT_DIR$/backend/entrypoint.sh" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/start.sh" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -58,23 +38,23 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.5144342165868938" />
-      <entry key="MS500" value="4.111214625029707" />
-      <entry key="S2" value="11.283993389008796" />
-      <entry key="S5" value="18.49482465000313" />
-      <entry key="S10" value="22.86309977810873" />
-      <entry key="S30" value="32.42846115353659" />
-      <entry key="S60" value="54.00606330225906" />
-      <entry key="M2" value="87.18053911875873" />
-      <entry key="M5" value="143.31341011040587" />
-      <entry key="M10" value="218.61985504222298" />
-      <entry key="M15" value="285.8660644696898" />
-      <entry key="M30" value="446.7696428198507" />
-      <entry key="H1" value="727.0297132017098" />
-      <entry key="H2" value="1196.5460511643566" />
-      <entry key="H4" value="1777.8223677780145" />
-      <entry key="D1" value="5423.618554168355" />
-      <entry key="W1" value="9194.108782740499" />
+      <entry key="MS100" value="1.2574070205608838" />
+      <entry key="MS500" value="2.9610451744256414" />
+      <entry key="S2" value="7.072362656646707" />
+      <entry key="S5" value="15.143962268267718" />
+      <entry key="S10" value="22.625869136284056" />
+      <entry key="S30" value="31.087739039724806" />
+      <entry key="S60" value="34.09755665320308" />
+      <entry key="M2" value="39.190794225256" />
+      <entry key="M5" value="58.90160046844669" />
+      <entry key="M10" value="99.58156205060925" />
+      <entry key="M15" value="158.80973776964586" />
+      <entry key="M30" value="387.1383369841446" />
+      <entry key="H1" value="834.1718307171475" />
+      <entry key="H2" value="1560.3497738039503" />
+      <entry key="H4" value="2550.1005069969065" />
+      <entry key="D1" value="6981.957630591407" />
+      <entry key="W1" value="11308.37185327758" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -96,23 +76,23 @@
       <entry key="W1" value="0.0" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="1.4378248412120227" />
-      <entry key="MS500" value="4.070362433109872" />
-      <entry key="S2" value="11.252627329261216" />
-      <entry key="S5" value="18.47408671103919" />
-      <entry key="S10" value="22.85039396908612" />
-      <entry key="S30" value="32.42297603899576" />
-      <entry key="S60" value="54.00217915003616" />
-      <entry key="M2" value="87.17774760302171" />
-      <entry key="M5" value="143.31178335888416" />
-      <entry key="M10" value="218.61875022596303" />
-      <entry key="M15" value="285.86515937124375" />
-      <entry key="M30" value="446.76897092072994" />
-      <entry key="H1" value="727.0291361200833" />
-      <entry key="H2" value="1196.5455363234735" />
-      <entry key="H4" value="1777.821972813341" />
-      <entry key="D1" value="5423.618381579646" />
-      <entry key="W1" value="9194.108743350731" />
+      <entry key="MS100" value="1.2244652528630224" />
+      <entry key="MS500" value="2.9456930369941317" />
+      <entry key="S2" value="7.063159016174657" />
+      <entry key="S5" value="15.136117923208623" />
+      <entry key="S10" value="22.620002198279053" />
+      <entry key="S30" value="31.08504538119581" />
+      <entry key="S60" value="34.096078348510204" />
+      <entry key="M2" value="39.18994560836286" />
+      <entry key="M5" value="58.901091632012644" />
+      <entry key="M10" value="99.58112400487215" />
+      <entry key="M15" value="158.80925818764365" />
+      <entry key="M30" value="387.137720120278" />
+      <entry key="H1" value="834.1711485700615" />
+      <entry key="H2" value="1560.349124740218" />
+      <entry key="H4" value="2550.0999665200206" />
+      <entry key="D1" value="6981.9574027708695" />
+      <entry key="W1" value="11308.371803394362" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -179,303 +159,8 @@
       <workItem from="1790007699866" duration="379000" />
       <workItem from="1790008091798" duration="46000" />
       <workItem from="1790008150287" duration="12327000" />
-      <workItem from="1790066966060" duration="776000" />
-    </task>
-    <task id="LOCAL-00025" summary="Merge remote-tracking branch 'origin/main'&#10;&#10;# Conflicts:&#10;#&#9;frontend/lib/hooks.ts">
-      <option name="closed" value="true" />
-      <created>1789584152001</created>
-      <option name="number" value="00025" />
-      <option name="presentableId" value="LOCAL-00025" />
-      <option name="project" value="LOCAL" />
-      <updated>1789584152001</updated>
-    </task>
-    <task id="LOCAL-00026" summary="Форми для викладачей v1">
-      <option name="closed" value="true" />
-      <created>1789584924297</created>
-      <option name="number" value="00026" />
-      <option name="presentableId" value="LOCAL-00026" />
-      <option name="project" value="LOCAL" />
-      <updated>1789584924297</updated>
-    </task>
-    <task id="LOCAL-00027" summary="Форми для викладачей v1">
-      <option name="closed" value="true" />
-      <created>1789585242395</created>
-      <option name="number" value="00027" />
-      <option name="presentableId" value="LOCAL-00027" />
-      <option name="project" value="LOCAL" />
-      <updated>1789585242395</updated>
-    </task>
-    <task id="LOCAL-00028" summary="Формулювання помилок">
-      <option name="closed" value="true" />
-      <created>1789585423447</created>
-      <option name="number" value="00028" />
-      <option name="presentableId" value="LOCAL-00028" />
-      <option name="project" value="LOCAL" />
-      <updated>1789585423447</updated>
-    </task>
-    <task id="LOCAL-00029" summary="Формулювання помилок">
-      <option name="closed" value="true" />
-      <created>1789620746842</created>
-      <option name="number" value="00029" />
-      <option name="presentableId" value="LOCAL-00029" />
-      <option name="project" value="LOCAL" />
-      <updated>1789620746842</updated>
-    </task>
-    <task id="LOCAL-00030" summary="Формулювання помилок">
-      <option name="closed" value="true" />
-      <created>1789620886633</created>
-      <option name="number" value="00030" />
-      <option name="presentableId" value="LOCAL-00030" />
-      <option name="project" value="LOCAL" />
-      <updated>1789620886633</updated>
-    </task>
-    <task id="LOCAL-00031" summary="Генерація виховних годин">
-      <option name="closed" value="true" />
-      <created>1789621584412</created>
-      <option name="number" value="00031" />
-      <option name="presentableId" value="LOCAL-00031" />
-      <option name="project" value="LOCAL" />
-      <updated>1789621584412</updated>
-    </task>
-    <task id="LOCAL-00032" summary="Генерація виховних годин v2">
-      <option name="closed" value="true" />
-      <created>1789621934478</created>
-      <option name="number" value="00032" />
-      <option name="presentableId" value="LOCAL-00032" />
-      <option name="project" value="LOCAL" />
-      <updated>1789621934478</updated>
-    </task>
-    <task id="LOCAL-00033" summary="Генерація виховних годин v2">
-      <option name="closed" value="true" />
-      <created>1789622232136</created>
-      <option name="number" value="00033" />
-      <option name="presentableId" value="LOCAL-00033" />
-      <option name="project" value="LOCAL" />
-      <updated>1789622232136</updated>
-    </task>
-    <task id="LOCAL-00034" summary="Генерація виховних годин v2">
-      <option name="closed" value="true" />
-      <created>1789622919206</created>
-      <option name="number" value="00034" />
-      <option name="presentableId" value="LOCAL-00034" />
-      <option name="project" value="LOCAL" />
-      <updated>1789622919206</updated>
-    </task>
-    <task id="LOCAL-00035" summary="Генерація виховних годин v2">
-      <option name="closed" value="true" />
-      <created>1789623056140</created>
-      <option name="number" value="00035" />
-      <option name="presentableId" value="LOCAL-00035" />
-      <option name="project" value="LOCAL" />
-      <updated>1789623056140</updated>
-    </task>
-    <task id="LOCAL-00036" summary="Генерація виховних годин v2">
-      <option name="closed" value="true" />
-      <created>1789623229998</created>
-      <option name="number" value="00036" />
-      <option name="presentableId" value="LOCAL-00036" />
-      <option name="project" value="LOCAL" />
-      <updated>1789623229998</updated>
-    </task>
-    <task id="LOCAL-00037" summary="Генерація виховних годин v3">
-      <option name="closed" value="true" />
-      <created>1789623238713</created>
-      <option name="number" value="00037" />
-      <option name="presentableId" value="LOCAL-00037" />
-      <option name="project" value="LOCAL" />
-      <updated>1789623238713</updated>
-    </task>
-    <task id="LOCAL-00038" summary="Прибирання значка молнії">
-      <option name="closed" value="true" />
-      <created>1789640675655</created>
-      <option name="number" value="00038" />
-      <option name="presentableId" value="LOCAL-00038" />
-      <option name="project" value="LOCAL" />
-      <updated>1789640675655</updated>
-    </task>
-    <task id="LOCAL-00039" summary="Додавання розкладу знаменника">
-      <option name="closed" value="true" />
-      <created>1789641170095</created>
-      <option name="number" value="00039" />
-      <option name="presentableId" value="LOCAL-00039" />
-      <option name="project" value="LOCAL" />
-      <updated>1789641170095</updated>
-    </task>
-    <task id="LOCAL-00040" summary="Додавання розкладу знаменника">
-      <option name="closed" value="true" />
-      <created>1789641333464</created>
-      <option name="number" value="00040" />
-      <option name="presentableId" value="LOCAL-00040" />
-      <option name="project" value="LOCAL" />
-      <updated>1789641333464</updated>
-    </task>
-    <task id="LOCAL-00041" summary="Додавання розкладу знаменника">
-      <option name="closed" value="true" />
-      <created>1789641436035</created>
-      <option name="number" value="00041" />
-      <option name="presentableId" value="LOCAL-00041" />
-      <option name="project" value="LOCAL" />
-      <updated>1789641436035</updated>
-    </task>
-    <task id="LOCAL-00042" summary="Виправлення видалення">
-      <option name="closed" value="true" />
-      <created>1789642321791</created>
-      <option name="number" value="00042" />
-      <option name="presentableId" value="LOCAL-00042" />
-      <option name="project" value="LOCAL" />
-      <updated>1789642321791</updated>
-    </task>
-    <task id="LOCAL-00043" summary="Онлайн">
-      <option name="closed" value="true" />
-      <created>1789642987151</created>
-      <option name="number" value="00043" />
-      <option name="presentableId" value="LOCAL-00043" />
-      <option name="project" value="LOCAL" />
-      <updated>1789642987151</updated>
-    </task>
-    <task id="LOCAL-00044" summary="Онлайн">
-      <option name="closed" value="true" />
-      <created>1789643190410</created>
-      <option name="number" value="00044" />
-      <option name="presentableId" value="LOCAL-00044" />
-      <option name="project" value="LOCAL" />
-      <updated>1789643190410</updated>
-    </task>
-    <task id="LOCAL-00045" summary="Розширенн онлайн режиму">
-      <option name="closed" value="true" />
-      <created>1789709031398</created>
-      <option name="number" value="00045" />
-      <option name="presentableId" value="LOCAL-00045" />
-      <option name="project" value="LOCAL" />
-      <updated>1789709031398</updated>
-    </task>
-    <task id="LOCAL-00046" summary="Розширенн офлайн режиму">
-      <option name="closed" value="true" />
-      <created>1789709300445</created>
-      <option name="number" value="00046" />
-      <option name="presentableId" value="LOCAL-00046" />
-      <option name="project" value="LOCAL" />
-      <updated>1789709300445</updated>
-    </task>
-    <task id="LOCAL-00047" summary="Прізвище І.П.">
-      <option name="closed" value="true" />
-      <created>1789738851464</created>
-      <option name="number" value="00047" />
-      <option name="presentableId" value="LOCAL-00047" />
-      <option name="project" value="LOCAL" />
-      <updated>1789738851464</updated>
-    </task>
-    <task id="LOCAL-00048" summary="Прізвище І.П.">
-      <option name="closed" value="true" />
-      <created>1789739227738</created>
-      <option name="number" value="00048" />
-      <option name="presentableId" value="LOCAL-00048" />
-      <option name="project" value="LOCAL" />
-      <updated>1789739227738</updated>
-    </task>
-    <task id="LOCAL-00049" summary="Додавання розкладу">
-      <option name="closed" value="true" />
-      <created>1789901668268</created>
-      <option name="number" value="00049" />
-      <option name="presentableId" value="LOCAL-00049" />
-      <option name="project" value="LOCAL" />
-      <updated>1789901668268</updated>
-    </task>
-    <task id="LOCAL-00050" summary="Додавання розкладу">
-      <option name="closed" value="true" />
-      <created>1789901862448</created>
-      <option name="number" value="00050" />
-      <option name="presentableId" value="LOCAL-00050" />
-      <option name="project" value="LOCAL" />
-      <updated>1789901862448</updated>
-    </task>
-    <task id="LOCAL-00051" summary="Додавання розкладу">
-      <option name="closed" value="true" />
-      <created>1789902008181</created>
-      <option name="number" value="00051" />
-      <option name="presentableId" value="LOCAL-00051" />
-      <option name="project" value="LOCAL" />
-      <updated>1789902008181</updated>
-    </task>
-    <task id="LOCAL-00052" summary="Зміна відображення розкладу">
-      <option name="closed" value="true" />
-      <created>1789902381964</created>
-      <option name="number" value="00052" />
-      <option name="presentableId" value="LOCAL-00052" />
-      <option name="project" value="LOCAL" />
-      <updated>1789902381964</updated>
-    </task>
-    <task id="LOCAL-00053" summary="Зміна відображення розкладу">
-      <option name="closed" value="true" />
-      <created>1789902647264</created>
-      <option name="number" value="00053" />
-      <option name="presentableId" value="LOCAL-00053" />
-      <option name="project" value="LOCAL" />
-      <updated>1789902647264</updated>
-    </task>
-    <task id="LOCAL-00054" summary="Зміна відображення розкладу">
-      <option name="closed" value="true" />
-      <created>1789903035203</created>
-      <option name="number" value="00054" />
-      <option name="presentableId" value="LOCAL-00054" />
-      <option name="project" value="LOCAL" />
-      <updated>1789903035203</updated>
-    </task>
-    <task id="LOCAL-00055" summary="Вибір групи/викладача, якщо перший захід на сайт">
-      <option name="closed" value="true" />
-      <created>1789933150315</created>
-      <option name="number" value="00055" />
-      <option name="presentableId" value="LOCAL-00055" />
-      <option name="project" value="LOCAL" />
-      <updated>1789933150316</updated>
-    </task>
-    <task id="LOCAL-00056" summary="Вибір групи/викладача, якщо перший захід на сайт">
-      <option name="closed" value="true" />
-      <created>1789933416280</created>
-      <option name="number" value="00056" />
-      <option name="presentableId" value="LOCAL-00056" />
-      <option name="project" value="LOCAL" />
-      <updated>1789933416280</updated>
-    </task>
-    <task id="LOCAL-00057" summary="Вибір групи/викладача, якщо перший захід на сайт">
-      <option name="closed" value="true" />
-      <created>1789933905716</created>
-      <option name="number" value="00057" />
-      <option name="presentableId" value="LOCAL-00057" />
-      <option name="project" value="LOCAL" />
-      <updated>1789933905716</updated>
-    </task>
-    <task id="LOCAL-00058" summary="Вигляд позкладу для телефонів">
-      <option name="closed" value="true" />
-      <created>1790008361521</created>
-      <option name="number" value="00058" />
-      <option name="presentableId" value="LOCAL-00058" />
-      <option name="project" value="LOCAL" />
-      <updated>1790008361521</updated>
-    </task>
-    <task id="LOCAL-00059" summary="Вигляд позкладу для телефонів">
-      <option name="closed" value="true" />
-      <created>1790008676396</created>
-      <option name="number" value="00059" />
-      <option name="presentableId" value="LOCAL-00059" />
-      <option name="project" value="LOCAL" />
-      <updated>1790008676396</updated>
-    </task>
-    <task id="LOCAL-00060" summary="Покращення адмінки">
-      <option name="closed" value="true" />
-      <created>1790012656893</created>
-      <option name="number" value="00060" />
-      <option name="presentableId" value="LOCAL-00060" />
-      <option name="project" value="LOCAL" />
-      <updated>1790012656893</updated>
-    </task>
-    <task id="LOCAL-00061" summary="Покращення адмінки">
-      <option name="closed" value="true" />
-      <created>1790012781426</created>
-      <option name="number" value="00061" />
-      <option name="presentableId" value="LOCAL-00061" />
-      <option name="project" value="LOCAL" />
-      <updated>1790012781426</updated>
+      <workItem from="1790066966060" duration="11073000" />
+      <workItem from="1790090923642" duration="7254000" />
     </task>
     <task id="LOCAL-00062" summary="Покращення адмінки">
       <option name="closed" value="true" />
@@ -573,7 +258,303 @@
       <option name="project" value="LOCAL" />
       <updated>1790067512146</updated>
     </task>
-    <option name="localTasksCounter" value="74" />
+    <task id="LOCAL-00074" summary="chore: delete unused script files.">
+      <option name="closed" value="true" />
+      <created>1790068143640</created>
+      <option name="number" value="00074" />
+      <option name="presentableId" value="LOCAL-00074" />
+      <option name="project" value="LOCAL" />
+      <updated>1790068143640</updated>
+    </task>
+    <task id="LOCAL-00075" summary="chore: delete unused script files.">
+      <option name="closed" value="true" />
+      <created>1790068158924</created>
+      <option name="number" value="00075" />
+      <option name="presentableId" value="LOCAL-00075" />
+      <option name="project" value="LOCAL" />
+      <updated>1790068158924</updated>
+    </task>
+    <task id="LOCAL-00076" summary="Пошук для админки/Розклад">
+      <option name="closed" value="true" />
+      <created>1790069056910</created>
+      <option name="number" value="00076" />
+      <option name="presentableId" value="LOCAL-00076" />
+      <option name="project" value="LOCAL" />
+      <updated>1790069056910</updated>
+    </task>
+    <task id="LOCAL-00077" summary="Пошук для админки/Розклад">
+      <option name="closed" value="true" />
+      <created>1790069262495</created>
+      <option name="number" value="00077" />
+      <option name="presentableId" value="LOCAL-00077" />
+      <option name="project" value="LOCAL" />
+      <updated>1790069262495</updated>
+    </task>
+    <task id="LOCAL-00078" summary="Завантаження розкладу для моб додатку">
+      <option name="closed" value="true" />
+      <created>1790071562793</created>
+      <option name="number" value="00078" />
+      <option name="presentableId" value="LOCAL-00078" />
+      <option name="project" value="LOCAL" />
+      <updated>1790071562794</updated>
+    </task>
+    <task id="LOCAL-00079" summary="Завантаження розкладу для моб додатку">
+      <option name="closed" value="true" />
+      <created>1790071893630</created>
+      <option name="number" value="00079" />
+      <option name="presentableId" value="LOCAL-00079" />
+      <option name="project" value="LOCAL" />
+      <updated>1790071893630</updated>
+    </task>
+    <task id="LOCAL-00080" summary="Завантаження розкладу для моб додатку">
+      <option name="closed" value="true" />
+      <created>1790072528910</created>
+      <option name="number" value="00080" />
+      <option name="presentableId" value="LOCAL-00080" />
+      <option name="project" value="LOCAL" />
+      <updated>1790072528910</updated>
+    </task>
+    <task id="LOCAL-00081" summary="Завантаження розкладу для моб додатку">
+      <option name="closed" value="true" />
+      <created>1790073108376</created>
+      <option name="number" value="00081" />
+      <option name="presentableId" value="LOCAL-00081" />
+      <option name="project" value="LOCAL" />
+      <updated>1790073108376</updated>
+    </task>
+    <task id="LOCAL-00082" summary="Завантаження розкладу для моб додатку">
+      <option name="closed" value="true" />
+      <created>1790073453855</created>
+      <option name="number" value="00082" />
+      <option name="presentableId" value="LOCAL-00082" />
+      <option name="project" value="LOCAL" />
+      <updated>1790073453855</updated>
+    </task>
+    <task id="LOCAL-00083" summary="Завантаження розкладу для моб додатку">
+      <option name="closed" value="true" />
+      <created>1790073798607</created>
+      <option name="number" value="00083" />
+      <option name="presentableId" value="LOCAL-00083" />
+      <option name="project" value="LOCAL" />
+      <updated>1790073798607</updated>
+    </task>
+    <task id="LOCAL-00084" summary="Завантаження розкладу для моб додатку">
+      <option name="closed" value="true" />
+      <created>1790074128503</created>
+      <option name="number" value="00084" />
+      <option name="presentableId" value="LOCAL-00084" />
+      <option name="project" value="LOCAL" />
+      <updated>1790074128504</updated>
+    </task>
+    <task id="LOCAL-00085" summary="Завантаження розкладу для моб додатку">
+      <option name="closed" value="true" />
+      <created>1790074425274</created>
+      <option name="number" value="00085" />
+      <option name="presentableId" value="LOCAL-00085" />
+      <option name="project" value="LOCAL" />
+      <updated>1790074425274</updated>
+    </task>
+    <task id="LOCAL-00086" summary="Завантаження розкладу для моб додатку">
+      <option name="closed" value="true" />
+      <created>1790074630527</created>
+      <option name="number" value="00086" />
+      <option name="presentableId" value="LOCAL-00086" />
+      <option name="project" value="LOCAL" />
+      <updated>1790074630527</updated>
+    </task>
+    <task id="LOCAL-00087" summary="Завантаження розкладу для моб додатку">
+      <option name="closed" value="true" />
+      <created>1790075369422</created>
+      <option name="number" value="00087" />
+      <option name="presentableId" value="LOCAL-00087" />
+      <option name="project" value="LOCAL" />
+      <updated>1790075369422</updated>
+    </task>
+    <task id="LOCAL-00088" summary="Завантаження розкладу для моб додатку">
+      <option name="closed" value="true" />
+      <created>1790075736484</created>
+      <option name="number" value="00088" />
+      <option name="presentableId" value="LOCAL-00088" />
+      <option name="project" value="LOCAL" />
+      <updated>1790075736484</updated>
+    </task>
+    <task id="LOCAL-00089" summary="Завантаження розкладу для моб додатку">
+      <option name="closed" value="true" />
+      <created>1790091007997</created>
+      <option name="number" value="00089" />
+      <option name="presentableId" value="LOCAL-00089" />
+      <option name="project" value="LOCAL" />
+      <updated>1790091007998</updated>
+    </task>
+    <task id="LOCAL-00090" summary="feat: separate schedule editor to admin panel">
+      <option name="closed" value="true" />
+      <created>1790091543632</created>
+      <option name="number" value="00090" />
+      <option name="presentableId" value="LOCAL-00090" />
+      <option name="project" value="LOCAL" />
+      <updated>1790091543632</updated>
+    </task>
+    <task id="LOCAL-00091" summary="feat: separate schedule editor to admin panel">
+      <option name="closed" value="true" />
+      <created>1790091771699</created>
+      <option name="number" value="00091" />
+      <option name="presentableId" value="LOCAL-00091" />
+      <option name="project" value="LOCAL" />
+      <updated>1790091771699</updated>
+    </task>
+    <task id="LOCAL-00092" summary="feat: separate schedule editor to admin panel">
+      <option name="closed" value="true" />
+      <created>1790092020481</created>
+      <option name="number" value="00092" />
+      <option name="presentableId" value="LOCAL-00092" />
+      <option name="project" value="LOCAL" />
+      <updated>1790092020481</updated>
+    </task>
+    <task id="LOCAL-00093" summary="feat: separate schedule editor to admin panel">
+      <option name="closed" value="true" />
+      <created>1790092272778</created>
+      <option name="number" value="00093" />
+      <option name="presentableId" value="LOCAL-00093" />
+      <option name="project" value="LOCAL" />
+      <updated>1790092272778</updated>
+    </task>
+    <task id="LOCAL-00094" summary="feat: smart sorting of subjects by teacher history">
+      <option name="closed" value="true" />
+      <created>1790092925749</created>
+      <option name="number" value="00094" />
+      <option name="presentableId" value="LOCAL-00094" />
+      <option name="project" value="LOCAL" />
+      <updated>1790092925749</updated>
+    </task>
+    <task id="LOCAL-00095" summary="feat: smart sorting of subjects by teacher history">
+      <option name="closed" value="true" />
+      <created>1790093186750</created>
+      <option name="number" value="00095" />
+      <option name="presentableId" value="LOCAL-00095" />
+      <option name="project" value="LOCAL" />
+      <updated>1790093186750</updated>
+    </task>
+    <task id="LOCAL-00096" summary="feat: smart sorting of subjects by teacher history">
+      <option name="closed" value="true" />
+      <created>1790093569624</created>
+      <option name="number" value="00096" />
+      <option name="presentableId" value="LOCAL-00096" />
+      <option name="project" value="LOCAL" />
+      <updated>1790093569624</updated>
+    </task>
+    <task id="LOCAL-00097" summary="feat: smart sorting of subjects by teacher history">
+      <option name="closed" value="true" />
+      <created>1790093705884</created>
+      <option name="number" value="00097" />
+      <option name="presentableId" value="LOCAL-00097" />
+      <option name="project" value="LOCAL" />
+      <updated>1790093705884</updated>
+    </task>
+    <task id="LOCAL-00098" summary="feat: smart sorting of subjects by teacher history">
+      <option name="closed" value="true" />
+      <created>1790093915619</created>
+      <option name="number" value="00098" />
+      <option name="presentableId" value="LOCAL-00098" />
+      <option name="project" value="LOCAL" />
+      <updated>1790093915619</updated>
+    </task>
+    <task id="LOCAL-00099" summary="feat: user and role management with group-level access rules&quot;">
+      <option name="closed" value="true" />
+      <created>1790094824074</created>
+      <option name="number" value="00099" />
+      <option name="presentableId" value="LOCAL-00099" />
+      <option name="project" value="LOCAL" />
+      <updated>1790094824074</updated>
+    </task>
+    <task id="LOCAL-00100" summary="feat: user and role management with group-level access rules&quot;">
+      <option name="closed" value="true" />
+      <created>1790095024964</created>
+      <option name="number" value="00100" />
+      <option name="presentableId" value="LOCAL-00100" />
+      <option name="project" value="LOCAL" />
+      <updated>1790095024964</updated>
+    </task>
+    <task id="LOCAL-00101" summary="feat: user and role management with group-level access rules&quot;">
+      <option name="closed" value="true" />
+      <created>1790095134863</created>
+      <option name="number" value="00101" />
+      <option name="presentableId" value="LOCAL-00101" />
+      <option name="project" value="LOCAL" />
+      <updated>1790095134863</updated>
+    </task>
+    <task id="LOCAL-00102" summary="fix(admin): fix users panel routing and protect root admin deletion">
+      <option name="closed" value="true" />
+      <created>1790095447211</created>
+      <option name="number" value="00102" />
+      <option name="presentableId" value="LOCAL-00102" />
+      <option name="project" value="LOCAL" />
+      <updated>1790095447211</updated>
+    </task>
+    <task id="LOCAL-00103" summary="ix(ui): convert rigid checkboxes to interactive toggle buttons for group permissions">
+      <option name="closed" value="true" />
+      <created>1790095778953</created>
+      <option name="number" value="00103" />
+      <option name="presentableId" value="LOCAL-00103" />
+      <option name="project" value="LOCAL" />
+      <updated>1790095778953</updated>
+    </task>
+    <task id="LOCAL-00104" summary="ix(ui): convert rigid checkboxes to interactive toggle buttons for group permissions">
+      <option name="closed" value="true" />
+      <created>1790096009813</created>
+      <option name="number" value="00104" />
+      <option name="presentableId" value="LOCAL-00104" />
+      <option name="project" value="LOCAL" />
+      <updated>1790096009813</updated>
+    </task>
+    <task id="LOCAL-00105" summary="ix(ui): convert rigid checkboxes to interactive toggle buttons for group permissions">
+      <option name="closed" value="true" />
+      <created>1790096257802</created>
+      <option name="number" value="00105" />
+      <option name="presentableId" value="LOCAL-00105" />
+      <option name="project" value="LOCAL" />
+      <updated>1790096257802</updated>
+    </task>
+    <task id="LOCAL-00106" summary="ix(api): auto-create missing database tables on startup">
+      <option name="closed" value="true" />
+      <created>1790096747442</created>
+      <option name="number" value="00106" />
+      <option name="presentableId" value="LOCAL-00106" />
+      <option name="project" value="LOCAL" />
+      <updated>1790096747442</updated>
+    </task>
+    <task id="LOCAL-00107" summary="ix(api): auto-create missing database tables on startup">
+      <option name="closed" value="true" />
+      <created>1790097076181</created>
+      <option name="number" value="00107" />
+      <option name="presentableId" value="LOCAL-00107" />
+      <option name="project" value="LOCAL" />
+      <updated>1790097076181</updated>
+    </task>
+    <task id="LOCAL-00108" summary="ix(api): auto-create missing database tables on startup">
+      <option name="closed" value="true" />
+      <created>1790097410683</created>
+      <option name="number" value="00108" />
+      <option name="presentableId" value="LOCAL-00108" />
+      <option name="project" value="LOCAL" />
+      <updated>1790097410683</updated>
+    </task>
+    <task id="LOCAL-00109" summary="ix(api): auto-create missing database tables on startup">
+      <option name="closed" value="true" />
+      <created>1790097621511</created>
+      <option name="number" value="00109" />
+      <option name="presentableId" value="LOCAL-00109" />
+      <option name="project" value="LOCAL" />
+      <updated>1790097621511</updated>
+    </task>
+    <task id="LOCAL-00110" summary="ix(api): auto-create missing database tables on startup">
+      <option name="closed" value="true" />
+      <created>1790097805391</created>
+      <option name="number" value="00110" />
+      <option name="presentableId" value="LOCAL-00110" />
+      <option name="project" value="LOCAL" />
+      <updated>1790097805391</updated>
+    </task>
+    <option name="localTasksCounter" value="111" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -601,15 +582,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="НА всякий" />
-    <MESSAGE value="fix(docker): inject missing restore scripts to container" />
-    <MESSAGE value="1" />
-    <MESSAGE value="feat(ui): always use the first ordered group as the default for new visitors" />
-    <MESSAGE value="ласт" />
-    <MESSAGE value="Merge remote-tracking branch 'origin/main'&#10;&#10;# Conflicts:&#10;#&#9;frontend/lib/hooks.ts" />
-    <MESSAGE value="Форми для викладачей v1" />
-    <MESSAGE value="Формулювання помилок" />
-    <MESSAGE value="Генерація виховних годин" />
     <MESSAGE value="Генерація виховних годин v2" />
     <MESSAGE value="Генерація виховних годин v3" />
     <MESSAGE value="Прибирання значка молнії" />
@@ -626,7 +598,16 @@
     <MESSAGE value="Покращення адмінки" />
     <MESSAGE value="chore: remove dangerous wipe functionality from admin UI" />
     <MESSAGE value="Зміна адмінки" />
-    <option name="LAST_COMMIT_MESSAGE" value="Зміна адмінки" />
+    <MESSAGE value="chore: delete unused script files." />
+    <MESSAGE value="Пошук для админки/Розклад" />
+    <MESSAGE value="Завантаження розкладу для моб додатку" />
+    <MESSAGE value="feat: separate schedule editor to admin panel" />
+    <MESSAGE value="feat: smart sorting of subjects by teacher history" />
+    <MESSAGE value="feat: user and role management with group-level access rules&quot;" />
+    <MESSAGE value="fix(admin): fix users panel routing and protect root admin deletion" />
+    <MESSAGE value="ix(ui): convert rigid checkboxes to interactive toggle buttons for group permissions" />
+    <MESSAGE value="ix(api): auto-create missing database tables on startup" />
+    <option name="LAST_COMMIT_MESSAGE" value="ix(api): auto-create missing database tables on startup" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
