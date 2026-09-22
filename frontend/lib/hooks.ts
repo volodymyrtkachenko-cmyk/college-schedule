@@ -270,4 +270,6 @@ export async function downloadForOffline(
   } catch (e) {
     window.localStorage.setItem("schedule:offlineSaved", JSON.stringify([targetKey]));
   }
+
+  window.localStorage.setItem(`offline_marker:${targetKey}`, "true");
 }
