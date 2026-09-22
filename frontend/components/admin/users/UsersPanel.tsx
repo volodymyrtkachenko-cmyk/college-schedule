@@ -15,14 +15,25 @@ export function UsersPanel() {
         setLoading(true);
         try {
             const session = await api.auth.ensureAuthenticated();
-            const [data, groupsData] = await Promise.all([
-                 api.users.list(session.access_token),
-                 api.references.list("groups", session.access_token)
-            ]);
-            setUsers(data);
-            setGroups(groupsData);
-        } catch (e) {
-            console.error(e);
+            
+            try {
+                const data = await api.users.list(session.access_token);
+                setUsers(data);
+            } catch (err: any) {
+                console.error("Failed to load users:", err);
+                alert("Помилка завантаження менеджерів (див. консоль). " + err.message);
+            }
+            
+            try {
+                const groupsData = await api.groups();
+                setGroups(groupsData);
+            } catch (err: any) {
+                console.error("Failed to load groups:", err);
+                alert("Помилка завантаження списку груп (див. консоль). " + err.message);
+            }
+            
+        } catch (e: any) {
+            console.error("Auth error:", e);
         } finally {
             setLoading(false);
         }
