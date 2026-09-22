@@ -35,6 +35,7 @@ class UserResponse(BaseModel):
     name: str
     role: str
     is_active: bool
+    allowed_groups: list[int] = []
 
 
 class TokenResponse(BaseModel):
