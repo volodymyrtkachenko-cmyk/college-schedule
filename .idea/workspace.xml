@@ -4,8 +4,34 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="508baa33-f415-4e56-bdba-95be05473423" name="Changes" comment="Покращення адмінки">
+    <list default="true" id="508baa33-f415-4e56-bdba-95be05473423" name="Changes" comment="Зміна адмінки">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fix_danger_zone.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/fix_modal.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/fix_persistence.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/app/admin/page.tsx.bak" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/lib/api.ts.bak" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/patch_admin.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/patch_admin2.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/patch_admin_filter.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/patch_admin_wipe.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/patch_api.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/patch_backend_wipe.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/patch_filter.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/patch_form.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/patch_grid.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/patch_hooks.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/patch_lesson_editor.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/patch_migration.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/patch_page.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/patch_ref_form.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/patch_search.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/patch_select.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/patch_toasts.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/patch_wipe_client.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/remove_wipe_admin.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/remove_wipe_api.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/remove_wipe_backend.py" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -33,23 +59,23 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.5650090500690133" />
-      <entry key="MS500" value="3.858564659373593" />
-      <entry key="S2" value="9.355871412974802" />
-      <entry key="S5" value="18.13144171541775" />
-      <entry key="S10" value="28.497164199750024" />
-      <entry key="S30" value="54.843234595112165" />
-      <entry key="S60" value="77.49422098211014" />
-      <entry key="M2" value="100.10260508568307" />
-      <entry key="M5" value="136.99093665592648" />
-      <entry key="M10" value="189.2380503239276" />
-      <entry key="M15" value="236.603997074662" />
-      <entry key="M30" value="355.38044509391864" />
-      <entry key="H1" value="609.3053780633451" />
-      <entry key="H2" value="1054.7688528493832" />
-      <entry key="H4" value="1599.3613337629797" />
-      <entry key="D1" value="5191.120928906871" />
-      <entry key="W1" value="8915.144706661742" />
+      <entry key="MS100" value="1.2915901515656747" />
+      <entry key="MS500" value="3.273046631416947" />
+      <entry key="S2" value="7.0918605285178" />
+      <entry key="S5" value="9.827616359818833" />
+      <entry key="S10" value="11.257896114042072" />
+      <entry key="S30" value="18.60730451491604" />
+      <entry key="S60" value="40.01272258557221" />
+      <entry key="M2" value="72.88947078446338" />
+      <entry key="M5" value="128.4745385038458" />
+      <entry key="M10" value="203.5218247647849" />
+      <entry key="M15" value="270.65889492746265" />
+      <entry key="M30" value="431.3952546119334" />
+      <entry key="H1" value="711.5421898535584" />
+      <entry key="H2" value="1180.9695607260478" />
+      <entry key="H4" value="1762.1376663628926" />
+      <entry key="D1" value="5407.779350458856" />
+      <entry key="W1" value="9178.147746404424" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -71,23 +97,23 @@
       <entry key="W1" value="0.0" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="1.5330825398640036" />
-      <entry key="MS500" value="3.843424562207493" />
-      <entry key="S2" value="9.346907088732635" />
-      <entry key="S5" value="18.124382255193634" />
-      <entry key="S10" value="28.491523311584473" />
-      <entry key="S30" value="54.83946439909194" />
-      <entry key="S60" value="77.4914913530257" />
-      <entry key="M2" value="100.100816584035" />
-      <entry key="M5" value="136.98995114733114" />
-      <entry key="M10" value="189.2373660520013" />
-      <entry key="M15" value="236.603417535882" />
-      <entry key="M30" value="355.3799717856267" />
-      <entry key="H1" value="609.3048985002749" />
-      <entry key="H2" value="1054.768388623451" />
-      <entry key="H4" value="1599.3609709599705" />
-      <entry key="D1" value="5191.120764007933" />
-      <entry key="W1" value="8915.144668584328" />
+      <entry key="MS100" value="1.2521053236155826" />
+      <entry key="MS500" value="3.254891820038519" />
+      <entry key="S2" value="7.081180064809815" />
+      <entry key="S5" value="9.821487605704043" />
+      <entry key="S10" value="11.254341240274712" />
+      <entry key="S30" value="18.60535472856431" />
+      <entry key="S60" value="40.010650738391874" />
+      <entry key="M2" value="72.88760247862183" />
+      <entry key="M5" value="128.4732894251367" />
+      <entry key="M10" value="203.52091074323897" />
+      <entry key="M15" value="270.6581175328521" />
+      <entry key="M30" value="431.39464686578714" />
+      <entry key="H1" value="711.5416449080727" />
+      <entry key="H2" value="1180.9690619734263" />
+      <entry key="H4" value="1762.137279463208" />
+      <entry key="D1" value="5407.779179220844" />
+      <entry key="W1" value="9178.147707208183" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -99,28 +125,28 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "KEY_CHAT_IN_TOOLWINDOW": "false",
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "RunOnceActivity.MCP Project settings loaded": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
-    "codeWithMe.voiceChat.enabledByDefault": "false",
-    "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
-    "git-widget-placeholder": "main",
-    "junie.onboarding.icon.badge.shown": "true",
-    "last_opened_file_path": "/Users/volodimir/PycharmProjects/college-schedule/backend",
-    "node.js.detected.package.eslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "python.packages.toolwindow.project.migrated.to.right.top.v2": "true",
-    "settings.editor.selected.configurable": "ml.llm.AcpAgentsConfigurable",
-    "to.speed.mode.migration.done": "true",
-    "ts.external.directory.path": "/Users/volodimir/PycharmProjects/college-schedule/frontend/node_modules/typescript/lib"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;KEY_CHAT_IN_TOOLWINDOW&quot;: &quot;false&quot;,
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
+    &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
+    &quot;com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/Users/volodimir/PycharmProjects/college-schedule/backend&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;python.packages.toolwindow.project.migrated.to.right.top.v2&quot;: &quot;true&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;ml.llm.AcpAgentsConfigurable&quot;,
+    &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;,
+    &quot;ts.external.directory.path&quot;: &quot;/Users/volodimir/PycharmProjects/college-schedule/frontend/node_modules/typescript/lib&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/backend" />
@@ -153,39 +179,8 @@
       <workItem from="1789932717410" duration="3800000" />
       <workItem from="1790007699866" duration="379000" />
       <workItem from="1790008091798" duration="46000" />
-      <workItem from="1790008150287" duration="10103000" />
-    </task>
-    <task id="LOCAL-00020" summary="1">
-      <option name="closed" value="true" />
-      <created>1789583071269</created>
-      <option name="number" value="00020" />
-      <option name="presentableId" value="LOCAL-00020" />
-      <option name="project" value="LOCAL" />
-      <updated>1789583071269</updated>
-    </task>
-    <task id="LOCAL-00021" summary="feat(ui): always use the first ordered group as the default for new visitors">
-      <option name="closed" value="true" />
-      <created>1789583531402</created>
-      <option name="number" value="00021" />
-      <option name="presentableId" value="LOCAL-00021" />
-      <option name="project" value="LOCAL" />
-      <updated>1789583531402</updated>
-    </task>
-    <task id="LOCAL-00022" summary="feat(ui): always use the first ordered group as the default for new visitors">
-      <option name="closed" value="true" />
-      <created>1789583631509</created>
-      <option name="number" value="00022" />
-      <option name="presentableId" value="LOCAL-00022" />
-      <option name="project" value="LOCAL" />
-      <updated>1789583631509</updated>
-    </task>
-    <task id="LOCAL-00023" summary="ласт">
-      <option name="closed" value="true" />
-      <created>1789583806119</created>
-      <option name="number" value="00023" />
-      <option name="presentableId" value="LOCAL-00023" />
-      <option name="project" value="LOCAL" />
-      <updated>1789583806119</updated>
+      <workItem from="1790008150287" duration="12327000" />
+      <workItem from="1790066966060" duration="336000" />
     </task>
     <task id="LOCAL-00024" summary="Merge remote-tracking branch 'origin/main'&#10;&#10;# Conflicts:&#10;#&#9;frontend/lib/hooks.ts">
       <option name="closed" value="true" />
@@ -547,7 +542,39 @@
       <option name="project" value="LOCAL" />
       <updated>1790018208454</updated>
     </task>
-    <option name="localTasksCounter" value="69" />
+    <task id="LOCAL-00069" summary="chore: remove dangerous wipe functionality from admin UI">
+      <option name="closed" value="true" />
+      <created>1790019023523</created>
+      <option name="number" value="00069" />
+      <option name="presentableId" value="LOCAL-00069" />
+      <option name="project" value="LOCAL" />
+      <updated>1790019023523</updated>
+    </task>
+    <task id="LOCAL-00070" summary="chore: remove dangerous wipe functionality from admin UI">
+      <option name="closed" value="true" />
+      <created>1790019274540</created>
+      <option name="number" value="00070" />
+      <option name="presentableId" value="LOCAL-00070" />
+      <option name="project" value="LOCAL" />
+      <updated>1790019274540</updated>
+    </task>
+    <task id="LOCAL-00071" summary="Зміна адмінки">
+      <option name="closed" value="true" />
+      <created>1790019897946</created>
+      <option name="number" value="00071" />
+      <option name="presentableId" value="LOCAL-00071" />
+      <option name="project" value="LOCAL" />
+      <updated>1790019897946</updated>
+    </task>
+    <task id="LOCAL-00072" summary="Зміна адмінки">
+      <option name="closed" value="true" />
+      <created>1790020489974</created>
+      <option name="number" value="00072" />
+      <option name="presentableId" value="LOCAL-00072" />
+      <option name="project" value="LOCAL" />
+      <updated>1790020489974</updated>
+    </task>
+    <option name="localTasksCounter" value="73" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -598,7 +625,9 @@
     <MESSAGE value="Вибір групи/викладача, якщо перший захід на сайт" />
     <MESSAGE value="Вигляд позкладу для телефонів" />
     <MESSAGE value="Покращення адмінки" />
-    <option name="LAST_COMMIT_MESSAGE" value="Покращення адмінки" />
+    <MESSAGE value="chore: remove dangerous wipe functionality from admin UI" />
+    <MESSAGE value="Зміна адмінки" />
+    <option name="LAST_COMMIT_MESSAGE" value="Зміна адмінки" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

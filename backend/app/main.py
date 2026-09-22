@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.database import engine
-from app.routers import health, seed_denominator, fix_subjects
+from app.routers import health
 from app.routers import auth, directory, lesson_notes, schedule, settings as settings_router
 
 
@@ -17,7 +17,9 @@ async def lifespan(_: FastAPI):
         subprocess.run(["alembic", "upgrade", "head"], check=True)
         print("Database migrations applied successfully!")
     except Exception as e:
-        print(f"Error applying migrations: {e}")
+        import sys
+        print(f"CRITICAL: Error applying migrations: {e}")
+        sys.exit(1)
         
     yield
     await engine.dispose()
@@ -32,7 +34,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=".*",
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -50,8 +52,6 @@ async def analytics_middleware(request: Request, call_next):
     return response
 
 app.include_router(health.router, prefix="/api")
-app.include_router(seed_denominator.router, prefix="/api")
-app.include_router(fix_subjects.router, prefix="/api")
 app.include_router(schedule.router, prefix="/api")
 app.include_router(directory.router, prefix="/api")
 app.include_router(directory.admin_router, prefix="/api")
