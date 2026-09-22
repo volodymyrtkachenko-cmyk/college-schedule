@@ -89,20 +89,30 @@ export function UsersPanel() {
                     {editor.role === "editor" && (
                         <div className="block">
                             <span className="block text-sm mb-2 text-sys-text-secondary">Дозволені групи для редагування</span>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-3 bg-sys-input/50 rounded-lg border border-sys-border/50 max-h-[300px] overflow-y-auto">
+                            <div className="flex flex-wrap gap-2 p-3 bg-sys-input/50 rounded-lg border border-sys-border/50 max-h-[300px] overflow-y-auto">
+                                {groups.length === 0 && <div className="text-sm text-sys-text-secondary italic">Групи не знайдено...</div>}
                                 {groups.map(g => {
                                     const checked = (editor.allowed_groups || []).includes(g.id);
                                     return (
-                                        <label key={g.id} className="flex items-center gap-2 cursor-pointer p-1 hover:bg-white/5 rounded">
-                                            <input type="checkbox" checked={checked} onChange={(e) => {
+                                        <button 
+                                            key={g.id} 
+                                            type="button"
+                                            onClick={() => {
                                                 const current = editor.allowed_groups || [];
                                                 setEditor({
                                                     ...editor, 
-                                                    allowed_groups: e.target.checked ? [...current, g.id] : current.filter(id => id !== g.id)
+                                                    allowed_groups: !checked ? [...current, g.id] : current.filter(id => id !== g.id)
                                                 });
-                                            }} />
-                                            <span className="text-sm truncate">{g.name}</span>
-                                        </label>
+                                            }}
+                                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm font-medium transition-all ${checked ? "bg-sys-accent/20 border-sys-accent text-sys-accent" : "bg-sys-bg border-sys-border text-sys-text-secondary hover:bg-white/5 hover:border-sys-text-muted"}`}
+                                        >
+                                            {checked ? (
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                            ) : (
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-50"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
+                                            )}
+                                            {g.name}
+                                        </button>
                                     );
                                 })}
                             </div>
