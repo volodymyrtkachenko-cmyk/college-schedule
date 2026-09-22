@@ -43,7 +43,7 @@ export function ReferenceForm({ resource, item, faculties = [], teachers = [], o
             const payload = Object.fromEntries(
                 [...fields[resource], ...extraKeys.map(k => ({key: k as keyof ReferenceMutation, type: "number"}))]
                     .map(({key, type}) => [key, type === "number" ? (value[key] ? Number(value[key]) : null) : (value[key]?.trim() || null)])
-            ) as ReferenceMutation;
+            ) as unknown as ReferenceMutation;
             if (!payload.name) throw new Error("Вкажіть назву.");
             await onSubmit(payload);
         } catch (e) {

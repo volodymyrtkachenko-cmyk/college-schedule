@@ -1,7 +1,7 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 
-type Option = { id: number; name: string };
+type Option = { id: number; name: string; disabled?: boolean };
 
 export function SearchableSelect({
   options, value, onChange, placeholder = "Оберіть...", disabled,

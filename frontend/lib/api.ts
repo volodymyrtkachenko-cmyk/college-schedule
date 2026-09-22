@@ -9,6 +9,7 @@ export interface SemesterStartSetting {
 export interface DirectoryItem {
     id: number;
     name: string;
+    disabled?: boolean;
 }
 
 export type ReferenceResource = "faculties" | "groups" | "teachers" | "subjects";
@@ -308,6 +309,7 @@ export const api = {
         faculties: () => request<ReferenceRecord[]>("/api/faculties"),
         subjects: () => request<ReferenceRecord[]>("/api/subjects"),
         teachers: () => request<ReferenceRecord[]>("/api/teachers"),
+        teacherSubjects: () => request<Record<number, number[]>>("/api/teacher-subjects"),
         },
     references: {
         request: <T>(path: string, method: string, token: string, payload?: unknown) => request<T>(
