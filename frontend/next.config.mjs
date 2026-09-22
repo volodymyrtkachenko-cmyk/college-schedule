@@ -1,14 +1,14 @@
-import withPWA from "next-pwa";
+import withPWAInit from "@ducanh2912/next-pwa";
 
-const withPwa = withPWA({
+const withPwa = withPWAInit({
   dest: "public",
   register: true,
   skipWaiting: true,
-  clientsClaim: true,
+  cacheOnFrontEndNav: true,
+  cacheStartUrl: true,
   disable: process.env.NODE_ENV === "development",
-  // Fallback to the main page when offline!
   fallbacks: {
-    document: "/",
+    document: "/~offline"
   }
 });
 
