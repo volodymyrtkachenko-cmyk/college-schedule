@@ -59,7 +59,7 @@ def set_refresh_cookie(response: Response, token: str) -> None:
 
 @router.post("/login", response_model=TokenResponse)
 async def login(payload: LoginRequest, response: Response, db: AsyncSession = Depends(get_db)):
-    user = await db.scalar(select(User).where(User.username == payload.username))
+    user = await db.scalar(select(User).where(User.username == payload.username).options(selectinload(User.allowed_groups)))
     if user is None or not user.password_hash or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Неправильне ім\'я користувача або пароль")
     if not user.is_active:
@@ -88,14 +88,28 @@ async def refresh(
         user_id = int(claims["sub"])
     except (TypeError, ValueError) as exc:
         raise HTTPException(status_code=401, detail="Некоректний токен") from exc
-    user = await db.scalar(select(User).where(User.id == user_id))
+    user = await db.scalar(select(User).where(User.id == user_id).options(selectinload(User.allowed_groups)))
     if user is None or not user.is_active:
         raise HTTPException(status_code=401, detail="Користувач не активний або не існує")
     new_refresh = create_refresh_token(user)
     set_refresh_cookie(response, new_refresh)
-    return TokenResponse(access_token=create_access_token(user), refresh_token=new_refresh, user=user)
+    return TokenResponse(access_token=create_access_token(user), refresh_token=new_refresh, user=UserResponse(
+            id=user.id, username=user.username, email=user.email, name=user.name, role=user.role, is_active=user.is_active,
+            allowed_groups=[g.id for g in user.allowed_groups] if user.allowed_groups else []
+        ))
 
+
+from sqlalchemy.orm import selectinload
 
 @router.get("/me", response_model=UserResponse)
-async def me(user: User = Depends(get_current_user)):
-    return user
+async def me(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    u = await db.scalar(select(User).where(User.id == user.id).options(selectinload(User.allowed_groups)))
+    return UserResponse(
+        id=u.id,
+        username=u.username,
+        email=u.email,
+        name=u.name,
+        role=u.role,
+        is_active=u.is_active,
+        allowed_groups=[g.id for g in u.allowed_groups] if u.allowed_groups else []
+    )
