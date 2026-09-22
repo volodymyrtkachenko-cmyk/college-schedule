@@ -8,7 +8,7 @@ import { ReferenceForm } from "../../components/admin/ReferenceForm";
 import { ReferenceTable } from "../../components/admin/ReferenceTable";
 import { BulkCuratorsModal } from "../../components/admin/BulkCuratorsModal";
 import { api, ReferenceMutation, ReferenceRecord, ReferenceResource } from "../../lib/api";
-import { useAuth } from "../../lib/auth";
+import { useAuth, canAccessAdmin } from "../../lib/auth";
 import { ConfirmModal } from "../../components/admin/ConfirmModal";
 import { AdminScheduleEditor } from "../../components/admin/AdminScheduleEditor";
 import { UsersPanel } from "../../components/admin/users/UsersPanel";
@@ -113,7 +113,7 @@ function AdminContent() {
   }, [toast]);
 
   if (authLoading) return <main className="min-h-screen bg-sys-bg p-8 text-sys-text-secondary">Перевірка доступу…</main>;
-  if (!user || (user.role !== "admin" && user.role !== "editor")) return <main className="flex min-h-screen items-center justify-center bg-sys-bg p-6 text-center text-sys-text-primary"><div><h1 className="text-2xl font-bold">Доступ заборонено</h1><p className="mt-2 text-sys-text-secondary">Розділ доступний лише адміністрації.</p><a href="/" className="mt-5 inline-block text-sys-accent hover:underline">На головну</a></div></main>;
+  if (!canAccessAdmin(user)) return <main className="flex min-h-screen items-center justify-center bg-sys-bg p-6 text-center text-sys-text-primary"><div><h1 className="text-2xl font-bold">Доступ заборонено</h1><p className="mt-2 text-sys-text-secondary">Розділ доступний лише адміністрації.</p><a href="/" className="mt-5 inline-block text-sys-accent hover:underline">На головну</a></div></main>;
 
   async function save(payload: ReferenceMutation) {
     const session = await api.auth.ensureAuthenticated();
