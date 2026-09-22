@@ -7,7 +7,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from app.config import settings
 from app.database import engine
 from app.routers import health
-from app.routers import auth, directory, lesson_notes, schedule, settings as settings_router
+from app.routers import auth, directory, lesson_notes, schedule, users, settings as settings_router
 
 
 @asynccontextmanager
