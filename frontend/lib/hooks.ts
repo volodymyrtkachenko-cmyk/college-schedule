@@ -177,3 +177,55 @@ export function useSchedule(weekAnchorDate: Date) {
 
   return { isSetupComplete, completeSetup, resetSetup, mode, toggleMode, teachers, teacherId, setTeacherId: updateTeacherId, groups, groupId, setGroupId: updateGroupId, today, week, semesterStart, loading, error, setToday, setWeek, updateLesson, removeLesson, addLesson };
 }
+
+export function useIsStandalonePwa() {
+  const [isStandalone, setIsStandalone] = useState(false);
+  useEffect(() => {
+    const iosStandalone = "standalone" in window.navigator && (window.navigator as any).standalone === true;
+    const displayModeStandalone = window.matchMedia("(display-mode: standalone)").matches;
+    setIsStandalone(iosStandalone || displayModeStandalone);
+  }, []);
+  return isStandalone;
+}
+
+export async function downloadForOffline(
+  target: { groupId?: number; teacherId?: number },
+  currentWeekAnchor: Date
+) {
+  if (!target.groupId && !target.teacherId) throw new Error("Не обрано ціль для завантаження");
+
+  const mode = target.groupId ? "student" : "teacher";
+  const targetKey = mode === "student" ? `groupId:${target.groupId}` : `teacherId:${target.teacherId}`;
+
+  const nextWeekAnchor = new Date(currentWeekAnchor);
+  nextWeekAnchor.setDate(nextWeekAnchor.getDate() + 7);
+
+  const currDateKey = `${currentWeekAnchor.getFullYear()}-${String(currentWeekAnchor.getMonth() + 1).padStart(2, "0")}-${String(currentWeekAnchor.getDate()).padStart(2, "0")}`;
+  const nextDateKey = `${nextWeekAnchor.getFullYear()}-${String(nextWeekAnchor.getMonth() + 1).padStart(2, "0")}-${String(nextWeekAnchor.getDate()).padStart(2, "0")}`;
+
+  const todayKey = `schedule:today:${targetKey}`;
+  const currWeekKey = `schedule:week:${targetKey}:${currDateKey}`;
+  const nextWeekKey = `schedule:week:${targetKey}:${nextDateKey}`;
+
+  // Fetching data from network
+  const [todayRes, currWeekRes, nextWeekRes] = await Promise.all([
+    api.today(target.groupId, target.teacherId),
+    api.week(target.groupId, target.teacherId, currentWeekAnchor),
+    api.week(target.groupId, target.teacherId, nextWeekAnchor),
+  ]);
+
+  // Saving exclusively on successful promise resolution
+  window.localStorage.setItem(todayKey, JSON.stringify(todayRes));
+  window.localStorage.setItem(currWeekKey, JSON.stringify(currWeekRes));
+  window.localStorage.setItem(nextWeekKey, JSON.stringify(nextWeekRes));
+
+  try {
+    const saved = JSON.parse(window.localStorage.getItem("schedule:offlineSaved") || "[]");
+    if (!saved.includes(targetKey)) {
+      saved.push(targetKey);
+      window.localStorage.setItem("schedule:offlineSaved", JSON.stringify(saved));
+    }
+  } catch (e) {
+    window.localStorage.setItem("schedule:offlineSaved", JSON.stringify([targetKey]));
+  }
+}
