@@ -45,6 +45,7 @@ export function useSchedule(weekAnchorDate: Date) {
     const cachedGroupId = window.localStorage.getItem("schedule:groupId");
     const cachedTeacherId = window.localStorage.getItem("schedule:teacherId");
     const cachedGroups = window.localStorage.getItem("schedule:groups");
+    const cachedTeachers = window.localStorage.getItem("schedule:teachers");
 
     if (cachedGroups) {
       try {
@@ -54,6 +55,16 @@ export function useSchedule(weekAnchorDate: Date) {
         setLoading(false);
       } catch {
         window.localStorage.removeItem("schedule:groups");
+      }
+    }
+    
+    if (cachedTeachers) {
+      try {
+        const items = JSON.parse(cachedTeachers) as import("./api").ReferenceRecord[];
+        setTeachers(items);
+        setTeacherId(cachedTeacherId ? Number(cachedTeacherId) : (items[0]?.id ?? null));
+      } catch {
+        window.localStorage.removeItem("schedule:teachers");
       }
     }
     
@@ -76,6 +87,7 @@ export function useSchedule(weekAnchorDate: Date) {
         }
 
         window.localStorage.setItem("schedule:groups", JSON.stringify(items));
+        window.localStorage.setItem("schedule:teachers", JSON.stringify(ts));
       })
       .catch(() => {
         if (!cachedGroups) setError("Не вдалося завантажити групи. Спробуйте ще раз.");
@@ -144,9 +156,15 @@ export function useSchedule(weekAnchorDate: Date) {
 
   useEffect(() => {
     let active = true;
+    const cachedSemesterStart = window.localStorage.getItem("schedule:semesterStart");
+    if (cachedSemesterStart) setSemesterStart(cachedSemesterStart);
+
     api.settings.semesterStart()
-      .then((setting) => { if (active) setSemesterStart(setting.value); })
-      .catch(() => { if (active) setSemesterStart(null); });
+      .then((setting) => {
+          if (active) setSemesterStart(setting.value);
+          window.localStorage.setItem("schedule:semesterStart", setting.value);
+      })
+      .catch(() => { if (active && !cachedSemesterStart) setSemesterStart(null); });
     return () => { active = false; };
   }, []);
 
@@ -208,13 +226,19 @@ export async function downloadForOffline(
   const nextWeekKey = `schedule:week:${targetKey}:${nextDateKey}`;
 
   // Fetching data from network
-  const [todayRes, currWeekRes, nextWeekRes] = await Promise.all([
+  const [todayRes, currWeekRes, nextWeekRes, groups, teachers, semesterStart] = await Promise.all([
     api.today(target.groupId, target.teacherId),
     api.week(target.groupId, target.teacherId, currentWeekAnchor),
     api.week(target.groupId, target.teacherId, nextWeekAnchor),
+    api.groups(),
+    api.directory.teachers(),
+    api.settings.semesterStart()
   ]);
 
   // Saving exclusively on successful promise resolution
+  window.localStorage.setItem("schedule:groups", JSON.stringify(groups));
+  window.localStorage.setItem("schedule:teachers", JSON.stringify(teachers));
+  window.localStorage.setItem("schedule:semesterStart", semesterStart.value);
   window.localStorage.setItem(todayKey, JSON.stringify(todayRes));
   window.localStorage.setItem(currWeekKey, JSON.stringify(currWeekRes));
   window.localStorage.setItem(nextWeekKey, JSON.stringify(nextWeekRes));
