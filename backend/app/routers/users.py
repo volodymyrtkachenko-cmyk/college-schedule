@@ -73,7 +73,9 @@ async def create_user(payload: UserCreate, db: AsyncSession = Depends(get_db), _
     )
 
 @router.patch("/{user_id}", response_model=UserResourceResponse)
-async def update_user(user_id: int, payload: UserUpdate, db: AsyncSession = Depends(get_db), _: User = Depends(require_roles("admin"))):
+async def update_user(user_id: int, payload: UserUpdate, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_roles("admin"))):
+    if user_id == 1 and payload.role == "editor":
+        raise HTTPException(status_code=403, detail="Головному системному адміністратору не можна понизити права")
     user = await db.scalar(select(User).where(User.id == user_id).options(selectinload(User.allowed_groups)))
     if not user:
         raise HTTPException(status_code=404, detail="Користувач не знайдений")
@@ -100,7 +102,11 @@ async def update_user(user_id: int, payload: UserUpdate, db: AsyncSession = Depe
     )
 
 @router.delete("/{user_id}", status_code=204)
-async def delete_user(user_id: int, db: AsyncSession = Depends(get_db), _: User = Depends(require_roles("admin"))):
+async def delete_user(user_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_roles("admin"))):
+    if user_id == 1:
+        raise HTTPException(status_code=403, detail="Головного системного адміністратора (ID 1) не можна видалити")
+    if user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="Ви не можете видалити самі себе")
     user = await db.scalar(select(User).where(User.id == user_id))
     if not user:
         raise HTTPException(status_code=404, detail="Не знайдено")
