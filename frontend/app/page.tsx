@@ -97,6 +97,19 @@ export default function HomePage() {
 
   const resetWeek = () => setWeekAnchorDate(getMondayOf(new Date()));
 
+  const UserControls = () => user ? (
+    <div className="flex items-center gap-2">
+      {canAccessAdmin(user) && (
+        <a href="/admin" className="rounded-lg border border-cyan-400/40 px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-cyan-300 whitespace-nowrap shadow-sm hover:bg-cyan-500/10 transition-colors">
+          Адмінка
+        </a>
+      )}
+      <button onClick={logout} className="rounded-lg border border-sys-border px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-sys-text-secondary whitespace-nowrap shadow-sm hover:bg-sys-hover transition-colors">
+        Вийти
+      </button>
+    </div>
+  ) : null;
+
   if (!loading && !isSetupComplete) {
     return <WelcomeScreen groups={groups} teachers={teachers} initialMode={mode} onComplete={(m, id) => {
         toggleMode(m);
@@ -112,11 +125,16 @@ export default function HomePage() {
       <InstallPrompt />
       <header className="border-b border-sys-border bg-sys-bg/80">
         <div className="mx-auto flex max-w-[1800px] flex-col md:flex-row md:items-center justify-between gap-4 px-3 py-5 sm:px-5 lg:px-6 xl:px-8">
-          <div>
-            <a href="https://kre.dp.ua/" target="_blank" rel="noopener noreferrer" className="inline-block hover:opacity-80 transition-opacity" title="Головна сторінка закладу">
-              <p className="text-xs font-bold uppercase tracking-[0.2em] text-sys-accent">ДФКР</p>
-            </a>
-            <h1 onClick={handleSecretClick} className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl cursor-pointer select-none">Розклад занять</h1>
+          <div className="flex items-start justify-between w-full md:w-auto">
+            <div>
+              <a href="https://kre.dp.ua/" target="_blank" rel="noopener noreferrer" className="inline-block hover:opacity-80 transition-opacity" title="Головна сторінка закладу">
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-sys-accent">ДФКР</p>
+              </a>
+              <h1 onClick={handleSecretClick} className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl cursor-pointer select-none">Розклад занять</h1>
+            </div>
+            <div className="md:hidden mt-1">
+              <UserControls />
+            </div>
           </div>
           <div className="flex flex-col sm:flex-row sm:items-center gap-4 w-full md:w-auto">
             {isStandalone && !isDownloaded && (
@@ -143,20 +161,10 @@ export default function HomePage() {
                  </button>
               </div>
             </div>
-
-            {user && (
-              <div className="flex items-center gap-2 ml-auto sm:ml-0 mt-2 sm:mt-0">
-                {canAccessAdmin(user) && (
-                  <a href="/admin" className="rounded-lg border border-cyan-400/40 px-3 py-2 text-sm font-medium text-cyan-300 whitespace-nowrap shadow-sm hover:bg-cyan-500/10 transition-colors">
-                    Панель керування
-                  </a>
-                )}
-                <button onClick={logout} className="rounded-lg border border-sys-border px-3 py-2 text-sm font-medium text-sys-text-secondary whitespace-nowrap shadow-sm hover:bg-sys-hover transition-colors">
-                  Вийти
-                </button>
+              <div className="hidden md:block ml-2">
+                <UserControls />
               </div>
-            )}
-          </div>
+            </div>
         </div>
       </header>
 
