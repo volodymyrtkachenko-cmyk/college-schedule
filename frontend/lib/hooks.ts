@@ -227,43 +227,38 @@ export async function downloadForOffline(
     nextWeek: `schedule:week:${targetKey}:${nextDateKey}`,
   };
 
-  const results = await Promise.allSettled([
-    api.today(target.groupId, target.teacherId).then(res => {
-      window.localStorage.setItem(keys.today, JSON.stringify(res));
-      return res;
-    }),
-    api.week(target.groupId, target.teacherId, currentWeekAnchor).then(res => {
-      window.localStorage.setItem(keys.currWeek, JSON.stringify(res));
-      return res;
-    }),
-    api.week(target.groupId, target.teacherId, nextWeekAnchor).then(res => {
-      window.localStorage.setItem(keys.nextWeek, JSON.stringify(res));
-      return res;
-    })
-  ]);
-
   let successCount = 0;
-  
-  if (results[0].status === "rejected") {
-    console.error(`[Offline] Запит впав | Ключ: ${keys.today} | Помилка:`, results[0].reason);
-  } else {
+  let lastError = "";
+
+  try {
+    const res = await api.today(target.groupId, target.teacherId);
+    window.localStorage.setItem(keys.today, JSON.stringify(res));
     successCount++;
+  } catch(e: any) {
+    lastError = e.message || String(e);
+    console.error(`[Offline] Запит впав (today):`, e);
   }
 
-  if (results[1].status === "rejected") {
-    console.error(`[Offline] Запит впав | Ключ: ${keys.currWeek} | Помилка:`, results[1].reason);
-  } else {
+  try {
+    const res = await api.week(target.groupId, target.teacherId, currentWeekAnchor);
+    window.localStorage.setItem(keys.currWeek, JSON.stringify(res));
     successCount++;
+  } catch(e: any) {
+    lastError = e.message || String(e);
+    console.error(`[Offline] Запит впав (currWeek):`, e);
   }
 
-  if (results[2].status === "rejected") {
-    console.error(`[Offline] Запит впав | Ключ: ${keys.nextWeek} | Помилка:`, results[2].reason);
-  } else {
+  try {
+    const res = await api.week(target.groupId, target.teacherId, nextWeekAnchor);
+    window.localStorage.setItem(keys.nextWeek, JSON.stringify(res));
     successCount++;
+  } catch(e: any) {
+    lastError = e.message || String(e);
+    console.error(`[Offline] Запит впав (nextWeek):`, e);
   }
 
   if (successCount === 0) {
-    throw new Error("Не вдалось завантажити дані. Перевірте інтернет.");
+    throw new Error(lastError || "Не вдалось зв'язатися з сервером");
   }
 
   try {
