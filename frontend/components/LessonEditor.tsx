@@ -1,11 +1,8 @@
 "use client";
-
 import { FormEvent, useEffect, useRef, useState, useMemo } from "react";
 import { api, DirectoryItem, Lesson, LessonMutation, WeekType } from "../lib/api";
-
 import { ReferenceRecord } from "../lib/api";
 import { SearchableSelect } from "./SearchableSelect";
-
 type Props = {
   lesson?: Lesson;
   date: string;
@@ -18,14 +15,12 @@ type Props = {
   onDelete?: () => Promise<void>;
   onClose: () => void;
 };
-
 const LESSON_TIME_LABELS: Record<number, string> = {
   1: "1 пара · 9:00–10:20",
   2: "2 пара · 10:40–12:00",
   3: "3 пара · 12:30–13:50",
   4: "4 пара · 14:00–15:20",
 };
-
 const DAY_OPTIONS: [string, string][] = [
   ["1", "Понеділок"],
   ["2", "Вівторок"],
@@ -33,12 +28,10 @@ const DAY_OPTIONS: [string, string][] = [
   ["4", "Четвер"],
   ["5", "П’ятниця"],
 ];
-
 function dayFromDate(date: string) {
   const day = new Date(`${date}T12:00:00`).getDay() || 7;
   return day >= 1 && day <= 5 ? day : 1;
 }
-
 function initial(lesson: Lesson | undefined, date: string, scheduleMode: "student"|"teacher", defaultGroupId: number|null, defaultTeacherId: number|null, initialWeekType: WeekType = "both"): LessonMutation {
   return {
     group_id: lesson?.group_id ?? (scheduleMode === "student" ? (defaultGroupId ?? 0) : 0),
@@ -51,7 +44,6 @@ function initial(lesson: Lesson | undefined, date: string, scheduleMode: "studen
     week_type: lesson?.week_type ?? initialWeekType,
   };
 }
-
 export function LessonEditor({ lesson, date, scheduleMode, defaultGroupId, defaultTeacherId, groups, initialWeekType = "both", onSave, onDelete, onClose }: Props) {
   const dialogRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -64,7 +56,6 @@ export function LessonEditor({ lesson, date, scheduleMode, defaultGroupId, defau
   const [busy, setBusy] = useState(false);
   const [loadingDirectories, setLoadingDirectories] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
   useEffect(() => {
     let active = true;
     Promise.all([api.directory.subjects(), api.directory.teachers(), api.directory.teacherSubjects().catch(() => ({}))])
@@ -80,14 +71,11 @@ export function LessonEditor({ lesson, date, scheduleMode, defaultGroupId, defau
       .finally(() => { if (active) setLoadingDirectories(false); });
     return () => { active = false; };
   }, []);
-
 const sortedSubjects = useMemo(() => {
     if (!form.teacher_id || !teacherSubjects[form.teacher_id]) return subjects;
-    
     const knownSubjectIds = new Set(teacherSubjects[form.teacher_id]);
     const known: import("../lib/api").DirectoryItem[] = [];
     const others: import("../lib/api").DirectoryItem[] = [];
-    
     for (const sub of subjects) {
        if (knownSubjectIds.has(sub.id)) {
            known.push(sub);
@@ -95,9 +83,7 @@ const sortedSubjects = useMemo(() => {
            others.push(sub);
        }
     }
-    
     if (known.length === 0) return subjects;
-    
     return [
        { id: -1, name: "── Часто використовує ──", disabled: true },
        ...known,
@@ -105,11 +91,9 @@ const sortedSubjects = useMemo(() => {
        ...others
     ];
   }, [subjects, form.teacher_id, teacherSubjects]);
-
   function update<K extends keyof LessonMutation>(key: K, value: LessonMutation[K]) {
     setForm((current) => ({ ...current, [key]: value }));
   }
-
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (!form.subject_id) {
@@ -123,7 +107,6 @@ const sortedSubjects = useMemo(() => {
     setBusy(true);
     setError(null);
     try {
-
       if (!form.group_id) {
         setError("Оберіть групу.");
         return;
@@ -136,7 +119,6 @@ const sortedSubjects = useMemo(() => {
       setBusy(false);
     }
   }
-
   async function remove() {
     if (!onDelete || !window.confirm("Видалити це заняття?")) return;
     setBusy(true);
@@ -145,7 +127,6 @@ const sortedSubjects = useMemo(() => {
     catch (reason) { setError(reason instanceof Error ? reason.message : "Не вдалося видалити"); }
     finally { setBusy(false); }
   }
-
   return (
     <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={lesson ? "Редагувати заняття" : "Додати заняття"} className="fixed inset-x-0 bottom-0 z-40 max-h-[90vh] overflow-y-auto rounded-t-2xl border border-sys-border bg-sys-card p-5 shadow-2xl md:static md:mt-3 md:rounded-xl md:border-sys-border">
       <div className="mx-auto max-w-2xl">
@@ -154,30 +135,8 @@ const sortedSubjects = useMemo(() => {
           <button type="button" onClick={onClose} aria-label="Закрити" className="text-xl text-sys-text-secondary">×</button>
         </div>
         <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2">
-          <label className="sm:col-span-2">Предмет
-            <SearchableSelect
-              options={sortedSubjects}
-              value={form.subject_id ?? null}
-              onChange={(id) => update("subject_id", id ?? undefined)}
-              disabled={loadingDirectories}
-              placeholder={loadingDirectories ? "Завантаження…" : "Пошук предмета..."}
-            />
-          </label>
-          <label>День
-            <select value={form.day_of_week ?? dayFromDate(date)} onChange={(e) => update("day_of_week", Number(e.target.value))}>
-              {DAY_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-            </select>
-          </label>
-          <label>№ пари
-            <select required value={form.lesson_number} onChange={(e) => update("lesson_number", Number(e.target.value))}>
-              {Object.entries(LESSON_TIME_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
-              ))}
-            </select>
-          </label>
-          <label>Тиждень<select value={form.week_type} onChange={(e) => update("week_type", e.target.value as WeekType)}><option value="both">Щотижня</option><option value="numerator">Чисельник</option><option value="denominator">Знаменник</option></select></label>
           {scheduleMode === "teacher" && (
-            <label>Група
+            <label className="sm:col-span-2">Група
               <SearchableSelect
                 options={groups}
                 value={form.group_id || null}
@@ -204,6 +163,28 @@ const sortedSubjects = useMemo(() => {
               placeholder="Немає"
             />
           </label>
+          <label className="sm:col-span-2">Предмет
+            <SearchableSelect
+              options={sortedSubjects}
+              value={form.subject_id ?? null}
+              onChange={(id) => update("subject_id", id ?? undefined)}
+              disabled={loadingDirectories}
+              placeholder={loadingDirectories ? "Завантаження…" : "Пошук предмета..."}
+            />
+          </label>
+          <label>День
+            <select value={form.day_of_week ?? dayFromDate(date)} onChange={(e) => update("day_of_week", Number(e.target.value))}>
+              {DAY_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
+          </label>
+          <label>№ пари
+            <select required value={form.lesson_number} onChange={(e) => update("lesson_number", Number(e.target.value))}>
+              {Object.entries(LESSON_TIME_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+          </label>
+          <label className="sm:col-span-2">Тиждень<select value={form.week_type} onChange={(e) => update("week_type", e.target.value as WeekType)}><option value="both">Щотижня</option><option value="numerator">Чисельник</option><option value="denominator">Знаменник</option></select></label>
           {error && <p role="alert" className="sm:col-span-2 text-sm text-rose-300">{error}</p>}
           <div className="flex gap-2 sm:col-span-2">
             <button disabled={busy || loadingDirectories} className="rounded-lg bg-sys-accent px-4 py-2 font-semibold text-slate-950">{busy ? "Збереження…" : "Зберегти"}</button>
