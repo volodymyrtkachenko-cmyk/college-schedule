@@ -28,7 +28,7 @@ export function AdminScheduleEditor() {
   const [isPending, startTransition] = useTransition();
   const [editor, setEditor] = useState<{ lesson?: Lesson; date: string } | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
-  const weekType = week[0]?.week_type ?? today?.week_type ?? "both";
+  const weekType = (week?.[0]?.week_type) ?? today?.week_type ?? "both";
 
   useEffect(() => {
     if (toast) {
@@ -164,7 +164,7 @@ export function AdminScheduleEditor() {
             </div>
           </div>
           </div>
-          <ScheduleWeekGrid week={week} scheduleMode={mode} canEdit={true} onEdit={(lesson) => { const date = week.find((day) => day.lessons.some((item) => item.id === lesson.id))?.date ?? (today?.date || week[0].date); setEditor({ lesson, date }); }} onCreate={(date) => setEditor({ date })}
+          <ScheduleWeekGrid week={week} scheduleMode={mode} canEdit={true} onEdit={(lesson) => { const date = week.find((day) => day.lessons.some((item) => item.id === lesson.id))?.date ?? (today?.date || week?.[0]?.date); setEditor({ lesson, date }); }} onCreate={(date) => setEditor({ date })}
             onNoteSave={saveNote} onNoteDelete={deleteNote} />
         </div>
       ) : null}

@@ -71,7 +71,7 @@ export default function HomePage() {
   };
 
   const [view, setView] = useState<"today" | "week">("today");
-  const weekType = view === "week" ? (week[0]?.week_type ?? "both") : (today?.week_type ?? "both");
+  const weekType = view === "week" ? ((week?.[0]?.week_type) ?? "both") : (today?.week_type ?? "both");
 
   useEffect(() => {
     if (toast) {
