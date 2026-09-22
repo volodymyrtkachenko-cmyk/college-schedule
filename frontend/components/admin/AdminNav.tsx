@@ -8,7 +8,7 @@ export const referenceLabels: Record<ReferenceResource, string> = {
   faculties: "Спеціальності", groups: "Групи", teachers: "Викладачі", subjects: "Предмети",
 };
 
-export function AdminNav({ active }: { active: ReferenceResource }) {
+export function AdminNav({ active }: { active: ReferenceResource | "schedule" }) {
   const [online, setOnline] = useState<number | null>(null);
 
   useEffect(() => {
@@ -29,6 +29,8 @@ export function AdminNav({ active }: { active: ReferenceResource }) {
     return () => clearInterval(iv);
   }, []);
 
+  const resources = Object.keys(referenceLabels) as ReferenceResource[];
+
   return (
     <div className="w-full pb-1 mt-1 space-y-2">
       <div className="flex items-center justify-end px-1">
@@ -43,7 +45,13 @@ export function AdminNav({ active }: { active: ReferenceResource }) {
           </div>
       </div>
       <nav aria-label="Адміністрування" className="flex flex-wrap gap-1 rounded-[8px] bg-sys-card p-1 border-[0.5px] border-sys-border">
-        {(Object.keys(referenceLabels) as ReferenceResource[]).map((resource) => (
+        <Link 
+          href={`/admin?resource=schedule`} 
+          className={`flex-1 text-center min-w-[120px] px-3 py-1.5 text-[14px] font-bold rounded-[6px] transition-colors ${active === "schedule" ? "bg-sys-accent text-[#0b1120] shadow-md shadow-sys-accent/20" : "text-sys-text-secondary hover:text-sys-text-primary"}`}
+        >
+          Розклад
+        </Link>
+        {resources.map((resource) => (
           <Link key={resource} href={`/admin?resource=${resource}`} className={`flex-1 text-center min-w-[120px] px-3 py-1.5 text-[14px] font-medium rounded-[6px] transition-colors ${active === resource ? "bg-sys-tabActive text-sys-accent shadow-sm" : "text-sys-text-secondary hover:text-sys-text-primary"}`}>
             {referenceLabels[resource]}
           </Link>

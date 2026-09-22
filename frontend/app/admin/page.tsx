@@ -10,6 +10,7 @@ import { BulkCuratorsModal } from "../../components/admin/BulkCuratorsModal";
 import { api, ReferenceMutation, ReferenceRecord, ReferenceResource } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 import { ConfirmModal } from "../../components/admin/ConfirmModal";
+import { AdminScheduleEditor } from "../../components/admin/AdminScheduleEditor";
 import { ApiError } from "../../lib/api";
 
 
@@ -45,8 +46,11 @@ function SearchIcon() {
 function AdminContent() {
   const { user, loading: authLoading, logout } = useAuth();
   const searchParams = useSearchParams();
-  const requested = searchParams.get("resource") as ReferenceResource | null;
-  const resource = requested && resources.includes(requested) ? requested : "faculties";
+  const requested = searchParams.get("resource");
+  const isSchedule = requested === "schedule";
+  const resource = (!isSchedule && requested && resources.includes(requested as ReferenceResource)) ? requested as ReferenceResource : (isSchedule ? undefined : "group" as any);
+  const currentTab = isSchedule ? "schedule" : (resource || "faculties");
+  const activeResource = typeof currentTab === "string" && currentTab !== "schedule" ? currentTab as ReferenceResource : "groups";
   const [items, setItems] = useState<ReferenceRecord[]>([]);
   const [faculties, setFaculties] = useState<ReferenceRecord[]>([]);
   const [teachers, setTeachers] = useState<ReferenceRecord[]>([]);
@@ -72,9 +76,9 @@ function AdminContent() {
     setSearchTerm("");
     api.auth.ensureAuthenticated()
       .then((session) => Promise.all([
-        api.references.list(resource, session.access_token),
-        resourceConfig[resource].needsFaculties ? api.directory.faculties() : Promise.resolve([]),
-        resourceConfig[resource].needsTeachers ? api.directory.teachers() : Promise.resolve([]),
+        api.references.list(activeResource, session.access_token),
+        resourceConfig[activeResource].needsFaculties ? api.directory.faculties() : Promise.resolve([]),
+        resourceConfig[activeResource].needsTeachers ? api.directory.teachers() : Promise.resolve([]),
       ]))
       .then(([nextItems, nextFaculties, nextTeachers]) => {
         if (!cancelled) {
@@ -107,7 +111,7 @@ function AdminContent() {
       ? await api.references.update(resource, editor.id, payload, session.access_token)
       : await api.references.create(resource, payload, session.access_token);
     setItems((current) => editor ? current.map((item) => item.id === saved.id ? saved : item) : [...current, saved]);
-    if (resourceConfig[resource].affectsSchedule) {
+    if (resourceConfig[activeResource].affectsSchedule) {
       // Wiping related schedule caches to force a refetch on main page
       window.localStorage.removeItem("schedule:groups");
       for (let i = 0; i < window.localStorage.length; i++) {
@@ -146,14 +150,14 @@ function AdminContent() {
     .filter(item => {
       const q = searchTerm.toLowerCase();
       
-      const searchFields = resourceConfig[resource].searchFields || ["name"];
+      const searchFields = resourceConfig[activeResource].searchFields || ["name"];
       const matchesField = searchFields.some(field => {
         const val = item[field];
         return val && String(val).toLowerCase().includes(q);
       });
       if (matchesField) return true;
 
-      const rels = resourceConfig[resource].searchRelations?.(item, faculties, teachers) || [];
+      const rels = resourceConfig[activeResource].searchRelations?.(item, faculties, teachers) || [];
       if (rels.some(r => r && r.toLowerCase().includes(q))) return true;
       
       return false;
@@ -178,9 +182,13 @@ function AdminContent() {
       </header>
       
       <div className="mx-auto max-w-6xl space-y-5 px-4 py-6">
-        <AdminNav active={resource} />
+        <AdminNav active={currentTab} />
         
-        <div className="flex flex-wrap items-center justify-between gap-4 mt-2">
+        {currentTab === "schedule" ? (
+          <AdminScheduleEditor />
+        ) : (
+          <>
+            <div className="flex flex-wrap items-center justify-between gap-4 mt-2">
            <div className="relative w-full max-w-[320px]">
              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sys-text-muted"><SearchIcon /></span>
              <input 
@@ -193,13 +201,13 @@ function AdminContent() {
            </div>
            
            <div className="flex gap-2">
-             {resourceConfig[resource].hasBulkAction && (
+             {resourceConfig[activeResource].hasBulkAction && (
                 <button onClick={() => setBulkOpen(true)} className="shrink-0 rounded-[6px] border border-sys-accent/50 text-sys-accent px-4 py-2 text-sm font-semibold hover:bg-sys-accent/10 transition-colors">
                   Виховні години
                 </button>
              )}
              <button onClick={() => setEditor(null)} className="shrink-0 rounded-[6px] bg-sys-accent px-4 py-2 text-sm font-semibold text-[#0b1120] hover:opacity-90 transition-opacity">
-                + Додати {resourceConfig[resource].addLabel}
+                + Додати {resourceConfig[activeResource].addLabel}
              </button>
            </div>
         </div>
@@ -233,6 +241,8 @@ function AdminContent() {
              onConfirm={() => confirmRemove(itemToDelete)} 
              onCancel={() => setItemToDelete(null)} 
           />
+        )}
+          </>
         )}
       </div>
     </main>
