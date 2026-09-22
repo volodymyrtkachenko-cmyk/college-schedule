@@ -313,10 +313,10 @@ export const api = {
         },
 
     users: {
-        list: (token: string) => request<UserResource[]>("/api/admin/users", { headers: { Authorization: `Bearer ${token}` } }),
-        create: (payload: any, token: string) => request<UserResource>("/api/admin/users", { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) }),
-        update: (id: number, payload: any, token: string) => request<UserResource>(`/api/admin/users/${id}`, { method: "PATCH", headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) }),
-        remove: (id: number, token: string) => request<void>(`/api/admin/users/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } }),
+        list: (token: string) => request<UserResource[]>("/api/admin/users", {}, true, true, token),
+        create: (payload: any, token: string) => request<UserResource>("/api/admin/users", { method: "POST", body: JSON.stringify(payload) }, true, true, token),
+        update: (id: number, payload: any, token: string) => request<UserResource>(`/api/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(payload) }, true, true, token),
+        remove: (id: number, token: string) => request<void>(`/api/admin/users/${id}`, { method: "DELETE" }, true, true, token),
     },
     references: {
         request: <T>(path: string, method: string, token: string, payload?: unknown) => request<T>(

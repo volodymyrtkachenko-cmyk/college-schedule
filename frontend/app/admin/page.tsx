@@ -57,8 +57,9 @@ function AdminContent() {
   const isSchedule = currentTab === "schedule";
   const isUsers = currentTab === "users";
   
-  const resource = (!isSchedule && !isUsers && requested && resources.includes(requested as ReferenceResource)) ? requested as ReferenceResource : (currentTab === "schedule" || currentTab === "users" ? undefined : "groups");
-  const activeResource = typeof currentTab === "string" && !isSchedule && !isUsers ? currentTab as ReferenceResource : "groups";
+  const activeResource = resources.includes(currentTab as ReferenceResource)
+  ? (currentTab as ReferenceResource)
+  : "groups";
   const [items, setItems] = useState<ReferenceRecord[]>([]);
   const [faculties, setFaculties] = useState<ReferenceRecord[]>([]);
   const [teachers, setTeachers] = useState<ReferenceRecord[]>([]);
@@ -101,7 +102,7 @@ function AdminContent() {
       })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [authLoading, resource, user]);
+  }, [authLoading, activeResource, user]);
 
   // Toast auto-hide
   useEffect(() => {
