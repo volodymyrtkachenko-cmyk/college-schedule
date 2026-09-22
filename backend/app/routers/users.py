@@ -65,11 +65,10 @@ async def create_user(payload: UserCreate, db: AsyncSession = Depends(get_db), _
         
     db.add(new_user)
     await db.commit()
-    await db.refresh(new_user)
-    
+    # No refresh to avoid MissingGreenlet on relationships
     return UserResourceResponse(
         id=new_user.id, username=new_user.username, email=new_user.email, name=new_user.name, role=new_user.role, is_active=new_user.is_active,
-        allowed_groups=[g.id for g in new_user.allowed_groups] if new_user.allowed_groups else []
+        allowed_groups=payload.allowed_groups if payload.role == "editor" else []
     )
 
 @router.patch("/{user_id}", response_model=UserResourceResponse)
@@ -94,11 +93,10 @@ async def update_user(user_id: int, payload: UserUpdate, db: AsyncSession = Depe
         user.allowed_groups = list(groups.all())
         
     await db.commit()
-    await db.refresh(user)
-    
+    # Avoid refresh to not hit MissingGreenlet on user.allowed_groups
     return UserResourceResponse(
         id=user.id, username=user.username, email=user.email, name=user.name, role=user.role, is_active=user.is_active,
-        allowed_groups=[g.id for g in user.allowed_groups]
+        allowed_groups=payload.allowed_groups if payload.allowed_groups is not None else [g.id for g in user.allowed_groups]
     )
 
 @router.delete("/{user_id}", status_code=204)
