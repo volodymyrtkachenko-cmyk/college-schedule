@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { api, DirectoryItem, ScheduleResponse } from "./api";
+import { useAuth } from "./auth";
 
 
 const memoryCache = new Map<string, { time: number; today: ScheduleResponse; week: ScheduleResponse[] }>();
@@ -23,6 +24,7 @@ export function useOnlineStatus() {
 }
 
 export function useSchedule(weekAnchorDate: Date) {
+  const { user } = useAuth();
   const [isSetupComplete, setIsSetupComplete] = useState(false);
   const [mode, setMode] = useState<"student" | "teacher">("student");
   const [groups, setGroups] = useState<import("./api").ReferenceRecord[]>([]);
@@ -69,26 +71,34 @@ export function useSchedule(weekAnchorDate: Date) {
     }
     
     Promise.all([api.groups(), api.directory.teachers()]).then(([items, ts]) => {
-        setTeachers(ts);
-        setGroups(items);
-
-        // Teacher initialization
-        if (!cachedTeacherId && ts.length > 0) {
-            setTeacherId(ts[0].id);
-        } else if (cachedTeacherId) {
-            setTeacherId(Number(cachedTeacherId));
+        if (user && user.role === "editor") {
+            setTeachers([]);
+            const allowed = items.filter((g: any) => (user.allowed_groups || []).includes(g.id));
+            setGroups(allowed);
+            if (!cachedGroupId && allowed.length > 0) {
+                setGroupId(allowed[0].id);
+            } else if (cachedGroupId) {
+                setGroupId(Number(cachedGroupId));
+            }
+        } else {
+            setTeachers(ts);
+            setGroups(items);
+            
+            if (!cachedTeacherId && ts.length > 0) {
+                setTeacherId(ts[0].id);
+            } else if (cachedTeacherId) {
+                setTeacherId(Number(cachedTeacherId));
+            }
+            
+            if (!cachedGroupId && items.length > 0) {
+                setGroupId(items[0].id);
+            } else if (cachedGroupId) {
+                setGroupId(Number(cachedGroupId));
+            }
+            window.localStorage.setItem("schedule:groups", JSON.stringify(items));
+            window.localStorage.setItem("schedule:teachers", JSON.stringify(ts));
         }
-
-        // Group initialization
-        if (!cachedGroupId && items.length > 0) {
-            setGroupId(items[0].id);
-        } else if (cachedGroupId) {
-            setGroupId(Number(cachedGroupId));
-        }
-
-        window.localStorage.setItem("schedule:groups", JSON.stringify(items));
-        window.localStorage.setItem("schedule:teachers", JSON.stringify(ts));
-      })
+    })
       .catch(() => {
         if (!cachedGroups) setError("Не вдалося завантажити групи. Спробуйте ще раз.");
       })
