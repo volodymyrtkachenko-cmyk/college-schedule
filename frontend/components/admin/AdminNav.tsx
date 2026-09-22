@@ -45,15 +45,16 @@ export function AdminNav({ active }: { active: ReferenceResource | "schedule" })
           </div>
       </div>
       <nav aria-label="Адміністрування" className="flex flex-wrap gap-1 rounded-[8px] bg-sys-card p-1 border-[0.5px] border-sys-border">
-        <Link 
-          href={`/admin?resource=schedule`} 
-          className={`flex-1 text-center min-w-[120px] px-3 py-1.5 text-[14px] font-bold rounded-[6px] transition-colors ${active === "schedule" ? "bg-sys-accent text-[#0b1120] shadow-md shadow-sys-accent/20" : "text-sys-text-secondary hover:text-sys-text-primary"}`}
-        >
-          Розклад
-        </Link>
-        {resources.map((resource) => (
-          <Link key={resource} href={`/admin?resource=${resource}`} className={`flex-1 text-center min-w-[120px] px-3 py-1.5 text-[14px] font-medium rounded-[6px] transition-colors ${active === resource ? "bg-sys-tabActive text-sys-accent shadow-sm" : "text-sys-text-secondary hover:text-sys-text-primary"}`}>
-            {referenceLabels[resource]}
+        {[
+          { id: "schedule", label: "Розклад" },
+          ...(resources.map(r => ({ id: r, label: referenceLabels[r] })))
+        ].map((tab) => (
+          <Link 
+            key={tab.id} 
+            href={`/admin?resource=${tab.id}`} 
+            className={`flex-1 text-center min-w-[120px] px-3 py-1.5 text-[14px] font-medium rounded-[6px] transition-all duration-300 ease-out active:scale-95 ${active === tab.id ? "bg-sys-tabActive text-sys-accent shadow-sm" : "text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/5"}`}
+          >
+            {tab.label}
           </Link>
         ))}
       </nav>
