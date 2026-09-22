@@ -175,24 +175,11 @@ function AdminContent() {
     .sort((a, b) => a.name.localeCompare(b.name, "uk"));
 
   return (
-    <main className="min-h-screen bg-sys-bg pb-10 text-sys-text-primary">
-      <header className="border-b-[0.5px] border-sys-border bg-sys-bg px-4 py-4">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4">
-          <div>
-            <a href="https://kre.dp.ua/" target="_blank" rel="noopener noreferrer" className="inline-block hover:opacity-80 transition-opacity" title="Головна сторінка закладу">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-sys-accent">ДФКР</p>
-            </a>
-            <h1 className="text-xl font-bold">Адміністрування</h1>
-          </div>
-          <div className="flex gap-3">
-            <a href="/" className="rounded-[6px] border-[0.5px] border-sys-border px-3 py-1.5 text-sm hover:bg-slate-800 transition-colors">Розклад</a>
-            <button onClick={logout} className="rounded-[6px] border-[0.5px] border-sys-border px-3 py-1.5 text-sm hover:bg-slate-800 transition-colors">Вийти</button>
-          </div>
-        </div>
-      </header>
+    <main className="flex min-h-[100dvh] bg-sys-bg text-sys-text-primary">
+      <AdminNav active={currentTab} />
       
-      <div className="mx-auto max-w-6xl space-y-5 px-4 py-6">
-        <AdminNav active={currentTab} />
+      <div className="flex-1 overflow-x-hidden pb-10">
+        <div className="mx-auto max-w-6xl space-y-5 px-4 py-6 sm:p-8">
         
         {currentTab === "schedule" ? (
           <AdminScheduleEditor />
@@ -256,6 +243,7 @@ function AdminContent() {
         )}
           </>
         )}
+        </div>
       </div>
     </main>
   );
