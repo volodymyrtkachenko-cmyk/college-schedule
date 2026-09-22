@@ -49,7 +49,7 @@ export function AdminNav({ active }: { active: string }) { const { user } = useA
       <nav aria-label="Адміністрування" className="flex flex-wrap gap-1 rounded-[8px] bg-sys-card p-1 border-[0.5px] border-sys-border">
         {[
           { id: "schedule", label: "Розклад" },
-          ...(resources.map(r => ({ id: r, label: referenceLabels[r] }))),
+          ...(user?.role === "admin" ? resources.map(r => ({ id: r, label: referenceLabels[r] })) : []),
           ...(user?.role === "admin" ? [{ id: "users", label: "Менеджери" }] : [])
         ].map((tab) => (
           <Link 
