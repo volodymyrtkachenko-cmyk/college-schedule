@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useEffect, useRef, useState, useMemo } from "react";
 import { api, DirectoryItem, Lesson, LessonMutation, WeekType } from "../lib/api";
 
 import { ReferenceRecord } from "../lib/api";
@@ -59,6 +59,7 @@ export function LessonEditor({ lesson, date, scheduleMode, defaultGroupId, defau
   }, []);
   const [form, setForm] = useState(() => initial(lesson, date, scheduleMode, defaultGroupId, defaultTeacherId, initialWeekType));
   const [subjects, setSubjects] = useState<DirectoryItem[]>([]);
+  const [teacherSubjects, setTeacherSubjects] = useState<Record<number, number[]>>({});
   const [teachers, setTeachers] = useState<DirectoryItem[]>([]);
   const [busy, setBusy] = useState(false);
   const [loadingDirectories, setLoadingDirectories] = useState(true);
@@ -66,10 +67,11 @@ export function LessonEditor({ lesson, date, scheduleMode, defaultGroupId, defau
 
   useEffect(() => {
     let active = true;
-    Promise.all([api.directory.subjects(), api.directory.teachers()])
-      .then(([subjectItems, teacherItems]) => {
+    Promise.all([api.directory.subjects(), api.directory.teachers(), api.directory.teacherSubjects().catch(() => ({}))])
+      .then(([subjectItems, teacherItems, tsMapping]) => {
         if (!active) return;
         setSubjects(subjectItems);
+        setTeacherSubjects(tsMapping as Record<number, number[]>);
         setTeachers(teacherItems);
       })
       .catch((reason) => {
@@ -78,6 +80,31 @@ export function LessonEditor({ lesson, date, scheduleMode, defaultGroupId, defau
       .finally(() => { if (active) setLoadingDirectories(false); });
     return () => { active = false; };
   }, []);
+
+const sortedSubjects = useMemo(() => {
+    if (!form.teacher_id || !teacherSubjects[form.teacher_id]) return subjects;
+    
+    const knownSubjectIds = new Set(teacherSubjects[form.teacher_id]);
+    const known: import("../lib/api").DirectoryItem[] = [];
+    const others: import("../lib/api").DirectoryItem[] = [];
+    
+    for (const sub of subjects) {
+       if (knownSubjectIds.has(sub.id)) {
+           known.push(sub);
+       } else {
+           others.push(sub);
+       }
+    }
+    
+    if (known.length === 0) return subjects;
+    
+    return [
+       { id: -1, name: "── Часто використовує ──", disabled: true },
+       ...known,
+       { id: -2, name: "── Всі інші ──", disabled: true },
+       ...others
+    ];
+  }, [subjects, form.teacher_id, teacherSubjects]);
 
   function update<K extends keyof LessonMutation>(key: K, value: LessonMutation[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -129,7 +156,7 @@ export function LessonEditor({ lesson, date, scheduleMode, defaultGroupId, defau
         <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2">
           <label className="sm:col-span-2">Предмет
             <SearchableSelect
-              options={subjects}
+              options={sortedSubjects}
               value={form.subject_id ?? null}
               onChange={(id) => update("subject_id", id ?? undefined)}
               disabled={loadingDirectories}

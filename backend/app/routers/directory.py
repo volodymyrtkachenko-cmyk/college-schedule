@@ -112,7 +112,38 @@ async def _soft_delete(db, model, entity_id: int):
 admin = Depends(require_roles("admin"))
 
 
+
+@router.get("/teacher-subjects", response_model=dict[int, list[int]])
+async def teacher_subjects(db: AsyncSession = Depends(get_db)):
+    from sqlalchemy import select, and_, or_
+    from app.models.entities import Schedule
+    
+    query1 = select(Schedule.teacher_id, Schedule.subject_id).where(
+        and_(Schedule.is_active.is_(True), Schedule.teacher_id.is_not(None))
+    ).distinct()
+    
+    query2 = select(Schedule.second_teacher_id, Schedule.subject_id).where(
+        and_(Schedule.is_active.is_(True), Schedule.second_teacher_id.is_not(None))
+    ).distinct()
+    
+    result1 = await db.execute(query1)
+    result2 = await db.execute(query2)
+    
+    mapping: dict[int, set[int]] = {}
+    for t_id, s_id in result1.all():
+        if t_id not in mapping:
+            mapping[t_id] = set()
+        mapping[t_id].add(s_id)
+        
+    for t_id, s_id in result2.all():
+        if t_id not in mapping:
+            mapping[t_id] = set()
+        mapping[t_id].add(s_id)
+        
+    return {k: list(v) for k, v in mapping.items()}
+
 @admin_router.post("/faculties", response_model=FacultyResource, status_code=201)
+
 async def create_faculty(payload: FacultyCreate, db: AsyncSession = Depends(get_db), _: object = admin):
     return await _create(db, Faculty, payload, FacultyResource)
 
