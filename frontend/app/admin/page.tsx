@@ -48,7 +48,7 @@ function AdminContent() {
   const searchParams = useSearchParams();
   const requested = searchParams.get("resource");
   const isSchedule = requested === "schedule";
-  const resource = (!isSchedule && requested && resources.includes(requested as ReferenceResource)) ? requested as ReferenceResource : (isSchedule ? undefined : "group" as any);
+  const resource = (!isSchedule && requested && resources.includes(requested as ReferenceResource)) ? requested as ReferenceResource : (isSchedule ? undefined : "groups");
   const currentTab = isSchedule ? "schedule" : (resource || "faculties");
   const activeResource = typeof currentTab === "string" && currentTab !== "schedule" ? currentTab as ReferenceResource : "groups";
   const [items, setItems] = useState<ReferenceRecord[]>([]);
@@ -108,8 +108,8 @@ function AdminContent() {
   async function save(payload: ReferenceMutation) {
     const session = await api.auth.ensureAuthenticated();
     const saved = editor
-      ? await api.references.update(resource, editor.id, payload, session.access_token)
-      : await api.references.create(resource, payload, session.access_token);
+      ? await api.references.update(activeResource, editor.id, payload, session.access_token)
+      : await api.references.create(activeResource, payload, session.access_token);
     setItems((current) => editor ? current.map((item) => item.id === saved.id ? saved : item) : [...current, saved]);
     if (resourceConfig[activeResource].affectsSchedule) {
       // Wiping related schedule caches to force a refetch on main page
@@ -129,7 +129,7 @@ function AdminContent() {
   async function confirmRemove(item: ReferenceRecord) {
     try {
       const session = await api.auth.ensureAuthenticated();
-      await api.references.remove(resource, item.id, session.access_token);
+      await api.references.remove(activeResource, item.id, session.access_token);
       setItems((current) => current.filter((value) => value.id !== item.id)); 
       setToast({ message: "Запис успішно видалено.", type: "success" });
     }
@@ -213,10 +213,10 @@ function AdminContent() {
         </div>
 
         {editor !== undefined && (
-          <ReferenceForm resource={resource} item={editor ?? undefined} faculties={faculties} teachers={teachers} onCancel={() => setEditor(undefined)} onSubmit={save} />
+          <ReferenceForm resource={activeResource} item={editor ?? undefined} faculties={faculties} teachers={teachers} onCancel={() => setEditor(undefined)} onSubmit={save} />
         )}
         
-        <ReferenceTable resource={resource} items={filteredAndSortedItems} faculties={faculties} teachers={teachers} loading={loading} error={error} onEdit={setEditor} onDelete={setItemToDelete} />
+        <ReferenceTable resource={activeResource} items={filteredAndSortedItems} faculties={faculties} teachers={teachers} loading={loading} error={error} onEdit={setEditor} onDelete={setItemToDelete} />
         
         {/* Toast */}
         {bulkOpen && <BulkCuratorsModal groups={items} onClose={() => setBulkOpen(false)} onSuccess={(msg) => { setToast({ message: msg, type: "success" }); }} />}
