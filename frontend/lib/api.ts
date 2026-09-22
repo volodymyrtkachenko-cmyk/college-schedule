@@ -73,6 +73,7 @@ export interface AuthUser {
     name: string;
     role: "admin" | "editor" | "viewer" | string;
     is_active: boolean;
+    allowed_groups?: number[];
 }
 
 export interface AuthSession {
