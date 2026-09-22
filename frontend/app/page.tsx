@@ -44,7 +44,7 @@ export default function HomePage() {
       setToast({ message: "Розклад збережено для офлайн-режиму", type: "success" });
     } catch (e) {
       console.error(e);
-      setToast({ message: "Не вдалось завантажити. Перевірте інтернет.", type: "error" });
+      setToast({ message: `Не вдалось завантажити: ${e instanceof Error ? e.message : String(e)}`, type: "error" });
     } finally {
       setIsDownloading(false);
     }
