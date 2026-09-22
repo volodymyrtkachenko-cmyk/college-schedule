@@ -8,7 +8,7 @@ import { ScheduleDay } from "../components/ScheduleDay";
 import { ScheduleWeekGrid } from "../components/ScheduleWeekGrid";
 import { WeekTypeBadge } from "../components/WeekTypeBadge";
 import { useSchedule, useIsStandalonePwa, downloadForOffline } from "../lib/hooks";
-import { useAuth } from "../lib/auth";
+import { useAuth, canAccessAdmin } from "../lib/auth";
 import { useRouter } from "next/navigation";
 import { getMondayOf } from "../lib/date";
 import { WelcomeScreen } from "../components/WelcomeScreen";
@@ -146,7 +146,14 @@ export default function HomePage() {
 
             {user && (
               <div className="flex items-center gap-2 ml-auto sm:ml-0 mt-2 sm:mt-0">
-                {user.role === "admin" && <a href="/admin" className="rounded-lg border border-cyan-400/40 px-3 py-2 text-sm font-medium text-cyan-300 whitespace-nowrap shadow-sm hover:bg-cyan-500/10 transition-colors">Панель керування</a>}
+                {canAccessAdmin(user) && (
+                  <a href="/admin" className="rounded-lg border border-cyan-400/40 px-3 py-2 text-sm font-medium text-cyan-300 whitespace-nowrap shadow-sm hover:bg-cyan-500/10 transition-colors">
+                    Панель керування
+                  </a>
+                )}
+                <button onClick={logout} className="rounded-lg border border-sys-border px-3 py-2 text-sm font-medium text-sys-text-secondary whitespace-nowrap shadow-sm hover:bg-sys-hover transition-colors">
+                  Вийти
+                </button>
               </div>
             )}
           </div>

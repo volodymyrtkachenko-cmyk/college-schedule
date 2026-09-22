@@ -41,3 +41,7 @@ export function useAuth() {
   if (!value) throw new Error("useAuth must be used inside AuthProvider");
   return value;
 }
+
+export function canAccessAdmin(user: AuthUser | null) {
+  return user?.role === "admin" || user?.role === "editor";
+}
