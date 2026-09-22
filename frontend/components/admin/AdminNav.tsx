@@ -18,7 +18,7 @@ export function AdminNav({ active }: { active: string }) { const { user } = useA
     const fetchMetrics = async () => {
       try {
         const session = await api.auth.ensureAuthenticated();
-        const data = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://college-schedule-dpyg.onrender.com"}/api/admin/metrics`, {
+        const data = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://college-schedule-dpyg.onrender.com"}/api/metrics`, {
           headers: { "Authorization": `Bearer ${session.access_token}` }
         }).then(res => res.json());
         setOnline(data.online);

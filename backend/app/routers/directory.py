@@ -230,7 +230,7 @@ async def admin_subjects(db: AsyncSession = Depends(get_db)):
     return await items(Subject, db)
 
 
-@admin_router.get("/metrics")
+@router.get("/metrics")
 async def get_metrics():
     from app.analytics import get_online_count
     return {"online": get_online_count()}
