@@ -69,7 +69,10 @@ async def login(payload: LoginRequest, response: Response, db: AsyncSession = De
     return TokenResponse(
         access_token=create_access_token(user),
         refresh_token=refresh_token,
-        user=user,
+        user=UserResponse(
+            id=user.id, username=user.username, email=user.email, name=user.name, role=user.role, is_active=user.is_active,
+            allowed_groups=[g.id for g in user.allowed_groups] if user.allowed_groups else []
+        ),
     )
 
 
