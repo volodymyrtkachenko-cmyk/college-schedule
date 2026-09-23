@@ -9,7 +9,7 @@ ACTIVE_WINDOW = 300
 
 def track_request(request: Request):
     # Cloudflare passes the real client IP here. Fallback to normal request.client.host
-    ip = request.headers.get("cf-connecting-ip") or request.client.host
+    ip = request.headers.get("cf-connecting-ip") or (request.client.host if request.client else "unknown")
     if ip:
         _active_users[ip] = time.time()
         

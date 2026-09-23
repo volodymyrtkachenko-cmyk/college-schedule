@@ -34,7 +34,10 @@ class Settings(BaseSettings):
 
     @property
     def cors_origins(self) -> list[str]:
-        return [origin.strip() for origin in self.backend_cors_origins.split(",") if origin.strip()]
+        origins = [origin.strip() for origin in self.backend_cors_origins.split(",") if origin.strip() and origin.strip() != "*"]
+        if not origins:
+            origins = ["https://college-schedule-flame.vercel.app", "http://localhost:3000"]
+        return origins
 
 
 @lru_cache
