@@ -40,15 +40,14 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS", "PUT"],
+    allow_headers=["Content-Type", "Authorization", "Accept", "Origin"],
 )
 
 
 @app.middleware("http")
 async def analytics_middleware(request: Request, call_next):
-    # Only track API reads to avoid polling spam counting?
-    # Actually just track everything to be safe and simple.
+    # Відстежуємо всі запити до API для загальної аналітики активності
     track_request(request)
     response = await call_next(request)
     return response

@@ -153,9 +153,9 @@ export default function HomePage() {
             <div className="flex items-center justify-between sm:justify-start gap-4">
               <div className="flex items-center gap-2 bg-sys-card border border-sys-border px-4 py-2 rounded-xl">
                  <span className="font-medium text-white shadow-sm flex items-center gap-2 truncate max-w-[200px]">
-                   {mode === "student" ? groups.find(g => g.id === groupId)?.name || "Не обрано" : teachers.find(t => t.id === teacherId)?.name || "Не обрано"}
+                   {mode === "student" ? groups.find(g => g.id === groupId)?.name || "⚠️ Оберіть групу" : teachers.find(t => t.id === teacherId)?.name || "⚠️ Оберіть викладача"}
                  </span>
-                 <button onClick={resetSetup} className="ml-3 flex items-center gap-1.5 text-xs font-medium text-sys-text-secondary hover:text-white transition-colors bg-sys-bg/50 px-2.5 py-1 rounded-md border border-sys-border" title="Змінити налаштування" type="button">
+                 <button onClick={resetSetup} className="ml-3 flex items-center gap-1.5 text-xs font-medium text-sys-text-secondary hover:text-white transition-colors bg-sys-bg/50 px-2.5 py-1 rounded-md border border-transparent hover:border-sys-border" title="Змінити налаштування" type="button">
                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
                    Змінити
                  </button>
