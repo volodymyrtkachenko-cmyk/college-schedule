@@ -4,7 +4,7 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="508baa33-f415-4e56-bdba-95be05473423" name="Changes" comment="fix(ui): make admin sidebar fixed and make right content independently scrollable">
+    <list default="true" id="508baa33-f415-4e56-bdba-95be05473423" name="Changes" comment="fix(backend): add missing BaseModel import in schedule.py">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -33,23 +33,23 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.3520898550943659" />
-      <entry key="MS500" value="3.68486953782422" />
-      <entry key="S2" value="9.65369884225107" />
-      <entry key="S5" value="19.84554787113523" />
-      <entry key="S10" value="32.205736170337474" />
-      <entry key="S30" value="50.53364835703281" />
-      <entry key="S60" value="59.82446996926736" />
-      <entry key="M2" value="76.88269464571722" />
-      <entry key="M5" value="123.77922975538509" />
-      <entry key="M10" value="174.5731231884034" />
-      <entry key="M15" value="208.60550094523805" />
-      <entry key="M30" value="306.23354247194806" />
-      <entry key="H1" value="590.09251865193" />
-      <entry key="H2" value="1247.56801080019" />
-      <entry key="H4" value="2307.588870053292" />
-      <entry key="D1" value="7068.068564266622" />
-      <entry key="W1" value="11643.133489675556" />
+      <entry key="MS100" value="1.3994962029334486" />
+      <entry key="MS500" value="3.3075351979216023" />
+      <entry key="S2" value="8.130194408960662" />
+      <entry key="S5" value="19.889939675723475" />
+      <entry key="S10" value="34.22855933448865" />
+      <entry key="S30" value="54.6569914588998" />
+      <entry key="S60" value="66.80900691863314" />
+      <entry key="M2" value="93.4056828008076" />
+      <entry key="M5" value="176.49682514653563" />
+      <entry key="M10" value="281.19574217453095" />
+      <entry key="M15" value="352.2529578725104" />
+      <entry key="M30" value="499.49829479451535" />
+      <entry key="H1" value="799.7075284126508" />
+      <entry key="H2" value="1458.6911420606773" />
+      <entry key="H4" value="2530.1948782330082" />
+      <entry key="D1" value="7342.421915804203" />
+      <entry key="W1" value="11957.035350011338" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -71,23 +71,23 @@
       <entry key="W1" value="0.0" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="1.3151301926177086" />
-      <entry key="MS500" value="3.664963393591185" />
-      <entry key="S2" value="9.640956833390998" />
-      <entry key="S5" value="19.835189554462833" />
-      <entry key="S10" value="32.19741971415294" />
-      <entry key="S30" value="50.52933403776243" />
-      <entry key="S60" value="59.821922789384004" />
-      <entry key="M2" value="76.88106302827491" />
-      <entry key="M5" value="123.7781747799133" />
-      <entry key="M10" value="174.57237288502847" />
-      <entry key="M15" value="208.6049002492029" />
-      <entry key="M30" value="306.23309310236215" />
-      <entry key="H1" value="590.0920651546464" />
-      <entry key="H2" value="1247.567510437446" />
-      <entry key="H4" value="2307.5883923395304" />
-      <entry key="D1" value="7068.068334539291" />
-      <entry key="W1" value="11643.133438343059" />
+      <entry key="MS100" value="1.3512529975485263" />
+      <entry key="MS500" value="3.28414616515723" />
+      <entry key="S2" value="8.115337311776495" />
+      <entry key="S5" value="19.875622738906948" />
+      <entry key="S10" value="34.21645006559823" />
+      <entry key="S30" value="54.65062376273052" />
+      <entry key="S60" value="66.80511427993575" />
+      <entry key="M2" value="93.40292045397804" />
+      <entry key="M5" value="176.49468584469884" />
+      <entry key="M10" value="281.1940603610112" />
+      <entry key="M15" value="352.2515755184587" />
+      <entry key="M30" value="499.4973501599485" />
+      <entry key="H1" value="799.7068081663115" />
+      <entry key="H2" value="1458.6905068205258" />
+      <entry key="H4" value="2530.194330761187" />
+      <entry key="D1" value="7342.421672476316" />
+      <entry key="W1" value="11957.03529654706" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -156,47 +156,7 @@
       <workItem from="1790008150287" duration="12327000" />
       <workItem from="1790066966060" duration="11073000" />
       <workItem from="1790090923642" duration="12528000" />
-      <workItem from="1790152459494" duration="385000" />
-    </task>
-    <task id="LOCAL-00069" summary="chore: remove dangerous wipe functionality from admin UI">
-      <option name="closed" value="true" />
-      <created>1790019023523</created>
-      <option name="number" value="00069" />
-      <option name="presentableId" value="LOCAL-00069" />
-      <option name="project" value="LOCAL" />
-      <updated>1790019023523</updated>
-    </task>
-    <task id="LOCAL-00070" summary="chore: remove dangerous wipe functionality from admin UI">
-      <option name="closed" value="true" />
-      <created>1790019274540</created>
-      <option name="number" value="00070" />
-      <option name="presentableId" value="LOCAL-00070" />
-      <option name="project" value="LOCAL" />
-      <updated>1790019274540</updated>
-    </task>
-    <task id="LOCAL-00071" summary="Зміна адмінки">
-      <option name="closed" value="true" />
-      <created>1790019897946</created>
-      <option name="number" value="00071" />
-      <option name="presentableId" value="LOCAL-00071" />
-      <option name="project" value="LOCAL" />
-      <updated>1790019897946</updated>
-    </task>
-    <task id="LOCAL-00072" summary="Зміна адмінки">
-      <option name="closed" value="true" />
-      <created>1790020489974</created>
-      <option name="number" value="00072" />
-      <option name="presentableId" value="LOCAL-00072" />
-      <option name="project" value="LOCAL" />
-      <updated>1790020489974</updated>
-    </task>
-    <task id="LOCAL-00073" summary="Зміна адмінки">
-      <option name="closed" value="true" />
-      <created>1790067512146</created>
-      <option name="number" value="00073" />
-      <option name="presentableId" value="LOCAL-00073" />
-      <option name="project" value="LOCAL" />
-      <updated>1790067512146</updated>
+      <workItem from="1790152459494" duration="1771000" />
     </task>
     <task id="LOCAL-00074" summary="chore: delete unused script files.">
       <option name="closed" value="true" />
@@ -550,7 +510,47 @@
       <option name="project" value="LOCAL" />
       <updated>1790103688957</updated>
     </task>
-    <option name="localTasksCounter" value="118" />
+    <task id="LOCAL-00118" summary="chore(backend): security improvements, dead code removal, code quality refactor and dockerignore rollout">
+      <option name="closed" value="true" />
+      <created>1790153110323</created>
+      <option name="number" value="00118" />
+      <option name="presentableId" value="LOCAL-00118" />
+      <option name="project" value="LOCAL" />
+      <updated>1790153110323</updated>
+    </task>
+    <task id="LOCAL-00119" summary="chore(backend): security improvements, dead code removal, code quality refactor and dockerignore rollout">
+      <option name="closed" value="true" />
+      <created>1790153148174</created>
+      <option name="number" value="00119" />
+      <option name="presentableId" value="LOCAL-00119" />
+      <option name="project" value="LOCAL" />
+      <updated>1790153148174</updated>
+    </task>
+    <task id="LOCAL-00120" summary="feat(ui): add search and smart sorting to users panel, prioritize admins at the top">
+      <option name="closed" value="true" />
+      <created>1790153882576</created>
+      <option name="number" value="00120" />
+      <option name="presentableId" value="LOCAL-00120" />
+      <option name="project" value="LOCAL" />
+      <updated>1790153882577</updated>
+    </task>
+    <task id="LOCAL-00121" summary="feat(auth): strict block of password modification for admin accounts via web interface">
+      <option name="closed" value="true" />
+      <created>1790154107611</created>
+      <option name="number" value="00121" />
+      <option name="presentableId" value="LOCAL-00121" />
+      <option name="project" value="LOCAL" />
+      <updated>1790154107612</updated>
+    </task>
+    <task id="LOCAL-00122" summary="fix(backend): add missing BaseModel import in schedule.py">
+      <option name="closed" value="true" />
+      <created>1790154221373</created>
+      <option name="number" value="00122" />
+      <option name="presentableId" value="LOCAL-00122" />
+      <option name="project" value="LOCAL" />
+      <updated>1790154221373</updated>
+    </task>
+    <option name="localTasksCounter" value="123" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -578,10 +578,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Онлайн" />
-    <MESSAGE value="Розширенн онлайн режиму" />
-    <MESSAGE value="Розширенн офлайн режиму" />
-    <MESSAGE value="Прізвище І.П." />
     <MESSAGE value="Додавання розкладу" />
     <MESSAGE value="Зміна відображення розкладу" />
     <MESSAGE value="Вибір групи/викладача, якщо перший захід на сайт" />
@@ -603,7 +599,11 @@
     <MESSAGE value="fix(metrics): expose online count to editors" />
     <MESSAGE value="feat(ui): implement sidebar drawer layout for admin panel for better structural navigation" />
     <MESSAGE value="fix(ui): make admin sidebar fixed and make right content independently scrollable" />
-    <option name="LAST_COMMIT_MESSAGE" value="fix(ui): make admin sidebar fixed and make right content independently scrollable" />
+    <MESSAGE value="chore(backend): security improvements, dead code removal, code quality refactor and dockerignore rollout" />
+    <MESSAGE value="feat(ui): add search and smart sorting to users panel, prioritize admins at the top" />
+    <MESSAGE value="feat(auth): strict block of password modification for admin accounts via web interface" />
+    <MESSAGE value="fix(backend): add missing BaseModel import in schedule.py" />
+    <option name="LAST_COMMIT_MESSAGE" value="fix(backend): add missing BaseModel import in schedule.py" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
