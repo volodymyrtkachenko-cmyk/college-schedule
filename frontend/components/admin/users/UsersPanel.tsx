@@ -9,6 +9,7 @@ export function UsersPanel() {
     const [groups, setGroups] = useState<ReferenceRecord[]>([]);
     const [loading, setLoading] = useState(true);
     const [editor, setEditor] = useState<Partial<UserResource> & { password?: string } | null>(null);
+    const [searchTerm, setSearchTerm] = useState("");
 
     async function load() {
         if (!currentUser) return;
@@ -138,11 +139,32 @@ export function UsersPanel() {
         );
     }
 
+    const filteredUsers = users
+        .filter(u => {
+            if (!searchTerm) return true;
+            const term = searchTerm.toLowerCase();
+            return (u.name || "").toLowerCase().includes(term) || (u.username || "").toLowerCase().includes(term);
+        })
+        .sort((a, b) => {
+            if (a.role === "admin" && b.role !== "admin") return -1;
+            if (a.role !== "admin" && b.role === "admin") return 1;
+            return (a.name || "").localeCompare(b.name || "", "uk");
+        });
+
     return (
         <div className="bg-sys-card p-6 rounded-xl border border-sys-border">
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
                 <h3 className="text-xl font-bold">Користувачі системи</h3>
-                <button onClick={() => setEditor({ role: "editor", allowed_groups: [] })} className="bg-sys-accent text-slate-950 font-bold px-4 py-2 rounded-lg text-sm">+ Додати користувача</button>
+                <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+                    <input 
+                        type="text" 
+                        placeholder="Пошук за ім'ям або логіном..." 
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full sm:w-[250px] bg-sys-input border border-sys-border rounded-lg px-3 py-2 text-sm text-sys-text-primary focus:border-sys-accent"
+                    />
+                    <button onClick={() => setEditor({ role: "editor", allowed_groups: [] })} className="w-full sm:w-auto shrink-0 bg-sys-accent text-slate-950 font-bold px-4 py-2 rounded-lg text-sm whitespace-nowrap">+ Додати</button>
+                </div>
             </div>
             
             <div className="overflow-x-auto">
@@ -156,7 +178,7 @@ export function UsersPanel() {
                         </tr>
                     </thead>
                     <tbody>
-                        {users.map(u => (
+                        {filteredUsers.map(u => (
                             <tr key={u.id} className="border-b border-sys-border/50 hover:bg-white/5 transition-colors">
                                 <td className="py-3 px-4">
                                     <div className="font-medium">{u.name}</div>
@@ -189,7 +211,7 @@ export function UsersPanel() {
                                 </td>
                             </tr>
                         ))}
-                        {users.length === 0 && (
+                        {filteredUsers.length === 0 && (
                             <tr>
                                 <td colSpan={4} className="py-8 text-center text-sys-text-secondary text-sm">Немає користувачів</td>
                             </tr>
