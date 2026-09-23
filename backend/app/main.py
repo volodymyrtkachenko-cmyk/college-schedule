@@ -1,9 +1,12 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
+from app.analytics import track_request
 from app.config import settings
 from app.database import engine
 from app.routers import health
@@ -23,6 +26,10 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+from app.routers.auth import limiter
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 app.add_middleware(
     GZipMiddleware,
     minimum_size=500
@@ -31,18 +38,12 @@ app.add_middleware(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://college-schedule-flame.vercel.app",
-        "http://localhost:3000",
-        "http://localhost:5173", # pwa dev
-    ],
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-from fastapi import Request
-from app.analytics import track_request
 
 @app.middleware("http")
 async def analytics_middleware(request: Request, call_next):

@@ -4,13 +4,8 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="508baa33-f415-4e56-bdba-95be05473423" name="Changes" comment="ix(api): auto-create missing database tables on startup">
-      <change afterPath="$PROJECT_DIR$/backend/alembic/versions/b3f8c9eb05d9_add_user_group_access.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/public/fallback-ce627215c0e4a9af.js" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/frontend/public/swe-worker-5c72df51bb1f6ee0.js" afterDir="false" />
+    <list default="true" id="508baa33-f415-4e56-bdba-95be05473423" name="Changes" comment="fix(ui): make admin sidebar fixed and make right content independently scrollable">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/entrypoint.sh" beforeDir="false" afterPath="$PROJECT_DIR$/backend/entrypoint.sh" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/start.sh" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -38,23 +33,23 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.2574070205608838" />
-      <entry key="MS500" value="2.9610451744256414" />
-      <entry key="S2" value="7.072362656646707" />
-      <entry key="S5" value="15.143962268267718" />
-      <entry key="S10" value="22.625869136284056" />
-      <entry key="S30" value="31.087739039724806" />
-      <entry key="S60" value="34.09755665320308" />
-      <entry key="M2" value="39.190794225256" />
-      <entry key="M5" value="58.90160046844669" />
-      <entry key="M10" value="99.58156205060925" />
-      <entry key="M15" value="158.80973776964586" />
-      <entry key="M30" value="387.1383369841446" />
-      <entry key="H1" value="834.1718307171475" />
-      <entry key="H2" value="1560.3497738039503" />
-      <entry key="H4" value="2550.1005069969065" />
-      <entry key="D1" value="6981.957630591407" />
-      <entry key="W1" value="11308.37185327758" />
+      <entry key="MS100" value="1.3520898550943659" />
+      <entry key="MS500" value="3.68486953782422" />
+      <entry key="S2" value="9.65369884225107" />
+      <entry key="S5" value="19.84554787113523" />
+      <entry key="S10" value="32.205736170337474" />
+      <entry key="S30" value="50.53364835703281" />
+      <entry key="S60" value="59.82446996926736" />
+      <entry key="M2" value="76.88269464571722" />
+      <entry key="M5" value="123.77922975538509" />
+      <entry key="M10" value="174.5731231884034" />
+      <entry key="M15" value="208.60550094523805" />
+      <entry key="M30" value="306.23354247194806" />
+      <entry key="H1" value="590.09251865193" />
+      <entry key="H2" value="1247.56801080019" />
+      <entry key="H4" value="2307.588870053292" />
+      <entry key="D1" value="7068.068564266622" />
+      <entry key="W1" value="11643.133489675556" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -76,23 +71,23 @@
       <entry key="W1" value="0.0" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="1.2244652528630224" />
-      <entry key="MS500" value="2.9456930369941317" />
-      <entry key="S2" value="7.063159016174657" />
-      <entry key="S5" value="15.136117923208623" />
-      <entry key="S10" value="22.620002198279053" />
-      <entry key="S30" value="31.08504538119581" />
-      <entry key="S60" value="34.096078348510204" />
-      <entry key="M2" value="39.18994560836286" />
-      <entry key="M5" value="58.901091632012644" />
-      <entry key="M10" value="99.58112400487215" />
-      <entry key="M15" value="158.80925818764365" />
-      <entry key="M30" value="387.137720120278" />
-      <entry key="H1" value="834.1711485700615" />
-      <entry key="H2" value="1560.349124740218" />
-      <entry key="H4" value="2550.0999665200206" />
-      <entry key="D1" value="6981.9574027708695" />
-      <entry key="W1" value="11308.371803394362" />
+      <entry key="MS100" value="1.3151301926177086" />
+      <entry key="MS500" value="3.664963393591185" />
+      <entry key="S2" value="9.640956833390998" />
+      <entry key="S5" value="19.835189554462833" />
+      <entry key="S10" value="32.19741971415294" />
+      <entry key="S30" value="50.52933403776243" />
+      <entry key="S60" value="59.821922789384004" />
+      <entry key="M2" value="76.88106302827491" />
+      <entry key="M5" value="123.7781747799133" />
+      <entry key="M10" value="174.57237288502847" />
+      <entry key="M15" value="208.6049002492029" />
+      <entry key="M30" value="306.23309310236215" />
+      <entry key="H1" value="590.0920651546464" />
+      <entry key="H2" value="1247.567510437446" />
+      <entry key="H4" value="2307.5883923395304" />
+      <entry key="D1" value="7068.068334539291" />
+      <entry key="W1" value="11643.133438343059" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -160,63 +155,8 @@
       <workItem from="1790008091798" duration="46000" />
       <workItem from="1790008150287" duration="12327000" />
       <workItem from="1790066966060" duration="11073000" />
-      <workItem from="1790090923642" duration="7254000" />
-    </task>
-    <task id="LOCAL-00062" summary="Покращення адмінки">
-      <option name="closed" value="true" />
-      <created>1790013172052</created>
-      <option name="number" value="00062" />
-      <option name="presentableId" value="LOCAL-00062" />
-      <option name="project" value="LOCAL" />
-      <updated>1790013172052</updated>
-    </task>
-    <task id="LOCAL-00063" summary="Покращення адмінки">
-      <option name="closed" value="true" />
-      <created>1790014032461</created>
-      <option name="number" value="00063" />
-      <option name="presentableId" value="LOCAL-00063" />
-      <option name="project" value="LOCAL" />
-      <updated>1790014032461</updated>
-    </task>
-    <task id="LOCAL-00064" summary="Покращення адмінки">
-      <option name="closed" value="true" />
-      <created>1790014658468</created>
-      <option name="number" value="00064" />
-      <option name="presentableId" value="LOCAL-00064" />
-      <option name="project" value="LOCAL" />
-      <updated>1790014658468</updated>
-    </task>
-    <task id="LOCAL-00065" summary="Покращення адмінки">
-      <option name="closed" value="true" />
-      <created>1790014698053</created>
-      <option name="number" value="00065" />
-      <option name="presentableId" value="LOCAL-00065" />
-      <option name="project" value="LOCAL" />
-      <updated>1790014698053</updated>
-    </task>
-    <task id="LOCAL-00066" summary="Покращення адмінки">
-      <option name="closed" value="true" />
-      <created>1790015268019</created>
-      <option name="number" value="00066" />
-      <option name="presentableId" value="LOCAL-00066" />
-      <option name="project" value="LOCAL" />
-      <updated>1790015268019</updated>
-    </task>
-    <task id="LOCAL-00067" summary="Покращення адмінки">
-      <option name="closed" value="true" />
-      <created>1790017421689</created>
-      <option name="number" value="00067" />
-      <option name="presentableId" value="LOCAL-00067" />
-      <option name="project" value="LOCAL" />
-      <updated>1790017421689</updated>
-    </task>
-    <task id="LOCAL-00068" summary="Покращення адмінки">
-      <option name="closed" value="true" />
-      <created>1790018208453</created>
-      <option name="number" value="00068" />
-      <option name="presentableId" value="LOCAL-00068" />
-      <option name="project" value="LOCAL" />
-      <updated>1790018208454</updated>
+      <workItem from="1790090923642" duration="12528000" />
+      <workItem from="1790152459494" duration="385000" />
     </task>
     <task id="LOCAL-00069" summary="chore: remove dangerous wipe functionality from admin UI">
       <option name="closed" value="true" />
@@ -554,7 +494,63 @@
       <option name="project" value="LOCAL" />
       <updated>1790097805391</updated>
     </task>
-    <option name="localTasksCounter" value="111" />
+    <task id="LOCAL-00111" summary="ix(api): auto-create missing database tables on startup">
+      <option name="closed" value="true" />
+      <created>1790098292660</created>
+      <option name="number" value="00111" />
+      <option name="presentableId" value="LOCAL-00111" />
+      <option name="project" value="LOCAL" />
+      <updated>1790098292660</updated>
+    </task>
+    <task id="LOCAL-00112" summary="eat(ui): ensure editor access to admin panel and add global logout button">
+      <option name="closed" value="true" />
+      <created>1790098992786</created>
+      <option name="number" value="00112" />
+      <option name="presentableId" value="LOCAL-00112" />
+      <option name="project" value="LOCAL" />
+      <updated>1790098992786</updated>
+    </task>
+    <task id="LOCAL-00113" summary="feat(ui): strictly isolate groups and teachers in admin schedule for editors">
+      <option name="closed" value="true" />
+      <created>1790099616756</created>
+      <option name="number" value="00113" />
+      <option name="presentableId" value="LOCAL-00113" />
+      <option name="project" value="LOCAL" />
+      <updated>1790099616756</updated>
+    </task>
+    <task id="LOCAL-00114" summary="fix(metrics): expose online count to editors">
+      <option name="closed" value="true" />
+      <created>1790099955294</created>
+      <option name="number" value="00114" />
+      <option name="presentableId" value="LOCAL-00114" />
+      <option name="project" value="LOCAL" />
+      <updated>1790099955294</updated>
+    </task>
+    <task id="LOCAL-00115" summary="feat(ui): implement sidebar drawer layout for admin panel for better structural navigation">
+      <option name="closed" value="true" />
+      <created>1790103103683</created>
+      <option name="number" value="00115" />
+      <option name="presentableId" value="LOCAL-00115" />
+      <option name="project" value="LOCAL" />
+      <updated>1790103103683</updated>
+    </task>
+    <task id="LOCAL-00116" summary="fix(ui): make admin sidebar fixed and make right content independently scrollable">
+      <option name="closed" value="true" />
+      <created>1790103376291</created>
+      <option name="number" value="00116" />
+      <option name="presentableId" value="LOCAL-00116" />
+      <option name="project" value="LOCAL" />
+      <updated>1790103376291</updated>
+    </task>
+    <task id="LOCAL-00117" summary="fix(ui): make admin sidebar fixed and make right content independently scrollable">
+      <option name="closed" value="true" />
+      <created>1790103688957</created>
+      <option name="number" value="00117" />
+      <option name="presentableId" value="LOCAL-00117" />
+      <option name="project" value="LOCAL" />
+      <updated>1790103688957</updated>
+    </task>
+    <option name="localTasksCounter" value="118" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -582,11 +578,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Генерація виховних годин v2" />
-    <MESSAGE value="Генерація виховних годин v3" />
-    <MESSAGE value="Прибирання значка молнії" />
-    <MESSAGE value="Додавання розкладу знаменника" />
-    <MESSAGE value="Виправлення видалення" />
     <MESSAGE value="Онлайн" />
     <MESSAGE value="Розширенн онлайн режиму" />
     <MESSAGE value="Розширенн офлайн режиму" />
@@ -607,7 +598,12 @@
     <MESSAGE value="fix(admin): fix users panel routing and protect root admin deletion" />
     <MESSAGE value="ix(ui): convert rigid checkboxes to interactive toggle buttons for group permissions" />
     <MESSAGE value="ix(api): auto-create missing database tables on startup" />
-    <option name="LAST_COMMIT_MESSAGE" value="ix(api): auto-create missing database tables on startup" />
+    <MESSAGE value="eat(ui): ensure editor access to admin panel and add global logout button" />
+    <MESSAGE value="feat(ui): strictly isolate groups and teachers in admin schedule for editors" />
+    <MESSAGE value="fix(metrics): expose online count to editors" />
+    <MESSAGE value="feat(ui): implement sidebar drawer layout for admin panel for better structural navigation" />
+    <MESSAGE value="fix(ui): make admin sidebar fixed and make right content independently scrollable" />
+    <option name="LAST_COMMIT_MESSAGE" value="fix(ui): make admin sidebar fixed and make right content independently scrollable" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
