@@ -12,7 +12,7 @@ class Settings(BaseSettings):
         "postgresql+psycopg://college_schedule:college_schedule_dev"
         "@localhost:5432/college_schedule"
     )
-    backend_cors_origins: str = "*"
+    backend_cors_origins: str = "https://college-schedule-flame.vercel.app,http://localhost:3000"
     semester_start: str = "2025-09-01"
     wipe_secret: str | None = None
     # Stable only for local development; deployments must override this.
