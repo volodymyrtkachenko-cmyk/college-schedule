@@ -1,3 +1,4 @@
+import logging
 from datetime import date, time, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import select, delete
@@ -9,6 +10,8 @@ from app.core.security import require_roles
 from app.models import Group, Schedule, Subject, Teacher, User
 from app.services.schedule import fetch_schedule, fetch_week_schedule, conflicting_lesson
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
 
 def check_group_access(user: User, user_allowed_groups: list[int], group_id: int):
@@ -17,7 +20,6 @@ def check_group_access(user: User, user_allowed_groups: list[int], group_id: int
         raise HTTPException(status_code=403, detail="Ви не маєте доступу до зміни розкладу цієї групи")
 
 async def load_user_groups(db: AsyncSession, user: User) -> list[int]:
-    from sqlalchemy.orm import selectinload
     u = await db.scalar(select(User).options(selectinload(User.allowed_groups)).where(User.id == user.id))
     return [g.id for g in u.allowed_groups] if u else []
 
@@ -110,40 +112,33 @@ async def _entity(db, model, entity_id, name, label, required=False):
         raise HTTPException(422, f"{label} не існує")
     return value
 
-async def _save(item, payload, db, *, create=False):
-    group_id = payload.group_id if payload.group_id is not None else item.group_id
-    day = payload.day_of_week or (payload.date.isoweekday() if payload.date else item.day_of_week)
-    lesson_number = payload.lesson_number if payload.lesson_number is not None else item.lesson_number
-    week_type = payload.week_type or item.week_type
-    # IMPORTANT: `item` may already be pending in the session (added via db.add()
-    # but not yet fully populated with its NOT NULL columns, when create=True).
-    # Any query below (conflicting_lesson, db.get, select(...)) would otherwise
-    # trigger SQLAlchemy's autoflush and try to INSERT that half-built row,
-    # raising a NotNullViolation. Wrap every lookup query in db.no_autoflush
-    # (a plain, synchronous context manager -- use "with", not "async with")
-    # until the row is fully populated and ready to be flushed intentionally
-    # at commit time below.
-    with db.no_autoflush:
-        conflict = await conflicting_lesson(db, group_id=group_id, day_of_week=day,
-                                            lesson_number=lesson_number, week_type=week_type,
-                                            exclude_id=None if create else item.id)
-        if conflict:
-            day_names = {1: "Понеділок", 2: "Вівторок", 3: "Середу", 4: "Четвер", 5: "П'ятницю", 6: "Суботу", 7: "Неділю"}
-            week_names = {"numerator": "по чисельнику", "denominator": "по знаменнику", "both": "щотижня"}
-            d_name = day_names.get(day, str(day))
-            w_name = week_names.get(conflict.week_type, conflict.week_type)
-            raise HTTPException(409, f"Неможливо зберегти: на {d_name} ({lesson_number}-а пара, {w_name}) уже призначене інше заняття.")
-        group = await _entity(db, Group, group_id, None, "group", required=True)
-        if not create and payload.subject_id is None and payload.subject is None:
-            subject = await db.get(Subject, item.subject_id)
-        else:
-            subject = await _entity(db, Subject, payload.subject_id, payload.subject, "subject",
-                                    required=create and payload.subject_id is None and payload.subject is None)
-        teacher = await _entity(db, Teacher, payload.teacher_id, payload.teacher, "teacher")
-        second_teacher = await _entity(db, Teacher, getattr(payload, "second_teacher_id", None), None, "second_teacher")
+async def _check_schedule_conflict(db, group_id, day, lesson_number, week_type, exclude_id):
+    conflict = await conflicting_lesson(db, group_id=group_id, day_of_week=day,
+                                        lesson_number=lesson_number, week_type=week_type,
+                                        exclude_id=exclude_id)
+    if conflict:
+        day_names = {1: "Понеділок", 2: "Вівторок", 3: "Середа", 4: "Четвер", 5: "П'ятниця", 6: "Субота", 7: "Неділя"}
+        week_names = {"numerator": "по чисельнику", "denominator": "по знаменнику", "both": "щотижня"}
+        d_name = day_names.get(day, str(day))
+        w_name = week_names.get(conflict.week_type, conflict.week_type)
+        raise HTTPException(409, f"Неможливо зберегти: на {d_name} ({lesson_number}-а пара, {w_name}) уже призначене інше заняття.")
 
+async def _resolve_entities(db, item, payload, group_id, create):
+    group = await _entity(db, Group, group_id, None, "group", required=True)
+    if not create and payload.subject_id is None and payload.subject is None:
+        subject = await db.get(Subject, item.subject_id)
+    else:
+        subject = await _entity(db, Subject, payload.subject_id, payload.subject, "subject",
+                                required=create and payload.subject_id is None and payload.subject is None)
+    teacher = await _entity(db, Teacher, payload.teacher_id, payload.teacher, "teacher")
+    second_teacher = await _entity(db, Teacher, getattr(payload, "second_teacher_id", None), None, "second_teacher")
+    
     if group is None or subject is None:
         raise HTTPException(422, "Група та предмет є обов\'язковими")
+        
+    return group, subject, teacher, second_teacher
+
+async def _apply_and_commit(db, item, payload, group, subject, teacher, second_teacher, day, lesson_number, week_type, create):
     item.group_id = group.id
     item.subject_id = subject.id
     item.teacher_id = teacher.id if teacher else (None if "teacher_id" in payload.model_fields_set or "teacher" in payload.model_fields_set else item.teacher_id)
@@ -165,6 +160,18 @@ async def _save(item, payload, db, *, create=False):
         await db.rollback()
         raise HTTPException(409, "Неможливо зберегти: такий запис або графік вже існує і перетинається з іншим.") from exc
     return to_item(item, item.week_type, payload.date or date.today())
+
+async def _save(item, payload, db, *, create=False):
+    group_id = payload.group_id if payload.group_id is not None else item.group_id
+    day = payload.day_of_week or (payload.date.isoweekday() if payload.date else item.day_of_week)
+    lesson_number = payload.lesson_number if payload.lesson_number is not None else item.lesson_number
+    week_type = payload.week_type or item.week_type
+
+    with db.no_autoflush:
+        await _check_schedule_conflict(db, group_id, day, lesson_number, week_type, None if create else item.id)
+        group, subject, teacher, second_teacher = await _resolve_entities(db, item, payload, group_id, create)
+
+    return await _apply_and_commit(db, item, payload, group, subject, teacher, second_teacher, day, lesson_number, week_type, create)
 
 @router.post("/schedule", response_model=ScheduleItem, status_code=status.HTTP_201_CREATED)
 async def create_lesson(payload: LessonMutation, db: AsyncSession = Depends(get_db),
@@ -214,15 +221,12 @@ async def delete_lesson(lesson_id: int, db: AsyncSession = Depends(get_db),
         await db.rollback()
         raise HTTPException(409, "Не вдалося видалити заняття") from exc
     return Response(status_code=status.HTTP_204_NO_CONTENT)
-from pydantic import BaseModel
 class BulkCuratorRequest(BaseModel):
     day_of_week: int
     lesson_number: int
     week_type: str
     group_ids: list[int]
     action: str = "create" # "create" or "delete"
-
-import traceback
 
 @router.post("/schedule/bulk-curator")
 async def bulk_curator_hours(payload: BulkCuratorRequest, db: AsyncSession = Depends(get_db), _: object = Depends(require_roles("admin"))):
@@ -284,5 +288,6 @@ async def bulk_curator_hours(payload: BulkCuratorRequest, db: AsyncSession = Dep
         return {"created": created_count, "deleted": deleted_count, "skipped": skipped_count}
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=traceback.format_exc())
+        logger.exception("bulk_curator_hours failed")
+        raise HTTPException(status_code=500, detail="Внутрішня помилка сервера")
 
