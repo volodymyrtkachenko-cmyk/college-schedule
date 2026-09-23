@@ -82,6 +82,8 @@ async def update_user(user_id: int, payload: UserUpdate, db: AsyncSession = Depe
     if payload.name is not None:
         user.name = payload.name
     if payload.password:
+        if user.role == "admin":
+            raise HTTPException(status_code=403, detail="Пароль адміністратора можна змінити лише через налаштування сервера (Render)")
         user.password_hash = hash_password(payload.password)
     if payload.role is not None:
         user.role = payload.role

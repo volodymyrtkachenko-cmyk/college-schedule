@@ -87,8 +87,16 @@ export function UsersPanel() {
                         <input required type="text" disabled={!!editor.id} value={editor.username || ""} onChange={e => setEditor({...editor, username: e.target.value})} className="w-full bg-sys-input border border-sys-border rounded-lg px-3 py-2 text-sys-text-primary disabled:opacity-50" />
                     </label>
                     <label className="block">
-                        <span className="block text-sm mb-1 text-sys-text-secondary">{editor.id ? "Новий пароль (залиште пустим, щоб не змінювати)" : "Пароль"}</span>
-                        <input required={!editor.id} type="password" value={editor.password || ""} onChange={e => setEditor({...editor, password: e.target.value})} className="w-full bg-sys-input border border-sys-border rounded-lg px-3 py-2 text-sys-text-primary" />
+                        <span className="block text-sm mb-1 text-sys-text-secondary">
+                            {editor.role === "admin" 
+                                ? "Пароль (через Render)" 
+                                : editor.id ? "Новий пароль (залиште пустим, щоб не змінювати)" : "Пароль"}
+                        </span>
+                        {editor.role === "admin" ? (
+                            <div className="w-full bg-sys-input border border-sys-border rounded-lg px-3 py-2 text-sys-text-secondary text-sm opacity-60">Паролі адміністраторів змінюються лише в налаштуваннях сервера (Render)</div>
+                        ) : (
+                            <input required={!editor.id} type="password" value={editor.password || ""} onChange={e => setEditor({...editor, password: e.target.value})} className="w-full bg-sys-input border border-sys-border rounded-lg px-3 py-2 text-sys-text-primary" />
+                        )}
                     </label>
                     <label className="block">
                         <span className="block text-sm mb-1 text-sys-text-secondary">Роль</span>
