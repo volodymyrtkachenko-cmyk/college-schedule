@@ -4,7 +4,7 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="508baa33-f415-4e56-bdba-95be05473423" name="Changes" comment="fix(backend): add missing BaseModel import in schedule.py">
+    <list default="true" id="508baa33-f415-4e56-bdba-95be05473423" name="Changes" comment="chore: cleanup CORS, analytics comments and improve empty state CTA in header">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -33,23 +33,23 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.3994962029334486" />
-      <entry key="MS500" value="3.3075351979216023" />
-      <entry key="S2" value="8.130194408960662" />
-      <entry key="S5" value="19.889939675723475" />
-      <entry key="S10" value="34.22855933448865" />
-      <entry key="S30" value="54.6569914588998" />
-      <entry key="S60" value="66.80900691863314" />
-      <entry key="M2" value="93.4056828008076" />
-      <entry key="M5" value="176.49682514653563" />
-      <entry key="M10" value="281.19574217453095" />
-      <entry key="M15" value="352.2529578725104" />
-      <entry key="M30" value="499.49829479451535" />
-      <entry key="H1" value="799.7075284126508" />
-      <entry key="H2" value="1458.6911420606773" />
-      <entry key="H4" value="2530.1948782330082" />
-      <entry key="D1" value="7342.421915804203" />
-      <entry key="W1" value="11957.035350011338" />
+      <entry key="MS100" value="1.0002630790336826" />
+      <entry key="MS500" value="1.3345542075765948" />
+      <entry key="S2" value="2.279002865928907" />
+      <entry key="S5" value="2.6750252523379654" />
+      <entry key="S10" value="3.169886359977802" />
+      <entry key="S30" value="12.729849086651994" />
+      <entry key="S60" value="25.90865713358652" />
+      <entry key="M2" value="38.670238781191216" />
+      <entry key="M5" value="60.60100109211777" />
+      <entry key="M10" value="114.23413613629151" />
+      <entry key="M15" value="179.5486894175551" />
+      <entry key="M30" value="356.7139570476704" />
+      <entry key="H1" value="681.4794711959697" />
+      <entry key="H2" value="1347.8510161633799" />
+      <entry key="H4" value="2443.071180852454" />
+      <entry key="D1" value="7356.593448672773" />
+      <entry key="W1" value="12047.711940742254" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -71,23 +71,23 @@
       <entry key="W1" value="0.0" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="1.3512529975485263" />
-      <entry key="MS500" value="3.28414616515723" />
-      <entry key="S2" value="8.115337311776495" />
-      <entry key="S5" value="19.875622738906948" />
-      <entry key="S10" value="34.21645006559823" />
-      <entry key="S30" value="54.65062376273052" />
-      <entry key="S60" value="66.80511427993575" />
-      <entry key="M2" value="93.40292045397804" />
-      <entry key="M5" value="176.49468584469884" />
-      <entry key="M10" value="281.1940603610112" />
-      <entry key="M15" value="352.2515755184587" />
-      <entry key="M30" value="499.4973501599485" />
-      <entry key="H1" value="799.7068081663115" />
-      <entry key="H2" value="1458.6905068205258" />
-      <entry key="H4" value="2530.194330761187" />
-      <entry key="D1" value="7342.421672476316" />
-      <entry key="W1" value="11957.03529654706" />
+      <entry key="MS100" value="0.9661673499686462" />
+      <entry key="MS500" value="1.3193340537262614" />
+      <entry key="S2" value="2.269301010916274" />
+      <entry key="S5" value="2.670159028682319" />
+      <entry key="S10" value="3.1671491842019575" />
+      <entry key="S30" value="12.727875916961912" />
+      <entry key="S60" value="25.906956222196868" />
+      <entry key="M2" value="38.66904139093817" />
+      <entry key="M5" value="60.60027122091737" />
+      <entry key="M10" value="114.23345329308637" />
+      <entry key="M15" value="179.54798041674752" />
+      <entry key="M30" value="356.713273316206" />
+      <entry key="H1" value="681.4788478476016" />
+      <entry key="H2" value="1347.8504225959489" />
+      <entry key="H4" value="2443.0706487151906" />
+      <entry key="D1" value="7356.593203947169" />
+      <entry key="W1" value="12047.71188670959" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -156,63 +156,8 @@
       <workItem from="1790008150287" duration="12327000" />
       <workItem from="1790066966060" duration="11073000" />
       <workItem from="1790090923642" duration="12528000" />
-      <workItem from="1790152459494" duration="1771000" />
-    </task>
-    <task id="LOCAL-00074" summary="chore: delete unused script files.">
-      <option name="closed" value="true" />
-      <created>1790068143640</created>
-      <option name="number" value="00074" />
-      <option name="presentableId" value="LOCAL-00074" />
-      <option name="project" value="LOCAL" />
-      <updated>1790068143640</updated>
-    </task>
-    <task id="LOCAL-00075" summary="chore: delete unused script files.">
-      <option name="closed" value="true" />
-      <created>1790068158924</created>
-      <option name="number" value="00075" />
-      <option name="presentableId" value="LOCAL-00075" />
-      <option name="project" value="LOCAL" />
-      <updated>1790068158924</updated>
-    </task>
-    <task id="LOCAL-00076" summary="Пошук для админки/Розклад">
-      <option name="closed" value="true" />
-      <created>1790069056910</created>
-      <option name="number" value="00076" />
-      <option name="presentableId" value="LOCAL-00076" />
-      <option name="project" value="LOCAL" />
-      <updated>1790069056910</updated>
-    </task>
-    <task id="LOCAL-00077" summary="Пошук для админки/Розклад">
-      <option name="closed" value="true" />
-      <created>1790069262495</created>
-      <option name="number" value="00077" />
-      <option name="presentableId" value="LOCAL-00077" />
-      <option name="project" value="LOCAL" />
-      <updated>1790069262495</updated>
-    </task>
-    <task id="LOCAL-00078" summary="Завантаження розкладу для моб додатку">
-      <option name="closed" value="true" />
-      <created>1790071562793</created>
-      <option name="number" value="00078" />
-      <option name="presentableId" value="LOCAL-00078" />
-      <option name="project" value="LOCAL" />
-      <updated>1790071562794</updated>
-    </task>
-    <task id="LOCAL-00079" summary="Завантаження розкладу для моб додатку">
-      <option name="closed" value="true" />
-      <created>1790071893630</created>
-      <option name="number" value="00079" />
-      <option name="presentableId" value="LOCAL-00079" />
-      <option name="project" value="LOCAL" />
-      <updated>1790071893630</updated>
-    </task>
-    <task id="LOCAL-00080" summary="Завантаження розкладу для моб додатку">
-      <option name="closed" value="true" />
-      <created>1790072528910</created>
-      <option name="number" value="00080" />
-      <option name="presentableId" value="LOCAL-00080" />
-      <option name="project" value="LOCAL" />
-      <updated>1790072528910</updated>
+      <workItem from="1790152459494" duration="6996000" />
+      <workItem from="1790176829414" duration="1168000" />
     </task>
     <task id="LOCAL-00081" summary="Завантаження розкладу для моб додатку">
       <option name="closed" value="true" />
@@ -550,7 +495,63 @@
       <option name="project" value="LOCAL" />
       <updated>1790154221373</updated>
     </task>
-    <option name="localTasksCounter" value="123" />
+    <task id="LOCAL-00123" summary="fix(backend): add missing BaseModel import in schedule.py">
+      <option name="closed" value="true" />
+      <created>1790154415931</created>
+      <option name="number" value="00123" />
+      <option name="presentableId" value="LOCAL-00123" />
+      <option name="project" value="LOCAL" />
+      <updated>1790154415931</updated>
+    </task>
+    <task id="LOCAL-00124" summary="fix(backend): add missing BaseModel import in schedule.py">
+      <option name="closed" value="true" />
+      <created>1790154438193</created>
+      <option name="number" value="00124" />
+      <option name="presentableId" value="LOCAL-00124" />
+      <option name="project" value="LOCAL" />
+      <updated>1790154438193</updated>
+    </task>
+    <task id="LOCAL-00125" summary="fix(cors): set smart default for cors origins to prevent preflight failures">
+      <option name="closed" value="true" />
+      <created>1790154658687</created>
+      <option name="number" value="00125" />
+      <option name="presentableId" value="LOCAL-00125" />
+      <option name="project" value="LOCAL" />
+      <updated>1790154658687</updated>
+    </task>
+    <task id="LOCAL-00126" summary="fix(backend): patch aggressive CORS blocking and prevent analytics crash behind proxies">
+      <option name="closed" value="true" />
+      <created>1790154804159</created>
+      <option name="number" value="00126" />
+      <option name="presentableId" value="LOCAL-00126" />
+      <option name="project" value="LOCAL" />
+      <updated>1790154804159</updated>
+    </task>
+    <task id="LOCAL-00127" summary="fix(backend): patch aggressive CORS blocking and prevent analytics crash behind proxies">
+      <option name="closed" value="true" />
+      <created>1790154980032</created>
+      <option name="number" value="00127" />
+      <option name="presentableId" value="LOCAL-00127" />
+      <option name="project" value="LOCAL" />
+      <updated>1790154980032</updated>
+    </task>
+    <task id="LOCAL-00128" summary="feat(frontend): redirect to /login after logout">
+      <option name="closed" value="true" />
+      <created>1790155722072</created>
+      <option name="number" value="00128" />
+      <option name="presentableId" value="LOCAL-00128" />
+      <option name="project" value="LOCAL" />
+      <updated>1790155722072</updated>
+    </task>
+    <task id="LOCAL-00129" summary="chore: cleanup CORS, analytics comments and improve empty state CTA in header">
+      <option name="closed" value="true" />
+      <created>1790177749055</created>
+      <option name="number" value="00129" />
+      <option name="presentableId" value="LOCAL-00129" />
+      <option name="project" value="LOCAL" />
+      <updated>1790177749055</updated>
+    </task>
+    <option name="localTasksCounter" value="130" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -578,10 +579,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Додавання розкладу" />
-    <MESSAGE value="Зміна відображення розкладу" />
-    <MESSAGE value="Вибір групи/викладача, якщо перший захід на сайт" />
-    <MESSAGE value="Вигляд позкладу для телефонів" />
     <MESSAGE value="Покращення адмінки" />
     <MESSAGE value="chore: remove dangerous wipe functionality from admin UI" />
     <MESSAGE value="Зміна адмінки" />
@@ -603,7 +600,11 @@
     <MESSAGE value="feat(ui): add search and smart sorting to users panel, prioritize admins at the top" />
     <MESSAGE value="feat(auth): strict block of password modification for admin accounts via web interface" />
     <MESSAGE value="fix(backend): add missing BaseModel import in schedule.py" />
-    <option name="LAST_COMMIT_MESSAGE" value="fix(backend): add missing BaseModel import in schedule.py" />
+    <MESSAGE value="fix(cors): set smart default for cors origins to prevent preflight failures" />
+    <MESSAGE value="fix(backend): patch aggressive CORS blocking and prevent analytics crash behind proxies" />
+    <MESSAGE value="feat(frontend): redirect to /login after logout" />
+    <MESSAGE value="chore: cleanup CORS, analytics comments and improve empty state CTA in header" />
+    <option name="LAST_COMMIT_MESSAGE" value="chore: cleanup CORS, analytics comments and improve empty state CTA in header" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
