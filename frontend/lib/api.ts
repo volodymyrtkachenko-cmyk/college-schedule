@@ -42,7 +42,6 @@ export interface Lesson {
     week_type: WeekType;
     is_replacement?: boolean;
     is_relevant_this_week: boolean;
-    is_replacement?: boolean;
     group_name?: string;
     note: string | null;
     note_id?: number | null;
@@ -65,7 +64,6 @@ export interface LessonNoteMutation {
 export interface ScheduleResponse {
     date: string;
     week_type: WeekType;
-    is_replacement?: boolean;
     lessons: Lesson[];
 }
 
