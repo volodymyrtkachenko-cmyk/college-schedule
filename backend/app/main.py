@@ -62,3 +62,13 @@ app.include_router(auth.router, prefix="/api")
 app.include_router(users.router, prefix="/api")
 app.include_router(lesson_notes.router, prefix="/api")
 app.include_router(settings_router.router, prefix="/api")
+
+@app.get("/fix-db-now")
+async def fix_db_now():
+    from sqlalchemy import text
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(text("ALTER TABLE schedule ADD COLUMN is_replacement BOOLEAN DEFAULT false NOT NULL;"))
+        return {"status": "success", "message": "is_replacement added"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
