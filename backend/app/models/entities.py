@@ -80,6 +80,7 @@ class Schedule(Base):
     end_time: Mapped[time] = mapped_column(Time)
     week_type: Mapped[str] = mapped_column(String(20), default="both")  # numerator, denominator, both
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_replacement: Mapped[bool] = mapped_column(Boolean, default=False)
     group: Mapped["Group"] = relationship(back_populates="schedules")
     teacher: Mapped[Optional["Teacher"]] = relationship(
         back_populates="schedules", foreign_keys=[teacher_id]

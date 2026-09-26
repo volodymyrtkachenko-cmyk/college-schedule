@@ -57,6 +57,7 @@ def to_item(item, week_type, target_date):
         subject_name=item.subject.name, teacher_name=teacher_name,
         week_type=item.week_type,
         is_relevant_this_week=item.week_type in ("both", week_type),
+        is_replacement=getattr(item, "is_replacement", False),
         group_name=getattr(item.group, "name", None),
         note=matching_note.note if matching_note else None,
         note_id=matching_note.id if matching_note else None)
@@ -148,6 +149,8 @@ async def _apply_and_commit(db, item, payload, group, subject, teacher, second_t
     item.day_of_week = day
     item.lesson_number = lesson_number
     item.week_type = week_type
+    if getattr(payload, "is_replacement", None) is not None:
+        item.is_replacement = payload.is_replacement
     for field in ("start_time", "end_time"):
         value = getattr(payload, field)
         if value is not None:
