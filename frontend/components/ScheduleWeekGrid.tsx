@@ -111,9 +111,9 @@ export function ScheduleWeekGrid({ week, scheduleMode = "student", canEdit = fal
                 dragElastic={1}
                 onDragEnd={(e, { offset, velocity }) => {
                   const swipe = offset.x;
-                  if (swipe < -50 && activeIdx < week.length - 1) {
+                  if (swipe > 50 && activeIdx < week.length - 1) {
                     switchTab(activeIdx + 1);
-                  } else if (swipe > 50 && activeIdx > 0) {
+                  } else if (swipe < -50 && activeIdx > 0) {
                     switchTab(activeIdx - 1);
                   }
                 }}
