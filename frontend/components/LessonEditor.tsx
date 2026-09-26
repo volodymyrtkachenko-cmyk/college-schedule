@@ -38,6 +38,7 @@ function initial(lesson: Lesson | undefined, date: string, scheduleMode: "studen
     date,
     day_of_week: lesson?.day_of_week ?? dayFromDate(date),
     lesson_number: lesson?.lesson_number ?? 1,
+    is_replacement: lesson?.is_replacement ?? false,
     subject_id: lesson?.subject_id,
     teacher_id: lesson?.teacher_id ?? (scheduleMode === "teacher" ? defaultTeacherId : null),
     second_teacher_id: lesson?.second_teacher_id ?? null,
@@ -185,6 +186,17 @@ const sortedSubjects = useMemo(() => {
             </select>
           </label>
           <label className="sm:col-span-2">Тиждень<select value={form.week_type} onChange={(e) => update("week_type", e.target.value as WeekType)}><option value="both">Щотижня</option><option value="numerator">Чисельник</option><option value="denominator">Знаменник</option></select></label>
+          {scheduleMode === "student" && (
+            <label className="sm:col-span-2 flex items-center gap-2 cursor-pointer mt-1 !flex-row w-fit">
+              <input
+                type="checkbox"
+                className="w-4 h-4 rounded border-sys-border bg-sys-input text-sys-accent focus:ring-sys-accent cursor-pointer"
+                checked={form.is_replacement ?? false}
+                onChange={(e) => update("is_replacement", e.target.checked)}
+              />
+              <span className="font-medium text-[15px] select-none text-sys-accent">Заміна</span>
+            </label>
+          )}
           {error && <p role="alert" className="sm:col-span-2 text-sm text-rose-300">{error}</p>}
           <div className="flex gap-2 sm:col-span-2">
             <button disabled={busy || loadingDirectories} className="rounded-lg bg-sys-accent px-4 py-2 font-semibold text-slate-950">{busy ? "Збереження…" : "Зберегти"}</button>

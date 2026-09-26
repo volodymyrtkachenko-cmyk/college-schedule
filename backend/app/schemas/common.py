@@ -111,6 +111,7 @@ class ScheduleItem(BaseModel):
     teacher_name: str | None = None
     week_type: str
     is_relevant_this_week: bool
+    is_replacement: bool = False
     group_id: int | None = None
     group_name: str | None = None
     note: str | None = None
@@ -140,6 +141,7 @@ class LessonMutation(BaseModel):
     teacher: str | None = None
     room: str | None = None
     week_type: str | None = None
+    is_replacement: bool | None = None
     note: str | None = None
 
     @field_validator("day_of_week")

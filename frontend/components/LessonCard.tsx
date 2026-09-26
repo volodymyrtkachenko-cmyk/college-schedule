@@ -96,7 +96,7 @@ export function LessonCard({ lesson, targetDate, mode = "day", scheduleMode = "s
       }}
       className={`relative min-w-0 overflow-hidden rounded-[8px] border-[0.5px] border-sys-border bg-sys-card p-3 shadow-sm transition ${
         lesson.is_relevant_this_week ? "" : "opacity-40 grayscale"
-      } ${!isDay && hasNote ? "cursor-pointer hover:shadow-md" : ""}`}
+      } ${lesson.is_replacement ? "ring-1 ring-sys-accent/60 !border-sys-accent/40 bg-sys-accent/[0.02]" : ""} ${!isDay && hasNote ? "cursor-pointer hover:shadow-md" : ""}`}
     >
       <div className={`flex items-start ${isDay ? 'gap-3 flex-row' : 'flex-col gap-2'}`}>
         
@@ -117,7 +117,8 @@ export function LessonCard({ lesson, targetDate, mode = "day", scheduleMode = "s
           <div className="flex min-w-0 items-start justify-between gap-2">
             <div className={`min-w-0 ${!isDay ? "pr-6" : ""}`}>
               <h3 className={`min-w-0 break-words font-medium text-sys-text-subject [overflow-wrap:anywhere] ${isDay ? 'text-[15px]' : 'text-[13px]'}`}>
-                {lesson.subject_name}
+                {lesson.is_replacement && <span className="inline-block px-1.5 py-0.5 mr-1.5 text-[0.65rem] uppercase tracking-widest font-bold bg-sys-accent text-slate-950 rounded align-middle leading-none">Заміна</span>}
+                <span className="align-middle">{lesson.subject_name}</span>
               </h3>
               {teacherRoom && <p className={`text-sys-text-secondary break-words [overflow-wrap:anywhere] mt-0.5 ${isDay ? 'text-[13px]' : 'text-[12px]'}`}>{teacherRoom}</p>}
             </div>

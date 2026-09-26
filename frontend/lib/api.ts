@@ -40,7 +40,9 @@ export interface Lesson {
     subject_name: string;
     teacher_name: string | null;
     week_type: WeekType;
+    is_replacement?: boolean;
     is_relevant_this_week: boolean;
+    is_replacement?: boolean;
     group_name?: string;
     note: string | null;
     note_id?: number | null;
@@ -63,6 +65,7 @@ export interface LessonNoteMutation {
 export interface ScheduleResponse {
     date: string;
     week_type: WeekType;
+    is_replacement?: boolean;
     lessons: Lesson[];
 }
 
@@ -95,6 +98,7 @@ export interface LessonMutation {
     teacher?: string | null;
     room?: string | null;
     week_type: WeekType;
+    is_replacement?: boolean;
 }
 
 // NEXT_PUBLIC_* values are embedded by Next.js at build time. Keep the
