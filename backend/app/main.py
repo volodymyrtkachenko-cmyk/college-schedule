@@ -16,7 +16,7 @@ from app.routers import auth, directory, lesson_notes, schedule, users, settings
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     import os
-    os.system("alembic upgrade head")
+    import subprocess; subprocess.run("cd backend 2>/dev/null || true; alembic upgrade head", shell=True)
     yield
     await engine.dispose()
 
