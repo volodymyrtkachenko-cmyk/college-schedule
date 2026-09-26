@@ -4,7 +4,7 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="508baa33-f415-4e56-bdba-95be05473423" name="Changes" comment="chore: cleanup CORS, analytics comments and improve empty state CTA in header">
+    <list default="true" id="508baa33-f415-4e56-bdba-95be05473423" name="Changes" comment="chore: push clean final project build">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -33,23 +33,23 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.0002630790336826" />
-      <entry key="MS500" value="1.3345542075765948" />
-      <entry key="S2" value="2.279002865928907" />
-      <entry key="S5" value="2.6750252523379654" />
-      <entry key="S10" value="3.169886359977802" />
-      <entry key="S30" value="12.729849086651994" />
-      <entry key="S60" value="25.90865713358652" />
-      <entry key="M2" value="38.670238781191216" />
-      <entry key="M5" value="60.60100109211777" />
-      <entry key="M10" value="114.23413613629151" />
-      <entry key="M15" value="179.5486894175551" />
-      <entry key="M30" value="356.7139570476704" />
-      <entry key="H1" value="681.4794711959697" />
-      <entry key="H2" value="1347.8510161633799" />
-      <entry key="H4" value="2443.071180852454" />
-      <entry key="D1" value="7356.593448672773" />
-      <entry key="W1" value="12047.711940742254" />
+      <entry key="MS100" value="1.0215236784301311" />
+      <entry key="MS500" value="2.4112514296692646" />
+      <entry key="S2" value="9.035824786680356" />
+      <entry key="S5" value="20.4528473408012" />
+      <entry key="S10" value="33.95304579754975" />
+      <entry key="S30" value="53.17326829580532" />
+      <entry key="S60" value="60.81651149626712" />
+      <entry key="M2" value="69.48509398780044" />
+      <entry key="M5" value="93.85550454197173" />
+      <entry key="M10" value="143.8978439478848" />
+      <entry key="M15" value="205.00675700113294" />
+      <entry key="M30" value="379.86070480150823" />
+      <entry key="H1" value="705.3369013864483" />
+      <entry key="H2" value="1371.5258770213657" />
+      <entry key="H4" value="2470.6755157154093" />
+      <entry key="D1" value="7404.683500703862" />
+      <entry key="W1" value="12111.814611880507" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -71,23 +71,23 @@
       <entry key="W1" value="0.0" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="0.9661673499686462" />
-      <entry key="MS500" value="1.3193340537262614" />
-      <entry key="S2" value="2.269301010916274" />
-      <entry key="S5" value="2.670159028682319" />
-      <entry key="S10" value="3.1671491842019575" />
-      <entry key="S30" value="12.727875916961912" />
-      <entry key="S60" value="25.906956222196868" />
-      <entry key="M2" value="38.66904139093817" />
-      <entry key="M5" value="60.60027122091737" />
-      <entry key="M10" value="114.23345329308637" />
-      <entry key="M15" value="179.54798041674752" />
-      <entry key="M30" value="356.713273316206" />
-      <entry key="H1" value="681.4788478476016" />
-      <entry key="H2" value="1347.8504225959489" />
-      <entry key="H4" value="2443.0706487151906" />
-      <entry key="D1" value="7356.593203947169" />
-      <entry key="W1" value="12047.71188670959" />
+      <entry key="MS100" value="0.9868512700807622" />
+      <entry key="MS500" value="2.395911054260902" />
+      <entry key="S2" value="9.021490776034671" />
+      <entry key="S5" value="20.43818888349376" />
+      <entry key="S10" value="33.93865088249278" />
+      <entry key="S30" value="53.16439048909919" />
+      <entry key="S60" value="60.811201706304146" />
+      <entry key="M2" value="69.48205102482139" />
+      <entry key="M5" value="93.85396252921929" />
+      <entry key="M10" value="143.89676915715341" />
+      <entry key="M15" value="205.00580058575414" />
+      <entry key="M30" value="379.8598986296306" />
+      <entry key="H1" value="705.3362139985312" />
+      <entry key="H2" value="1371.5252507046732" />
+      <entry key="H4" value="2470.674966228398" />
+      <entry key="D1" value="7404.683252277844" />
+      <entry key="W1" value="12111.814557241774" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -157,15 +157,7 @@
       <workItem from="1790066966060" duration="11073000" />
       <workItem from="1790090923642" duration="12528000" />
       <workItem from="1790152459494" duration="6996000" />
-      <workItem from="1790176829414" duration="1168000" />
-    </task>
-    <task id="LOCAL-00081" summary="Завантаження розкладу для моб додатку">
-      <option name="closed" value="true" />
-      <created>1790073108376</created>
-      <option name="number" value="00081" />
-      <option name="presentableId" value="LOCAL-00081" />
-      <option name="project" value="LOCAL" />
-      <updated>1790073108376</updated>
+      <workItem from="1790176829414" duration="2959000" />
     </task>
     <task id="LOCAL-00082" summary="Завантаження розкладу для моб додатку">
       <option name="closed" value="true" />
@@ -551,7 +543,15 @@
       <option name="project" value="LOCAL" />
       <updated>1790177749055</updated>
     </task>
-    <option name="localTasksCounter" value="130" />
+    <task id="LOCAL-00130" summary="chore: push clean final project build">
+      <option name="closed" value="true" />
+      <created>1790178159340</created>
+      <option name="number" value="00130" />
+      <option name="presentableId" value="LOCAL-00130" />
+      <option name="project" value="LOCAL" />
+      <updated>1790178159340</updated>
+    </task>
+    <option name="localTasksCounter" value="131" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -579,7 +579,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Покращення адмінки" />
     <MESSAGE value="chore: remove dangerous wipe functionality from admin UI" />
     <MESSAGE value="Зміна адмінки" />
     <MESSAGE value="chore: delete unused script files." />
@@ -604,7 +603,8 @@
     <MESSAGE value="fix(backend): patch aggressive CORS blocking and prevent analytics crash behind proxies" />
     <MESSAGE value="feat(frontend): redirect to /login after logout" />
     <MESSAGE value="chore: cleanup CORS, analytics comments and improve empty state CTA in header" />
-    <option name="LAST_COMMIT_MESSAGE" value="chore: cleanup CORS, analytics comments and improve empty state CTA in header" />
+    <MESSAGE value="chore: push clean final project build" />
+    <option name="LAST_COMMIT_MESSAGE" value="chore: push clean final project build" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
