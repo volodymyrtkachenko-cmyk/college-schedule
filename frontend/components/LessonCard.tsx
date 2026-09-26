@@ -117,10 +117,15 @@ export function LessonCard({ lesson, targetDate, mode = "day", scheduleMode = "s
           <div className="flex min-w-0 items-start justify-between gap-2">
             <div className={`min-w-0 ${!isDay ? "pr-6" : ""}`}>
               <h3 className={`min-w-0 break-words font-medium text-sys-text-subject [overflow-wrap:anywhere] ${isDay ? 'text-[15px]' : 'text-[13px]'}`}>
-                {lesson.is_replacement && <span className="inline-block px-1.5 py-0.5 mr-1.5 text-[0.65rem] uppercase tracking-widest font-bold bg-sys-accent text-slate-950 rounded align-middle leading-none">Заміна</span>}
+                
                 <span className="align-middle">{lesson.subject_name}</span>
               </h3>
               {teacherRoom && <p className={`text-sys-text-secondary break-words [overflow-wrap:anywhere] mt-0.5 ${isDay ? 'text-[13px]' : 'text-[12px]'}`}>{teacherRoom}</p>}
+              {lesson.is_replacement && (
+                <div className="mt-1.5">
+                  <span className="inline-block px-1.5 py-0.5 text-[0.65rem] uppercase tracking-widest font-bold bg-sys-accent text-slate-950 rounded leading-none">Заміна</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
