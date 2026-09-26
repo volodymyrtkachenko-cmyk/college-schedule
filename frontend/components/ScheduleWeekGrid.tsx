@@ -38,7 +38,7 @@ export function ScheduleWeekGrid({ week, scheduleMode = "student", canEdit = fal
 
   const variants = {
     enter: (dir: number) => ({
-      x: dir > 0 ? 300 : -300,
+      x: dir > 0 ? -300 : 300,
       opacity: 0,
       zIndex: 0,
       position: "absolute" as any,
@@ -51,7 +51,7 @@ export function ScheduleWeekGrid({ week, scheduleMode = "student", canEdit = fal
     },
     exit: (dir: number) => ({
       zIndex: 0,
-      x: dir < 0 ? 300 : -300,
+      x: dir > 0 ? 300 : -300,
       opacity: 0,
       position: "absolute" as any,
     })
