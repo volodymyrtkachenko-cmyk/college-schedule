@@ -72,3 +72,4 @@ async def fix_db_now():
         return {"status": "success", "message": "is_replacement added"}
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
