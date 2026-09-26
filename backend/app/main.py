@@ -15,6 +15,8 @@ from app.routers import auth, directory, lesson_notes, schedule, users, settings
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    import os
+    os.system("alembic upgrade head")
     yield
     await engine.dispose()
 
