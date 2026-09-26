@@ -4,7 +4,7 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="508baa33-f415-4e56-bdba-95be05473423" name="Changes" comment="chore: push clean final project build">
+    <list default="true" id="508baa33-f415-4e56-bdba-95be05473423" name="Changes" comment="c">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -33,23 +33,23 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.0215236784301311" />
-      <entry key="MS500" value="2.4112514296692646" />
-      <entry key="S2" value="9.035824786680356" />
-      <entry key="S5" value="20.4528473408012" />
-      <entry key="S10" value="33.95304579754975" />
-      <entry key="S30" value="53.17326829580532" />
-      <entry key="S60" value="60.81651149626712" />
-      <entry key="M2" value="69.48509398780044" />
-      <entry key="M5" value="93.85550454197173" />
-      <entry key="M10" value="143.8978439478848" />
-      <entry key="M15" value="205.00675700113294" />
-      <entry key="M30" value="379.86070480150823" />
-      <entry key="H1" value="705.3369013864483" />
-      <entry key="H2" value="1371.5258770213657" />
-      <entry key="H4" value="2470.6755157154093" />
-      <entry key="D1" value="7404.683500703862" />
-      <entry key="W1" value="12111.814611880507" />
+      <entry key="MS100" value="1.3256189873777464" />
+      <entry key="MS500" value="3.9751655167269186" />
+      <entry key="S2" value="12.798031893634544" />
+      <entry key="S5" value="25.506770167276553" />
+      <entry key="S10" value="42.78089663488952" />
+      <entry key="S30" value="89.93097432255166" />
+      <entry key="S60" value="125.51950383363955" />
+      <entry key="M2" value="164.11499860181547" />
+      <entry key="M5" value="236.49744169003765" />
+      <entry key="M10" value="317.2586359966259" />
+      <entry key="M15" value="388.61528580125133" />
+      <entry key="M30" value="577.2113772592074" />
+      <entry key="H1" value="912.9850007771275" />
+      <entry key="H2" value="1583.8924385844823" />
+      <entry key="H4" value="2691.6742371472405" />
+      <entry key="D1" value="7660.148339925552" />
+      <entry key="W1" value="12393.00027988857" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -71,23 +71,23 @@
       <entry key="W1" value="0.0" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="0.9868512700807622" />
-      <entry key="MS500" value="2.395911054260902" />
-      <entry key="S2" value="9.021490776034671" />
-      <entry key="S5" value="20.43818888349376" />
-      <entry key="S10" value="33.93865088249278" />
-      <entry key="S30" value="53.16439048909919" />
-      <entry key="S60" value="60.811201706304146" />
-      <entry key="M2" value="69.48205102482139" />
-      <entry key="M5" value="93.85396252921929" />
-      <entry key="M10" value="143.89676915715341" />
-      <entry key="M15" value="205.00580058575414" />
-      <entry key="M30" value="379.8598986296306" />
-      <entry key="H1" value="705.3362139985312" />
-      <entry key="H2" value="1371.5252507046732" />
-      <entry key="H4" value="2470.674966228398" />
-      <entry key="D1" value="7404.683252277844" />
-      <entry key="W1" value="12111.814557241774" />
+      <entry key="MS100" value="1.2899833675552304" />
+      <entry key="MS500" value="3.9556223143052107" />
+      <entry key="S2" value="12.782621450882717" />
+      <entry key="S5" value="25.49426632971072" />
+      <entry key="S10" value="42.7702584992586" />
+      <entry key="S30" value="89.92335071252737" />
+      <entry key="S60" value="125.51408041461261" />
+      <entry key="M2" value="164.1110026824849" />
+      <entry key="M5" value="236.49417363632477" />
+      <entry key="M10" value="317.25606833756973" />
+      <entry key="M15" value="388.6131395120549" />
+      <entry key="M30" value="577.2098502553948" />
+      <entry key="H1" value="912.9839117879413" />
+      <entry key="H2" value="1583.8916002504684" />
+      <entry key="H4" value="2691.6735775069183" />
+      <entry key="D1" value="7660.148071490463" />
+      <entry key="W1" value="12393.000222259365" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -158,54 +158,7 @@
       <workItem from="1790090923642" duration="12528000" />
       <workItem from="1790152459494" duration="6996000" />
       <workItem from="1790176829414" duration="2959000" />
-    </task>
-    <task id="LOCAL-00082" summary="Завантаження розкладу для моб додатку">
-      <option name="closed" value="true" />
-      <created>1790073453855</created>
-      <option name="number" value="00082" />
-      <option name="presentableId" value="LOCAL-00082" />
-      <option name="project" value="LOCAL" />
-      <updated>1790073453855</updated>
-    </task>
-    <task id="LOCAL-00083" summary="Завантаження розкладу для моб додатку">
-      <option name="closed" value="true" />
-      <created>1790073798607</created>
-      <option name="number" value="00083" />
-      <option name="presentableId" value="LOCAL-00083" />
-      <option name="project" value="LOCAL" />
-      <updated>1790073798607</updated>
-    </task>
-    <task id="LOCAL-00084" summary="Завантаження розкладу для моб додатку">
-      <option name="closed" value="true" />
-      <created>1790074128503</created>
-      <option name="number" value="00084" />
-      <option name="presentableId" value="LOCAL-00084" />
-      <option name="project" value="LOCAL" />
-      <updated>1790074128504</updated>
-    </task>
-    <task id="LOCAL-00085" summary="Завантаження розкладу для моб додатку">
-      <option name="closed" value="true" />
-      <created>1790074425274</created>
-      <option name="number" value="00085" />
-      <option name="presentableId" value="LOCAL-00085" />
-      <option name="project" value="LOCAL" />
-      <updated>1790074425274</updated>
-    </task>
-    <task id="LOCAL-00086" summary="Завантаження розкладу для моб додатку">
-      <option name="closed" value="true" />
-      <created>1790074630527</created>
-      <option name="number" value="00086" />
-      <option name="presentableId" value="LOCAL-00086" />
-      <option name="project" value="LOCAL" />
-      <updated>1790074630527</updated>
-    </task>
-    <task id="LOCAL-00087" summary="Завантаження розкладу для моб додатку">
-      <option name="closed" value="true" />
-      <created>1790075369422</created>
-      <option name="number" value="00087" />
-      <option name="presentableId" value="LOCAL-00087" />
-      <option name="project" value="LOCAL" />
-      <updated>1790075369422</updated>
+      <workItem from="1790441841421" duration="1545000" />
     </task>
     <task id="LOCAL-00088" summary="Завантаження розкладу для моб додатку">
       <option name="closed" value="true" />
@@ -551,7 +504,55 @@
       <option name="project" value="LOCAL" />
       <updated>1790178159340</updated>
     </task>
-    <option name="localTasksCounter" value="131" />
+    <task id="LOCAL-00131" summary="c">
+      <option name="closed" value="true" />
+      <created>1790442017619</created>
+      <option name="number" value="00131" />
+      <option name="presentableId" value="LOCAL-00131" />
+      <option name="project" value="LOCAL" />
+      <updated>1790442017620</updated>
+    </task>
+    <task id="LOCAL-00132" summary="c">
+      <option name="closed" value="true" />
+      <created>1790442023784</created>
+      <option name="number" value="00132" />
+      <option name="presentableId" value="LOCAL-00132" />
+      <option name="project" value="LOCAL" />
+      <updated>1790442023784</updated>
+    </task>
+    <task id="LOCAL-00133" summary="c">
+      <option name="closed" value="true" />
+      <created>1790442239353</created>
+      <option name="number" value="00133" />
+      <option name="presentableId" value="LOCAL-00133" />
+      <option name="project" value="LOCAL" />
+      <updated>1790442239353</updated>
+    </task>
+    <task id="LOCAL-00134" summary="c">
+      <option name="closed" value="true" />
+      <created>1790442814643</created>
+      <option name="number" value="00134" />
+      <option name="presentableId" value="LOCAL-00134" />
+      <option name="project" value="LOCAL" />
+      <updated>1790442814643</updated>
+    </task>
+    <task id="LOCAL-00135" summary="c">
+      <option name="closed" value="true" />
+      <created>1790442963278</created>
+      <option name="number" value="00135" />
+      <option name="presentableId" value="LOCAL-00135" />
+      <option name="project" value="LOCAL" />
+      <updated>1790442963278</updated>
+    </task>
+    <task id="LOCAL-00136" summary="c">
+      <option name="closed" value="true" />
+      <created>1790443322997</created>
+      <option name="number" value="00136" />
+      <option name="presentableId" value="LOCAL-00136" />
+      <option name="project" value="LOCAL" />
+      <updated>1790443322997</updated>
+    </task>
+    <option name="localTasksCounter" value="137" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -579,7 +580,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="chore: remove dangerous wipe functionality from admin UI" />
     <MESSAGE value="Зміна адмінки" />
     <MESSAGE value="chore: delete unused script files." />
     <MESSAGE value="Пошук для админки/Розклад" />
@@ -604,7 +604,8 @@
     <MESSAGE value="feat(frontend): redirect to /login after logout" />
     <MESSAGE value="chore: cleanup CORS, analytics comments and improve empty state CTA in header" />
     <MESSAGE value="chore: push clean final project build" />
-    <option name="LAST_COMMIT_MESSAGE" value="chore: push clean final project build" />
+    <MESSAGE value="c" />
+    <option name="LAST_COMMIT_MESSAGE" value="c" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
