@@ -74,7 +74,8 @@ async def schedule(group_id: int | None = None, teacher_id: int | None = None,
 
 @router.get("/schedule/today", response_model=ScheduleResponse)
 async def today(response: Response, group_id: int | None = None, teacher_id: int | None = None, db: AsyncSession = Depends(get_db)):
-    response.headers["Cache-Control"] = "public, max-age=60"
+    response.headers["Cache-Control"] = "public, max-age=60, stale-while-revalidate=300"
+    response.headers["Vary"] = "Date, Origin, Accept-Encoding"
     target = date.today()
     if target.isoweekday() > 5:
         target = target + timedelta(days=8 - target.isoweekday())
@@ -83,7 +84,8 @@ async def today(response: Response, group_id: int | None = None, teacher_id: int
 @router.get("/schedule/week")
 async def week(response: Response, group_id: int | None = None, teacher_id: int | None = None, target_date: date | None = None,
                db: AsyncSession = Depends(get_db)):
-    response.headers["Cache-Control"] = "public, max-age=60"
+    response.headers["Cache-Control"] = "public, max-age=60, stale-while-revalidate=300"
+    response.headers["Vary"] = "Date, Origin, Accept-Encoding"
     requested = target_date or date.today()
     start = requested - timedelta(days=requested.isoweekday() - 1)
     week_type, lessons = await fetch_week_schedule(db, start, group_id, teacher_id)
