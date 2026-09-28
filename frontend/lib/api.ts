@@ -188,7 +188,8 @@ async function rawRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
     try {
         response = await fetch(`${API_URL}${path}`, {
             ...init,
-            cache: "no-store",
+            cache: "no-store", // Next.js fetch cache
+            next: { revalidate: 0 }, // Disable Vercel Data Cache completely
             credentials: "include",
             headers,
         });
