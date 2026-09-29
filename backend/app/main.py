@@ -16,7 +16,11 @@ from app.routers import auth, directory, lesson_notes, schedule, users, settings
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     import os
-    import subprocess; subprocess.run("cd backend 2>/dev/null || true; alembic upgrade head", shell=True)
+    import subprocess; import subprocess
+    curr = subprocess.run("alembic current", shell=True, capture_output=True, text=True).stdout
+    if "a1f6b8ea04c9" in curr or "a2f7c9eb05d9" in curr or "b3f8c9eb05d9" in curr:
+        subprocess.run("alembic stamp c4f9d0ec06ea", shell=True)
+    subprocess.run("alembic upgrade head", shell=True)
     yield
     await engine.dispose()
 
