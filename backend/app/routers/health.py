@@ -1,11 +1,15 @@
 from fastapi import APIRouter
-from pydantic import BaseModel
+from app.config import settings
 
-router = APIRouter()
+router = APIRouter(prefix="/health", tags=["health"])
 
-class HealthResponse(BaseModel):
-    status: str
+@router.get("")
+@router.get("/")
+async def health_check():
+    return {"status": "ok"}
 
-@router.get("/health", response_model=HealthResponse)
-def health_check():
-    return HealthResponse(status="ok")
+@router.get("/alembic")
+async def run_alembic():
+    import os, subprocess
+    result = subprocess.run("alembic upgrade head", shell=True, capture_output=True, text=True)
+    return {"stdout": result.stdout, "stderr": result.stderr, "cwd": os.getcwd()}
