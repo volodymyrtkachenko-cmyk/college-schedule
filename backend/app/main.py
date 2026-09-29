@@ -32,6 +32,18 @@ from app.routers.auth import limiter
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+from fastapi.responses import JSONResponse
+import traceback
+from starlette.requests import Request
+
+@app.exception_handler(Exception)
+async def debug_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Debug 500", "traceback": traceback.format_exc()}
+    )
+
+
 app.add_middleware(
     GZipMiddleware,
     minimum_size=500
