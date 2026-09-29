@@ -17,7 +17,7 @@ from app.core.security import (
     verify_password,
 )
 from app.database import get_db
-from app.models import User
+from app.models import User, TokenBlocklist
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -93,6 +93,11 @@ async def refresh(
     if not token:
         raise HTTPException(status_code=401, detail="Потрібна авторизація")
     claims = decode_token(token, "refresh")
+    jti = claims.get("jti")
+    if jti:
+        is_blocked = await db.scalar(select(TokenBlocklist).where(TokenBlocklist.jti == jti))
+        if is_blocked:
+            raise HTTPException(status_code=401, detail="Token has been revoked")
     try:
         user_id = int(claims["sub"])
     except (TypeError, ValueError) as exc:
@@ -121,3 +126,23 @@ async def me(user: User = Depends(get_current_user), db: AsyncSession = Depends(
         is_active=u.is_active,
         allowed_groups=[g.id for g in u.allowed_groups] if u.allowed_groups else []
     )
+
+@router.post("/logout")
+async def logout(
+    response: Response,
+    payload: RefreshRequest | None = None,
+    refresh_cookie: str | None = Cookie(default=None, alias=settings.auth_cookie_name),
+    db: AsyncSession = Depends(get_db)):
+    
+    token = (payload.refresh_token if payload else None) or refresh_cookie
+    if token:
+        try:
+            claims = decode_token(token, "refresh")
+            jti = claims.get("jti")
+            if jti:
+                db.add(TokenBlocklist(jti=jti))
+                await db.commit()
+        except:
+            pass
+    response.delete_cookie(key=settings.auth_cookie_name)
+    return {"status": "ok"}

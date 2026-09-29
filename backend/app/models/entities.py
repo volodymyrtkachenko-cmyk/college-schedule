@@ -76,11 +76,10 @@ class Schedule(Base):
     subject_id: Mapped[int] = mapped_column(ForeignKey("subjects.id"))
     day_of_week: Mapped[int] = mapped_column(Integer, index=True)
     lesson_number: Mapped[int] = mapped_column(Integer)
-    start_time: Mapped[time] = mapped_column(Time)
-    end_time: Mapped[time] = mapped_column(Time)
     week_type: Mapped[str] = mapped_column(String(20), default="both")  # numerator, denominator, both
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_replacement: Mapped[bool] = mapped_column(Boolean, default=False)
+    room_override: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     group: Mapped["Group"] = relationship(back_populates="schedules")
     teacher: Mapped[Optional["Teacher"]] = relationship(
         back_populates="schedules", foreign_keys=[teacher_id]
@@ -110,3 +109,25 @@ class Setting(Base):
     key: Mapped[str] = mapped_column(String(100), primary_key=True)
     value: Mapped[str] = mapped_column(Text)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+class TokenBlocklist(Base):
+    __tablename__ = "token_blocklist"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    jti: Mapped[str] = mapped_column(String(36), unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+class BellSchedule(Base):
+    __tablename__ = "bell_schedule"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    lesson_number: Mapped[int] = mapped_column(Integer, unique=True, index=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+class ScheduleOverride(Base):
+    __tablename__ = "schedule_override"
+    __table_args__ = (UniqueConstraint("schedule_id", "date", name="uq_schedule_override_date"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    schedule_id: Mapped[int] = mapped_column(ForeignKey("schedule.id"), index=True)
+    date: Mapped[date] = mapped_column(Date, index=True)
+    teacher_id: Mapped[Optional[int]] = mapped_column(ForeignKey("teachers.id"))
+    subject_id: Mapped[Optional[int]] = mapped_column(ForeignKey("subjects.id"))
+    room: Mapped[Optional[str]] = mapped_column(String(100))
+    cancelled: Mapped[bool] = mapped_column(Boolean, default=False)

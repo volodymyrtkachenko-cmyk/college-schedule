@@ -13,13 +13,13 @@ router = APIRouter(prefix="/admin/users", tags=["admin_users"])
 class UserCreate(BaseModel):
     username: str = Field(min_length=3)
     name: str = Field(min_length=2)
-    password: str = Field(min_length=4)
+    password: str = Field(min_length=8)
     role: str = "editor"
     allowed_groups: list[int] = []
 
 class UserUpdate(BaseModel):
     name: str | None = None
-    password: str | None = None
+    password: str | None = Field(None, min_length=8)
     role: str | None = None
     allowed_groups: list[int] | None = None
     is_active: bool | None = None

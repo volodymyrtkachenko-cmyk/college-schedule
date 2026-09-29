@@ -85,14 +85,7 @@ class SubjectUpdate(BaseModel):
     short_name: str | None = Field(default=None, max_length=50)
 
 
-# Фіксований розклад часу пар за номером пари.
-# Вхідні start_time/end_time від клієнта ігноруються — час завжди підставляється звідси.
-LESSON_TIMES: dict[int, tuple[time, time]] = {
-    1: (time(9, 0), time(10, 20)),
-    2: (time(10, 40), time(12, 0)),
-    3: (time(12, 30), time(13, 50)),
-    4: (time(14, 0), time(15, 20)),
-}
+
 
 
 class ScheduleItem(BaseModel):
@@ -135,8 +128,6 @@ class LessonMutation(BaseModel):
     day_of_week: int | None = None
     date: DateType | None = None
     lesson_number: int | None = None
-    start_time: time | None = None
-    end_time: time | None = None
     subject: str | None = None
     teacher: str | None = None
     room: str | None = None
@@ -165,14 +156,6 @@ class LessonMutation(BaseModel):
             raise ValueError("week_type must be numerator, denominator, or both")
         return value
 
-    @model_validator(mode="after")
-    def apply_fixed_times(self):
-        # Час пари завжди визначається за lesson_number, а не за введеними значеннями.
-        if self.lesson_number is not None and self.lesson_number in LESSON_TIMES:
-            self.start_time, self.end_time = LESSON_TIMES[self.lesson_number]
-        if self.start_time is not None and self.end_time is not None and self.start_time >= self.end_time:
-            raise ValueError("start_time must be before end_time")
-        return self
 
 
 class LessonNoteCreate(BaseModel):
@@ -226,11 +209,6 @@ class LessonNoteUpdate(BaseModel):
             raise ValueError("note must not be blank")
         return value
 
-    @model_validator(mode="after")
-    def has_changes(self):
-        if not self.model_fields_set:
-            raise ValueError("at least one field is required")
-        return self
 
 
 class LessonNoteResponse(BaseModel):

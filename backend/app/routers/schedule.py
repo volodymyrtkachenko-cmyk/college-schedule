@@ -36,7 +36,17 @@ def format_teacher_name(name: str) -> str:
         return f"{parts[0]} {parts[1][0].upper()}."
     return name
 
-def to_item(item, week_type, target_date):
+
+from app.models import BellSchedule
+async def get_bell_times(db):
+    records = (await db.scalars(select(BellSchedule).where(BellSchedule.is_active == True))).all()
+    if records:
+        return {r.lesson_number: (r.start_time.strftime('%H:%M'), r.end_time.strftime('%H:%M')) for r in records}
+    return dict()
+
+def to_item(item, week_type, target_date, bell_times=None):
+    if bell_times is None:
+        bell_times = {}
 
     matching_note = next((n for n in item.notes if n.note_date == target_date), None)
     t_names = []
@@ -50,10 +60,10 @@ def to_item(item, week_type, target_date):
         if item.second_teacher.room:
             t_rooms.append(item.second_teacher.room)
     teacher_name = " / ".join(t_names) if t_names else None
-    room_name = " / ".join(t_rooms) if t_rooms else None
+    room_name = getattr(item, 'room_override', None) or (" / ".join(t_rooms) if t_rooms else None)
     return ScheduleItem(id=item.id, group_id=item.group_id, subject_id=item.subject_id, teacher_id=item.teacher_id, second_teacher_id=item.second_teacher_id,
         day_of_week=item.day_of_week, lesson_number=item.lesson_number,
-        time=f"{item.start_time.strftime('%H:%M')}-{item.end_time.strftime('%H:%M')}",
+        time=f"{bell_times.get(item.lesson_number, ('00:00', '00:00'))[0]}-{bell_times.get(item.lesson_number, ('', ''))[1]}",
         subject=item.subject.name, teacher=teacher_name, room=room_name,
         subject_name=item.subject.name, teacher_name=teacher_name,
         week_type=item.week_type,
@@ -70,7 +80,7 @@ async def schedule(group_id: int | None = None, teacher_id: int | None = None,
     target_date = target_date or date.today()
     week_type, lessons = await fetch_schedule(db=db, target_date=target_date, group_id=group_id, teacher_id=teacher_id, day_of_week=day_of_week)
     return ScheduleResponse(date=target_date, week_type=week_type,
-                            lessons=[to_item(x, week_type, target_date) for x in lessons])
+                            lessons=[to_item(x, week_type, target_date, bell_t) for x in lessons])
 
 @router.get("/schedule/today", response_model=ScheduleResponse)
 async def today(response: Response, group_id: int | None = None, teacher_id: int | None = None, db: AsyncSession = Depends(get_db)):
@@ -97,7 +107,7 @@ async def week(response: Response, group_id: int | None = None, teacher_id: int 
             date=start + timedelta(days=i),
             week_type=week_type,
             lessons=[
-                to_item(lesson, week_type, start + timedelta(days=i))
+                to_item(lesson, week_type, start + timedelta(days=i), bell_t)
                 for lesson in by_day.get(i + 1, [])
             ],
         )
@@ -154,19 +164,17 @@ async def _apply_and_commit(db, item, payload, group, subject, teacher, second_t
     item.week_type = week_type
     if getattr(payload, "is_replacement", None) is not None:
         item.is_replacement = payload.is_replacement
-    for field in ("start_time", "end_time"):
-        value = getattr(payload, field)
-        if value is not None:
-            setattr(item, field, value)
-    if item.start_time >= item.end_time:
-        raise HTTPException(422, "Час початку має бути раніше часу завершення")
+    if "room" in payload.model_fields_set:
+        item.room_override = payload.room
+
     try:
         await db.commit()
         await db.refresh(item, ["subject", "teacher", "second_teacher", "notes"])
     except IntegrityError as exc:
         await db.rollback()
         raise HTTPException(409, "Неможливо зберегти: такий запис або графік вже існує і перетинається з іншим.") from exc
-    return to_item(item, item.week_type, payload.date or date.today())
+    bell_t = await get_bell_times(db)
+    return to_item(item, item.week_type, payload.date or date.today(), bell_t)
 
 async def _save(item, payload, db, *, create=False):
     group_id = payload.group_id if payload.group_id is not None else item.group_id
@@ -258,13 +266,15 @@ async def bulk_curator_hours(payload: BulkCuratorRequest, db: AsyncSession = Dep
         
         for group in groups:
             # Delete existing curator hour at this specific time slot
-            del_query = delete(Schedule).where(
+            from sqlalchemy import update
+            upd_query = update(Schedule).where(
                 Schedule.group_id == group.id,
                 Schedule.subject_id == subject.id,
                 Schedule.day_of_week == payload.day_of_week,
-                Schedule.lesson_number == payload.lesson_number
-            )
-            res = await db.execute(del_query)
+                Schedule.lesson_number == payload.lesson_number,
+                Schedule.week_type.in_(("both", payload.week_type))
+            ).values(is_active=False)
+            res = await db.execute(upd_query)
             deleted_count += res.rowcount
             
             if payload.action == "create":
@@ -284,8 +294,6 @@ async def bulk_curator_hours(payload: BulkCuratorRequest, db: AsyncSession = Dep
                     day_of_week=payload.day_of_week,
                     lesson_number=payload.lesson_number,
                     week_type=payload.week_type,
-                    start_time=time(9,0) if payload.lesson_number == 1 else time(10,40) if payload.lesson_number == 2 else time(12,30) if payload.lesson_number == 3 else time(14,0),
-                    end_time=time(10,20) if payload.lesson_number == 1 else time(12,0) if payload.lesson_number == 2 else time(13,50) if payload.lesson_number == 3 else time(15,20),
                     is_active=True
                 )
                 db.add(new_lesson)
