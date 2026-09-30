@@ -74,7 +74,9 @@ export function CurriculumPanel() {
         pairs_per_2_weeks: editor.pairs_per_2_weeks || 0,
         total_hours: editor.total_hours || 0,
         is_fixed: editor.is_fixed || false,
-        is_stream: editor.is_stream || false
+        is_stream: editor.is_stream || false,
+        strict_day: editor.is_fixed ? (editor.strict_day || null) : null,
+        strict_lesson: editor.is_fixed ? (editor.strict_lesson || null) : null,
       };
       
       if (editor.id) {
@@ -258,6 +260,26 @@ export function CurriculumPanel() {
                        <p className="text-[12px] text-sys-text-muted">Генератор поставить це заняття у фіксований слот і не буде його рухати.</p>
                      </div>
                    </label>
+                   
+                   {editor.is_fixed && (
+                     <div className="flex gap-4 mt-2 ml-8">
+                       <select value={editor.strict_day || ""} onChange={e => setEditor({...editor, strict_day: parseInt(e.target.value)})} className="rounded-[8px] border-[0.5px] border-sys-border bg-sys-input px-3 py-1.5 text-[14px] text-sys-text-primary outline-none">
+                         <option value="" disabled>Оберіть день</option>
+                         <option value="1">Понеділок</option>
+                         <option value="2">Вівторок</option>
+                         <option value="3">Середа</option>
+                         <option value="4">Четвер</option>
+                         <option value="5">П'ятниця</option>
+                       </select>
+                       <select value={editor.strict_lesson || ""} onChange={e => setEditor({...editor, strict_lesson: parseInt(e.target.value)})} className="rounded-[8px] border-[0.5px] border-sys-border bg-sys-input px-3 py-1.5 text-[14px] text-sys-text-primary outline-none">
+                         <option value="" disabled>Пара</option>
+                         <option value="1">1 пара</option>
+                         <option value="2">2 пара</option>
+                         <option value="3">3 пара</option>
+                         <option value="4">4 пара</option>
+                       </select>
+                     </div>
+                   )}
                    
                    <hr className="border-sys-border/50 my-1" />
                    

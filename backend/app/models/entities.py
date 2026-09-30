@@ -150,6 +150,8 @@ class Curriculum(Base):
     total_hours: Mapped[int] = mapped_column(Integer, default=0)
     is_stream: Mapped[bool] = mapped_column(Boolean, default=False)
     stream_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    strict_day: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    strict_lesson: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     is_fixed: Mapped[bool] = mapped_column(Boolean, default=False)
     
     group: Mapped["Group"] = relationship(back_populates="curriculums")

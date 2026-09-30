@@ -301,6 +301,8 @@ export interface CurriculumRecord {
   is_stream: boolean;
   is_fixed: boolean;
   stream_id: string | null;
+  strict_day: number | null;
+  strict_lesson: number | null;
   group: { id: number, name: string };
   subject: { id: number, name: string };
   teacher: { id: number, name: string };
@@ -316,6 +318,8 @@ export interface CurriculumMutation {
   total_hours: number;
   is_stream: boolean;
   is_fixed: boolean;
+  strict_day?: number | null;
+  strict_lesson?: number | null;
 }
 
 export const apiCurriculums = {

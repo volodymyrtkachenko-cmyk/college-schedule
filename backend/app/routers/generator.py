@@ -69,12 +69,16 @@ async def generate_schedule(
         model.Add(sum(X[(curr.id, d, s)] for d in range(10) for s in range(4)) == curr.pairs_per_2_weeks)
         
         # 2. Fixed slots
-        if curr.is_fixed:
-            # We don't have exact fixed configs per curriculum right now unless we hardcode.
-            # The prompt suggested "For subject 'Виховна година', fix it to X[..., 3, 3] = 1 (Thursday 4th)".
-            # We'll just enforce it if it's 2 pairs per 2 weeks for simplicity, 
-            # but wait, the prompt says "можна жорстко задати ... якщо це відповідає правилам коледжу".
-            pass # We leave this loose unless explicitly requested.
+        if curr.is_fixed and curr.strict_day and curr.strict_lesson:
+            dow_idx = curr.strict_day - 1
+            slot_idx = curr.strict_lesson - 1
+            if curr.pairs_per_2_weeks == 1:
+                # Force on numerator by default for 1 pair/2 weeks
+                model.Add(X[(curr.id, dow_idx, slot_idx)] == 1)
+            elif curr.pairs_per_2_weeks >= 2:
+                # Force on both weeks
+                model.Add(X[(curr.id, dow_idx, slot_idx)] == 1)
+                model.Add(X[(curr.id, dow_idx + 5, slot_idx)] == 1)
 
         # 3. Teacher unavailability
         for d in range(10):

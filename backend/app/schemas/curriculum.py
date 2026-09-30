@@ -12,6 +12,8 @@ class CurriculumBase(BaseModel):
     is_stream: bool = False
     is_fixed: bool = False
     stream_id: Optional[str] = Field(default=None, max_length=100)
+    strict_day: Optional[int] = Field(default=None, ge=1, le=5)
+    strict_lesson: Optional[int] = Field(default=None, ge=1, le=4)
 
 class CurriculumCreate(CurriculumBase):
     @model_validator(mode="after")
@@ -30,6 +32,8 @@ class CurriculumUpdate(BaseModel):
     is_stream: Optional[bool] = None
     is_fixed: Optional[bool] = None
     stream_id: Optional[str] = Field(default=None, max_length=100)
+    strict_day: Optional[int] = Field(default=None, ge=1, le=5)
+    strict_lesson: Optional[int] = Field(default=None, ge=1, le=4)
 
     @model_validator(mode="after")
     def validate_teachers(self) -> 'CurriculumUpdate':
