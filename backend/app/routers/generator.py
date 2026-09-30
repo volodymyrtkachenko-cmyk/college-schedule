@@ -11,7 +11,7 @@ from app.models import Curriculum, TeacherConstraint, ScheduleDraft, ScheduleSlo
 from app.schemas.constraint import ScheduleDraftResponse
 from app.core.security import require_roles
 
-router = APIRouter(prefix="/schedule/generate", tags=["Generator"])
+router = APIRouter(prefix="/generator", tags=["Generator"])
 
 @router.post("", response_model=ScheduleDraftResponse)
 async def generate_schedule(
