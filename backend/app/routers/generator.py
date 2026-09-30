@@ -15,7 +15,7 @@ router = APIRouter(prefix="/generator", tags=["Generator"])
 
 @router.post("", response_model=ScheduleDraftResponse)
 async def generate_schedule(
-    max_time_in_seconds: int = 30,
+    max_time_in_seconds: int = 95,
     db: AsyncSession = Depends(get_db),
     admin=Depends(require_roles("admin"))
 ):
