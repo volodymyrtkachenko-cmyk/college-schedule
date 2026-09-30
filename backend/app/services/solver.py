@@ -172,14 +172,31 @@ def solve(
             model.Add(w1 >= c.pairs_per_2_weeks // 2)
             model.Add(w1 <= (c.pairs_per_2_weeks + 1) // 2)
 
-        # Закріплені пари
-        if c.is_fixed and c.strict_day and c.strict_lesson:
-            dow_idx, slot_idx = c.strict_day - 1, c.strict_lesson - 1
-            if c.pairs_per_2_weeks == 1:
-                model.Add(X[(c.id, dow_idx, slot_idx)] == 1)
-            elif c.pairs_per_2_weeks >= 2:
-                model.Add(X[(c.id, dow_idx, slot_idx)] == 1)
-                model.Add(X[(c.id, dow_idx + DAYS, slot_idx)] == 1)
+        # Закріплені пари (Може бути закріплений як конкретний день і пара, так і тільки конкретний день)
+        if c.is_fixed and c.strict_day:
+            dow_idx = c.strict_day - 1
+            if c.strict_lesson:
+                # Жорстко прив'язано і день, і пару
+                slot_idx = c.strict_lesson - 1
+                if c.pairs_per_2_weeks == 1:
+                    model.Add(X[(c.id, dow_idx, slot_idx)] == 1)
+                elif getattr(c, "require_week", None) == "numerator":
+                    model.Add(X[(c.id, dow_idx, slot_idx)] == 1)
+                elif getattr(c, "require_week", None) == "denominator":
+                    model.Add(X[(c.id, dow_idx + DAYS, slot_idx)] == 1)
+                elif c.pairs_per_2_weeks >= 2:
+                    model.Add(X[(c.id, dow_idx, slot_idx)] == 1)
+                    model.Add(X[(c.id, dow_idx + DAYS, slot_idx)] == 1)
+            else:
+                # Прив'язано ТІЛЬКИ до дня (а пара яка-завгодно). 
+                # Усі пари цього предмету мають опинитися САМЕ в цей день! 
+                req = getattr(c, "require_week", None)
+                expected_w1 = c.pairs_per_2_weeks if req == "numerator" else (0 if req == "denominator" else c.pairs_per_2_weeks // 2)
+                expected_w2 = c.pairs_per_2_weeks if req == "denominator" else (0 if req == "numerator" else (c.pairs_per_2_weeks + 1) // 2)
+                
+                # Додаємо умову, що загальна кількість пар в цей день має дорівнювати очікуваному за тиждень навантаженню
+                model.Add(sum(X[(c.id, dow_idx, s)] for s in range(SLOTS)) == expected_w1)
+                model.Add(sum(X[(c.id, dow_idx + DAYS, s)] for s in range(SLOTS)) == expected_w2)
 
         # Не більше 1 такої самої пари на день (якщо не дозволено блокове навчання)
         if not getattr(c, "allow_multiple_per_day", False):
