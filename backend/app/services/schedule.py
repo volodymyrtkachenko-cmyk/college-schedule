@@ -85,7 +85,7 @@ async def conflicting_lesson(db, *, group_id, day_of_week, lesson_number, week_t
     same day/lesson slot (as main or second teacher) in an overlapping week,
     regardless of group.
     """
-    query = select(Schedule).where(
+    query = select(Schedule).options(joinedload(Schedule.group)).where(
         Schedule.day_of_week == day_of_week,
         Schedule.lesson_number == lesson_number,
         Schedule.is_active.is_(True),

@@ -139,6 +139,9 @@ async def _check_schedule_conflict(db, group_id, day, lesson_number, week_type, 
         week_names = {"numerator": "по чисельнику", "denominator": "по знаменнику", "both": "щотижня"}
         d_name = day_names.get(day, str(day))
         w_name = week_names.get(conflict.week_type, conflict.week_type)
+        if conflict.group_id != group_id:
+            group_name = conflict.group.name if conflict.group else "???"
+            raise HTTPException(409, f"Викладач уже веде заняття в цей час (група {group_name})")
         raise HTTPException(409, f"Неможливо зберегти: на {d_name} ({lesson_number}-а пара, {w_name}) уже призначене інше заняття.")
 
 async def _resolve_entities(db, item, payload, group_id, create):
@@ -285,7 +288,8 @@ async def bulk_curator_hours(payload: BulkCuratorRequest, db: AsyncSession = Dep
                 # Check for conflict with OTHER subjects
                 conflict = await conflicting_lesson(
                     db, group_id=group.id, day_of_week=payload.day_of_week,
-                    lesson_number=payload.lesson_number, week_type=payload.week_type
+                    lesson_number=payload.lesson_number, week_type=payload.week_type,
+                    teacher_id=group.curator_id, subject_id=subject.id
                 )
                 if conflict:
                     skipped_count += 1

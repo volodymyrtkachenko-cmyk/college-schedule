@@ -19,6 +19,8 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    # 0. Set semester_start in settings
+    op.execute("UPDATE settings SET value = '2026-08-31' WHERE key = 'semester_start'")
     # 1. Заняття з предметом 78 переведи на 79 (36 занять)
     op.execute("UPDATE schedule SET subject_id = 79 WHERE subject_id = 78")
     op.execute("UPDATE schedule_override SET subject_id = 79 WHERE subject_id = 78")
