@@ -2,6 +2,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import joinedload
 import asyncio
 
 from app.database import get_db
@@ -19,7 +20,7 @@ async def generate_schedule(
     db: AsyncSession = Depends(get_db),
     admin=Depends(require_roles("admin"))
 ):
-    curriculums = (await db.scalars(select(Curriculum))).all()
+    curriculums = (await db.scalars(select(Curriculum).options(joinedload(Curriculum.group)))).all()
     constraints = (await db.scalars(select(TeacherConstraint))).all()
 
     if not curriculums:

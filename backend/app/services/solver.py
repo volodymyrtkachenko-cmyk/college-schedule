@@ -82,12 +82,18 @@ def precheck(curriculums: Iterable, constraints: Iterable = ()) -> list[str]:
         hi = MAX_PAIRS_PER_DAY * DAY_IDXS
         if total < lo:
             extra = f" (з них {n_fixed4} дн. з виховною годиною потребують 4 пар)" if n_fixed4 else ""
+            # Спроба отримати ім'я групи для гарного виведення
+            g_name = getattr(lst[0], "group", None)
+            g_name_str = g_name.name if g_name else f"id={g_id}"
+            
             problems.append(
-                f"група id={g_id}: {total} пар/2 тижні, потрібно щонайменше {lo}{extra} — бракує {lo - total}"
+                f"група [{g_name_str}]: {total} пар/2 тижні, потрібно щонайменше {lo}{extra} — бракує {lo - total}"
             )
         elif total > hi:
+            g_name = getattr(lst[0], "group", None)
+            g_name_str = g_name.name if g_name else f"id={g_id}"
             problems.append(
-                f"група id={g_id}: {total} пар/2 тижні, максимум {hi} — зайвих {total - hi}"
+                f"група [{g_name_str}]: {total} пар/2 тижні, максимум {hi} — зайвих {total - hi}"
             )
 
     # Викладачі: пари потоку рахуємо один раз
