@@ -290,7 +290,15 @@ def solve(
 
     solver = cp_model.CpSolver()
     solver.parameters.max_time_in_seconds = max_time_in_seconds
-    solver.parameters.num_search_workers = num_workers
+    import os
+    cpus = os.cpu_count() or 1
+    # Не можна запускати багато потоків на слабких хмарних серверах (Render Free = 0.1 CPU), бо потоки блокуватимуть один одного
+    actual_workers = min(num_workers, cpus)
+    solver.parameters.num_search_workers = actual_workers
+    
+    # Використовуємо LNS інтесивно для складних розкладів
+    solver.parameters.linearization_level = 0
+    
     if seed is not None:
         solver.parameters.random_seed = seed
 
