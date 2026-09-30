@@ -40,3 +40,4 @@ backend/cleanup_prod.py
 *.dump
 secrets.json
 cleanup_credentials.py
+backend/rotate_password.py
