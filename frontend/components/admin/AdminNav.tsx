@@ -50,7 +50,11 @@ export function AdminNav({ active }: { active: string }) {
 
        {user?.role === "admin" && (
          <>
-           <div className="text-[11px] border-t border-sys-border/50 pt-5 font-bold uppercase tracking-wider text-sys-text-secondary mt-6 mb-2 pl-2">База даних</div>
+           <div className="text-[11px] border-t border-sys-border/50 pt-5 font-bold uppercase tracking-wider text-sys-text-secondary mt-6 mb-2 pl-2">Документи</div>
+       <Link href="/admin?resource=curriculum" onClick={() => setIsOpen(false)} className={`flex items-center gap-3 px-3 py-2 text-[14px] font-medium rounded-lg transition-colors ${active === "curriculum" ? "bg-sys-accent/10 border border-sys-accent/20 text-sys-accent" : "text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/5 border border-transparent"}`}>
+         Навантаження
+       </Link>
+       <div className="text-[11px] border-t border-sys-border/50 pt-5 font-bold uppercase tracking-wider text-sys-text-secondary mt-6 mb-2 pl-2">База даних</div>
            <div className="space-y-1">
              {resources.map(r => (
                <Link key={r} href={`/admin?resource=${r}`} onClick={() => setIsOpen(false)} className={`flex items-center gap-3 px-3 py-2 text-[14px] font-medium rounded-lg transition-colors ${active === r ? "bg-sys-accent/10 border border-sys-accent/20 text-sys-accent" : "text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/5 border border-transparent"}`}>

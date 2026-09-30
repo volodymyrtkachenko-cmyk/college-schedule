@@ -289,7 +289,67 @@ async function request<T>(
     }
 }
 
+
+export interface CurriculumRecord {
+  id: number;
+  group_id: number;
+  subject_id: number;
+  teacher_id: number;
+  second_teacher_id: number | null;
+  pairs_per_2_weeks: number;
+  total_hours: number;
+  is_stream: boolean;
+  is_fixed: boolean;
+  stream_id: string | null;
+  group: { id: number, name: string };
+  subject: { id: number, name: string };
+  teacher: { id: number, name: string };
+  second_teacher: { id: number, name: string } | null;
+}
+
+export interface CurriculumMutation {
+  group_id: number;
+  subject_id: number;
+  teacher_id: number;
+  second_teacher_id?: number | null;
+  pairs_per_2_weeks: number;
+  total_hours: number;
+  is_stream: boolean;
+  is_fixed: boolean;
+}
+
+export const apiCurriculums = {
+  list: async (token: string, groupId?: number, teacherId?: number): Promise<CurriculumRecord[]> => {
+    let url = `/api/curriculums/`;
+    const params = new URLSearchParams();
+    if (groupId) params.append("group_id", groupId.toString());
+    if (teacherId) params.append("teacher_id", teacherId.toString());
+    if (params.toString()) url += `?${params.toString()}`;
+    return request<CurriculumRecord[]>(url, {}, false, true, token);
+  },
+  create: async (payload: CurriculumMutation, token: string): Promise<CurriculumRecord> => {
+    return request<CurriculumRecord>(`/api/curriculums/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }, false, true, token);
+  },
+  update: async (id: number, payload: Partial<CurriculumMutation>, token: string): Promise<CurriculumRecord> => {
+    return request<CurriculumRecord>(`/api/curriculums/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }, false, true, token);
+  },
+  remove: async (id: number, token: string): Promise<void> => {
+    return request<void>(`/api/curriculums/${id}`, {
+      method: "DELETE",
+    }, false, true, token);
+  }
+};
+
 export const api = {
+  curriculums: apiCurriculums,
     auth: {
         login: async (username: string, password: string) => {
             const session = await rawRequest<AuthSession>("/api/auth/login", {
@@ -314,6 +374,7 @@ export const api = {
     groups: () => request<ReferenceRecord[]>("/api/groups"),
     directory: {
         faculties: () => request<ReferenceRecord[]>("/api/faculties"),
+        groups: () => request<ReferenceRecord[]>("/api/groups"),
         subjects: () => request<ReferenceRecord[]>("/api/subjects"),
         teachers: () => request<ReferenceRecord[]>("/api/teachers"),
         teacherSubjects: () => request<Record<number, number[]>>("/api/teacher-subjects"),

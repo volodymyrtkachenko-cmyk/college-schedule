@@ -12,6 +12,7 @@ import { useAuth, canAccessAdmin } from "../../lib/auth";
 import { ConfirmModal } from "../../components/admin/ConfirmModal";
 import { AdminScheduleEditor } from "../../components/admin/AdminScheduleEditor";
 import { UsersPanel } from "../../components/admin/users/UsersPanel";
+import { CurriculumPanel } from "../../components/admin/CurriculumPanel";
 import { ApiError } from "../../lib/api";
 
 
@@ -183,6 +184,8 @@ function AdminContent() {
         
         {currentTab === "schedule" ? (
           <AdminScheduleEditor />
+        ) : currentTab === "curriculum" ? (
+          <CurriculumPanel />
         ) : currentTab === "users" && user?.role === "admin" ? (
           <UsersPanel />
         ) : (
