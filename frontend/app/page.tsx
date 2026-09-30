@@ -12,6 +12,7 @@ import { useAuth, canAccessAdmin } from "../lib/auth";
 import { useRouter } from "next/navigation";
 import { getMondayOf } from "../lib/date";
 import { WelcomeScreen } from "../components/WelcomeScreen";
+import Link from "next/link";
 
 export default function HomePage() {
   const getInitialAnchor = () => {
@@ -149,6 +150,9 @@ export default function HomePage() {
             </div>
           </div>
           <div className="flex flex-col sm:flex-row sm:items-center gap-4 w-full md:w-auto">
+            <Link href="/stats" className="flex items-center justify-center gap-2 bg-sys-card text-sys-text-secondary border border-sys-border px-4 py-2 rounded-xl text-sm font-medium transition-colors hover:text-sys-accent hover:border-sys-accent/50 h-[38px] sm:h-auto">
+              📊 Статистика
+            </Link>
             {isStandalone && !isDownloaded && (
               <button 
                 type="button" 
