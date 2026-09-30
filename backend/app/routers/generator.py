@@ -135,34 +135,37 @@ async def generate_schedule(
                 model.AddMaxEquality(slot_active, [X[(c.id, d, s)] for c in curr_list])
                 slots_active.append(slot_active)
             
-            # --- 1 & 2. ЖОРСТКА ЩІЛЬНІСТЬ (NO WINDOWS, NO LATE STARTS) ---
-            # Якщо пара є на слоті N, вона ОБОВ'ЯЗКОВО має бути на слоті N-1. 
-            # Це миттєво відкидає будь-які вікна і будь-які старти не з 1-ї пари.
-            model.Add(slots_active[1] <= slots_active[0])
-            model.Add(slots_active[2] <= slots_active[1])
-            model.Add(slots_active[3] <= slots_active[2])
+            # --- Ідеальні шаблони дня (Шаблонний підхід) ---
+            # Ми перераховуємо всі можливі дозволені комбінації без вікон і присвоюємо їм штрафи.
+            valid_patterns = [
+                ((0,0,0,0), 0),         # Вихідний
+                ((1,1,1,1), 0),         # 4 пари, старт з 1-ї
+                ((1,1,1,0), 0),         # 3 пари, старт з 1-ї (ІДЕАЛ)
+                ((0,1,1,1), 100),       # 3 пари, старт з 2-ї (дозволений запасний варіант)
+                ((1,1,0,0), 10000),     # 2 пари (дуже погано, але можливо для 17 пар на тиждень)
+                ((0,1,1,0), 11000),     # 2 пари, старт з 2-ї
+                ((0,0,1,1), 12000),     # 2 пари, старт з 3-ї
+                ((1,0,0,0), 20000),     # 1 пара (катастрофа)
+                ((0,1,0,0), 21000),
+                ((0,0,1,0), 22000),
+                ((0,0,0,1), 23000)
+            ]
+            
+            pattern_vars = []
+            for p_idx, (pat, pen) in enumerate(valid_patterns):
+                p_var = model.NewBoolVar(f"pat_{g_id}_{d}_{p_idx}")
+                pattern_vars.append(p_var)
+                if pen > 0:
+                    penalties.append(p_var * pen)
                 
-
-
+                for s in range(4):
+                    if pat[s] == 1:
+                        model.Add(slots_active[s] == 1).OnlyEnforceIf(p_var)
+                    else:
+                        model.Add(slots_active[s] == 0).OnlyEnforceIf(p_var)
             
-            # --- 3. MINIMUM 3 PAIRS (Мінімум 3 пари на день, максимум вихідних) ---
-            # Штрафувати дні, де студенти приходять лише на 1 або 2 пари.
-            pairs_in_day = sum([X[(c.id, d, s)] for c in curr_list for s in range(4)])
-            
-            c1 = model.NewBoolVar(f"c1_g{g_id}_d{d}")
-            model.Add(pairs_in_day == 1).OnlyEnforceIf(c1)
-            model.Add(pairs_in_day != 1).OnlyEnforceIf(c1.Not())
-            penalties.append(c1 * 20000) # Дуже погано (приїхати на 1 пару - майже заборонено)
-            
-            c2 = model.NewBoolVar(f"c2_g{g_id}_d{d}")
-            model.Add(pairs_in_day == 2).OnlyEnforceIf(c2)
-            model.Add(pairs_in_day != 2).OnlyEnforceIf(c2.Not())
-            penalties.append(c2 * 10000) # Погано (приїхати на 2 пари)
-            
-            c4 = model.NewBoolVar(f"c4_g{g_id}_d{d}")
-            model.Add(pairs_in_day == 4).OnlyEnforceIf(c4)
-            model.Add(pairs_in_day != 4).OnlyEnforceIf(c4.Not())
-            penalties.append(c4 * 100) # Важко (4 пари - перевантаження, 3 пари ідеально)
+            # Один і ТІЛЬКИ один шаблон має бути обраний для кожного дня (вікна заборонені взагалі)
+            model.AddExactlyOne(pattern_vars)
             
     if penalties:
         model.Minimize(sum(penalties))
