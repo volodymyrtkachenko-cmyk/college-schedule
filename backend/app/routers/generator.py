@@ -80,6 +80,10 @@ async def generate_schedule(
                 model.Add(X[(curr.id, dow_idx, slot_idx)] == 1)
                 model.Add(X[(curr.id, dow_idx + 5, slot_idx)] == 1)
 
+        # 2.5 Максимум 1 однакова пара на день (щоб одна дисципліна не йшла двічі в один день)
+        for d in range(10):
+            model.Add(sum([X[(curr.id, d, s)] for s in range(4)]) <= 1)
+            
         # 3. Teacher unavailability
         for d in range(10):
             for s in range(4):
@@ -146,11 +150,23 @@ async def generate_schedule(
             penalties.append(w3 * 1000)
                 
             # --- 2. START FROM FIRST (Пріоритет починати з першої пари) ---
-            # Сума пар фіксована. Штрафуючи пізні слоти, ми змушуємо алгоритм заповнювати слоти зліва направо (0, 1, 2, 3)
+            # Дуже жорсткі значення, щоб він зсував все на 1-шу пару!
             penalties.append(slots_active[0] * 0)
-            penalties.append(slots_active[1] * 10)
-            penalties.append(slots_active[2] * 20)
-            penalties.append(slots_active[3] * 50)
+            penalties.append(slots_active[1] * 100)
+            penalties.append(slots_active[2] * 500)
+            penalties.append(slots_active[3] * 1000)
+            
+            # Жорсткий штраф за те, що 1-ша пара пуста, а інші зайняті:
+            late_start = model.NewBoolVar(f"late_g{g_id}_d{d}")
+            # Якщо є хоч одна пара в день (slots_in_day > 0), і 0-вий слот пустий - це Late Start.
+            day_has_pairs = model.NewBoolVar(f"dhas_g{g_id}_d{d}")
+            model.Add(sum(slots_active) > 0).OnlyEnforceIf(day_has_pairs)
+            model.Add(sum(slots_active) == 0).OnlyEnforceIf(day_has_pairs.Not())
+            
+            # late_start == 1 якщо day_has_pairs=1 і slots_active[0]=0
+            model.Add(late_start >= day_has_pairs - slots_active[0])
+            penalties.append(late_start * 50000) # Майже жорстке обмеження
+
             
             # --- 3. MINIMUM 3 PAIRS (Мінімум 3 пари на день, максимум вихідних) ---
             # Штрафувати дні, де студенти приходять лише на 1 або 2 пари.
@@ -159,12 +175,12 @@ async def generate_schedule(
             c1 = model.NewBoolVar(f"c1_g{g_id}_d{d}")
             model.Add(pairs_in_day == 1).OnlyEnforceIf(c1)
             model.Add(pairs_in_day != 1).OnlyEnforceIf(c1.Not())
-            penalties.append(c1 * 500) # Дуже погано (приїхати на 1 пару)
+            penalties.append(c1 * 20000) # Дуже погано (приїхати на 1 пару - майже заборонено)
             
             c2 = model.NewBoolVar(f"c2_g{g_id}_d{d}")
             model.Add(pairs_in_day == 2).OnlyEnforceIf(c2)
             model.Add(pairs_in_day != 2).OnlyEnforceIf(c2.Not())
-            penalties.append(c2 * 200) # Погано (приїхати на 2 пари)
+            penalties.append(c2 * 10000) # Погано (приїхати на 2 пари)
             
             c4 = model.NewBoolVar(f"c4_g{g_id}_d{d}")
             model.Add(pairs_in_day == 4).OnlyEnforceIf(c4)
