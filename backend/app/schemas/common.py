@@ -100,6 +100,7 @@ class ScheduleItem(BaseModel):
     subject: str
     teacher: str | None = None
     room: str | None = None
+    room_override: str | None = None
     subject_name: str
     teacher_name: str | None = None
     week_type: str

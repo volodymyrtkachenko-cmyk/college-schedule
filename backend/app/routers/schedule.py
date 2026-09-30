@@ -64,7 +64,7 @@ def to_item(item, week_type, target_date, bell_times=None):
     return ScheduleItem(id=item.id, group_id=item.group_id, subject_id=item.subject_id, teacher_id=item.teacher_id, second_teacher_id=item.second_teacher_id,
         day_of_week=item.day_of_week, lesson_number=item.lesson_number,
         time=f"{bell_times.get(item.lesson_number, ('00:00', '00:00'))[0]}-{bell_times.get(item.lesson_number, ('', ''))[1]}",
-        subject=item.subject.name, teacher=teacher_name, room=room_name,
+        subject=item.subject.name, teacher=teacher_name, room=room_name, room_override=getattr(item, 'room_override', None),
         subject_name=item.subject.name, teacher_name=teacher_name,
         week_type=item.week_type,
         is_relevant_this_week=item.week_type in ("both", week_type),
@@ -167,7 +167,7 @@ async def _apply_and_commit(db, item, payload, group, subject, teacher, second_t
     if getattr(payload, "is_replacement", None) is not None:
         item.is_replacement = payload.is_replacement
     if "room" in payload.model_fields_set:
-        item.room_override = payload.room
+        item.room_override = payload.room.strip() if payload.room and payload.room.strip() else None
 
     try:
         await db.commit()

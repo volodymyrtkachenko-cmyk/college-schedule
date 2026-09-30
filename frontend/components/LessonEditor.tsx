@@ -43,6 +43,7 @@ function initial(lesson: Lesson | undefined, date: string, scheduleMode: "studen
     teacher_id: lesson?.teacher_id ?? (scheduleMode === "teacher" ? defaultTeacherId : null),
     second_teacher_id: lesson?.second_teacher_id ?? null,
     week_type: lesson?.week_type ?? initialWeekType,
+    room: lesson?.room_override ?? "",
   };
 }
 export function LessonEditor({ lesson, date, scheduleMode, defaultGroupId, defaultTeacherId, groups, initialWeekType = "both", onSave, onDelete, onClose }: Props) {
@@ -53,7 +54,7 @@ export function LessonEditor({ lesson, date, scheduleMode, defaultGroupId, defau
   const [form, setForm] = useState(() => initial(lesson, date, scheduleMode, defaultGroupId, defaultTeacherId, initialWeekType));
   const [subjects, setSubjects] = useState<DirectoryItem[]>([]);
   const [teacherSubjects, setTeacherSubjects] = useState<Record<number, number[]>>({});
-  const [teachers, setTeachers] = useState<DirectoryItem[]>([]);
+  const [teachers, setTeachers] = useState<ReferenceRecord[]>([]);
   const [busy, setBusy] = useState(false);
   const [loadingDirectories, setLoadingDirectories] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -72,7 +73,23 @@ export function LessonEditor({ lesson, date, scheduleMode, defaultGroupId, defau
       .finally(() => { if (active) setLoadingDirectories(false); });
     return () => { active = false; };
   }, []);
-const sortedSubjects = useMemo(() => {
+
+  const teacherRoom = useMemo(() => {
+    if (!teachers) return "";
+    const primary = teachers.find(t => t.id === form.teacher_id);
+    const secondary = teachers.find(t => t.id === form.second_teacher_id);
+    const rooms = [];
+    if (primary && primary.room) rooms.push(primary.room);
+    if (secondary && secondary.room) rooms.push(secondary.room);
+    return rooms.length > 0 ? rooms.join(" / ") : "";
+  }, [teachers, form.teacher_id, form.second_teacher_id]);
+
+  const uniqueRooms = useMemo(() => {
+    if (!teachers) return [];
+    return Array.from(new Set(teachers.map(t => t.room).filter(Boolean))).sort();
+  }, [teachers]);
+
+  const sortedSubjects = useMemo(() => {
     if (!form.teacher_id || !teacherSubjects[form.teacher_id]) return subjects;
     const knownSubjectIds = new Set(teacherSubjects[form.teacher_id]);
     const known: import("../lib/api").DirectoryItem[] = [];
@@ -105,14 +122,21 @@ const sortedSubjects = useMemo(() => {
       setError("Другий викладач має відрізнятися від основного.");
       return;
     }
+    
+    const payload = { ...form, date };
+    if (payload.room !== undefined) {
+      payload.room = payload.room ? payload.room.trim() : null;
+      if (payload.room === "") payload.room = null;
+    }
+
     setBusy(true);
     setError(null);
     try {
-      if (!form.group_id) {
+      if (!payload.group_id) {
         setError("Оберіть групу.");
         return;
       }
-      await onSave({ ...form, date });
+      await onSave(payload);
       onClose();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Не вдалося зберегти");
@@ -186,7 +210,23 @@ const sortedSubjects = useMemo(() => {
             </select>
           </label>
           <label className="sm:col-span-2">Тиждень<select value={form.week_type} onChange={(e) => update("week_type", e.target.value as WeekType)}><option value="both">Щотижня</option><option value="numerator">Чисельник</option><option value="denominator">Знаменник</option></select></label>
-          {scheduleMode === "student" && (
+          
+          <label className="sm:col-span-2">Аудиторія
+            <input
+              type="text"
+              className="mt-1 block w-full rounded-md border-sys-border bg-sys-input px-3 py-2 placeholder:text-sys-text-secondary"
+              maxLength={100}
+              value={form.room ?? ""}
+              onChange={(e) => update("room", e.target.value)}
+              placeholder={teacherRoom ? `Як у викладача: ${teacherRoom}` : "Аудиторія"}
+              list="room-options"
+            />
+            <datalist id="room-options">
+              {uniqueRooms.map((r, i) => <option key={i} value={r as string} />)}
+            </datalist>
+            <p className="mt-1 text-xs text-sys-text-secondary">Порожньо = аудиторія викладача</p>
+          </label>
+{scheduleMode === "student" && (
             <label className="sm:col-span-2 flex items-center gap-2 cursor-pointer mt-1 !flex-row w-fit">
               <input
                 type="checkbox"

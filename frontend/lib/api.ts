@@ -20,6 +20,7 @@ export interface ReferenceRecord extends DirectoryItem {
     curator_id?: number | null;
     email?: string | null;
     room?: string | null;
+  room_override?: string | null;
     is_active: boolean;
 }
 
@@ -95,6 +96,7 @@ export interface LessonMutation {
     subject?: string;
     teacher?: string | null;
     room?: string | null;
+  room_override?: string | null;
     week_type: WeekType;
     is_replacement?: boolean;
 }
