@@ -14,6 +14,7 @@ import { AdminScheduleEditor } from "../../components/admin/AdminScheduleEditor"
 import { UsersPanel } from "../../components/admin/users/UsersPanel";
 import { CurriculumPanel } from "../../components/admin/CurriculumPanel";
 import { GeneratorPanel } from "../../components/admin/GeneratorPanel";
+import { ConstraintsPanel } from "../../components/admin/ConstraintsPanel";
 import { ApiError } from "../../lib/api";
 
 
@@ -189,6 +190,8 @@ function AdminContent() {
           <CurriculumPanel />
         ) : currentTab === "generator" ? (
           <GeneratorPanel />
+        ) : currentTab === "constraints" ? (
+          <ConstraintsPanel />
         ) : currentTab === "users" && user?.role === "admin" ? (
           <UsersPanel />
         ) : (

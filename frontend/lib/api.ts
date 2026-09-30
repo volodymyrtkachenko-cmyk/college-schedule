@@ -395,7 +395,34 @@ export const apiGenerator = {
     return request<{message: string}>(`/api/drafts/${id}/publish`, { method: "POST" }, false, true, token);
   }
 };
+export interface TeacherConstraintRecord {
+  id: number;
+  teacher_id: number;
+  day_of_week: number;
+  lesson_number: number;
+  is_hard_constraint: boolean;
+  teacher: { id: number; name: string };
+}
+
+export const apiConstraints = {
+  list: async (token: string, teacherId?: number): Promise<TeacherConstraintRecord[]> => {
+    let url = `/api/teacher-constraints/`;
+    if (teacherId) url += `?teacher_id=${teacherId}`;
+    return request<TeacherConstraintRecord[]>(url, {}, false, true, token);
+  },
+  create: async (teacherId: number, day: number, lesson: number, token: string): Promise<TeacherConstraintRecord> => {
+    return request<TeacherConstraintRecord>(`/api/teacher-constraints/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ teacher_id: teacherId, day_of_week: day, lesson_number: lesson, is_hard_constraint: true })
+    }, false, true, token);
+  },
+  remove: async (id: number, token: string): Promise<void> => {
+    return request<void>(`/api/teacher-constraints/${id}`, { method: "DELETE" }, false, true, token);
+  }
+};
 export const api = {
+  constraints: apiConstraints,
   generator: apiGenerator,
   curriculums: apiCurriculums,
     auth: {
