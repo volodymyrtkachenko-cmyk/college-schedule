@@ -8,7 +8,7 @@ from app.models import Curriculum, Group, Subject, Teacher
 from app.schemas.curriculum import CurriculumCreate, CurriculumUpdate, CurriculumResponse
 from app.core.security import require_roles
 
-router = APIRouter(prefix="/api/curriculums", tags=["Curriculums"])
+router = APIRouter(prefix="/curriculums", tags=["Curriculums"])
 
 @router.get("/", response_model=list[CurriculumResponse])
 async def list_curriculums(
