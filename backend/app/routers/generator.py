@@ -131,28 +131,45 @@ async def generate_schedule(
                 model.AddMaxEquality(slot_active, [X[(c.id, d, s)] for c in curr_list])
                 slots_active.append(slot_active)
             
-            # Window 1: pairs at 0 and 2, but not 1
+            # --- 1. WINDOWS (Холості вікна) ---
+            # Якщо є пара до і пара після, але немає посередині - величезний штраф.
             w1 = model.NewBoolVar(f"w1_g{g_id}_d{d}")
             model.Add(w1 >= slots_active[0] + slots_active[2] - slots_active[1] - 1)
-            penalties.append(w1 * 50)
+            penalties.append(w1 * 1000)
             
-            # Window 2: pairs at 1 and 3, but not 2
             w2 = model.NewBoolVar(f"w2_g{g_id}_d{d}")
             model.Add(w2 >= slots_active[1] + slots_active[3] - slots_active[2] - 1)
-            penalties.append(w2 * 50)
+            penalties.append(w2 * 1000)
             
-            # Big Window: pairs at 0 and 3, but not 1 AND not 2
             w3 = model.NewBoolVar(f"w3_g{g_id}_d{d}")
             model.Add(w3 >= slots_active[0] + slots_active[3] - slots_active[1] - slots_active[2] - 1)
-            penalties.append(w3 * 80)
+            penalties.append(w3 * 1000)
                 
-            # Load balance: >3 pairs a day is bad
-            # Let pairs_in_day = sum(X[(c.id, d, s)])
-            # penalty >= pairs_in_day - 3
+            # --- 2. START FROM FIRST (Пріоритет починати з першої пари) ---
+            # Сума пар фіксована. Штрафуючи пізні слоти, ми змушуємо алгоритм заповнювати слоти зліва направо (0, 1, 2, 3)
+            penalties.append(slots_active[0] * 0)
+            penalties.append(slots_active[1] * 10)
+            penalties.append(slots_active[2] * 20)
+            penalties.append(slots_active[3] * 50)
+            
+            # --- 3. MINIMUM 3 PAIRS (Мінімум 3 пари на день, максимум вихідних) ---
+            # Штрафувати дні, де студенти приходять лише на 1 або 2 пари.
             pairs_in_day = sum([X[(c.id, d, s)] for c in curr_list for s in range(4)])
-            excess = model.NewIntVar(0, 4, f"excess_g{g_id}_d{d}")
-            model.Add(excess >= pairs_in_day - 3)
-            penalties.append(excess * 10)
+            
+            c1 = model.NewBoolVar(f"c1_g{g_id}_d{d}")
+            model.Add(pairs_in_day == 1).OnlyEnforceIf(c1)
+            model.Add(pairs_in_day != 1).OnlyEnforceIf(c1.Not())
+            penalties.append(c1 * 500) # Дуже погано (приїхати на 1 пару)
+            
+            c2 = model.NewBoolVar(f"c2_g{g_id}_d{d}")
+            model.Add(pairs_in_day == 2).OnlyEnforceIf(c2)
+            model.Add(pairs_in_day != 2).OnlyEnforceIf(c2.Not())
+            penalties.append(c2 * 200) # Погано (приїхати на 2 пари)
+            
+            c4 = model.NewBoolVar(f"c4_g{g_id}_d{d}")
+            model.Add(pairs_in_day == 4).OnlyEnforceIf(c4)
+            model.Add(pairs_in_day != 4).OnlyEnforceIf(c4.Not())
+            penalties.append(c4 * 100) # Важко (4 пари - перевантаження, 3 пари ідеально)
             
     if penalties:
         model.Minimize(sum(penalties))
