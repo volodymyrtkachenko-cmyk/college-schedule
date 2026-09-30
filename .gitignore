@@ -36,3 +36,7 @@ backend/*.json
 backend/cleanup_prod.py
 .idea/
 *.zip
+*.sql
+*.dump
+secrets.json
+cleanup_credentials.py
