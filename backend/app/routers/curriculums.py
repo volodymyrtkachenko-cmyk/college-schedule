@@ -6,7 +6,7 @@ from sqlalchemy.orm import selectinload
 from app.database import get_db
 from app.models import Curriculum, Group, Subject, Teacher
 from app.schemas.curriculum import CurriculumCreate, CurriculumUpdate, CurriculumResponse
-from app.security import get_current_admin_user
+from app.core.security import require_roles
 
 router = APIRouter(prefix="/api/curriculums", tags=["Curriculums"])
 
@@ -15,7 +15,7 @@ async def list_curriculums(
     group_id: int = None,
     teacher_id: int = None,
     db: AsyncSession = Depends(get_db),
-    admin=Depends(get_current_admin_user)
+    admin=Depends(require_roles('admin'))
 ):
     query = select(Curriculum).options(
         selectinload(Curriculum.group),
@@ -35,7 +35,7 @@ async def list_curriculums(
 async def create_curriculum(
     payload: CurriculumCreate,
     db: AsyncSession = Depends(get_db),
-    admin=Depends(get_current_admin_user)
+    admin=Depends(require_roles('admin'))
 ):
     # Verify relations exist
     for model, id_val, name in [
@@ -75,7 +75,7 @@ async def update_curriculum(
     id: int, 
     payload: CurriculumUpdate,
     db: AsyncSession = Depends(get_db),
-    admin=Depends(get_current_admin_user)
+    admin=Depends(require_roles('admin'))
 ):
     db_item = await db.get(Curriculum, id)
     if not db_item:
@@ -117,7 +117,7 @@ async def update_curriculum(
 async def delete_curriculum(
     id: int,
     db: AsyncSession = Depends(get_db),
-    admin=Depends(get_current_admin_user)
+    admin=Depends(require_roles('admin'))
 ):
     db_item = await db.get(Curriculum, id)
     if not db_item:
