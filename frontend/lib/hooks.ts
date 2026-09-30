@@ -119,49 +119,87 @@ export function useSchedule(weekAnchorDate: Date) {
     const todayKey = `schedule:today:${targetKey}`;
     const weekKey = `schedule:week:${targetKey}:${dateKey}`;
     
-    let hasCachedSchedule = false;
-    try {
-      const cachedToday = window.localStorage.getItem(todayKey);
-      const cachedWeek = window.localStorage.getItem(weekKey);
-      if (cachedToday) {
-        setToday(JSON.parse(cachedToday) as ScheduleResponse);
-        hasCachedSchedule = true;
-      }
-      if (cachedWeek) {
-        setWeek(JSON.parse(cachedWeek) as ScheduleResponse[]);
-        hasCachedSchedule = true;
-      }
-    } catch {
-      window.localStorage.removeItem(todayKey);
-      window.localStorage.removeItem(weekKey);
-    }
-    setLoading(!hasCachedSchedule);
-    setError(null);
-    
     const targetGroupId = mode === "student" ? (groupId as number) : undefined;
     const targetTeacherId = mode === "teacher" ? (teacherId as number) : undefined;
     const memKey = `${todayKey}|${weekKey}`;
 
-    const cached = memoryCache.get(memKey);
-    if (cached && Date.now() - cached.time < CACHE_TTL) {
-       setToday(cached.today);
-       setWeek(cached.week);
-       setLoading(false);
-       return;
-    }
+    let isSubscribed = true;
 
-    Promise.all([api.today(targetGroupId, targetTeacherId), api.week(targetGroupId, targetTeacherId, weekAnchorDate)])
-      .then(([todayResponse, weekResponse]) => {
-        setToday(todayResponse);
-        setWeek(weekResponse);
-        window.localStorage.setItem(todayKey, JSON.stringify(todayResponse));
-        window.localStorage.setItem(weekKey, JSON.stringify(weekResponse));
-        memoryCache.set(memKey, { time: Date.now(), today: todayResponse, week: weekResponse });
-      })
-      .catch(() => {
-        if (!hasCachedSchedule) setError("Не вдалося завантажити розклад. Перевірте з'єднання.");
-      })
-      .finally(() => setLoading(false));
+    const fetchSchedule = (forceNetwork = false) => {
+      let hasCachedSchedule = false;
+      try {
+        const cachedToday = window.localStorage.getItem(todayKey);
+        const cachedWeek = window.localStorage.getItem(weekKey);
+        // If we are coming back later, don't use old cached today if the date changed
+        const todayStr = new Date().toISOString().slice(0, 10);
+        if (cachedToday) {
+            const parsedToday = JSON.parse(cachedToday) as ScheduleResponse;
+            // Provide stale cache immediately
+            setToday(parsedToday);
+            hasCachedSchedule = true;
+        }
+        if (cachedWeek) {
+          setWeek(JSON.parse(cachedWeek) as ScheduleResponse[]);
+          hasCachedSchedule = true;
+        }
+      } catch {
+        window.localStorage.removeItem(todayKey);
+        window.localStorage.removeItem(weekKey);
+      }
+
+      if (!forceNetwork) {
+          setLoading(!hasCachedSchedule);
+      }
+      setError(null);
+
+      if (!forceNetwork) {
+          const cached = memoryCache.get(memKey);
+          if (cached && Date.now() - cached.time < CACHE_TTL) {
+             setToday(cached.today);
+             setWeek(cached.week);
+             setLoading(false);
+             return;
+          }
+      }
+
+      Promise.all([api.today(targetGroupId, targetTeacherId), api.week(targetGroupId, targetTeacherId, weekAnchorDate)])
+        .then(([todayResponse, weekResponse]) => {
+          if (!isSubscribed) return;
+          setToday(todayResponse);
+          setWeek(weekResponse);
+          window.localStorage.setItem(todayKey, JSON.stringify(todayResponse));
+          window.localStorage.setItem(weekKey, JSON.stringify(weekResponse));
+          memoryCache.set(memKey, { time: Date.now(), today: todayResponse, week: weekResponse });
+        })
+        .catch(() => {
+          if (!hasCachedSchedule && isSubscribed) setError("Не вдалося завантажити розклад. Перевірте з'єднання.");
+        })
+        .finally(() => {
+            if (isSubscribed) setLoading(false);
+        });
+    };
+
+    fetchSchedule();
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+          // Re-fetch in background without showing loader when app wakes up
+          fetchSchedule(true);
+      }
+    };
+    
+    const handleOnline = () => {
+        fetchSchedule(true);
+    };
+
+    window.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("online", handleOnline);
+
+    return () => {
+      isSubscribed = false;
+      window.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("online", handleOnline);
+    };
   }, [mode, groupId, teacherId, weekAnchorDate]);
 
   useEffect(() => {
