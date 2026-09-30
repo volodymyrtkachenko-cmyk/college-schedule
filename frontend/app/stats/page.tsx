@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { apiConfig } from "../../lib/api-config"; // fallback inside layout?
 // fallback to hardcoded API URL
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
