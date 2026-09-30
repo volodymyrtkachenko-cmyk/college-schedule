@@ -49,6 +49,8 @@ async def analytics_middleware(request: Request, call_next):
 
 app.include_router(health.router, prefix="/api")
 app.include_router(schedule.router, prefix="/api")
+from app.routers.schedule_now import router as schedule_now_router
+app.include_router(schedule_now_router, prefix="/api/schedule")
 app.include_router(directory.router, prefix="/api")
 app.include_router(directory.admin_router, prefix="/api")
 app.include_router(auth.router, prefix="/api")
