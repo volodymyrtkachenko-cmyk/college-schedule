@@ -4,8 +4,20 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="508baa33-f415-4e56-bdba-95be05473423" name="Changes" comment="c">
+    <list default="true" id="508baa33-f415-4e56-bdba-95be05473423" name="Changes" comment="style(ui): apply SearchableSelect style to room input">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/routers/health.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/routers/health.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/routers/schedule.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/routers/schedule.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/schemas/common.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/schemas/common.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/services/schedule.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/services/schedule.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/seed.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/seed.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/tests/test_auth.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_auth.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/tests/test_directory_admin.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_directory_admin.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/tests/test_lesson_notes.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_lesson_notes.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/tests/test_schedule_crud.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_schedule_crud.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/tests/test_seed.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_seed.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/tests/test_settings.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_settings.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -33,23 +45,23 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.3256189873777464" />
-      <entry key="MS500" value="3.9751655167269186" />
-      <entry key="S2" value="12.798031893634544" />
-      <entry key="S5" value="25.506770167276553" />
-      <entry key="S10" value="42.78089663488952" />
-      <entry key="S30" value="89.93097432255166" />
-      <entry key="S60" value="125.51950383363955" />
-      <entry key="M2" value="164.11499860181547" />
-      <entry key="M5" value="236.49744169003765" />
-      <entry key="M10" value="317.2586359966259" />
-      <entry key="M15" value="388.61528580125133" />
-      <entry key="M30" value="577.2113772592074" />
-      <entry key="H1" value="912.9850007771275" />
-      <entry key="H2" value="1583.8924385844823" />
-      <entry key="H4" value="2691.6742371472405" />
-      <entry key="D1" value="7660.148339925552" />
-      <entry key="W1" value="12393.00027988857" />
+      <entry key="MS100" value="1.0080870184270405" />
+      <entry key="MS500" value="1.9476141320059464" />
+      <entry key="S2" value="6.0651137901164" />
+      <entry key="S5" value="9.305859217278565" />
+      <entry key="S10" value="10.9453214629134" />
+      <entry key="S30" value="12.366035008009893" />
+      <entry key="S60" value="15.472756773078219" />
+      <entry key="M2" value="27.86427382994283" />
+      <entry key="M5" value="54.87752314864994" />
+      <entry key="M10" value="76.52331198422635" />
+      <entry key="M15" value="88.74925049530196" />
+      <entry key="M30" value="106.50676436744784" />
+      <entry key="H1" value="119.60103377160226" />
+      <entry key="H2" value="176.72083985065393" />
+      <entry key="H4" value="612.0974535047982" />
+      <entry key="D1" value="5884.823485302609" />
+      <entry key="W1" value="12029.801197510604" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -71,23 +83,23 @@
       <entry key="W1" value="0.0" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="1.2899833675552304" />
-      <entry key="MS500" value="3.9556223143052107" />
-      <entry key="S2" value="12.782621450882717" />
-      <entry key="S5" value="25.49426632971072" />
-      <entry key="S10" value="42.7702584992586" />
-      <entry key="S30" value="89.92335071252737" />
-      <entry key="S60" value="125.51408041461261" />
-      <entry key="M2" value="164.1110026824849" />
-      <entry key="M5" value="236.49417363632477" />
-      <entry key="M10" value="317.25606833756973" />
-      <entry key="M15" value="388.6131395120549" />
-      <entry key="M30" value="577.2098502553948" />
-      <entry key="H1" value="912.9839117879413" />
-      <entry key="H2" value="1583.8916002504684" />
-      <entry key="H4" value="2691.6735775069183" />
-      <entry key="D1" value="7660.148071490463" />
-      <entry key="W1" value="12393.000222259365" />
+      <entry key="MS100" value="0.9805755374031144" />
+      <entry key="MS500" value="1.938124338752856" />
+      <entry key="S2" value="6.058187386193331" />
+      <entry key="S5" value="9.301607318778727" />
+      <entry key="S10" value="10.942817261896593" />
+      <entry key="S30" value="12.365090038463517" />
+      <entry key="S60" value="15.4721566639853" />
+      <entry key="M2" value="27.86371684406766" />
+      <entry key="M5" value="54.87707479366278" />
+      <entry key="M10" value="76.52299493816516" />
+      <entry key="M15" value="88.74900325289703" />
+      <entry key="M30" value="106.50661425531791" />
+      <entry key="H1" value="119.60094842343123" />
+      <entry key="H2" value="176.72076808825864" />
+      <entry key="H4" value="612.0973121390332" />
+      <entry key="D1" value="5884.823279778552" />
+      <entry key="W1" value="12029.801141622695" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -159,86 +171,6 @@
       <workItem from="1790152459494" duration="6996000" />
       <workItem from="1790176829414" duration="2959000" />
       <workItem from="1790441841421" duration="2261000" />
-    </task>
-    <task id="LOCAL-00089" summary="Завантаження розкладу для моб додатку">
-      <option name="closed" value="true" />
-      <created>1790091007997</created>
-      <option name="number" value="00089" />
-      <option name="presentableId" value="LOCAL-00089" />
-      <option name="project" value="LOCAL" />
-      <updated>1790091007998</updated>
-    </task>
-    <task id="LOCAL-00090" summary="feat: separate schedule editor to admin panel">
-      <option name="closed" value="true" />
-      <created>1790091543632</created>
-      <option name="number" value="00090" />
-      <option name="presentableId" value="LOCAL-00090" />
-      <option name="project" value="LOCAL" />
-      <updated>1790091543632</updated>
-    </task>
-    <task id="LOCAL-00091" summary="feat: separate schedule editor to admin panel">
-      <option name="closed" value="true" />
-      <created>1790091771699</created>
-      <option name="number" value="00091" />
-      <option name="presentableId" value="LOCAL-00091" />
-      <option name="project" value="LOCAL" />
-      <updated>1790091771699</updated>
-    </task>
-    <task id="LOCAL-00092" summary="feat: separate schedule editor to admin panel">
-      <option name="closed" value="true" />
-      <created>1790092020481</created>
-      <option name="number" value="00092" />
-      <option name="presentableId" value="LOCAL-00092" />
-      <option name="project" value="LOCAL" />
-      <updated>1790092020481</updated>
-    </task>
-    <task id="LOCAL-00093" summary="feat: separate schedule editor to admin panel">
-      <option name="closed" value="true" />
-      <created>1790092272778</created>
-      <option name="number" value="00093" />
-      <option name="presentableId" value="LOCAL-00093" />
-      <option name="project" value="LOCAL" />
-      <updated>1790092272778</updated>
-    </task>
-    <task id="LOCAL-00094" summary="feat: smart sorting of subjects by teacher history">
-      <option name="closed" value="true" />
-      <created>1790092925749</created>
-      <option name="number" value="00094" />
-      <option name="presentableId" value="LOCAL-00094" />
-      <option name="project" value="LOCAL" />
-      <updated>1790092925749</updated>
-    </task>
-    <task id="LOCAL-00095" summary="feat: smart sorting of subjects by teacher history">
-      <option name="closed" value="true" />
-      <created>1790093186750</created>
-      <option name="number" value="00095" />
-      <option name="presentableId" value="LOCAL-00095" />
-      <option name="project" value="LOCAL" />
-      <updated>1790093186750</updated>
-    </task>
-    <task id="LOCAL-00096" summary="feat: smart sorting of subjects by teacher history">
-      <option name="closed" value="true" />
-      <created>1790093569624</created>
-      <option name="number" value="00096" />
-      <option name="presentableId" value="LOCAL-00096" />
-      <option name="project" value="LOCAL" />
-      <updated>1790093569624</updated>
-    </task>
-    <task id="LOCAL-00097" summary="feat: smart sorting of subjects by teacher history">
-      <option name="closed" value="true" />
-      <created>1790093705884</created>
-      <option name="number" value="00097" />
-      <option name="presentableId" value="LOCAL-00097" />
-      <option name="project" value="LOCAL" />
-      <updated>1790093705884</updated>
-    </task>
-    <task id="LOCAL-00098" summary="feat: smart sorting of subjects by teacher history">
-      <option name="closed" value="true" />
-      <created>1790093915619</created>
-      <option name="number" value="00098" />
-      <option name="presentableId" value="LOCAL-00098" />
-      <option name="project" value="LOCAL" />
-      <updated>1790093915619</updated>
     </task>
     <task id="LOCAL-00099" summary="feat: user and role management with group-level access rules&quot;">
       <option name="closed" value="true" />
@@ -552,7 +484,87 @@
       <option name="project" value="LOCAL" />
       <updated>1790443657617</updated>
     </task>
-    <option name="localTasksCounter" value="138" />
+    <task id="LOCAL-00138" summary="fix(models): expose new models in __init__.py">
+      <option name="closed" value="true" />
+      <created>1790707430282</created>
+      <option name="number" value="00138" />
+      <option name="presentableId" value="LOCAL-00138" />
+      <option name="project" value="LOCAL" />
+      <updated>1790707430282</updated>
+    </task>
+    <task id="LOCAL-00139" summary="fix(models): expose new models in __init__.py">
+      <option name="closed" value="true" />
+      <created>1790707440117</created>
+      <option name="number" value="00139" />
+      <option name="presentableId" value="LOCAL-00139" />
+      <option name="project" value="LOCAL" />
+      <updated>1790707440117</updated>
+    </task>
+    <task id="LOCAL-00140" summary="fix(schedule): resolve undefined variable bell_t in list comprehensions">
+      <option name="closed" value="true" />
+      <created>1790707890898</created>
+      <option name="number" value="00140" />
+      <option name="presentableId" value="LOCAL-00140" />
+      <option name="project" value="LOCAL" />
+      <updated>1790707890899</updated>
+    </task>
+    <task id="LOCAL-00141" summary="chore: temporarily expose alembic run to debug migrations">
+      <option name="closed" value="true" />
+      <created>1790708109336</created>
+      <option name="number" value="00141" />
+      <option name="presentableId" value="LOCAL-00141" />
+      <option name="project" value="LOCAL" />
+      <updated>1790708109336</updated>
+    </task>
+    <task id="LOCAL-00142" summary="fix(db): automatically resolve alembic out-of-sync state on startup">
+      <option name="closed" value="true" />
+      <created>1790708268933</created>
+      <option name="number" value="00142" />
+      <option name="presentableId" value="LOCAL-00142" />
+      <option name="project" value="LOCAL" />
+      <updated>1790708268933</updated>
+    </task>
+    <task id="LOCAL-00143" summary="fix(db): ensure schema consistency directly via brute_force on boot">
+      <option name="closed" value="true" />
+      <created>1790708681349</created>
+      <option name="number" value="00143" />
+      <option name="presentableId" value="LOCAL-00143" />
+      <option name="project" value="LOCAL" />
+      <updated>1790708681349</updated>
+    </task>
+    <task id="LOCAL-00144" summary="fix(db): apply idempotent alembic patterns and rectify missing model definitions">
+      <option name="closed" value="true" />
+      <created>1790742006129</created>
+      <option name="number" value="00144" />
+      <option name="presentableId" value="LOCAL-00144" />
+      <option name="project" value="LOCAL" />
+      <updated>1790742006129</updated>
+    </task>
+    <task id="LOCAL-00145" summary="feat(ui): add optional room override field to the lesson editor">
+      <option name="closed" value="true" />
+      <created>1790742475312</created>
+      <option name="number" value="00145" />
+      <option name="presentableId" value="LOCAL-00145" />
+      <option name="project" value="LOCAL" />
+      <updated>1790742475312</updated>
+    </task>
+    <task id="LOCAL-00146" summary="fix(ui): add room_override to Lesson interface">
+      <option name="closed" value="true" />
+      <created>1790742627310</created>
+      <option name="number" value="00146" />
+      <option name="presentableId" value="LOCAL-00146" />
+      <option name="project" value="LOCAL" />
+      <updated>1790742627310</updated>
+    </task>
+    <task id="LOCAL-00147" summary="style(ui): apply SearchableSelect style to room input">
+      <option name="closed" value="true" />
+      <created>1790743192205</created>
+      <option name="number" value="00147" />
+      <option name="presentableId" value="LOCAL-00147" />
+      <option name="project" value="LOCAL" />
+      <updated>1790743192205</updated>
+    </task>
+    <option name="localTasksCounter" value="148" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -580,15 +592,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Зміна адмінки" />
-    <MESSAGE value="chore: delete unused script files." />
-    <MESSAGE value="Пошук для админки/Розклад" />
-    <MESSAGE value="Завантаження розкладу для моб додатку" />
-    <MESSAGE value="feat: separate schedule editor to admin panel" />
-    <MESSAGE value="feat: smart sorting of subjects by teacher history" />
-    <MESSAGE value="feat: user and role management with group-level access rules&quot;" />
-    <MESSAGE value="fix(admin): fix users panel routing and protect root admin deletion" />
-    <MESSAGE value="ix(ui): convert rigid checkboxes to interactive toggle buttons for group permissions" />
     <MESSAGE value="ix(api): auto-create missing database tables on startup" />
     <MESSAGE value="eat(ui): ensure editor access to admin panel and add global logout button" />
     <MESSAGE value="feat(ui): strictly isolate groups and teachers in admin schedule for editors" />
@@ -605,7 +608,16 @@
     <MESSAGE value="chore: cleanup CORS, analytics comments and improve empty state CTA in header" />
     <MESSAGE value="chore: push clean final project build" />
     <MESSAGE value="c" />
-    <option name="LAST_COMMIT_MESSAGE" value="c" />
+    <MESSAGE value="fix(models): expose new models in __init__.py" />
+    <MESSAGE value="fix(schedule): resolve undefined variable bell_t in list comprehensions" />
+    <MESSAGE value="chore: temporarily expose alembic run to debug migrations" />
+    <MESSAGE value="fix(db): automatically resolve alembic out-of-sync state on startup" />
+    <MESSAGE value="fix(db): ensure schema consistency directly via brute_force on boot" />
+    <MESSAGE value="fix(db): apply idempotent alembic patterns and rectify missing model definitions" />
+    <MESSAGE value="feat(ui): add optional room override field to the lesson editor" />
+    <MESSAGE value="fix(ui): add room_override to Lesson interface" />
+    <MESSAGE value="style(ui): apply SearchableSelect style to room input" />
+    <option name="LAST_COMMIT_MESSAGE" value="style(ui): apply SearchableSelect style to room input" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

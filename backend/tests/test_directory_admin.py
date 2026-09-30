@@ -40,38 +40,37 @@ async def test_all_directory_resources_crud_and_soft_delete(directory_client):
         "faculties": {"name": "Engineering", "short_name": "ENG"},
         "groups": {"name": "G-1", "faculty_id": None},
         "teachers": {"name": "Ada"},
-        "rooms": {"name": "101", "capacity": 30},
+        
         "subjects": {"name": "Algorithms", "short_name": "ALG"},
     }
     ids = {}
     for resource, payload in payloads.items():
-        created = await client.post(f"/api/{resource}", json=payload, headers=headers["admin"])
+        created = await client.post(f"/api/admin/{resource}", json=payload, headers=headers["admin"])
         assert created.status_code == 201
         ids[resource] = created.json()["id"]
-        assert (await client.get(f"/api/{resource}")).status_code == 200
-    updated = await client.patch(f"/api/teachers/{ids['teachers']}", json={"name": "Grace"}, headers=headers["admin"])
+        assert (await client.get(f"/api/admin/{resource}", headers=headers["admin"])).status_code == 200
+    updated = await client.patch(f"/api/admin/teachers/{ids['teachers']}", json={"name": "Grace"}, headers=headers["admin"])
     assert updated.status_code == 200
-    assert (await client.delete(f"/api/teachers/{ids['teachers']}", headers=headers["admin"])).status_code == 204
+    assert (await client.delete(f"/api/admin/teachers/{ids['teachers']}", headers=headers["admin"])).status_code == 204
     assert all(item["id"] != ids["teachers"] for item in (await client.get("/api/teachers")).json())
 
 
 @pytest.mark.anyio
 async def test_directory_mutations_are_admin_only_and_validate_duplicates_and_fk(directory_client):
     client, headers = directory_client
-    assert (await client.post("/api/rooms", json={"name": "101"}, headers=headers["viewer"])).status_code == 403
-    assert (await client.post("/api/rooms", json={"name": "101"}, headers=headers["editor"])).status_code == 403
-    assert (await client.post("/api/rooms", json={"name": "101"}, headers=headers["admin"])).status_code == 201
-    assert (await client.post("/api/rooms", json={"name": "101"}, headers=headers["admin"])).status_code == 409
-    invalid = await client.post("/api/groups", json={"name": "G", "faculty_id": 999}, headers=headers["admin"])
+    assert (await client.post("/api/admin/subjects", json={"name": "101"}, headers=headers["viewer"])).status_code == 403
+    assert (await client.post("/api/admin/subjects", json={"name": "101"}, headers=headers["editor"])).status_code == 403
+    assert (await client.post("/api/admin/subjects", json={"name": "101"}, headers=headers["admin"])).status_code == 201
+    assert (await client.post("/api/admin/subjects", json={"name": "101"}, headers=headers["admin"])).status_code == 409
+    invalid = await client.post("/api/admin/groups", json={"name": "G", "faculty_id": 999}, headers=headers["admin"])
     assert invalid.status_code == 422
-    malformed = await client.post("/api/rooms", json={"name": "R", "capacity": -1}, headers=headers["admin"])
-    assert malformed.status_code == 422
+    
 
 
 @pytest.mark.anyio
 async def test_admin_reference_routes_require_admin_and_return_active_records(directory_client):
     client, headers = directory_client
-    for resource in ("faculties", "groups", "teachers", "rooms", "subjects"):
+    for resource in ("faculties", "groups", "teachers", "subjects"):
         assert (await client.get(f"/api/admin/{resource}")).status_code == 401
         assert (await client.get(f"/api/admin/{resource}", headers=headers["viewer"])).status_code == 403
         response = await client.get(f"/api/admin/{resource}", headers=headers["admin"])

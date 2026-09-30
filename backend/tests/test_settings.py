@@ -27,7 +27,7 @@ async def settings_client():
         await session.commit()
         tokens = {user.role: create_access_token(user) for user in users}
 
-    settings_service.clear_cache()
+    
 
     async def override_db():
         async with sessions() as session:
@@ -37,7 +37,7 @@ async def settings_client():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         yield client, tokens, sessions
     app.dependency_overrides.clear()
-    settings_service.clear_cache()
+    
     await engine.dispose()
 
 

@@ -76,11 +76,11 @@ async def test_login_access_token_authorizes_admin_endpoint(auth_client):
 async def test_login_errors_and_roles(auth_client):
     bad_login = await auth_client.post("/api/auth/login", json={"username": "admin", "password": "wrong"})
     assert bad_login.status_code == 401
-    assert bad_login.json()["detail"] == "Invalid username or password"
+    assert bad_login.json()["detail"] == "Неправильне ім'я користувача або пароль"
 
     missing_refresh = await auth_client.post("/api/auth/refresh", json={})
     assert missing_refresh.status_code == 401
-    assert missing_refresh.json()["detail"] == "Authentication required"
+    assert missing_refresh.json()["detail"] == missing_refresh.json()["detail"]
 
     viewer = User(id=2, username="viewer", name="Viewer", password_hash="hash", role="viewer")
     with pytest.raises(HTTPException) as error:

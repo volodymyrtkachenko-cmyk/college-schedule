@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.database import Base
-from app.models import Faculty, Group, Room, Schedule, Subject, Teacher
+from app.models import Faculty, Group, Schedule, Subject, Teacher
 from app.services.schedule import fetch_schedule
 from seed import ensure_faculty, ensure_schedule_rows
 
@@ -46,19 +46,18 @@ async def test_seed_fills_existing_group_and_is_idempotent():
         group = Group(name="85", faculty=faculty)
         teachers = [Teacher(name="Teacher")]
         subjects = [Subject(name="Subject")]
-        rooms = [Room(name="101")]
-        db.add_all([faculty, group, *teachers, *subjects, *rooms])
+        db.add_all([faculty, group, *teachers, *subjects])
         await db.flush()
 
-        await ensure_schedule_rows(db, group, teachers, subjects, rooms)
-        await ensure_schedule_rows(db, group, teachers, subjects, rooms)
+        await ensure_schedule_rows(db, group, teachers, subjects)
+        await ensure_schedule_rows(db, group, teachers, subjects)
         rows = (await db.scalars(select(Schedule).where(Schedule.group_id == group.id))).all()
-        assert len(rows) == 21
+        assert len(rows) == 15
         assert {row.week_type for row in rows} == {"denominator", "both", "numerator"}
-        assert {row.day_of_week for row in rows} == set(range(1, 8))
+        assert {row.day_of_week for row in rows} == set(range(1, 6))
 
         await db.commit()
-        for offset in range(7):
-            _, lessons = await fetch_schedule(db, group.id, date(2025, 9, 1 + offset))
+        for offset in range(5):
+            _, lessons = await fetch_schedule(db, target_date=date(2025, 9, 1 + offset), group_id=group.id)
             assert lessons, f"expected seeded lessons for day {offset + 1}"
     await engine.dispose()

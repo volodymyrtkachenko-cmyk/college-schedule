@@ -19,7 +19,7 @@ def test_week_type_overlap_rules():
         {"day_of_week": 8},
         {"lesson_number": 0},
         {"week_type": "weekly"},
-        {"start_time": "10:00", "end_time": "09:00"},
+        
     ],
 )
 def test_lesson_mutation_validation(payload):

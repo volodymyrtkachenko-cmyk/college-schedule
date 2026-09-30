@@ -78,7 +78,7 @@ def week_types_overlap(left: str, right: str) -> bool:
 
 
 async def conflicting_lesson(db, *, group_id, day_of_week, lesson_number, week_type,
-                              teacher_id=None, second_teacher_id=None, exclude_id=None):
+                              teacher_id=None, second_teacher_id=None, subject_id=None, exclude_id=None):
     """
     Returns a conflicting Schedule row, if any, for the same group/day/lesson slot
     with an overlapping week type, OR for either teacher already booked in that
@@ -103,5 +103,8 @@ async def conflicting_lesson(db, *, group_id, day_of_week, lesson_number, week_t
 
     for item in (await db.scalars(query)).all():
         if week_types_overlap(item.week_type, week_type):
+            if item.group_id != group_id:
+                if item.subject_id == subject_id and item.teacher_id == teacher_id and item.second_teacher_id == second_teacher_id:
+                    continue
             return item
     return None

@@ -29,9 +29,9 @@ async def ensure_faculty(db):
         )
         db.add(faculty)
     elif not faculty.is_active:
-        # Only touch fields that are actually broken; never overwrite
-        # a legacy short_name someone set on purpose.
         faculty.is_active = True
+        if faculty.short_name is None:
+            faculty.short_name = DEFAULT_FACULTY_SHORT_NAME
     await db.flush()
     return faculty
 
@@ -55,8 +55,6 @@ async def ensure_schedule_rows(db, group, teachers, subjects):
                 subject_id=subjects[(day + lesson) % len(subjects)].id,
                 day_of_week=day,
                 lesson_number=lesson,
-                start_time=time(8 + lesson, 30),
-                end_time=time(9 + lesson, 20),
                 week_type=WEEK_TYPES[lesson - 1],
             ))
     await db.flush()

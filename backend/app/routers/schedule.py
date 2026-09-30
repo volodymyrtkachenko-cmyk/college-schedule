@@ -129,10 +129,11 @@ async def _entity(db, model, entity_id, name, label, required=False):
         raise HTTPException(422, f"{label} не існує")
     return value
 
-async def _check_schedule_conflict(db, group_id, day, lesson_number, week_type, exclude_id):
+async def _check_schedule_conflict(db, group_id, day, lesson_number, week_type, exclude_id, teacher_id=None, second_teacher_id=None, subject_id=None):
     conflict = await conflicting_lesson(db, group_id=group_id, day_of_week=day,
                                         lesson_number=lesson_number, week_type=week_type,
-                                        exclude_id=exclude_id)
+                                        teacher_id=teacher_id, second_teacher_id=second_teacher_id,
+                                        subject_id=subject_id, exclude_id=exclude_id)
     if conflict:
         day_names = {1: "Понеділок", 2: "Вівторок", 3: "Середа", 4: "Четвер", 5: "П'ятниця", 6: "Субота", 7: "Неділя"}
         week_names = {"numerator": "по чисельнику", "denominator": "по знаменнику", "both": "щотижня"}
@@ -185,9 +186,11 @@ async def _save(item, payload, db, *, create=False):
     week_type = payload.week_type or item.week_type
 
     with db.no_autoflush:
-        await _check_schedule_conflict(db, group_id, day, lesson_number, week_type, None if create else item.id)
         group, subject, teacher, second_teacher = await _resolve_entities(db, item, payload, group_id, create)
-
+        await _check_schedule_conflict(db, group_id, day, lesson_number, week_type, None if create else item.id,
+                                       teacher_id=teacher.id if teacher else None,
+                                       second_teacher_id=second_teacher.id if second_teacher else None,
+                                       subject_id=subject.id if subject else None)
     return await _apply_and_commit(db, item, payload, group, subject, teacher, second_teacher, day, lesson_number, week_type, create)
 
 @router.post("/schedule", response_model=ScheduleItem, status_code=status.HTTP_201_CREATED)

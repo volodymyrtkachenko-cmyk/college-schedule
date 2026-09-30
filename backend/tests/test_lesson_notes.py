@@ -33,10 +33,10 @@ async def notes_client():
         session.add(group)
         await session.flush()
         lesson = Schedule(
-            group_id=group.id, subject_id=subject.id, day_of_week=1,
-            lesson_number=1, start_time=time(9), end_time=time(10),
-            week_type="both",
-        )
+                group_id=group.id, subject_id=subject.id, day_of_week=1,
+                lesson_number=1,
+                week_type="both",
+            )
         session.add(lesson)
         await session.commit()
         admin_token = create_access_token(admin)
