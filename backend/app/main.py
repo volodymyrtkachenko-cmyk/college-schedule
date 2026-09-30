@@ -12,8 +12,19 @@ from app.database import engine
 from app.routers import health, curriculums, generator, teacher_constraints, drafts
 from app.routers import auth, directory, lesson_notes, schedule, users, settings as settings_router
 
+import subprocess
+import os
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    try:
+        # Автоматичний запуск міграцій на платформах типу Render
+        print("Running database migrations...")
+        subprocess.run(["alembic", "upgrade", "head"], check=True)
+        print("Migrations finished successfully.")
+    except Exception as e:
+        print("Migration warning:", e)
+        
     yield
     await engine.dispose()
 
