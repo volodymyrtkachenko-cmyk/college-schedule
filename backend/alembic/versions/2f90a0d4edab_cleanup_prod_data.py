@@ -19,26 +19,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # 0. Set semester_start in settings
-    op.execute("UPDATE settings SET value = '2026-08-31' WHERE key = 'semester_start'")
-    # 1. Заняття з предметом 78 переведи на 79 (36 занять)
-    op.execute("UPDATE schedule SET subject_id = 79 WHERE subject_id = 78")
-    op.execute("UPDATE schedule_override SET subject_id = 79 WHERE subject_id = 78")
-    
-    # Видали предмет 78
-    op.execute("DELETE FROM subjects WHERE id = 78")
-    
-    # 2. Видали тестових викладачів (id 64–68)
-    op.execute("DELETE FROM teachers WHERE id IN (64, 65, 66, 67, 68)")
-    
-    # 3. Видали тестові предмети (id 83–87)
-    op.execute("DELETE FROM subjects WHERE id IN (83, 84, 85, 86, 87)")
-    
-    # 4. Виправ обрізану назву предмета 56 «Основи національного с» в довідниках.
-    op.execute("UPDATE subjects SET name = 'Основи національного спротиву' WHERE id = 56")
-    
-    # 5. 6 неактивних занять можна видалити остаточно.
-    op.execute("DELETE FROM schedule WHERE is_active = FALSE")
+    pass
 
 
 def downgrade() -> None:

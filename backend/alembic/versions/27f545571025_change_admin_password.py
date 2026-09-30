@@ -17,11 +17,8 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
-    # Use raw SQL to keep it safe during downgrade/upgrade cycles
-    new_hash = hash_password("[REDACTED_PASSWORD]")
-    op.execute(
-        sa.text("UPDATE users SET password_hash = :hash WHERE username = 'admin'").bindparams(hash=new_hash)
-    )
+    pass
+
 
 def downgrade() -> None:
     pass

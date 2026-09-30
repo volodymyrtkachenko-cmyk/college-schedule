@@ -19,8 +19,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Update admin password to "[REDACTED_PASSWORD]"
-    op.execute("UPDATE users SET password_hash = '$argon2id$v=19$m=65536,t=3,p=4$28cy4+ctShJiT/XMVTI0uA$PD4cmc4Nb7PlrbQDNfMxcXT8ENiucr1o3lMrpRh+ijU' WHERE username = 'admin'")
+    pass
 
 
 def downgrade() -> None:
