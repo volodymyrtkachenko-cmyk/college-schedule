@@ -34,3 +34,5 @@ backend/restore_remote.py
 backend/seed.py
 backend/*.json
 backend/cleanup_prod.py
+.idea/
+*.zip
