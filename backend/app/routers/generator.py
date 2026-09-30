@@ -96,7 +96,16 @@ async def generate_schedule(
             
             # 5. Teacher uniqueness (<= 1 pair per slot)
             for t_id, curr_list in teacher_curriculums.items():
-                model.AddAtMostOne([X[(c.id, d, s)] for c in curr_list])
+                unique_vars = []
+                seen_streams = set()
+                for c in curr_list:
+                    if c.is_stream and c.stream_id:
+                        if c.stream_id not in seen_streams:
+                            seen_streams.add(c.stream_id)
+                            unique_vars.append(X[(c.id, d, s)])
+                    else:
+                        unique_vars.append(X[(c.id, d, s)])
+                model.AddAtMostOne(unique_vars)
                 
             # 6. Stream synchronization
             for stream_id, curr_list in streams.items():
