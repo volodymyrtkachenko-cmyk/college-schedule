@@ -13,7 +13,7 @@ class CurriculumBase(BaseModel):
     is_fixed: bool = False
     stream_id: Optional[str] = Field(default=None, max_length=100)
     strict_day: Optional[int] = Field(default=None, ge=1, le=5)
-    strict_lesson: Optional[int] = Field(default=None, ge=1, le=4)
+    strict_lesson: Optional[int] = Field(default=None, ge=1, le=1234)
     require_week: Optional[str] = None
     allow_multiple_per_day: Optional[bool] = None
 
@@ -35,7 +35,7 @@ class CurriculumUpdate(BaseModel):
     is_fixed: Optional[bool] = None
     stream_id: Optional[str] = Field(default=None, max_length=100)
     strict_day: Optional[int] = Field(default=None, ge=1, le=5)
-    strict_lesson: Optional[int] = Field(default=None, ge=1, le=4)
+    strict_lesson: Optional[int] = Field(default=None, ge=1, le=1234)
     require_week: Optional[str] = None
     allow_multiple_per_day: Optional[bool] = None
 

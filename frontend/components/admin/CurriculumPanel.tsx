@@ -293,13 +293,25 @@ export function CurriculumPanel() {
                          <option value="4">Четвер</option>
                          <option value="5">П'ятниця</option>
                        </select>
-                       <select value={editor.strict_lesson || ""} onChange={e => setEditor({...editor, strict_lesson: e.target.value ? parseInt(e.target.value) : null})} className="rounded-[8px] border-[0.5px] border-sys-border bg-sys-input px-3 py-1.5 text-[14px] text-sys-text-primary outline-none">
-                         <option value="">Не вказувати (будь-яка)</option>
-                         <option value="1">1 пара</option>
-                         <option value="2">2 пара</option>
-                         <option value="3">3 пара</option>
-                         <option value="4">4 пара</option>
-                       </select>
+                       {editor.allow_multiple_per_day ? (
+                         <select value={editor.strict_lesson || ""} onChange={e => setEditor({...editor, strict_lesson: e.target.value ? parseInt(e.target.value) : null})} className="rounded-[8px] border-[0.5px] border-sys-border bg-sys-input px-3 py-1.5 text-[14px] text-sys-text-primary outline-none">
+                           <option value="">Автоматичний підбір пар</option>
+                           <option value="12">1 та 2 пари (2 пари)</option>
+                           <option value="23">2 та 3 пари (2 пари)</option>
+                           <option value="34">3 та 4 пари (2 пари)</option>
+                           <option value="123">1, 2 та 3 пари (3 пари)</option>
+                           <option value="234">2, 3 та 4 пари (3 пари)</option>
+                           <option value="1234">Усі 4 пари</option>
+                         </select>
+                       ) : (
+                         <select value={editor.strict_lesson || ""} onChange={e => setEditor({...editor, strict_lesson: e.target.value ? parseInt(e.target.value) : null})} className="rounded-[8px] border-[0.5px] border-sys-border bg-sys-input px-3 py-1.5 text-[14px] text-sys-text-primary outline-none">
+                           <option value="" disabled>Оберіть пару</option>
+                           <option value="1">1 пара</option>
+                           <option value="2">2 пара</option>
+                           <option value="3">3 пара</option>
+                           <option value="4">4 пара</option>
+                         </select>
+                       )}
                      </div>
                    )}
                    

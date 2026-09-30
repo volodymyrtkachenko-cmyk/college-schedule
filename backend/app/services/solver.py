@@ -175,18 +175,36 @@ def solve(
         # Закріплені пари (Може бути закріплений як конкретний день і пара, так і тільки конкретний день)
         if c.is_fixed and c.strict_day:
             dow_idx = c.strict_day - 1
+            req = getattr(c, "require_week", None)
+            
             if c.strict_lesson:
-                # Жорстко прив'язано і день, і пару
-                slot_idx = c.strict_lesson - 1
-                if c.pairs_per_2_weeks == 1:
-                    model.Add(X[(c.id, dow_idx, slot_idx)] == 1)
-                elif getattr(c, "require_week", None) == "numerator":
-                    model.Add(X[(c.id, dow_idx, slot_idx)] == 1)
-                elif getattr(c, "require_week", None) == "denominator":
-                    model.Add(X[(c.id, dow_idx + DAYS, slot_idx)] == 1)
-                elif c.pairs_per_2_weeks >= 2:
-                    model.Add(X[(c.id, dow_idx, slot_idx)] == 1)
-                    model.Add(X[(c.id, dow_idx + DAYS, slot_idx)] == 1)
+                # Якщо це комбінований блок (12, 123, 1234 тощо)
+                if c.strict_lesson > 4:
+                    slots = [int(char) - 1 for char in str(c.strict_lesson) if char in "1234"]
+                    forced_days = []
+                    if req == "numerator": forced_days = [dow_idx]
+                    elif req == "denominator": forced_days = [dow_idx + DAYS]
+                    else: forced_days = [dow_idx, dow_idx + DAYS]
+                    
+                    for fd in forced_days:
+                        for s_idx in slots:
+                            model.Add(X[(c.id, fd, s_idx)] == 1)
+                        # Забороняємо ставити цей предмет в інші слоти цього дня
+                        for s_idx in range(SLOTS):
+                            if s_idx not in slots:
+                                model.Add(X[(c.id, fd, s_idx)] == 0)
+                else:
+                    # Звичайна одна пара
+                    slot_idx = c.strict_lesson - 1
+                    if c.pairs_per_2_weeks == 1:
+                        model.Add(X[(c.id, dow_idx, slot_idx)] == 1)
+                    elif req == "numerator":
+                        model.Add(X[(c.id, dow_idx, slot_idx)] == 1)
+                    elif req == "denominator":
+                        model.Add(X[(c.id, dow_idx + DAYS, slot_idx)] == 1)
+                    elif c.pairs_per_2_weeks >= 2:
+                        model.Add(X[(c.id, dow_idx, slot_idx)] == 1)
+                        model.Add(X[(c.id, dow_idx + DAYS, slot_idx)] == 1)
             else:
                 # Прив'язано ТІЛЬКИ до дня (а пара яка-завгодно). 
                 # Усі пари цього предмету мають опинитися САМЕ в цей день! 
