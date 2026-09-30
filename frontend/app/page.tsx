@@ -14,14 +14,26 @@ import { getMondayOf } from "../lib/date";
 import { WelcomeScreen } from "../components/WelcomeScreen";
 
 export default function HomePage() {
-  const [weekAnchorDate, setWeekAnchorDate] = useState(() => {
+  const getInitialAnchor = () => {
     const date = new Date();
     const day = date.getDay();
     if (day === 0 || day === 6) {
         date.setDate(date.getDate() + (day === 0 ? 1 : 2));
     }
     return getMondayOf(date);
-  });
+  };
+  const [weekAnchorDate, setWeekAnchorDate] = useState(getInitialAnchor());
+
+  useEffect(() => {
+    const handleVisibility = () => {
+        if (document.visibilityState === "visible") {
+            const nextAnchor = getInitialAnchor();
+            setWeekAnchorDate(prev => prev.getTime() !== nextAnchor.getTime() ? nextAnchor : prev);
+        }
+    };
+    window.addEventListener("visibilitychange", handleVisibility);
+    return () => window.removeEventListener("visibilitychange", handleVisibility);
+  }, []);
 
   const isCurrentWeek = useMemo(() => {
     const todayAnchor = getMondayOf(new Date());

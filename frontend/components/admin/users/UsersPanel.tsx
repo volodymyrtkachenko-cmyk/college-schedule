@@ -89,10 +89,10 @@ export function UsersPanel() {
                     <label className="block">
                         <span className="block text-sm mb-1 text-sys-text-secondary">
                             {editor.role === "admin" 
-                                ? "Пароль (через Render)" 
+                                ? "Новий пароль (залиште пустим, щоб не змінювати)" 
                                 : editor.id ? "Новий пароль (залиште пустим, щоб не змінювати)" : "Пароль"}
                         </span>
-                        <input required={!editor.id} type="password" value={editor.password || ""} onChange={e => setEditor({...editor, password: e.target.value})} className="w-full bg-sys-input border border-sys-border rounded-lg px-3 py-2 text-sys-text-primary" />
+                        <input required={!editor.id} type="password" placeholder={editor.id ? "••••••••••" : ""} value={editor.password || ""} onChange={e => setEditor({...editor, password: e.target.value})} className="w-full bg-sys-input border border-sys-border rounded-lg px-3 py-2 text-sys-text-primary placeholder:opacity-50" />
                     </label>
                     <label className="block">
                         <span className="block text-sm mb-1 text-sys-text-secondary">Роль</span>
