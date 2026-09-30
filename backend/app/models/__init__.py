@@ -1,4 +1,4 @@
 """Database models."""
-from app.models.entities import Feedback, Faculty, Group, LessonNote, Schedule, Setting, Subject, Teacher, User, TokenBlocklist, BellSchedule, ScheduleOverride
+from app.models.entities import Feedback, Faculty, Group, LessonNote, Schedule, Setting, Subject, Teacher, User, TokenBlocklist, BellSchedule, ScheduleOverride, Curriculum, TeacherConstraint, ScheduleDraft, ScheduleSlot
 
-__all__ = ["User", "Faculty", "Group", "Teacher", "Room", "Subject", "Schedule", "LessonNote", "Feedback", "Setting", "TokenBlocklist", "BellSchedule", "ScheduleOverride"]
+__all__ = ["User", "Faculty", "Group", "Teacher", "Room", "Subject", "Schedule", "LessonNote", "Feedback", "Setting", "TokenBlocklist", "BellSchedule", "ScheduleOverride", "Curriculum", "TeacherConstraint", "ScheduleDraft", "ScheduleSlot"]

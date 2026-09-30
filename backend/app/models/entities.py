@@ -39,6 +39,7 @@ class Group(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     faculty: Mapped["Faculty"] = relationship(back_populates="groups")
     schedules: Mapped[list["Schedule"]] = relationship(back_populates="group")
+    curriculums: Mapped[list["Curriculum"]] = relationship(back_populates="group")
     managers: Mapped[list["User"]] = relationship(secondary=user_group_access, back_populates="allowed_groups")
 
 class Teacher(Base):
@@ -62,6 +63,7 @@ class Subject(Base):
     short_name: Mapped[Optional[str]] = mapped_column(String(50))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     schedules: Mapped[list["Schedule"]] = relationship(back_populates="subject")
+    curriculums: Mapped[list["Curriculum"]] = relationship(back_populates="subject")
 
 class Schedule(Base):
     __tablename__ = "schedule"
@@ -133,3 +135,55 @@ class ScheduleOverride(Base):
     subject_id: Mapped[Optional[int]] = mapped_column(ForeignKey("subjects.id"))
     room: Mapped[Optional[str]] = mapped_column(String(100))
     cancelled: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class Curriculum(Base):
+    __tablename__ = "curriculums"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    group_id: Mapped[int] = mapped_column(ForeignKey("groups.id"), index=True)
+    subject_id: Mapped[int] = mapped_column(ForeignKey("subjects.id"))
+    teacher_id: Mapped[int] = mapped_column(ForeignKey("teachers.id"))
+    second_teacher_id: Mapped[Optional[int]] = mapped_column(ForeignKey("teachers.id"), nullable=True)
+    pairs_per_2_weeks: Mapped[int] = mapped_column(Integer)
+    is_stream: Mapped[bool] = mapped_column(Boolean, default=False)
+    stream_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    is_fixed: Mapped[bool] = mapped_column(Boolean, default=False)
+    
+    group: Mapped["Group"] = relationship(back_populates="curriculums")
+    subject: Mapped["Subject"] = relationship(back_populates="curriculums")
+    teacher: Mapped["Teacher"] = relationship(back_populates="curriculums", foreign_keys=[teacher_id])
+    second_teacher: Mapped[Optional["Teacher"]] = relationship(foreign_keys=[second_teacher_id])
+    slots: Mapped[list["ScheduleSlot"]] = relationship(back_populates="curriculum")
+
+class TeacherConstraint(Base):
+    __tablename__ = "teacher_constraints"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    teacher_id: Mapped[int] = mapped_column(ForeignKey("teachers.id"), index=True)
+    day_of_week: Mapped[int] = mapped_column(Integer)
+    lesson_number: Mapped[int] = mapped_column(Integer)
+    is_hard_constraint: Mapped[bool] = mapped_column(Boolean, default=True)
+    
+    teacher: Mapped["Teacher"] = relationship(back_populates="constraints")
+
+class ScheduleDraft(Base):
+    __tablename__ = "schedule_drafts"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(255))
+    status: Mapped[str] = mapped_column(String(20), default="draft")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    slots: Mapped[list["ScheduleSlot"]] = relationship(back_populates="draft")
+
+class ScheduleSlot(Base):
+    __tablename__ = "schedule_slots"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    draft_id: Mapped[int] = mapped_column(ForeignKey("schedule_drafts.id", ondelete="CASCADE"), index=True)
+    curriculum_id: Mapped[int] = mapped_column(ForeignKey("curriculums.id"), index=True)
+    day_of_week: Mapped[int] = mapped_column(Integer)
+    lesson_number: Mapped[int] = mapped_column(Integer)
+    week_type: Mapped[str] = mapped_column(String(20), default="both")
+    room_override: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    
+    draft: Mapped["ScheduleDraft"] = relationship(back_populates="slots")
+    curriculum: Mapped["Curriculum"] = relationship(back_populates="slots")
