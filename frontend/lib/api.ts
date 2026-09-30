@@ -38,6 +38,7 @@ export interface Lesson {
     day_of_week: number;
     teacher: string | null;
     room: string | null;
+    room_override?: string | null;
     subject_name: string;
     teacher_name: string | null;
     week_type: WeekType;
