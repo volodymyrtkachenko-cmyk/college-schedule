@@ -151,7 +151,11 @@ class Curriculum(Base):
     is_stream: Mapped[bool] = mapped_column(Boolean, default=False)
     stream_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     strict_day: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    strict_lesson: Mapped[Optional[int]]
+    require_week: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     strict_lesson: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    require_week: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    allow_multiple_per_day: Mapped[bool] = mapped_column(default=False)
     is_fixed: Mapped[bool] = mapped_column(Boolean, default=False)
     
     group: Mapped["Group"] = relationship(back_populates="curriculums")

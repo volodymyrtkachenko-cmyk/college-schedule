@@ -77,6 +77,8 @@ export function CurriculumPanel() {
         is_stream: editor.is_stream || false,
         strict_day: editor.is_fixed ? (editor.strict_day || null) : null,
         strict_lesson: editor.is_fixed ? (editor.strict_lesson || null) : null,
+        require_week: editor.require_week || null,
+        allow_multiple_per_day: editor.allow_multiple_per_day || false,
       };
       
       if (editor.id) {
@@ -261,7 +263,27 @@ export function CurriculumPanel() {
                      </div>
                    </label>
                    
-                   {editor.is_fixed && (
+    
+               <div className="flex gap-4">
+                 <label className="flex items-center gap-2 cursor-pointer group">
+                   <div className="relative flex items-center">
+                     <input type="checkbox" checked={editor.allow_multiple_per_day || false} onChange={e => setEditor({...editor, allow_multiple_per_day: e.target.checked})} className="peer appearance-none w-5 h-5 border border-sys-border rounded bg-sys-input checked:bg-sys-accent checked:border-sys-accent transition-colors" />
+                     <svg className="absolute inset-0 w-full h-full p-[2px] opacity-0 peer-checked:opacity-100 text-[#0b1120] pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                   </div>
+                   <span className="text-sm font-medium text-sys-text-secondary group-hover:text-sys-text transition-colors">Блокове навчання (усі пари в 1 день) 🧱</span>
+                 </label>
+               </div>
+
+               <div className="flex gap-4 items-center">
+                  <span className="text-sm font-medium text-sys-text-secondary w-32">Тиждень:</span>
+                  <select value={editor.require_week || ""} onChange={e => setEditor({...editor, require_week: e.target.value || null})} className="flex-1 rounded-[6px] border border-sys-border bg-sys-input px-3 py-1.5 text-sm text-sys-text focus:border-sys-accent focus:outline-none focus:ring-1 focus:ring-sys-accent">
+                    <option value="">Рівномірно (за замовчуванням)</option>
+                    <option value="numerator">Тільки чисельник</option>
+                    <option value="denominator">Тільки знаменник</option>
+                  </select>
+               </div>
+               
+               {editor.is_fixed && (
                      <div className="flex gap-4 mt-2 ml-8">
                        <select value={editor.strict_day || ""} onChange={e => setEditor({...editor, strict_day: parseInt(e.target.value)})} className="rounded-[8px] border-[0.5px] border-sys-border bg-sys-input px-3 py-1.5 text-[14px] text-sys-text-primary outline-none">
                          <option value="" disabled>Оберіть день</option>

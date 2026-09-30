@@ -157,10 +157,20 @@ def solve(
         all_vars = [X[(c.id, d, s)] for d in range(DAY_IDXS) for s in range(SLOTS)]
         model.Add(sum(all_vars) == c.pairs_per_2_weeks)
 
-        # Баланс чисельник/знаменник
+        # Баланс чисельник/знаменник або прив'язка до конкретного тижня
         w1 = sum(X[(c.id, d, s)] for d in range(DAYS) for s in range(SLOTS))
-        model.Add(w1 >= c.pairs_per_2_weeks // 2)
-        model.Add(w1 <= (c.pairs_per_2_weeks + 1) // 2)
+        w2 = sum(X[(c.id, d, s)] for d in range(DAYS, DAY_IDXS) for s in range(SLOTS))
+        
+        req_week = getattr(c, "require_week", None)
+        if req_week == "numerator":
+            model.Add(w1 == c.pairs_per_2_weeks)
+            model.Add(w2 == 0)
+        elif req_week == "denominator":
+            model.Add(w1 == 0)
+            model.Add(w2 == c.pairs_per_2_weeks)
+        else:
+            model.Add(w1 >= c.pairs_per_2_weeks // 2)
+            model.Add(w1 <= (c.pairs_per_2_weeks + 1) // 2)
 
         # Закріплені пари
         if c.is_fixed and c.strict_day and c.strict_lesson:
@@ -171,9 +181,10 @@ def solve(
                 model.Add(X[(c.id, dow_idx, slot_idx)] == 1)
                 model.Add(X[(c.id, dow_idx + DAYS, slot_idx)] == 1)
 
-        # Не більше 1 такої самої пари на день
-        for d in range(DAY_IDXS):
-            model.Add(sum(X[(c.id, d, s)] for s in range(SLOTS)) <= 1)
+        # Не більше 1 такої самої пари на день (якщо не дозволено блокове навчання)
+        if not getattr(c, "allow_multiple_per_day", False):
+            for d in range(DAY_IDXS):
+                model.Add(sum(X[(c.id, d, s)] for s in range(SLOTS)) <= 1)
 
         # Недоступність викладачів
         for d in range(DAY_IDXS):
