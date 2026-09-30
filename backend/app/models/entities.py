@@ -53,6 +53,8 @@ class Teacher(Base):
     schedules: Mapped[list["Schedule"]] = relationship(
         back_populates="teacher", foreign_keys="Schedule.teacher_id"
     )
+    curriculums: Mapped[list["Curriculum"]] = relationship(back_populates="teacher", foreign_keys="Curriculum.teacher_id")
+    constraints: Mapped[list["TeacherConstraint"]] = relationship(back_populates="teacher")
 
     
 
