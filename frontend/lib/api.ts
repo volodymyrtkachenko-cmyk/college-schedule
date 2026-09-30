@@ -303,6 +303,8 @@ export interface CurriculumRecord {
   stream_id: string | null;
   strict_day: number | null;
   strict_lesson: number | null;
+  require_week: string | null;
+  allow_multiple_per_day: boolean;
   group: { id: number, name: string };
   subject: { id: number, name: string };
   teacher: { id: number, name: string };
@@ -320,6 +322,8 @@ export interface CurriculumMutation {
   is_fixed: boolean;
   strict_day?: number | null;
   strict_lesson?: number | null;
+  require_week?: string | null;
+  allow_multiple_per_day?: boolean;
 }
 
 export const apiCurriculums = {
@@ -371,7 +375,7 @@ export interface DraftRecord {
 
 export const apiGenerator = {
   generate: async (token: string, max_time: number = 30): Promise<DraftRecord> => {
-    return request<DraftRecord>(`/api/generator?max_time_in_seconds=80`, {
+    return request<DraftRecord>(`/api/generator?max_time_in_seconds=95`, {
       method: "POST",
     }, false, true, token);
   },
