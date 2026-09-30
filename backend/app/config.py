@@ -13,8 +13,7 @@ class Settings(BaseSettings):
         "@localhost:5432/college_schedule"
     )
     backend_cors_origins: str = "https://college-schedule-flame.vercel.app,http://localhost:3000"
-    semester_start: str = "2025-09-01"
-    wipe_secret: str | None = None
+    semester_start: str = "2026-08-31"
     # Stable only for local development; deployments must override this.
     jwt_secret_key: str = DEFAULT_DEV_JWT_SECRET
     jwt_algorithm: str = "HS256"
