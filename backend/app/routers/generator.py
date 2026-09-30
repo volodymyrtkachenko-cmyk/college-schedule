@@ -68,6 +68,13 @@ async def generate_schedule(
         model.AddExactlyOne([X[(curr.id, d, s)] for d in range(10) for s in range(4)]) if curr.pairs_per_2_weeks == 1 else \
         model.Add(sum(X[(curr.id, d, s)] for d in range(10) for s in range(4)) == curr.pairs_per_2_weeks)
         
+        # 1.1 Balance weeks (Numerator vs Denominator)
+        target_min = curr.pairs_per_2_weeks // 2
+        target_max = (curr.pairs_per_2_weeks + 1) // 2
+        pairs_w1 = sum([X[(curr.id, d, s)] for d in range(5) for s in range(4)])
+        model.Add(pairs_w1 >= target_min)
+        model.Add(pairs_w1 <= target_max)
+        
         # 2. Fixed slots
         if curr.is_fixed and curr.strict_day and curr.strict_lesson:
             dow_idx = curr.strict_day - 1
