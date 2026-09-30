@@ -50,7 +50,12 @@ export function AdminNav({ active }: { active: string }) {
 
        {user?.role === "admin" && (
          <>
-           <div className="text-[11px] border-t border-sys-border/50 pt-5 font-bold uppercase tracking-wider text-sys-text-secondary mt-6 mb-2 pl-2">Документи</div>
+           <div className="text-[11px] border-t border-sys-border/50 pt-5 font-bold uppercase tracking-wider text-sys-text-secondary mt-6 mb-2 pl-2">Виробництво</div>
+       <Link href="/admin?resource=generator" onClick={() => setIsOpen(false)} className={`flex items-center gap-3 px-3 py-2 text-[14px] font-medium rounded-lg transition-colors ${active === "generator" ? "bg-sys-accent/10 border border-sys-accent/20 text-sys-accent" : "text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/5 border border-transparent"}`}>
+         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+         Генератор (Штучний Інтелект)
+       </Link>
+       <div className="text-[11px] border-t border-sys-border/50 pt-5 font-bold uppercase tracking-wider text-sys-text-secondary mt-6 mb-2 pl-2">Документи</div>
        <Link href="/admin?resource=curriculum" onClick={() => setIsOpen(false)} className={`flex items-center gap-3 px-3 py-2 text-[14px] font-medium rounded-lg transition-colors ${active === "curriculum" ? "bg-sys-accent/10 border border-sys-accent/20 text-sys-accent" : "text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/5 border border-transparent"}`}>
          Навантаження
        </Link>

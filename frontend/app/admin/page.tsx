@@ -13,6 +13,7 @@ import { ConfirmModal } from "../../components/admin/ConfirmModal";
 import { AdminScheduleEditor } from "../../components/admin/AdminScheduleEditor";
 import { UsersPanel } from "../../components/admin/users/UsersPanel";
 import { CurriculumPanel } from "../../components/admin/CurriculumPanel";
+import { GeneratorPanel } from "../../components/admin/GeneratorPanel";
 import { ApiError } from "../../lib/api";
 
 
@@ -186,6 +187,8 @@ function AdminContent() {
           <AdminScheduleEditor />
         ) : currentTab === "curriculum" ? (
           <CurriculumPanel />
+        ) : currentTab === "generator" ? (
+          <GeneratorPanel />
         ) : currentTab === "users" && user?.role === "admin" ? (
           <UsersPanel />
         ) : (

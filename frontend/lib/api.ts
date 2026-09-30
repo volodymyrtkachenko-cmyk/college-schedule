@@ -348,7 +348,51 @@ export const apiCurriculums = {
   }
 };
 
+export interface DraftSlotRecord {
+  id: number;
+  draft_id: number;
+  day_of_week: number;
+  lesson_number: number;
+  week_type: string;
+  room_override: string | null;
+  curriculum: CurriculumRecord;
+}
+
+export interface DraftRecord {
+  id: number;
+  name: string;
+  status: string;
+  created_at: string;
+}
+
+export const apiGenerator = {
+  generate: async (token: string, max_time: number = 30): Promise<DraftRecord> => {
+    return request<DraftRecord>(`/api/schedule/generate?max_time_in_seconds=${max_time}`, {
+      method: "POST",
+    }, false, true, token);
+  },
+  listDrafts: async (token: string): Promise<DraftRecord[]> => {
+    return request<DraftRecord[]>(`/api/drafts/`, {}, false, true, token);
+  },
+  deleteDraft: async (id: number, token: string): Promise<void> => {
+    return request<void>(`/api/drafts/${id}`, { method: "DELETE" }, false, true, token);
+  },
+  getSlots: async (id: number, token: string): Promise<DraftSlotRecord[]> => {
+    return request<DraftSlotRecord[]>(`/api/drafts/${id}/slots`, {}, false, true, token);
+  },
+  moveSlot: async (slotId: number, day: number, lesson: number, week: string, token: string): Promise<DraftSlotRecord> => {
+    return request<DraftSlotRecord>(`/api/drafts/slots/${slotId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ day_of_week: day, lesson_number: lesson, week_type: week })
+    }, false, true, token);
+  },
+  publish: async (id: number, token: string): Promise<{message: string}> => {
+    return request<{message: string}>(`/api/drafts/${id}/publish`, { method: "POST" }, false, true, token);
+  }
+};
 export const api = {
+  generator: apiGenerator,
   curriculums: apiCurriculums,
     auth: {
         login: async (username: string, password: string) => {
