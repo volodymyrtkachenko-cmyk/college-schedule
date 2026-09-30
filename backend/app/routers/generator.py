@@ -168,6 +168,14 @@ async def generate_schedule(
             # Один і ТІЛЬКИ один шаблон має бути обраний для кожного дня (вікна заборонені взагалі)
             model.AddExactlyOne(pattern_vars)
             
+            # СПЕЦІАЛЬНЕ ПРАВИЛО: "в день з виховною годиною (де жорстко 4 пара), має бути 4 пари"
+            # Якщо в цей день (d) для цієї групи є жорстко закріплена 4-та пара (strict_lesson == 4)
+            has_fixed_4th = any(c.is_fixed and c.strict_day == (d % 5) + 1 and c.strict_lesson == 4 for c in curr_list)
+            if has_fixed_4th:
+                # Змушуємо алгоритм заповнити 1-шу пару. 
+                # Оскільки 1-ша і 4-та зайняті, з урахуванням шаблонів це ви гарантує 4 пари (1,1,1,1)
+                model.Add(slots_active[0] == 1)
+            
     if penalties:
         model.Minimize(sum(penalties))
 
