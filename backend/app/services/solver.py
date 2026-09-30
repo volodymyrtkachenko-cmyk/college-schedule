@@ -265,7 +265,14 @@ def solve(
                 slots_active.append(a)
 
             pattern_vars = []
-            for p_idx, (pat, pen) in enumerate(patterns):
+            
+            # Якщо у групи достатньо годин (32+ з урахуванням виховних), забороняємо рятувальні шаблони!
+            total_pairs_for_group = sum(c.pairs_per_2_weeks for c in curr_list)
+            # Якщо годин 32+, дозволяємо ТІЛЬКИ ідеальні шаблони: (1,1,1,0), (1,1,1,1), (0,1,1,1).
+            # Інакше (якщо менше) відкриваємо дозволи на (1,1,0,0) та (0,0,0,0) з великим штрафом.
+            allowed_patterns = [pat for pat in patterns if sum(pat[0]) >= 3] if total_pairs_for_group >= 32 else patterns
+
+            for p_idx, (pat, pen) in enumerate(allowed_patterns):
                 p = model.NewBoolVar(f"pat_{g_id}_{d}_{p_idx}")
                 pattern_vars.append(p)
                 if pen:
