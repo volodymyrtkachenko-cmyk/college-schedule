@@ -51,7 +51,7 @@ def upgrade() -> None:
     op.create_table('schedule_drafts',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('name', sa.String(length=255), nullable=False),
-    sa.Column('status', sa.String(length=20), server_default="'draft'", nullable=False),
+    sa.Column('status', sa.String(length=20), server_default=sa.text("'draft'"), nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.Column('updated_at', sa.DateTime(), nullable=False),
     sa.PrimaryKeyConstraint('id')
@@ -63,7 +63,7 @@ def upgrade() -> None:
     sa.Column('curriculum_id', sa.Integer(), nullable=False),
     sa.Column('day_of_week', sa.Integer(), nullable=False),
     sa.Column('lesson_number', sa.Integer(), nullable=False),
-    sa.Column('week_type', sa.String(length=20), server_default="'both'", nullable=False),
+    sa.Column('week_type', sa.String(length=20), server_default=sa.text("'both'"), nullable=False),
     sa.Column('room_override', sa.String(length=100), nullable=True),
     sa.ForeignKeyConstraint(['curriculum_id'], ['curriculums.id'], ),
     sa.ForeignKeyConstraint(['draft_id'], ['schedule_drafts.id'], ondelete='CASCADE'),

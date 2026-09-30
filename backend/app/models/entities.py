@@ -147,6 +147,7 @@ class Curriculum(Base):
     teacher_id: Mapped[int] = mapped_column(ForeignKey("teachers.id"))
     second_teacher_id: Mapped[Optional[int]] = mapped_column(ForeignKey("teachers.id"), nullable=True)
     pairs_per_2_weeks: Mapped[int] = mapped_column(Integer)
+    total_hours: Mapped[int] = mapped_column(Integer, default=0)
     is_stream: Mapped[bool] = mapped_column(Boolean, default=False)
     stream_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     is_fixed: Mapped[bool] = mapped_column(Boolean, default=False)
