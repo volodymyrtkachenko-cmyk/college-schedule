@@ -3,6 +3,7 @@ import { FormEvent, useEffect, useRef, useState, useMemo } from "react";
 import { api, DirectoryItem, Lesson, LessonMutation, WeekType } from "../lib/api";
 import { ReferenceRecord } from "../lib/api";
 import { SearchableSelect } from "./SearchableSelect";
+import { SearchableTextInput } from "./SearchableTextInput";
 type Props = {
   lesson?: Lesson;
   date: string;
@@ -212,18 +213,12 @@ export function LessonEditor({ lesson, date, scheduleMode, defaultGroupId, defau
           <label className="sm:col-span-2">Тиждень<select value={form.week_type} onChange={(e) => update("week_type", e.target.value as WeekType)}><option value="both">Щотижня</option><option value="numerator">Чисельник</option><option value="denominator">Знаменник</option></select></label>
           
           <label className="sm:col-span-2">Аудиторія
-            <input
-              type="text"
-              className="mt-1 block w-full rounded-md border-sys-border bg-sys-input px-3 py-2 placeholder:text-sys-text-secondary"
-              maxLength={100}
+            <SearchableTextInput
+              options={uniqueRooms as string[]}
               value={form.room ?? ""}
-              onChange={(e) => update("room", e.target.value)}
+              onChange={(val) => update("room", val)}
               placeholder={teacherRoom ? `Як у викладача: ${teacherRoom}` : "Аудиторія"}
-              list="room-options"
             />
-            <datalist id="room-options">
-              {uniqueRooms.map((r, i) => <option key={i} value={r as string} />)}
-            </datalist>
             <p className="mt-1 text-xs text-sys-text-secondary">Порожньо = аудиторія викладача</p>
           </label>
 {scheduleMode === "student" && (
