@@ -135,37 +135,14 @@ async def generate_schedule(
                 model.AddMaxEquality(slot_active, [X[(c.id, d, s)] for c in curr_list])
                 slots_active.append(slot_active)
             
-            # --- 1. WINDOWS (Холості вікна) ---
-            # Якщо є пара до і пара після, але немає посередині - величезний штраф.
-            w1 = model.NewBoolVar(f"w1_g{g_id}_d{d}")
-            model.Add(w1 >= slots_active[0] + slots_active[2] - slots_active[1] - 1)
-            penalties.append(w1 * 1000)
-            
-            w2 = model.NewBoolVar(f"w2_g{g_id}_d{d}")
-            model.Add(w2 >= slots_active[1] + slots_active[3] - slots_active[2] - 1)
-            penalties.append(w2 * 1000)
-            
-            w3 = model.NewBoolVar(f"w3_g{g_id}_d{d}")
-            model.Add(w3 >= slots_active[0] + slots_active[3] - slots_active[1] - slots_active[2] - 1)
-            penalties.append(w3 * 1000)
+            # --- 1 & 2. ЖОРСТКА ЩІЛЬНІСТЬ (NO WINDOWS, NO LATE STARTS) ---
+            # Якщо пара є на слоті N, вона ОБОВ'ЯЗКОВО має бути на слоті N-1. 
+            # Це миттєво відкидає будь-які вікна і будь-які старти не з 1-ї пари.
+            model.Add(slots_active[1] <= slots_active[0])
+            model.Add(slots_active[2] <= slots_active[1])
+            model.Add(slots_active[3] <= slots_active[2])
                 
-            # --- 2. START FROM FIRST (Пріоритет починати з першої пари) ---
-            # Дуже жорсткі значення, щоб він зсував все на 1-шу пару!
-            penalties.append(slots_active[0] * 0)
-            penalties.append(slots_active[1] * 100)
-            penalties.append(slots_active[2] * 500)
-            penalties.append(slots_active[3] * 1000)
-            
-            # Жорсткий штраф за те, що 1-ша пара пуста, а інші зайняті:
-            late_start = model.NewBoolVar(f"late_g{g_id}_d{d}")
-            # Якщо є хоч одна пара в день (slots_in_day > 0), і 0-вий слот пустий - це Late Start.
-            day_has_pairs = model.NewBoolVar(f"dhas_g{g_id}_d{d}")
-            model.Add(sum(slots_active) > 0).OnlyEnforceIf(day_has_pairs)
-            model.Add(sum(slots_active) == 0).OnlyEnforceIf(day_has_pairs.Not())
-            
-            # late_start == 1 якщо day_has_pairs=1 і slots_active[0]=0
-            model.Add(late_start >= day_has_pairs - slots_active[0])
-            penalties.append(late_start * 50000) # Майже жорстке обмеження
+
 
             
             # --- 3. MINIMUM 3 PAIRS (Мінімум 3 пари на день, максимум вихідних) ---
