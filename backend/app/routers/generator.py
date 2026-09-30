@@ -13,7 +13,7 @@ from app.core.security import require_roles
 
 router = APIRouter(prefix="/schedule/generate", tags=["Generator"])
 
-@router.post("/", response_model=ScheduleDraftResponse)
+@router.post("", response_model=ScheduleDraftResponse)
 async def generate_schedule(
     max_time_in_seconds: int = 30,
     db: AsyncSession = Depends(get_db),
@@ -171,10 +171,7 @@ async def generate_schedule(
                 slots_to_insert.append(
                     ScheduleSlot(
                         draft_id=draft.id,
-                        group_id=c.group_id,
-                        subject_id=c.subject_id,
-                        teacher_id=c.teacher_id,
-                        second_teacher_id=c.second_teacher_id,
+                        curriculum_id=c.id,
                         day_of_week=dow,
                         lesson_number=slot_num,
                         week_type=week_type
