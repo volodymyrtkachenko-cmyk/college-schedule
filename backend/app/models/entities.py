@@ -119,6 +119,8 @@ class BellSchedule(Base):
     __tablename__ = "bell_schedule"
     id: Mapped[int] = mapped_column(primary_key=True)
     lesson_number: Mapped[int] = mapped_column(Integer, unique=True, index=True)
+    start_time: Mapped[time] = mapped_column(Time, nullable=False)
+    end_time: Mapped[time] = mapped_column(Time, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
 class ScheduleOverride(Base):

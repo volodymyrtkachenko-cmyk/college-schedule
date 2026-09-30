@@ -194,18 +194,17 @@ async def _save(item, payload, db, *, create=False):
 async def create_lesson(payload: LessonMutation, db: AsyncSession = Depends(get_db),
                         current_user: User = Depends(require_roles("admin", "editor"))):
     if payload.group_id is None or payload.subject_id is None and payload.subject is None or \
-            payload.lesson_number is None or payload.start_time is None or payload.end_time is None or \
+            payload.lesson_number is None or \
             payload.day_of_week is None and payload.date is None:
         raise HTTPException(422, "Не всі обов\'язкові поля заповнені")
 
     user_groups = await load_user_groups(db, current_user)
-    check_group_access(current_user, user_groups, payload.group_id)    # NOTE: Schedule is intentionally created with only start_time/end_time/is_active here.
-    # The remaining NOT NULL columns (group_id, subject_id, day_of_week, lesson_number, ...)
-    # are filled in by _save() below, which also runs the conflict check and commits.
-    # Do NOT call db.flush()/db.commit() between db.add(item) and _save(item, ...) --
-    # doing so tries to INSERT the row before those required fields are set and raises
-    # a NotNullViolation (this previously broke lesson creation).
-    item = Schedule(start_time=payload.start_time, end_time=payload.end_time, is_active=True)
+    check_group_access(current_user, user_groups, payload.group_id)
+    # The NOT NULL columns (group_id, subject_id, day_of_week, lesson_number, ...) are filled in
+    # by _save() below, which also runs the conflict check and commits.
+    # Do NOT call db.flush()/db.commit() between db.add(item) and _save(item, ...):
+    # the INSERT would run before the required fields are set (NotNullViolation).
+    item = Schedule(is_active=True)
     db.add(item)
     return await _save(item, payload, db, create=True)
 
