@@ -196,7 +196,7 @@ async def generate_schedule(
     
     # We run the solver in a thread so we don't block the asyncio event loop
     status_code = await asyncio.to_thread(solver.Solve, model)
-    
+    print(f"Solver status: {solver.StatusName(status_code)}, Objective: {solver.ObjectiveValue()}")
     if status_code in (cp_model.OPTIMAL, cp_model.FEASIBLE):
         # Create Draft
         draft_name = f"Генерація від {datetime.now().strftime('%d.%m %H:%M')}"
