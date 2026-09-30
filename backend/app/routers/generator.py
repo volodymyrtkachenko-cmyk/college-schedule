@@ -182,6 +182,7 @@ async def generate_schedule(
     # 3. Solve asynchronously
     solver = cp_model.CpSolver()
     solver.parameters.max_time_in_seconds = max_time_in_seconds
+    solver.parameters.num_search_workers = 8  # Use 8 cores for parallel search to find optimal solutions much faster
     
     # We run the solver in a thread so we don't block the asyncio event loop
     status_code = await asyncio.to_thread(solver.Solve, model)
