@@ -293,8 +293,8 @@ export function CurriculumPanel() {
                          <option value="4">Четвер</option>
                          <option value="5">П'ятниця</option>
                        </select>
-                       <select value={editor.strict_lesson || ""} onChange={e => setEditor({...editor, strict_lesson: parseInt(e.target.value)})} className="rounded-[8px] border-[0.5px] border-sys-border bg-sys-input px-3 py-1.5 text-[14px] text-sys-text-primary outline-none">
-                         <option value="" disabled>Пара</option>
+                       <select value={editor.strict_lesson || ""} onChange={e => setEditor({...editor, strict_lesson: e.target.value ? parseInt(e.target.value) : null})} className="rounded-[8px] border-[0.5px] border-sys-border bg-sys-input px-3 py-1.5 text-[14px] text-sys-text-primary outline-none">
+                         <option value="">Не вказувати (будь-яка)</option>
                          <option value="1">1 пара</option>
                          <option value="2">2 пара</option>
                          <option value="3">3 пара</option>
