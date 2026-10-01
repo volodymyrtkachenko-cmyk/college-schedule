@@ -542,7 +542,12 @@ export const api = {
         remove: (resource: ReferenceResource, id: number, token: string) => api.references.request<void>(`${resource}/${id}`, "DELETE", token),
     },
     today: (groupId?: number, teacherId?: number) => request<ScheduleResponse>(`/api/schedule/today?${groupId ? `group_id=${groupId}` : `teacher_id=${teacherId}`}`),
-    week: (groupId?: number, teacherId?: number, date = new Date()) => request<ScheduleResponse[]>(`/api/schedule/week?${groupId ? `group_id=${groupId}` : `teacher_id=${teacherId}`}&target_date=${localDate(date)}`),
+    week: (groupId?: number, teacherId?: number, date = new Date()) => {
+        const params = new URLSearchParams({ target_date: localDate(date) });
+        if (groupId !== undefined) params.set("group_id", String(groupId));
+        if (teacherId !== undefined) params.set("teacher_id", String(teacherId));
+        return request<ScheduleResponse[]>(`/api/schedule/week?${params.toString()}`);
+    },
     settings: {semesterStart: () => request<SemesterStartSetting>("/api/settings/semester-start")},
     schedule: {
         async bulkCurator(payload: { day_of_week: number, lesson_number: number, week_type: string, group_ids: number[], action: string }) {

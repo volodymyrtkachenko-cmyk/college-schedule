@@ -5,8 +5,10 @@ import { ScheduleDay } from "./ScheduleDay";
 import { LessonCard } from "./LessonCard";
 import { motion, AnimatePresence } from "framer-motion";
 
-export function ScheduleWeekGrid({ week, scheduleMode = "student", canEdit = false, onEdit, onCreate, onNoteSave, onNoteDelete, movingLesson, onMoveSelect, onMove }: {
+export function ScheduleWeekGrid({ week, availabilityWeek, availabilityError, scheduleMode = "student", canEdit = false, onEdit, onCreate, onNoteSave, onNoteDelete, movingLesson, onMoveSelect, onMove }: {
   week: ScheduleResponse[]; scheduleMode?: "student"|"teacher"; canEdit?: boolean; onEdit?: (lesson: Lesson) => void; onCreate?: (date: string) => void;
+  availabilityWeek?: ScheduleResponse[] | null;
+  availabilityError?: string | null;
   onNoteSave?: (lesson: Lesson, note: string, date: string) => Promise<void>;
   onNoteDelete?: (lesson: Lesson, date: string) => Promise<void>;
   movingLesson?: Lesson | null;
@@ -36,14 +38,31 @@ export function ScheduleWeekGrid({ week, scheduleMode = "student", canEdit = fal
 
   const activeDay = week[activeIdx];
   const canMoveTo = (lesson: Lesson, targetDate: string, lessonNumber: number) => {
-    const targetDay = week.find((day) => day.date === targetDate);
     const targetWeekday = new Date(`${targetDate}T12:00:00`).getDay() || 7;
-    if (!targetDay || (lesson.day_of_week === targetWeekday && lesson.lesson_number === lessonNumber)) {
+    const targetLessons = availabilityWeek
+      ?.filter((day) => (new Date(`${day.date}T12:00:00`).getDay() || 7) === targetWeekday)
+      .flatMap((day) => day.lessons)
+      .filter((candidate) => !candidate.is_replacement);
+    if (!targetLessons || (lesson.day_of_week === targetWeekday && lesson.lesson_number === lessonNumber)) {
       return false;
     }
-    return !targetDay.lessons.some((other) =>
-      other.id !== lesson.id && other.lesson_number === lessonNumber && other.is_relevant_this_week
-    );
+    const movingTeacherIds = new Set([lesson.teacher_id, lesson.second_teacher_id].filter((id): id is number => id !== null));
+    return !targetLessons.some((other) => {
+      if (other.id === lesson.id || other.lesson_number !== lessonNumber) return false;
+      const weeksOverlap = lesson.week_type === "both" || other.week_type === "both" || lesson.week_type === other.week_type;
+      if (!weeksOverlap) return false;
+
+      const sameGroup = other.group_id === lesson.group_id;
+      const teacherConflict = [other.teacher_id, other.second_teacher_id]
+        .some((id) => id !== null && movingTeacherIds.has(id));
+      if (!sameGroup && !teacherConflict) return false;
+
+      const sameSharedLesson = !sameGroup &&
+        other.subject_id === lesson.subject_id &&
+        other.teacher_id === lesson.teacher_id &&
+        other.second_teacher_id === lesson.second_teacher_id;
+      return !sameSharedLesson;
+    });
   };
 
   const dayProps = {
@@ -99,12 +118,18 @@ export function ScheduleWeekGrid({ week, scheduleMode = "student", canEdit = fal
       {canEdit && movingLesson && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-400/30 bg-emerald-500/[0.08] px-4 py-3">
           <p className="text-sm text-sys-text-primary">
-            Перетягніть <strong>{movingLesson.subject_name}</strong> або виберіть зелену вільну пару. Пари із зайнятими слотами недоступні.
+            Перетягніть <strong>{movingLesson.subject_name}</strong> або виберіть зелену вільну пару.
+            {availabilityWeek ? " Перевіряються конфлікти групи й викладачів у всьому розкладі." : " Завантажується перевірка конфліктів…"}
           </p>
           <button type="button" onClick={() => onMoveSelect?.(null)} className="rounded-lg border border-sys-border px-3 py-1.5 text-sm font-medium text-sys-text-secondary hover:text-sys-text-primary">
             Скасувати
           </button>
         </div>
+      )}
+      {canEdit && availabilityError && (
+        <p role="alert" className="mb-4 rounded-xl border border-rose-400/30 bg-rose-400/5 px-4 py-3 text-sm text-rose-200">
+          Не вдалося перевірити конфлікти розкладу: {availabilityError} Зелені слоти не показуються, але збереження все одно перевірить конфлікти на сервері.
+        </p>
       )}
       {canEdit && (
         <div className="overflow-x-auto rounded-2xl border border-sys-border bg-sys-card/50">

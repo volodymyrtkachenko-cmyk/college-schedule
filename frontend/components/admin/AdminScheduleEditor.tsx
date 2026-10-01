@@ -25,6 +25,8 @@ export function AdminScheduleEditor() {
   }, [weekAnchorDate]);
 
   const { mode, toggleMode, teachers, teacherId, setTeacherId, groups, groupId, setGroupId, today, week, loading, error, setToday, setWeek, updateLesson, removeLesson, addLesson } = useSchedule(weekAnchorDate);
+  const [availabilityWeek, setAvailabilityWeek] = useState<Awaited<ReturnType<typeof api.week>> | null>(null);
+  const [availabilityError, setAvailabilityError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [editor, setEditor] = useState<{ lesson?: Lesson; date: string } | null>(null);
   const [movingLesson, setMovingLesson] = useState<Lesson | null>(null);
@@ -42,6 +44,27 @@ export function AdminScheduleEditor() {
   useEffect(() => {
     setMovingLesson(null);
   }, [weekAnchorDate, mode, groupId, teacherId]);
+
+  useEffect(() => {
+    let active = true;
+    setAvailabilityWeek(null);
+    setAvailabilityError(null);
+    const otherWeekAnchor = new Date(weekAnchorDate);
+    otherWeekAnchor.setDate(otherWeekAnchor.getDate() + 7);
+    Promise.all([
+      api.week(undefined, undefined, weekAnchorDate),
+      api.week(undefined, undefined, otherWeekAnchor),
+    ])
+      .then(([currentWeek, otherWeek]) => {
+        if (active) setAvailabilityWeek([...currentWeek, ...otherWeek]);
+      })
+      .catch((cause) => {
+        if (active) setAvailabilityError(cause instanceof Error ? cause.message : "Не вдалося перевірити вільні слоти.");
+      });
+    return () => {
+      active = false;
+    };
+  }, [weekAnchorDate]);
 
   const weekRange = useMemo(() => {
     const end = new Date(weekAnchorDate);
@@ -94,6 +117,13 @@ export function AdminScheduleEditor() {
           ...(current.date === date ? [saved] : []),
         ].sort((a, b) => a.lesson_number - b.lesson_number),
       } : current);
+      setAvailabilityWeek((current) => current?.map((day) => ({
+        ...day,
+        lessons: [
+          ...day.lessons.filter((item) => item.id !== lesson.id),
+          ...((new Date(`${day.date}T12:00:00`).getDay() || 7) === targetDate ? [saved] : []),
+        ].sort((a, b) => a.lesson_number - b.lesson_number),
+      })) ?? null);
       setMovingLesson(null);
       invalidateScheduleCache();
       setToast({ message: "Заняття переміщено.", type: "success" });
@@ -213,7 +243,7 @@ export function AdminScheduleEditor() {
             </div>
           </div>
           </div>
-          <ScheduleWeekGrid week={week} scheduleMode={mode} canEdit={true} movingLesson={movingLesson} onMoveSelect={setMovingLesson} onMove={(lesson, date, lessonNumber) => void moveLesson(lesson, date, lessonNumber)} onEdit={(lesson) => { const date = week.find((day) => day.lessons.some((item) => item.id === lesson.id))?.date ?? (today?.date || week?.[0]?.date); setEditor({ lesson, date }); }} onCreate={(date) => setEditor({ date })}
+          <ScheduleWeekGrid week={week} availabilityWeek={availabilityWeek} availabilityError={availabilityError} scheduleMode={mode} canEdit={true} movingLesson={movingLesson} onMoveSelect={setMovingLesson} onMove={(lesson, date, lessonNumber) => void moveLesson(lesson, date, lessonNumber)} onEdit={(lesson) => { const date = week.find((day) => day.lessons.some((item) => item.id === lesson.id))?.date ?? (today?.date || week?.[0]?.date); setEditor({ lesson, date }); }} onCreate={(date) => setEditor({ date })}
             onNoteSave={saveNote} onNoteDelete={deleteNote} />
         </div>
       ) : null}
