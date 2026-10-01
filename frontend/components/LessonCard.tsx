@@ -151,22 +151,6 @@ export function LessonCard({ lesson, targetDate, mode = "day", scheduleMode = "s
                   <EditIcon />
                 </button>
              )}
-             {canEdit && onMoveSelect && !lesson.is_replacement && (
-                <button
-                  type="button"
-                  aria-label={`Перемістити ${lesson.subject_name}`}
-                  aria-pressed={isSelectedForMove}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onMoveSelect(isSelectedForMove ? null : lesson);
-                  }}
-                  className={`flex h-9 w-9 items-center justify-center rounded-lg text-sm font-semibold transition-colors ${
-                    isSelectedForMove ? "bg-emerald-500/15 text-emerald-300" : "text-sys-text-muted hover:bg-emerald-500/10 hover:text-emerald-300"
-                  }`}
-                >
-                  ↕
-                </button>
-             )}
              {(canEdit || hasNote) && (
                 <button type="button" aria-label="Примітка" onClick={(e) => {
                   e.stopPropagation();
@@ -183,6 +167,25 @@ export function LessonCard({ lesson, targetDate, mode = "day", scheduleMode = "s
              )}
         </div>
       </div>
+
+      {canEdit && onMoveSelect && !lesson.is_replacement && (
+        <button
+          type="button"
+          aria-label={`Перемістити ${lesson.subject_name}`}
+          aria-pressed={isSelectedForMove}
+          onClick={(event) => {
+            event.stopPropagation();
+            onMoveSelect(isSelectedForMove ? null : lesson);
+          }}
+          className={`mt-2 rounded-md border px-2 py-1 text-xs font-medium transition-colors ${
+            isSelectedForMove
+              ? "border-sys-accent/50 bg-sys-accent/10 text-sys-accent"
+              : "border-sys-border text-sys-text-secondary hover:border-sys-accent/50 hover:text-sys-accent"
+          }`}
+        >
+          {isSelectedForMove ? "Обрано для переміщення" : "Перемістити"}
+        </button>
+      )}
       
       {/* Note full text display */}
       {((isDay && hasNote && !editingNote) || (!isDay && hasNote && noteExpanded && !editingNote)) && (
