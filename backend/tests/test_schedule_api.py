@@ -6,7 +6,18 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
 from app.main import app
 from app.database import Base, get_db
-from app.models import Faculty, Group, Schedule, Subject, Teacher, User, BellSchedule
+from app.models import (
+    BellSchedule,
+    Curriculum,
+    Faculty,
+    Group,
+    Schedule,
+    ScheduleDraft,
+    ScheduleSlot,
+    Subject,
+    Teacher,
+    User,
+)
 from app.core.security import create_access_token
 
 @pytest.fixture
@@ -54,7 +65,15 @@ async def api_client():
         
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
-            yield client, headers, {"group_id": group.id, "group2_id": group2.id, "teacher_id": teacher.id, "subject_id": subject.id, "lesson_id": sched.id}
+            yield client, headers, {
+                "group_id": group.id,
+                "group2_id": group2.id,
+                "teacher_id": teacher.id,
+                "subject_id": subject.id,
+                "different_subject_id": subject2.id,
+                "lesson_id": sched.id,
+                "sessions": sessions,
+            }
             
     app.dependency_overrides.clear()
     await engine.dispose()
@@ -86,7 +105,7 @@ async def test_schedule_teacher_conflict_gives_409(api_client):
     assert "Викладач уже веде заняття" in resp.json()["detail"]
 
 @pytest.mark.anyio
-async def test_schedule_teacher_conflict_bypassed_if_same_subject(api_client):
+async def test_schedule_teacher_conflict_not_bypassed_by_matching_subject(api_client):
     client, headers, data = api_client
     # "Потік": same teacher, same subject, same time slot, different group
     payload = {
@@ -98,7 +117,167 @@ async def test_schedule_teacher_conflict_bypassed_if_same_subject(api_client):
         "week_type": "both"
     }
     resp = await client.post("/api/schedule", json=payload, headers=headers)
-    assert resp.status_code == 201
+    assert resp.status_code == 409
+
+
+@pytest.mark.anyio
+async def test_schedule_teacher_conflict_allowed_for_explicit_stream(api_client):
+    client, headers, data = api_client
+    async with data["sessions"]() as session:
+        session.add_all([
+            Curriculum(
+                group_id=data["group_id"], subject_id=data["subject_id"], teacher_id=data["teacher_id"],
+                pairs_per_2_weeks=2, total_hours=0, is_stream=True, stream_id="explicit-stream",
+            ),
+            Curriculum(
+                group_id=data["group2_id"], subject_id=data["subject_id"], teacher_id=data["teacher_id"],
+                pairs_per_2_weeks=2, total_hours=0, is_stream=True, stream_id="explicit-stream",
+            ),
+        ])
+        existing = await session.get(Schedule, data["lesson_id"])
+        existing.stream_id = "explicit-stream"
+        await session.commit()
+
+    payload = {
+        "group_id": data["group2_id"],
+        "subject_id": data["subject_id"],
+        "teacher_id": data["teacher_id"],
+        "day_of_week": 1,
+        "lesson_number": 1,
+        "week_type": "both",
+    }
+    response = await client.post("/api/schedule", json=payload, headers=headers)
+    assert response.status_code == 201, response.text
+    assert response.json()["stream_id"] == "explicit-stream"
+
+
+@pytest.mark.anyio
+async def test_schedule_teacher_conflict_not_allowed_for_different_explicit_streams(api_client):
+    client, headers, data = api_client
+    async with data["sessions"]() as session:
+        session.add_all([
+            Curriculum(
+                group_id=data["group_id"], subject_id=data["subject_id"], teacher_id=data["teacher_id"],
+                pairs_per_2_weeks=2, total_hours=0, is_stream=True, stream_id="stream-one",
+            ),
+            Curriculum(
+                group_id=data["group2_id"], subject_id=data["subject_id"], teacher_id=data["teacher_id"],
+                pairs_per_2_weeks=2, total_hours=0, is_stream=True, stream_id="stream-two",
+            ),
+        ])
+        existing = await session.get(Schedule, data["lesson_id"])
+        existing.stream_id = "stream-one"
+        await session.commit()
+
+    response = await client.post("/api/schedule", json={
+        "group_id": data["group2_id"],
+        "subject_id": data["subject_id"],
+        "teacher_id": data["teacher_id"],
+        "day_of_week": 1,
+        "lesson_number": 1,
+        "week_type": "both",
+    }, headers=headers)
+    assert response.status_code == 409
+
+
+@pytest.mark.anyio
+async def test_new_stream_loads_get_distinct_ids_unless_added_as_one_grouped_stream(api_client):
+    client, headers, data = api_client
+    payload = {
+        "subject_id": data["subject_id"],
+        "teacher_id": data["teacher_id"],
+        "pairs_per_2_weeks": 2,
+        "total_hours": 0,
+        "is_stream": True,
+    }
+    first = await client.post(
+        "/api/curriculums/",
+        json={**payload, "group_id": data["group_id"]},
+        headers=headers,
+    )
+    second = await client.post(
+        "/api/curriculums/",
+        json={**payload, "group_id": data["group2_id"]},
+        headers=headers,
+    )
+    assert first.status_code == second.status_code == 200
+    assert first.json()["stream_id"] != second.json()["stream_id"]
+
+    shared_payload = {**payload, "stream_id": "grouped-stream"}
+    shared_first = await client.post(
+        "/api/curriculums/",
+        json={**shared_payload, "group_id": data["group_id"]},
+        headers=headers,
+    )
+    shared_second = await client.post(
+        "/api/curriculums/",
+        json={**shared_payload, "group_id": data["group2_id"]},
+        headers=headers,
+    )
+    assert shared_first.status_code == shared_second.status_code == 200
+    assert shared_first.json()["stream_id"] == shared_second.json()["stream_id"] == "grouped-stream"
+
+
+@pytest.mark.anyio
+async def test_stream_id_cannot_join_different_subjects_or_teachers(api_client):
+    client, headers, data = api_client
+    payload = {
+        "group_id": data["group_id"],
+        "subject_id": data["subject_id"],
+        "teacher_id": data["teacher_id"],
+        "pairs_per_2_weeks": 2,
+        "total_hours": 0,
+        "is_stream": True,
+        "stream_id": "shared-stream",
+    }
+    first = await client.post("/api/curriculums/", json=payload, headers=headers)
+    assert first.status_code == 200
+
+    incompatible = await client.post(
+        "/api/curriculums/",
+        json={
+            **payload,
+            "group_id": data["group2_id"],
+            "subject_id": data["different_subject_id"],
+        },
+        headers=headers,
+    )
+    assert incompatible.status_code == 409
+
+
+@pytest.mark.anyio
+async def test_publishing_carries_explicit_stream_id_to_schedule(api_client):
+    client, headers, data = api_client
+    async with data["sessions"]() as session:
+        curriculum = Curriculum(
+            group_id=data["group_id"],
+            subject_id=data["subject_id"],
+            teacher_id=data["teacher_id"],
+            pairs_per_2_weeks=2,
+            total_hours=0,
+            is_stream=True,
+            stream_id="published-stream",
+        )
+        draft = ScheduleDraft(name="Stream draft", status="DRAFT")
+        session.add_all([curriculum, draft])
+        await session.flush()
+        session.add(ScheduleSlot(
+            draft_id=draft.id,
+            curriculum_id=curriculum.id,
+            day_of_week=1,
+            lesson_number=2,
+            week_type="both",
+        ))
+        await session.commit()
+        draft_id = draft.id
+
+    published = await client.post(f"/api/drafts/{draft_id}/publish", headers=headers)
+    assert published.status_code == 200
+    schedule = await client.get(
+        f"/api/schedule?group_id={data['group_id']}&target_date=2025-09-01"
+    )
+    assert schedule.status_code == 200
+    assert schedule.json()["lessons"][0]["stream_id"] == "published-stream"
 
 @pytest.mark.anyio
 async def test_schedule_invalid_lesson_numbers(api_client):

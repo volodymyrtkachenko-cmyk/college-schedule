@@ -156,6 +156,7 @@ async def publish_draft(
                 subject_id=c.subject_id,
                 teacher_id=c.teacher_id,
                 second_teacher_id=c.second_teacher_id,
+                stream_id=c.stream_id if c.is_stream else None,
                 day_of_week=s.day_of_week,
                 lesson_number=s.lesson_number,
                 week_type=s.week_type,

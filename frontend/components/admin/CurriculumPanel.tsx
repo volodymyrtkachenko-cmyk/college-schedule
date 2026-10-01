@@ -81,6 +81,7 @@ export function CurriculumPanel() {
         total_hours: editor.total_hours || 0,
         is_fixed: editor.is_fixed || false,
         is_stream: editor.is_stream || false,
+        stream_id: editor.is_stream ? (editor.stream_id ?? null) : null,
         strict_day: editor.is_fixed ? (editor.strict_day || null) : null,
         strict_lesson: editor.is_fixed ? (editor.strict_lesson || null) : null,
         require_week: editor.require_week || null,
@@ -92,8 +93,12 @@ export function CurriculumPanel() {
         setItems(curr => curr.map(c => c.id === updated.id ? updated : c));
         setToast({message: "Запис оновлено", type:"success"});
       } else {
+        const streamId = payload.is_stream ? `stream_${crypto.randomUUID()}` : null;
         const results = await Promise.allSettled(
-          selectedGroupIds.map((group_id) => api.curriculums.create({ ...payload, group_id }, session.access_token))
+          selectedGroupIds.map((group_id) => api.curriculums.create(
+            { ...payload, group_id, stream_id: streamId },
+            session.access_token,
+          ))
         );
         const created = results.flatMap((result) => result.status === "fulfilled" ? [result.value] : []);
         const failed = results.length - created.length;
@@ -364,7 +369,7 @@ export function CurriculumPanel() {
                      </div>
                      <div>
                        <span className="text-[14px] font-semibold text-sys-text-primary px-1">Потокова лекція 🌊</span>
-                       <p className="text-[12px] text-sys-text-muted">Групи об'єднаються у велику лекцію. (Увага: створіть потоки з однаковим предметом і викладачем).</p>
+                       <p className="text-[12px] text-sys-text-muted">Потоком стануть лише вибрані групи, додані разом. Збіг предмета й викладача сам по собі групи не об’єднує.</p>
                      </div>
                    </label>
                 </div>

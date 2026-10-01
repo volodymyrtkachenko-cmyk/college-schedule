@@ -53,7 +53,9 @@ def _teacher_ids(slot: SchedulePeriodSlot | object) -> set[int]:
 
 def _same_shared_class(left, right) -> bool:
     return (
-        left.subject_id == right.subject_id
+        getattr(left, "stream_id", None) is not None
+        and getattr(left, "stream_id", None) == getattr(right, "stream_id", None)
+        and left.subject_id == right.subject_id
         and left.teacher_id == right.teacher_id
         and left.second_teacher_id == right.second_teacher_id
     )

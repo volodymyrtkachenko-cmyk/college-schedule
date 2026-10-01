@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from uuid import uuid4
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -9,6 +10,36 @@ from app.schemas.curriculum import CurriculumCreate, CurriculumUpdate, Curriculu
 from app.core.security import require_roles
 
 router = APIRouter(prefix="/curriculums", tags=["Curriculums"])
+
+
+async def _validate_stream_membership(
+    db: AsyncSession,
+    *,
+    stream_id: str | None,
+    subject_id: int,
+    teacher_id: int,
+    second_teacher_id: int | None,
+    exclude_id: int | None = None,
+) -> None:
+    if not stream_id:
+        return
+    query = select(Curriculum).where(
+        Curriculum.stream_id == stream_id,
+        Curriculum.is_stream.is_(True),
+    )
+    if exclude_id is not None:
+        query = query.where(Curriculum.id != exclude_id)
+    members = (await db.scalars(query)).all()
+    if any(
+        (item.subject_id, item.teacher_id, item.second_teacher_id)
+        != (subject_id, teacher_id, second_teacher_id)
+        for item in members
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail="У потоці можуть бути лише записи з однаковими предметом і викладачами",
+        )
+
 
 @router.get("/", response_model=list[CurriculumResponse])
 async def list_curriculums(
@@ -50,9 +81,17 @@ async def create_curriculum(
         if not await db.get(Teacher, payload.second_teacher_id):
             raise HTTPException(status_code=400, detail=f"Second Teacher with id {payload.second_teacher_id} does not exist.")
 
-    if payload.is_stream and not payload.stream_id:
-        # Generate stream_id
-        payload.stream_id = f"stream_{payload.subject_id}_{payload.teacher_id}"
+    if payload.is_stream:
+        payload.stream_id = payload.stream_id or f"stream_{uuid4().hex}"
+    else:
+        payload.stream_id = None
+    await _validate_stream_membership(
+        db,
+        stream_id=payload.stream_id,
+        subject_id=payload.subject_id,
+        teacher_id=payload.teacher_id,
+        second_teacher_id=payload.second_teacher_id,
+    )
         
     db_item = Curriculum(**payload.model_dump())
     db.add(db_item)
@@ -90,15 +129,28 @@ async def update_curriculum(
     if new_st and new_t == new_st:
         raise HTTPException(status_code=400, detail="Вчитель та другий вчитель не можуть бути однією особою")
 
+    stream_fields_changed = any(
+        key in update_data and update_data[key] != getattr(db_item, key)
+        for key in ("group_id", "subject_id", "teacher_id", "second_teacher_id")
+    )
     for key, value in update_data.items():
         setattr(db_item, key, value)
         
-    # Re-evaluate stream_id logic
-    if "is_stream" in update_data:
-        if db_item.is_stream and not db_item.stream_id:
-            db_item.stream_id = f"stream_{db_item.subject_id}_{db_item.teacher_id}"
-        elif not db_item.is_stream:
-            db_item.stream_id = None
+    if not db_item.is_stream:
+        db_item.stream_id = None
+    elif stream_fields_changed or not db_item.stream_id:
+        db_item.stream_id = f"stream_{uuid4().hex}"
+    elif "stream_id" in update_data:
+        db_item.stream_id = update_data["stream_id"] or f"stream_{uuid4().hex}"
+
+    await _validate_stream_membership(
+        db,
+        stream_id=db_item.stream_id,
+        subject_id=db_item.subject_id,
+        teacher_id=db_item.teacher_id,
+        second_teacher_id=db_item.second_teacher_id,
+        exclude_id=db_item.id,
+    )
             
     await db.commit()
     await db.refresh(db_item)

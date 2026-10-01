@@ -233,6 +233,22 @@ async def test_practice_rejects_regular_teacher_conflict_and_overlapping_group_p
 
 
 @pytest.mark.anyio
+async def test_practice_does_not_treat_matching_subject_and_teacher_as_stream(calendar_client):
+    client, headers, ids, _ = calendar_client
+    payload = practice_payload(ids)
+    payload["slots"] = [{
+        "group_id": ids["group"],
+        "subject_id": ids["subject"],
+        "teacher_id": ids["practice_teacher"],
+        "day_of_week": 1,
+        "lesson_number": 1,
+    }]
+    response = await client.post("/api/calendar-periods/", json=payload, headers=headers)
+    assert response.status_code == 409
+    assert "звичайне заняття" in response.json()["detail"]
+
+
+@pytest.mark.anyio
 async def test_practice_rejects_hard_teacher_unavailability(calendar_client):
     client, headers, ids, sessions = calendar_client
     async with sessions() as session:

@@ -35,6 +35,7 @@ export interface Lesson {
     subject_id: number;
     teacher_id: number | null;
     second_teacher_id: number | null;
+    stream_id?: string | null;
     day_of_week: number;
     teacher: string | null;
     room: string | null;
@@ -319,6 +320,7 @@ export interface CurriculumMutation {
   pairs_per_2_weeks: number;
   total_hours: number;
   is_stream: boolean;
+  stream_id?: string | null;
   is_fixed: boolean;
   strict_day?: number | null;
   strict_lesson?: number | null;
@@ -544,8 +546,8 @@ export const api = {
     today: (groupId?: number, teacherId?: number) => request<ScheduleResponse>(`/api/schedule/today?${groupId ? `group_id=${groupId}` : `teacher_id=${teacherId}`}`),
     week: (groupId?: number, teacherId?: number, date = new Date()) => {
         const params = new URLSearchParams({ target_date: localDate(date) });
-        if (groupId !== undefined) params.set("group_id", String(groupId));
-        if (teacherId !== undefined) params.set("teacher_id", String(teacherId));
+        if (groupId) params.set("group_id", String(groupId));
+        if (teacherId) params.set("teacher_id", String(teacherId));
         return request<ScheduleResponse[]>(`/api/schedule/week?${params.toString()}`);
     },
     settings: {semesterStart: () => request<SemesterStartSetting>("/api/settings/semester-start")},

@@ -94,6 +94,7 @@ class ScheduleItem(BaseModel):
     subject_id: int
     teacher_id: int | None = None
     second_teacher_id: int | None = None
+    stream_id: str | None = None
     day_of_week: int
     lesson_number: int
     time: str

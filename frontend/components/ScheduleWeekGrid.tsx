@@ -58,6 +58,8 @@ export function ScheduleWeekGrid({ week, availabilityWeek, availabilityError, sc
       if (!sameGroup && !teacherConflict) return false;
 
       const sameSharedLesson = !sameGroup &&
+        !!lesson.stream_id &&
+        other.stream_id === lesson.stream_id &&
         other.subject_id === lesson.subject_id &&
         other.teacher_id === lesson.teacher_id &&
         other.second_teacher_id === lesson.second_teacher_id;

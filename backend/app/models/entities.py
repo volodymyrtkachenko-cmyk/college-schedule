@@ -85,6 +85,7 @@ class Schedule(Base):
     teacher_id: Mapped[Optional[int]] = mapped_column(ForeignKey("teachers.id"))
     second_teacher_id: Mapped[Optional[int]] = mapped_column(ForeignKey("teachers.id"), nullable=True)
     subject_id: Mapped[int] = mapped_column(ForeignKey("subjects.id"))
+    stream_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     day_of_week: Mapped[int] = mapped_column(Integer, index=True)
     lesson_number: Mapped[int] = mapped_column(Integer)
     week_type: Mapped[str] = mapped_column(String(20), default="both")  # numerator, denominator, both
