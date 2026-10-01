@@ -20,7 +20,7 @@ async def trigger_import(
     Test endpoint for parsing the schedule. 
     It fetches live data, parses it, normalizes, and compares against the database defaults.
     """
-    fetcher = ScheduleFetcher("https://kre.dp.ua/rozklad-zanyat")
+    fetcher = ScheduleFetcher("https://kre.dp.ua/rozklad-zanyat?group=82")
     try:
         html, current_hash = await fetcher.fetch()
         
