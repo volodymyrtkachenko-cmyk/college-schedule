@@ -248,16 +248,6 @@ def precheck(curriculums: Iterable, constraints: Iterable = ()) -> list[str]:
                 weekly_max[1] += pairs
         group = getattr(lst[0], "group", None)
         name = group.name if group else f"id={g_id}"
-        if total % 2:
-            problems.append(
-                f"група [{name}]: {total} пар/2 тижні — для однакової кількості "
-                "пар у чисельнику та знаменнику навантаження має бути парним"
-            )
-        if max(weekly_min) > min(weekly_max):
-            problems.append(
-                f"група [{name}]: закріплення предметів за тижнями не дозволяє "
-                "зрівняти кількість пар у чисельнику та знаменнику"
-            )
         curator_courses = [c for c in lst if _is_curator_course(c)]
         if group and group.curator_id is not None:
             if len(curator_courses) != 1:
@@ -519,6 +509,7 @@ def solve(
                 ):
                     model.Add(X[(c.id, d, s)] == 0)
 
+    group_week_imbalance_vars = []
     for g_id, curr_list in group_curriculums.items():
         numerator_load = sum(
             X[(c.id, d, s)]
@@ -532,7 +523,20 @@ def solve(
             for d in range(DAYS, DAY_IDXS)
             for s in range(SLOTS)
         )
-        model.Add(numerator_load == denominator_load)
+        group_load = sum(c.pairs_per_2_weeks for c in curr_list)
+        week_difference = model.NewIntVar(
+            -group_load,
+            group_load,
+            f"group_week_difference_g{g_id}",
+        )
+        week_imbalance = model.NewIntVar(
+            0,
+            group_load,
+            f"group_week_imbalance_g{g_id}",
+        )
+        model.Add(week_difference == numerator_load - denominator_load)
+        model.AddAbsEquality(week_imbalance, week_difference)
+        group_week_imbalance_vars.append(week_imbalance)
 
     for d in range(DAY_IDXS):
         for s in range(SLOTS):
@@ -556,7 +560,10 @@ def solve(
                         model.Add(X[(base.id, d, s)] == X[(other.id, d, s)])
 
     fixed4 = {g: fixed_4th_days(lst) for g, lst in group_curriculums.items()}
-    penalties = [week_imbalance * 10 for week_imbalance in week_imbalance_vars]
+    penalties = (
+        [week_imbalance * 1000 for week_imbalance in group_week_imbalance_vars]
+        + [week_imbalance * 10 for week_imbalance in week_imbalance_vars]
+    )
     for g_id, curr_list in group_curriculums.items():
         for d in range(DAY_IDXS):
             slots_active = []

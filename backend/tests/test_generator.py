@@ -155,14 +155,22 @@ def test_subjects_are_balanced_between_weeks(solved):
     assert all(counts[0] == counts[1] for counts in group_week_counts.values())
 
 
-def test_precheck_rejects_odd_group_load_for_week_balance():
+def test_odd_group_load_is_allowed_and_balanced_as_close_as_possible():
     curr = [
         NS(id=1, group_id=1, teacher_id=1, second_teacher_id=None,
-           is_stream=False, stream_id=None, pairs_per_2_weeks=31,
-           is_fixed=False, strict_day=None, strict_lesson=None, require_week=None)
+           is_stream=False, stream_id=None, pairs_per_2_weeks=33,
+           is_fixed=False, strict_day=None, strict_lesson=None,
+           require_week=None, allow_multiple_per_day=True)
     ]
 
-    assert any("навантаження має бути парним" in message for message in S.precheck(curr))
+    assert S.precheck(curr) == []
+    result = S.solve(curr, [], max_time_in_seconds=5, num_workers=2)
+    assert result.ok, result.status
+    weekly_totals = [
+        sum(day // S.DAYS == week for _cid, day, _slot in result.assignments)
+        for week in range(S.WEEKS)
+    ]
+    assert sorted(weekly_totals) == [16, 17]
 
 
 def test_prefers_start_from_first_pair(solved):
