@@ -2,6 +2,11 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from typing import Optional
 from .common import DirectoryItem
 
+
+class CurriculumTeacherItem(DirectoryItem):
+    room: Optional[str] = None
+
+
 class CurriculumBase(BaseModel):
     group_id: int = Field(gt=0)
     subject_id: int = Field(gt=0)
@@ -71,5 +76,5 @@ class CurriculumResponse(CurriculumBase):
     id: int
     group: DirectoryItem
     subject: DirectoryItem
-    teacher: DirectoryItem
-    second_teacher: Optional[DirectoryItem] = None
+    teacher: CurriculumTeacherItem
+    second_teacher: Optional[CurriculumTeacherItem] = None

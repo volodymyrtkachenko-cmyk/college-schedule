@@ -308,8 +308,8 @@ export interface CurriculumRecord {
   allow_multiple_per_day: boolean;
   group: { id: number, name: string };
   subject: { id: number, name: string };
-  teacher: { id: number, name: string };
-  second_teacher: { id: number, name: string } | null;
+  teacher: { id: number, name: string; room?: string | null };
+  second_teacher: { id: number, name: string; room?: string | null } | null;
 }
 
 export interface CurriculumMutation {

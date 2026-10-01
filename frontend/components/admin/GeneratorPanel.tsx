@@ -301,6 +301,14 @@ export function GeneratorPanel() {
                               {slot.curriculum.teacher.name}
                               {slot.curriculum.second_teacher ? ` · ${slot.curriculum.second_teacher.name}` : ""}
                             </p>
+                            {(slot.room_override || slot.curriculum.teacher.room || slot.curriculum.second_teacher?.room) && (
+                              <p className="mt-1 text-xs leading-snug text-sys-text-muted">
+                                Аудиторія: {slot.room_override || [
+                                  slot.curriculum.teacher.room,
+                                  slot.curriculum.second_teacher?.room,
+                                ].filter(Boolean).join(" / ")}
+                              </p>
+                            )}
                             <button
                               type="button"
                               onClick={(event) => {

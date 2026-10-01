@@ -36,7 +36,7 @@ async def api_client():
     async with sessions() as session:
         faculty = Faculty(name="Test Faculty")
         subject = Subject(name="Test Subject")
-        teacher = Teacher(name="Test Teacher")
+        teacher = Teacher(name="Test Teacher", room="Room 101")
         admin = User(username="admin", name="admin", role="admin", password_hash="hash")
         
         session.add_all([faculty, subject, teacher, admin])
@@ -270,6 +270,10 @@ async def test_publishing_carries_explicit_stream_id_to_schedule(api_client):
         ))
         await session.commit()
         draft_id = draft.id
+
+    draft_slots = await client.get(f"/api/drafts/{draft_id}/slots", headers=headers)
+    assert draft_slots.status_code == 200
+    assert draft_slots.json()[0]["curriculum"]["teacher"]["room"] == "Room 101"
 
     published = await client.post(f"/api/drafts/{draft_id}/publish", headers=headers)
     assert published.status_code == 200
