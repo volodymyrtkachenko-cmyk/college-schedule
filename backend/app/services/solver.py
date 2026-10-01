@@ -4,9 +4,11 @@
 легко тестується на синтетичних даних.
 """
 from dataclasses import dataclass, field
+import json
 import math
 import os
 import time
+from pathlib import Path
 from typing import Iterable
 
 from ortools.sat.python import cp_model
@@ -16,8 +18,8 @@ WEEKS = 2                   # чисельник + знаменник
 SLOTS = 4                   # пар на день (1..4)
 DAY_IDXS = DAYS * WEEKS     # d = 0..9 (0..4 чисельник, 5..9 знаменник)
 
-MIN_PAIRS_PER_DAY = 3
 MAX_PAIRS_PER_DAY = SLOTS
+MIN_PAIRS_PER_DAY = 3  # Kept for compatibility with diagnostics and callers.
 DEFAULT_NUM_WORKERS = 8
 DEFAULT_SOLVE_TIME_SECONDS = 600
 FEASIBILITY_TIME_FRACTION = 0.9
@@ -61,15 +63,48 @@ def effective_cpu_count() -> int:
 def selected_worker_count(requested: int = DEFAULT_NUM_WORKERS) -> int:
     return max(min(2, requested), min(requested, effective_cpu_count()))
 
-# Дозволені шаблони дня для групи: (пара1, пара2, пара3, пара4) -> штраф.
-# ЖОРСТКО заборонено: вихідний (0 пар), 1–2 пари, будь-які «вікна».
-# Залишились лише 3 або 4 пари підряд; штрафи задають лише ПЕРЕВАГУ:
-#   3 пари з 1-ї — ідеал, 4 пари — трохи гірше, старт з 2-ї пари — запасний варіант.
+# Preferred patterns retained as a public compatibility/diagnostic value.  The
+# default model now expresses their hard part directly with Boolean logic.
 VALID_PATTERNS = [
     ((1, 1, 1, 0), 0),    # 3 пари з 1-ї — ідеал
     ((1, 1, 1, 1), 5),    # 4 пари
     ((0, 1, 1, 1), 40),   # 3 пари з 2-ї — лише якщо інакше не виходить
 ]
+
+
+def _schedule_hint_assignments(path: str | os.PathLike[str] | None = None) -> set[tuple[int, int, int]]:
+    """Read optional ``schedule.json`` hints without making them a dependency."""
+    candidates = [Path(path)] if path else [
+        Path(os.environ["SCHEDULE_HINT_PATH"]) if os.environ.get("SCHEDULE_HINT_PATH") else None,
+        Path.cwd() / "schedule.json",
+        Path(__file__).resolve().parents[2] / "schedule.json",
+    ]
+    for candidate in candidates:
+        if candidate is None or not candidate.is_file():
+            continue
+        try:
+            payload = json.loads(candidate.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        rows = payload.get("assignments", payload) if isinstance(payload, dict) else payload
+        if not isinstance(rows, list):
+            continue
+        result = set()
+        for row in rows:
+            if isinstance(row, (list, tuple)) and len(row) == 3:
+                curriculum_id, day, slot = row
+            elif isinstance(row, dict):
+                curriculum_id = row.get("curriculum_id", row.get("curriculumId", row.get("id")))
+                day = row.get("day_idx", row.get("day"))
+                slot = row.get("slot_idx", row.get("slot", row.get("lesson_number")))
+            else:
+                continue
+            try:
+                result.add((int(curriculum_id), int(day), int(slot)))
+            except (TypeError, ValueError):
+                continue
+        return result
+    return set()
 
 # Старі шаблони (для порівняння/діагностики): дозволяли вихідний та 2 пари.
 LEGACY_PATTERNS = [
@@ -151,7 +186,9 @@ def precheck(curriculums: Iterable, constraints: Iterable = ()) -> list[str]:
         total = sum(c.pairs_per_2_weeks for c in lst)
         fixed4_days = fixed_4th_days(lst)
         n_fixed4 = len(fixed4_days)
-        lo = MIN_PAIRS_PER_DAY * DAY_IDXS + n_fixed4
+        # A group may have a day off; only fixed fourth-period lessons require
+        # a non-empty day.  The model separately forbids exactly 1 or 2 pairs.
+        lo = n_fixed4
         hi = MAX_PAIRS_PER_DAY * DAY_IDXS
         if total < lo:
             extra = f" (закріплені 4-ті пари потребують повного дня)" if n_fixed4 else ""
@@ -213,9 +250,7 @@ def precheck(curriculums: Iterable, constraints: Iterable = ()) -> list[str]:
                 f"доступно максимум {max_total} — зайвих {total - max_total}"
             )
         for week in range(WEEKS):
-            required = MIN_PAIRS_PER_DAY * DAYS + sum(
-                day // DAYS == week for day in fixed4_days
-            )
+            required = sum(day // DAYS == week for day in fixed4_days)
             available_max = 19 + int(curator_slots_by_week[week])
             if weekly_max[week] < required:
                 problems.append(
