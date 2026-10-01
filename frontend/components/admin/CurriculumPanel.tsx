@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { api, CurriculumRecord, CurriculumMutation, ReferenceRecord } from "../../lib/api";
 import { ConfirmModal } from "./ConfirmModal";
 import { SearchableSelect } from "../SearchableSelect";
+import { SearchableMultiSelect } from "../SearchableMultiSelect";
 
 export function CurriculumPanel() {
   const [items, setItems] = useState<CurriculumRecord[]>([]);
@@ -18,6 +19,7 @@ export function CurriculumPanel() {
   const [toast, setToast] = useState<{message: string, type: "success"|"error"} | null>(null);
   
   const [editor, setEditor] = useState<Partial<CurriculumRecord> | null>(null);
+  const [selectedGroupIds, setSelectedGroupIds] = useState<number[]>([]);
   const [itemToDelete, setItemToDelete] = useState<CurriculumRecord | null>(null);
 
   useEffect(() => {
@@ -62,7 +64,7 @@ export function CurriculumPanel() {
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    if (!editor || !editor.group_id || !editor.subject_id || !editor.teacher_id) {
+    if (!editor || (!editor.id && selectedGroupIds.length === 0) || (editor.id && !editor.group_id) || !editor.subject_id || !editor.teacher_id) {
       setToast({ message: "Оберіть групу, предмет і викладача.", type: "error" });
       return;
     }
@@ -71,7 +73,7 @@ export function CurriculumPanel() {
       const session = await api.auth.ensureAuthenticated();
       
       const payload: CurriculumMutation = {
-        group_id: editor.group_id,
+        group_id: editor.group_id ?? selectedGroupIds[0] ?? 0,
         subject_id: editor.subject_id,
         teacher_id: editor.teacher_id,
         second_teacher_id: editor.second_teacher_id || null,
@@ -90,9 +92,24 @@ export function CurriculumPanel() {
         setItems(curr => curr.map(c => c.id === updated.id ? updated : c));
         setToast({message: "Запис оновлено", type:"success"});
       } else {
-        const created = await api.curriculums.create(payload, session.access_token);
-        setItems(curr => [created, ...curr]);
-        setToast({message: "Запис додано", type:"success"});
+        const results = await Promise.allSettled(
+          selectedGroupIds.map((group_id) => api.curriculums.create({ ...payload, group_id }, session.access_token))
+        );
+        const created = results.flatMap((result) => result.status === "fulfilled" ? [result.value] : []);
+        const failed = results.length - created.length;
+        if (created.length) setItems(curr => [...created, ...curr]);
+        if (failed) {
+          const latestItems = await api.curriculums.list(session.access_token);
+          setItems(latestItems);
+          setToast({
+            message: created.length
+              ? `Додано для ${created.length} із ${results.length} груп. Для решти груп зберегти не вдалося.`
+              : "Не вдалося додати навантаження для вибраних груп.",
+            type: "error",
+          });
+          return;
+        }
+        setToast({message: `Однакове навантаження додано для ${created.length} груп.`, type:"success"});
       }
       setEditor(null);
     } catch(err: any) {
@@ -129,7 +146,10 @@ export function CurriculumPanel() {
              className="form-control w-full py-2 pl-9 pr-4"
            />
          </div>
-         <button onClick={() => setEditor({ is_fixed: false, is_stream: false, pairs_per_2_weeks: 2, total_hours: 40 })} className="shrink-0 rounded-lg bg-sys-accent px-4 py-2.5 text-sm font-semibold text-[#0b1120] transition-opacity hover:opacity-90">
+         <button onClick={() => {
+           setSelectedGroupIds([]);
+           setEditor({ is_fixed: false, is_stream: false, pairs_per_2_weeks: 2, total_hours: 40 });
+         }} className="shrink-0 rounded-lg bg-sys-accent px-4 py-2.5 text-sm font-semibold text-[#0b1120] transition-opacity hover:opacity-90">
             + Додати навантаження
          </button>
       </div>
@@ -204,14 +224,26 @@ export function CurriculumPanel() {
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-xs font-bold uppercase tracking-wider text-sys-text-secondary pl-1">Група</label>
-                    <SearchableSelect
-                      options={[...groups].sort((a, b) => a.name.localeCompare(b.name, "uk"))}
-                      value={editor.group_id}
-                      onChange={(id) => setEditor({ ...editor, group_id: id ?? undefined })}
-                      placeholder="Пошук групи..."
-                      ariaLabel="Група"
-                    />
+                    <label className="text-xs font-bold uppercase tracking-wider text-sys-text-secondary pl-1">
+                      {editor.id ? "Група" : "Групи для цього плану"}
+                    </label>
+                    {editor.id ? (
+                      <SearchableSelect
+                        options={[...groups].sort((a, b) => a.name.localeCompare(b.name, "uk"))}
+                        value={editor.group_id}
+                        onChange={(id) => setEditor({ ...editor, group_id: id ?? undefined })}
+                        placeholder="Пошук групи..."
+                        ariaLabel="Група"
+                      />
+                    ) : (
+                      <SearchableMultiSelect
+                        options={[...groups].sort((a, b) => a.name.localeCompare(b.name, "uk"))}
+                        value={selectedGroupIds}
+                        onChange={setSelectedGroupIds}
+                        placeholder="Знайти групу за назвою..."
+                        ariaLabel="Оберіть групи для однакового навчального плану"
+                      />
+                    )}
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-bold uppercase tracking-wider text-sys-text-secondary pl-1">Предмет</label>
