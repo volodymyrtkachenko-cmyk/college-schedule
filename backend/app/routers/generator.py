@@ -11,13 +11,56 @@ from sqlalchemy.orm import joinedload
 import asyncio
 
 from app.database import async_session_factory, get_db
-from app.models import Curriculum, TeacherConstraint, ScheduleDraft, ScheduleSlot
+from app.models import Curriculum, Schedule, TeacherConstraint, ScheduleDraft, ScheduleSlot
 from app.schemas.constraint import ScheduleDraftResponse
 from app.core.security import require_roles
 from app.services import solver
 
 router = APIRouter(prefix="/generator", tags=["Generator"])
 logger = logging.getLogger(__name__)
+
+
+def _schedule_hints(curriculums, schedule_rows) -> set[tuple[int, int, int]]:
+    by_course = {}
+    for curriculum in curriculums:
+        key = (
+            curriculum.group_id,
+            curriculum.subject_id,
+            curriculum.teacher_id,
+            curriculum.second_teacher_id,
+        )
+        by_course.setdefault(key, []).append(curriculum)
+
+    assigned_counts = {}
+    hints = set()
+    for slot in schedule_rows:
+        key = (
+            slot.group_id,
+            slot.subject_id,
+            slot.teacher_id,
+            slot.second_teacher_id,
+        )
+        candidates = by_course.get(key, [])
+        curriculum = next(
+            (
+                item for item in candidates
+                if assigned_counts.get(item.id, 0) < item.pairs_per_2_weeks
+            ),
+            None,
+        )
+        if curriculum is None or not 1 <= slot.day_of_week <= solver.DAYS or not 1 <= slot.lesson_number <= solver.SLOTS:
+            continue
+        weeks = (
+            (0, 1) if slot.week_type == "both"
+            else (0,) if slot.week_type == "numerator"
+            else (1,) if slot.week_type == "denominator"
+            else ()
+        )
+        for week in weeks:
+            day_idx = slot.day_of_week - 1 + week * solver.DAYS
+            hints.add((curriculum.id, day_idx, slot.lesson_number - 1))
+            assigned_counts[curriculum.id] = assigned_counts.get(curriculum.id, 0) + 1
+    return hints
 
 
 def _solver_input_diagnostics(curriculums, constraints) -> dict[str, int | str]:
@@ -61,6 +104,7 @@ async def _complete_generation(
     curriculums: list,
     constraints: list,
     max_time_in_seconds: int,
+    initial_assignments: set[tuple[int, int, int]] | None = None,
 ) -> None:
     diagnostics = _solver_input_diagnostics(curriculums, constraints)
     solve_started = time.monotonic()
@@ -70,6 +114,7 @@ async def _complete_generation(
             curriculums,
             constraints,
             max_time_in_seconds,
+            initial_assignments=initial_assignments or (),
         )
         async with async_session_factory() as db:
             draft = await db.get(ScheduleDraft, draft_id)
@@ -133,6 +178,10 @@ async def generate_schedule(
         )
     ).all()
     constraints = (await db.scalars(select(TeacherConstraint))).all()
+    schedule_rows = (
+        await db.scalars(select(Schedule).where(Schedule.is_active.is_(True)))
+    ).all()
+    initial_assignments = _schedule_hints(curriculums, schedule_rows)
 
     if not curriculums:
         raise HTTPException(status_code=400, detail="Немає навантаження для генерації.")
@@ -159,5 +208,6 @@ async def generate_schedule(
         list(curriculums),
         list(constraints),
         max_time_in_seconds,
+        initial_assignments=initial_assignments,
     )
     return draft

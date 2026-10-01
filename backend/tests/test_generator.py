@@ -1,3 +1,4 @@
+import asyncio
 import random
 from types import SimpleNamespace as NS
 
@@ -91,8 +92,8 @@ def validate(curr, cons, assignments):
             slots = sorted(group_day.get((g, d), []))
             if len(slots) != len(set(slots)):
                 errs.append(f"група {g} d={d}: дві пари в одному слоті")
-            if len(slots) < 3:
-                errs.append(f"група {g} d={d}: лише {len(slots)} пар (мінімум 3, вихідних не буває)")
+            if len(slots) in (1, 2):
+                errs.append(f"група {g} d={d}: {len(slots)} пар заборонено")
             elif slots != list(range(slots[0], slots[0] + len(slots))):
                 errs.append(f"група {g} d={d}: вікно {slots}")
             if slots and slots[0] > 1:
@@ -132,6 +133,7 @@ def test_every_weekday_has_3_or_4_pairs_no_windows(solved):
     for cid, d, s in r.assignments:
         days.setdefault((by[cid].group_id, d), set()).add(s)
     allowed = {pattern for pattern, _ in S.VALID_PATTERNS}
+    allowed.add((0, 0, 0, 0))
     assert all(tuple(int(s in days[(g, d)]) for s in range(S.SLOTS)) in allowed
                for g in {c.group_id for c in curr} for d in range(S.DAY_IDXS))
     assert not any(d in (3, 8) and s == 3 for _, d, s in r.assignments)
@@ -158,7 +160,7 @@ def test_prefers_start_from_first_pair(solved):
 
 def test_underloaded_group_is_rejected_before_search():
     """A provable daily-load shortage must not enter an expensive CP-SAT search."""
-    curr, cons = make_data(seed=1, load=26)
+    curr, cons = make_data(seed=1, load=1)
     assert any("бракує" in m for m in S.precheck(curr, cons))
     r = S.solve(curr, cons, max_time_in_seconds=3, num_workers=4)
     assert not r.ok
@@ -174,7 +176,7 @@ def test_legacy_patterns_allowed_bad_days():
 
 
 def test_precheck_counts_fixed_4th_pair_days():
-    """A 31-pair load is short by one when both Thursday curator hours are included."""
+    """Empty weekdays are allowed; fixed fourth periods still require full days."""
     group = NS(name="G1", curator_id=1)
     curr = [NS(id=1, group_id=1, group=group, subject=NS(name="Виховна година"),
                teacher_id=1, second_teacher_id=None, is_stream=False, stream_id=None,
@@ -184,7 +186,7 @@ def test_precheck_counts_fixed_4th_pair_days():
                pairs_per_2_weeks=29, is_fixed=False, strict_day=None, strict_lesson=None,
                require_week=None)]
     msgs = S.precheck(curr)
-    assert any("32" in message and "бракує 1" in message for message in msgs)
+    assert msgs == []
 
 
 def test_precheck_counts_fixed_external_block_fourth_period_day():
@@ -205,7 +207,7 @@ def test_precheck_counts_fixed_external_block_fourth_period_day():
     ]
     msgs = S.precheck(curr)
     assert S.fixed_4th_days(curr) == {0, 3, 8}
-    assert any("33" in message and "бракує 1" in message for message in msgs)
+    assert msgs == []
 
 
 def test_thirty_two_pairs_suffice_with_only_two_thursday_curator_hours():
@@ -438,9 +440,13 @@ async def test_api_generates_valid_draft(gen_client):
     assert resp.status_code == 202, resp.text
     assert resp.json()["status"] == "GENERATING"
     draft_id = resp.json()["id"]
-    status_resp = await client.get(f"/api/drafts/{draft_id}", headers=headers)
-    assert status_resp.status_code == 200
-    assert status_resp.json()["status"] == "DRAFT"
+    status_resp = None
+    for _ in range(200):
+        status_resp = await client.get(f"/api/drafts/{draft_id}", headers=headers)
+        if status_resp.json()["status"] != "GENERATING":
+            break
+        await asyncio.sleep(0.05)
+    assert status_resp is not None and status_resp.json()["status"] == "DRAFT"
 
     async with sessions() as s:
         slots = (await s.scalars(select(ScheduleSlot).where(ScheduleSlot.draft_id == draft_id))).all()
@@ -453,17 +459,19 @@ async def test_api_generates_valid_draft(gen_client):
     for g in {c.group_id for c in curr}:
         for d in range(10):
             ln = sorted(days.get((g, d), []))
-            assert len(ln) >= 3, f"група {g}, день {d}: {ln}"
+            assert len(ln) in (0, 3, 4), f"група {g}, день {d}: {ln}"
+            if not ln:
+                continue
             assert ln == list(range(ln[0], ln[0] + len(ln))), f"вікно: {ln}"
 
 
 @pytest.mark.anyio
 async def test_api_explains_underloaded_group(gen_client):
     client, headers, sessions, fac = gen_client
-    await _seed(sessions, fac, [("G1", 34), ("Мала", 24)])
+    await _seed(sessions, fac, [("G1", 34), ("Мала", 1)])
     resp = await client.post("/api/generator?max_time_in_seconds=10", headers=headers)
     assert resp.status_code == 400
-    assert "бракує" in resp.json()["detail"]
+    assert "розподілити" in resp.json()["detail"]
 
 
 @pytest.mark.anyio
@@ -476,5 +484,11 @@ async def test_api_returns_safe_diagnostics_on_solver_timeout(gen_client, monkey
 
     assert resp.status_code == 202
     draft_id = resp.json()["id"]
-    status_resp = await client.get(f"/api/drafts/{draft_id}", headers=headers)
+    status_resp = None
+    for _ in range(100):
+        status_resp = await client.get(f"/api/drafts/{draft_id}", headers=headers)
+        if status_resp.json()["status"] != "GENERATING":
+            break
+        await asyncio.sleep(0.01)
+    assert status_resp is not None
     assert status_resp.json()["status"] == "TIMEOUT"

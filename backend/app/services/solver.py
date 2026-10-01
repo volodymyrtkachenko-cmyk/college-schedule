@@ -61,10 +61,7 @@ def effective_cpu_count() -> int:
 def selected_worker_count(requested: int = DEFAULT_NUM_WORKERS) -> int:
     return max(min(2, requested), min(requested, effective_cpu_count()))
 
-# Дозволені шаблони дня для групи: (пара1, пара2, пара3, пара4) -> штраф.
-# ЖОРСТКО заборонено: вихідний (0 пар), 1–2 пари, будь-які «вікна».
-# Залишились лише 3 або 4 пари підряд; штрафи задають лише ПЕРЕВАГУ:
-#   3 пари з 1-ї — ідеал, 4 пари — трохи гірше, старт з 2-ї пари — запасний варіант.
+# Legacy day patterns retained for custom-pattern callers and migration tests.
 VALID_PATTERNS = [
     ((1, 1, 1, 0), 0),    # 3 пари з 1-ї — ідеал
     ((1, 1, 1, 1), 5),    # 4 пари
@@ -151,7 +148,7 @@ def precheck(curriculums: Iterable, constraints: Iterable = ()) -> list[str]:
         total = sum(c.pairs_per_2_weeks for c in lst)
         fixed4_days = fixed_4th_days(lst)
         n_fixed4 = len(fixed4_days)
-        lo = MIN_PAIRS_PER_DAY * DAY_IDXS + n_fixed4
+        lo = SLOTS * n_fixed4
         hi = MAX_PAIRS_PER_DAY * DAY_IDXS
         if total < lo:
             extra = f" (закріплені 4-ті пари потребують повного дня)" if n_fixed4 else ""
@@ -212,10 +209,10 @@ def precheck(curriculums: Iterable, constraints: Iterable = ()) -> list[str]:
                 f"група [{name}]: {total} пар/2 тижні, але через резерв четвертої пари четверга "
                 f"доступно максимум {max_total} — зайвих {total - max_total}"
             )
+        weekly_reachable: list[set[int]] = []
         for week in range(WEEKS):
-            required = MIN_PAIRS_PER_DAY * DAYS + sum(
-                day // DAYS == week for day in fixed4_days
-            )
+            fixed4_count = sum(day // DAYS == week for day in fixed4_days)
+            required = SLOTS * fixed4_count
             available_max = 19 + int(curator_slots_by_week[week])
             if weekly_max[week] < required:
                 problems.append(
@@ -229,6 +226,31 @@ def precheck(curriculums: Iterable, constraints: Iterable = ()) -> list[str]:
                     f"щонайменше {weekly_min[week]} пар, але доступно максимум {available_max} — "
                     f"перевантаження на {weekly_min[week] - available_max}"
                 )
+            else:
+                reachable_loads = {
+                    SLOTS * fixed4_count + 3 * three_pair_days + 4 * four_pair_days
+                    for three_pair_days in range(DAYS - fixed4_count + 1)
+                    for four_pair_days in range(DAYS - fixed4_count - three_pair_days + 1)
+                }
+                possible_loads = {
+                    load for load in reachable_loads
+                    if weekly_min[week] <= load <= min(weekly_max[week], available_max)
+                }
+                weekly_reachable.append(possible_loads)
+                if not possible_loads:
+                    problems.append(
+                        f"група [{name}]: навантаження у {('чисельнику', 'знаменнику')[week]} "
+                        "неможливо розподілити за шаблоном 0 або 3–4 пари на день"
+                    )
+        if (
+            len(weekly_reachable) == WEEKS
+            and all(weekly_reachable)
+            and not any(a + b == total for a in weekly_reachable[0] for b in weekly_reachable[1])
+        ):
+            problems.append(
+                f"група [{name}]: сумарне навантаження {total} неможливо розподілити між тижнями "
+                "за шаблоном 0 або 3–4 пари на день"
+            )
 
         for c in lst:
             if c.is_fixed and c.strict_day and c.strict_lesson and c.strict_lesson > SLOTS:
@@ -292,6 +314,7 @@ def solve(
     num_workers: int = DEFAULT_NUM_WORKERS,
     patterns=None,
     seed: int | None = None,
+    initial_assignments: Iterable[tuple[int, int, int]] = (),
 ) -> SolveResult:
     use_default_patterns = patterns is None
     patterns = VALID_PATTERNS if patterns is None else patterns
@@ -460,8 +483,10 @@ def solve(
 
     fixed4 = {g: fixed_4th_days(lst) for g, lst in group_curriculums.items()}
     penalties = []
+    group_day_active: dict[tuple[int, int], cp_model.IntVar] = {}
     for g_id, curr_list in group_curriculums.items():
         fourth_slots_by_week = [[], []]
+        active_days_by_week = [[], []]
         for d in range(DAY_IDXS):
             slots_active = []
             for s in range(SLOTS):
@@ -472,14 +497,20 @@ def solve(
             fourth_slots_by_week[d // DAYS].append(slots_active[SLOTS - 1])
 
             if use_default_patterns:
-                # The three allowed patterns are equivalent to slots 2 and 3
-                # always being occupied and at least one of slots 1 and 4
-                # being occupied. This avoids three pattern-selector Booleans
-                # per group-day while preserving the exact same day layouts.
-                model.Add(slots_active[1] == 1)
-                model.Add(slots_active[2] == 1)
-                model.Add(slots_active[0] + slots_active[3] >= 1)
-                penalties.append((1 - slots_active[0]) * 40)
+                daily_pairs = model.NewIntVar(0, SLOTS, f"daily_pairs_g{g_id}_d{d}")
+                model.Add(daily_pairs == sum(slots_active))
+                model.AddForbiddenAssignments([daily_pairs], [(1,), (2,)])
+                model.AddImplication(slots_active[0], slots_active[1]).OnlyEnforceIf(slots_active[2])
+                model.AddImplication(slots_active[1], slots_active[2]).OnlyEnforceIf(slots_active[3])
+                active_day = model.NewBoolVar(f"active_day_g{g_id}_d{d}")
+                model.AddMaxEquality(active_day, slots_active)
+                group_day_active[g_id, d] = active_day
+                active_days_by_week[d // DAYS].append(active_day)
+                late_start = model.NewBoolVar(f"late_start_g{g_id}_d{d}")
+                model.Add(late_start <= active_day)
+                model.Add(late_start + slots_active[0] <= 1)
+                model.Add(late_start >= active_day - slots_active[0])
+                penalties.append(late_start * 50)
                 penalties.append(slots_active[3] * 5)
             else:
                 pattern_vars = []
@@ -492,13 +523,11 @@ def solve(
                         model.Add(slots_active[s] == pat[s]).OnlyEnforceIf(p)
                 model.AddExactlyOne(pattern_vars)
 
-            # Виховна година (закріплена 4-та пара) => у цей день рівно 4 пари.
+            # A fixed fourth-period lesson requires the complete contiguous day.
             if d in fixed4[g_id]:
                 model.Add(slots_active[0] == 1)
 
-        # Each weekday has exactly 3 or 4 lessons, so each week's number of
-        # fourth-period days is determined by its actual weekly load. Linking
-        # these directly strengthens propagation for the solver.
+        # Every active day has 3 or 4 lessons; other weekdays may be empty.
         for week in range(WEEKS):
             weekly_load = sum(
                 X[(c.id, d, s)]
@@ -508,8 +537,41 @@ def solve(
             )
             model.Add(
                 sum(fourth_slots_by_week[week])
-                == weekly_load - MIN_PAIRS_PER_DAY * DAYS
+                == weekly_load - MIN_PAIRS_PER_DAY * sum(active_days_by_week[week])
             )
+
+    # Teacher gaps are allowed but discouraged. Streams count once per teacher
+    # even when several groups attend the shared lecture.
+    for teacher_id, curr_list in teacher_curriculums.items():
+        for d in range(DAY_IDXS):
+            active_slots = []
+            for s in range(SLOTS):
+                unique_vars, seen_streams = [], set()
+                for c in curr_list:
+                    if c.is_stream and c.stream_id:
+                        if c.stream_id in seen_streams:
+                            continue
+                        seen_streams.add(c.stream_id)
+                    unique_vars.append(X[(c.id, d, s)])
+                active = model.NewBoolVar(f"active_t{teacher_id}_d{d}_s{s}")
+                model.Add(sum(unique_vars) == active)
+                active_slots.append(active)
+            for s in range(1, SLOTS - 1):
+                before = model.NewBoolVar(f"teacher_before_t{teacher_id}_d{d}_s{s}")
+                after = model.NewBoolVar(f"teacher_after_t{teacher_id}_d{d}_s{s}")
+                model.AddMaxEquality(before, active_slots[:s])
+                model.AddMaxEquality(after, active_slots[s + 1:])
+                gap = model.NewBoolVar(f"teacher_gap_t{teacher_id}_d{d}_s{s}")
+                model.Add(gap <= before)
+                model.Add(gap <= after)
+                model.Add(gap + active_slots[s] <= 1)
+                model.Add(gap >= before + after - active_slots[s] - 1)
+                penalties.append(gap * 100)
+
+    for curriculum_id, day_idx, slot_idx in set(initial_assignments):
+        variable = X.get((curriculum_id, day_idx, slot_idx))
+        if variable is not None:
+            model.AddHint(variable, 1)
 
     actual_workers = selected_worker_count(num_workers)
 
@@ -567,6 +629,7 @@ def solve(
         remaining = max_time_in_seconds - (time.monotonic() - started_at)
         if penalties and remaining > 0.05:
             selected = set(feasible_result.assignments)
+            model.ClearHints()
             for key, var in X.items():
                 model.AddHint(var, int(key in selected))
             model.Minimize(sum(penalties))
