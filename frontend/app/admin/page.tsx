@@ -6,7 +6,6 @@ import { useSearchParams } from "next/navigation";
 import { AdminNav, referenceLabels } from "../../components/admin/AdminNav";
 import { ReferenceForm } from "../../components/admin/ReferenceForm";
 import { ReferenceTable } from "../../components/admin/ReferenceTable";
-import { BulkCuratorsModal } from "../../components/admin/BulkCuratorsModal";
 import { api, ReferenceMutation, ReferenceRecord, ReferenceResource } from "../../lib/api";
 import { useAuth, canAccessAdmin } from "../../lib/auth";
 import { ConfirmModal } from "../../components/admin/ConfirmModal";
@@ -24,19 +23,16 @@ const resources = Object.keys(referenceLabels) as ReferenceResource[];
 const resourceConfig: Record<ReferenceResource, {
   addLabel: string;
   needsFaculties?: boolean;
-  needsTeachers?: boolean;
-  hasBulkAction?: boolean;
   affectsSchedule?: boolean;
   searchFields?: (keyof ReferenceRecord)[];
-  searchRelations?: (item: ReferenceRecord, faculties: ReferenceRecord[], teachers: ReferenceRecord[]) => (string | undefined | null)[];
+  searchRelations?: (item: ReferenceRecord, faculties: ReferenceRecord[]) => (string | undefined | null)[];
 }> = {
   faculties: { addLabel: "спеціальність", searchFields: ["name", "short_name"] },
-  groups: { 
-    addLabel: "групу", needsFaculties: true, needsTeachers: true, hasBulkAction: true, affectsSchedule: true,
+  groups: {
+    addLabel: "групу", needsFaculties: true, affectsSchedule: true,
     searchFields: ["name"],
-    searchRelations: (item, faculties, teachers) => [
+    searchRelations: (item, faculties) => [
       faculties.find(f => f.id === item.faculty_id)?.name,
-      teachers.find(t => t.id === item.curator_id)?.name,
     ],
   },
   teachers: { addLabel: "викладача", affectsSchedule: true, searchFields: ["name", "room"] },
@@ -66,13 +62,11 @@ function AdminContent() {
   : "groups";
   const [items, setItems] = useState<ReferenceRecord[]>([]);
   const [faculties, setFaculties] = useState<ReferenceRecord[]>([]);
-  const [teachers, setTeachers] = useState<ReferenceRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   // undefined = list view, null = add new, object = edit existing
   const [editor, setEditor] = useState<ReferenceRecord | null | undefined>(undefined);
-  const [bulkOpen, setBulkOpen] = useState(false);
   
   const [toast, setToast] = useState<{message: string, type: "success" | "error"} | null>(null);
   const [itemToDelete, setItemToDelete] = useState<ReferenceRecord | null>(null);
@@ -92,13 +86,11 @@ function AdminContent() {
       .then((session) => Promise.all([
         api.references.list(activeResource, session.access_token),
         resourceConfig[activeResource].needsFaculties ? api.directory.faculties() : Promise.resolve([]),
-        resourceConfig[activeResource].needsTeachers ? api.directory.teachers() : Promise.resolve([]),
       ]))
-      .then(([nextItems, nextFaculties, nextTeachers]) => {
+      .then(([nextItems, nextFaculties]) => {
         if (!cancelled) {
           setItems(nextItems);
           setFaculties(nextFaculties);
-          setTeachers(nextTeachers ?? []);
         }
       })
       .catch((e) => {
@@ -171,7 +163,7 @@ function AdminContent() {
       });
       if (matchesField) return true;
 
-      const rels = resourceConfig[activeResource].searchRelations?.(item, faculties, teachers) || [];
+      const rels = resourceConfig[activeResource].searchRelations?.(item, faculties) || [];
       if (rels.some(r => r && r.toLowerCase().includes(q))) return true;
       
       return false;
@@ -213,11 +205,6 @@ function AdminContent() {
            </div>
            
            <div className="flex gap-2">
-             {resourceConfig[activeResource].hasBulkAction && (
-                <button onClick={() => setBulkOpen(true)} className="shrink-0 rounded-[6px] border border-sys-accent/50 text-sys-accent px-4 py-2 text-sm font-semibold hover:bg-sys-accent/10 transition-colors">
-                  Налаштувати виховні години
-                </button>
-             )}
              <button onClick={() => setEditor(null)} className="shrink-0 rounded-[6px] bg-sys-accent px-4 py-2 text-sm font-semibold text-[#0b1120] hover:opacity-90 transition-opacity">
                 + Додати {resourceConfig[activeResource].addLabel}
              </button>
@@ -225,14 +212,12 @@ function AdminContent() {
         </div>
 
         {editor !== undefined && (
-          <ReferenceForm resource={activeResource} item={editor ?? undefined} faculties={faculties} teachers={teachers} onCancel={() => setEditor(undefined)} onSubmit={save} />
+          <ReferenceForm resource={activeResource} item={editor ?? undefined} faculties={faculties} onCancel={() => setEditor(undefined)} onSubmit={save} />
         )}
         
-        <ReferenceTable resource={activeResource} items={filteredAndSortedItems} faculties={faculties} teachers={teachers} loading={loading} error={error} onEdit={setEditor} onDelete={setItemToDelete} />
+        <ReferenceTable resource={activeResource} items={filteredAndSortedItems} faculties={faculties} loading={loading} error={error} onEdit={setEditor} onDelete={setItemToDelete} />
         
         {/* Toast */}
-        {bulkOpen && <BulkCuratorsModal groups={items} onClose={() => setBulkOpen(false)} onSuccess={(msg) => { setToast({ message: msg, type: "success" }); }} />}
-        
         {toast && (
           <div className={`fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:bottom-6 z-[100] flex animate-in slide-in-from-bottom-5 items-center gap-2 rounded-[8px] border px-4 py-3 text-sm shadow-2xl backdrop-blur-md ${
             toast.type === "success"

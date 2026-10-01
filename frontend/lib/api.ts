@@ -17,7 +17,6 @@ export type ReferenceResource = "faculties" | "groups" | "teachers" | "subjects"
 export interface ReferenceRecord extends DirectoryItem {
     short_name?: string | null;
     faculty_id?: number;
-    curator_id?: number | null;
     email?: string | null;
     room?: string | null;
   room_override?: string | null;
@@ -555,15 +554,6 @@ export const api = {
         return request<ScheduleResponse[]>(`/api/schedule/week?${params.toString()}`);
     },
     settings: {semesterStart: () => request<SemesterStartSetting>("/api/settings/semester-start")},
-    schedule: {
-        async bulkCurator(payload: { day_of_week: number, lesson_number: number, week_type: string, group_ids: number[], action: string }) {
-            const session = await api.auth.ensureAuthenticated();
-            return request<{created?: number, deleted?: number, skipped?: number}>("/api/schedule/bulk-curator", {
-                method: "POST",
-                body: JSON.stringify(payload)
-            }, true, true, session.access_token);
-        }
-    },
     lessons: {
         create: (payload: LessonMutation) => authenticatedRequest<Lesson>("/api/schedule", {
             method: "POST",

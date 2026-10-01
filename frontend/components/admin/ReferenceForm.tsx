@@ -8,7 +8,6 @@ type Props = {
     resource: ReferenceResource;
     item?: ReferenceRecord;
     faculties?: ReferenceRecord[];
-    teachers?: ReferenceRecord[];
     onCancel: () => void;
     onSubmit: (value: ReferenceMutation) => Promise<void>
 };
@@ -20,12 +19,12 @@ const fields: Record<ReferenceResource, { key: keyof ReferenceMutation; label: s
     subjects: [{key: "name", label: "Назва"}],
 };
 
-export function ReferenceForm({ resource, item, faculties = [], teachers = [], onCancel, onSubmit }: Props) {
+export function ReferenceForm({ resource, item, faculties = [], onCancel, onSubmit }: Props) {
     const inputRef = useRef<HTMLInputElement>(null);
     const [value, setValue] = useState<Record<string, string>>({});
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const extraKeys = resource === "groups" ? ["faculty_id", "curator_id"] : [];
+    const extraKeys = resource === "groups" ? ["faculty_id"] : [];
 
     useEffect(() => {
         setValue(Object.fromEntries(
@@ -77,7 +76,7 @@ export function ReferenceForm({ resource, item, faculties = [], teachers = [], o
                             />
                         </label>
                     ))}
-                    {resource === "groups" && (<>
+                    {resource === "groups" && (
                         <div className="flex flex-col gap-1.5 text-sm text-sys-text-secondary">
                             Спеціальність
                             <SearchableSelect
@@ -88,17 +87,7 @@ export function ReferenceForm({ resource, item, faculties = [], teachers = [], o
                                 ariaLabel="Спеціальність"
                             />
                         </div>
-                        <div className="flex flex-col gap-1.5 text-sm text-sys-text-secondary">
-                            Куратор
-                            <SearchableSelect
-                                options={teachers}
-                                value={value.curator_id ? Number(value.curator_id) : null}
-                                onChange={(id) => setValue({ ...value, curator_id: id ? String(id) : "" })}
-                                placeholder="Без куратора"
-                                ariaLabel="Куратор"
-                            />
-                        </div>
-                    </>)}
+                    )}
                 </div>
                 {error && <p role="alert" className="mt-4 text-sm text-sys-destructive">{error}</p>}
                 <div className="mt-6 flex justify-end gap-3">
