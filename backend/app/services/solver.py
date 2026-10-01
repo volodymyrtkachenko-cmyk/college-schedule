@@ -4,6 +4,7 @@
 легко тестується на синтетичних даних.
 """
 from dataclasses import dataclass, field
+import time
 from typing import Iterable
 
 from ortools.sat.python import cp_model
@@ -466,34 +467,75 @@ def solve(
                 == weekly_load - MIN_PAIRS_PER_DAY * DAYS
             )
 
-    if penalties:
-        model.Minimize(sum(penalties))
-
-    solver = cp_model.CpSolver()
-    solver.parameters.max_time_in_seconds = max_time_in_seconds
     import os
     cpus = os.cpu_count() or 1
     # Завжди беремо мінімум 2 потоки, щоб активувати Portfolio Search (різні евристики одночасно),
     # що критично важливо для складних тетріс-розкладів.
     actual_workers = max(2, min(num_workers, cpus))
-    solver.parameters.num_search_workers = actual_workers
-    
 
-    
-    if seed is not None:
-        solver.parameters.random_seed = seed
+    def new_solver(time_limit: float, random_seed: int | None) -> cp_model.CpSolver:
+        instance = cp_model.CpSolver()
+        instance.parameters.max_time_in_seconds = max(0.01, time_limit)
+        instance.parameters.num_search_workers = actual_workers
+        if random_seed is not None:
+            instance.parameters.random_seed = random_seed
+        return instance
 
-    status = solver.Solve(model)
-    name = solver.StatusName(status)
-    if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-        # CP-SAT reports UNKNOWN when it reaches a time/search limit without
-        # proving feasibility or infeasibility. Do not leak that opaque status.
-        if status == cp_model.UNKNOWN:
-            name = "TIMEOUT"
-        return SolveResult(status=name)
+    def result_from(instance: cp_model.CpSolver, status: int, *, optimized: bool) -> SolveResult:
+        assignments = [key for key, var in X.items() if instance.Value(var) == 1]
+        objective = (
+            instance.ObjectiveValue()
+            if optimized
+            else float(sum(instance.Value(penalty) for penalty in penalties))
+        )
+        return SolveResult(
+            status=instance.StatusName(status),
+            objective=objective,
+            assignments=assignments,
+        )
 
-    return SolveResult(
-        status=name,
-        objective=solver.ObjectiveValue() if penalties else 0.0,
-        assignments=[k for k, v in X.items() if solver.Value(v) == 1],
-    )
+    started_at = time.monotonic()
+    # First find any valid timetable without optimizing soft preferences. Search
+    # with an objective can spend most of the limit before producing its first
+    # incumbent, which is especially costly on small hosted instances.
+    if penalties:
+        model.ClearObjective()
+    feasibility_solver = new_solver(max_time_in_seconds * 0.7, seed)
+    feasibility_solver.parameters.stop_after_first_solution = True
+    status = feasibility_solver.Solve(model)
+
+    if status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+        feasible_result = result_from(feasibility_solver, status, optimized=False)
+        remaining = max_time_in_seconds - (time.monotonic() - started_at)
+        if penalties and remaining > 0.05:
+            selected = set(feasible_result.assignments)
+            for key, var in X.items():
+                model.AddHint(var, int(key in selected))
+            model.Minimize(sum(penalties))
+            optimizer = new_solver(remaining, None if seed is None else seed + 1)
+            optimized_status = optimizer.Solve(model)
+            if optimized_status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+                return result_from(optimizer, optimized_status, optimized=True)
+        return feasible_result
+
+    if status != cp_model.UNKNOWN:
+        return SolveResult(status=feasibility_solver.StatusName(status))
+
+    # A different seed gets the unused part of the budget when the first
+    # feasibility search has not found an incumbent.
+    remaining = max_time_in_seconds - (time.monotonic() - started_at)
+    if remaining > 0.05:
+        retry = new_solver(remaining, (seed or 0) + 1)
+        retry.parameters.stop_after_first_solution = True
+        retry_status = retry.Solve(model)
+        if retry_status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+            return result_from(retry, retry_status, optimized=False)
+        status = retry_status
+        feasibility_solver = retry
+
+    # CP-SAT UNKNOWN means the bounded search neither found a schedule nor
+    # proved infeasibility. Keep that distinction explicit in the API result.
+    name = feasibility_solver.StatusName(status)
+    if status == cp_model.UNKNOWN:
+        name = "TIMEOUT"
+    return SolveResult(status=name)

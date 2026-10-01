@@ -245,8 +245,10 @@ def test_precheck_flags_overloaded_teacher():
 def test_unknown_solver_status_is_reported_as_timeout(monkeypatch):
     class FakeSolver:
         parameters = NS()
+        calls = 0
 
         def Solve(self, _model):
+            type(self).calls += 1
             return S.cp_model.UNKNOWN
 
         @staticmethod
@@ -261,6 +263,39 @@ def test_unknown_solver_status_is_reported_as_timeout(monkeypatch):
     result = S.solve(curr, [], max_time_in_seconds=1)
     assert result.status == "TIMEOUT"
     assert not result.ok
+    assert FakeSolver.calls == 2
+
+
+def test_feasible_schedule_is_kept_if_preference_optimization_times_out(monkeypatch):
+    real_solver = S.cp_model.CpSolver
+    calls = 0
+
+    class TimeoutSolver:
+        parameters = NS()
+
+        def Solve(self, _model):
+            return S.cp_model.UNKNOWN
+
+        @staticmethod
+        def StatusName(_status):
+            return "UNKNOWN"
+
+    def solver_factory():
+        nonlocal calls
+        calls += 1
+        return real_solver() if calls == 1 else TimeoutSolver()
+
+    monkeypatch.setattr(S.cp_model, "CpSolver", solver_factory)
+    curr = [NS(id=1, group_id=1, teacher_id=1, second_teacher_id=None,
+               is_stream=False, stream_id=None, pairs_per_2_weeks=30,
+               is_fixed=False, strict_day=None, strict_lesson=None,
+               require_week=None, allow_multiple_per_day=True)]
+
+    result = S.solve(curr, [], max_time_in_seconds=5, num_workers=2)
+
+    assert result.ok, result.status
+    assert len(result.assignments) == 30
+    assert calls == 2
 
 
 def test_thursday_curator_hour_is_fixed_and_reserved():
