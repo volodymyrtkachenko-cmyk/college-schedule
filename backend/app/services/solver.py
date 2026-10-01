@@ -49,40 +49,34 @@ class SolveResult:
 
 
 def fixed_4th_days(curr_list: Iterable) -> set[int]:
-    """Індекси днів (0..9), де в групи закріплена 4-та пара (виховна година).
-
-    Діє лише в тому тижні, де закріплена пара реально стоїть:
-    pairs_per_2_weeks == 1 -> тільки чисельник; >= 2 -> обидва тижні.
-    """
+    """Indices of days containing the group's weekly Thursday curator hour."""
     days: set[int] = set()
     for c in curr_list:
-        if not c.is_fixed or not c.strict_day or not c.strict_lesson:
+        if not _is_curator_hour(c):
             continue
-        if str(SLOTS) not in str(c.strict_lesson):
-            continue
-        req = getattr(c, "require_week", None)
-        if req == "numerator":
-            days.add(c.strict_day - 1)
-        elif req == "denominator":
-            days.add(c.strict_day - 1 + DAYS)
-        else:
-            days.add(c.strict_day - 1)
-            if c.pairs_per_2_weeks >= 2:
-                days.add(c.strict_day - 1 + DAYS)
+        days.update((3, DAYS + 3))
     return set(days)
 
 
-def _is_curator_hour(c) -> bool:
+def _is_curator_course(c) -> bool:
     group = getattr(c, "group", None)
     curator_id = getattr(group, "curator_id", None)
     subject_name = getattr(getattr(c, "subject", None), "name", None)
     return bool(
         curator_id is not None
         and subject_name == "Виховна година"
+        and curator_id in (c.teacher_id, getattr(c, "second_teacher_id", None))
+    )
+
+
+def _is_curator_hour(c) -> bool:
+    return bool(
+        _is_curator_course(c)
         and c.is_fixed
         and c.strict_day == 4
         and c.strict_lesson == SLOTS
-        and curator_id in (c.teacher_id, getattr(c, "second_teacher_id", None))
+        and c.pairs_per_2_weeks == WEEKS
+        and getattr(c, "require_week", None) is None
     )
 
 
@@ -102,7 +96,7 @@ def precheck(curriculums: Iterable, constraints: Iterable = ()) -> list[str]:
         total = sum(c.pairs_per_2_weeks for c in lst)
         fixed4_days = fixed_4th_days(lst)
         n_fixed4 = len(fixed4_days)
-        lo = MIN_PAIRS_PER_DAY * DAY_IDXS + n_fixed4   # день з виховною = рівно 4 пари
+        lo = MIN_PAIRS_PER_DAY * DAY_IDXS + n_fixed4
         hi = MAX_PAIRS_PER_DAY * DAY_IDXS
         if total < lo:
             extra = f" (з них {n_fixed4} дн. з виховною годиною потребують 4 пар)" if n_fixed4 else ""
@@ -140,8 +134,21 @@ def precheck(curriculums: Iterable, constraints: Iterable = ()) -> list[str]:
                 weekly_max[1] += (pairs + 1) // 2
         group = getattr(lst[0], "group", None)
         name = group.name if group else f"id={g_id}"
+        curator_courses = [c for c in lst if _is_curator_course(c)]
+        if group and group.curator_id is not None:
+            if len(curator_courses) != 1:
+                problems.append(
+                    f"група [{name}]: потрібен рівно один предмет «Виховна година» "
+                    "з викладачем-куратором, закріплений на четверту пару четверга"
+                )
+            for c in curator_courses:
+                if not _is_curator_hour(c):
+                    problems.append(
+                        f"група [{name}]: «Виховна година» має бути рівно 2 пари за 2 тижні, "
+                        "закріплена на четверту пару четверга в обох тижнях і вестися куратором"
+                    )
         curator_slots_by_week = [
-            any(_is_curator_hour(c) and day == week * DAYS + 3 for c in lst for day in fixed4_days)
+            any(_is_curator_hour(c) for c in lst)
             for week in range(WEEKS)
         ]
         max_total = sum(19 + int(has_hour) for has_hour in curator_slots_by_week)

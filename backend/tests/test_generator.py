@@ -174,13 +174,45 @@ def test_legacy_patterns_allowed_bad_days():
 
 
 def test_precheck_counts_fixed_4th_pair_days():
-    """30 пар у групи замало, якщо є виховна: 8 днів×3 + 2 дні×4 = 32."""
-    curr = [NS(id=1, group_id=1, teacher_id=1, second_teacher_id=None, is_stream=False, stream_id=None,
-               pairs_per_2_weeks=2, is_fixed=True, strict_day=3, strict_lesson=4),
+    """A 31-pair load is short by one when both Thursday curator hours are included."""
+    group = NS(name="G1", curator_id=1)
+    curr = [NS(id=1, group_id=1, group=group, subject=NS(name="Виховна година"),
+               teacher_id=1, second_teacher_id=None, is_stream=False, stream_id=None,
+               pairs_per_2_weeks=2, is_fixed=True, strict_day=4, strict_lesson=4,
+               require_week=None),
             NS(id=2, group_id=1, teacher_id=2, second_teacher_id=None, is_stream=False, stream_id=None,
-               pairs_per_2_weeks=28, is_fixed=False, strict_day=None, strict_lesson=None)]
+               pairs_per_2_weeks=29, is_fixed=False, strict_day=None, strict_lesson=None,
+               require_week=None)]
     msgs = S.precheck(curr)
-    assert any("32" in message and "бракує" in message for message in msgs)
+    assert any("32" in message and "бракує 1" in message for message in msgs)
+
+
+def test_thirty_two_pairs_suffice_with_only_two_thursday_curator_hours():
+    group = NS(name="G1", curator_id=1)
+    curr = [
+        NS(id=1, group_id=1, group=group, subject=NS(name="Виховна година"),
+           teacher_id=1, second_teacher_id=None, is_stream=False, stream_id=None,
+           pairs_per_2_weeks=2, is_fixed=True, strict_day=4, strict_lesson=4,
+           require_week=None),
+        NS(id=2, group_id=1, teacher_id=2, second_teacher_id=None,
+           is_stream=False, stream_id=None, pairs_per_2_weeks=30,
+           is_fixed=False, strict_day=None, strict_lesson=None, require_week=None),
+    ]
+    assert S.fixed_4th_days(curr) == {3, 8}
+    assert S.precheck(curr) == []
+
+
+def test_other_fixed_fourth_periods_do_not_raise_minimum_above_thirty():
+    curr = [
+        NS(id=1, group_id=1, teacher_id=1, second_teacher_id=None,
+           is_stream=False, stream_id=None, pairs_per_2_weeks=2,
+           is_fixed=True, strict_day=3, strict_lesson=4, require_week=None),
+        NS(id=2, group_id=1, teacher_id=2, second_teacher_id=None,
+           is_stream=False, stream_id=None, pairs_per_2_weeks=28,
+           is_fixed=False, strict_day=None, strict_lesson=None, require_week=None),
+    ]
+    assert S.fixed_4th_days(curr) == set()
+    assert S.precheck(curr) == []
 
 
 def test_precheck_flags_overloaded_teacher():
