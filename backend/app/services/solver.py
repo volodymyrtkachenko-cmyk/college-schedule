@@ -244,12 +244,20 @@ def precheck(curriculums: Iterable, constraints: Iterable = ()) -> list[str]:
                 weekly_min[1] += pairs
                 weekly_max[1] += pairs
             else:
-                weekly_min[0] += pairs // 2
-                weekly_min[1] += pairs // 2
-                weekly_max[0] += (pairs + 1) // 2
-                weekly_max[1] += (pairs + 1) // 2
+                weekly_max[0] += pairs
+                weekly_max[1] += pairs
         group = getattr(lst[0], "group", None)
         name = group.name if group else f"id={g_id}"
+        if total % 2:
+            problems.append(
+                f"група [{name}]: {total} пар/2 тижні — для однакової кількості "
+                "пар у чисельнику та знаменнику навантаження має бути парним"
+            )
+        if max(weekly_min) > min(weekly_max):
+            problems.append(
+                f"група [{name}]: закріплення предметів за тижнями не дозволяє "
+                "зрівняти кількість пар у чисельнику та знаменнику"
+            )
         curator_courses = [c for c in lst if _is_curator_course(c)]
         if group and group.curator_id is not None:
             if len(curator_courses) != 1:
@@ -403,11 +411,13 @@ def solve(
         if c.is_stream and c.stream_id:
             streams.setdefault(c.stream_id, []).append(c)
 
+    week_imbalance_vars = []
     for c in curriculums:
         all_vars = [X[(c.id, d, s)] for d in range(DAY_IDXS) for s in range(SLOTS)]
         model.Add(sum(all_vars) == c.pairs_per_2_weeks)
 
-        # Баланс чисельник/знаменник або прив'язка до конкретного тижня
+        # Explicit week pins are hard; otherwise prefer per-subject balance
+        # softly while group-level weekly totals remain exactly equal below.
         w1 = sum(X[(c.id, d, s)] for d in range(DAYS) for s in range(SLOTS))
         w2 = sum(X[(c.id, d, s)] for d in range(DAYS, DAY_IDXS) for s in range(SLOTS))
         
@@ -419,9 +429,19 @@ def solve(
             model.Add(w1 == 0)
             model.Add(w2 == c.pairs_per_2_weeks)
         else:
-            # Жорсткий математичний баланс (як було спочатку), щоб уникнути комбінаторного вибуху та статусу UNKNOWN
-            model.Add(w1 >= c.pairs_per_2_weeks // 2)
-            model.Add(w1 <= (c.pairs_per_2_weeks + 1) // 2)
+            week_difference = model.NewIntVar(
+                -c.pairs_per_2_weeks,
+                c.pairs_per_2_weeks,
+                f"week_difference_c{c.id}",
+            )
+            week_imbalance = model.NewIntVar(
+                0,
+                c.pairs_per_2_weeks,
+                f"week_imbalance_c{c.id}",
+            )
+            model.Add(week_difference == w1 - w2)
+            model.AddAbsEquality(week_imbalance, week_difference)
+            week_imbalance_vars.append(week_imbalance)
 
         # Закріплені пари (Може бути закріплений як конкретний день і пара, так і тільки конкретний день)
         if c.is_fixed and c.strict_day:
@@ -499,6 +519,21 @@ def solve(
                 ):
                     model.Add(X[(c.id, d, s)] == 0)
 
+    for g_id, curr_list in group_curriculums.items():
+        numerator_load = sum(
+            X[(c.id, d, s)]
+            for c in curr_list
+            for d in range(DAYS)
+            for s in range(SLOTS)
+        )
+        denominator_load = sum(
+            X[(c.id, d, s)]
+            for c in curr_list
+            for d in range(DAYS, DAY_IDXS)
+            for s in range(SLOTS)
+        )
+        model.Add(numerator_load == denominator_load)
+
     for d in range(DAY_IDXS):
         for s in range(SLOTS):
             for curr_list in group_curriculums.values():
@@ -521,7 +556,7 @@ def solve(
                         model.Add(X[(base.id, d, s)] == X[(other.id, d, s)])
 
     fixed4 = {g: fixed_4th_days(lst) for g, lst in group_curriculums.items()}
-    penalties = []
+    penalties = [week_imbalance * 10 for week_imbalance in week_imbalance_vars]
     for g_id, curr_list in group_curriculums.items():
         for d in range(DAY_IDXS):
             slots_active = []

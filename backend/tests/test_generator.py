@@ -140,13 +140,29 @@ def test_every_weekday_has_3_or_4_pairs_no_windows(solved):
 def test_subjects_are_balanced_between_weeks(solved):
     curr, _, result = solved
     week_counts = {}
+    group_week_counts = {}
+    by_id = {item.id: item for item in curr}
     for curriculum_id, day, _slot in result.assignments:
         counts = week_counts.setdefault(curriculum_id, [0, 0])
-        counts[int(day >= S.DAYS)] += 1
+        week = int(day >= S.DAYS)
+        counts[week] += 1
+        group_counts = group_week_counts.setdefault(by_id[curriculum_id].group_id, [0, 0])
+        group_counts[week] += 1
     for item in curr:
         if getattr(item, "require_week", None) is None:
             assert abs(week_counts.get(item.id, [0, 0])[0] -
                        week_counts.get(item.id, [0, 0])[1]) <= 1
+    assert all(counts[0] == counts[1] for counts in group_week_counts.values())
+
+
+def test_precheck_rejects_odd_group_load_for_week_balance():
+    curr = [
+        NS(id=1, group_id=1, teacher_id=1, second_teacher_id=None,
+           is_stream=False, stream_id=None, pairs_per_2_weeks=31,
+           is_fixed=False, strict_day=None, strict_lesson=None, require_week=None)
+    ]
+
+    assert any("навантаження має бути парним" in message for message in S.precheck(curr))
 
 
 def test_prefers_start_from_first_pair(solved):
@@ -365,6 +381,11 @@ def test_exact_block_slots_and_required_week_are_enforced():
     assert {(cid, day, slot) for cid, day, slot in result.assignments if cid == 1} == {
         (1, 0, 0), (1, 0, 1)
     }
+    weekly_totals = [
+        sum(day // S.DAYS == week for _cid, day, _slot in result.assignments)
+        for week in range(S.WEEKS)
+    ]
+    assert weekly_totals == [16, 16]
 
 
 def test_curriculum_schema_validates_week_and_exact_block_rules():
