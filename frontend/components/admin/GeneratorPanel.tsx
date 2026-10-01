@@ -17,6 +17,7 @@ export function GeneratorPanel() {
   const [filterGroupId, setFilterGroupId] = useState<number | null>(null);
   const [filterTeacherId, setFilterTeacherId] = useState<number | null>(null);
   const [activeWeek, setActiveWeek] = useState<"numerator" | "denominator">("numerator");
+  const [selectedSlotId, setSelectedSlotId] = useState<number | null>(null);
   const [draftToDelete, setDraftToDelete] = useState<DraftRecord | null>(null);
   
   const [toast, setToast] = useState<{message: string, type: "success"|"error"} | null>(null);
@@ -55,6 +56,7 @@ export function GeneratorPanel() {
       setFilterGroupId(null);
       setFilterTeacherId(null);
       setActiveWeek("numerator");
+      setSelectedSlotId(null);
     } catch(err: any) {
       setToast({message: err.message, type: "error"});
     } finally {
@@ -127,6 +129,7 @@ export function GeneratorPanel() {
       const session = await api.auth.ensureAuthenticated();
       const updated = await api.generator.moveSlot(slotId, day, lesson, week, session.access_token);
       setSlots(curr => curr.map(s => s.id === updated.id ? updated : s));
+      setSelectedSlotId(null);
       setToast({message: "Пару переміщено", type: "success"});
     } catch(err: any) {
       setToast({message: err.message, type: "error"});
@@ -150,6 +153,7 @@ export function GeneratorPanel() {
         ? filterGroupId === null || slot.curriculum.group.id === filterGroupId
         : filterTeacherId === null || slot.curriculum.teacher.id === filterTeacherId || slot.curriculum.second_teacher?.id === filterTeacherId)
     );
+    const selectedSlot = slots.find((slot) => slot.id === selectedSlotId);
     const selectOptions = (filterMode === "group" ? groups : teachers).map(({ id, name }) => ({ id, name }));
     
     return (
@@ -182,7 +186,10 @@ export function GeneratorPanel() {
                 key={week}
                 role="tab"
                 aria-selected={activeWeek === week}
-                onClick={() => setActiveWeek(week)}
+                onClick={() => {
+                  setActiveWeek(week);
+                  setSelectedSlotId(null);
+                }}
                 className={`flex-1 rounded-lg px-5 py-2 text-sm font-semibold transition-colors sm:flex-none ${
                   activeWeek === week ? "bg-sys-accent text-[#0b1120]" : "text-sys-text-secondary hover:text-sys-text-primary"
                 }`}
@@ -197,7 +204,10 @@ export function GeneratorPanel() {
                 key={mode}
                 role="tab"
                 aria-selected={filterMode === mode}
-                onClick={() => setFilterMode(mode)}
+                onClick={() => {
+                  setFilterMode(mode);
+                  setSelectedSlotId(null);
+                }}
                 className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition-colors sm:flex-none ${
                   filterMode === mode ? "bg-white/10 text-sys-text-primary" : "text-sys-text-secondary hover:text-sys-text-primary"
                 }`}
@@ -208,40 +218,60 @@ export function GeneratorPanel() {
           </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
-          {days.map((day) => (
-            <section key={day} className="overflow-hidden rounded-2xl border border-sys-border bg-sys-card/50">
-              <header className="flex items-center justify-between border-b border-sys-border px-4 py-3">
+        {selectedSlot && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-sys-accent/40 bg-sys-accent/10 px-4 py-3">
+            <p className="text-sm text-sys-text-primary">
+              Оберіть клітинку для пари <strong>{selectedSlot.curriculum.group.name} · {selectedSlot.curriculum.subject.name}</strong>
+            </p>
+            <button type="button" onClick={() => setSelectedSlotId(null)} className="rounded-lg border border-sys-border px-3 py-1.5 text-sm font-medium text-sys-text-secondary hover:text-sys-text-primary">
+              Скасувати
+            </button>
+          </div>
+        )}
+
+        <div className="overflow-x-auto rounded-2xl border border-sys-border bg-sys-card/50">
+          <div className="grid min-w-[900px] grid-cols-[5.5rem_repeat(5,minmax(10rem,1fr))]">
+            <div className="sticky left-0 z-20 border-b border-r border-sys-border bg-sys-card p-3 text-center text-xs font-semibold uppercase text-sys-text-muted">
+              Пара
+            </div>
+            {days.map((day) => (
+              <div key={day} className="border-b border-r border-sys-border bg-sys-card px-3 py-3 text-center">
                 <h3 className="font-semibold text-sys-text-primary">{dayNames[day]}</h3>
-                <span className="text-xs text-sys-text-muted">
-                  {visibleSlots.filter((slot) => slot.day_of_week === day).length} пар
-                </span>
-              </header>
-              <div className="space-y-2 p-3">
-                {[1, 2, 3, 4].map((lesson) => {
-                  const cellSlots = visibleSlots.filter((slot) => slot.day_of_week === day && slot.lesson_number === lesson);
-                  return (
-                    <div
-                      key={lesson}
-                      className="grid min-h-20 grid-cols-[3.5rem_minmax(0,1fr)] gap-2 rounded-xl border border-dashed border-sys-border/70 p-2 transition-colors hover:border-sys-accent/40"
-                      onDragOver={(event) => event.preventDefault()}
-                      onDrop={(event) => {
-                        event.preventDefault();
-                        const slotId = Number(event.dataTransfer.getData("slot_id"));
-                        if (slotId) void handleMove(slotId, day, lesson, activeWeek);
-                      }}
-                    >
-                      <div className="pt-1 text-center">
-                        <div className="text-lg font-bold leading-none text-sys-text-primary">{lesson}</div>
-                        <div className="mt-1 text-[10px] text-sys-text-muted">{lessonTimes[lesson]}</div>
-                      </div>
-                      <div className="min-w-0 space-y-1.5">
-                        {cellSlots.length ? cellSlots.map((slot) => (
+                <span className="text-xs text-sys-text-muted">{visibleSlots.filter((slot) => slot.day_of_week === day).length} пар</span>
+              </div>
+            ))}
+
+            {[1, 2, 3, 4].flatMap((lesson) => [
+              <div key={`lesson-${lesson}`} className="sticky left-0 z-10 border-b border-r border-sys-border bg-sys-card p-3 text-center">
+                <div className="text-lg font-bold text-sys-text-primary">{lesson}</div>
+                <div className="text-[10px] text-sys-text-muted">{lessonTimes[lesson]}</div>
+              </div>,
+              ...days.map((day) => {
+                const cellSlots = visibleSlots.filter((slot) => slot.day_of_week === day && slot.lesson_number === lesson);
+                const canChooseTarget = selectedSlot !== undefined;
+                return (
+                  <div
+                    key={`${lesson}-${day}`}
+                    onDragOver={(event) => event.preventDefault()}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      const slotId = Number(event.dataTransfer.getData("slot_id"));
+                      if (slotId) void handleMove(slotId, day, lesson, activeWeek);
+                    }}
+                    className={`min-h-32 border-b border-r border-sys-border p-2 transition-colors ${
+                      canChooseTarget ? "bg-sys-accent/5 hover:bg-sys-accent/10" : "hover:bg-white/[0.02]"
+                    }`}
+                  >
+                    {cellSlots.length > 0 && (
+                      <div className="space-y-2">
+                        {cellSlots.map((slot) => (
                           <article
                             key={slot.id}
                             draggable
                             onDragStart={(event) => event.dataTransfer.setData("slot_id", slot.id.toString())}
-                            className="cursor-grab rounded-lg border border-sys-border bg-sys-card p-2.5 text-sm shadow-sm active:cursor-grabbing"
+                            className={`rounded-lg border bg-sys-card p-2.5 text-sm shadow-sm ${
+                              selectedSlotId === slot.id ? "border-sys-accent ring-1 ring-sys-accent" : "border-sys-border"
+                            } cursor-grab active:cursor-grabbing`}
                           >
                             <div className="flex flex-wrap items-center justify-between gap-x-2">
                               <span className="font-semibold text-sys-accent">{slot.curriculum.group.name}</span>
@@ -252,17 +282,37 @@ export function GeneratorPanel() {
                               {slot.curriculum.teacher.name}
                               {slot.curriculum.second_teacher ? ` · ${slot.curriculum.second_teacher.name}` : ""}
                             </p>
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setSelectedSlotId(selectedSlotId === slot.id ? null : slot.id);
+                              }}
+                              className="mt-2 rounded-md border border-sys-border px-2 py-1 text-xs font-medium text-sys-text-secondary transition-colors hover:border-sys-accent/50 hover:text-sys-accent"
+                            >
+                              {selectedSlotId === slot.id ? "Обрано для переміщення" : "Перемістити"}
+                            </button>
                           </article>
-                        )) : (
-                          <div className="flex min-h-14 items-center text-xs text-sys-text-muted">Вільна пара</div>
-                        )}
+                        ))}
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          ))}
+                    )}
+                    {canChooseTarget ? (
+                      <button
+                        type="button"
+                        aria-label={`Перемістити пару на ${dayNames[day]}, ${lesson}-ту пару`}
+                        onClick={() => void handleMove(selectedSlot.id, day, lesson, activeWeek)}
+                        className="mt-2 flex min-h-10 w-full items-center justify-center rounded-lg border border-dashed border-sys-accent/40 px-2 py-2 text-xs font-medium text-sys-accent transition-colors hover:bg-sys-accent/10"
+                      >
+                        Перемістити сюди
+                      </button>
+                    ) : cellSlots.length === 0 ? (
+                      <div className="flex min-h-28 items-center justify-center text-xs text-sys-text-muted">—</div>
+                    ) : null}
+                  </div>
+                );
+              }),
+            ])}
+          </div>
         </div>
         {visibleSlots.length === 0 && (
           <p className="rounded-xl border border-dashed border-sys-border p-6 text-center text-sm text-sys-text-secondary">
