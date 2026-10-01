@@ -131,7 +131,7 @@ export default function StatisticsPage() {
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-5 sm:px-6">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-sys-accent">ДФКР</p>
-            <h1 className="mt-1 text-xl font-bold tracking-tight sm:text-2xl">Статистика навантаження</h1>
+            <h1 className="mt-1 text-xl font-bold tracking-tight sm:text-2xl">Статистика</h1>
           </div>
           <Link href="/" className="shrink-0 rounded-lg border border-sys-border px-3 py-2 text-sm font-medium text-sys-text-secondary transition-colors hover:bg-sys-hover hover:text-sys-text-primary">
             До розкладу

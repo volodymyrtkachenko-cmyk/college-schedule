@@ -152,7 +152,7 @@ export default function HomePage() {
               </a>
               <h1 onClick={handleSecretClick} className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl cursor-pointer select-none">Розклад занять</h1>
               <a href="/statistics" className="mt-1 inline-block text-sm font-medium text-sys-accent transition-colors hover:text-sys-text-primary">
-                Статистика навантаження
+                Статистика
               </a>
             </div>
             <div className="md:hidden mt-1">
