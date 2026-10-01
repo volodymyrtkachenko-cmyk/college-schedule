@@ -72,7 +72,10 @@ VALID_PATTERNS = [
 ]
 
 
-def _schedule_hint_assignments(path: str | os.PathLike[str] | None = None) -> set[tuple[int, int, int]]:
+def _schedule_hint_assignments(
+    curriculums: Iterable,
+    path: str | os.PathLike[str] | None = None,
+) -> set[tuple[int, int, int]]:
     """Read optional ``schedule.json`` hints without making them a dependency."""
     candidates = [Path(path)] if path else [
         Path(os.environ["SCHEDULE_HINT_PATH"]) if os.environ.get("SCHEDULE_HINT_PATH") else None,
@@ -89,18 +92,39 @@ def _schedule_hint_assignments(path: str | os.PathLike[str] | None = None) -> se
         rows = payload.get("assignments", payload) if isinstance(payload, dict) else payload
         if not isinstance(rows, list):
             continue
+        by_key: dict[tuple[int, int, int], list[int]] = {}
+        by_id = {c.id: c for c in curriculums}
+        for c in curriculums:
+            by_key.setdefault((c.group_id, c.teacher_id, c.subject_id), []).append(c.id)
         result = set()
         for row in rows:
             if isinstance(row, (list, tuple)) and len(row) == 3:
                 curriculum_id, day, slot = row
             elif isinstance(row, dict):
-                curriculum_id = row.get("curriculum_id", row.get("curriculumId", row.get("id")))
-                day = row.get("day_idx", row.get("day"))
-                slot = row.get("slot_idx", row.get("slot", row.get("lesson_number")))
+                curriculum_id = row.get("curriculum_id", row.get("curriculumId"))
+                day = row.get("day_idx")
+                slot = row.get("slot_idx")
+                if curriculum_id is None and {
+                    "group_id", "teacher_id", "subject_id"
+                }.issubset(row):
+                    matches = by_key.get(
+                        (row["group_id"], row["teacher_id"], row["subject_id"]), []
+                    )
+                    curriculum_id = next(
+                        (candidate for candidate in matches if candidate in by_id),
+                        None,
+                    )
+                if day is None and row.get("day_of_week") is not None:
+                    day = int(row["day_of_week"]) - 1
+                    if row.get("week_type") == "denominator":
+                        day += DAYS
+                if slot is None and row.get("lesson_number") is not None:
+                    slot = int(row["lesson_number"]) - 1
             else:
                 continue
             try:
-                result.add((int(curriculum_id), int(day), int(slot)))
+                if int(curriculum_id) in by_id and 0 <= int(day) < DAY_IDXS and 0 <= int(slot) < SLOTS:
+                    result.add((int(curriculum_id), int(day), int(slot)))
             except (TypeError, ValueError):
                 continue
         return result
