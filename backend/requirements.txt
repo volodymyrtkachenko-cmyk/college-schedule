@@ -14,3 +14,4 @@ slowapi==0.1.9
 pandas
 openpyxl
 ortools
+selectolax==0.4.13

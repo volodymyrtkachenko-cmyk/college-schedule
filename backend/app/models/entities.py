@@ -253,3 +253,11 @@ class ScheduleSlot(Base):
     
     draft: Mapped["ScheduleDraft"] = relationship(back_populates="slots")
     curriculum: Mapped["Curriculum"] = relationship(back_populates="slots")
+
+class EntityAlias(Base):
+    __tablename__ = "entity_aliases"
+    __table_args__ = (UniqueConstraint("entity_type", "parsed_name", name="uq_entity_alias_name"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    entity_type: Mapped[str] = mapped_column(String(50), index=True) # "subject", "teacher", "group"
+    parsed_name: Mapped[str] = mapped_column(String(255), index=True)
+    actual_id: Mapped[int] = mapped_column(Integer)
