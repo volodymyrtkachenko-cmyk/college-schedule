@@ -16,6 +16,8 @@ import { GeneratorPanel } from "../../components/admin/GeneratorPanel";
 import { ConstraintsPanel } from "../../components/admin/ConstraintsPanel";
 import { SchedulePeriodsPanel } from "../../components/admin/SchedulePeriodsPanel";
 import { SemesterSettingsPanel } from "../../components/admin/SemesterSettingsPanel";
+import { ImportPanel } from "../../components/admin/ImportPanel";
+
 import { ApiError } from "../../lib/api";
 
 
@@ -191,6 +193,9 @@ function AdminContent() {
           <SchedulePeriodsPanel />
         ) : currentTab === "semester" && user?.role === "admin" ? (
           <SemesterSettingsPanel />
+        ) : currentTab === "import" && user?.role === "admin" ? (
+          <ImportPanel />
+
         ) : currentTab === "users" && user?.role === "admin" ? (
           <UsersPanel />
         ) : (

@@ -359,6 +359,23 @@ export interface CurriculumMutation {
   allow_multiple_per_day?: boolean;
 }
 
+
+export interface ImporterReport {
+    unresolved: { type: string; raw: string }[];
+    substitutions: any[];
+    base_slots: any[];
+}
+export interface ImporterResponse {
+    status: string;
+    groups_processed: number;
+    report: ImporterReport;
+}
+export interface AliasMutation {
+    entity_type: string;
+    parsed_name: string;
+    actual_id: number;
+}
+
 export const apiCurriculums = {
   list: async (token: string, groupId?: number, teacherId?: number): Promise<CurriculumRecord[]> => {
     let url = `/api/curriculums/`;
@@ -517,7 +534,23 @@ export const apiConstraints = {
     return request<void>(`/api/teacher-constraints/${id}`, { method: "DELETE" }, false, true, token);
   }
 };
+
+export const apiImporter = {
+  importData: async (token: string): Promise<ImporterResponse> => {
+    return request<ImporterResponse>("/api/admin/import", {
+      method: "POST"
+    }, false, true, token);
+  },
+  bulkCreateAliases: async (aliases: AliasMutation[], token: string): Promise<{status: string, inserted: number}> => {
+    return request<{status: string, inserted: number}>("/api/aliases/bulk", {
+      method: "POST",
+      body: JSON.stringify(aliases)
+    }, false, true, token);
+  }
+};
+
 export const api = {
+  importer: apiImporter,
   constraints: apiConstraints,
   generator: apiGenerator,
   curriculums: apiCurriculums,

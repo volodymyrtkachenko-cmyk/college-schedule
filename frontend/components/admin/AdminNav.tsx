@@ -75,6 +75,10 @@ export function AdminNav({ active }: { active: string }) {
        {user?.role === "admin" && (
          <>
            <div className="mb-2 mt-6 border-t border-sys-border/50 pl-2 pt-5 text-[11px] font-bold uppercase tracking-wider text-sys-text-secondary">Підготовка розкладу</div>
+           <Link href="/admin?resource=import" onClick={() => setIsOpen(false)} className={linkClass(active === "import")}>
+             Імпорт з кре.дп.юа
+           </Link>
+
            <Link href="/admin?resource=generator" onClick={() => setIsOpen(false)} className={linkClass(active === "generator")}>
              Генератор розкладу
            </Link>
