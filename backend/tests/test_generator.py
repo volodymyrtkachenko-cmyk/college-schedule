@@ -180,6 +180,33 @@ def test_even_subject_load_is_split_equally_between_weeks():
     assert counts == {1: [1, 1], 2: [2, 2], 3: [13, 13]}
 
 
+def test_six_pair_subject_avoids_three_consecutive_weekdays_when_possible():
+    curr = [
+        NS(id=1, group_id=1, teacher_id=1, second_teacher_id=None,
+           is_stream=False, stream_id=None, pairs_per_2_weeks=6,
+           is_fixed=False, strict_day=None, strict_lesson=None,
+           require_week=None, allow_multiple_per_day=False),
+        NS(id=2, group_id=1, teacher_id=2, second_teacher_id=None,
+           is_stream=False, stream_id=None, pairs_per_2_weeks=26,
+           is_fixed=False, strict_day=None, strict_lesson=None,
+           require_week=None, allow_multiple_per_day=True),
+    ]
+
+    result = S.solve(curr, [], max_time_in_seconds=5, num_workers=2)
+
+    assert result.ok, result.status
+    subject_days = {
+        day for curriculum_id, day, _slot in result.assignments if curriculum_id == 1
+    }
+    for week_start in (0, S.DAYS):
+        weekdays = {day - week_start for day in subject_days
+                    if week_start <= day < week_start + S.DAYS}
+        assert not any(
+            all(day in weekdays for day in range(start, start + 3))
+            for start in range(S.DAYS - 2)
+        )
+
+
 def test_odd_group_load_is_allowed_and_balanced_as_close_as_possible():
     curr = [
         NS(id=1, group_id=1, teacher_id=1, second_teacher_id=None,

@@ -564,6 +564,31 @@ def solve(
         [week_imbalance * 100_000 for week_imbalance in group_week_imbalance_vars]
         + [week_imbalance * 10_000 for week_imbalance in week_imbalance_vars]
     )
+    for c in curriculums:
+        for week in range(WEEKS):
+            week_start = week * DAYS
+            daily_active = []
+            for weekday in range(DAYS):
+                day_active = model.NewBoolVar(
+                    f"active_c{c.id}_d{week_start + weekday}"
+                )
+                model.AddMaxEquality(
+                    day_active,
+                    [X[(c.id, week_start + weekday, slot)] for slot in range(SLOTS)],
+                )
+                daily_active.append(day_active)
+            for first_day in range(DAYS - 2):
+                three_consecutive_days = model.NewBoolVar(
+                    f"three_consecutive_c{c.id}_w{week}_d{first_day}"
+                )
+                model.AddBoolAnd(
+                    daily_active[first_day:first_day + 3]
+                ).OnlyEnforceIf(three_consecutive_days)
+                model.AddBoolOr(
+                    [day.Not() for day in daily_active[first_day:first_day + 3]]
+                ).OnlyEnforceIf(three_consecutive_days.Not())
+                penalties.append(three_consecutive_days * 2_000)
+
     for g_id, curr_list in group_curriculums.items():
         for d in range(DAY_IDXS):
             slots_active = []
