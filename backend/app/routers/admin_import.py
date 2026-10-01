@@ -1,3 +1,5 @@
+import asyncio
+import httpx
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,27 +19,60 @@ async def trigger_import(
     _: object = Depends(require_roles("admin"))
 ):
     """
-    Test endpoint for parsing the schedule. 
-    It fetches live data, parses it, normalizes, and compares against the database defaults.
+    Parses the schedule for ALL groups on the site.
+    Returns aggregated JSON for unresolved elements, new substitutions, and base slots.
     """
-    fetcher = ScheduleFetcher("https://kre.dp.ua/rozklad-zanyat?group=82")
+    fetcher = ScheduleFetcher()
+    parser = KREParser()
+    
     try:
-        html, current_hash = await fetcher.fetch()
-        
-        parser = KREParser()
-        parsed_week = parser.parse(html)
-        
+        # Load aliases & DB dictionaries once
         normalizer = EntityNormalizer(db)
         await normalizer.load_dictionaries()
-        
         differ = ScheduleDiffer(db, normalizer)
-        diff_report = await differ.diff(parsed_week)
+
+        group_ids = await fetcher.get_all_group_ids()
         
+        aggregated_unresolved = {}
+        aggregated_substitutions = []
+        aggregated_base_slots = []
+        
+        # We will limit concurrency so we don't spam the college site too hard
+        semaphore = asyncio.Semaphore(5)
+        
+        async def fetch_and_parse(client, g_id):
+            async with semaphore:
+                url = f"{fetcher.base_url}?group={g_id}"
+                html = await fetcher.fetch_html(client, url)
+                return parser.parse(html)
+
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            tasks = [fetch_and_parse(client, g_id) for g_id in group_ids]
+            parsed_weeks = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            for parsed_week in parsed_weeks:
+                if isinstance(parsed_week, Exception):
+                    print(f"Error parsing a group: {parsed_week}")
+                    continue
+                    
+                diff_report = await differ.diff(parsed_week)
+                
+                # Aggregate unresolved uniquely
+                for item in diff_report["unresolved"]:
+                    key = f"{item['type']}_{item['raw']}"
+                    aggregated_unresolved[key] = item
+                
+                aggregated_substitutions.extend(diff_report["substitutions"])
+                aggregated_base_slots.extend(diff_report["base_slots"])
+                
         return {
             "status": "success", 
-            "content_hash": current_hash,
-            "parsed_groups": parsed_week.groups,
-            "report": diff_report
+            "groups_processed": len(group_ids),
+            "report": {
+                "unresolved": list(aggregated_unresolved.values()),
+                "substitutions": aggregated_substitutions,
+                "base_slots": aggregated_base_slots
+            }
         }
     except Exception as e:
         traceback.print_exc()
