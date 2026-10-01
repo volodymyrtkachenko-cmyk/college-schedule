@@ -23,9 +23,7 @@ MAX_PAIRS_PER_DAY = SLOTS
 VALID_PATTERNS = [
     ((1, 1, 1, 0), 0),    # 3 пари з 1-ї — ідеал
     ((1, 1, 1, 1), 5),    # 4 пари
-    ((0, 1, 1, 1), 40),   # 3 пари з 2-ї
-    ((1, 1, 0, 0), 200),  # 2 пари з 1-ї (РЯТУВАЛЬНЕ КОЛО) — допомагає не впасти в UNKNOWN якщо навантаження не збалансоване!
-    ((0, 0, 0, 0), 500),  # Пробіл (РЯТУВАЛЬНЕ КОЛО) — якщо годин реально не вистачає
+    ((0, 1, 1, 1), 40),   # 3 пари з 2-ї — лише якщо інакше не виходить
 ]
 
 # Старі шаблони (для порівняння/діагностики): дозволяли вихідний та 2 пари.
@@ -171,9 +169,9 @@ def solve(
             model.Add(w1 == 0)
             model.Add(w2 == c.pairs_per_2_weeks)
         else:
-            # Даємо алгоритму гнучкість +/- 1 пара для маневрування, щоб компенсувати блокові предмети
-            model.Add(w1 >= max(0, (c.pairs_per_2_weeks // 2) - 1))
-            model.Add(w1 <= min(c.pairs_per_2_weeks, ((c.pairs_per_2_weeks + 1) // 2) + 1))
+            # Жорсткий математичний баланс (як було спочатку), щоб уникнути комбінаторного вибуху та статусу UNKNOWN
+            model.Add(w1 >= c.pairs_per_2_weeks // 2)
+            model.Add(w1 <= (c.pairs_per_2_weeks + 1) // 2)
 
         # Закріплені пари (Може бути закріплений як конкретний день і пара, так і тільки конкретний день)
         if c.is_fixed and c.strict_day:
@@ -266,19 +264,7 @@ def solve(
 
             pattern_vars = []
             
-            # Тепер ми завжди дозволяємо рятувальні шаблони, але якщо годин достатньо (32+), 
-            # їхній штраф стає гіпер-величезним (щоб він використовувався ТІЛЬКИ для уникнення зависання UNKNOWN)
-            total_pairs_for_group = sum(c.pairs_per_2_weeks for c in curr_list)
-            allowed_patterns = []
-            for pat, pen in patterns:
-                if sum(pat) < 3 and total_pairs_for_group >= 32:
-                    # М'яка, але дуже жорстка заборона (штраф 10000). Алгоритм уникне цього за всяку ціну,
-                    # але якщо розклад скласти фізично неможливо, він обере це замість падіння з UNKNOWN.
-                    allowed_patterns.append((pat, pen * 50))
-                else:
-                    allowed_patterns.append((pat, pen))
-
-            for p_idx, (pat, pen) in enumerate(allowed_patterns):
+            for p_idx, (pat, pen) in enumerate(patterns):
                 p = model.NewBoolVar(f"pat_{g_id}_{d}_{p_idx}")
                 pattern_vars.append(p)
                 if pen:
@@ -298,12 +284,12 @@ def solve(
     solver.parameters.max_time_in_seconds = max_time_in_seconds
     import os
     cpus = os.cpu_count() or 1
-    # Не можна запускати багато потоків на слабких хмарних серверах (Render Free = 0.1 CPU), бо потоки блокуватимуть один одного
-    actual_workers = min(num_workers, cpus)
+    # Завжди беремо мінімум 2 потоки, щоб активувати Portfolio Search (різні евристики одночасно),
+    # що критично важливо для складних тетріс-розкладів.
+    actual_workers = max(2, min(num_workers, cpus))
     solver.parameters.num_search_workers = actual_workers
     
-    # Використовуємо LNS інтесивно для складних розкладів
-    solver.parameters.linearization_level = 0
+
     
     if seed is not None:
         solver.parameters.random_seed = seed
