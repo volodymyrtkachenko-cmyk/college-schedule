@@ -155,6 +155,25 @@ export function GeneratorPanel() {
     );
     const selectedSlot = slots.find((slot) => slot.id === selectedSlotId);
     const selectOptions = (filterMode === "group" ? groups : teachers).map(({ id, name }) => ({ id, name }));
+    const canMoveTo = (day: number, lesson: number) => {
+      if (!selectedSlot || (selectedSlot.day_of_week === day && selectedSlot.lesson_number === lesson)) return false;
+
+      const movingTeacherIds = new Set([
+        selectedSlot.curriculum.teacher.id,
+        ...(selectedSlot.curriculum.second_teacher ? [selectedSlot.curriculum.second_teacher.id] : []),
+      ]);
+      return !slots.some((slot) => {
+        if (slot.id === selectedSlot.id || slot.day_of_week !== day || slot.lesson_number !== lesson) return false;
+        if (slot.week_type !== "both" && slot.week_type !== activeWeek) return false;
+        if (slot.curriculum.group.id === selectedSlot.curriculum.group.id) return true;
+
+        const targetTeacherIds = [
+          slot.curriculum.teacher.id,
+          ...(slot.curriculum.second_teacher ? [slot.curriculum.second_teacher.id] : []),
+        ];
+        return targetTeacherIds.some((teacherId) => movingTeacherIds.has(teacherId));
+      });
+    };
     
     return (
       <div className="flex flex-col gap-5">
@@ -221,7 +240,7 @@ export function GeneratorPanel() {
         {selectedSlot && (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-sys-accent/40 bg-sys-accent/10 px-4 py-3">
             <p className="text-sm text-sys-text-primary">
-              Оберіть клітинку для пари <strong>{selectedSlot.curriculum.group.name} · {selectedSlot.curriculum.subject.name}</strong>
+              Оберіть зелену клітинку для пари <strong>{selectedSlot.curriculum.group.name} · {selectedSlot.curriculum.subject.name}</strong>. Зеленим позначено вільні для неї слоти.
             </p>
             <button type="button" onClick={() => setSelectedSlotId(null)} className="rounded-lg border border-sys-border px-3 py-1.5 text-sm font-medium text-sys-text-secondary hover:text-sys-text-primary">
               Скасувати
@@ -248,7 +267,7 @@ export function GeneratorPanel() {
               </div>,
               ...days.map((day) => {
                 const cellSlots = visibleSlots.filter((slot) => slot.day_of_week === day && slot.lesson_number === lesson);
-                const canChooseTarget = selectedSlot !== undefined;
+                const canChooseTarget = selectedSlot !== undefined && canMoveTo(day, lesson);
                 return (
                   <div
                     key={`${lesson}-${day}`}
@@ -259,7 +278,7 @@ export function GeneratorPanel() {
                       if (slotId) void handleMove(slotId, day, lesson, activeWeek);
                     }}
                     className={`min-h-32 border-b border-r border-sys-border p-2 transition-colors ${
-                      canChooseTarget ? "bg-sys-accent/5 hover:bg-sys-accent/10" : "hover:bg-white/[0.02]"
+                      canChooseTarget ? "bg-emerald-500/[0.08] ring-1 ring-inset ring-emerald-400/40" : "hover:bg-white/[0.02]"
                     }`}
                   >
                     {cellSlots.length > 0 && (
@@ -300,8 +319,10 @@ export function GeneratorPanel() {
                       <button
                         type="button"
                         aria-label={`Перемістити пару на ${dayNames[day]}, ${lesson}-ту пару`}
-                        onClick={() => void handleMove(selectedSlot.id, day, lesson, activeWeek)}
-                        className="mt-2 flex min-h-10 w-full items-center justify-center rounded-lg border border-dashed border-sys-accent/40 px-2 py-2 text-xs font-medium text-sys-accent transition-colors hover:bg-sys-accent/10"
+                        onClick={() => {
+                          if (selectedSlot) void handleMove(selectedSlot.id, day, lesson, activeWeek);
+                        }}
+                        className="mt-2 flex min-h-10 w-full items-center justify-center rounded-lg border border-emerald-400/40 bg-emerald-500/10 px-2 py-2 text-xs font-semibold text-emerald-300 transition-colors hover:bg-emerald-500/20"
                       >
                         Перемістити сюди
                       </button>
