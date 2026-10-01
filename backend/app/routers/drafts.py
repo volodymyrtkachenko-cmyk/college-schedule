@@ -41,6 +41,7 @@ async def delete_draft(
     draft = await db.get(ScheduleDraft, id)
     if not draft:
         raise HTTPException(status_code=404, detail="Draft not found")
+    await db.execute(delete(ScheduleSlot).where(ScheduleSlot.draft_id == id))
     await db.delete(draft)
     await db.commit()
     return None

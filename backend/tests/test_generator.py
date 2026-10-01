@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
 from app.main import app
 from app.database import Base, get_db
-from app.models import Curriculum, Faculty, Group, ScheduleSlot, Subject, Teacher, User
+from app.models import Curriculum, Faculty, Group, ScheduleDraft, ScheduleSlot, Subject, Teacher, User
 from app.schemas.curriculum import CurriculumCreate, CurriculumUpdate
 from app.core.security import create_access_token
 from app.services import solver as S
@@ -559,3 +559,34 @@ async def test_api_returns_safe_diagnostics_on_solver_timeout(gen_client, monkey
     draft_id = resp.json()["id"]
     status_resp = await client.get(f"/api/drafts/{draft_id}", headers=headers)
     assert status_resp.json()["status"] == "TIMEOUT"
+
+
+@pytest.mark.anyio
+async def test_delete_generated_draft_also_removes_its_slots(gen_client):
+    client, headers, sessions, fac = gen_client
+    await _seed(sessions, fac, [("G1", 32)])
+
+    async with sessions() as session:
+        curriculum = (await session.scalars(select(Curriculum))).first()
+        draft = ScheduleDraft(name="Generated draft", status="DRAFT")
+        session.add(draft)
+        await session.flush()
+        session.add(ScheduleSlot(
+            draft_id=draft.id,
+            curriculum_id=curriculum.id,
+            day_of_week=1,
+            lesson_number=1,
+            week_type="both",
+        ))
+        await session.commit()
+        draft_id = draft.id
+
+    response = await client.delete(f"/api/drafts/{draft_id}", headers=headers)
+
+    assert response.status_code == 204
+    assert (await client.get(f"/api/drafts/{draft_id}", headers=headers)).status_code == 404
+    async with sessions() as session:
+        slots = (await session.scalars(
+            select(ScheduleSlot).where(ScheduleSlot.draft_id == draft_id)
+        )).all()
+    assert slots == []

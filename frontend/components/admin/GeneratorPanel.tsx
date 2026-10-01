@@ -13,6 +13,7 @@ export function GeneratorPanel() {
   const [activeDraft, setActiveDraft] = useState<DraftRecord | null>(null);
   const [slots, setSlots] = useState<DraftSlotRecord[]>([]);
   const [filterGroup, setFilterGroup] = useState<string>("");
+  const [draftToDelete, setDraftToDelete] = useState<DraftRecord | null>(null);
   
   const [toast, setToast] = useState<{message: string, type: "success"|"error"} | null>(null);
 
@@ -89,7 +90,6 @@ export function GeneratorPanel() {
   }
 
   async function handleDelete(id: number) {
-    if (!confirm("Ви впевнені?")) return;
     try {
       const session = await api.auth.ensureAuthenticated();
       await api.generator.deleteDraft(id, session.access_token);
@@ -97,6 +97,8 @@ export function GeneratorPanel() {
       await loadDrafts();
     } catch(err: any) {
       setToast({message: err.message, type: "error"});
+    } finally {
+      setDraftToDelete(null);
     }
   }
 
@@ -230,7 +232,7 @@ export function GeneratorPanel() {
                     {d.status !== 'published' && (
                        <button onClick={() => handlePublish(d.id)} className="px-3 py-1.5 text-xs font-semibold rounded bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition">Опублікувати</button>
                     )}
-                    <button onClick={() => handleDelete(d.id)} className="px-3 py-1.5 text-xs font-semibold rounded bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition">Видалити</button>
+                    <button onClick={() => setDraftToDelete(d)} className="px-3 py-1.5 text-xs font-semibold rounded bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition">Видалити</button>
                   </td>
                 </tr>
               ))}
@@ -245,6 +247,15 @@ export function GeneratorPanel() {
       )}
 
       {toast && <Toast toast={toast} />}
+      <ConfirmModal
+        isOpen={draftToDelete !== null}
+        title="Видалити розклад?"
+        message={draftToDelete ? `Чернетку «${draftToDelete.name}» та всі її пари буде видалено без можливості відновлення.` : undefined}
+        onConfirm={() => {
+          if (draftToDelete) void handleDelete(draftToDelete.id);
+        }}
+        onCancel={() => setDraftToDelete(null)}
+      />
     </>
   );
 }

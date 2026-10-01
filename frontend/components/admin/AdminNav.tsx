@@ -42,6 +42,12 @@ export function AdminNav({ active }: { active: string }) {
   }, [isOpen]);
 
   const resources = Object.keys(referenceLabels) as ReferenceResource[];
+  const linkClass = (isActive: boolean) =>
+    `flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+      isActive
+        ? "border border-sys-accent/20 bg-sys-accent/10 text-sys-accent"
+        : "border border-transparent text-sys-text-secondary hover:bg-white/5 hover:text-sys-text-primary"
+    }`;
 
   // This renders the inner content of the sidebar navigation
   const NavigationLinks = () => (
@@ -61,40 +67,35 @@ export function AdminNav({ active }: { active: string }) {
        </button>
        </div>
 
-       <div className="text-[11px] font-bold uppercase tracking-wider text-sys-text-secondary mb-2 pl-2">Головна панель</div>
-       <Link href="/admin?resource=schedule" onClick={() => setIsOpen(false)} className={`flex items-center gap-3 px-3 py-2.5 text-[15px] font-medium rounded-xl transition-all duration-200 active:scale-95 ${active === "schedule" ? "bg-sys-accent text-[#0b1120] shadow-md shadow-sys-accent/20" : "text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/5"}`}>
-         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-         Розклад
+       <div className="mb-2 pl-2 text-[11px] font-bold uppercase tracking-wider text-sys-text-secondary">Розклад</div>
+       <Link href="/admin?resource=schedule" onClick={() => setIsOpen(false)} className={linkClass(active === "schedule")}>
+         Перегляд і редагування
        </Link>
 
        {user?.role === "admin" && (
          <>
-           <div className="text-[11px] border-t border-sys-border/50 pt-5 font-bold uppercase tracking-wider text-sys-text-secondary mt-6 mb-2 pl-2">Виробництво</div>
-       <Link href="/admin?resource=generator" onClick={() => setIsOpen(false)} className={`flex items-center gap-3 px-3 py-2 text-[14px] font-medium rounded-lg transition-colors ${active === "generator" ? "bg-sys-accent/10 border border-sys-accent/20 text-sys-accent" : "text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/5 border border-transparent"}`}>
-         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-         Генератор (Штучний Інтелект)
-       </Link>
-       <div className="text-[11px] border-t border-sys-border/50 pt-5 font-bold uppercase tracking-wider text-sys-text-secondary mt-6 mb-2 pl-2">Документи</div>
-       <Link href="/admin?resource=constraints" onClick={() => setIsOpen(false)} className={`flex items-center gap-3 px-3 py-2 text-[14px] font-medium rounded-lg transition-colors ${active === "constraints" ? "bg-sys-accent/10 border border-sys-accent/20 text-sys-accent" : "text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/5 border border-transparent"}`}>
-         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>
-         Недоступність викладачів
-       </Link>
-       <Link href="/admin?resource=curriculum" onClick={() => setIsOpen(false)} className={`flex items-center gap-3 px-3 py-2 text-[14px] font-medium rounded-lg transition-colors ${active === "curriculum" ? "bg-sys-accent/10 border border-sys-accent/20 text-sys-accent" : "text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/5 border border-transparent"}`}>
-         Навантаження
-       </Link>
-       <div className="text-[11px] border-t border-sys-border/50 pt-5 font-bold uppercase tracking-wider text-sys-text-secondary mt-6 mb-2 pl-2">База даних</div>
+           <div className="mb-2 mt-6 border-t border-sys-border/50 pl-2 pt-5 text-[11px] font-bold uppercase tracking-wider text-sys-text-secondary">Підготовка розкладу</div>
+           <Link href="/admin?resource=generator" onClick={() => setIsOpen(false)} className={linkClass(active === "generator")}>
+             Створити розклад
+           </Link>
+           <Link href="/admin?resource=constraints" onClick={() => setIsOpen(false)} className={linkClass(active === "constraints")}>
+             Доступність викладачів
+           </Link>
+           <Link href="/admin?resource=curriculum" onClick={() => setIsOpen(false)} className={linkClass(active === "curriculum")}>
+             Навчальне навантаження
+           </Link>
+           <div className="mb-2 mt-6 border-t border-sys-border/50 pl-2 pt-5 text-[11px] font-bold uppercase tracking-wider text-sys-text-secondary">Довідники</div>
            <div className="space-y-1">
              {resources.map(r => (
-               <Link key={r} href={`/admin?resource=${r}`} onClick={() => setIsOpen(false)} className={`flex items-center gap-3 px-3 py-2 text-[14px] font-medium rounded-lg transition-colors ${active === r ? "bg-sys-accent/10 border border-sys-accent/20 text-sys-accent" : "text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/5 border border-transparent"}`}>
+               <Link key={r} href={`/admin?resource=${r}`} onClick={() => setIsOpen(false)} className={linkClass(active === r)}>
                  {referenceLabels[r]}
                </Link>
              ))}
            </div>
 
-           <div className="text-[11px] border-t border-sys-border/50 pt-5 font-bold uppercase tracking-wider text-sys-text-secondary mt-6 mb-2 pl-2">Доступ</div>
-           <Link href="/admin?resource=users" onClick={() => setIsOpen(false)} className={`flex items-center gap-3 px-3 py-2 text-[14px] font-medium rounded-lg transition-colors ${active === "users" ? "bg-sys-accent/10 border border-sys-accent/20 text-sys-accent" : "text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/5 border border-transparent"}`}>
-             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-             Менеджери
+           <div className="mb-2 mt-6 border-t border-sys-border/50 pl-2 pt-5 text-[11px] font-bold uppercase tracking-wider text-sys-text-secondary">Користувачі</div>
+           <Link href="/admin?resource=users" onClick={() => setIsOpen(false)} className={linkClass(active === "users")}>
+             Облікові записи
            </Link>
          </>
        )}
