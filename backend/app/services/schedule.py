@@ -4,7 +4,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload, with_loader_criteria
 
-from app.models import LessonNote, Schedule, Teacher
+from app.models import LessonNote, Schedule, SchedulePeriod, SchedulePeriodSlot
 from app.services.settings import settings_service
 from app.services.week import get_week_type
 
@@ -28,7 +28,13 @@ async def fetch_schedule(db: AsyncSession, target_date: date,
     semester_start = await settings_service.get_semester_start(db)
     week_type = get_week_type(target_date, semester_start)
     weekday = target_date.isoweekday() if day_of_week is None else day_of_week
-    
+
+    periods = await _active_periods(db, target_date)
+    if any(period.period_type == "holiday" for period in periods):
+        return week_type, []
+
+    practice_periods = [period for period in periods if period.period_type == "practice"]
+    practice_group_ids = {group.id for period in practice_periods for group in period.groups}
     conditions = [
         Schedule.day_of_week == weekday,
         Schedule.is_active.is_(True),
@@ -36,41 +42,73 @@ async def fetch_schedule(db: AsyncSession, target_date: date,
     ]
     if group_id is not None:
         conditions.append(Schedule.group_id == group_id)
+    if practice_group_ids:
+        conditions.append(Schedule.group_id.not_in(practice_group_ids))
     if teacher_id is not None:
         conditions.append(or_(Schedule.teacher_id == teacher_id, Schedule.second_teacher_id == teacher_id))
-        
+
     query = (
         select(Schedule)
         .where(*conditions)
         .options(*_schedule_load_options(target_date=target_date))
     )
-    return week_type, (await db.scalars(query.order_by(Schedule.lesson_number))).unique().all()
+    regular_lessons = (await db.scalars(query.order_by(Schedule.lesson_number))).unique().all()
+
+    practice_slots = []
+    if practice_periods:
+        slot_conditions = [
+            SchedulePeriodSlot.period_id.in_([period.id for period in practice_periods]),
+            SchedulePeriodSlot.day_of_week == weekday,
+        ]
+        if group_id is not None:
+            slot_conditions.append(SchedulePeriodSlot.group_id == group_id)
+        if teacher_id is not None:
+            slot_conditions.append(or_(
+                SchedulePeriodSlot.teacher_id == teacher_id,
+                SchedulePeriodSlot.second_teacher_id == teacher_id,
+            ))
+        slot_query = (
+            select(SchedulePeriodSlot)
+            .where(*slot_conditions)
+            .options(
+                joinedload(SchedulePeriodSlot.group),
+                joinedload(SchedulePeriodSlot.subject),
+                joinedload(SchedulePeriodSlot.teacher),
+                joinedload(SchedulePeriodSlot.second_teacher),
+            )
+        )
+        practice_slots = (await db.scalars(slot_query)).unique().all()
+
+    return week_type, sorted(
+        [*regular_lessons, *practice_slots],
+        key=lambda item: (item.lesson_number, item.group.name),
+    )
+
+
+async def _active_periods(db: AsyncSession, target_date: date):
+    result = await db.scalars(
+        select(SchedulePeriod)
+        .where(SchedulePeriod.start_date <= target_date, SchedulePeriod.end_date >= target_date)
+        .options(selectinload(SchedulePeriod.groups))
+    )
+    return result.unique().all()
 
 
 async def fetch_week_schedule(db: AsyncSession, start_date: date, group_id: int | None = None, teacher_id: int | None = None):
-    """Fetch a whole week and its notes in one batched schedule/notes load."""
+    """Fetch date-aware schedules for weekdays, including temporary periods."""
     semester_start = await settings_service.get_semester_start(db)
     week_type = get_week_type(start_date, semester_start)
-    end_date = start_date + timedelta(days=6)
-    
-    conditions = [
-        Schedule.is_active.is_(True),
-        Schedule.week_type.in_(("both", week_type)),
-        Schedule.day_of_week.between(1, 5),
-    ]
-    if group_id is not None:
-        conditions.append(Schedule.group_id == group_id)
-    if teacher_id is not None:
-        conditions.append(or_(Schedule.teacher_id == teacher_id, Schedule.second_teacher_id == teacher_id))
-        
-    query = (
-        select(Schedule)
-        .where(*conditions)
-        .options(*_schedule_load_options(start_date=start_date, end_date=end_date))
-        .order_by(Schedule.day_of_week, Schedule.lesson_number)
-    )
-    lessons = (await db.scalars(query)).unique().all()
-    return week_type, lessons
+    lessons_by_day = {}
+    for weekday in range(1, 6):
+        target_date = start_date + timedelta(days=weekday - 1)
+        _, lessons_by_day[weekday] = await fetch_schedule(
+            db,
+            target_date,
+            group_id=group_id,
+            teacher_id=teacher_id,
+            day_of_week=weekday,
+        )
+    return week_type, lessons_by_day
 
 
 def week_types_overlap(left: str, right: str) -> bool:

@@ -9,7 +9,7 @@ from slowapi.errors import RateLimitExceeded
 from app.analytics import track_request
 from app.config import settings
 from app.database import engine
-from app.routers import health, curriculums, generator, teacher_constraints, drafts
+from app.routers import health, curriculums, generator, teacher_constraints, drafts, schedule_periods
 from app.routers import auth, directory, lesson_notes, schedule, users, settings as settings_router
 
 import subprocess
@@ -72,4 +72,5 @@ app.include_router(settings_router.router, prefix="/api")
 app.include_router(curriculums.router, prefix="/api")
 app.include_router(generator.router, prefix="/api")
 app.include_router(drafts.router, prefix="/api")
+app.include_router(schedule_periods.router, prefix="/api")
 app.include_router(teacher_constraints.router, prefix="/api")

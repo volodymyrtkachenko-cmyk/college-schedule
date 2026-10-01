@@ -1,6 +1,6 @@
 from datetime import date, datetime, time
 from typing import Optional
-from sqlalchemy import Table, Column, Boolean, Date, DateTime, ForeignKey, Integer, String, Text, Time, UniqueConstraint, Index
+from sqlalchemy import Table, Column, Boolean, CheckConstraint, Date, DateTime, ForeignKey, Integer, String, Text, Time, UniqueConstraint, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
@@ -8,6 +8,13 @@ user_group_access = Table(
     "user_group_access",
     Base.metadata,
     Column("user_id", ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+    Column("group_id", ForeignKey("groups.id", ondelete="CASCADE"), primary_key=True),
+)
+
+schedule_period_groups = Table(
+    "schedule_period_groups",
+    Base.metadata,
+    Column("period_id", ForeignKey("schedule_periods.id", ondelete="CASCADE"), primary_key=True),
     Column("group_id", ForeignKey("groups.id", ondelete="CASCADE"), primary_key=True),
 )
 
@@ -137,6 +144,55 @@ class ScheduleOverride(Base):
     subject_id: Mapped[Optional[int]] = mapped_column(ForeignKey("subjects.id"))
     room: Mapped[Optional[str]] = mapped_column(String(100))
     cancelled: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class SchedulePeriod(Base):
+    __tablename__ = "schedule_periods"
+    __table_args__ = (
+        CheckConstraint("period_type IN ('practice', 'holiday')", name="ck_schedule_period_type"),
+        CheckConstraint("start_date <= end_date", name="ck_schedule_period_dates"),
+        Index("ix_schedule_period_dates", "start_date", "end_date"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(255))
+    period_type: Mapped[str] = mapped_column(String(20))
+    start_date: Mapped[date] = mapped_column(Date, index=True)
+    end_date: Mapped[date] = mapped_column(Date, index=True)
+
+    groups: Mapped[list["Group"]] = relationship(secondary=schedule_period_groups)
+    slots: Mapped[list["SchedulePeriodSlot"]] = relationship(
+        back_populates="period", cascade="all, delete-orphan"
+    )
+
+
+class SchedulePeriodSlot(Base):
+    __tablename__ = "schedule_period_slots"
+    __table_args__ = (
+        UniqueConstraint("period_id", "group_id", "day_of_week", "lesson_number", name="uq_period_group_slot"),
+        CheckConstraint("day_of_week BETWEEN 1 AND 5", name="ck_period_slot_weekday"),
+        CheckConstraint("lesson_number BETWEEN 1 AND 4", name="ck_period_slot_lesson"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    period_id: Mapped[int] = mapped_column(ForeignKey("schedule_periods.id", ondelete="CASCADE"), index=True)
+    group_id: Mapped[int] = mapped_column(ForeignKey("groups.id", ondelete="CASCADE"), index=True)
+    subject_id: Mapped[int] = mapped_column(ForeignKey("subjects.id"))
+    teacher_id: Mapped[int] = mapped_column(ForeignKey("teachers.id"))
+    second_teacher_id: Mapped[Optional[int]] = mapped_column(ForeignKey("teachers.id"), nullable=True)
+    day_of_week: Mapped[int] = mapped_column(Integer)
+    lesson_number: Mapped[int] = mapped_column(Integer)
+    room_override: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+
+    period: Mapped["SchedulePeriod"] = relationship(back_populates="slots")
+    group: Mapped["Group"] = relationship()
+    subject: Mapped["Subject"] = relationship()
+    teacher: Mapped["Teacher"] = relationship(foreign_keys=[teacher_id])
+    second_teacher: Mapped[Optional["Teacher"]] = relationship(foreign_keys=[second_teacher_id])
+
+    @property
+    def week_type(self) -> str:
+        return "both"
 
 
 class Curriculum(Base):

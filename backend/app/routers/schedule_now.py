@@ -33,7 +33,7 @@ async def get_schedule_now(db: AsyncSession = Depends(get_db)):
 
     response_data = []
     for ln in active_lessons:
-        ovr = next((o for o in ln.overrides if o.date == today_date), None)
+        ovr = next((o for o in getattr(ln, "overrides", []) if o.date == today_date), None)
         if ovr and ovr.cancelled:
             continue
             
@@ -46,10 +46,10 @@ async def get_schedule_now(db: AsyncSession = Depends(get_db)):
             room_val = ovr.room
         elif ln.room_override:
             room_val = ln.room_override
-        elif ovr and ovr.teacher and ovr.teacher.default_room:
-            room_val = ovr.teacher.default_room
-        elif not ovr and ln.teacher and ln.teacher.default_room:
-            room_val = ln.teacher.default_room
+        elif ovr and ovr.teacher and ovr.teacher.room:
+            room_val = ovr.teacher.room
+        elif not ovr and ln.teacher and ln.teacher.room:
+            room_val = ln.teacher.room
             
         response_data.append({
             "lesson_number": ln.lesson_number,

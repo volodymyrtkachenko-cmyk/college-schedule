@@ -44,11 +44,11 @@ async def get_bell_times(db):
         return {r.lesson_number: (r.start_time.strftime('%H:%M'), r.end_time.strftime('%H:%M')) for r in records}
     return dict()
 
-def to_item(item, week_type, target_date, bell_times=None):
+def to_item(item, week_type, target_date, bell_times=None, *, item_id=None, is_replacement=None):
     if bell_times is None:
         bell_times = {}
 
-    matching_note = next((n for n in item.notes if n.note_date == target_date), None)
+    matching_note = next((n for n in getattr(item, "notes", []) if n.note_date == target_date), None)
     t_names = []
     t_rooms = []
     if item.teacher:
@@ -61,14 +61,14 @@ def to_item(item, week_type, target_date, bell_times=None):
             t_rooms.append(item.second_teacher.room)
     teacher_name = " / ".join(t_names) if t_names else None
     room_name = getattr(item, 'room_override', None) or (" / ".join(t_rooms) if t_rooms else None)
-    return ScheduleItem(id=item.id, group_id=item.group_id, subject_id=item.subject_id, teacher_id=item.teacher_id, second_teacher_id=item.second_teacher_id,
+    return ScheduleItem(id=item.id if item_id is None else item_id, group_id=item.group_id, subject_id=item.subject_id, teacher_id=item.teacher_id, second_teacher_id=item.second_teacher_id,
         day_of_week=item.day_of_week, lesson_number=item.lesson_number,
         time=f"{bell_times.get(item.lesson_number, ('00:00', '00:00'))[0]}-{bell_times.get(item.lesson_number, ('', ''))[1]}",
         subject=item.subject.name, teacher=teacher_name, room=room_name, room_override=getattr(item, 'room_override', None),
         subject_name=item.subject.name, teacher_name=teacher_name,
         week_type=item.week_type,
         is_relevant_this_week=item.week_type in ("both", week_type),
-        is_replacement=getattr(item, "is_replacement", False),
+        is_replacement=getattr(item, "is_replacement", False) if is_replacement is None else is_replacement,
         group_name=getattr(item.group, "name", None),
         note=matching_note.note if matching_note else None,
         note_id=matching_note.id if matching_note else None)
@@ -81,7 +81,17 @@ async def schedule(group_id: int | None = None, teacher_id: int | None = None,
     week_type, lessons = await fetch_schedule(db=db, target_date=target_date, group_id=group_id, teacher_id=teacher_id, day_of_week=day_of_week)
     bell_t = await get_bell_times(db)
     return ScheduleResponse(date=target_date, week_type=week_type,
-                            lessons=[to_item(x, week_type, target_date, bell_t) for x in lessons])
+                            lessons=[
+                                to_item(
+                                    lesson,
+                                    week_type,
+                                    target_date,
+                                    bell_t,
+                                    item_id=-lesson.id if hasattr(lesson, "period_id") else None,
+                                    is_replacement=True if hasattr(lesson, "period_id") else None,
+                                )
+                                for lesson in lessons
+                            ])
 
 @router.get("/schedule/today", response_model=ScheduleResponse)
 async def today(response: Response, group_id: int | None = None, teacher_id: int | None = None, db: AsyncSession = Depends(get_db)):
@@ -99,18 +109,22 @@ async def week(response: Response, group_id: int | None = None, teacher_id: int 
     response.headers["Vary"] = "Date, Origin, Accept-Encoding"
     requested = target_date or date.today()
     start = requested - timedelta(days=requested.isoweekday() - 1)
-    week_type, lessons = await fetch_week_schedule(db, start, group_id, teacher_id)
+    week_type, lessons_by_day = await fetch_week_schedule(db, start, group_id, teacher_id)
     bell_t = await get_bell_times(db)
-    by_day = {}
-    for lesson in lessons:
-        by_day.setdefault(lesson.day_of_week, []).append(lesson)
     return [
         ScheduleResponse(
             date=start + timedelta(days=i),
             week_type=week_type,
             lessons=[
-                to_item(lesson, week_type, start + timedelta(days=i), bell_t)
-                for lesson in by_day.get(i + 1, [])
+                to_item(
+                    lesson,
+                    week_type,
+                    start + timedelta(days=i),
+                    bell_t,
+                    item_id=-lesson.id if hasattr(lesson, "period_id") else None,
+                    is_replacement=True if hasattr(lesson, "period_id") else None,
+                )
+                for lesson in lessons_by_day.get(i + 1, [])
             ],
         )
         for i in range(5)
@@ -313,4 +327,3 @@ async def bulk_curator_hours(payload: BulkCuratorRequest, db: AsyncSession = Dep
         await db.rollback()
         logger.exception("bulk_curator_hours failed")
         raise HTTPException(status_code=500, detail="Внутрішня помилка сервера")
-

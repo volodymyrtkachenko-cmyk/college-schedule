@@ -356,6 +356,62 @@ export const apiCurriculums = {
   }
 };
 
+export type SchedulePeriodType = "practice" | "holiday";
+
+export interface SchedulePeriodSlotMutation {
+  group_id: number;
+  subject_id: number;
+  teacher_id: number;
+  second_teacher_id?: number | null;
+  day_of_week: number;
+  lesson_number: number;
+  room_override?: string | null;
+}
+
+export interface SchedulePeriodSlotRecord extends SchedulePeriodSlotMutation {
+  id: number;
+  group: DirectoryItem;
+  subject: DirectoryItem;
+  teacher: DirectoryItem;
+  second_teacher: DirectoryItem | null;
+}
+
+export interface SchedulePeriodRecord {
+  id: number;
+  name: string;
+  period_type: SchedulePeriodType;
+  start_date: string;
+  end_date: string;
+  groups: DirectoryItem[];
+  slots: SchedulePeriodSlotRecord[];
+}
+
+export interface SchedulePeriodMutation {
+  name: string;
+  period_type: SchedulePeriodType;
+  start_date: string;
+  end_date: string;
+  group_ids: number[];
+  slots: SchedulePeriodSlotMutation[];
+}
+
+export const apiSchedulePeriods = {
+  list: (token: string): Promise<SchedulePeriodRecord[]> =>
+    request<SchedulePeriodRecord[]>("/api/calendar-periods/", {}, false, true, token),
+  create: (payload: SchedulePeriodMutation, token: string): Promise<SchedulePeriodRecord> =>
+    request<SchedulePeriodRecord>("/api/calendar-periods/", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }, false, true, token),
+  update: (id: number, payload: SchedulePeriodMutation, token: string): Promise<SchedulePeriodRecord> =>
+    request<SchedulePeriodRecord>(`/api/calendar-periods/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }, false, true, token),
+  remove: (id: number, token: string): Promise<void> =>
+    request<void>(`/api/calendar-periods/${id}`, { method: "DELETE" }, false, true, token),
+};
+
 export interface DraftSlotRecord {
   id: number;
   draft_id: number;
@@ -432,6 +488,7 @@ export const api = {
   constraints: apiConstraints,
   generator: apiGenerator,
   curriculums: apiCurriculums,
+  calendarPeriods: apiSchedulePeriods,
     auth: {
         login: async (username: string, password: string) => {
             const session = await rawRequest<AuthSession>("/api/auth/login", {

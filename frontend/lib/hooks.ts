@@ -6,7 +6,19 @@ import { useAuth } from "./auth";
 
 
 const memoryCache = new Map<string, { time: number; today: ScheduleResponse; week: ScheduleResponse[] }>();
-const CACHE_TTL = 1000 * 60 * 5; // 5 minutes
+const CACHE_TTL = 1000 * 60;
+
+export function invalidateScheduleCache() {
+  memoryCache.clear();
+  for (let index = 0; index < window.localStorage.length; index++) {
+    const key = window.localStorage.key(index);
+    if (key?.startsWith("schedule:today:") || key?.startsWith("schedule:week:")) {
+      window.localStorage.removeItem(key);
+      index--;
+    }
+  }
+  window.dispatchEvent(new Event("schedule:refresh"));
+}
 
 export function useOnlineStatus() {
   const [online, setOnline] = useState(true);
@@ -191,14 +203,17 @@ export function useSchedule(weekAnchorDate: Date) {
     const handleOnline = () => {
         fetchSchedule(true);
     };
+    const handleScheduleRefresh = () => fetchSchedule(true);
 
     window.addEventListener("visibilitychange", handleVisibility);
     window.addEventListener("online", handleOnline);
+    window.addEventListener("schedule:refresh", handleScheduleRefresh);
 
     return () => {
       isSubscribed = false;
       window.removeEventListener("visibilitychange", handleVisibility);
       window.removeEventListener("online", handleOnline);
+      window.removeEventListener("schedule:refresh", handleScheduleRefresh);
     };
   }, [mode, groupId, teacherId, weekAnchorDate]);
 
