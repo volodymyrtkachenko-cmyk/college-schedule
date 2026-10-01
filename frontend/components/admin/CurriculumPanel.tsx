@@ -70,8 +70,10 @@ export function CurriculumPanel() {
            i.subject.name.toLowerCase().includes(q);
   });
   
-  // Custom sorting if needed, else just ID backward
-  const sortedItems = [...filteredItems].sort((a,b) => b.id - a.id);
+  const sortedItems = [...filteredItems].sort((a, b) =>
+    a.group.name.localeCompare(b.group.name, "uk", { numeric: true, sensitivity: "base" }) ||
+    a.subject.name.localeCompare(b.subject.name, "uk", { sensitivity: "base" }),
+  );
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
