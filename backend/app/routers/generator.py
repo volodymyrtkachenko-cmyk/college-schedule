@@ -58,7 +58,7 @@ def _solver_input_diagnostics(curriculums, constraints) -> dict[str, int | str]:
 
 @router.post("", response_model=ScheduleDraftResponse)
 async def generate_schedule(
-    max_time_in_seconds: int = Query(default=95, gt=0),
+    max_time_in_seconds: int = Query(default=solver.DEFAULT_SOLVE_TIME_SECONDS, gt=0),
     db: AsyncSession = Depends(get_db),
     admin=Depends(require_roles("admin"))
 ):

@@ -17,6 +17,8 @@ DAY_IDXS = DAYS * WEEKS     # d = 0..9 (0..4 чисельник, 5..9 знаме
 MIN_PAIRS_PER_DAY = 3
 MAX_PAIRS_PER_DAY = SLOTS
 DEFAULT_NUM_WORKERS = 8
+DEFAULT_SOLVE_TIME_SECONDS = 300
+FEASIBILITY_TIME_FRACTION = 0.9
 
 # Дозволені шаблони дня для групи: (пара1, пара2, пара3, пара4) -> штраф.
 # ЖОРСТКО заборонено: вихідний (0 пар), 1–2 пари, будь-які «вікна».
@@ -245,7 +247,7 @@ def precheck(curriculums: Iterable, constraints: Iterable = ()) -> list[str]:
 def solve(
     curriculums: list,
     constraints: list,
-    max_time_in_seconds: float = 95,
+    max_time_in_seconds: float = DEFAULT_SOLVE_TIME_SECONDS,
     num_workers: int = DEFAULT_NUM_WORKERS,
     patterns=None,
     seed: int | None = None,
@@ -500,7 +502,7 @@ def solve(
     # incumbent, which is especially costly on small hosted instances.
     if penalties:
         model.ClearObjective()
-    feasibility_solver = new_solver(max_time_in_seconds * 0.7, seed)
+    feasibility_solver = new_solver(max_time_in_seconds * FEASIBILITY_TIME_FRACTION, seed)
     feasibility_solver.parameters.stop_after_first_solution = True
     status = feasibility_solver.Solve(model)
 

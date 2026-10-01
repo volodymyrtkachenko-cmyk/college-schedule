@@ -243,12 +243,15 @@ def test_precheck_flags_overloaded_teacher():
 
 
 def test_unknown_solver_status_is_reported_as_timeout(monkeypatch):
+    time_limits = []
+
     class FakeSolver:
         parameters = NS()
         calls = 0
 
         def Solve(self, _model):
             type(self).calls += 1
+            time_limits.append(self.parameters.max_time_in_seconds)
             return S.cp_model.UNKNOWN
 
         @staticmethod
@@ -266,6 +269,12 @@ def test_unknown_solver_status_is_reported_as_timeout(monkeypatch):
     assert not result.ok
     assert FakeSolver.calls == 2
     assert FakeSolver.parameters.num_search_workers == 8
+    assert time_limits[0] == pytest.approx(S.FEASIBILITY_TIME_FRACTION)
+    assert 1 - S.FEASIBILITY_TIME_FRACTION <= time_limits[1] <= 1
+
+
+def test_default_generator_search_budget_is_five_minutes():
+    assert S.DEFAULT_SOLVE_TIME_SECONDS == 300
 
 
 def test_feasible_schedule_is_kept_if_preference_optimization_times_out(monkeypatch):
