@@ -266,11 +266,17 @@ def solve(
 
             pattern_vars = []
             
-            # Якщо у групи достатньо годин (32+ з урахуванням виховних), забороняємо рятувальні шаблони!
+            # Тепер ми завжди дозволяємо рятувальні шаблони, але якщо годин достатньо (32+), 
+            # їхній штраф стає гіпер-величезним (щоб він використовувався ТІЛЬКИ для уникнення зависання UNKNOWN)
             total_pairs_for_group = sum(c.pairs_per_2_weeks for c in curr_list)
-            # Якщо годин 32+, дозволяємо ТІЛЬКИ ідеальні шаблони: (1,1,1,0), (1,1,1,1), (0,1,1,1).
-            # Інакше (якщо менше) відкриваємо дозволи на (1,1,0,0) та (0,0,0,0) з великим штрафом.
-            allowed_patterns = [pat for pat in patterns if sum(pat[0]) >= 3] if total_pairs_for_group >= 32 else patterns
+            allowed_patterns = []
+            for pat, pen in patterns:
+                if sum(pat) < 3 and total_pairs_for_group >= 32:
+                    # М'яка, але дуже жорстка заборона (штраф 10000). Алгоритм уникне цього за всяку ціну,
+                    # але якщо розклад скласти фізично неможливо, він обере це замість падіння з UNKNOWN.
+                    allowed_patterns.append((pat, pen * 50))
+                else:
+                    allowed_patterns.append((pat, pen))
 
             for p_idx, (pat, pen) in enumerate(allowed_patterns):
                 p = model.NewBoolVar(f"pat_{g_id}_{d}_{p_idx}")
