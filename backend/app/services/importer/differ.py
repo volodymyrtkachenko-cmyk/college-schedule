@@ -46,6 +46,7 @@ class ScheduleDiffer:
             if lesson.is_substitution and subject_id and group_id:
                 substitutions.append({
                     "date": lesson.date,
+                    "lesson_number": lesson.lesson_number,
                     "subject_id": subject_id,
                     "teacher_id": teacher_id,
                     "room": lesson.room,
