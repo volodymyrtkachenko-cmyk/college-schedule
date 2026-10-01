@@ -69,6 +69,23 @@ export interface ScheduleResponse {
     lessons: Lesson[];
 }
 
+export interface StatisticsEntry {
+    id: number;
+    name: string;
+    completed_hours: number;
+    planned_hours: number | null;
+    progress_percent: number | null;
+}
+
+export interface StatisticsResponse {
+    mode: "student" | "teacher";
+    semester_start: string;
+    through_date: string;
+    total_hours: number;
+    planned_hours: number | null;
+    entries: StatisticsEntry[];
+}
+
 export interface AuthUser {
     id: number;
     username: string;
@@ -552,6 +569,12 @@ export const api = {
         if (groupId) params.set("group_id", String(groupId));
         if (teacherId) params.set("teacher_id", String(teacherId));
         return request<ScheduleResponse[]>(`/api/schedule/week?${params.toString()}`);
+    },
+    statistics: (target: { groupId?: number; teacherId?: number }) => {
+        const params = new URLSearchParams();
+        if (target.groupId) params.set("group_id", String(target.groupId));
+        if (target.teacherId) params.set("teacher_id", String(target.teacherId));
+        return request<StatisticsResponse>(`/api/statistics/?${params.toString()}`);
     },
     settings: {semesterStart: () => request<SemesterStartSetting>("/api/settings/semester-start")},
     lessons: {
