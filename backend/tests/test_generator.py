@@ -156,13 +156,18 @@ def test_prefers_start_from_first_pair(solved):
     assert len(late) <= 0.1 * total_days     # при нормальному навантаженні майже всі дні з 1-ї пари
 
 
-def test_underloaded_group_is_rejected_before_search():
-    """A provable daily-load shortage must not enter an expensive CP-SAT search."""
+def test_underloaded_group_can_use_days_off():
+    """A lower load is valid when it can be split into 3/4-pair days."""
     curr, cons = make_data(seed=1, load=26)
-    assert any("бракує" in m for m in S.precheck(curr, cons))
+    assert S.precheck(curr, cons) == []
     r = S.solve(curr, cons, max_time_in_seconds=3, num_workers=4)
-    assert not r.ok
-    assert r.status == "INFEASIBLE"
+    assert r.ok, r.status
+    by = {c.id: c for c in curr}
+    days = {}
+    for cid, day, slot in r.assignments:
+        days.setdefault((by[cid].group_id, day), set()).add(slot)
+    assert {len(slots) for slots in days.values()} <= {3, 4}
+    assert len(days) < len({c.group_id for c in curr}) * S.DAY_IDXS
 
 
 def test_legacy_patterns_allowed_bad_days():
@@ -184,7 +189,7 @@ def test_precheck_counts_fixed_4th_pair_days():
                pairs_per_2_weeks=29, is_fixed=False, strict_day=None, strict_lesson=None,
                require_week=None)]
     msgs = S.precheck(curr)
-    assert any("32" in message and "бракує 1" in message for message in msgs)
+    assert msgs == []
 
 
 def test_precheck_counts_fixed_external_block_fourth_period_day():
@@ -205,7 +210,7 @@ def test_precheck_counts_fixed_external_block_fourth_period_day():
     ]
     msgs = S.precheck(curr)
     assert S.fixed_4th_days(curr) == {0, 3, 8}
-    assert any("33" in message and "бракує 1" in message for message in msgs)
+    assert msgs == []
 
 
 def test_thirty_two_pairs_suffice_with_only_two_thursday_curator_hours():
@@ -340,12 +345,15 @@ def test_thursday_curator_hour_is_fixed_and_reserved():
     assert not any((curriculum_id, day, slot) in result.assignments
                    for curriculum_id in (1,) for day in (3, 8) for slot in (3,))
     for week_start in (0, S.DAYS):
-        four_lesson_days = [
-            day for day in range(week_start, week_start + S.DAYS)
-            if sum((curriculum_id, day, slot) in result.assignments
-                   for curriculum_id in (1, 2) for slot in range(S.SLOTS)) == 4
+        day_sizes = [
+            sum((curriculum_id, day, slot) in result.assignments
+                for curriculum_id in (1, 2) for slot in range(S.SLOTS))
+            for day in range(week_start, week_start + S.DAYS)
         ]
-        assert four_lesson_days == [week_start + 3]
+        assert all(size in (0, 3, 4) for size in day_sizes)
+        assert sum((curriculum_id, day, slot) in result.assignments
+                   for curriculum_id in (1, 2) for slot in range(S.SLOTS)
+                   for day in [week_start + 3]) == 4
 
 
 def test_exact_block_slots_and_required_week_are_enforced():
@@ -453,17 +461,18 @@ async def test_api_generates_valid_draft(gen_client):
     for g in {c.group_id for c in curr}:
         for d in range(10):
             ln = sorted(days.get((g, d), []))
-            assert len(ln) >= 3, f"група {g}, день {d}: {ln}"
-            assert ln == list(range(ln[0], ln[0] + len(ln))), f"вікно: {ln}"
+            assert len(ln) in (0, 3, 4), f"група {g}, день {d}: {ln}"
+            if ln:
+                assert ln == list(range(ln[0], ln[0] + len(ln))), f"вікно: {ln}"
 
 
 @pytest.mark.anyio
-async def test_api_explains_underloaded_group(gen_client):
+async def test_api_accepts_group_with_days_off(gen_client):
     client, headers, sessions, fac = gen_client
     await _seed(sessions, fac, [("G1", 34), ("Мала", 24)])
     resp = await client.post("/api/generator?max_time_in_seconds=10", headers=headers)
-    assert resp.status_code == 400
-    assert "бракує" in resp.json()["detail"]
+    assert resp.status_code == 202
+    assert resp.json()["status"] == "GENERATING"
 
 
 @pytest.mark.anyio

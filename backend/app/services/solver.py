@@ -351,6 +351,7 @@ def solve(
     num_workers: int = DEFAULT_NUM_WORKERS,
     patterns=None,
     seed: int | None = None,
+    hint_path: str | os.PathLike[str] | None = None,
 ) -> SolveResult:
     use_default_patterns = patterns is None
     patterns = VALID_PATTERNS if patterns is None else patterns
@@ -520,26 +521,33 @@ def solve(
     fixed4 = {g: fixed_4th_days(lst) for g, lst in group_curriculums.items()}
     penalties = []
     for g_id, curr_list in group_curriculums.items():
-        fourth_slots_by_week = [[], []]
         for d in range(DAY_IDXS):
             slots_active = []
             for s in range(SLOTS):
                 a = model.NewBoolVar(f"active_g{g_id}_d{d}_s{s}")
-                # У групи <= 1 пара в слоті, тож сума і є 0/1 (лінійно — сильніше, ніж MaxEquality)
                 model.Add(sum(X[(c.id, d, s)] for c in curr_list) == a)
                 slots_active.append(a)
-            fourth_slots_by_week[d // DAYS].append(slots_active[SLOTS - 1])
 
             if use_default_patterns:
-                # The three allowed patterns are equivalent to slots 2 and 3
-                # always being occupied and at least one of slots 1 and 4
-                # being occupied. This avoids three pattern-selector Booleans
-                # per group-day while preserving the exact same day layouts.
-                model.Add(slots_active[1] == 1)
-                model.Add(slots_active[2] == 1)
-                model.Add(slots_active[0] + slots_active[3] >= 1)
-                penalties.append((1 - slots_active[0]) * 40)
-                penalties.append(slots_active[3] * 5)
+                daily_pairs = model.NewIntVar(0, SLOTS, f"daily_pairs_g{g_id}_d{d}")
+                model.Add(daily_pairs == sum(slots_active))
+                model.AddForbiddenAssignments([daily_pairs], [(1,), (2,)])
+
+                # If two occupied slots surround a slot, the middle one must
+                # be occupied.  Reifying the antecedent avoids enumerating
+                # day-pattern combinations.
+                for first in range(SLOTS - 2):
+                    model.AddImplication(
+                        slots_active[first], slots_active[first + 1]
+                    ).OnlyEnforceIf(slots_active[first + 2])
+
+                day_active = model.NewBoolVar(f"active_day_g{g_id}_d{d}")
+                model.AddMaxEquality(day_active, slots_active)
+                late_start = model.NewBoolVar(f"late_start_g{g_id}_d{d}")
+                model.Add(late_start <= day_active)
+                model.Add(late_start <= 1 - slots_active[0])
+                model.Add(late_start >= day_active - slots_active[0])
+                penalties.append(late_start * 50)
             else:
                 pattern_vars = []
                 for p_idx, (pat, pen) in enumerate(patterns):
@@ -555,20 +563,37 @@ def solve(
             if d in fixed4[g_id]:
                 model.Add(slots_active[0] == 1)
 
-        # Each weekday has exactly 3 or 4 lessons, so each week's number of
-        # fourth-period days is determined by its actual weekly load. Linking
-        # these directly strengthens propagation for the solver.
-        for week in range(WEEKS):
-            weekly_load = sum(
-                X[(c.id, d, s)]
-                for c in curr_list
-                for d in range(week * DAYS, (week + 1) * DAYS)
-                for s in range(SLOTS)
-            )
-            model.Add(
-                sum(fourth_slots_by_week[week])
-                == weekly_load - MIN_PAIRS_PER_DAY * DAYS
-            )
+    # Teacher gaps are preferences, not hard constraints. Stream copies are
+    # counted once because they use one teacher slot.
+    for teacher_id, curr_list in teacher_curriculums.items():
+        for d in range(DAY_IDXS):
+            active = []
+            for s in range(SLOTS):
+                unique_vars = []
+                seen_streams = set()
+                for c in curr_list:
+                    if c.is_stream and c.stream_id:
+                        if c.stream_id in seen_streams:
+                            continue
+                        seen_streams.add(c.stream_id)
+                    unique_vars.append(X[(c.id, d, s)])
+                teacher_active = model.NewBoolVar(f"active_t{teacher_id}_d{d}_s{s}")
+                model.Add(sum(unique_vars) == teacher_active)
+                active.append(teacher_active)
+            for first in range(SLOTS - 2):
+                window = model.NewBoolVar(f"window_t{teacher_id}_d{d}_{first}")
+                model.Add(window <= active[first])
+                model.Add(window <= active[first + 2])
+                model.Add(window <= 1 - active[first + 1])
+                model.Add(
+                    window >= active[first] + active[first + 2] - active[first + 1] - 1
+                )
+                penalties.append(window * 100)
+
+    hint_assignments = _schedule_hint_assignments(curriculums, hint_path)
+    for key, var in X.items():
+        if key in hint_assignments:
+            model.AddHint(var, 1)
 
     actual_workers = selected_worker_count(num_workers)
 
