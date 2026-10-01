@@ -406,8 +406,8 @@ def solve(
         all_vars = [X[(c.id, d, s)] for d in range(DAY_IDXS) for s in range(SLOTS)]
         model.Add(sum(all_vars) == c.pairs_per_2_weeks)
 
-        # Explicit week pins are hard; otherwise prefer per-subject balance
-        # softly while group-level weekly totals remain exactly equal below.
+        # Explicit week pins are hard; otherwise split each subject as evenly
+        # as possible between the numerator and denominator.
         w1 = sum(X[(c.id, d, s)] for d in range(DAYS) for s in range(SLOTS))
         w2 = sum(X[(c.id, d, s)] for d in range(DAYS, DAY_IDXS) for s in range(SLOTS))
         
@@ -561,8 +561,8 @@ def solve(
 
     fixed4 = {g: fixed_4th_days(lst) for g, lst in group_curriculums.items()}
     penalties = (
-        [week_imbalance * 1000 for week_imbalance in group_week_imbalance_vars]
-        + [week_imbalance * 10 for week_imbalance in week_imbalance_vars]
+        [week_imbalance * 100_000 for week_imbalance in group_week_imbalance_vars]
+        + [week_imbalance * 10_000 for week_imbalance in week_imbalance_vars]
     )
     for g_id, curr_list in group_curriculums.items():
         for d in range(DAY_IDXS):

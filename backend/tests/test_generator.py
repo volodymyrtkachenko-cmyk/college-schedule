@@ -151,8 +151,33 @@ def test_subjects_are_balanced_between_weeks(solved):
     for item in curr:
         if getattr(item, "require_week", None) is None:
             assert abs(week_counts.get(item.id, [0, 0])[0] -
-                       week_counts.get(item.id, [0, 0])[1]) <= 1
+                       week_counts.get(item.id, [0, 0])[1]) == item.pairs_per_2_weeks % 2
     assert all(counts[0] == counts[1] for counts in group_week_counts.values())
+
+
+def test_even_subject_load_is_split_equally_between_weeks():
+    curr = [
+        NS(id=1, group_id=1, teacher_id=1, second_teacher_id=None,
+           is_stream=False, stream_id=None, pairs_per_2_weeks=2,
+           is_fixed=False, strict_day=None, strict_lesson=None,
+           require_week=None, allow_multiple_per_day=False),
+        NS(id=2, group_id=1, teacher_id=2, second_teacher_id=None,
+           is_stream=False, stream_id=None, pairs_per_2_weeks=4,
+           is_fixed=False, strict_day=None, strict_lesson=None,
+           require_week=None, allow_multiple_per_day=False),
+        NS(id=3, group_id=1, teacher_id=3, second_teacher_id=None,
+           is_stream=False, stream_id=None, pairs_per_2_weeks=26,
+           is_fixed=False, strict_day=None, strict_lesson=None,
+           require_week=None, allow_multiple_per_day=True),
+    ]
+
+    result = S.solve(curr, [], max_time_in_seconds=5, num_workers=2)
+
+    assert result.ok, result.status
+    counts = {item.id: [0, 0] for item in curr}
+    for curriculum_id, day, _slot in result.assignments:
+        counts[curriculum_id][int(day >= S.DAYS)] += 1
+    assert counts == {1: [1, 1], 2: [2, 2], 3: [13, 13]}
 
 
 def test_odd_group_load_is_allowed_and_balanced_as_close_as_possible():
