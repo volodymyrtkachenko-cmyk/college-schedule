@@ -15,6 +15,7 @@ import { CurriculumPanel } from "../../components/admin/CurriculumPanel";
 import { GeneratorPanel } from "../../components/admin/GeneratorPanel";
 import { ConstraintsPanel } from "../../components/admin/ConstraintsPanel";
 import { SchedulePeriodsPanel } from "../../components/admin/SchedulePeriodsPanel";
+import { SemesterSettingsPanel } from "../../components/admin/SemesterSettingsPanel";
 import { ApiError } from "../../lib/api";
 
 
@@ -75,6 +76,7 @@ function AdminContent() {
 
   useEffect(() => {
     if (authLoading) return;
+    if (currentTab === "semester") return;
     if (user?.role !== "admin" && !isSchedule) return;
     let cancelled = false;
     setLoading(true);
@@ -98,7 +100,7 @@ function AdminContent() {
       })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [authLoading, activeResource, user]);
+  }, [authLoading, activeResource, currentTab, user]);
 
   // Toast auto-hide
   useEffect(() => {
@@ -187,6 +189,8 @@ function AdminContent() {
           <ConstraintsPanel />
         ) : currentTab === "periods" && user?.role === "admin" ? (
           <SchedulePeriodsPanel />
+        ) : currentTab === "semester" && user?.role === "admin" ? (
+          <SemesterSettingsPanel />
         ) : currentTab === "users" && user?.role === "admin" ? (
           <UsersPanel />
         ) : (

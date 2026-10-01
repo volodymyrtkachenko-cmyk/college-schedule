@@ -4,7 +4,8 @@ from app.schemas.common import (
     SubjectResource, FacultyCreate, FacultyUpdate, GroupCreate, GroupUpdate,
     TeacherCreate, TeacherUpdate, SubjectCreate, SubjectUpdate,
     LessonMutation, LessonNoteCreate, LessonNoteResponse,
-    LessonNoteUpdate, ScheduleItem, ScheduleResponse, SemesterStartSetting,
+    LessonNoteUpdate, ScheduleItem, ScheduleResponse, SemesterDatesSetting,
+    SemesterDatesUpdate, SemesterStartSetting,
 )
 
 __all__ = [
@@ -13,4 +14,5 @@ __all__ = [
     "GroupCreate", "GroupUpdate", "TeacherCreate", "TeacherUpdate", 
     "SubjectCreate", "SubjectUpdate", "LessonMutation", "LessonNoteCreate", "LessonNoteResponse",
     "LessonNoteUpdate", "ScheduleItem", "ScheduleResponse", "SemesterStartSetting",
+    "SemesterDatesSetting", "SemesterDatesUpdate",
 ]

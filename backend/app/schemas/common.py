@@ -122,6 +122,23 @@ class SemesterStartSetting(BaseModel):
     value: date
 
 
+class SemesterDatesSetting(BaseModel):
+    semester_start: date | None = None
+    semester_end: date | None = None
+    configured: bool
+
+
+class SemesterDatesUpdate(BaseModel):
+    semester_start: date
+    semester_end: date
+
+    @model_validator(mode="after")
+    def validate_date_order(self):
+        if self.semester_end < self.semester_start:
+            raise ValueError("semester_end must not precede semester_start")
+        return self
+
+
 class LessonMutation(BaseModel):
     group_id: int | None = None
     subject_id: int | None = None

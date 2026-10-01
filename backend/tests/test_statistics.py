@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from unittest.mock import AsyncMock
 
 import pytest
@@ -152,6 +152,11 @@ async def test_statistics_endpoint_returns_typed_data_and_requires_one_target(st
         "get_semester_start",
         AsyncMock(return_value=date.today()),
     )
+    monkeypatch.setattr(
+        settings_service,
+        "get_configured_semester_end",
+        AsyncMock(return_value=None),
+    )
 
     result = await statistics(group.id, None, statistics_db)
 
@@ -161,3 +166,40 @@ async def test_statistics_endpoint_returns_typed_data_and_requires_one_target(st
     with pytest.raises(HTTPException) as error:
         await statistics(None, None, statistics_db)
     assert error.value.status_code == 422
+
+
+@pytest.mark.anyio
+async def test_statistics_endpoint_caps_through_date_at_inclusive_semester_end(
+    statistics_db, monkeypatch
+):
+    group = Group(name="Bounded endpoint group")
+    statistics_db.add(group)
+    await statistics_db.commit()
+    semester_end = date.today() - timedelta(days=1)
+    semester_start = semester_end - timedelta(days=30)
+    monkeypatch.setattr(
+        settings_service,
+        "get_semester_start",
+        AsyncMock(return_value=semester_start),
+    )
+    monkeypatch.setattr(
+        settings_service,
+        "get_configured_semester_end",
+        AsyncMock(return_value=semester_end),
+    )
+    statistics_mock = AsyncMock(return_value={
+        "mode": "student",
+        "semester_start": semester_start,
+        "through_date": semester_end,
+        "total_hours": 0,
+        "planned_hours": 0,
+        "entries": [],
+    })
+    monkeypatch.setattr("app.routers.statistics.group_statistics", statistics_mock)
+
+    result = await statistics(group.id, None, statistics_db)
+
+    assert result.through_date == semester_end
+    statistics_mock.assert_awaited_once_with(
+        statistics_db, group, semester_start, semester_end
+    )

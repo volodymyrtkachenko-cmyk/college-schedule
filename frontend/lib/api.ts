@@ -6,6 +6,17 @@ export interface SemesterStartSetting {
     value: string;
 }
 
+export interface SemesterDatesSetting {
+    semester_start: string | null;
+    semester_end: string | null;
+    configured: boolean;
+}
+
+export interface SemesterDatesUpdate {
+    semester_start: string;
+    semester_end: string;
+}
+
 export interface DirectoryItem {
     id: number;
     name: string;
@@ -576,7 +587,15 @@ export const api = {
         if (target.teacherId) params.set("teacher_id", String(target.teacherId));
         return request<StatisticsResponse>(`/api/statistics/?${params.toString()}`);
     },
-    settings: {semesterStart: () => request<SemesterStartSetting>("/api/settings/semester-start")},
+    settings: {
+        semesterStart: () => request<SemesterStartSetting>("/api/settings/semester-start"),
+        semesterDates: () => request<SemesterDatesSetting>("/api/settings/semester-dates"),
+        updateSemesterDates: (payload: SemesterDatesUpdate, token: string) =>
+            request<SemesterDatesSetting>("/api/settings/semester-dates", {
+                method: "PUT",
+                body: JSON.stringify(payload),
+            }, false, true, token),
+    },
     lessons: {
         create: (payload: LessonMutation) => authenticatedRequest<Lesson>("/api/schedule", {
             method: "POST",

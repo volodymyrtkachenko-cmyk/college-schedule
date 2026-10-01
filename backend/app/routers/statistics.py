@@ -26,7 +26,9 @@ async def statistics(
         )
 
     semester_start = await settings_service.get_semester_start(db)
-    through_date = date.today()
+    semester_end = await settings_service.get_configured_semester_end(db)
+    today = date.today()
+    through_date = min(today, semester_end) if semester_end is not None else today
 
     if group_id is not None:
         group = await db.scalar(

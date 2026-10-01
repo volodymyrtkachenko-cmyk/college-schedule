@@ -87,6 +87,9 @@ export function AdminNav({ active }: { active: string }) {
            <Link href="/admin?resource=periods" onClick={() => setIsOpen(false)} className={linkClass(active === "periods")}>
              Практики й канікули
            </Link>
+           <Link href="/admin?resource=semester" onClick={() => setIsOpen(false)} className={linkClass(active === "semester")}>
+             Налаштування семестру
+           </Link>
            <div className="mb-2 mt-6 border-t border-sys-border/50 pl-2 pt-5 text-[11px] font-bold uppercase tracking-wider text-sys-text-secondary">Довідкова інформація</div>
            <div className="space-y-1">
              {resources.map(r => (
