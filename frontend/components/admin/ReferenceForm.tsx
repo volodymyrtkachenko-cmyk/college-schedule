@@ -54,9 +54,15 @@ export function ReferenceForm({ resource, item, faculties = [], teachers = [], o
     }
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(5,8,16,0.7)] backdrop-blur-[2px] p-4">
-            <form onSubmit={submit} className="w-full max-w-[380px] rounded-[10px] bg-sys-card p-5 shadow-2xl border-[0.5px] border-sys-border">
-                <h2 className="mb-5 text-lg font-medium text-sys-text-subject">{item ? "Редагувати запис" : "Новий запис"}</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(5,8,16,0.76)] p-4 backdrop-blur-sm">
+            <form
+                onSubmit={submit}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="reference-form-title"
+                className="surface-panel max-h-[90dvh] w-full max-w-md overflow-y-auto p-5 shadow-2xl sm:p-6"
+            >
+                <h2 id="reference-form-title" className="mb-5 text-lg font-semibold text-sys-text-primary">{item ? "Редагувати запис" : "Новий запис"}</h2>
                 <div className="grid gap-4">
                     {fields[resource].map(({key, label, type}, i) => (
                         <label key={key} className="flex flex-col gap-1.5 text-sm text-sys-text-secondary">
@@ -79,6 +85,7 @@ export function ReferenceForm({ resource, item, faculties = [], teachers = [], o
                                 value={value.faculty_id ? Number(value.faculty_id) : null}
                                 onChange={(id) => setValue({ ...value, faculty_id: id ? String(id) : "" })}
                                 placeholder="Без спеціальності"
+                                ariaLabel="Спеціальність"
                             />
                         </div>
                         <div className="flex flex-col gap-1.5 text-sm text-sys-text-secondary">
@@ -88,6 +95,7 @@ export function ReferenceForm({ resource, item, faculties = [], teachers = [], o
                                 value={value.curator_id ? Number(value.curator_id) : null}
                                 onChange={(id) => setValue({ ...value, curator_id: id ? String(id) : "" })}
                                 placeholder="Без куратора"
+                                ariaLabel="Куратор"
                             />
                         </div>
                     </>)}

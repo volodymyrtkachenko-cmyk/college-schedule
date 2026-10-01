@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { api, ReferenceRecord } from "../../lib/api";
+import { SearchableMultiSelect } from "../SearchableMultiSelect";
 
 type Props = {
   groups: ReferenceRecord[];
@@ -39,51 +40,46 @@ export function BulkCuratorsModal({ groups, onClose, onSuccess }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[rgba(5,8,16,0.7)] backdrop-blur-[2px]">
-      <div className="w-full max-w-[500px] rounded-[10px] bg-sys-card p-5 shadow-2xl border-[0.5px] border-sys-border">
-        <h2 className="mb-4 text-lg font-medium text-sys-text-primary text-center">Генерація Виховних Годин</h2>
+      <div className="surface-panel max-h-[92dvh] w-full max-w-xl overflow-y-auto p-5 shadow-2xl sm:p-6">
+        <h2 className="mb-2 text-center text-lg font-semibold text-sys-text-primary">Генерація виховних годин</h2>
         <p className="text-xs text-sys-text-secondary text-center mb-5">Цей інструмент автоматично знайде предмет "Виховна година" (або створить його) і призначить пару викладачам-кураторам їхніх груп.</p>
         
-        <div className="grid grid-cols-3 gap-3 mb-4">
+        <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
           <label className="flex flex-col gap-1 text-sm text-sys-text-secondary">
             День
-            <select value={day} onChange={e => setDay(Number(e.target.value))} className="rounded-[6px] border border-sys-border bg-sys-input px-2 py-1.5 outline-none focus:border-sys-accent text-sys-text-primary">
+            <select value={day} onChange={e => setDay(Number(e.target.value))} className="form-control">
               <option value={1}>Понеділок</option><option value={2}>Вівторок</option><option value={3}>Середа</option><option value={4}>Четвер</option><option value={5}>П'ятниця</option>
             </select>
           </label>
           <label className="flex flex-col gap-1 text-sm text-sys-text-secondary">
             Пара
-            <select value={lesson} onChange={e => setLesson(Number(e.target.value))} className="rounded-[6px] border border-sys-border bg-sys-input px-2 py-1.5 outline-none focus:border-sys-accent text-sys-text-primary">
+            <select value={lesson} onChange={e => setLesson(Number(e.target.value))} className="form-control">
               <option value={1}>1 пара</option><option value={2}>2 пара</option><option value={3}>3 пара</option><option value={4}>4 пара</option>
             </select>
           </label>
           <label className="flex flex-col gap-1 text-sm text-sys-text-secondary">
             Тиждень
-            <select value={week} onChange={e => setWeek(e.target.value as any)} className="rounded-[6px] border border-sys-border bg-sys-input px-2 py-1.5 outline-none focus:border-sys-accent text-sys-text-primary">
+            <select value={week} onChange={e => setWeek(e.target.value as any)} className="form-control">
               <option value="both">Щотижня</option><option value="numerator">Чисельник</option><option value="denominator">Знаменник</option>
             </select>
           </label>
         </div>
         
-        <div className="flex flex-col gap-1 text-sm text-sys-text-secondary mb-5">
-          <span className="flex justify-between mb-1">Оберіть групи (пусто = ДО ВСІХ)
-            {selectedGroups.length > 0 && <button type="button" onClick={() => setSelectedGroups([])} className="text-sys-accent text-xs hover:underline">Очистити виділення</button>}
-          </span>
-          <div className="h-[140px] overflow-y-auto rounded-[6px] border border-sys-border bg-sys-input p-2 space-y-1">
-            {groups.map(g => (
-              <label key={g.id} className="flex items-center gap-2 px-1 cursor-pointer hover:bg-slate-800/50 rounded transition-colors text-sys-text-primary text-[13px]">
-                <input 
-                  type="checkbox" 
-                  checked={selectedGroups.includes(g.id)} 
-                  onChange={(e) => {
-                    if (e.target.checked) setSelectedGroups([...selectedGroups, g.id]);
-                    else setSelectedGroups(selectedGroups.filter(id => id !== g.id));
-                  }} 
-                  className="rounded border-sys-border bg-sys-bg text-sys-accent focus:ring-sys-accent h-3.5 w-3.5"
-                />
-                {g.name}
-              </label>
-            ))}
+        <div className="mb-5 space-y-2 text-sm text-sys-text-secondary">
+          <div className="flex items-center justify-between gap-3">
+            <span>Оберіть групи <span className="text-xs text-sys-text-muted">(порожньо = усі групи)</span></span>
+            {selectedGroups.length > 0 && (
+              <button type="button" onClick={() => setSelectedGroups([])} className="text-xs font-medium text-sys-accent hover:underline">
+                Очистити
+              </button>
+            )}
           </div>
+          <SearchableMultiSelect
+            options={groups}
+            value={selectedGroups}
+            onChange={setSelectedGroups}
+            placeholder="Пошук групи..."
+          />
         </div>
         
         <div className="flex gap-2">

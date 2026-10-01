@@ -16,9 +16,9 @@ export function ScheduleDay({ schedule, isToday = false, mode = "day", scheduleM
   onNoteDelete?: (lesson: Lesson, date: string) => Promise<void>;
 }) {
   return (
-    <section className={`min-w-0 ${isToday ? "rounded-2xl ring-1 ring-sys-accent/20" : ""}`}>
+    <section className={`min-w-0 ${isToday ? "rounded-2xl border border-sys-accent/20 bg-sys-card/20 p-1 ring-1 ring-sys-accent/10" : ""}`}>
       <header className={`mb-3 flex ${mode === "week" ? "flex-col items-start gap-1" : "items-baseline justify-between gap-2"} px-3 pt-2`}>
-        <h2 className="capitalize font-semibold text-sys-text-primary">{dayName(schedule.date)}</h2>
+        <h2 className="capitalize font-semibold tracking-tight text-sys-text-primary">{dayName(schedule.date)}</h2>
         <span className={`pr-2 text-sm ${isToday ? "font-semibold text-sys-accent" : "text-sys-text-muted"}`}>
           {isToday ? "Сьогодні · " : ""}{shortDate(schedule.date)}
         </span>
@@ -30,9 +30,9 @@ export function ScheduleDay({ schedule, isToday = false, mode = "day", scheduleM
             onNoteDelete={onNoteDelete ? () => onNoteDelete(lesson, schedule.date) : undefined} />)}
                   </div>
       ) : (
-        <div className="rounded-xl border-[0.5px] border-dashed border-slate-800 px-4 py-8 text-center text-sm text-sys-text-muted">Пар немає</div>
+        <div className="rounded-xl border border-dashed border-sys-border bg-sys-card/30 px-4 py-8 text-center text-sm text-sys-text-muted">На цей день пар немає</div>
       )}
-      {canEdit && <button type="button" onClick={() => onCreate?.(schedule.date)} className={`mt-3 w-full rounded-[8px] border-[0.5px] border-dashed border-sys-border px-3 py-2 text-sm text-sys-text-muted hover:border-sys-accent hover:text-sys-accent transition-colors ${mode === "week" ? "py-1.5 text-[13px]" : ""}`}>+ {mode === "week" ? "Додати" : "Додати заняття"}</button>}
+      {canEdit && <button type="button" onClick={() => onCreate?.(schedule.date)} className={`mt-3 w-full rounded-lg border border-dashed border-sys-border px-3 py-2.5 text-sm text-sys-text-secondary transition-colors hover:border-sys-accent hover:bg-sys-accent/5 hover:text-sys-accent ${mode === "week" ? "py-2 text-[13px]" : ""}`}>+ {mode === "week" ? "Додати" : "Додати заняття"}</button>}
     </section>
   );
 }

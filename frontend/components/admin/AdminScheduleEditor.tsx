@@ -124,6 +124,7 @@ export function AdminScheduleEditor() {
                  options={groups}
                  placeholder="Оберіть групу..."
                  disabled={isPending}
+                 ariaLabel="Оберіть групу для перегляду розкладу"
               />
             </div>
           )}
@@ -135,6 +136,7 @@ export function AdminScheduleEditor() {
                  options={teachers}
                  placeholder="Оберіть викладача..."
                  disabled={isPending}
+                 ariaLabel="Оберіть викладача для перегляду розкладу"
               />
             </div>
           )}

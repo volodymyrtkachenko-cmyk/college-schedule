@@ -162,7 +162,7 @@ export function LessonEditor({ lesson, date, scheduleMode, defaultGroupId, defau
         </div>
         <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2">
           {scheduleMode === "teacher" && (
-            <label className="sm:col-span-2">Група
+            <label className="form-label sm:col-span-2">Група
               <SearchableSelect
                 options={groups}
                 value={form.group_id || null}
@@ -171,7 +171,7 @@ export function LessonEditor({ lesson, date, scheduleMode, defaultGroupId, defau
               />
             </label>
           )}
-          <label>Викладач
+          <label className="form-label">Викладач
             <SearchableSelect
               options={teachers}
               value={form.teacher_id}
@@ -180,7 +180,7 @@ export function LessonEditor({ lesson, date, scheduleMode, defaultGroupId, defau
               placeholder="Пошук викладача..."
             />
           </label>
-          <label>Другий викладач (опційно)
+          <label className="form-label">Другий викладач (опційно)
             <SearchableSelect
               options={teachers}
               value={form.second_teacher_id}
@@ -189,7 +189,7 @@ export function LessonEditor({ lesson, date, scheduleMode, defaultGroupId, defau
               placeholder="Немає"
             />
           </label>
-          <label className="sm:col-span-2">Предмет
+          <label className="form-label sm:col-span-2">Предмет
             <SearchableSelect
               options={sortedSubjects}
               value={form.subject_id ?? null}
@@ -198,21 +198,21 @@ export function LessonEditor({ lesson, date, scheduleMode, defaultGroupId, defau
               placeholder={loadingDirectories ? "Завантаження…" : "Пошук предмета..."}
             />
           </label>
-          <label>День
-            <select value={form.day_of_week ?? dayFromDate(date)} onChange={(e) => update("day_of_week", Number(e.target.value))}>
+          <label className="form-label">День
+            <select className="form-control" value={form.day_of_week ?? dayFromDate(date)} onChange={(e) => update("day_of_week", Number(e.target.value))}>
               {DAY_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
           </label>
-          <label>№ пари
-            <select required value={form.lesson_number} onChange={(e) => update("lesson_number", Number(e.target.value))}>
+          <label className="form-label">№ пари
+            <select className="form-control" required value={form.lesson_number} onChange={(e) => update("lesson_number", Number(e.target.value))}>
               {Object.entries(LESSON_TIME_LABELS).map(([value, label]) => (
                 <option key={value} value={value}>{label}</option>
               ))}
             </select>
           </label>
-          <label className="sm:col-span-2">Тиждень<select value={form.week_type} onChange={(e) => update("week_type", e.target.value as WeekType)}><option value="both">Щотижня</option><option value="numerator">Чисельник</option><option value="denominator">Знаменник</option></select></label>
+          <label className="form-label sm:col-span-2">Тиждень<select className="form-control" value={form.week_type} onChange={(e) => update("week_type", e.target.value as WeekType)}><option value="both">Щотижня</option><option value="numerator">Чисельник</option><option value="denominator">Знаменник</option></select></label>
           
-          <label className="sm:col-span-2">Аудиторія
+          <label className="form-label sm:col-span-2">Аудиторія
             <SearchableTextInput
               options={uniqueRooms as string[]}
               value={form.room ?? ""}

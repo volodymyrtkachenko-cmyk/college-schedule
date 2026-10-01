@@ -86,11 +86,12 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
                <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-sys-text-secondary" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
                <input 
                  autoFocus
-                 type="text" 
-                 placeholder="Пошук..." 
+                 type="search"
+                 aria-label={mode === "student" ? "Пошук групи" : "Пошук викладача"}
+                 placeholder={mode === "student" ? "Пошук групи..." : "Пошук викладача..."}
                  value={search}
                  onChange={(e) => setSearch(e.target.value)}
-                 className="w-full rounded-xl border border-sys-border bg-sys-card py-3 pl-10 pr-4 text-white outline-none focus:border-sys-accent transition-colors"
+                 className="form-control w-full py-3 pl-10 pr-4"
                />
              </div>
              

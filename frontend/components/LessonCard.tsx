@@ -94,7 +94,7 @@ export function LessonCard({ lesson, targetDate, mode = "day", scheduleMode = "s
         if (target.closest('button') || target.tagName === 'TEXTAREA' || target.tagName === 'A') return;
         if (!isDay && hasNote) setNoteExpanded(!noteExpanded);
       }}
-      className={`relative min-w-0 overflow-hidden rounded-[8px] border-[0.5px] border-sys-border bg-sys-card p-3 shadow-sm transition ${
+      className={`relative min-w-0 overflow-hidden rounded-xl border border-sys-border bg-sys-card p-3 shadow-sm transition-colors duration-200 ${
         lesson.is_relevant_this_week ? "" : "opacity-40 grayscale"
       } ${lesson.is_replacement ? "ring-1 ring-sys-accent/60 !border-sys-accent/40 bg-sys-accent/[0.02]" : ""} ${!isDay && hasNote ? "cursor-pointer hover:shadow-md" : ""}`}
     >
@@ -134,7 +134,7 @@ export function LessonCard({ lesson, targetDate, mode = "day", scheduleMode = "s
         <div className={`flex shrink-0 gap-2 ${isDay ? 'items-center self-center' : 'absolute top-3 right-3'}`}>
              {canEdit && (
                 <button type="button" aria-label={`Редагувати ${lesson.subject_name}`} onClick={() => onEdit?.(lesson)} 
-                  className={`text-sys-text-muted hover:text-sys-accent transition-colors ${isDay ? 'text-[18px]' : 'text-[15px]'}`}>
+                  className={`flex h-9 w-9 items-center justify-center rounded-lg text-sys-text-muted transition-colors hover:bg-sys-accent/10 hover:text-sys-accent ${isDay ? 'text-[18px]' : 'text-[15px]'}`}>
                   <EditIcon />
                 </button>
              )}
@@ -148,7 +148,7 @@ export function LessonCard({ lesson, targetDate, mode = "day", scheduleMode = "s
                      setNoteExpanded(!noteExpanded);
                   }
                 }} 
-                  className={`${hasNote ? 'text-sys-accent' : 'text-sys-text-muted hover:text-sys-text-primary'} transition-colors ${isDay ? 'text-[18px]' : 'text-[15px]'}`}>
+                  className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors ${hasNote ? 'bg-sys-accent/10 text-sys-accent' : 'text-sys-text-muted hover:bg-white/5 hover:text-sys-text-primary'} ${isDay ? 'text-[18px]' : 'text-[15px]'}`}>
                   <MessageIcon filled={hasNote} />
                 </button>
              )}

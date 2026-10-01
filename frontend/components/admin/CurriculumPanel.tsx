@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { api, CurriculumRecord, CurriculumMutation, ReferenceRecord } from "../../lib/api";
 import { ConfirmModal } from "./ConfirmModal";
+import { SearchableSelect } from "../SearchableSelect";
 
 export function CurriculumPanel() {
   const [items, setItems] = useState<CurriculumRecord[]>([]);
@@ -61,7 +62,10 @@ export function CurriculumPanel() {
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    if (!editor || !editor.group_id || !editor.subject_id || !editor.teacher_id) return;
+    if (!editor || !editor.group_id || !editor.subject_id || !editor.teacher_id) {
+      setToast({ message: "Оберіть групу, предмет і викладача.", type: "error" });
+      return;
+    }
     
     try {
       const session = await api.auth.ensureAuthenticated();
@@ -122,10 +126,10 @@ export function CurriculumPanel() {
              placeholder="Пошук (група, предмет, викладач)..." 
              value={searchTerm}
              onChange={(e) => setSearchTerm(e.target.value)}
-             className="w-full rounded-[6px] border-[0.5px] border-sys-border bg-sys-input py-2 pl-9 pr-4 text-sm text-sys-text-primary outline-none transition-colors focus:border-sys-accent focus:ring-1 focus:ring-sys-accent"
+             className="form-control w-full py-2 pl-9 pr-4"
            />
          </div>
-         <button onClick={() => setEditor({ is_fixed: false, is_stream: false, pairs_per_2_weeks: 2, total_hours: 40 })} className="shrink-0 rounded-[6px] bg-sys-accent px-4 py-2 text-sm font-semibold text-[#0b1120] hover:opacity-90 transition-opacity">
+         <button onClick={() => setEditor({ is_fixed: false, is_stream: false, pairs_per_2_weeks: 2, total_hours: 40 })} className="shrink-0 rounded-lg bg-sys-accent px-4 py-2.5 text-sm font-semibold text-[#0b1120] transition-opacity hover:opacity-90">
             + Додати навантаження
          </button>
       </div>
@@ -135,7 +139,7 @@ export function CurriculumPanel() {
       ) : error ? (
         <div className="mt-8 text-center text-rose-500">{error}</div>
       ) : (
-        <div className="mt-6 rounded-[12px] border-[0.5px] border-sys-border bg-sys-card overflow-x-auto shadow-sm">
+        <div className="surface-panel mt-6 overflow-x-auto">
           <table className="w-full text-left text-sm border-collapse">
             <thead className="bg-[#111827] sticky top-0 z-10">
               <tr>
@@ -186,7 +190,7 @@ export function CurriculumPanel() {
 
       {editor && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#0b1120]/80 p-4 backdrop-blur-sm shadow-2xl">
-          <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-sys-card border border-sys-border/50 flex flex-col max-h-[90vh]">
+          <div className="surface-panel flex max-h-[92dvh] w-full max-w-2xl flex-col overflow-hidden">
             <div className="px-6 py-4 border-b border-sys-border bg-[#0b1120]/50 sticky top-0 flex justify-between items-center z-10">
               <h3 className="text-lg font-bold text-sys-text-primary">
                 {editor.id ? "Редагування плану" : "Додавання нового плану"}
@@ -201,42 +205,46 @@ export function CurriculumPanel() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <label className="text-xs font-bold uppercase tracking-wider text-sys-text-secondary pl-1">Група</label>
-                    <select required value={editor.group_id || ""} onChange={e => setEditor({...editor, group_id: parseInt(e.target.value)})} className="w-full rounded-[8px] border-[0.5px] border-sys-border bg-sys-input px-3 py-2.5 text-[15px] font-medium text-sys-text-primary shadow-sm outline-none transition-all focus:border-sys-accent focus:ring-1 focus:ring-sys-accent">
-                      <option value="" disabled>Оберіть групу</option>
-                      {groups.sort((a,b)=>a.name.localeCompare(b.name,'uk')).map(g => (
-                        <option key={g.id} value={g.id}>{g.name}</option>
-                      ))}
-                    </select>
+                    <SearchableSelect
+                      options={[...groups].sort((a, b) => a.name.localeCompare(b.name, "uk"))}
+                      value={editor.group_id}
+                      onChange={(id) => setEditor({ ...editor, group_id: id ?? undefined })}
+                      placeholder="Пошук групи..."
+                      ariaLabel="Група"
+                    />
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-bold uppercase tracking-wider text-sys-text-secondary pl-1">Предмет</label>
-                    <select required value={editor.subject_id || ""} onChange={e => setEditor({...editor, subject_id: parseInt(e.target.value)})} className="w-full rounded-[8px] border-[0.5px] border-sys-border bg-sys-input px-3 py-2.5 text-[15px] font-medium text-sys-text-primary shadow-sm outline-none transition-all focus:border-sys-accent focus:ring-1 focus:ring-sys-accent">
-                      <option value="" disabled>Оберіть предмет</option>
-                      {subjects.sort((a,b)=>a.name.localeCompare(b.name,'uk')).map(s => (
-                        <option key={s.id} value={s.id}>{s.name}</option>
-                      ))}
-                    </select>
+                    <SearchableSelect
+                      options={[...subjects].sort((a, b) => a.name.localeCompare(b.name, "uk"))}
+                      value={editor.subject_id}
+                      onChange={(id) => setEditor({ ...editor, subject_id: id ?? undefined })}
+                      placeholder="Пошук предмета..."
+                      ariaLabel="Предмет"
+                    />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <label className="text-xs font-bold uppercase tracking-wider text-sys-text-secondary pl-1">Викладач</label>
-                    <select required value={editor.teacher_id || ""} onChange={e => setEditor({...editor, teacher_id: parseInt(e.target.value)})} className="w-full rounded-[8px] border-[0.5px] border-sys-border bg-sys-input px-3 py-2.5 text-[15px] font-medium text-sys-text-primary shadow-sm outline-none transition-all focus:border-sys-accent focus:ring-1 focus:ring-sys-accent">
-                      <option value="" disabled>Основний викладач</option>
-                      {teachers.sort((a,b)=>a.name.localeCompare(b.name,'uk')).map(t => (
-                        <option key={t.id} value={t.id}>{t.name}</option>
-                      ))}
-                    </select>
+                    <SearchableSelect
+                      options={[...teachers].sort((a, b) => a.name.localeCompare(b.name, "uk"))}
+                      value={editor.teacher_id}
+                      onChange={(id) => setEditor({ ...editor, teacher_id: id ?? undefined })}
+                      placeholder="Пошук викладача..."
+                      ariaLabel="Викладач"
+                    />
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-bold uppercase tracking-wider text-sys-text-secondary pl-1">Підгрупа (2-й викладач)</label>
-                    <select value={editor.second_teacher_id || ""} onChange={e => setEditor({...editor, second_teacher_id: e.target.value ? parseInt(e.target.value) : null})} className="w-full rounded-[8px] border-[0.5px] border-sys-border bg-sys-input px-3 py-2.5 text-[15px] font-medium text-sys-text-primary shadow-sm outline-none transition-all focus:border-sys-accent focus:ring-1 focus:ring-sys-accent">
-                      <option value="">Немає (весь курс)</option>
-                      {teachers.sort((a,b)=>a.name.localeCompare(b.name,'uk')).map(t => (
-                        <option key={t.id} value={t.id}>{t.name}</option>
-                      ))}
-                    </select>
+                    <SearchableSelect
+                      options={[...teachers].sort((a, b) => a.name.localeCompare(b.name, "uk"))}
+                      value={editor.second_teacher_id}
+                      onChange={(id) => setEditor({ ...editor, second_teacher_id: id })}
+                      placeholder="Пошук викладача..."
+                      ariaLabel="Другий викладач"
+                    />
                   </div>
                 </div>
 

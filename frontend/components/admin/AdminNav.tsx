@@ -32,15 +32,34 @@ export function AdminNav({ active }: { active: string }) {
     return () => clearInterval(iv);
   }, []);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [isOpen]);
+
   const resources = Object.keys(referenceLabels) as ReferenceResource[];
 
   // This renders the inner content of the sidebar navigation
   const NavigationLinks = () => (
     <nav aria-label="Адміністрування" className="flex flex-col h-full overflow-y-auto p-4 sm:p-5 pb-6">
-       <Link href="/" className="mb-8 flex items-center gap-2 hover:opacity-80 transition-opacity" title="Повернутися на сайт">
+       <div className="mb-8 flex items-center justify-between">
+       <Link href="/" className="flex items-center gap-2 transition-opacity hover:opacity-80" title="Повернутися на сайт">
           <span className="text-[17px] font-black tracking-widest text-[#0b1120] bg-sys-accent px-2 py-1 rounded-md shadow-sm">ДФКР</span>
           <span className="font-bold text-lg text-sys-text-primary tracking-tight">Адмінка</span>
        </Link>
+       <button
+         type="button"
+         aria-label="Закрити меню"
+         onClick={() => setIsOpen(false)}
+         className="rounded-lg p-2 text-sys-text-secondary transition-colors hover:bg-white/5 hover:text-sys-text-primary sm:hidden"
+       >
+         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m18 6-12 12M6 6l12 12" /></svg>
+       </button>
+       </div>
 
        <div className="text-[11px] font-bold uppercase tracking-wider text-sys-text-secondary mb-2 pl-2">Головна панель</div>
        <Link href="/admin?resource=schedule" onClick={() => setIsOpen(false)} className={`flex items-center gap-3 px-3 py-2.5 text-[15px] font-medium rounded-xl transition-all duration-200 active:scale-95 ${active === "schedule" ? "bg-sys-accent text-[#0b1120] shadow-md shadow-sys-accent/20" : "text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/5"}`}>
@@ -105,7 +124,14 @@ export function AdminNav({ active }: { active: string }) {
           <span className="text-[14px] font-black tracking-widest text-[#0b1120] bg-sys-accent px-1.5 py-0.5 rounded shadow-sm">ДФКР</span>
           <span className="font-bold text-[15px] text-sys-text-primary">Адмінка</span>
         </Link>
-        <button onClick={() => setIsOpen(true)} className="p-2 -mr-2 text-sys-text-secondary hover:text-sys-text-primary rounded-full hover:bg-white/5 active:scale-95 transition-all">
+        <button
+          type="button"
+          aria-label="Відкрити меню"
+          aria-expanded={isOpen}
+          aria-controls="admin-navigation"
+          onClick={() => setIsOpen(true)}
+          className="rounded-lg p-2 text-sys-text-secondary transition-colors hover:bg-white/5 hover:text-sys-text-primary"
+        >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="12" x2="20" y2="12"></line><line x1="4" y1="6" x2="20" y2="6"></line><line x1="4" y1="18" x2="20" y2="18"></line></svg>
         </button>
       </div>
@@ -119,7 +145,7 @@ export function AdminNav({ active }: { active: string }) {
       )}
 
       {/* Sidebar Desktop/Drawer Container */}
-      <aside className={`fixed top-0 left-0 bottom-0 z-[70] w-[260px] bg-sys-card border-r border-sys-border flex flex-col transition-transform duration-300 ease-in-out sm:translate-x-0 ${isOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full"} sm:relative sm:z-0`}>
+      <aside id="admin-navigation" className={`fixed top-0 left-0 bottom-0 z-[70] w-[min(85vw,280px)] bg-sys-card border-r border-sys-border flex flex-col transition-transform duration-300 ease-in-out sm:translate-x-0 sm:w-[260px] ${isOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full"} sm:relative sm:z-0`}>
         {NavigationLinks()}
       </aside>
     </>

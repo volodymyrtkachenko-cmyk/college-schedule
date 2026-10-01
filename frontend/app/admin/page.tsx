@@ -200,11 +200,12 @@ function AdminContent() {
            <div className="relative w-full max-w-[320px]">
              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sys-text-muted"><SearchIcon /></span>
              <input 
-               type="text" 
+               type="search"
+               aria-label={`Пошук у розділі ${referenceLabels[activeResource]}`}
                placeholder="Пошук..." 
                value={searchTerm}
                onChange={(e) => setSearchTerm(e.target.value)}
-               className="w-full rounded-[6px] border-[0.5px] border-sys-border bg-sys-input py-2 pl-9 pr-4 text-sm text-sys-text-primary outline-none transition-colors focus:border-sys-accent focus:ring-1 focus:ring-sys-accent"
+               className="form-control w-full py-2 pl-9 pr-4"
              />
            </div>
            

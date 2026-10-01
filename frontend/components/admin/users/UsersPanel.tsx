@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { api, UserResource, ReferenceRecord } from "../../../lib/api";
 import { useAuth } from "../../../lib/auth";
+import { SearchableMultiSelect } from "../../SearchableMultiSelect";
 
 export function UsersPanel() {
     const { user: currentUser } = useAuth();
@@ -75,16 +76,19 @@ export function UsersPanel() {
 
     if (editor) {
         return (
-            <form onSubmit={save} className="bg-sys-card p-6 rounded-xl border border-sys-border max-w-xl">
-                <h3 className="text-xl font-bold mb-4">{editor.id ? "Редагувати користувача" : "Новий користувач"}</h3>
+            <form onSubmit={save} className="surface-panel max-w-2xl space-y-5 p-5 sm:p-7">
+                <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sys-accent">Доступ</p>
+                    <h3 className="mt-1 text-xl font-bold">{editor.id ? "Редагувати користувача" : "Новий користувач"}</h3>
+                </div>
                 <div className="space-y-4">
                     <label className="block">
                         <span className="block text-sm mb-1 text-sys-text-secondary">Ім'я (ПІБ або посада)</span>
-                        <input required type="text" value={editor.name || ""} onChange={e => setEditor({...editor, name: e.target.value})} className="w-full bg-sys-input border border-sys-border rounded-lg px-3 py-2 text-sys-text-primary" />
+                        <input required type="text" value={editor.name || ""} onChange={e => setEditor({...editor, name: e.target.value})} className="form-control w-full" />
                     </label>
                     <label className="block">
                         <span className="block text-sm mb-1 text-sys-text-secondary">Логін</span>
-                        <input required type="text" disabled={!!editor.id} value={editor.username || ""} onChange={e => setEditor({...editor, username: e.target.value})} className="w-full bg-sys-input border border-sys-border rounded-lg px-3 py-2 text-sys-text-primary disabled:opacity-50" />
+                        <input required type="text" disabled={!!editor.id} value={editor.username || ""} onChange={e => setEditor({...editor, username: e.target.value})} className="form-control w-full" />
                     </label>
                     <label className="block">
                         <span className="block text-sm mb-1 text-sys-text-secondary">
@@ -92,11 +96,11 @@ export function UsersPanel() {
                                 ? "Новий пароль (залиште пустим, щоб не змінювати)" 
                                 : editor.id ? "Новий пароль (залиште пустим, щоб не змінювати)" : "Пароль"}
                         </span>
-                        <input required={!editor.id} type="password" placeholder={editor.id ? "••••••••••" : ""} value={editor.password || ""} onChange={e => setEditor({...editor, password: e.target.value})} className="w-full bg-sys-input border border-sys-border rounded-lg px-3 py-2 text-sys-text-primary placeholder:opacity-50" />
+                        <input required={!editor.id} type="password" placeholder={editor.id ? "••••••••••" : ""} value={editor.password || ""} onChange={e => setEditor({...editor, password: e.target.value})} className="form-control w-full" />
                     </label>
                     <label className="block">
                         <span className="block text-sm mb-1 text-sys-text-secondary">Роль</span>
-                        <select required disabled={editor.id === 1} value={editor.role || "editor"} onChange={e => setEditor({...editor, role: e.target.value as any})} className="w-full bg-sys-input border border-sys-border rounded-lg px-3 py-2 text-sys-text-primary disabled:opacity-50">
+                        <select required disabled={editor.id === 1} value={editor.role || "editor"} onChange={e => setEditor({...editor, role: e.target.value as any})} className="form-control w-full">
                             <option value="editor">Редактор розкладу (Куратор)</option>
                             <option value="admin">Головний адміністратор</option>
                         </select>
@@ -104,40 +108,19 @@ export function UsersPanel() {
                     
                     {editor.role === "editor" && (
                         <div className="block">
-                            <span className="block text-sm mb-2 text-sys-text-secondary">Дозволені групи для редагування</span>
-                            <div className="flex flex-wrap gap-2 p-3 bg-sys-input/50 rounded-lg border border-sys-border/50 max-h-[300px] overflow-y-auto">
-                                {groups.length === 0 && <div className="text-sm text-sys-text-secondary italic">Групи не знайдено...</div>}
-                                {groups.map(g => {
-                                    const checked = (editor.allowed_groups || []).includes(g.id);
-                                    return (
-                                        <button 
-                                            key={g.id} 
-                                            type="button"
-                                            onClick={() => {
-                                                const current = editor.allowed_groups || [];
-                                                setEditor({
-                                                    ...editor, 
-                                                    allowed_groups: !checked ? [...current, g.id] : current.filter(id => id !== g.id)
-                                                });
-                                            }}
-                                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm font-medium transition-all ${checked ? "bg-sys-accent/20 border-sys-accent text-sys-accent" : "bg-sys-bg border-sys-border text-sys-text-secondary hover:bg-white/5 hover:border-sys-text-muted"}`}
-                                        >
-                                            {checked ? (
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                                            ) : (
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-50"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
-                                            )}
-                                            {g.name}
-                                        </button>
-                                    );
-                                })}
-                            </div>
+                            <span className="mb-2 block text-sm text-sys-text-secondary">Дозволені групи для редагування</span>
+                            <SearchableMultiSelect
+                                options={[...groups].sort((a, b) => a.name.localeCompare(b.name, "uk"))}
+                                value={editor.allowed_groups || []}
+                                onChange={(allowed_groups) => setEditor({ ...editor, allowed_groups })}
+                                placeholder="Пошук групи..."
+                            />
                         </div>
                     )}
                 </div>
                 <div className="mt-6 flex gap-3">
-                    <button type="submit" className="bg-sys-accent text-slate-950 font-bold px-4 py-2 rounded-lg">Зберегти</button>
-                    <button type="button" onClick={() => setEditor(null)} className="px-4 py-2 rounded-lg text-sys-text-secondary border border-sys-border hover:text-white">Скасувати</button>
+                    <button type="submit" className="rounded-lg bg-sys-accent px-4 py-2.5 font-bold text-slate-950 transition-opacity hover:opacity-90">Зберегти</button>
+                    <button type="button" onClick={() => setEditor(null)} className="rounded-lg border border-sys-border px-4 py-2.5 text-sys-text-secondary transition-colors hover:bg-white/5 hover:text-white">Скасувати</button>
                 </div>
             </form>
         );
@@ -156,7 +139,7 @@ export function UsersPanel() {
         });
 
     return (
-        <div className="bg-sys-card p-6 rounded-xl border border-sys-border">
+        <div className="surface-panel p-5 sm:p-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
                 <h3 className="text-xl font-bold">Користувачі системи</h3>
                 <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
@@ -165,7 +148,7 @@ export function UsersPanel() {
                         placeholder="Пошук за ім'ям або логіном..." 
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full sm:w-[250px] bg-sys-input border border-sys-border rounded-lg px-3 py-2 text-sm text-sys-text-primary focus:border-sys-accent"
+                        className="form-control w-full sm:w-[250px]"
                     />
                     <button onClick={() => setEditor({ role: "editor", allowed_groups: [] })} className="w-full sm:w-auto shrink-0 bg-sys-accent text-slate-950 font-bold px-4 py-2 rounded-lg text-sm whitespace-nowrap">+ Додати</button>
                 </div>

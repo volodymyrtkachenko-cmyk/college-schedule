@@ -135,8 +135,8 @@ export function GeneratorPanel() {
              <span className="text-sm text-sys-text-secondary">Статус: {activeDraft.status}</span>
            </div>
            <div className="flex gap-4 items-center">
-             <input type="text" placeholder="Фільтр по групі..." value={filterGroup} onChange={e=>setFilterGroup(e.target.value)} className="rounded-lg bg-sys-input px-3 py-2 text-sm border border-sys-border outline-none focus:border-sys-accent" />
-             <button onClick={() => setActiveDraft(null)} className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-sm font-semibold transition">Назад до списку</button>
+             <input type="search" aria-label="Пошук за назвою групи" placeholder="Пошук групи..." value={filterGroup} onChange={e=>setFilterGroup(e.target.value)} className="form-control min-w-0 flex-1 sm:w-56" />
+             <button onClick={() => setActiveDraft(null)} className="shrink-0 rounded-lg border border-sys-border px-4 py-2 text-sm font-semibold transition-colors hover:bg-white/5">Назад до списку</button>
            </div>
         </div>
         
@@ -187,8 +187,11 @@ export function GeneratorPanel() {
 
   return (
     <>
-      <div className="flex items-center justify-between mt-2">
-         <h1 className="text-xl font-bold">Генератор Розкладу (OR-Tools)</h1>
+      <div className="mt-2 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+         <div>
+           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sys-accent">Виробництво</p>
+           <h1 className="mt-1 text-xl font-bold">Генератор розкладу</h1>
+         </div>
          <button onClick={handleGenerate} disabled={generating} className="shrink-0 rounded-[6px] bg-emerald-500 px-4 py-2 text-sm font-semibold text-[#0b1120] hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-wait flex items-center gap-2">
             {generating ? (
               <>
@@ -204,8 +207,8 @@ export function GeneratorPanel() {
       ) : error ? (
         <div className="mt-8 text-center text-rose-500">{error}</div>
       ) : (
-        <div className="mt-6 rounded-[12px] border-[0.5px] border-sys-border bg-sys-card overflow-hidden shadow-sm">
-          <table className="w-full text-left text-sm border-collapse">
+        <div className="surface-panel mt-6 overflow-x-auto">
+          <table className="w-full min-w-[700px] border-collapse text-left text-sm">
             <thead className="bg-[#111827]">
               <tr>
                 <th className="px-5 py-4 font-semibold text-sys-text-secondary text-xs uppercase tracking-wider">ID</th>

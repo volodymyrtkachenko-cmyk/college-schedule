@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { api, TeacherConstraintRecord } from "../../lib/api";
+import { SearchableSelect } from "../SearchableSelect";
 
 export function ConstraintsPanel() {
   const [items, setItems] = useState<TeacherConstraintRecord[]>([]);
@@ -68,28 +69,32 @@ export function ConstraintsPanel() {
          </div>
       </div>
 
-      <div className="mt-6 flex flex-wrap gap-4 items-end bg-sys-card p-4 rounded-xl border border-sys-border">
+      <div className="surface-panel mt-6 flex flex-wrap items-end gap-4 p-4 sm:p-5">
          <div>
            <label className="block text-xs font-semibold uppercase tracking-wider text-sys-text-secondary mb-1">Викладач</label>
-           <select value={teacherId} onChange={e => setTeacherId(e.target.value === "" ? "" : Number(e.target.value))} className="w-full rounded-[6px] border-[0.5px] border-sys-border bg-sys-input px-3 py-2 text-sm outline-none transition-colors focus:border-sys-accent focus:ring-1 focus:ring-sys-accent min-w-[200px]">
-             <option value="">Оберіть...</option>
-             {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-           </select>
+           <SearchableSelect
+             options={teachers}
+             value={teacherId === "" ? null : teacherId}
+             onChange={(id) => setTeacherId(id ?? "")}
+             placeholder="Пошук викладача..."
+             disabled={loading}
+             ariaLabel="Викладач"
+           />
          </div>
          <div>
            <label className="block text-xs font-semibold uppercase tracking-wider text-sys-text-secondary mb-1">День тижня</label>
-           <select value={day} onChange={e => setDay(Number(e.target.value))} className="w-full rounded-[6px] border-[0.5px] border-sys-border bg-sys-input px-3 py-2 text-sm outline-none transition-colors focus:border-sys-accent min-w-[150px]">
+           <select value={day} onChange={e => setDay(Number(e.target.value))} className="form-control min-w-[150px]">
              {Object.entries(daysDict).map(([k,v]) => <option key={k} value={k}>{v}</option>)}
            </select>
          </div>
          <div>
            <label className="block text-xs font-semibold uppercase tracking-wider text-sys-text-secondary mb-1">Номер пари (Слот)</label>
-           <select value={lesson} onChange={e => setLesson(Number(e.target.value))} className="w-full rounded-[6px] border-[0.5px] border-sys-border bg-sys-input px-3 py-2 text-sm outline-none transition-colors focus:border-sys-accent min-w-[120px]">
+           <select value={lesson} onChange={e => setLesson(Number(e.target.value))} className="form-control min-w-[120px]">
              <option value={1}>1 пара</option><option value={2}>2 пара</option>
              <option value={3}>3 пара</option><option value={4}>4 пара</option>
            </select>
          </div>
-         <button onClick={handleAdd} className="rounded-[6px] bg-rose-600/90 hover:bg-rose-600 px-4 py-2 text-sm font-semibold tracking-wide text-white transition-opacity h-[36px]">
+         <button onClick={handleAdd} className="h-[42px] rounded-lg bg-rose-600/90 px-4 py-2 text-sm font-semibold tracking-wide text-white transition-colors hover:bg-rose-600">
             Заблокувати пару
          </button>
       </div>
