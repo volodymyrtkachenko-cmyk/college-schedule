@@ -16,6 +16,7 @@ DAY_IDXS = DAYS * WEEKS     # d = 0..9 (0..4 чисельник, 5..9 знаме
 
 MIN_PAIRS_PER_DAY = 3
 MAX_PAIRS_PER_DAY = SLOTS
+DEFAULT_NUM_WORKERS = 8
 
 # Дозволені шаблони дня для групи: (пара1, пара2, пара3, пара4) -> штраф.
 # ЖОРСТКО заборонено: вихідний (0 пар), 1–2 пари, будь-які «вікна».
@@ -245,7 +246,7 @@ def solve(
     curriculums: list,
     constraints: list,
     max_time_in_seconds: float = 95,
-    num_workers: int = 8,
+    num_workers: int = DEFAULT_NUM_WORKERS,
     patterns=None,
     seed: int | None = None,
 ) -> SolveResult:

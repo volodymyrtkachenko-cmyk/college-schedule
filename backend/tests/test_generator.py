@@ -440,3 +440,20 @@ async def test_api_explains_underloaded_group(gen_client):
     resp = await client.post("/api/generator?max_time_in_seconds=10", headers=headers)
     assert resp.status_code == 400
     assert "бракує" in resp.json()["detail"]
+
+
+@pytest.mark.anyio
+async def test_api_returns_safe_diagnostics_on_solver_timeout(gen_client, monkeypatch):
+    client, headers, sessions, fac = gen_client
+    await _seed(sessions, fac, [("G1", 32)])
+    monkeypatch.setattr(S, "solve", lambda *_args, **_kwargs: S.SolveResult(status="TIMEOUT"))
+
+    resp = await client.post("/api/generator?max_time_in_seconds=1", headers=headers)
+
+    detail = resp.json()["detail"]
+    assert resp.status_code == 400
+    assert "таймаут пошуку" in detail
+    assert "curriculums=8" in detail
+    assert "groups=1" in detail
+    assert "teacher_constraints=0" in detail
+    assert "fingerprint=" in detail

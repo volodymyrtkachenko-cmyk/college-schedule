@@ -1,4 +1,9 @@
 from datetime import datetime
+import hashlib
+import json
+import logging
+import time
+import ortools
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -12,6 +17,43 @@ from app.core.security import require_roles
 from app.services import solver
 
 router = APIRouter(prefix="/generator", tags=["Generator"])
+logger = logging.getLogger(__name__)
+
+
+def _solver_input_diagnostics(curriculums, constraints) -> dict[str, int | str]:
+    curriculum_rows = [
+        (
+            c.id,
+            c.group_id,
+            c.subject_id,
+            c.teacher_id,
+            c.second_teacher_id,
+            c.pairs_per_2_weeks,
+            c.is_stream,
+            c.stream_id,
+            c.is_fixed,
+            c.strict_day,
+            c.strict_lesson,
+            c.require_week,
+            c.allow_multiple_per_day,
+            getattr(c.group, "curator_id", None),
+        )
+        for c in curriculums
+    ]
+    constraint_rows = [
+        (c.teacher_id, c.day_of_week, c.lesson_number, c.is_hard_constraint)
+        for c in constraints
+    ]
+    fingerprint_data = json.dumps(
+        (sorted(curriculum_rows), sorted(constraint_rows)),
+        separators=(",", ":"),
+    ).encode()
+    return {
+        "curriculums": len(curriculums),
+        "groups": len({c.group_id for c in curriculums}),
+        "teacher_constraints": len(constraints),
+        "fingerprint": hashlib.sha256(fingerprint_data).hexdigest()[:12],
+    }
 
 
 @router.post("", response_model=ScheduleDraftResponse)
@@ -43,6 +85,7 @@ async def generate_schedule(
         )
 
     # Розв'язуємо в окремому потоці, щоб не блокувати event loop
+    solve_started = time.monotonic()
     result = await asyncio.to_thread(solver.solve, list(curriculums), list(constraints), max_time_in_seconds)
     if not result.ok:
         if result.status == "INFEASIBLE":
@@ -52,9 +95,19 @@ async def generate_schedule(
                 "Перевірте закріплені пари й обмеження викладачів."
             )
         elif result.status == "TIMEOUT":
+            diagnostics = _solver_input_diagnostics(curriculums, constraints)
+            diagnostic_text = (
+                f"curriculums={diagnostics['curriculums']}, groups={diagnostics['groups']}, "
+                f"teacher_constraints={diagnostics['teacher_constraints']}, "
+                f"fingerprint={diagnostics['fingerprint']}, "
+                f"elapsed={time.monotonic() - solve_started:.1f}s, "
+                f"workers={solver.DEFAULT_NUM_WORKERS}, ortools={ortools.__version__}"
+            )
+            logger.warning("Schedule generation timed out: %s", diagnostic_text)
             detail = (
                 f"Пошук не знайшов розклад за {max_time_in_seconds} с і не зміг довести неможливість. "
-                "Збільште ліміт часу або послабте обмеження."
+                "Це таймаут пошуку, а не підтвердження неможливості. "
+                f"Діагностика: {diagnostic_text}."
             )
         else:
             detail = f"Помилка моделі генератора розкладу: {result.status}."
