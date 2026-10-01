@@ -56,11 +56,34 @@ def fixed_4th_days(curr_list: Iterable) -> set[int]:
     """
     days: set[int] = set()
     for c in curr_list:
-        if c.is_fixed and c.strict_day and c.strict_lesson == SLOTS:
+        if not c.is_fixed or not c.strict_day or not c.strict_lesson:
+            continue
+        if str(SLOTS) not in str(c.strict_lesson):
+            continue
+        req = getattr(c, "require_week", None)
+        if req == "numerator":
+            days.add(c.strict_day - 1)
+        elif req == "denominator":
+            days.add(c.strict_day - 1 + DAYS)
+        else:
             days.add(c.strict_day - 1)
             if c.pairs_per_2_weeks >= 2:
                 days.add(c.strict_day - 1 + DAYS)
     return set(days)
+
+
+def _is_curator_hour(c) -> bool:
+    group = getattr(c, "group", None)
+    curator_id = getattr(group, "curator_id", None)
+    subject_name = getattr(getattr(c, "subject", None), "name", None)
+    return bool(
+        curator_id is not None
+        and subject_name == "Виховна година"
+        and c.is_fixed
+        and c.strict_day == 4
+        and c.strict_lesson == SLOTS
+        and curator_id in (c.teacher_id, getattr(c, "second_teacher_id", None))
+    )
 
 
 def precheck(curriculums: Iterable, constraints: Iterable = ()) -> list[str]:
@@ -77,7 +100,8 @@ def precheck(curriculums: Iterable, constraints: Iterable = ()) -> list[str]:
 
     for g_id, lst in sorted(by_group.items()):
         total = sum(c.pairs_per_2_weeks for c in lst)
-        n_fixed4 = len(fixed_4th_days(lst))
+        fixed4_days = fixed_4th_days(lst)
+        n_fixed4 = len(fixed4_days)
         lo = MIN_PAIRS_PER_DAY * DAY_IDXS + n_fixed4   # день з виховною = рівно 4 пари
         hi = MAX_PAIRS_PER_DAY * DAY_IDXS
         if total < lo:
@@ -96,10 +120,91 @@ def precheck(curriculums: Iterable, constraints: Iterable = ()) -> list[str]:
                 f"група [{g_name_str}]: {total} пар/2 тижні, максимум {hi} — зайвих {total - hi}"
             )
 
+        # Check each week separately: total semester load can look sufficient
+        # while week-pinned subjects leave one week below its daily minimum.
+        weekly_min = [0, 0]
+        weekly_max = [0, 0]
+        for c in lst:
+            pairs = c.pairs_per_2_weeks
+            req_week = getattr(c, "require_week", None)
+            if req_week == "numerator":
+                weekly_min[0] += pairs
+                weekly_max[0] += pairs
+            elif req_week == "denominator":
+                weekly_min[1] += pairs
+                weekly_max[1] += pairs
+            else:
+                weekly_min[0] += pairs // 2
+                weekly_min[1] += pairs // 2
+                weekly_max[0] += (pairs + 1) // 2
+                weekly_max[1] += (pairs + 1) // 2
+        group = getattr(lst[0], "group", None)
+        name = group.name if group else f"id={g_id}"
+        curator_slots_by_week = [
+            any(_is_curator_hour(c) and day == week * DAYS + 3 for c in lst for day in fixed4_days)
+            for week in range(WEEKS)
+        ]
+        max_total = sum(19 + int(has_hour) for has_hour in curator_slots_by_week)
+        if total > max_total and total <= hi:
+            problems.append(
+                f"група [{name}]: {total} пар/2 тижні, але через резерв четвертої пари четверга "
+                f"доступно максимум {max_total} — зайвих {total - max_total}"
+            )
+        for week in range(WEEKS):
+            required = MIN_PAIRS_PER_DAY * DAYS + sum(
+                day // DAYS == week for day in fixed4_days
+            )
+            available_max = 19 + int(curator_slots_by_week[week])
+            if weekly_max[week] < required:
+                problems.append(
+                    f"група [{name}]: у {('чисельнику', 'знаменнику')[week]} "
+                    f"максимум {weekly_max[week]} пар, потрібно щонайменше {required} — "
+                    f"бракує {required - weekly_max[week]}"
+                )
+            elif weekly_min[week] > available_max:
+                problems.append(
+                    f"група [{name}]: у {('чисельнику', 'знаменнику')[week]} "
+                    f"щонайменше {weekly_min[week]} пар, але доступно максимум {available_max} — "
+                    f"перевантаження на {weekly_min[week] - available_max}"
+                )
+
+        for c in lst:
+            if c.is_fixed and c.strict_day and c.strict_lesson and c.strict_lesson > SLOTS:
+                slots = [slot for slot in str(c.strict_lesson) if slot in "1234"]
+                req_week = getattr(c, "require_week", None)
+                weeks = 1 if req_week in ("numerator", "denominator") or c.pairs_per_2_weeks < 2 else 2
+                expected = len(slots) * weeks
+                if not slots or len(set(slots)) != len(slots) or c.pairs_per_2_weeks != expected:
+                    problems.append(
+                        f"група [{name}]: закріплений блок curriculum {c.id} задає {expected} пар, "
+                        f"але в навантаженні вказано {c.pairs_per_2_weeks}"
+                    )
+            if (
+                c.is_fixed
+                and c.strict_day == 4
+                and c.strict_lesson
+                and "4" in str(c.strict_lesson)
+                and not _is_curator_hour(c)
+            ):
+                problems.append(
+                    f"група [{name}]: закріплене заняття curriculum {c.id} займає четверту пару "
+                    "четверга, зарезервовану для кураторської години"
+                )
+
     # Викладачі: пари потоку рахуємо один раз
     blocked: dict[int, set[tuple[int, int]]] = {}
     for k in constraints:
+        if not getattr(k, "is_hard_constraint", True):
+            continue
         blocked.setdefault(k.teacher_id, set()).add((k.day_of_week, k.lesson_number))
+    # Thursday's fourth slot is reserved for curator hour in both weeks.
+    curator_ids = {
+        group.curator_id
+        for c in curriculums
+        if (group := getattr(c, "group", None)) is not None and group.curator_id is not None
+    }
+    for teacher_id in curator_ids:
+        blocked.setdefault(teacher_id, set()).add((4, SLOTS))
     load: dict[int, int] = {}
     seen: dict[int, set[str]] = {}
     for c in curriculums:
@@ -128,13 +233,33 @@ def solve(
 ) -> SolveResult:
     patterns = VALID_PATTERNS if patterns is None else patterns
 
+    # Avoid spending the entire search limit proving simple load contradictions.
+    if patterns is VALID_PATTERNS:
+        problems = precheck(curriculums, constraints)
+        if problems:
+            return SolveResult(status="INFEASIBLE")
+
     # (teacher_id, day_idx, slot_idx) недоступності. Обмеження діє в обидва тижні.
     invalid_teacher_slots: set[tuple[int, int, int]] = set()
     for c in constraints:
+        if not getattr(c, "is_hard_constraint", True):
+            continue
         dow_idx = c.day_of_week - 1
         slot_idx = c.lesson_number - 1
         invalid_teacher_slots.add((c.teacher_id, dow_idx, slot_idx))
         invalid_teacher_slots.add((c.teacher_id, dow_idx + DAYS, slot_idx))
+
+    # Thursday, period 4 is reserved in both weeks. Curriculum lessons cannot
+    # occupy it, and each group's curator is unavailable to teach elsewhere.
+    curator_ids_by_group = {
+        c.group_id: getattr(getattr(c, "group", None), "curator_id", None)
+        for c in curriculums
+    }
+    curator_unavailable_slots = {
+        (teacher_id, day, 3)
+        for teacher_id in filter(None, curator_ids_by_group.values())
+        for day in (3, 8)
+    }
 
     model = cp_model.CpModel()
     X = {
@@ -182,18 +307,23 @@ def solve(
                 # Якщо це комбінований блок (12, 123, 1234 тощо)
                 if c.strict_lesson > 4:
                     slots = [int(char) - 1 for char in str(c.strict_lesson) if char in "1234"]
-                    forced_days = []
-                    if req == "numerator": forced_days = [dow_idx]
-                    elif req == "denominator": forced_days = [dow_idx + DAYS]
-                    else: forced_days = [dow_idx, dow_idx + DAYS]
-                    
+                    if not slots or len(set(slots)) != len(slots):
+                        return SolveResult(status="MODEL_INVALID")
+                    if req == "numerator":
+                        forced_days = [dow_idx]
+                    elif req == "denominator":
+                        forced_days = [dow_idx + DAYS]
+                    elif c.pairs_per_2_weeks >= 2:
+                        forced_days = [dow_idx, dow_idx + DAYS]
+                    else:
+                        forced_days = [dow_idx]
+                    for d in range(DAY_IDXS):
+                        for s in range(SLOTS):
+                            if d not in forced_days or s not in slots:
+                                model.Add(X[(c.id, d, s)] == 0)
                     for fd in forced_days:
                         for s_idx in slots:
                             model.Add(X[(c.id, fd, s_idx)] == 1)
-                        # Забороняємо ставити цей предмет в інші слоти цього дня
-                        for s_idx in range(SLOTS):
-                            if s_idx not in slots:
-                                model.Add(X[(c.id, fd, s_idx)] == 0)
                 else:
                     # Звичайна одна пара
                     slot_idx = c.strict_lesson - 1
@@ -223,11 +353,25 @@ def solve(
                 model.Add(sum(X[(c.id, d, s)] for s in range(SLOTS)) <= 1)
 
         # Недоступність викладачів
+        curator_hour = _is_curator_hour(c)
         for d in range(DAY_IDXS):
             for s in range(SLOTS):
+                # Leave the curator-hour slot clear for ordinary curriculum.
+                if d in (3, 8) and s == 3 and not curator_hour:
+                    model.Add(X[(c.id, d, s)] == 0)
+                reserved_curator_slot = d in (3, 8) and s == 3 and curator_hour
+                group_curator_id = getattr(getattr(c, "group", None), "curator_id", None)
                 if (c.teacher_id, d, s) in invalid_teacher_slots:
                     model.Add(X[(c.id, d, s)] == 0)
                 if c.second_teacher_id and (c.second_teacher_id, d, s) in invalid_teacher_slots:
+                    model.Add(X[(c.id, d, s)] == 0)
+                if (c.teacher_id, d, s) in curator_unavailable_slots and not (
+                    reserved_curator_slot and c.teacher_id == group_curator_id
+                ):
+                    model.Add(X[(c.id, d, s)] == 0)
+                if c.second_teacher_id and (c.second_teacher_id, d, s) in curator_unavailable_slots and not (
+                    reserved_curator_slot and c.second_teacher_id == group_curator_id
+                ):
                     model.Add(X[(c.id, d, s)] == 0)
 
     for d in range(DAY_IDXS):
@@ -297,6 +441,10 @@ def solve(
     status = solver.Solve(model)
     name = solver.StatusName(status)
     if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+        # CP-SAT reports UNKNOWN when it reaches a time/search limit without
+        # proving feasibility or infeasibility. Do not leak that opaque status.
+        if status == cp_model.UNKNOWN:
+            name = "TIMEOUT"
         return SolveResult(status=name)
 
     return SolveResult(

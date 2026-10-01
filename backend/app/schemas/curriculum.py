@@ -14,8 +14,18 @@ class CurriculumBase(BaseModel):
     stream_id: Optional[str] = Field(default=None, max_length=100)
     strict_day: Optional[int] = Field(default=None, ge=1, le=5)
     strict_lesson: Optional[int] = Field(default=None, ge=1, le=1234)
-    require_week: Optional[str] = None
+    require_week: Optional[str] = Field(default=None, pattern="^(numerator|denominator)$")
     allow_multiple_per_day: Optional[bool] = None
+
+    @model_validator(mode="after")
+    def validate_schedule_rules(self):
+        if self.strict_lesson is not None:
+            slots = str(self.strict_lesson)
+            if any(slot not in "1234" for slot in slots) or list(slots) != sorted(set(slots)):
+                raise ValueError("strict_lesson must be a sequence of distinct lesson slots 1-4")
+            if len(slots) > 1 and not self.allow_multiple_per_day:
+                raise ValueError("A multi-slot block requires allow_multiple_per_day")
+        return self
 
 class CurriculumCreate(CurriculumBase):
     @model_validator(mode="after")
@@ -36,8 +46,18 @@ class CurriculumUpdate(BaseModel):
     stream_id: Optional[str] = Field(default=None, max_length=100)
     strict_day: Optional[int] = Field(default=None, ge=1, le=5)
     strict_lesson: Optional[int] = Field(default=None, ge=1, le=1234)
-    require_week: Optional[str] = None
+    require_week: Optional[str] = Field(default=None, pattern="^(numerator|denominator)$")
     allow_multiple_per_day: Optional[bool] = None
+
+    @model_validator(mode="after")
+    def validate_schedule_rules(self):
+        if self.strict_lesson is not None:
+            slots = str(self.strict_lesson)
+            if any(slot not in "1234" for slot in slots) or list(slots) != sorted(set(slots)):
+                raise ValueError("strict_lesson must be a sequence of distinct lesson slots 1-4")
+            if len(slots) > 1 and self.allow_multiple_per_day is False:
+                raise ValueError("A multi-slot block requires allow_multiple_per_day")
+        return self
 
     @model_validator(mode="after")
     def validate_teachers(self) -> 'CurriculumUpdate':

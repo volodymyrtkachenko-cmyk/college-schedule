@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from app.main import app
 from app.database import Base, get_db
 from app.models import Curriculum, Faculty, Group, ScheduleSlot, Subject, Teacher, User
+from app.schemas.curriculum import CurriculumCreate, CurriculumUpdate
 from app.core.security import create_access_token
 from app.services import solver as S
 
@@ -31,7 +32,7 @@ def make_data(n_groups=6, n_teachers=18, seed=1, load=34):
     tpool = list(range(n_groups + 1, n_teachers + 1))
     for g in range(1, n_groups + 1):
         add(group_id=g, subject_id=99, teacher_id=g, pairs_per_2_weeks=2,
-            is_fixed=True, strict_day=(g % 5) + 1, strict_lesson=4)
+            is_fixed=True, strict_day=(1, 2, 3, 5)[(g - 1) % 4], strict_lesson=4)
         left, sid = load - 2, 1
         while left > 0:
             p = min(left, rnd.choice([2, 2, 4, 4, 6]))
@@ -126,6 +127,26 @@ def test_every_weekday_has_3_or_4_pairs_no_windows(solved):
     curr, cons, r = solved
     errs = [e for e in validate(curr, cons, r.assignments) if "початок з пари" not in e]
     assert errs == []          # усі 10 днів заповнені, >=3 пар, без вікон, без накладок
+    by = {c.id: c for c in curr}
+    days = {}
+    for cid, d, s in r.assignments:
+        days.setdefault((by[cid].group_id, d), set()).add(s)
+    allowed = {pattern for pattern, _ in S.VALID_PATTERNS}
+    assert all(tuple(int(s in days[(g, d)]) for s in range(S.SLOTS)) in allowed
+               for g in {c.group_id for c in curr} for d in range(S.DAY_IDXS))
+    assert not any(d in (3, 8) and s == 3 for _, d, s in r.assignments)
+
+
+def test_subjects_are_balanced_between_weeks(solved):
+    curr, _, result = solved
+    week_counts = {}
+    for curriculum_id, day, _slot in result.assignments:
+        counts = week_counts.setdefault(curriculum_id, [0, 0])
+        counts[int(day >= S.DAYS)] += 1
+    for item in curr:
+        if getattr(item, "require_week", None) is None:
+            assert abs(week_counts.get(item.id, [0, 0])[0] -
+                       week_counts.get(item.id, [0, 0])[1]) <= 1
 
 
 def test_prefers_start_from_first_pair(solved):
@@ -135,12 +156,13 @@ def test_prefers_start_from_first_pair(solved):
     assert len(late) <= 0.1 * total_days     # при нормальному навантаженні майже всі дні з 1-ї пари
 
 
-def test_two_pair_and_empty_days_are_forbidden():
-    """Групі не вистачає пар (26 < 32). Замість зависання алгоритм застосує рятувальні кола (2 пари/день)."""
+def test_underloaded_group_is_rejected_before_search():
+    """A provable daily-load shortage must not enter an expensive CP-SAT search."""
     curr, cons = make_data(seed=1, load=26)
     assert any("бракує" in m for m in S.precheck(curr, cons))
     r = S.solve(curr, cons, max_time_in_seconds=3, num_workers=4)
-    assert r.ok and r.objective > 200
+    assert not r.ok
+    assert r.status == "INFEASIBLE"
 
 
 def test_legacy_patterns_allowed_bad_days():
@@ -158,13 +180,89 @@ def test_precheck_counts_fixed_4th_pair_days():
             NS(id=2, group_id=1, teacher_id=2, second_teacher_id=None, is_stream=False, stream_id=None,
                pairs_per_2_weeks=28, is_fixed=False, strict_day=None, strict_lesson=None)]
     msgs = S.precheck(curr)
-    assert len(msgs) == 1 and "32" in msgs[0]
+    assert any("32" in message and "бракує" in message for message in msgs)
 
 
 def test_precheck_flags_overloaded_teacher():
     curr = [NS(id=i, group_id=i, teacher_id=1, second_teacher_id=None, is_stream=False, stream_id=None,
                pairs_per_2_weeks=20, is_fixed=False, strict_day=None, strict_lesson=None) for i in (1, 2, 3)]
     assert any("викладач id=1" in m for m in S.precheck(curr))
+
+
+def test_unknown_solver_status_is_reported_as_timeout(monkeypatch):
+    class FakeSolver:
+        parameters = NS()
+
+        def Solve(self, _model):
+            return S.cp_model.UNKNOWN
+
+        @staticmethod
+        def StatusName(_status):
+            return "UNKNOWN"
+
+    monkeypatch.setattr(S.cp_model, "CpSolver", FakeSolver)
+    curr = [NS(id=1, group_id=1, teacher_id=1, second_teacher_id=None,
+               is_stream=False, stream_id=None, pairs_per_2_weeks=30,
+               is_fixed=False, strict_day=None, strict_lesson=None,
+               require_week=None, allow_multiple_per_day=False)]
+    result = S.solve(curr, [], max_time_in_seconds=1)
+    assert result.status == "TIMEOUT"
+    assert not result.ok
+
+
+def test_thursday_curator_hour_is_fixed_and_reserved():
+    group = NS(name="G1", curator_id=1)
+    curr = [
+        NS(id=1, group_id=1, group=group, teacher_id=2, second_teacher_id=None,
+           is_stream=False, stream_id=None, pairs_per_2_weeks=30,
+           is_fixed=False, strict_day=None, strict_lesson=None,
+           require_week=None, allow_multiple_per_day=True),
+        NS(id=2, group_id=1, group=group, teacher_id=1, second_teacher_id=None,
+           subject=NS(name="Виховна година"),
+           is_stream=False, stream_id=None, pairs_per_2_weeks=2,
+           is_fixed=True, strict_day=4, strict_lesson=4,
+           require_week=None, allow_multiple_per_day=False),
+    ]
+    assert S.precheck(curr) == []
+    result = S.solve(curr, [], max_time_in_seconds=5, num_workers=4)
+    assert result.ok, result.status
+    assert (2, 3, 3) in result.assignments
+    assert (2, 8, 3) in result.assignments
+    assert not any((curriculum_id, day, slot) in result.assignments
+                   for curriculum_id in (1,) for day in (3, 8) for slot in (3,))
+
+
+def test_exact_block_slots_and_required_week_are_enforced():
+    curr = [
+        NS(id=1, group_id=1, teacher_id=1, second_teacher_id=None,
+           is_stream=False, stream_id=None, pairs_per_2_weeks=2,
+           is_fixed=True, strict_day=1, strict_lesson=12,
+           require_week="numerator", allow_multiple_per_day=True),
+        NS(id=2, group_id=1, teacher_id=2, second_teacher_id=None,
+           is_stream=False, stream_id=None, pairs_per_2_weeks=30,
+           is_fixed=False, strict_day=None, strict_lesson=None,
+           require_week=None, allow_multiple_per_day=True),
+    ]
+    assert S.precheck(curr) == []
+    result = S.solve(curr, [], max_time_in_seconds=5, num_workers=4)
+    assert result.ok, result.status
+    assert {(cid, day, slot) for cid, day, slot in result.assignments if cid == 1} == {
+        (1, 0, 0), (1, 0, 1)
+    }
+
+
+def test_curriculum_schema_validates_week_and_exact_block_rules():
+    with pytest.raises(ValueError):
+        CurriculumCreate(group_id=1, subject_id=1, teacher_id=1, pairs_per_2_weeks=2,
+                         require_week="both")
+    with pytest.raises(ValueError):
+        CurriculumCreate(group_id=1, subject_id=1, teacher_id=1, pairs_per_2_weeks=2,
+                         strict_lesson=12, allow_multiple_per_day=False)
+    with pytest.raises(ValueError):
+        CurriculumCreate(group_id=1, subject_id=1, teacher_id=1, pairs_per_2_weeks=2,
+                         strict_lesson=122, allow_multiple_per_day=True)
+    # PATCH may update an existing block's slot without resubmitting its flag.
+    assert CurriculumUpdate(strict_lesson=12).strict_lesson == 12
 
 
 # ───────────────────────── тест ендпоінта ─────────────────────────
