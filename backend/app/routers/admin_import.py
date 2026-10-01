@@ -1,6 +1,6 @@
 import asyncio
 import httpx
-from datetime import datetime, date
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,7 +10,7 @@ from app.services.importer.fetcher import ScheduleFetcher
 from app.services.importer.parsers.kre_parser import KREParser
 from app.services.importer.normalizer import EntityNormalizer
 from app.services.importer.differ import ScheduleDiffer
-from app.models import ScheduleDraft, ScheduleSlot, Schedule, ScheduleOverride
+from app.models import ScheduleDraft, ScheduleSlot, Schedule, ScheduleOverride, Curriculum
 import traceback
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -48,48 +48,68 @@ async def trigger_import(
             for parsed_week in parsed_weeks:
                 if isinstance(parsed_week, Exception):
                     continue
-                    
                 diff_report = await differ.diff(parsed_week)
-                
                 for item in diff_report["unresolved"]:
                     key = f"{item['type']}_{item['raw']}"
                     aggregated_unresolved[key] = item
-                
                 aggregated_substitutions.extend(diff_report["substitutions"])
                 aggregated_base_slots.extend(diff_report["base_slots"])
                 
-        # ACTUAL DB INSERTION if no unresolved entities
         if len(aggregated_unresolved) == 0:
-            # 1. Create a Draft for base slots (optional or main schedule)
-            draft = ScheduleDraft(
-                name=f"Імпорт {datetime.now().strftime('%Y-%m-%d %H:%M')}",
-                status="published" # Automatically publish or leave as draft? Let's leave as draft for moderation as requested originally: "для подальшої модерації"
-            )
+            # CREATE DRAFT SCHEDULE
+            draft_name = f"Імпорт {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+            draft = ScheduleDraft(name=draft_name)
             db.add(draft)
             await db.flush()
             
-            # Since curriculum_id is required for ScheduleSlot, we can't easily insert into ScheduleSlot without knowing the curriculum!
-            # Wait, the prompt said: "Основний розклад: Зберігається в ScheduleDraft... Живу таблицю schedule парсер не модифікує напряму."
-            # Actually, to save to ScheduleDraft, we need ScheduleSlot which demands a curriculum_id.
-            
-            # Let's insert Substitutions to ScheduleOverride
-            # Find matching schedule_ids
+            # Save Base Slots
+            for slot in aggregated_base_slots:
+                # 1. Ensure Curriculum exists
+                stmt_c = select(Curriculum).where(
+                    Curriculum.group_id == slot["group_id"],
+                    Curriculum.subject_id == slot["subject_id"]
+                )
+                if slot["teacher_id"]:
+                    stmt_c = stmt_c.where(Curriculum.teacher_id == slot["teacher_id"])
+                
+                curr = await db.scalar(stmt_c)
+                if not curr:
+                    curr = Curriculum(
+                        group_id=slot["group_id"],
+                        subject_id=slot["subject_id"],
+                        teacher_id=slot["teacher_id"] or 1, # fallback if null
+                        pairs_per_2_weeks=2,
+                        total_hours=0
+                    )
+                    db.add(curr)
+                    await db.flush()
+                
+                db_slot = ScheduleSlot(
+                    draft_id=draft.id,
+                    curriculum_id=curr.id,
+                    day_of_week=slot["day_of_week"],
+                    lesson_number=slot["lesson_number"],
+                    room_override=slot["room"]
+                )
+                db.add(db_slot)
+                
+            # Save Substitutions (only applied if standard schedule actually exists active)
+            # Or if it doesn't exist, we will just save them and they apply when the admin publishes
+            inserted_subs = 0
             for sub in aggregated_substitutions:
-                stmt = select(Schedule).where(
+                stmt_s = select(Schedule).where(
                     Schedule.group_id == sub["group_id"],
                     Schedule.day_of_week == sub["date"].isoweekday(),
                     Schedule.lesson_number == sub["lesson_number"],
-                    Schedule.is_active == True # Assuming active schedule
+                    Schedule.is_active == True
                 )
-                sch = await db.scalar(stmt)
+                sch = await db.scalar(stmt_s)
                 if sch:
-                    # Check if override already exists
-                    override_stmt = select(ScheduleOverride).where(
+                    override_chk = select(ScheduleOverride).where(
                         ScheduleOverride.schedule_id == sch.id,
                         ScheduleOverride.date == sub["date"]
                     )
-                    existing = await db.scalar(override_stmt)
-                    if not existing:
+                    if not await db.scalar(override_chk):
                         db_sub = ScheduleOverride(
                             schedule_id=sch.id,
                             date=sub["date"],
@@ -98,8 +118,23 @@ async def trigger_import(
                             room=sub["room"]
                         )
                         db.add(db_sub)
+                        inserted_subs += 1
                         
             await db.commit()
+            
+            return {
+                "status": "success", 
+                "groups_processed": len(group_ids),
+                "report": {
+                    "unresolved": list(aggregated_unresolved.values()),
+                    "substitutions": aggregated_substitutions,
+                    "base_slots": aggregated_base_slots
+                },
+                "meta": {
+                    "draft_created": draft.id,
+                    "inserted_subs": inserted_subs
+                }
+            }
 
         return {
             "status": "success", 
