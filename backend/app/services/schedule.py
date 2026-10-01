@@ -30,11 +30,17 @@ async def fetch_schedule(db: AsyncSession, target_date: date,
     weekday = target_date.isoweekday() if day_of_week is None else day_of_week
 
     periods = await _active_periods(db, target_date)
-    if any(period.period_type == "holiday" for period in periods):
+    holidays = [period for period in periods if period.period_type == "holiday"]
+    if any(not period.groups for period in holidays):
+        return week_type, []
+
+    holiday_group_ids = {group.id for period in holidays for group in period.groups}
+    if group_id is not None and group_id in holiday_group_ids:
         return week_type, []
 
     practice_periods = [period for period in periods if period.period_type == "practice"]
     practice_group_ids = {group.id for period in practice_periods for group in period.groups}
+    unavailable_group_ids = holiday_group_ids | practice_group_ids
     conditions = [
         Schedule.day_of_week == weekday,
         Schedule.is_active.is_(True),
@@ -42,8 +48,8 @@ async def fetch_schedule(db: AsyncSession, target_date: date,
     ]
     if group_id is not None:
         conditions.append(Schedule.group_id == group_id)
-    if practice_group_ids:
-        conditions.append(Schedule.group_id.not_in(practice_group_ids))
+    if unavailable_group_ids:
+        conditions.append(Schedule.group_id.not_in(unavailable_group_ids))
     if teacher_id is not None:
         conditions.append(or_(Schedule.teacher_id == teacher_id, Schedule.second_teacher_id == teacher_id))
 
@@ -60,6 +66,8 @@ async def fetch_schedule(db: AsyncSession, target_date: date,
             SchedulePeriodSlot.period_id.in_([period.id for period in practice_periods]),
             SchedulePeriodSlot.day_of_week == weekday,
         ]
+        if holiday_group_ids:
+            slot_conditions.append(SchedulePeriodSlot.group_id.not_in(holiday_group_ids))
         if group_id is not None:
             slot_conditions.append(SchedulePeriodSlot.group_id == group_id)
         if teacher_id is not None:

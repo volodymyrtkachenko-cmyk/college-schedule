@@ -21,6 +21,7 @@ type PeriodDraft = {
   start_date: string;
   end_date: string;
   group_ids: number[];
+  holiday_all_groups: boolean;
   slots: SlotDraft[];
 };
 
@@ -59,6 +60,7 @@ function blankPeriod(): PeriodDraft {
     start_date: localDate(start),
     end_date: localDate(end),
     group_ids: [],
+    holiday_all_groups: false,
     slots: [],
   };
 }
@@ -118,6 +120,9 @@ export function SchedulePeriodsPanel() {
   function setGroupsForDraft(group_ids: number[]) {
     setDraft((current) => {
       if (!current) return current;
+      if (current.period_type === "holiday") {
+        return { ...current, group_ids };
+      }
       const retained = current.slots.filter((slot) => group_ids.includes(slot.group_id));
       const missing = group_ids.filter((id) => !retained.some((slot) => slot.group_id === id));
       return { ...current, group_ids, slots: [...retained, ...missing.map(blankSlot)] };
@@ -132,6 +137,7 @@ export function SchedulePeriodsPanel() {
       start_date: period.start_date,
       end_date: period.end_date,
       group_ids: period.groups.map((group) => group.id),
+      holiday_all_groups: period.period_type === "holiday" && period.groups.length === 0,
       slots: period.slots.map((slot) => ({
         key: `slot-${slot.id}`,
         group_id: slot.group_id,
@@ -165,6 +171,9 @@ export function SchedulePeriodsPanel() {
         setToast({ message: "Додайте хоча б одну пару для кожної вибраної групи.", type: "error" });
         return;
       }
+    } else if (!draft.holiday_all_groups && !draft.group_ids.length) {
+      setToast({ message: "Оберіть хоча б одну групу або застосуйте канікули до всіх груп.", type: "error" });
+      return;
     }
 
     const payload: SchedulePeriodMutation = {
@@ -172,7 +181,9 @@ export function SchedulePeriodsPanel() {
       period_type: draft.period_type,
       start_date: draft.start_date,
       end_date: draft.end_date,
-      group_ids: draft.period_type === "practice" ? draft.group_ids : [],
+      group_ids: draft.period_type === "holiday"
+        ? (draft.holiday_all_groups ? [] : draft.group_ids)
+        : draft.group_ids,
       slots: draft.period_type === "practice" ? draft.slots.map(({ key: _key, ...slot }) => slot) : [],
     };
     setSaving(true);
@@ -263,7 +274,7 @@ export function SchedulePeriodsPanel() {
                   setDraft({
                     ...draft,
                     period_type,
-                    group_ids: period_type === "holiday" ? [] : draft.group_ids,
+                    holiday_all_groups: period_type === "holiday" && !draft.group_ids.length,
                     slots: period_type === "holiday" ? [] : draft.slots,
                   });
                 }}
@@ -384,9 +395,32 @@ export function SchedulePeriodsPanel() {
               })}
             </div>
           ) : (
-            <p className="rounded-xl border border-sys-border bg-sys-bg/40 p-4 text-sm text-sys-text-secondary">
-              На канікулах розклад буде прихований для всіх груп. Звичайний розклад автоматично відновиться після завершення періоду.
-            </p>
+            <div className="space-y-3 rounded-xl border border-sys-border bg-sys-bg/40 p-4">
+              <label className="flex items-center gap-3 text-sm font-medium text-sys-text-primary">
+                <input
+                  type="checkbox"
+                  checked={draft.holiday_all_groups}
+                  onChange={(event) => setDraft({ ...draft, holiday_all_groups: event.target.checked })}
+                  className="h-4 w-4 accent-sys-accent"
+                />
+                Застосувати канікули до всіх груп
+              </label>
+              {!draft.holiday_all_groups && (
+                <div className="max-w-xl space-y-1">
+                  <label className="form-label">Групи, для яких діятимуть канікули</label>
+                  <SearchableMultiSelect
+                    options={sortedGroups}
+                    value={draft.group_ids}
+                    onChange={setGroupsForDraft}
+                    placeholder="Знайти групу..."
+                    ariaLabel="Оберіть групи для канікул"
+                  />
+                </div>
+              )}
+              <p className="text-xs text-sys-text-secondary">
+                У вибраних груп розклад буде прихований на цей період. Для інших груп заняття залишаться без змін.
+              </p>
+            </div>
           )}
 
           <div className="flex justify-end border-t border-sys-border pt-4">
@@ -418,9 +452,13 @@ export function SchedulePeriodsPanel() {
                     </span>
                   </div>
                   <p className="mt-1 text-sm text-sys-text-secondary">{formatDate(period.start_date)} — {formatDate(period.end_date)}</p>
-                  {period.period_type === "practice" && (
+                  {period.period_type === "practice" ? (
                     <p className="mt-1 text-xs text-sys-text-muted">
                       {period.groups.map((group) => group.name).join(", ")} · {period.slots.length} {period.slots.length === 1 ? "пара на тиждень" : "пар на тиждень"}
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-xs text-sys-text-muted">
+                      {period.groups.length ? period.groups.map((group) => group.name).join(", ") : "Усі групи"}
                     </p>
                   )}
                 </div>

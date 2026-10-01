@@ -60,14 +60,13 @@ def _same_shared_class(left, right) -> bool:
 
 
 async def _validate_references(db: AsyncSession, payload: SchedulePeriodCreate) -> list[Group]:
-    if payload.period_type == "holiday":
-        return []
-
     groups = (
         await db.scalars(select(Group).where(Group.id.in_(payload.group_ids), Group.is_active.is_(True)))
     ).all()
     if len(groups) != len(payload.group_ids):
         raise HTTPException(status_code=400, detail="Одна або кілька вибраних груп не існують або неактивні")
+    if payload.period_type == "holiday":
+        return list(groups)
 
     subject_ids = {slot.subject_id for slot in payload.slots}
     subjects = (

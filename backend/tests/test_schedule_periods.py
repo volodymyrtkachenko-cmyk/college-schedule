@@ -182,6 +182,38 @@ async def test_holiday_takes_precedence_over_practice(calendar_client):
 
 
 @pytest.mark.anyio
+async def test_holiday_only_hides_selected_groups(calendar_client):
+    client, headers, ids, _ = calendar_client
+    holiday = await client.post(
+        "/api/calendar-periods/",
+        json={
+            "name": "Session break",
+            "period_type": "holiday",
+            "start_date": "2026-10-05",
+            "end_date": "2026-10-09",
+            "group_ids": [ids["group"]],
+        },
+        headers=headers,
+    )
+    assert holiday.status_code == 201, holiday.text
+    assert [group["id"] for group in holiday.json()["groups"]] == [ids["group"]]
+
+    selected_group_schedule = await client.get(
+        f"/api/schedule?group_id={ids['group']}&target_date=2026-10-05"
+    )
+    assert selected_group_schedule.status_code == 200
+    assert selected_group_schedule.json()["lessons"] == []
+
+    other_group_schedule = await client.get(
+        f"/api/schedule?group_id={ids['other_group']}&target_date=2026-10-05"
+    )
+    assert [lesson["group_name"] for lesson in other_group_schedule.json()["lessons"]] == ["Other group"]
+
+    full_schedule = await client.get("/api/schedule?target_date=2026-10-05")
+    assert [lesson["group_name"] for lesson in full_schedule.json()["lessons"]] == ["Other group"]
+
+
+@pytest.mark.anyio
 async def test_practice_rejects_regular_teacher_conflict_and_overlapping_group_period(calendar_client):
     client, headers, ids, _ = calendar_client
     payload = practice_payload(ids)
