@@ -187,6 +187,27 @@ def test_precheck_counts_fixed_4th_pair_days():
     assert any("32" in message and "бракує 1" in message for message in msgs)
 
 
+def test_precheck_counts_fixed_external_block_fourth_period_day():
+    group = NS(name="G1", curator_id=1)
+    curr = [
+        NS(id=1, group_id=1, group=group, subject=NS(name="Виховна година"),
+           teacher_id=1, second_teacher_id=None, is_stream=False, stream_id=None,
+           pairs_per_2_weeks=2, is_fixed=True, strict_day=4, strict_lesson=4,
+           require_week=None),
+        NS(id=2, group_id=1, group=group, subject=NS(name="Захист України"),
+           teacher_id=2, second_teacher_id=None, is_stream=True, stream_id="defense",
+           pairs_per_2_weeks=4, is_fixed=True, strict_day=1, strict_lesson=1234,
+           require_week="numerator", allow_multiple_per_day=True),
+        NS(id=3, group_id=1, group=group, subject=NS(name="Інші предмети"),
+           teacher_id=3, second_teacher_id=None, is_stream=False, stream_id=None,
+           pairs_per_2_weeks=26, is_fixed=False, strict_day=None, strict_lesson=None,
+           require_week=None),
+    ]
+    msgs = S.precheck(curr)
+    assert S.fixed_4th_days(curr) == {0, 3, 8}
+    assert any("33" in message and "бракує 1" in message for message in msgs)
+
+
 def test_thirty_two_pairs_suffice_with_only_two_thursday_curator_hours():
     group = NS(name="G1", curator_id=1)
     curr = [
@@ -202,11 +223,11 @@ def test_thirty_two_pairs_suffice_with_only_two_thursday_curator_hours():
     assert S.precheck(curr) == []
 
 
-def test_other_fixed_fourth_periods_do_not_raise_minimum_above_thirty():
+def test_fixed_non_fourth_slot_does_not_raise_minimum():
     curr = [
         NS(id=1, group_id=1, teacher_id=1, second_teacher_id=None,
            is_stream=False, stream_id=None, pairs_per_2_weeks=2,
-           is_fixed=True, strict_day=3, strict_lesson=4, require_week=None),
+           is_fixed=True, strict_day=3, strict_lesson=3, require_week=None),
         NS(id=2, group_id=1, teacher_id=2, second_teacher_id=None,
            is_stream=False, stream_id=None, pairs_per_2_weeks=28,
            is_fixed=False, strict_day=None, strict_lesson=None, require_week=None),

@@ -49,12 +49,22 @@ class SolveResult:
 
 
 def fixed_4th_days(curr_list: Iterable) -> set[int]:
-    """Indices of days containing the group's weekly Thursday curator hour."""
+    """Indices of days with a fixed lesson in the fourth period."""
     days: set[int] = set()
     for c in curr_list:
-        if not _is_curator_hour(c):
+        if not c.is_fixed or not c.strict_day or not c.strict_lesson:
             continue
-        days.update((3, DAYS + 3))
+        if str(SLOTS) not in str(c.strict_lesson):
+            continue
+        req_week = getattr(c, "require_week", None)
+        if req_week == "numerator":
+            days.add(c.strict_day - 1)
+        elif req_week == "denominator":
+            days.add(c.strict_day - 1 + DAYS)
+        else:
+            days.add(c.strict_day - 1)
+            if c.pairs_per_2_weeks >= 2:
+                days.add(c.strict_day - 1 + DAYS)
     return set(days)
 
 
@@ -99,7 +109,7 @@ def precheck(curriculums: Iterable, constraints: Iterable = ()) -> list[str]:
         lo = MIN_PAIRS_PER_DAY * DAY_IDXS + n_fixed4
         hi = MAX_PAIRS_PER_DAY * DAY_IDXS
         if total < lo:
-            extra = f" (з них {n_fixed4} дн. з виховною годиною потребують 4 пар)" if n_fixed4 else ""
+            extra = f" (закріплені 4-ті пари потребують повного дня)" if n_fixed4 else ""
             # Спроба отримати ім'я групи для гарного виведення
             g_name = getattr(lst[0], "group", None)
             g_name_str = g_name.name if g_name else f"id={g_id}"
