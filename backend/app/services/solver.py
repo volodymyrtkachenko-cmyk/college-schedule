@@ -405,6 +405,7 @@ def solve(
     fixed4 = {g: fixed_4th_days(lst) for g, lst in group_curriculums.items()}
     penalties = []
     for g_id, curr_list in group_curriculums.items():
+        fourth_slots_by_week = [[], []]
         for d in range(DAY_IDXS):
             slots_active = []
             for s in range(SLOTS):
@@ -412,6 +413,7 @@ def solve(
                 # У групи <= 1 пара в слоті, тож сума і є 0/1 (лінійно — сильніше, ніж MaxEquality)
                 model.Add(sum(X[(c.id, d, s)] for c in curr_list) == a)
                 slots_active.append(a)
+            fourth_slots_by_week[d // DAYS].append(slots_active[SLOTS - 1])
 
             pattern_vars = []
             
@@ -427,6 +429,21 @@ def solve(
             # Виховна година (закріплена 4-та пара) => у цей день рівно 4 пари.
             if d in fixed4[g_id]:
                 model.Add(slots_active[0] == 1)
+
+        # Each weekday has exactly 3 or 4 lessons, so each week's number of
+        # fourth-period days is determined by its actual weekly load. Linking
+        # these directly strengthens propagation for the solver.
+        for week in range(WEEKS):
+            weekly_load = sum(
+                X[(c.id, d, s)]
+                for c in curr_list
+                for d in range(week * DAYS, (week + 1) * DAYS)
+                for s in range(SLOTS)
+            )
+            model.Add(
+                sum(fourth_slots_by_week[week])
+                == weekly_load - MIN_PAIRS_PER_DAY * DAYS
+            )
 
     if penalties:
         model.Minimize(sum(penalties))

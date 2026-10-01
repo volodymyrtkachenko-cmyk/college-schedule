@@ -262,6 +262,13 @@ def test_thursday_curator_hour_is_fixed_and_reserved():
     assert (2, 8, 3) in result.assignments
     assert not any((curriculum_id, day, slot) in result.assignments
                    for curriculum_id in (1,) for day in (3, 8) for slot in (3,))
+    for week_start in (0, S.DAYS):
+        four_lesson_days = [
+            day for day in range(week_start, week_start + S.DAYS)
+            if sum((curriculum_id, day, slot) in result.assignments
+                   for curriculum_id in (1, 2) for slot in range(S.SLOTS)) == 4
+        ]
+        assert four_lesson_days == [week_start + 3]
 
 
 def test_exact_block_slots_and_required_week_are_enforced():
