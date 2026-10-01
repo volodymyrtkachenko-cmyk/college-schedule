@@ -55,7 +55,7 @@ export function AdminNav({ active }: { active: string }) {
        <div className="mb-8 flex items-center justify-between">
        <Link href="/" className="flex items-center gap-2 transition-opacity hover:opacity-80" title="Повернутися на сайт">
           <span className="text-[17px] font-black tracking-widest text-[#0b1120] bg-sys-accent px-2 py-1 rounded-md shadow-sm">ДФКР</span>
-          <span className="font-bold text-lg text-sys-text-primary tracking-tight">Адмінка</span>
+          <span className="font-bold text-lg text-sys-text-primary tracking-tight">Керування розкладом</span>
        </Link>
        <button
          type="button"
@@ -69,14 +69,14 @@ export function AdminNav({ active }: { active: string }) {
 
        <div className="mb-2 pl-2 text-[11px] font-bold uppercase tracking-wider text-sys-text-secondary">Розклад</div>
        <Link href="/admin?resource=schedule" onClick={() => setIsOpen(false)} className={linkClass(active === "schedule")}>
-         Перегляд і редагування
+         Перегляд розкладу
        </Link>
 
        {user?.role === "admin" && (
          <>
            <div className="mb-2 mt-6 border-t border-sys-border/50 pl-2 pt-5 text-[11px] font-bold uppercase tracking-wider text-sys-text-secondary">Підготовка розкладу</div>
            <Link href="/admin?resource=generator" onClick={() => setIsOpen(false)} className={linkClass(active === "generator")}>
-             Створити розклад
+             Генератор розкладу
            </Link>
            <Link href="/admin?resource=constraints" onClick={() => setIsOpen(false)} className={linkClass(active === "constraints")}>
              Доступність викладачів
@@ -87,7 +87,7 @@ export function AdminNav({ active }: { active: string }) {
            <Link href="/admin?resource=periods" onClick={() => setIsOpen(false)} className={linkClass(active === "periods")}>
              Практики й канікули
            </Link>
-           <div className="mb-2 mt-6 border-t border-sys-border/50 pl-2 pt-5 text-[11px] font-bold uppercase tracking-wider text-sys-text-secondary">Довідники</div>
+           <div className="mb-2 mt-6 border-t border-sys-border/50 pl-2 pt-5 text-[11px] font-bold uppercase tracking-wider text-sys-text-secondary">Довідкова інформація</div>
            <div className="space-y-1">
              {resources.map(r => (
                <Link key={r} href={`/admin?resource=${r}`} onClick={() => setIsOpen(false)} className={linkClass(active === r)}>
@@ -105,16 +105,16 @@ export function AdminNav({ active }: { active: string }) {
 
        <div className="mt-auto pt-8 flex flex-col gap-3">
            <div className="flex flex-col items-start gap-1.5 rounded-[10px] border border-emerald-500/10 bg-emerald-500/5 px-4 py-3 shadow-sm">
-              <span className="text-[10px] text-emerald-600/70 dark:text-emerald-400/70 font-bold uppercase tracking-widest">Аналітика</span>
+              <span className="text-[10px] text-emerald-600/70 dark:text-emerald-400/70 font-bold uppercase tracking-widest">Відвідувачі</span>
               <div className="flex items-center gap-2">
                 <span className="relative flex h-2 w-2 shrink-0"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span></span>
-                <span className="text-[13px] font-semibold text-emerald-600 dark:text-emerald-400">{online !== null ? online : "..."} на сайті</span>
+                <span className="text-[13px] font-semibold text-emerald-600 dark:text-emerald-400">{online !== null ? online : "…"} зараз на сайті</span>
               </div>
            </div>
            
            <button onClick={() => { setIsOpen(false); logout(); }} className="w-full text-left flex items-center justify-center gap-2 px-3 py-2.5 text-[14px] font-bold rounded-[8px] text-rose-500/80 bg-rose-500/10 hover:text-rose-400 hover:bg-rose-500/20 active:scale-95 transition-all">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-              Вийти з адмінки
+              Вийти з облікового запису
            </button>
        </div>
     </nav>
@@ -126,7 +126,7 @@ export function AdminNav({ active }: { active: string }) {
       <div className="sm:hidden flex items-center justify-between px-4 py-3 bg-sys-bg border-b border-sys-border sticky top-0 z-40">
         <Link href="/" className="flex items-center gap-2">
           <span className="text-[14px] font-black tracking-widest text-[#0b1120] bg-sys-accent px-1.5 py-0.5 rounded shadow-sm">ДФКР</span>
-          <span className="font-bold text-[15px] text-sys-text-primary">Адмінка</span>
+          <span className="font-bold text-[15px] text-sys-text-primary">Керування розкладом</span>
         </Link>
         <button
           type="button"

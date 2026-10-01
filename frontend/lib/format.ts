@@ -14,3 +14,14 @@ export function formatTeacherName(value: string): string {
     .join(".");
   return `${surname} ${initials}.`;
 }
+
+export function formatLessonCount(count: number): string {
+  const remainder10 = count % 10;
+  const remainder100 = count % 100;
+  const noun = remainder10 >= 2 && remainder10 <= 4 && (remainder100 < 12 || remainder100 > 14)
+    ? "заняття"
+    : remainder10 === 1 && remainder100 !== 11
+      ? "заняття"
+      : "занять";
+  return `${count} ${noun}`;
+}

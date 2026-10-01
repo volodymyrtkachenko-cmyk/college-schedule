@@ -24,7 +24,7 @@ export default function LoginPage() {
     try {
       await login(form.username, form.password);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Помилка входу");
+      setError(e instanceof Error ? e.message : "Не вдалося увійти. Перевірте дані та спробуйте ще раз.");
       setIsSubmitting(false);
     }
   };
@@ -41,16 +41,16 @@ export default function LoginPage() {
             <span className="rounded-md bg-sys-accent px-2.5 py-1 text-sm font-black tracking-[0.18em] text-[#0b1120]">ДФКР</span>
           </div>
           <h2 className="mt-2 text-center text-3xl font-bold tracking-tight text-sys-text-primary">Вхід у систему</h2>
-          <p className="mt-2 text-center text-sm text-sys-text-secondary">Сторінка для адміністраторів розкладу</p>
+          <p className="mt-2 text-center text-sm text-sys-text-secondary">Вхід для адміністраторів розкладу</p>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4 rounded-md shadow-sm">
             <div>
-              <label htmlFor="username" className="sr-only">Логін</label>
+              <label htmlFor="username" className="sr-only">Ім’я користувача</label>
               <input id="username" name="username" type="text" required value={form.username}
                      onChange={(e) => setForm({ ...form, username: e.target.value })}
                      className="form-control block w-full py-3 sm:text-sm"
-                     placeholder="Логін" />
+                     placeholder="Ім’я користувача" />
             </div>
             <div>
               <label htmlFor="password" className="sr-only">Пароль</label>
@@ -63,7 +63,7 @@ export default function LoginPage() {
           {error && <p className="text-sm text-rose-400 text-center">{error}</p>}
           <div>
             <button type="submit" disabled={isSubmitting} className="group relative flex w-full justify-center rounded-lg border border-transparent bg-sys-accent px-4 py-3 text-sm font-semibold text-slate-950 transition-opacity hover:opacity-90 disabled:cursor-wait disabled:opacity-50">
-              {isSubmitting ? "Вхід..." : "Увійти"}
+              {isSubmitting ? "Входимо…" : "Увійти"}
             </button>
           </div>
           <div className="text-center">

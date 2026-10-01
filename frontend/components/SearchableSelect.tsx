@@ -8,10 +8,10 @@ export function SearchableSelect({
   options,
   value,
   onChange,
-  placeholder = "Оберіть...",
+  placeholder = "Оберіть зі списку",
   disabled,
   ariaLabel,
-  emptyLabel = "— Немає —",
+  emptyLabel = "Не вибрано",
 }: {
   options: Option[];
   value: number | null | undefined;
@@ -150,7 +150,7 @@ export function SearchableSelect({
           })}
           {enabled.length === 0 && (
             <p className="px-4 py-3 text-sm text-sys-text-muted" role="status">
-              Нічого не знайдено
+              За вашим запитом нічого не знайдено.
             </p>
           )}
         </div>

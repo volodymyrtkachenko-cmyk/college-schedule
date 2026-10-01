@@ -62,7 +62,7 @@ export function ReferenceForm({ resource, item, faculties = [], teachers = [], o
                 aria-labelledby="reference-form-title"
                 className="surface-panel max-h-[90dvh] w-full max-w-md overflow-y-auto p-5 shadow-2xl sm:p-6"
             >
-                <h2 id="reference-form-title" className="mb-5 text-lg font-semibold text-sys-text-primary">{item ? "Редагувати запис" : "Новий запис"}</h2>
+                <h2 id="reference-form-title" className="mb-5 text-lg font-semibold text-sys-text-primary">{item ? "Редагування запису" : "Новий запис"}</h2>
                 <div className="grid gap-4">
                     {fields[resource].map(({key, label, type}, i) => (
                         <label key={key} className="flex flex-col gap-1.5 text-sm text-sys-text-secondary">

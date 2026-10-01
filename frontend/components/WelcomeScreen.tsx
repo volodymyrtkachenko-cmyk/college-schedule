@@ -34,8 +34,8 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
               <div className="mx-auto w-16 h-16 rounded-2xl bg-sys-card border border-sys-border flex items-center justify-center mb-6 shadow-lg shadow-sys-bg">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-sys-accent"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"></path></svg>
               </div>
-              <h1 className="text-3xl font-bold tracking-tight text-white">Вітаємо у ДФКР!</h1>
-              <p className="text-sys-text-secondary text-lg">Оберіть свою роль, щоб налаштувати розклад під вас.</p>
+              <h1 className="text-3xl font-bold tracking-tight text-white">Вітаємо в ДФКР</h1>
+              <p className="text-sys-text-secondary text-lg">Оберіть, для кого показувати розклад.</p>
             </div>
             
             <div className="grid grid-cols-1 gap-4">
@@ -47,8 +47,8 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-lg text-white">Я студент</h3>
-                  <p className="text-sys-text-secondary text-sm">Перегляд розкладу для моєї групи</p>
+                  <h3 className="font-semibold text-lg text-white">Студент</h3>
+                  <p className="text-sys-text-secondary text-sm">Розклад моєї групи</p>
                 </div>
               </button>
               
@@ -60,8 +60,8 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-lg text-white">Я викладач</h3>
-                  <p className="text-sys-text-secondary text-sm">Перегляд моїх пар та планів</p>
+                  <h3 className="font-semibold text-lg text-white">Викладач</h3>
+                  <p className="text-sys-text-secondary text-sm">Мій розклад занять</p>
                 </div>
               </button>
             </div>
@@ -79,7 +79,7 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
                   Назад
                 </button>
-                <h2 className="text-2xl font-bold text-white mb-2">Оберіть {mode === "student" ? "вашу групу" : "ваше прізвище"}</h2>
+                <h2 className="text-2xl font-bold text-white mb-2">Оберіть {mode === "student" ? "групу" : "викладача"}</h2>
              </div>
              
              <div className="relative mb-4 shrink-0">
@@ -88,7 +88,7 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
                  autoFocus
                  type="search"
                  aria-label={mode === "student" ? "Пошук групи" : "Пошук викладача"}
-                 placeholder={mode === "student" ? "Пошук групи..." : "Пошук викладача..."}
+                 placeholder={mode === "student" ? "Знайти групу" : "Знайти викладача"}
                  value={search}
                  onChange={(e) => setSearch(e.target.value)}
                  className="form-control w-full py-3 pl-10 pr-4"
@@ -107,7 +107,9 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
                 ))}
                 {filtered.length === 0 && (
                   <div className="text-center py-8 text-sys-text-secondary">
-                    Нічого не знайдено
+                    {options.length === 0
+                      ? mode === "student" ? "Список груп поки порожній." : "Список викладачів поки порожній."
+                      : "За вашим запитом нічого не знайдено."}
                   </div>
                 )}
              </div>

@@ -112,7 +112,7 @@ export function useSchedule(weekAnchorDate: Date) {
         }
     })
       .catch(() => {
-        if (!cachedGroups) setError("Не вдалося завантажити групи. Спробуйте ще раз.");
+        if (!cachedGroups) setError("Не вдалося завантажити список груп. Перевірте підключення до інтернету та спробуйте ще раз.");
       })
       .finally(() => setLoading(false));
   }, []);
@@ -184,7 +184,7 @@ export function useSchedule(weekAnchorDate: Date) {
           memoryCache.set(memKey, { time: Date.now(), today: todayResponse, week: weekResponse });
         })
         .catch(() => {
-          if (!hasCachedSchedule && isSubscribed) setError("Не вдалося завантажити розклад. Перевірте з'єднання.");
+          if (!hasCachedSchedule && isSubscribed) setError("Не вдалося завантажити розклад. Перевірте підключення до інтернету та спробуйте ще раз.");
         })
         .finally(() => {
             if (isSubscribed) setLoading(false);
@@ -273,7 +273,7 @@ export async function downloadForOffline(
   target: { groupId?: number; teacherId?: number },
   currentWeekAnchor: Date
 ) {
-  if (!target.groupId && !target.teacherId) throw new Error("Не обрано ціль для завантаження");
+  if (!target.groupId && !target.teacherId) throw new Error("Оберіть групу або викладача.");
 
   const mode = target.groupId ? "student" : "teacher";
   const targetKey = mode === "student" ? `groupId:${target.groupId}` : `teacherId:${target.teacherId}`;
@@ -321,7 +321,7 @@ export async function downloadForOffline(
   }
 
   if (successCount === 0) {
-    throw new Error(lastError || "Не вдалось зв'язатися з сервером");
+    throw new Error(lastError || "Не вдалося зберегти розклад на пристрій. Перевірте підключення та спробуйте ще раз.");
   }
 
   try {

@@ -8,8 +8,8 @@ export function SearchableMultiSelect({
   options,
   value,
   onChange,
-  placeholder = "Пошук за назвою...",
-  ariaLabel = "Пошук груп",
+  placeholder = "Знайти за назвою",
+  ariaLabel = "Пошук серед груп",
 }: {
   options: Option[];
   value: number[];
@@ -26,6 +26,13 @@ export function SearchableMultiSelect({
   function toggle(id: number) {
     onChange(value.includes(id) ? value.filter((selectedId) => selectedId !== id) : [...value, id]);
   }
+
+  const count = value.length;
+  const countLabel = count % 10 === 1 && count % 100 !== 11
+    ? "групу"
+    : count % 10 >= 2 && count % 10 <= 4 && (count % 100 < 12 || count % 100 > 14)
+      ? "групи"
+      : "груп";
 
   return (
     <div className="space-y-2">
@@ -75,11 +82,11 @@ export function SearchableMultiSelect({
           );
         })}
         {filtered.length === 0 && (
-          <p className="px-3 py-4 text-center text-sm text-sys-text-muted">Нічого не знайдено</p>
+          <p className="px-3 py-4 text-center text-sm text-sys-text-muted">За вашим запитом нічого не знайдено.</p>
         )}
       </div>
       <p className="text-xs text-sys-text-muted" aria-live="polite">
-        Обрано груп: {value.length}
+        Вибрано {count} {countLabel}
       </p>
     </div>
   );

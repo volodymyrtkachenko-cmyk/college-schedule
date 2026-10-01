@@ -36,12 +36,12 @@ export function ConstraintsPanel() {
   }
 
   async function handleAdd() {
-    if (!teacherId) return setToast({message: "Оберіть викладача", type: "error"});
+    if (!teacherId) return setToast({message: "Оберіть викладача.", type: "error"});
     try {
       const session = await api.auth.ensureAuthenticated();
       const res = await api.constraints.create(Number(teacherId), day, lesson, session.access_token);
       setItems([res, ...items]);
-      setToast({message: "Графік додано!", type: "success"});
+      setToast({message: "Обмеження додано.", type: "success"});
     } catch(err: any) {
       setToast({message: err.message, type: "error"});
     }
@@ -52,20 +52,20 @@ export function ConstraintsPanel() {
       const session = await api.auth.ensureAuthenticated();
       await api.constraints.remove(id, session.access_token);
       setItems(items.filter(i => i.id !== id));
-      setToast({message: "Видалено", type: "success"});
+      setToast({message: "Обмеження видалено.", type: "success"});
     } catch(err: any) {
       setToast({message: err.message, type: "error"});
     }
   }
 
-  const daysDict = {1: "Понеділок", 2: "Вівторок", 3: "Середа", 4: "Четвер", 5: "П'ятниця"};
+  const daysDict = {1: "Понеділок", 2: "Вівторок", 3: "Середа", 4: "Четвер", 5: "П’ятниця"};
 
   return (
     <>
       <div className="flex items-center justify-between mt-2">
          <div>
-           <h1 className="text-xl font-bold">Недоступність Викладачів</h1>
-           <p className="text-sm text-sys-text-secondary mt-1">Вкажіть, в які дні та пари викладач НЕ МОЖЕ працювати. Генератор це врахує.</p>
+           <h1 className="text-xl font-bold">Доступність викладачів</h1>
+           <p className="text-sm text-sys-text-secondary mt-1">Позначте дні та пари, коли викладач не може проводити заняття. Генератор врахує ці обмеження.</p>
          </div>
       </div>
 
@@ -76,7 +76,7 @@ export function ConstraintsPanel() {
              options={teachers}
              value={teacherId === "" ? null : teacherId}
              onChange={(id) => setTeacherId(id ?? "")}
-             placeholder="Пошук викладача..."
+             placeholder="Знайти викладача"
              disabled={loading}
              ariaLabel="Викладач"
            />
@@ -88,26 +88,26 @@ export function ConstraintsPanel() {
            </select>
          </div>
          <div>
-           <label className="block text-xs font-semibold uppercase tracking-wider text-sys-text-secondary mb-1">Номер пари (Слот)</label>
+           <label className="block text-xs font-semibold uppercase tracking-wider text-sys-text-secondary mb-1">Пара</label>
            <select value={lesson} onChange={e => setLesson(Number(e.target.value))} className="form-control min-w-[120px]">
              <option value={1}>1 пара</option><option value={2}>2 пара</option>
              <option value={3}>3 пара</option><option value={4}>4 пара</option>
            </select>
          </div>
          <button onClick={handleAdd} className="h-[42px] rounded-lg bg-rose-600/90 px-4 py-2 text-sm font-semibold tracking-wide text-white transition-colors hover:bg-rose-600">
-            Заблокувати пару
+            Додати обмеження
          </button>
       </div>
 
       {loading ? (
-        <div className="mt-8 text-center text-sys-text-secondary">Завантаження...</div>
+        <div className="mt-8 text-center text-sys-text-secondary">Завантаження…</div>
       ) : (
         <div className="mt-6 rounded-[12px] border-[0.5px] border-sys-border bg-sys-card overflow-hidden shadow-sm">
           <table className="w-full text-left text-sm border-collapse">
             <thead className="bg-[#111827]">
               <tr>
                 <th className="px-5 py-4 font-semibold text-sys-text-secondary text-xs uppercase tracking-wider">Викладач</th>
-                <th className="px-5 py-4 font-semibold text-sys-text-secondary text-xs uppercase tracking-wider">День заборони</th>
+                <th className="px-5 py-4 font-semibold text-sys-text-secondary text-xs uppercase tracking-wider">День</th>
                 <th className="px-5 py-4 font-semibold text-sys-text-secondary text-xs uppercase tracking-wider">Пара</th>
                 <th className="px-5 py-4 font-semibold text-sys-text-secondary text-right min-w-[100px]">Дії</th>
               </tr>
@@ -125,7 +125,7 @@ export function ConstraintsPanel() {
               ))}
               {items.length === 0 && (
                 <tr>
-                   <td colSpan={4} className="px-5 py-8 text-center text-sys-text-secondary">Обмежень немає. Усі викладачі повністю вільні.</td>
+                   <td colSpan={4} className="px-5 py-8 text-center text-sys-text-secondary">Обмежень немає. Викладачі доступні в усі дні та пари.</td>
                 </tr>
               )}
             </tbody>

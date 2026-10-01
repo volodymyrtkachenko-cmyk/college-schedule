@@ -69,14 +69,14 @@ export function LessonCard({ lesson, targetDate, mode = "day", scheduleMode = "s
     if (!onNoteSave || !note.trim()) return;
     setBusy(true); setError(null);
     try { await onNoteSave(note.trim()); setEditingNote(false); }
-    catch (e) { setError(e instanceof Error ? e.message : "Не вдалося зберегти примітку"); }
+    catch (e) { setError(e instanceof Error ? e.message : "Не вдалося зберегти примітку."); }
     finally { setBusy(false); }
   };
   const deleteNote = async () => {
     if (!onNoteDelete || !window.confirm("Видалити примітку?")) return;
     setBusy(true); setError(null);
     try { await onNoteDelete(); setNote(""); setEditingNote(false); }
-    catch (e) { setError(e instanceof Error ? e.message : "Не вдалося видалити примітку"); }
+    catch (e) { setError(e instanceof Error ? e.message : "Не вдалося видалити примітку."); }
     finally { setBusy(false); }
   };
 
@@ -136,7 +136,7 @@ export function LessonCard({ lesson, targetDate, mode = "day", scheduleMode = "s
               {teacherRoom && <p className={`text-sys-text-secondary break-words [overflow-wrap:anywhere] mt-0.5 ${isDay ? 'text-[13px]' : 'text-[12px]'}`}>{teacherRoom}</p>}
               {lesson.is_replacement && (
                 <div className="mt-1.5">
-                  <span className="inline-block px-1.5 py-0.5 text-[0.65rem] uppercase tracking-widest font-bold bg-sys-accent text-slate-950 rounded leading-none">Заміна</span>
+                  <span className="inline-block px-1.5 py-0.5 text-[0.65rem] font-bold bg-sys-accent text-slate-950 rounded leading-none">Заміна</span>
                 </div>
               )}
             </div>
@@ -152,7 +152,7 @@ export function LessonCard({ lesson, targetDate, mode = "day", scheduleMode = "s
                 </button>
              )}
              {(canEdit || hasNote) && (
-                <button type="button" aria-label="Примітка" onClick={(e) => {
+                <button type="button" aria-label={canEdit ? hasNote ? "Редагувати примітку" : "Додати примітку" : "Показати примітку"} onClick={(e) => {
                   e.stopPropagation();
                   if (canEdit) {
                      if (!hasNote) setNote("");
@@ -198,7 +198,7 @@ export function LessonCard({ lesson, targetDate, mode = "day", scheduleMode = "s
       {/* Editor Box */}
       {canEdit && editingNote && <form onSubmit={submitNote} className="mt-3 space-y-2 border-t border-sys-border/50 pt-3 relative z-10">
         <label className="sr-only" htmlFor={`note-${lesson.id}-${targetDate}`}>Примітка</label>
-        <textarea id={`note-${lesson.id}-${targetDate}`} value={note} onChange={(event) => setNote(event.target.value)} rows={3} maxLength={2000} placeholder="Варіант роботи, кабінет, або інша примітка" className="w-full rounded-md border-[0.5px] border-sys-border bg-sys-bg px-2 py-2 text-xs text-sys-text-primary outline-none focus:border-sys-accent focus:ring-1 focus:ring-sys-accent" />
+        <textarea id={`note-${lesson.id}-${targetDate}`} value={note} onChange={(event) => setNote(event.target.value)} rows={3} maxLength={2000} placeholder="Варіант роботи, аудиторія або інша примітка" className="w-full rounded-md border-[0.5px] border-sys-border bg-sys-bg px-2 py-2 text-xs text-sys-text-primary outline-none focus:border-sys-accent focus:ring-1 focus:ring-sys-accent" />
         {error && <p role="alert" className="text-xs text-rose-400">{error}</p>}
         <div className="flex flex-wrap gap-2">
           <button type="submit" disabled={busy || !note.trim()} className="rounded bg-sys-accent px-3 py-1.5 text-xs font-semibold text-sys-bg disabled:opacity-50 hover:opacity-90">{busy ? "Збереження…" : "Зберегти"}</button>

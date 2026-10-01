@@ -71,9 +71,20 @@ function formatDate(value: string) {
 }
 
 function periodState(period: SchedulePeriodRecord, today: string) {
-  if (period.end_date < today) return "Завершився";
-  if (period.start_date > today) return "Запланований";
+  if (period.end_date < today) return "Завершено";
+  if (period.start_date > today) return "Заплановано";
   return "Триває";
+}
+
+function formatPairCount(count: number) {
+  const remainder10 = count % 10;
+  const remainder100 = count % 100;
+  const noun = remainder10 === 1 && remainder100 !== 11
+    ? "пара"
+    : remainder10 >= 2 && remainder10 <= 4 && (remainder100 < 12 || remainder100 > 14)
+      ? "пари"
+      : "пар";
+  return `${count} ${noun} на тиждень`;
 }
 
 export function SchedulePeriodsPanel() {
@@ -253,7 +264,7 @@ export function SchedulePeriodsPanel() {
           <div className="flex items-start justify-between gap-3">
             <div>
               <h2 className="text-lg font-bold">{draft.id ? "Редагувати період" : "Новий період"}</h2>
-              <p className="mt-1 text-sm text-sys-text-secondary">Дати початку й завершення включаються до періоду.</p>
+              <p className="mt-1 text-sm text-sys-text-secondary">Період охоплює обидві зазначені дати.</p>
             </div>
             <button type="button" onClick={() => setDraft(null)} className="rounded-lg border border-sys-border px-3 py-2 text-sm text-sys-text-secondary hover:text-sys-text-primary">
               Скасувати
@@ -302,7 +313,7 @@ export function SchedulePeriodsPanel() {
                   options={sortedGroups}
                   value={draft.group_ids}
                   onChange={setGroupsForDraft}
-                  placeholder="Знайти групу..."
+                  placeholder="Знайти групу"
                   ariaLabel="Оберіть групи для практики"
                 />
               </div>
@@ -334,7 +345,7 @@ export function SchedulePeriodsPanel() {
                             value={slot.subject_id || null}
                             onChange={(id) => setDraft({ ...draft, slots: draft.slots.map((item) => item.key === slot.key ? { ...item, subject_id: id ?? 0 } : item) })}
                             options={sortedSubjects}
-                            placeholder="Знайти предмет..."
+                            placeholder="Знайти предмет"
                             emptyLabel="Оберіть предмет"
                             ariaLabel={`Предмет практики для ${group?.name}`}
                           />
@@ -345,7 +356,7 @@ export function SchedulePeriodsPanel() {
                             value={slot.teacher_id || null}
                             onChange={(id) => setDraft({ ...draft, slots: draft.slots.map((item) => item.key === slot.key ? { ...item, teacher_id: id ?? 0 } : item) })}
                             options={sortedTeachers}
-                            placeholder="Знайти викладача..."
+                            placeholder="Знайти викладача"
                             emptyLabel="Оберіть викладача"
                             ariaLabel={`Викладач практики для ${group?.name}`}
                           />
@@ -356,7 +367,7 @@ export function SchedulePeriodsPanel() {
                             value={slot.second_teacher_id ?? null}
                             onChange={(id) => setDraft({ ...draft, slots: draft.slots.map((item) => item.key === slot.key ? { ...item, second_teacher_id: id } : item) })}
                             options={sortedTeachers}
-                            placeholder="За потреби оберіть..."
+                            placeholder="Оберіть другого викладача"
                             emptyLabel="Немає"
                             ariaLabel={`Другий викладач практики для ${group?.name}`}
                           />
@@ -412,7 +423,7 @@ export function SchedulePeriodsPanel() {
                     options={sortedGroups}
                     value={draft.group_ids}
                     onChange={setGroupsForDraft}
-                    placeholder="Знайти групу..."
+                    placeholder="Знайти групу"
                     ariaLabel="Оберіть групи для канікул"
                   />
                 </div>
@@ -454,7 +465,7 @@ export function SchedulePeriodsPanel() {
                   <p className="mt-1 text-sm text-sys-text-secondary">{formatDate(period.start_date)} — {formatDate(period.end_date)}</p>
                   {period.period_type === "practice" ? (
                     <p className="mt-1 text-xs text-sys-text-muted">
-                      {period.groups.map((group) => group.name).join(", ")} · {period.slots.length} {period.slots.length === 1 ? "пара на тиждень" : "пар на тиждень"}
+                      {period.groups.map((group) => group.name).join(", ")} · {formatPairCount(period.slots.length)}
                     </p>
                   ) : (
                     <p className="mt-1 text-xs text-sys-text-muted">

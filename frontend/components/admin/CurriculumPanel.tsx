@@ -6,6 +6,17 @@ import { ConfirmModal } from "./ConfirmModal";
 import { SearchableSelect } from "../SearchableSelect";
 import { SearchableMultiSelect } from "../SearchableMultiSelect";
 
+function formatGroupCount(count: number) {
+  const remainder10 = count % 10;
+  const remainder100 = count % 100;
+  const noun = remainder10 === 1 && remainder100 !== 11
+    ? "групи"
+    : remainder10 >= 2 && remainder10 <= 4 && (remainder100 < 12 || remainder100 > 14)
+      ? "груп"
+      : "груп";
+  return `${count} ${noun}`;
+}
+
 export function CurriculumPanel() {
   const [items, setItems] = useState<CurriculumRecord[]>([]);
   const [groups, setGroups] = useState<ReferenceRecord[]>([]);
@@ -91,7 +102,7 @@ export function CurriculumPanel() {
       if (editor.id) {
         const updated = await api.curriculums.update(editor.id, payload, session.access_token);
         setItems(curr => curr.map(c => c.id === updated.id ? updated : c));
-        setToast({message: "Запис оновлено", type:"success"});
+        setToast({message: "Навчальне навантаження оновлено.", type:"success"});
       } else {
         const streamId = payload.is_stream ? `stream_${crypto.randomUUID()}` : null;
         const results = await Promise.allSettled(
@@ -108,13 +119,13 @@ export function CurriculumPanel() {
           setItems(latestItems);
           setToast({
             message: created.length
-              ? `Додано для ${created.length} із ${results.length} груп. Для решти груп зберегти не вдалося.`
+              ? `Навантаження збережено для ${created.length} із ${results.length} груп. Для решти зберегти не вдалося.`
               : "Не вдалося додати навантаження для вибраних груп.",
             type: "error",
           });
           return;
         }
-        setToast({message: `Однакове навантаження додано для ${created.length} груп.`, type:"success"});
+        setToast({message: `Однакове навантаження додано для ${formatGroupCount(created.length)}.`, type:"success"});
       }
       setEditor(null);
     } catch(err: any) {
@@ -128,7 +139,7 @@ export function CurriculumPanel() {
       const session = await api.auth.ensureAuthenticated();
       await api.curriculums.remove(itemToDelete.id, session.access_token);
       setItems(curr => curr.filter(c => c.id !== itemToDelete.id));
-      setToast({message: "Видалено успішно", type: "success"});
+      setToast({message: "Навчальне навантаження видалено.", type: "success"});
     } catch(err: any) {
       setToast({message: err.message, type: "error"});
     } finally {
@@ -144,8 +155,9 @@ export function CurriculumPanel() {
              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /><path d="M21 21l-6 -6" /></svg>
            </span>
            <input 
-             type="text" 
-             placeholder="Пошук (група, предмет, викладач)..." 
+             type="search"
+             aria-label="Пошук навчального навантаження"
+             placeholder="Знайти групу, предмет або викладача"
              value={searchTerm}
              onChange={(e) => setSearchTerm(e.target.value)}
              className="form-control w-full py-2 pl-9 pr-4"
@@ -160,7 +172,7 @@ export function CurriculumPanel() {
       </div>
 
       {loading ? (
-        <div className="mt-8 text-center text-sys-text-secondary">Завантаження даних...</div>
+        <div className="mt-8 text-center text-sys-text-secondary">Завантаження даних…</div>
       ) : error ? (
         <div className="mt-8 text-center text-rose-500">{error}</div>
       ) : (
@@ -171,10 +183,10 @@ export function CurriculumPanel() {
                 <th className="px-5 py-4 font-semibold text-sys-text-secondary whitespace-nowrap border-b border-sys-border text-xs uppercase tracking-wider">Група</th>
                 <th className="px-5 py-4 font-semibold text-sys-text-secondary border-b border-sys-border text-xs uppercase tracking-wider min-w-[200px]">Предмет</th>
                 <th className="px-5 py-4 font-semibold text-sys-text-secondary border-b border-sys-border text-xs uppercase tracking-wider min-w-[150px]">Викладач</th>
-                <th className="px-5 py-4 font-semibold text-sys-text-secondary border-b border-sys-border text-xs uppercase tracking-wider">Підгрупа (2-й)</th>
-                <th className="px-5 py-4 font-semibold text-sys-text-secondary border-b border-sys-border text-xs uppercase tracking-wider text-center">Пар/2 тижні</th>
+                <th className="px-5 py-4 font-semibold text-sys-text-secondary border-b border-sys-border text-xs uppercase tracking-wider">Другий викладач</th>
+                <th className="px-5 py-4 font-semibold text-sys-text-secondary border-b border-sys-border text-xs uppercase tracking-wider text-center">Занять за 2 тижні</th>
                 <th className="px-5 py-4 font-semibold text-sys-text-secondary border-b border-sys-border text-xs uppercase tracking-wider text-center">Годин</th>
-                <th className="px-5 py-4 font-semibold text-sys-text-secondary border-b border-sys-border text-xs uppercase tracking-wider">Значки</th>
+                <th className="px-5 py-4 font-semibold text-sys-text-secondary border-b border-sys-border text-xs uppercase tracking-wider">Позначки</th>
                 <th className="px-5 py-4 font-semibold text-sys-text-secondary border-b border-sys-border text-right min-w-[100px]">Дії</th>
               </tr>
             </thead>
@@ -190,11 +202,11 @@ export function CurriculumPanel() {
                   <td className="px-5 py-3 text-center text-emerald-400 font-black text-lg">{item.pairs_per_2_weeks}</td>
                   <td className="px-5 py-3 text-center text-sys-text-secondary font-medium">{item.total_hours}</td>
                   <td className="px-5 py-3 flex gap-2">
-                    {item.is_fixed && <span title="Закріплено" className="text-xl">🔒</span>}
-                    {item.is_stream && <span title="Потік" className="text-xl">🌊</span>}
+                    {item.is_fixed && <span title="Заняття закріплено за конкретним часом" className="rounded bg-sys-input px-2 py-1 text-xs text-sys-text-secondary">Закріплено</span>}
+                    {item.is_stream && <span title="Заняття проводиться для спільного потоку" className="rounded bg-sys-accent/10 px-2 py-1 text-xs text-sys-accent">Потік</span>}
                   </td>
                   <td className="px-5 py-3 text-right">
-                    <button onClick={() => setEditor(item)} className="p-2 text-sys-text-muted hover:text-sys-accent rounded-full hover:bg-sys-accent/10 transition-colors" title="Редагувати">
+                    <button onClick={() => setEditor(item)} className="p-2 text-sys-text-muted hover:text-sys-accent rounded-full hover:bg-sys-accent/10 transition-colors" title="Редагувати" aria-label={`Редагувати навантаження з предмета ${item.subject.name} для групи ${item.group.name}`}>
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>
                     </button>
                     <button onClick={() => setItemToDelete(item)} className="p-2 text-sys-text-muted hover:text-rose-400 rounded-full hover:bg-rose-500/10 transition-colors" title="Видалити">
@@ -218,7 +230,7 @@ export function CurriculumPanel() {
           <div className="surface-panel flex max-h-[92dvh] w-full max-w-2xl flex-col overflow-hidden">
             <div className="px-6 py-4 border-b border-sys-border bg-[#0b1120]/50 sticky top-0 flex justify-between items-center z-10">
               <h3 className="text-lg font-bold text-sys-text-primary">
-                {editor.id ? "Редагування плану" : "Додавання нового плану"}
+                {editor.id ? "Редагування навчального навантаження" : "Нове навчальне навантаження"}
               </h3>
               <button onClick={() => setEditor(null)} className="p-1 -mr-2 text-sys-text-secondary hover:text-sys-text-primary bg-transparent rounded-full hover:bg-white/10 transition">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -237,7 +249,7 @@ export function CurriculumPanel() {
                         options={[...groups].sort((a, b) => a.name.localeCompare(b.name, "uk"))}
                         value={editor.group_id}
                         onChange={(id) => setEditor({ ...editor, group_id: id ?? undefined })}
-                        placeholder="Пошук групи..."
+                        placeholder="Знайти групу"
                         ariaLabel="Група"
                       />
                     ) : (
@@ -245,7 +257,7 @@ export function CurriculumPanel() {
                         options={[...groups].sort((a, b) => a.name.localeCompare(b.name, "uk"))}
                         value={selectedGroupIds}
                         onChange={setSelectedGroupIds}
-                        placeholder="Знайти групу за назвою..."
+                        placeholder="Знайти групу"
                         ariaLabel="Оберіть групи для однакового навчального плану"
                       />
                     )}
@@ -256,7 +268,7 @@ export function CurriculumPanel() {
                       options={[...subjects].sort((a, b) => a.name.localeCompare(b.name, "uk"))}
                       value={editor.subject_id}
                       onChange={(id) => setEditor({ ...editor, subject_id: id ?? undefined })}
-                      placeholder="Пошук предмета..."
+                      placeholder="Знайти предмет"
                       ariaLabel="Предмет"
                     />
                   </div>
@@ -269,17 +281,17 @@ export function CurriculumPanel() {
                       options={[...teachers].sort((a, b) => a.name.localeCompare(b.name, "uk"))}
                       value={editor.teacher_id}
                       onChange={(id) => setEditor({ ...editor, teacher_id: id ?? undefined })}
-                      placeholder="Пошук викладача..."
+                      placeholder="Знайти викладача"
                       ariaLabel="Викладач"
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-bold uppercase tracking-wider text-sys-text-secondary pl-1">Підгрупа (2-й викладач)</label>
+                    <label className="text-xs font-bold uppercase tracking-wider text-sys-text-secondary pl-1">Другий викладач</label>
                     <SearchableSelect
                       options={[...teachers].sort((a, b) => a.name.localeCompare(b.name, "uk"))}
                       value={editor.second_teacher_id}
                       onChange={(id) => setEditor({ ...editor, second_teacher_id: id })}
-                      placeholder="Пошук викладача..."
+                      placeholder="Знайти викладача"
                       ariaLabel="Другий викладач"
                     />
                   </div>
@@ -287,11 +299,11 @@ export function CurriculumPanel() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                     <label className="text-xs font-bold uppercase tracking-wider text-sys-accent pl-1">Пар за 2 тижні</label>
+                     <label className="text-xs font-bold uppercase tracking-wider text-sys-accent pl-1">Занять за два тижні</label>
                      <input type="number" min="0" max="50" required value={editor.pairs_per_2_weeks || 0} onChange={e => setEditor({...editor, pairs_per_2_weeks: parseInt(e.target.value)})} className="w-full rounded-[8px] border-[0.5px] border-sys-accent/50 bg-[#0b1120] px-3 py-2.5 text-[16px] font-black text-emerald-400 text-center shadow-inner outline-none focus:border-sys-accent focus:ring-1 focus:ring-sys-accent" />
                   </div>
                   <div className="space-y-1">
-                     <label className="text-xs font-bold uppercase tracking-wider text-sys-text-secondary pl-1">Всього Годин</label>
+                     <label className="text-xs font-bold uppercase tracking-wider text-sys-text-secondary pl-1">Загальна кількість годин</label>
                      <input type="number" min="0" required value={editor.total_hours || 0} onChange={e => setEditor({...editor, total_hours: parseInt(e.target.value)})} className="w-full rounded-[8px] border-[0.5px] border-sys-border bg-sys-input px-3 py-2.5 text-[15px] font-medium text-sys-text-primary text-center shadow-sm outline-none focus:border-sys-accent focus:ring-1 focus:ring-sys-accent" />
                   </div>
                 </div>
@@ -303,8 +315,8 @@ export function CurriculumPanel() {
                         <svg className="absolute w-3.5 h-3.5 text-[#0b1120] opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l5 5l10 -10"/></svg>
                      </div>
                      <div>
-                       <span className="text-[14px] font-semibold text-sys-text-primary px-1">Жорстко закріплено 🔒</span>
-                       <p className="text-[12px] text-sys-text-muted">Генератор поставить це заняття у фіксований слот і не буде його рухати.</p>
+                       <span className="text-[14px] font-semibold text-sys-text-primary px-1">Закріпити заняття</span>
+                       <p className="text-[12px] text-sys-text-muted">Генератор поставить заняття у визначений день і пару.</p>
                      </div>
                    </label>
                    
@@ -315,14 +327,14 @@ export function CurriculumPanel() {
                      <input type="checkbox" checked={editor.allow_multiple_per_day || false} onChange={e => setEditor({...editor, allow_multiple_per_day: e.target.checked})} className="peer appearance-none w-5 h-5 border border-sys-border rounded bg-sys-input checked:bg-sys-accent checked:border-sys-accent transition-colors" />
                      <svg className="absolute inset-0 w-full h-full p-[2px] opacity-0 peer-checked:opacity-100 text-[#0b1120] pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
                    </div>
-                   <span className="text-sm font-medium text-sys-text-secondary group-hover:text-sys-text transition-colors">Блокове навчання (усі пари в 1 день) 🧱</span>
+                   <span className="text-sm font-medium text-sys-text-secondary group-hover:text-sys-text transition-colors">Проводити всі заняття в один день</span>
                  </label>
                </div>
 
                <div className="flex gap-4 items-center">
-                  <span className="text-sm font-medium text-sys-text-secondary w-32">Тиждень:</span>
+                  <span className="text-sm font-medium text-sys-text-secondary w-32">Тип тижня:</span>
                   <select value={editor.require_week || ""} onChange={e => setEditor({...editor, require_week: e.target.value || null})} className="flex-1 rounded-[6px] border border-sys-border bg-sys-input px-3 py-1.5 text-sm text-sys-text focus:border-sys-accent focus:outline-none focus:ring-1 focus:ring-sys-accent">
-                    <option value="">Рівномірно (за замовчуванням)</option>
+                    <option value="">Без обмежень</option>
                     <option value="numerator">Тільки чисельник</option>
                     <option value="denominator">Тільки знаменник</option>
                   </select>
@@ -368,7 +380,7 @@ export function CurriculumPanel() {
                         <svg className="absolute w-3.5 h-3.5 text-[#0b1120] opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l5 5l10 -10"/></svg>
                      </div>
                      <div>
-                       <span className="text-[14px] font-semibold text-sys-text-primary px-1">Потокова лекція 🌊</span>
+                       <span className="text-[14px] font-semibold text-sys-text-primary px-1">Спільний потік</span>
                        <p className="text-[12px] text-sys-text-muted">Потоком стануть лише вибрані групи, додані разом. Збіг предмета й викладача сам по собі групи не об’єднує.</p>
                      </div>
                    </label>

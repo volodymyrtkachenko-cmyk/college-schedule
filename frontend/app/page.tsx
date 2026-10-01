@@ -12,7 +12,7 @@ import { useAuth, canAccessAdmin } from "../lib/auth";
 import { useRouter } from "next/navigation";
 import { getMondayOf } from "../lib/date";
 import { WelcomeScreen } from "../components/WelcomeScreen";
-import Link from "next/link";
+import { SearchableSelect } from "../components/SearchableSelect";
 
 export default function HomePage() {
   const getInitialAnchor = () => {
@@ -40,8 +40,15 @@ export default function HomePage() {
     const todayAnchor = getMondayOf(new Date());
     return Math.abs(weekAnchorDate.getTime() - todayAnchor.getTime()) < 1000 * 60 * 60 * 24;
   }, [weekAnchorDate]);
+  const shiftWeek = (offset: number) => {
+    setWeekAnchorDate((date) => {
+      const next = new Date(date);
+      next.setDate(next.getDate() + offset * 7);
+      return next;
+    });
+  };
 
-  const { isSetupComplete, completeSetup, resetSetup, mode, toggleMode, teachers, teacherId, setTeacherId, groups, groupId, setGroupId, today, week, loading, error } = useSchedule(weekAnchorDate);
+  const { isSetupComplete, completeSetup, mode, toggleMode, teachers, teacherId, setTeacherId, groups, groupId, setGroupId, today, week, loading, error } = useSchedule(weekAnchorDate);
   const { user, loading: authLoading, logout } = useAuth();
   
   const isStandalone = useIsStandalonePwa();
@@ -62,10 +69,10 @@ export default function HomePage() {
       const target = mode === "student" ? { groupId: groupId ?? undefined } : { teacherId: teacherId ?? undefined };
       await downloadForOffline(target, weekAnchorDate);
       setIsDownloaded(true);
-      setToast({ message: "Розклад збережено для офлайн-режиму", type: "success" });
+      setToast({ message: "Розклад збережено на пристрій.", type: "success" });
     } catch (e) {
       console.error(e);
-      setToast({ message: `Не вдалось завантажити: ${e instanceof Error ? e.message : String(e)}`, type: "error" });
+      setToast({ message: "Не вдалося зберегти розклад на пристрій. Перевірте підключення та спробуйте ще раз.", type: "error" });
     } finally {
       setIsDownloading(false);
     }
@@ -114,7 +121,7 @@ export default function HomePage() {
     <div className="flex items-center gap-2">
       {canAccessAdmin(user) && (
         <a href="/admin" className="rounded-lg border border-cyan-400/40 px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-cyan-300 whitespace-nowrap shadow-sm hover:bg-cyan-500/10 transition-colors">
-          Адмінка
+          Керування
         </a>
       )}
       <button onClick={logout} className="rounded-lg border border-sys-border px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-sys-text-secondary whitespace-nowrap shadow-sm hover:bg-sys-hover transition-colors">
@@ -158,26 +165,56 @@ export default function HomePage() {
                 className="flex items-center gap-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-4 py-2 rounded-xl text-sm font-medium transition-colors hover:bg-emerald-500/20 disabled:opacity-50 h-[38px] sm:h-auto"
               >
                 {isDownloading ? (
-                  <span className="flex items-center gap-2"><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25"></circle><path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" className="opacity-75"></path></svg> Завантаження...</span>
-                ) : "📥 Завантажити для офлайн"}
+                  <span className="flex items-center gap-2"><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25"></circle><path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" className="opacity-75"></path></svg> Зберігаємо…</span>
+                ) : "Зберегти на пристрій"}
               </button>
             )}
             
-            <div className="flex items-center justify-between sm:justify-start gap-4">
-              <div className="flex items-center gap-2 bg-sys-card border border-sys-border px-4 py-2 rounded-xl">
-                 <span className="font-medium text-white shadow-sm flex items-center gap-2 truncate max-w-[200px]">
-                   {mode === "student" ? groups.find(g => g.id === groupId)?.name || "⚠️ Оберіть групу" : teachers.find(t => t.id === teacherId)?.name || "⚠️ Оберіть викладача"}
-                 </span>
-                 <button onClick={resetSetup} className="ml-3 flex items-center gap-1.5 text-xs font-medium text-sys-text-secondary hover:text-white transition-colors bg-sys-bg/50 px-2.5 py-1 rounded-md border border-transparent hover:border-sys-border" title="Змінити налаштування" type="button">
-                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-                   Змінити
-                 </button>
-              </div>
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+              {teachers.length > 0 && (
+                <div role="group" aria-label="Тип розкладу" className="flex rounded-lg border border-sys-border bg-sys-card p-1">
+                  <button
+                    type="button"
+                    aria-pressed={mode === "student"}
+                    onClick={() => toggleMode("student")}
+                    className={`rounded-md px-3 py-2 text-xs font-medium transition-colors ${mode === "student" ? "bg-sys-accent/10 text-sys-accent" : "text-sys-text-secondary hover:text-sys-text-primary"}`}
+                  >
+                    Для групи
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={mode === "teacher"}
+                    onClick={() => toggleMode("teacher")}
+                    className={`rounded-md px-3 py-2 text-xs font-medium transition-colors ${mode === "teacher" ? "bg-sys-accent/10 text-sys-accent" : "text-sys-text-secondary hover:text-sys-text-primary"}`}
+                  >
+                    Для викладача
+                  </button>
+                </div>
+              )}
+              <label className="min-w-0 rounded-xl border border-sys-border bg-sys-card px-3 py-2 sm:w-56">
+                <span className="mb-1 block text-[11px] font-medium text-sys-text-muted">
+                  {mode === "student" ? "Група" : "Викладач"}
+                </span>
+                <div>
+                  <SearchableSelect
+                    options={mode === "student" ? groups : teachers}
+                    value={mode === "student" ? groupId : teacherId}
+                    onChange={(id) => {
+                      if (id === null) return;
+                      if (mode === "student") setGroupId(id);
+                      else setTeacherId(id);
+                    }}
+                    ariaLabel={mode === "student" ? "Обрати групу" : "Обрати викладача"}
+                    placeholder={mode === "student" ? "Оберіть групу" : "Оберіть викладача"}
+                    emptyLabel="Очистити вибір"
+                  />
+                </div>
+              </label>
             </div>
-              <div className="hidden md:block ml-2">
-                <UserControls />
-              </div>
+            <div className="hidden md:block ml-2">
+              <UserControls />
             </div>
+          </div>
         </div>
       </header>
 
@@ -185,13 +222,13 @@ export default function HomePage() {
         <div className="mb-6 hidden items-center justify-between md:flex">
           <div>
             <p className="text-sm text-sys-text-secondary">{view === "today" ? "Поточний день" : "Навчальний тиждень"}</p>
-            <h2 className="text-xl font-semibold">{view === "today" ? "Сьогодні" : "Усі дні"}</h2>
+            <h2 className="text-xl font-semibold">{view === "today" ? "Розклад на сьогодні" : "Розклад на тиждень"}</h2>
           </div>
           
-          <div className="flex rounded-lg border border-sys-border bg-sys-card p-1 text-sm relative">
+          <div role="group" aria-label="Режим перегляду розкладу" className="flex rounded-lg border border-sys-border bg-sys-card p-1 text-sm relative">
             <div className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-sys-accent/10 border border-sys-accent/20 rounded-md shadow-sm transition-all duration-300 ease-out z-0" style={{ left: view === 'today' ? '4px' : 'calc(50% + 2px)' }}></div>
-            <button key="today" onClick={() => setView("today")} className={`w-24 relative z-10 rounded-md px-4 py-2 text-sm font-medium transition-colors ${view === 'today' ? 'text-sys-accent' : 'text-sys-text-secondary hover:text-sys-text-primary'}`}>Сьогодні</button>
-            <button key="week" onClick={() => setView("week")} className={`w-24 relative z-10 rounded-md px-4 py-2 text-sm font-medium transition-colors ${view === 'week' ? 'text-sys-accent' : 'text-sys-text-secondary hover:text-sys-text-primary'}`}>Тиждень</button>
+            <button type="button" aria-pressed={view === "today"} onClick={() => setView("today")} className={`w-24 relative z-10 rounded-md px-4 py-2 text-sm font-medium transition-colors ${view === 'today' ? 'text-sys-accent' : 'text-sys-text-secondary hover:text-sys-text-primary'}`}>Сьогодні</button>
+            <button type="button" aria-pressed={view === "week"} onClick={() => setView("week")} className={`w-24 relative z-10 rounded-md px-4 py-2 text-sm font-medium transition-colors ${view === 'week' ? 'text-sys-accent' : 'text-sys-text-secondary hover:text-sys-text-primary'}`}>Тиждень</button>
           </div>
         </div>
 
@@ -217,15 +254,35 @@ export default function HomePage() {
                   </div>
                   <div className="flex w-full sm:w-auto items-center justify-between gap-3">
                      <div className="sm:hidden shrink-0"><WeekTypeBadge weekType={weekType} /></div>
-                     <div className="flex w-full sm:w-auto rounded-lg border border-sys-border bg-sys-card p-1 text-sm relative">
-                    <div className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-sys-bg border border-sys-border/50 rounded-md shadow-sm transition-all duration-300 ease-out z-0" style={{ left: isCurrentWeek ? '4px' : 'calc(50% + 2px)' }} />
-                    <button type="button" onClick={resetWeek} className={`relative z-10 flex-1 sm:flex-none sm:w-28 text-center rounded-md px-3 py-1.5 font-medium transition-colors ${isCurrentWeek ? 'text-sys-text-primary' : 'text-sys-text-secondary hover:text-sys-text-primary'}`}>Поточний</button>
-                    <button type="button" onClick={() => {
-                      const nextAnchor = getMondayOf(new Date());
-                      nextAnchor.setDate(nextAnchor.getDate() + 7);
-                      setWeekAnchorDate(nextAnchor);
-                    }} className={`relative z-10 flex-1 sm:flex-none sm:w-28 text-center rounded-md px-3 py-1.5 font-medium transition-colors ${!isCurrentWeek ? 'text-sys-text-primary' : 'text-sys-text-secondary hover:text-sys-text-primary'}`}>Наступний</button>
-                  </div>
+                     <div role="group" aria-label="Навігація тижнями" className="flex w-full items-center justify-between gap-1 rounded-lg border border-sys-border bg-sys-card p-1 text-sm sm:w-auto">
+                       <button
+                         type="button"
+                         onClick={() => shiftWeek(-1)}
+                         aria-label="Попередній тиждень"
+                         className="rounded-md px-2 py-2 text-sys-text-secondary transition-colors hover:bg-sys-bg hover:text-sys-text-primary"
+                       >
+                         <span aria-hidden="true">←</span>
+                         <span className="sr-only">Попередній тиждень</span>
+                       </button>
+                       <button
+                         type="button"
+                         onClick={resetWeek}
+                         disabled={isCurrentWeek}
+                         aria-pressed={isCurrentWeek}
+                         className="min-w-28 flex-1 rounded-md px-2 py-2 text-center text-xs font-medium text-sys-text-primary transition-colors hover:bg-sys-bg disabled:cursor-default disabled:text-sys-accent sm:flex-none"
+                       >
+                         {isCurrentWeek ? "Цей тиждень" : "Поточний тиждень"}
+                       </button>
+                       <button
+                         type="button"
+                         onClick={() => shiftWeek(1)}
+                         aria-label="Наступний тиждень"
+                         className="rounded-md px-2 py-2 text-sys-text-secondary transition-colors hover:bg-sys-bg hover:text-sys-text-primary"
+                       >
+                         <span aria-hidden="true">→</span>
+                         <span className="sr-only">Наступний тиждень</span>
+                       </button>
+                     </div>
                 </div>
                </div>
               <ScheduleWeekGrid week={week} scheduleMode={mode} canEdit={false} />
@@ -233,7 +290,11 @@ export default function HomePage() {
           </div>
         ) : null}
         
-        {!loading && !error && !groups.length && <div className="rounded-2xl border border-dashed border-sys-border p-12 text-center text-sys-text-secondary">Активних груп поки немає.</div>}
+        {!loading && !error && ((mode === "student" && !groups.length) || (mode === "teacher" && !teachers.length)) && (
+          <div className="rounded-2xl border border-dashed border-sys-border p-12 text-center text-sys-text-secondary">
+            {mode === "student" ? "Список груп поки порожній." : "Список викладачів поки порожній."}
+          </div>
+        )}
         
         {toast && (
           <div className={`fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:bottom-6 z-[100] flex animate-in slide-in-from-bottom-5 items-center gap-2 rounded-[8px] border px-4 py-3 text-sm shadow-2xl backdrop-blur-md ${

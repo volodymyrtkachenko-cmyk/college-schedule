@@ -140,25 +140,26 @@ function localDate(date: Date) {
 }
 
 const FIELD_NAMES: Record<string, string> = {
-    name: "Назва/Ім'я", short_name: "Скорочення", email: "Електронна пошта", room: "Аудиторія",
-    username: "Логін", password: "Пароль", group_id: "Група", subject_id: "Предмет",
+    name: "Назва або ім’я", short_name: "Скорочення", email: "Електронна пошта", room: "Аудиторія",
+    username: "Ім’я користувача", password: "Пароль", group_id: "Група", subject_id: "Предмет",
     teacher_id: "Викладач", lesson_number: "Номер пари"
 };
 
 async function parseError(response: Response) {
     try {
         const body = await response.json();
+        if (response.status >= 500) return "Сталася помилка на сервері. Спробуйте ще раз пізніше.";
         
         // Custom backend string messages
         if (typeof body.detail === "string") {
             const raw = body.detail.toLowerCase();
             if (raw.includes("unique constraint failed")) {
-                if (raw.includes("username")) return "Користувач з таким логіном вже існує.";
+                if (raw.includes("username")) return "Користувач із таким ім’ям уже існує.";
                 if (raw.includes("name")) return "Такий запис уже існує (назва має бути унікальною).";
                 return "Запис з такими даними вже існує.";
             }
             if (raw.includes("incorrect username")) return "Неправильний логін або пароль.";
-            if (raw.includes("invalid or expired token")) return "Ваша сесія завершилася. Будь ласка, увійдіть знову.";
+            if (raw.includes("invalid or expired token")) return "Термін дії сеансу завершився. Увійдіть знову.";
             return body.detail;
         }
         
@@ -168,15 +169,18 @@ async function parseError(response: Response) {
             const rawField = String(err.loc?.slice(-1)[0] ?? 'Поле');
             const field = FIELD_NAMES[rawField] ?? rawField;
             
-            if (err.type.includes('missing')) return `Поле "${field}" обов'язкове.`;
-            if (err.type.includes('too_short')) return `Обов'язкове поле "${field}" не може бути пустим.`;
-            if (err.type.includes('string_pattern_mismatch')) return `Недопустимі символи у полі "${field}".`;
-            return `Перевірте правильність заповнення: "${field}".`;
+            if (err.type.includes('missing')) return `Заповніть поле «${field}».`;
+            if (err.type.includes('too_short')) return `Поле «${field}» не може бути порожнім.`;
+            if (err.type.includes('string_pattern_mismatch')) return `Перевірте допустимі символи в полі «${field}».`;
+            return `Перевірте правильність заповнення поля «${field}».`;
         }
         
-        return body.detail ?? `Внутрішня помилка сервера (${response.status})`;
+        if (response.status >= 500) return "Сталася помилка на сервері. Спробуйте ще раз пізніше.";
+        return body.detail ?? "Не вдалося виконати запит. Спробуйте ще раз.";
     } catch {
-        return `Невідома помилка збереження (${response.status}).`;
+        return response.status >= 500
+            ? "Сталася помилка на сервері. Спробуйте ще раз пізніше."
+            : "Не вдалося виконати запит. Спробуйте ще раз.";
     }
 }
 
@@ -198,7 +202,7 @@ async function rawRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
             headers,
         });
     } catch {
-        throw new ApiError(0, `Не вдалося підключитися до API (${API_URL}). Перевірте, що backend запущено на порту 8000.`);
+        throw new ApiError(0, "Не вдалося з’єднатися із сервером. Перевірте підключення до інтернету та спробуйте ще раз.");
     }
     if (!response.ok) throw new ApiError(response.status, await parseError(response));
     if (response.status === 204) return undefined as T;

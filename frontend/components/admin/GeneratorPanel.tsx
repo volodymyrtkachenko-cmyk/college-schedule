@@ -4,7 +4,16 @@ import { useEffect, useState } from "react";
 import { api, DraftRecord, DraftSlotRecord } from "../../lib/api";
 import { ConfirmModal } from "./ConfirmModal";
 import { SearchableSelect } from "../SearchableSelect";
-import { formatTeacherName } from "../../lib/format";
+import { formatLessonCount, formatTeacherName } from "../../lib/format";
+
+const draftStatusLabels: Record<string, string> = {
+  DRAFT: "Чернетка",
+  GENERATING: "Створюється",
+  published: "Опубліковано",
+  FAILED: "Помилка",
+  TIMEOUT: "Час вичерпано",
+  INFEASIBLE: "Несумісні обмеження",
+};
 
 export function GeneratorPanel() {
   const [drafts, setDrafts] = useState<DraftRecord[]>([]);
@@ -77,21 +86,21 @@ export function GeneratorPanel() {
         completed = await api.generator.getDraft(job.id, session.access_token);
       }
       if (completed.status === "TIMEOUT") {
-        throw new Error("Не вдалося знайти розклад за 10 хвилин. Перевірте навантаження та спробуйте на сервері з більшою кількістю CPU.");
+        throw new Error("Не вдалося створити розклад за відведений час. Перевірте навчальне навантаження та спробуйте ще раз.");
       }
       if (completed.status === "INFEASIBLE") {
-        throw new Error("Обмеження розкладу несумісні. Перевірте навантаження, закріплені пари та доступність викладачів.");
+        throw new Error("Не вдалося узгодити обмеження. Перевірте навчальне навантаження, закріплені заняття й доступність викладачів.");
       }
       if (completed.status === "FAILED") {
-        throw new Error("Фонове створення розкладу завершилося помилкою. Перевірте логи Render.");
+        throw new Error("Не вдалося створити розклад. Перевірте дані та спробуйте ще раз.");
       }
       if (completed.status === "GENERATING") {
-        throw new Error(`Генерація ще триває. Перевірте стан чернетки #${job.id} трохи пізніше.`);
+        throw new Error(`Створення ще триває. Перевірте чернетку №${job.id} трохи пізніше.`);
       }
       if (completed.status !== "DRAFT") {
-        throw new Error(`Генерація завершилася зі статусом ${completed.status}. Перевірте логи Render.`);
+        throw new Error("Створення не завершилося. Спробуйте ще раз або зверніться до адміністратора.");
       }
-      setToast({message: "Згенеровано успішно!", type: "success"});
+      setToast({message: "Розклад створено.", type: "success"});
       await loadDrafts();
     } catch(err: any) {
       setToast({message: err.message, type: "error"});
@@ -104,7 +113,7 @@ export function GeneratorPanel() {
     try {
       const session = await api.auth.ensureAuthenticated();
       await api.generator.deleteDraft(id, session.access_token);
-      setToast({message: "Видалено!", type: "success"});
+      setToast({message: "Розклад видалено.", type: "success"});
       await loadDrafts();
     } catch(err: any) {
       setToast({message: err.message, type: "error"});
@@ -114,11 +123,11 @@ export function GeneratorPanel() {
   }
 
   async function handlePublish(id: number) {
-    if (!confirm("Опублікувати цей розклад? Поточний бойовий розклад буде замінено.")) return;
+    if (!confirm("Опублікувати цей розклад? Він замінить поточний опублікований розклад.")) return;
     try {
       const session = await api.auth.ensureAuthenticated();
       await api.generator.publish(id, session.access_token);
-      setToast({message: "Розклад успішно опубліковано і він вже на сайті!", type: "success"});
+      setToast({message: "Розклад опубліковано.", type: "success"});
       await loadDrafts();
     } catch(err: any) {
       setToast({message: err.message, type: "error"});
@@ -131,7 +140,7 @@ export function GeneratorPanel() {
       const updated = await api.generator.moveSlot(slotId, day, lesson, week, session.access_token);
       setSlots(curr => curr.map(s => s.id === updated.id ? updated : s));
       setSelectedSlotId(null);
-      setToast({message: "Пару переміщено", type: "success"});
+      setToast({message: "Заняття переміщено.", type: "success"});
     } catch(err: any) {
       setToast({message: err.message, type: "error"});
     }
@@ -180,10 +189,10 @@ export function GeneratorPanel() {
       <div className="flex flex-col gap-5">
         <div className="flex flex-col gap-4 rounded-2xl border border-sys-border bg-sys-card p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <button onClick={() => setActiveDraft(null)} className="mb-2 text-sm font-medium text-sys-accent hover:underline">← До списку розкладів</button>
+            <button onClick={() => setActiveDraft(null)} className="mb-2 text-sm font-medium text-sys-accent hover:underline">← До списку</button>
             <h2 className="truncate text-xl font-bold">{activeDraft.name}</h2>
             <span className="mt-1 inline-block rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-300">
-              {activeDraft.status === "DRAFT" ? "Чернетка" : activeDraft.status}
+              {draftStatusLabels[activeDraft.status] ?? "Невідомий статус"}
             </span>
           </div>
           <div className="w-full sm:w-72">
@@ -192,7 +201,7 @@ export function GeneratorPanel() {
               value={filterMode === "group" ? filterGroupId : filterTeacherId}
               onChange={(id) => filterMode === "group" ? setFilterGroupId(id) : setFilterTeacherId(id)}
               options={selectOptions}
-              placeholder={filterMode === "group" ? "Знайти групу..." : "Знайти викладача..."}
+              placeholder={filterMode === "group" ? "Знайти групу" : "Знайти викладача"}
               emptyLabel={filterMode === "group" ? "Усі групи" : "Усі викладачі"}
               ariaLabel={filterMode === "group" ? "Фільтр за групою" : "Фільтр за викладачем"}
             />
@@ -241,7 +250,7 @@ export function GeneratorPanel() {
         {selectedSlot && (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-sys-accent/40 bg-sys-accent/10 px-4 py-3">
             <p className="text-sm text-sys-text-primary">
-              Оберіть зелену клітинку для пари <strong>{selectedSlot.curriculum.group.name} · {selectedSlot.curriculum.subject.name}</strong>. Зеленим позначено вільні для неї слоти.
+            Оберіть зелену клітинку, щоб перемістити заняття <strong>{selectedSlot.curriculum.group.name} · {selectedSlot.curriculum.subject.name}</strong>. Зелені клітинки — вільні місця.
             </p>
             <button type="button" onClick={() => setSelectedSlotId(null)} className="rounded-lg border border-sys-border px-3 py-1.5 text-sm font-medium text-sys-text-secondary hover:text-sys-text-primary">
               Скасувати
@@ -257,7 +266,7 @@ export function GeneratorPanel() {
             {days.map((day) => (
               <div key={day} className="border-b border-r border-sys-border bg-sys-card px-3 py-3 text-center">
                 <h3 className="font-semibold text-sys-text-primary">{dayNames[day]}</h3>
-                <span className="text-xs text-sys-text-muted">{visibleSlots.filter((slot) => slot.day_of_week === day).length} пар</span>
+                <span className="text-xs text-sys-text-muted">{formatLessonCount(visibleSlots.filter((slot) => slot.day_of_week === day).length)}</span>
               </div>
             ))}
 
@@ -295,7 +304,7 @@ export function GeneratorPanel() {
                           >
                             <div className="flex flex-wrap items-center justify-between gap-x-2">
                               <span className="font-semibold text-sys-accent">{slot.curriculum.group.name}</span>
-                              {slot.week_type === "both" && <span className="rounded bg-sys-accent/10 px-1.5 py-0.5 text-[10px] font-semibold text-sys-accent">Обидва тижні</span>}
+                              {slot.week_type === "both" && <span className="rounded bg-sys-accent/10 px-1.5 py-0.5 text-[10px] font-semibold text-sys-accent">Щотижня</span>}
                             </div>
                             <p className="mt-1 font-medium leading-snug text-sys-text-primary">{slot.curriculum.subject.name}</p>
                             <p className="mt-1 break-words text-xs leading-snug text-sys-text-secondary">
@@ -362,21 +371,21 @@ export function GeneratorPanel() {
     <>
       <div className="mt-2 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
          <div>
-           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sys-accent">Виробництво</p>
+           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sys-accent">Підготовка розкладу</p>
            <h1 className="mt-1 text-xl font-bold">Генератор розкладу</h1>
          </div>
          <button onClick={handleGenerate} disabled={generating} className="shrink-0 rounded-[6px] bg-emerald-500 px-4 py-2 text-sm font-semibold text-[#0b1120] hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-wait flex items-center gap-2">
             {generating ? (
               <>
                 <svg className="animate-spin h-4 w-4 text-[#0b1120]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
-                Пошук розкладу (до 10 хв)...
+                Створюємо розклад…
               </>
-            ) : "+ Згенерувати новий розклад"}
+            ) : "Створити розклад"}
          </button>
       </div>
 
       {loading ? (
-        <div className="mt-8 text-center text-sys-text-secondary">Завантаження...</div>
+        <div className="mt-8 text-center text-sys-text-secondary">Завантаження…</div>
       ) : error ? (
         <div className="mt-8 text-center text-rose-500">{error}</div>
       ) : (
@@ -384,8 +393,8 @@ export function GeneratorPanel() {
           <table className="w-full min-w-[700px] border-collapse text-left text-sm">
             <thead className="bg-[#111827]">
               <tr>
-                <th className="px-5 py-4 font-semibold text-sys-text-secondary text-xs uppercase tracking-wider">ID</th>
-                <th className="px-5 py-4 font-semibold text-sys-text-secondary text-xs uppercase tracking-wider">Назва/Дата</th>
+                <th className="px-5 py-4 font-semibold text-sys-text-secondary text-xs uppercase tracking-wider">№</th>
+                <th className="px-5 py-4 font-semibold text-sys-text-secondary text-xs uppercase tracking-wider">Назва розкладу</th>
                 <th className="px-5 py-4 font-semibold text-sys-text-secondary text-xs uppercase tracking-wider">Статус</th>
                 <th className="px-5 py-4 font-semibold text-sys-text-secondary text-right min-w-[200px]">Дії</th>
               </tr>
@@ -396,10 +405,10 @@ export function GeneratorPanel() {
                   <td className="px-5 py-3 whitespace-nowrap text-sys-text-muted">#{d.id}</td>
                   <td className="px-5 py-3 font-semibold text-sys-text-primary">{d.name}</td>
                   <td className="px-5 py-3">
-                    <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider ${d.status === 'published' ? 'bg-emerald-500/10 text-emerald-400' : d.status === 'DRAFT' ? 'bg-amber-500/10 text-amber-400' : 'bg-gray-500/10 text-gray-400'}`}>{d.status}</span>
+                    <span className={`px-2 py-0.5 rounded text-xs font-bold tracking-wider ${d.status === 'published' ? 'bg-emerald-500/10 text-emerald-400' : d.status === 'DRAFT' ? 'bg-amber-500/10 text-amber-400' : 'bg-gray-500/10 text-gray-400'}`}>{draftStatusLabels[d.status] ?? "Невідомий статус"}</span>
                   </td>
                   <td className="px-5 py-3 text-right flex justify-end gap-2">
-                    <button onClick={() => loadSlots(d)} className="px-3 py-1.5 text-xs font-semibold rounded bg-sys-accent/10 text-sys-accent hover:bg-sys-accent/20 transition">Відкрити</button>
+                    <button onClick={() => loadSlots(d)} className="px-3 py-1.5 text-xs font-semibold rounded bg-sys-accent/10 text-sys-accent hover:bg-sys-accent/20 transition">Переглянути</button>
                     {d.status !== 'published' && (
                        <button onClick={() => handlePublish(d.id)} className="px-3 py-1.5 text-xs font-semibold rounded bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition">Опублікувати</button>
                     )}
@@ -409,7 +418,7 @@ export function GeneratorPanel() {
               ))}
               {drafts.length === 0 && (
                 <tr>
-                   <td colSpan={4} className="px-5 py-8 text-center text-sys-text-secondary">Нічого не знайдено. Згенеруйте розклад.</td>
+                   <td colSpan={4} className="px-5 py-8 text-center text-sys-text-secondary">Чернеток ще немає. Створіть розклад, щоб він з’явився тут.</td>
                 </tr>
               )}
             </tbody>
@@ -421,7 +430,7 @@ export function GeneratorPanel() {
       <ConfirmModal
         isOpen={draftToDelete !== null}
         title="Видалити розклад?"
-        message={draftToDelete ? `Чернетку «${draftToDelete.name}» та всі її пари буде видалено без можливості відновлення.` : undefined}
+        message={draftToDelete ? `Розклад «${draftToDelete.name}» і всі заняття в ньому буде видалено без можливості відновлення.` : undefined}
         onConfirm={() => {
           if (draftToDelete) void handleDelete(draftToDelete.id);
         }}

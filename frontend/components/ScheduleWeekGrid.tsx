@@ -4,6 +4,7 @@ import { Lesson, ScheduleResponse } from "../lib/api";
 import { ScheduleDay } from "./ScheduleDay";
 import { LessonCard } from "./LessonCard";
 import { motion, AnimatePresence } from "framer-motion";
+import { formatLessonCount } from "../lib/format";
 
 export function ScheduleWeekGrid({ week, availabilityWeek, availabilityError, scheduleMode = "student", canEdit = false, onEdit, onCreate, onNoteSave, onNoteDelete, movingLesson, onMoveSelect, onMove }: {
   week: ScheduleResponse[]; scheduleMode?: "student"|"teacher"; canEdit?: boolean; onEdit?: (lesson: Lesson) => void; onCreate?: (date: string) => void;
@@ -21,7 +22,8 @@ export function ScheduleWeekGrid({ week, availabilityWeek, availabilityError, sc
   // Keep the active day aligned with reality when week array changes
   useEffect(() => {
      if (week.length === 0) return;
-     const todayStr = new Date().toISOString().slice(0, 10);
+     const today = new Date();
+     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
      const todayIdx = week.findIndex(d => d.date === todayStr);
      if (todayIdx !== -1) {
        setActiveIdx(todayIdx);
@@ -120,8 +122,8 @@ export function ScheduleWeekGrid({ week, availabilityWeek, availabilityError, sc
       {canEdit && movingLesson && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-400/30 bg-emerald-500/[0.08] px-4 py-3">
           <p className="text-sm text-sys-text-primary">
-            Перетягніть <strong>{movingLesson.subject_name}</strong> або виберіть зелену вільну пару.
-            {availabilityWeek ? " Перевіряються конфлікти групи й викладачів у всьому розкладі." : " Завантажується перевірка конфліктів…"}
+            Перетягніть <strong>{movingLesson.subject_name}</strong> або виберіть підсвічене вільне місце.
+            {availabilityWeek ? " Перевіряємо конфлікти групи та викладача в усьому розкладі." : " Перевіряємо доступні місця…"}
           </p>
           <button type="button" onClick={() => onMoveSelect?.(null)} className="rounded-lg border border-sys-border px-3 py-1.5 text-sm font-medium text-sys-text-secondary hover:text-sys-text-primary">
             Скасувати
@@ -130,7 +132,7 @@ export function ScheduleWeekGrid({ week, availabilityWeek, availabilityError, sc
       )}
       {canEdit && availabilityError && (
         <p role="alert" className="mb-4 rounded-xl border border-rose-400/30 bg-rose-400/5 px-4 py-3 text-sm text-rose-200">
-          Не вдалося перевірити конфлікти розкладу: {availabilityError} Зелені слоти не показуються, але збереження все одно перевірить конфлікти на сервері.
+          Не вдалося перевірити вільні місця: {availabilityError} Вільні місця не підсвічено, але під час збереження система ще раз перевірить розклад.
         </p>
       )}
       {canEdit && (
@@ -218,25 +220,38 @@ export function ScheduleWeekGrid({ week, availabilityWeek, availabilityError, sc
         </div>
       )}
       {/* DESKTOP VIEW */}
-      {!canEdit && <div className="hidden xl:grid min-w-0 gap-6 grid-cols-5 xl:gap-3">
-        {week.map((day) => <ScheduleDay key={`desktop-${day.date}`} schedule={day} mode="week" {...dayProps} />)}
+      {!canEdit && <div
+        role="region"
+        aria-label="Розклад на тиждень"
+        tabIndex={0}
+        className="hidden min-w-0 gap-4 md:grid md:grid-cols-2 lg:flex lg:overflow-x-auto lg:pb-2 xl:grid xl:grid-cols-5 xl:overflow-visible xl:pb-0 xl:gap-3"
+      >
+        {week.map((day) => (
+          <div key={`desktop-${day.date}`} className="min-w-0 lg:w-56 lg:shrink-0 xl:w-auto xl:flex-1">
+            <ScheduleDay schedule={day} mode="week" {...dayProps} />
+          </div>
+        ))}
       </div>}
 
-      {/* MOBILE/TABLET VIEW */}
-      {!canEdit && <div className="flex xl:hidden flex-col w-full">
+      {!canEdit && <div className="flex w-full flex-col md:hidden">
         {week.length > 0 && (
-          <div className="flex bg-sys-card border border-sys-border rounded-xl p-1 mb-6 relative z-10 w-full sm:w-[400px] sm:mx-auto justify-between">
+          <div role="group" aria-label="Оберіть день тижня" className="mb-6 flex w-full justify-between rounded-xl border border-sys-border bg-sys-card p-1 relative z-10">
             {week.map((day, idx) => (
               <button
                 key={`tab-${day.date}`}
                 type="button"
                 onClick={() => switchTab(idx)}
+                aria-pressed={activeIdx === idx}
+                aria-label={`${new Intl.DateTimeFormat("uk-UA", { weekday: "long", day: "numeric", month: "long" }).format(new Date(`${day.date}T12:00:00`))}, ${formatLessonCount(day.lessons.length)}`}
                 style={{ width: `${100 / week.length}%` }}
-                className={`relative flex-1 py-2 text-[13px] font-bold uppercase tracking-wider z-10 transition-colors ${
+                className={`relative z-10 flex-1 rounded-md py-2 text-[13px] font-bold uppercase tracking-wider transition-colors ${
                   activeIdx === idx ? 'text-[#0b1120]' : 'text-sys-text-secondary hover:text-sys-text-primary'
                 }`}
               >
-                {getDayName(day.date)}
+                <span className="block">{getDayName(day.date)}</span>
+                <span className={`mt-0.5 block text-[10px] font-medium normal-case tracking-normal ${activeIdx === idx ? "text-slate-800/80" : "text-sys-text-muted"}`}>
+                  {formatLessonCount(day.lessons.length)}
+                </span>
               </button>
             ))}
             <div 

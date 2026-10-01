@@ -23,11 +23,11 @@ export function InstallPrompt() {
   if (installEvent) {
     return (
       <div className="mx-auto mt-4 flex max-w-[1800px] items-center justify-between gap-3 rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100">
-        <span>Встановіть розклад для швидкого доступу офлайн.</span>
+        <span>Встановіть розклад, щоб швидко відкривати його без інтернету.</span>
         <button type="button" className="shrink-0 rounded-lg bg-cyan-400 px-3 py-2 font-semibold text-slate-950" onClick={async () => { await installEvent.prompt(); setInstallEvent(null); }}>Встановити</button>
       </div>
     );
   }
   if (!ios) return null;
-  return <p className="mx-auto mt-4 max-w-[1800px] px-4 text-center text-xs text-slate-400">На iPhone/iPad відкрийте «Поділитися» та виберіть «На початковий екран».</p>;
+  return <p className="mx-auto mt-4 max-w-[1800px] px-4 text-center text-xs text-slate-400">На iPhone або iPad натисніть «Поділитися», а потім — «На початковий екран».</p>;
 }

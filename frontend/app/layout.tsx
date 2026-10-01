@@ -3,8 +3,8 @@ import "./globals.css";
 import { AuthProvider } from "../lib/auth";
 
 export const metadata: Metadata = {
-  title: "Розклад коледжу",
-  description: "Актуальний розклад занять коледжу",
+  title: "Розклад занять | ДФКР",
+  description: "Актуальний розклад занять ДФКР для студентів і викладачів.",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,

@@ -104,9 +104,9 @@ export function LessonEditor({ lesson, date, scheduleMode, defaultGroupId, defau
     }
     if (known.length === 0) return subjects;
     return [
-       { id: -1, name: "── Часто використовує ──", disabled: true },
+       { id: -1, name: "── Часто обирають ──", disabled: true },
        ...known,
-       { id: -2, name: "── Всі інші ──", disabled: true },
+       { id: -2, name: "── Інші предмети ──", disabled: true },
        ...others
     ];
   }, [subjects, form.teacher_id, teacherSubjects]);
@@ -116,7 +116,7 @@ export function LessonEditor({ lesson, date, scheduleMode, defaultGroupId, defau
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (!form.subject_id) {
-      setError("Оберіть предмет із довідника.");
+      setError("Оберіть предмет зі списку.");
       return;
     }
     if (form.second_teacher_id && form.second_teacher_id === form.teacher_id) {
@@ -146,18 +146,18 @@ export function LessonEditor({ lesson, date, scheduleMode, defaultGroupId, defau
     }
   }
   async function remove() {
-    if (!onDelete || !window.confirm("Видалити це заняття?")) return;
+    if (!onDelete || !window.confirm(`Видалити заняття «${lesson?.subject_name ?? ""}»?`)) return;
     setBusy(true);
     setError(null);
     try { await onDelete(); onClose(); }
-    catch (reason) { setError(reason instanceof Error ? reason.message : "Не вдалося видалити"); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : "Не вдалося видалити заняття."); }
     finally { setBusy(false); }
   }
   return (
     <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={lesson ? "Редагувати заняття" : "Додати заняття"} className="fixed inset-x-0 bottom-0 z-40 max-h-[90vh] overflow-y-auto rounded-t-2xl border border-sys-border bg-sys-card p-5 shadow-2xl md:static md:mt-3 md:rounded-xl md:border-sys-border">
       <div className="mx-auto max-w-2xl">
         <div className="mb-4 flex items-center justify-between">
-          <div><h3 className="font-semibold">{lesson ? "Редагувати заняття" : "Нове заняття"}</h3><p className="text-xs text-sys-text-secondary">Час пари фіксований і визначається номером пари.</p></div>
+          <div><h3 className="font-semibold">{lesson ? "Редагування заняття" : "Нове заняття"}</h3><p className="text-xs text-sys-text-secondary">Час визначається номером заняття.</p></div>
           <button type="button" onClick={onClose} aria-label="Закрити" className="text-xl text-sys-text-secondary">×</button>
         </div>
         <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2">
@@ -167,7 +167,7 @@ export function LessonEditor({ lesson, date, scheduleMode, defaultGroupId, defau
                 options={groups}
                 value={form.group_id || null}
                 onChange={(id) => update("group_id", id ?? 0)}
-                placeholder="Пошук групи..."
+                placeholder="Знайти групу"
               />
             </label>
           )}
@@ -177,7 +177,7 @@ export function LessonEditor({ lesson, date, scheduleMode, defaultGroupId, defau
               value={form.teacher_id}
               onChange={(id) => update("teacher_id", id)}
               disabled={loadingDirectories}
-              placeholder="Пошук викладача..."
+              placeholder="Знайти викладача"
             />
           </label>
           <label className="form-label">Другий викладач (опційно)
@@ -186,7 +186,7 @@ export function LessonEditor({ lesson, date, scheduleMode, defaultGroupId, defau
               value={form.second_teacher_id}
               onChange={(id) => update("second_teacher_id", id)}
               disabled={loadingDirectories}
-              placeholder="Немає"
+              placeholder="Оберіть другого викладача"
             />
           </label>
           <label className="form-label sm:col-span-2">Предмет
@@ -195,7 +195,7 @@ export function LessonEditor({ lesson, date, scheduleMode, defaultGroupId, defau
               value={form.subject_id ?? null}
               onChange={(id) => update("subject_id", id ?? undefined)}
               disabled={loadingDirectories}
-              placeholder={loadingDirectories ? "Завантаження…" : "Пошук предмета..."}
+              placeholder={loadingDirectories ? "Завантаження…" : "Знайти предмет"}
             />
           </label>
           <label className="form-label">День
@@ -210,16 +210,16 @@ export function LessonEditor({ lesson, date, scheduleMode, defaultGroupId, defau
               ))}
             </select>
           </label>
-          <label className="form-label sm:col-span-2">Тиждень<select className="form-control" value={form.week_type} onChange={(e) => update("week_type", e.target.value as WeekType)}><option value="both">Щотижня</option><option value="numerator">Чисельник</option><option value="denominator">Знаменник</option></select></label>
+          <label className="form-label sm:col-span-2">Тип тижня<select className="form-control" value={form.week_type} onChange={(e) => update("week_type", e.target.value as WeekType)}><option value="both">Щотижня</option><option value="numerator">Чисельник</option><option value="denominator">Знаменник</option></select></label>
           
           <label className="form-label sm:col-span-2">Аудиторія
             <SearchableTextInput
               options={uniqueRooms as string[]}
               value={form.room ?? ""}
               onChange={(val) => update("room", val)}
-              placeholder={teacherRoom ? `Як у викладача: ${teacherRoom}` : "Аудиторія"}
+              placeholder={teacherRoom ? `За замовчуванням: ${teacherRoom}` : "Введіть аудиторію"}
             />
-            <p className="mt-1 text-xs text-sys-text-secondary">Порожньо = аудиторія викладача</p>
+            <p className="mt-1 text-xs text-sys-text-secondary">Якщо поле порожнє, використовується аудиторія викладача.</p>
           </label>
 {scheduleMode === "student" && (
             <label className="sm:col-span-2 flex items-center gap-2 cursor-pointer mt-1 !flex-row w-fit">

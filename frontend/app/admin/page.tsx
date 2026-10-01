@@ -117,7 +117,7 @@ function AdminContent() {
   }, [toast]);
 
   if (authLoading) return <main className="min-h-screen bg-sys-bg p-8 text-sys-text-secondary">Перевірка доступу…</main>;
-  if (!canAccessAdmin(user)) return <main className="flex min-h-screen items-center justify-center bg-sys-bg p-6 text-center text-sys-text-primary"><div><h1 className="text-2xl font-bold">Доступ заборонено</h1><p className="mt-2 text-sys-text-secondary">Розділ доступний лише адміністрації.</p><a href="/" className="mt-5 inline-block text-sys-accent hover:underline">На головну</a></div></main>;
+  if (!canAccessAdmin(user)) return <main className="flex min-h-screen items-center justify-center bg-sys-bg p-6 text-center text-sys-text-primary"><div><h1 className="text-2xl font-bold">Доступ заборонено</h1><p className="mt-2 text-sys-text-secondary">Цей розділ доступний лише адміністраторам.</p><a href="/" className="mt-5 inline-block text-sys-accent hover:underline">На головну</a></div></main>;
 
   async function save(payload: ReferenceMutation) {
     const session = await api.auth.ensureAuthenticated();
@@ -137,7 +137,7 @@ function AdminContent() {
       }
     }
     setEditor(undefined); 
-    setToast({ message: editor ? "Запис оновлено." : "Запис створено.", type: "success" });
+    setToast({ message: editor ? "Зміни збережено." : "Запис додано.", type: "success" });
   }
 
   async function confirmRemove(item: ReferenceRecord) {
@@ -145,11 +145,11 @@ function AdminContent() {
       const session = await api.auth.ensureAuthenticated();
       await api.references.remove(activeResource, item.id, session.access_token);
       setItems((current) => current.filter((value) => value.id !== item.id)); 
-      setToast({ message: "Запис успішно видалено.", type: "success" });
+      setToast({ message: "Запис видалено.", type: "success" });
     }
     catch (e) {
       if (e instanceof ApiError && e.status === 409) {
-         setToast({ message: "Помилка: запис вже використовується в розкладі!", type: "error" });
+         setToast({ message: "Запис не можна видалити, оскільки він використовується в розкладі.", type: "error" });
       } else if (e instanceof Error) {
          setToast({ message: e.message, type: "error" });
       } else {
@@ -205,7 +205,7 @@ function AdminContent() {
              <input 
                type="search"
                aria-label={`Пошук у розділі ${referenceLabels[activeResource]}`}
-               placeholder="Пошук..." 
+               placeholder="Знайти запис"
                value={searchTerm}
                onChange={(e) => setSearchTerm(e.target.value)}
                className="form-control w-full py-2 pl-9 pr-4"
@@ -215,7 +215,7 @@ function AdminContent() {
            <div className="flex gap-2">
              {resourceConfig[activeResource].hasBulkAction && (
                 <button onClick={() => setBulkOpen(true)} className="shrink-0 rounded-[6px] border border-sys-accent/50 text-sys-accent px-4 py-2 text-sm font-semibold hover:bg-sys-accent/10 transition-colors">
-                  Виховні години
+                  Налаштувати виховні години
                 </button>
              )}
              <button onClick={() => setEditor(null)} className="shrink-0 rounded-[6px] bg-sys-accent px-4 py-2 text-sm font-semibold text-[#0b1120] hover:opacity-90 transition-opacity">

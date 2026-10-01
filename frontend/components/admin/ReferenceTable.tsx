@@ -49,10 +49,10 @@ export function ReferenceTable({ resource, items, faculties = [], teachers = [],
                 </td>
               )}
               <td className="px-5 py-3 text-right space-x-3">
-                <button aria-label="Змінити" onClick={() => onEdit(item)} className="text-sys-text-muted hover:text-sys-text-primary transition-colors inline-flex align-middle">
+                <button aria-label={`Редагувати ${item.name}`} onClick={() => onEdit(item)} className="text-sys-text-muted hover:text-sys-text-primary transition-colors inline-flex align-middle">
                   <EditIcon />
                 </button>
-                <button aria-label="Видалити" onClick={() => onDelete(item)} className="text-sys-destructive hover:opacity-80 transition-opacity inline-flex align-middle">
+                <button aria-label={`Видалити ${item.name}`} onClick={() => onDelete(item)} className="text-sys-destructive hover:opacity-80 transition-opacity inline-flex align-middle">
                   <TrashIcon />
                 </button>
               </td>
@@ -60,7 +60,7 @@ export function ReferenceTable({ resource, items, faculties = [], teachers = [],
           ))}
         </tbody>
       </table>
-      {!items.length && <p className="p-8 text-center text-sys-text-secondary">Записів немає.</p>}
+      {!items.length && <p className="p-8 text-center text-sys-text-secondary">Записів не знайдено.</p>}
     </div>
   );
 }

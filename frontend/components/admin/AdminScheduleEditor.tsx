@@ -59,7 +59,7 @@ export function AdminScheduleEditor() {
         if (active) setAvailabilityWeek([...currentWeek, ...otherWeek]);
       })
       .catch((cause) => {
-        if (active) setAvailabilityError(cause instanceof Error ? cause.message : "Не вдалося перевірити вільні слоти.");
+        if (active) setAvailabilityError(cause instanceof Error ? cause.message : "Не вдалося перевірити вільні місця.");
       });
     return () => {
       active = false;
@@ -197,7 +197,7 @@ export function AdminScheduleEditor() {
                  value={groupId ?? null}
                  onChange={(val) => startTransition(() => setGroupId(val ? Number(val) : 0))}
                  options={groups}
-                 placeholder="Оберіть групу..."
+                 placeholder="Оберіть групу"
                  disabled={isPending}
                  ariaLabel="Оберіть групу для перегляду розкладу"
               />
@@ -209,7 +209,7 @@ export function AdminScheduleEditor() {
                  value={teacherId ?? null}
                  onChange={(val) => startTransition(() => setTeacherId(val ? Number(val) : 0))}
                  options={teachers}
-                 placeholder="Оберіть викладача..."
+                 placeholder="Оберіть викладача"
                  disabled={isPending}
                  ariaLabel="Оберіть викладача для перегляду розкладу"
               />
@@ -234,12 +234,12 @@ export function AdminScheduleEditor() {
                <div className="sm:hidden shrink-0"><WeekTypeBadge weekType={weekType} /></div>
                <div className="flex w-full sm:w-auto rounded-lg border border-sys-border bg-sys-card p-1 text-sm relative">
               <div className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-sys-bg border border-sys-border/50 rounded-md shadow-sm transition-all duration-300 ease-out z-0" style={{ left: isCurrentWeek ? '4px' : 'calc(50% + 2px)' }} />
-              <button type="button" onClick={resetWeek} className={`relative z-10 flex-1 sm:flex-none sm:w-28 text-center rounded-md px-3 py-1.5 font-medium transition-colors ${isCurrentWeek ? 'text-sys-text-primary' : 'text-sys-text-secondary hover:text-sys-text-primary'}`}>Поточний</button>
+              <button type="button" aria-label="Перейти до поточного тижня" onClick={resetWeek} className={`relative z-10 flex-1 sm:flex-none sm:w-28 text-center rounded-md px-3 py-1.5 font-medium transition-colors ${isCurrentWeek ? 'text-sys-text-primary' : 'text-sys-text-secondary hover:text-sys-text-primary'}`}>Цей тиждень</button>
               <button type="button" onClick={() => {
                 const nextAnchor = getMondayOf(new Date());
                 nextAnchor.setDate(nextAnchor.getDate() + 7);
                 setWeekAnchorDate(nextAnchor);
-              }} className={`relative z-10 flex-1 sm:flex-none sm:w-28 text-center rounded-md px-3 py-1.5 font-medium transition-colors ${!isCurrentWeek ? 'text-sys-text-primary' : 'text-sys-text-secondary hover:text-sys-text-primary'}`}>Наступний</button>
+              }} className={`relative z-10 flex-1 sm:flex-none sm:w-28 text-center rounded-md px-3 py-1.5 font-medium transition-colors ${!isCurrentWeek ? 'text-sys-text-primary' : 'text-sys-text-secondary hover:text-sys-text-primary'}`}>Наступний тиждень</button>
             </div>
           </div>
           </div>
