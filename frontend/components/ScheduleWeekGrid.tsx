@@ -4,10 +4,13 @@ import { Lesson, ScheduleResponse } from "../lib/api";
 import { ScheduleDay } from "./ScheduleDay";
 import { motion, AnimatePresence } from "framer-motion";
 
-export function ScheduleWeekGrid({ week, scheduleMode = "student", canEdit = false, onEdit, onCreate, onNoteSave, onNoteDelete }: {
+export function ScheduleWeekGrid({ week, scheduleMode = "student", canEdit = false, onEdit, onCreate, onNoteSave, onNoteDelete, movingLesson, onMoveSelect, onMove }: {
   week: ScheduleResponse[]; scheduleMode?: "student"|"teacher"; canEdit?: boolean; onEdit?: (lesson: Lesson) => void; onCreate?: (date: string) => void;
   onNoteSave?: (lesson: Lesson, note: string, date: string) => Promise<void>;
   onNoteDelete?: (lesson: Lesson, date: string) => Promise<void>;
+  movingLesson?: Lesson | null;
+  onMoveSelect?: (lesson: Lesson | null) => void;
+  onMove?: (lesson: Lesson, date: string, lessonNumber: number) => void;
 }) {
   const [activeIdx, setActiveIdx] = useState(0);
   const [direction, setDirection] = useState(0);
@@ -31,6 +34,29 @@ export function ScheduleWeekGrid({ week, scheduleMode = "student", canEdit = fal
   };
 
   const activeDay = week[activeIdx];
+  const canMoveTo = (lesson: Lesson, targetDate: string, lessonNumber: number) => {
+    const targetDay = week.find((day) => day.date === targetDate);
+    const targetWeekday = new Date(`${targetDate}T12:00:00`).getDay() || 7;
+    if (!targetDay || (lesson.day_of_week === targetWeekday && lesson.lesson_number === lessonNumber)) {
+      return false;
+    }
+    return !targetDay.lessons.some((other) =>
+      other.id !== lesson.id && other.lesson_number === lessonNumber && other.is_relevant_this_week
+    );
+  };
+
+  const dayProps = {
+    scheduleMode,
+    canEdit,
+    onEdit,
+    onCreate,
+    onNoteSave,
+    onNoteDelete,
+    movingLesson,
+    onMoveSelect,
+    onMove,
+    canMoveTo,
+  };
   const getDayName = (dateStr: string) => {
      const d = new Date(dateStr);
      return new Intl.DateTimeFormat("uk-UA", { weekday: "short" }).format(d);
@@ -59,9 +85,19 @@ export function ScheduleWeekGrid({ week, scheduleMode = "student", canEdit = fal
 
   return (
     <div className="w-full pb-4">
+      {canEdit && movingLesson && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-400/30 bg-emerald-500/[0.08] px-4 py-3">
+          <p className="text-sm text-sys-text-primary">
+            Перетягніть <strong>{movingLesson.subject_name}</strong> або виберіть зелену вільну пару. Пари із зайнятими слотами недоступні.
+          </p>
+          <button type="button" onClick={() => onMoveSelect?.(null)} className="rounded-lg border border-sys-border px-3 py-1.5 text-sm font-medium text-sys-text-secondary hover:text-sys-text-primary">
+            Скасувати
+          </button>
+        </div>
+      )}
       {/* DESKTOP VIEW */}
       <div className="hidden xl:grid min-w-0 gap-6 grid-cols-5 xl:gap-3">
-        {week.map((day) => <ScheduleDay key={`desktop-${day.date}`} schedule={day} mode="week" scheduleMode={scheduleMode} canEdit={canEdit} onEdit={onEdit} onCreate={onCreate} onNoteSave={onNoteSave} onNoteDelete={onNoteDelete} />)}
+        {week.map((day) => <ScheduleDay key={`desktop-${day.date}`} schedule={day} mode="week" {...dayProps} />)}
       </div>
 
       {/* MOBILE/TABLET VIEW */}
@@ -106,7 +142,7 @@ export function ScheduleWeekGrid({ week, scheduleMode = "student", canEdit = fal
                   opacity: { duration: 0.2 }
                 }}
                 className="w-full top-0 left-0"
-                drag="x"
+                drag={canEdit ? false : "x"}
                 dragConstraints={{ left: 0, right: 0 }}
                 dragElastic={1}
                 onDragEnd={(e, { offset, velocity }) => {
@@ -118,7 +154,7 @@ export function ScheduleWeekGrid({ week, scheduleMode = "student", canEdit = fal
                   }
                 }}
               >
-                <ScheduleDay schedule={activeDay} mode="week" scheduleMode={scheduleMode} canEdit={canEdit} onEdit={onEdit} onCreate={onCreate} onNoteSave={onNoteSave} onNoteDelete={onNoteDelete} />
+                <ScheduleDay schedule={activeDay} mode="week" {...dayProps} />
               </motion.div>
             )}
           </AnimatePresence>

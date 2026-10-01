@@ -50,9 +50,10 @@ function NoteIcon({ className }: { className?: string }) {
   );
 }
 
-export function LessonCard({ lesson, targetDate, mode = "day", scheduleMode = "student", canEdit = false, onEdit, onNoteSave, onNoteDelete }: {
+export function LessonCard({ lesson, targetDate, mode = "day", scheduleMode = "student", canEdit = false, onEdit, onNoteSave, onNoteDelete, onMoveSelect, isSelectedForMove = false }: {
   lesson: Lesson; targetDate: string; mode?: "day" | "week"; canEdit?: boolean; onEdit?: (lesson: Lesson) => void;
   scheduleMode?: "student"|"teacher"; onNoteSave?: (note: string) => Promise<void>; onNoteDelete?: () => Promise<void>;
+  onMoveSelect?: (lesson: Lesson | null) => void; isSelectedForMove?: boolean;
 }) {
   const [editingNote, setEditingNote] = useState(false);
   const [noteExpanded, setNoteExpanded] = useState(false);
@@ -89,14 +90,26 @@ export function LessonCard({ lesson, targetDate, mode = "day", scheduleMode = "s
 
   return (
     <article
+      draggable={canEdit && !!onMoveSelect && !lesson.is_replacement}
+      onDragStart={(event) => {
+        if (lesson.is_replacement) {
+          event.preventDefault();
+          return;
+        }
+        event.dataTransfer.setData("text/plain", String(lesson.id));
+        event.dataTransfer.effectAllowed = "move";
+        onMoveSelect?.(lesson);
+      }}
       onClick={(e) => {
         const target = e.target as HTMLElement;
         if (target.closest('button') || target.tagName === 'TEXTAREA' || target.tagName === 'A') return;
         if (!isDay && hasNote) setNoteExpanded(!noteExpanded);
       }}
-      className={`relative min-w-0 overflow-hidden rounded-xl border border-sys-border bg-sys-card p-3 shadow-sm transition-colors duration-200 ${
+      className={`relative min-w-0 overflow-hidden rounded-xl border bg-sys-card p-3 shadow-sm transition-colors duration-200 ${
+        isSelectedForMove ? "border-emerald-400 ring-1 ring-emerald-400/70" : "border-sys-border"
+      } ${
         lesson.is_relevant_this_week ? "" : "opacity-40 grayscale"
-      } ${lesson.is_replacement ? "ring-1 ring-sys-accent/60 !border-sys-accent/40 bg-sys-accent/[0.02]" : ""} ${!isDay && hasNote ? "cursor-pointer hover:shadow-md" : ""}`}
+      } ${lesson.is_replacement ? "ring-1 ring-sys-accent/60 !border-sys-accent/40 bg-sys-accent/[0.02]" : canEdit ? "cursor-grab active:cursor-grabbing" : ""} ${!isDay && hasNote ? "cursor-pointer hover:shadow-md" : ""}`}
     >
       <div className={`flex items-start ${isDay ? 'gap-3 flex-row' : 'flex-col gap-2'}`}>
         
@@ -136,6 +149,22 @@ export function LessonCard({ lesson, targetDate, mode = "day", scheduleMode = "s
                 <button type="button" aria-label={`Редагувати ${lesson.subject_name}`} onClick={() => onEdit?.(lesson)} 
                   className={`flex h-9 w-9 items-center justify-center rounded-lg text-sys-text-muted transition-colors hover:bg-sys-accent/10 hover:text-sys-accent ${isDay ? 'text-[18px]' : 'text-[15px]'}`}>
                   <EditIcon />
+                </button>
+             )}
+             {canEdit && onMoveSelect && !lesson.is_replacement && (
+                <button
+                  type="button"
+                  aria-label={`Перемістити ${lesson.subject_name}`}
+                  aria-pressed={isSelectedForMove}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onMoveSelect(isSelectedForMove ? null : lesson);
+                  }}
+                  className={`flex h-9 w-9 items-center justify-center rounded-lg text-sm font-semibold transition-colors ${
+                    isSelectedForMove ? "bg-emerald-500/15 text-emerald-300" : "text-sys-text-muted hover:bg-emerald-500/10 hover:text-emerald-300"
+                  }`}
+                >
+                  ↕
                 </button>
              )}
              {(canEdit || hasNote) && (

@@ -5,7 +5,7 @@ import { ScheduleWeekGrid } from "../ScheduleWeekGrid";
 import { WeekTypeBadge } from "../WeekTypeBadge";
 import { LessonEditor } from "../LessonEditor";
 import { Lesson, LessonMutation, api } from "../../lib/api";
-import { useSchedule } from "../../lib/hooks";
+import { invalidateScheduleCache, useSchedule } from "../../lib/hooks";
 import { getMondayOf } from "../../lib/date";
 import { SearchableSelect } from "../SearchableSelect";
 
@@ -27,6 +27,8 @@ export function AdminScheduleEditor() {
   const { mode, toggleMode, teachers, teacherId, setTeacherId, groups, groupId, setGroupId, today, week, loading, error, setToday, setWeek, updateLesson, removeLesson, addLesson } = useSchedule(weekAnchorDate);
   const [isPending, startTransition] = useTransition();
   const [editor, setEditor] = useState<{ lesson?: Lesson; date: string } | null>(null);
+  const [movingLesson, setMovingLesson] = useState<Lesson | null>(null);
+  const [moving, setMoving] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const weekType = (week?.[0]?.week_type) ?? today?.week_type ?? "both";
 
@@ -36,6 +38,10 @@ export function AdminScheduleEditor() {
       return () => clearTimeout(timer);
     }
   }, [toast]);
+
+  useEffect(() => {
+    setMovingLesson(null);
+  }, [weekAnchorDate, mode, groupId, teacherId]);
 
   const weekRange = useMemo(() => {
     const end = new Date(weekAnchorDate);
@@ -58,6 +64,45 @@ export function AdminScheduleEditor() {
     } catch (e) { 
         setToday(previousToday); setWeek(previousWeek); 
         throw e; 
+    }
+  };
+
+  const moveLesson = async (lesson: Lesson, date: string, lessonNumber: number) => {
+    if (moving || lesson.is_replacement) return;
+    const previousToday = today;
+    const previousWeek = week;
+    const targetDate = new Date(`${date}T12:00:00`).getDay() || 7;
+    setMoving(true);
+    try {
+      const saved = await api.lessons.update(lesson.id, {
+        day_of_week: targetDate,
+        lesson_number: lessonNumber,
+        date,
+        week_type: lesson.week_type,
+      });
+      setWeek((current) => current.map((day) => ({
+        ...day,
+        lessons: [
+          ...day.lessons.filter((item) => item.id !== lesson.id),
+          ...(day.date === date ? [saved] : []),
+        ].sort((a, b) => a.lesson_number - b.lesson_number),
+      })));
+      setToday((current) => current ? {
+        ...current,
+        lessons: [
+          ...current.lessons.filter((item) => item.id !== lesson.id),
+          ...(current.date === date ? [saved] : []),
+        ].sort((a, b) => a.lesson_number - b.lesson_number),
+      } : current);
+      setMovingLesson(null);
+      invalidateScheduleCache();
+      setToast({ message: "Заняття переміщено.", type: "success" });
+    } catch (cause) {
+      setWeek(previousWeek);
+      setToday(previousToday);
+      setToast({ message: cause instanceof Error ? cause.message : "Не вдалося перемістити заняття.", type: "error" });
+    } finally {
+      setMoving(false);
     }
   };
   
@@ -168,7 +213,7 @@ export function AdminScheduleEditor() {
             </div>
           </div>
           </div>
-          <ScheduleWeekGrid week={week} scheduleMode={mode} canEdit={true} onEdit={(lesson) => { const date = week.find((day) => day.lessons.some((item) => item.id === lesson.id))?.date ?? (today?.date || week?.[0]?.date); setEditor({ lesson, date }); }} onCreate={(date) => setEditor({ date })}
+          <ScheduleWeekGrid week={week} scheduleMode={mode} canEdit={true} movingLesson={movingLesson} onMoveSelect={setMovingLesson} onMove={(lesson, date, lessonNumber) => void moveLesson(lesson, date, lessonNumber)} onEdit={(lesson) => { const date = week.find((day) => day.lessons.some((item) => item.id === lesson.id))?.date ?? (today?.date || week?.[0]?.date); setEditor({ lesson, date }); }} onCreate={(date) => setEditor({ date })}
             onNoteSave={saveNote} onNoteDelete={deleteNote} />
         </div>
       ) : null}
