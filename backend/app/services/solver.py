@@ -210,9 +210,9 @@ def precheck(curriculums: Iterable, constraints: Iterable = ()) -> list[str]:
         total = sum(c.pairs_per_2_weeks for c in lst)
         fixed4_days = fixed_4th_days(lst)
         n_fixed4 = len(fixed4_days)
-        # A group may have a day off; only fixed fourth-period lessons require
-        # a non-empty day.  The model separately forbids exactly 1 or 2 pairs.
-        lo = n_fixed4
+        # Every group studies each weekday; fixed fourth-period lessons consume
+        # an additional slot because that day must contain four lessons.
+        lo = MIN_PAIRS_PER_DAY * DAY_IDXS + n_fixed4
         hi = MAX_PAIRS_PER_DAY * DAY_IDXS
         if total < lo:
             extra = f" (закріплені 4-ті пари потребують повного дня)" if n_fixed4 else ""
@@ -274,7 +274,9 @@ def precheck(curriculums: Iterable, constraints: Iterable = ()) -> list[str]:
                 f"доступно максимум {max_total} — зайвих {total - max_total}"
             )
         for week in range(WEEKS):
-            required = sum(day // DAYS == week for day in fixed4_days)
+            required = MIN_PAIRS_PER_DAY * DAYS + sum(
+                day // DAYS == week for day in fixed4_days
+            )
             available_max = 19 + int(curator_slots_by_week[week])
             if weekly_max[week] < required:
                 problems.append(
@@ -531,7 +533,7 @@ def solve(
             if use_default_patterns:
                 daily_pairs = model.NewIntVar(0, SLOTS, f"daily_pairs_g{g_id}_d{d}")
                 model.Add(daily_pairs == sum(slots_active))
-                model.AddForbiddenAssignments([daily_pairs], [(1,), (2,)])
+                model.AddForbiddenAssignments([daily_pairs], [(0,), (1,), (2,)])
 
                 # If two occupied slots surround a slot, the middle one must
                 # be occupied.  Reifying the antecedent avoids enumerating

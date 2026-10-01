@@ -137,8 +137,8 @@ async def generate_schedule(
     if not curriculums:
         raise HTTPException(status_code=400, detail="Немає навантаження для генерації.")
 
-    # Вимоги до розкладу: у робочий день групи можливі 3 або 4 пари,
-    # порожній день також дозволений, а 1–2 пари та вікна заборонені.
+    # Вимоги до розкладу: кожен день групи має містити 3 або 4 пари,
+    # без вікон. Вільні дні та вікна викладачів дозволені.
     problems = solver.precheck(curriculums, constraints)
     if problems:
         raise HTTPException(
