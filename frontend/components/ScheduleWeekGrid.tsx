@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { Lesson, ScheduleResponse } from "../lib/api";
 import { ScheduleDay } from "./ScheduleDay";
+import { LessonCard } from "./LessonCard";
 import { motion, AnimatePresence } from "framer-motion";
 
 export function ScheduleWeekGrid({ week, scheduleMode = "student", canEdit = false, onEdit, onCreate, onNoteSave, onNoteDelete, movingLesson, onMoveSelect, onMove }: {
@@ -57,6 +58,16 @@ export function ScheduleWeekGrid({ week, scheduleMode = "student", canEdit = fal
     onMove,
     canMoveTo,
   };
+  const lessonTimes: Record<number, string> = {
+    1: "09:00–10:20",
+    2: "10:40–12:00",
+    3: "12:30–13:50",
+    4: "14:00–15:20",
+  };
+  const formatDate = (value: string) => new Intl.DateTimeFormat("uk-UA", {
+    day: "numeric",
+    month: "short",
+  }).format(new Date(`${value}T12:00:00`));
   const getDayName = (dateStr: string) => {
      const d = new Date(dateStr);
      return new Intl.DateTimeFormat("uk-UA", { weekday: "short" }).format(d);
@@ -95,13 +106,97 @@ export function ScheduleWeekGrid({ week, scheduleMode = "student", canEdit = fal
           </button>
         </div>
       )}
+      {canEdit && (
+        <div className="overflow-x-auto rounded-2xl border border-sys-border bg-sys-card/50">
+          <div className="grid min-w-[1000px] grid-cols-[5.5rem_repeat(5,minmax(11rem,1fr))]">
+            <div className="sticky left-0 z-20 border-b border-r border-sys-border bg-sys-card p-3 text-center text-xs font-semibold uppercase text-sys-text-muted">
+              Пара
+            </div>
+            {week.map((day) => (
+              <div key={day.date} className="border-b border-r border-sys-border bg-sys-card px-3 py-3 text-center">
+                <h3 className="font-semibold capitalize text-sys-text-primary">
+                  {new Intl.DateTimeFormat("uk-UA", { weekday: "long" }).format(new Date(`${day.date}T12:00:00`))}
+                </h3>
+                <span className="text-xs text-sys-text-muted">{formatDate(day.date)}</span>
+                <button
+                  type="button"
+                  onClick={() => onCreate?.(day.date)}
+                  className="mt-2 block w-full rounded-lg border border-dashed border-sys-border px-2 py-1.5 text-xs text-sys-text-secondary transition-colors hover:border-sys-accent hover:bg-sys-accent/5 hover:text-sys-accent"
+                >
+                  + Додати
+                </button>
+              </div>
+            ))}
+
+            {[1, 2, 3, 4].flatMap((lessonNumber) => [
+              <div key={`lesson-${lessonNumber}`} className="sticky left-0 z-10 border-b border-r border-sys-border bg-sys-card p-3 text-center">
+                <div className="text-lg font-bold text-sys-text-primary">{lessonNumber}</div>
+                <div className="text-[10px] text-sys-text-muted">{lessonTimes[lessonNumber]}</div>
+              </div>,
+              ...week.map((day) => {
+                const cellLessons = day.lessons.filter((lesson) => lesson.lesson_number === lessonNumber);
+                const canChooseTarget = !!movingLesson && !!canMoveTo(movingLesson, day.date, lessonNumber);
+                return (
+                  <div
+                    key={`${day.date}-${lessonNumber}`}
+                    onDragOver={(event) => {
+                      if (canChooseTarget) event.preventDefault();
+                    }}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      if (movingLesson && canChooseTarget) onMove?.(movingLesson, day.date, lessonNumber);
+                    }}
+                    className={`min-h-32 border-b border-r border-sys-border p-2 transition-colors ${
+                      canChooseTarget ? "bg-emerald-500/[0.08] ring-1 ring-inset ring-emerald-400/40" : "hover:bg-white/[0.02]"
+                    }`}
+                  >
+                    {cellLessons.length > 0 && (
+                      <div className="space-y-2">
+                        {cellLessons.map((lesson) => (
+                          <LessonCard
+                            key={`${day.date}-${lesson.id}`}
+                            lesson={lesson}
+                            targetDate={day.date}
+                            mode="week"
+                            scheduleMode={scheduleMode}
+                            canEdit={canEdit}
+                            onEdit={onEdit}
+                            onNoteSave={onNoteSave ? (note) => onNoteSave(lesson, note, day.date) : undefined}
+                            onNoteDelete={onNoteDelete ? () => onNoteDelete(lesson, day.date) : undefined}
+                            onMoveSelect={onMoveSelect}
+                            isSelectedForMove={movingLesson?.id === lesson.id}
+                          />
+                        ))}
+                      </div>
+                    )}
+                    {canChooseTarget ? (
+                      <button
+                        type="button"
+                        aria-label={`Перемістити пару на ${new Intl.DateTimeFormat("uk-UA", { weekday: "long" }).format(new Date(`${day.date}T12:00:00`))}, ${lessonNumber}-ту пару`}
+                        onClick={() => {
+                          if (movingLesson) onMove?.(movingLesson, day.date, lessonNumber);
+                        }}
+                        className="mt-2 flex min-h-10 w-full items-center justify-center rounded-lg border border-emerald-400/40 bg-emerald-500/10 px-2 py-2 text-xs font-semibold text-emerald-300 transition-colors hover:bg-emerald-500/20"
+                      >
+                        Перемістити сюди
+                      </button>
+                    ) : cellLessons.length === 0 ? (
+                      <div className="flex min-h-28 items-center justify-center text-xs text-sys-text-muted">—</div>
+                    ) : null}
+                  </div>
+                );
+              }),
+            ])}
+          </div>
+        </div>
+      )}
       {/* DESKTOP VIEW */}
-      <div className="hidden xl:grid min-w-0 gap-6 grid-cols-5 xl:gap-3">
+      {!canEdit && <div className="hidden xl:grid min-w-0 gap-6 grid-cols-5 xl:gap-3">
         {week.map((day) => <ScheduleDay key={`desktop-${day.date}`} schedule={day} mode="week" {...dayProps} />)}
-      </div>
+      </div>}
 
       {/* MOBILE/TABLET VIEW */}
-      <div className="flex xl:hidden flex-col w-full">
+      {!canEdit && <div className="flex xl:hidden flex-col w-full">
         {week.length > 0 && (
           <div className="flex bg-sys-card border border-sys-border rounded-xl p-1 mb-6 relative z-10 w-full sm:w-[400px] sm:mx-auto justify-between">
             {week.map((day, idx) => (
@@ -159,7 +254,7 @@ export function ScheduleWeekGrid({ week, scheduleMode = "student", canEdit = fal
             )}
           </AnimatePresence>
         </div>
-      </div>
+      </div>}
     </div>
   );
 }
