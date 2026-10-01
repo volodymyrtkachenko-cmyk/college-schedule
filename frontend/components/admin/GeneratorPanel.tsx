@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { api, DraftRecord, DraftSlotRecord } from "../../lib/api";
 import { ConfirmModal } from "./ConfirmModal";
 import { SearchableSelect } from "../SearchableSelect";
+import { formatTeacherName } from "../../lib/format";
 
 export function GeneratorPanel() {
   const [drafts, setDrafts] = useState<DraftRecord[]>([]);
@@ -297,18 +298,18 @@ export function GeneratorPanel() {
                               {slot.week_type === "both" && <span className="rounded bg-sys-accent/10 px-1.5 py-0.5 text-[10px] font-semibold text-sys-accent">Обидва тижні</span>}
                             </div>
                             <p className="mt-1 font-medium leading-snug text-sys-text-primary">{slot.curriculum.subject.name}</p>
-                            <p className="mt-1 text-xs leading-snug text-sys-text-secondary">
-                              {slot.curriculum.teacher.name}
-                              {slot.curriculum.second_teacher ? ` · ${slot.curriculum.second_teacher.name}` : ""}
-                            </p>
-                            {(slot.room_override || slot.curriculum.teacher.room || slot.curriculum.second_teacher?.room) && (
-                              <p className="mt-1 text-xs leading-snug text-sys-text-muted">
-                                Аудиторія: {slot.room_override || [
+                            <p className="mt-1 break-words text-xs leading-snug text-sys-text-secondary">
+                              {[
+                                [
+                                  formatTeacherName(slot.curriculum.teacher.name),
+                                  ...(slot.curriculum.second_teacher ? [formatTeacherName(slot.curriculum.second_teacher.name)] : []),
+                                ].join(" / "),
+                                slot.room_override || [
                                   slot.curriculum.teacher.room,
                                   slot.curriculum.second_teacher?.room,
-                                ].filter(Boolean).join(" / ")}
-                              </p>
-                            )}
+                                ].filter(Boolean).join(" / "),
+                              ].filter(Boolean).join(" · ")}
+                            </p>
                             <button
                               type="button"
                               onClick={(event) => {
