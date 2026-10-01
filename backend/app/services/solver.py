@@ -238,6 +238,7 @@ def solve(
     patterns=None,
     seed: int | None = None,
 ) -> SolveResult:
+    use_default_patterns = patterns is None
     patterns = VALID_PATTERNS if patterns is None else patterns
 
     # Avoid spending the entire search limit proving simple load contradictions.
@@ -415,16 +416,26 @@ def solve(
                 slots_active.append(a)
             fourth_slots_by_week[d // DAYS].append(slots_active[SLOTS - 1])
 
-            pattern_vars = []
-            
-            for p_idx, (pat, pen) in enumerate(patterns):
-                p = model.NewBoolVar(f"pat_{g_id}_{d}_{p_idx}")
-                pattern_vars.append(p)
-                if pen:
-                    penalties.append(p * pen)
-                for s in range(SLOTS):
-                    model.Add(slots_active[s] == pat[s]).OnlyEnforceIf(p)
-            model.AddExactlyOne(pattern_vars)
+            if use_default_patterns:
+                # The three allowed patterns are equivalent to slots 2 and 3
+                # always being occupied and at least one of slots 1 and 4
+                # being occupied. This avoids three pattern-selector Booleans
+                # per group-day while preserving the exact same day layouts.
+                model.Add(slots_active[1] == 1)
+                model.Add(slots_active[2] == 1)
+                model.Add(slots_active[0] + slots_active[3] >= 1)
+                penalties.append((1 - slots_active[0]) * 40)
+                penalties.append(slots_active[3] * 5)
+            else:
+                pattern_vars = []
+                for p_idx, (pat, pen) in enumerate(patterns):
+                    p = model.NewBoolVar(f"pat_{g_id}_{d}_{p_idx}")
+                    pattern_vars.append(p)
+                    if pen:
+                        penalties.append(p * pen)
+                    for s in range(SLOTS):
+                        model.Add(slots_active[s] == pat[s]).OnlyEnforceIf(p)
+                model.AddExactlyOne(pattern_vars)
 
             # Виховна година (закріплена 4-та пара) => у цей день рівно 4 пари.
             if d in fixed4[g_id]:
