@@ -269,7 +269,10 @@ def test_unknown_solver_status_is_reported_as_timeout(monkeypatch):
     assert not result.ok
     assert FakeSolver.calls == S.FEASIBILITY_RESTARTS
     assert FakeSolver.parameters.num_search_workers == 2
-    assert sum(time_limits) == pytest.approx(S.FEASIBILITY_TIME_FRACTION)
+    assert time_limits == pytest.approx([
+        S.FEASIBILITY_TIME_FRACTION * S.FIRST_ATTEMPT_TIME_FRACTION,
+        S.FEASIBILITY_TIME_FRACTION * (1 - S.FIRST_ATTEMPT_TIME_FRACTION),
+    ])
 
 
 def test_default_generator_search_budget_is_ten_minutes():

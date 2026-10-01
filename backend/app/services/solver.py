@@ -21,7 +21,8 @@ MAX_PAIRS_PER_DAY = SLOTS
 DEFAULT_NUM_WORKERS = 8
 DEFAULT_SOLVE_TIME_SECONDS = 600
 FEASIBILITY_TIME_FRACTION = 0.9
-FEASIBILITY_RESTARTS = 6
+FEASIBILITY_RESTARTS = 2
+FIRST_ATTEMPT_TIME_FRACTION = 0.8
 
 
 def _cgroup_cpu_quota() -> float | None:
@@ -544,7 +545,10 @@ def solve(
     last_solver = None
     last_status = cp_model.UNKNOWN
     for attempt in range(FEASIBILITY_RESTARTS):
-        attempt_budget = feasibility_budget / FEASIBILITY_RESTARTS
+        if attempt == 0:
+            attempt_budget = feasibility_budget * FIRST_ATTEMPT_TIME_FRACTION
+        else:
+            attempt_budget = feasibility_budget * (1 - FIRST_ATTEMPT_TIME_FRACTION)
         feasibility_solver = new_solver(
             attempt_budget,
             (seed or 0) + attempt if seed is not None else attempt,
