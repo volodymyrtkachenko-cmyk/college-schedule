@@ -11,6 +11,7 @@ export function SearchableSelect({
   placeholder = "Оберіть...",
   disabled,
   ariaLabel,
+  emptyLabel = "— Немає —",
 }: {
   options: Option[];
   value: number | null | undefined;
@@ -18,6 +19,7 @@ export function SearchableSelect({
   placeholder?: string;
   disabled?: boolean;
   ariaLabel?: string;
+  emptyLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -120,7 +122,7 @@ export function SearchableSelect({
               activeIndex === 0 ? "bg-sys-accent/10 text-sys-text-primary" : "hover:bg-sys-accent/10 hover:text-sys-text-primary"
             }`}
           >
-            — Немає —
+            {emptyLabel}
           </div>
           {filtered.map((option) => {
             const optionIndex = enabled.findIndex((item) => item.id === option.id);

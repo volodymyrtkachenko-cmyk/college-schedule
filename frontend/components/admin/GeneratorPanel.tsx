@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { api, DraftRecord, DraftSlotRecord } from "../../lib/api";
 import { ConfirmModal } from "./ConfirmModal";
+import { SearchableSelect } from "../SearchableSelect";
 
 export function GeneratorPanel() {
   const [drafts, setDrafts] = useState<DraftRecord[]>([]);
@@ -12,7 +13,10 @@ export function GeneratorPanel() {
   
   const [activeDraft, setActiveDraft] = useState<DraftRecord | null>(null);
   const [slots, setSlots] = useState<DraftSlotRecord[]>([]);
-  const [filterGroup, setFilterGroup] = useState<string>("");
+  const [filterMode, setFilterMode] = useState<"group" | "teacher">("group");
+  const [filterGroupId, setFilterGroupId] = useState<number | null>(null);
+  const [filterTeacherId, setFilterTeacherId] = useState<number | null>(null);
+  const [activeWeek, setActiveWeek] = useState<"numerator" | "denominator">("numerator");
   const [draftToDelete, setDraftToDelete] = useState<DraftRecord | null>(null);
   
   const [toast, setToast] = useState<{message: string, type: "success"|"error"} | null>(null);
@@ -47,6 +51,10 @@ export function GeneratorPanel() {
       const res = await api.generator.getSlots(d.id, session.access_token);
       setSlots(res);
       setActiveDraft(d);
+      setFilterMode("group");
+      setFilterGroupId(null);
+      setFilterTeacherId(null);
+      setActiveWeek("numerator");
     } catch(err: any) {
       setToast({message: err.message, type: "error"});
     } finally {
@@ -127,61 +135,144 @@ export function GeneratorPanel() {
 
   if (activeDraft) {
     const days = [1,2,3,4,5];
-    const dict = {1:"ПН", 2:"ВТ", 3:"СР", 4:"ЧТ", 5:"ПТ"};
+    const dayNames: Record<number, string> = {1:"Понеділок", 2:"Вівторок", 3:"Середа", 4:"Четвер", 5:"П’ятниця"};
+    const lessonTimes: Record<number, string> = {1:"09:00–10:20", 2:"10:40–12:00", 3:"12:30–13:50", 4:"14:00–15:20"};
+    const groups = Array.from(new Map(slots.map((slot) => [slot.curriculum.group.id, slot.curriculum.group])).values())
+      .sort((a, b) => a.name.localeCompare(b.name, "uk"));
+    const teachers = Array.from(new Map(slots.flatMap((slot) => [
+      slot.curriculum.teacher,
+      ...(slot.curriculum.second_teacher ? [slot.curriculum.second_teacher] : []),
+    ]).map((teacher) => [teacher.id, teacher])).values())
+      .sort((a, b) => a.name.localeCompare(b.name, "uk"));
+    const visibleSlots = slots.filter((slot) =>
+      (slot.week_type === activeWeek || slot.week_type === "both") &&
+      (filterMode === "group"
+        ? filterGroupId === null || slot.curriculum.group.id === filterGroupId
+        : filterTeacherId === null || slot.curriculum.teacher.id === filterTeacherId || slot.curriculum.second_teacher?.id === filterTeacherId)
+    );
+    const selectOptions = (filterMode === "group" ? groups : teachers).map(({ id, name }) => ({ id, name }));
     
     return (
-      <div className="flex flex-col gap-4">
-        <div className="flex justify-between items-center bg-sys-card p-4 rounded-xl border border-sys-border">
-           <div>
-             <h2 className="text-lg font-bold">{activeDraft.name}</h2>
-             <span className="text-sm text-sys-text-secondary">Статус: {activeDraft.status}</span>
-           </div>
-           <div className="flex gap-4 items-center">
-             <input type="search" aria-label="Пошук за назвою групи" placeholder="Пошук групи..." value={filterGroup} onChange={e=>setFilterGroup(e.target.value)} className="form-control min-w-0 flex-1 sm:w-56" />
-             <button onClick={() => setActiveDraft(null)} className="shrink-0 rounded-lg border border-sys-border px-4 py-2 text-sm font-semibold transition-colors hover:bg-white/5">Назад до списку</button>
-           </div>
+      <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-4 rounded-2xl border border-sys-border bg-sys-card p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <button onClick={() => setActiveDraft(null)} className="mb-2 text-sm font-medium text-sys-accent hover:underline">← До списку розкладів</button>
+            <h2 className="truncate text-xl font-bold">{activeDraft.name}</h2>
+            <span className="mt-1 inline-block rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-300">
+              {activeDraft.status === "DRAFT" ? "Чернетка" : activeDraft.status}
+            </span>
+          </div>
+          <div className="w-full sm:w-72">
+            <label className="form-label">{filterMode === "group" ? "Група" : "Викладач"}</label>
+            <SearchableSelect
+              value={filterMode === "group" ? filterGroupId : filterTeacherId}
+              onChange={(id) => filterMode === "group" ? setFilterGroupId(id) : setFilterTeacherId(id)}
+              options={selectOptions}
+              placeholder={filterMode === "group" ? "Знайти групу..." : "Знайти викладача..."}
+              emptyLabel={filterMode === "group" ? "Усі групи" : "Усі викладачі"}
+              ariaLabel={filterMode === "group" ? "Фільтр за групою" : "Фільтр за викладачем"}
+            />
+          </div>
         </div>
-        
-        <div className="flex gap-4 overflow-x-auto pb-4">
-          {["numerator", "denominator"].map(week => (
-             <div key={week} className="flex-1 min-w-[600px] border border-sys-border rounded-xl bg-[#0b1120] p-4 flex flex-col gap-2">
-                <h3 className="text-center font-bold text-sys-text-secondary uppercase tracking-widest text-xs mb-2">
-                  {week === "numerator" ? "Чисельник" : "Знаменник"}
-                </h3>
-                
-                <div className="grid grid-cols-6 gap-2 border-b border-sys-border/50 pb-2">
-                  <div></div>
-                  {days.map(d => <div key={d} className="text-center font-bold text-sys-text-secondary text-sm">{dict[d as keyof typeof dict]}</div>)}
-                </div>
-                
-                {[1,2,3,4].map(lesson => (
-                  <div key={lesson} className="grid grid-cols-6 gap-2">
-                    <div className="flex items-center justify-center font-black text-sys-text-muted text-xl">{lesson}</div>
-                    
-                    {days.map(day => (
-                       <div key={day} className="bg-sys-input/50 rounded-lg min-h-[80px] p-1 border border-transparent hover:border-sys-accent/30 transition-colors"
-                            onDragOver={e => e.preventDefault()}
-                            onDrop={e => {
-                               e.preventDefault();
-                               const slotId = parseInt(e.dataTransfer.getData("slot_id"));
-                               if (slotId) handleMove(slotId, day, lesson, week);
-                            }}>
-                          {slots.filter(s => s.day_of_week === day && s.lesson_number === lesson && (s.week_type === week || s.week_type === "both") && s.curriculum.group.name.toLowerCase().includes(filterGroup.toLowerCase()))
-                                .map(s => (
-                             <div key={s.id} draggable onDragStart={e => e.dataTransfer.setData("slot_id", s.id.toString())} className="bg-sys-card border border-sys-border shadow-sm p-1.5 mb-1 rounded cursor-grab active:cursor-grabbing text-xs flex flex-col gap-0.5">
-                                <b className="text-sys-accent">{s.curriculum.group.name}</b>
-                                <span className="font-semibold text-sys-text-primary leading-tight">{s.curriculum.subject.name}</span>
-                                <span className="text-[10px] text-sys-text-secondary">{s.curriculum.teacher.name}</span>
-                             </div>
-                          ))}
-                       </div>
-                    ))}
-                  </div>
-                ))}
-             </div>
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div role="tablist" aria-label="Тип тижня" className="flex w-full rounded-xl border border-sys-border bg-sys-card p-1 sm:w-fit">
+            {(["numerator", "denominator"] as const).map((week) => (
+              <button
+                key={week}
+                role="tab"
+                aria-selected={activeWeek === week}
+                onClick={() => setActiveWeek(week)}
+                className={`flex-1 rounded-lg px-5 py-2 text-sm font-semibold transition-colors sm:flex-none ${
+                  activeWeek === week ? "bg-sys-accent text-[#0b1120]" : "text-sys-text-secondary hover:text-sys-text-primary"
+                }`}
+              >
+                {week === "numerator" ? "Чисельник" : "Знаменник"}
+              </button>
+            ))}
+          </div>
+          <div role="tablist" aria-label="Показати розклад" className="flex w-full rounded-xl border border-sys-border bg-sys-card p-1 sm:w-fit">
+            {(["group", "teacher"] as const).map((mode) => (
+              <button
+                key={mode}
+                role="tab"
+                aria-selected={filterMode === mode}
+                onClick={() => setFilterMode(mode)}
+                className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition-colors sm:flex-none ${
+                  filterMode === mode ? "bg-white/10 text-sys-text-primary" : "text-sys-text-secondary hover:text-sys-text-primary"
+                }`}
+              >
+                {mode === "group" ? "За групами" : "За викладачами"}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+          {days.map((day) => (
+            <section key={day} className="overflow-hidden rounded-2xl border border-sys-border bg-sys-card/50">
+              <header className="flex items-center justify-between border-b border-sys-border px-4 py-3">
+                <h3 className="font-semibold text-sys-text-primary">{dayNames[day]}</h3>
+                <span className="text-xs text-sys-text-muted">
+                  {visibleSlots.filter((slot) => slot.day_of_week === day).length} пар
+                </span>
+              </header>
+              <div className="space-y-2 p-3">
+                {[1, 2, 3, 4].map((lesson) => {
+                  const cellSlots = visibleSlots.filter((slot) => slot.day_of_week === day && slot.lesson_number === lesson);
+                  return (
+                    <div
+                      key={lesson}
+                      className="grid min-h-20 grid-cols-[3.5rem_minmax(0,1fr)] gap-2 rounded-xl border border-dashed border-sys-border/70 p-2 transition-colors hover:border-sys-accent/40"
+                      onDragOver={(event) => event.preventDefault()}
+                      onDrop={(event) => {
+                        event.preventDefault();
+                        const slotId = Number(event.dataTransfer.getData("slot_id"));
+                        if (slotId) void handleMove(slotId, day, lesson, activeWeek);
+                      }}
+                    >
+                      <div className="pt-1 text-center">
+                        <div className="text-lg font-bold leading-none text-sys-text-primary">{lesson}</div>
+                        <div className="mt-1 text-[10px] text-sys-text-muted">{lessonTimes[lesson]}</div>
+                      </div>
+                      <div className="min-w-0 space-y-1.5">
+                        {cellSlots.length ? cellSlots.map((slot) => (
+                          <article
+                            key={slot.id}
+                            draggable
+                            onDragStart={(event) => event.dataTransfer.setData("slot_id", slot.id.toString())}
+                            className="cursor-grab rounded-lg border border-sys-border bg-sys-card p-2.5 text-sm shadow-sm active:cursor-grabbing"
+                          >
+                            <div className="flex flex-wrap items-center justify-between gap-x-2">
+                              <span className="font-semibold text-sys-accent">{slot.curriculum.group.name}</span>
+                              {slot.week_type === "both" && <span className="rounded bg-sys-accent/10 px-1.5 py-0.5 text-[10px] font-semibold text-sys-accent">Обидва тижні</span>}
+                            </div>
+                            <p className="mt-1 font-medium leading-snug text-sys-text-primary">{slot.curriculum.subject.name}</p>
+                            <p className="mt-1 text-xs leading-snug text-sys-text-secondary">
+                              {slot.curriculum.teacher.name}
+                              {slot.curriculum.second_teacher ? ` · ${slot.curriculum.second_teacher.name}` : ""}
+                            </p>
+                          </article>
+                        )) : (
+                          <div className="flex min-h-14 items-center text-xs text-sys-text-muted">Вільна пара</div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
           ))}
         </div>
-        
+        {visibleSlots.length === 0 && (
+          <p className="rounded-xl border border-dashed border-sys-border p-6 text-center text-sm text-sys-text-secondary">
+            {filterMode === "teacher" && filterTeacherId !== null
+              ? "У вибраного викладача немає пар у цьому тижні."
+              : filterMode === "group" && filterGroupId !== null
+                ? "У вибраної групи немає пар у цьому тижні."
+                : "У цьому тижні пар немає."}
+          </p>
+        )}
         {toast && <Toast toast={toast} />}
       </div>
     );
