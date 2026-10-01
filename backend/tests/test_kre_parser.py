@@ -1,14 +1,24 @@
 from datetime import date
 from app.services.importer.parsers.kre_parser import KREParser
 
-def test_kre_parser_basic_structure():
-    with open("backend/tests/fixtures/kre_schedule.html", "r") as f:
+def test_kre_parser_real_html():
+    with open("Розклад занять – Дніпровський фаховий коледж радіоелектроніки.html", "r", encoding="utf-8") as f:
         html = f.read()
 
     parser = KREParser()
-    target = date(2026, 10, 1)
+    parsed = parser.parse(html)
     
-    # Run the parser method to ensure it doesn't crash. 
-    # (Actual parser logic to extract nodes will go here once tailored to actual HTML).
-    parsed = parser.parse(html, target)
-    assert parsed is not None
+    assert parsed.groups
+    assert '82' in parsed.groups
+    assert len(parsed.lessons) > 0
+    
+    # Check if a substitution is found
+    subs = [l for l in parsed.lessons if l.is_substitution]
+    assert len(subs) > 0
+
+    first_sub = subs[0]
+    assert first_sub.lesson_number in [0, 1, 2, 3, 4]
+    
+    # Print for manual inspection during test execution
+    print(f"\nTotal lessons: {len(parsed.lessons)}, Total substitutions: {len(subs)}")
+    print(f"Sample Substitution: {first_sub.date} | {first_sub.subject_name} | Sub: {first_sub.is_substitution}")
