@@ -259,7 +259,7 @@ def test_unknown_solver_status_is_reported_as_timeout(monkeypatch):
             return "UNKNOWN"
 
     monkeypatch.setattr(S.cp_model, "CpSolver", FakeSolver)
-    monkeypatch.setattr("os.cpu_count", lambda: 1)
+    monkeypatch.setattr(S, "effective_cpu_count", lambda: 1)
     curr = [NS(id=1, group_id=1, teacher_id=1, second_teacher_id=None,
                is_stream=False, stream_id=None, pairs_per_2_weeks=30,
                is_fixed=False, strict_day=None, strict_lesson=None,
@@ -267,14 +267,21 @@ def test_unknown_solver_status_is_reported_as_timeout(monkeypatch):
     result = S.solve(curr, [], max_time_in_seconds=1)
     assert result.status == "TIMEOUT"
     assert not result.ok
-    assert FakeSolver.calls == 2
-    assert FakeSolver.parameters.num_search_workers == 8
-    assert time_limits[0] == pytest.approx(S.FEASIBILITY_TIME_FRACTION)
-    assert 1 - S.FEASIBILITY_TIME_FRACTION <= time_limits[1] <= 1
+    assert FakeSolver.calls == S.FEASIBILITY_RESTARTS
+    assert FakeSolver.parameters.num_search_workers == 2
+    assert sum(time_limits) == pytest.approx(S.FEASIBILITY_TIME_FRACTION)
 
 
-def test_default_generator_search_budget_is_five_minutes():
-    assert S.DEFAULT_SOLVE_TIME_SECONDS == 300
+def test_default_generator_search_budget_is_ten_minutes():
+    assert S.DEFAULT_SOLVE_TIME_SECONDS == 600
+
+
+def test_worker_count_respects_container_cpu_quota(monkeypatch):
+    monkeypatch.setattr(S.os, "cpu_count", lambda: 8)
+    monkeypatch.setattr(S.os, "sched_getaffinity", lambda _pid: set(range(8)), raising=False)
+    monkeypatch.setattr(S, "_cgroup_cpu_quota", lambda: 0.5)
+
+    assert S.selected_worker_count(8) == 2
 
 
 def test_feasible_schedule_is_kept_if_preference_optimization_times_out(monkeypatch):

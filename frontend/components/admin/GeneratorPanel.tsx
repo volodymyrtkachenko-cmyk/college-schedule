@@ -60,12 +60,12 @@ export function GeneratorPanel() {
       const job = await api.generator.generate(session.access_token);
       const startedAt = Date.now();
       let completed = job;
-      while (completed.status === "GENERATING" && Date.now() - startedAt < 7 * 60 * 1000) {
-        await new Promise(resolve => setTimeout(resolve, 2000));
+      while (completed.status === "GENERATING" && Date.now() - startedAt < 12 * 60 * 1000) {
+        await new Promise(resolve => setTimeout(resolve, 5000));
         completed = await api.generator.getDraft(job.id, session.access_token);
       }
       if (completed.status === "TIMEOUT") {
-        throw new Error("Не вдалося знайти розклад за 5 хвилин. Спробуйте ще раз або перевірте обмеження.");
+        throw new Error("Не вдалося знайти розклад за 10 хвилин. Перевірте навантаження та спробуйте на сервері з більшою кількістю CPU.");
       }
       if (completed.status === "INFEASIBLE") {
         throw new Error("Обмеження розкладу несумісні. Перевірте навантаження, закріплені пари та доступність викладачів.");
@@ -193,7 +193,7 @@ export function GeneratorPanel() {
             {generating ? (
               <>
                 <svg className="animate-spin h-4 w-4 text-[#0b1120]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
-                Пошук розкладу (до 5 хв)...
+                Пошук розкладу (до 10 хв)...
               </>
             ) : "+ Згенерувати новий розклад"}
          </button>

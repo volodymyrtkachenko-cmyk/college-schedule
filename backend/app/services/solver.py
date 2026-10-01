@@ -4,6 +4,8 @@
 легко тестується на синтетичних даних.
 """
 from dataclasses import dataclass, field
+import math
+import os
 import time
 from typing import Iterable
 
@@ -17,8 +19,46 @@ DAY_IDXS = DAYS * WEEKS     # d = 0..9 (0..4 чисельник, 5..9 знаме
 MIN_PAIRS_PER_DAY = 3
 MAX_PAIRS_PER_DAY = SLOTS
 DEFAULT_NUM_WORKERS = 8
-DEFAULT_SOLVE_TIME_SECONDS = 300
+DEFAULT_SOLVE_TIME_SECONDS = 600
 FEASIBILITY_TIME_FRACTION = 0.9
+FEASIBILITY_RESTARTS = 6
+
+
+def _cgroup_cpu_quota() -> float | None:
+    try:
+        with open("/sys/fs/cgroup/cpu.max", encoding="ascii") as quota_file:
+            quota, period = quota_file.read().split()
+        if quota != "max":
+            return int(quota) / int(period)
+    except (OSError, ValueError, ZeroDivisionError):
+        pass
+
+    try:
+        with open("/sys/fs/cgroup/cpu/cpu.cfs_quota_us", encoding="ascii") as quota_file:
+            quota = int(quota_file.read())
+        with open("/sys/fs/cgroup/cpu/cpu.cfs_period_us", encoding="ascii") as period_file:
+            period = int(period_file.read())
+        if quota > 0 and period > 0:
+            return quota / period
+    except (OSError, ValueError, ZeroDivisionError):
+        pass
+    return None
+
+
+def effective_cpu_count() -> int:
+    counts = [os.cpu_count() or 1]
+    try:
+        counts.append(len(os.sched_getaffinity(0)))
+    except (AttributeError, OSError):
+        pass
+    quota = _cgroup_cpu_quota()
+    if quota is not None:
+        counts.append(max(1, math.floor(quota)))
+    return max(1, min(counts))
+
+
+def selected_worker_count(requested: int = DEFAULT_NUM_WORKERS) -> int:
+    return max(min(2, requested), min(requested, effective_cpu_count()))
 
 # Дозволені шаблони дня для групи: (пара1, пара2, пара3, пара4) -> штраф.
 # ЖОРСТКО заборонено: вихідний (0 пар), 1–2 пари, будь-які «вікна».
@@ -470,10 +510,7 @@ def solve(
                 == weekly_load - MIN_PAIRS_PER_DAY * DAYS
             )
 
-    # Keep the requested CP-SAT portfolio even when a container reports fewer
-    # CPUs than the solver workers requested. Parallel search workers explore
-    # different strategies; the hard wall-clock limit bounds their runtime.
-    actual_workers = max(2, num_workers)
+    actual_workers = selected_worker_count(num_workers)
 
     def new_solver(time_limit: float, random_seed: int | None) -> cp_model.CpSolver:
         instance = cp_model.CpSolver()
@@ -502,12 +539,27 @@ def solve(
     # incumbent, which is especially costly on small hosted instances.
     if penalties:
         model.ClearObjective()
-    feasibility_solver = new_solver(max_time_in_seconds * FEASIBILITY_TIME_FRACTION, seed)
-    feasibility_solver.parameters.stop_after_first_solution = True
-    status = feasibility_solver.Solve(model)
+    feasibility_budget = max_time_in_seconds * FEASIBILITY_TIME_FRACTION
+    feasible_result = None
+    last_solver = None
+    last_status = cp_model.UNKNOWN
+    for attempt in range(FEASIBILITY_RESTARTS):
+        attempt_budget = feasibility_budget / FEASIBILITY_RESTARTS
+        feasibility_solver = new_solver(
+            attempt_budget,
+            (seed or 0) + attempt if seed is not None else attempt,
+        )
+        feasibility_solver.parameters.stop_after_first_solution = True
+        feasibility_solver.parameters.randomize_search = True
+        status = feasibility_solver.Solve(model)
+        last_solver, last_status = feasibility_solver, status
+        if status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+            feasible_result = result_from(feasibility_solver, status, optimized=False)
+            break
+        if status != cp_model.UNKNOWN:
+            return SolveResult(status=feasibility_solver.StatusName(status))
 
-    if status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-        feasible_result = result_from(feasibility_solver, status, optimized=False)
+    if feasible_result is not None:
         remaining = max_time_in_seconds - (time.monotonic() - started_at)
         if penalties and remaining > 0.05:
             selected = set(feasible_result.assignments)
@@ -520,24 +572,9 @@ def solve(
                 return result_from(optimizer, optimized_status, optimized=True)
         return feasible_result
 
-    if status != cp_model.UNKNOWN:
-        return SolveResult(status=feasibility_solver.StatusName(status))
-
-    # A different seed gets the unused part of the budget when the first
-    # feasibility search has not found an incumbent.
-    remaining = max_time_in_seconds - (time.monotonic() - started_at)
-    if remaining > 0.05:
-        retry = new_solver(remaining, (seed or 0) + 1)
-        retry.parameters.stop_after_first_solution = True
-        retry_status = retry.Solve(model)
-        if retry_status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-            return result_from(retry, retry_status, optimized=False)
-        status = retry_status
-        feasibility_solver = retry
-
     # CP-SAT UNKNOWN means the bounded search neither found a schedule nor
     # proved infeasibility. Keep that distinction explicit in the API result.
-    name = feasibility_solver.StatusName(status)
-    if status == cp_model.UNKNOWN:
+    name = last_solver.StatusName(last_status)
+    if last_status == cp_model.UNKNOWN:
         name = "TIMEOUT"
     return SolveResult(status=name)

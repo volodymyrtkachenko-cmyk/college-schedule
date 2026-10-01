@@ -86,7 +86,7 @@ async def _complete_generation(
                     diagnostics["teacher_constraints"],
                     diagnostics["fingerprint"],
                     time.monotonic() - solve_started,
-                    solver.DEFAULT_NUM_WORKERS,
+                    solver.selected_worker_count(),
                     ortools.__version__,
                 )
                 await db.commit()
