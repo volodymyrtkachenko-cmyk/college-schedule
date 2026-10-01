@@ -374,13 +374,16 @@ export interface DraftRecord {
 }
 
 export const apiGenerator = {
-  generate: async (token: string, max_time: number = 30): Promise<DraftRecord> => {
-    return request<DraftRecord>(`/api/generator?max_time_in_seconds=300`, {
+  generate: async (token: string, max_time: number = 300): Promise<DraftRecord> => {
+    return request<DraftRecord>(`/api/generator?max_time_in_seconds=${max_time}`, {
       method: "POST",
     }, false, true, token);
   },
   listDrafts: async (token: string): Promise<DraftRecord[]> => {
     return request<DraftRecord[]>(`/api/drafts/`, {}, false, true, token);
+  },
+  getDraft: async (id: number, token: string): Promise<DraftRecord> => {
+    return request<DraftRecord>(`/api/drafts/${id}`, {}, false, true, token);
   },
   deleteDraft: async (id: number, token: string): Promise<void> => {
     return request<void>(`/api/drafts/${id}`, { method: "DELETE" }, false, true, token);

@@ -57,7 +57,28 @@ export function GeneratorPanel() {
     try {
       setGenerating(true);
       const session = await api.auth.ensureAuthenticated();
-      await api.generator.generate(session.access_token);
+      const job = await api.generator.generate(session.access_token);
+      const startedAt = Date.now();
+      let completed = job;
+      while (completed.status === "GENERATING" && Date.now() - startedAt < 7 * 60 * 1000) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        completed = await api.generator.getDraft(job.id, session.access_token);
+      }
+      if (completed.status === "TIMEOUT") {
+        throw new Error("Не вдалося знайти розклад за 5 хвилин. Спробуйте ще раз або перевірте обмеження.");
+      }
+      if (completed.status === "INFEASIBLE") {
+        throw new Error("Обмеження розкладу несумісні. Перевірте навантаження, закріплені пари та доступність викладачів.");
+      }
+      if (completed.status === "FAILED") {
+        throw new Error("Фонове створення розкладу завершилося помилкою. Перевірте логи Render.");
+      }
+      if (completed.status === "GENERATING") {
+        throw new Error(`Генерація ще триває. Перевірте стан чернетки #${job.id} трохи пізніше.`);
+      }
+      if (completed.status !== "DRAFT") {
+        throw new Error(`Генерація завершилася зі статусом ${completed.status}. Перевірте логи Render.`);
+      }
       setToast({message: "Згенеровано успішно!", type: "success"});
       await loadDrafts();
     } catch(err: any) {

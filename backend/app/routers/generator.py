@@ -2,15 +2,15 @@ from datetime import datetime
 import hashlib
 import json
 import logging
-import time
 import ortools
-from fastapi import APIRouter, Depends, HTTPException, Query
+import time
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload
 import asyncio
 
-from app.database import get_db
+from app.database import async_session_factory, get_db
 from app.models import Curriculum, TeacherConstraint, ScheduleDraft, ScheduleSlot
 from app.schemas.constraint import ScheduleDraftResponse
 from app.core.security import require_roles
@@ -56,8 +56,70 @@ def _solver_input_diagnostics(curriculums, constraints) -> dict[str, int | str]:
     }
 
 
-@router.post("", response_model=ScheduleDraftResponse)
+async def _complete_generation(
+    draft_id: int,
+    curriculums: list,
+    constraints: list,
+    max_time_in_seconds: int,
+) -> None:
+    diagnostics = _solver_input_diagnostics(curriculums, constraints)
+    solve_started = time.monotonic()
+    try:
+        result = await asyncio.to_thread(
+            solver.solve,
+            curriculums,
+            constraints,
+            max_time_in_seconds,
+        )
+        async with async_session_factory() as db:
+            draft = await db.get(ScheduleDraft, draft_id)
+            if draft is None:
+                return
+            if not result.ok:
+                draft.status = result.status
+                logger.warning(
+                    "Schedule generation failed: status=%s curriculums=%s groups=%s "
+                    "teacher_constraints=%s fingerprint=%s elapsed=%.1fs workers=%s ortools=%s",
+                    result.status,
+                    diagnostics["curriculums"],
+                    diagnostics["groups"],
+                    diagnostics["teacher_constraints"],
+                    diagnostics["fingerprint"],
+                    time.monotonic() - solve_started,
+                    solver.DEFAULT_NUM_WORKERS,
+                    ortools.__version__,
+                )
+                await db.commit()
+                return
+
+            db.add_all([
+                ScheduleSlot(
+                    draft_id=draft.id,
+                    curriculum_id=c_id,
+                    day_of_week=(d % solver.DAYS) + 1,
+                    lesson_number=s + 1,
+                    week_type="numerator" if d < solver.DAYS else "denominator",
+                )
+                for c_id, d, s in result.assignments
+            ])
+            draft.status = "DRAFT"
+            await db.commit()
+    except Exception:
+        logger.exception(
+            "Schedule generation task failed: draft_id=%s fingerprint=%s",
+            draft_id,
+            diagnostics["fingerprint"],
+        )
+        async with async_session_factory() as db:
+            draft = await db.get(ScheduleDraft, draft_id)
+            if draft is not None:
+                draft.status = "FAILED"
+                await db.commit()
+
+
+@router.post("", response_model=ScheduleDraftResponse, status_code=202)
 async def generate_schedule(
+    background_tasks: BackgroundTasks,
     max_time_in_seconds: int = Query(default=solver.DEFAULT_SOLVE_TIME_SECONDS, gt=0),
     db: AsyncSession = Depends(get_db),
     admin=Depends(require_roles("admin"))
@@ -84,51 +146,18 @@ async def generate_schedule(
             detail="Неможливо скласти розклад за заданими вимогами: " + "; ".join(problems),
         )
 
-    # Розв'язуємо в окремому потоці, щоб не блокувати event loop
-    solve_started = time.monotonic()
-    result = await asyncio.to_thread(solver.solve, list(curriculums), list(constraints), max_time_in_seconds)
-    if not result.ok:
-        if result.status == "INFEASIBLE":
-            detail = (
-                "Неможливо скласти розклад: обмеження розкладу несумісні "
-                "(3–4 пари щодня Пн–Пт, без вікон, доступність викладачів, потоки та закріплені пари). "
-                "Перевірте закріплені пари й обмеження викладачів."
-            )
-        elif result.status == "TIMEOUT":
-            diagnostics = _solver_input_diagnostics(curriculums, constraints)
-            diagnostic_text = (
-                f"curriculums={diagnostics['curriculums']}, groups={diagnostics['groups']}, "
-                f"teacher_constraints={diagnostics['teacher_constraints']}, "
-                f"fingerprint={diagnostics['fingerprint']}, "
-                f"elapsed={time.monotonic() - solve_started:.1f}s, "
-                f"workers={solver.DEFAULT_NUM_WORKERS}, ortools={ortools.__version__}"
-            )
-            logger.warning("Schedule generation timed out: %s", diagnostic_text)
-            detail = (
-                f"Пошук не знайшов розклад за {max_time_in_seconds} с і не зміг довести неможливість. "
-                "Це таймаут пошуку, а не підтвердження неможливості. "
-                f"Діагностика: {diagnostic_text}."
-            )
-        else:
-            detail = f"Помилка моделі генератора розкладу: {result.status}."
-        raise HTTPException(
-            status_code=400,
-            detail=detail,
-        )
-
-    draft = ScheduleDraft(name=f"Генерація від {datetime.now().strftime('%d.%m %H:%M')}", status="DRAFT")
+    draft = ScheduleDraft(
+        name=f"Генерація від {datetime.now().strftime('%d.%m %H:%M')}",
+        status="GENERATING",
+    )
     db.add(draft)
-    await db.flush()  # отримати draft.id
-
-    db.add_all([
-        ScheduleSlot(
-            draft_id=draft.id,
-            curriculum_id=c_id,
-            day_of_week=(d % solver.DAYS) + 1,
-            lesson_number=s + 1,
-            week_type="numerator" if d < solver.DAYS else "denominator",
-        )
-        for (c_id, d, s) in result.assignments
-    ])
     await db.commit()
+    await db.refresh(draft)
+    background_tasks.add_task(
+        _complete_generation,
+        draft.id,
+        list(curriculums),
+        list(constraints),
+        max_time_in_seconds,
+    )
     return draft

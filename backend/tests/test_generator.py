@@ -374,7 +374,7 @@ def test_curriculum_schema_validates_week_and_exact_block_rules():
 # ───────────────────────── тест ендпоінта ─────────────────────────
 
 @pytest.fixture
-async def gen_client():
+async def gen_client(monkeypatch):
     engine = create_async_engine("sqlite+aiosqlite:///:memory:")
     sessions = async_sessionmaker(engine, expire_on_commit=False)
     async with engine.begin() as conn:
@@ -384,6 +384,7 @@ async def gen_client():
         async with sessions() as session:
             yield session
 
+    monkeypatch.setattr("app.routers.generator.async_session_factory", sessions)
     app.dependency_overrides[get_db] = override_get_db
     async with sessions() as session:
         admin = User(username="admin", name="admin", role="admin", password_hash="hash")
@@ -424,8 +425,12 @@ async def test_api_generates_valid_draft(gen_client):
     client, headers, sessions, fac = gen_client
     await _seed(sessions, fac, [("G1", 32), ("G2", 34)])
     resp = await client.post("/api/generator?max_time_in_seconds=20", headers=headers)
-    assert resp.status_code == 200, resp.text
+    assert resp.status_code == 202, resp.text
+    assert resp.json()["status"] == "GENERATING"
     draft_id = resp.json()["id"]
+    status_resp = await client.get(f"/api/drafts/{draft_id}", headers=headers)
+    assert status_resp.status_code == 200
+    assert status_resp.json()["status"] == "DRAFT"
 
     async with sessions() as s:
         slots = (await s.scalars(select(ScheduleSlot).where(ScheduleSlot.draft_id == draft_id))).all()
@@ -459,10 +464,7 @@ async def test_api_returns_safe_diagnostics_on_solver_timeout(gen_client, monkey
 
     resp = await client.post("/api/generator?max_time_in_seconds=1", headers=headers)
 
-    detail = resp.json()["detail"]
-    assert resp.status_code == 400
-    assert "таймаут пошуку" in detail
-    assert "curriculums=8" in detail
-    assert "groups=1" in detail
-    assert "teacher_constraints=0" in detail
-    assert "fingerprint=" in detail
+    assert resp.status_code == 202
+    draft_id = resp.json()["id"]
+    status_resp = await client.get(f"/api/drafts/{draft_id}", headers=headers)
+    assert status_resp.json()["status"] == "TIMEOUT"

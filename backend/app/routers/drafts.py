@@ -19,6 +19,19 @@ async def list_drafts(
     result = await db.execute(query)
     return result.scalars().all()
 
+
+@router.get("/{id}", response_model=ScheduleDraftResponse)
+async def get_draft(
+    id: int,
+    db: AsyncSession = Depends(get_db),
+    admin=Depends(require_roles("admin"))
+):
+    draft = await db.get(ScheduleDraft, id)
+    if not draft:
+        raise HTTPException(status_code=404, detail="Draft not found")
+    return draft
+
+
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_draft(
     id: int,
