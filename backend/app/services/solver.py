@@ -467,11 +467,10 @@ def solve(
                 == weekly_load - MIN_PAIRS_PER_DAY * DAYS
             )
 
-    import os
-    cpus = os.cpu_count() or 1
-    # Завжди беремо мінімум 2 потоки, щоб активувати Portfolio Search (різні евристики одночасно),
-    # що критично важливо для складних тетріс-розкладів.
-    actual_workers = max(2, min(num_workers, cpus))
+    # Keep the requested CP-SAT portfolio even when a container reports fewer
+    # CPUs than the solver workers requested. Parallel search workers explore
+    # different strategies; the hard wall-clock limit bounds their runtime.
+    actual_workers = max(2, num_workers)
 
     def new_solver(time_limit: float, random_seed: int | None) -> cp_model.CpSolver:
         instance = cp_model.CpSolver()

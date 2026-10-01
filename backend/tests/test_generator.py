@@ -256,6 +256,7 @@ def test_unknown_solver_status_is_reported_as_timeout(monkeypatch):
             return "UNKNOWN"
 
     monkeypatch.setattr(S.cp_model, "CpSolver", FakeSolver)
+    monkeypatch.setattr("os.cpu_count", lambda: 1)
     curr = [NS(id=1, group_id=1, teacher_id=1, second_teacher_id=None,
                is_stream=False, stream_id=None, pairs_per_2_weeks=30,
                is_fixed=False, strict_day=None, strict_lesson=None,
@@ -264,6 +265,7 @@ def test_unknown_solver_status_is_reported_as_timeout(monkeypatch):
     assert result.status == "TIMEOUT"
     assert not result.ok
     assert FakeSolver.calls == 2
+    assert FakeSolver.parameters.num_search_workers == 8
 
 
 def test_feasible_schedule_is_kept_if_preference_optimization_times_out(monkeypatch):
