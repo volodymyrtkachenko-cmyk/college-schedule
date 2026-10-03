@@ -158,7 +158,7 @@ export function ScheduleWeekGrid({ week, availabilityWeek, availabilityError, sc
               </div>
             ))}
 
-            {[1, 2, 3, 4, 5].flatMap((lessonNumber) => [
+            {[1, 2, 3, 4].flatMap((lessonNumber) => [
               <div key={`lesson-${lessonNumber}`} className="sticky left-0 z-10 border-b border-r border-sys-border bg-sys-card p-3 text-center">
                 <div className="text-lg font-bold text-sys-text-primary">{lessonNumber}</div>
                 <div className="text-[10px] text-sys-text-muted">{lessonTimes[lessonNumber]}</div>

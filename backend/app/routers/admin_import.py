@@ -8,7 +8,7 @@ import logging
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query, Security
 from fastapi.security.api_key import APIKeyHeader
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.core.security import require_roles
@@ -178,8 +178,8 @@ async def trigger_import(
         
         # Check if identical draft exists
         stmt = select(ScheduleDraft).where(ScheduleDraft.status == "pending").order_by(ScheduleDraft.id.desc()).limit(1)
-        last_draft = await db.scalar(stmt)
-        if last_draft and hash_payload(last_draft.data or {}) == payload_hash:
+                last_draft = await db.scalar(stmt)
+        if is_cron and last_draft and hash_payload(last_draft.data or {}) == payload_hash:
             logger.info("Import payload identical to last pending draft. Skipping creation.")
             draft_id = last_draft.id
         else:
