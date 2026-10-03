@@ -164,8 +164,8 @@ class LessonMutation(BaseModel):
     @field_validator("lesson_number")
     @classmethod
     def positive_lesson(cls, value):
-        if value is not None and not (1 <= value <= 5):
-            raise ValueError("lesson_number must be between 1 and 5")
+        if value is not None and not (1 <= value <= 4):
+            raise ValueError("lesson_number must be between 1 and 4")
         return value
 
     @field_validator("week_type")

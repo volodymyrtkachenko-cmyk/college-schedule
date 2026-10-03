@@ -13,7 +13,6 @@ from app.models import (
     Group,
     Schedule,
     ScheduleDraft,
-    SchedulePeriodSlot,
     ScheduleSlot,
     Subject,
     Teacher,
@@ -284,58 +283,6 @@ async def test_publishing_carries_explicit_stream_id_to_schedule(api_client):
     assert schedule.status_code == 200
     assert schedule.json()["lessons"][0]["stream_id"] == "published-stream"
 
-
-@pytest.mark.anyio
-async def test_publishing_fifth_lesson_substitution_succeeds(api_client):
-    client, headers, data = api_client
-    async with data["sessions"]() as session:
-        curriculum = Curriculum(
-            group_id=data["group_id"],
-            subject_id=data["subject_id"],
-            teacher_id=data["teacher_id"],
-            pairs_per_2_weeks=2,
-            total_hours=0,
-        )
-        draft = ScheduleDraft(
-            name="Fifth lesson draft",
-            status="pending",
-            data={
-                "substitutions": [{
-                    "date": "2025-09-01",
-                    "group_id": data["group_id"],
-                    "subject_id": data["subject_id"],
-                    "teacher_id": data["teacher_id"],
-                    "second_teacher_id": None,
-                    "lesson_number": 5,
-                    "room": "Room 101",
-                }],
-                "cancelled": [],
-            },
-        )
-        session.add_all([curriculum, draft])
-        await session.flush()
-        session.add(ScheduleSlot(
-            draft_id=draft.id,
-            curriculum_id=curriculum.id,
-            day_of_week=1,
-            lesson_number=5,
-            week_type="both",
-        ))
-        await session.commit()
-        draft_id = draft.id
-
-    response = await client.post(f"/api/drafts/{draft_id}/publish", headers=headers)
-    assert response.status_code == 200, response.text
-
-    async with data["sessions"]() as session:
-        period_slot = await session.scalar(
-            select(SchedulePeriodSlot).where(
-                SchedulePeriodSlot.lesson_number == 5
-            )
-        )
-        assert period_slot.lesson_number == 5
-
-
 @pytest.mark.anyio
 async def test_schedule_invalid_lesson_numbers(api_client):
     client, headers, data = api_client
@@ -349,8 +296,8 @@ async def test_schedule_invalid_lesson_numbers(api_client):
     # lesson 0
     resp = await client.post("/api/schedule", json={**payload, "lesson_number": 0}, headers=headers)
     assert resp.status_code == 422
-    # lesson 6
-    resp = await client.post("/api/schedule", json={**payload, "lesson_number": 6}, headers=headers)
+    # lesson 5
+    resp = await client.post("/api/schedule", json={**payload, "lesson_number": 5}, headers=headers)
     assert resp.status_code == 422
 
 @pytest.mark.anyio

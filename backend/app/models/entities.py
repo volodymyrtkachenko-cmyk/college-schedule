@@ -78,7 +78,7 @@ class Subject(Base):
 class Schedule(Base):
     __tablename__ = "schedule"
     __table_args__ = (
-        CheckConstraint("lesson_number BETWEEN 1 AND 5", name="chk_schedule_lesson_number"),
+        CheckConstraint("lesson_number BETWEEN 1 AND 4", name="chk_schedule_lesson_number"),
         Index("ix_schedule_group_day", "group_id", "day_of_week"),
         Index("ix_schedule_teacher_day", "teacher_id", "day_of_week"),
     )
@@ -178,7 +178,7 @@ class SchedulePeriodSlot(Base):
     __table_args__ = (
         UniqueConstraint("period_id", "group_id", "day_of_week", "lesson_number", name="uq_period_group_slot"),
         CheckConstraint("day_of_week BETWEEN 1 AND 5", name="ck_period_slot_weekday"),
-        CheckConstraint("lesson_number BETWEEN 1 AND 5", name="ck_period_slot_lesson"),
+        CheckConstraint("lesson_number BETWEEN 1 AND 4", name="ck_period_slot_lesson"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
