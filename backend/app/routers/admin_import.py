@@ -133,6 +133,29 @@ async def trigger_import(
             else:
                 unique_slots[k] = s
         aggregated_base_slots = list(unique_slots.values())
+
+        # Копіюємо ВСІ пари з поточного опублікованого розкладу, яких нема в імпорті.
+        # Це потрібно щоб пари на зразок "Виховна година" (яких нема на сайті коледжу)
+        # не зникали після публікації чернетки імпорту.
+        imported_keys = {
+            (s["group_id"], s["day_of_week"], s["lesson_number"])
+            for s in aggregated_base_slots
+        }
+        all_published = (await db.scalars(select(Schedule).where(Schedule.is_active.is_(True)))).all()
+        for sch in all_published:
+            key = (sch.group_id, sch.day_of_week, sch.lesson_number)
+            if key not in imported_keys:
+                aggregated_base_slots.append({
+                    "day_of_week": sch.day_of_week,
+                    "lesson_number": sch.lesson_number,
+                    "group_id": sch.group_id,
+                    "subject_id": sch.subject_id,
+                    "teacher_id": sch.teacher_id,
+                    "second_teacher_id": sch.second_teacher_id,
+                    "room": sch.room_override,
+                    "week_type": sch.week_type,
+                })
+                imported_keys.add(key)
         
         # На сайті на місці заміни оригінальної пари немає. Відновлюємо її з поточного
         # опублікованого розкладу, щоб у базовому розкладі не лишалось «дірок».
