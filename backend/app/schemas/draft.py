@@ -15,6 +15,7 @@ class ScheduleSlotBase(BaseModel):
     lesson_number: int
     week_type: str
     room_override: Optional[str] = None
+    is_substitution: Optional[bool] = False
 
 class ScheduleSlotResponse(ScheduleSlotBase):
     model_config = ConfigDict(from_attributes=True)

@@ -145,6 +145,10 @@ class ScheduleOverride(Base):
     subject_id: Mapped[Optional[int]] = mapped_column(ForeignKey("subjects.id"))
     room: Mapped[Optional[str]] = mapped_column(String(100))
     cancelled: Mapped[bool] = mapped_column(Boolean, default=False)
+    
+    subject: Mapped[Optional["Subject"]] = relationship()
+    teacher: Mapped[Optional["Teacher"]] = relationship()
+    schedule: Mapped["Schedule"] = relationship()
 
 
 class SchedulePeriod(Base):
