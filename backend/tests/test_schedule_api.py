@@ -13,6 +13,7 @@ from app.models import (
     Group,
     Schedule,
     ScheduleDraft,
+    ScheduleOverride,
     ScheduleSlot,
     Subject,
     Teacher,
@@ -282,6 +283,45 @@ async def test_publishing_carries_explicit_stream_id_to_schedule(api_client):
     )
     assert schedule.status_code == 200
     assert schedule.json()["lessons"][0]["stream_id"] == "published-stream"
+
+
+@pytest.mark.anyio
+async def test_publishing_removes_old_schedule_overrides_before_replacing_schedule(api_client):
+    client, headers, data = api_client
+    async with data["sessions"]() as session:
+        curriculum = Curriculum(
+            group_id=data["group_id"],
+            subject_id=data["subject_id"],
+            teacher_id=data["teacher_id"],
+            pairs_per_2_weeks=2,
+            total_hours=0,
+        )
+        draft = ScheduleDraft(name="Override draft", status="DRAFT")
+        session.add_all([curriculum, draft])
+        await session.flush()
+        session.add_all([
+            ScheduleOverride(
+                schedule_id=data["lesson_id"],
+                date=date(2025, 9, 1),
+                cancelled=True,
+            ),
+            ScheduleSlot(
+                draft_id=draft.id,
+                curriculum_id=curriculum.id,
+                day_of_week=1,
+                lesson_number=2,
+                week_type="both",
+            ),
+        ])
+        await session.commit()
+        draft_id = draft.id
+
+    response = await client.post(f"/api/drafts/{draft_id}/publish", headers=headers)
+    assert response.status_code == 200, response.text
+
+    async with data["sessions"]() as session:
+        assert (await session.scalars(select(ScheduleOverride))).all() == []
+
 
 @pytest.mark.anyio
 async def test_schedule_invalid_lesson_numbers(api_client):

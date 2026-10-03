@@ -4,7 +4,16 @@ from sqlalchemy import select, delete, update, or_, and_, func
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.models import ScheduleDraft, ScheduleSlot, Curriculum, Schedule, Group, Subject, Teacher
+from app.models import (
+    ScheduleDraft,
+    ScheduleSlot,
+    Curriculum,
+    Schedule,
+    ScheduleOverride,
+    Group,
+    Subject,
+    Teacher,
+)
 from app.schemas.draft import ScheduleDraftResponse, ScheduleSlotResponse, SlotMoveRequest
 from app.core.security import require_roles
 from app.services.settings import settings_service
@@ -212,6 +221,8 @@ async def publish_draft(
     await db.execute(update(ScheduleDraft).where(ScheduleDraft.status == "published").values(status="archived"))
     
     # Delete ALL current schedules
+    # Overrides reference schedule rows without ON DELETE CASCADE.
+    await db.execute(delete(ScheduleOverride))
     await db.execute(delete(Schedule))
     
     # Insert new schedules from slots
@@ -245,7 +256,7 @@ async def publish_draft(
         
     # Process substitutions if draft.data exists
     if draft.data:
-        from app.models.entities import SchedulePeriod, SchedulePeriodSlot, ScheduleOverride
+        from app.models.entities import SchedulePeriod, SchedulePeriodSlot
         from datetime import datetime
         substitutions = draft.data.get("substitutions", [])
         cancelled_lessons = draft.data.get("cancelled", [])
