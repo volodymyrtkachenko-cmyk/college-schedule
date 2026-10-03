@@ -5,10 +5,42 @@ import { useEffect, useMemo, useState } from "react";
 import { SearchableSelect } from "../../components/SearchableSelect";
 import { api, ReferenceRecord, StatisticsResponse } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
+import { getWarmGreeting, getWeekendCharge, getWeekendMessage, getWorkloadMessage } from "../../lib/format";
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "long", year: "numeric" })
     .format(new Date(`${value}T00:00:00`));
+}
+
+function WarmStatisticsBanner({ lessonCount }: { lessonCount: number }) {
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const charge = getWeekendCharge(now);
+  return (
+    <section className="grid gap-3 lg:grid-cols-[1fr_auto]">
+      <div className="rounded-3xl border border-orange-300/15 bg-gradient-to-br from-orange-300/[0.12] via-sys-card to-teal-300/[0.08] p-5 shadow-md shadow-black/10">
+        <p className="text-sm font-medium text-orange-100/80">{getWarmGreeting(now)}</p>
+        <p className="mt-2 text-sm leading-6 text-sys-text-secondary">{getWorkloadMessage(lessonCount)}</p>
+      </div>
+      <div className="rounded-3xl border border-sys-border bg-sys-card p-5 shadow-sm lg:min-w-64">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-sys-text-muted">Маяк відпочинку</p>
+            <p className="mt-1 text-sm text-sys-text-secondary">{getWeekendMessage(now)}</p>
+          </div>
+          <span className="text-2xl" aria-hidden="true">🔋</span>
+        </div>
+        <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-sys-bg" role="progressbar" aria-label={`Заряд наближення вихідних: ${charge}%`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={charge}>
+          <div className="h-full rounded-full bg-gradient-to-r from-teal-400 to-orange-300 transition-[width] duration-700" style={{ width: `${charge}%` }} />
+        </div>
+      </div>
+    </section>
+  );
 }
 
 export default function StatisticsPage() {
@@ -20,6 +52,7 @@ export default function StatisticsPage() {
   const [teacherId, setTeacherId] = useState<number | null>(null);
   const [referencesLoading, setReferencesLoading] = useState(true);
   const [stats, setStats] = useState<StatisticsResponse | null>(null);
+  const [todayLessonCount, setTodayLessonCount] = useState<number | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -82,6 +115,13 @@ export default function StatisticsPage() {
     setStatsLoading(true);
     setError(null);
     const target = mode === "student" ? { groupId: targetId } : { teacherId: targetId };
+    api.today(mode === "student" ? targetId : undefined, mode === "teacher" ? targetId : undefined)
+      .then((response) => {
+        if (active) setTodayLessonCount(response.lessons.length);
+      })
+      .catch(() => {
+        if (active) setTodayLessonCount(null);
+      });
     api.statistics(target)
       .then((response) => {
         if (active) setStats(response);
@@ -98,6 +138,7 @@ export default function StatisticsPage() {
 
     return () => {
       active = false;
+      setTodayLessonCount(null);
     };
   }, [mode, groupId, teacherId, referencesLoading]);
 
@@ -200,6 +241,7 @@ export default function StatisticsPage() {
           </div>
         ) : stats ? (
           <>
+            {todayLessonCount !== null && <WarmStatisticsBanner lessonCount={todayLessonCount} />}
             <section className="grid gap-3 sm:grid-cols-2">
               <div className="rounded-2xl border border-sys-border bg-sys-card p-5">
                 <p className="text-sm text-sys-text-secondary">
@@ -239,9 +281,11 @@ export default function StatisticsPage() {
                 </p>
               </div>
               {stats.entries.length === 0 ? (
-                <p className="rounded-xl border border-dashed border-sys-border p-8 text-center text-sm text-sys-text-secondary">
-                  Для цього періоду даних про навантаження немає.
-                </p>
+                <div className="rounded-2xl border border-dashed border-orange-300/15 bg-orange-300/[0.04] p-8 text-center shadow-sm">
+                  <div className="text-3xl" aria-hidden="true">🛋️</div>
+                  <p className="mt-2 text-sm text-sys-text-secondary">Ого, сьогодні жодної пари!</p>
+                  <p className="mt-1 text-xs text-sys-text-muted">Насолоджуйтеся цим спокійним днем — ви на це заслужили.</p>
+                </div>
               ) : (
                 <div className="space-y-5">
                   {stats.entries.map((entry) => {

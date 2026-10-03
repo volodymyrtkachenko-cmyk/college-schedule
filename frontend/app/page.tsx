@@ -13,38 +13,6 @@ import { useRouter } from "next/navigation";
 import { getMondayOf } from "../lib/date";
 import { WelcomeScreen } from "../components/WelcomeScreen";
 import { SearchableSelect } from "../components/SearchableSelect";
-import { getWarmGreeting, getWeekendCharge, getWeekendMessage, getWorkloadMessage } from "../lib/format";
-
-function WarmScheduleBanner({ lessonCount }: { lessonCount: number }) {
-  const [now, setNow] = useState(() => new Date());
-
-  useEffect(() => {
-    const timer = window.setInterval(() => setNow(new Date()), 60_000);
-    return () => window.clearInterval(timer);
-  }, []);
-
-  const charge = getWeekendCharge(now);
-  return (
-    <section className="mb-5 grid gap-3 lg:grid-cols-[1fr_auto]">
-      <div className="rounded-3xl border border-orange-300/15 bg-gradient-to-br from-orange-300/[0.12] via-sys-card to-teal-300/[0.08] p-5 shadow-md shadow-black/10">
-        <p className="text-sm font-medium text-orange-100/80">{getWarmGreeting(now)}</p>
-        <p className="mt-2 text-sm leading-6 text-sys-text-secondary">{getWorkloadMessage(lessonCount)}</p>
-      </div>
-      <div className="rounded-3xl border border-sys-border bg-sys-card p-5 shadow-sm lg:min-w-64">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-sys-text-muted">Маяк відпочинку</p>
-            <p className="mt-1 text-sm text-sys-text-secondary">{getWeekendMessage(now)}</p>
-          </div>
-          <span className="text-2xl" aria-hidden="true">🔋</span>
-        </div>
-        <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-sys-bg" role="progressbar" aria-label={`Заряд наближення вихідних: ${charge}%`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={charge}>
-          <div className="h-full rounded-full bg-gradient-to-r from-teal-400 to-orange-300 transition-[width] duration-700" style={{ width: `${charge}%` }} />
-        </div>
-      </div>
-    </section>
-  );
-}
 
 export default function HomePage() {
   const getInitialAnchor = () => {
@@ -254,9 +222,6 @@ export default function HomePage() {
       </header>
 
       <div className="mx-auto max-w-[1800px] px-3 py-6 sm:px-5 lg:px-6 xl:px-8">
-        {!loading && !error && today && (
-          <WarmScheduleBanner lessonCount={today.lessons.length} />
-        )}
         <div className="mb-6 hidden items-center justify-between md:flex">
           <div>
             <p className="text-sm text-sys-text-secondary">{view === "today" ? "Поточний день" : "Навчальний тиждень"}</p>
