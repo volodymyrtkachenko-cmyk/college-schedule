@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.schemas import LessonMutation, ScheduleItem, ScheduleResponse
 from app.core.security import require_roles
-from app.models import Curriculum, Group, Schedule, Subject, Teacher, User
+from app.models import Curriculum, Group, ImportedScheduleChange, Schedule, Subject, Teacher, User
 from app.services.schedule import fetch_schedule, fetch_week_schedule, conflicting_lesson
 
 logger = logging.getLogger(__name__)
@@ -75,6 +75,41 @@ def to_item(item, week_type, target_date, bell_times=None, *, item_id=None, is_r
         note=matching_note.note if matching_note else None,
         note_id=matching_note.id if matching_note else None)
 
+
+def imported_change_to_item(change, week_type, target_date, bell_times=None):
+    """Adapt a date-specific imported replacement to the regular schedule API shape."""
+    if change.kind != "substitution" or change.subject is None:
+        return None
+    teacher_name = change.teacher.name if change.teacher else None
+    if change.second_teacher:
+        teacher_name = " / ".join(
+            name for name in (teacher_name, change.second_teacher.name) if name
+        )
+    return ScheduleItem(
+        id=-change.id,
+        group_id=change.group_id,
+        subject_id=change.subject_id,
+        teacher_id=change.teacher_id,
+        second_teacher_id=change.second_teacher_id,
+        day_of_week=target_date.isoweekday(),
+        lesson_number=change.lesson_number,
+        time=f"{(bell_times or {}).get(change.lesson_number, ('00:00', '00:00'))[0]}-"
+        f"{(bell_times or {}).get(change.lesson_number, ('', ''))[1]}",
+        subject=change.subject.name,
+        teacher=teacher_name,
+        room=change.room_override,
+        room_override=change.room_override,
+        subject_name=change.subject.name,
+        teacher_name=teacher_name,
+        stream_id=None,
+        week_type="both",
+        is_relevant_this_week=True,
+        is_replacement=True,
+        group_name=change.group.name if change.group else None,
+        note=None,
+        note_id=None,
+    )
+
 @router.get("/schedule", response_model=ScheduleResponse)
 async def schedule(group_id: int | None = None, teacher_id: int | None = None,
                    day_of_week: int | None = Query(None, ge=1, le=7),
@@ -93,6 +128,13 @@ async def schedule(group_id: int | None = None, teacher_id: int | None = None,
                                     is_replacement=True if hasattr(lesson, "period_id") or hasattr(lesson, "is_published") else None,
                                 )
                                 for lesson in lessons
+                                if not isinstance(lesson, ImportedScheduleChange)
+                            ] + [
+                                item
+                                for lesson in lessons
+                                if isinstance(lesson, ImportedScheduleChange)
+                                for item in [imported_change_to_item(lesson, week_type, target_date, bell_t)]
+                                if item is not None
                             ])
 
 @router.get("/schedule/today", response_model=ScheduleResponse)
@@ -127,6 +169,20 @@ async def week(response: Response, group_id: int | None = None, teacher_id: int 
                     is_replacement=True if hasattr(lesson, "period_id") or hasattr(lesson, "is_published") else None,
                 )
                 for lesson in lessons_by_day.get(i + 1, [])
+                if not isinstance(lesson, ImportedScheduleChange)
+            ] + [
+                item
+                for lesson in lessons_by_day.get(i + 1, [])
+                if isinstance(lesson, ImportedScheduleChange)
+                for item in [
+                    imported_change_to_item(
+                        lesson,
+                        week_type,
+                        start + timedelta(days=i),
+                        bell_t,
+                    )
+                ]
+                if item is not None
             ],
         )
         for i in range(5)

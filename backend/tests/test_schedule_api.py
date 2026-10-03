@@ -11,6 +11,7 @@ from app.models import (
     Curriculum,
     Faculty,
     Group,
+    ImportedScheduleChange,
     Schedule,
     ScheduleDraft,
     ScheduleOverride,
@@ -88,6 +89,36 @@ async def test_schedule_week_returns_200_and_time(api_client):
     days = resp.json()
     assert len(days) > 0
     assert days[0]["lessons"][0]["time"] == "09:00-10:20"
+
+
+@pytest.mark.anyio
+async def test_schedule_returns_published_imported_substitution(api_client):
+    client, _, data = api_client
+    async with data["sessions"]() as session:
+        session.add(
+            ImportedScheduleChange(
+                date=date(2025, 9, 1),
+                kind="substitution",
+                group_id=data["group_id"],
+                subject_id=data["different_subject_id"],
+                teacher_id=data["teacher_id"],
+                lesson_number=1,
+                room_override="Room 202",
+                is_published=True,
+                version=1,
+            )
+        )
+        await session.commit()
+
+    response = await client.get(
+        f"/api/schedule?group_id={data['group_id']}&target_date=2025-09-01"
+    )
+    assert response.status_code == 200
+    lessons = response.json()["lessons"]
+    assert len(lessons) == 1
+    assert lessons[0]["subject_name"] == "Different Subject"
+    assert lessons[0]["room"] == "Room 202"
+    assert lessons[0]["is_replacement"] is True
 
 @pytest.mark.anyio
 async def test_schedule_teacher_conflict_gives_409(api_client):
