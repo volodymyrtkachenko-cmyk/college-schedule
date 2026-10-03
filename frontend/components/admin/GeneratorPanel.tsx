@@ -310,17 +310,21 @@ export function GeneratorPanel() {
                     {cellSubs.length > 0 && (
                       <div className="mb-2 space-y-2">
                         {cellSubs.map((sub, i) => (
-                          <article key={`sub-${sub.date}-${sub.group_id}-${i}`} className={`rounded-lg border p-2.5 text-sm ${sub.kind === "cancelled" ? "border-rose-500/40 bg-rose-500/5" : "border-amber-400/50 bg-amber-500/5"}`}>
-                            <div className="flex flex-wrap items-center justify-between gap-x-2">
-                              <span className="font-semibold text-sys-accent">{sub.group_name}</span>
-                              <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${sub.kind === "cancelled" ? "bg-rose-500/10 text-rose-300" : "bg-amber-500/10 text-amber-300"}`}>
-                                {sub.kind === "cancelled" ? "Скасовано" : "Заміна"} · {fmtSubDate(sub.date)}
+                          <article key={`sub-${sub.date}-${sub.group_id}-${i}`} className={`relative min-w-0 overflow-hidden rounded-xl border p-3 shadow-sm transition-colors duration-200 ${sub.kind === "cancelled" ? "border-rose-500/40 bg-rose-500/5" : "ring-1 ring-sys-accent/60 !border-sys-accent/40 bg-sys-accent/[0.02]"}`}>
+                            <div className="flex flex-wrap items-center justify-between gap-x-2 mb-1">
+                              <span className="font-semibold text-sys-text-muted text-xs">
+                                {sub.group_name} · {fmtSubDate(sub.date)}
+                              </span>
+                              <span className={`inline-block px-1.5 py-0.5 text-[0.65rem] font-bold rounded leading-none ${sub.kind === "cancelled" ? "bg-rose-500/20 text-rose-300" : "bg-sys-accent text-slate-950"}`}>
+                                {sub.kind === "cancelled" ? "Скасовано" : "Заміна"}
                               </span>
                             </div>
                             {sub.kind === "substitution" && (
                               <>
-                                <p className="mt-1 font-medium leading-snug text-sys-text-primary">{sub.subject_name}</p>
-                                <p className="mt-1 break-words text-xs leading-snug text-sys-text-secondary">
+                                <h3 className="min-w-0 break-words font-medium text-sys-text-subject text-[13px] [overflow-wrap:anywhere]">
+                                  {sub.subject_name}
+                                </h3>
+                                <p className="text-sys-text-secondary break-words [overflow-wrap:anywhere] mt-0.5 text-[12px]">
                                   {[sub.teacher_name ? formatTeacherName(sub.teacher_name) : null, sub.room].filter(Boolean).join(" · ")}
                                 </p>
                               </>
