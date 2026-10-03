@@ -100,17 +100,12 @@ async def fetch_schedule(db: AsyncSession, target_date: date,
     # Apply ScheduleOverrides and imported cancellations/replacements.
     if regular_lessons:
         from app.models.entities import ScheduleOverride
-        override_query = select(ScheduleOverride).where(
+        override_query = select(ScheduleOverride.schedule_id).where(
             ScheduleOverride.date == target_date,
             ScheduleOverride.schedule_id.in_([l.id for l in regular_lessons]),
             ScheduleOverride.cancelled == True
         )
         cancelled_schedule_ids = set((await db.scalars(override_query)).all())
-        # wait, we need schedule_id
-        cancelled_schedule_ids = set()
-        overrides = (await db.scalars(override_query)).all()
-        for o in overrides:
-            cancelled_schedule_ids.add(o.schedule_id)
         
         filtered_lessons = []
         for lesson in regular_lessons:
@@ -234,3 +229,112 @@ async def conflicting_lesson(db, *, group_id, day_of_week, lesson_number, week_t
                     continue
             return item
     return None
+from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError
+from app.models import Curriculum, Group, Subject, Teacher
+
+async def _entity(db: AsyncSession, model, entity_id, name, label, required=False):
+    if entity_id is None and name is None and required:
+        raise HTTPException(422, f"{label} є обов'язковим")
+    if entity_id is not None:
+        value = await db.get(model, entity_id)
+    elif name is not None:
+        value = await db.scalar(select(model).where(model.name == name.strip(), model.is_active.is_(True)))
+    else:
+        return None
+    if value is None or (hasattr(value, "is_active") and not value.is_active):
+        raise HTTPException(422, f"{label} не існує")
+    return value
+
+async def _stream_id_for_lesson(db: AsyncSession, group_id, subject_id, teacher_id, second_teacher_id):
+    query = select(Curriculum.stream_id).where(
+        Curriculum.group_id == group_id,
+        Curriculum.subject_id == subject_id,
+        Curriculum.teacher_id == teacher_id,
+        Curriculum.second_teacher_id == second_teacher_id,
+        Curriculum.is_stream.is_(True),
+        Curriculum.stream_id.is_not(None),
+    )
+    stream_ids = set((await db.scalars(query)).all())
+    return next(iter(stream_ids)) if len(stream_ids) == 1 else None
+
+async def _check_schedule_conflict(db: AsyncSession, group_id, day, lesson_number, week_type, exclude_id, teacher_id=None, second_teacher_id=None, subject_id=None, stream_id=None):
+    conflict = await conflicting_lesson(db, group_id=group_id, day_of_week=day,
+                                        lesson_number=lesson_number, week_type=week_type,
+                                        teacher_id=teacher_id, second_teacher_id=second_teacher_id,
+                                        subject_id=subject_id, stream_id=stream_id, exclude_id=exclude_id)
+    if conflict:
+        day_names = {1: "Понеділок", 2: "Вівторок", 3: "Середа", 4: "Четвер", 5: "П'ятниця", 6: "Субота", 7: "Неділя"}
+        week_names = {"numerator": "по чисельнику", "denominator": "по знаменнику", "both": "щотижня"}
+        d_name = day_names.get(day, str(day))
+        w_name = week_names.get(conflict.week_type, conflict.week_type)
+        if conflict.group_id != group_id:
+            group_name = conflict.group.name if conflict.group else "???"
+            raise HTTPException(409, f"Викладач уже веде заняття в цей час (група {group_name})")
+        raise HTTPException(409, f"Неможливо зберегти: на {d_name} ({lesson_number}-а пара, {w_name}) уже призначене інше заняття.")
+
+async def _resolve_entities(db: AsyncSession, item, payload, group_id, create):
+    group = await _entity(db, Group, group_id, None, "group", required=True)
+    if not create and payload.subject_id is None and payload.subject is None:
+        subject = await db.get(Subject, item.subject_id)
+    else:
+        subject = await _entity(db, Subject, payload.subject_id, payload.subject, "subject",
+                                required=create and payload.subject_id is None and payload.subject is None)
+    if not create and "teacher_id" not in payload.model_fields_set and "teacher" not in payload.model_fields_set:
+        teacher = await db.get(Teacher, item.teacher_id) if item.teacher_id is not None else None
+    else:
+        teacher = await _entity(db, Teacher, payload.teacher_id, payload.teacher, "teacher")
+    if not create and "second_teacher_id" not in payload.model_fields_set:
+        second_teacher = await db.get(Teacher, item.second_teacher_id) if item.second_teacher_id is not None else None
+    else:
+        second_teacher = await _entity(db, Teacher, getattr(payload, "second_teacher_id", None), None, "second_teacher")
+    
+    if group is None or subject is None:
+        raise HTTPException(422, "Група та предмет є обов'язковими")
+        
+    return group, subject, teacher, second_teacher
+
+async def _apply_and_commit(db: AsyncSession, item, payload, group, subject, teacher, second_teacher, day, lesson_number, week_type, stream_id, create):
+    item.group_id = group.id
+    item.subject_id = subject.id
+    item.teacher_id = teacher.id if teacher else (None if "teacher_id" in payload.model_fields_set or "teacher" in payload.model_fields_set else item.teacher_id)
+    if "second_teacher_id" in payload.model_fields_set:
+        item.second_teacher_id = second_teacher.id if second_teacher else None
+    item.day_of_week = day
+    item.lesson_number = lesson_number
+    item.week_type = week_type
+    item.stream_id = stream_id
+    if getattr(payload, "is_replacement", None) is not None:
+        item.is_replacement = payload.is_replacement
+    if "room" in payload.model_fields_set:
+        item.room_override = payload.room.strip() if payload.room and payload.room.strip() else None
+
+    try:
+        await db.commit()
+        await db.refresh(item, ["subject", "teacher", "second_teacher", "notes"])
+    except IntegrityError as exc:
+        await db.rollback()
+        raise HTTPException(409, "Неможливо зберегти: такий запис або графік вже існує і перетинається з іншим.") from exc
+    return item
+
+async def save_schedule_item(item, payload, db: AsyncSession, *, create=False):
+    group_id = payload.group_id if payload.group_id is not None else item.group_id
+    day = payload.day_of_week or (payload.date.isoweekday() if payload.date else item.day_of_week)
+    lesson_number = payload.lesson_number if payload.lesson_number is not None else item.lesson_number
+    week_type = payload.week_type or item.week_type
+
+    with db.no_autoflush:
+        group, subject, teacher, second_teacher = await _resolve_entities(db, item, payload, group_id, create)
+        stream_id = await _stream_id_for_lesson(
+            db,
+            group_id,
+            subject.id,
+            teacher.id if teacher else None,
+            second_teacher.id if second_teacher else None,
+        )
+        await _check_schedule_conflict(db, group_id, day, lesson_number, week_type, None if create else item.id,
+                                       teacher_id=teacher.id if teacher else None,
+                                       second_teacher_id=second_teacher.id if second_teacher else None,
+                                       subject_id=subject.id if subject else None,
+                                       stream_id=stream_id)
+    return await _apply_and_commit(db, item, payload, group, subject, teacher, second_teacher, day, lesson_number, week_type, stream_id, create)

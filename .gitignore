@@ -42,3 +42,5 @@ secrets.json
 cleanup_credentials.py
 backend/rotate_password.py
 backend/run_alembic.py
+*.db
+

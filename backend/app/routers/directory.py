@@ -234,27 +234,3 @@ async def admin_subjects(db: AsyncSession = Depends(get_db)):
 async def get_metrics():
     from app.analytics import get_online_count
     return {"online": get_online_count()}
-    
-for _path, _model, _create_endpoint, _update_endpoint, _delete_endpoint in (
-    ("faculties", Faculty, create_faculty, update_faculty, delete_faculty),
-    ("groups", Group, create_group, update_group, delete_group),
-    ("teachers", Teacher, create_teacher, update_teacher, delete_teacher),
-    ("subjects", Subject, create_subject, update_subject, delete_subject),
-):
-    _resource_models = {
-        Faculty: FacultyResource,
-        Group: GroupResource,
-        Teacher: TeacherResource,
-        Subject: SubjectResource,
-    }
-    admin_router.add_api_route(
-        f"/{_path}", _create_endpoint, methods=["POST"],
-        response_model=_resource_models[_model], status_code=201,
-    )
-    admin_router.add_api_route(
-        f"/{_path}/{{entity_id}}", _update_endpoint, methods=["PATCH"],
-        response_model=_resource_models[_model],
-    )
-    admin_router.add_api_route(
-        f"/{_path}/{{entity_id}}", _delete_endpoint, methods=["DELETE"], status_code=204,
-    )
