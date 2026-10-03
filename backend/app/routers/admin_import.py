@@ -39,23 +39,48 @@ async def trigger_import(
             async with semaphore:
                 url = f"{fetcher.base_url}?group={g_id}"
                 html = await fetcher.fetch_html(client, url)
-                return parser.parse(html)
+                parsed_results = [parser.parse(html)]
+                
+                # Fetch next week
+                from selectolax.parser import HTMLParser
+                tree = HTMLParser(html)
+                next_week_node = tree.css_first("a[aria-label='Наступний тиждень']")
+                if next_week_node:
+                    href = next_week_node.attributes.get("href")
+                    if href:
+                        if not href.startswith("http"):
+                            href = "https://kre.dp.ua" + (href if href.startswith("/") else f"/{href}")
+                        try:
+                            html2 = await fetcher.fetch_html(client, href)
+                            parsed_results.append(parser.parse(html2))
+                        except Exception as e:
+                            print(f"Failed to fetch next week for group {g_id}: {e}")
+                
+                return parsed_results
 
         async with httpx.AsyncClient(timeout=20.0) as client:
             tasks = [fetch_and_parse(client, g_id) for g_id in group_ids]
             parsed_weeks = await asyncio.gather(*tasks, return_exceptions=True)
             
-            for parsed_week in parsed_weeks:
-                if isinstance(parsed_week, Exception):
+            for parsed_week_list in parsed_weeks:
+                if isinstance(parsed_week_list, Exception):
                     continue
-                diff_report = await differ.diff(parsed_week)
-                for item in diff_report["unresolved"]:
-                    key = f"{item['type']}_{item['raw']}"
-                    aggregated_unresolved[key] = item
-                aggregated_substitutions.extend(diff_report["substitutions"])
-                aggregated_base_slots.extend(diff_report["base_slots"])
+                for parsed_week in parsed_week_list:
+                    diff_report = await differ.diff(parsed_week)
+                    for item in diff_report["unresolved"]:
+                        key = f"{item['type']}_{item['raw']}"
+                        aggregated_unresolved[key] = item
+                    aggregated_substitutions.extend(diff_report["substitutions"])
+                    aggregated_base_slots.extend(diff_report["base_slots"])
                 
         if len(aggregated_unresolved) == 0:
+            # Deduplicate base slots (since we fetch 2 weeks, same lesson might repeat)
+            unique_slots = {}
+            for s in aggregated_base_slots:
+                k = (s["group_id"], s["subject_id"], s["teacher_id"], s["day_of_week"], s["lesson_number"])
+                unique_slots[k] = s
+            aggregated_base_slots = list(unique_slots.values())
+            
             # CREATE DRAFT SCHEDULE
             draft_name = f"Імпорт {datetime.now().strftime('%Y-%m-%d %H:%M')}"
             draft = ScheduleDraft(name=draft_name)
