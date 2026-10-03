@@ -175,7 +175,7 @@ export function GeneratorPanel() {
       sub.week_type === activeWeek &&
       (filterMode === "group"
         ? filterGroupId === null || sub.group_id === filterGroupId
-        : filterTeacherId === null)
+        : filterTeacherId === null || sub.teacher_id === filterTeacherId || sub.second_teacher_id === filterTeacherId)
     );
     const fmtSubDate = (iso: string) => iso.split("-").reverse().slice(0, 2).join(".");
     const selectedSlot = slots.find((slot) => slot.id === selectedSlotId);

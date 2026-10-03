@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete, update, or_, and_
+from sqlalchemy import select, delete, update, or_, and_, func
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
@@ -89,6 +89,8 @@ async def list_draft_substitutions(
                 t for t in (teachers.get(item.get("teacher_id")), teachers.get(item.get("second_teacher_id"))) if t
             ) or None,
             "room": item.get("room"),
+            "teacher_id": item.get("teacher_id"),
+            "second_teacher_id": item.get("second_teacher_id"),
         })
     for item in cancelled:
         d = to_date(item["date"])
@@ -103,6 +105,8 @@ async def list_draft_substitutions(
             "subject_name": None,
             "teacher_name": None,
             "room": None,
+            "teacher_id": None,
+            "second_teacher_id": None,
         })
     result.sort(key=lambda x: (x["date"], x["lesson_number"], x["group_name"] or ""))
     return result
@@ -195,6 +199,15 @@ async def publish_draft(
     if not draft:
         raise HTTPException(status_code=404, detail="Draft not found")
         
+    if draft.status in ("GENERATING", "FAILED", "INFEASIBLE", "TIMEOUT"):
+        raise HTTPException(status_code=400, detail="Цей розклад ще не готовий або не був успішно створений, тому його не можна опублікувати.")
+    slot_count = await db.scalar(select(func.count()).select_from(ScheduleSlot).where(ScheduleSlot.draft_id == id))
+    if not slot_count:
+        raise HTTPException(
+            status_code=400,
+            detail="У цьому розкладі немає жодного заняття. Публікація стерла б поточний розклад, тому її заблоковано.",
+        )
+
     # Mark old published as archived
     await db.execute(update(ScheduleDraft).where(ScheduleDraft.status == "published").values(status="archived"))
     

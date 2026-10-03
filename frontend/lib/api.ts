@@ -483,6 +483,8 @@ export interface DraftSubstitutionRecord {
   subject_name: string | null;
   teacher_name: string | null;
   room: string | null;
+  teacher_id: number | null;
+  second_teacher_id: number | null;
 }
 
 export interface DraftRecord {

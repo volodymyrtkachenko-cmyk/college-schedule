@@ -17,7 +17,7 @@ from app.services.importer.fetcher import ScheduleFetcher
 from app.services.importer.parsers.kre_parser import KREParser
 from app.services.importer.normalizer import EntityNormalizer
 from app.services.importer.differ import ScheduleDiffer
-from app.models import ScheduleDraft, ScheduleSlot, Curriculum
+from app.models import ScheduleDraft, ScheduleSlot, Curriculum, Schedule
 import traceback
 
 logger = logging.getLogger(__name__)
@@ -134,6 +134,41 @@ async def trigger_import(
                 unique_slots[k] = s
         aggregated_base_slots = list(unique_slots.values())
         
+        # На сайті на місці заміни оригінальної пари немає. Відновлюємо її з поточного
+        # опублікованого розкладу, щоб у базовому розкладі не лишалось «дірок».
+        restored_base_slots = []
+        for sub in aggregated_substitutions:
+            dow = datetime.strptime(sub["date"], "%Y-%m-%d").isoweekday()
+            sub_week = sub.get("week_type", "both")
+            same_cell = [
+                s for s in aggregated_base_slots
+                if s["group_id"] == sub["group_id"] and s["day_of_week"] == dow and s["lesson_number"] == sub["lesson_number"]
+            ]
+            if any(s["week_type"] in ("both", sub_week) or sub_week == "both" for s in same_cell):
+                continue
+            published = (await db.scalars(select(Schedule).where(
+                Schedule.group_id == sub["group_id"],
+                Schedule.day_of_week == dow,
+                Schedule.lesson_number == sub["lesson_number"],
+                Schedule.is_active.is_(True),
+                Schedule.week_type.in_(("both", sub_week)),
+            ))).all()
+            for sch in published:
+                slot = {
+                    "day_of_week": dow,
+                    "lesson_number": sub["lesson_number"],
+                    "group_id": sub["group_id"],
+                    "subject_id": sch.subject_id,
+                    "teacher_id": sch.teacher_id,
+                    "second_teacher_id": sch.second_teacher_id,
+                    "room": sch.room_override,
+                    # Якщо в іншому тижні в цій клітинці вже є пара, відновлюємо лише для тижня заміни.
+                    "week_type": sub_week if same_cell else sch.week_type,
+                }
+                aggregated_base_slots.append(slot)
+                restored_base_slots.append(slot)
+                same_cell = [*same_cell, slot]
+
         # Prepare payload for Draft Data
         payload = {
             "substitutions": aggregated_substitutions,
@@ -207,6 +242,7 @@ async def trigger_import(
                 "substitutions": aggregated_substitutions,
                 "base_slots": aggregated_base_slots,
                 "skipped_base_slots": aggregated_skipped,
+                "restored_base_slots": restored_base_slots,
             },
             "meta": {
                 "draft_created": draft_id,

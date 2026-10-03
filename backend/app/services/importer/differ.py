@@ -64,7 +64,8 @@ class ScheduleDiffer:
                         "teacher_id": teacher_id,
                         "second_teacher_id": second_teacher_id,
                         "room": lesson.room,
-                        "group_id": group_id
+                        "group_id": group_id,
+                        "week_type": parsed_week.week_type,
                     })
                 else:
                     unresolved_substitutions.append({
