@@ -46,7 +46,7 @@ export function ScheduleDay({ schedule, isToday = false, mode = "day", scheduleM
       </header>
       {canEdit && mode === "week" ? (
         <div className="min-w-0 space-y-2">
-          {[1, 2, 3, 4].map((lessonNumber) => {
+          {[1, 2, 3, 4, 5].map((lessonNumber) => {
             const lesson = lessonsByNumber.get(lessonNumber);
             const available = !!movingLesson && !!canMoveTo?.(movingLesson, schedule.date, lessonNumber);
             return (

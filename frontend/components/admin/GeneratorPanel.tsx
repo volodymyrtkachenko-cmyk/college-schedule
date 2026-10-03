@@ -23,7 +23,7 @@ export function GeneratorPanel() {
   const [error, setError] = useState<string | null>(null);
   
   const [activeDraft, setActiveDraft] = useState<DraftRecord | null>(null);
-  const [bellTimes, setBellTimes] = useState<Record<number, string>>({1:"09:00-10:20", 2:"10:40-12:00", 3:"12:30-13:50", 4:"14:00-15:20"});
+  const [bellTimes, setBellTimes] = useState<Record<number, string>>({1:"09:00-10:20", 2:"10:40-12:00", 3:"12:30-13:50", 4:"14:00-15:20", 5:"15:30-16:50"});
   const [slots, setSlots] = useState<DraftSlotRecord[]>([]);
   const [subs, setSubs] = useState<DraftSubstitutionRecord[]>([]);
   const [filterMode, setFilterMode] = useState<"group" | "teacher">("group");
@@ -285,7 +285,7 @@ export function GeneratorPanel() {
               </div>
             ))}
 
-            {[1, 2, 3, 4].flatMap((lesson) => [
+            {[1, 2, 3, 4, 5].flatMap((lesson) => [
               <div key={`lesson-${lesson}`} className="sticky left-0 z-10 border-b border-r border-sys-border bg-sys-card p-3 text-center">
                 <div className="text-lg font-bold text-sys-text-primary">{lesson}</div>
                 <div className="text-[10px] text-sys-text-muted">{lessonTimes[lesson]}</div>

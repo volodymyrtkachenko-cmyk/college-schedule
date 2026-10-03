@@ -21,6 +21,7 @@ const LESSON_TIME_LABELS: Record<number, string> = {
   2: "2 пара · 10:40–12:00",
   3: "3 пара · 12:30–13:50",
   4: "4 пара · 14:00–15:20",
+  5: "5 пара · 15:30–16:50",
 };
 const DAY_OPTIONS: [string, string][] = [
   ["1", "Понеділок"],

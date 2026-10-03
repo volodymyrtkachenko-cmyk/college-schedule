@@ -381,7 +381,7 @@ export function SchedulePeriodsPanel() {
                         <label className="space-y-1">
                           <span className="form-label">Пара</span>
                           <select value={slot.lesson_number} onChange={(event) => setDraft({ ...draft, slots: draft.slots.map((item) => item.key === slot.key ? { ...item, lesson_number: Number(event.target.value) } : item) })} className="form-control w-full">
-                            {[1, 2, 3, 4].map((lesson) => <option key={lesson} value={lesson}>{lesson}-та пара</option>)}
+                            {[1, 2, 3, 4, 5].map((lesson) => <option key={lesson} value={lesson}>{lesson}-та пара</option>)}
                           </select>
                         </label>
                         <label className="space-y-1">
