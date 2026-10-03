@@ -24,12 +24,17 @@ def _schedule_load_options(target_date: date | None = None, start_date: date | N
 async def fetch_schedule(db: AsyncSession, target_date: date,
                           group_id: int | None = None,
                           teacher_id: int | None = None,
-                          day_of_week: int | None = None):
-    semester_start = await settings_service.get_semester_start(db)
+                          day_of_week: int | None = None,
+                          semester_start: date | None = None,
+                          periods: list | None = None):
+    if semester_start is None:
+        semester_start = await settings_service.get_semester_start(db)
     week_type = get_week_type(target_date, semester_start)
     weekday = target_date.isoweekday() if day_of_week is None else day_of_week
 
-    periods = await _active_periods(db, target_date)
+    if periods is None:
+        periods = await _active_periods(db, target_date)
+
     holidays = [period for period in periods if period.period_type == "holiday"]
     if any(not period.groups for period in holidays):
         return week_type, []
@@ -172,20 +177,37 @@ async def _active_periods(db: AsyncSession, target_date: date):
     return result.unique().all()
 
 
+
 async def fetch_week_schedule(db: AsyncSession, start_date: date, group_id: int | None = None, teacher_id: int | None = None):
     """Fetch date-aware schedules for weekdays, including temporary periods."""
     semester_start = await settings_service.get_semester_start(db)
     week_type = get_week_type(start_date, semester_start)
+    
+    end_date = start_date + timedelta(days=4)
+    # Fetch all periods that overlap with this week
+    all_periods = (await db.scalars(
+        select(SchedulePeriod)
+        .where(SchedulePeriod.start_date <= end_date, SchedulePeriod.end_date >= start_date)
+        .options(selectinload(SchedulePeriod.groups))
+    )).unique().all()
+
     lessons_by_day = {}
     for weekday in range(1, 6):
         target_date = start_date + timedelta(days=weekday - 1)
-        _, lessons_by_day[weekday] = await fetch_schedule(
+        # Filter periods for just this day to pass to fetch_schedule
+        day_periods = [p for p in all_periods if p.start_date <= target_date <= p.end_date]
+        
+        _, lessons = await fetch_schedule(
             db,
             target_date,
             group_id=group_id,
             teacher_id=teacher_id,
             day_of_week=weekday,
+            semester_start=semester_start,
+            periods=day_periods
         )
+        lessons_by_day[weekday] = lessons
+
     return week_type, lessons_by_day
 
 
@@ -311,7 +333,7 @@ async def _apply_and_commit(db: AsyncSession, item, payload, group, subject, tea
 
     try:
         await db.commit()
-        await db.refresh(item, ["subject", "teacher", "second_teacher", "notes"])
+        await db.refresh(item, ["group", "subject", "teacher", "second_teacher", "notes"])
     except IntegrityError as exc:
         await db.rollback()
         raise HTTPException(409, "Неможливо зберегти: такий запис або графік вже існує і перетинається з іншим.") from exc
