@@ -73,25 +73,29 @@ async def fetch_schedule(db: AsyncSession, target_date: date,
         overrides = (await db.scalars(override_query)).all()
         overrides_by_schedule = {o.schedule_id: o for o in overrides}
         
+        class OverriddenLesson:
+            def __init__(self, base, override):
+                self._base = base
+                self._override = override
+                self.is_replacement = True
+                
+            def __getattr__(self, name):
+                if name == "subject_id" and self._override.subject_id: return self._override.subject_id
+                if name == "subject" and self._override.subject_id: return self._override.subject
+                if name == "teacher_id" and self._override.teacher_id: return self._override.teacher_id
+                if name == "teacher" and self._override.teacher_id: return self._override.teacher
+                if name == "room_override" and self._override.room: return self._override.room
+                return getattr(self._base, name)
+
         filtered_lessons = []
         for lesson in regular_lessons:
             if lesson.id in overrides_by_schedule:
                 override = overrides_by_schedule[lesson.id]
                 if override.cancelled:
                     continue
-                # Detach lesson from session so we don't accidentally save overrides to DB
-                db.expunge(lesson)
-                # Apply override values
-                if override.subject_id:
-                    lesson.subject_id = override.subject_id
-                    lesson.subject = override.subject
-                if override.teacher_id:
-                    lesson.teacher_id = override.teacher_id
-                    lesson.teacher = override.teacher
-                if override.room:
-                    lesson.room_override = override.room
-                lesson.is_replacement = True
-            filtered_lessons.append(lesson)
+                filtered_lessons.append(OverriddenLesson(lesson, override))
+            else:
+                filtered_lessons.append(lesson)
         regular_lessons = filtered_lessons
 
     practice_slots = []
