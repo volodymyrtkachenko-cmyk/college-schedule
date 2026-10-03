@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { SearchableSelect } from "../../components/SearchableSelect";
 import { api, ReferenceRecord, StatisticsResponse } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
-import { getProgressMessage, getProgressPercentage } from "../../lib/format";
+import { getInsightMessage, getProgressMessage, getProgressPercentage } from "../../lib/format";
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "long", year: "numeric" })
@@ -120,24 +120,14 @@ export default function StatisticsPage() {
     ? groups.find((item) => item.id === groupId)?.name
     : teachers.find((item) => item.id === teacherId)?.name;
 
-  const insight = (() => {
-    const now = new Date();
-    const day = now.getDay();
-    if (day === 5 && now.getHours() >= 15 || day === 0 || day === 6) {
-      return { icon: "☕", text: "Навчальний тиждень завершено. Дякуємо за працю, гарних вихідних" };
-    }
-    if (todayLessonCount !== null && todayLessonCount >= 4) {
-      return { icon: "💧", text: `Сьогодні насичений графік (${todayLessonCount} пари). Не забувайте про короткі перерви` };
-    }
-    if (todayLessonCount !== null && todayLessonCount >= 1 && todayLessonCount <= 2) {
-      return { icon: "📚", text: "Сьогодні спокійний графік. Гарна нагода приділити час плануванню або відпочинку" };
-    }
-    const totalHours = stats?.planned_hours ?? 0;
-    return {
-      icon: "✦",
-      text: stats ? getProgressMessage(stats.total_hours, totalHours) : "Статистика допоможе побачити ваш прогрес",
-    };
-  })();
+  const generalProgressMessage = stats
+    ? getProgressMessage(stats.total_hours, stats.planned_hours ?? 0)
+    : "Статистика допоможе побачити ваш прогрес";
+  const insight = getInsightMessage(
+    mode === "student" ? "group" : "teacher",
+    todayLessonCount ?? -1,
+    generalProgressMessage,
+  );
 
   const changeMode = (value: "student" | "teacher") => {
     setMode(value);
@@ -230,8 +220,8 @@ export default function StatisticsPage() {
         ) : stats ? (
           <>
             <div className="flex min-h-10 items-center gap-2 rounded-lg border border-slate-700/50 bg-slate-800/50 px-3 py-2 text-sm text-slate-300">
-              <span aria-hidden="true" className="text-base">{insight.icon}</span>
-              <span>{insight.text}</span>
+              <span aria-hidden="true" className="text-base">✦</span>
+              <span>{insight}</span>
             </div>
             <section className="grid gap-3 sm:grid-cols-2">
               <div className="rounded-2xl border border-sys-border bg-sys-card p-5">
