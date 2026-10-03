@@ -71,3 +71,8 @@ app.include_router(statistics.router, prefix="/api")
 app.include_router(admin_import.router, prefix="/api")
 app.include_router(aliases.router, prefix="/api")
 app.include_router(teacher_constraints.router, prefix="/api")
+
+@app.api_route("/api/ping", methods=["GET", "POST"])
+async def ping(leave: int = 0):
+    return {"status": "ok"}
+

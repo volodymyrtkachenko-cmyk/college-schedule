@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AuthProvider } from "../lib/auth";
+import { Heartbeat } from "@/components/Heartbeat";
 
 export const metadata: Metadata = {
   title: "Розклад занять | ДФКР",
@@ -29,7 +30,12 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
       </head>
-      <body><AuthProvider>{children}</AuthProvider></body>
+      <body>
+        <AuthProvider>
+          <Heartbeat />
+          {children}
+        </AuthProvider>
+      </body>
     </html>
   );
 }

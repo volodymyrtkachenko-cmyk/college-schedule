@@ -5,8 +5,10 @@ from fastapi import Request
 # Simple in-memory tracker
 # Maps user identifiers (IP + User-Agent hash) to their last seen unix timestamp
 _active_users = {}
-# Defines how long (in seconds) a user is considered "Online" after their last page load
-ACTIVE_WINDOW = 300
+
+# Since the frontend sends a ping every 30 seconds while visible,
+# a window of 45 seconds is enough to consider them offline if they stop.
+ACTIVE_WINDOW = 45
 
 MAX_TRACKED_USERS = 5000
 
@@ -29,6 +31,11 @@ def track_request(request: Request):
     
     # Use a hash of IP + User-Agent to differentiate multiple users behind the same NAT (e.g. college Wi-Fi)
     identifier = hashlib.md5(f"{ip}-{ua}".encode()).hexdigest()
+
+    # If the user closes the tab/app, the frontend sends a leave beacon
+    if request.query_params.get("leave") == "1":
+        _active_users.pop(identifier, None)
+        return
 
     _active_users[identifier] = time.time()
     
