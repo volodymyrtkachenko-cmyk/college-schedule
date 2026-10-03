@@ -64,7 +64,6 @@ class Teacher(Base):
     curriculums: Mapped[list["Curriculum"]] = relationship(back_populates="teacher", foreign_keys="Curriculum.teacher_id")
     constraints: Mapped[list["TeacherConstraint"]] = relationship(back_populates="teacher")
 
-    
 
 class Subject(Base):
     __tablename__ = "subjects"
@@ -123,6 +122,7 @@ class Setting(Base):
     key: Mapped[str] = mapped_column(String(100), primary_key=True)
     value: Mapped[str] = mapped_column(Text)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
 class TokenBlocklist(Base):
     __tablename__ = "token_blocklist"
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -253,8 +253,6 @@ class Curriculum(Base):
     is_stream: Mapped[bool] = mapped_column(Boolean, default=False)
     stream_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     strict_day: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    strict_lesson: Mapped[Optional[int]]
-    require_week: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     strict_lesson: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     require_week: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     allow_multiple_per_day: Mapped[bool] = mapped_column(default=False)

@@ -9,22 +9,17 @@ from slowapi.errors import RateLimitExceeded
 from app.analytics import track_request
 from app.config import settings
 from app.database import engine
-from app.routers import health, curriculums, generator, teacher_constraints, drafts, schedule_periods, statistics, admin_import, aliases
-from app.routers import auth, directory, lesson_notes, schedule, users, settings as settings_router, admin_import, aliases
+from app.routers import (
+    admin_import, aliases, auth, curriculums, directory, drafts, generator,
+    health, lesson_notes, schedule, schedule_periods, statistics,
+    settings as settings_router, teacher_constraints, users,
+)
+from app.routers.schedule_now import router as schedule_now_router
 
-import subprocess
-import os
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    try:
-        # Автоматичний запуск міграцій на платформах типу Render
-        print("Running database migrations...")
-        subprocess.run(["alembic", "upgrade", "head"], check=True)
-        print("Migrations finished successfully.")
-    except Exception as e:
-        print("Migration warning:", e)
-        
+    # Міграції запускаються в entrypoint.sh — тут не дублюємо.
     yield
     await engine.dispose()
 
@@ -61,7 +56,6 @@ async def analytics_middleware(request: Request, call_next):
 
 app.include_router(health.router, prefix="/api")
 app.include_router(schedule.router, prefix="/api")
-from app.routers.schedule_now import router as schedule_now_router
 app.include_router(schedule_now_router, prefix="/api/schedule")
 app.include_router(directory.router, prefix="/api")
 app.include_router(directory.admin_router, prefix="/api")
@@ -76,6 +70,4 @@ app.include_router(schedule_periods.router, prefix="/api")
 app.include_router(statistics.router, prefix="/api")
 app.include_router(admin_import.router, prefix="/api")
 app.include_router(aliases.router, prefix="/api")
-
-
 app.include_router(teacher_constraints.router, prefix="/api")

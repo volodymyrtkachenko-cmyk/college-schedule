@@ -67,7 +67,7 @@ def set_refresh_cookie(response: Response, token: str) -> None:
 async def login(request: Request, payload: LoginRequest, response: Response, db: AsyncSession = Depends(get_db)):
     user = await db.scalar(select(User).where(User.username == payload.username).options(selectinload(User.allowed_groups)))
     if user is None or not user.password_hash or not verify_password(payload.password, user.password_hash):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Неправильне ім\'я користувача або пароль")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Неправильне ім'я користувача або пароль")
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Обліковий запис неактивний")
     refresh_token = create_refresh_token(user)
@@ -142,7 +142,7 @@ async def logout(
             if jti:
                 db.add(TokenBlocklist(jti=jti))
                 await db.commit()
-        except:
+        except Exception:
             pass
     response.delete_cookie(key=settings.auth_cookie_name)
     return {"status": "ok"}
