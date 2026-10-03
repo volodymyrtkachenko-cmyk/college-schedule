@@ -362,13 +362,29 @@ export interface CurriculumMutation {
 
 export interface ImporterReport {
     unresolved: { type: string; raw: string }[];
-    substitutions: any[];
+    substitutions: ImportSubstitution[];
+    cancelled: ImportCancellation[];
     base_slots: any[];
+}
+export interface ImportSubstitution {
+    date: string;
+    lesson_number: number;
+    group_id: number;
+    subject_id: number;
+    teacher_id: number;
+    second_teacher_id?: number | null;
+    room?: string | null;
+}
+export interface ImportCancellation {
+    date: string;
+    lesson_number: number;
+    group_id: number;
 }
 export interface ImporterResponse {
     status: string;
     groups_processed: number;
     report: ImporterReport;
+    meta?: { draft_created?: number };
 }
 export interface AliasMutation {
     entity_type: string;
@@ -492,6 +508,10 @@ export interface DraftRecord {
   name: string;
   status: string;
   created_at: string;
+  data?: {
+    substitutions?: ImportSubstitution[];
+    cancelled?: ImportCancellation[];
+  } | null;
 }
 
 export const apiGenerator = {
@@ -524,6 +544,13 @@ export const apiGenerator = {
   },
   publish: async (id: number, token: string): Promise<{message: string}> => {
     return request<{message: string}>(`/api/drafts/${id}/publish`, { method: "POST" }, false, true, token);
+  },
+  updateImportChanges: async (id: number, data: Pick<ImporterReport, "substitutions" | "cancelled">, token: string): Promise<void> => {
+    return request<void>(`/api/drafts/${id}/import-changes`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    }, false, true, token);
   }
 };
 export interface TeacherConstraintRecord {

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { api, ImporterResponse, ReferenceRecord } from "../../lib/api";
+import { api, ImportCancellation, ImportSubstitution, ImporterResponse, ReferenceRecord } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 
 export function ImportPanel() {
@@ -16,6 +16,9 @@ export function ImportPanel() {
   
   // Mapping state: { rawName: actual_id }
   const [mappings, setMappings] = useState<Record<string, number>>({});
+  const [substitutions, setSubstitutions] = useState<ImportSubstitution[]>([]);
+  const [cancelled, setCancelled] = useState<ImportCancellation[]>([]);
+  const [draftId, setDraftId] = useState<number | null>(null);
 
   useEffect(() => {
     async function loadDicts() {
@@ -36,6 +39,33 @@ export function ImportPanel() {
     loadDicts();
   }, []);
 
+  useEffect(() => {
+    async function loadPendingImport() {
+      try {
+        const session = await api.auth.ensureAuthenticated();
+        const drafts = await api.generator.listDrafts(session.access_token);
+        const pending = drafts.find((draft) => draft.status === "pending" && draft.data);
+        if (!pending?.data) return;
+        const nextSubstitutions = pending.data.substitutions ?? [];
+        const nextCancelled = pending.data.cancelled ?? [];
+        if (!nextSubstitutions.length && !nextCancelled.length) return;
+        setDraftId(pending.id);
+        setSubstitutions(nextSubstitutions);
+        setCancelled(nextCancelled);
+        setReport({
+          unresolved: [],
+          base_slots: [],
+          substitutions: nextSubstitutions,
+          cancelled: nextCancelled,
+        });
+        setStatus("mapping");
+      } catch {
+        // The import button remains available when no pending draft can be loaded.
+      }
+    }
+    void loadPendingImport();
+  }, []);
+
   const handleImport = async () => {
     setLoading(true);
     setError(null);
@@ -44,9 +74,12 @@ export function ImportPanel() {
     try {
       const session = await api.auth.ensureAuthenticated();
       const res = await api.importer.importData(session.access_token);
+      setDraftId(res.meta?.draft_created ?? null);
       
-      if (res.report.unresolved.length > 0) {
+      if (res.report.unresolved.length > 0 || res.report.substitutions.length > 0 || (res.report.cancelled?.length ?? 0) > 0) {
         setReport(res.report);
+        setSubstitutions(res.report.substitutions);
+        setCancelled(res.report.cancelled ?? []);
         setStatus("mapping");
         // Initialize mappings state
         const initialMap: Record<string, number> = {};
@@ -54,6 +87,8 @@ export function ImportPanel() {
         setMappings(initialMap);
       } else {
         setReport(res.report);
+        setSubstitutions(res.report.substitutions);
+        setCancelled(res.report.cancelled ?? []);
         setStatus("success");
       }
     } catch (err: any) {
@@ -90,6 +125,27 @@ export function ImportPanel() {
     } catch (err: any) {
         setError(err?.message || "Помилка при збереженні аліасів.");
         setLoading(false);
+    }
+  };
+
+  const saveChanges = async () => {
+    if (!draftId || !report) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const session = await api.auth.ensureAuthenticated();
+      await api.generator.updateImportChanges(draftId, { substitutions, cancelled }, session.access_token);
+      setReport({
+        unresolved: report.unresolved ?? [],
+        base_slots: report.base_slots ?? [],
+        substitutions,
+        cancelled,
+      });
+      setStatus("success");
+    } catch (err: any) {
+      setError(err?.message || "Не вдалося зберегти зміни імпорту.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -159,10 +215,62 @@ export function ImportPanel() {
                         </div>
                     ))}
                 </div>
+
+                {substitutions.length > 0 && (
+                  <div className="mb-6 space-y-3">
+                    <h3 className="font-semibold">Заміни — перевірте та відредагуйте перед публікацією</h3>
+                    {substitutions.map((item, index) => (
+                      <div key={`${item.date}-${item.group_id}-${item.lesson_number}-${index}`} className="grid gap-2 rounded-lg border border-sys-border bg-sys-bg/40 p-3 sm:grid-cols-2 lg:grid-cols-7">
+                        <input type="date" value={item.date} onChange={(e) => setSubstitutions(current => current.map((value, i) => i === index ? { ...value, date: e.target.value } : value))} className="form-control" />
+                        <select value={item.group_id} onChange={(e) => setSubstitutions(current => current.map((value, i) => i === index ? { ...value, group_id: Number(e.target.value) } : value))} className="form-control">
+                          {groups.map(option => <option key={option.id} value={option.id}>{option.name}</option>)}
+                        </select>
+                        <select value={item.subject_id} onChange={(e) => setSubstitutions(current => current.map((value, i) => i === index ? { ...value, subject_id: Number(e.target.value) } : value))} className="form-control">
+                          {subjects.map(option => <option key={option.id} value={option.id}>{option.name}</option>)}
+                        </select>
+                        <select value={item.teacher_id} onChange={(e) => setSubstitutions(current => current.map((value, i) => i === index ? { ...value, teacher_id: Number(e.target.value) } : value))} className="form-control">
+                          {teachers.map(option => <option key={option.id} value={option.id}>{option.name}</option>)}
+                        </select>
+                        <select value={item.second_teacher_id ?? 0} onChange={(e) => setSubstitutions(current => current.map((value, i) => i === index ? { ...value, second_teacher_id: Number(e.target.value) || null } : value))} className="form-control">
+                          <option value={0}>Без другого викладача</option>
+                          {teachers.map(option => <option key={option.id} value={option.id}>{option.name}</option>)}
+                        </select>
+                        <select value={item.lesson_number} onChange={(e) => setSubstitutions(current => current.map((value, i) => i === index ? { ...value, lesson_number: Number(e.target.value) } : value))} className="form-control">
+                          {[1, 2, 3, 4].map(lesson => <option key={lesson} value={lesson}>{lesson}-та пара</option>)}
+                        </select>
+                        <div className="flex gap-2">
+                          <input value={item.room ?? ""} onChange={(e) => setSubstitutions(current => current.map((value, i) => i === index ? { ...value, room: e.target.value || null } : value))} placeholder="Аудиторія" className="form-control min-w-0 flex-1" />
+                          <button type="button" onClick={() => setSubstitutions(current => current.filter((_, i) => i !== index))} className="rounded-lg px-2 text-rose-300 hover:bg-rose-500/10" aria-label="Видалити заміну">×</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {cancelled.length > 0 && (
+                  <div className="mb-6 space-y-3">
+                    <h3 className="font-semibold">Скасовані пари</h3>
+                    {cancelled.map((item, index) => (
+                      <div key={`${item.date}-${item.group_id}-${item.lesson_number}-${index}`} className="grid gap-2 rounded-lg border border-rose-500/20 bg-rose-500/5 p-3 sm:grid-cols-4">
+                        <input type="date" value={item.date} onChange={(e) => setCancelled(current => current.map((value, i) => i === index ? { ...value, date: e.target.value } : value))} className="form-control" />
+                        <select value={item.group_id} onChange={(e) => setCancelled(current => current.map((value, i) => i === index ? { ...value, group_id: Number(e.target.value) } : value))} className="form-control">
+                          {groups.map(option => <option key={option.id} value={option.id}>{option.name}</option>)}
+                        </select>
+                        <select value={item.lesson_number} onChange={(e) => setCancelled(current => current.map((value, i) => i === index ? { ...value, lesson_number: Number(e.target.value) } : value))} className="form-control">
+                          {[1, 2, 3, 4].map(lesson => <option key={lesson} value={lesson}>{lesson}-та пара</option>)}
+                        </select>
+                        <button type="button" onClick={() => setCancelled(current => current.filter((_, i) => i !== index))} className="rounded-lg border border-rose-400/20 px-3 py-2 text-sm text-rose-300 hover:bg-rose-500/10">Видалити</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 
                 <div className="flex items-center gap-3">
                     <button onClick={handleMappingSubmit} disabled={loading} className="bg-sys-accent text-[#0b1120] font-bold py-2.5 px-6 rounded-lg disabled:opacity-50">
                         {loading ? "Зберігаємо та продовжуємо..." : "Зберегти відповідності та Продовжити"}
+                    </button>
+                    <button type="button" onClick={saveChanges} disabled={loading || report.unresolved.length > 0} className="rounded-lg border border-sys-accent/40 px-4 py-2.5 text-sm font-semibold text-sys-accent disabled:opacity-50">
+                      Зберегти зміни
                     </button>
                     <button onClick={() => setStatus("idle")} className="py-2.5 px-4 text-sys-text-secondary hover:text-white" disabled={loading}>Скасувати</button>
                 </div>
@@ -180,7 +288,7 @@ export function ImportPanel() {
                 <div className="flex justify-center gap-8 mb-8 text-left">
                     <div className="bg-[#0b1120] px-4 py-3 rounded-lg border border-white/5">
                         <div className="text-xs text-sys-text-secondary font-bold uppercase mb-1">Знайдено замін</div>
-                        <div className="text-xl text-white font-black">{report.substitutions.length}</div>
+                        <div className="text-xl text-white font-black">{substitutions.length}</div>
                     </div>
                 </div>
                 

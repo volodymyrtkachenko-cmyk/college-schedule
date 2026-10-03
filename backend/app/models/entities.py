@@ -156,7 +156,7 @@ class ScheduleOverride(Base):
 class SchedulePeriod(Base):
     __tablename__ = "schedule_periods"
     __table_args__ = (
-        CheckConstraint("period_type IN ('practice', 'holiday', 'substitution')", name="ck_schedule_period_type"),
+        CheckConstraint("period_type IN ('practice', 'holiday')", name="ck_schedule_period_type"),
         CheckConstraint("start_date <= end_date", name="ck_schedule_period_dates"),
         Index("ix_schedule_period_dates", "start_date", "end_date"),
     )
@@ -196,6 +196,37 @@ class SchedulePeriodSlot(Base):
     group: Mapped["Group"] = relationship()
     subject: Mapped["Subject"] = relationship()
     teacher: Mapped["Teacher"] = relationship(foreign_keys=[teacher_id])
+    second_teacher: Mapped[Optional["Teacher"]] = relationship(foreign_keys=[second_teacher_id])
+
+    @property
+    def week_type(self) -> str:
+        return "both"
+
+
+class ImportedScheduleChange(Base):
+    __tablename__ = "imported_schedule_changes"
+    __table_args__ = (
+        UniqueConstraint("date", "group_id", "lesson_number", name="uq_imported_schedule_change_cell"),
+        CheckConstraint("kind IN ('substitution', 'cancelled')", name="ck_imported_schedule_change_kind"),
+        CheckConstraint("lesson_number BETWEEN 1 AND 4", name="ck_imported_schedule_change_lesson"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    draft_id: Mapped[Optional[int]] = mapped_column(ForeignKey("schedule_drafts.id", ondelete="SET NULL"), nullable=True, index=True)
+    date: Mapped[date] = mapped_column(Date, index=True)
+    kind: Mapped[str] = mapped_column(String(20))
+    group_id: Mapped[int] = mapped_column(ForeignKey("groups.id", ondelete="CASCADE"), index=True)
+    subject_id: Mapped[Optional[int]] = mapped_column(ForeignKey("subjects.id"), nullable=True)
+    teacher_id: Mapped[Optional[int]] = mapped_column(ForeignKey("teachers.id"), nullable=True)
+    second_teacher_id: Mapped[Optional[int]] = mapped_column(ForeignKey("teachers.id"), nullable=True)
+    lesson_number: Mapped[int] = mapped_column(Integer)
+    room_override: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    is_published: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+
+    draft: Mapped[Optional["ScheduleDraft"]] = relationship()
+    group: Mapped["Group"] = relationship()
+    subject: Mapped[Optional["Subject"]] = relationship()
+    teacher: Mapped[Optional["Teacher"]] = relationship(foreign_keys=[teacher_id])
     second_teacher: Mapped[Optional["Teacher"]] = relationship(foreign_keys=[second_teacher_id])
 
     @property

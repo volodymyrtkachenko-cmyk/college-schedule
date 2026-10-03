@@ -89,8 +89,8 @@ async def schedule(group_id: int | None = None, teacher_id: int | None = None,
                                     week_type,
                                     target_date,
                                     bell_t,
-                                    item_id=-lesson.id if hasattr(lesson, "period_id") else None,
-                                    is_replacement=True if hasattr(lesson, "period_id") else None,
+                                    item_id=-lesson.id if hasattr(lesson, "period_id") or hasattr(lesson, "is_published") else None,
+                                    is_replacement=True if hasattr(lesson, "period_id") or hasattr(lesson, "is_published") else None,
                                 )
                                 for lesson in lessons
                             ])
@@ -123,8 +123,8 @@ async def week(response: Response, group_id: int | None = None, teacher_id: int 
                     week_type,
                     start + timedelta(days=i),
                     bell_t,
-                    item_id=-lesson.id if hasattr(lesson, "period_id") else None,
-                    is_replacement=True if hasattr(lesson, "period_id") else None,
+                    item_id=-lesson.id if hasattr(lesson, "period_id") or hasattr(lesson, "is_published") else None,
+                    is_replacement=True if hasattr(lesson, "period_id") or hasattr(lesson, "is_published") else None,
                 )
                 for lesson in lessons_by_day.get(i + 1, [])
             ],

@@ -4,7 +4,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload, with_loader_criteria
 
-from app.models import LessonNote, Schedule, SchedulePeriod, SchedulePeriodSlot
+from app.models import ImportedScheduleChange, LessonNote, Schedule, SchedulePeriod, SchedulePeriodSlot
 from app.services.settings import settings_service
 from app.services.week import get_week_type
 
@@ -39,7 +39,6 @@ async def fetch_schedule(db: AsyncSession, target_date: date,
         return week_type, []
 
     practice_periods = [period for period in periods if period.period_type == "practice"]
-    substitution_periods = [period for period in periods if period.period_type == "substitution"]
     practice_group_ids = {group.id for period in practice_periods for group in period.groups}
     unavailable_group_ids = holiday_group_ids | practice_group_ids
     conditions = [
@@ -61,7 +60,28 @@ async def fetch_schedule(db: AsyncSession, target_date: date,
     )
     regular_lessons = list((await db.scalars(query.order_by(Schedule.lesson_number))).unique().all())
 
-    # Apply ScheduleOverrides for hiding cancelled classes
+    imported_query = (
+        select(ImportedScheduleChange)
+        .where(ImportedScheduleChange.date == target_date, ImportedScheduleChange.is_published.is_(True))
+        .options(
+            joinedload(ImportedScheduleChange.group),
+            joinedload(ImportedScheduleChange.subject),
+            joinedload(ImportedScheduleChange.teacher),
+            joinedload(ImportedScheduleChange.second_teacher),
+        )
+    )
+    imported_changes = (await db.scalars(imported_query)).unique().all()
+    cancelled_cells = {
+        (change.group_id, change.lesson_number)
+        for change in imported_changes
+        if change.kind == "cancelled"
+    }
+    substitutions = [
+        change for change in imported_changes
+        if change.kind == "substitution"
+    ]
+
+    # Apply ScheduleOverrides and imported cancellations/replacements.
     if regular_lessons:
         from app.models.entities import ScheduleOverride
         override_query = select(ScheduleOverride).where(
@@ -78,13 +98,16 @@ async def fetch_schedule(db: AsyncSession, target_date: date,
         
         filtered_lessons = []
         for lesson in regular_lessons:
-            if lesson.id not in cancelled_schedule_ids:
+            if lesson.id not in cancelled_schedule_ids and (lesson.group_id, lesson.lesson_number) not in cancelled_cells and not any(
+                change.group_id == lesson.group_id and change.lesson_number == lesson.lesson_number
+                for change in substitutions
+            ):
                 filtered_lessons.append(lesson)
         regular_lessons = filtered_lessons
 
     practice_slots = []
-    if practice_periods or substitution_periods:
-        period_ids = [period.id for period in practice_periods] + [period.id for period in substitution_periods]
+    if practice_periods:
+        period_ids = [period.id for period in practice_periods]
         slot_conditions = [
             SchedulePeriodSlot.period_id.in_(period_ids),
             SchedulePeriodSlot.day_of_week == weekday,
@@ -110,8 +133,21 @@ async def fetch_schedule(db: AsyncSession, target_date: date,
         )
         practice_slots = (await db.scalars(slot_query)).unique().all()
 
+    replacement_slots = [
+        change for change in substitutions
+        if not holiday_group_ids
+        or change.group_id not in holiday_group_ids
+    ]
+    if group_id is not None:
+        replacement_slots = [change for change in replacement_slots if change.group_id == group_id]
+    if teacher_id is not None:
+        replacement_slots = [
+            change for change in replacement_slots
+            if change.teacher_id == teacher_id or change.second_teacher_id == teacher_id
+        ]
+
     return week_type, sorted(
-        [*regular_lessons, *practice_slots],
+        [*regular_lessons, *practice_slots, *replacement_slots],
         key=lambda item: (item.lesson_number, item.group.name),
     )
 

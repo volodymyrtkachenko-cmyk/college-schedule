@@ -9,6 +9,7 @@ class ScheduleDraftResponse(BaseModel):
     name: str
     status: str
     created_at: datetime
+    data: dict | None = None
 
 class ScheduleSlotBase(BaseModel):
     day_of_week: int
