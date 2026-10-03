@@ -68,23 +68,34 @@ async def create_curriculum(
     db: AsyncSession = Depends(get_db),
     admin=Depends(require_roles('admin'))
 ):
-    # Verify relations exist
+    # Verify active relations and prevent duplicate assignments.
     for model, id_val, name in [
         (Group, payload.group_id, "Group"),
         (Subject, payload.subject_id, "Subject"),
         (Teacher, payload.teacher_id, "Teacher"),
     ]:
-        if not await db.get(model, id_val):
+        entity = await db.get(model, id_val)
+        if entity is None or not entity.is_active:
             raise HTTPException(status_code=400, detail=f"{name} with id {id_val} does not exist.")
             
     if payload.second_teacher_id:
-        if not await db.get(Teacher, payload.second_teacher_id):
+        second = await db.get(Teacher, payload.second_teacher_id)
+        if second is None or not second.is_active:
             raise HTTPException(status_code=400, detail=f"Second Teacher with id {payload.second_teacher_id} does not exist.")
-
     if payload.is_stream:
         payload.stream_id = payload.stream_id or f"stream_{uuid4().hex}"
     else:
         payload.stream_id = None
+    duplicate = await db.scalar(select(Curriculum).where(
+        Curriculum.group_id == payload.group_id,
+        Curriculum.subject_id == payload.subject_id,
+        Curriculum.teacher_id == payload.teacher_id,
+        Curriculum.second_teacher_id == payload.second_teacher_id,
+        Curriculum.is_stream.is_(payload.is_stream),
+        Curriculum.stream_id == payload.stream_id,
+    ))
+    if duplicate:
+        raise HTTPException(status_code=409, detail="Таке навантаження вже існує")
     await _validate_stream_membership(
         db,
         stream_id=payload.stream_id,

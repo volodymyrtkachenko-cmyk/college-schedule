@@ -1,12 +1,12 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional
 from .common import DirectoryItem
 from datetime import datetime
 
 class TeacherConstraintBase(BaseModel):
-    teacher_id: int
-    day_of_week: int
-    lesson_number: int
+    teacher_id: int = Field(gt=0)
+    day_of_week: int = Field(ge=1, le=5)
+    lesson_number: int = Field(ge=1, le=4)
     is_hard_constraint: bool = True
 
 class TeacherConstraintCreate(TeacherConstraintBase):
@@ -26,5 +26,6 @@ class ScheduleDraftResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     name: str
+    draft_type: str
     status: str
     created_at: datetime

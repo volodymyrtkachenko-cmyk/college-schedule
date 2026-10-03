@@ -34,6 +34,8 @@ async def update_import_changes(
     draft = await db.get(ScheduleDraft, id)
     if not draft:
         raise HTTPException(status_code=404, detail="Draft not found")
+    if draft.draft_type != "import" or draft.status in {"published", "archived"}:
+        raise HTTPException(status_code=409, detail="Зміни імпорту можна редагувати лише в активній чернетці імпорту")
     substitutions = payload.get("substitutions", [])
     cancelled = payload.get("cancelled", [])
     if not isinstance(substitutions, list) or not isinstance(cancelled, list):
@@ -48,6 +50,12 @@ async def update_import_changes(
         if any(item.get(key) in (None, "", 0) for key in required):
             raise HTTPException(status_code=422, detail="Скасування має містити дату, групу та номер пари")
         item["kind"] = "cancelled"
+    cells = [
+        (item["date"], item["group_id"], item["lesson_number"])
+        for item in [*substitutions, *cancelled]
+    ]
+    if len(cells) != len(set(cells)):
+        raise HTTPException(status_code=422, detail="Для однієї клітинки може бути лише одна імпортована зміна")
     draft.data = {**(draft.data or {}), "substitutions": substitutions, "cancelled": cancelled}
     await db.commit()
     return {"status": "saved"}
@@ -83,6 +91,8 @@ async def delete_draft(
     draft = await db.get(ScheduleDraft, id)
     if not draft:
         raise HTTPException(status_code=404, detail="Draft not found")
+    if draft.status in {"published", "GENERATING", "generating"}:
+        raise HTTPException(status_code=409, detail="Опубліковану або активну чернетку не можна видалити")
     await db.execute(delete(ScheduleSlot).where(ScheduleSlot.draft_id == id))
     await db.delete(draft)
     await db.commit()
@@ -238,29 +248,34 @@ async def publish_draft(
     if not draft:
         raise HTTPException(status_code=404, detail="Draft not found")
         
-    if draft.status in ("GENERATING", "FAILED", "INFEASIBLE", "TIMEOUT"):
+    if draft.status not in {"DRAFT", "draft", "pending"}:
         raise HTTPException(status_code=400, detail="Цей розклад ще не готовий або не був успішно створений, тому його не можна опублікувати.")
     slot_count = await db.scalar(select(func.count()).select_from(ScheduleSlot).where(ScheduleSlot.draft_id == id))
-    if not slot_count:
+    if not slot_count and draft.draft_type != "import":
         raise HTTPException(
             status_code=400,
             detail="У цьому розкладі немає жодного заняття. Публікація стерла б поточний розклад, тому її заблоковано.",
         )
 
+    # A draft can only be published once.
+    if draft.status in {"published", "archived"}:
+        raise HTTPException(status_code=409, detail="Ця чернетка вже опублікована або заархівована")
+
     # Mark old published as archived
     await db.execute(update(ScheduleDraft).where(ScheduleDraft.status == "published").values(status="archived"))
-    
-    # Delete ALL current schedules
-    # Overrides reference schedule rows without ON DELETE CASCADE.
-    await db.execute(delete(ScheduleOverride))
-    await db.execute(delete(Schedule))
-    
-    # Insert new schedules from slots
+
+    # Replace only the groups represented by this draft.  Publishing a partial
+    # draft must never erase unrelated groups or their date overrides.
     slots = (await db.scalars(
         select(ScheduleSlot)
         .where(ScheduleSlot.draft_id == id)
         .options(selectinload(ScheduleSlot.curriculum))
     )).all()
+    group_ids = {s.curriculum.group_id for s in slots}
+    if group_ids:
+        schedule_ids = select(Schedule.id).where(Schedule.group_id.in_(group_ids))
+        await db.execute(delete(ScheduleOverride).where(ScheduleOverride.schedule_id.in_(schedule_ids)))
+        await db.execute(delete(Schedule).where(Schedule.group_id.in_(group_ids)))
     
     new_schedules = []
     for s in slots:
@@ -292,12 +307,17 @@ async def publish_draft(
         cancelled_lessons = draft.data.get("cancelled", [])
         
         # Imported changes have their own storage and never become calendar periods.
-        await db.execute(delete(ImportedScheduleChange).where(ImportedScheduleChange.is_published.is_(True)))
-        
         # 1. Process substitutions
         for sub in substitutions:
             d_str = sub["date"]
             d_obj = datetime.strptime(d_str, "%Y-%m-%d").date() if isinstance(d_str, str) else d_str
+            latest = await db.scalar(
+                select(func.max(ImportedScheduleChange.version)).where(
+                    ImportedScheduleChange.date == d_obj,
+                    ImportedScheduleChange.group_id == sub["group_id"],
+                    ImportedScheduleChange.lesson_number == sub["lesson_number"],
+                )
+            )
             db.add(ImportedScheduleChange(
                     draft_id=draft.id,
                     date=d_obj,
@@ -309,12 +329,20 @@ async def publish_draft(
                     lesson_number=sub["lesson_number"],
                     room_override=sub.get("room"),
                     is_published=True,
+                    version=(latest or 0) + 1,
                 ))
                     
         # 2. Process Cancelled lessons
         for canc in cancelled_lessons:
             d_str = canc["date"]
             d_obj = datetime.strptime(d_str, "%Y-%m-%d").date() if isinstance(d_str, str) else d_str
+            latest = await db.scalar(
+                select(func.max(ImportedScheduleChange.version)).where(
+                    ImportedScheduleChange.date == d_obj,
+                    ImportedScheduleChange.group_id == canc["group_id"],
+                    ImportedScheduleChange.lesson_number == canc["lesson_number"],
+                )
+            )
             db.add(ImportedScheduleChange(
                 draft_id=draft.id,
                 date=d_obj,
@@ -322,6 +350,7 @@ async def publish_draft(
                 group_id=canc["group_id"],
                 lesson_number=canc["lesson_number"],
                 is_published=True,
+                version=(latest or 0) + 1,
             ))
         
     draft.status = "published"

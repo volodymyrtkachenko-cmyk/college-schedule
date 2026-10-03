@@ -1,12 +1,13 @@
 from pydantic import BaseModel, ConfigDict
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Literal
 from .curriculum import CurriculumResponse
 
 class ScheduleDraftResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     name: str
+    draft_type: Literal["import", "generated"]
     status: str
     created_at: datetime
     data: dict | None = None

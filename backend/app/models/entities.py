@@ -206,7 +206,7 @@ class SchedulePeriodSlot(Base):
 class ImportedScheduleChange(Base):
     __tablename__ = "imported_schedule_changes"
     __table_args__ = (
-        UniqueConstraint("date", "group_id", "lesson_number", name="uq_imported_schedule_change_cell"),
+        UniqueConstraint("date", "group_id", "lesson_number", "version", name="uq_imported_schedule_change_cell_version"),
         CheckConstraint("kind IN ('substitution', 'cancelled')", name="ck_imported_schedule_change_kind"),
         CheckConstraint("lesson_number BETWEEN 1 AND 4", name="ck_imported_schedule_change_lesson"),
     )
@@ -222,6 +222,7 @@ class ImportedScheduleChange(Base):
     lesson_number: Mapped[int] = mapped_column(Integer)
     room_override: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     is_published: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    version: Mapped[int] = mapped_column(Integer, default=1)
 
     draft: Mapped[Optional["ScheduleDraft"]] = relationship()
     group: Mapped["Group"] = relationship()
@@ -236,6 +237,12 @@ class ImportedScheduleChange(Base):
 
 class Curriculum(Base):
     __tablename__ = "curriculums"
+    __table_args__ = (
+        UniqueConstraint(
+            "group_id", "subject_id", "teacher_id", "second_teacher_id",
+            "is_stream", "stream_id", name="uq_curriculum_assignment",
+        ),
+    )
     id: Mapped[int] = mapped_column(primary_key=True)
     group_id: Mapped[int] = mapped_column(ForeignKey("groups.id"), index=True)
     subject_id: Mapped[int] = mapped_column(ForeignKey("subjects.id"))
@@ -261,6 +268,9 @@ class Curriculum(Base):
 
 class TeacherConstraint(Base):
     __tablename__ = "teacher_constraints"
+    __table_args__ = (
+        UniqueConstraint("teacher_id", "day_of_week", "lesson_number", name="uq_teacher_constraint_slot"),
+    )
     id: Mapped[int] = mapped_column(primary_key=True)
     teacher_id: Mapped[int] = mapped_column(ForeignKey("teachers.id"), index=True)
     day_of_week: Mapped[int] = mapped_column(Integer)
@@ -273,6 +283,7 @@ class ScheduleDraft(Base):
     __tablename__ = "schedule_drafts"
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(255))
+    draft_type: Mapped[str] = mapped_column(String(20), default="generated", server_default="generated")
     status: Mapped[str] = mapped_column(String(20), default="draft")
     data: Mapped[Optional[dict]] = mapped_column(sa.JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))

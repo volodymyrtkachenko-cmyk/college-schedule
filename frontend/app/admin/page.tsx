@@ -62,7 +62,7 @@ function AdminContent() {
   
   const activeResource = resources.includes(currentTab as ReferenceResource)
   ? (currentTab as ReferenceResource)
-  : "groups";
+  : null;
   const [items, setItems] = useState<ReferenceRecord[]>([]);
   const [faculties, setFaculties] = useState<ReferenceRecord[]>([]);
   const [loading, setLoading] = useState(false);
@@ -78,7 +78,7 @@ function AdminContent() {
 
   useEffect(() => {
     if (authLoading) return;
-    if (currentTab === "semester") return;
+    if (currentTab === "semester" || !activeResource) return;
     if (user?.role !== "admin" && !isSchedule) return;
     let cancelled = false;
     setLoading(true);
@@ -116,6 +116,7 @@ function AdminContent() {
   if (!canAccessAdmin(user)) return <main className="flex min-h-screen items-center justify-center bg-sys-bg p-6 text-center text-sys-text-primary"><div><h1 className="text-2xl font-bold">Доступ заборонено</h1><p className="mt-2 text-sys-text-secondary">Цей розділ доступний лише адміністраторам.</p><a href="/" className="mt-5 inline-block text-sys-accent hover:underline">На головну</a></div></main>;
 
   async function save(payload: ReferenceMutation) {
+    if (!activeResource) return;
     const session = await api.auth.ensureAuthenticated();
     const saved = editor
       ? await api.references.update(activeResource, editor.id, payload, session.access_token)
@@ -137,6 +138,7 @@ function AdminContent() {
   }
 
   async function confirmRemove(item: ReferenceRecord) {
+    if (!activeResource) return;
     try {
       const session = await api.auth.ensureAuthenticated();
       await api.references.remove(activeResource, item.id, session.access_token);
@@ -156,7 +158,7 @@ function AdminContent() {
     }
   }
   
-  const filteredAndSortedItems = items
+  const filteredAndSortedItems = activeResource ? items
     .filter(item => {
       const q = searchTerm.toLowerCase();
       
@@ -172,7 +174,7 @@ function AdminContent() {
       
       return false;
     })
-    .sort((a, b) => a.name.localeCompare(b.name, "uk"));
+    .sort((a, b) => a.name.localeCompare(b.name, "uk")) : [];
 
   return (
     <main className="flex flex-col sm:flex-row h-[100dvh] bg-sys-bg text-sys-text-primary overflow-hidden">
@@ -198,6 +200,14 @@ function AdminContent() {
 
         ) : currentTab === "users" && user?.role === "admin" ? (
           <UsersPanel />
+        ) : !activeResource ? (
+          <div className="surface-panel mt-2 max-w-xl p-6">
+            <h1 className="text-xl font-bold">Розділ не знайдено</h1>
+            <p className="mt-2 text-sm text-sys-text-secondary">Оберіть розділ адміністрування з меню.</p>
+            <a href="/admin?resource=schedule" className="mt-5 inline-block rounded-lg bg-sys-accent px-4 py-2 text-sm font-semibold text-[#0b1120]">
+              До розкладу
+            </a>
+          </div>
         ) : (
           <>
             <div className="flex flex-wrap items-center justify-between gap-4 mt-2">

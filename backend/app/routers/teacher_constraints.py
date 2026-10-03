@@ -32,8 +32,15 @@ async def create_constraint(
     admin=Depends(require_roles("admin"))
 ):
     teacher = await db.get(Teacher, payload.teacher_id)
-    if not teacher:
+    if not teacher or not teacher.is_active:
         raise HTTPException(status_code=400, detail="Teacher not found")
+    duplicate = await db.scalar(select(TeacherConstraint).where(
+        TeacherConstraint.teacher_id == payload.teacher_id,
+        TeacherConstraint.day_of_week == payload.day_of_week,
+        TeacherConstraint.lesson_number == payload.lesson_number,
+    ))
+    if duplicate:
+        raise HTTPException(status_code=409, detail="Це обмеження для викладача вже існує")
         
     db_item = TeacherConstraint(**payload.model_dump())
     db.add(db_item)

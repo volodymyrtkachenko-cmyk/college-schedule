@@ -50,7 +50,8 @@ export function GeneratorPanel() {
     try {
       const session = await api.auth.ensureAuthenticated();
       const res = await api.generator.listDrafts(session.access_token);
-      setDrafts(res);
+      // Import reviews have their own workflow and must not appear as generated schedule drafts.
+      setDrafts(res.filter((draft) => draft.draft_type !== "import"));
     } catch(err: any) {
       setError(err.message);
     } finally {
@@ -451,10 +452,12 @@ export function GeneratorPanel() {
                   </td>
                   <td className="px-5 py-3 text-right flex justify-end gap-2">
                     <button onClick={() => loadSlots(d)} className="px-3 py-1.5 text-xs font-semibold rounded bg-sys-accent/10 text-sys-accent hover:bg-sys-accent/20 transition">Переглянути</button>
-                    {d.status !== 'published' && (
+                    {d.status === 'DRAFT' && (
                        <button onClick={() => handlePublish(d.id)} className="px-3 py-1.5 text-xs font-semibold rounded bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition">Опублікувати</button>
                     )}
-                    <button onClick={() => setDraftToDelete(d)} className="px-3 py-1.5 text-xs font-semibold rounded bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition">Видалити</button>
+                    {d.status !== 'published' && (
+                      <button onClick={() => setDraftToDelete(d)} className="px-3 py-1.5 text-xs font-semibold rounded bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition">Видалити</button>
+                    )}
                   </td>
                 </tr>
               ))}

@@ -9,33 +9,26 @@ export function UsersPanel() {
     const [users, setUsers] = useState<UserResource[]>([]);
     const [groups, setGroups] = useState<ReferenceRecord[]>([]);
     const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState<string | null>(null);
     const [editor, setEditor] = useState<Partial<UserResource> & { password?: string } | null>(null);
     const [searchTerm, setSearchTerm] = useState("");
 
     async function load() {
         if (!currentUser) return;
         setLoading(true);
+        setError(null);
         try {
             const session = await api.auth.ensureAuthenticated();
-            
-            try {
-                const data = await api.users.list(session.access_token);
-                setUsers(data);
-            } catch (err: any) {
-                console.error("Failed to load users:", err);
-                alert("Не вдалося завантажити користувачів: " + err.message);
-            }
-            
-            try {
-                const groupsData = await api.groups();
-                setGroups(groupsData);
-            } catch (err: any) {
-                console.error("Failed to load groups:", err);
-                alert("Не вдалося завантажити список груп: " + err.message);
-            }
-            
+            const [data, groupsData] = await Promise.all([
+                api.users.list(session.access_token),
+                api.groups(),
+            ]);
+            setUsers(data);
+            setGroups(groupsData);
         } catch (e: any) {
-            console.error("Auth error:", e);
+            console.error("Failed to load users panel:", e);
+            setError(e?.message || "Не вдалося завантажити дані.");
         } finally {
             setLoading(false);
         }
@@ -47,17 +40,28 @@ export function UsersPanel() {
 
     async function save(e: React.FormEvent) {
         e.preventDefault();
+        if (!editor) return;
+        setSaving(true);
+        setError(null);
         try {
             const session = await api.auth.ensureAuthenticated();
+            const payload = {
+                ...editor,
+                allowed_groups: editor.role === "editor" ? (editor.allowed_groups ?? []) : [],
+                ...(editor.password ? { password: editor.password } : {}),
+            };
+            if (!editor.password) delete (payload as { password?: string }).password;
             if (editor?.id) {
-                await api.users.update(editor.id, editor, session.access_token);
+                await api.users.update(editor.id, payload, session.access_token);
             } else {
-                await api.users.create(editor, session.access_token);
+                await api.users.create(payload, session.access_token);
             }
             setEditor(null);
-            load();
+            await load();
         } catch (err: any) {
-            alert("Не вдалося зберегти користувача: " + (err.message || "спробуйте ще раз."));
+            setError(err.message || "Не вдалося зберегти користувача.");
+        } finally {
+            setSaving(false);
         }
     }
 
@@ -69,15 +73,25 @@ export function UsersPanel() {
             await api.users.remove(id, session.access_token);
             load();
         } catch (err: any) {
-            alert("Не вдалося видалити користувача: " + (err.message || "спробуйте ще раз."));
+            setError(err.message || "Не вдалося видалити користувача.");
         }
     }
 
     if (loading) return <div className="p-8 text-center text-sys-text-secondary">Завантаження…</div>;
 
+    if (error && !editor) {
+        return (
+            <div className="surface-panel max-w-2xl space-y-4 p-6">
+                <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200">{error}</div>
+                <button type="button" onClick={() => void load()} className="rounded-lg bg-sys-accent px-4 py-2 font-bold text-slate-950">Повторити</button>
+            </div>
+        );
+    }
+
     if (editor) {
         return (
             <form onSubmit={save} className="surface-panel max-w-2xl space-y-5 p-5 sm:p-7">
+                {error && <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-200">{error}</div>}
                 <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sys-accent">Доступ</p>
                     <h3 className="mt-1 text-xl font-bold">{editor.id ? "Редагування користувача" : "Новий користувач"}</h3>
@@ -101,7 +115,10 @@ export function UsersPanel() {
                     </label>
                     <label className="block">
                         <span className="block text-sm mb-1 text-sys-text-secondary">Роль</span>
-                        <select required disabled={editor.id === 1} value={editor.role || "editor"} onChange={e => setEditor({...editor, role: e.target.value as any})} className="form-control w-full">
+                        <select required disabled={editor.id === 1} value={editor.role || "editor"} onChange={e => {
+                            const role = e.target.value as UserResource["role"];
+                            setEditor({...editor, role, allowed_groups: role === "editor" ? (editor.allowed_groups ?? []) : []});
+                        }} className="form-control w-full">
                             <option value="editor">Редактор розкладу</option>
                             <option value="admin">Адміністратор</option>
                         </select>
@@ -120,8 +137,8 @@ export function UsersPanel() {
                     )}
                 </div>
                 <div className="mt-6 flex gap-3">
-                    <button type="submit" className="rounded-lg bg-sys-accent px-4 py-2.5 font-bold text-slate-950 transition-opacity hover:opacity-90">Зберегти</button>
-                    <button type="button" onClick={() => setEditor(null)} className="rounded-lg border border-sys-border px-4 py-2.5 text-sys-text-secondary transition-colors hover:bg-white/5 hover:text-white">Скасувати</button>
+                    <button type="submit" disabled={saving} className="rounded-lg bg-sys-accent px-4 py-2.5 font-bold text-slate-950 transition-opacity hover:opacity-90 disabled:opacity-50">{saving ? "Зберігаємо…" : "Зберегти"}</button>
+                    <button type="button" onClick={() => { setEditor(null); setError(null); }} disabled={saving} className="rounded-lg border border-sys-border px-4 py-2.5 text-sys-text-secondary transition-colors hover:bg-white/5 hover:text-white">Скасувати</button>
                 </div>
             </form>
         );

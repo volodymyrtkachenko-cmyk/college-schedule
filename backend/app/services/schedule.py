@@ -2,7 +2,7 @@ from datetime import date, timedelta
 
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload, selectinload, with_loader_criteria
+from sqlalchemy.orm import aliased, joinedload, selectinload, with_loader_criteria
 
 from app.models import ImportedScheduleChange, LessonNote, Schedule, SchedulePeriod, SchedulePeriodSlot
 from app.services.settings import settings_service
@@ -60,9 +60,25 @@ async def fetch_schedule(db: AsyncSession, target_date: date,
     )
     regular_lessons = list((await db.scalars(query.order_by(Schedule.lesson_number))).unique().all())
 
+    previous_change = aliased(ImportedScheduleChange)
+    latest_version = (
+        select(previous_change.version)
+        .where(
+            previous_change.date == ImportedScheduleChange.date,
+            previous_change.group_id == ImportedScheduleChange.group_id,
+            previous_change.lesson_number == ImportedScheduleChange.lesson_number,
+        )
+        .order_by(previous_change.version.desc())
+        .limit(1)
+        .scalar_subquery()
+    )
     imported_query = (
         select(ImportedScheduleChange)
-        .where(ImportedScheduleChange.date == target_date, ImportedScheduleChange.is_published.is_(True))
+        .where(
+            ImportedScheduleChange.date == target_date,
+            ImportedScheduleChange.is_published.is_(True),
+            ImportedScheduleChange.version == latest_version,
+        )
         .options(
             joinedload(ImportedScheduleChange.group),
             joinedload(ImportedScheduleChange.subject),

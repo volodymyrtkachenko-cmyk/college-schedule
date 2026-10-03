@@ -3,6 +3,7 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import Setting
+from app.config import settings
 
 SEMESTER_START_KEY = "semester_start"
 SEMESTER_END_KEY = "semester_end"
@@ -24,10 +25,10 @@ class SettingsService:
         value = await self.get(
             db,
             SEMESTER_START_KEY,
-            default="2025-09-01",
+            default=settings.semester_start,
         )
         try:
-            return date.fromisoformat(value or "2025-09-01")
+            return date.fromisoformat(value or settings.semester_start)
         except ValueError as exc:
             raise ValueError(
                 "Invalid semester_start setting; expected ISO date YYYY-MM-DD"

@@ -207,7 +207,7 @@ async def trigger_import(
             draft_id = last_draft.id
         else:
             draft_name = f"Імпорт {now_local().strftime('%Y-%m-%d %H:%M')}"
-            draft = ScheduleDraft(name=draft_name, status="pending", data=payload)
+            draft = ScheduleDraft(name=draft_name, draft_type="import", status="pending", data=payload)
             db.add(draft)
             await db.flush()
             draft_id = draft.id

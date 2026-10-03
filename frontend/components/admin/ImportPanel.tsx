@@ -6,7 +6,7 @@ export function ImportPanel() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState<"idle" | "importing" | "mapping" | "success">("idle");
+  const [status, setStatus] = useState<"idle" | "importing" | "mapping" | "ready" | "success">("idle");
   const [report, setReport] = useState<ImporterResponse["report"] | null>(null);
   
   // Dictionaries for mapping
@@ -44,12 +44,16 @@ export function ImportPanel() {
       try {
         const session = await api.auth.ensureAuthenticated();
         const drafts = await api.generator.listDrafts(session.access_token);
-        const pending = drafts.find((draft) => draft.status === "pending" && draft.data);
-        if (!pending?.data) return;
+        const pending = drafts.find((draft) => draft.status === "pending");
+        if (!pending) return;
+        setDraftId(pending.id);
+        if (!pending.data) {
+          setReport({ unresolved: [], base_slots: [], substitutions: [], cancelled: [] });
+          setStatus("ready");
+          return;
+        }
         const nextSubstitutions = pending.data.substitutions ?? [];
         const nextCancelled = pending.data.cancelled ?? [];
-        if (!nextSubstitutions.length && !nextCancelled.length) return;
-        setDraftId(pending.id);
         setSubstitutions(nextSubstitutions);
         setCancelled(nextCancelled);
         setReport({
@@ -58,7 +62,7 @@ export function ImportPanel() {
           substitutions: nextSubstitutions,
           cancelled: nextCancelled,
         });
-        setStatus("mapping");
+        setStatus(nextSubstitutions.length || nextCancelled.length ? "mapping" : "ready");
       } catch {
         // The import button remains available when no pending draft can be loaded.
       }
@@ -89,7 +93,7 @@ export function ImportPanel() {
         setReport(res.report);
         setSubstitutions(res.report.substitutions);
         setCancelled(res.report.cancelled ?? []);
-        setStatus("success");
+        setStatus("ready");
       }
     } catch (err: any) {
       setError(err?.message || "Скоріш за все сталася помилка з'єднання.");
@@ -141,9 +145,24 @@ export function ImportPanel() {
         substitutions,
         cancelled,
       });
-      setStatus("success");
+      setStatus("ready");
     } catch (err: any) {
       setError(err?.message || "Не вдалося зберегти зміни імпорту.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const publishImport = async () => {
+    if (!draftId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const session = await api.auth.ensureAuthenticated();
+      await api.generator.publish(draftId, session.access_token);
+      setStatus("success");
+    } catch (err: any) {
+      setError(err?.message || "Не вдалося опублікувати імпорт.");
     } finally {
       setLoading(false);
     }
@@ -277,13 +296,26 @@ export function ImportPanel() {
             </div>
         )}
         
+        {status === "ready" && (
+            <div className="animate-in fade-in text-center py-10 bg-amber-500/5 border border-amber-500/20 rounded-2xl">
+                <h3 className="text-2xl font-bold text-amber-200 mb-2">Імпорт готовий до публікації</h3>
+                <p className="text-sys-text-secondary max-w-md mx-auto mb-6">Перевірте зміни імпорту, а потім опублікуйте чернетку окремою дією.</p>
+                <div className="flex justify-center gap-3">
+                  <button onClick={publishImport} disabled={loading || !draftId} className="bg-sys-accent text-[#0b1120] font-bold py-2.5 px-6 rounded-lg disabled:opacity-50">
+                    {loading ? "Публікуємо…" : "Опублікувати імпорт"}
+                  </button>
+                  <button onClick={() => setStatus("idle")} disabled={loading} className="py-2.5 px-4 text-sys-text-secondary hover:text-white">Скасувати</button>
+                </div>
+            </div>
+        )}
+
         {status === "success" && report && (
             <div className="animate-in zoom-in-95 fade-in text-center py-10 bg-emerald-500/5 border border-emerald-500/20 rounded-2xl">
                 <div className="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-4">
                     <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
                 </div>
-                <h3 className="text-2xl font-bold text-emerald-300 mb-2">Імпорт завершено успішно!</h3>
-                <p className="text-emerald-500/80 max-w-md mx-auto mb-6">Всі заняття було успішно оброблено. Конфліктів чи невідомих викладачів/предметів більше немає.</p>
+                <h3 className="text-2xl font-bold text-emerald-300 mb-2">Імпорт опубліковано успішно!</h3>
+                <p className="text-emerald-500/80 max-w-md mx-auto mb-6">Зміни імпорту додано до опублікованого розкладу.</p>
                 
                 <div className="flex justify-center gap-8 mb-8 text-left">
                     <div className="bg-[#0b1120] px-4 py-3 rounded-lg border border-white/5">

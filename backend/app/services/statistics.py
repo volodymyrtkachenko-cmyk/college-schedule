@@ -11,6 +11,7 @@ from app.models import (
     Schedule,
     SchedulePeriod,
     SchedulePeriodSlot,
+    ImportedScheduleChange,
     Teacher,
 )
 from app.services.week import get_week_type
@@ -130,6 +131,28 @@ async def _scheduled_hours(
             )
         )
     ).unique().all()
+    imported_changes = (
+        await db.scalars(
+            select(ImportedScheduleChange)
+            .where(
+                ImportedScheduleChange.date >= semester_start,
+                ImportedScheduleChange.date <= through_date,
+                ImportedScheduleChange.is_published.is_(True),
+            )
+            .options(
+                joinedload(ImportedScheduleChange.group),
+                joinedload(ImportedScheduleChange.subject),
+                joinedload(ImportedScheduleChange.teacher),
+                joinedload(ImportedScheduleChange.second_teacher),
+            )
+        )
+    ).unique().all()
+    latest_changes: dict[tuple[date, int, int], ImportedScheduleChange] = {}
+    for item in imported_changes:
+        key = (item.date, item.group_id, item.lesson_number)
+        current = latest_changes.get(key)
+        if current is None or item.version > current.version:
+            latest_changes[key] = item
 
     result: dict[int, dict] = {}
     unique_teacher_lessons: set[tuple] = set()
@@ -155,10 +178,14 @@ async def _scheduled_hours(
                 }
 
                 for item in schedules:
+                    imported_change = latest_changes.get(
+                        (current_date, item.group_id, item.lesson_number)
+                    )
                     if (
                         item.day_of_week != current_date.isoweekday()
                         or item.week_type not in ("both", week_type)
                         or item.group_id in holiday_group_ids | practice_group_ids
+                        or imported_change is not None
                     ):
                         continue
                     _record_lesson(
@@ -172,6 +199,34 @@ async def _scheduled_hours(
                         item.lesson_number,
                         item.id,
                         item.stream_id,
+                        teacher_id is not None,
+                    )
+
+                for change in latest_changes.values():
+                    if (
+                        change.date != current_date
+                        or change.kind != "substitution"
+                        or change.subject_id is None
+                        or change.group_id in holiday_group_ids | practice_group_ids
+                        or (group_id is not None and change.group_id != group_id)
+                        or (
+                            teacher_id is not None
+                            and teacher_id
+                            not in (change.teacher_id, change.second_teacher_id)
+                        )
+                    ):
+                        continue
+                    _record_lesson(
+                        result,
+                        unique_teacher_lessons,
+                        change.group_id,
+                        change.group.name,
+                        change.subject_id,
+                        change.subject.name,
+                        current_date,
+                        change.lesson_number,
+                        change.id,
+                        None,
                         teacher_id is not None,
                     )
 

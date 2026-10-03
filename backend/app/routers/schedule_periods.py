@@ -15,6 +15,7 @@ from app.models import (
     TeacherConstraint,
 )
 from app.schemas.schedule_period import SchedulePeriodCreate, SchedulePeriodResponse
+from app.services.settings import settings_service
 
 router = APIRouter(prefix="/calendar-periods", tags=["Calendar periods"])
 
@@ -182,6 +183,11 @@ async def _save_period(
     payload: SchedulePeriodCreate,
     period: SchedulePeriod | None = None,
 ) -> SchedulePeriod:
+    semester_start, semester_end = await settings_service.get_saved_semester_dates(db)
+    if semester_start is not None and payload.start_date < semester_start:
+        raise HTTPException(status_code=422, detail="Період не може починатися до початку семестру")
+    if semester_end is not None and payload.end_date > semester_end:
+        raise HTTPException(status_code=422, detail="Період не може завершуватися після завершення семестру")
     groups = await _validate_references(db, payload)
     await _validate_conflicts(db, payload, period.id if period else None)
 

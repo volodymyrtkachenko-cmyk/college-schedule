@@ -506,6 +506,7 @@ export interface DraftSubstitutionRecord {
 export interface DraftRecord {
   id: number;
   name: string;
+  draft_type: "import" | "generated";
   status: string;
   created_at: string;
   data?: {

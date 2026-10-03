@@ -149,6 +149,7 @@ async def generate_schedule(
 
     draft = ScheduleDraft(
         name=f"Генерація від {now_local().strftime('%d.%m %H:%M')}",
+        draft_type="generated",
         status="GENERATING",
     )
     db.add(draft)

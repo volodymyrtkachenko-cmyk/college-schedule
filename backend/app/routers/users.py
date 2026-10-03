@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field
+from typing import Literal
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -14,13 +15,13 @@ class UserCreate(BaseModel):
     username: str = Field(min_length=3)
     name: str = Field(min_length=2)
     password: str = Field(min_length=8)
-    role: str = "editor"
-    allowed_groups: list[int] = []
+    role: Literal["admin", "editor", "viewer"] = "editor"
+    allowed_groups: list[int] = Field(default_factory=list)
 
 class UserUpdate(BaseModel):
     name: str | None = None
     password: str | None = Field(None, min_length=8)
-    role: str | None = None
+    role: Literal["admin", "editor", "viewer"] | None = None
     allowed_groups: list[int] | None = None
     is_active: bool | None = None
 
@@ -33,6 +34,17 @@ class UserResourceResponse(BaseModel):
     role: str
     is_active: bool
     allowed_groups: list[int] = []
+
+
+async def _groups_for_user(db: AsyncSession, group_ids: list[int]) -> list[Group]:
+    if len(set(group_ids)) != len(group_ids) or any(group_id <= 0 for group_id in group_ids):
+        raise HTTPException(status_code=422, detail="allowed_groups містить повторні або некоректні ідентифікатори")
+    groups = list((await db.scalars(
+        select(Group).where(Group.id.in_(group_ids), Group.is_active.is_(True))
+    )).all()) if group_ids else []
+    if len(groups) != len(group_ids):
+        raise HTTPException(status_code=422, detail="Одна або кілька дозволених груп не існують або неактивні")
+    return groups
 
 @router.get("", response_model=list[UserResourceResponse])
 async def get_users(db: AsyncSession = Depends(get_db), _: User = Depends(require_roles("admin"))):
@@ -59,9 +71,9 @@ async def create_user(payload: UserCreate, db: AsyncSession = Depends(get_db), _
         password_hash=hash_password(payload.password),
         role=payload.role
     )
-    if payload.role == "editor" and payload.allowed_groups:
-        groups = await db.scalars(select(Group).where(Group.id.in_(payload.allowed_groups)))
-        new_user.allowed_groups = list(groups.all())
+    if payload.role != "editor" and payload.allowed_groups:
+        raise HTTPException(status_code=422, detail="allowed_groups дозволено лише для ролі editor")
+    new_user.allowed_groups = await _groups_for_user(db, payload.allowed_groups)
         
     db.add(new_user)
     await db.commit()
@@ -88,9 +100,13 @@ async def update_user(user_id: int, payload: UserUpdate, db: AsyncSession = Depe
     if payload.is_active is not None:
         user.is_active = payload.is_active
         
-    if payload.allowed_groups is not None:
-        groups = await db.scalars(select(Group).where(Group.id.in_(payload.allowed_groups)))
-        user.allowed_groups = list(groups.all())
+    target_role = payload.role if payload.role is not None else user.role
+    if target_role != "editor" and (payload.allowed_groups or user.allowed_groups):
+        if payload.allowed_groups:
+            raise HTTPException(status_code=422, detail="allowed_groups дозволено лише для ролі editor")
+        user.allowed_groups = []
+    elif payload.allowed_groups is not None:
+        user.allowed_groups = await _groups_for_user(db, payload.allowed_groups)
         
     await db.commit()
     # Avoid refresh to not hit MissingGreenlet on user.allowed_groups
