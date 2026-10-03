@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AuthProvider } from "../lib/auth";
-import { Heartbeat } from "@/components/Heartbeat";
+import { Heartbeat } from "../components/Heartbeat";
 
 export const metadata: Metadata = {
   title: "Розклад занять | ДФКР",
