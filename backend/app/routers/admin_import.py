@@ -77,8 +77,15 @@ async def trigger_import(
             # Deduplicate base slots (since we fetch 2 weeks, same lesson might repeat)
             unique_slots = {}
             for s in aggregated_base_slots:
-                k = (s["group_id"], s["subject_id"], s["teacher_id"], s["day_of_week"], s["lesson_number"])
-                unique_slots[k] = s
+                # Identify slot by its core attributes and room (optional to include room in deduplication key)
+                k = (s["group_id"], s["subject_id"], s["teacher_id"], s["day_of_week"], s["lesson_number"], s["room"])
+                if k in unique_slots:
+                    # If it appeared in both weeks, it means it's a regular weekly class
+                    existing = unique_slots[k]
+                    if existing["week_type"] != s["week_type"]:
+                        existing["week_type"] = "both"
+                else:
+                    unique_slots[k] = s
             aggregated_base_slots = list(unique_slots.values())
             
             # CREATE DRAFT SCHEDULE
@@ -114,7 +121,8 @@ async def trigger_import(
                     curriculum_id=curr.id,
                     day_of_week=slot["day_of_week"],
                     lesson_number=slot["lesson_number"],
-                    room_override=slot["room"]
+                    room_override=slot["room"],
+                    week_type=slot.get("week_type", "both")
                 )
                 db.add(db_slot)
                 

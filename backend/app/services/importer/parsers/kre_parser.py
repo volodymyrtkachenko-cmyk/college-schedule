@@ -18,6 +18,7 @@ class ParsedLesson:
 class ParsedWeek:
     groups: List[str] = field(default_factory=list)
     lessons: List[ParsedLesson] = field(default_factory=list)
+    week_type: str = "both"  # "numerator", "denominator", "both"
 
 class ParseError(Exception):
     pass
@@ -27,6 +28,14 @@ class KREParser:
         tree = HTMLParser(html)
         week = ParsedWeek()
         
+        parity_node = tree.css_first(".ktt-week__parity")
+        if parity_node:
+            parity_text = parity_node.text(strip=True).lower()
+            if "чисельник" in parity_text:
+                week.week_type = "numerator"
+            elif "знаменник" in parity_text:
+                week.week_type = "denominator"
+                
         # 1. Parse Groups
         group_nodes = tree.css(".ktt-groups a")
         if not group_nodes:

@@ -60,7 +60,8 @@ class ScheduleDiffer:
                     "group_id": group_id,
                     "subject_id": subject_id,
                     "teacher_id": teacher_id,
-                    "room": lesson.room
+                    "room": lesson.room,
+                    "week_type": parsed_week.week_type
                 })
                 
         return {
