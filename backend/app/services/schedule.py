@@ -58,7 +58,41 @@ async def fetch_schedule(db: AsyncSession, target_date: date,
         .where(*conditions)
         .options(*_schedule_load_options(target_date=target_date))
     )
-    regular_lessons = (await db.scalars(query.order_by(Schedule.lesson_number))).unique().all()
+    regular_lessons = list((await db.scalars(query.order_by(Schedule.lesson_number))).unique().all())
+
+    # Apply ScheduleOverrides
+    if regular_lessons:
+        from app.models.entities import ScheduleOverride
+        override_query = select(ScheduleOverride).where(
+            ScheduleOverride.date == target_date,
+            ScheduleOverride.schedule_id.in_([l.id for l in regular_lessons])
+        ).options(
+            joinedload(ScheduleOverride.subject),
+            joinedload(ScheduleOverride.teacher)
+        )
+        overrides = (await db.scalars(override_query)).all()
+        overrides_by_schedule = {o.schedule_id: o for o in overrides}
+        
+        filtered_lessons = []
+        for lesson in regular_lessons:
+            if lesson.id in overrides_by_schedule:
+                override = overrides_by_schedule[lesson.id]
+                if override.cancelled:
+                    continue
+                # Detach lesson from session so we don't accidentally save overrides to DB
+                db.expunge(lesson)
+                # Apply override values
+                if override.subject_id:
+                    lesson.subject_id = override.subject_id
+                    lesson.subject = override.subject
+                if override.teacher_id:
+                    lesson.teacher_id = override.teacher_id
+                    lesson.teacher = override.teacher
+                if override.room:
+                    lesson.room_override = override.room
+                lesson.is_replacement = True
+            filtered_lessons.append(lesson)
+        regular_lessons = filtered_lessons
 
     practice_slots = []
     if practice_periods:
