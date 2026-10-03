@@ -122,7 +122,7 @@ async def trigger_import(
         # Deduplicate base slots
         unique_slots = {}
         for s in aggregated_base_slots:
-            k = (s["group_id"], s["subject_id"], s["teacher_id"], s["day_of_week"], s["lesson_number"], s["room"])
+            k = (s["group_id"], s["subject_id"], s["teacher_id"], s.get("second_teacher_id"), s["day_of_week"], s["lesson_number"], s["room"])
             if k in unique_slots:
                 existing = unique_slots[k]
                 if existing["week_type"] != s["week_type"]:
@@ -159,6 +159,8 @@ async def trigger_import(
                 )
                 if slot["teacher_id"]:
                     stmt_c = stmt_c.where(Curriculum.teacher_id == slot["teacher_id"])
+                if slot.get("second_teacher_id"):
+                    stmt_c = stmt_c.where(Curriculum.second_teacher_id == slot["second_teacher_id"])
                 
                 curr = await db.scalar(stmt_c)
                 if not curr:
@@ -166,6 +168,7 @@ async def trigger_import(
                         group_id=slot["group_id"],
                         subject_id=slot["subject_id"],
                         teacher_id=slot["teacher_id"] or 1,
+                        second_teacher_id=slot.get("second_teacher_id"),
                         pairs_per_2_weeks=2,
                         total_hours=0
                     )

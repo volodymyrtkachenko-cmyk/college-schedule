@@ -27,16 +27,21 @@ class ScheduleDiffer:
         for lesson in parsed_week.lessons:
             group_id = self.normalizer.normalize_group(lesson.group_name) if lesson.group_name else None
             subject_id = self.normalizer.normalize_subject(lesson.subject_name) if lesson.subject_name else None
-            teacher_id = self.normalizer.normalize_teacher(lesson.teacher_name) if lesson.teacher_name else None
             
-            if lesson.group_name and not group_id:
-                self.unresolved_entities.append({"type": "group", "raw": lesson.group_name})
+            teacher_id = None
+            second_teacher_id = None
             
-            if lesson.subject_name and not subject_id:
-                self.unresolved_entities.append({"type": "subject", "raw": lesson.subject_name})
+            if lesson.teacher_name:
+                t_names = [t.strip() for t in lesson.teacher_name.split("/")]
+                if len(t_names) > 0 and t_names[0]:
+                    teacher_id = self.normalizer.normalize_teacher(t_names[0])
+                    if not teacher_id:
+                        self.unresolved_entities.append({"type": "teacher", "raw": t_names[0]})
                 
-            if lesson.teacher_name and not teacher_id:
-                self.unresolved_entities.append({"type": "teacher", "raw": lesson.teacher_name})
+                if len(t_names) > 1 and t_names[1]:
+                    second_teacher_id = self.normalizer.normalize_teacher(t_names[1])
+                    if not second_teacher_id:
+                        self.unresolved_entities.append({"type": "teacher", "raw": t_names[1]})
 
             if getattr(lesson, "is_cancelled", False):
                 if group_id:
@@ -54,6 +59,7 @@ class ScheduleDiffer:
                         "lesson_number": lesson.lesson_number,
                         "subject_id": subject_id,
                         "teacher_id": teacher_id,
+                        "second_teacher_id": second_teacher_id,
                         "room": lesson.room,
                         "group_id": group_id
                     })
@@ -73,6 +79,7 @@ class ScheduleDiffer:
                         "group_id": group_id,
                         "subject_id": subject_id,
                         "teacher_id": teacher_id,
+                        "second_teacher_id": second_teacher_id,
                         "room": lesson.room,
                         "week_type": parsed_week.week_type
                     })
