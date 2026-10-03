@@ -1,3 +1,4 @@
+from app.core.time import today_local, now_local
 import logging
 from datetime import date, time, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -78,7 +79,7 @@ def to_item(item, week_type, target_date, bell_times=None, *, item_id=None, is_r
 async def schedule(group_id: int | None = None, teacher_id: int | None = None,
                    day_of_week: int | None = Query(None, ge=1, le=7),
                    target_date: date | None = None, db: AsyncSession = Depends(get_db)):
-    target_date = target_date or date.today()
+    target_date = target_date or today_local()
     week_type, lessons = await fetch_schedule(db=db, target_date=target_date, group_id=group_id, teacher_id=teacher_id, day_of_week=day_of_week)
     bell_t = await get_bell_times(db)
     return ScheduleResponse(date=target_date, week_type=week_type,
@@ -98,7 +99,7 @@ async def schedule(group_id: int | None = None, teacher_id: int | None = None,
 async def today(response: Response, group_id: int | None = None, teacher_id: int | None = None, db: AsyncSession = Depends(get_db)):
     response.headers["Cache-Control"] = "public, max-age=60, stale-while-revalidate=300"
     response.headers["Vary"] = "Date, Origin, Accept-Encoding"
-    target = date.today()
+    target = today_local()
     if target.isoweekday() > 5:
         target = target + timedelta(days=8 - target.isoweekday())
     return await schedule(group_id=group_id, teacher_id=teacher_id, target_date=target, day_of_week=target.isoweekday(), db=db)
@@ -108,7 +109,7 @@ async def week(response: Response, group_id: int | None = None, teacher_id: int 
                db: AsyncSession = Depends(get_db)):
     response.headers["Cache-Control"] = "public, max-age=60, stale-while-revalidate=300"
     response.headers["Vary"] = "Date, Origin, Accept-Encoding"
-    requested = target_date or date.today()
+    requested = target_date or today_local()
     start = requested - timedelta(days=requested.isoweekday() - 1)
     week_type, lessons_by_day = await fetch_week_schedule(db, start, group_id, teacher_id)
     bell_t = await get_bell_times(db)
@@ -215,7 +216,7 @@ async def _apply_and_commit(db, item, payload, group, subject, teacher, second_t
         await db.rollback()
         raise HTTPException(409, "Неможливо зберегти: такий запис або графік вже існує і перетинається з іншим.") from exc
     bell_t = await get_bell_times(db)
-    return to_item(item, item.week_type, payload.date or date.today(), bell_t)
+    return to_item(item, item.week_type, payload.date or today_local(), bell_t)
 
 async def _save(item, payload, db, *, create=False):
     group_id = payload.group_id if payload.group_id is not None else item.group_id

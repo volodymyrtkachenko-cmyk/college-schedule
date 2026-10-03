@@ -139,7 +139,7 @@ export function AdminScheduleEditor() {
   const create = async (payload: LessonMutation) => {
     try {
       const created = await api.lessons.create(payload);
-      addLesson(payload.date ?? new Date().toISOString().slice(0, 10), created);
+      addLesson(payload.date ?? new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(new Date()), created);
       setToast({ message: "Заняття додано.", type: "success" });
     } catch (e) {
       throw e;

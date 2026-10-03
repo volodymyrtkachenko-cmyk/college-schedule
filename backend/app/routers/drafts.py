@@ -132,7 +132,7 @@ async def publish_draft(
 ):
     draft = await db.get(ScheduleDraft, id)
     if not draft:
-        raise HTTPException(code=404, detail="Draft not found")
+        raise HTTPException(status_code=404, detail="Draft not found")
         
     # Mark old published as archived
     await db.execute(update(ScheduleDraft).where(ScheduleDraft.status == "published").values(status="archived"))
@@ -167,6 +167,96 @@ async def publish_draft(
     
     if new_schedules:
         db.add_all(new_schedules)
+        await db.flush()
+        
+    # Process substitutions if draft.data exists
+    if draft.data:
+        from app.models.entities import SchedulePeriod, SchedulePeriodSlot, ScheduleOverride
+        from datetime import datetime
+        substitutions = draft.data.get("substitutions", [])
+        cancelled_lessons = draft.data.get("cancelled", [])
+        
+        # 0. Wipe old imported substitutions
+        await db.execute(delete(SchedulePeriodSlot).where(SchedulePeriodSlot.source == "import"))
+        # Also wipe cancelled overrides? We can wipe all ScheduleOverride because we just deleted Schedule anyway!
+        # wait! `delete(Schedule)` cascades to `ScheduleOverride`? If it does, they are already wiped!
+        
+        # 1. Process Substitutions
+        for sub in substitutions:
+            d_str = sub["date"]
+            d_obj = datetime.strptime(d_str, "%Y-%m-%d").date() if isinstance(d_str, str) else d_str
+            
+            # Find/Create period
+            stmt_p = select(SchedulePeriod).where(
+                SchedulePeriod.start_date == d_obj,
+                SchedulePeriod.end_date == d_obj,
+                SchedulePeriod.period_type == "substitution"
+            )
+            period = await db.scalar(stmt_p)
+            if not period:
+                period = SchedulePeriod(name=f"Заміни на {d_obj.strftime('%d.%m.%Y')}", period_type="substitution", start_date=d_obj, end_date=d_obj)
+                db.add(period)
+                await db.flush()
+                
+            # Upsert SchedulePeriodSlot
+            stmt_slot = select(SchedulePeriodSlot).where(
+                SchedulePeriodSlot.period_id == period.id,
+                SchedulePeriodSlot.group_id == sub["group_id"],
+                SchedulePeriodSlot.lesson_number == sub["lesson_number"]
+            )
+            slot = await db.scalar(stmt_slot)
+            if slot:
+                if slot.source == "import":
+                    slot.subject_id = sub["subject_id"]
+                    slot.teacher_id = sub["teacher_id"]
+                    slot.room_override = sub["room"]
+            else:
+                slot = SchedulePeriodSlot(
+                    period_id=period.id,
+                    group_id=sub["group_id"],
+                    subject_id=sub["subject_id"],
+                    teacher_id=sub["teacher_id"],
+                    day_of_week=d_obj.isoweekday(),
+                    lesson_number=sub["lesson_number"],
+                    room_override=sub["room"],
+                    source="import"
+                )
+                db.add(slot)
+                
+            # Create override to hide base class if exists
+            stmt_s = select(Schedule).where(
+                Schedule.group_id == sub["group_id"],
+                Schedule.day_of_week == d_obj.isoweekday(),
+                Schedule.lesson_number == sub["lesson_number"],
+                Schedule.is_active == True
+            )
+            base_schedules = (await db.scalars(stmt_s)).all()
+            for sch in base_schedules:
+                override_chk = select(ScheduleOverride).where(
+                    ScheduleOverride.schedule_id == sch.id,
+                    ScheduleOverride.date == d_obj
+                )
+                if not await db.scalar(override_chk):
+                    db.add(ScheduleOverride(schedule_id=sch.id, date=d_obj, cancelled=True))
+                    
+        # 2. Process Cancelled lessons
+        for canc in cancelled_lessons:
+            d_str = canc["date"]
+            d_obj = datetime.strptime(d_str, "%Y-%m-%d").date() if isinstance(d_str, str) else d_str
+            stmt_s = select(Schedule).where(
+                Schedule.group_id == canc["group_id"],
+                Schedule.day_of_week == d_obj.isoweekday(),
+                Schedule.lesson_number == canc["lesson_number"],
+                Schedule.is_active == True
+            )
+            base_schedules = (await db.scalars(stmt_s)).all()
+            for sch in base_schedules:
+                override_chk = select(ScheduleOverride).where(
+                    ScheduleOverride.schedule_id == sch.id,
+                    ScheduleOverride.date == d_obj
+                )
+                if not await db.scalar(override_chk):
+                    db.add(ScheduleOverride(schedule_id=sch.id, date=d_obj, cancelled=True))
         
     draft.status = "published"
     await db.commit()

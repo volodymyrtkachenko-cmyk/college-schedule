@@ -2,7 +2,7 @@ from datetime import date
 from app.services.importer.parsers.kre_parser import KREParser
 
 def test_kre_parser_real_html():
-    with open("Розклад занять – Дніпровський фаховий коледж радіоелектроніки.html", "r", encoding="utf-8") as f:
+    with open("backend/tests/fixtures/kre_group_with_substitution.html", "r", encoding="utf-8") as f:
         html = f.read()
 
     parser = KREParser()

@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import List, Optional
@@ -9,10 +10,11 @@ class ParsedLesson:
     date: str
     group_name: str
     lesson_number: int
-    subject_name: str
+    subject_name: Optional[str]
     teacher_name: Optional[str] = None
     room: Optional[str] = None
     is_substitution: bool = False
+    is_cancelled: bool = False
 
 @dataclass
 class ParsedWeek:
@@ -22,6 +24,8 @@ class ParsedWeek:
 
 class ParseError(Exception):
     pass
+
+logger = logging.getLogger(__name__)
 
 class KREParser:
     def parse(self, html: str) -> ParsedWeek:
@@ -41,7 +45,7 @@ class KREParser:
         if not group_nodes:
             raise ParseError("No groups found structure might have changed")
             
-        week.groups = list(set([g.text(strip=True) for g in group_nodes if g.text(strip=True)]))
+        week.groups = list(dict.fromkeys([g.text(strip=True) for g in group_nodes if g.text(strip=True)]))
         
         # Find active group
         active_group_node = tree.css_first(".ktt-groups a[aria-current='true']")
@@ -60,16 +64,16 @@ class KREParser:
         # 10:40 -> 2
         # 12:30 -> 3
         # 14:00 -> 4
-        def resolve_lesson_number(time_str: str) -> int:
+        def resolve_lesson_number(time_str: str) -> Optional[int]:
             if not time_str:
-                return 1
+                return None
             if "7:30" in time_str or "07:30" in time_str: return 0
             if "9:00" in time_str or "09:00" in time_str: return 1
             if "10:40" in time_str: return 2
             if "12:30" in time_str: return 3
             if "14:00" in time_str: return 4
             if "15:30" in time_str: return 5
-            return 1 # Fallback
+            return None
 
         for day in day_nodes:
             date_str = day.attributes.get("data-day")
@@ -81,26 +85,39 @@ class KREParser:
                 classes = lesson_node.attributes.get("class", "")
                 is_substitution = "is-substitution" in classes
                 
+                is_cancelled = "is-cancelled" in classes
+                
                 time_b = lesson_node.css_first(".ktt-lesson__time b")
                 time_str = time_b.text(strip=True) if time_b else ""
                 lesson_number = resolve_lesson_number(time_str)
                 
-                subject_node = lesson_node.css_first(".ktt-lesson__subject")
-                subject_name = subject_node.text(strip=True) if subject_node else "Unknown"
+                if lesson_number is None:
+                    logger.warning(f"Unknown bell time '{time_str}' on {date_str} for {active_group}. Skipping.")
+                    continue
                 
-                teacher_name, room = None, None
+                subject_node = lesson_node.css_first(".ktt-lesson__subject")
+                subject_name = subject_node.text(strip=True) if subject_node else None
+                
+                teacher_names = []
+                room = None
                 meta_nodes = lesson_node.css(".ktt-lesson__meta")
                 for meta in meta_nodes:
                     text = meta.text(strip=True)
                     if text.lower().startswith("аудиторія") or text.lower().startswith("ауд"):
                         room = text
                     else:
-                        teacher_name = text
+                        teacher_names.append(text)
                 
-                # Double check substitution badge
+                teacher_name = " / ".join(teacher_names) if teacher_names else None
+                
+                # Double check badges
                 badge = lesson_node.css_first(".ktt-lesson__badge")
-                if badge and "Заміна" in badge.text(strip=True):
-                    is_substitution = True
+                if badge:
+                    badge_text = badge.text(strip=True).lower()
+                    if "заміна" in badge_text:
+                        is_substitution = True
+                    if "скасовано" in badge_text:
+                        is_cancelled = True
                     
                 pl = ParsedLesson(
                     date=datetime.strptime(date_str, "%Y-%m-%d").date(),
@@ -109,7 +126,8 @@ class KREParser:
                     subject_name=subject_name,
                     teacher_name=teacher_name,
                     room=room,
-                    is_substitution=is_substitution
+                    is_substitution=is_substitution,
+                    is_cancelled=is_cancelled
                 )
                 week.lessons.append(pl)
                 

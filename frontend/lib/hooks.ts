@@ -143,7 +143,7 @@ export function useSchedule(weekAnchorDate: Date) {
         const cachedToday = window.localStorage.getItem(todayKey);
         const cachedWeek = window.localStorage.getItem(weekKey);
         // If we are coming back later, don't use old cached today if the date changed
-        const todayStr = new Date().toISOString().slice(0, 10);
+        const todayStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(new Date());
         if (cachedToday) {
             const parsedToday = JSON.parse(cachedToday) as ScheduleResponse;
             // Provide stale cache immediately

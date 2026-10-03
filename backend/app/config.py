@@ -6,6 +6,7 @@ DEFAULT_DEV_JWT_SECRET = "college-schedule-local-dev-secret-change-me"
 
 
 class Settings(BaseSettings):
+    APP_TIMEZONE: str = "Europe/Kyiv"
     app_name: str = "College Schedule API"
     environment: str = "development"
     database_url: str = (

@@ -1,3 +1,4 @@
+import sqlalchemy as sa
 from datetime import date, datetime, time
 from typing import Optional
 from sqlalchemy import Table, Column, Boolean, CheckConstraint, Date, DateTime, ForeignKey, Integer, String, Text, Time, UniqueConstraint, Index
@@ -114,18 +115,18 @@ class Feedback(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"))
     message: Mapped[str] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 class Setting(Base):
     __tablename__ = "settings"
     key: Mapped[str] = mapped_column(String(100), primary_key=True)
     value: Mapped[str] = mapped_column(Text)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 class TokenBlocklist(Base):
     __tablename__ = "token_blocklist"
     id: Mapped[int] = mapped_column(primary_key=True)
     jti: Mapped[str] = mapped_column(String(36), unique=True, index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 class BellSchedule(Base):
     __tablename__ = "bell_schedule"
@@ -154,7 +155,7 @@ class ScheduleOverride(Base):
 class SchedulePeriod(Base):
     __tablename__ = "schedule_periods"
     __table_args__ = (
-        CheckConstraint("period_type IN ('practice', 'holiday')", name="ck_schedule_period_type"),
+        CheckConstraint("period_type IN ('practice', 'holiday', 'substitution')", name="ck_schedule_period_type"),
         CheckConstraint("start_date <= end_date", name="ck_schedule_period_dates"),
         Index("ix_schedule_period_dates", "start_date", "end_date"),
     )
@@ -188,6 +189,7 @@ class SchedulePeriodSlot(Base):
     day_of_week: Mapped[int] = mapped_column(Integer)
     lesson_number: Mapped[int] = mapped_column(Integer)
     room_override: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    source: Mapped[str] = mapped_column(String(50), default="manual")
 
     period: Mapped["SchedulePeriod"] = relationship(back_populates="slots")
     group: Mapped["Group"] = relationship()
@@ -240,8 +242,9 @@ class ScheduleDraft(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(255))
     status: Mapped[str] = mapped_column(String(20), default="draft")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    data: Mapped[Optional[dict]] = mapped_column(sa.JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     
     slots: Mapped[list["ScheduleSlot"]] = relationship(back_populates="draft")
 

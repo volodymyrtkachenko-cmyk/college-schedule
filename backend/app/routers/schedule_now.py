@@ -1,4 +1,6 @@
+from app.core.time import today_local, now_local
 from datetime import datetime
+from app.core.time import now_local, today_local
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,7 +15,7 @@ router = APIRouter(prefix="/now", tags=["schedule"])
 
 @router.get("", response_model=Dict[str, Any])
 async def get_schedule_now(db: AsyncSession = Depends(get_db)):
-    now = datetime.now()
+    now = now_local()
     today_date = now.date()
     current_time = now.time()
 

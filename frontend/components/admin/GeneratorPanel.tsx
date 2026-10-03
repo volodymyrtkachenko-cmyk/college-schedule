@@ -22,6 +22,7 @@ export function GeneratorPanel() {
   const [error, setError] = useState<string | null>(null);
   
   const [activeDraft, setActiveDraft] = useState<DraftRecord | null>(null);
+  const [bellTimes, setBellTimes] = useState<Record<number, string>>({1:"09:00-10:20", 2:"10:40-12:00", 3:"12:30-13:50", 4:"14:00-15:20"});
   const [slots, setSlots] = useState<DraftSlotRecord[]>([]);
   const [filterMode, setFilterMode] = useState<"group" | "teacher">("group");
   const [filterGroupId, setFilterGroupId] = useState<number | null>(null);
@@ -149,7 +150,7 @@ export function GeneratorPanel() {
   if (activeDraft) {
     const days = [1,2,3,4,5];
     const dayNames: Record<number, string> = {1:"Понеділок", 2:"Вівторок", 3:"Середа", 4:"Четвер", 5:"П’ятниця"};
-    const lessonTimes: Record<number, string> = {1:"09:00–10:20", 2:"10:40–12:00", 3:"12:30–13:50", 4:"14:00–15:20"};
+    const lessonTimes = bellTimes;
     const groups = Array.from(new Map(slots.map((slot) => [slot.curriculum.group.id, slot.curriculum.group])).values())
       .sort((a, b) => a.name.localeCompare(b.name, "uk"));
     const teachers = Array.from(new Map(slots.flatMap((slot) => [

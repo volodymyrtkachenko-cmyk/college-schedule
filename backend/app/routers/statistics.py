@@ -1,3 +1,4 @@
+from app.core.time import today_local, now_local
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -27,7 +28,7 @@ async def statistics(
 
     semester_start = await settings_service.get_semester_start(db)
     semester_end = await settings_service.get_configured_semester_end(db)
-    today = date.today()
+    today = today_local()
     through_date = min(today, semester_end) if semester_end is not None else today
 
     if group_id is not None:

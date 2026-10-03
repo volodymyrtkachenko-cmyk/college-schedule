@@ -1,3 +1,4 @@
+from app.core.time import today_local, now_local
 from datetime import datetime
 import hashlib
 import json
@@ -147,7 +148,7 @@ async def generate_schedule(
         )
 
     draft = ScheduleDraft(
-        name=f"Генерація від {datetime.now().strftime('%d.%m %H:%M')}",
+        name=f"Генерація від {now_local().strftime('%d.%m %H:%M')}",
         status="GENERATING",
     )
     db.add(draft)

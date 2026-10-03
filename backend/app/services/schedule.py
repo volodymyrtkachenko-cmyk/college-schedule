@@ -39,6 +39,7 @@ async def fetch_schedule(db: AsyncSession, target_date: date,
         return week_type, []
 
     practice_periods = [period for period in periods if period.period_type == "practice"]
+    substitution_periods = [period for period in periods if period.period_type == "substitution"]
     practice_group_ids = {group.id for period in practice_periods for group in period.groups}
     unavailable_group_ids = holiday_group_ids | practice_group_ids
     conditions = [
@@ -60,48 +61,32 @@ async def fetch_schedule(db: AsyncSession, target_date: date,
     )
     regular_lessons = list((await db.scalars(query.order_by(Schedule.lesson_number))).unique().all())
 
-    # Apply ScheduleOverrides
+    # Apply ScheduleOverrides for hiding cancelled classes
     if regular_lessons:
         from app.models.entities import ScheduleOverride
         override_query = select(ScheduleOverride).where(
             ScheduleOverride.date == target_date,
-            ScheduleOverride.schedule_id.in_([l.id for l in regular_lessons])
-        ).options(
-            joinedload(ScheduleOverride.subject),
-            joinedload(ScheduleOverride.teacher)
+            ScheduleOverride.schedule_id.in_([l.id for l in regular_lessons]),
+            ScheduleOverride.cancelled == True
         )
+        cancelled_schedule_ids = set((await db.scalars(override_query)).all())
+        # wait, we need schedule_id
+        cancelled_schedule_ids = set()
         overrides = (await db.scalars(override_query)).all()
-        overrides_by_schedule = {o.schedule_id: o for o in overrides}
+        for o in overrides:
+            cancelled_schedule_ids.add(o.schedule_id)
         
-        class OverriddenLesson:
-            def __init__(self, base, override):
-                self._base = base
-                self._override = override
-                self.is_replacement = True
-                
-            def __getattr__(self, name):
-                if name == "subject_id" and self._override.subject_id: return self._override.subject_id
-                if name == "subject" and self._override.subject_id: return self._override.subject
-                if name == "teacher_id" and self._override.teacher_id: return self._override.teacher_id
-                if name == "teacher" and self._override.teacher_id: return self._override.teacher
-                if name == "room_override" and self._override.room: return self._override.room
-                return getattr(self._base, name)
-
         filtered_lessons = []
         for lesson in regular_lessons:
-            if lesson.id in overrides_by_schedule:
-                override = overrides_by_schedule[lesson.id]
-                if override.cancelled:
-                    continue
-                filtered_lessons.append(OverriddenLesson(lesson, override))
-            else:
+            if lesson.id not in cancelled_schedule_ids:
                 filtered_lessons.append(lesson)
         regular_lessons = filtered_lessons
 
     practice_slots = []
-    if practice_periods:
+    if practice_periods or substitution_periods:
+        period_ids = [period.id for period in practice_periods] + [period.id for period in substitution_periods]
         slot_conditions = [
-            SchedulePeriodSlot.period_id.in_([period.id for period in practice_periods]),
+            SchedulePeriodSlot.period_id.in_(period_ids),
             SchedulePeriodSlot.day_of_week == weekday,
         ]
         if holiday_group_ids:
