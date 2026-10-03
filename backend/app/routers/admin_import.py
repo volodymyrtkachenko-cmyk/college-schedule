@@ -41,9 +41,13 @@ async def trigger_import(
     # We should allow if cron_secret matches WIPE_SECRET or some other secret
     is_cron = cron_secret == getattr(settings, "WIPE_SECRET", None)
     if not is_cron:
+        if not cron_secret:
+            raise HTTPException(status_code=401, detail="No authorization token")
         # Check standard admin token
         from app.core.security import get_current_user
-        user = await get_current_user(request, db)
+        from fastapi.security import HTTPAuthorizationCredentials
+        credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=cron_secret)
+        user = await get_current_user(credentials=credentials, db=db)
         if not user or user.role != "admin":
             raise HTTPException(status_code=403, detail="Not authorized")
     
