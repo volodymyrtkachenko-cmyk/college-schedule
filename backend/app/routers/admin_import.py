@@ -201,6 +201,8 @@ async def trigger_import(
             "report": {
                 "unresolved": list(aggregated_unresolved.values()),
                 "unresolved_substitutions": aggregated_unresolved_subs,
+                "substitutions": aggregated_substitutions,
+                "base_slots": aggregated_base_slots,
             },
             "meta": {
                 "draft_created": draft_id,
