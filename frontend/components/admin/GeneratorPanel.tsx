@@ -179,6 +179,10 @@ export function GeneratorPanel() {
       (filterMode === "group"
         ? filterGroupId === null || sub.group_id === filterGroupId
         : filterTeacherId === null || sub.teacher_id === filterTeacherId || sub.second_teacher_id === filterTeacherId)
+    ).sort((left, right) =>
+      left.lesson_number - right.lesson_number ||
+      (left.group_name ?? "").localeCompare(right.group_name ?? "", "uk") ||
+      left.date.localeCompare(right.date),
     );
     const fmtSubDate = (iso: string) => iso.split("-").reverse().slice(0, 2).join(".");
     const selectedSlot = slots.find((slot) => slot.id === selectedSlotId);
@@ -316,7 +320,7 @@ export function GeneratorPanel() {
                           <article key={`sub-${sub.date}-${sub.group_id}-${i}`} className={`relative min-w-0 overflow-hidden rounded-xl border p-3 shadow-sm transition-colors duration-200 ${sub.kind === "cancelled" ? "border-rose-500/40 bg-rose-500/5" : "ring-1 ring-sys-accent/60 !border-sys-accent/40 bg-sys-accent/[0.02]"}`}>
                             <div className="flex flex-wrap items-center justify-between gap-x-2 mb-1">
                               <span className="font-semibold text-sys-text-muted text-xs">
-                                {sub.group_name} · {fmtSubDate(sub.date)}
+                                {sub.lesson_number}-та пара · {sub.group_name} · {fmtSubDate(sub.date)}
                               </span>
                               <span className={`inline-block px-1.5 py-0.5 text-[0.65rem] font-bold rounded leading-none ${sub.kind === "cancelled" ? "bg-rose-500/20 text-rose-300" : "bg-sys-accent text-slate-950"}`}>
                                 {sub.kind === "cancelled" ? "Скасовано" : "Заміна"}
