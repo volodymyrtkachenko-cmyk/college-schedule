@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { api, DraftRecord, DraftSlotRecord } from "../../lib/api";
+import { api, DraftRecord, DraftSlotRecord, DraftSubstitutionRecord } from "../../lib/api";
 import { ConfirmModal } from "./ConfirmModal";
 import { SearchableSelect } from "../SearchableSelect";
 import { formatLessonCount, formatTeacherName } from "../../lib/format";
@@ -9,6 +9,7 @@ import { formatLessonCount, formatTeacherName } from "../../lib/format";
 const draftStatusLabels: Record<string, string> = {
   DRAFT: "Чернетка",
   GENERATING: "Створюється",
+  pending: "Імпорт на розгляді",
   published: "Опубліковано",
   FAILED: "Помилка",
   TIMEOUT: "Час вичерпано",
@@ -24,6 +25,7 @@ export function GeneratorPanel() {
   const [activeDraft, setActiveDraft] = useState<DraftRecord | null>(null);
   const [bellTimes, setBellTimes] = useState<Record<number, string>>({1:"09:00-10:20", 2:"10:40-12:00", 3:"12:30-13:50", 4:"14:00-15:20"});
   const [slots, setSlots] = useState<DraftSlotRecord[]>([]);
+  const [subs, setSubs] = useState<DraftSubstitutionRecord[]>([]);
   const [filterMode, setFilterMode] = useState<"group" | "teacher">("group");
   const [filterGroupId, setFilterGroupId] = useState<number | null>(null);
   const [filterTeacherId, setFilterTeacherId] = useState<number | null>(null);
@@ -62,6 +64,11 @@ export function GeneratorPanel() {
       const session = await api.auth.ensureAuthenticated();
       const res = await api.generator.getSlots(d.id, session.access_token);
       setSlots(res);
+      try {
+        setSubs(await api.generator.getSubstitutions(d.id, session.access_token));
+      } catch {
+        setSubs([]);
+      }
       setActiveDraft(d);
       setFilterMode("group");
       setFilterGroupId(null);
@@ -164,6 +171,13 @@ export function GeneratorPanel() {
         ? filterGroupId === null || slot.curriculum.group.id === filterGroupId
         : filterTeacherId === null || slot.curriculum.teacher.id === filterTeacherId || slot.curriculum.second_teacher?.id === filterTeacherId)
     );
+    const visibleSubs = subs.filter((sub) =>
+      sub.week_type === activeWeek &&
+      (filterMode === "group"
+        ? filterGroupId === null || sub.group_id === filterGroupId
+        : filterTeacherId === null)
+    );
+    const fmtSubDate = (iso: string) => iso.split("-").reverse().slice(0, 2).join(".");
     const selectedSlot = slots.find((slot) => slot.id === selectedSlotId);
     const selectOptions = (filterMode === "group" ? groups : teachers).map(({ id, name }) => ({ id, name }));
     const canMoveTo = (day: number, lesson: number) => {
@@ -278,6 +292,7 @@ export function GeneratorPanel() {
               </div>,
               ...days.map((day) => {
                 const cellSlots = visibleSlots.filter((slot) => slot.day_of_week === day && slot.lesson_number === lesson);
+                const cellSubs = visibleSubs.filter((sub) => sub.day_of_week === day && sub.lesson_number === lesson);
                 const canChooseTarget = selectedSlot !== undefined && canMoveTo(day, lesson);
                 return (
                   <div
@@ -292,6 +307,28 @@ export function GeneratorPanel() {
                       canChooseTarget ? "bg-emerald-500/[0.08] ring-1 ring-inset ring-emerald-400/40" : "hover:bg-white/[0.02]"
                     }`}
                   >
+                    {cellSubs.length > 0 && (
+                      <div className="mb-2 space-y-2">
+                        {cellSubs.map((sub, i) => (
+                          <article key={`sub-${sub.date}-${sub.group_id}-${i}`} className={`rounded-lg border p-2.5 text-sm ${sub.kind === "cancelled" ? "border-rose-500/40 bg-rose-500/5" : "border-amber-400/50 bg-amber-500/5"}`}>
+                            <div className="flex flex-wrap items-center justify-between gap-x-2">
+                              <span className="font-semibold text-sys-accent">{sub.group_name}</span>
+                              <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${sub.kind === "cancelled" ? "bg-rose-500/10 text-rose-300" : "bg-amber-500/10 text-amber-300"}`}>
+                                {sub.kind === "cancelled" ? "Скасовано" : "Заміна"} · {fmtSubDate(sub.date)}
+                              </span>
+                            </div>
+                            {sub.kind === "substitution" && (
+                              <>
+                                <p className="mt-1 font-medium leading-snug text-sys-text-primary">{sub.subject_name}</p>
+                                <p className="mt-1 break-words text-xs leading-snug text-sys-text-secondary">
+                                  {[sub.teacher_name ? formatTeacherName(sub.teacher_name) : null, sub.room].filter(Boolean).join(" · ")}
+                                </p>
+                              </>
+                            )}
+                          </article>
+                        ))}
+                      </div>
+                    )}
                     {cellSlots.length > 0 && (
                       <div className="space-y-2">
                         {cellSlots.map((slot) => (
@@ -345,7 +382,7 @@ export function GeneratorPanel() {
                       >
                         Перемістити сюди
                       </button>
-                    ) : cellSlots.length === 0 ? (
+                    ) : cellSlots.length === 0 && cellSubs.length === 0 ? (
                       <div className="flex min-h-28 items-center justify-center text-xs text-sys-text-muted">—</div>
                     ) : null}
                   </div>
@@ -406,7 +443,7 @@ export function GeneratorPanel() {
                   <td className="px-5 py-3 whitespace-nowrap text-sys-text-muted">#{d.id}</td>
                   <td className="px-5 py-3 font-semibold text-sys-text-primary">{d.name}</td>
                   <td className="px-5 py-3">
-                    <span className={`px-2 py-0.5 rounded text-xs font-bold tracking-wider ${d.status === 'published' ? 'bg-emerald-500/10 text-emerald-400' : d.status === 'DRAFT' ? 'bg-amber-500/10 text-amber-400' : 'bg-gray-500/10 text-gray-400'}`}>{draftStatusLabels[d.status] ?? "Невідомий статус"}</span>
+                    <span className={`px-2 py-0.5 rounded text-xs font-bold tracking-wider ${d.status === 'published' ? 'bg-emerald-500/10 text-emerald-400' : (d.status === 'DRAFT' || d.status === 'pending') ? 'bg-amber-500/10 text-amber-400' : 'bg-gray-500/10 text-gray-400'}`}>{draftStatusLabels[d.status] ?? "Невідомий статус"}</span>
                   </td>
                   <td className="px-5 py-3 text-right flex justify-end gap-2">
                     <button onClick={() => loadSlots(d)} className="px-3 py-1.5 text-xs font-semibold rounded bg-sys-accent/10 text-sys-accent hover:bg-sys-accent/20 transition">Переглянути</button>

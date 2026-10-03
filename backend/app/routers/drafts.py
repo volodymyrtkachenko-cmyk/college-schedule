@@ -4,9 +4,12 @@ from sqlalchemy import select, delete, update, or_, and_
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.models import ScheduleDraft, ScheduleSlot, Curriculum, Schedule
+from app.models import ScheduleDraft, ScheduleSlot, Curriculum, Schedule, Group, Subject, Teacher
 from app.schemas.draft import ScheduleDraftResponse, ScheduleSlotResponse, SlotMoveRequest
 from app.core.security import require_roles
+from app.services.settings import settings_service
+from app.services.week import get_week_type
+from datetime import datetime as _dt
 
 router = APIRouter(prefix="/drafts", tags=["Drafts"])
 
@@ -45,6 +48,64 @@ async def delete_draft(
     await db.delete(draft)
     await db.commit()
     return None
+
+@router.get("/{id}/substitutions")
+async def list_draft_substitutions(
+    id: int,
+    db: AsyncSession = Depends(get_db),
+    admin=Depends(require_roles("admin"))
+):
+    """Заміни та скасовані пари, знайдені імпортом (зберігаються в draft.data, не в слотах)."""
+    draft = await db.get(ScheduleDraft, id)
+    if not draft:
+        raise HTTPException(status_code=404, detail="Draft not found")
+    data = draft.data or {}
+    subs = data.get("substitutions", [])
+    cancelled = data.get("cancelled", [])
+    if not subs and not cancelled:
+        return []
+
+    semester_start = await settings_service.get_semester_start(db)
+    groups = {g.id: g.name for g in (await db.scalars(select(Group))).all()}
+    subjects = {s.id: s.name for s in (await db.scalars(select(Subject))).all()}
+    teachers = {t.id: t.name for t in (await db.scalars(select(Teacher))).all()}
+
+    def to_date(value):
+        return _dt.strptime(value, "%Y-%m-%d").date() if isinstance(value, str) else value
+
+    result = []
+    for item in subs:
+        d = to_date(item["date"])
+        result.append({
+            "kind": "substitution",
+            "date": d.isoformat(),
+            "day_of_week": d.isoweekday(),
+            "week_type": get_week_type(d, semester_start),
+            "lesson_number": item["lesson_number"],
+            "group_id": item["group_id"],
+            "group_name": groups.get(item["group_id"]),
+            "subject_name": subjects.get(item["subject_id"]),
+            "teacher_name": " / ".join(
+                t for t in (teachers.get(item.get("teacher_id")), teachers.get(item.get("second_teacher_id"))) if t
+            ) or None,
+            "room": item.get("room"),
+        })
+    for item in cancelled:
+        d = to_date(item["date"])
+        result.append({
+            "kind": "cancelled",
+            "date": d.isoformat(),
+            "day_of_week": d.isoweekday(),
+            "week_type": get_week_type(d, semester_start),
+            "lesson_number": item["lesson_number"],
+            "group_id": item["group_id"],
+            "group_name": groups.get(item["group_id"]),
+            "subject_name": None,
+            "teacher_name": None,
+            "room": None,
+        })
+    result.sort(key=lambda x: (x["date"], x["lesson_number"], x["group_name"] or ""))
+    return result
 
 @router.get("/{id}/slots", response_model=list[ScheduleSlotResponse])
 async def list_draft_slots(

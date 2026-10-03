@@ -472,6 +472,19 @@ export interface DraftSlotRecord {
   curriculum: CurriculumRecord;
 }
 
+export interface DraftSubstitutionRecord {
+  kind: "substitution" | "cancelled";
+  date: string;
+  day_of_week: number;
+  week_type: string;
+  lesson_number: number;
+  group_id: number;
+  group_name: string | null;
+  subject_name: string | null;
+  teacher_name: string | null;
+  room: string | null;
+}
+
 export interface DraftRecord {
   id: number;
   name: string;
@@ -496,6 +509,9 @@ export const apiGenerator = {
   },
   getSlots: async (id: number, token: string): Promise<DraftSlotRecord[]> => {
     return request<DraftSlotRecord[]>(`/api/drafts/${id}/slots`, {}, false, true, token);
+  },
+  getSubstitutions: async (id: number, token: string): Promise<DraftSubstitutionRecord[]> => {
+    return request<DraftSubstitutionRecord[]>(`/api/drafts/${id}/substitutions`, {}, false, true, token);
   },
   moveSlot: async (slotId: number, day: number, lesson: number, week: string, token: string): Promise<DraftSlotRecord> => {
     return request<DraftSlotRecord>(`/api/drafts/slots/${slotId}`, {
