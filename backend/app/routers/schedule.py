@@ -110,6 +110,29 @@ def imported_change_to_item(change, week_type, target_date, bell_times=None):
         note_id=None,
     )
 
+
+def serialize_schedule_items(lessons, week_type, target_date, bell_times):
+    items = []
+    for lesson in lessons:
+        if isinstance(lesson, ImportedScheduleChange):
+            item = imported_change_to_item(lesson, week_type, target_date, bell_times)
+        else:
+            is_replacement = (
+                True
+                if hasattr(lesson, "period_id") or hasattr(lesson, "is_published")
+                else None
+            )
+            item = to_item(
+                lesson,
+                week_type,
+                target_date,
+                bell_times,
+                is_replacement=is_replacement,
+            )
+        if item is not None:
+            items.append(item)
+    return sorted(items, key=lambda item: (item.lesson_number, item.group_name or "", item.id))
+
 @router.get("/schedule", response_model=ScheduleResponse)
 async def schedule(group_id: int | None = None, teacher_id: int | None = None,
                    day_of_week: int | None = Query(None, ge=1, le=7),
@@ -117,25 +140,11 @@ async def schedule(group_id: int | None = None, teacher_id: int | None = None,
     target_date = target_date or today_local()
     week_type, lessons = await fetch_schedule(db=db, target_date=target_date, group_id=group_id, teacher_id=teacher_id, day_of_week=day_of_week)
     bell_t = await get_bell_times(db)
-    return ScheduleResponse(date=target_date, week_type=week_type,
-                            lessons=[
-                                to_item(
-                                    lesson,
-                                    week_type,
-                                    target_date,
-                                    bell_t,
-                                    item_id=-lesson.id if hasattr(lesson, "period_id") or hasattr(lesson, "is_published") else None,
-                                    is_replacement=True if hasattr(lesson, "period_id") or hasattr(lesson, "is_published") else None,
-                                )
-                                for lesson in lessons
-                                if not isinstance(lesson, ImportedScheduleChange)
-                            ] + [
-                                item
-                                for lesson in lessons
-                                if isinstance(lesson, ImportedScheduleChange)
-                                for item in [imported_change_to_item(lesson, week_type, target_date, bell_t)]
-                                if item is not None
-                            ])
+    return ScheduleResponse(
+        date=target_date,
+        week_type=week_type,
+        lessons=serialize_schedule_items(lessons, week_type, target_date, bell_t),
+    )
 
 @router.get("/schedule/today", response_model=ScheduleResponse)
 async def today(response: Response, group_id: int | None = None, teacher_id: int | None = None, db: AsyncSession = Depends(get_db)):
@@ -159,31 +168,12 @@ async def week(response: Response, group_id: int | None = None, teacher_id: int 
         ScheduleResponse(
             date=start + timedelta(days=i),
             week_type=week_type,
-            lessons=[
-                to_item(
-                    lesson,
-                    week_type,
-                    start + timedelta(days=i),
-                    bell_t,
-                    item_id=-lesson.id if hasattr(lesson, "period_id") or hasattr(lesson, "is_published") else None,
-                    is_replacement=True if hasattr(lesson, "period_id") or hasattr(lesson, "is_published") else None,
-                )
-                for lesson in lessons_by_day.get(i + 1, [])
-                if not isinstance(lesson, ImportedScheduleChange)
-            ] + [
-                item
-                for lesson in lessons_by_day.get(i + 1, [])
-                if isinstance(lesson, ImportedScheduleChange)
-                for item in [
-                    imported_change_to_item(
-                        lesson,
-                        week_type,
-                        start + timedelta(days=i),
-                        bell_t,
-                    )
-                ]
-                if item is not None
-            ],
+            lessons=serialize_schedule_items(
+                lessons_by_day.get(i + 1, []),
+                week_type,
+                start + timedelta(days=i),
+                bell_t,
+            ),
         )
         for i in range(5)
     ]

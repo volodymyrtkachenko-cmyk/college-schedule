@@ -19,7 +19,10 @@ export function ScheduleDay({ schedule, isToday = false, mode = "day", scheduleM
   onMove?: (lesson: Lesson, date: string, lessonNumber: number) => void;
   canMoveTo?: (lesson: Lesson, date: string, lessonNumber: number) => boolean;
 }) {
-  const lessonsByNumber = new Map(schedule.lessons.map((lesson) => [lesson.lesson_number, lesson]));
+  const orderedLessons = [...schedule.lessons].sort(
+    (left, right) => left.lesson_number - right.lesson_number || left.id - right.id,
+  );
+  const lessonsByNumber = new Map(orderedLessons.map((lesson) => [lesson.lesson_number, lesson]));
   const renderLesson = (lesson: Lesson) => (
     <LessonCard
       key={lesson.id}
@@ -86,7 +89,7 @@ export function ScheduleDay({ schedule, isToday = false, mode = "day", scheduleM
         </div>
       ) : schedule.lessons.length ? (
         <div className="min-w-0 space-y-2">
-          {schedule.lessons.map(renderLesson)}
+          {orderedLessons.map(renderLesson)}
         </div>
       ) : (
         <div className="rounded-xl border border-dashed border-sys-border bg-sys-card/30 px-4 py-8 text-center text-sm text-sys-text-muted">На цей день занять немає.</div>
