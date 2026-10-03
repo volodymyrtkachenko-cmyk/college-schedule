@@ -89,7 +89,11 @@ export function ScheduleDay({ schedule, isToday = false, mode = "day", scheduleM
           {schedule.lessons.map(renderLesson)}
         </div>
       ) : (
-        <div className="rounded-xl border border-dashed border-sys-border bg-sys-card/30 px-4 py-8 text-center text-sm text-sys-text-muted">На цей день занять немає.</div>
+        <div className="rounded-2xl border border-dashed border-orange-300/15 bg-orange-300/[0.04] px-4 py-8 text-center shadow-sm">
+          <div className="text-3xl" aria-hidden="true">🛋️</div>
+          <p className="mt-2 text-sm text-sys-text-secondary">Ого, сьогодні жодної пари!</p>
+          <p className="mt-1 text-xs text-sys-text-muted">Насолоджуйтеся цим спокійним днем — ви на це заслужили.</p>
+        </div>
       )}
       {canEdit && <button type="button" onClick={() => onCreate?.(schedule.date)} className={`mt-3 w-full rounded-lg border border-dashed border-sys-border px-3 py-2.5 text-sm text-sys-text-secondary transition-colors hover:border-sys-accent hover:bg-sys-accent/5 hover:text-sys-accent ${mode === "week" ? "py-2 text-[13px]" : ""}`}>+ {mode === "week" ? "Додати" : "Додати заняття"}</button>}
     </section>

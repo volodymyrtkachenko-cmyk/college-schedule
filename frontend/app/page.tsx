@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 import { getMondayOf } from "../lib/date";
 import { WelcomeScreen } from "../components/WelcomeScreen";
 import { SearchableSelect } from "../components/SearchableSelect";
+import { WarmScheduleBanner } from "../components/WarmScheduleBanner";
 
 export default function HomePage() {
   const getInitialAnchor = () => {
@@ -222,6 +223,9 @@ export default function HomePage() {
       </header>
 
       <div className="mx-auto max-w-[1800px] px-3 py-6 sm:px-5 lg:px-6 xl:px-8">
+        {!loading && !error && today && (
+          <WarmScheduleBanner lessonCount={today.lessons.length} />
+        )}
         <div className="mb-6 hidden items-center justify-between md:flex">
           <div>
             <p className="text-sm text-sys-text-secondary">{view === "today" ? "Поточний день" : "Навчальний тиждень"}</p>

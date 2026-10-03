@@ -25,3 +25,54 @@ export function formatLessonCount(count: number): string {
       : "занять";
   return `${count} ${noun}`;
 }
+
+export function getWarmGreeting(date = new Date()): string {
+  const hour = date.getHours();
+  const day = date.getDay();
+
+  if (day === 1 && hour < 12) {
+    return "Попереду новий тиждень! Нехай він буде легким і продуктивним ☕";
+  }
+  if (day === 5 && hour >= 13) {
+    return "Майже все! Ви чудово впоралися цього тижня, залишилося зовсім трохи 🎉";
+  }
+  if (hour < 12) return "Доброго ранку! Нехай сьогодні все складається спокійно ☀️";
+  if (hour < 18) return "Гарного дня! Крок за кроком — і все встигнете 🌿";
+  return "Вечір — час видихнути. Ви зробили достатньо 🌙";
+}
+
+export function getWorkloadMessage(lessonCount: number): string {
+  if (lessonCount >= 4) {
+    return "Сьогодні справжній марафон! Не забувайте пити воду та робити невеликі паузи між заняттями 💧";
+  }
+  if (lessonCount > 0 && lessonCount <= 2) {
+    return "Сьогодні легкий день. Чудова нагода приділити час улюбленим справам або саморозвитку 📚";
+  }
+  if (lessonCount === 0) {
+    return "Сьогодні можна трохи пригальмувати й подбати про себе 🛋️";
+  }
+  return "Рівний темп — теж хороший темп. Нехай день буде комфортним 🌱";
+}
+
+export function getWeekendCharge(date = new Date()): number {
+  const day = date.getDay();
+  if (day === 0 || day === 6) return 100;
+
+  const fridayEvening = new Date(date);
+  fridayEvening.setDate(date.getDate() + (5 - day));
+  fridayEvening.setHours(18, 0, 0, 0);
+  const mondayMorning = new Date(date);
+  mondayMorning.setDate(date.getDate() - (day - 1));
+  mondayMorning.setHours(8, 0, 0, 0);
+
+  const total = fridayEvening.getTime() - mondayMorning.getTime();
+  const elapsed = date.getTime() - mondayMorning.getTime();
+  return Math.round(Math.min(100, Math.max(0, (elapsed / total) * 100)));
+}
+
+export function getWeekendMessage(date = new Date()): string {
+  const day = date.getDay();
+  if (day === 5 && date.getHours() >= 18) return "Вихідні вже почалися — час перемкнутися ✨";
+  if (day === 0 || day === 6) return "Заряд вихідних: 100%. Відпочивайте без докорів сумління 💛";
+  return `До вихідних ще трохи. Заряд наближення: ${getWeekendCharge(date)}%`;
+}
