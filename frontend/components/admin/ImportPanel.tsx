@@ -170,6 +170,15 @@ export function ImportPanel() {
     }
   };
 
+  const handlePrimaryAction = async () => {
+    if (!report) return;
+    if (report.unresolved.length > 0) {
+      await handleMappingSubmit();
+    } else {
+      await saveChanges();
+    }
+  };
+
   const getOptions = (type: string) => {
       switch (type) {
           case 'teacher': return teachers;
@@ -194,7 +203,7 @@ export function ImportPanel() {
             <div>
                <p className="text-sys-text-secondary text-sm mb-6 max-w-lg">
                    Натисніть кнопку нижче, щоб система автоматично обійшла всі групи на сайті kre.dp.ua,
-                   зібрала актуальний розклад та віднайшла всі заміни.
+                   зібрала актуальний розклад та віднайшла зміни. Базовий розклад при цьому не змінюється.
                </p>
                <button onClick={handleImport} disabled={loading} className="bg-sys-accent text-[#0b1120] font-bold py-2 px-5 rounded-lg disabled:opacity-50 flex items-center gap-2">
                    {loading ? (
@@ -239,9 +248,14 @@ export function ImportPanel() {
 
                 {substitutions.length > 0 && (
                   <div className="mb-6 space-y-3">
-                    <h3 className="font-semibold">Заміни — перевірте та відредагуйте перед публікацією</h3>
+                    <h3 className="font-semibold">Заміни — перегляд у форматі чернетки розкладу</h3>
                     {substitutions.map((item, index) => (
-                      <div key={`${item.date}-${item.group_id}-${item.lesson_number}-${index}`} className="grid gap-2 rounded-lg border border-sys-border bg-sys-bg/40 p-3 sm:grid-cols-2 lg:grid-cols-7">
+                      <div key={`${item.date}-${item.group_id}-${item.lesson_number}-${index}`} className="rounded-xl border border-sys-border bg-sys-card p-3 shadow-sm">
+                        <div className="mb-2 flex items-center justify-between gap-2 text-xs font-semibold text-sys-text-muted">
+                          <span>{item.date} · імпортна зміна</span>
+                          <span className="rounded bg-sys-accent px-1.5 py-0.5 text-[10px] font-bold text-slate-950">Заміна</span>
+                        </div>
+                        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-7">
                         <input type="date" value={item.date} onChange={(e) => setSubstitutions(current => current.map((value, i) => i === index ? { ...value, date: e.target.value } : value))} className="form-control" />
                         <select value={item.group_id} onChange={(e) => setSubstitutions(current => current.map((value, i) => i === index ? { ...value, group_id: Number(e.target.value) } : value))} className="form-control">
                           {groups.map(option => <option key={option.id} value={option.id}>{option.name}</option>)}
@@ -262,6 +276,7 @@ export function ImportPanel() {
                         <div className="flex gap-2">
                           <input value={item.room ?? ""} onChange={(e) => setSubstitutions(current => current.map((value, i) => i === index ? { ...value, room: e.target.value || null } : value))} placeholder="Аудиторія" className="form-control min-w-0 flex-1" />
                           <button type="button" onClick={() => setSubstitutions(current => current.filter((_, i) => i !== index))} className="rounded-lg px-2 text-rose-300 hover:bg-rose-500/10" aria-label="Видалити заміну">×</button>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -270,9 +285,14 @@ export function ImportPanel() {
 
                 {cancelled.length > 0 && (
                   <div className="mb-6 space-y-3">
-                    <h3 className="font-semibold">Скасовані пари</h3>
+                    <h3 className="font-semibold">Скасовані пари — перегляд у форматі чернетки розкладу</h3>
                     {cancelled.map((item, index) => (
-                      <div key={`${item.date}-${item.group_id}-${item.lesson_number}-${index}`} className="grid gap-2 rounded-lg border border-rose-500/20 bg-rose-500/5 p-3 sm:grid-cols-4">
+                      <div key={`${item.date}-${item.group_id}-${item.lesson_number}-${index}`} className="rounded-xl border border-rose-500/30 bg-rose-500/5 p-3 shadow-sm">
+                        <div className="mb-2 flex items-center justify-between gap-2 text-xs font-semibold text-rose-200">
+                          <span>{item.date} · імпортна зміна</span>
+                          <span className="rounded bg-rose-500/20 px-1.5 py-0.5 text-[10px] font-bold text-rose-200">Скасовано</span>
+                        </div>
+                        <div className="grid gap-2 sm:grid-cols-4">
                         <input type="date" value={item.date} onChange={(e) => setCancelled(current => current.map((value, i) => i === index ? { ...value, date: e.target.value } : value))} className="form-control" />
                         <select value={item.group_id} onChange={(e) => setCancelled(current => current.map((value, i) => i === index ? { ...value, group_id: Number(e.target.value) } : value))} className="form-control">
                           {groups.map(option => <option key={option.id} value={option.id}>{option.name}</option>)}
@@ -281,17 +301,15 @@ export function ImportPanel() {
                           {[1, 2, 3, 4].map(lesson => <option key={lesson} value={lesson}>{lesson}-та пара</option>)}
                         </select>
                         <button type="button" onClick={() => setCancelled(current => current.filter((_, i) => i !== index))} className="rounded-lg border border-rose-400/20 px-3 py-2 text-sm text-rose-300 hover:bg-rose-500/10">Видалити</button>
+                        </div>
                       </div>
                     ))}
                   </div>
                 )}
                 
                 <div className="flex items-center gap-3">
-                    <button onClick={handleMappingSubmit} disabled={loading} className="bg-sys-accent text-[#0b1120] font-bold py-2.5 px-6 rounded-lg disabled:opacity-50">
-                        {loading ? "Зберігаємо та продовжуємо..." : "Зберегти відповідності та Продовжити"}
-                    </button>
-                    <button type="button" onClick={saveChanges} disabled={loading || report.unresolved.length > 0} className="rounded-lg border border-sys-accent/40 px-4 py-2.5 text-sm font-semibold text-sys-accent disabled:opacity-50">
-                      Зберегти зміни
+                    <button onClick={handlePrimaryAction} disabled={loading} className="bg-sys-accent text-[#0b1120] font-bold py-2.5 px-6 rounded-lg disabled:opacity-50">
+                        {loading ? "Зберігаємо…" : report.unresolved.length > 0 ? "Зберегти відповідності та продовжити" : "Зберегти зміни"}
                     </button>
                     <button onClick={() => setStatus("idle")} className="py-2.5 px-4 text-sys-text-secondary hover:text-white" disabled={loading}>Скасувати</button>
                 </div>
