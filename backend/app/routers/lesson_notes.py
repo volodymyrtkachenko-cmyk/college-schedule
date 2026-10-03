@@ -4,10 +4,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.security import require_roles
 from app.database import get_db
-from app.models import LessonNote, Schedule
+from app.models import LessonNote, Schedule, User
 from app.schemas import LessonNoteCreate, LessonNoteResponse, LessonNoteUpdate
 
 router = APIRouter(prefix="/lesson-notes", tags=["lesson notes"])
@@ -20,13 +21,33 @@ async def _active_schedule(db: AsyncSession, schedule_id: int) -> Schedule:
     return schedule
 
 
+async def _check_schedule_edit_access(
+    db: AsyncSession,
+    user: User,
+    schedule: Schedule,
+) -> None:
+    if user.role == "admin":
+        return
+    loaded = await db.scalar(
+        select(User)
+        .options(selectinload(User.allowed_groups))
+        .where(User.id == user.id)
+    )
+    if loaded is None or schedule.group_id not in {group.id for group in loaded.allowed_groups}:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Ви не маєте доступу до зміни приміток цієї групи",
+        )
+
+
 @router.post("", response_model=LessonNoteResponse, status_code=status.HTTP_201_CREATED)
 async def create_note(
     payload: LessonNoteCreate,
     db: AsyncSession = Depends(get_db),
-    _: object = Depends(require_roles("admin", "editor")),
+    current_user: User = Depends(require_roles("admin", "editor")),
 ):
-    await _active_schedule(db, payload.schedule_id)
+    schedule = await _active_schedule(db, payload.schedule_id)
+    await _check_schedule_edit_access(db, current_user, schedule)
     existing = await db.scalar(
         select(LessonNote).where(
             LessonNote.schedule_id == payload.schedule_id,
@@ -89,7 +110,7 @@ async def update_note(
     note_id: int,
     payload: LessonNoteUpdate,
     db: AsyncSession = Depends(get_db),
-    _: object = Depends(require_roles("admin", "editor")),
+    current_user: User = Depends(require_roles("admin", "editor")),
 ):
     note = await db.scalar(
         select(LessonNote).join(Schedule).where(
@@ -98,8 +119,11 @@ async def update_note(
     )
     if note is None:
         raise HTTPException(status_code=404, detail="Примітку не знайдено")
+    current_schedule = await _active_schedule(db, note.schedule_id)
+    await _check_schedule_edit_access(db, current_user, current_schedule)
     schedule_id = payload.schedule_id if payload.schedule_id is not None else note.schedule_id
-    await _active_schedule(db, schedule_id)
+    schedule = await _active_schedule(db, schedule_id)
+    await _check_schedule_edit_access(db, current_user, schedule)
     note_date = payload.note_date if payload.note_date is not None else note.note_date
     if schedule_id != note.schedule_id or note_date != note.note_date:
         existing = await db.scalar(
@@ -134,7 +158,7 @@ async def update_note(
 async def delete_note(
     note_id: int,
     db: AsyncSession = Depends(get_db),
-    _: object = Depends(require_roles("admin", "editor")),
+    current_user: User = Depends(require_roles("admin", "editor")),
 ):
     note = await db.scalar(
         select(LessonNote).join(Schedule).where(
@@ -143,6 +167,8 @@ async def delete_note(
     )
     if note is None:
         raise HTTPException(status_code=404, detail="Примітку не знайдено")
+    schedule = await _active_schedule(db, note.schedule_id)
+    await _check_schedule_edit_access(db, current_user, schedule)
     await db.delete(note)
     await db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
