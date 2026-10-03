@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 import { getMondayOf } from "../lib/date";
 import { WelcomeScreen } from "../components/WelcomeScreen";
 import { SearchableSelect } from "../components/SearchableSelect";
+import { InsightBar } from "../components/InsightBar";
 
 export default function HomePage() {
   const getInitialAnchor = () => {
@@ -242,6 +243,10 @@ export default function HomePage() {
         ) : today ? (
           <div>
             <div className={view === "today" ? "block" : "hidden"}>
+              <InsightBar
+                entityType={mode === "student" ? "group" : "teacher"}
+                todayLessonsCount={today.lessons.length}
+              />
               <div className="mb-4 mt-2 flex justify-end">
                  <WeekTypeBadge weekType={today.week_type} />
               </div>
