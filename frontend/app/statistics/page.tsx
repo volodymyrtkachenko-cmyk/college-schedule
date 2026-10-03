@@ -5,42 +5,11 @@ import { useEffect, useMemo, useState } from "react";
 import { SearchableSelect } from "../../components/SearchableSelect";
 import { api, ReferenceRecord, StatisticsResponse } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
-import { getWarmGreeting, getWeekendCharge, getWeekendMessage, getWorkloadMessage } from "../../lib/format";
+import { getProgressMessage, getProgressPercentage } from "../../lib/format";
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "long", year: "numeric" })
     .format(new Date(`${value}T00:00:00`));
-}
-
-function WarmStatisticsBanner({ lessonCount }: { lessonCount: number }) {
-  const [now, setNow] = useState(() => new Date());
-
-  useEffect(() => {
-    const timer = window.setInterval(() => setNow(new Date()), 60_000);
-    return () => window.clearInterval(timer);
-  }, []);
-
-  const charge = getWeekendCharge(now);
-  return (
-    <section className="grid gap-3 lg:grid-cols-[1fr_auto]">
-      <div className="rounded-3xl border border-orange-300/15 bg-gradient-to-br from-orange-300/[0.12] via-sys-card to-teal-300/[0.08] p-5 shadow-md shadow-black/10">
-        <p className="text-sm font-medium text-orange-100/80">{getWarmGreeting(now)}</p>
-        <p className="mt-2 text-sm leading-6 text-sys-text-secondary">{getWorkloadMessage(lessonCount)}</p>
-      </div>
-      <div className="rounded-3xl border border-sys-border bg-sys-card p-5 shadow-sm lg:min-w-64">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-sys-text-muted">Маяк відпочинку</p>
-            <p className="mt-1 text-sm text-sys-text-secondary">{getWeekendMessage(now)}</p>
-          </div>
-          <span className="text-2xl" aria-hidden="true">🔋</span>
-        </div>
-        <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-sys-bg" role="progressbar" aria-label={`Заряд наближення вихідних: ${charge}%`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={charge}>
-          <div className="h-full rounded-full bg-gradient-to-r from-teal-400 to-orange-300 transition-[width] duration-700" style={{ width: `${charge}%` }} />
-        </div>
-      </div>
-    </section>
-  );
 }
 
 export default function StatisticsPage() {
@@ -151,6 +120,25 @@ export default function StatisticsPage() {
     ? groups.find((item) => item.id === groupId)?.name
     : teachers.find((item) => item.id === teacherId)?.name;
 
+  const insight = (() => {
+    const now = new Date();
+    const day = now.getDay();
+    if (day === 5 && now.getHours() >= 15 || day === 0 || day === 6) {
+      return { icon: "☕", text: "Навчальний тиждень завершено. Дякуємо за працю, гарних вихідних" };
+    }
+    if (todayLessonCount !== null && todayLessonCount >= 4) {
+      return { icon: "💧", text: `Сьогодні насичений графік (${todayLessonCount} пари). Не забувайте про короткі перерви` };
+    }
+    if (todayLessonCount !== null && todayLessonCount >= 1 && todayLessonCount <= 2) {
+      return { icon: "📚", text: "Сьогодні спокійний графік. Гарна нагода приділити час плануванню або відпочинку" };
+    }
+    const totalHours = stats?.planned_hours ?? 0;
+    return {
+      icon: "✦",
+      text: stats ? getProgressMessage(stats.total_hours, totalHours) : "Статистика допоможе побачити ваш прогрес",
+    };
+  })();
+
   const changeMode = (value: "student" | "teacher") => {
     setMode(value);
     window.localStorage.setItem("schedule:mode", value);
@@ -241,7 +229,10 @@ export default function StatisticsPage() {
           </div>
         ) : stats ? (
           <>
-            {todayLessonCount !== null && <WarmStatisticsBanner lessonCount={todayLessonCount} />}
+            <div className="flex min-h-10 items-center gap-2 rounded-lg border border-slate-700/50 bg-slate-800/50 px-3 py-2 text-sm text-slate-300">
+              <span aria-hidden="true" className="text-base">{insight.icon}</span>
+              <span>{insight.text}</span>
+            </div>
             <section className="grid gap-3 sm:grid-cols-2">
               <div className="rounded-2xl border border-sys-border bg-sys-card p-5">
                 <p className="text-sm text-sys-text-secondary">
@@ -268,6 +259,11 @@ export default function StatisticsPage() {
                 </div>
               )}
             </section>
+            <p className="px-1 text-xs text-sys-text-muted">
+              {mode === "student" && stats.planned_hours
+                ? getProgressMessage(stats.total_hours, stats.planned_hours)
+                : "Показники допомагають побачити обсяг роботи за поточним розкладом."}
+            </p>
 
             <section className="rounded-2xl border border-sys-border bg-sys-card p-5 sm:p-6">
               <div className="mb-5">
@@ -289,7 +285,10 @@ export default function StatisticsPage() {
               ) : (
                 <div className="space-y-5">
                   {stats.entries.map((entry) => {
-                    const progress = entry.progress_percent ?? 0;
+                    const progress = entry.planned_hours
+                      ? getProgressPercentage(entry.completed_hours, entry.planned_hours)
+                      : 0;
+                    const progressStep = Math.min(100, Math.floor(progress / 5) * 5);
                     const barWidth = mode === "student"
                       ? Math.min(100, Math.max(0, progress))
                       : maxGroupHours > 0 ? entry.completed_hours * 100 / maxGroupHours : 0;
@@ -315,14 +314,22 @@ export default function StatisticsPage() {
                           className="h-2.5 overflow-hidden rounded-full bg-sys-bg"
                         >
                           <div
-                            className={`h-full rounded-full transition-[width] duration-500 ${mode === "student" ? "bg-sys-accent" : "bg-emerald-400"}`}
+                            className={`h-full rounded-full transition-[width] duration-500 ${
+                              mode === "student"
+                                ? progressStep === 100
+                                  ? "bg-emerald-500/80"
+                                  : [25, 50, 75].includes(progressStep)
+                                    ? "bg-indigo-500 animate-pulse"
+                                    : "bg-blue-500"
+                                : "bg-emerald-400"
+                            }`}
                             style={{ width: `${barWidth}%` }}
                           />
                         </div>
                         {mode === "student" && (
                           <p className="mt-1 text-right text-xs text-sys-text-muted">
                             {entry.planned_hours
-                              ? `${Math.round(progress)}%${progress > 100 ? " — план перевищено" : ""}`
+                              ? `${getProgressMessage(entry.completed_hours, entry.planned_hours)}${progress > 100 ? " — план перевищено" : ""}`
                               : "Загальне навантаження не задано"}
                           </p>
                         )}
