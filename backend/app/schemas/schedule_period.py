@@ -12,7 +12,7 @@ class SchedulePeriodSlotInput(BaseModel):
     teacher_id: int = Field(gt=0)
     second_teacher_id: int | None = Field(default=None, gt=0)
     day_of_week: int = Field(ge=1, le=5)
-    lesson_number: int = Field(ge=1, le=4)
+    lesson_number: int = Field(ge=1, le=5)
     room_override: str | None = Field(default=None, max_length=100)
 
 
