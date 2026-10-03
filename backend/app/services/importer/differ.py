@@ -41,7 +41,7 @@ class ScheduleDiffer:
             if getattr(lesson, "is_cancelled", False):
                 if group_id:
                     cancelled.append({
-                        "date": lesson.date,
+                        "date": lesson.date.isoformat(),
                         "lesson_number": lesson.lesson_number,
                         "group_id": group_id
                     })
@@ -50,7 +50,7 @@ class ScheduleDiffer:
             if lesson.is_substitution:
                 if subject_id and group_id:
                     substitutions.append({
-                        "date": lesson.date,
+                        "date": lesson.date.isoformat(),
                         "lesson_number": lesson.lesson_number,
                         "subject_id": subject_id,
                         "teacher_id": teacher_id,
@@ -59,7 +59,7 @@ class ScheduleDiffer:
                     })
                 else:
                     unresolved_substitutions.append({
-                        "date": lesson.date,
+                        "date": lesson.date.isoformat(),
                         "lesson_number": lesson.lesson_number,
                         "group": lesson.group_name,
                         "subject": lesson.subject_name,
