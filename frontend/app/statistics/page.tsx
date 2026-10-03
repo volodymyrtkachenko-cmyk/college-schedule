@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { SearchableSelect } from "../../components/SearchableSelect";
 import { api, ReferenceRecord, StatisticsResponse } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
-import { getInsightMessage, getProgressMessage, getProgressPercentage } from "../../lib/format";
+import { getProgressMessage, getProgressPercentage, getScheduleInsightMessage } from "../../lib/format";
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "long", year: "numeric" })
@@ -111,22 +111,24 @@ export default function StatisticsPage() {
     };
   }, [mode, groupId, teacherId, referencesLoading]);
 
+  const displayedEntries = useMemo(
+    () => mode === "teacher"
+      ? [...(stats?.entries ?? [])].sort((a, b) => b.completed_hours - a.completed_hours)
+      : stats?.entries ?? [],
+    [mode, stats],
+  );
   const maxGroupHours = useMemo(
-    () => Math.max(0, ...(stats?.entries.map((entry) => entry.completed_hours) ?? [])),
-    [stats],
+    () => Math.max(0, ...displayedEntries.map((entry) => entry.completed_hours)),
+    [displayedEntries],
   );
 
   const selectedName = mode === "student"
     ? groups.find((item) => item.id === groupId)?.name
     : teachers.find((item) => item.id === teacherId)?.name;
 
-  const generalProgressMessage = stats
-    ? getProgressMessage(stats.total_hours, stats.planned_hours ?? 0)
-    : "Статистика допоможе побачити ваш прогрес";
-  const insight = getInsightMessage(
+  const messageData = getScheduleInsightMessage(
     mode === "student" ? "group" : "teacher",
     todayLessonCount ?? -1,
-    generalProgressMessage,
   );
 
   const changeMode = (value: "student" | "teacher") => {
@@ -220,8 +222,8 @@ export default function StatisticsPage() {
         ) : stats ? (
           <>
             <div className="flex min-h-10 items-center gap-2 rounded-lg border border-slate-700/50 bg-slate-800/50 px-3 py-2 text-sm text-slate-300">
-              <span aria-hidden="true" className="text-base">✦</span>
-              <span>{insight}</span>
+              <span aria-hidden="true" className="text-base">{messageData.icon}</span>
+              <span>{messageData.text}</span>
             </div>
             <section className="grid gap-3 sm:grid-cols-2">
               <div className="rounded-2xl border border-sys-border bg-sys-card p-5">
@@ -266,7 +268,7 @@ export default function StatisticsPage() {
                     : "Смуги показують відносний обсяг годин між групами."}
                 </p>
               </div>
-              {stats.entries.length === 0 ? (
+              {displayedEntries.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-orange-300/15 bg-orange-300/[0.04] p-8 text-center shadow-sm">
                   <div className="text-3xl" aria-hidden="true">🛋️</div>
                   <p className="mt-2 text-sm text-sys-text-secondary">Ого, сьогодні жодної пари!</p>
@@ -274,52 +276,64 @@ export default function StatisticsPage() {
                 </div>
               ) : (
                 <div className="space-y-5">
-                  {stats.entries.map((entry) => {
-                    const progress = entry.planned_hours
-                      ? getProgressPercentage(entry.completed_hours, entry.planned_hours)
+                  {displayedEntries.map((entry) => {
+                    const totalHours = entry.planned_hours ?? 0;
+                    const hasPlannedHours = totalHours > 0;
+                    const progress = hasPlannedHours
+                      ? getProgressPercentage(entry.completed_hours, totalHours)
                       : 0;
-                    const progressStep = Math.min(100, Math.floor(progress / 5) * 5);
                     const barWidth = mode === "student"
                       ? Math.min(100, Math.max(0, progress))
                       : maxGroupHours > 0 ? entry.completed_hours * 100 / maxGroupHours : 0;
                     const barMaximum = mode === "student"
-                      ? entry.planned_hours || 1
+                      ? totalHours || 1
                       : maxGroupHours || 1;
                     return (
                       <div key={entry.id}>
                         <div className="mb-2 flex items-baseline justify-between gap-3">
                           <h3 className="min-w-0 truncate text-sm font-medium">{entry.name}</h3>
                           <p className="shrink-0 text-sm font-semibold text-sys-text-primary">
-                            {entry.completed_hours}
-                            {mode === "student" ? ` / ${entry.planned_hours ?? 0}` : ""}
-                            <span className="ml-1 text-xs font-normal text-sys-text-muted">год.</span>
+                            {mode === "student" && !hasPlannedHours
+                              ? `${entry.completed_hours} год.`
+                              : (
+                                <>
+                                  {entry.completed_hours}
+                                  {mode === "student" ? ` / ${totalHours}` : ""}
+                                  <span className="ml-1 text-xs font-normal text-sys-text-muted">год.</span>
+                                </>
+                              )}
+                            {mode === "student" && !hasPlannedHours && (
+                              <span className="ml-1 text-xs font-normal text-sys-text-muted">(Поза планом)</span>
+                            )}
                           </p>
                         </div>
-                        <div
-                          role={mode === "student" && !entry.planned_hours ? undefined : "progressbar"}
-                          aria-label={`${entry.name}: ${entry.completed_hours}${mode === "student" ? ` з ${entry.planned_hours ?? 0}` : ""} академічних годин`}
-                          aria-valuemin={0}
-                          aria-valuemax={barMaximum}
-                          aria-valuenow={Math.min(entry.completed_hours, barMaximum)}
-                          className="h-2.5 overflow-hidden rounded-full bg-sys-bg"
-                        >
+                        {(mode !== "student" || hasPlannedHours) && (
                           <div
-                            className={`h-full rounded-full transition-[width] duration-500 ${
-                              mode === "student"
-                                ? progressStep === 100
-                                  ? "bg-emerald-500/80"
-                                  : [25, 50, 75].includes(progressStep)
-                                    ? "bg-indigo-500 animate-pulse"
-                                    : "bg-blue-500"
-                                : "bg-emerald-400"
-                            }`}
-                            style={{ width: `${barWidth}%` }}
-                          />
-                        </div>
+                            role="progressbar"
+                            aria-label={`${entry.name}: ${entry.completed_hours}${mode === "student" ? ` з ${totalHours}` : ""} академічних годин`}
+                            aria-valuemin={0}
+                            aria-valuemax={barMaximum}
+                            aria-valuenow={Math.min(entry.completed_hours, barMaximum)}
+                            className="h-2.5 overflow-hidden rounded-full bg-sys-bg"
+                          >
+                            <div
+                              className={`h-full rounded-full transition-[width] duration-500 ${
+                                mode === "student"
+                                  ? progress >= 100
+                                    ? "bg-emerald-500"
+                                    : progress >= 50
+                                      ? "bg-purple-500"
+                                      : "bg-blue-500"
+                                  : "bg-emerald-400"
+                              }`}
+                              style={{ width: `${barWidth}%` }}
+                            />
+                          </div>
+                        )}
                         {mode === "student" && (
-                          <p className="mt-1 text-right text-xs text-sys-text-muted">
-                            {entry.planned_hours
-                              ? `${getProgressMessage(entry.completed_hours, entry.planned_hours)}${progress > 100 ? " — план перевищено" : ""}`
+                          <p className="mt-1.5 text-right text-xs text-slate-400">
+                            {hasPlannedHours
+                              ? `${getProgressMessage(entry.completed_hours, totalHours)}${progress > 100 ? " — план перевищено" : ""}`
                               : "Загальне навантаження не задано"}
                           </p>
                         )}
