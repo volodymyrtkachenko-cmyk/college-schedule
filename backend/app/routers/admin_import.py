@@ -200,9 +200,17 @@ async def trigger_import(
         payload_hash = hash_payload(payload)
         
         # Check if identical draft exists
-        stmt = select(ScheduleDraft).where(ScheduleDraft.status == "pending").order_by(ScheduleDraft.id.desc()).limit(1)
+        stmt = (
+            select(ScheduleDraft)
+            .where(
+                ScheduleDraft.status == "pending",
+                ScheduleDraft.draft_type == "import",
+            )
+            .order_by(ScheduleDraft.id.desc())
+            .limit(1)
+        )
         last_draft = await db.scalar(stmt)
-        if is_cron and last_draft and hash_payload(last_draft.data or {}) == payload_hash:
+        if last_draft and hash_payload(last_draft.data or {}) == payload_hash:
             logger.info("Import payload identical to last pending draft. Skipping creation.")
             draft_id = last_draft.id
         else:

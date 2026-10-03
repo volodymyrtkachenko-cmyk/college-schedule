@@ -17,6 +17,13 @@ def upgrade() -> None:
         "schedule_drafts",
         sa.Column("draft_type", sa.String(length=20), nullable=False, server_default="generated"),
     )
+    op.execute(
+        sa.text(
+            "UPDATE schedule_drafts "
+            "SET draft_type = 'import' "
+            "WHERE name LIKE 'Імпорт %'"
+        )
+    )
     op.add_column(
         "imported_schedule_changes",
         sa.Column("version", sa.Integer(), nullable=False, server_default="1"),

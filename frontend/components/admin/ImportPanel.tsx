@@ -44,7 +44,9 @@ export function ImportPanel() {
       try {
         const session = await api.auth.ensureAuthenticated();
         const drafts = await api.generator.listDrafts(session.access_token);
-        const pending = drafts.find((draft) => draft.status === "pending");
+        const pending = drafts.find(
+          (draft) => draft.draft_type === "import" && draft.status === "pending",
+        );
         if (!pending) return;
         setDraftId(pending.id);
         if (!pending.data) {

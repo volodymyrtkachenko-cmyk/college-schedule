@@ -51,7 +51,9 @@ export function GeneratorPanel() {
       const session = await api.auth.ensureAuthenticated();
       const res = await api.generator.listDrafts(session.access_token);
       // Import reviews have their own workflow and must not appear as generated schedule drafts.
-      setDrafts(res.filter((draft) => draft.draft_type !== "import"));
+      setDrafts(res.filter(
+        (draft) => draft.draft_type !== "import" && !draft.name.startsWith("Імпорт "),
+      ));
     } catch(err: any) {
       setError(err.message);
     } finally {

@@ -263,6 +263,16 @@ async def publish_draft(
 
     # Mark old published as archived
     await db.execute(update(ScheduleDraft).where(ScheduleDraft.status == "published").values(status="archived"))
+    if draft.draft_type == "import":
+        await db.execute(
+            update(ScheduleDraft)
+            .where(
+                ScheduleDraft.draft_type == "import",
+                ScheduleDraft.status == "pending",
+                ScheduleDraft.id != draft.id,
+            )
+            .values(status="archived")
+        )
 
     # Replace only the groups represented by this draft.  Publishing a partial
     # draft must never erase unrelated groups or their date overrides.
