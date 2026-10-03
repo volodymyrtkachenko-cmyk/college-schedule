@@ -137,14 +137,39 @@ async def trigger_import(
         # Копіюємо ВСІ пари з поточного опублікованого розкладу, яких нема в імпорті.
         # Це потрібно щоб пари на зразок "Виховна година" (яких нема на сайті коледжу)
         # не зникали після публікації чернетки імпорту.
-        imported_keys = {
-            (s["group_id"], s["day_of_week"], s["lesson_number"])
-            for s in aggregated_base_slots
-        }
+        def covers(imported_week: str, existing_week: str) -> bool:
+            return imported_week == "both" or imported_week == existing_week
+
         all_published = (await db.scalars(select(Schedule).where(Schedule.is_active.is_(True)))).all()
         for sch in all_published:
-            key = (sch.group_id, sch.day_of_week, sch.lesson_number)
-            if key not in imported_keys:
+            matching_import = [
+                slot
+                for slot in aggregated_base_slots
+                if (
+                    slot["group_id"] == sch.group_id
+                    and slot["day_of_week"] == sch.day_of_week
+                    and slot["lesson_number"] == sch.lesson_number
+                    and covers(slot["week_type"], sch.week_type)
+                )
+            ]
+            if not matching_import:
+                preserved_week = sch.week_type
+                if sch.week_type == "both":
+                    imported_same_cell = [
+                        slot
+                        for slot in aggregated_base_slots
+                        if (
+                            slot["group_id"] == sch.group_id
+                            and slot["day_of_week"] == sch.day_of_week
+                            and slot["lesson_number"] == sch.lesson_number
+                        )
+                    ]
+                    if imported_same_cell and imported_same_cell[0]["week_type"] in {"numerator", "denominator"}:
+                        preserved_week = (
+                            "denominator"
+                            if imported_same_cell[0]["week_type"] == "numerator"
+                            else "numerator"
+                        )
                 aggregated_base_slots.append({
                     "day_of_week": sch.day_of_week,
                     "lesson_number": sch.lesson_number,
@@ -153,9 +178,8 @@ async def trigger_import(
                     "teacher_id": sch.teacher_id,
                     "second_teacher_id": sch.second_teacher_id,
                     "room": sch.room_override,
-                    "week_type": sch.week_type,
+                    "week_type": preserved_week,
                 })
-                imported_keys.add(key)
         
         # На сайті на місці заміни оригінальної пари немає. Відновлюємо її з поточного
         # опублікованого розкладу, щоб у базовому розкладі не лишалось «дірок».
@@ -194,6 +218,7 @@ async def trigger_import(
 
         # Prepare payload for Draft Data
         payload = {
+            "base_slots": aggregated_base_slots,
             "substitutions": aggregated_substitutions,
             "cancelled": aggregated_cancelled,
         }
