@@ -52,7 +52,7 @@ class ScheduleDiffer:
                     "room": lesson.room,
                     "group_id": group_id
                 })
-            elif subject_id and group_id:
+            if subject_id and group_id:
                 # Add to base draft
                 base_schedule_slots.append({
                     "day_of_week": lesson.date.isoweekday(),
