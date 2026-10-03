@@ -1,3 +1,5 @@
+from fastapi import Request
+from app.config import settings
 import asyncio
 import httpx
 import hashlib
@@ -26,9 +28,6 @@ def hash_payload(payload: dict) -> str:
     return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
 @router.post("/import")
-from fastapi import Request
-from app.config import settings
-
 async def trigger_import(
     request: Request,
     weeks: int = Query(2, description="Number of weeks to fetch"),
