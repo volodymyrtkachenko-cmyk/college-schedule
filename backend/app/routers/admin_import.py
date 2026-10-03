@@ -39,7 +39,8 @@ async def trigger_import(
         cron_secret = cron_secret.split(" ")[1]
     
     # We should allow if cron_secret matches WIPE_SECRET or some other secret
-    is_cron = cron_secret == getattr(settings, "WIPE_SECRET", None)
+    import_secret = getattr(settings, "IMPORT_CRON_SECRET", None)
+    is_cron = bool(import_secret) and cron_secret == import_secret
     if not is_cron:
         if not cron_secret:
             raise HTTPException(status_code=401, detail="No authorization token")
@@ -65,6 +66,7 @@ async def trigger_import(
         aggregated_substitutions = []
         aggregated_cancelled = []
         aggregated_base_slots = []
+        aggregated_skipped = []
         errors = []
         
         semaphore = asyncio.Semaphore(5)
@@ -118,6 +120,7 @@ async def trigger_import(
                     aggregated_unresolved_subs.extend(diff_report["unresolved_substitutions"])
                     aggregated_cancelled.extend(diff_report["cancelled"])
                     aggregated_base_slots.extend(diff_report["base_slots"])
+                    aggregated_skipped.extend(diff_report["skipped_base_slots"])
                 
         # Deduplicate base slots
         unique_slots = {}
@@ -167,7 +170,7 @@ async def trigger_import(
                     curr = Curriculum(
                         group_id=slot["group_id"],
                         subject_id=slot["subject_id"],
-                        teacher_id=slot["teacher_id"] or 1,
+                        teacher_id=slot["teacher_id"],
                         second_teacher_id=slot.get("second_teacher_id"),
                         pairs_per_2_weeks=2,
                         total_hours=0
@@ -203,6 +206,7 @@ async def trigger_import(
                 "unresolved_substitutions": aggregated_unresolved_subs,
                 "substitutions": aggregated_substitutions,
                 "base_slots": aggregated_base_slots,
+                "skipped_base_slots": aggregated_skipped,
             },
             "meta": {
                 "draft_created": draft_id,

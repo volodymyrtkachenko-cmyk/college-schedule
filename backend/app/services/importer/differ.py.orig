@@ -23,8 +23,7 @@ class ScheduleDiffer:
         unresolved_substitutions = []
         cancelled = []
         base_schedule_slots = []
-        skipped_base_slots = []
-
+        
         for lesson in parsed_week.lessons:
             group_id = self.normalizer.normalize_group(lesson.group_name) if lesson.group_name else None
             subject_id = self.normalizer.normalize_subject(lesson.subject_name) if lesson.subject_name else None
@@ -44,8 +43,6 @@ class ScheduleDiffer:
                     if not second_teacher_id:
                         self.unresolved_entities.append({"type": "teacher", "raw": t_names[1]})
 
-            teacher_unresolved = (not lesson.teacher_name) or (teacher_id is None)
-
             if getattr(lesson, "is_cancelled", False):
                 if group_id:
                     cancelled.append({
@@ -56,7 +53,7 @@ class ScheduleDiffer:
                 continue
 
             if lesson.is_substitution:
-                if subject_id and group_id and not teacher_unresolved:
+                if subject_id and group_id:
                     substitutions.append({
                         "date": lesson.date.isoformat(),
                         "lesson_number": lesson.lesson_number,
@@ -75,7 +72,7 @@ class ScheduleDiffer:
                         "teacher": lesson.teacher_name
                     })
             else:
-                if subject_id and group_id and not teacher_unresolved:
+                if subject_id and group_id:
                     base_schedule_slots.append({
                         "day_of_week": lesson.date.isoweekday(),
                         "lesson_number": lesson.lesson_number,
@@ -86,20 +83,11 @@ class ScheduleDiffer:
                         "room": lesson.room,
                         "week_type": parsed_week.week_type
                     })
-                elif subject_id and group_id and teacher_unresolved:
-                    skipped_base_slots.append({
-                        "date": lesson.date.isoformat(),
-                        "lesson_number": lesson.lesson_number,
-                        "group": lesson.group_name,
-                        "subject": lesson.subject_name,
-                        "teacher": lesson.teacher_name,
-                    })
-
+                
         return {
             "unresolved": list({v['raw']: v for v in self.unresolved_entities}.values()),
             "unresolved_substitutions": unresolved_substitutions,
             "substitutions": substitutions,
             "cancelled": cancelled,
-            "base_slots": base_schedule_slots,
-            "skipped_base_slots": skipped_base_slots,
+            "base_slots": base_schedule_slots
         }

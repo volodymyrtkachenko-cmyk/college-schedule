@@ -208,7 +208,7 @@ async def publish_draft(
             if slot:
                 if slot.source == "import":
                     slot.subject_id = sub["subject_id"]
-                    slot.teacher_id = sub["teacher_id"] or 1
+                    slot.teacher_id = sub["teacher_id"]
                     slot.second_teacher_id = sub.get("second_teacher_id")
                     slot.room_override = sub["room"]
             else:
@@ -216,7 +216,7 @@ async def publish_draft(
                     period_id=period.id,
                     group_id=sub["group_id"],
                     subject_id=sub["subject_id"],
-                    teacher_id=sub["teacher_id"] or 1,
+                    teacher_id=sub["teacher_id"],
                     second_teacher_id=sub.get("second_teacher_id"),
                     day_of_week=d_obj.isoweekday(),
                     lesson_number=sub["lesson_number"],
