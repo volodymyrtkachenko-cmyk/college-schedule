@@ -250,6 +250,7 @@ class ScheduleSlot(Base):
     lesson_number: Mapped[int] = mapped_column(Integer)
     week_type: Mapped[str] = mapped_column(String(20), default="both")
     room_override: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    is_substitution: Mapped[bool] = mapped_column(default=False)
     
     draft: Mapped["ScheduleDraft"] = relationship(back_populates="slots")
     curriculum: Mapped["Curriculum"] = relationship(back_populates="slots")

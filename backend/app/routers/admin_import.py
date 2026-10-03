@@ -84,6 +84,8 @@ async def trigger_import(
                     existing = unique_slots[k]
                     if existing["week_type"] != s["week_type"]:
                         existing["week_type"] = "both"
+                    if s.get("is_substitution"):
+                        existing["is_substitution"] = True
                 else:
                     unique_slots[k] = s
             aggregated_base_slots = list(unique_slots.values())
@@ -122,7 +124,8 @@ async def trigger_import(
                     day_of_week=slot["day_of_week"],
                     lesson_number=slot["lesson_number"],
                     room_override=slot["room"],
-                    week_type=slot.get("week_type", "both")
+                    week_type=slot.get("week_type", "both"),
+                    is_substitution=slot.get("is_substitution", False)
                 )
                 db.add(db_slot)
                 
