@@ -1,5 +1,5 @@
 import sqlalchemy as sa
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timezone
 from typing import Optional
 from sqlalchemy import Table, Column, Boolean, CheckConstraint, Date, DateTime, ForeignKey, Integer, String, Text, Time, UniqueConstraint, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
