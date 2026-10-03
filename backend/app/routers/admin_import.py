@@ -205,7 +205,7 @@ async def trigger_import(
                     curr = Curriculum(
                         group_id=slot["group_id"],
                         subject_id=slot["subject_id"],
-                        teacher_id=slot["teacher_id"],
+                        teacher_id=slot["teacher_id"] or 1,
                         second_teacher_id=slot.get("second_teacher_id"),
                         pairs_per_2_weeks=2,
                         total_hours=0

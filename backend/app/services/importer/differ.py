@@ -44,7 +44,7 @@ class ScheduleDiffer:
                     if not second_teacher_id:
                         self.unresolved_entities.append({"type": "teacher", "raw": t_names[1]})
 
-            teacher_unresolved = (not lesson.teacher_name) or (teacher_id is None)
+            teacher_unresolved = bool(lesson.teacher_name) and (teacher_id is None)
 
             if getattr(lesson, "is_cancelled", False):
                 if group_id:
