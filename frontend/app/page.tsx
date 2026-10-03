@@ -102,6 +102,7 @@ export default function HomePage() {
 
   const [view, setView] = useState<"today" | "week">("today");
   const weekType = view === "week" ? ((week?.[0]?.week_type) ?? "both") : (today?.week_type ?? "both");
+  const isWeekend = [0, 6].includes(new Date().getDay());
 
   useEffect(() => {
     if (toast) {
@@ -247,10 +248,22 @@ export default function HomePage() {
                 entityType={mode === "student" ? "group" : "teacher"}
                 todayLessonsCount={today.lessons.length}
               />
-              <div className="mb-4 mt-2 flex justify-end">
-                 <WeekTypeBadge weekType={today.week_type} />
-              </div>
-              <ScheduleDay schedule={today} isToday scheduleMode={mode} canEdit={false} />
+              {isWeekend ? (
+                <div className="rounded-2xl border border-slate-700/50 bg-slate-800/40 px-6 py-14 text-center shadow-sm">
+                  <div className="text-5xl" aria-hidden="true">🛋️</div>
+                  <h2 className="mt-4 text-lg font-semibold text-sys-text-primary">Сьогодні офіційні вихідні</h2>
+                  <p className="mx-auto mt-2 max-w-md text-sm text-sys-text-secondary">
+                    Відпочиньте та наберіться сил. Розклад на понеділок можна переглянути у вкладці «Тиждень».
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="mb-4 mt-2 flex justify-end">
+                    <WeekTypeBadge weekType={today.week_type} />
+                  </div>
+                  <ScheduleDay schedule={today} isToday scheduleMode={mode} canEdit={false} />
+                </>
+              )}
             </div>
             
             <div className={view === "week" ? "block w-full min-w-0" : "hidden"}>
