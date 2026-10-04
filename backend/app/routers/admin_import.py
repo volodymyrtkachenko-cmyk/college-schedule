@@ -20,9 +20,20 @@ from app.services.importer.normalizer import EntityNormalizer
 from app.services.importer.differ import ScheduleDiffer
 from app.models import ScheduleDraft, ScheduleSlot, Curriculum, Schedule, ImportedScheduleChange
 import traceback
+from collections.abc import AsyncIterator
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin", tags=["admin"])
+IMPORT_PAGE_RETRIES = 3
+IMPORT_LOCK = asyncio.Lock()
+
+
+async def import_lock_dependency() -> AsyncIterator[None]:
+    await IMPORT_LOCK.acquire()
+    try:
+        yield
+    finally:
+        IMPORT_LOCK.release()
 
 def hash_payload(payload: dict) -> str:
     serialized = json.dumps(payload, sort_keys=True, default=str)
@@ -265,6 +276,7 @@ async def trigger_import(
     request: Request,
     weeks: int = Query(2, description="Number of weeks to fetch"),
     db: AsyncSession = Depends(get_db),
+    _import_lock: None = Depends(import_lock_dependency),
 ):
     # Check auth
     cron_secret = request.headers.get("Authorization")
@@ -323,7 +335,18 @@ async def trigger_import(
                             logger.warning("Stopping repeated import page URL for group %s: %s", g_id, url)
                             break
                         visited_urls.add(url)
-                        html = await fetcher.fetch_html(client, url)
+                        last_error: Exception | None = None
+                        html = None
+                        for attempt in range(IMPORT_PAGE_RETRIES):
+                            try:
+                                html = await fetcher.fetch_html(client, url)
+                                break
+                            except (httpx.HTTPError, asyncio.TimeoutError) as exc:
+                                last_error = exc
+                                if attempt + 1 < IMPORT_PAGE_RETRIES:
+                                    await asyncio.sleep(0.5 * (attempt + 1))
+                        if html is None:
+                            raise last_error or RuntimeError("Unable to fetch import page")
                         page_hash = hashlib.sha256(html.encode("utf-8")).hexdigest()
                         if page_hash in visited_hashes:
                             logger.warning("Skipping repeated import page hash for group %s: %s", g_id, url)
@@ -392,6 +415,21 @@ async def trigger_import(
                     imported_group_ids.update(
                         item["group_id"] for item in diff_report["cancelled"]
                     )
+
+        if errors:
+            failed_groups = sorted({
+                error["group"]
+                for error in errors
+                if error.get("group") is not None
+            })
+            raise HTTPException(
+                status_code=502,
+                detail={
+                    "message": "Імпорт перервано: не всі групи вдалося завантажити.",
+                    "failed_groups": failed_groups,
+                    "errors": errors,
+                },
+            )
                 
         raw_base_slots = len(aggregated_base_slots)
         raw_substitutions = len(aggregated_substitutions)
