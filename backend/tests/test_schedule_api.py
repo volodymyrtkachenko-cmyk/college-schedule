@@ -415,6 +415,16 @@ async def test_import_matches_current_published_schedule(api_client):
     async with data["sessions"]() as session:
         schedule = await session.get(Schedule, data["lesson_id"])
         schedule.room_override = "Room 101"
+        session.add(Schedule(
+            group_id=data["group_id"],
+            subject_id=data["different_subject_id"],
+            teacher_id=data["teacher_id"],
+            day_of_week=2,
+            lesson_number=2,
+            week_type="both",
+            room_override="Manual room",
+            is_active=True,
+        ))
         await session.commit()
         payload = {
             "base_slots": [{

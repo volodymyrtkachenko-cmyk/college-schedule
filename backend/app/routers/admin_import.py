@@ -58,11 +58,8 @@ def _change_payload(change: ImportedScheduleChange) -> dict:
     }
 
 
-async def matches_published_schedule(db: AsyncSession, payload: dict, weeks: int) -> bool:
-    schedules = (await db.scalars(
-        select(Schedule).where(Schedule.is_active.is_(True))
-    )).all()
-    current_base = [{
+def _schedule_payload(item: Schedule) -> dict:
+    return {
         "day_of_week": item.day_of_week,
         "lesson_number": item.lesson_number,
         "group_id": item.group_id,
@@ -71,17 +68,24 @@ async def matches_published_schedule(db: AsyncSession, payload: dict, weeks: int
         "second_teacher_id": item.second_teacher_id,
         "room": item.room_override,
         "week_type": item.week_type,
-    } for item in schedules]
+    }
 
+
+async def matches_published_schedule(db: AsyncSession, payload: dict, weeks: int) -> bool:
+    schedules = (await db.scalars(
+        select(Schedule).where(Schedule.is_active.is_(True))
+    )).all()
     incoming_base = {
         json.dumps(item, sort_keys=True, default=str)
         for item in payload.get("base_slots", [])
     }
     published_base = {
-        json.dumps(item, sort_keys=True, default=str)
-        for item in current_base
+        json.dumps(_schedule_payload(item), sort_keys=True, default=str)
+        for item in schedules
     }
-    if incoming_base != published_base:
+    # The database may contain manually added lessons that are intentionally
+    # absent from the external import. Every imported lesson must still exist.
+    if not incoming_base.issubset(published_base):
         return False
 
     today = now_local().date()
