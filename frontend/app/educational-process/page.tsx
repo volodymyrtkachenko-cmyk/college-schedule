@@ -49,6 +49,14 @@ const TYPE_LABELS: Record<string, string> = {
     attestation: "А",
 };
 
+const TYPE_NAMES: Record<string, string> = {
+    theory: "Теоретичне навчання",
+    session: "Екзаменаційна сесія",
+    holiday: "Канікули",
+    diploma: "Дипломне проєктування",
+    attestation: "Атестація",
+};
+
 function getPracticeAbbr(name: string | null) {
     if (!name) return "П";
     const n = name.toLowerCase();
@@ -71,19 +79,69 @@ function getPracticeColor(name: string | null) {
     return "bg-orange-300 text-black";
 }
 
-function getCellStyles(cell: CellInfo) {
+function getCellStyles(cell: {period_type: string, name: string | null}) {
     if (cell.period_type === "practice") {
         return getPracticeColor(cell.name);
     }
     return TYPE_COLORS[cell.period_type] || "bg-gray-500 text-white";
 }
 
-function getCellLabel(cell: CellInfo) {
+function getCellLabel(cell: {period_type: string, name: string | null}) {
     if (cell.period_type === "practice") {
         return getPracticeAbbr(cell.name);
     }
     return TYPE_LABELS[cell.period_type] || "?";
 }
+
+function formatDate(dateStr: string) {
+    const d = new Date(dateStr);
+    return `${d.getDate().toString().padStart(2, '0')}.${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+}
+
+interface MergedPeriod {
+    start_date: string;
+    end_date: string;
+    period_type: string;
+    name: string | null;
+}
+
+function mergeCells(cells: CellInfo[], weeks: WeekInfo[]): MergedPeriod[] {
+    if (!cells.length || !weeks.length) return [];
+    
+    const sortedCells = [...cells].sort((a, b) => a.week_number - b.week_number);
+    const merged: MergedPeriod[] = [];
+    let currentPeriod: MergedPeriod | null = null;
+    
+    for (const cell of sortedCells) {
+        const week = weeks.find(w => w.week_number === cell.week_number);
+        if (!week) continue;
+        
+        if (!currentPeriod) {
+            currentPeriod = {
+                start_date: week.start_date,
+                end_date: week.end_date,
+                period_type: cell.period_type,
+                name: cell.name
+            };
+        } else if (currentPeriod.period_type === cell.period_type && currentPeriod.name === cell.name) {
+            currentPeriod.end_date = week.end_date;
+        } else {
+            merged.push(currentPeriod);
+            currentPeriod = {
+                start_date: week.start_date,
+                end_date: week.end_date,
+                period_type: cell.period_type,
+                name: cell.name
+            };
+        }
+    }
+    if (currentPeriod) {
+        merged.push(currentPeriod);
+    }
+    
+    return merged;
+}
+
 
 export default function EducationalProcessPage() {
     const router = useRouter();
@@ -167,7 +225,7 @@ export default function EducationalProcessPage() {
         if (!weeksToRender.length || !filteredCourses.length) return null;
         const months = getMonthsForWeeks(weeksToRender);
         return (
-            <div className="mb-10">
+            <div className="hidden md:block mb-10">
                 <h3 className="text-xl font-bold mb-4 text-slate-800 dark:text-slate-200">{title}</h3>
                 <div className="overflow-x-auto border border-slate-300 dark:border-slate-700 rounded-xl shadow-sm bg-white dark:bg-slate-900 custom-scrollbar">
                     <table className="w-full text-center border-collapse text-xs">
@@ -183,8 +241,10 @@ export default function EducationalProcessPage() {
                             </tr>
                             <tr>
                                 {weeksToRender.map((w, idx) => (
-                                    <th key={w.week_number} className="border-b border-l border-slate-300 dark:border-slate-700 p-1 min-w-[34px] font-medium text-[10px] sm:text-xs text-slate-500 dark:text-slate-400" title={`${w.start_date} - ${w.end_date}`}>
-                                        {w.week_number}
+                                    <th key={w.week_number} className="border-b border-l border-slate-300 dark:border-slate-700 p-0 font-medium text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/50" title={`${w.start_date} - ${w.end_date}`}>
+                                        <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }} className="py-2 mx-auto whitespace-nowrap min-h-[90px] flex items-center justify-center">
+                                            {formatDate(w.start_date)} - {formatDate(w.end_date)}
+                                        </div>
                                     </th>
                                 ))}
                             </tr>
@@ -221,6 +281,57 @@ export default function EducationalProcessPage() {
                         </tbody>
                     </table>
                 </div>
+            </div>
+        );
+    };
+
+    const renderMobileTimeline = () => {
+        if (!matrix || !filteredCourses.length) return null;
+        
+        return (
+            <div className="md:hidden flex flex-col gap-8 mb-8">
+                {filteredCourses.map(course => (
+                    <div key={course.course} className="flex flex-col gap-4">
+                        <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold">
+                                {course.course}
+                            </div>
+                            <h3 className="text-xl font-bold text-slate-800 dark:text-slate-200">Курс</h3>
+                        </div>
+                        
+                        <div className="flex flex-col gap-6">
+                            {course.groups.map(group => {
+                                const merged = mergeCells(group.cells, matrix.weeks);
+                                return (
+                                    <div key={group.group_id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+                                        <div className="bg-slate-100 dark:bg-slate-800 px-4 py-3 font-bold text-lg border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
+                                            <span>{group.group_name}</span>
+                                        </div>
+                                        <div className="flex flex-col">
+                                            {merged.map((m, idx) => (
+                                                <div key={idx} className="flex border-b last:border-b-0 border-slate-100 dark:border-slate-800">
+                                                    <div className="w-24 shrink-0 p-3 flex flex-col justify-center items-center text-xs font-semibold text-slate-500 dark:text-slate-400 border-r border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+                                                        <span>{formatDate(m.start_date)}</span>
+                                                        <span className="text-[10px] opacity-70 my-0.5">до</span>
+                                                        <span>{formatDate(m.end_date)}</span>
+                                                    </div>
+                                                    <div className="flex-1 p-3 flex items-center gap-3">
+                                                        <span className={`w-8 h-8 shrink-0 flex items-center justify-center font-bold rounded-lg shadow-sm text-sm ${getCellStyles(m)}`}>
+                                                            {getCellLabel(m)}
+                                                        </span>
+                                                        <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                                            {m.period_type === "practice" ? m.name : (TYPE_NAMES[m.period_type] || m.period_type)}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                ))}
             </div>
         );
     };
@@ -325,6 +436,7 @@ export default function EducationalProcessPage() {
                     </div>
                 ) : (
                     <>
+                        {renderMobileTimeline()}
                         {renderTable(sem1Weeks, "I Семестр")}
                         {renderTable(sem2Weeks, "II Семестр")}
                     </>
