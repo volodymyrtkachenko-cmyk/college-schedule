@@ -182,12 +182,13 @@ export default function HomePage() {
             
             <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
               {teachers.length > 0 && (
-                <div role="group" aria-label="Тип розкладу" className="flex rounded-lg border border-sys-border bg-sys-card p-1">
+                <div role="group" aria-label="Тип розкладу" className="flex rounded-lg border border-sys-border bg-sys-card p-1 relative w-full sm:w-auto">
+                  <div className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-sys-accent/10 rounded-md transition-all duration-300 ease-out z-0" style={{ left: mode === 'student' ? '4px' : 'calc(50% + 2px)' }}></div>
                   <button
                     type="button"
                     aria-pressed={mode === "student"}
                     onClick={() => toggleMode("student")}
-                    className={`rounded-md px-3 py-2 text-xs font-medium transition-colors ${mode === "student" ? "bg-sys-accent/10 text-sys-accent" : "text-sys-text-secondary hover:text-sys-text-primary"}`}
+                    className={`flex-1 relative z-10 rounded-md px-3 py-2 text-xs font-medium transition-colors ${mode === "student" ? "text-sys-accent" : "text-sys-text-secondary hover:text-sys-text-primary"}`}
                   >
                     Для групи
                   </button>
@@ -195,7 +196,7 @@ export default function HomePage() {
                     type="button"
                     aria-pressed={mode === "teacher"}
                     onClick={() => toggleMode("teacher")}
-                    className={`rounded-md px-3 py-2 text-xs font-medium transition-colors ${mode === "teacher" ? "bg-sys-accent/10 text-sys-accent" : "text-sys-text-secondary hover:text-sys-text-primary"}`}
+                    className={`flex-1 relative z-10 rounded-md px-3 py-2 text-xs font-medium transition-colors ${mode === "teacher" ? "text-sys-accent" : "text-sys-text-secondary hover:text-sys-text-primary"}`}
                   >
                     Для викладача
                   </button>

@@ -164,11 +164,14 @@ export default function StatisticsPage() {
       <div className="mx-auto max-w-5xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
         <section className="flex flex-col gap-4">
           <div className="flex justify-center mb-2">
-            <div role="group" className="inline-flex rounded-full bg-slate-800/80 p-1 shadow-inner border border-slate-700/50">
+            <div role="group" className="inline-flex relative rounded-full bg-slate-800/80 p-1 shadow-inner border border-slate-700/50">
+              {teachers.length > 0 && (
+                <div className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-sys-accent rounded-full transition-all duration-300 ease-out z-0 shadow-sm" style={{ left: mode === 'student' ? '4px' : 'calc(50% + 2px)' }}></div>
+              )}
               <button
                 type="button"
                 onClick={() => changeMode("student")}
-                className={`rounded-full px-6 py-2 text-sm font-semibold transition-all ${mode === "student" ? "bg-sys-accent text-slate-900 shadow-sm" : "text-slate-400 hover:text-slate-200"}`}
+                className={`relative z-10 flex-1 w-32 rounded-full px-6 py-2 text-sm font-semibold transition-all ${mode === "student" ? "text-slate-900" : "text-slate-400 hover:text-slate-200"}`}
               >
                 Групам
               </button>
@@ -176,7 +179,7 @@ export default function StatisticsPage() {
                 <button
                   type="button"
                   onClick={() => changeMode("teacher")}
-                  className={`rounded-full px-6 py-2 text-sm font-semibold transition-all ${mode === "teacher" ? "bg-sys-accent text-slate-900 shadow-sm" : "text-slate-400 hover:text-slate-200"}`}
+                  className={`relative z-10 flex-1 w-32 rounded-full px-6 py-2 text-sm font-semibold transition-all ${mode === "teacher" ? "text-slate-900" : "text-slate-400 hover:text-slate-200"}`}
                 >
                   Викладачам
                 </button>
