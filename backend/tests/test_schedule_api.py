@@ -21,7 +21,7 @@ from app.models import (
     User,
 )
 from app.core.security import create_access_token
-from app.routers.admin_import import import_payload_hash
+from app.routers.admin_import import import_payload_hash, matches_published_schedule
 
 @pytest.fixture
 async def api_client():
@@ -407,6 +407,30 @@ def test_import_payload_hash_ignores_collection_order_and_technical_ids():
     }
 
     assert import_payload_hash(first) == import_payload_hash(second)
+
+
+@pytest.mark.anyio
+async def test_import_matches_current_published_schedule(api_client):
+    _, _, data = api_client
+    async with data["sessions"]() as session:
+        schedule = await session.get(Schedule, data["lesson_id"])
+        schedule.room_override = "Room 101"
+        await session.commit()
+        payload = {
+            "base_slots": [{
+                "group_id": data["group_id"],
+                "subject_id": data["subject_id"],
+                "teacher_id": data["teacher_id"],
+                "second_teacher_id": None,
+                "day_of_week": 1,
+                "lesson_number": 1,
+                "week_type": "both",
+                "room": "Room 101",
+            }],
+            "substitutions": [],
+            "cancelled": [],
+        }
+        assert await matches_published_schedule(session, payload, 2)
 
 
 @pytest.mark.anyio

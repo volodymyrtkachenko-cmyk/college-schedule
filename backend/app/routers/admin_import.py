@@ -5,7 +5,7 @@ import httpx
 import hashlib
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Query, Security
 from fastapi.security.api_key import APIKeyHeader
 from sqlalchemy import select, func
@@ -18,7 +18,7 @@ from app.services.importer.fetcher import ScheduleFetcher
 from app.services.importer.parsers.kre_parser import KREParser
 from app.services.importer.normalizer import EntityNormalizer
 from app.services.importer.differ import ScheduleDiffer
-from app.models import ScheduleDraft, ScheduleSlot, Curriculum, Schedule
+from app.models import ScheduleDraft, ScheduleSlot, Curriculum, Schedule, ImportedScheduleChange
 import traceback
 
 logger = logging.getLogger(__name__)
@@ -43,6 +43,86 @@ def import_payload_hash(payload: dict) -> str:
                 key=lambda value: json.dumps(value, sort_keys=True, default=str),
             )
     return hash_payload(comparable)
+
+
+def _change_payload(change: ImportedScheduleChange) -> dict:
+    return {
+        "date": change.date.isoformat(),
+        "lesson_number": change.lesson_number,
+        "group_id": change.group_id,
+        "subject_id": change.subject_id,
+        "teacher_id": change.teacher_id,
+        "second_teacher_id": change.second_teacher_id,
+        "room": change.room_override,
+        "kind": change.kind,
+    }
+
+
+async def matches_published_schedule(db: AsyncSession, payload: dict, weeks: int) -> bool:
+    schedules = (await db.scalars(
+        select(Schedule).where(Schedule.is_active.is_(True))
+    )).all()
+    current_base = [{
+        "day_of_week": item.day_of_week,
+        "lesson_number": item.lesson_number,
+        "group_id": item.group_id,
+        "subject_id": item.subject_id,
+        "teacher_id": item.teacher_id,
+        "second_teacher_id": item.second_teacher_id,
+        "room": item.room_override,
+        "week_type": item.week_type,
+    } for item in schedules]
+
+    incoming_base = {
+        json.dumps(item, sort_keys=True, default=str)
+        for item in payload.get("base_slots", [])
+    }
+    published_base = {
+        json.dumps(item, sort_keys=True, default=str)
+        for item in current_base
+    }
+    if incoming_base != published_base:
+        return False
+
+    today = now_local().date()
+    through = today + timedelta(days=max(weeks, 1) * 7)
+    changes = (await db.scalars(
+        select(ImportedScheduleChange).where(
+            ImportedScheduleChange.is_published.is_(True),
+            ImportedScheduleChange.date >= today,
+            ImportedScheduleChange.date <= through,
+        )
+    )).all()
+    latest_changes: dict[tuple[object, int, int], ImportedScheduleChange] = {}
+    for change in changes:
+        key = (change.date, change.group_id, change.lesson_number)
+        previous = latest_changes.get(key)
+        if previous is None or change.version > previous.version:
+            latest_changes[key] = change
+
+    incoming_changes = [{
+        "date": item["date"],
+        "lesson_number": item["lesson_number"],
+        "group_id": item["group_id"],
+        "subject_id": item.get("subject_id"),
+        "teacher_id": item.get("teacher_id"),
+        "second_teacher_id": item.get("second_teacher_id"),
+        "room": item.get("room"),
+        "kind": "substitution",
+    } for item in payload.get("substitutions", [])] + [{
+        "date": item["date"],
+        "lesson_number": item["lesson_number"],
+        "group_id": item["group_id"],
+        "subject_id": None,
+        "teacher_id": None,
+        "second_teacher_id": None,
+        "room": None,
+        "kind": "cancelled",
+    } for item in payload.get("cancelled", [])]
+    published_changes = [_change_payload(item) for item in latest_changes.values()]
+    return import_payload_hash({"substitutions": incoming_changes}) == import_payload_hash(
+        {"substitutions": published_changes}
+    )
 
 @router.post("/import")
 async def trigger_import(
@@ -279,7 +359,10 @@ async def trigger_import(
         unchanged = False
         if pending_draft:
             draft_id = pending_draft.id
-        elif last_draft and import_payload_hash(last_draft.data or {}) == payload_hash:
+        elif (
+            await matches_published_schedule(db, payload, weeks)
+            or (last_draft and import_payload_hash(last_draft.data or {}) == payload_hash)
+        ):
             logger.info("Import payload identical to the latest import. Skipping creation.")
             draft_id = last_draft.id
             unchanged = True
