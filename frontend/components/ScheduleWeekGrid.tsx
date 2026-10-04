@@ -99,7 +99,7 @@ export function ScheduleWeekGrid({ week, availabilityWeek, availabilityError, sc
 
   const variants = {
     enter: (dir: number) => ({
-      x: dir > 0 ? -300 : 300,
+      x: dir > 0 ? 300 : -300,
       opacity: 0,
       zIndex: 0,
       position: "absolute" as any,
@@ -112,7 +112,7 @@ export function ScheduleWeekGrid({ week, availabilityWeek, availabilityError, sc
     },
     exit: (dir: number) => ({
       zIndex: 0,
-      x: dir > 0 ? 300 : -300,
+      x: dir > 0 ? -300 : 300,
       opacity: 0,
       position: "absolute" as any,
     })
@@ -285,10 +285,10 @@ export function ScheduleWeekGrid({ week, availabilityWeek, availabilityError, sc
                 dragElastic={1}
                 onDragEnd={(e, { offset, velocity }) => {
                   const swipe = offset.x;
-                  if (swipe > 50 && activeIdx < week.length - 1) {
-                    switchTab(activeIdx + 1);
-                  } else if (swipe < -50 && activeIdx > 0) {
+                  if (swipe > 50 && activeIdx > 0) {
                     switchTab(activeIdx - 1);
+                  } else if (swipe < -50 && activeIdx < week.length - 1) {
+                    switchTab(activeIdx + 1);
                   }
                 }}
               >

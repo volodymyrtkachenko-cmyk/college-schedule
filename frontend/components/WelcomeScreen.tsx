@@ -11,6 +11,24 @@ interface WelcomeScreenProps {
 
 export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: WelcomeScreenProps) {
   const [step, setStep] = useState(1);
+  const [direction, setDirection] = useState(0);
+
+  const variants = {
+    enter: (dir: number) => ({
+      x: dir === 0 ? 0 : dir > 0 ? 50 : -50,
+      y: dir === 0 ? 20 : 0,
+      opacity: 0
+    }),
+    center: {
+      x: 0,
+      y: 0,
+      opacity: 1
+    },
+    exit: (dir: number) => ({
+      x: dir > 0 ? -50 : 50,
+      opacity: 0
+    })
+  };
   const [mode, setMode] = useState<"student" | "teacher">(initialMode);
   const [search, setSearch] = useState("");
   
@@ -21,13 +39,15 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-sys-bg p-4 sm:p-6 overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-b from-sys-accent/5 to-transparent pointer-events-none" />
       
-      <AnimatePresence mode="wait">
+      <AnimatePresence mode="wait" custom={direction}>
         {step === 1 ? (
-          <motion.div 
+          <motion.div
             key="step1"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, x: -50 }}
+            custom={direction}
+            variants={variants}
+            initial="enter"
+            animate="center"
+            exit="exit"
             className="w-full max-w-md space-y-8 relative z-10"
           >
             <div className="text-center space-y-3">
@@ -40,7 +60,7 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
             
             <div className="grid grid-cols-1 gap-4">
               <button 
-                onClick={() => { setMode("student"); setStep(2); }}
+                onClick={() => { setMode("student"); setDirection(1); setStep(2); }}
                 className="group relative flex items-center gap-4 rounded-xl border border-sys-border bg-sys-card p-5 text-left transition-all hover:border-sys-accent/50 hover:bg-sys-card/80 active:scale-[0.98]"
               >
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-500/10 text-blue-400 group-hover:bg-blue-500/20 transition-colors">
@@ -53,7 +73,7 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
               </button>
               
               <button 
-                onClick={() => { setMode("teacher"); setStep(2); }}
+                onClick={() => { setMode("teacher"); setDirection(1); setStep(2); }}
                 className="group relative flex items-center gap-4 rounded-xl border border-sys-border bg-sys-card p-5 text-left transition-all hover:border-sys-accent/50 hover:bg-sys-card/80 active:scale-[0.98]"
               >
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-400 group-hover:bg-emerald-500/20 transition-colors">
@@ -67,15 +87,17 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
             </div>
           </motion.div>
         ) : (
-          <motion.div 
+          <motion.div
             key="step2"
-            initial={{ opacity: 0, x: 50 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -50 }}
+            custom={direction}
+            variants={variants}
+            initial="enter"
+            animate="center"
+            exit="exit"
             className="w-full max-w-md flex flex-col h-[85vh] relative z-10"
           >
              <div className="mb-6">
-                <button onClick={() => { setStep(1); setSearch(""); }} className="mb-4 flex items-center gap-2 text-sm text-sys-text-secondary hover:text-white transition-colors">
+                <button onClick={() => { setDirection(-1); setStep(1); setSearch(""); }} className="mb-4 flex items-center gap-2 text-sm text-sys-text-secondary hover:text-white transition-colors">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
                   Назад
                 </button>
