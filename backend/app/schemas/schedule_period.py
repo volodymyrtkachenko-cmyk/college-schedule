@@ -18,7 +18,7 @@ class SchedulePeriodSlotInput(BaseModel):
 
 class SchedulePeriodCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
-    period_type: Literal["practice", "holiday"]
+    period_type: Literal["theory", "session", "practice", "holiday", "diploma", "attestation"]
     start_date: date
     end_date: date
     group_ids: list[int] = Field(default_factory=list)

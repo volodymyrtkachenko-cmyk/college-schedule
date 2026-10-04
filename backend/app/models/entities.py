@@ -44,11 +44,26 @@ class Group(Base):
     name: Mapped[str] = mapped_column(String(100), unique=True, index=True)
     faculty_id: Mapped[Optional[int]] = mapped_column(ForeignKey("faculties.id"), nullable=True)
     curator_id: Mapped[Optional[int]] = mapped_column(ForeignKey("teachers.id", ondelete="SET NULL"), nullable=True)
+    year_of_admission: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    year_of_admission: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     faculty: Mapped["Faculty"] = relationship(back_populates="groups")
     schedules: Mapped[list["Schedule"]] = relationship(back_populates="group")
     curriculums: Mapped[list["Curriculum"]] = relationship(back_populates="group")
     managers: Mapped[list["User"]] = relationship(secondary=user_group_access, back_populates="allowed_groups")
+
+    @property
+    def course(self) -> Optional[int]:
+        if not self.year_of_admission:
+            return None
+        from datetime import date
+        today = date.today()
+        # Якщо зараз вересень або пізніше, академічний рік почався в цьому році
+        # Якщо до вересня, то академічний рік почався минулого року
+        current_academic_start_year = today.year if today.month >= 8 else today.year - 1
+        course = current_academic_start_year - self.year_of_admission + 1
+        # Зазвичай курс від 1 до 4 (або 5)
+        return max(1, course)
 
 class Teacher(Base):
     __tablename__ = "teachers"
@@ -156,7 +171,7 @@ class ScheduleOverride(Base):
 class SchedulePeriod(Base):
     __tablename__ = "schedule_periods"
     __table_args__ = (
-        CheckConstraint("period_type IN ('practice', 'holiday')", name="ck_schedule_period_type"),
+        CheckConstraint("period_type IN ('theory', 'session', 'practice', 'holiday', 'diploma', 'attestation')", name="ck_schedule_period_type"),
         CheckConstraint("start_date <= end_date", name="ck_schedule_period_dates"),
         Index("ix_schedule_period_dates", "start_date", "end_date"),
     )

@@ -24,6 +24,8 @@ class FacultyResource(DirectoryResource):
 class GroupResource(DirectoryResource):
     faculty_id: int | None = None
     curator_id: int | None = None
+    year_of_admission: int | None = None
+    course: int | None = None
 
 
 class TeacherResource(DirectoryResource):
@@ -51,12 +53,14 @@ class GroupCreate(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     faculty_id: int | None = Field(default=None, gt=0)
     curator_id: int | None = Field(default=None, gt=0)
+    year_of_admission: int | None = Field(default=None, gt=1900)
 
 
 class GroupUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=100)
     faculty_id: int | None = Field(default=None, gt=0)
     curator_id: int | None = Field(default=None, gt=0)
+    year_of_admission: int | None = Field(default=None, gt=1900)
 
 
 class TeacherCreate(BaseModel):
