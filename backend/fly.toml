@@ -1,0 +1,26 @@
+# fly.toml app configuration file generated for backend-agile-driftwood-8589 on 2026-10-04T20:00:58+03:00
+
+app = 'backend-agile-driftwood-8589'
+primary_region = 'fra'
+
+[build]
+
+[deploy]
+  release_command = "bash -c 'alembic upgrade head && python scripts/import_eps.py'"
+
+[env]
+  RUN_MIGRATIONS = "false"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ['app']
+
+[[vm]]
+  memory = '1gb'
+  cpu_kind = 'shared'
+  cpus = 1
+  memory_mb = 1024
