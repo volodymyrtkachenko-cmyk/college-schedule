@@ -88,9 +88,9 @@ export function UsersPanel() {
         );
     }
 
-    if (editor) {
-        return (
-            <form onSubmit={save} className="surface-panel max-w-2xl space-y-5 p-5 sm:p-7">
+    const editorModal = editor ? (
+        <div className="fixed inset-0 z-[100] flex items-start sm:items-center justify-center bg-[rgba(5,8,16,0.76)] p-4 sm:p-6 backdrop-blur-sm overflow-y-auto">
+            <form onSubmit={save} className="surface-panel w-full max-w-2xl space-y-5 p-5 sm:p-7 relative mt-10 sm:mt-0 shadow-2xl">
                 {error && <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-200">{error}</div>}
                 <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sys-accent">Доступ</p>
@@ -141,8 +141,8 @@ export function UsersPanel() {
                     <button type="button" onClick={() => { setEditor(null); setError(null); }} disabled={saving} className="rounded-lg border border-sys-border px-4 py-2.5 text-sys-text-secondary transition-colors hover:bg-white/5 hover:text-white">Скасувати</button>
                 </div>
             </form>
-        );
-    }
+        </div>
+    ) : null;
 
     const filteredUsers = users
         .filter(u => {
@@ -157,7 +157,9 @@ export function UsersPanel() {
         });
 
     return (
-        <div className="surface-panel p-5 sm:p-6">
+        <div className="space-y-5">
+            {editorModal}
+            <div className="surface-panel p-5 sm:p-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
                 <h3 className="text-xl font-bold">Користувачі системи</h3>
                 <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
@@ -225,6 +227,7 @@ export function UsersPanel() {
                     </tbody>
                 </table>
             </div>
+        </div>
         </div>
     );
 }

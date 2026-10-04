@@ -260,7 +260,8 @@ export function SchedulePeriodsPanel() {
       </header>
 
       {draft && (
-        <form onSubmit={savePeriod} className="surface-panel space-y-5 p-4 sm:p-6">
+        <div className="fixed inset-0 z-[100] flex items-start sm:items-center justify-center bg-[rgba(5,8,16,0.76)] p-4 sm:p-6 backdrop-blur-sm overflow-y-auto">
+        <form onSubmit={savePeriod} className="surface-panel w-full max-w-2xl space-y-5 p-5 sm:p-6 relative mt-10 sm:mt-0 shadow-2xl">
           <div className="flex items-start justify-between gap-3">
             <div>
               <h2 className="text-lg font-bold">{draft.id ? "Редагувати період" : "Новий період"}</h2>
@@ -440,6 +441,7 @@ export function SchedulePeriodsPanel() {
             </button>
           </div>
         </form>
+        </div>
       )}
 
       {error ? (
