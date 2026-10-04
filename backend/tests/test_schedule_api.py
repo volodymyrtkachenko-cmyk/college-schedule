@@ -21,6 +21,7 @@ from app.models import (
     User,
 )
 from app.core.security import create_access_token
+from app.routers.admin_import import import_payload_hash
 
 @pytest.fixture
 async def api_client():
@@ -386,6 +387,26 @@ async def test_deleting_import_draft_removes_import_only_curriculums(api_client)
 
     async with data["sessions"]() as session:
         assert await session.get(Curriculum, curriculum_id) is None
+
+
+def test_import_payload_hash_ignores_collection_order_and_technical_ids():
+    first = {
+        "base_slots": [
+            {"group_id": 2, "subject_id": 3, "day_of_week": 2},
+            {"group_id": 1, "subject_id": 4, "day_of_week": 1},
+        ],
+        "substitutions": [{"date": "2026-10-06", "group_id": 1, "lesson_number": 2}],
+        "cancelled": [{"date": "2026-10-07", "group_id": 2, "lesson_number": 1}],
+        "created_curriculum_ids": [10, 11],
+    }
+    second = {
+        "base_slots": list(reversed(first["base_slots"])),
+        "substitutions": list(reversed(first["substitutions"])),
+        "cancelled": list(reversed(first["cancelled"])),
+        "created_curriculum_ids": [99],
+    }
+
+    assert import_payload_hash(first) == import_payload_hash(second)
 
 
 @pytest.mark.anyio

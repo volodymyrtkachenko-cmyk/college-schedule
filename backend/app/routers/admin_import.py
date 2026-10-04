@@ -30,7 +30,18 @@ def hash_payload(payload: dict) -> str:
 
 
 def import_payload_hash(payload: dict) -> str:
-    comparable = {key: value for key, value in payload.items() if key != "created_curriculum_ids"}
+    comparable = {
+        key: value
+        for key, value in payload.items()
+        if key != "created_curriculum_ids"
+    }
+    for key in ("base_slots", "substitutions", "cancelled"):
+        values = comparable.get(key)
+        if isinstance(values, list):
+            comparable[key] = sorted(
+                values,
+                key=lambda value: json.dumps(value, sort_keys=True, default=str),
+            )
     return hash_payload(comparable)
 
 @router.post("/import")
