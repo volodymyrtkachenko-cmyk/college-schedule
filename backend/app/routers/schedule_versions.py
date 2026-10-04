@@ -9,7 +9,7 @@ from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.models.entities import ScheduleVersion, Schedule, User
-from app.routers.auth import require_admin_or_manager
+from app.core.security import require_roles
 
 router = APIRouter(prefix="/schedule-versions", tags=["Schedule Versions"])
 
@@ -38,7 +38,7 @@ async def list_versions(db: AsyncSession = Depends(get_db)):
     return result.scalars().all()
 
 @router.post("", response_model=ScheduleVersionResponse)
-async def create_version(data: ScheduleVersionCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_admin_or_manager)):
+async def create_version(data: ScheduleVersionCreate, db: AsyncSession = Depends(get_db), _: User = Depends(require_roles('admin'))):
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Only admins can manage schedule versions")
     version = ScheduleVersion(**data.model_dump())
@@ -48,7 +48,7 @@ async def create_version(data: ScheduleVersionCreate, db: AsyncSession = Depends
     return version
 
 @router.patch("/{version_id}", response_model=ScheduleVersionResponse)
-async def update_version(version_id: int, data: ScheduleVersionUpdate, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_admin_or_manager)):
+async def update_version(version_id: int, data: ScheduleVersionUpdate, db: AsyncSession = Depends(get_db), _: User = Depends(require_roles('admin'))):
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Only admins can manage schedule versions")
     version = await db.get(ScheduleVersion, version_id)
@@ -64,7 +64,7 @@ async def update_version(version_id: int, data: ScheduleVersionUpdate, db: Async
     return version
 
 @router.delete("/{version_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_version(version_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_admin_or_manager)):
+async def delete_version(version_id: int, db: AsyncSession = Depends(get_db), _: User = Depends(require_roles('admin'))):
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Only admins can manage schedule versions")
     version = await db.get(ScheduleVersion, version_id)
@@ -74,7 +74,7 @@ async def delete_version(version_id: int, db: AsyncSession = Depends(get_db), cu
     await db.commit()
 
 @router.post("/{version_id}/clone-from/{source_version_id}")
-async def clone_version_schedule(version_id: int, source_version_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_admin_or_manager)):
+async def clone_version_schedule(version_id: int, source_version_id: int, db: AsyncSession = Depends(get_db), _: User = Depends(require_roles('admin'))):
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Only admins can manage schedule versions")
     
