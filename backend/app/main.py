@@ -20,28 +20,34 @@ from app.routers.schedule_now import router as schedule_now_router
 
 import asyncio
 
+import os
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     # Запуск міграцій автоматично на старті (важливо для Render, де entrypoint.sh може ігноруватися)
-    def run_migrations():
-        from alembic.config import Config
-        from alembic import command
-        alembic_cfg = Config("alembic.ini")
-        command.upgrade(alembic_cfg, "head")
-        
-    try:
-        loop = asyncio.get_running_loop()
-        await loop.run_in_executor(None, run_migrations)
-        print("Міграції успішно застосовано.")
-    except Exception as e:
-        print(f"Помилка при виконанні міграцій: {e}")
+    # На Fly.io ми відключаємо це через змінну RUN_MIGRATIONS=false, бо там є release_command.
+    if os.environ.get("RUN_MIGRATIONS", "true").lower() == "true" and not os.environ.get("FLY_REGION"):
+        def run_migrations():
+            from alembic.config import Config
+            from alembic import command
+            alembic_cfg = Config("alembic.ini")
+            command.upgrade(alembic_cfg, "head")
+            
+        try:
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(None, run_migrations)
+            print("Міграції успішно застосовано.")
+        except Exception as e:
+            print(f"Помилка при виконанні міграцій: {e}")
 
-    # Запуск імпорту графіку освітнього процесу
-    try:
-        from scripts.import_eps import async_main
-        await async_main()
-    except Exception as e:
-        print(f"Помилка імпорту графіку: {e}")
+        # Запуск імпорту графіку освітнього процесу
+        try:
+            from scripts.import_eps import async_main as import_eps_main
+            print("Імпорт Графіку освітнього процесу на 2026/2027...")
+            await import_eps_main()
+            print("Імпорт успішно завершено!")
+        except Exception as e:
+            print(f"Помилка імпорту: {e}")
 
     yield
     await engine.dispose()
