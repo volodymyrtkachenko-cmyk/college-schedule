@@ -19,7 +19,6 @@ export function ImportPanel() {
   const [substitutions, setSubstitutions] = useState<ImportSubstitution[]>([]);
   const [cancelled, setCancelled] = useState<ImportCancellation[]>([]);
   const [draftId, setDraftId] = useState<number | null>(null);
-  const [importSlots, setImportSlots] = useState<DraftSlotRecord[]>([]);
   const [selectedHistory, setSelectedHistory] = useState<number | null>(null);
   const [historySlots, setHistorySlots] = useState<DraftSlotRecord[]>([]);
   const [historyChanges, setHistoryChanges] = useState<Awaited<ReturnType<typeof api.generator.getSubstitutions>>>([]);
@@ -57,7 +56,6 @@ export function ImportPanel() {
         );
         if (!pending) return;
         setDraftId(pending.id);
-        setImportSlots(await api.generator.getSlots(pending.id, session.access_token));
         if (!pending.data) {
           setReport({ unresolved: [], base_slots: [], substitutions: [], cancelled: [] });
           setStatus("ready");
@@ -90,9 +88,6 @@ export function ImportPanel() {
       const session = await api.auth.ensureAuthenticated();
       const res = await api.importer.importData(session.access_token);
       setDraftId(res.meta?.draft_created ?? null);
-      if (res.meta?.draft_created) {
-        setImportSlots(await api.generator.getSlots(res.meta.draft_created, session.access_token));
-      }
       
       if (res.report.unresolved.length > 0 || res.report.substitutions.length > 0 || (res.report.cancelled?.length ?? 0) > 0) {
         setReport(res.report);
@@ -206,17 +201,6 @@ export function ImportPanel() {
       if (selectedHistory === id) setSelectedHistory(null);
     } catch (err: any) {
       setError(err?.message || "Не вдалося видалити імпорт.");
-    }
-  };
-
-  const moveImportSlot = async (slot: DraftSlotRecord, day: number, lesson: number) => {
-    if (!draftId) return;
-    try {
-      const session = await api.auth.ensureAuthenticated();
-      const updated = await api.generator.moveSlot(slot.id, day, lesson, slot.week_type, session.access_token);
-      setImportSlots(current => current.map(item => item.id === updated.id ? updated : item));
-    } catch (err: any) {
-      setError(err?.message || "Не вдалося змінити імпорт.");
     }
   };
 
@@ -356,25 +340,6 @@ export function ImportPanel() {
                     </h3>
                     <p className="opacity-80">Перед тим, як залити розклад у базу, переконайтеся, що ви зв'язали ці нові назви з наявними в системі. Заповніть усі поля.</p>
                 </div>
-
-                {importSlots.length > 0 && (
-                  <div className="mb-6 space-y-3">
-                    <h3 className="font-semibold">Базовий розклад імпорту</h3>
-                    <div className="max-h-80 overflow-auto rounded-xl border border-sys-border">
-                      {importSlots.map(slot => (
-                        <div key={slot.id} className="grid grid-cols-[1fr_auto_auto] items-center gap-2 border-b border-sys-border/50 p-2 text-xs last:border-0">
-                          <span>{slot.curriculum.group.name} · {slot.curriculum.subject.name}</span>
-                          <select value={slot.day_of_week} onChange={e => void moveImportSlot(slot, Number(e.target.value), slot.lesson_number)} className="form-control py-1">
-                            {[1, 2, 3, 4, 5].map(day => <option key={day} value={day}>{day}</option>)}
-                          </select>
-                          <select value={slot.lesson_number} onChange={e => void moveImportSlot(slot, slot.day_of_week, Number(e.target.value))} className="form-control py-1">
-                            {[1, 2, 3, 4].map(lesson => <option key={lesson} value={lesson}>{lesson}</option>)}
-                          </select>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
 
                 <div className="space-y-3 mb-6 bg-slate-900/50 p-4 rounded-xl border border-sys-border">
                     {report.unresolved.map((item, idx) => (
