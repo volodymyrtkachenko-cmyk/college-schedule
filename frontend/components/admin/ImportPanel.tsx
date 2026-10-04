@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { api, DraftSlotRecord, ImportCancellation, ImportSubstitution, ImporterResponse, ReferenceRecord } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 
@@ -23,6 +23,7 @@ export function ImportPanel() {
   const [historySlots, setHistorySlots] = useState<DraftSlotRecord[]>([]);
   const [historyChanges, setHistoryChanges] = useState<Awaited<ReturnType<typeof api.generator.getSubstitutions>>>([]);
   const [importHistory, setImportHistory] = useState<Array<{ id: number; name: string; status: string; created_at: string; data?: { substitutions?: ImportSubstitution[]; cancelled?: ImportCancellation[] } | null }>>([]);
+  const importRequestId = useRef(0);
 
   useEffect(() => {
     async function loadDicts() {
@@ -45,9 +46,11 @@ export function ImportPanel() {
 
   useEffect(() => {
     async function loadPendingImport() {
+      const requestId = importRequestId.current;
       try {
         const session = await api.auth.ensureAuthenticated();
         const drafts = await api.generator.listDrafts(session.access_token);
+        if (requestId !== importRequestId.current) return;
         setImportHistory(
           drafts.filter((draft) => draft.draft_type === "import" && draft.status !== "pending").slice(0, 10),
         );
@@ -55,6 +58,7 @@ export function ImportPanel() {
           (draft) => draft.draft_type === "import" && draft.status === "pending",
         );
         if (!pending) return;
+        if (requestId !== importRequestId.current) return;
         setDraftId(pending.id);
         if (!pending.data) {
           setReport({ unresolved: [], base_slots: [], substitutions: [], cancelled: [] });
@@ -80,6 +84,7 @@ export function ImportPanel() {
   }, []);
 
   const handleImport = async () => {
+    importRequestId.current += 1;
     setLoading(true);
     setError(null);
     setStatus("importing");
@@ -89,9 +94,10 @@ export function ImportPanel() {
       const res = await api.importer.importData(session.access_token);
       setDraftId(res.meta?.draft_created ?? null);
       if (res.meta?.unchanged) {
-        setReport(res.report);
-        setSubstitutions(res.report.substitutions);
-        setCancelled(res.report.cancelled ?? []);
+        setReport({ ...res.report, substitutions: [], cancelled: [] });
+        setSubstitutions([]);
+        setCancelled([]);
+        setMappings({});
         setStatus("unchanged");
         return;
       }
