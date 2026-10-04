@@ -482,6 +482,56 @@ async def test_same_marked_substitution_is_not_an_import_change(api_client):
         )
 
 
+@pytest.mark.anyio
+async def test_published_change_matches_import_regardless_of_week_type(api_client):
+    _, _, data = api_client
+    async with data["sessions"]() as session:
+        session.add(
+            ImportedScheduleChange(
+                date=date(2026, 10, 5),
+                kind="substitution",
+                group_id=data["group_id"],
+                subject_id=data["different_subject_id"],
+                teacher_id=data["teacher_id"],
+                lesson_number=1,
+                room_override="Room 202",
+                is_published=True,
+                version=1,
+            )
+        )
+        await session.commit()
+
+        payload = {
+            "base_slots": [{
+                "group_id": data["group_id"],
+                "subject_id": data["subject_id"],
+                "teacher_id": data["teacher_id"],
+                "second_teacher_id": None,
+                "day_of_week": 1,
+                "lesson_number": 1,
+                "week_type": "both",
+                "room": "Room 101",
+            }],
+            "substitutions": [{
+                "date": "2026-10-05",
+                "lesson_number": 1,
+                "group_id": data["group_id"],
+                "subject_id": data["different_subject_id"],
+                "teacher_id": data["teacher_id"],
+                "second_teacher_id": None,
+                "room": "Room 202",
+                "week_type": "numerator",
+            }],
+            "cancelled": [],
+            "import_scope": {
+                "dates": ["2026-10-05"],
+                "group_ids": [data["group_id"]],
+            },
+        }
+
+        assert await matches_published_schedule(session, payload, 2)
+
+
 def test_import_changes_are_deduplicated_by_calendar_cell():
     substitutions, cancelled = _deduplicate_import_changes(
         [
@@ -535,7 +585,6 @@ def test_canonical_change_records_are_stable_and_normalize_rooms():
             "teacher_id": 5,
             "second_teacher_id": None,
             "room": "12",
-            "week_type": "both",
             "kind": "substitution",
         },
         {
@@ -546,10 +595,38 @@ def test_canonical_change_records_are_stable_and_normalize_rooms():
             "teacher_id": None,
             "second_teacher_id": None,
             "room": None,
-            "week_type": "both",
             "kind": "cancelled",
         },
     ]
+
+
+def test_calendar_change_comparison_ignores_recurring_week_type():
+    numerator = _canonical_change_records(
+        [{
+            "date": "2026-10-05",
+            "group_id": 1,
+            "lesson_number": 2,
+            "subject_id": 4,
+            "teacher_id": 5,
+            "room": "12",
+            "week_type": "numerator",
+        }],
+        [],
+    )
+    denominator = _canonical_change_records(
+        [{
+            "date": "2026-10-05",
+            "group_id": 1,
+            "lesson_number": 2,
+            "subject_id": 4,
+            "teacher_id": 5,
+            "room": "12",
+            "week_type": "denominator",
+        }],
+        [],
+    )
+
+    assert numerator == denominator
 
 
 def test_import_retries_are_enabled_for_transient_source_failures():

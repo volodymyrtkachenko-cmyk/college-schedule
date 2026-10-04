@@ -75,7 +75,6 @@ def _canonical_change_records(
             "teacher_id": item.get("teacher_id"),
             "second_teacher_id": item.get("second_teacher_id"),
             "room": _normalize_room(item.get("room")),
-            "week_type": item.get("week_type", "both"),
             "kind": "substitution",
         }
         for item in substitutions
@@ -89,7 +88,6 @@ def _canonical_change_records(
             "teacher_id": None,
             "second_teacher_id": None,
             "room": None,
-            "week_type": item.get("week_type", "both"),
             "kind": "cancelled",
         }
         for item in cancelled
@@ -109,7 +107,6 @@ def _change_payload(change: ImportedScheduleChange) -> dict:
         "teacher_id": change.teacher_id,
         "second_teacher_id": change.second_teacher_id,
         "room": _normalize_room(change.room_override),
-        "week_type": "both",
         "kind": change.kind,
     }
 
