@@ -241,18 +241,34 @@ async def trigger_import(
         }
         payload_hash = import_payload_hash(payload)
         
-        # Check if the latest import already contains exactly this payload.
-        stmt = (
+        # Keep an active draft visible. It may contain changes that still need
+        # administrator review, so it must not be hidden as "unchanged".
+        pending_stmt = (
             select(ScheduleDraft)
             .where(
                 ScheduleDraft.draft_type == "import",
+                ScheduleDraft.status == "pending",
             )
             .order_by(ScheduleDraft.id.desc())
             .limit(1)
         )
-        last_draft = await db.scalar(stmt)
+        pending_draft = await db.scalar(pending_stmt)
+
+        # Only completed imports can produce the "unchanged" result.
+        latest_stmt = (
+            select(ScheduleDraft)
+            .where(
+                ScheduleDraft.draft_type == "import",
+                ScheduleDraft.status != "pending",
+            )
+            .order_by(ScheduleDraft.id.desc())
+            .limit(1)
+        )
+        last_draft = await db.scalar(latest_stmt)
         unchanged = False
-        if last_draft and import_payload_hash(last_draft.data or {}) == payload_hash:
+        if pending_draft:
+            draft_id = pending_draft.id
+        elif last_draft and import_payload_hash(last_draft.data or {}) == payload_hash:
             logger.info("Import payload identical to the latest import. Skipping creation.")
             draft_id = last_draft.id
             unchanged = True
