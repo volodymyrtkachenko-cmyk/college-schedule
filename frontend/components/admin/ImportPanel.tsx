@@ -184,6 +184,29 @@ export function ImportPanel() {
     }
   };
 
+  const cancelImport = async () => {
+    if (!draftId) {
+      setStatus("idle");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const session = await api.auth.ensureAuthenticated();
+      await api.generator.deleteDraft(draftId, session.access_token);
+      setDraftId(null);
+      setReport(null);
+      setSubstitutions([]);
+      setCancelled([]);
+      setMappings({});
+      setStatus("idle");
+    } catch (err: any) {
+      setError(err?.message || "Не вдалося скасувати імпорт.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const viewHistory = async (id: number) => {
     try {
       const session = await api.auth.ensureAuthenticated();
@@ -484,7 +507,7 @@ export function ImportPanel() {
                     <button onClick={handlePrimaryAction} disabled={loading} className="bg-sys-accent text-[#0b1120] font-bold py-2.5 px-6 rounded-lg disabled:opacity-50">
                         {loading ? "Зберігаємо…" : report.unresolved.length > 0 ? "Зберегти відповідності та продовжити" : "Зберегти зміни"}
                     </button>
-                    <button onClick={() => setStatus("idle")} className="py-2.5 px-4 text-sys-text-secondary hover:text-white" disabled={loading}>Скасувати</button>
+                    <button onClick={() => void cancelImport()} className="py-2.5 px-4 text-sys-text-secondary hover:text-white" disabled={loading}>Скасувати імпорт</button>
                 </div>
             </div>
         )}
@@ -497,7 +520,7 @@ export function ImportPanel() {
                   <button onClick={publishImport} disabled={loading || !draftId} className="bg-sys-accent text-[#0b1120] font-bold py-2.5 px-6 rounded-lg disabled:opacity-50">
                     {loading ? "Публікуємо…" : "Опублікувати імпорт"}
                   </button>
-                  <button onClick={() => setStatus("idle")} disabled={loading} className="py-2.5 px-4 text-sys-text-secondary hover:text-white">Скасувати</button>
+                  <button onClick={() => void cancelImport()} disabled={loading} className="py-2.5 px-4 text-sys-text-secondary hover:text-white">Скасувати імпорт</button>
                 </div>
             </div>
         )}
