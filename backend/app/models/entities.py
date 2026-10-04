@@ -45,7 +45,6 @@ class Group(Base):
     faculty_id: Mapped[Optional[int]] = mapped_column(ForeignKey("faculties.id"), nullable=True)
     curator_id: Mapped[Optional[int]] = mapped_column(ForeignKey("teachers.id", ondelete="SET NULL"), nullable=True)
     year_of_admission: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    year_of_admission: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     faculty: Mapped["Faculty"] = relationship(back_populates="groups")
     schedules: Mapped[list["Schedule"]] = relationship(back_populates="group")
