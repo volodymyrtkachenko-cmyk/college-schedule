@@ -124,6 +124,27 @@ def _cancellation_matches_schedule(cancellation: dict, schedules: list[Schedule]
     )
 
 
+def _deduplicate_import_changes(
+    substitutions: list[dict],
+    cancelled: list[dict],
+) -> tuple[list[dict], list[dict]]:
+    substitution_by_cell: dict[tuple[str, int, int], dict] = {}
+    for item in substitutions:
+        key = (item["date"], item["group_id"], item["lesson_number"])
+        current = substitution_by_cell.get(key)
+        if current is None or json.dumps(item, sort_keys=True, default=str) < json.dumps(current, sort_keys=True, default=str):
+            substitution_by_cell[key] = item
+
+    cancelled_by_cell = {
+        (item["date"], item["group_id"], item["lesson_number"]): item
+        for item in cancelled
+    }
+    return (
+        sorted(substitution_by_cell.values(), key=lambda item: (item["date"], item["group_id"], item["lesson_number"])),
+        sorted(cancelled_by_cell.values(), key=lambda item: (item["date"], item["group_id"], item["lesson_number"])),
+    )
+
+
 async def matches_published_schedule(db: AsyncSession, payload: dict, weeks: int) -> bool:
     schedules = (await db.scalars(
         select(Schedule)
@@ -322,6 +343,10 @@ async def trigger_import(
             item for item in aggregated_cancelled
             if _cancellation_matches_schedule(item, current_schedules)
         ]
+        aggregated_substitutions, aggregated_cancelled = _deduplicate_import_changes(
+            aggregated_substitutions,
+            aggregated_cancelled,
+        )
 
         # Імпорт не повинен повертати вручну додані пари.
         # Єдиний виняток — виховна година щочетверга на 4-й парі.

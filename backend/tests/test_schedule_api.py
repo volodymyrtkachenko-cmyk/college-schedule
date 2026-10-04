@@ -23,6 +23,7 @@ from app.models import (
 from app.core.security import create_access_token
 from app.routers.admin_import import (
     _cancellation_matches_schedule,
+    _deduplicate_import_changes,
     _substitution_matches_schedule,
     import_payload_hash,
     matches_published_schedule,
@@ -476,6 +477,23 @@ async def test_same_marked_substitution_is_not_an_import_change(api_client):
             {"date": "2026-10-05", "lesson_number": 1, "group_id": data["group_id"]},
             schedules,
         )
+
+
+def test_import_changes_are_deduplicated_by_calendar_cell():
+    substitutions, cancelled = _deduplicate_import_changes(
+        [
+            {"date": "2026-10-05", "group_id": 1, "lesson_number": 2, "subject_id": 4},
+            {"date": "2026-10-05", "group_id": 1, "lesson_number": 2, "subject_id": 4},
+            {"date": "2026-10-06", "group_id": 1, "lesson_number": 1, "subject_id": 5},
+        ],
+        [
+            {"date": "2026-10-07", "group_id": 1, "lesson_number": 3},
+            {"date": "2026-10-07", "group_id": 1, "lesson_number": 3},
+        ],
+    )
+
+    assert len(substitutions) == 2
+    assert len(cancelled) == 1
 
 
 @pytest.mark.anyio
