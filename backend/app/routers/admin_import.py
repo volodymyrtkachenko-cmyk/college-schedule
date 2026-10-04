@@ -659,7 +659,7 @@ async def trigger_import(
             await db.commit()
             draft_id = pending_draft.id
             unchanged = False
-        elif current_matches and is_cron:
+        elif current_matches:
             logger.info("Import payload identical to the latest import. Skipping creation.")
             await db.commit()
             draft_id = None
