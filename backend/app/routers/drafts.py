@@ -333,6 +333,40 @@ async def publish_draft(
         from datetime import datetime
         substitutions = draft.data.get("substitutions", [])
         cancelled_lessons = draft.data.get("cancelled", [])
+        import_scope = draft.data.get("import_scope") or {}
+        scope_dates = {
+            datetime.strptime(value, "%Y-%m-%d").date()
+            for value in import_scope.get("dates", [])
+        }
+        scope_group_ids = {
+            int(value) for value in import_scope.get("group_ids", [])
+        }
+        if not scope_dates:
+            scope_dates = {
+                datetime.strptime(item["date"], "%Y-%m-%d").date()
+                for item in [*substitutions, *cancelled_lessons]
+                if item.get("date")
+            }
+        if not scope_group_ids:
+            scope_group_ids = {
+                int(item["group_id"])
+                for item in [*substitutions, *cancelled_lessons]
+                if item.get("group_id") is not None
+            }
+
+        # An import is a snapshot for its scope, not an append-only list of
+        # overrides. Retire older published states first so removed changes
+        # disappear from the runtime projection on the next request.
+        if scope_dates and scope_group_ids:
+            await db.execute(
+                update(ImportedScheduleChange)
+                .where(
+                    ImportedScheduleChange.is_published.is_(True),
+                    ImportedScheduleChange.date.in_(scope_dates),
+                    ImportedScheduleChange.group_id.in_(scope_group_ids),
+                )
+                .values(is_published=False)
+            )
         
         # Imported changes have their own storage and never become calendar periods.
         # 1. Process substitutions

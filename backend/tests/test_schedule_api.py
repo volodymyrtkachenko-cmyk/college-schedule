@@ -532,6 +532,48 @@ async def test_published_change_matches_import_regardless_of_week_type(api_clien
         assert await matches_published_schedule(session, payload, 2)
 
 
+@pytest.mark.anyio
+async def test_publishing_import_retires_old_changes_in_scope(api_client):
+    client, headers, data = api_client
+    async with data["sessions"]() as session:
+        old_change = ImportedScheduleChange(
+            date=date(2026, 10, 5),
+            kind="substitution",
+            group_id=data["group_id"],
+            subject_id=data["different_subject_id"],
+            teacher_id=data["teacher_id"],
+            lesson_number=1,
+            is_published=True,
+            version=1,
+        )
+        session.add(old_change)
+        await session.flush()
+        draft = ScheduleDraft(
+            name="Import replacement",
+            draft_type="import",
+            status="pending",
+            data={
+                "base_slots": [],
+                "substitutions": [],
+                "cancelled": [],
+                "import_scope": {
+                    "dates": ["2026-10-05"],
+                    "group_ids": [data["group_id"]],
+                },
+            },
+        )
+        session.add(draft)
+        await session.commit()
+        draft_id = draft.id
+
+    response = await client.post(f"/api/drafts/{draft_id}/publish", headers=headers)
+    assert response.status_code == 200
+
+    async with data["sessions"]() as session:
+        refreshed = await session.get(ImportedScheduleChange, old_change.id)
+        assert refreshed.is_published is False
+
+
 def test_import_changes_are_deduplicated_by_calendar_cell():
     substitutions, cancelled = _deduplicate_import_changes(
         [
