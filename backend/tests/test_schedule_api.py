@@ -317,6 +317,40 @@ async def test_publishing_carries_explicit_stream_id_to_schedule(api_client):
 
 
 @pytest.mark.anyio
+async def test_curriculum_delete_removes_generated_draft_slots(api_client):
+    client, headers, data = api_client
+    async with data["sessions"]() as session:
+        curriculum = Curriculum(
+            group_id=data["group_id"],
+            subject_id=data["subject_id"],
+            teacher_id=data["teacher_id"],
+            pairs_per_2_weeks=2,
+            total_hours=0,
+        )
+        draft = ScheduleDraft(name="Delete curriculum draft", status="DRAFT")
+        session.add_all([curriculum, draft])
+        await session.flush()
+        session.add(ScheduleSlot(
+            draft_id=draft.id,
+            curriculum_id=curriculum.id,
+            day_of_week=1,
+            lesson_number=1,
+            week_type="both",
+        ))
+        await session.commit()
+        curriculum_id = curriculum.id
+
+    response = await client.delete(f"/api/curriculums/{curriculum_id}", headers=headers)
+    assert response.status_code == 204
+
+    async with data["sessions"]() as session:
+        assert await session.get(Curriculum, curriculum_id) is None
+        assert (await session.scalars(
+            select(ScheduleSlot).where(ScheduleSlot.curriculum_id == curriculum_id)
+        )).first() is None
+
+
+@pytest.mark.anyio
 async def test_publishing_removes_old_schedule_overrides_before_replacing_schedule(api_client):
     client, headers, data = api_client
     async with data["sessions"]() as session:

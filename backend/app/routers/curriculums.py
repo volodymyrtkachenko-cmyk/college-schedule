@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from uuid import uuid4
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.models import Curriculum, Group, Subject, Teacher
+from app.models import Curriculum, Group, ScheduleSlot, Subject, Teacher
 from app.schemas.curriculum import CurriculumCreate, CurriculumUpdate, CurriculumResponse
 from app.core.security import require_roles
 
@@ -185,6 +185,7 @@ async def delete_curriculum(
     db_item = await db.get(Curriculum, id)
     if not db_item:
         raise HTTPException(status_code=404, detail="Curriculum not found")
+    await db.execute(delete(ScheduleSlot).where(ScheduleSlot.curriculum_id == id))
     await db.delete(db_item)
     await db.commit()
     return None
