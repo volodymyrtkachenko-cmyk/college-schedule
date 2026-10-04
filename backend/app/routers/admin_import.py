@@ -62,6 +62,17 @@ def import_payload_hash(payload: dict) -> str:
     return hash_payload(comparable)
 
 
+def import_changes_hash(payload: dict) -> str:
+    if "changes" in payload:
+        records = payload["changes"]
+    else:
+        records = _canonical_change_records(
+            payload.get("substitutions", []),
+            payload.get("cancelled", []),
+        )
+    return hash_payload({"changes": records})
+
+
 def _canonical_change_records(
     substitutions: list[dict],
     cancelled: list[dict],
@@ -264,8 +275,8 @@ async def matches_published_schedule(db: AsyncSession, payload: dict, weeks: int
         payload.get("cancelled", []),
     )
     published_changes = [_change_payload(item) for item in latest_changes]
-    return import_payload_hash({"substitutions": incoming_changes}) == import_payload_hash(
-        {"substitutions": published_changes}
+    return import_changes_hash({"changes": incoming_changes}) == import_changes_hash(
+        {"changes": published_changes}
     )
 
 @router.post("/import")
@@ -611,7 +622,10 @@ async def trigger_import(
         unchanged = False
         pending_matches = (
             pending_draft
-            and import_payload_hash(pending_draft.data or {}) == payload_hash
+            and (
+                import_payload_hash(pending_draft.data or {}) == payload_hash
+                or import_changes_hash(pending_draft.data or {}) == import_changes_hash(payload)
+            )
         )
         current_matches = await matches_published_schedule(db, payload, weeks)
 

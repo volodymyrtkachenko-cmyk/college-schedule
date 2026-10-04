@@ -26,6 +26,7 @@ from app.routers.admin_import import (
     _canonical_change_records,
     _deduplicate_import_changes,
     _substitution_matches_schedule,
+    import_changes_hash,
     import_payload_hash,
     matches_published_schedule,
 )
@@ -696,6 +697,30 @@ def test_calendar_change_comparison_ignores_recurring_week_type():
     )
 
     assert numerator == denominator
+
+
+def test_import_changes_hash_ignores_recurring_base_snapshot():
+    first = {
+        "base_slots": [{"group_id": 1, "subject_id": 10, "day_of_week": 1}],
+        "substitutions": [{
+            "date": "2026-10-05",
+            "group_id": 1,
+            "lesson_number": 2,
+            "subject_id": 20,
+            "teacher_id": 30,
+            "room": "12",
+        }],
+        "cancelled": [],
+    }
+    second = {
+        **first,
+        "base_slots": [
+            {"group_id": 1, "subject_id": 11, "day_of_week": 1},
+            {"group_id": 2, "subject_id": 12, "day_of_week": 2},
+        ],
+    }
+
+    assert import_changes_hash(first) == import_changes_hash(second)
 
 
 def test_import_retries_are_enabled_for_transient_source_failures():
