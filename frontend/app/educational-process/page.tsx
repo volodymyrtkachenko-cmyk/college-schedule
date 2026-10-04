@@ -227,24 +227,22 @@ export default function EducationalProcessPage() {
         return (
             <div className="hidden md:block mb-10">
                 <h3 className="text-xl font-bold mb-4 text-slate-800 dark:text-slate-200">{title}</h3>
-                <div className="overflow-x-auto border border-slate-300 dark:border-slate-700 rounded-xl shadow-sm bg-white dark:bg-slate-900 custom-scrollbar">
+                <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm bg-white dark:bg-slate-900 custom-scrollbar">
                     <table className="w-full text-center border-collapse text-xs">
                         <thead>
                             <tr>
-                                <th rowSpan={2} className="border-b border-r border-slate-300 dark:border-slate-700 p-3 min-w-[60px] sticky left-0 bg-white dark:bg-slate-900 z-30 shadow-[1px_0_0_0_rgba(203,213,225,1)] dark:shadow-[1px_0_0_0_rgba(51,65,85,1)]">Курс</th>
-                                <th rowSpan={2} className="border-b border-r border-slate-300 dark:border-slate-700 p-3 min-w-[120px] sticky left-[60px] bg-white dark:bg-slate-900 z-30 shadow-[1px_0_0_0_rgba(203,213,225,1)] dark:shadow-[1px_0_0_0_rgba(51,65,85,1)]">Група</th>
+                                <th rowSpan={2} className="border-b border-r border-slate-200 dark:border-slate-800 p-3 min-w-[60px] sticky left-0 bg-white dark:bg-slate-900 z-30 shadow-[1px_0_0_0_rgba(226,232,240,1)] dark:shadow-[1px_0_0_0_rgba(30,41,59,1)] text-slate-500 font-semibold uppercase tracking-wider text-[10px]">Курс</th>
+                                <th rowSpan={2} className="border-b border-r border-slate-200 dark:border-slate-800 p-3 min-w-[120px] sticky left-[60px] bg-white dark:bg-slate-900 z-30 shadow-[1px_0_0_0_rgba(226,232,240,1)] dark:shadow-[1px_0_0_0_rgba(30,41,59,1)] text-slate-500 font-semibold uppercase tracking-wider text-[10px]">Група</th>
                                 {months.map((m, i) => (
-                                    <th key={i} colSpan={m.colSpan} className="border-b border-l border-slate-300 dark:border-slate-700 p-1 font-semibold text-xs sm:text-sm text-slate-700 dark:text-slate-300 capitalize text-center">
+                                    <th key={i} colSpan={m.colSpan} className="border-b border-l border-slate-200 dark:border-slate-800 p-1.5 font-medium text-xs text-slate-600 dark:text-slate-400 capitalize bg-slate-50/50 dark:bg-slate-800/30">
                                         {m.name}
                                     </th>
                                 ))}
                             </tr>
                             <tr>
                                 {weeksToRender.map((w, idx) => (
-                                    <th key={w.week_number} className="border-b border-l border-slate-300 dark:border-slate-700 p-0 font-medium text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/50" title={`${w.start_date} - ${w.end_date}`}>
-                                        <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }} className="py-2 mx-auto whitespace-nowrap min-h-[90px] flex items-center justify-center">
-                                            {formatDate(w.start_date)} - {formatDate(w.end_date)}
-                                        </div>
+                                    <th key={w.week_number} className="border-b border-l border-slate-200 dark:border-slate-800 p-1.5 font-medium text-xs text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors cursor-help bg-white dark:bg-slate-900" title={`${formatDate(w.start_date)} - ${formatDate(w.end_date)}`}>
+                                        {w.week_number}
                                     </th>
                                 ))}
                             </tr>
@@ -256,21 +254,21 @@ export default function EducationalProcessPage() {
                                         {gIdx === 0 && (
                                             <td 
                                                 rowSpan={course.groups.length} 
-                                                className="border-t border-r border-slate-300 dark:border-slate-700 p-2 font-bold text-lg sticky left-0 bg-white dark:bg-slate-900 z-10 shadow-[1px_0_0_0_rgba(203,213,225,1)] dark:shadow-[1px_0_0_0_rgba(51,65,85,1)]"
+                                                className="border-t border-r border-slate-200 dark:border-slate-800 p-2 font-bold text-lg sticky left-0 bg-white dark:bg-slate-900 z-10 shadow-[1px_0_0_0_rgba(226,232,240,1)] dark:shadow-[1px_0_0_0_rgba(30,41,59,1)] text-slate-700 dark:text-slate-300"
                                             >
                                                 {course.course}
                                             </td>
                                         )}
-                                        <td className="border-t border-r border-slate-300 dark:border-slate-700 p-2.5 font-semibold text-slate-800 dark:text-slate-200 sticky left-[60px] bg-white dark:bg-slate-900 z-10 shadow-[1px_0_0_0_rgba(203,213,225,1)] dark:shadow-[1px_0_0_0_rgba(51,65,85,1)] whitespace-nowrap group-hover:bg-slate-50 dark:group-hover:bg-slate-800 transition-colors">
+                                        <td className="border-t border-r border-slate-200 dark:border-slate-800 p-2.5 font-semibold text-slate-800 dark:text-slate-200 sticky left-[60px] bg-white dark:bg-slate-900 z-10 shadow-[1px_0_0_0_rgba(226,232,240,1)] dark:shadow-[1px_0_0_0_rgba(30,41,59,1)] whitespace-nowrap group-hover:bg-slate-50 dark:group-hover:bg-slate-800 transition-colors">
                                             {group.group_name}
                                         </td>
                                         {group.cells.filter(c => weeksToRender.some(wt => wt.week_number === c.week_number)).map(cell => (
                                             <td 
                                                 key={cell.week_number} 
-                                                className={`border-t border-slate-200 dark:border-slate-800 m-[1px] font-bold ${getCellStyles(cell)}`}
+                                                className={`border-t border-l border-slate-100 dark:border-slate-800 font-bold ${getCellStyles(cell)}`}
                                                 title={cell.name || cell.period_type}
                                             >
-                                                <div className="w-full h-full p-1.5 flex items-center justify-center">
+                                                <div className="w-full h-full p-2 flex items-center justify-center">
                                                     {getCellLabel(cell)}
                                                 </div>
                                             </td>
@@ -350,7 +348,7 @@ export default function EducationalProcessPage() {
                 
                 <div className="mb-6 flex flex-col gap-2 relative bg-white dark:bg-slate-900 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800">
                     <label className="text-sm font-semibold">Фільтр груп (мульти-вибір):</label>
-                    <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto p-2 border border-slate-300 dark:border-slate-700 rounded-md bg-slate-50 dark:bg-slate-950 custom-scrollbar">
+                    <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto p-2 border border-slate-200 dark:border-slate-700 rounded-md bg-slate-50 dark:bg-slate-950 custom-scrollbar">
                         {allGroups.map(g => (
                             <label key={g.id} className={`flex items-center gap-1.5 px-3 py-1.5 rounded shadow-sm text-sm cursor-pointer transition-colors border ${selectedGroups.includes(g.id) ? 'bg-blue-50 border-blue-200 dark:bg-blue-900/30 dark:border-blue-800' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'}`}>
                                 <input 
@@ -378,7 +376,8 @@ export default function EducationalProcessPage() {
                     </div>
                 </div>
 
-                <div className="flex gap-x-6 gap-y-3 mb-6 flex-wrap text-sm bg-white dark:bg-slate-900 p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800">
+                {/* Умовні позначення - Приховано на мобільних пристроях */}
+                <div className="hidden md:flex gap-x-6 gap-y-3 mb-6 flex-wrap text-sm bg-white dark:bg-slate-900 p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800">
                     <div className="w-full font-bold text-slate-700 dark:text-slate-300 mb-1 border-b border-slate-200 dark:border-slate-700 pb-2">Умовні позначення:</div>
                     
                     <div className="flex items-center gap-2">
