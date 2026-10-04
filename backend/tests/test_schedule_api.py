@@ -21,7 +21,12 @@ from app.models import (
     User,
 )
 from app.core.security import create_access_token
-from app.routers.admin_import import import_payload_hash, matches_published_schedule
+from app.routers.admin_import import (
+    _cancellation_matches_schedule,
+    _substitution_matches_schedule,
+    import_payload_hash,
+    matches_published_schedule,
+)
 
 @pytest.fixture
 async def api_client():
@@ -416,7 +421,7 @@ async def test_import_matches_current_published_schedule(api_client):
     _, _, data = api_client
     async with data["sessions"]() as session:
         schedule = await session.get(Schedule, data["lesson_id"])
-        schedule.room_override = "Room 101"
+        schedule.room_override = None
         session.add(Schedule(
             group_id=data["group_id"],
             subject_id=data["different_subject_id"],
@@ -443,6 +448,34 @@ async def test_import_matches_current_published_schedule(api_client):
             "cancelled": [],
         }
         assert await matches_published_schedule(session, payload, 2)
+
+
+@pytest.mark.anyio
+async def test_same_marked_substitution_is_not_an_import_change(api_client):
+    _, _, data = api_client
+    async with data["sessions"]() as session:
+        schedule = await session.get(Schedule, data["lesson_id"])
+        schedule.room_override = None
+        teacher = await session.get(Teacher, data["teacher_id"])
+        teacher.room = "302"
+        schedule.teacher = teacher
+        await session.commit()
+        schedules = [schedule]
+        substitution = {
+            "date": "2026-10-05",
+            "lesson_number": 1,
+            "group_id": data["group_id"],
+            "subject_id": data["subject_id"],
+            "teacher_id": data["teacher_id"],
+            "second_teacher_id": None,
+            "room": "Аудиторія 302",
+            "week_type": "both",
+        }
+        assert _substitution_matches_schedule(substitution, schedules)
+        assert _cancellation_matches_schedule(
+            {"date": "2026-10-05", "lesson_number": 1, "group_id": data["group_id"]},
+            schedules,
+        )
 
 
 @pytest.mark.anyio

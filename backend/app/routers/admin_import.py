@@ -76,6 +76,10 @@ def _normalize_room(value: str | None) -> str:
     return normalized
 
 
+def _schedule_room(schedule: Schedule) -> str | None:
+    return schedule.room_override or getattr(schedule.teacher, "room", None)
+
+
 def _slot_matches(incoming: dict, existing: Schedule) -> bool:
     if (
         incoming["group_id"] != existing.group_id
@@ -88,12 +92,43 @@ def _slot_matches(incoming: dict, existing: Schedule) -> bool:
     ):
         return False
     incoming_room = _normalize_room(incoming.get("room"))
-    return not incoming_room or incoming_room == _normalize_room(existing.room_override)
+    return not incoming_room or incoming_room == _normalize_room(_schedule_room(existing))
+
+
+def _substitution_matches_schedule(substitution: dict, schedules: list[Schedule]) -> bool:
+    day_of_week = datetime.strptime(substitution["date"], "%Y-%m-%d").isoweekday()
+    for schedule in schedules:
+        if (
+            schedule.group_id == substitution["group_id"]
+            and schedule.day_of_week == day_of_week
+            and schedule.lesson_number == substitution["lesson_number"]
+            and schedule.subject_id == substitution["subject_id"]
+            and schedule.teacher_id == substitution["teacher_id"]
+            and schedule.second_teacher_id == substitution.get("second_teacher_id")
+            and _week_matches(substitution.get("week_type", "both"), schedule.week_type)
+        ):
+            imported_room = _normalize_room(substitution.get("room"))
+            if not imported_room or imported_room == _normalize_room(_schedule_room(schedule)):
+                return True
+    return False
+
+
+def _cancellation_matches_schedule(cancellation: dict, schedules: list[Schedule]) -> bool:
+    day_of_week = datetime.strptime(cancellation["date"], "%Y-%m-%d").isoweekday()
+    return any(
+        schedule.group_id == cancellation["group_id"]
+        and schedule.day_of_week == day_of_week
+        and schedule.lesson_number == cancellation["lesson_number"]
+        and _week_matches(cancellation.get("week_type", "both"), schedule.week_type)
+        for schedule in schedules
+    )
 
 
 async def matches_published_schedule(db: AsyncSession, payload: dict, weeks: int) -> bool:
     schedules = (await db.scalars(
-        select(Schedule).where(Schedule.is_active.is_(True))
+        select(Schedule)
+        .where(Schedule.is_active.is_(True))
+        .options(joinedload(Schedule.teacher))
     )).all()
     used_schedule_ids: set[int] = set()
     for incoming in payload.get("base_slots", []):
@@ -274,20 +309,29 @@ async def trigger_import(
                 unique_slots[k] = s
         aggregated_base_slots = list(unique_slots.values())
 
+        current_schedules = (await db.scalars(
+            select(Schedule)
+            .where(Schedule.is_active.is_(True))
+            .options(joinedload(Schedule.subject), joinedload(Schedule.teacher))
+        )).all()
+        aggregated_substitutions = [
+            item for item in aggregated_substitutions
+            if not _substitution_matches_schedule(item, current_schedules)
+        ]
+        aggregated_cancelled = [
+            item for item in aggregated_cancelled
+            if _cancellation_matches_schedule(item, current_schedules)
+        ]
+
         # Імпорт не повинен повертати вручну додані пари.
         # Єдиний виняток — виховна година щочетверга на 4-й парі.
         def covers(imported_week: str, existing_week: str) -> bool:
             return imported_week == "both" or imported_week == existing_week
 
-        all_published = (await db.scalars(
-            select(Schedule)
-            .where(
-                Schedule.is_active.is_(True),
-                Schedule.day_of_week == 4,
-                Schedule.lesson_number == 4,
-            )
-            .options(joinedload(Schedule.subject))
-        )).all()
+        all_published = [
+            schedule for schedule in current_schedules
+            if schedule.day_of_week == 4 and schedule.lesson_number == 4
+        ]
         for sch in all_published:
             if not sch.subject or sch.subject.name.strip().casefold() != "виховна година":
                 continue
