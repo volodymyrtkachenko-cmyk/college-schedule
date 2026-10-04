@@ -132,61 +132,71 @@ export function getInsightMessage(
 export function getScheduleInsightMessage(
   entityType: "teacher" | "group",
   todayLessonsCount: number,
+  entityId = 0,
   date = new Date(),
+  lessons: Lesson[] = [],
 ): { icon: string; text: string } {
   const dayOfWeek = date.getDay();
   const hour = date.getHours();
   const minute = date.getMinutes();
-  const isAfterClasses = hour > 15 || (hour === 15 && minute >= 20);
+  const currentMinutes = hour * 60 + minute;
+  const lastLessonEnd = getLastLessonEnd(lessons);
+  const isAfterClasses = lastLessonEnd !== null
+    ? currentMinutes >= lastLessonEnd
+    : currentMinutes >= 15 * 60 + 20;
   const isWorkingHours = hour >= 8 && !isAfterClasses;
   const teacher = entityType === "teacher";
+  const roleKey = `${entityType}:${entityId}`;
+  const dayKey = dateKey(date);
+  const phrase = (phase: string, values: string[]) =>
+    getStablePhrase(values, `${roleKey}:${dayKey}:${phase}`);
 
   if (dayOfWeek === 0 && hour >= 18) {
     return {
       icon: "🌅",
-      text: getRandomPhrase(motivationPhrases[teacher ? "WEEK_PREP_TEACHER" : "WEEK_PREP_GROUP"]),
+      text: phrase("week-prep", motivationPhrases[teacher ? "WEEK_PREP_TEACHER" : "WEEK_PREP_GROUP"]),
     };
   }
 
   if (dayOfWeek === 6 || dayOfWeek === 0) {
     return {
       icon: "☕",
-      text: getRandomPhrase(motivationPhrases[teacher ? "WEEKEND_TEACHER" : "WEEKEND_GROUP"]),
+      text: phrase("weekend", motivationPhrases[teacher ? "WEEKEND_TEACHER" : "WEEKEND_GROUP"]),
     };
   }
 
   if (dayOfWeek === 5 && isAfterClasses) {
     return {
       icon: "🎉",
-      text: getRandomPhrase(motivationPhrases[teacher ? "WEEKEND_START_TEACHER" : "WEEKEND_START_GROUP"]),
+      text: phrase("weekend-start", motivationPhrases[teacher ? "WEEKEND_START_TEACHER" : "WEEKEND_START_GROUP"]),
     };
   }
 
   if (todayLessonsCount === 0) {
     return {
       icon: "🥳",
-      text: getRandomPhrase(motivationPhrases[teacher ? "FREE_DAY_TEACHER" : "FREE_DAY_GROUP"]),
+      text: phrase("free-day", motivationPhrases[teacher ? "FREE_DAY_TEACHER" : "FREE_DAY_GROUP"]),
     };
   }
 
   if (todayLessonsCount >= 4 && isWorkingHours) {
     return {
       icon: "🔥",
-      text: getRandomPhrase(motivationPhrases[teacher ? "HIGH_LOAD_TEACHER" : "HIGH_LOAD_GROUP"]),
+      text: phrase("high-load", motivationPhrases[teacher ? "HIGH_LOAD_TEACHER" : "HIGH_LOAD_GROUP"]),
     };
   }
 
   if (isAfterClasses && dayOfWeek >= 1 && dayOfWeek <= 4) {
     return {
       icon: "🌙",
-      text: getRandomPhrase(motivationPhrases[teacher ? "EVENING_TEACHER" : "EVENING_GROUP"]),
+      text: phrase("evening", motivationPhrases[teacher ? "EVENING_TEACHER" : "EVENING_GROUP"]),
     };
   }
 
   if (isWorkingHours) {
     return {
       icon: "⏳",
-      text: getRandomPhrase(motivationPhrases[teacher ? "ACTIVE_TEACHER" : "ACTIVE_GROUP"]),
+      text: phrase("active", motivationPhrases[teacher ? "ACTIVE_TEACHER" : "ACTIVE_GROUP"]),
     };
   }
 
@@ -198,3 +208,31 @@ export function getScheduleInsightMessage(
   };
 }
 import { getRandomPhrase, motivationPhrases } from "./constants/phrases";
+import type { Lesson } from "./api";
+
+function getStablePhrase(phrases: string[], key: string): string {
+  if (phrases.length === 0) return "";
+  let hash = 2166136261;
+  for (let index = 0; index < key.length; index += 1) {
+    hash ^= key.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return phrases[(hash >>> 0) % phrases.length];
+}
+
+function dateKey(date: Date): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(date);
+}
+
+function parseLessonEnd(time: string | undefined): number | null {
+  const match = time?.match(/-(\d{1,2}):(\d{2})$/);
+  if (!match) return null;
+  return Number(match[1]) * 60 + Number(match[2]);
+}
+
+function getLastLessonEnd(lessons: Lesson[]): number | null {
+  const ends = lessons
+    .map((lesson) => parseLessonEnd(lesson.time))
+    .filter((value): value is number => value !== null);
+  return ends.length ? Math.max(...ends) : null;
+}

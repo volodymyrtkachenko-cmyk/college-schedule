@@ -140,6 +140,8 @@ let currentSession: AuthSession | null = null;
 let refreshPromise: Promise<AuthSession> | null = null;
 let bootstrapPromise: Promise<AuthSession> | null = null;
 let sessionPromise: Promise<AuthSession> | null = null;
+const directoryCache = new Map<string, { expiresAt: number; promise: Promise<unknown> }>();
+const DIRECTORY_CACHE_TTL = 60_000;
 
 export class ApiError extends Error {
     constructor(public status: number, message: string) {
@@ -303,6 +305,7 @@ async function request<T>(
     if (requiresAuth && !authToken && !accessToken) {
         authToken = (await bootstrap()).access_token;
     }
+
     const headers = new Headers(init.headers);
     if (authToken || accessToken) headers.set("Authorization", "Bearer " + (authToken ?? accessToken));
     try {
@@ -321,6 +324,21 @@ async function request<T>(
     }
 }
 
+function cachedDirectoryRequest<T>(path: string): Promise<T> {
+    const cached = directoryCache.get(path);
+    if (cached && cached.expiresAt > Date.now()) return cached.promise as Promise<T>;
+
+    const promise = request<T>(path).catch((error) => {
+        directoryCache.delete(path);
+        throw error;
+    });
+    directoryCache.set(path, { expiresAt: Date.now() + DIRECTORY_CACHE_TTL, promise });
+    return promise;
+}
+
+export function invalidateDirectoryCache() {
+    directoryCache.clear();
+}
 
 export interface CurriculumRecord {
   id: number;
@@ -622,13 +640,13 @@ export const api = {
             forgetRefreshToken();
         },
     },
-    groups: () => request<ReferenceRecord[]>("/api/groups"),
+    groups: () => cachedDirectoryRequest<ReferenceRecord[]>("/api/groups"),
     directory: {
-        faculties: () => request<ReferenceRecord[]>("/api/faculties"),
-        groups: () => request<ReferenceRecord[]>("/api/groups"),
-        subjects: () => request<ReferenceRecord[]>("/api/subjects"),
-        teachers: () => request<ReferenceRecord[]>("/api/teachers"),
-        teacherSubjects: () => request<Record<number, number[]>>("/api/teacher-subjects"),
+        faculties: () => cachedDirectoryRequest<ReferenceRecord[]>("/api/faculties"),
+        groups: () => cachedDirectoryRequest<ReferenceRecord[]>("/api/groups"),
+        subjects: () => cachedDirectoryRequest<ReferenceRecord[]>("/api/subjects"),
+        teachers: () => cachedDirectoryRequest<ReferenceRecord[]>("/api/teachers"),
+        teacherSubjects: () => cachedDirectoryRequest<Record<number, number[]>>("/api/teacher-subjects"),
         },
 
     users: {

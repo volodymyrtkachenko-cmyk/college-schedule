@@ -1,22 +1,23 @@
 
 "use client";
 
+import dynamic from "next/dynamic";
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AdminNav, referenceLabels } from "../../components/admin/AdminNav";
 import { ReferenceForm } from "../../components/admin/ReferenceForm";
 import { ReferenceTable } from "../../components/admin/ReferenceTable";
-import { api, ReferenceMutation, ReferenceRecord, ReferenceResource } from "../../lib/api";
+import { api, invalidateDirectoryCache, ReferenceMutation, ReferenceRecord, ReferenceResource } from "../../lib/api";
 import { useAuth, canAccessAdmin } from "../../lib/auth";
 import { ConfirmModal } from "../../components/admin/ConfirmModal";
 import { AdminScheduleEditor } from "../../components/admin/AdminScheduleEditor";
-import { UsersPanel } from "../../components/admin/users/UsersPanel";
-import { CurriculumPanel } from "../../components/admin/CurriculumPanel";
-import { GeneratorPanel } from "../../components/admin/GeneratorPanel";
-import { ConstraintsPanel } from "../../components/admin/ConstraintsPanel";
-import { SchedulePeriodsPanel } from "../../components/admin/SchedulePeriodsPanel";
-import { SemesterSettingsPanel } from "../../components/admin/SemesterSettingsPanel";
-import { ImportPanel } from "../../components/admin/ImportPanel";
+const UsersPanel = dynamic(() => import("../../components/admin/users/UsersPanel").then((module) => module.UsersPanel), { ssr: false });
+const CurriculumPanel = dynamic(() => import("../../components/admin/CurriculumPanel").then((module) => module.CurriculumPanel), { ssr: false });
+const GeneratorPanel = dynamic(() => import("../../components/admin/GeneratorPanel").then((module) => module.GeneratorPanel), { ssr: false });
+const ConstraintsPanel = dynamic(() => import("../../components/admin/ConstraintsPanel").then((module) => module.ConstraintsPanel), { ssr: false });
+const SchedulePeriodsPanel = dynamic(() => import("../../components/admin/SchedulePeriodsPanel").then((module) => module.SchedulePeriodsPanel), { ssr: false });
+const SemesterSettingsPanel = dynamic(() => import("../../components/admin/SemesterSettingsPanel").then((module) => module.SemesterSettingsPanel), { ssr: false });
+const ImportPanel = dynamic(() => import("../../components/admin/ImportPanel").then((module) => module.ImportPanel), { ssr: false });
 
 import { ApiError } from "../../lib/api";
 
@@ -123,6 +124,7 @@ function AdminContent() {
       : await api.references.create(activeResource, payload, session.access_token);
     setItems((current) => editor ? current.map((item) => item.id === saved.id ? saved : item) : [...current, saved]);
     if (resourceConfig[activeResource].affectsSchedule) {
+      invalidateDirectoryCache();
       // Wiping related schedule caches to force a refetch on main page
       window.localStorage.removeItem("schedule:groups");
       for (let i = 0; i < window.localStorage.length; i++) {
@@ -142,6 +144,7 @@ function AdminContent() {
     try {
       const session = await api.auth.ensureAuthenticated();
       await api.references.remove(activeResource, item.id, session.access_token);
+      invalidateDirectoryCache();
       setItems((current) => current.filter((value) => value.id !== item.id)); 
       setToast({ message: "Запис видалено.", type: "success" });
     }

@@ -142,8 +142,6 @@ export function useSchedule(weekAnchorDate: Date) {
       try {
         const cachedToday = window.localStorage.getItem(todayKey);
         const cachedWeek = window.localStorage.getItem(weekKey);
-        // If we are coming back later, don't use old cached today if the date changed
-        const todayStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(new Date());
         if (cachedToday) {
             const parsedToday = JSON.parse(cachedToday) as ScheduleResponse;
             // Provide stale cache immediately
@@ -195,8 +193,9 @@ export function useSchedule(weekAnchorDate: Date) {
 
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
-          // Re-fetch in background without showing loader when app wakes up
-          fetchSchedule(true);
+          // Reuse the short-lived memory cache when returning to the tab.
+          // A stale entry still triggers the normal background refresh.
+          fetchSchedule();
       }
     };
     

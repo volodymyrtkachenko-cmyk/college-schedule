@@ -129,6 +129,7 @@ export default function StatisticsPage() {
   const messageData = getScheduleInsightMessage(
     mode === "student" ? "group" : "teacher",
     todayLessonCount ?? -1,
+    (mode === "student" ? groupId : teacherId) ?? 0,
   );
 
   const changeMode = (value: "student" | "teacher") => {

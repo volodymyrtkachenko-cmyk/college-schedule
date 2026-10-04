@@ -15,8 +15,8 @@ export function AdminNav({ active }: { active: string }) {
   const [isOpen, setIsOpen] = useState(false); // Mobile menu drawer toggle
 
   useEffect(() => {
-    // Poll online metrics every 5 seconds
     const fetchMetrics = async () => {
+      if (document.visibilityState !== "visible") return;
       try {
         const session = await api.auth.ensureAuthenticated();
         const data = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/metrics`, {
@@ -28,8 +28,12 @@ export function AdminNav({ active }: { active: string }) {
       }
     };
     fetchMetrics();
-    const iv = setInterval(fetchMetrics, 7000);
-    return () => clearInterval(iv);
+    const interval = setInterval(fetchMetrics, 30_000);
+    document.addEventListener("visibilitychange", fetchMetrics);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", fetchMetrics);
+    };
   }, []);
 
   useEffect(() => {

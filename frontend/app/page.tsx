@@ -246,7 +246,9 @@ export default function HomePage() {
             <div className={view === "today" ? "block" : "hidden"}>
               <InsightBar
                 entityType={mode === "student" ? "group" : "teacher"}
+                entityId={(mode === "student" ? groupId : teacherId) ?? 0}
                 todayLessonsCount={today.lessons.length}
+                lessons={today.lessons}
               />
               {isWeekend ? (
                 <div className="rounded-2xl border border-slate-700/50 bg-slate-800/40 px-6 py-14 text-center shadow-sm">
