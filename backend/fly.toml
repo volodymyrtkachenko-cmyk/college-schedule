@@ -6,10 +6,7 @@ primary_region = 'fra'
 [build]
 
 [deploy]
-  release_command = "bash -c 'alembic upgrade head && python scripts/import_eps.py'"
-
-[env]
-  RUN_MIGRATIONS = "false"
+  release_command = "release"
 
 [http_service]
   internal_port = 8000

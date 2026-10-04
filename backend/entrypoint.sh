@@ -1,6 +1,7 @@
 #!/bin/sh
 set -e
 
+# If the command is 'release' (from Fly.io release_command)
 if [ "$1" = 'release' ]; then
     echo "Running migrations (release)..."
     alembic upgrade head
@@ -9,10 +10,17 @@ if [ "$1" = 'release' ]; then
     exit 0
 fi
 
+# If we are on Fly.io, we skip migrations in the main app machine
+# because they are handled by the release_command above.
+if [ -n "$FLY_REGION" ]; then
+    echo "Running on Fly.io (Region: $FLY_REGION). Skipping migrations in main process."
+    RUN_MIGRATIONS="false"
+fi
+
 if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then
-    echo "Running migrations..."
+    echo "Running migrations (local)..."
     alembic upgrade head
-    echo "Importing educational process schedule..."
+    echo "Importing educational process schedule (local)..."
     python scripts/import_eps.py
 fi
 
