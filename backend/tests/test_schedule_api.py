@@ -435,7 +435,7 @@ async def test_import_matches_current_published_schedule(api_client):
                 "day_of_week": 1,
                 "lesson_number": 1,
                 "week_type": "both",
-                "room": "Room 101",
+                "room": "Аудиторія Room 101",
             }],
             "substitutions": [],
             "cancelled": [],

@@ -8,7 +8,7 @@ import logging
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Query, Security
 from fastapi.security.api_key import APIKeyHeader
-from sqlalchemy import select, func
+from sqlalchemy import delete, select, func
 from sqlalchemy.orm import joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
@@ -53,48 +53,69 @@ def _change_payload(change: ImportedScheduleChange) -> dict:
         "subject_id": change.subject_id,
         "teacher_id": change.teacher_id,
         "second_teacher_id": change.second_teacher_id,
-        "room": change.room_override,
+        "room": _normalize_room(change.room_override),
         "kind": change.kind,
     }
 
 
-def _schedule_payload(item: Schedule) -> dict:
-    return {
-        "day_of_week": item.day_of_week,
-        "lesson_number": item.lesson_number,
-        "group_id": item.group_id,
-        "subject_id": item.subject_id,
-        "teacher_id": item.teacher_id,
-        "second_teacher_id": item.second_teacher_id,
-        "room": item.room_override,
-        "week_type": item.week_type,
-    }
+def _week_matches(incoming: str, existing: str) -> bool:
+    return incoming == "both" or incoming == existing or existing == "both"
+
+
+def _normalize_room(value: str | None) -> str:
+    normalized = " ".join((value or "").casefold().split())
+    for prefix in ("аудиторія ", "ауд. ", "ауд "):
+        if normalized.startswith(prefix):
+            return normalized[len(prefix):].strip()
+    return normalized
+
+
+def _slot_matches(incoming: dict, existing: Schedule) -> bool:
+    if (
+        incoming["group_id"] != existing.group_id
+        or incoming["subject_id"] != existing.subject_id
+        or incoming["teacher_id"] != existing.teacher_id
+        or incoming.get("second_teacher_id") != existing.second_teacher_id
+        or incoming["day_of_week"] != existing.day_of_week
+        or incoming["lesson_number"] != existing.lesson_number
+        or not _week_matches(incoming.get("week_type", "both"), existing.week_type)
+    ):
+        return False
+    incoming_room = _normalize_room(incoming.get("room"))
+    return not incoming_room or incoming_room == _normalize_room(existing.room_override)
 
 
 async def matches_published_schedule(db: AsyncSession, payload: dict, weeks: int) -> bool:
     schedules = (await db.scalars(
         select(Schedule).where(Schedule.is_active.is_(True))
     )).all()
-    incoming_base = {
-        json.dumps(item, sort_keys=True, default=str)
-        for item in payload.get("base_slots", [])
-    }
-    published_base = {
-        json.dumps(_schedule_payload(item), sort_keys=True, default=str)
-        for item in schedules
-    }
-    # The database may contain manually added lessons that are intentionally
-    # absent from the external import. Every imported lesson must still exist.
-    if not incoming_base.issubset(published_base):
-        return False
+    used_schedule_ids: set[int] = set()
+    for incoming in payload.get("base_slots", []):
+        match = next(
+            (
+                schedule for schedule in schedules
+                if schedule.id not in used_schedule_ids and _slot_matches(incoming, schedule)
+            ),
+            None,
+        )
+        if match is None:
+            return False
+        used_schedule_ids.add(match.id)
 
-    today = now_local().date()
-    through = today + timedelta(days=max(weeks, 1) * 7)
+    scope = payload.get("import_scope") or {}
+    scope_dates = {
+        datetime.strptime(value, "%Y-%m-%d").date()
+        for value in scope.get("dates", [])
+    }
+    if not scope_dates:
+        today = now_local().date()
+        scope_dates = {today + timedelta(days=offset) for offset in range(max(weeks, 1) * 7)}
+    scope_groups = set(scope.get("group_ids", []))
     changes = (await db.scalars(
         select(ImportedScheduleChange).where(
             ImportedScheduleChange.is_published.is_(True),
-            ImportedScheduleChange.date >= today,
-            ImportedScheduleChange.date <= through,
+            ImportedScheduleChange.date.in_(scope_dates),
+            ImportedScheduleChange.group_id.in_(scope_groups) if scope_groups else True,
         )
     )).all()
     latest_changes: dict[tuple[object, int, int], ImportedScheduleChange] = {}
@@ -111,7 +132,7 @@ async def matches_published_schedule(db: AsyncSession, payload: dict, weeks: int
         "subject_id": item.get("subject_id"),
         "teacher_id": item.get("teacher_id"),
         "second_teacher_id": item.get("second_teacher_id"),
-        "room": item.get("room"),
+        "room": _normalize_room(item.get("room")),
         "kind": "substitution",
     } for item in payload.get("substitutions", [])] + [{
         "date": item["date"],
@@ -169,6 +190,8 @@ async def trigger_import(
         aggregated_base_slots = []
         aggregated_skipped = []
         errors = []
+        imported_dates: set[str] = set()
+        imported_group_ids: set[int] = set()
         
         semaphore = asyncio.Semaphore(5)
         
@@ -213,6 +236,7 @@ async def trigger_import(
                     errors.append({"group": group_ids[g_idx], "error": str(parsed_week_list)})
                     continue
                 for parsed_week in parsed_week_list:
+                    imported_dates.update(lesson.date.isoformat() for lesson in parsed_week.lessons)
                     diff_report = await differ.diff(parsed_week)
                     for item in diff_report["unresolved"]:
                         key = f"{item['type']}_{item['raw']}"
@@ -222,6 +246,15 @@ async def trigger_import(
                     aggregated_cancelled.extend(diff_report["cancelled"])
                     aggregated_base_slots.extend(diff_report["base_slots"])
                     aggregated_skipped.extend(diff_report["skipped_base_slots"])
+                    imported_group_ids.update(
+                        slot["group_id"] for slot in diff_report["base_slots"]
+                    )
+                    imported_group_ids.update(
+                        item["group_id"] for item in diff_report["substitutions"]
+                    )
+                    imported_group_ids.update(
+                        item["group_id"] for item in diff_report["cancelled"]
+                    )
                 
         # Deduplicate base slots
         unique_slots = {}
@@ -332,6 +365,10 @@ async def trigger_import(
             "base_slots": aggregated_base_slots,
             "substitutions": aggregated_substitutions,
             "cancelled": aggregated_cancelled,
+            "import_scope": {
+                "dates": sorted(imported_dates),
+                "group_ids": sorted(imported_group_ids),
+            },
             "created_curriculum_ids": created_curriculum_ids,
         }
         payload_hash = import_payload_hash(payload)
@@ -349,28 +386,32 @@ async def trigger_import(
         )
         pending_draft = await db.scalar(pending_stmt)
 
-        # Only completed imports can produce the "unchanged" result.
-        latest_stmt = (
-            select(ScheduleDraft)
-            .where(
-                ScheduleDraft.draft_type == "import",
-                ScheduleDraft.status != "pending",
-            )
-            .order_by(ScheduleDraft.id.desc())
-            .limit(1)
-        )
-        last_draft = await db.scalar(latest_stmt)
         unchanged = False
-        if pending_draft:
+        pending_matches = (
+            pending_draft
+            and import_payload_hash(pending_draft.data or {}) == payload_hash
+        )
+        current_matches = await matches_published_schedule(db, payload, weeks)
+
+        async def archive_pending_import() -> None:
+            if not pending_draft:
+                return
+            await db.execute(delete(ScheduleSlot).where(ScheduleSlot.draft_id == pending_draft.id))
+            created_ids = (pending_draft.data or {}).get("created_curriculum_ids", [])
+            if created_ids:
+                await db.execute(delete(Curriculum).where(Curriculum.id.in_(created_ids)))
+            pending_draft.status = "archived"
+
+        if pending_matches:
             draft_id = pending_draft.id
-        elif (
-            await matches_published_schedule(db, payload, weeks)
-            or (last_draft and import_payload_hash(last_draft.data or {}) == payload_hash)
-        ):
+        elif current_matches:
             logger.info("Import payload identical to the latest import. Skipping creation.")
-            draft_id = last_draft.id
+            await archive_pending_import()
+            draft_id = None
             unchanged = True
         else:
+            if pending_draft:
+                await archive_pending_import()
             draft_name = f"Імпорт {now_local().strftime('%Y-%m-%d %H:%M')}"
             draft = ScheduleDraft(name=draft_name, draft_type="import", status="pending", data=payload)
             db.add(draft)
