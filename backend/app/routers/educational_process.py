@@ -11,6 +11,31 @@ from app.schemas.educational_process import EducationalProcessMatrix, WeekInfo, 
 
 router = APIRouter(prefix="/educational-process", tags=["Educational Process"])
 
+@router.get("/debug-import")
+async def debug_import(db: AsyncSession = Depends(get_db)):
+    from scripts.import_eps import async_main
+    import io
+    import sys
+    
+    # Redirect stdout to capture logs
+    old_stdout = sys.stdout
+    new_stdout = io.StringIO()
+    sys.stdout = new_stdout
+    
+    try:
+        await async_main()
+    except Exception as e:
+        print(f"Exception: {e}")
+    finally:
+        sys.stdout = old_stdout
+        
+    # Check groups
+    result = await db.execute(select(Group))
+    groups = result.scalars().all()
+    group_info = [{"name": g.name, "year": g.year_of_admission, "course": g.course} for g in groups]
+        
+    return {"log": new_stdout.getvalue(), "groups": group_info}
+
 def generate_weeks(start_date: date) -> List[WeekInfo]:
     # Find the Monday of the week containing start_date
     current = start_date - timedelta(days=start_date.weekday())
