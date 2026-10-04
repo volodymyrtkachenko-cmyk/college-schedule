@@ -1,5 +1,20 @@
 "use client";
 
+export interface ScheduleVersion {
+  id: number;
+  name: string;
+  valid_from: string;
+  valid_until: string;
+  is_active: boolean;
+}
+
+export interface ScheduleVersionMutation {
+  name?: string;
+  valid_from?: string;
+  valid_until?: string;
+  is_active?: boolean;
+}
+
 export type WeekType = "numerator" | "denominator" | "both";
 
 export interface SemesterStartSetting {
@@ -718,6 +733,20 @@ export const api = {
                 method: "PUT",
                 body: JSON.stringify(payload),
             }, false, true, token),
+    },
+
+    scheduleVersions: {
+        list: () => authenticatedRequest<ScheduleVersion[]>("/api/schedule-versions"),
+        create: (payload: ScheduleVersionMutation) => authenticatedRequest<ScheduleVersion>("/api/schedule-versions", {
+            method: "POST",
+            body: JSON.stringify(payload)
+        }),
+        update: (id: number, payload: ScheduleVersionMutation) => authenticatedRequest<ScheduleVersion>(`/api/schedule-versions/${id}`, {
+            method: "PATCH",
+            body: JSON.stringify(payload)
+        }),
+        remove: (id: number) => authenticatedRequest<void>(`/api/schedule-versions/${id}`, { method: "DELETE" }),
+        clone: (id: number, sourceId: number) => authenticatedRequest<{status: string; count: number}>(`/api/schedule-versions/${id}/clone-from/${sourceId}`, { method: "POST" }),
     },
     lessons: {
         create: (payload: LessonMutation) => authenticatedRequest<Lesson>("/api/schedule", {
