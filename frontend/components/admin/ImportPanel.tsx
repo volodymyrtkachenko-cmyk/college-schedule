@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { api, ImportCancellation, ImportSubstitution, ImporterResponse, ReferenceRecord } from "../../lib/api";
+import { api, DraftSlotRecord, ImportCancellation, ImportSubstitution, ImporterResponse, ReferenceRecord } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 
 export function ImportPanel() {
@@ -19,6 +19,10 @@ export function ImportPanel() {
   const [substitutions, setSubstitutions] = useState<ImportSubstitution[]>([]);
   const [cancelled, setCancelled] = useState<ImportCancellation[]>([]);
   const [draftId, setDraftId] = useState<number | null>(null);
+  const [importSlots, setImportSlots] = useState<DraftSlotRecord[]>([]);
+  const [selectedHistory, setSelectedHistory] = useState<number | null>(null);
+  const [historySlots, setHistorySlots] = useState<DraftSlotRecord[]>([]);
+  const [historyChanges, setHistoryChanges] = useState<Awaited<ReturnType<typeof api.generator.getSubstitutions>>>([]);
   const [importHistory, setImportHistory] = useState<Array<{ id: number; name: string; status: string; created_at: string; data?: { substitutions?: ImportSubstitution[]; cancelled?: ImportCancellation[] } | null }>>([]);
 
   useEffect(() => {
@@ -53,6 +57,7 @@ export function ImportPanel() {
         );
         if (!pending) return;
         setDraftId(pending.id);
+        setImportSlots(await api.generator.getSlots(pending.id, session.access_token));
         if (!pending.data) {
           setReport({ unresolved: [], base_slots: [], substitutions: [], cancelled: [] });
           setStatus("ready");
@@ -85,6 +90,9 @@ export function ImportPanel() {
       const session = await api.auth.ensureAuthenticated();
       const res = await api.importer.importData(session.access_token);
       setDraftId(res.meta?.draft_created ?? null);
+      if (res.meta?.draft_created) {
+        setImportSlots(await api.generator.getSlots(res.meta.draft_created, session.access_token));
+      }
       
       if (res.report.unresolved.length > 0 || res.report.substitutions.length > 0 || (res.report.cancelled?.length ?? 0) > 0) {
         setReport(res.report);
@@ -174,6 +182,44 @@ export function ImportPanel() {
     }
   };
 
+  const viewHistory = async (id: number) => {
+    try {
+      const session = await api.auth.ensureAuthenticated();
+      const [nextSlots, nextChanges] = await Promise.all([
+        api.generator.getSlots(id, session.access_token),
+        api.generator.getSubstitutions(id, session.access_token),
+      ]);
+      setHistorySlots(nextSlots);
+      setHistoryChanges(nextChanges);
+      setSelectedHistory(id);
+    } catch (err: any) {
+      setError(err?.message || "Не вдалося завантажити імпорт.");
+    }
+  };
+
+  const deleteHistory = async (id: number) => {
+    if (!window.confirm("Видалити цей імпорт з архіву? Відновити його буде неможливо.")) return;
+    try {
+      const session = await api.auth.ensureAuthenticated();
+      await api.generator.deleteDraft(id, session.access_token);
+      setImportHistory(current => current.filter(item => item.id !== id));
+      if (selectedHistory === id) setSelectedHistory(null);
+    } catch (err: any) {
+      setError(err?.message || "Не вдалося видалити імпорт.");
+    }
+  };
+
+  const moveImportSlot = async (slot: DraftSlotRecord, day: number, lesson: number) => {
+    if (!draftId) return;
+    try {
+      const session = await api.auth.ensureAuthenticated();
+      const updated = await api.generator.moveSlot(slot.id, day, lesson, slot.week_type, session.access_token);
+      setImportSlots(current => current.map(item => item.id === updated.id ? updated : item));
+    } catch (err: any) {
+      setError(err?.message || "Не вдалося змінити імпорт.");
+    }
+  };
+
   const handlePrimaryAction = async () => {
     if (!report) return;
     if (report.unresolved.length > 0) {
@@ -226,14 +272,58 @@ export function ImportPanel() {
                              {new Intl.DateTimeFormat("uk-UA", { dateStyle: "medium", timeStyle: "short" }).format(new Date(item.created_at))}
                            </div>
                          </div>
-                         <div className="flex items-center gap-3 text-xs text-sys-text-secondary">
+                         <div className="flex flex-wrap items-center gap-2 text-xs text-sys-text-secondary">
                            <span>Заміни: {item.data?.substitutions?.length ?? 0}</span>
                            <span>Скасування: {item.data?.cancelled?.length ?? 0}</span>
                            <span className="rounded bg-white/5 px-2 py-1">{item.status === "published" ? "Опубліковано" : "Архів"}</span>
+                           <button type="button" onClick={() => void viewHistory(item.id)} className="rounded-lg border border-sys-accent/30 px-2 py-1 text-sys-accent hover:bg-sys-accent/10">Переглянути</button>
+                           {item.status === "archived" && (
+                             <button type="button" onClick={() => void deleteHistory(item.id)} className="rounded-lg border border-rose-400/30 px-2 py-1 text-rose-300 hover:bg-rose-500/10">Видалити</button>
+                           )}
                          </div>
                        </div>
                      ))}
                    </div>
+                   {selectedHistory !== null && (
+                     <div className="mt-4 rounded-xl border border-sys-border bg-sys-bg/40 p-4">
+                       <div className="mb-3 flex items-center justify-between">
+                         <h4 className="font-semibold">Перегляд імпорту</h4>
+                         <button type="button" onClick={() => setSelectedHistory(null)} className="text-sm text-sys-text-secondary hover:text-white">Закрити</button>
+                       </div>
+                       <div className="max-h-80 overflow-auto text-xs">
+                         <table className="w-full text-left">
+                           <thead><tr className="border-b border-sys-border text-sys-text-muted"><th className="p-2">Група</th><th className="p-2">Предмет</th><th className="p-2">День</th><th className="p-2">Пара</th><th className="p-2">Тиждень</th></tr></thead>
+                           <tbody>
+                             {historySlots.map(slot => (
+                               <tr key={slot.id} className="border-b border-sys-border/50">
+                                 <td className="p-2">{slot.curriculum.group.name}</td>
+                                 <td className="p-2">{slot.curriculum.subject.name}</td>
+                                 <td className="p-2">{slot.day_of_week}</td>
+                                 <td className="p-2">{slot.lesson_number}</td>
+                                 <td className="p-2">{slot.week_type}</td>
+                               </tr>
+                             ))}
+                           </tbody>
+                         </table>
+                         {historyChanges.length > 0 && (
+                           <div className="mt-4 space-y-1 border-t border-sys-border pt-3">
+                             <div className="mb-2 font-semibold text-sys-text-secondary">Імпортні зміни</div>
+                             {historyChanges.map((change, index) => (
+                               <div key={`${change.date}-${change.group_id}-${change.lesson_number}-${index}`} className="flex flex-wrap gap-x-3 gap-y-1 rounded-lg bg-white/[0.03] p-2">
+                                 <span>{change.date}</span>
+                                 <span>{change.group_name ?? "Невідома група"}</span>
+                                 <span>{change.lesson_number}-та пара</span>
+                                 <span className={change.kind === "cancelled" ? "text-rose-300" : "text-amber-200"}>
+                                   {change.kind === "cancelled" ? "Скасовано" : `${change.subject_name ?? "Заміна"} · ${change.teacher_name ?? "Без викладача"}`}
+                                 </span>
+                               </div>
+                             ))}
+                           </div>
+                         )}
+                         {!historySlots.length && !historyChanges.length && <p className="p-3 text-sys-text-muted">В імпорті немає слотів або змін.</p>}
+                       </div>
+                     </div>
+                   )}
                  </div>
                )}
             </div>
@@ -248,6 +338,25 @@ export function ImportPanel() {
                     </h3>
                     <p className="opacity-80">Перед тим, як залити розклад у базу, переконайтеся, що ви зв'язали ці нові назви з наявними в системі. Заповніть усі поля.</p>
                 </div>
+
+                {importSlots.length > 0 && (
+                  <div className="mb-6 space-y-3">
+                    <h3 className="font-semibold">Базовий розклад імпорту</h3>
+                    <div className="max-h-80 overflow-auto rounded-xl border border-sys-border">
+                      {importSlots.map(slot => (
+                        <div key={slot.id} className="grid grid-cols-[1fr_auto_auto] items-center gap-2 border-b border-sys-border/50 p-2 text-xs last:border-0">
+                          <span>{slot.curriculum.group.name} · {slot.curriculum.subject.name}</span>
+                          <select value={slot.day_of_week} onChange={e => void moveImportSlot(slot, Number(e.target.value), slot.lesson_number)} className="form-control py-1">
+                            {[1, 2, 3, 4, 5].map(day => <option key={day} value={day}>{day}</option>)}
+                          </select>
+                          <select value={slot.lesson_number} onChange={e => void moveImportSlot(slot, slot.day_of_week, Number(e.target.value))} className="form-control py-1">
+                            {[1, 2, 3, 4].map(lesson => <option key={lesson} value={lesson}>{lesson}</option>)}
+                          </select>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 <div className="space-y-3 mb-6 bg-slate-900/50 p-4 rounded-xl border border-sys-border">
                     {report.unresolved.map((item, idx) => (

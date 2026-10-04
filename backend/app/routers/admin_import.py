@@ -9,6 +9,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query, Security
 from fastapi.security.api_key import APIKeyHeader
 from sqlalchemy import select, func
+from sqlalchemy.orm import joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.core.security import require_roles
@@ -26,6 +27,11 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 def hash_payload(payload: dict) -> str:
     serialized = json.dumps(payload, sort_keys=True, default=str)
     return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+
+def import_payload_hash(payload: dict) -> str:
+    comparable = {key: value for key, value in payload.items() if key != "created_curriculum_ids"}
+    return hash_payload(comparable)
 
 @router.post("/import")
 async def trigger_import(
@@ -134,14 +140,23 @@ async def trigger_import(
                 unique_slots[k] = s
         aggregated_base_slots = list(unique_slots.values())
 
-        # Копіюємо ВСІ пари з поточного опублікованого розкладу, яких нема в імпорті.
-        # Це потрібно щоб пари на зразок "Виховна година" (яких нема на сайті коледжу)
-        # не зникали після публікації чернетки імпорту.
+        # Імпорт не повинен повертати вручну додані пари.
+        # Єдиний виняток — виховна година щочетверга на 4-й парі.
         def covers(imported_week: str, existing_week: str) -> bool:
             return imported_week == "both" or imported_week == existing_week
 
-        all_published = (await db.scalars(select(Schedule).where(Schedule.is_active.is_(True)))).all()
+        all_published = (await db.scalars(
+            select(Schedule)
+            .where(
+                Schedule.is_active.is_(True),
+                Schedule.day_of_week == 4,
+                Schedule.lesson_number == 4,
+            )
+            .options(joinedload(Schedule.subject))
+        )).all()
         for sch in all_published:
+            if not sch.subject or sch.subject.name.strip().casefold() != "виховна година":
+                continue
             matching_import = [
                 slot
                 for slot in aggregated_base_slots
@@ -217,12 +232,14 @@ async def trigger_import(
                 same_cell = [*same_cell, slot]
 
         # Prepare payload for Draft Data
+        created_curriculum_ids: list[int] = []
         payload = {
             "base_slots": aggregated_base_slots,
             "substitutions": aggregated_substitutions,
             "cancelled": aggregated_cancelled,
+            "created_curriculum_ids": created_curriculum_ids,
         }
-        payload_hash = hash_payload(payload)
+        payload_hash = import_payload_hash(payload)
         
         # Check if identical draft exists
         stmt = (
@@ -235,7 +252,7 @@ async def trigger_import(
             .limit(1)
         )
         last_draft = await db.scalar(stmt)
-        if last_draft and hash_payload(last_draft.data or {}) == payload_hash:
+        if last_draft and import_payload_hash(last_draft.data or {}) == payload_hash:
             logger.info("Import payload identical to last pending draft. Skipping creation.")
             draft_id = last_draft.id
         else:
@@ -268,6 +285,7 @@ async def trigger_import(
                     )
                     db.add(curr)
                     await db.flush()
+                    created_curriculum_ids.append(curr.id)
                 
                 db_slot = ScheduleSlot(
                     draft_id=draft.id,
@@ -279,6 +297,7 @@ async def trigger_import(
                 )
                 db.add(db_slot)
                 
+            draft.data = {**payload, "created_curriculum_ids": created_curriculum_ids}
             await db.commit()
             
         return {

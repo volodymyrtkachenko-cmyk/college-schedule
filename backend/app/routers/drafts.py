@@ -91,9 +91,16 @@ async def delete_draft(
     draft = await db.get(ScheduleDraft, id)
     if not draft:
         raise HTTPException(status_code=404, detail="Draft not found")
-    if draft.status in {"published", "GENERATING", "generating"}:
+    if draft.status in {"GENERATING", "generating"} or (
+        draft.status == "published" and draft.draft_type != "import"
+    ):
         raise HTTPException(status_code=409, detail="Опубліковану або активну чернетку не можна видалити")
     await db.execute(delete(ScheduleSlot).where(ScheduleSlot.draft_id == id))
+    created_curriculum_ids = (draft.data or {}).get("created_curriculum_ids", [])
+    if created_curriculum_ids:
+        await db.execute(
+            delete(Curriculum).where(Curriculum.id.in_(created_curriculum_ids))
+        )
     await db.delete(draft)
     await db.commit()
     return None
@@ -189,6 +196,9 @@ async def move_slot(
     slot = await db.get(ScheduleSlot, slot_id, options=[selectinload(ScheduleSlot.curriculum)])
     if not slot:
         raise HTTPException(404, "Slot not found")
+    draft = await db.get(ScheduleDraft, slot.draft_id)
+    if not draft or draft.status not in {"pending", "DRAFT", "draft"}:
+        raise HTTPException(status_code=409, detail="Змінювати можна лише активну чернетку")
         
     c = slot.curriculum
     # Check for conflicts in the same draft at the target time
@@ -308,6 +318,14 @@ async def publish_draft(
     if new_schedules:
         db.add_all(new_schedules)
         await db.flush()
+
+    if draft.draft_type == "import":
+        created_curriculum_ids = (draft.data or {}).get("created_curriculum_ids", [])
+        if created_curriculum_ids:
+            await db.execute(delete(ScheduleSlot).where(ScheduleSlot.draft_id == id))
+            await db.execute(
+                delete(Curriculum).where(Curriculum.id.in_(created_curriculum_ids))
+            )
         
     # Process substitutions if draft.data exists
     if draft.data:
