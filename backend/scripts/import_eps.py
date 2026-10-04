@@ -65,12 +65,6 @@ async def async_main():
                         suffix = group_name.split('-')[-1]
                         if suffix in group_dict_exact:
                             group = group_dict_exact[suffix]
-                        # Спробуємо без останнього суфіксу (напр. "ТР-25-1/9-87" -> "ТР-25-1/9")
-                        base_name = '-'.join(norm_name.split('-')[:-1])
-                        if base_name in group_dict_base:
-                            group = group_dict_base[base_name]
-                        elif base_name in group_dict:
-                            group = group_dict[base_name]
                     
                     if not group:
                         print(f"Попередження: Групу {group_name} не знайдено в БД. Пропускаємо.")
