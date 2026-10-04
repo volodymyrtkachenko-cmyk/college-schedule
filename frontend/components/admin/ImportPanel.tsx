@@ -290,6 +290,11 @@ export function ImportPanel() {
                            <span>Скасування: {item.data?.cancelled?.length ?? 0}</span>
                            <span className="rounded bg-white/5 px-2 py-1">{item.status === "published" ? "Опубліковано" : "Архів"}</span>
                            <button type="button" onClick={() => void viewHistory(item.id)} className="rounded-lg border border-sys-accent/30 px-2 py-1 text-sys-accent hover:bg-sys-accent/10">Переглянути</button>
+                           {item.status === "published" && (
+                             <a href="/admin?resource=schedule" className="rounded-lg bg-sys-accent px-2 py-1 font-semibold text-[#0b1120] hover:opacity-90">
+                               Редагувати розклад
+                             </a>
+                           )}
                            {item.status === "archived" && (
                              <button type="button" onClick={() => void deleteHistory(item.id)} className="rounded-lg border border-rose-400/30 px-2 py-1 text-rose-300 hover:bg-rose-500/10">Видалити</button>
                            )}
@@ -452,7 +457,7 @@ export function ImportPanel() {
                           </label>
                           <label className="min-w-0 space-y-1.5 md:col-span-2">
                             <span className="text-xs font-medium text-sys-text-secondary">Аудиторія <span className="font-normal text-sys-text-muted">(необов’язково)</span></span>
-                            <input type="number" min="1" step="1" inputMode="numeric" value={item.room ?? ""} onChange={(e) => updateSubstitution(index, { room: e.target.value || null })} placeholder="Наприклад, 302" className="form-control w-full max-w-full" />
+                            <input type="text" value={item.room ?? ""} onChange={(e) => updateSubstitution(index, { room: e.target.value || null })} placeholder="Наприклад, 302 або спортзал" className="form-control w-full max-w-full" />
                           </label>
                         </div>
                       </div>
