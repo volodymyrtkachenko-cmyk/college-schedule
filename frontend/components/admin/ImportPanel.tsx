@@ -75,7 +75,7 @@ export function ImportPanel() {
           substitutions: nextSubstitutions,
           cancelled: nextCancelled,
         });
-        setStatus(nextSubstitutions.length || nextCancelled.length ? "mapping" : "ready");
+        setStatus(nextSubstitutions.filter(s => (s as any).is_new !== false).length || nextCancelled.filter(c => (c as any).is_new !== false).length ? "mapping" : "ready");
       } catch {
         // The import button remains available when no pending draft can be loaded.
       }
@@ -102,7 +102,7 @@ export function ImportPanel() {
         return;
       }
       
-      if (res.report.unresolved.length > 0 || res.report.substitutions.length > 0 || (res.report.cancelled?.length ?? 0) > 0) {
+      if (res.report.unresolved.length > 0 || res.report.substitutions.filter((s: any) => s.is_new !== false).length > 0 || (res.report.cancelled?.filter((c: any) => c.is_new !== false).length ?? 0) > 0) {
         setReport(res.report);
         setSubstitutions(res.report.substitutions);
         setCancelled(res.report.cancelled ?? []);
@@ -369,7 +369,9 @@ export function ImportPanel() {
 
         {status === "mapping" && report && (
             <div className="animate-in fade-in slide-in-from-bottom-2">
-                <div className="bg-yellow-500/10 border border-yellow-500/30 text-amber-300 p-4 rounded-lg text-sm mb-6">
+                {report.unresolved.length > 0 && (
+                    <>
+                        <div className="bg-yellow-500/10 border border-yellow-500/30 text-amber-300 p-4 rounded-lg text-sm mb-6">
                     <h3 className="font-bold flex items-center gap-2 mb-1">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
                         Знайдено нові записи
@@ -399,8 +401,10 @@ export function ImportPanel() {
                         </div>
                     ))}
                 </div>
+                    </>
+                )}
 
-                {substitutions.length > 0 && (
+                {substitutions.filter(s => (s as any).is_new !== false).length > 0 && (
                   <div className="mb-6 space-y-3">
                     <div className="flex items-end justify-between gap-3">
                       <div>
@@ -466,7 +470,7 @@ export function ImportPanel() {
                   </div>
                 )}
 
-                {cancelled.length > 0 && (
+                {cancelled.filter(c => (c as any).is_new !== false).length > 0 && (
                   <div className="mb-6 space-y-3">
                     <div className="flex items-end justify-between gap-3">
                       <div>
