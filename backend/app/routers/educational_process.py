@@ -11,52 +11,6 @@ from app.schemas.educational_process import EducationalProcessMatrix, WeekInfo, 
 
 router = APIRouter(prefix="/educational-process", tags=["Educational Process"])
 
-@router.get("/debug-import")
-async def debug_import(db: AsyncSession = Depends(get_db)):
-    from scripts.import_eps import async_main
-    import io
-    import sys
-    
-    # Redirect stdout to capture logs
-    old_stdout = sys.stdout
-    new_stdout = io.StringIO()
-    sys.stdout = new_stdout
-    
-    try:
-        await async_main()
-    except Exception as e:
-        print(f"Exception: {e}")
-    finally:
-        sys.stdout = old_stdout
-        
-    # Check groups
-    result = await db.execute(select(Group))
-    groups = result.scalars().all()
-    group_info = [{"name": g.name, "year": g.year_of_admission, "course": g.course} for g in groups]
-        
-    return {"log": new_stdout.getvalue(), "groups": group_info}
-
-@router.get("/debug")
-async def debug_import(db: AsyncSession = Depends(get_db)):
-    import traceback
-    import io
-    import sys
-    from scripts.import_eps import async_main
-    
-    old_stdout = sys.stdout
-    new_stdout = io.StringIO()
-    sys.stdout = new_stdout
-    
-    error = None
-    try:
-        await async_main()
-    except Exception as e:
-        error = traceback.format_exc()
-    finally:
-        sys.stdout = old_stdout
-        
-    return {"log": new_stdout.getvalue(), "error": error}
-
 def generate_weeks(start_date: date) -> List[WeekInfo]:
     # Find the Monday of the week containing start_date
     current = start_date - timedelta(days=start_date.weekday())
@@ -73,17 +27,14 @@ async def get_matrix(
     academic_year_start: int = Query(..., description="Рік початку навчального року (наприклад, 2026)"),
     db: AsyncSession = Depends(get_db)
 ):
-    # Дата початку: 1 вересня заданого року
     start_date = date(academic_year_start, 9, 1)
     end_date = date(academic_year_start + 1, 8, 31)
     
     weeks = generate_weeks(start_date)
     
-    # Отримуємо всі групи
     groups_result = await db.execute(select(Group).where(Group.is_active == True).order_by(Group.name))
     all_groups = groups_result.scalars().all()
     
-    # Отримуємо всі періоди, що перетинаються з навчальним роком
     periods_result = await db.execute(
         select(SchedulePeriod)
         .options(selectinload(SchedulePeriod.groups))
@@ -94,14 +45,12 @@ async def get_matrix(
     )
     all_periods = periods_result.scalars().all()
     
-    # Словник: group_id -> список періодів
     group_periods_map = {g.id: [] for g in all_groups}
     for p in all_periods:
         for g in p.groups:
             if g.id in group_periods_map:
                 group_periods_map[g.id].append(p)
                 
-    # Формуємо матрицю
     courses_map = {}
     
     for group in all_groups:
@@ -116,18 +65,14 @@ async def get_matrix(
         g_periods = group_periods_map[group.id]
         
         for w in weeks:
-            # Знаходимо період, який припадає на четвер (середину) цього тижня
-            # Або період, який займає найбільше днів
             thursday = w.start_date + timedelta(days=3)
             active_period = None
             
-            # Шукаємо період, який покриває четвер
             for p in g_periods:
                 if p.start_date <= thursday <= p.end_date:
                     active_period = p
                     break
             
-            # Якщо на четвер немає, шукаємо будь-який період на цьому тижні
             if not active_period:
                 for p in g_periods:
                     if p.start_date <= w.end_date and p.end_date >= w.start_date:
@@ -141,7 +86,6 @@ async def get_matrix(
                     name=active_period.name
                 ))
             else:
-                # За замовчуванням теорія
                 cells.append(CellInfo(
                     week_number=w.week_number,
                     period_type="theory",
@@ -166,3 +110,28 @@ async def get_matrix(
         weeks=weeks,
         courses=result_courses
     )
+
+@router.get("/debug")
+async def debug_import(db: AsyncSession = Depends(get_db)):
+    import io
+    import sys
+    import traceback
+    from scripts.import_eps import async_main
+    
+    old_stdout = sys.stdout
+    new_stdout = io.StringIO()
+    sys.stdout = new_stdout
+    
+    error = None
+    try:
+        await async_main()
+    except Exception as e:
+        error = traceback.format_exc()
+    finally:
+        sys.stdout = old_stdout
+        
+    result = await db.execute(select(Group))
+    groups = result.scalars().all()
+    group_info = [{"name": g.name, "year": g.year_of_admission, "course": g.course} for g in groups]
+        
+    return {"log": new_stdout.getvalue(), "error": error, "groups": group_info}
