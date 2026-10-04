@@ -51,8 +51,7 @@ async def async_main():
             all_groups_res = await db.execute(select(Group))
             all_groups = all_groups_res.scalars().all()
             group_dict = {normalize_name(g.name): g for g in all_groups}
-            group_dict_no_suffix = {normalize_name(g.name).split('-')[-1]: g for g in all_groups if '-' in g.name} # fallback
-            group_dict_base = { '-'.join(normalize_name(g.name).split('-')[:-1]): g for g in all_groups if '-' in g.name }
+            group_dict_exact = {g.name: g for g in all_groups}
             
             for course_data in data.get("courses", []):
                 course_num = course_data.get("course")
@@ -62,6 +61,10 @@ async def async_main():
                     
                     group = group_dict.get(norm_name)
                     if not group:
+                        # Спробуємо останній суфікс як назву (напр. "ТР-25-1/9-87" -> "87")
+                        suffix = group_name.split('-')[-1]
+                        if suffix in group_dict_exact:
+                            group = group_dict_exact[suffix]
                         # Спробуємо без останнього суфіксу (напр. "ТР-25-1/9-87" -> "ТР-25-1/9")
                         base_name = '-'.join(norm_name.split('-')[:-1])
                         if base_name in group_dict_base:
