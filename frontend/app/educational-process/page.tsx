@@ -250,33 +250,42 @@ export default function EducationalProcessPage() {
                     </div>
                 </header>
                 
-                <div className="mb-10 flex flex-col gap-2 relative bg-white dark:bg-slate-900 p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 max-w-3xl mx-auto w-full">
-                    <label className="text-base font-semibold text-slate-800 dark:text-slate-200">Фільтр груп (мульти-вибір):</label>
-                    <div className="flex flex-wrap gap-2.5 max-h-48 overflow-y-auto p-3 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950 custom-scrollbar mt-1">
-                        {allGroups.map(g => (
-                            <label key={g.id} className={`flex items-center gap-2 px-3.5 py-2 rounded-md shadow-sm text-sm font-medium cursor-pointer transition-colors border ${selectedGroups.includes(g.id) ? 'bg-blue-50 border-blue-200 dark:bg-blue-900/30 dark:border-blue-800' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'}`}>
-                                <input 
-                                    type="checkbox" 
-                                    className="rounded border-slate-300 w-4 h-4 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                                    checked={selectedGroups.includes(g.id)}
-                                    onChange={(e) => {
-                                        if (e.target.checked) {
-                                            setSelectedGroups(prev => [...prev, g.id]);
-                                        } else {
+                <div className="mb-10 max-w-3xl mx-auto w-full">
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-lg font-bold text-slate-800 dark:text-slate-200">Групи</h2>
+                        {selectedGroups.length > 0 && (
+                            <button 
+                                onClick={() => setSelectedGroups([])} 
+                                className="text-sm font-medium text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
+                            >
+                                Скинути
+                            </button>
+                        )}
+                    </div>
+                    <div className="flex flex-wrap gap-2.5 max-h-60 overflow-y-auto custom-scrollbar pr-2">
+                        {allGroups.map(g => {
+                            const isSelected = selectedGroups.includes(g.id);
+                            return (
+                                <button
+                                    key={g.id}
+                                    onClick={() => {
+                                        if (isSelected) {
                                             setSelectedGroups(prev => prev.filter(id => id !== g.id));
+                                        } else {
+                                            setSelectedGroups(prev => [...prev, g.id]);
                                         }
                                     }}
-                                />
-                                {g.name}
-                            </label>
-                        ))}
-                        {allGroups.length === 0 && !loading && <span className="text-slate-500 text-sm p-2">Немає груп для відображення</span>}
-                    </div>
-                    <div className="text-sm text-slate-500 mt-2 flex items-center justify-between font-medium">
-                        <span>{selectedGroups.length === 0 ? "Показано всі групи" : `Обрано: ${selectedGroups.length} груп(и)`}</span>
-                        {selectedGroups.length > 0 && (
-                            <button onClick={() => setSelectedGroups([])} className="text-blue-600 dark:text-blue-400 hover:underline">Скинути вибір</button>
-                        )}
+                                    className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                                        isSelected 
+                                            ? 'bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900 shadow-md' 
+                                            : 'bg-slate-200/70 text-slate-600 hover:bg-slate-300/80 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700'
+                                    }`}
+                                >
+                                    {g.name}
+                                </button>
+                            );
+                        })}
+                        {allGroups.length === 0 && !loading && <span className="text-slate-500 text-sm">Немає груп для відображення</span>}
                     </div>
                 </div>
 
