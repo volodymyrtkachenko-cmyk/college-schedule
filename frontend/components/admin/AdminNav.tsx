@@ -92,8 +92,11 @@ export function AdminNav({ active }: { active: string }) {
            <Link href="/admin?resource=curriculum" onClick={() => setIsOpen(false)} className={linkClass(active === "curriculum")}>
              Навчальне навантаження
            </Link>
-           <Link href="/admin?resource=periods" onClick={() => setIsOpen(false)} className={linkClass(active === "periods")}>
+                      <Link href="/admin?resource=periods" onClick={() => setIsOpen(false)} className={linkClass(active === "periods")}>
              Практики й канікули
+           </Link>
+           <Link href="/admin?resource=versions" onClick={() => setIsOpen(false)} className={linkClass(active === "versions")}>
+             Версії розкладу
            </Link>
            <Link href="/admin?resource=semester" onClick={() => setIsOpen(false)} className={linkClass(active === "semester")}>
              Налаштування семестру

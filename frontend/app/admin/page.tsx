@@ -16,6 +16,7 @@ const CurriculumPanel = dynamic(() => import("../../components/admin/CurriculumP
 const GeneratorPanel = dynamic(() => import("../../components/admin/GeneratorPanel").then((module) => module.GeneratorPanel), { ssr: false });
 const ConstraintsPanel = dynamic(() => import("../../components/admin/ConstraintsPanel").then((module) => module.ConstraintsPanel), { ssr: false });
 const SchedulePeriodsPanel = dynamic(() => import("../../components/admin/SchedulePeriodsPanel").then((module) => module.SchedulePeriodsPanel), { ssr: false });
+const ScheduleVersionsPanel = dynamic(() => import("../../components/admin/ScheduleVersionsPanel").then((module) => module.ScheduleVersionsPanel), { ssr: false });
 const SemesterSettingsPanel = dynamic(() => import("../../components/admin/SemesterSettingsPanel").then((module) => module.SemesterSettingsPanel), { ssr: false });
 const ImportPanel = dynamic(() => import("../../components/admin/ImportPanel").then((module) => module.ImportPanel), { ssr: false });
 
@@ -196,6 +197,8 @@ function AdminContent() {
           <ConstraintsPanel />
         ) : currentTab === "periods" && user?.role === "admin" ? (
           <SchedulePeriodsPanel />
+        ) : currentTab === "versions" && user?.role === "admin" ? (
+          <ScheduleVersionsPanel />
         ) : currentTab === "semester" && user?.role === "admin" ? (
           <SemesterSettingsPanel />
         ) : currentTab === "import" && user?.role === "admin" ? (
