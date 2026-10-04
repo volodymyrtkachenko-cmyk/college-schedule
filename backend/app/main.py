@@ -17,9 +17,31 @@ from app.routers import (
 from app.routers.schedule_now import router as schedule_now_router
 
 
+import asyncio
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    # Міграції запускаються в entrypoint.sh — тут не дублюємо.
+    # Запуск міграцій автоматично на старті (важливо для Render, де entrypoint.sh може ігноруватися)
+    def run_migrations():
+        from alembic.config import Config
+        from alembic import command
+        alembic_cfg = Config("alembic.ini")
+        command.upgrade(alembic_cfg, "head")
+        
+    try:
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, run_migrations)
+        print("Міграції успішно застосовано.")
+    except Exception as e:
+        print(f"Помилка при виконанні міграцій: {e}")
+
+    # Запуск імпорту графіку освітнього процесу
+    try:
+        from scripts.import_eps import async_main
+        await async_main()
+    except Exception as e:
+        print(f"Помилка імпорту графіку: {e}")
+
     yield
     await engine.dispose()
 

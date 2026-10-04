@@ -1,7 +1,7 @@
 """expand schedule periods and add year_of_admission
 
 Revision ID: 20261004_01
-Revises: c9d0e1f2a3b4
+Revises: 20261003_admin_audit_safety
 Create Date: 2026-10-04 14:00:00.000000
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = '20261004_01'
-down_revision = "c9d0e1f2a3b4"
+down_revision = "20261003_admin_audit_safety"
 branch_labels = None
 depends_on = None
 
