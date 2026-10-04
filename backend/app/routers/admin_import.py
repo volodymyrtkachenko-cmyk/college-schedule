@@ -325,7 +325,7 @@ async def trigger_import(
                         visited_urls.add(url)
                         html = await fetcher.fetch_html(client, url)
                         page_hash = hashlib.sha256(html.encode("utf-8")).hexdigest()
-                        if page_hash in visited_hashes or page_hash in seen_page_hashes:
+                        if page_hash in visited_hashes:
                             logger.warning("Skipping repeated import page hash for group %s: %s", g_id, url)
                             break
                         visited_hashes.add(page_hash)
