@@ -522,10 +522,14 @@ export function ImportPanel() {
             </div>
         )}
         
-        {status === "ready" && (
+                {status === "ready" && (
             <div className="animate-in fade-in text-center py-10 bg-amber-500/5 border border-amber-500/20 rounded-2xl">
                 <h3 className="text-2xl font-bold text-amber-200 mb-2">Імпорт готовий до публікації</h3>
-                <p className="text-sys-text-secondary max-w-md mx-auto mb-6">Перевірте зміни імпорту, а потім опублікуйте чернетку окремою дією.</p>
+                <p className="text-sys-text-secondary max-w-md mx-auto mb-6">
+                    {substitutions.filter(s => (s as any).is_new !== false).length === 0 && cancelled.filter(c => (c as any).is_new !== false).length === 0 
+                        ? "Знайдено оновлення базового розкладу або видалені застарілі заміни. Опублікуйте імпорт для синхронізації з сайтом кре.дп.юа."
+                        : "Перевірте зміни імпорту, а потім опублікуйте чернетку окремою дією."}
+                </p>
                 <div className="flex justify-center gap-3">
                   <button onClick={publishImport} disabled={loading || !draftId} className="bg-sys-accent text-[#0b1120] font-bold py-2.5 px-6 rounded-lg disabled:opacity-50">
                     {loading ? "Публікуємо…" : "Опублікувати імпорт"}
