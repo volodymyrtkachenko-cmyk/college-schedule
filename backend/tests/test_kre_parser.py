@@ -22,3 +22,22 @@ def test_kre_parser_real_html():
     # Print for manual inspection during test execution
     print(f"\nTotal lessons: {len(parsed.lessons)}, Total substitutions: {len(subs)}")
     print(f"Sample Substitution: {first_sub.date} | {first_sub.subject_name} | Sub: {first_sub.is_substitution}")
+
+
+def test_kre_parser_requires_exact_substitution_class_token():
+    html = """
+    <div class="ktt-week__parity">Знаменник</div>
+    <div class="ktt-groups"><a aria-current="true">82</a></div>
+    <div class="ktt-day" data-day="2026-10-05">
+      <ol>
+        <li class="ktt-lesson not-is-substitution">
+          <p class="ktt-lesson__time"><b>9:00</b></p>
+          <p class="ktt-lesson__subject">Математика</p>
+        </li>
+      </ol>
+    </div>
+    """
+
+    lesson = KREParser().parse(html).lessons[0]
+
+    assert lesson.is_substitution is False

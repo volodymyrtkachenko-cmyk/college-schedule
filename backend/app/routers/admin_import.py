@@ -132,13 +132,29 @@ def _deduplicate_import_changes(
     for item in substitutions:
         key = (item["date"], item["group_id"], item["lesson_number"])
         current = substitution_by_cell.get(key)
-        if current is None or json.dumps(item, sort_keys=True, default=str) < json.dumps(current, sort_keys=True, default=str):
-            substitution_by_cell[key] = item
+        candidate = {
+            **item,
+            "room": _normalize_room(item.get("room")),
+            "week_type": item.get("week_type", "both"),
+        }
+        if current is None or json.dumps(candidate, sort_keys=True, default=str) < json.dumps(
+            current, sort_keys=True, default=str
+        ):
+            substitution_by_cell[key] = candidate
 
-    cancelled_by_cell = {
-        (item["date"], item["group_id"], item["lesson_number"]): item
-        for item in cancelled
-    }
+    cancelled_by_cell: dict[tuple[str, int, int], dict] = {}
+    for item in cancelled:
+        key = (item["date"], item["group_id"], item["lesson_number"])
+        cancelled_by_cell[key] = {
+            **item,
+            "week_type": item.get("week_type", "both"),
+        }
+
+    # A cancellation is the effective state of a cell and must not coexist
+    # with a substitution for the same date/group/lesson.
+    for key in cancelled_by_cell:
+        substitution_by_cell.pop(key, None)
+
     return (
         sorted(substitution_by_cell.values(), key=lambda item: (item["date"], item["group_id"], item["lesson_number"])),
         sorted(cancelled_by_cell.values(), key=lambda item: (item["date"], item["group_id"], item["lesson_number"])),

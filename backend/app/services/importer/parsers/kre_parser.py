@@ -82,10 +82,12 @@ class KREParser:
                 
             lessons = day.css(".ktt-lesson")
             for lesson_node in lessons:
-                classes = lesson_node.attributes.get("class", "")
-                is_substitution = "is-substitution" in classes
+                class_tokens = set(
+                    lesson_node.attributes.get("class", "").split()
+                )
+                is_substitution = "is-substitution" in class_tokens
                 
-                is_cancelled = "is-cancelled" in classes
+                is_cancelled = "is-cancelled" in class_tokens
                 
                 time_b = lesson_node.css_first(".ktt-lesson__time b")
                 time_str = time_b.text(strip=True) if time_b else ""

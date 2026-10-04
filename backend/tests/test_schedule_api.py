@@ -496,6 +496,16 @@ def test_import_changes_are_deduplicated_by_calendar_cell():
     assert len(cancelled) == 1
 
 
+def test_cancellation_wins_over_substitution_for_same_calendar_cell():
+    substitutions, cancelled = _deduplicate_import_changes(
+        [{"date": "2026-10-05", "group_id": 1, "lesson_number": 2, "subject_id": 4}],
+        [{"date": "2026-10-05", "group_id": 1, "lesson_number": 2}],
+    )
+
+    assert substitutions == []
+    assert len(cancelled) == 1
+
+
 @pytest.mark.anyio
 async def test_publishing_removes_old_schedule_overrides_before_replacing_schedule(api_client):
     client, headers, data = api_client
