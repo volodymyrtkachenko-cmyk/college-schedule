@@ -6,7 +6,7 @@ export function ImportPanel() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState<"idle" | "importing" | "mapping" | "ready" | "success">("idle");
+  const [status, setStatus] = useState<"idle" | "importing" | "mapping" | "ready" | "unchanged" | "success">("idle");
   const [report, setReport] = useState<ImporterResponse["report"] | null>(null);
   
   // Dictionaries for mapping
@@ -88,6 +88,13 @@ export function ImportPanel() {
       const session = await api.auth.ensureAuthenticated();
       const res = await api.importer.importData(session.access_token);
       setDraftId(res.meta?.draft_created ?? null);
+      if (res.meta?.unchanged) {
+        setReport(res.report);
+        setSubstitutions(res.report.substitutions);
+        setCancelled(res.report.cancelled ?? []);
+        setStatus("unchanged");
+        return;
+      }
       
       if (res.report.unresolved.length > 0 || res.report.substitutions.length > 0 || (res.report.cancelled?.length ?? 0) > 0) {
         setReport(res.report);
@@ -492,6 +499,21 @@ export function ImportPanel() {
                   </button>
                   <button onClick={() => setStatus("idle")} disabled={loading} className="py-2.5 px-4 text-sys-text-secondary hover:text-white">Скасувати</button>
                 </div>
+            </div>
+        )}
+
+        {status === "unchanged" && (
+            <div className="animate-in fade-in text-center py-10 bg-sys-card/60 border border-sys-border rounded-2xl">
+                <div className="w-16 h-16 bg-sys-accent/10 text-sys-accent rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M20 6L9 17l-5-5" />
+                    </svg>
+                </div>
+                <h3 className="text-2xl font-bold text-sys-text-primary mb-2">Змін не знайдено</h3>
+                <p className="text-sys-text-secondary max-w-md mx-auto mb-6">Поточний розклад та імпортні зміни такі самі, як у попередньому імпорті. Нову чернетку створювати не потрібно.</p>
+                <button onClick={() => setStatus("idle")} className="bg-sys-bg border border-sys-border px-6 py-2 rounded-lg text-sm font-bold text-gray-300 hover:bg-white/5 transition-colors">
+                    Зрозуміло
+                </button>
             </div>
         )}
 

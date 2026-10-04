@@ -402,7 +402,7 @@ export interface ImporterResponse {
     status: string;
     groups_processed: number;
     report: ImporterReport;
-    meta?: { draft_created?: number };
+    meta?: { draft_created?: number; unchanged?: boolean };
 }
 export interface AliasMutation {
     entity_type: string;
