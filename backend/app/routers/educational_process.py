@@ -54,8 +54,11 @@ async def get_matrix(
     courses_map = {}
     
     for group in all_groups:
-        course = group.course
-        if course is None:
+        if not group.year_of_admission:
+            continue
+            
+        course = academic_year_start - group.year_of_admission + 1
+        if not (1 <= course <= 5):
             continue
             
         if course not in courses_map:
