@@ -108,7 +108,7 @@ export function SearchableSelect({
         <div
           id={listId}
           role="listbox"
-          className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-sys-border bg-sys-card py-1 shadow-2xl"
+          className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-sys-border bg-sys-card py-1 shadow-2xl animate-in fade-in zoom-in-95 duration-150"
         >
           <div
             id={`${listId}-option-none`}
