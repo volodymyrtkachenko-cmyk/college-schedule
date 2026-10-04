@@ -162,50 +162,43 @@ export default function StatisticsPage() {
       </header>
 
       <div className="mx-auto max-w-5xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
-        <section className="rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="mb-2 text-sm text-sys-text-secondary">Показати статистику для</p>
-              <div role="group" aria-label="Тип статистики" className="inline-flex rounded-lg border border-sys-border bg-sys-bg p-1">
+        <section className="flex flex-col gap-4">
+          <div className="flex justify-center mb-2">
+            <div role="group" className="inline-flex rounded-full bg-slate-800/80 p-1 shadow-inner border border-slate-700/50">
+              <button
+                type="button"
+                onClick={() => changeMode("student")}
+                className={`rounded-full px-6 py-2 text-sm font-semibold transition-all ${mode === "student" ? "bg-sys-accent text-slate-900 shadow-sm" : "text-slate-400 hover:text-slate-200"}`}
+              >
+                Групам
+              </button>
+              {teachers.length > 0 && (
                 <button
                   type="button"
-                  aria-pressed={mode === "student"}
-                  onClick={() => changeMode("student")}
-                  className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${mode === "student" ? "bg-sys-accent/10 text-sys-accent" : "text-sys-text-secondary hover:text-sys-text-primary"}`}
+                  onClick={() => changeMode("teacher")}
+                  className={`rounded-full px-6 py-2 text-sm font-semibold transition-all ${mode === "teacher" ? "bg-sys-accent text-slate-900 shadow-sm" : "text-slate-400 hover:text-slate-200"}`}
                 >
-                  Для групи
+                  Викладачам
                 </button>
-                {teachers.length > 0 && (
-                  <button
-                    type="button"
-                    aria-pressed={mode === "teacher"}
-                    onClick={() => changeMode("teacher")}
-                    className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${mode === "teacher" ? "bg-sys-accent/10 text-sys-accent" : "text-sys-text-secondary hover:text-sys-text-primary"}`}
-                  >
-                    Для викладача
-                  </button>
-                )}
-              </div>
+              )}
             </div>
-            <label className="w-full sm:max-w-xs">
-              <span className="mb-1 block text-xs font-medium text-sys-text-muted">
-                {mode === "student" ? "Навчальна група" : "Викладач"}
-              </span>
-              <SearchableSelect
-                options={mode === "student" ? groups : teachers}
-                value={mode === "student" ? groupId : teacherId}
-                onChange={mode === "student" ? changeGroup : changeTeacher}
-                ariaLabel={mode === "student" ? "Обрати групу" : "Обрати викладача"}
-                placeholder={mode === "student" ? "Оберіть групу" : "Оберіть викладача"}
-                emptyLabel="Очистити вибір"
-              />
-            </label>
           </div>
-          {stats && (
-            <p className="mt-4 text-xs text-sys-text-muted">
-              Розрахунок за розкладом: {formatDate(stats.semester_start)} — {formatDate(stats.through_date)}. Одна пара — 2 академічні години.
-            </p>
-          )}
+          
+          <div className="max-w-md mx-auto w-full">
+            <SearchableSelect
+              options={mode === "student" ? groups : teachers}
+              value={mode === "student" ? groupId : teacherId}
+              onChange={mode === "student" ? changeGroup : changeTeacher}
+              ariaLabel={mode === "student" ? "Обрати групу" : "Обрати викладача"}
+              placeholder={mode === "student" ? "🔍 Знайти групу..." : "🔍 Знайти викладача..."}
+              emptyLabel="Очистити вибір"
+            />
+            {stats && (
+              <p className="mt-3 text-center text-xs text-sys-text-muted">
+                Розрахунок за: {formatDate(stats.semester_start)} — {formatDate(stats.through_date)}
+              </p>
+            )}
+          </div>
         </section>
 
         {referencesLoading || statsLoading ? (
@@ -222,129 +215,126 @@ export default function StatisticsPage() {
           </div>
         ) : stats ? (
           <>
-            <div className="flex min-h-10 items-center gap-2 rounded-lg border border-slate-700/50 bg-slate-800/50 px-3 py-2 text-sm text-slate-300">
-              <span aria-hidden="true" className="text-base">{messageData.icon}</span>
-              <span>{messageData.text}</span>
+            <div className="flex flex-col items-center justify-center text-center mt-4 mb-2">
+                <h2 className="text-2xl font-bold">{selectedName}</h2>
+                <div className="mt-3 flex items-center justify-center gap-1.5 text-sm font-medium text-slate-300 bg-slate-800/40 border border-slate-700/50 rounded-full px-4 py-1.5">
+                    <span>{messageData.icon}</span>
+                    <span>{messageData.text}</span>
+                </div>
             </div>
-            <section className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-2xl border border-sys-border bg-sys-card p-5">
-                <p className="text-sm text-sys-text-secondary">
-                  {mode === "student" ? "Вивчено за розкладом" : "Проведено за розкладом"}
+
+            <section className="grid gap-4 grid-cols-2 mt-4">
+              <div className="rounded-2xl border border-sys-border bg-sys-card p-5 text-center flex flex-col justify-center items-center">
+                <p className="text-xs font-semibold uppercase tracking-wider text-sys-text-secondary">
+                  {mode === "student" ? "Вивчено" : "Проведено"}
                 </p>
-                <p className="mt-2 text-3xl font-bold text-sys-accent">
-                  {stats.total_hours} <span className="text-base font-medium text-sys-text-secondary">акад. год.</span>
+                <p className="mt-2 text-4xl font-black text-sys-accent">
+                  {stats.total_hours}
                 </p>
-                <p className="mt-1 text-sm text-sys-text-muted">{selectedName}</p>
+                <p className="mt-1 text-xs text-sys-text-muted">академічних годин</p>
               </div>
               {mode === "student" ? (
-                <div className="rounded-2xl border border-sys-border bg-sys-card p-5">
-                  <p className="text-sm text-sys-text-secondary">Від загального навантаження</p>
-                  <p className="mt-2 text-3xl font-bold text-sys-text-primary">
-                    {stats.planned_hours ?? 0} <span className="text-base font-medium text-sys-text-secondary">акад. год.</span>
+                <div className="rounded-2xl border border-sys-border bg-sys-card p-5 text-center flex flex-col justify-center items-center">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-sys-text-secondary">Всього за планом</p>
+                  <p className="mt-2 text-4xl font-black text-white">
+                    {stats.planned_hours ?? 0}
                   </p>
-                  <p className="mt-1 text-sm text-sys-text-muted">за навчальним планом</p>
+                  <p className="mt-1 text-xs text-sys-text-muted">
+                    {stats.planned_hours ? getProgressMessage(stats.total_hours, stats.planned_hours) : "Невідомо"}
+                  </p>
                 </div>
               ) : (
-                <div className="rounded-2xl border border-sys-border bg-sys-card p-5">
-                  <p className="text-sm text-sys-text-secondary">Групи в розкладі</p>
-                  <p className="mt-2 text-3xl font-bold text-sys-text-primary">{stats.entries.length}</p>
-                  <p className="mt-1 text-sm text-sys-text-muted">за поточний семестр</p>
+                <div className="rounded-2xl border border-sys-border bg-sys-card p-5 text-center flex flex-col justify-center items-center">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-sys-text-secondary">Активних груп</p>
+                  <p className="mt-2 text-4xl font-black text-white">{stats.entries.length}</p>
+                  <p className="mt-1 text-xs text-sys-text-muted">за поточний розклад</p>
                 </div>
               )}
             </section>
-            <p className="px-1 text-xs text-sys-text-muted">
-              {mode === "student" && stats.planned_hours
-                ? getProgressMessage(stats.total_hours, stats.planned_hours)
-                : "Показники допомагають побачити обсяг роботи за поточним розкладом."}
-            </p>
 
-            <section className="rounded-2xl border border-sys-border bg-sys-card p-5 sm:p-6">
-              <div className="mb-5">
-                <h2 className="text-lg font-semibold">
-                  {mode === "student" ? "Години за предметами" : "Години за групами"}
-                </h2>
-                <p className="mt-1 text-sm text-sys-text-secondary">
-                  {mode === "student"
-                    ? "Прогрес порівнюється із загальною кількістю годин у навчальному навантаженні."
-                    : "Смуги показують відносний обсяг годин між групами."}
-                </p>
-              </div>
+            <section className="mt-4">
+              <h2 className="mb-4 text-xl font-bold px-1">
+                {mode === "student" ? "Розподіл за предметами" : "Розподіл за групами"}
+              </h2>
               {displayedEntries.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-orange-300/15 bg-orange-300/[0.04] p-8 text-center shadow-sm">
                   <div className="text-3xl" aria-hidden="true">🛋️</div>
-                  <p className="mt-2 text-sm text-sys-text-secondary">Ого, сьогодні жодної пари!</p>
-                  <p className="mt-1 text-xs text-sys-text-muted">Насолоджуйтеся цим спокійним днем — ви на це заслужили.</p>
+                  <p className="mt-2 text-sm text-sys-text-secondary">Поки що немає даних для відображення.</p>
                 </div>
               ) : (
-                <div className="space-y-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                   {displayedEntries.map((entry) => {
                     const totalHours = entry.planned_hours ?? 0;
                     const hasPlannedHours = totalHours > 0;
                     const progress = hasPlannedHours
                       ? getProgressPercentage(entry.completed_hours, totalHours)
                       : 0;
-                    const barWidth = mode === "student"
-                      ? Math.min(100, Math.max(0, progress))
-                      : maxGroupHours > 0 ? entry.completed_hours * 100 / maxGroupHours : 0;
-                    const barMaximum = mode === "student"
-                      ? totalHours || 1
-                      : maxGroupHours || 1;
+                    const clampedProgress = Math.min(100, Math.max(0, progress));
+                    
+                    const circumference = 2 * Math.PI * 20; // r=20
+                    const strokeDashoffset = mode === "student" && hasPlannedHours 
+                        ? circumference - (clampedProgress / 100) * circumference
+                        : mode !== "student" && maxGroupHours > 0
+                            ? circumference - ((entry.completed_hours / maxGroupHours) * 100 / 100) * circumference
+                            : circumference;
+
+                    const colorClass = mode === "student"
+                      ? progress >= 100 ? "text-emerald-500" : progress >= 50 ? "text-purple-500" : "text-blue-500"
+                      : "text-emerald-400";
+
                     return (
-                      <div key={entry.id}>
-                        <div className="mb-2 flex items-baseline justify-between gap-3">
-                          <h3 className="min-w-0 truncate text-sm font-medium">{entry.name}</h3>
-                          <p className="shrink-0 text-sm font-semibold text-sys-text-primary">
-                            {mode === "student" && !hasPlannedHours
-                              ? `${entry.completed_hours} год.`
-                              : (
+                      <div key={entry.id} className="rounded-2xl border border-sys-border bg-sys-card p-4 flex items-center gap-4 hover:bg-white/5 transition-colors">
+                        <div className="relative w-16 h-16 shrink-0 flex items-center justify-center">
+                            {(mode !== "student" || hasPlannedHours) ? (
                                 <>
-                                  {entry.completed_hours}
-                                  {mode === "student" ? ` / ${totalHours}` : ""}
-                                  <span className="ml-1 text-xs font-normal text-sys-text-muted">год.</span>
+                                    <svg className="w-full h-full transform -rotate-90" viewBox="0 0 48 48">
+                                        <circle 
+                                            cx="24" cy="24" r="20" 
+                                            stroke="currentColor" 
+                                            strokeWidth="4" 
+                                            fill="none" 
+                                            className="text-slate-800" 
+                                        />
+                                        <circle 
+                                            cx="24" cy="24" r="20" 
+                                            stroke="currentColor" 
+                                            strokeWidth="4" 
+                                            fill="none" 
+                                            strokeDasharray={circumference} 
+                                            strokeDashoffset={strokeDashoffset} 
+                                            className={`${colorClass} transition-all duration-1000 ease-out`} 
+                                            strokeLinecap="round" 
+                                        />
+                                    </svg>
+                                    <span className="absolute text-xs font-bold text-slate-300">
+                                        {mode === "student" ? `${Math.round(clampedProgress)}%` : entry.completed_hours}
+                                    </span>
                                 </>
-                              )}
-                            {mode === "student" && !hasPlannedHours && (
-                              <span className="ml-1 text-xs font-normal text-sys-text-muted">(Поза планом)</span>
+                            ) : (
+                                <div className="w-full h-full rounded-full border-4 border-slate-700 border-dashed flex items-center justify-center">
+                                    <span className="text-xs font-bold text-slate-400">?</span>
+                                </div>
+                            )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="truncate font-semibold text-sm mb-1 text-slate-200" title={entry.name}>
+                            {entry.name}
+                          </h3>
+                          <p className="text-xs text-slate-400">
+                            {mode === "student" ? (
+                                hasPlannedHours ? `${entry.completed_hours} / ${totalHours} год.` : `${entry.completed_hours} год. (Поза планом)`
+                            ) : (
+                                `${entry.completed_hours} акад. год.`
                             )}
                           </p>
                         </div>
-                        {(mode !== "student" || hasPlannedHours) && (
-                          <div
-                            role="progressbar"
-                            aria-label={`${entry.name}: ${entry.completed_hours}${mode === "student" ? ` з ${totalHours}` : ""} академічних годин`}
-                            aria-valuemin={0}
-                            aria-valuemax={barMaximum}
-                            aria-valuenow={Math.min(entry.completed_hours, barMaximum)}
-                            className="h-2.5 overflow-hidden rounded-full bg-sys-bg"
-                          >
-                            <div
-                              className={`h-full rounded-full transition-[width] duration-500 ${
-                                mode === "student"
-                                  ? progress >= 100
-                                    ? "bg-emerald-500"
-                                    : progress >= 50
-                                      ? "bg-purple-500"
-                                      : "bg-blue-500"
-                                  : "bg-emerald-400"
-                              }`}
-                              style={{ width: `${barWidth}%` }}
-                            />
-                          </div>
-                        )}
-                        {mode === "student" && (
-                          <p className="mt-1.5 text-right text-xs text-slate-400">
-                            {hasPlannedHours
-                              ? `${getProgressMessage(entry.completed_hours, totalHours)}${progress > 100 ? " — план перевищено" : ""}`
-                              : "Загальне навантаження не задано"}
-                          </p>
-                        )}
                       </div>
                     );
                   })}
                 </div>
               )}
-              <p className="mt-6 border-t border-sys-border pt-4 text-xs text-sys-text-muted">
-                Значення розраховані за розкладом і не враховують фактичну присутність на заняттях.
+              <p className="mt-6 text-center text-xs text-sys-text-muted">
+                Дані розраховані за розкладом і не враховують фактичну присутність.
               </p>
             </section>
           </>
