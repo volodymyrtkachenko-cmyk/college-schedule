@@ -404,55 +404,55 @@ export function ImportPanel() {
                       <span className="rounded-full bg-sys-accent/10 px-2.5 py-1 text-xs font-semibold text-sys-accent">{substitutions.length}</span>
                     </div>
                     {substitutions.map((item, index) => (
-                      <div key={`${item.date}-${item.group_id}-${item.lesson_number}-${index}`} className="rounded-2xl border border-sys-accent/20 bg-sys-accent/[0.04] p-4 shadow-sm">
+                      <div key={`${item.date}-${item.group_id}-${item.lesson_number}-${index}`} className="min-w-0 overflow-hidden rounded-2xl border border-sys-accent/20 bg-sys-accent/[0.04] p-4 shadow-sm">
                         <div className="mb-4 flex items-start justify-between gap-3">
                           <div>
-                            <div className="text-sm font-semibold text-sys-text-primary">Заміна {index + 1}</div>
-                            <div className="mt-1 text-xs text-sys-text-muted">{formatChangeDate(item.date)} · {item.lesson_number}-та пара</div>
+                            <div className="text-sm font-semibold text-sys-text-primary">Заміна заняття</div>
+                            <div className="mt-1 text-xs text-sys-text-muted">Зміна на {formatChangeDate(item.date)}, {item.lesson_number}-та пара</div>
                           </div>
                           <button type="button" onClick={() => setSubstitutions(current => current.filter((_, i) => i !== index))} className="rounded-lg border border-rose-400/20 px-2.5 py-1.5 text-xs font-medium text-rose-300 transition hover:bg-rose-500/10" aria-label={`Видалити заміну ${index + 1}`}>
                             Видалити
                           </button>
                         </div>
-                        <div className="grid gap-4 md:grid-cols-2">
-                          <label className="space-y-1.5">
+                        <div className="grid min-w-0 gap-4 md:grid-cols-2">
+                          <label className="min-w-0 space-y-1.5">
                             <span className="text-xs font-medium text-sys-text-secondary">Дата заміни</span>
-                            <input type="date" value={item.date} onChange={(e) => updateSubstitution(index, { date: e.target.value })} className="form-control" />
+                            <input type="date" value={item.date} onChange={(e) => updateSubstitution(index, { date: e.target.value })} className="form-control w-full max-w-full" />
                           </label>
-                          <label className="space-y-1.5">
+                          <label className="min-w-0 space-y-1.5">
                             <span className="text-xs font-medium text-sys-text-secondary">Пара</span>
-                            <select value={item.lesson_number} onChange={(e) => updateSubstitution(index, { lesson_number: Number(e.target.value) })} className="form-control">
+                            <select value={item.lesson_number} onChange={(e) => updateSubstitution(index, { lesson_number: Number(e.target.value) })} className="form-control w-full max-w-full min-w-0">
                               {[1, 2, 3, 4].map(lesson => <option key={lesson} value={lesson}>{lesson}-та пара</option>)}
                             </select>
                           </label>
-                          <label className="space-y-1.5">
+                          <label className="min-w-0 space-y-1.5">
                             <span className="text-xs font-medium text-sys-text-secondary">Група</span>
-                            <select value={item.group_id} onChange={(e) => updateSubstitution(index, { group_id: Number(e.target.value) })} className="form-control">
+                            <select value={item.group_id} onChange={(e) => updateSubstitution(index, { group_id: Number(e.target.value) })} className="form-control w-full max-w-full min-w-0">
                               {groups.map(option => <option key={option.id} value={option.id}>{option.name}</option>)}
                             </select>
                           </label>
-                          <label className="space-y-1.5">
+                          <label className="min-w-0 space-y-1.5">
                             <span className="text-xs font-medium text-sys-text-secondary">Предмет</span>
-                            <select value={item.subject_id} onChange={(e) => updateSubstitution(index, { subject_id: Number(e.target.value) })} className="form-control">
+                            <select value={item.subject_id} onChange={(e) => updateSubstitution(index, { subject_id: Number(e.target.value) })} className="form-control w-full max-w-full min-w-0">
                               {subjects.map(option => <option key={option.id} value={option.id}>{option.name}</option>)}
                             </select>
                           </label>
-                          <label className="space-y-1.5">
+                          <label className="min-w-0 space-y-1.5">
                             <span className="text-xs font-medium text-sys-text-secondary">Викладач</span>
-                            <select value={item.teacher_id} onChange={(e) => updateSubstitution(index, { teacher_id: Number(e.target.value) })} className="form-control">
+                            <select value={item.teacher_id} onChange={(e) => updateSubstitution(index, { teacher_id: Number(e.target.value) })} className="form-control w-full max-w-full min-w-0">
                               {teachers.map(option => <option key={option.id} value={option.id}>{option.name}</option>)}
                             </select>
                           </label>
-                          <label className="space-y-1.5">
+                          <label className="min-w-0 space-y-1.5">
                             <span className="text-xs font-medium text-sys-text-secondary">Другий викладач <span className="font-normal text-sys-text-muted">(необов’язково)</span></span>
-                            <select value={item.second_teacher_id ?? 0} onChange={(e) => updateSubstitution(index, { second_teacher_id: Number(e.target.value) || null })} className="form-control">
+                            <select value={item.second_teacher_id ?? 0} onChange={(e) => updateSubstitution(index, { second_teacher_id: Number(e.target.value) || null })} className="form-control w-full max-w-full min-w-0">
                               <option value={0}>Без другого викладача</option>
                               {teachers.map(option => <option key={option.id} value={option.id}>{option.name}</option>)}
                             </select>
                           </label>
-                          <label className="space-y-1.5 md:col-span-2">
+                          <label className="min-w-0 space-y-1.5 md:col-span-2">
                             <span className="text-xs font-medium text-sys-text-secondary">Аудиторія <span className="font-normal text-sys-text-muted">(необов’язково)</span></span>
-                            <input value={item.room ?? ""} onChange={(e) => updateSubstitution(index, { room: e.target.value || null })} placeholder="Наприклад, 302" className="form-control" />
+                            <input type="number" min="1" step="1" inputMode="numeric" value={item.room ?? ""} onChange={(e) => updateSubstitution(index, { room: e.target.value || null })} placeholder="Наприклад, 302" className="form-control w-full max-w-full" />
                           </label>
                         </div>
                       </div>
@@ -470,7 +470,7 @@ export function ImportPanel() {
                       <span className="rounded-full bg-rose-500/10 px-2.5 py-1 text-xs font-semibold text-rose-300">{cancelled.length}</span>
                     </div>
                     {cancelled.map((item, index) => (
-                      <div key={`${item.date}-${item.group_id}-${item.lesson_number}-${index}`} className="rounded-2xl border border-rose-500/25 bg-rose-500/[0.04] p-4 shadow-sm">
+                      <div key={`${item.date}-${item.group_id}-${item.lesson_number}-${index}`} className="min-w-0 overflow-hidden rounded-2xl border border-rose-500/25 bg-rose-500/[0.04] p-4 shadow-sm">
                         <div className="mb-4 flex items-start justify-between gap-3">
                           <div>
                             <div className="text-sm font-semibold text-rose-100">Скасування {index + 1}</div>
@@ -480,20 +480,20 @@ export function ImportPanel() {
                             Видалити
                           </button>
                         </div>
-                        <div className="grid gap-4 md:grid-cols-3">
-                          <label className="space-y-1.5">
+                        <div className="grid min-w-0 gap-4 md:grid-cols-3">
+                          <label className="min-w-0 space-y-1.5">
                             <span className="text-xs font-medium text-sys-text-secondary">Дата скасування</span>
-                            <input type="date" value={item.date} onChange={(e) => updateCancellation(index, { date: e.target.value })} className="form-control" />
+                            <input type="date" value={item.date} onChange={(e) => updateCancellation(index, { date: e.target.value })} className="form-control w-full max-w-full" />
                           </label>
-                          <label className="space-y-1.5">
+                          <label className="min-w-0 space-y-1.5">
                             <span className="text-xs font-medium text-sys-text-secondary">Група</span>
-                            <select value={item.group_id} onChange={(e) => updateCancellation(index, { group_id: Number(e.target.value) })} className="form-control">
+                            <select value={item.group_id} onChange={(e) => updateCancellation(index, { group_id: Number(e.target.value) })} className="form-control w-full max-w-full min-w-0">
                               {groups.map(option => <option key={option.id} value={option.id}>{option.name}</option>)}
                             </select>
                           </label>
-                          <label className="space-y-1.5">
+                          <label className="min-w-0 space-y-1.5">
                             <span className="text-xs font-medium text-sys-text-secondary">Пара</span>
-                            <select value={item.lesson_number} onChange={(e) => updateCancellation(index, { lesson_number: Number(e.target.value) })} className="form-control">
+                            <select value={item.lesson_number} onChange={(e) => updateCancellation(index, { lesson_number: Number(e.target.value) })} className="form-control w-full max-w-full min-w-0">
                               {[1, 2, 3, 4].map(lesson => <option key={lesson} value={lesson}>{lesson}-та пара</option>)}
                             </select>
                           </label>
