@@ -51,6 +51,44 @@ def import_payload_hash(payload: dict) -> str:
     return hash_payload(comparable)
 
 
+def _canonical_change_records(
+    substitutions: list[dict],
+    cancelled: list[dict],
+) -> list[dict]:
+    records = [
+        {
+            "date": item["date"],
+            "lesson_number": item["lesson_number"],
+            "group_id": item["group_id"],
+            "subject_id": item.get("subject_id"),
+            "teacher_id": item.get("teacher_id"),
+            "second_teacher_id": item.get("second_teacher_id"),
+            "room": _normalize_room(item.get("room")),
+            "week_type": item.get("week_type", "both"),
+            "kind": "substitution",
+        }
+        for item in substitutions
+    ]
+    records.extend(
+        {
+            "date": item["date"],
+            "lesson_number": item["lesson_number"],
+            "group_id": item["group_id"],
+            "subject_id": None,
+            "teacher_id": None,
+            "second_teacher_id": None,
+            "room": None,
+            "week_type": item.get("week_type", "both"),
+            "kind": "cancelled",
+        }
+        for item in cancelled
+    )
+    return sorted(
+        records,
+        key=lambda item: json.dumps(item, sort_keys=True, default=str),
+    )
+
+
 def _change_payload(change: ImportedScheduleChange) -> dict:
     return {
         "date": change.date.isoformat(),
@@ -60,6 +98,7 @@ def _change_payload(change: ImportedScheduleChange) -> dict:
         "teacher_id": change.teacher_id,
         "second_teacher_id": change.second_teacher_id,
         "room": _normalize_room(change.room_override),
+        "week_type": "both",
         "kind": change.kind,
     }
 
@@ -161,6 +200,27 @@ def _deduplicate_import_changes(
     )
 
 
+async def _latest_published_changes(
+    db: AsyncSession,
+    scope_dates: set,
+    scope_groups: set[int],
+) -> list[ImportedScheduleChange]:
+    changes = (await db.scalars(
+        select(ImportedScheduleChange).where(
+            ImportedScheduleChange.is_published.is_(True),
+            ImportedScheduleChange.date.in_(scope_dates),
+            ImportedScheduleChange.group_id.in_(scope_groups) if scope_groups else True,
+        )
+    )).all()
+    latest_changes: dict[tuple[object, int, int], ImportedScheduleChange] = {}
+    for change in changes:
+        key = (change.date, change.group_id, change.lesson_number)
+        previous = latest_changes.get(key)
+        if previous is None or change.version > previous.version:
+            latest_changes[key] = change
+    return list(latest_changes.values())
+
+
 async def matches_published_schedule(db: AsyncSession, payload: dict, weeks: int) -> bool:
     schedules = (await db.scalars(
         select(Schedule)
@@ -189,40 +249,13 @@ async def matches_published_schedule(db: AsyncSession, payload: dict, weeks: int
         today = now_local().date()
         scope_dates = {today + timedelta(days=offset) for offset in range(max(weeks, 1) * 7)}
     scope_groups = set(scope.get("group_ids", []))
-    changes = (await db.scalars(
-        select(ImportedScheduleChange).where(
-            ImportedScheduleChange.is_published.is_(True),
-            ImportedScheduleChange.date.in_(scope_dates),
-            ImportedScheduleChange.group_id.in_(scope_groups) if scope_groups else True,
-        )
-    )).all()
-    latest_changes: dict[tuple[object, int, int], ImportedScheduleChange] = {}
-    for change in changes:
-        key = (change.date, change.group_id, change.lesson_number)
-        previous = latest_changes.get(key)
-        if previous is None or change.version > previous.version:
-            latest_changes[key] = change
+    latest_changes = await _latest_published_changes(db, scope_dates, scope_groups)
 
-    incoming_changes = [{
-        "date": item["date"],
-        "lesson_number": item["lesson_number"],
-        "group_id": item["group_id"],
-        "subject_id": item.get("subject_id"),
-        "teacher_id": item.get("teacher_id"),
-        "second_teacher_id": item.get("second_teacher_id"),
-        "room": _normalize_room(item.get("room")),
-        "kind": "substitution",
-    } for item in payload.get("substitutions", [])] + [{
-        "date": item["date"],
-        "lesson_number": item["lesson_number"],
-        "group_id": item["group_id"],
-        "subject_id": None,
-        "teacher_id": None,
-        "second_teacher_id": None,
-        "room": None,
-        "kind": "cancelled",
-    } for item in payload.get("cancelled", [])]
-    published_changes = [_change_payload(item) for item in latest_changes.values()]
+    incoming_changes = _canonical_change_records(
+        payload.get("substitutions", []),
+        payload.get("cancelled", []),
+    )
+    published_changes = [_change_payload(item) for item in latest_changes]
     return import_payload_hash({"substitutions": incoming_changes}) == import_payload_hash(
         {"substitutions": published_changes}
     )
@@ -270,6 +303,10 @@ async def trigger_import(
         errors = []
         imported_dates: set[str] = set()
         imported_group_ids: set[int] = set()
+        page_snapshots: list[dict] = []
+        seen_page_urls: set[str] = set()
+        seen_page_hashes: set[str] = set()
+        raw_lessons = 0
         
         semaphore = asyncio.Semaphore(5)
         
@@ -277,12 +314,23 @@ async def trigger_import(
             async with semaphore:
                 parsed_results = []
                 url = f"{fetcher.base_url}?group={g_id}"
+                visited_urls: set[str] = set()
+                visited_hashes: set[str] = set()
                 
                 for _ in range(weeks):
                     try:
+                        if url in visited_urls:
+                            logger.warning("Stopping repeated import page URL for group %s: %s", g_id, url)
+                            break
+                        visited_urls.add(url)
                         html = await fetcher.fetch_html(client, url)
+                        page_hash = hashlib.sha256(html.encode("utf-8")).hexdigest()
+                        if page_hash in visited_hashes or page_hash in seen_page_hashes:
+                            logger.warning("Skipping repeated import page hash for group %s: %s", g_id, url)
+                            break
+                        visited_hashes.add(page_hash)
                         parsed = parser.parse(html)
-                        parsed_results.append(parsed)
+                        parsed_results.append((parsed, url, page_hash))
                         
                         # Find next week link
                         from selectolax.parser import HTMLParser
@@ -314,6 +362,17 @@ async def trigger_import(
                     errors.append({"group": group_ids[g_idx], "error": str(parsed_week_list)})
                     continue
                 for parsed_week in parsed_week_list:
+                    parsed_week, source_url, page_hash = parsed_week
+                    page_snapshots.append({
+                        "group_id": group_ids[g_idx],
+                        "url": source_url,
+                        "html_hash": page_hash,
+                        "dates": sorted({lesson.date.isoformat() for lesson in parsed_week.lessons}),
+                        "week_type": parsed_week.week_type,
+                    })
+                    seen_page_urls.add(source_url)
+                    seen_page_hashes.add(page_hash)
+                    raw_lessons += len(parsed_week.lessons)
                     imported_dates.update(lesson.date.isoformat() for lesson in parsed_week.lessons)
                     diff_report = await differ.diff(parsed_week)
                     for item in diff_report["unresolved"]:
@@ -334,16 +393,33 @@ async def trigger_import(
                         item["group_id"] for item in diff_report["cancelled"]
                     )
                 
+        raw_base_slots = len(aggregated_base_slots)
+        raw_substitutions = len(aggregated_substitutions)
+        raw_cancelled = len(aggregated_cancelled)
+
         # Deduplicate base slots
         unique_slots = {}
         for s in aggregated_base_slots:
-            k = (s["group_id"], s["subject_id"], s["teacher_id"], s.get("second_teacher_id"), s["day_of_week"], s["lesson_number"], s["room"])
+            normalized_slot = {
+                **s,
+                "room": _normalize_room(s.get("room")),
+                "week_type": s.get("week_type", "both"),
+            }
+            k = (
+                normalized_slot["group_id"],
+                normalized_slot["subject_id"],
+                normalized_slot["teacher_id"],
+                normalized_slot.get("second_teacher_id"),
+                normalized_slot["day_of_week"],
+                normalized_slot["lesson_number"],
+                normalized_slot["room"],
+            )
             if k in unique_slots:
                 existing = unique_slots[k]
-                if existing["week_type"] != s["week_type"]:
+                if existing["week_type"] != normalized_slot["week_type"]:
                     existing["week_type"] = "both"
             else:
-                unique_slots[k] = s
+                unique_slots[k] = normalized_slot
         aggregated_base_slots = list(unique_slots.values())
 
         current_schedules = (await db.scalars(
@@ -359,6 +435,8 @@ async def trigger_import(
             item for item in aggregated_cancelled
             if _cancellation_matches_schedule(item, current_schedules)
         ]
+        filtered_substitutions = raw_substitutions - len(aggregated_substitutions)
+        filtered_cancelled = raw_cancelled - len(aggregated_cancelled)
         aggregated_substitutions, aggregated_cancelled = _deduplicate_import_changes(
             aggregated_substitutions,
             aggregated_cancelled,
@@ -463,6 +541,23 @@ async def trigger_import(
             "created_curriculum_ids": created_curriculum_ids,
         }
         payload_hash = import_payload_hash(payload)
+        debug_report = {
+            "pages_fetched": len(page_snapshots),
+            "unique_page_urls": len(seen_page_urls),
+            "unique_page_hashes": len(seen_page_hashes),
+            "raw_lessons": raw_lessons,
+            "raw_base_slots": raw_base_slots,
+            "raw_substitutions": raw_substitutions,
+            "raw_cancelled": raw_cancelled,
+            "deduplicated_base_slots": len(aggregated_base_slots),
+            "deduplicated_substitutions": len(aggregated_substitutions),
+            "deduplicated_cancelled": len(aggregated_cancelled),
+            "filtered_substitutions": filtered_substitutions,
+            "filtered_cancelled": filtered_cancelled,
+            "final_substitutions": len(aggregated_substitutions),
+            "final_cancelled": len(aggregated_cancelled),
+            "page_snapshots": page_snapshots,
+        }
         
         # Keep an active draft visible. It may contain changes that still need
         # administrator review, so it must not be hidden as "unchanged".
@@ -495,6 +590,7 @@ async def trigger_import(
 
         if pending_matches:
             draft_id = pending_draft.id
+            unchanged = True
         elif current_matches:
             logger.info("Import payload identical to the latest import. Skipping creation.")
             await archive_pending_import()
@@ -565,10 +661,14 @@ async def trigger_import(
                 "base_slots": aggregated_base_slots,
                 "skipped_base_slots": aggregated_skipped,
                 "restored_base_slots": restored_base_slots,
+                "debug": debug_report,
             },
             "meta": {
                 "draft_created": draft_id,
                 "unchanged": unchanged,
+                "reason": "same_pending_payload" if pending_matches else (
+                    "same_effective_schedule" if unchanged else "draft_created"
+                ),
             }
         }
     except Exception as e:

@@ -51,7 +51,8 @@ class ScheduleDiffer:
                     cancelled.append({
                         "date": lesson.date.isoformat(),
                         "lesson_number": lesson.lesson_number,
-                        "group_id": group_id
+                        "group_id": group_id,
+                        "week_type": parsed_week.week_type,
                     })
                 continue
 

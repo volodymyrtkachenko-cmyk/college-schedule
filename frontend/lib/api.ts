@@ -383,6 +383,32 @@ export interface ImporterReport {
     substitutions: ImportSubstitution[];
     cancelled: ImportCancellation[];
     base_slots: any[];
+    unresolved_substitutions?: Array<Record<string, unknown>>;
+    skipped_base_slots?: Array<Record<string, unknown>>;
+    restored_base_slots?: any[];
+    debug?: {
+        pages_fetched: number;
+        unique_page_urls: number;
+        unique_page_hashes: number;
+        raw_lessons: number;
+        raw_base_slots: number;
+        raw_substitutions: number;
+        raw_cancelled: number;
+        deduplicated_base_slots: number;
+        deduplicated_substitutions: number;
+        deduplicated_cancelled: number;
+        filtered_substitutions: number;
+        filtered_cancelled: number;
+        final_substitutions: number;
+        final_cancelled: number;
+        page_snapshots: Array<{
+            group_id: string | number;
+            url: string;
+            html_hash: string;
+            dates: string[];
+            week_type: string;
+        }>;
+    };
 }
 export interface ImportSubstitution {
     date: string;
@@ -402,7 +428,7 @@ export interface ImporterResponse {
     status: string;
     groups_processed: number;
     report: ImporterReport;
-    meta?: { draft_created?: number; unchanged?: boolean };
+    meta?: { draft_created?: number | null; unchanged?: boolean; reason?: string };
 }
 export interface AliasMutation {
     entity_type: string;

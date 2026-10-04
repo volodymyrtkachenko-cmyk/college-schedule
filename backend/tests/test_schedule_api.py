@@ -23,6 +23,7 @@ from app.models import (
 from app.core.security import create_access_token
 from app.routers.admin_import import (
     _cancellation_matches_schedule,
+    _canonical_change_records,
     _deduplicate_import_changes,
     _substitution_matches_schedule,
     import_payload_hash,
@@ -504,6 +505,49 @@ def test_cancellation_wins_over_substitution_for_same_calendar_cell():
 
     assert substitutions == []
     assert len(cancelled) == 1
+
+
+def test_canonical_change_records_are_stable_and_normalize_rooms():
+    records = _canonical_change_records(
+        [
+            {
+                "date": "2026-10-05",
+                "group_id": 1,
+                "lesson_number": 2,
+                "subject_id": 4,
+                "teacher_id": 5,
+                "second_teacher_id": None,
+                "room": " АУД.   12 ",
+                "week_type": "both",
+            }
+        ],
+        [{"date": "2026-10-06", "group_id": 1, "lesson_number": 3}],
+    )
+
+    assert records == [
+        {
+            "date": "2026-10-05",
+            "lesson_number": 2,
+            "group_id": 1,
+            "subject_id": 4,
+            "teacher_id": 5,
+            "second_teacher_id": None,
+            "room": "12",
+            "week_type": "both",
+            "kind": "substitution",
+        },
+        {
+            "date": "2026-10-06",
+            "lesson_number": 3,
+            "group_id": 1,
+            "subject_id": None,
+            "teacher_id": None,
+            "second_teacher_id": None,
+            "room": None,
+            "week_type": "both",
+            "kind": "cancelled",
+        },
+    ]
 
 
 @pytest.mark.anyio
