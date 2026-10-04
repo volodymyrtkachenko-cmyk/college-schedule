@@ -474,11 +474,25 @@ async def trigger_import(
             .options(joinedload(Schedule.subject), joinedload(Schedule.teacher))
         )).all()
         aggregated_substitutions = [
-            item for item in aggregated_substitutions
-            if not _substitution_matches_schedule(item, current_schedules)
+            {**item, "is_new": not any(
+                c.date.isoformat() == item["date"] and
+                c.group_id == item["group_id"] and
+                c.lesson_number == item["lesson_number"] and
+                c.subject_id == item.get("subject_id") and
+                c.teacher_id == item.get("teacher_id")
+                for c in latest_changes
+            )}
+            for item in aggregated_substitutions
         ]
         aggregated_cancelled = [
-            item for item in aggregated_cancelled
+            {**item, "is_new": not any(
+                c.date.isoformat() == item["date"] and
+                c.group_id == item["group_id"] and
+                c.lesson_number == item["lesson_number"] and
+                c.kind == "cancelled"
+                for c in latest_changes
+            )}
+            for item in aggregated_cancelled
             if _cancellation_matches_schedule(item, current_schedules)
         ]
         filtered_substitutions = raw_substitutions - len(aggregated_substitutions)
@@ -639,13 +653,11 @@ async def trigger_import(
             pending_draft.status = "archived"
 
         if pending_matches:
-            await archive_pending_import()
             await db.commit()
-            draft_id = None
-            unchanged = True
-        elif current_matches:
+            draft_id = pending_draft.id
+            unchanged = False
+        elif current_matches and is_cron:
             logger.info("Import payload identical to the latest import. Skipping creation.")
-            await archive_pending_import()
             await db.commit()
             draft_id = None
             unchanged = True

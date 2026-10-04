@@ -407,9 +407,9 @@ export function ImportPanel() {
                         <h3 className="font-semibold">Заміни</h3>
                         <p className="mt-1 text-xs text-sys-text-muted">Оберіть дату, групу та нову пару. Дані збережуться після натискання кнопки внизу.</p>
                       </div>
-                      <span className="rounded-full bg-sys-accent/10 px-2.5 py-1 text-xs font-semibold text-sys-accent">{substitutions.length}</span>
+                      <span className="rounded-full bg-sys-accent/10 px-2.5 py-1 text-xs font-semibold text-sys-accent">{substitutions.filter(s => (s as any).is_new !== false).length} нових</span>
                     </div>
-                    {substitutions.map((item, index) => (
+                    {substitutions.filter(s => (s as any).is_new !== false).map((item, index) => (
                       <div key={`${item.date}-${item.group_id}-${item.lesson_number}-${index}`} className="min-w-0 overflow-hidden rounded-2xl border border-sys-accent/20 bg-sys-accent/[0.04] p-4 shadow-sm">
                         <div className="mb-4 flex items-start justify-between gap-3">
                           <div>
@@ -473,9 +473,9 @@ export function ImportPanel() {
                         <h3 className="font-semibold">Скасовані пари</h3>
                         <p className="mt-1 text-xs text-sys-text-muted">Вкажіть день і пару, яка не відбудеться.</p>
                       </div>
-                      <span className="rounded-full bg-rose-500/10 px-2.5 py-1 text-xs font-semibold text-rose-300">{cancelled.length}</span>
+                      <span className="rounded-full bg-rose-500/10 px-2.5 py-1 text-xs font-semibold text-rose-300">{cancelled.filter(c => (c as any).is_new !== false).length} нових</span>
                     </div>
-                    {cancelled.map((item, index) => (
+                    {cancelled.filter(c => (c as any).is_new !== false).map((item, index) => (
                       <div key={`${item.date}-${item.group_id}-${item.lesson_number}-${index}`} className="min-w-0 overflow-hidden rounded-2xl border border-rose-500/25 bg-rose-500/[0.04] p-4 shadow-sm">
                         <div className="mb-4 flex items-start justify-between gap-3">
                           <div>
@@ -557,7 +557,7 @@ export function ImportPanel() {
                 <div className="flex justify-center gap-8 mb-8 text-left">
                     <div className="bg-[#0b1120] px-4 py-3 rounded-lg border border-white/5">
                         <div className="text-xs text-sys-text-secondary font-bold uppercase mb-1">Знайдено замін</div>
-                        <div className="text-xl text-white font-black">{substitutions.length}</div>
+                        <div className="text-xl text-white font-black">{substitutions.filter(s => (s as any).is_new !== false).length} нових</div>
                     </div>
                 </div>
                 
