@@ -473,6 +473,9 @@ async def trigger_import(
             .where(Schedule.is_active.is_(True))
             .options(joinedload(Schedule.subject), joinedload(Schedule.teacher))
         )).all()
+        
+        scope_dates_obj = {datetime.strptime(value, "%Y-%m-%d").date() for value in imported_dates}
+        latest_changes = await _latest_published_changes(db, scope_dates_obj, imported_group_ids)
         aggregated_substitutions = [
             {**item, "is_new": not any(
                 c.date.isoformat() == item["date"] and
