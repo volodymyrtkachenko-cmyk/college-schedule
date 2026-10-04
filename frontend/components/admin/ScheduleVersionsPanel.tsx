@@ -223,27 +223,25 @@ export function ScheduleVersionsPanel() {
         </table>
       </div>
 
-      <ConfirmModal
+      
+
+      
+    <ConfirmModal
         isOpen={deleteId !== null}
         title="Видалення версії"
-        description="Ви впевнені? УВАГА: Це видалить САМУ ВЕРСІЮ ТА ВСІ ЇЇ ПАРИ! Цю дію неможливо скасувати."
-        confirmText="Так, видалити"
-        cancelText="Скасувати"
-        isDestructive
+        message="Ви впевнені? УВАГА: Це видалить САМУ ВЕРСІЮ ТА ВСІ ЇЇ ПАРИ! Цю дію неможливо скасувати."
         onConfirm={handleDelete}
         onCancel={() => setDeleteId(null)}
       />
 
-      <ConfirmModal
-        isOpen={showCloneModal !== null}
-        title="Клонування розкладу"
-        description="Оберіть, звідки скопіювати пари у цю версію. УВАГА: всі існуючі пари у цій версії будуть стерті і замінені новими!"
-        confirmText="Клонувати"
-        cancelText="Скасувати"
-        onConfirm={handleClone}
-        onCancel={() => setShowCloneModal(null)}
-        customBody={
-            <div className="mt-4 space-y-2">
+      {showCloneModal !== null && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 px-4">
+          <div className="w-full max-w-sm rounded-2xl border border-sys-border bg-sys-card p-5 shadow-2xl animate-in zoom-in-95 duration-200">
+            <h3 className="font-semibold text-sys-text-primary mb-2">Клонування розкладу</h3>
+            <p className="text-sm text-sys-text-secondary mb-4">
+              Оберіть, звідки скопіювати пари у цю версію. УВАГА: всі існуючі пари у цій версії будуть стерті!
+            </p>
+            <div className="mb-5 space-y-2">
                 <label className="text-sm text-sys-text-secondary block">Версія-джерело:</label>
                 <select 
                     className="form-control w-full"
@@ -256,8 +254,17 @@ export function ScheduleVersionsPanel() {
                     ))}
                 </select>
             </div>
-        }
-      />
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setShowCloneModal(null)} className="rounded-lg border border-sys-border px-4 py-2 text-sm text-sys-text-primary hover:bg-sys-hover transition-colors">
+                Скасувати
+              </button>
+              <button type="button" onClick={handleClone} className="rounded-lg bg-sys-accent px-4 py-2 text-sm font-semibold text-[#0b1120] hover:bg-sys-accent/90 transition-colors">
+                Клонувати
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
