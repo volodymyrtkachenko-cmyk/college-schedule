@@ -10,7 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.schemas import LessonMutation, ScheduleItem, ScheduleResponse
 from app.core.security import require_roles
-from app.models import Group, ImportedScheduleChange, Schedule, Subject, User
+from app.models import Group, ImportedScheduleChange, Schedule, Subject, User, ScheduleVersion
+from sqlalchemy import and_
 from app.services.schedule import fetch_schedule, fetch_week_schedule, conflicting_lesson, save_schedule_item
 
 logger = logging.getLogger(__name__)
@@ -190,7 +191,14 @@ async def create_lesson(payload: LessonMutation, db: AsyncSession = Depends(get_
     user_groups = await load_user_groups(db, current_user)
     check_group_access(current_user, user_groups, payload.group_id)
     
-    item = Schedule(is_active=True)
+    target_date = payload.date or today_local()
+    active_version = await db.scalar(
+        select(ScheduleVersion).where(
+            and_(ScheduleVersion.valid_from <= target_date, ScheduleVersion.valid_until >= target_date, ScheduleVersion.is_active == True)
+        ).order_by(ScheduleVersion.valid_from.desc()).limit(1)
+    )
+    
+    item = Schedule(is_active=True, version_id=active_version.id if active_version else None)
     db.add(item)
     saved_item = await save_schedule_item(item, payload, db, create=True)
     bell_t = await get_bell_times(db)

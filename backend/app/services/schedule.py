@@ -4,7 +4,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased, joinedload, selectinload, with_loader_criteria
 
-from app.models import ImportedScheduleChange, LessonNote, Schedule, SchedulePeriod, SchedulePeriodSlot
+from app.models import ImportedScheduleChange, LessonNote, Schedule, SchedulePeriod, SchedulePeriodSlot, ScheduleVersion
 from app.services.settings import settings_service
 from app.services.week import get_week_type
 
@@ -46,10 +46,15 @@ async def fetch_schedule(db: AsyncSession, target_date: date,
     practice_periods = [period for period in periods if period.period_type == "practice"]
     practice_group_ids = {group.id for period in practice_periods for group in period.groups}
     unavailable_group_ids = holiday_group_ids | practice_group_ids
+    from sqlalchemy import and_
     conditions = [
         Schedule.day_of_week == weekday,
         Schedule.is_active.is_(True),
         Schedule.week_type.in_(("both", week_type)),
+        or_(
+            Schedule.version_id.is_(None),
+            Schedule.version.has(and_(ScheduleVersion.valid_from <= target_date, ScheduleVersion.valid_until >= target_date))
+        )
     ]
     if group_id is not None:
         conditions.append(Schedule.group_id == group_id)

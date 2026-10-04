@@ -88,6 +88,16 @@ class Subject(Base):
     schedules: Mapped[list["Schedule"]] = relationship(back_populates="subject")
     curriculums: Mapped[list["Curriculum"]] = relationship(back_populates="subject")
 
+class ScheduleVersion(Base):
+    __tablename__ = "schedule_versions"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(255))
+    valid_from: Mapped[date] = mapped_column(Date, index=True)
+    valid_until: Mapped[date] = mapped_column(Date, index=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    
+    schedules: Mapped[list["Schedule"]] = relationship(back_populates="version", cascade="all, delete-orphan")
+
 class Schedule(Base):
     __tablename__ = "schedule"
     __table_args__ = (
@@ -107,7 +117,10 @@ class Schedule(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_replacement: Mapped[bool] = mapped_column(Boolean, default=False)
     room_override: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    version_id: Mapped[Optional[int]] = mapped_column(ForeignKey("schedule_versions.id", ondelete="CASCADE"), nullable=True, index=True)
+    
     group: Mapped["Group"] = relationship(back_populates="schedules")
+    version: Mapped[Optional["ScheduleVersion"]] = relationship(back_populates="schedules")
     teacher: Mapped[Optional["Teacher"]] = relationship(
         back_populates="schedules", foreign_keys=[teacher_id]
     )

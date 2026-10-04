@@ -114,7 +114,7 @@ async def _scheduled_hours(
         await db.scalars(
             select(Schedule)
             .where(Schedule.is_active.is_(True), schedule_filter)
-            .options(joinedload(Schedule.group), joinedload(Schedule.subject))
+            .options(joinedload(Schedule.group), joinedload(Schedule.subject), joinedload(Schedule.version))
         )
     ).unique().all()
     periods = (
@@ -186,6 +186,7 @@ async def _scheduled_hours(
                         or item.week_type not in ("both", week_type)
                         or item.group_id in holiday_group_ids | practice_group_ids
                         or imported_change is not None
+                        or (item.version_id is not None and (current_date < item.version.valid_from or current_date > item.version.valid_until))
                     ):
                         continue
                     _record_lesson(
