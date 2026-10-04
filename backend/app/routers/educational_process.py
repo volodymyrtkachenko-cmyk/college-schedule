@@ -36,6 +36,27 @@ async def debug_import(db: AsyncSession = Depends(get_db)):
         
     return {"log": new_stdout.getvalue(), "groups": group_info}
 
+@router.get("/debug")
+async def debug_import(db: AsyncSession = Depends(get_db)):
+    import traceback
+    import io
+    import sys
+    from scripts.import_eps import async_main
+    
+    old_stdout = sys.stdout
+    new_stdout = io.StringIO()
+    sys.stdout = new_stdout
+    
+    error = None
+    try:
+        await async_main()
+    except Exception as e:
+        error = traceback.format_exc()
+    finally:
+        sys.stdout = old_stdout
+        
+    return {"log": new_stdout.getvalue(), "error": error}
+
 def generate_weeks(start_date: date) -> List[WeekInfo]:
     # Find the Monday of the week containing start_date
     current = start_date - timedelta(days=start_date.weekday())
