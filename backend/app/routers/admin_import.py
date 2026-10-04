@@ -594,8 +594,9 @@ async def trigger_import(
             "page_snapshots": page_snapshots,
         }
         
-        # Keep an active draft visible. It may contain changes that still need
-        # administrator review, so it must not be hidden as "unchanged".
+        # A pending import is only active until the next source snapshot is
+        # evaluated. Once the same snapshot is seen again, it is stale and
+        # must not reappear after reload as a new set of changes.
         pending_stmt = (
             select(ScheduleDraft)
             .where(
@@ -624,11 +625,14 @@ async def trigger_import(
             pending_draft.status = "archived"
 
         if pending_matches:
-            draft_id = pending_draft.id
+            await archive_pending_import()
+            await db.commit()
+            draft_id = None
             unchanged = True
         elif current_matches:
             logger.info("Import payload identical to the latest import. Skipping creation.")
             await archive_pending_import()
+            await db.commit()
             draft_id = None
             unchanged = True
         else:

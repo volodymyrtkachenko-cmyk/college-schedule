@@ -574,6 +574,33 @@ async def test_publishing_import_retires_old_changes_in_scope(api_client):
         assert refreshed.is_published is False
 
 
+@pytest.mark.anyio
+async def test_archived_import_draft_is_not_loaded_as_pending(api_client):
+    _, _, data = api_client
+    async with data["sessions"]() as session:
+        draft = ScheduleDraft(
+            name="Repeated import",
+            draft_type="import",
+            status="pending",
+            data={"substitutions": [{"date": "2026-10-05", "group_id": data["group_id"], "lesson_number": 1}]},
+        )
+        session.add(draft)
+        await session.commit()
+        draft_id = draft.id
+
+        draft.status = "archived"
+        await session.commit()
+
+        pending = await session.scalar(
+            select(ScheduleDraft).where(
+                ScheduleDraft.id == draft_id,
+                ScheduleDraft.draft_type == "import",
+                ScheduleDraft.status == "pending",
+            )
+        )
+        assert pending is None
+
+
 def test_import_changes_are_deduplicated_by_calendar_cell():
     substitutions, cancelled = _deduplicate_import_changes(
         [
