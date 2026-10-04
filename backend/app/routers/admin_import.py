@@ -33,11 +33,17 @@ def import_payload_hash(payload: dict) -> str:
     comparable = {
         key: value
         for key, value in payload.items()
-        if key != "created_curriculum_ids"
+        if key not in {"created_curriculum_ids", "import_scope"}
     }
     for key in ("base_slots", "substitutions", "cancelled"):
         values = comparable.get(key)
         if isinstance(values, list):
+            if key in {"substitutions", "cancelled"}:
+                values = [
+                    {field: value for field, value in item.items() if field != "kind"}
+                    if isinstance(item, dict) else item
+                    for item in values
+                ]
             comparable[key] = sorted(
                 values,
                 key=lambda value: json.dumps(value, sort_keys=True, default=str),

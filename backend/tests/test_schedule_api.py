@@ -397,12 +397,14 @@ def test_import_payload_hash_ignores_collection_order_and_technical_ids():
         ],
         "substitutions": [{"date": "2026-10-06", "group_id": 1, "lesson_number": 2}],
         "cancelled": [{"date": "2026-10-07", "group_id": 2, "lesson_number": 1}],
+        "import_scope": {"dates": ["2026-10-06"], "group_ids": [1]},
         "created_curriculum_ids": [10, 11],
     }
     second = {
         "base_slots": list(reversed(first["base_slots"])),
-        "substitutions": list(reversed(first["substitutions"])),
-        "cancelled": list(reversed(first["cancelled"])),
+        "substitutions": [{**first["substitutions"][0], "kind": "substitution"}],
+        "cancelled": [{**first["cancelled"][0], "kind": "cancelled"}],
+        "import_scope": {"dates": ["2026-10-13", "2026-10-14"], "group_ids": [1, 2, 3]},
         "created_curriculum_ids": [99],
     }
 
