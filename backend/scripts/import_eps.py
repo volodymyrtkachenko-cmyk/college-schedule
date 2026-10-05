@@ -38,7 +38,9 @@ def normalize_name(name: str) -> str:
     return res
 
 async def async_main():
-    json_path = os.path.join(os.path.dirname(__file__), "data", "educational_schedule_2026_2027.json")
+    default_path = os.path.join(os.path.dirname(__file__), "data", "educational_schedule_2026_2027.json")
+    user_path = input(f"Введіть шлях до JSON файлу [{default_path}]: ").strip()
+    json_path = user_path if user_path else default_path
     with open(json_path, 'r', encoding='utf-8') as f:
         data = json.load(f)
 
@@ -67,8 +69,17 @@ async def async_main():
                             group = group_dict_exact[suffix]
                     
                     if not group:
-                        print(f"Попередження: Групу {group_name} не знайдено в БД. Пропускаємо.")
-                        continue
+                        print(f"Попередження: Групу {group_name} не знайдено в БД (нормалізовано як {norm_name}).")
+                        action = input("Пропустити (п) чи ввести правильну назву вручну (в)? [п/в]: ").strip().lower()
+                        if action == 'в':
+                            new_name = input("Введіть точну назву групи з БД: ").strip()
+                            group = group_dict_exact.get(new_name)
+                            if not group:
+                                print(f"Групу {new_name} також не знайдено. Пропускаємо.")
+                                continue
+                        else:
+                            print("Пропускаємо.")
+                            continue
                     
                     if group.year_of_admission is None:
                         year_of_admission = 2026 - (course_num - 1)
