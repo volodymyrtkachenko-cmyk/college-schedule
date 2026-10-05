@@ -39,7 +39,7 @@ def normalize_name(name: str) -> str:
 
 async def async_main():
     default_path = os.path.join(os.path.dirname(__file__), "data", "educational_schedule_2026_2027.json")
-    if sys.stdin.isatty():
+    if (sys.stdin.isatty() and not os.environ.get('NON_INTERACTIVE') and not os.environ.get('FLY_APP_NAME')):
         user_path = input(f"Введіть шлях до JSON файлу [{default_path}]: ").strip()
         json_path = user_path if user_path else default_path
     else:
@@ -73,7 +73,7 @@ async def async_main():
                     
                     if not group:
                         print(f"Попередження: Групу {group_name} не знайдено в БД (нормалізовано як {norm_name}).")
-                        if sys.stdin.isatty():
+                        if (sys.stdin.isatty() and not os.environ.get('NON_INTERACTIVE') and not os.environ.get('FLY_APP_NAME')):
                             action = input("Пропустити (п) чи ввести правильну назву вручну (в)? [п/в]: ").strip().lower()
                             if action == 'в':
                                 new_name = input("Введіть точну назву групи з БД: ").strip()
