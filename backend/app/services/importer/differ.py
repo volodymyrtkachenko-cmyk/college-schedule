@@ -26,8 +26,17 @@ class ScheduleDiffer:
         skipped_base_slots = []
 
         for lesson in parsed_week.lessons:
-            group_id = self.normalizer.normalize_group(lesson.group_name) if lesson.group_name else None
-            subject_id = self.normalizer.normalize_subject(lesson.subject_name) if lesson.subject_name else None
+            group_id = None
+            if lesson.group_name:
+                group_id = self.normalizer.normalize_group(lesson.group_name)
+                if not group_id:
+                    self.unresolved_entities.append({"type": "group", "raw": lesson.group_name})
+            
+            subject_id = None
+            if lesson.subject_name:
+                subject_id = self.normalizer.normalize_subject(lesson.subject_name)
+                if not subject_id:
+                    self.unresolved_entities.append({"type": "subject", "raw": lesson.subject_name})
             
             teacher_id = None
             second_teacher_id = None
