@@ -39,8 +39,11 @@ def normalize_name(name: str) -> str:
 
 async def async_main():
     default_path = os.path.join(os.path.dirname(__file__), "data", "educational_schedule_2026_2027.json")
-    user_path = input(f"Введіть шлях до JSON файлу [{default_path}]: ").strip()
-    json_path = user_path if user_path else default_path
+    if sys.stdin.isatty():
+        user_path = input(f"Введіть шлях до JSON файлу [{default_path}]: ").strip()
+        json_path = user_path if user_path else default_path
+    else:
+        json_path = default_path
     with open(json_path, 'r', encoding='utf-8') as f:
         data = json.load(f)
 
@@ -70,15 +73,19 @@ async def async_main():
                     
                     if not group:
                         print(f"Попередження: Групу {group_name} не знайдено в БД (нормалізовано як {norm_name}).")
-                        action = input("Пропустити (п) чи ввести правильну назву вручну (в)? [п/в]: ").strip().lower()
-                        if action == 'в':
-                            new_name = input("Введіть точну назву групи з БД: ").strip()
-                            group = group_dict_exact.get(new_name)
-                            if not group:
-                                print(f"Групу {new_name} також не знайдено. Пропускаємо.")
+                        if sys.stdin.isatty():
+                            action = input("Пропустити (п) чи ввести правильну назву вручну (в)? [п/в]: ").strip().lower()
+                            if action == 'в':
+                                new_name = input("Введіть точну назву групи з БД: ").strip()
+                                group = group_dict_exact.get(new_name)
+                                if not group:
+                                    print(f"Групу {new_name} також не знайдено. Пропускаємо.")
+                                    continue
+                            else:
+                                print("Пропускаємо.")
                                 continue
                         else:
-                            print("Пропускаємо.")
+                            print("Неінтерактивний режим: пропускаємо.")
                             continue
                     
                     if group.year_of_admission is None:
