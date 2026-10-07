@@ -136,7 +136,7 @@ export function ScheduleWeekGrid({ week, availabilityWeek, availabilityError, sc
           Не вдалося перевірити вільні місця: {availabilityError} Вільні місця не підсвічено, але під час збереження система ще раз перевірить розклад.
         </p>
       )}
-      <div className={canEdit ? "block" : "hidden md:block"}>
+      {canEdit && (
         <div className="overflow-x-auto rounded-2xl border border-sys-border bg-sys-card/50">
           <div className="grid min-w-[1000px] grid-cols-[5.5rem_repeat(5,minmax(11rem,1fr))]">
             <div className="sticky left-0 z-20 border-b border-r border-sys-border bg-sys-card p-3 text-center text-xs font-semibold uppercase text-sys-text-muted">
@@ -218,7 +218,18 @@ export function ScheduleWeekGrid({ week, availabilityWeek, availabilityError, sc
             ])}
           </div>
         </div>
-      </div>
+      )}
+
+      {/* DESKTOP VIEW */}
+      {!canEdit && (
+        <div className="hidden md:grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 items-start pb-4">
+          {week.map((day) => (
+            <div key={`desktop-${day.date}`} className="w-full">
+              <ScheduleDay schedule={day} mode="day" {...dayProps} />
+            </div>
+          ))}
+        </div>
+      )}
 
       {!canEdit && <div className="flex w-full flex-col md:hidden">
         {week.length > 0 && (
