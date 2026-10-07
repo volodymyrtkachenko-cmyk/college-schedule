@@ -7,6 +7,7 @@ import {
   SchedulePeriodRecord,
   SchedulePeriodSlotMutation,
   SchedulePeriodType,
+  ReferenceRecord,
 } from "../../lib/api";
 import { invalidateScheduleCache } from "../../lib/hooks";
 import { SearchableSelect } from "../SearchableSelect";
