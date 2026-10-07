@@ -389,20 +389,11 @@ export function SchedulePeriodsPanel() {
                           <span className="form-label">Аудиторія</span>
                           <input value={slot.room_override ?? ""} onChange={(event) => setDraft({ ...draft, slots: draft.slots.map((item) => item.key === slot.key ? { ...item, room_override: event.target.value || null } : item) })} placeholder="Необов’язково" className="form-control w-full" />
                         </label>
-                        <div className="flex items-end xl:col-span-3">
-                          <button
-                            type="button"
-                            disabled={groupSlots.length <= 1}
-                            onClick={() => setDraft({ ...draft, slots: draft.slots.filter((item) => item.key !== slot.key) })}
-                            className="rounded-lg px-3 py-2 text-sm font-medium text-rose-300 hover:bg-rose-500/10 disabled:cursor-not-allowed disabled:opacity-40"
-                          >
-                            Видалити пару
-                          </button>
-                        </div>
+
                       </div>
                     ))}
                     <p className="text-xs text-sys-text-muted">Задані пари повторюватимуться щотижня в межах вибраних дат.</p>
-                  </section>
+                  </div></details>
                 );
               })}
             </div>
@@ -453,31 +444,49 @@ export function SchedulePeriodsPanel() {
           {periods.map((period) => {
             const state = periodState(period, today);
             return (
-              <article key={period.id} className="surface-panel flex flex-col justify-between gap-4 p-4 sm:flex-row sm:items-center">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="font-semibold text-sys-text-primary">{period.name}</h2>
-                    <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                      state === "Триває" ? "bg-emerald-500/10 text-emerald-300" : "bg-sys-input text-sys-text-secondary"
-                    }`}>{state}</span>
-                    <span className="rounded-full bg-sys-accent/10 px-2.5 py-1 text-xs font-semibold text-sys-accent">
+              <article key={period.id} className="surface-panel flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 border-l-4" style={{borderLeftColor: period.period_type === "practice" ? "#a855f7" : "#eab308"}}>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wider font-bold ${
+                      period.period_type === "practice" ? "bg-purple-500/10 text-purple-400" : "bg-amber-500/10 text-amber-400"
+                    }`}>
                       {period.period_type === "practice" ? "Практика" : "Канікули"}
                     </span>
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wider font-bold ${
+                      state === "Триває" ? "bg-emerald-500/10 text-emerald-400" : state === "Завершено" ? "bg-slate-500/10 text-slate-400" : "bg-blue-500/10 text-blue-400"
+                    }`}>
+                      {state}
+                    </span>
                   </div>
-                  <p className="mt-1 text-sm text-sys-text-secondary">{formatDate(period.start_date)} — {formatDate(period.end_date)}</p>
-                  {period.period_type === "practice" ? (
-                    <p className="mt-1 text-xs text-sys-text-muted">
-                      {period.groups.map((group) => group.name).join(", ")} · {formatPairCount(period.slots.length)}
-                    </p>
-                  ) : (
-                    <p className="mt-1 text-xs text-sys-text-muted">
-                      {period.groups.length ? period.groups.map((group) => group.name).join(", ") : "Усі групи"}
-                    </p>
-                  )}
+                  
+                  <h2 className="text-lg font-bold text-sys-text-primary leading-tight truncate" title={period.name}>
+                    {period.name}
+                  </h2>
+                  <p className="mt-0.5 text-sm font-medium text-sys-text-secondary">
+                    {formatDate(period.start_date)} — {formatDate(period.end_date)}
+                  </p>
+                  
+                  <div className="mt-2 text-xs text-sys-text-muted flex items-center gap-1.5 flex-wrap">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-70"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                    <span className="truncate max-w-[200px] sm:max-w-[300px]" title={period.groups.length ? period.groups.map(g => g.name).join(", ") : "Усі групи"}>
+                        {period.groups.length ? period.groups.map(g => g.name).join(", ") : "Усі групи"}
+                    </span>
+                    {period.period_type === "practice" && (
+                        <>
+                           <span className="opacity-50">•</span>
+                           <span>{formatPairCount(period.slots.length)}</span>
+                        </>
+                    )}
+                  </div>
                 </div>
-                <div className="flex shrink-0 gap-2">
-                  <button type="button" onClick={() => editPeriod(period)} className="rounded-lg border border-sys-border px-3 py-2 text-sm font-medium text-sys-text-secondary hover:text-sys-accent">Редагувати</button>
-                  <button type="button" onClick={() => setPeriodToDelete(period)} className="rounded-lg border border-rose-400/20 px-3 py-2 text-sm font-medium text-rose-300 hover:bg-rose-500/10">Видалити</button>
+                
+                <div className="flex sm:flex-col gap-2 shrink-0">
+                  <button type="button" onClick={() => editPeriod(period)} className="flex-1 rounded-lg border border-sys-border bg-sys-bg/50 px-3 py-1.5 text-xs font-semibold text-sys-text-primary hover:border-sys-accent hover:text-sys-accent transition-colors">
+                    Відкрити
+                  </button>
+                  <button type="button" onClick={() => setPeriodToDelete(period)} className="flex-1 rounded-lg border border-rose-500/20 bg-rose-500/5 px-3 py-1.5 text-xs font-semibold text-rose-300 hover:bg-rose-500/20 transition-colors">
+                    Видалити
+                  </button>
                 </div>
               </article>
             );
@@ -507,6 +516,6 @@ export function SchedulePeriodsPanel() {
           {toast.message}
         </div>
       )}
-    </section>
+    </div></details>
   );
 }
