@@ -279,28 +279,26 @@ export default function HomePage() {
                          type="button"
                          onClick={() => shiftWeek(-1)}
                          aria-label="Попередній тиждень"
-                         className="rounded-md px-2 py-2 text-sys-text-secondary transition-colors hover:bg-sys-bg hover:text-sys-text-primary"
+                         className="flex items-center justify-center rounded-md min-h-[38px] min-w-[38px] text-sys-text-secondary transition-colors hover:bg-sys-bg hover:text-sys-text-primary focus:ring-2 focus:ring-sys-accent focus:outline-none"
                        >
-                         <span aria-hidden="true">←</span>
-                         <span className="sr-only">Попередній тиждень</span>
+                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
                        </button>
                        <button
                          type="button"
                          onClick={resetWeek}
                          disabled={isCurrentWeek}
                          aria-pressed={isCurrentWeek}
-                         className="min-w-28 flex-1 rounded-md px-2 py-2 text-center text-xs font-medium text-sys-text-primary transition-colors hover:bg-sys-bg disabled:cursor-default disabled:text-sys-accent sm:flex-none"
+                         className="min-w-28 flex-1 rounded-md px-3 min-h-[38px] text-center text-[13px] font-medium text-sys-text-primary transition-colors hover:bg-sys-bg disabled:cursor-default disabled:text-sys-accent disabled:bg-sys-accent/10 sm:flex-none"
                        >
-                         {isCurrentWeek ? "Цей тиждень" : "Поточний тиждень"}
+                         {isCurrentWeek ? "Сьогодні" : "Поточний"}
                        </button>
                        <button
                          type="button"
                          onClick={() => shiftWeek(1)}
                          aria-label="Наступний тиждень"
-                         className="rounded-md px-2 py-2 text-sys-text-secondary transition-colors hover:bg-sys-bg hover:text-sys-text-primary"
+                         className="flex items-center justify-center rounded-md min-h-[38px] min-w-[38px] text-sys-text-secondary transition-colors hover:bg-sys-bg hover:text-sys-text-primary focus:ring-2 focus:ring-sys-accent focus:outline-none"
                        >
-                         <span aria-hidden="true">→</span>
-                         <span className="sr-only">Наступний тиждень</span>
+                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
                        </button>
                      </div>
                 </div>
