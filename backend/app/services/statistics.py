@@ -158,7 +158,7 @@ async def _scheduled_hours(
     active_versions = (await db.scalars(select(ScheduleVersion).where(ScheduleVersion.is_active.is_(True)).order_by(ScheduleVersion.valid_from.desc()))).all()
 
     result: dict[int, dict] = {}
-    unique_teacher_lessons: set[tuple] = set()
+    unique_lessons: set[tuple] = set()
     current_date = semester_start
     while current_date <= through_date:
         if current_date.isoweekday() <= 5:
@@ -199,7 +199,7 @@ async def _scheduled_hours(
                         continue
                     _record_lesson(
                         result,
-                        unique_teacher_lessons,
+                        unique_lessons,
                         item.group_id,
                         item.group.name,
                         item.subject_id,
@@ -227,7 +227,7 @@ async def _scheduled_hours(
                         continue
                     _record_lesson(
                         result,
-                        unique_teacher_lessons,
+                        unique_lessons,
                         change.group_id,
                         change.group.name,
                         change.subject_id,
@@ -257,7 +257,7 @@ async def _scheduled_hours(
                             continue
                         _record_lesson(
                             result,
-                            unique_teacher_lessons,
+                            unique_lessons,
                             slot.group_id,
                             slot.group.name,
                             slot.subject_id,
@@ -271,7 +271,7 @@ async def _scheduled_hours(
         current_date += timedelta(days=1)
 
     total_hours = (
-        len(unique_teacher_lessons) * 2
+        len(unique_lessons) * 2
         if teacher_id is not None
         else sum(item["hours"] for item in result.values())
     )
@@ -280,7 +280,7 @@ async def _scheduled_hours(
 
 def _record_lesson(
     result: dict[int, dict],
-    unique_teacher_lessons: set[tuple],
+    unique_lessons: set[tuple],
     group_id: int,
     group_name: str,
     subject_id: int,
@@ -291,12 +291,18 @@ def _record_lesson(
     stream_id: str | None,
     is_teacher: bool,
 ) -> None:
+    if not is_teacher:
+        lesson_key = (lesson_date, lesson_number, subject_id)
+        if lesson_key in unique_lessons:
+            return
+        unique_lessons.add(lesson_key)
+
     key = group_id if is_teacher else subject_id
     name = group_name if is_teacher else subject_name
     entry = result.setdefault(key, {"name": name, "hours": 0})
     entry["hours"] += 2
     if is_teacher:
-        unique_teacher_lessons.add(
+        unique_lessons.add(
             (lesson_date, lesson_number, "stream", stream_id)
             if stream_id
             else (lesson_date, "lesson", lesson_id)
