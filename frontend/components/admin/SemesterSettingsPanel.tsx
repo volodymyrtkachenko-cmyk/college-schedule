@@ -70,7 +70,7 @@ export function SemesterSettingsPanel() {
         <p className="text-sm text-sys-text-secondary">Завантаження налаштувань…</p>
       ) : (
         <form onSubmit={save} className="w-full max-w-md rounded-2xl border border-sys-border bg-sys-card shadow-lg overflow-hidden">
-          <div className="bg-gradient-to-b from-sys-accent/5 to-transparent p-6 pb-4 border-b border-sys-border/50">
+          <div className="bg-gradient-to-b from-white/5 to-transparent p-6 pb-4 border-b border-sys-border/50">
             <h3 className="text-lg font-bold text-sys-text-primary">Параметри семестру</h3>
             <p className="mt-1 text-sm text-sys-text-secondary">Вкажіть базові дати для коректного розрахунку чисельника/знаменника.</p>
           </div>
@@ -120,7 +120,7 @@ export function SemesterSettingsPanel() {
             <button
               type="submit"
               disabled={saving || loading}
-              className="flex items-center gap-2 rounded-lg bg-sys-accent px-5 py-2 text-sm font-medium text-white shadow-sm hover:bg-sys-accent-hover disabled:opacity-50 transition-colors"
+              className="flex items-center gap-2 rounded-lg bg-sys-accent px-5 py-2 text-sm font-medium text-[#0b1120] hover:opacity-90 disabled:opacity-50 transition-colors"
             >
               {saving ? (
                 <>

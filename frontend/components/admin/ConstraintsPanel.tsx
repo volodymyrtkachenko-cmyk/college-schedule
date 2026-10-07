@@ -104,7 +104,7 @@ export function ConstraintsPanel() {
       ) : (
         <div className="mt-6 rounded-[12px] border-[0.5px] border-sys-border bg-sys-card overflow-hidden shadow-sm">
           <table className="w-full text-left text-sm border-collapse">
-            <thead className="bg-[#111827]">
+            <thead className="bg-sys-bg">
               <tr>
                 <th className="px-5 py-4 font-semibold text-sys-text-secondary text-xs uppercase tracking-wider">Викладач</th>
                 <th className="px-5 py-4 font-semibold text-sys-text-secondary text-xs uppercase tracking-wider">День</th>

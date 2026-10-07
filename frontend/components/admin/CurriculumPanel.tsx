@@ -228,14 +228,22 @@ export function CurriculumPanel() {
       )}
 
       {editor && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#0b1120]/80 p-4 backdrop-blur-sm shadow-2xl">
-          <div className="surface-panel flex max-h-[92dvh] w-full max-w-2xl flex-col overflow-hidden">
-            <div className="px-6 py-4 border-b border-sys-border bg-[#0b1120]/50 sticky top-0 flex justify-between items-center z-10">
-              <h3 className="text-lg font-bold text-sys-text-primary">
-                {editor.id ? "Редагування навчального навантаження" : "Нове навчальне навантаження"}
-              </h3>
-              <button onClick={() => setEditor(null)} className="p-1 -mr-2 text-sys-text-secondary hover:text-sys-text-primary bg-transparent rounded-full hover:bg-white/10 transition">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm shadow-2xl">
+          <div className="flex max-h-[92dvh] w-full max-w-2xl flex-col rounded-2xl border border-sys-border bg-sys-card shadow-2xl overflow-hidden">
+            <div className="bg-gradient-to-b from-white/5 to-transparent p-6 pb-4 border-b border-sys-border/50 sticky top-0 flex justify-between items-center z-10">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sys-accent/20 text-sys-accent">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-sys-text-primary">
+                    {editor.id ? "Редагування навантаження" : "Нове навантаження"}
+                  </h3>
+                  <p className="text-sm text-sys-text-secondary">{editor.id ? "Змініть параметри плану для групи" : "Додайте план одразу для багатьох груп"}</p>
+                </div>
+              </div>
+              <button onClick={() => setEditor(null)} className="rounded-full p-2 text-sys-text-secondary hover:bg-sys-bg hover:text-sys-text-primary transition-colors">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
             <div className="p-6 overflow-y-auto">
@@ -302,19 +310,19 @@ export function CurriculumPanel() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                      <label className="text-xs font-bold uppercase tracking-wider text-sys-accent pl-1">Занять за два тижні</label>
-                     <input type="number" min="0" max="50" required value={editor.pairs_per_2_weeks || 0} onChange={e => setEditor({...editor, pairs_per_2_weeks: parseInt(e.target.value)})} className="w-full rounded-[8px] border-[0.5px] border-sys-accent/50 bg-[#0b1120] px-3 py-2.5 text-[16px] font-black text-emerald-400 text-center shadow-inner outline-none focus:border-sys-accent focus:ring-1 focus:ring-sys-accent" />
+                     <input type="number" min="0" max="50" required value={editor.pairs_per_2_weeks || 0} onChange={e => setEditor({...editor, pairs_per_2_weeks: parseInt(e.target.value)})} className="w-full rounded-lg border border-sys-accent/50 bg-sys-bg px-3 py-2.5 text-base font-black text-emerald-400 text-center shadow-inner outline-none focus:border-sys-accent focus:ring-1 focus:ring-sys-accent" />
                   </div>
                   <div className="space-y-1">
                      <label className="text-xs font-bold uppercase tracking-wider text-sys-text-secondary pl-1">Загальна кількість годин</label>
-                     <input type="number" min="0" required value={editor.total_hours || 0} onChange={e => setEditor({...editor, total_hours: parseInt(e.target.value)})} className="w-full rounded-[8px] border-[0.5px] border-sys-border bg-sys-input px-3 py-2.5 text-[15px] font-medium text-sys-text-primary text-center shadow-sm outline-none focus:border-sys-accent focus:ring-1 focus:ring-sys-accent" />
+                     <input type="number" min="0" required value={editor.total_hours || 0} onChange={e => setEditor({...editor, total_hours: parseInt(e.target.value)})} className="w-full rounded-lg border border-sys-border bg-sys-bg px-3 py-2.5 text-[15px] font-medium text-sys-text-primary text-center shadow-sm outline-none focus:border-sys-accent focus:ring-1 focus:ring-sys-accent" />
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-2 bg-[#0b1120] p-4 rounded-xl border border-sys-border mt-2">
+                <div className="flex flex-col gap-2 bg-sys-bg p-4 rounded-xl border border-sys-border mt-2">
                    <label className="flex items-center gap-3 cursor-pointer group/chk">
                      <div className="relative flex items-center justify-center">
-                        <input type="checkbox" checked={editor.is_fixed || false} onChange={e => setEditor({...editor, is_fixed: e.target.checked})} className="peer appearance-none w-5 h-5 border border-sys-border rounded bg-sys-input checked:bg-sys-accent checked:border-sys-accent transition-colors" />
-                        <svg className="absolute w-3.5 h-3.5 text-[#0b1120] opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l5 5l10 -10"/></svg>
+                        <input type="checkbox" checked={editor.is_fixed || false} onChange={e => setEditor({...editor, is_fixed: e.target.checked})} className="peer appearance-none w-5 h-5 border border-sys-border rounded bg-sys-card checked:bg-sys-accent checked:border-sys-accent transition-colors" />
+                        <svg className="absolute w-3.5 h-3.5 text-white opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l5 5l10 -10"/></svg>
                      </div>
                      <div>
                        <span className="text-[14px] font-semibold text-sys-text-primary px-1">Закріпити заняття</span>
@@ -323,13 +331,13 @@ export function CurriculumPanel() {
                    </label>
                    
     
-               <div className="flex gap-4">
+               <div className="flex gap-4 mt-2">
                  <label className="flex items-center gap-2 cursor-pointer group">
                    <div className="relative flex items-center">
-                     <input type="checkbox" checked={editor.allow_multiple_per_day || false} onChange={e => setEditor({...editor, allow_multiple_per_day: e.target.checked})} className="peer appearance-none w-5 h-5 border border-sys-border rounded bg-sys-input checked:bg-sys-accent checked:border-sys-accent transition-colors" />
-                     <svg className="absolute inset-0 w-full h-full p-[2px] opacity-0 peer-checked:opacity-100 text-[#0b1120] pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                     <input type="checkbox" checked={editor.allow_multiple_per_day || false} onChange={e => setEditor({...editor, allow_multiple_per_day: e.target.checked})} className="peer appearance-none w-5 h-5 border border-sys-border rounded bg-sys-card checked:bg-sys-accent checked:border-sys-accent transition-colors" />
+                     <svg className="absolute inset-0 w-full h-full p-[2px] opacity-0 peer-checked:opacity-100 text-white pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
                    </div>
-                   <span className="text-sm font-medium text-sys-text-secondary group-hover:text-sys-text transition-colors">Проводити всі заняття в один день</span>
+                   <span className="text-sm font-medium text-sys-text-secondary group-hover:text-sys-text-primary transition-colors">Проводити всі заняття в один день</span>
                  </label>
                </div>
 
@@ -378,8 +386,8 @@ export function CurriculumPanel() {
                    
                    <label className="flex items-center gap-3 cursor-pointer group/chk">
                      <div className="relative flex items-center justify-center">
-                        <input type="checkbox" checked={editor.is_stream || false} onChange={e => setEditor({...editor, is_stream: e.target.checked})} className="peer appearance-none w-5 h-5 border border-sys-border rounded bg-sys-input checked:bg-sys-accent checked:border-sys-accent transition-colors" />
-                        <svg className="absolute w-3.5 h-3.5 text-[#0b1120] opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l5 5l10 -10"/></svg>
+                        <input type="checkbox" checked={editor.is_stream || false} onChange={e => setEditor({...editor, is_stream: e.target.checked})} className="peer appearance-none w-5 h-5 border border-sys-border rounded bg-sys-card checked:bg-sys-accent checked:border-sys-accent transition-colors" />
+                        <svg className="absolute w-3.5 h-3.5 text-white opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l5 5l10 -10"/></svg>
                      </div>
                      <div>
                        <span className="text-[14px] font-semibold text-sys-text-primary px-1">Спільний потік</span>
@@ -391,11 +399,11 @@ export function CurriculumPanel() {
               </form>
             </div>
             
-            <div className="px-6 py-4 bg-[#0b1120]/80 border-t border-sys-border flex justify-end gap-3 rounded-b-2xl">
-               <button onClick={() => setEditor(null)} className="px-5 py-2.5 rounded-lg text-[14px] font-bold text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/5 transition-colors">
+            <div className="bg-sys-bg/30 px-6 py-4 flex justify-end gap-3 border-t border-sys-border/50">
+               <button onClick={() => setEditor(null)} className="rounded-lg border border-sys-border px-4 py-2 text-sm font-medium text-sys-text-primary hover:bg-sys-bg transition-colors">
                   Скасувати
                </button>
-               <button type="submit" form="curr-form" className="px-6 py-2.5 rounded-lg text-[14px] font-bold text-[#0b1120] bg-sys-accent hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
+               <button type="submit" form="curr-form" className="flex items-center gap-2 rounded-lg bg-sys-accent px-5 py-2 text-sm font-medium text-[#0b1120] hover:opacity-90 transition-colors">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
                   Зберегти
                </button>

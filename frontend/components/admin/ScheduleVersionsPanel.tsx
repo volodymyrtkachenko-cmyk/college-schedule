@@ -107,7 +107,7 @@ export function ScheduleVersionsPanel() {
         </div>
         <button
           onClick={() => setDraft({ key: Date.now().toString(), name: "", valid_from: "", valid_until: "" })}
-          className="shrink-0 flex items-center gap-2 rounded-lg bg-sys-accent px-4 py-2.5 text-sm font-semibold text-white shadow-md hover:bg-sys-accent-hover active:scale-95 transition-all"
+          className="shrink-0 flex items-center gap-2 rounded-lg bg-sys-accent px-4 py-2.5 text-sm font-semibold text-[#0b1120] hover:opacity-90 active:scale-95 transition-all"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
           Додати версію
@@ -127,7 +127,7 @@ export function ScheduleVersionsPanel() {
           {versions.map((version) => {
             const isActiveNow = new Date(version.valid_from) <= new Date() && new Date(version.valid_until) >= new Date();
             return (
-              <div key={version.id} className={`group flex flex-col justify-between rounded-2xl border p-5 transition-all duration-300 hover:shadow-lg ${isActiveNow ? 'border-sys-accent/40 bg-gradient-to-b from-sys-accent/10 to-sys-bg shadow-[0_0_15px_rgba(14,165,233,0.1)]' : 'border-sys-border/60 bg-sys-card hover:border-sys-border hover:bg-sys-card/80'}`}>
+              <div key={version.id} className={`group flex flex-col justify-between rounded-2xl border p-5 transition-all duration-300 hover:shadow-lg ${isActiveNow ? 'border-sys-accent/40 bg-gradient-to-b from-white/5 to-sys-bg shadow-[0_0_15px_rgba(14,165,233,0.1)]' : 'border-sys-border/60 bg-sys-card hover:border-sys-border hover:bg-sys-card/80'}`}>
                 <div>
                   <div className="flex items-start justify-between gap-2">
                     <h3 className="font-semibold text-sys-text-primary text-lg leading-tight line-clamp-2">{version.name}</h3>
@@ -153,7 +153,7 @@ export function ScheduleVersionsPanel() {
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
                     Змінити
                   </button>
-                  <button onClick={() => setCloneTarget(version)} className="flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-[11px] font-semibold text-sky-400 hover:bg-sky-500/10 hover:text-sky-300 transition-colors">
+                  <button onClick={() => setCloneTarget(version)} className="flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-[11px] font-semibold text-sky-400 hover:bg-sys-accent/10 hover:text-sky-300 transition-colors">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
                     Клонувати
                   </button>
@@ -171,7 +171,7 @@ export function ScheduleVersionsPanel() {
       {draft && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-sm">
           <form onSubmit={saveVersion} className="w-full max-w-md rounded-2xl border border-sys-border bg-sys-card shadow-2xl overflow-hidden">
-            <div className="bg-gradient-to-b from-sys-accent/10 to-transparent p-6 pb-4">
+            <div className="bg-gradient-to-b from-white/5 to-transparent p-6 pb-4">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sys-accent/20 text-sys-accent">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
@@ -186,16 +186,16 @@ export function ScheduleVersionsPanel() {
             <div className="px-6 space-y-5">
               <div>
                 <label className="form-label text-sys-text-secondary">Назва версії</label>
-                <input required type="text" placeholder="напр. Осінній семестр" value={draft.name || ""} onChange={e => setDraft({...draft, name: e.target.value})} className="form-input mt-1 shadow-sm bg-sys-bg" />
+                <input required type="text" placeholder="напр. Осінній семестр" value={draft.name || ""} onChange={e => setDraft({...draft, name: e.target.value})} className="form-control mt-1 shadow-sm bg-sys-bg" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="form-label text-sys-text-secondary">Діє з</label>
-                  <input required type="date" value={draft.valid_from || ""} onChange={e => setDraft({...draft, valid_from: e.target.value})} className="form-input mt-1 shadow-sm bg-sys-bg" />
+                  <input required type="date" value={draft.valid_from || ""} onChange={e => setDraft({...draft, valid_from: e.target.value})} className="form-control mt-1 shadow-sm bg-sys-bg" />
                 </div>
                 <div>
                   <label className="form-label text-sys-text-secondary">Діє до</label>
-                  <input required type="date" value={draft.valid_until || ""} onChange={e => setDraft({...draft, valid_until: e.target.value})} className="form-input mt-1 shadow-sm bg-sys-bg" />
+                  <input required type="date" value={draft.valid_until || ""} onChange={e => setDraft({...draft, valid_until: e.target.value})} className="form-control mt-1 shadow-sm bg-sys-bg" />
                 </div>
               </div>
             </div>
@@ -204,7 +204,7 @@ export function ScheduleVersionsPanel() {
               <button type="button" onClick={() => setDraft(null)} className="rounded-lg border border-sys-border px-4 py-2 text-sm font-medium text-sys-text-primary hover:bg-sys-bg transition-colors">
                 Скасувати
               </button>
-              <button type="submit" disabled={isSubmitting} className="flex items-center gap-2 rounded-lg bg-sys-accent px-5 py-2 text-sm font-medium text-white shadow-sm hover:bg-sys-accent-hover disabled:opacity-50 transition-colors">
+              <button type="submit" disabled={isSubmitting} className="flex items-center gap-2 rounded-lg bg-sys-accent px-5 py-2 text-sm font-medium text-[#0b1120] hover:opacity-90 disabled:opacity-50 transition-colors">
                 {isSubmitting ? (
                   <>
                     <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
@@ -222,9 +222,9 @@ export function ScheduleVersionsPanel() {
       {cloneTarget && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl border border-sky-500/20 bg-sys-card shadow-2xl overflow-hidden">
-            <div className="bg-gradient-to-b from-sky-500/10 to-transparent p-6 pb-4">
+            <div className="bg-gradient-to-b from-white/5 to-transparent p-6 pb-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sky-500/20 text-sky-400">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sys-accent/20 text-sky-400">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
                 </div>
                 <div>
@@ -242,7 +242,7 @@ export function ScheduleVersionsPanel() {
               
               <div>
                 <label className="form-label text-sys-text-secondary">З якої версії скопіювати заняття?</label>
-                <select value={cloneSourceId} onChange={e => setCloneSourceId(e.target.value)} className="form-input mt-1 shadow-sm bg-sys-bg">
+                <select value={cloneSourceId} onChange={e => setCloneSourceId(e.target.value)} className="form-control mt-1 shadow-sm bg-sys-bg">
                   <option value="" disabled>Оберіть версію-джерело...</option>
                   {versions.filter(v => v.id !== cloneTarget.id).map(v => (
                     <option key={v.id} value={v.id}>{v.name} ({formatDate(v.valid_from)})</option>
@@ -255,7 +255,7 @@ export function ScheduleVersionsPanel() {
               <button onClick={() => setCloneTarget(null)} className="rounded-lg border border-sys-border px-4 py-2 text-sm font-medium text-sys-text-primary hover:bg-sys-bg transition-colors">
                 Скасувати
               </button>
-              <button onClick={handleClone} disabled={!cloneSourceId || isSubmitting} className="flex items-center gap-2 rounded-lg bg-sky-500 px-5 py-2 text-sm font-medium text-white shadow-sm hover:bg-sky-400 disabled:opacity-50 transition-colors">
+              <button onClick={handleClone} disabled={!cloneSourceId || isSubmitting} className="flex items-center gap-2 rounded-lg bg-sys-accent px-5 py-2 text-sm font-medium text-[#0b1120] hover:opacity-90 disabled:opacity-50 transition-colors">
                 {isSubmitting ? (
                   <>
                     <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
