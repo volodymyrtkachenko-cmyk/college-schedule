@@ -194,7 +194,6 @@ export function ScheduleWeekGrid({ week, availabilityWeek, availabilityError, sc
                             onNoteSave={onNoteSave ? (note) => onNoteSave(lesson, note, day.date) : undefined}
                             onNoteDelete={onNoteDelete ? () => onNoteDelete(lesson, day.date) : undefined}
                             onMoveSelect={onMoveSelect}
-                            isSelectedForMove={movingLesson?.id === lesson.id}
                           />
                         ))}
                       </div>

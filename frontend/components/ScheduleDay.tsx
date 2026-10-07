@@ -35,7 +35,7 @@ export function ScheduleDay({ schedule, isToday = false, mode = "day", scheduleM
       onNoteSave={onNoteSave ? (note) => onNoteSave(lesson, note, schedule.date) : undefined}
       onNoteDelete={onNoteDelete ? () => onNoteDelete(lesson, schedule.date) : undefined}
       onMoveSelect={onMoveSelect}
-      isSelectedForMove={movingLesson?.id === lesson.id}
+      movingLesson={movingLesson}
     />
   );
 

@@ -48,7 +48,7 @@ export function LessonCard({
 }: {
   lesson: Lesson;
   targetDate: string;
-  mode: "today" | "week";
+  mode: "today" | "week" | "day";
   scheduleMode: "student" | "teacher" | "admin";
   canEdit: boolean;
   onEdit?: (lesson: Lesson) => void;
@@ -58,14 +58,14 @@ export function LessonCard({
   setNoteExpandedId?: (id: number | null) => void;
   movingLesson?: Lesson | null;
   onMoveSelect?: (lesson: Lesson | null) => void;
-  onNoteSave?: (lesson: Lesson, note: string, date: string) => Promise<void>;
-  onNoteDelete?: (lesson: Lesson, date: string) => Promise<void>;
+  onNoteSave?: (note: string) => Promise<void>;
+  onNoteDelete?: () => Promise<void>;
 }) {
   const isSelectedForMove = movingLesson?.id === lesson.id;
-  const isDay = mode === "today";
+  const isDay = mode !== "week";
   const noteExpanded = noteExpandedId === lesson.id;
   
-  const noteForDate = lesson.notes?.find((n) => n.note_date === targetDate)?.note || lesson.note || "";
+  const noteForDate = lesson.note && (!lesson.note_date || lesson.note_date === targetDate) ? lesson.note : "";
   const [editingNote, setEditingNote] = useState(false);
   const [note, setNote] = useState(noteForDate);
   const [busy, setBusy] = useState(false);
@@ -77,7 +77,7 @@ export function LessonCard({
     setBusy(true);
     setError("");
     try {
-      await onNoteSave(lesson, note.trim(), targetDate);
+      await onNoteSave(note.trim());
       setEditingNote(false);
     } catch (e: any) {
       setError(e.message || "Сталася помилка при збереженні примітки.");
@@ -90,7 +90,7 @@ export function LessonCard({
     if (!onNoteDelete || !lesson.note_id) return;
     setBusy(true);
     try {
-      await onNoteDelete(lesson, targetDate);
+      await onNoteDelete();
       setEditingNote(false);
       setNote("");
     } catch (e: any) {
@@ -126,7 +126,7 @@ export function LessonCard({
         onClick={(e) => {
           const target = e.target as HTMLElement;
           if (target.closest('button') || target.tagName === 'TEXTAREA' || target.tagName === 'A') return;
-          if (hasNote) setNoteExpanded(!noteExpanded);
+          if (hasNote) setNoteExpandedId?.(noteExpanded ? null : lesson.id);
         }}
         className={`group relative min-w-0 flex flex-col justify-start overflow-hidden rounded-md border-l-[4px] bg-sys-accent/[0.08] hover:bg-sys-accent/[0.12] px-2 py-1.5 transition-colors duration-200 cursor-pointer ${
           isSelectedForMove ? "border-l-emerald-400 ring-1 ring-emerald-400/70 bg-emerald-500/10" : "border-l-sys-accent"
@@ -165,7 +165,7 @@ export function LessonCard({
                   if (!hasNote) setNote("");
                   setEditingNote(!editingNote);
               } else {
-                  setNoteExpanded(!noteExpanded);
+                  setNoteExpandedId?.(noteExpanded ? null : lesson.id);
               }
             }} 
               className={`flex h-5 w-5 items-center justify-center rounded-sm backdrop-blur-sm ${hasNote ? 'bg-sys-accent/20 text-sys-accent' : 'bg-sys-bg/80 text-sys-text-muted hover:text-sys-text-primary'}`}>
@@ -218,7 +218,7 @@ export function LessonCard({
       onClick={(e) => {
         const target = e.target as HTMLElement;
         if (target.closest('button') || target.tagName === 'TEXTAREA' || target.tagName === 'A') return;
-        if (hasNote) setNoteExpanded(!noteExpanded);
+        if (hasNote) setNoteExpandedId?.(noteExpanded ? null : lesson.id);
       }}
       className={`relative min-w-0 overflow-hidden rounded-xl border bg-sys-card p-3 shadow-sm transition-colors duration-200 ${
         isSelectedForMove ? "border-emerald-400 ring-1 ring-emerald-400/70" : "border-sys-border"
@@ -274,7 +274,7 @@ export function LessonCard({
                      if (!hasNote) setNote("");
                      setEditingNote(!editingNote);
                   } else {
-                     setNoteExpanded(!noteExpanded);
+                     setNoteExpandedId?.(noteExpanded ? null : lesson.id);
                   }
                 }} 
                   className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors text-[18px] ${hasNote ? 'bg-sys-accent/10 text-sys-accent' : 'text-sys-text-muted hover:bg-white/5 hover:text-sys-text-primary'}`}>
