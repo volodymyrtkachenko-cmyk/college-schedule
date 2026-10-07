@@ -135,7 +135,7 @@ export function LessonCard({
         }`}
       >
         <div className="flex min-w-0 items-start justify-between gap-2">
-            <h3 className="min-w-0 font-medium text-sys-text-primary text-[15px] leading-snug line-clamp-3 break-words">
+            <h3 className="min-w-0 font-medium text-sys-text-primary text-[15px] leading-snug break-words">
               {lesson.subject_name}
             </h3>
             {/* Absolute or right-aligned action icons */}

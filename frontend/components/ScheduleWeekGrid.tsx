@@ -289,7 +289,7 @@ export function ScheduleWeekGrid({ week, availabilityWeek, availabilityError, sc
                   }
                 }}
               >
-                <ScheduleDay schedule={activeDay} mode="week" {...dayProps} />
+                <ScheduleDay schedule={activeDay} mode="day" {...dayProps} />
               </motion.div>
             )}
           </AnimatePresence>
