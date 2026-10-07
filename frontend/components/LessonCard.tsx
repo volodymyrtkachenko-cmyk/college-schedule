@@ -200,10 +200,10 @@ export function LessonCard({
           
           <div className={`flex flex-wrap items-center justify-between ${isDay ? "mt-3" : "mt-2"} gap-2`}>
             {primaryName ? (
-              <p className="text-sys-text-secondary text-sm break-words flex-1">{primaryName}</p>
+              <p className="text-sys-text-secondary text-sm break-words flex-1 min-w-[120px]">{primaryName}</p>
             ) : <div className="flex-1" />}
             {lesson.room && (
-              <span className="bg-[#21262D] text-white text-xs px-2.5 py-0.5 rounded-md border border-[#30363D] shrink-0">
+              <span className="bg-[#21262D] text-white text-xs px-2.5 py-0.5 rounded-md border border-[#30363D] shrink-0 ml-auto">
                 ауд. {lesson.room.replace(/,\s*/g, ' / ')}
               </span>
             )}
