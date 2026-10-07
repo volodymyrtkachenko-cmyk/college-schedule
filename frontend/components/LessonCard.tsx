@@ -117,6 +117,8 @@ export function LessonCard({
 
 
 
+  const isDay = mode !== "week";
+
   return (
     <article
       draggable={canEdit && !!onMoveSelect && !lesson.is_replacement}
@@ -134,27 +136,30 @@ export function LessonCard({
         if (target.closest('button') || target.tagName === 'TEXTAREA' || target.tagName === 'A') return;
         if (hasNote) setNoteExpandedId?.(noteExpanded ? null : lesson.id);
       }}
-      className={`relative min-w-0 flex flex-col items-stretch overflow-hidden rounded-2xl border bg-sys-card p-4 md:p-5 shadow-sm transition-colors duration-200 min-h-[110px] ${
+      className={`relative min-w-0 flex flex-col items-stretch overflow-hidden rounded-2xl border bg-sys-card shadow-sm transition-colors duration-200 min-h-[110px] ${
+        isDay ? "p-4 md:p-5" : "p-3"
+      } ${
         isSelectedForMove ? "border-emerald-400 ring-1 ring-emerald-400/70" : "border-sys-border"
       } ${
         lesson.is_relevant_this_week ? "" : "opacity-40 grayscale"
       } ${lesson.is_replacement ? "ring-1 ring-sys-warning/60 !border-sys-warning/40 bg-sys-warning/[0.02]" : canEdit ? "cursor-grab active:cursor-grabbing" : ""} ${hasNote ? "cursor-pointer hover:shadow-md" : ""}`}
     >
-      <div className="flex items-center gap-4 w-full">
-        {/* Time column */}
-        <div className="flex flex-col min-w-[45px] sm:min-w-[55px] text-left shrink-0">
-          <span className="text-sys-neon font-bold text-xl leading-none mb-1.5">{lesson.lesson_number}</span>
-          <span className="text-sys-text-secondary text-xs font-medium">{startT}</span>
-          <span className="text-sys-text-secondary text-xs font-medium">{endT}</span>
-        </div>
-
-        {/* Separator */}
-        <div className="w-[1px] h-12 bg-[#30363D] shrink-0 hidden sm:block"></div>
+      <div className={`flex items-center w-full ${isDay ? "gap-4" : "gap-2"}`}>
+        {isDay && (
+          <>
+            <div className="flex flex-col min-w-[45px] sm:min-w-[55px] text-left shrink-0">
+              <span className="text-sys-neon font-bold text-xl leading-none mb-1.5">{lesson.lesson_number}</span>
+              <span className="text-sys-text-secondary text-xs font-medium">{startT}</span>
+              <span className="text-sys-text-secondary text-xs font-medium">{endT}</span>
+            </div>
+            <div className="w-[1px] h-12 bg-[#30363D] shrink-0 hidden sm:block"></div>
+          </>
+        )}
 
         {/* Content */}
         <div className="flex-1 min-w-0 flex flex-col justify-center">
-          <div className="flex items-start justify-between gap-3">
-            <h3 className="text-white font-bold text-base leading-snug break-words">
+          <div className={`flex items-start justify-between ${isDay ? "gap-3" : "gap-2"}`}>
+            <h3 className={`text-white font-bold leading-snug break-words ${isDay ? "text-base" : "text-[14px]"}`}>
               {lesson.subject_name}
             </h3>
             
@@ -193,7 +198,7 @@ export function LessonCard({
             </div>
           </div>
           
-          <div className="flex flex-wrap items-center justify-between mt-3 gap-2">
+          <div className={`flex flex-wrap items-center justify-between ${isDay ? "mt-3" : "mt-2"} gap-2`}>
             {primaryName ? (
               <p className="text-sys-text-secondary text-sm break-words flex-1">{primaryName}</p>
             ) : <div className="flex-1" />}
