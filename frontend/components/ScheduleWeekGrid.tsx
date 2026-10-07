@@ -251,7 +251,7 @@ export function ScheduleWeekGrid({ week, availabilityWeek, availabilityError, sc
                     {dayStr}
                   </span>
                   <span className={`flex h-9 w-9 items-center justify-center rounded-full text-[15px] font-bold transition-all ${
-                    isActive ? "bg-sys-accent text-white shadow-[0_0_12px_rgba(180,100,245,0.4)]" : "text-sys-text-primary hover:bg-sys-card"
+                    isActive ? "bg-sys-accent text-white shadow-[0_0_12px_rgba(88,166,255,0.4)]" : "text-sys-text-primary hover:bg-sys-card"
                   }`}>
                     {dateStr}
                   </span>

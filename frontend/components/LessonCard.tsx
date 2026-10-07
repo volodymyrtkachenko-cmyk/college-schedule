@@ -171,7 +171,7 @@ export function LessonCard({
         
         {lesson.is_replacement && (
           <div className="mt-2">
-            <span className="inline-block px-2 py-[2px] text-[11px] uppercase tracking-wider font-semibold bg-sys-accent text-[#0b1120] rounded leading-none shadow-sm">Заміна</span>
+            <span className="inline-block px-2 py-[2px] text-[11px] uppercase tracking-wider font-semibold bg-sys-warning text-[#010409] rounded leading-none shadow-sm">Заміна</span>
           </div>
         )}
 
@@ -192,7 +192,7 @@ export function LessonCard({
           <form onSubmit={submitNote} className="mt-3 flex flex-col gap-2 border-t border-sys-accent/20 pt-3 relative z-10">
             <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} className="w-full rounded-md border-[0.5px] border-sys-border bg-sys-bg px-2 py-1.5 text-[12px] text-sys-text-primary outline-none focus:border-sys-accent" />
             <div className="flex gap-2 mt-1">
-              <button type="submit" disabled={busy || !note.trim()} className="flex-1 rounded bg-sys-accent py-1.5 min-h-[36px] text-[12px] font-bold text-[#0b1120] hover:opacity-90">Зберегти</button>
+              <button type="submit" disabled={busy || !note.trim()} className="flex-1 rounded bg-[#238636] py-1.5 min-h-[36px] text-[12px] font-bold text-[#E6EDF3] hover:opacity-90">Зберегти</button>
               <button type="button" disabled={busy} onClick={() => setEditingNote(false)} className="flex-1 rounded border-[0.5px] border-sys-border py-1.5 min-h-[36px] text-[12px] text-sys-text-secondary hover:text-white">Скасувати</button>
             </div>
           </form>
@@ -225,7 +225,7 @@ export function LessonCard({
         isSelectedForMove ? "border-emerald-400 ring-1 ring-emerald-400/70" : "border-sys-border"
       } ${
         lesson.is_relevant_this_week ? "" : "opacity-40 grayscale"
-      } ${lesson.is_replacement ? "ring-1 ring-sys-accent/60 !border-sys-accent/40 bg-sys-accent/[0.02]" : canEdit ? "cursor-grab active:cursor-grabbing" : ""} ${hasNote ? "cursor-pointer hover:shadow-md" : ""}`}
+      } ${lesson.is_replacement ? "ring-1 ring-sys-warning/60 !border-sys-warning/40 bg-sys-warning/[0.02]" : canEdit ? "cursor-grab active:cursor-grabbing" : ""} ${hasNote ? "cursor-pointer hover:shadow-md" : ""}`}
     >
       <div className="flex items-stretch gap-4 flex-row h-full">
         
@@ -253,7 +253,7 @@ export function LessonCard({
               )}
               {lesson.is_replacement && (
                 <div className="mt-2.5">
-                  <span className="inline-block px-2.5 py-[3px] text-[11px] uppercase tracking-wider font-bold bg-sys-accent text-[#0b1120] rounded-md leading-none shadow-sm">Заміна</span>
+                  <span className="inline-block px-2.5 py-[3px] text-[11px] uppercase tracking-wider font-bold bg-sys-warning text-[#010409] rounded-md leading-none shadow-sm">Заміна</span>
                 </div>
               )}
             </div>
@@ -318,7 +318,7 @@ export function LessonCard({
         <textarea id={`note-${lesson.id}-${targetDate}`} value={note} onChange={(event) => setNote(event.target.value)} rows={3} maxLength={2000} placeholder="Варіант роботи, аудиторія або інша примітка" className="w-full rounded-md border border-sys-border bg-sys-bg px-3 py-2 text-[14px] text-sys-text-primary outline-none focus:border-sys-accent focus:ring-1 focus:ring-sys-accent" />
         {error && <p role="alert" className="text-[13px] text-rose-400 font-medium">{error}</p>}
         <div className="flex flex-wrap gap-2">
-          <button type="submit" disabled={busy || !note.trim()} className="rounded bg-sys-accent px-4 py-2 min-h-[36px] text-[13px] font-bold text-[#0b1120] disabled:opacity-50 hover:opacity-90">{busy ? "Збереження…" : "Зберегти"}</button>
+          <button type="submit" disabled={busy || !note.trim()} className="rounded bg-[#238636] px-4 py-2 min-h-[36px] text-[13px] font-bold text-[#E6EDF3] disabled:opacity-50 hover:opacity-90">{busy ? "Збереження…" : "Зберегти"}</button>
           {noteForDate && <button type="button" disabled={busy} onClick={deleteNote} className="rounded border-[0.5px] border-sys-border px-4 py-2 min-h-[36px] text-[13px] font-medium text-rose-400 hover:bg-rose-400/10 disabled:opacity-50">Видалити</button>}
           <button type="button" disabled={busy} onClick={() => setEditingNote(false)} className="rounded border-[0.5px] border-sys-border px-4 py-2 min-h-[36px] text-[13px] font-medium text-sys-text-secondary hover:text-sys-text-primary disabled:opacity-50">Скасувати</button>
         </div>
