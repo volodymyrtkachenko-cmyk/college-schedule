@@ -114,7 +114,7 @@ export function LessonCard({
   if (scheduleMode === "teacher" && lesson.group_name) {
     primaryName = `Група ${lesson.group_name}`;
   }
-  const teacherRoom = [primaryName, lesson.room].filter(Boolean).join(" · ");
+
 
 
   return (
@@ -199,7 +199,7 @@ export function LessonCard({
             ) : <div className="flex-1" />}
             {lesson.room && (
               <span className="bg-[#21262D] text-white text-xs px-2.5 py-0.5 rounded-md border border-[#30363D] shrink-0">
-                ауд. {lesson.room}
+                ауд. {lesson.room.replace(/,\s*/g, ' / ')}
               </span>
             )}
           </div>
