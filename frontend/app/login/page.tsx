@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "../../lib/auth";
+import { useAuth, canAccessAdmin } from "../../lib/auth";
 
 export default function LoginPage() {
   const { user, loading, login } = useAuth();
@@ -13,7 +13,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (user && !loading) {
-      router.replace(user.role === "admin" ? "/admin" : "/");
+      router.replace(canAccessAdmin(user) ? "/admin" : "/");
     }
   }, [user, loading, router]);
 
@@ -41,20 +41,20 @@ export default function LoginPage() {
             <span className="rounded-md bg-sys-accent px-2.5 py-1 text-sm font-black tracking-[0.18em] text-[#0b1120]">ДФКР</span>
           </div>
           <h2 className="mt-2 text-center text-3xl font-bold tracking-tight text-sys-text-primary">Вхід у систему</h2>
-          <p className="mt-2 text-center text-sm text-sys-text-secondary">Вхід для адміністраторів розкладу</p>
+          <p className="mt-2 text-center text-sm text-sys-text-secondary">Для адміністраторів і редакторів розкладу</p>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4 rounded-md shadow-sm">
             <div>
-              <label htmlFor="username" className="sr-only">Ім’я користувача</label>
-              <input id="username" name="username" type="text" required value={form.username}
+              <label htmlFor="username" className="mb-1.5 block text-sm font-medium text-sys-text-secondary">Ім’я користувача</label>
+              <input id="username" name="username" type="text" autoComplete="username" required value={form.username}
                      onChange={(e) => setForm({ ...form, username: e.target.value })}
                      className="form-control block w-full py-3 sm:text-sm"
-                     placeholder="Ім’я користувача" />
+                     placeholder="Наприклад, admin" />
             </div>
             <div>
-              <label htmlFor="password" className="sr-only">Пароль</label>
-              <input id="password" name="password" type="password" required value={form.password}
+              <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-sys-text-secondary">Пароль</label>
+              <input id="password" name="password" type="password" autoComplete="current-password" required value={form.password}
                      onChange={(e) => setForm({ ...form, password: e.target.value })}
                      className="form-control block w-full py-3 sm:text-sm"
                      placeholder="Пароль" />

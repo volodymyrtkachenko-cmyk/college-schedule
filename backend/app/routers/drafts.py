@@ -33,7 +33,7 @@ async def update_import_changes(
 ):
     draft = await db.get(ScheduleDraft, id)
     if not draft:
-        raise HTTPException(status_code=404, detail="Draft not found")
+        raise HTTPException(status_code=404, detail="Чернетку розкладу не знайдено")
     if draft.draft_type != "import" or draft.status in {"published", "archived"}:
         raise HTTPException(status_code=409, detail="Зміни імпорту можна редагувати лише в активній чернетці імпорту")
     substitutions = payload.get("substitutions", [])
@@ -78,7 +78,7 @@ async def get_draft(
 ):
     draft = await db.get(ScheduleDraft, id)
     if not draft:
-        raise HTTPException(status_code=404, detail="Draft not found")
+        raise HTTPException(status_code=404, detail="Чернетку розкладу не знайдено")
     return draft
 
 
@@ -90,7 +90,7 @@ async def delete_draft(
 ):
     draft = await db.get(ScheduleDraft, id)
     if not draft:
-        raise HTTPException(status_code=404, detail="Draft not found")
+        raise HTTPException(status_code=404, detail="Чернетку розкладу не знайдено")
     if draft.status in {"GENERATING", "generating"} or (
         draft.status == "published" and draft.draft_type != "import"
     ):
@@ -114,7 +114,7 @@ async def list_draft_substitutions(
     """Заміни та скасовані пари, знайдені імпортом (зберігаються в draft.data, не в слотах)."""
     draft = await db.get(ScheduleDraft, id)
     if not draft:
-        raise HTTPException(status_code=404, detail="Draft not found")
+        raise HTTPException(status_code=404, detail="Чернетку розкладу не знайдено")
     data = draft.data or {}
     subs = data.get("substitutions", [])
     cancelled = data.get("cancelled", [])
@@ -195,7 +195,7 @@ async def move_slot(
 ):
     slot = await db.get(ScheduleSlot, slot_id, options=[selectinload(ScheduleSlot.curriculum)])
     if not slot:
-        raise HTTPException(404, "Slot not found")
+        raise HTTPException(404, "Заняття в чернетці не знайдено")
     draft = await db.get(ScheduleDraft, slot.draft_id)
     if not draft or draft.status not in {"pending", "DRAFT", "draft"}:
         raise HTTPException(status_code=409, detail="Змінювати можна лише активну чернетку")
@@ -256,7 +256,7 @@ async def publish_draft(
 ):
     draft = await db.get(ScheduleDraft, id)
     if not draft:
-        raise HTTPException(status_code=404, detail="Draft not found")
+        raise HTTPException(status_code=404, detail="Чернетку розкладу не знайдено")
         
     if draft.status not in {"DRAFT", "draft", "pending"}:
         raise HTTPException(status_code=400, detail="Цей розклад ще не готовий або не був успішно створений, тому його не можна опублікувати.")
@@ -292,10 +292,36 @@ async def publish_draft(
         .options(selectinload(ScheduleSlot.curriculum))
     )).all()
     group_ids = {s.curriculum.group_id for s in slots}
+    
+    from app.core.time import today_local
+    from app.models.entities import ScheduleVersion
+    today = today_local()
+    target_version = await db.scalar(
+        select(ScheduleVersion).where(
+            ScheduleVersion.valid_from <= today,
+            ScheduleVersion.valid_until >= today,
+            ScheduleVersion.is_active.is_(True)
+        ).order_by(ScheduleVersion.valid_from.desc()).limit(1)
+    )
+    target_version_id = target_version.id if target_version else None
+    
     if group_ids:
-        schedule_ids = select(Schedule.id).where(Schedule.group_id.in_(group_ids))
-        await db.execute(delete(ScheduleOverride).where(ScheduleOverride.schedule_id.in_(schedule_ids)))
-        await db.execute(delete(Schedule).where(Schedule.group_id.in_(group_ids)))
+        schedule_ids_query = select(Schedule.id).where(Schedule.group_id.in_(group_ids))
+        if target_version_id is not None:
+            schedule_ids_query = schedule_ids_query.where(Schedule.version_id == target_version_id)
+        else:
+            schedule_ids_query = schedule_ids_query.where(Schedule.version_id.is_(None))
+        
+        schedule_ids = (await db.scalars(schedule_ids_query)).all()
+        if schedule_ids:
+            await db.execute(delete(ScheduleOverride).where(ScheduleOverride.schedule_id.in_(schedule_ids)))
+            
+        delete_query = delete(Schedule).where(Schedule.group_id.in_(group_ids))
+        if target_version_id is not None:
+            delete_query = delete_query.where(Schedule.version_id == target_version_id)
+        else:
+            delete_query = delete_query.where(Schedule.version_id.is_(None))
+        await db.execute(delete_query)
     
     new_schedules = []
     for s in slots:
@@ -311,7 +337,8 @@ async def publish_draft(
                 lesson_number=s.lesson_number,
                 week_type=s.week_type,
                 room_override=s.room_override,
-                is_active=True
+                is_active=True,
+                version_id=target_version_id
             )
         )
     

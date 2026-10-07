@@ -46,16 +46,23 @@ async def fetch_schedule(db: AsyncSession, target_date: date,
     practice_periods = [period for period in periods if period.period_type == "practice"]
     practice_group_ids = {group.id for period in practice_periods for group in period.groups}
     unavailable_group_ids = holiday_group_ids | practice_group_ids
-    from sqlalchemy import and_
+    active_version = await db.scalar(
+        select(ScheduleVersion).where(
+            ScheduleVersion.valid_from <= target_date,
+            ScheduleVersion.valid_until >= target_date,
+            ScheduleVersion.is_active.is_(True)
+        ).order_by(ScheduleVersion.valid_from.desc()).limit(1)
+    )
+
     conditions = [
         Schedule.day_of_week == weekday,
         Schedule.is_active.is_(True),
         Schedule.week_type.in_(("both", week_type)),
-        or_(
-            Schedule.version_id.is_(None),
-            Schedule.version.has(and_(ScheduleVersion.valid_from <= target_date, ScheduleVersion.valid_until >= target_date))
-        )
     ]
+    if active_version:
+        conditions.append(Schedule.version_id == active_version.id)
+    else:
+        conditions.append(Schedule.version_id.is_(None))
     if group_id is not None:
         conditions.append(Schedule.group_id == group_id)
     if unavailable_group_ids:
@@ -222,7 +229,7 @@ def week_types_overlap(left: str, right: str) -> bool:
 
 async def conflicting_lesson(db, *, group_id, day_of_week, lesson_number, week_type,
                               teacher_id=None, second_teacher_id=None, subject_id=None, stream_id=None,
-                              exclude_id=None):
+                              exclude_id=None, version_id=None):
     """
     Returns a conflicting Schedule row for an overlapping slot in the same group
     or for either teacher, except when both groups share the same explicit stream.
@@ -232,6 +239,11 @@ async def conflicting_lesson(db, *, group_id, day_of_week, lesson_number, week_t
         Schedule.lesson_number == lesson_number,
         Schedule.is_active.is_(True),
     )
+    if version_id is not None:
+        query = query.where(Schedule.version_id == version_id)
+    else:
+        query = query.where(Schedule.version_id.is_(None))
+        
     if exclude_id is not None:
         query = query.where(Schedule.id != exclude_id)
 
@@ -285,11 +297,11 @@ async def _stream_id_for_lesson(db: AsyncSession, group_id, subject_id, teacher_
     stream_ids = set((await db.scalars(query)).all())
     return next(iter(stream_ids)) if len(stream_ids) == 1 else None
 
-async def _check_schedule_conflict(db: AsyncSession, group_id, day, lesson_number, week_type, exclude_id, teacher_id=None, second_teacher_id=None, subject_id=None, stream_id=None):
+async def _check_schedule_conflict(db: AsyncSession, group_id, day, lesson_number, week_type, exclude_id, teacher_id=None, second_teacher_id=None, subject_id=None, stream_id=None, version_id=None):
     conflict = await conflicting_lesson(db, group_id=group_id, day_of_week=day,
                                         lesson_number=lesson_number, week_type=week_type,
                                         teacher_id=teacher_id, second_teacher_id=second_teacher_id,
-                                        subject_id=subject_id, stream_id=stream_id, exclude_id=exclude_id)
+                                        subject_id=subject_id, stream_id=stream_id, exclude_id=exclude_id, version_id=version_id)
     if conflict:
         day_names = {1: "Понеділок", 2: "Вівторок", 3: "Середа", 4: "Четвер", 5: "П'ятниця", 6: "Субота", 7: "Неділя"}
         week_names = {"numerator": "по чисельнику", "denominator": "по знаменнику", "both": "щотижня"}
@@ -363,5 +375,6 @@ async def save_schedule_item(item, payload, db: AsyncSession, *, create=False):
                                        teacher_id=teacher.id if teacher else None,
                                        second_teacher_id=second_teacher.id if second_teacher else None,
                                        subject_id=subject.id if subject else None,
-                                       stream_id=stream_id)
+                                       stream_id=stream_id,
+                                       version_id=item.version_id)
     return await _apply_and_commit(db, item, payload, group, subject, teacher, second_teacher, day, lesson_number, week_type, stream_id, create)

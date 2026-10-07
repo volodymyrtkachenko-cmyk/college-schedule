@@ -28,7 +28,7 @@ async def update_semester_start(
     if semester_end is not None and payload.value > semester_end:
         raise HTTPException(
             status_code=422,
-            detail="semester_start must not be after semester_end",
+            detail="Дата початку семестру не може бути пізніше за дату завершення",
         )
     value = payload.value
     await settings_service.set(db, SEMESTER_START_KEY, value.isoformat())

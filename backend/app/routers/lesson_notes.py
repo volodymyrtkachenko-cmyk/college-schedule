@@ -57,7 +57,7 @@ async def create_note(
     if existing is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="A note already exists for this lesson and date",
+            detail="Примітка для цієї пари на цю дату вже існує",
         )
     note = LessonNote(**payload.model_dump())
     db.add(note)
@@ -68,7 +68,7 @@ async def create_note(
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="A note already exists for this lesson and date",
+            detail="Примітка для цієї пари на цю дату вже існує",
         ) from exc
     return note
 
@@ -136,7 +136,7 @@ async def update_note(
         if existing is not None:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="A note already exists for this lesson and date",
+                detail="Примітка для цієї пари на цю дату вже існує",
             )
     for field in ("schedule_id", "note_date", "note"):
         value = getattr(payload, field)
@@ -149,7 +149,7 @@ async def update_note(
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="A note already exists for this lesson and date",
+            detail="Примітка для цієї пари на цю дату вже існує",
         ) from exc
     return note
 

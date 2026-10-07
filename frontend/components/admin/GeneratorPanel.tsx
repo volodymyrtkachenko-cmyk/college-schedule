@@ -422,6 +422,9 @@ export function GeneratorPanel() {
          <div>
            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sys-accent">Підготовка розкладу</p>
            <h1 className="mt-1 text-xl font-bold">Генератор розкладу</h1>
+           <p className="mt-2 max-w-xl text-sm text-sys-text-secondary">
+             Створює чернетку з навчального навантаження, доступності викладачів і практик. Після перевірки її можна опублікувати — тоді вона замінить поточний розклад.
+           </p>
          </div>
          <button onClick={handleGenerate} disabled={generating} className="shrink-0 rounded-[6px] bg-emerald-500 px-4 py-2 text-sm font-semibold text-[#0b1120] hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-wait flex items-center gap-2">
             {generating ? (

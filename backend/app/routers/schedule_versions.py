@@ -39,8 +39,6 @@ async def list_versions(db: AsyncSession = Depends(get_db)):
 
 @router.post("", response_model=ScheduleVersionResponse)
 async def create_version(data: ScheduleVersionCreate, db: AsyncSession = Depends(get_db), _: User = Depends(require_roles('admin'))):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Only admins can manage schedule versions")
     version = ScheduleVersion(**data.model_dump())
     db.add(version)
     await db.commit()
@@ -49,11 +47,9 @@ async def create_version(data: ScheduleVersionCreate, db: AsyncSession = Depends
 
 @router.patch("/{version_id}", response_model=ScheduleVersionResponse)
 async def update_version(version_id: int, data: ScheduleVersionUpdate, db: AsyncSession = Depends(get_db), _: User = Depends(require_roles('admin'))):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Only admins can manage schedule versions")
     version = await db.get(ScheduleVersion, version_id)
     if not version:
-        raise HTTPException(status_code=404, detail="Version not found")
+        raise HTTPException(status_code=404, detail="Версію розкладу не знайдено")
     
     update_data = data.model_dump(exclude_unset=True)
     for k, v in update_data.items():
@@ -65,22 +61,17 @@ async def update_version(version_id: int, data: ScheduleVersionUpdate, db: Async
 
 @router.delete("/{version_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_version(version_id: int, db: AsyncSession = Depends(get_db), _: User = Depends(require_roles('admin'))):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Only admins can manage schedule versions")
     version = await db.get(ScheduleVersion, version_id)
     if not version:
-        raise HTTPException(status_code=404, detail="Version not found")
+        raise HTTPException(status_code=404, detail="Версію розкладу не знайдено")
     await db.delete(version)
     await db.commit()
 
 @router.post("/{version_id}/clone-from/{source_version_id}")
 async def clone_version_schedule(version_id: int, source_version_id: int, db: AsyncSession = Depends(get_db), _: User = Depends(require_roles('admin'))):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Only admins can manage schedule versions")
-    
     target_version = await db.get(ScheduleVersion, version_id)
     if not target_version:
-        raise HTTPException(status_code=404, detail="Target version not found")
+        raise HTTPException(status_code=404, detail="Цільову версію розкладу не знайдено")
         
     # Get all schedules from source (or default if source_version_id is 0)
     source_filter = Schedule.version_id == source_version_id if source_version_id > 0 else Schedule.version_id.is_(None)

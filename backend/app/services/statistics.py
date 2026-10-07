@@ -154,6 +154,9 @@ async def _scheduled_hours(
         if current is None or item.version > current.version:
             latest_changes[key] = item
 
+    from app.models.entities import ScheduleVersion
+    active_versions = (await db.scalars(select(ScheduleVersion).where(ScheduleVersion.is_active.is_(True)).order_by(ScheduleVersion.valid_from.desc()))).all()
+
     result: dict[int, dict] = {}
     unique_teacher_lessons: set[tuple] = set()
     current_date = semester_start
@@ -176,6 +179,11 @@ async def _scheduled_hours(
                 practice_group_ids = {
                     item.id for period in practice_periods for item in period.groups
                 }
+                active_version_id = None
+                for v in active_versions:
+                    if v.valid_from <= current_date <= v.valid_until:
+                        active_version_id = v.id
+                        break
 
                 for item in schedules:
                     imported_change = latest_changes.get(
@@ -186,7 +194,7 @@ async def _scheduled_hours(
                         or item.week_type not in ("both", week_type)
                         or item.group_id in holiday_group_ids | practice_group_ids
                         or imported_change is not None
-                        or (item.version_id is not None and (current_date < item.version.valid_from or current_date > item.version.valid_until))
+                        or item.version_id != active_version_id
                     ):
                         continue
                     _record_lesson(

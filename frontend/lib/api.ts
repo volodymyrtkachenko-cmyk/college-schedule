@@ -203,7 +203,9 @@ async function parseError(response: Response) {
                 return "Запис з такими даними вже існує.";
             }
             if (raw.includes("incorrect username")) return "Неправильний логін або пароль.";
-            if (raw.includes("invalid or expired token")) return "Термін дії сеансу завершився. Увійдіть знову.";
+            if (raw.includes("invalid or expired token") || raw.includes("сеанс завершився")) return "Термін дії сеансу завершився. Увійдіть знову.";
+            if (raw.includes("draft not found")) return "Чернетку розкладу не знайдено.";
+            if (raw.includes("not found") && raw.includes("version")) return "Версію розкладу не знайдено.";
             return body.detail;
         }
         

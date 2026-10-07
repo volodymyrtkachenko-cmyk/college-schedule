@@ -1,6 +1,17 @@
 import { useState, useEffect, useRef } from "react";
 import { api, DraftSlotRecord, ImportCancellation, ImportSubstitution, ImporterResponse, ReferenceRecord } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
+import { SearchableSelect } from "../SearchableSelect";
+
+const DAY_NAMES: Record<number, string> = {
+  1: "Понеділок",
+  2: "Вівторок",
+  3: "Середа",
+  4: "Четвер",
+  5: "П’ятниця",
+  6: "Субота",
+  7: "Неділя",
+};
 
 export function ImportPanel() {
   const { user } = useAuth();
@@ -262,12 +273,12 @@ export function ImportPanel() {
       }
   };
 
-  const updateSubstitution = (index: number, patch: Partial<ImportSubstitution>) => {
-    setSubstitutions(current => current.map((value, i) => i === index ? { ...value, ...patch } : value));
+  const updateSubstitution = (item: ImportSubstitution, patch: Partial<ImportSubstitution>) => {
+    setSubstitutions(current => current.map((value) => value === item ? { ...value, ...patch } : value));
   };
 
-  const updateCancellation = (index: number, patch: Partial<ImportCancellation>) => {
-    setCancelled(current => current.map((value, i) => i === index ? { ...value, ...patch } : value));
+  const updateCancellation = (item: ImportCancellation, patch: Partial<ImportCancellation>) => {
+    setCancelled(current => current.map((value) => value === item ? { ...value, ...patch } : value));
   };
 
   const formatChangeDate = (value: string) => {
@@ -278,11 +289,22 @@ export function ImportPanel() {
   return (
     <div className="bg-sys-card rounded-xl p-6 border border-sys-border">
       <div>
-        <h2 className="text-xl font-bold mb-4">Імпорт з кре.дп.юа</h2>
+        <h2 className="text-xl font-bold mb-4">Імпорт з kre.dp.ua</h2>
         
         {error && (
             <div className="mb-4 bg-red-500/10 border border-red-500/30 text-rose-300 p-3 rounded-lg text-sm">
                 {error}
+            </div>
+        )}
+
+        {status === "importing" && (
+            <div className="animate-in fade-in py-10 text-center rounded-2xl border border-sys-accent/20 bg-sys-accent/5">
+                <svg className="mx-auto mb-4 h-8 w-8 animate-spin text-sys-accent" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <h3 className="text-xl font-bold text-sys-text-primary mb-2">Збираємо розклад з kre.dp.ua</h3>
+                <p className="text-sm text-sys-text-secondary max-w-md mx-auto">Обходимо групи на сайті коледжу й шукаємо заміни та скасування. Це може зайняти кілька хвилин — сторінку краще не закривати.</p>
             </div>
         )}
 
@@ -340,9 +362,9 @@ export function ImportPanel() {
                                <tr key={slot.id} className="border-b border-sys-border/50">
                                  <td className="p-2">{slot.curriculum.group.name}</td>
                                  <td className="p-2">{slot.curriculum.subject.name}</td>
-                                 <td className="p-2">{slot.day_of_week}</td>
+                                 <td className="p-2">{DAY_NAMES[slot.day_of_week] ?? slot.day_of_week}</td>
                                  <td className="p-2">{slot.lesson_number}</td>
-                                 <td className="p-2">{slot.week_type}</td>
+                                 <td className="p-2">{slot.week_type === "numerator" ? "Чисельник" : slot.week_type === "denominator" ? "Знаменник" : "Обидва"}</td>
                                </tr>
                              ))}
                            </tbody>
@@ -392,16 +414,16 @@ export function ImportPanel() {
                                 </span>
                                 <strong className="text-gray-200">{item.raw}</strong>
                             </div>
-                            <select
-                                className="w-full sm:w-[300px] form-control py-2 text-sm"
-                                value={mappings[item.raw] || 0}
-                                onChange={(e) => setMappings({...mappings, [item.raw]: Number(e.target.value)})}
-                            >
-                                <option value={0}>-- Оберіть з бази --</option>
-                                {getOptions(item.type).map(opt => (
-                                    <option key={opt.id} value={opt.id}>{opt.name}</option>
-                                ))}
-                            </select>
+                            <div className="w-full sm:w-[300px]">
+                                <SearchableSelect
+                                    options={getOptions(item.type)}
+                                    value={mappings[item.raw] || null}
+                                    onChange={(id) => setMappings({...mappings, [item.raw]: id ?? 0})}
+                                    placeholder="Оберіть з бази"
+                                    emptyLabel="Не вибрано"
+                                    ariaLabel={`Відповідність для ${item.raw}`}
+                                />
+                            </div>
                         </div>
                     ))}
                 </div>
@@ -424,49 +446,65 @@ export function ImportPanel() {
                             <div className="text-sm font-semibold text-sys-text-primary">Заміна заняття</div>
                             <div className="mt-1 text-xs text-sys-text-muted">Зміна на {formatChangeDate(item.date)}, {item.lesson_number}-та пара</div>
                           </div>
-                          <button type="button" onClick={() => setSubstitutions(current => current.filter((_, i) => i !== index))} className="rounded-lg border border-rose-400/20 px-2.5 py-1.5 text-xs font-medium text-rose-300 transition hover:bg-rose-500/10" aria-label={`Видалити заміну ${index + 1}`}>
+                          <button type="button" onClick={() => setSubstitutions(current => current.filter((value) => value !== item))} className="rounded-lg border border-rose-400/20 px-2.5 py-1.5 text-xs font-medium text-rose-300 transition hover:bg-rose-500/10" aria-label={`Видалити заміну ${index + 1}`}>
                             Видалити
                           </button>
                         </div>
                         <div className="grid min-w-0 gap-4 md:grid-cols-2">
                           <label className="min-w-0 space-y-1.5">
                             <span className="text-xs font-medium text-sys-text-secondary">Дата заміни</span>
-                            <input type="date" value={item.date} onChange={(e) => updateSubstitution(index, { date: e.target.value })} className="form-control w-full max-w-full" />
+                            <input type="date" value={item.date} onChange={(e) => updateSubstitution(item, { date: e.target.value })} className="form-control w-full max-w-full" />
                           </label>
                           <label className="min-w-0 space-y-1.5">
                             <span className="text-xs font-medium text-sys-text-secondary">Пара</span>
-                            <select value={item.lesson_number} onChange={(e) => updateSubstitution(index, { lesson_number: Number(e.target.value) })} className="form-control w-full max-w-full min-w-0">
+                            <select value={item.lesson_number} onChange={(e) => updateSubstitution(item, { lesson_number: Number(e.target.value) })} className="form-control w-full max-w-full min-w-0">
                               {[1, 2, 3, 4].map(lesson => <option key={lesson} value={lesson}>{lesson}-та пара</option>)}
                             </select>
                           </label>
                           <label className="min-w-0 space-y-1.5">
                             <span className="text-xs font-medium text-sys-text-secondary">Група</span>
-                            <select value={item.group_id} onChange={(e) => updateSubstitution(index, { group_id: Number(e.target.value) })} className="form-control w-full max-w-full min-w-0">
-                              {groups.map(option => <option key={option.id} value={option.id}>{option.name}</option>)}
-                            </select>
+                            <SearchableSelect
+                              options={groups}
+                              value={item.group_id}
+                              onChange={(id) => { if (id !== null) updateSubstitution(item, { group_id: id }); }}
+                              placeholder="Оберіть групу"
+                              ariaLabel="Група заміни"
+                            />
                           </label>
                           <label className="min-w-0 space-y-1.5">
                             <span className="text-xs font-medium text-sys-text-secondary">Предмет</span>
-                            <select value={item.subject_id} onChange={(e) => updateSubstitution(index, { subject_id: Number(e.target.value) })} className="form-control w-full max-w-full min-w-0">
-                              {subjects.map(option => <option key={option.id} value={option.id}>{option.name}</option>)}
-                            </select>
+                            <SearchableSelect
+                              options={subjects}
+                              value={item.subject_id}
+                              onChange={(id) => { if (id !== null) updateSubstitution(item, { subject_id: id }); }}
+                              placeholder="Оберіть предмет"
+                              ariaLabel="Предмет заміни"
+                            />
                           </label>
                           <label className="min-w-0 space-y-1.5">
                             <span className="text-xs font-medium text-sys-text-secondary">Викладач</span>
-                            <select value={item.teacher_id} onChange={(e) => updateSubstitution(index, { teacher_id: Number(e.target.value) })} className="form-control w-full max-w-full min-w-0">
-                              {teachers.map(option => <option key={option.id} value={option.id}>{option.name}</option>)}
-                            </select>
+                            <SearchableSelect
+                              options={teachers}
+                              value={item.teacher_id}
+                              onChange={(id) => { if (id !== null) updateSubstitution(item, { teacher_id: id }); }}
+                              placeholder="Оберіть викладача"
+                              ariaLabel="Викладач заміни"
+                            />
                           </label>
                           <label className="min-w-0 space-y-1.5">
                             <span className="text-xs font-medium text-sys-text-secondary">Другий викладач <span className="font-normal text-sys-text-muted">(необов’язково)</span></span>
-                            <select value={item.second_teacher_id ?? 0} onChange={(e) => updateSubstitution(index, { second_teacher_id: Number(e.target.value) || null })} className="form-control w-full max-w-full min-w-0">
-                              <option value={0}>Без другого викладача</option>
-                              {teachers.map(option => <option key={option.id} value={option.id}>{option.name}</option>)}
-                            </select>
+                            <SearchableSelect
+                              options={teachers}
+                              value={item.second_teacher_id}
+                              onChange={(id) => updateSubstitution(item, { second_teacher_id: id })}
+                              placeholder="Без другого викладача"
+                              emptyLabel="Без другого викладача"
+                              ariaLabel="Другий викладач заміни"
+                            />
                           </label>
                           <label className="min-w-0 space-y-1.5 md:col-span-2">
                             <span className="text-xs font-medium text-sys-text-secondary">Аудиторія <span className="font-normal text-sys-text-muted">(необов’язково)</span></span>
-                            <input type="text" value={item.room ?? ""} onChange={(e) => updateSubstitution(index, { room: e.target.value || null })} placeholder="Наприклад, 302 або спортзал" className="form-control w-full max-w-full" />
+                            <input type="text" value={item.room ?? ""} onChange={(e) => updateSubstitution(item, { room: e.target.value || null })} placeholder="Наприклад, 302 або спортзал" className="form-control w-full max-w-full" />
                           </label>
                         </div>
                       </div>
@@ -490,24 +528,28 @@ export function ImportPanel() {
                             <div className="text-sm font-semibold text-rose-100">Скасування {index + 1}</div>
                             <div className="mt-1 text-xs text-rose-200/70">{formatChangeDate(item.date)} · {item.lesson_number}-та пара</div>
                           </div>
-                          <button type="button" onClick={() => setCancelled(current => current.filter((_, i) => i !== index))} className="rounded-lg border border-rose-400/20 px-2.5 py-1.5 text-xs font-medium text-rose-300 transition hover:bg-rose-500/10" aria-label={`Видалити скасування ${index + 1}`}>
+                          <button type="button" onClick={() => setCancelled(current => current.filter((value) => value !== item))} className="rounded-lg border border-rose-400/20 px-2.5 py-1.5 text-xs font-medium text-rose-300 transition hover:bg-rose-500/10" aria-label={`Видалити скасування ${index + 1}`}>
                             Видалити
                           </button>
                         </div>
                         <div className="grid min-w-0 gap-4 md:grid-cols-3">
                           <label className="min-w-0 space-y-1.5">
                             <span className="text-xs font-medium text-sys-text-secondary">Дата скасування</span>
-                            <input type="date" value={item.date} onChange={(e) => updateCancellation(index, { date: e.target.value })} className="form-control w-full max-w-full" />
+                            <input type="date" value={item.date} onChange={(e) => updateCancellation(item, { date: e.target.value })} className="form-control w-full max-w-full" />
                           </label>
                           <label className="min-w-0 space-y-1.5">
                             <span className="text-xs font-medium text-sys-text-secondary">Група</span>
-                            <select value={item.group_id} onChange={(e) => updateCancellation(index, { group_id: Number(e.target.value) })} className="form-control w-full max-w-full min-w-0">
-                              {groups.map(option => <option key={option.id} value={option.id}>{option.name}</option>)}
-                            </select>
+                            <SearchableSelect
+                              options={groups}
+                              value={item.group_id}
+                              onChange={(id) => { if (id !== null) updateCancellation(item, { group_id: id }); }}
+                              placeholder="Оберіть групу"
+                              ariaLabel="Група скасування"
+                            />
                           </label>
                           <label className="min-w-0 space-y-1.5">
                             <span className="text-xs font-medium text-sys-text-secondary">Пара</span>
-                            <select value={item.lesson_number} onChange={(e) => updateCancellation(index, { lesson_number: Number(e.target.value) })} className="form-control w-full max-w-full min-w-0">
+                            <select value={item.lesson_number} onChange={(e) => updateCancellation(item, { lesson_number: Number(e.target.value) })} className="form-control w-full max-w-full min-w-0">
                               {[1, 2, 3, 4].map(lesson => <option key={lesson} value={lesson}>{lesson}-та пара</option>)}
                             </select>
                           </label>

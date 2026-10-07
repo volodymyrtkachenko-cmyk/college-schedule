@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 from app.database import get_db
 from app.core.security import require_roles
@@ -18,8 +18,7 @@ class AliasCreate(BaseModel):
 class AliasResponse(AliasCreate):
     id: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 @router.get("", response_model=List[AliasResponse])
 async def get_aliases(db: AsyncSession = Depends(get_db), _: object = Depends(require_roles("admin"))):
@@ -31,7 +30,7 @@ async def create_alias(alias_in: AliasCreate, db: AsyncSession = Depends(get_db)
     parsed_name_clean = alias_in.parsed_name.strip()
     stmt = select(EntityAlias).where(EntityAlias.entity_type == alias_in.entity_type, EntityAlias.parsed_name == parsed_name_clean)
     if await db.scalar(stmt):
-        raise HTTPException(status_code=400, detail="Alias already exists")
+        raise HTTPException(status_code=400, detail="Така відповідність назви вже існує")
     db_alias = EntityAlias(entity_type=alias_in.entity_type, parsed_name=parsed_name_clean, actual_id=alias_in.actual_id)
     db.add(db_alias)
     await db.commit()
@@ -57,7 +56,7 @@ async def create_aliases_bulk(aliases_in: List[AliasCreate], db: AsyncSession = 
 async def delete_alias(alias_id: int, db: AsyncSession = Depends(get_db), _: object = Depends(require_roles("admin"))):
     alias = await db.scalar(select(EntityAlias).where(EntityAlias.id == alias_id))
     if not alias:
-        raise HTTPException(status_code=404, detail="Alias not found")
+        raise HTTPException(status_code=404, detail="Відповідність назви не знайдено")
     await db.delete(alias)
     await db.commit()
     return None

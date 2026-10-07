@@ -97,7 +97,7 @@ async def refresh(
     if jti:
         is_blocked = await db.scalar(select(TokenBlocklist).where(TokenBlocklist.jti == jti))
         if is_blocked:
-            raise HTTPException(status_code=401, detail="Token has been revoked")
+            raise HTTPException(status_code=401, detail="Сеанс завершено. Увійдіть знову.")
     try:
         user_id = int(claims["sub"])
     except (TypeError, ValueError) as exc:

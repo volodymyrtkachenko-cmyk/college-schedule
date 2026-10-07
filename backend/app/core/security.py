@@ -64,13 +64,13 @@ def decode_token(token: str, expected_type: str) -> dict[str, Any]:
     except jwt.PyJWTError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token",
+            detail="Термін дії сеансу завершився. Увійдіть знову.",
             headers={"WWW-Authenticate": "Bearer"},
         ) from exc
     if payload.get("type") != expected_type or not payload.get("sub"):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token type",
+            detail="Некоректний тип токена",
             headers={"WWW-Authenticate": "Bearer"},
         )
     return payload

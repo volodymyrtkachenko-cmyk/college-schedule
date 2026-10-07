@@ -1,8 +1,10 @@
 from datetime import date
+from pathlib import Path
 from app.services.importer.parsers.kre_parser import KREParser
 
 def test_kre_parser_real_html():
-    with open("tests/fixtures/kre_group_with_substitution.html", "r", encoding="utf-8") as f:
+    fixture_path = Path(__file__).parent / "fixtures" / "kre_group_with_substitution.html"
+    with open(fixture_path, "r", encoding="utf-8") as f:
         html = f.read()
 
     parser = KREParser()

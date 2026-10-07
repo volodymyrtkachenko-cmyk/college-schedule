@@ -80,7 +80,7 @@ export function AdminNav({ active }: { active: string }) {
          <>
            <div className="mb-2 mt-6 border-t border-sys-border/50 pl-2 pt-5 text-[11px] font-bold uppercase tracking-wider text-sys-text-secondary">Підготовка розкладу</div>
            <Link href="/admin?resource=import" onClick={() => setIsOpen(false)} className={linkClass(active === "import")}>
-             Імпорт з кре.дп.юа
+             Імпорт з kre.dp.ua
            </Link>
 
            <Link href="/admin?resource=generator" onClick={() => setIsOpen(false)} className={linkClass(active === "generator")}>
@@ -92,7 +92,7 @@ export function AdminNav({ active }: { active: string }) {
            <Link href="/admin?resource=curriculum" onClick={() => setIsOpen(false)} className={linkClass(active === "curriculum")}>
              Навчальне навантаження
            </Link>
-                      <Link href="/admin?resource=periods" onClick={() => setIsOpen(false)} className={linkClass(active === "periods")}>
+           <Link href="/admin?resource=periods" onClick={() => setIsOpen(false)} className={linkClass(active === "periods")}>
              Практики й канікули
            </Link>
            <Link href="/admin?resource=versions" onClick={() => setIsOpen(false)} className={linkClass(active === "versions")}>

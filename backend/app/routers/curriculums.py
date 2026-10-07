@@ -76,12 +76,13 @@ async def create_curriculum(
     ]:
         entity = await db.get(model, id_val)
         if entity is None or not entity.is_active:
-            raise HTTPException(status_code=400, detail=f"{name} with id {id_val} does not exist.")
+            labels = {"Group": "Групу", "Subject": "Предмет", "Teacher": "Викладача"}
+            raise HTTPException(status_code=400, detail=f"{labels.get(name, name)} не знайдено або запис неактивний.")
             
     if payload.second_teacher_id:
         second = await db.get(Teacher, payload.second_teacher_id)
         if second is None or not second.is_active:
-            raise HTTPException(status_code=400, detail=f"Second Teacher with id {payload.second_teacher_id} does not exist.")
+            raise HTTPException(status_code=400, detail="Другого викладача не знайдено або запис неактивний.")
     if payload.is_stream:
         payload.stream_id = payload.stream_id or f"stream_{uuid4().hex}"
     else:
@@ -129,7 +130,7 @@ async def update_curriculum(
 ):
     db_item = await db.get(Curriculum, id)
     if not db_item:
-        raise HTTPException(status_code=404, detail="Curriculum not found")
+        raise HTTPException(status_code=404, detail="Навчальне навантаження не знайдено")
         
     update_data = payload.model_dump(exclude_unset=True)
     
@@ -184,7 +185,7 @@ async def delete_curriculum(
 ):
     db_item = await db.get(Curriculum, id)
     if not db_item:
-        raise HTTPException(status_code=404, detail="Curriculum not found")
+        raise HTTPException(status_code=404, detail="Навчальне навантаження не знайдено")
     await db.execute(delete(ScheduleSlot).where(ScheduleSlot.curriculum_id == id))
     await db.delete(db_item)
     await db.commit()

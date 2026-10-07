@@ -33,7 +33,7 @@ async def create_constraint(
 ):
     teacher = await db.get(Teacher, payload.teacher_id)
     if not teacher or not teacher.is_active:
-        raise HTTPException(status_code=400, detail="Teacher not found")
+        raise HTTPException(status_code=400, detail="Викладача не знайдено")
     duplicate = await db.scalar(select(TeacherConstraint).where(
         TeacherConstraint.teacher_id == payload.teacher_id,
         TeacherConstraint.day_of_week == payload.day_of_week,
@@ -61,7 +61,7 @@ async def delete_constraint(
 ):
     db_item = await db.get(TeacherConstraint, id)
     if not db_item:
-        raise HTTPException(status_code=404, detail="Constraint not found")
+        raise HTTPException(status_code=404, detail="Обмеження не знайдено")
     await db.delete(db_item)
     await db.commit()
     return None

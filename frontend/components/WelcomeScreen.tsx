@@ -54,7 +54,7 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
               <div className="mx-auto w-16 h-16 rounded-2xl bg-sys-card border border-sys-border flex items-center justify-center mb-6 shadow-lg shadow-sys-bg">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-sys-accent"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"></path></svg>
               </div>
-              <h1 className="text-3xl font-bold tracking-tight text-white">Вітаємо в ДФКР</h1>
+              <h1 className="text-3xl font-bold tracking-tight text-sys-text-primary">Вітаємо в ДФКР</h1>
               <p className="text-sys-text-secondary text-lg">Оберіть, для кого показувати розклад.</p>
             </div>
             
@@ -67,7 +67,7 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-lg text-white">Студент</h3>
+                  <h3 className="font-semibold text-lg text-sys-text-primary">Студент</h3>
                   <p className="text-sys-text-secondary text-sm">Розклад моєї групи</p>
                 </div>
               </button>
@@ -80,7 +80,7 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-lg text-white">Викладач</h3>
+                  <h3 className="font-semibold text-lg text-sys-text-primary">Викладач</h3>
                   <p className="text-sys-text-secondary text-sm">Мій розклад занять</p>
                 </div>
               </button>
@@ -97,11 +97,11 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
             className="w-full max-w-md flex flex-col h-[85vh] relative z-10"
           >
              <div className="mb-6">
-                <button onClick={() => { setDirection(-1); setStep(1); setSearch(""); }} className="mb-4 flex items-center gap-2 text-sm text-sys-text-secondary hover:text-white transition-colors">
+                <button onClick={() => { setDirection(-1); setStep(1); setSearch(""); }} className="mb-4 flex items-center gap-2 text-sm text-sys-text-secondary hover:text-sys-text-primary transition-colors">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
                   Назад
                 </button>
-                <h2 className="text-2xl font-bold text-white mb-2">Оберіть {mode === "student" ? "групу" : "викладача"}</h2>
+                <h2 className="text-2xl font-bold text-sys-text-primary mb-2">Оберіть {mode === "student" ? "групу" : "викладача"}</h2>
              </div>
              
              <div className="relative mb-4 shrink-0">
@@ -122,7 +122,7 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
                   <button
                     key={item.id}
                     onClick={() => onComplete(mode, item.id)}
-                    className="w-full rounded-lg border border-transparent bg-sys-card/50 p-4 text-left font-medium text-white transition-all hover:border-sys-border hover:bg-sys-card active:scale-[0.98]"
+                    className="w-full rounded-lg border border-transparent bg-sys-card/50 p-4 text-left font-medium text-sys-text-primary transition-all hover:border-sys-border hover:bg-sys-card active:scale-[0.98]"
                   >
                     {item.name}
                   </button>
