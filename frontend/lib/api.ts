@@ -47,6 +47,7 @@ export interface ReferenceRecord extends DirectoryItem {
     room?: string | null;
   room_override?: string | null;
     is_active: boolean;
+    course?: number | null;
 }
 
 export type ReferenceMutation = Omit<Partial<ReferenceRecord>, "id" | "is_active"> & { name: string };

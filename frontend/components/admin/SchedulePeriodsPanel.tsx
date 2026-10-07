@@ -9,7 +9,6 @@ import {
   SchedulePeriodType,
 } from "../../lib/api";
 import { invalidateScheduleCache } from "../../lib/hooks";
-import { SearchableMultiSelect } from "../SearchableMultiSelect";
 import { SearchableSelect } from "../SearchableSelect";
 import { ConfirmModal } from "./ConfirmModal";
 
@@ -98,9 +97,9 @@ function formatPairCount(count: number) {
 
 export function SchedulePeriodsPanel() {
   const [periods, setPeriods] = useState<SchedulePeriodRecord[]>([]);
-  const [groups, setGroups] = useState<{ id: number; name: string }[]>([]);
-  const [subjects, setSubjects] = useState<{ id: number; name: string }[]>([]);
-  const [teachers, setTeachers] = useState<{ id: number; name: string }[]>([]);
+  const [groups, setGroups] = useState<ReferenceRecord[]>([]);
+  const [subjects, setSubjects] = useState<ReferenceRecord[]>([]);
+  const [teachers, setTeachers] = useState<ReferenceRecord[]>([]);
   const [draft, setDraft] = useState<PeriodDraft | null>(null);
   const [periodToDelete, setPeriodToDelete] = useState<SchedulePeriodRecord | null>(null);
   const [loading, setLoading] = useState(true);
@@ -273,6 +272,55 @@ export function SchedulePeriodsPanel() {
     return true;
   });
 
+  const renderGroupSelection = (title: string) => (
+    <div className="max-w-2xl space-y-4 mt-4 bg-[#111827]/40 p-4 rounded-xl border border-sys-border/50">
+      <div className="flex items-center justify-between">
+         <label className="form-label mb-0">{title}</label>
+         <button type="button" onClick={() => setGroupsForDraft([])} className="text-[10px] uppercase font-bold px-2 py-1 text-rose-400 border border-rose-400/20 rounded hover:bg-rose-500/10 transition-colors">Очистити все</button>
+      </div>
+      <div className="space-y-4">
+      {[1, 2, 3, 4].map(courseNum => {
+         const year = 27 - courseNum;
+         const courseGroups = sortedGroups.filter(g => g.course === courseNum || (g.course == null && g.name.includes(`-${year}-`)));
+         if (courseGroups.length === 0) return null;
+         
+         const allSelected = courseGroups.every(g => draft?.group_ids.includes(g.id));
+         
+         return (
+           <div key={courseNum} className="space-y-2">
+              <div className="flex items-center gap-3 border-b border-sys-border/50 pb-1">
+                 <h4 className="text-xs font-semibold text-sys-accent">{courseNum} курс</h4>
+                 <button type="button" className="text-[10px] uppercase font-bold px-2 py-0.5 rounded border border-sys-border/50 hover:bg-sys-card transition-colors"
+                   onClick={() => {
+                     if (!draft) return;
+                     if (allSelected) {
+                         setGroupsForDraft(draft.group_ids.filter(id => !courseGroups.some(g => g.id === id)));
+                     } else {
+                         const newIds = new Set([...draft.group_ids, ...courseGroups.map(g => g.id)]);
+                         setGroupsForDraft(Array.from(newIds));
+                     }
+                   }}
+                 >{allSelected ? "Зняти всі" : "Вибрати всі"}</button>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                 {courseGroups.map(g => (
+                   <label key={g.id} className={`flex items-center gap-2 cursor-pointer text-sm border px-3 py-1.5 rounded transition-colors ${draft?.group_ids.includes(g.id) ? "bg-sys-accent/10 border-sys-accent/30 text-sys-accent" : "bg-sys-card border-sys-border hover:bg-sys-card/80"}`}>
+                      <input type="checkbox" checked={draft?.group_ids.includes(g.id)} className="accent-sys-accent" onChange={(e) => {
+                          if (!draft) return;
+                          if (e.target.checked) setGroupsForDraft([...draft.group_ids, g.id]);
+                          else setGroupsForDraft(draft.group_ids.filter(id => id !== g.id));
+                      }} />
+                      <span className="truncate">{g.name}</span>
+                   </label>
+                 ))}
+              </div>
+           </div>
+         )
+      })}
+      </div>
+    </div>
+  );
+
   return (
     <section className="space-y-5">
       <header className="flex flex-wrap items-end justify-between gap-3">
@@ -374,28 +422,7 @@ export function SchedulePeriodsPanel() {
 
           {draft.period_type === "practice" ? (
             <div className="space-y-5 border-t border-sys-border pt-5">
-              <div className="max-w-xl space-y-2">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <label className="form-label mb-0">Групи, для яких діятиме практика</label>
-                  <div className="flex gap-2">
-                    {[26, 25, 24, 23].map((year, i) => (
-                       <button key={year} type="button" onClick={() => {
-                           const courseGroups = sortedGroups.filter(g => g.name.includes(`-${year}-`));
-                           const newIds = new Set([...draft.group_ids, ...courseGroups.map(g => g.id)]);
-                           setGroupsForDraft(Array.from(newIds));
-                       }} className="text-[10px] uppercase font-bold px-2 py-1 bg-sys-card border border-sys-border rounded hover:bg-white/10 transition-colors">{i+1} курс</button>
-                    ))}
-                    <button type="button" onClick={() => setGroupsForDraft([])} className="text-[10px] uppercase font-bold px-2 py-1 text-rose-400 border border-rose-400/20 rounded hover:bg-rose-500/10 transition-colors">Очистити</button>
-                  </div>
-                </div>
-                <SearchableMultiSelect
-                  options={sortedGroups}
-                  value={draft.group_ids}
-                  onChange={setGroupsForDraft}
-                  placeholder="Знайти групу"
-                  ariaLabel="Оберіть групи для практики"
-                />
-              </div>
+              {renderGroupSelection("Групи, для яких діятиме практика")}
 
               {draft.group_ids.map((group_id) => {
                 const group = groups.find((item) => item.id === group_id);
@@ -477,7 +504,7 @@ export function SchedulePeriodsPanel() {
             </div>
           ) : (
             <div className="space-y-3 rounded-xl border border-sys-border bg-sys-bg/40 p-4">
-              <label className="flex items-center gap-3 text-sm font-medium text-sys-text-primary">
+              <label className="flex items-center gap-3 text-sm font-medium text-sys-text-primary cursor-pointer mb-2">
                 <input
                   type="checkbox"
                   checked={draft.holiday_all_groups}
@@ -486,30 +513,7 @@ export function SchedulePeriodsPanel() {
                 />
                 Застосувати цей період абсолютно до всіх груп коледжу
               </label>
-              {!draft.holiday_all_groups && (
-                <div className="max-w-xl space-y-2 mt-4">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <label className="form-label mb-0">Групи, для яких діятиме період</label>
-                    <div className="flex gap-2">
-                      {[26, 25, 24, 23].map((year, i) => (
-                         <button key={year} type="button" onClick={() => {
-                             const courseGroups = sortedGroups.filter(g => g.name.includes(`-${year}-`));
-                             const newIds = new Set([...draft.group_ids, ...courseGroups.map(g => g.id)]);
-                             setGroupsForDraft(Array.from(newIds));
-                         }} className="text-[10px] uppercase font-bold px-2 py-1 bg-sys-card border border-sys-border rounded hover:bg-white/10 transition-colors">{i+1} курс</button>
-                      ))}
-                      <button type="button" onClick={() => setGroupsForDraft([])} className="text-[10px] uppercase font-bold px-2 py-1 text-rose-400 border border-rose-400/20 rounded hover:bg-rose-500/10 transition-colors">Очистити</button>
-                    </div>
-                  </div>
-                  <SearchableMultiSelect
-                    options={sortedGroups}
-                    value={draft.group_ids}
-                    onChange={setGroupsForDraft}
-                    placeholder="Знайти групу"
-                    ariaLabel="Оберіть групи для періоду"
-                  />
-                </div>
-              )}
+              {!draft.holiday_all_groups && renderGroupSelection("Групи, для яких діятиме період")}
               <p className="text-xs text-sys-text-secondary">
                 У вибраних груп розклад буде прихований на цей період. Для інших груп заняття залишаться без змін.
               </p>
