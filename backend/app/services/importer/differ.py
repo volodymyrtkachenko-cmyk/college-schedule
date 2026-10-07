@@ -24,19 +24,44 @@ class ScheduleDiffer:
         cancelled = []
         base_schedule_slots = []
         skipped_base_slots = []
+        
+        # --- Auto-create missing entities ---
+        for lesson in parsed_week.lessons:
+            if lesson.group_name and not self.normalizer.normalize_group(lesson.group_name):
+                new_group = Group(name=lesson.group_name, is_active=True)
+                self.db.add(new_group)
+                await self.db.flush()
+                self.normalizer.groups[lesson.group_name.lower().strip()] = new_group.id
+                self.unresolved_entities.append({"type": "group", "raw": lesson.group_name})
+            
+            if lesson.subject_name and not self.normalizer.normalize_subject(lesson.subject_name):
+                new_subj = Subject(name=lesson.subject_name, is_active=True)
+                self.db.add(new_subj)
+                await self.db.flush()
+                self.normalizer.subjects[lesson.subject_name.lower().strip()] = new_subj.id
+                self.unresolved_entities.append({"type": "subject", "raw": lesson.subject_name})
+                
+            if lesson.teacher_name:
+                for t in lesson.teacher_name.split("/"):
+                    t_name = t.strip()
+                    if t_name and not self.normalizer.normalize_teacher(t_name):
+                        new_teacher = Teacher(name=t_name, is_active=True)
+                        self.db.add(new_teacher)
+                        await self.db.flush()
+                        self.normalizer.teachers[t_name.lower().strip()] = new_teacher.id
+                        self.unresolved_entities.append({"type": "teacher", "raw": t_name})
+
+        # Commit to ensure IDs are persistent
+        await self.db.commit()
 
         for lesson in parsed_week.lessons:
             group_id = None
             if lesson.group_name:
                 group_id = self.normalizer.normalize_group(lesson.group_name)
-                if not group_id:
-                    self.unresolved_entities.append({"type": "group", "raw": lesson.group_name})
             
             subject_id = None
             if lesson.subject_name:
                 subject_id = self.normalizer.normalize_subject(lesson.subject_name)
-                if not subject_id:
-                    self.unresolved_entities.append({"type": "subject", "raw": lesson.subject_name})
             
             teacher_id = None
             second_teacher_id = None
@@ -45,13 +70,8 @@ class ScheduleDiffer:
                 t_names = [t.strip() for t in lesson.teacher_name.split("/")]
                 if len(t_names) > 0 and t_names[0]:
                     teacher_id = self.normalizer.normalize_teacher(t_names[0])
-                    if not teacher_id:
-                        self.unresolved_entities.append({"type": "teacher", "raw": t_names[0]})
-                
                 if len(t_names) > 1 and t_names[1]:
                     second_teacher_id = self.normalizer.normalize_teacher(t_names[1])
-                    if not second_teacher_id:
-                        self.unresolved_entities.append({"type": "teacher", "raw": t_names[1]})
 
             teacher_unresolved = bool(lesson.teacher_name) and (teacher_id is None)
 

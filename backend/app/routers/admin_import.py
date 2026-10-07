@@ -18,6 +18,7 @@ from app.services.importer.fetcher import ScheduleFetcher
 from app.services.importer.parsers.kre_parser import KREParser
 from app.services.importer.normalizer import EntityNormalizer
 from app.services.importer.differ import ScheduleDiffer
+from app.routers.drafts import publish_draft
 from app.models import ScheduleDraft, ScheduleSlot, Curriculum, Schedule, ImportedScheduleChange
 import traceback
 from collections.abc import AsyncIterator
@@ -285,25 +286,26 @@ async def trigger_import(
     weeks: int = Query(2, description="Number of weeks to fetch"),
     db: AsyncSession = Depends(get_db),
     _import_lock: None = Depends(import_lock_dependency),
+    internal_cron: bool = False,
 ):
     # Check auth
-    cron_secret = request.headers.get("Authorization")
-    if cron_secret and cron_secret.startswith("Bearer "):
-        cron_secret = cron_secret.split(" ")[1]
-    
-    # We should allow if cron_secret matches WIPE_SECRET or some other secret
-    import_secret = getattr(settings, "IMPORT_CRON_SECRET", None)
-    is_cron = bool(import_secret) and cron_secret == import_secret
-    if not is_cron:
-        if not cron_secret:
-            raise HTTPException(status_code=401, detail="No authorization token")
-        # Check standard admin token
-        from app.core.security import get_current_user
-        from fastapi.security import HTTPAuthorizationCredentials
-        credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=cron_secret)
-        user = await get_current_user(credentials=credentials, db=db)
-        if not user or user.role != "admin":
-            raise HTTPException(status_code=403, detail="Not authorized")
+    if not internal_cron:
+        cron_secret = request.headers.get("Authorization")
+        if cron_secret and cron_secret.startswith("Bearer "):
+            cron_secret = cron_secret.split(" ")[1]
+        
+        import_secret = getattr(settings, "IMPORT_CRON_SECRET", None)
+        is_cron = bool(import_secret) and cron_secret == import_secret
+        if not is_cron:
+            if not cron_secret:
+                raise HTTPException(status_code=401, detail="Потрібна авторизація")
+            # Check standard admin token
+            from app.core.security import get_current_user
+            from fastapi.security import HTTPAuthorizationCredentials
+            credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=cron_secret)
+            user = await get_current_user(credentials=credentials, db=db)
+            if not user or user.role != "admin":
+                raise HTTPException(status_code=403, detail="Недостатньо прав")
     
     fetcher = ScheduleFetcher()
     parser = KREParser()
@@ -708,8 +710,19 @@ async def trigger_import(
                 )
                 db.add(db_slot)
                 
+            
             draft.data = {**payload, "created_curriculum_ids": created_curriculum_ids}
             await db.commit()
+            
+            # --- Auto-publish if no unresolved entities ---
+            is_auto_published = False
+            if len(aggregated_unresolved) == 0:
+                try:
+                    await publish_draft(id=draft_id, db=db)
+                    is_auto_published = True
+                except Exception as e:
+                    logger.error(f"Auto-publish failed: {e}")
+
             
         return {
             "status": "success", 
@@ -731,9 +744,12 @@ async def trigger_import(
                 "restored_base_slots": restored_base_slots,
                 "debug": debug_report,
             },
+            
             "meta": {
                 "draft_created": draft_id,
                 "unchanged": unchanged,
+                "auto_published": is_auto_published,
+
                 "reason": "same_pending_payload" if pending_matches else (
                     "same_effective_schedule" if unchanged else "draft_created"
                 ),

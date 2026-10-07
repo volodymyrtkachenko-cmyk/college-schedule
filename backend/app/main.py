@@ -40,6 +40,7 @@ async def lifespan(_: FastAPI):
         except Exception as e:
             print(f"Помилка при виконанні міграцій: {e}")
 
+        
         # Запуск імпорту графіку освітнього процесу
         try:
             from scripts.import_eps import async_main as import_eps_main
@@ -48,6 +49,34 @@ async def lifespan(_: FastAPI):
             print("Імпорт успішно завершено!")
         except Exception as e:
             print(f"Помилка імпорту: {e}")
+
+    # --- Background Cron Job for Auto Import ---
+    async def auto_import_loop():
+        # Start the loop, wait a bit first so app can finish starting
+        await asyncio.sleep(60)
+        from app.routers.admin_import import trigger_import
+        from app.database import async_session_factory
+        from fastapi import Request
+        class DummyRequest:
+            headers = {}
+        
+        while True:
+            try:
+                async with async_session_factory() as db:
+                    print("Запуск автоматичного імпорту замін...")
+                    # Pass a dummy request without secret, but we bypass auth check because we will just patch it to accept an internal call
+                    await trigger_import(request=DummyRequest(), weeks=2, db=db, _import_lock=None, internal_cron=True)
+            except Exception as e:
+                print(f"Помилка автоматичного імпорту: {e}")
+            
+            # Wait 1 hour
+            await asyncio.sleep(3600)
+    
+    # Start background task if on Fly.io or RUN_CRON is set
+    if os.environ.get("FLY_REGION") or os.environ.get("RUN_CRON") == "true":
+        cron_task = asyncio.create_task(auto_import_loop())
+    else:
+        cron_task = None
 
     yield
     await engine.dispose()
