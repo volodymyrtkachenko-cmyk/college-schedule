@@ -109,8 +109,8 @@ export function SchedulePeriodsPanel() {
           api.directory.subjects(),
           api.directory.teachers(),
         ]);
-        setPeriods(nextPeriods);
-        setGroups(nextGroups.filter((item) => !item.disabled).sort((a, b) => a.name.localeCompare(b.name, "uk")));
+        setPeriods([...nextPeriods].sort((a, b) => b.start_date.localeCompare(a.start_date)));
+        setGroups(nextGroups.filter((item) => !item.disabled).sort((a, b) => a.name.localeCompare(b.name, "uk", { numeric: true, sensitivity: 'base' })));
         setSubjects(nextSubjects.filter((item) => !item.disabled).sort((a, b) => a.name.localeCompare(b.name, "uk")));
         setTeachers(nextTeachers.filter((item) => !item.disabled).sort((a, b) => a.name.localeCompare(b.name, "uk")));
       } catch (cause) {
@@ -444,11 +444,11 @@ export function SchedulePeriodsPanel() {
           {periods.map((period) => {
             const state = periodState(period, today);
             return (
-              <article key={period.id} className="surface-panel flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 border-l-4" style={{borderLeftColor: period.period_type === "practice" ? "#a855f7" : "#eab308"}}>
+              <article key={period.id} className="surface-panel flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 border-l-4" style={{borderLeftColor: period.period_type === "practice" ? "#fb923c" : "#22c55e"}}>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2 mb-1.5">
                     <span className={`rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wider font-bold ${
-                      period.period_type === "practice" ? "bg-purple-500/10 text-purple-400" : "bg-amber-500/10 text-amber-400"
+                      period.period_type === "practice" ? "bg-orange-500/10 text-orange-400" : "bg-green-500/10 text-green-400"
                     }`}>
                       {period.period_type === "practice" ? "Практика" : "Канікули"}
                     </span>
