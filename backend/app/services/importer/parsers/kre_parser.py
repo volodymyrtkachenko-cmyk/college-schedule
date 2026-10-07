@@ -108,7 +108,10 @@ class KREParser:
                     if text.lower().startswith("аудиторія") or text.lower().startswith("ауд"):
                         room = text
                     else:
-                        teacher_names.append(text)
+                        # Прибираємо слово (заміна) незалежно від регістру
+                        clean_text = re.sub(r'(?i)\(заміна\)', '', text).strip()
+                        if clean_text:
+                            teacher_names.append(clean_text)
                 
                 teacher_name = " / ".join(teacher_names) if teacher_names else None
                 
