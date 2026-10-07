@@ -17,15 +17,23 @@ function NoteIcon(props: React.SVGProps<SVGSVGElement>) {
 }
 
 function formatTeacherName(name: string) {
-  return name.split(/,\s*/).map(t => {
-    const parts = t.trim().split(/\s+/);
+  return name.split(/\s*(?:[,/])\s*/).map(t => {
+    const clean = t.trim();
+    if (!clean) return "";
+    const parts = clean.split(/\s+/);
+    
+    // If it already contains dots, it's likely already abbreviated
+    if (parts.some(p => p.includes('.'))) {
+      return clean;
+    }
+    
     if (parts.length >= 3) {
       return `${parts[0]} ${parts[1][0]}.${parts[2][0]}.`;
     } else if (parts.length === 2) {
       return `${parts[0]} ${parts[1][0]}.`;
     }
-    return t.trim();
-  }).join(", ");
+    return clean;
+  }).filter(Boolean).join(" / ");
 }
 
 const URL_REGEX = /((?:https?:\/\/)?(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&//=]*))/gi;
