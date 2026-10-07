@@ -239,14 +239,24 @@ export function AdminScheduleEditor() {
             </div>
             <div className="flex w-full sm:w-auto items-center justify-between gap-3">
                <div className="sm:hidden shrink-0"><WeekTypeBadge weekType={weekType} /></div>
-               <div className="flex w-full sm:w-auto rounded-lg border border-sys-border bg-sys-card p-1 text-sm relative">
-              <div className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-sys-bg border border-sys-border/50 rounded-md shadow-sm transition-all duration-300 ease-out z-0" style={{ left: isCurrentWeek ? '4px' : 'calc(50% + 2px)' }} />
-              <button type="button" aria-label="Перейти до поточного тижня" onClick={resetWeek} className={`relative z-10 flex-1 sm:flex-none sm:w-28 text-center rounded-md px-3 py-1.5 font-medium transition-colors ${isCurrentWeek ? 'text-sys-text-primary' : 'text-sys-text-secondary hover:text-sys-text-primary'}`}>Цей тиждень</button>
-              <button type="button" onClick={() => {
-                const nextAnchor = getMondayOf(new Date());
-                nextAnchor.setDate(nextAnchor.getDate() + 7);
-                setWeekAnchorDate(nextAnchor);
-              }} className={`relative z-10 flex-1 sm:flex-none sm:w-28 text-center rounded-md px-3 py-1.5 font-medium transition-colors ${!isCurrentWeek ? 'text-sys-text-primary' : 'text-sys-text-secondary hover:text-sys-text-primary'}`}>Наступний тиждень</button>
+               <div className="flex w-full sm:w-auto items-center gap-1 rounded-lg border border-sys-border bg-sys-card p-1 text-sm">
+              <button type="button" aria-label="Попередній тиждень" onClick={() => {
+                const prev = new Date(weekAnchorDate);
+                prev.setDate(prev.getDate() - 7);
+                setWeekAnchorDate(prev);
+              }} className="relative z-10 flex items-center justify-center rounded-md p-1.5 px-3 text-sys-text-secondary hover:bg-sys-bg hover:text-sys-text-primary transition-colors">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+              </button>
+              
+              <button type="button" onClick={resetWeek} className={`relative z-10 text-center rounded-md px-3 py-1.5 font-medium transition-colors ${isCurrentWeek ? 'text-sys-accent bg-sys-accent/10' : 'text-sys-text-secondary hover:bg-sys-bg hover:text-sys-text-primary'}`}>Сьогодні</button>
+              
+              <button type="button" aria-label="Наступний тиждень" onClick={() => {
+                const next = new Date(weekAnchorDate);
+                next.setDate(next.getDate() + 7);
+                setWeekAnchorDate(next);
+              }} className="relative z-10 flex items-center justify-center rounded-md p-1.5 px-3 text-sys-text-secondary hover:bg-sys-bg hover:text-sys-text-primary transition-colors">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+              </button>
             </div>
             
             {versions.length > 0 && (
