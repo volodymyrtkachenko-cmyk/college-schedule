@@ -107,6 +107,10 @@ export function SchedulePeriodsPanel() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  
+  // Filters
+  const [filterType, setFilterType] = useState<string>("");
+  const [filterState, setFilterState] = useState<string>("");
 
   useEffect(() => {
     async function load() {
@@ -262,6 +266,12 @@ export function SchedulePeriodsPanel() {
   const sortedGroups = [...groups];
   const sortedSubjects = [...subjects];
   const sortedTeachers = [...teachers];
+  
+  const filteredPeriods = periods.filter(p => {
+    if (filterType && p.period_type !== filterType) return false;
+    if (filterState && periodState(p, today) !== filterState) return false;
+    return true;
+  });
 
   return (
     <section className="space-y-5">
@@ -283,6 +293,33 @@ export function SchedulePeriodsPanel() {
           </button>
         )}
       </header>
+
+      <div className="flex flex-wrap items-center gap-4 bg-[#111827]/40 p-4 rounded-xl border border-sys-border/50">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-sys-text-secondary">Статус:</span>
+          <select className="form-control text-sm py-1.5" value={filterState} onChange={e => setFilterState(e.target.value)}>
+            <option value="">Всі статуси</option>
+            <option value="Триває">Триває</option>
+            <option value="Заплановано">Заплановано</option>
+            <option value="Завершено">Завершено</option>
+          </select>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-sys-text-secondary">Тип періоду:</span>
+          <select className="form-control text-sm py-1.5" value={filterType} onChange={e => setFilterType(e.target.value)}>
+            <option value="">Всі типи</option>
+            <option value="holiday">Канікули</option>
+            <option value="session">Екзаменаційна сесія</option>
+            <option value="practice">Практика</option>
+            <option value="diploma">Дипломне проєктування</option>
+            <option value="attestation">Атестація</option>
+            <option value="theory">Теоретичне навчання</option>
+          </select>
+        </div>
+        {(filterType || filterState) && (
+           <button onClick={() => { setFilterType(""); setFilterState(""); }} className="text-sm text-sys-accent hover:underline">Скинути фільтри</button>
+        )}
+      </div>
 
       {draft && (
         <div className="fixed inset-0 z-[100] flex items-start sm:items-center justify-center bg-[rgba(5,8,16,0.76)] p-4 sm:p-6 backdrop-blur-sm overflow-y-auto">
@@ -337,8 +374,20 @@ export function SchedulePeriodsPanel() {
 
           {draft.period_type === "practice" ? (
             <div className="space-y-5 border-t border-sys-border pt-5">
-              <div className="max-w-xl">
-                <label className="form-label">Групи, для яких діятиме практика</label>
+              <div className="max-w-xl space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <label className="form-label mb-0">Групи, для яких діятиме практика</label>
+                  <div className="flex gap-2">
+                    {[26, 25, 24, 23].map((year, i) => (
+                       <button key={year} type="button" onClick={() => {
+                           const courseGroups = sortedGroups.filter(g => g.name.includes(`-${year}-`));
+                           const newIds = new Set([...draft.group_ids, ...courseGroups.map(g => g.id)]);
+                           setGroupsForDraft(Array.from(newIds));
+                       }} className="text-[10px] uppercase font-bold px-2 py-1 bg-sys-card border border-sys-border rounded hover:bg-white/10 transition-colors">{i+1} курс</button>
+                    ))}
+                    <button type="button" onClick={() => setGroupsForDraft([])} className="text-[10px] uppercase font-bold px-2 py-1 text-rose-400 border border-rose-400/20 rounded hover:bg-rose-500/10 transition-colors">Очистити</button>
+                  </div>
+                </div>
                 <SearchableMultiSelect
                   options={sortedGroups}
                   value={draft.group_ids}
@@ -435,17 +484,29 @@ export function SchedulePeriodsPanel() {
                   onChange={(event) => setDraft({ ...draft, holiday_all_groups: event.target.checked })}
                   className="h-4 w-4 accent-sys-accent"
                 />
-                Застосувати канікули до всіх груп
+                Застосувати цей період абсолютно до всіх груп коледжу
               </label>
               {!draft.holiday_all_groups && (
-                <div className="max-w-xl space-y-1">
-                  <label className="form-label">Групи, для яких діятимуть канікули</label>
+                <div className="max-w-xl space-y-2 mt-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <label className="form-label mb-0">Групи, для яких діятиме період</label>
+                    <div className="flex gap-2">
+                      {[26, 25, 24, 23].map((year, i) => (
+                         <button key={year} type="button" onClick={() => {
+                             const courseGroups = sortedGroups.filter(g => g.name.includes(`-${year}-`));
+                             const newIds = new Set([...draft.group_ids, ...courseGroups.map(g => g.id)]);
+                             setGroupsForDraft(Array.from(newIds));
+                         }} className="text-[10px] uppercase font-bold px-2 py-1 bg-sys-card border border-sys-border rounded hover:bg-white/10 transition-colors">{i+1} курс</button>
+                      ))}
+                      <button type="button" onClick={() => setGroupsForDraft([])} className="text-[10px] uppercase font-bold px-2 py-1 text-rose-400 border border-rose-400/20 rounded hover:bg-rose-500/10 transition-colors">Очистити</button>
+                    </div>
+                  </div>
                   <SearchableMultiSelect
                     options={sortedGroups}
                     value={draft.group_ids}
                     onChange={setGroupsForDraft}
                     placeholder="Знайти групу"
-                    ariaLabel="Оберіть групи для канікул"
+                    ariaLabel="Оберіть групи для періоду"
                   />
                 </div>
               )}
@@ -468,9 +529,9 @@ export function SchedulePeriodsPanel() {
         <p role="alert" className="rounded-xl border border-rose-400/20 bg-rose-400/5 p-5 text-sm text-rose-200">{error}</p>
       ) : loading ? (
         <p className="py-8 text-center text-sm text-sys-text-secondary">Завантаження календаря…</p>
-      ) : periods.length ? (
+      ) : filteredPeriods.length ? (
         <div className="grid gap-3">
-          {periods.map((period) => {
+          {filteredPeriods.map((period) => {
             const state = periodState(period, today);
             return (
               <article key={period.id} className="surface-panel flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 border-l-4" style={{borderLeftColor: period.period_type === "practice" ? "#fb923c" : period.period_type === "theory" ? "#3b82f6" : period.period_type === "holiday" ? "#22c55e" : "#a855f7"}}>
