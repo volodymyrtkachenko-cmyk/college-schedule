@@ -222,14 +222,15 @@ export function ScheduleWeekGrid({ week, availabilityWeek, availabilityError, sc
 
       {/* DESKTOP VIEW */}
       {!canEdit && (
-        <div className="hidden md:grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-5 gap-4 items-start pb-4">
+        <div className="hidden md:flex overflow-x-auto gap-4 items-start pb-4" style={{ scrollbarWidth: "thin" }}>
           {week.map((day) => (
-            <div key={`desktop-${day.date}`} className="w-full">
+            <div key={`desktop-${day.date}`} className="min-w-[320px] flex-1 shrink-0">
               <ScheduleDay schedule={day} mode="day" {...dayProps} />
             </div>
           ))}
         </div>
       )}
+
 
       {!canEdit && <div className="flex w-full flex-col md:hidden">
         {week.length > 0 && (
