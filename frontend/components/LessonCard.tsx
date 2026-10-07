@@ -111,32 +111,33 @@ export function LessonCard({ lesson, targetDate, mode = "day", scheduleMode = "s
         lesson.is_relevant_this_week ? "" : "opacity-40 grayscale"
       } ${lesson.is_replacement ? "ring-1 ring-sys-accent/60 !border-sys-accent/40 bg-sys-accent/[0.02]" : canEdit ? "cursor-grab active:cursor-grabbing" : ""} ${!isDay && hasNote ? "cursor-pointer hover:shadow-md" : ""}`}
     >
-      <div className={`flex items-start ${isDay ? 'gap-3 flex-row' : 'flex-col gap-2'}`}>
+      <div className={`flex items-stretch ${isDay ? 'gap-4 flex-row' : 'flex-col gap-2'}`}>
         
         {/* Time column (day) or inline (week) */}
-        <div className={isDay ? "min-w-[3.25rem] text-center shrink-0 pt-0.5" : "flex items-center gap-2"}>
-          {isDay && <p className="text-lg font-bold leading-none text-sys-text-primary mb-1">{lesson.lesson_number}</p>}
-          <div className="text-[12px] leading-tight flex flex-col">
-            <span className="text-sys-text-primary font-medium">{startT}</span>
-            <span className="text-sys-text-muted">{endT}</span>
+        <div className={isDay ? "flex w-[4.5rem] flex-col items-center justify-center shrink-0 self-stretch rounded-xl bg-sys-bg/60 py-2 border border-sys-border/40" : "flex items-center gap-2"}>
+          {isDay && <p className="text-[20px] font-extrabold leading-none text-sys-text-primary tracking-tight mb-1">{lesson.lesson_number}</p>}
+          <div className={`flex flex-col text-sys-text-muted font-medium ${isDay ? 'items-center text-[10px] uppercase tracking-wider opacity-80' : 'text-[12px] leading-tight'}`}>
+            <span>{startT}</span>
+            <span>{endT}</span>
           </div>
         </div>
 
-        {/* Separator for Day mode */}
-        {isDay && <div className="w-[1px] bg-sys-border self-stretch" />}
-
         {/* Content */}
-        <div className="min-w-0 flex-1 flex flex-col justify-center self-stretch">
+        <div className="min-w-0 flex-1 flex flex-col justify-center py-1">
           <div className="flex min-w-0 items-start justify-between gap-2">
             <div className={`min-w-0 ${!isDay ? "pr-6" : ""}`}>
-              <h3 className={`min-w-0 break-words font-medium text-sys-text-subject [overflow-wrap:anywhere] ${isDay ? 'text-[15px]' : 'text-[13px]'}`}>
-                
+              <h3 className={`min-w-0 break-words font-semibold text-sys-text-primary [overflow-wrap:anywhere] leading-tight ${isDay ? 'text-[16px]' : 'text-[14px]'}`}>
                 <span className="align-middle">{lesson.subject_name}</span>
               </h3>
-              {teacherRoom && <p className={`text-sys-text-secondary break-words [overflow-wrap:anywhere] mt-0.5 ${isDay ? 'text-[13px]' : 'text-[12px]'}`}>{teacherRoom}</p>}
+              {teacherRoom && (
+                <p className={`flex items-center gap-1.5 text-sys-text-secondary break-words [overflow-wrap:anywhere] mt-1.5 ${isDay ? 'text-[13.5px]' : 'text-[12.5px]'}`}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 opacity-60"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                  {teacherRoom}
+                </p>
+              )}
               {lesson.is_replacement && (
-                <div className="mt-1.5">
-                  <span className="inline-block px-1.5 py-0.5 text-[0.65rem] font-bold bg-sys-accent text-slate-950 rounded leading-none">Заміна</span>
+                <div className="mt-2">
+                  <span className="inline-block px-2 py-0.5 text-[10px] uppercase tracking-wider font-bold bg-sys-accent text-[#0b1120] rounded-md leading-relaxed shadow-sm">Заміна</span>
                 </div>
               )}
             </div>
