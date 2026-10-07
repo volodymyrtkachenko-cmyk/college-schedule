@@ -176,7 +176,7 @@ export function ScheduleWeekGrid({ week, availabilityWeek, availabilityError, sc
                       event.preventDefault();
                       if (movingLesson && canChooseTarget) onMove?.(movingLesson, day.date, lessonNumber);
                     }}
-                    className={`min-h-32 border-b border-r border-sys-border p-2 transition-colors ${
+                    className={`min-h-24 border-b border-r border-sys-border p-1.5 transition-colors ${
                       canChooseTarget ? "bg-emerald-500/[0.08] ring-1 ring-inset ring-emerald-400/40" : "hover:bg-white/[0.02]"
                     }`}
                   >
@@ -211,7 +211,7 @@ export function ScheduleWeekGrid({ week, availabilityWeek, availabilityError, sc
                         Перемістити сюди
                       </button>
                     ) : cellLessons.length === 0 ? (
-                      <div className="flex min-h-28 items-center justify-center text-xs text-sys-text-muted">—</div>
+                      <div className="flex min-h-16 items-center justify-center text-xs opacity-50 text-sys-text-muted">—</div>
                     ) : null}
                   </div>
                 );

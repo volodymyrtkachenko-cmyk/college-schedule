@@ -114,13 +114,15 @@ export function LessonCard({ lesson, targetDate, mode = "day", scheduleMode = "s
       <div className="flex items-stretch gap-3 flex-row">
         
         {/* Time column */}
-        <div className="flex w-[3.75rem] flex-col items-center justify-center shrink-0 self-stretch rounded-xl bg-sys-bg/60 py-2 border border-sys-border/40">
-          <p className="text-[18px] font-extrabold leading-none text-sys-text-primary tracking-tight mb-1">{lesson.lesson_number}</p>
-          <div className="flex flex-col text-sys-text-muted font-medium items-center text-[9px] uppercase tracking-wider opacity-80">
-            <span>{startT}</span>
-            <span>{endT}</span>
+        {isDay && (
+          <div className="flex w-[3.75rem] flex-col items-center justify-center shrink-0 self-stretch rounded-xl bg-sys-bg/60 py-2 border border-sys-border/40">
+            <p className="text-[18px] font-extrabold leading-none text-sys-text-primary tracking-tight mb-1">{lesson.lesson_number}</p>
+            <div className="flex flex-col text-sys-text-muted font-medium items-center text-[9px] uppercase tracking-wider opacity-80">
+              <span>{startT}</span>
+              <span>{endT}</span>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Content */}
         <div className="min-w-0 flex-1 flex flex-col justify-center py-1">
