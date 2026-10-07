@@ -35,7 +35,7 @@ async def fetch_schedule(db: AsyncSession, target_date: date,
     if periods is None:
         periods = await _active_periods(db, target_date)
 
-    holidays = [period for period in periods if period.period_type == "holiday"]
+    holidays = [period for period in periods if period.period_type in ("holiday", "session", "diploma", "attestation")]
     if any(not period.groups for period in holidays):
         return week_type, []
 

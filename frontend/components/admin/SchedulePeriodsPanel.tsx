@@ -37,6 +37,15 @@ function localDate(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
+const periodTypeLabels: Record<SchedulePeriodType, string> = {
+  theory: "Теоретичне навчання",
+  practice: "Практика",
+  holiday: "Канікули",
+  session: "Екзаменаційна сесія",
+  diploma: "Дипломне проєктування",
+  attestation: "Атестація",
+};
+
 function blankSlot(group_id: number): SlotDraft {
   return {
     key: `${Date.now()}-${Math.random()}`,
@@ -131,7 +140,7 @@ export function SchedulePeriodsPanel() {
   function setGroupsForDraft(group_ids: number[]) {
     setDraft((current) => {
       if (!current) return current;
-      if (current.period_type === "holiday") {
+      if (current.period_type !== "practice") {
         return { ...current, group_ids };
       }
       const retained = current.slots.filter((slot) => group_ids.includes(slot.group_id));
@@ -148,7 +157,7 @@ export function SchedulePeriodsPanel() {
       start_date: period.start_date,
       end_date: period.end_date,
       group_ids: period.groups.map((group) => group.id),
-      holiday_all_groups: period.period_type === "holiday" && period.groups.length === 0,
+      holiday_all_groups: period.period_type !== "practice" && period.groups.length === 0,
       slots: period.slots.map((slot) => ({
         key: `slot-${slot.id}`,
         group_id: slot.group_id,
@@ -183,7 +192,7 @@ export function SchedulePeriodsPanel() {
         return;
       }
     } else if (!draft.holiday_all_groups && !draft.group_ids.length) {
-      setToast({ message: "Оберіть хоча б одну групу або застосуйте канікули до всіх груп.", type: "error" });
+      setToast({ message: "Оберіть хоча б одну групу або застосуйте період до всіх груп.", type: "error" });
       return;
     }
 
@@ -192,7 +201,7 @@ export function SchedulePeriodsPanel() {
       period_type: draft.period_type,
       start_date: draft.start_date,
       end_date: draft.end_date,
-      group_ids: draft.period_type === "holiday"
+      group_ids: draft.period_type !== "practice"
         ? (draft.holiday_all_groups ? [] : draft.group_ids)
         : draft.group_ids,
       slots: draft.period_type === "practice" ? draft.slots.map(({ key: _key, ...slot }) => slot) : [],
@@ -243,9 +252,9 @@ export function SchedulePeriodsPanel() {
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sys-accent">Календар</p>
-          <h1 className="mt-1 text-xl font-bold">Практики й канікули</h1>
+          <h1 className="mt-1 text-xl font-bold">Графік освітнього процесу</h1>
           <p className="mt-1 max-w-2xl text-sm text-sys-text-secondary">
-            Практика тимчасово замінює звичайний розклад вибраних груп. Після завершення періоду звичайний розклад відновиться автоматично.
+            Управління періодами навчання, сесіями, практиками та канікулами. Нетеоретичні періоди автоматично приховують звичайний розклад.
           </p>
         </div>
         {!draft && (
@@ -286,14 +295,18 @@ export function SchedulePeriodsPanel() {
                   setDraft({
                     ...draft,
                     period_type,
-                    holiday_all_groups: period_type === "holiday" && !draft.group_ids.length,
-                    slots: period_type === "holiday" ? [] : draft.slots,
+                    holiday_all_groups: period_type !== "practice" && !draft.group_ids.length,
+                    slots: period_type !== "practice" ? [] : draft.slots,
                   });
                 }}
                 className="form-control w-full"
               >
-                <option value="practice">Практика</option>
-                <option value="holiday">Канікули</option>
+                <option value="theory">{periodTypeLabels.theory}</option>
+                <option value="practice">{periodTypeLabels.practice}</option>
+                <option value="holiday">{periodTypeLabels.holiday}</option>
+                <option value="session">{periodTypeLabels.session}</option>
+                <option value="diploma">{periodTypeLabels.diploma}</option>
+                <option value="attestation">{periodTypeLabels.attestation}</option>
               </select>
             </label>
             <label className="space-y-1">
@@ -444,13 +457,16 @@ export function SchedulePeriodsPanel() {
           {periods.map((period) => {
             const state = periodState(period, today);
             return (
-              <article key={period.id} className="surface-panel flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 border-l-4" style={{borderLeftColor: period.period_type === "practice" ? "#fb923c" : "#22c55e"}}>
+              <article key={period.id} className="surface-panel flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 border-l-4" style={{borderLeftColor: period.period_type === "practice" ? "#fb923c" : period.period_type === "theory" ? "#3b82f6" : period.period_type === "holiday" ? "#22c55e" : "#a855f7"}}>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2 mb-1.5">
                     <span className={`rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wider font-bold ${
-                      period.period_type === "practice" ? "bg-orange-500/10 text-orange-400" : "bg-green-500/10 text-green-400"
+                      period.period_type === "practice" ? "bg-orange-500/10 text-orange-400" :
+                      period.period_type === "theory" ? "bg-blue-500/10 text-blue-400" :
+                      period.period_type === "holiday" ? "bg-green-500/10 text-green-400" :
+                      "bg-purple-500/10 text-purple-400"
                     }`}>
-                      {period.period_type === "practice" ? "Практика" : "Канікули"}
+                      {periodTypeLabels[period.period_type] || "Інше"}
                     </span>
                     <span className={`rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wider font-bold ${
                       state === "Триває" ? "bg-emerald-500/10 text-emerald-400" : state === "Завершено" ? "bg-slate-500/10 text-slate-400" : "bg-blue-500/10 text-blue-400"

@@ -483,7 +483,7 @@ export const apiCurriculums = {
   }
 };
 
-export type SchedulePeriodType = "practice" | "holiday";
+export type SchedulePeriodType = "practice" | "holiday" | "session" | "diploma" | "attestation" | "theory";
 
 export interface SchedulePeriodSlotMutation {
   group_id: number;

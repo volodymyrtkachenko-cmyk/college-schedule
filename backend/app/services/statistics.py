@@ -168,7 +168,7 @@ async def _scheduled_hours(
                 for period in periods
                 if period.start_date <= current_date <= period.end_date
             ]
-            holidays = [period for period in active_periods if period.period_type == "holiday"]
+            holidays = [period for period in active_periods if period.period_type in ("holiday", "session", "diploma", "attestation")]
             if not any(not period.groups for period in holidays):
                 holiday_group_ids = {
                     item.id for period in holidays for item in period.groups
