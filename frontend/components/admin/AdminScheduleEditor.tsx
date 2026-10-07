@@ -32,6 +32,7 @@ export function AdminScheduleEditor() {
   const [movingLesson, setMovingLesson] = useState<Lesson | null>(null);
   const [moving, setMoving] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const [versions, setVersions] = useState<import("../../lib/api").ScheduleVersion[]>([]);
   const weekType = (week?.[0]?.week_type) ?? today?.week_type ?? "both";
 
   useEffect(() => {
@@ -44,6 +45,12 @@ export function AdminScheduleEditor() {
   useEffect(() => {
     setMovingLesson(null);
   }, [weekAnchorDate, mode, groupId, teacherId]);
+
+  useEffect(() => {
+    api.scheduleVersions.list()
+      .then(setVersions)
+      .catch((e) => console.error("Failed to load versions", e));
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -241,6 +248,25 @@ export function AdminScheduleEditor() {
                 setWeekAnchorDate(nextAnchor);
               }} className={`relative z-10 flex-1 sm:flex-none sm:w-28 text-center rounded-md px-3 py-1.5 font-medium transition-colors ${!isCurrentWeek ? 'text-sys-text-primary' : 'text-sys-text-secondary hover:text-sys-text-primary'}`}>Наступний тиждень</button>
             </div>
+            
+            {versions.length > 0 && (
+              <select 
+                className="form-control text-sm py-1.5"
+                value=""
+                onChange={(e) => {
+                  if (e.target.value) {
+                    const v = versions.find(v => v.id === Number(e.target.value));
+                    if (v) setWeekAnchorDate(getMondayOf(new Date(v.valid_from)));
+                  }
+                }}
+                aria-label="Перейти до версії"
+              >
+                <option value="">Перейти до версії...</option>
+                {versions.map(v => (
+                  <option key={v.id} value={v.id}>{v.name}</option>
+                ))}
+              </select>
+            )}
           </div>
           </div>
           <ScheduleWeekGrid week={week} availabilityWeek={availabilityWeek} availabilityError={availabilityError} scheduleMode={mode} canEdit={true} movingLesson={movingLesson} onMoveSelect={setMovingLesson} onMove={(lesson, date, lessonNumber) => void moveLesson(lesson, date, lessonNumber)} onEdit={(lesson) => { const date = week.find((day) => day.lessons.some((item) => item.id === lesson.id))?.date ?? (today?.date || week?.[0]?.date); setEditor({ lesson, date }); }} onCreate={(date) => setEditor({ date })}

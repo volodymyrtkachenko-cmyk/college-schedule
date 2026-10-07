@@ -251,6 +251,7 @@ async def move_slot(
 @router.post("/{id}/publish")
 async def publish_draft(
     id: int,
+    target_version_id: int | None = None,
     db: AsyncSession = Depends(get_db),
     admin=Depends(require_roles("admin"))
 ):
@@ -295,15 +296,21 @@ async def publish_draft(
     
     from app.core.time import today_local
     from app.models.entities import ScheduleVersion
-    today = today_local()
-    target_version = await db.scalar(
-        select(ScheduleVersion).where(
-            ScheduleVersion.valid_from <= today,
-            ScheduleVersion.valid_until >= today,
-            ScheduleVersion.is_active.is_(True)
-        ).order_by(ScheduleVersion.valid_from.desc()).limit(1)
-    )
-    target_version_id = target_version.id if target_version else None
+    if target_version_id is None:
+        today = today_local()
+        target_version = await db.scalar(
+            select(ScheduleVersion).where(
+                ScheduleVersion.valid_from <= today,
+                ScheduleVersion.valid_until >= today,
+                ScheduleVersion.is_active.is_(True)
+            ).order_by(ScheduleVersion.valid_from.desc()).limit(1)
+        )
+        target_version_id = target_version.id if target_version else None
+    else:
+        # User specified a version explicitly
+        version = await db.get(ScheduleVersion, target_version_id)
+        if not version:
+            raise HTTPException(status_code=404, detail="Вказану цільову версію розкладу не знайдено.")
     
     if group_ids:
         schedule_ids_query = select(Schedule.id).where(Schedule.group_id.in_(group_ids))

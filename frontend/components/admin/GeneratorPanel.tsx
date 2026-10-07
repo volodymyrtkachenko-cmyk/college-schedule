@@ -18,6 +18,8 @@ const draftStatusLabels: Record<string, string> = {
 
 export function GeneratorPanel() {
   const [drafts, setDrafts] = useState<DraftRecord[]>([]);
+  const [versions, setVersions] = useState<import("../../lib/api").ScheduleVersion[]>([]);
+  const [targetVersionId, setTargetVersionId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,7 +51,11 @@ export function GeneratorPanel() {
   async function loadDrafts() {
     try {
       const session = await api.auth.ensureAuthenticated();
-      const res = await api.generator.listDrafts(session.access_token);
+      const [res, versionsRes] = await Promise.all([
+        api.generator.listDrafts(session.access_token),
+        api.scheduleVersions.list()
+      ]);
+      setVersions(versionsRes);
       // Import reviews have their own workflow and must not appear as generated schedule drafts.
       setDrafts(res.filter(
         (draft) => draft.draft_type !== "import" && !draft.name.startsWith("Імпорт "),
@@ -134,10 +140,10 @@ export function GeneratorPanel() {
   }
 
   async function handlePublish(id: number) {
-    if (!confirm("Опублікувати цей розклад? Він замінить поточний опублікований розклад.")) return;
+    if (!confirm("Опублікувати цей розклад? Він замінить поточний опублікований розклад для вибраної версії.")) return;
     try {
       const session = await api.auth.ensureAuthenticated();
-      await api.generator.publish(id, session.access_token);
+      await api.generator.publish(id, session.access_token, targetVersionId || undefined);
       setToast({message: "Розклад опубліковано.", type: "success"});
       await loadDrafts();
     } catch(err: any) {
@@ -441,7 +447,17 @@ export function GeneratorPanel() {
       ) : error ? (
         <div className="mt-8 text-center text-rose-500">{error}</div>
       ) : (
-        <div className="surface-panel mt-6 overflow-x-auto">
+        <div className="surface-panel mt-6">
+          {drafts.length > 0 && versions.length > 0 && (
+            <div className="flex justify-end p-4 border-b border-sys-border/50 items-center gap-3">
+               <span className="text-sm font-medium text-sys-text-secondary">Публікувати у версію:</span>
+               <select className="form-control text-sm w-64" value={targetVersionId || ""} onChange={e => setTargetVersionId(e.target.value ? Number(e.target.value) : null)}>
+                 <option value="">Поточна активна версія</option>
+                 {versions.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+               </select>
+            </div>
+          )}
+          <div className="overflow-x-auto">
           <table className="w-full min-w-[700px] border-collapse text-left text-sm">
             <thead className="bg-[#111827]">
               <tr>
@@ -477,6 +493,7 @@ export function GeneratorPanel() {
               )}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 

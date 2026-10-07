@@ -17,6 +17,8 @@ export function ImportPanel() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [versions, setVersions] = useState<import("../../lib/api").ScheduleVersion[]>([]);
+  const [targetVersionId, setTargetVersionId] = useState<number | null>(null);
   const [status, setStatus] = useState<"idle" | "importing" | "mapping" | "ready" | "unchanged" | "success">("idle");
   const [report, setReport] = useState<ImporterResponse["report"] | null>(null);
   
@@ -40,14 +42,16 @@ export function ImportPanel() {
     async function loadDicts() {
       try {
         const session = await api.auth.ensureAuthenticated();
-        const [t, s, g] = await Promise.all([
+        const [t, s, g, v] = await Promise.all([
           api.references.list("teachers", session.access_token),
           api.references.list("subjects", session.access_token),
-          api.references.list("groups", session.access_token)
+          api.references.list("groups", session.access_token),
+          api.scheduleVersions.list(),
         ]);
         setTeachers(t);
         setSubjects(s);
         setGroups(g);
+        setVersions(v);
       } catch (err) {
         console.error("Failed to load dictionaries", err);
       }
@@ -196,7 +200,7 @@ export function ImportPanel() {
     setError(null);
     try {
       const session = await api.auth.ensureAuthenticated();
-      await api.generator.publish(draftId, session.access_token);
+      await api.generator.publish(draftId, session.access_token, targetVersionId || undefined);
       setStatus("success");
     } catch (err: any) {
       setError(err?.message || "Не вдалося опублікувати імпорт.");
@@ -572,6 +576,15 @@ export function ImportPanel() {
             <div className="animate-in fade-in text-center py-10 bg-amber-500/5 border border-amber-500/20 rounded-2xl">
                 <h3 className="text-2xl font-bold text-amber-200 mb-2">Імпорт готовий до публікації</h3>
                 <p className="text-sys-text-secondary max-w-md mx-auto mb-6">Перевірте зміни імпорту, а потім опублікуйте чернетку окремою дією.</p>
+                {versions.length > 0 && (
+                  <div className="flex justify-center items-center gap-3 mb-6">
+                    <span className="text-sm font-medium text-sys-text-secondary">Публікувати у версію:</span>
+                    <select className="form-control text-sm w-64" value={targetVersionId || ""} onChange={e => setTargetVersionId(e.target.value ? Number(e.target.value) : null)}>
+                      <option value="">Поточна активна версія</option>
+                      {versions.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+                    </select>
+                  </div>
+                )}
                 <div className="flex justify-center gap-3">
                   <button onClick={publishImport} disabled={loading || !draftId} className="bg-sys-accent text-[#0b1120] font-bold py-2.5 px-6 rounded-lg disabled:opacity-50">
                     {loading ? "Публікуємо…" : "Опублікувати імпорт"}

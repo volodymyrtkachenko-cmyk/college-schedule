@@ -604,8 +604,9 @@ export const apiGenerator = {
       body: JSON.stringify({ day_of_week: day, lesson_number: lesson, week_type: week })
     }, false, true, token);
   },
-  publish: async (id: number, token: string): Promise<{message: string}> => {
-    return request<{message: string}>(`/api/drafts/${id}/publish`, { method: "POST" }, false, true, token);
+  publish: async (id: number, token: string, targetVersionId?: number): Promise<{message: string}> => {
+    const url = `/api/drafts/${id}/publish${targetVersionId ? `?target_version_id=${targetVersionId}` : ''}`;
+    return request<{message: string}>(url, { method: "POST" }, false, true, token);
   },
   updateImportChanges: async (id: number, data: Pick<ImporterReport, "substitutions" | "cancelled">, token: string): Promise<void> => {
     return request<void>(`/api/drafts/${id}/import-changes`, {
