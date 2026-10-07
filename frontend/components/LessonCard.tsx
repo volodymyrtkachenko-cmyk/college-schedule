@@ -17,13 +17,15 @@ function NoteIcon(props: React.SVGProps<SVGSVGElement>) {
 }
 
 function formatTeacherName(name: string) {
-  const parts = name.split(/\s+/);
-  if (parts.length >= 3) {
-    return `${parts[0]} ${parts[1][0]}.${parts[2][0]}.`;
-  } else if (parts.length === 2) {
-    return `${parts[0]} ${parts[1][0]}.`;
-  }
-  return name;
+  return name.split(/,\s*/).map(t => {
+    const parts = t.trim().split(/\s+/);
+    if (parts.length >= 3) {
+      return `${parts[0]} ${parts[1][0]}.${parts[2][0]}.`;
+    } else if (parts.length === 2) {
+      return `${parts[0]} ${parts[1][0]}.`;
+    }
+    return t.trim();
+  }).join(", ");
 }
 
 const URL_REGEX = /((?:https?:\/\/)?(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&//=]*))/gi;
@@ -62,7 +64,6 @@ export function LessonCard({
   onNoteDelete?: () => Promise<void>;
 }) {
   const isSelectedForMove = movingLesson?.id === lesson.id;
-  const isDay = mode !== "week";
   const noteExpanded = noteExpandedId === lesson.id;
   
   const noteForDate = lesson.note && (!lesson.note_date || lesson.note_date === targetDate) ? lesson.note : "";
@@ -107,103 +108,7 @@ export function LessonCard({
   }
   const teacherRoom = [primaryName, lesson.room].filter(Boolean).join(" · ");
 
-  if (!isDay) {
-    // ----------------------------------------------------
-    // WEEK MODE (GRID VIEW) - High Contrast & Ergonomic
-    // ----------------------------------------------------
-    return (
-      <article
-        draggable={canEdit && !!onMoveSelect && !lesson.is_replacement}
-        onDragStart={(event) => {
-          if (lesson.is_replacement) {
-            event.preventDefault();
-            return;
-          }
-          event.dataTransfer.setData("text/plain", String(lesson.id));
-          event.dataTransfer.effectAllowed = "move";
-          onMoveSelect?.(lesson);
-        }}
-        onClick={(e) => {
-          const target = e.target as HTMLElement;
-          if (target.closest('button') || target.tagName === 'TEXTAREA' || target.tagName === 'A') return;
-          if (hasNote) setNoteExpandedId?.(noteExpanded ? null : lesson.id);
-        }}
-        className={`group relative min-w-0 flex flex-col justify-start overflow-hidden rounded-md border-l-[4px] bg-sys-accent/[0.08] hover:bg-sys-accent/[0.12] p-3 transition-colors duration-200 cursor-pointer ${
-          isSelectedForMove ? "border-l-emerald-400 ring-1 ring-emerald-400/70 bg-emerald-500/10" : "border-l-sys-accent"
-        } ${lesson.is_relevant_this_week ? "" : "opacity-40 grayscale"} ${
-          lesson.is_replacement ? "ring-1 ring-sys-accent/40" : ""
-        }`}
-      >
-        <div className="flex min-w-0 items-start justify-between gap-2">
-            <h3 className="min-w-0 font-medium text-sys-text-primary text-[15px] leading-snug break-words">
-              {lesson.subject_name}
-            </h3>
-            {/* Absolute or right-aligned action icons */}
-            <div className="flex flex-col items-center gap-1 opacity-60 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0">
-              {canEdit && (
-                <button type="button" aria-label={`Редагувати ${lesson.subject_name}`} onClick={() => onEdit?.(lesson)} 
-                  className="flex h-[36px] w-[36px] items-center justify-center rounded-md bg-sys-bg/80 backdrop-blur-sm text-sys-text-secondary hover:text-sys-accent hover:bg-sys-accent/20 transition-colors">
-                  <EditIcon />
-                </button>
-              )}
-              {(canEdit || hasNote) && (
-                <button type="button" aria-label={canEdit ? hasNote ? "Редагувати примітку" : "Додати примітку" : "Показати примітку"} onClick={(e) => {
-                  e.stopPropagation();
-                  if (canEdit) {
-                      if (!hasNote) setNote("");
-                      setEditingNote(!editingNote);
-                  } else {
-                      setNoteExpandedId?.(noteExpanded ? null : lesson.id);
-                  }
-                }} 
-                  className={`flex h-[36px] w-[36px] items-center justify-center rounded-md backdrop-blur-sm transition-colors ${hasNote ? 'bg-sys-accent/20 text-sys-accent' : 'bg-sys-bg/80 text-sys-text-secondary hover:text-sys-text-primary'}`}>
-                  <MessageIcon filled={hasNote} />
-                </button>
-              )}
-            </div>
-        </div>
-        
-        {teacherRoom && (
-          <p className="mt-1 text-[13px] text-sys-text-secondary font-medium leading-tight opacity-90 break-words">
-            {teacherRoom}
-          </p>
-        )}
-        
-        {lesson.is_replacement && (
-          <div className="mt-2">
-            <span className="inline-block px-2 py-1 text-xs uppercase tracking-wider font-bold bg-sys-warning text-sys-warningText rounded shadow-sm">Заміна</span>
-          </div>
-        )}
 
-        {canEdit && onMoveSelect && !lesson.is_replacement && isSelectedForMove && (
-          <div className="mt-2 text-[11px] font-bold text-emerald-400">
-            ОБРАНО ДЛЯ ПЕРЕМІЩЕННЯ
-          </div>
-        )}
-
-        {/* Note display and editor */}
-        {(hasNote && noteExpanded && !editingNote) && (
-          <div className="mt-3 text-[13px] text-sys-text-secondary w-full relative z-10 break-words pt-2 border-t border-sys-accent/20">
-            <p className="whitespace-pre-wrap">{renderNote(noteForDate)}</p>
-          </div>
-        )}
-
-        {canEdit && editingNote && (
-          <form onSubmit={submitNote} className="mt-3 flex flex-col gap-2 border-t border-sys-accent/20 pt-3 relative z-10">
-            <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} className="w-full rounded-md border-[0.5px] border-sys-border bg-sys-bg px-2 py-1.5 text-[12px] text-sys-text-primary outline-none focus:border-sys-accent" />
-            <div className="flex gap-2 mt-1">
-              <button type="submit" disabled={busy || !note.trim()} className="flex-1 rounded bg-sys-accent hover:bg-[#238636] py-1.5 min-h-[36px] text-[12px] font-bold text-[#E6EDF3] hover:opacity-90">Зберегти</button>
-              <button type="button" disabled={busy} onClick={() => setEditingNote(false)} className="flex-1 rounded border-[0.5px] border-sys-border py-1.5 min-h-[36px] text-[12px] text-sys-text-secondary hover:text-white">Скасувати</button>
-            </div>
-          </form>
-        )}
-      </article>
-    );
-  }
-
-  // ----------------------------------------------------
-  // TODAY MODE (LIST VIEW) - Detailed Card Style
-  // ----------------------------------------------------
   return (
     <article
       draggable={canEdit && !!onMoveSelect && !lesson.is_replacement}
