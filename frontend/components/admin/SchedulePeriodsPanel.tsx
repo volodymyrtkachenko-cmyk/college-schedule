@@ -393,7 +393,7 @@ export function SchedulePeriodsPanel() {
                       </div>
                     ))}
                     <p className="text-xs text-sys-text-muted">Задані пари повторюватимуться щотижня в межах вибраних дат.</p>
-                  </div></details>
+                  </section>
                 );
               })}
             </div>
@@ -516,6 +516,6 @@ export function SchedulePeriodsPanel() {
           {toast.message}
         </div>
       )}
-    </div></details>
+    </section>
   );
 }
