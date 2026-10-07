@@ -222,7 +222,7 @@ export function ScheduleWeekGrid({ week, availabilityWeek, availabilityError, sc
 
       {/* DESKTOP VIEW */}
       {!canEdit && (
-        <div className="hidden md:grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 items-start pb-4">
+        <div className="hidden md:grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-5 gap-4 items-start pb-4">
           {week.map((day) => (
             <div key={`desktop-${day.date}`} className="w-full">
               <ScheduleDay schedule={day} mode="day" {...dayProps} />

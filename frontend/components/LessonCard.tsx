@@ -142,7 +142,7 @@ export function LessonCard({
             <div className="flex flex-col items-center gap-1 opacity-60 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0">
               {canEdit && (
                 <button type="button" aria-label={`Редагувати ${lesson.subject_name}`} onClick={() => onEdit?.(lesson)} 
-                  className="flex h-[36px] w-[36px] items-center justify-center rounded-md bg-sys-bg/80 backdrop-blur-sm text-slate-300 hover:text-sys-accent hover:bg-sys-accent/20 transition-colors">
+                  className="flex h-[36px] w-[36px] items-center justify-center rounded-md bg-sys-bg/80 backdrop-blur-sm text-sys-text-secondary hover:text-sys-accent hover:bg-sys-accent/20 transition-colors">
                   <EditIcon />
                 </button>
               )}
@@ -156,7 +156,7 @@ export function LessonCard({
                       setNoteExpandedId?.(noteExpanded ? null : lesson.id);
                   }
                 }} 
-                  className={`flex h-[36px] w-[36px] items-center justify-center rounded-md backdrop-blur-sm transition-colors ${hasNote ? 'bg-sys-accent/20 text-sys-accent' : 'bg-sys-bg/80 text-slate-300 hover:text-sys-text-primary'}`}>
+                  className={`flex h-[36px] w-[36px] items-center justify-center rounded-md backdrop-blur-sm transition-colors ${hasNote ? 'bg-sys-accent/20 text-sys-accent' : 'bg-sys-bg/80 text-sys-text-secondary hover:text-sys-text-primary'}`}>
                   <MessageIcon filled={hasNote} />
                 </button>
               )}
@@ -164,7 +164,7 @@ export function LessonCard({
         </div>
         
         {teacherRoom && (
-          <p className="mt-1 text-[13px] text-slate-300 font-medium leading-tight opacity-90 break-words">
+          <p className="mt-1 text-[13px] text-sys-text-secondary font-medium leading-tight opacity-90 break-words">
             {teacherRoom}
           </p>
         )}
@@ -183,7 +183,7 @@ export function LessonCard({
 
         {/* Note display and editor */}
         {(hasNote && noteExpanded && !editingNote) && (
-          <div className="mt-3 text-[13px] text-slate-300 w-full relative z-10 break-words pt-2 border-t border-sys-accent/20">
+          <div className="mt-3 text-[13px] text-sys-text-secondary w-full relative z-10 break-words pt-2 border-t border-sys-accent/20">
             <p className="whitespace-pre-wrap">{renderNote(noteForDate)}</p>
           </div>
         )}
@@ -193,7 +193,7 @@ export function LessonCard({
             <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} className="w-full rounded-md border-[0.5px] border-sys-border bg-sys-bg px-2 py-1.5 text-[12px] text-sys-text-primary outline-none focus:border-sys-accent" />
             <div className="flex gap-2 mt-1">
               <button type="submit" disabled={busy || !note.trim()} className="flex-1 rounded bg-sys-accent py-1.5 min-h-[36px] text-[12px] font-bold text-[#0b1120] hover:opacity-90">Зберегти</button>
-              <button type="button" disabled={busy} onClick={() => setEditingNote(false)} className="flex-1 rounded border-[0.5px] border-sys-border py-1.5 min-h-[36px] text-[12px] text-slate-300 hover:text-white">Скасувати</button>
+              <button type="button" disabled={busy} onClick={() => setEditingNote(false)} className="flex-1 rounded border-[0.5px] border-sys-border py-1.5 min-h-[36px] text-[12px] text-sys-text-secondary hover:text-white">Скасувати</button>
             </div>
           </form>
         )}
@@ -230,11 +230,11 @@ export function LessonCard({
       <div className="flex items-stretch gap-4 flex-row h-full">
         
         {/* Time column */}
-        <div className="flex w-[4.5rem] flex-col items-center justify-center shrink-0 self-stretch rounded-xl bg-sys-bg/60 py-2 border border-sys-border/40">
-          <p className="text-[20px] font-extrabold leading-none text-sys-accent tracking-tight mb-1">{lesson.lesson_number}</p>
-          <div className="flex flex-col text-slate-300 font-semibold items-center text-[12px] tracking-wide">
+        <div className="flex w-[4.5rem] flex-col items-center justify-center shrink-0 self-stretch py-2">
+          <p className="text-[24px] font-extrabold leading-none text-sys-accent tracking-tight mb-1.5">{lesson.lesson_number}</p>
+          <div className="flex flex-col text-sys-text-secondary font-medium items-center text-[11px] tracking-wide">
             <span>{startT}</span>
-            <span className="opacity-70">{endT}</span>
+            <span className="opacity-80 mt-[2px]">{endT}</span>
           </div>
         </div>
 
@@ -246,7 +246,7 @@ export function LessonCard({
                 <span className="align-middle">{lesson.subject_name}</span>
               </h3>
               {teacherRoom && (
-                <p className="flex items-center gap-1.5 text-slate-300 break-words [overflow-wrap:anywhere] mt-1.5 text-[13px] md:text-[14px] font-medium">
+                <p className="flex items-center gap-1.5 text-sys-text-secondary break-words [overflow-wrap:anywhere] mt-1.5 text-[13px] md:text-[14px] font-medium">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 opacity-80 text-sys-accent"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                   {teacherRoom}
                 </p>
@@ -262,7 +262,7 @@ export function LessonCard({
             <div className="flex shrink-0 gap-2 items-center self-center">
                  {canEdit && (
                     <button type="button" aria-label={`Редагувати ${lesson.subject_name}`} onClick={() => onEdit?.(lesson)} 
-                      className="flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg text-slate-300 transition-colors hover:bg-sys-accent/10 hover:text-sys-accent text-[18px]">
+                      className="flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg text-sys-text-secondary transition-colors hover:bg-sys-accent/10 hover:text-sys-accent text-[18px]">
                       <EditIcon />
                     </button>
                  )}
@@ -276,7 +276,7 @@ export function LessonCard({
                          setNoteExpandedId?.(noteExpanded ? null : lesson.id);
                       }
                     }} 
-                      className={`flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg transition-colors text-[18px] ${hasNote ? 'bg-sys-accent/10 text-sys-accent' : 'text-slate-300 hover:bg-white/5 hover:text-sys-text-primary'}`}>
+                      className={`flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg transition-colors text-[18px] ${hasNote ? 'bg-sys-accent/10 text-sys-accent' : 'text-sys-text-secondary hover:bg-white/5 hover:text-sys-text-primary'}`}>
                       <MessageIcon filled={hasNote} />
                     </button>
                  )}
@@ -297,7 +297,7 @@ export function LessonCard({
           className={`mt-3 rounded-md border px-3 py-2 text-[13px] min-h-[36px] font-semibold transition-colors ${
             isSelectedForMove
               ? "border-sys-accent/50 bg-sys-accent/10 text-sys-accent"
-              : "border-sys-border text-slate-300 hover:border-sys-accent/50 hover:text-sys-accent"
+              : "border-sys-border text-sys-text-secondary hover:border-sys-accent/50 hover:text-sys-accent"
           }`}
         >
           {isSelectedForMove ? "Обрано для переміщення" : "Перемістити"}
@@ -306,7 +306,7 @@ export function LessonCard({
       
       {/* Note full text display */}
       {((hasNote && !editingNote) || (hasNote && noteExpanded && !editingNote)) && (
-        <div className="mt-3 flex gap-2 border-t border-sys-border/50 pt-3 text-[14px] text-slate-300 font-medium w-full relative z-10 transition-all">
+        <div className="mt-3 flex gap-2 border-t border-sys-border/50 pt-3 text-[14px] text-sys-text-secondary font-medium w-full relative z-10 transition-all">
           <NoteIcon className="shrink-0 text-[16px] mt-[2px] text-sys-accent" />
           <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{renderNote(noteForDate)}</p>
         </div>
@@ -320,7 +320,7 @@ export function LessonCard({
         <div className="flex flex-wrap gap-2">
           <button type="submit" disabled={busy || !note.trim()} className="rounded bg-sys-accent px-4 py-2 min-h-[36px] text-[13px] font-bold text-[#0b1120] disabled:opacity-50 hover:opacity-90">{busy ? "Збереження…" : "Зберегти"}</button>
           {noteForDate && <button type="button" disabled={busy} onClick={deleteNote} className="rounded border-[0.5px] border-sys-border px-4 py-2 min-h-[36px] text-[13px] font-medium text-rose-400 hover:bg-rose-400/10 disabled:opacity-50">Видалити</button>}
-          <button type="button" disabled={busy} onClick={() => setEditingNote(false)} className="rounded border-[0.5px] border-sys-border px-4 py-2 min-h-[36px] text-[13px] font-medium text-slate-300 hover:text-sys-text-primary disabled:opacity-50">Скасувати</button>
+          <button type="button" disabled={busy} onClick={() => setEditingNote(false)} className="rounded border-[0.5px] border-sys-border px-4 py-2 min-h-[36px] text-[13px] font-medium text-sys-text-secondary hover:text-sys-text-primary disabled:opacity-50">Скасувати</button>
         </div>
       </form>}
     </article>

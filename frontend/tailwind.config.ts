@@ -10,18 +10,18 @@ const config: Config = {
     extend: {
       colors: {
         sys: {
-          bg: '#29132e', // Very dark violet
-          card: '#321450', // Dark violet
-          border: '#5c1b6b', // Slightly lighter violet for borders
-          input: '#1d0c22', // Darker for inputs
-          tabActive: '#481971',
-          destructive: '#de004e', // Deep bright pink/red
-          accent: '#f887ff', // Bright neon pink/magenta
+          bg: '#29132e', // Very dark violet background
+          card: '#321450', // Dark violet for cards
+          border: '#6b3294', // Lighter purple for card borders!
+          input: '#1d0c22',
+          tabActive: '#4a1b7a',
+          destructive: '#de004e',
+          accent: '#f887ff', // Bright neon pink header and badges
           text: {
             subject: '#FFFFFF',
-            primary: '#FDF4FF', // Light pinkish white
-            secondary: '#F5D0FE', // Fuchsia-200
-            muted: '#D946EF', // Fuchsia-500
+            primary: '#FDF4FF',
+            secondary: '#e5b3fe', // Lighter purple-pink for secondary text
+            muted: '#c780e8',
           }
         }
       }
