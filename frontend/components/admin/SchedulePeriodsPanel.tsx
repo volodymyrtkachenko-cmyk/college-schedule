@@ -118,7 +118,23 @@ export function SchedulePeriodsPanel() {
           api.directory.subjects(),
           api.directory.teachers(),
         ]);
-        setPeriods([...nextPeriods].sort((a, b) => b.start_date.localeCompare(a.start_date)));
+        const sortedPeriods = [...nextPeriods].sort((a, b) => {
+          const stateA = periodState(a, today);
+          const stateB = periodState(b, today);
+          
+          const rank = { "Триває": 1, "Заплановано": 2, "Завершено": 3 };
+          
+          if (rank[stateA] !== rank[stateB]) {
+            return rank[stateA] - rank[stateB];
+          }
+          
+          // For planned, closest start date first
+          if (stateA === "Заплановано") return a.start_date.localeCompare(b.start_date);
+          
+          // For completed and ongoing, most recent start date first
+          return b.start_date.localeCompare(a.start_date);
+        });
+        setPeriods(sortedPeriods);
         setGroups(nextGroups.filter((item) => !item.disabled).sort((a, b) => a.name.localeCompare(b.name, "uk", { numeric: true, sensitivity: 'base' })));
         setSubjects(nextSubjects.filter((item) => !item.disabled).sort((a, b) => a.name.localeCompare(b.name, "uk")));
         setTeachers(nextTeachers.filter((item) => !item.disabled).sort((a, b) => a.name.localeCompare(b.name, "uk")));
