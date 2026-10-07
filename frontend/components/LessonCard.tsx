@@ -137,14 +137,14 @@ export function LessonCard({
         if (hasNote) setNoteExpandedId?.(noteExpanded ? null : lesson.id);
       }}
       className={`relative min-w-0 flex flex-col items-stretch overflow-hidden rounded-2xl border bg-sys-card shadow-sm transition-colors duration-200 min-h-[110px] ${
-        isDay ? "p-4 md:p-5" : "p-3"
+        isDay ? "p-3 xl:p-4" : "p-3"
       } ${
         isSelectedForMove ? "border-emerald-400 ring-1 ring-emerald-400/70" : "border-sys-border"
       } ${
         lesson.is_relevant_this_week ? "" : "opacity-40 grayscale"
       } ${lesson.is_replacement ? "ring-1 ring-sys-warning/60 !border-sys-warning/40 bg-sys-warning/[0.02]" : canEdit ? "cursor-grab active:cursor-grabbing" : ""} ${hasNote ? "cursor-pointer hover:shadow-md" : ""}`}
     >
-      <div className={`flex items-center w-full ${isDay ? "gap-4" : "gap-2"}`}>
+      <div className={`flex items-center w-full ${isDay ? "gap-3 xl:gap-4" : "gap-2"}`}>
         {isDay && (
           <>
             <div className="flex flex-col min-w-[45px] sm:min-w-[55px] text-left shrink-0">
