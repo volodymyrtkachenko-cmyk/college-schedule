@@ -134,6 +134,10 @@ export function LessonCard({
           lesson.is_replacement ? "ring-1 ring-sys-accent/40" : ""
         }`}
       >
+        <div className="flex items-center gap-1.5 mb-0.5">
+          <span className="flex items-center justify-center rounded-[4px] bg-sys-accent/20 px-1 text-[9px] font-bold text-sys-accent">{lesson.lesson_number}</span>
+          <span className="text-[9px] font-medium text-sys-text-muted opacity-80">{lesson.time}</span>
+        </div>
         <h3 className="min-w-0 font-semibold text-sys-text-primary text-[12px] leading-snug line-clamp-2 pr-4 break-words">
           {lesson.subject_name}
         </h3>
