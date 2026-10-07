@@ -259,10 +259,7 @@ export default function HomePage() {
               {isWeekend ? (
                 <div className="rounded-2xl border border-slate-700/50 bg-slate-800/40 px-6 py-14 text-center shadow-sm">
                   <div className="text-5xl" aria-hidden="true">🛋️</div>
-                  <h2 className="mt-4 text-lg font-semibold text-sys-text-primary">Сьогодні офіційні вихідні</h2>
-                  <p className="mx-auto mt-2 max-w-md text-sm text-sys-text-secondary">
-                    Відпочиньте та наберіться сил. Розклад на понеділок можна переглянути у вкладці «Тиждень».
-                  </p>
+                  <h2 className="mt-4 text-lg font-semibold text-sys-text-primary">Сьогодні вихідний</h2>
                 </div>
               ) : (
                 <>
