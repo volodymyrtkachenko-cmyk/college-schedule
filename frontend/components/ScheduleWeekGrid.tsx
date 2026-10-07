@@ -222,32 +222,31 @@ export function ScheduleWeekGrid({ week, availabilityWeek, availabilityError, sc
 
       {!canEdit && <div className="flex w-full flex-col md:hidden">
         {week.length > 0 && (
-          <div role="group" aria-label="Оберіть день тижня" className="mb-6 flex w-full justify-between rounded-xl border border-sys-border bg-sys-card p-1 relative z-10">
-            {week.map((day, idx) => (
-              <button
-                key={`tab-${day.date}`}
-                type="button"
-                onClick={() => switchTab(idx)}
-                aria-pressed={activeIdx === idx}
-                aria-label={`${new Intl.DateTimeFormat("uk-UA", { weekday: "long", day: "numeric", month: "long" }).format(new Date(`${day.date}T12:00:00`))}, ${formatLessonCount(day.lessons.length)}`}
-                style={{ width: `${100 / week.length}%` }}
-                className={`relative z-10 flex-1 rounded-md py-2 text-[13px] font-bold uppercase tracking-wider transition-colors ${
-                  activeIdx === idx ? 'text-[#0b1120]' : 'text-sys-text-secondary hover:text-sys-text-primary'
-                }`}
-              >
-                <span className="block">{getDayName(day.date)}</span>
-                <span className={`mt-0.5 block text-[10px] font-medium normal-case tracking-normal ${activeIdx === idx ? "text-slate-800/80" : "text-sys-text-muted"}`}>
-                  {formatLessonCount(day.lessons.length)}
-                </span>
-              </button>
-            ))}
-            <div 
-              className="absolute top-1 bottom-1 bg-sys-accent rounded-lg transition-all duration-300 ease-out z-0 shadow-sm"
-              style={{ 
-                width: week.length > 0 ? `calc((100% - 8px) / ${week.length})` : '0px', 
-                left: week.length > 0 ? `calc(4px + (100% - 8px) * ${activeIdx} / ${week.length})` : '0px'
-              }}
-            />
+          <div role="group" aria-label="Оберіть день тижня" className="mb-8 mt-2 flex w-full justify-between relative z-10 px-2">
+            {week.map((day, idx) => {
+              const dateObj = new Date(`${day.date}T12:00:00`);
+              const dayStr = new Intl.DateTimeFormat("uk-UA", { weekday: "short" }).format(dateObj).charAt(0).toUpperCase();
+              const dateStr = dateObj.getDate();
+              const isActive = activeIdx === idx;
+              return (
+                <button
+                  key={`tab-${day.date}`}
+                  type="button"
+                  onClick={() => switchTab(idx)}
+                  aria-pressed={isActive}
+                  className="flex flex-col items-center justify-center gap-3 w-10 transition-colors focus:outline-none"
+                >
+                  <span className={`text-[12px] font-semibold ${isActive ? "text-sys-text-primary" : "text-sys-text-secondary"}`}>
+                    {dayStr}
+                  </span>
+                  <span className={`flex h-9 w-9 items-center justify-center rounded-full text-[15px] font-bold transition-all ${
+                    isActive ? "bg-sys-accent text-white shadow-[0_0_12px_rgba(180,100,245,0.4)]" : "text-sys-text-primary hover:bg-sys-card"
+                  }`}>
+                    {dateStr}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         )}
 

@@ -121,11 +121,11 @@ export default function HomePage() {
   const UserControls = () => user ? (
     <div className="flex items-center gap-2">
       {canAccessAdmin(user) && (
-        <a href="/admin" className="rounded-lg border border-cyan-400/40 px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-cyan-300 whitespace-nowrap shadow-sm hover:bg-cyan-500/10 transition-colors">
+        <a href="/admin" className="rounded-lg border border-white/30 px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white whitespace-nowrap shadow-sm hover:bg-white/10 transition-colors">
           Керування
         </a>
       )}
-      <button onClick={logout} className="rounded-lg border border-sys-border px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-sys-text-secondary whitespace-nowrap shadow-sm hover:bg-sys-hover transition-colors">
+      <button onClick={logout} className="rounded-lg border border-white/20 px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white/80 whitespace-nowrap shadow-sm hover:bg-white/10 hover:text-white transition-colors">
         Вийти
       </button>
     </div>
@@ -144,19 +144,19 @@ export default function HomePage() {
     <main className="min-h-screen bg-sys-bg pb-24 text-sys-text-primary md:pb-8">
       <OfflineIndicator />
       <InstallPrompt />
-      <header className="border-b border-sys-border bg-sys-bg/80">
+      <header className="bg-sys-accent text-white shadow-md">
         <div className="mx-auto flex max-w-[1800px] flex-col md:flex-row md:items-center justify-between gap-4 px-3 py-5 sm:px-5 lg:px-6 xl:px-8">
           <div className="flex items-start justify-between w-full md:w-auto">
             <div>
               <a href="https://kre.dp.ua/" target="_blank" rel="noopener noreferrer" className="inline-block hover:opacity-80 transition-opacity" title="Головна сторінка закладу">
-                <p className="text-xs font-bold uppercase tracking-[0.2em] text-sys-accent">ДФКР</p>
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/80">ДФКР</p>
               </a>
-                            <h1 onClick={handleSecretClick} className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl cursor-pointer select-none">Розклад занять</h1>
+                            <h1 onClick={handleSecretClick} className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl cursor-pointer select-none text-white">Розклад занять</h1>
               <div className="flex gap-4">
-                <a href="/statistics" className="mt-1 inline-block text-sm font-medium text-sys-accent transition-colors hover:text-sys-text-primary">
+                <a href="/statistics" className="mt-1 inline-block text-sm font-medium text-white/90 transition-colors hover:text-white">
                   Статистика
                 </a>
-                <a href="/educational-process" className="mt-1 inline-block text-sm font-medium text-sys-accent transition-colors hover:text-sys-text-primary">
+                <a href="/educational-process" className="mt-1 inline-block text-sm font-medium text-white/90 transition-colors hover:text-white">
                   Графік процесу
                 </a>
               </div>
@@ -171,7 +171,7 @@ export default function HomePage() {
                 type="button" 
                 onClick={handleDownloadOffline} 
                 disabled={isDownloading} 
-                className="flex items-center gap-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-4 py-2 rounded-xl text-sm font-medium transition-colors hover:bg-emerald-500/20 disabled:opacity-50 h-[38px] sm:h-auto"
+                className="flex items-center gap-2 bg-white/10 text-white border border-white/20 px-4 py-2 rounded-xl text-[13px] font-medium transition-colors hover:bg-white/20 disabled:opacity-50 h-[38px] sm:h-auto"
               >
                 {isDownloading ? (
                   <span className="flex items-center gap-2"><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25"></circle><path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" className="opacity-75"></path></svg> Зберігаємо…</span>

@@ -40,11 +40,11 @@ export function ScheduleDay({ schedule, isToday = false, mode = "day", scheduleM
   );
 
   return (
-    <section className={`min-w-0 ${isToday ? "rounded-3xl border border-sys-accent/30 bg-sys-accent/[0.03] p-1.5 shadow-[0_0_20px_rgba(14,165,233,0.05)]" : ""}`}>
+    <section className={`min-w-0 ${isToday ? "rounded-3xl border border-sys-accent/30 bg-sys-accent/[0.03] p-1.5 shadow-[0_0_20px_rgba(180,100,245,0.08)]" : ""}`}>
       <header className={`mb-4 flex ${mode === "week" ? "flex-col items-start gap-1 px-1" : "items-baseline justify-between gap-2 px-3 pt-2"}`}>
         <div className="flex items-center gap-2">
           {isToday && (
-            <span className="flex h-2 w-2 rounded-full bg-sys-accent shadow-[0_0_8px_rgba(14,165,233,0.8)] animate-pulse" />
+            <span className="flex h-2 w-2 rounded-full bg-sys-accent shadow-[0_0_8px_rgba(180,100,245,0.8)] animate-pulse" />
           )}
           <h2 className="capitalize font-bold tracking-tight text-sys-text-primary text-[17px]">{dayName(schedule.date)}</h2>
         </div>

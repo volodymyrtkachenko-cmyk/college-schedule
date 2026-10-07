@@ -10,18 +10,18 @@ const config: Config = {
     extend: {
       colors: {
         sys: {
-          bg: '#0b1120',
-          card: '#131c2e',
-          border: '#1e2a42',
-          input: '#0a0e18',
-          tabActive: '#1a2540',
-          destructive: '#e08a8a',
-          accent: '#5ecbe8',
+          bg: '#080310',
+          card: '#150A22',
+          border: '#25173B',
+          input: '#040108',
+          tabActive: '#201035',
+          destructive: '#F87171',
+          accent: '#B464F5',
           text: {
-            subject: '#ffffff',
-            primary: '#e7ecf5',
-            secondary: '#8b98ad',
-            muted: '#5b6b85',
+            subject: '#FFFFFF',
+            primary: '#F9FAFB',
+            secondary: '#A299AD',
+            muted: '#6B5E7D',
           }
         }
       }
