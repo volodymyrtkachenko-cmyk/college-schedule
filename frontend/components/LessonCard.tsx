@@ -16,15 +16,6 @@ function NoteIcon(props: React.SVGProps<SVGSVGElement>) {
   return <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><line x1="4" x2="20" y1="9" y2="9"/><line x1="4" x2="20" y1="15" y2="15"/><line x1="10" x2="14" y1="21" y2="21"/><path d="M4 9V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4"/><path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg>;
 }
 
-function formatTeacherName(name: string) {
-  const parts = name.split(/\s+/);
-  if (parts.length >= 3) {
-    return `${parts[0]} ${parts[1][0]}.${parts[2][0]}.`;
-  } else if (parts.length === 2) {
-    return `${parts[0]} ${parts[1][0]}.`;
-  }
-  return name;
-}
 
 const URL_REGEX = /((?:https?:\/\/)?(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&//=]*))/gi;
 
@@ -101,7 +92,7 @@ export function LessonCard({
   };
 
   const [startT, endT] = lesson.time.split("-");
-  let primaryName = lesson.teacher_name ? formatTeacherName(lesson.teacher_name) : null;
+  let primaryName = lesson.teacher_name ? lesson.teacher_name : null;
   if (scheduleMode === "teacher" && lesson.group_name) {
     primaryName = `Група ${lesson.group_name}`;
   }
