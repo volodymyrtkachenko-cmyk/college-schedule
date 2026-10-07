@@ -87,10 +87,8 @@ function getCellStyles(cell: {period_type: string, name: string | null}) {
 }
 
 function getCellLabel(cell: {period_type: string, name: string | null}) {
-    if (cell.period_type === "practice") {
-        return getPracticeAbbr(cell.name);
-    }
-    return TYPE_LABELS[cell.period_type] || "?";
+    // Вміст комірок (літери Т, К, тощо) прибрано за запитом користувача
+    return "";
 }
 
 function formatDate(dateStr: string) {
