@@ -729,7 +729,7 @@ def test_import_retries_are_enabled_for_transient_source_failures():
 
 
 @pytest.mark.anyio
-async def test_publishing_removes_old_schedule_overrides_before_replacing_schedule(api_client):
+async def test_publishing_blocks_replacement_with_manual_overrides(api_client):
     client, headers, data = api_client
     async with data["sessions"]() as session:
         curriculum = Curriculum(
@@ -760,10 +760,12 @@ async def test_publishing_removes_old_schedule_overrides_before_replacing_schedu
         draft_id = draft.id
 
     response = await client.post(f"/api/drafts/{draft_id}/publish", headers=headers)
-    assert response.status_code == 200, response.text
-
+    assert response.status_code == 409, response.text
+    assert response.json()["detail"]["code"] == "manual_overrides_require_mapping"
     async with data["sessions"]() as session:
-        assert (await session.scalars(select(ScheduleOverride))).all() == []
+        assert len((await session.scalars(select(ScheduleOverride))).all()) == 1
+        assert await session.get(Schedule,data["lesson_id"]) is not None
+        assert (await session.get(ScheduleDraft,draft_id)).status == "DRAFT"
 
 
 @pytest.mark.anyio

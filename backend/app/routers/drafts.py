@@ -21,6 +21,9 @@ from app.services.settings import settings_service
 from app.services.week import get_week_type
 from datetime import datetime as _dt
 
+from app.services.import_slot_safety import normalize_base_slots, guard_protected_replacement, version_for_import
+from app.routers.schedule_versions import lock_versions
+
 router = APIRouter(prefix="/drafts", tags=["Drafts"])
 
 
@@ -255,10 +258,13 @@ async def publish_draft(
     db: AsyncSession = Depends(get_db),
     admin=Depends(require_roles("admin"))
 ):
+    await lock_versions(db)
     draft = await db.get(ScheduleDraft, id)
     if not draft:
         raise HTTPException(status_code=404, detail="Чернетку розкладу не знайдено")
-        
+    if draft.status in {"published", "archived"}:
+        raise HTTPException(409, "Ця чернетка вже опублікована або заархівована")
+
     if draft.status not in {"DRAFT", "draft", "pending"}:
         raise HTTPException(status_code=400, detail="Цей розклад ще не готовий або не був успішно створений, тому його не можна опублікувати.")
     slot_count = await db.scalar(select(func.count()).select_from(ScheduleSlot).where(ScheduleSlot.draft_id == id))
@@ -272,19 +278,6 @@ async def publish_draft(
     if draft.status in {"published", "archived"}:
         raise HTTPException(status_code=409, detail="Ця чернетка вже опублікована або заархівована")
 
-    # Mark old published as archived
-    await db.execute(update(ScheduleDraft).where(ScheduleDraft.status == "published").values(status="archived"))
-    if draft.draft_type == "import":
-        await db.execute(
-            update(ScheduleDraft)
-            .where(
-                ScheduleDraft.draft_type == "import",
-                ScheduleDraft.status == "pending",
-                ScheduleDraft.id != draft.id,
-            )
-            .values(status="archived")
-        )
-
     # Replace only the groups represented by this draft.  Publishing a partial
     # draft must never erase unrelated groups or their date overrides.
     slots = (await db.scalars(
@@ -292,11 +285,32 @@ async def publish_draft(
         .where(ScheduleSlot.draft_id == id)
         .options(selectinload(ScheduleSlot.curriculum))
     )).all()
+    proposed_slots = [{
+        "group_id":s.curriculum.group_id, "subject_id":s.curriculum.subject_id,
+        "teacher_id":s.curriculum.teacher_id, "second_teacher_id":s.curriculum.second_teacher_id,
+        "stream_id":s.curriculum.stream_id if s.curriculum.is_stream else None,
+        "day_of_week":s.day_of_week,"lesson_number":s.lesson_number,"week_type":s.week_type,
+        "room":s.room_override,
+    } for s in slots]
+    checked_slots = normalize_base_slots(proposed_slots)
+    if len(checked_slots) != len(proposed_slots):
+        raise HTTPException(409,detail={"code":"draft_duplicate_slots", "msg":"Чернетка містить повтори або надлишкове перекриття тижнів. Перегенеруйте її; поточні дані не змінено."})
     group_ids = {s.curriculum.group_id for s in slots}
-    
+
     from app.core.time import today_local
     from app.models.entities import ScheduleVersion
-    if target_version_id is None:
+    anchored_import = draft.draft_type == "import" and "base_version_id" in (draft.data or {})
+    if anchored_import:
+        anchor = draft.data["base_version_id"]
+        if target_version_id is not None and target_version_id != anchor:
+            raise HTTPException(409,detail={"code":"import_target_version_mismatch", "msg":"Цільова версія не відповідає джерелу імпорту."})
+        current_anchor = await version_for_import(db,(draft.data.get("import_scope") or {}).get("dates",[]),today_local())
+        if current_anchor != anchor:
+            raise HTTPException(409,detail={"code":"import_version_changed", "msg":"Версії змінилися після імпорту. Повторіть імпорт."})
+        target_version_id = anchor
+        if anchor is not None and await db.get(ScheduleVersion,anchor) is None:
+            raise HTTPException(404,"Версію джерела не знайдено")
+    elif target_version_id is None:
         today = today_local()
         target_version = await db.scalar(
             select(ScheduleVersion).where(
@@ -311,7 +325,26 @@ async def publish_draft(
         version = await db.get(ScheduleVersion, target_version_id)
         if not version:
             raise HTTPException(status_code=404, detail="Вказану цільову версію розкладу не знайдено.")
-    
+
+    if group_ids:
+        protected_query = select(Schedule.id).where(Schedule.group_id.in_(group_ids))
+        protected_query = protected_query.where(Schedule.version_id == target_version_id if target_version_id is not None else Schedule.version_id.is_(None))
+        protected_ids = list((await db.scalars(protected_query)).all())
+        await guard_protected_replacement(db,protected_ids)
+
+    # Mark old published as archived
+    await db.execute(update(ScheduleDraft).where(ScheduleDraft.status == "published").values(status="archived"))
+    if draft.draft_type == "import":
+        await db.execute(
+            update(ScheduleDraft)
+            .where(
+                ScheduleDraft.draft_type == "import",
+                ScheduleDraft.status == "pending",
+                ScheduleDraft.id != draft.id,
+            )
+            .values(status="archived")
+        )
+
     if group_ids:
         schedule_ids_query = select(Schedule.id).where(Schedule.group_id.in_(group_ids))
         if target_version_id is not None:

@@ -22,6 +22,7 @@ from app.services.importer.normalizer import EntityNormalizer
 from app.services.importer.differ import ScheduleDiffer
 from app.routers.drafts import publish_draft
 from app.analytics import set_active_jobs, record_successful_import
+from app.services.import_slot_safety import normalize_base_slots, version_for_import
 from app.models import ScheduleDraft, ScheduleSlot, Curriculum, Schedule, ImportedScheduleChange
 import traceback
 from collections.abc import AsyncIterator
@@ -244,6 +245,9 @@ async def matches_published_schedule(db: AsyncSession, payload: dict, weeks: int
         .where(Schedule.is_active.is_(True))
         .options(joinedload(Schedule.teacher))
     )).all()
+    if "base_version_id" in payload:
+        version_id = payload["base_version_id"]
+        schedules = [s for s in schedules if s.version_id == version_id]
     used_schedule_ids: set[int] = set()
     for incoming in payload.get("base_slots", []):
         match = next(
@@ -316,6 +320,8 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str):
         differ = ScheduleDiffer(db, normalizer)
 
         group_ids = await fetcher.get_all_group_ids()
+        if not group_ids:
+            raise HTTPException(502, detail={"code":"empty_import_group_list", "msg":"Джерело не повернуло групи. Імпорт зупинено."})
         
         aggregated_unresolved = {}
         aggregated_unresolved_subs = []
@@ -446,34 +452,14 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str):
         raw_substitutions = len(aggregated_substitutions)
         raw_cancelled = len(aggregated_cancelled)
 
-        # Deduplicate base slots
-        unique_slots = {}
-        for s in aggregated_base_slots:
-            normalized_slot = {
-                **s,
-                "room": _normalize_room(s.get("room")),
-                "week_type": s.get("week_type", "both"),
-            }
-            k = (
-                normalized_slot["group_id"],
-                normalized_slot["subject_id"],
-                normalized_slot["teacher_id"],
-                normalized_slot.get("second_teacher_id"),
-                normalized_slot["day_of_week"],
-                normalized_slot["lesson_number"],
-                normalized_slot["room"],
-            )
-            if k in unique_slots:
-                existing = unique_slots[k]
-                if existing["week_type"] != normalized_slot["week_type"]:
-                    existing["week_type"] = "both"
-            else:
-                unique_slots[k] = normalized_slot
-        aggregated_base_slots = list(unique_slots.values())
+        # Scope every restoration to one unambiguous version for source dates.
+        import_version_id = await version_for_import(db, imported_dates, now_local().date())
+        aggregated_base_slots = normalize_base_slots([{**slot, "room": _normalize_room(slot.get("room"))} for slot in aggregated_base_slots])
 
         current_schedules = (await db.scalars(
             select(Schedule)
-            .where(Schedule.is_active.is_(True))
+            .where(Schedule.is_active.is_(True),
+                   Schedule.version_id == import_version_id if import_version_id is not None else Schedule.version_id.is_(None))
             .options(joinedload(Schedule.subject), joinedload(Schedule.teacher))
         )).all()
         
@@ -577,6 +563,7 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str):
                 Schedule.lesson_number == sub["lesson_number"],
                 Schedule.is_active.is_(True),
                 Schedule.week_type.in_(("both", sub_week)),
+                Schedule.version_id == import_version_id if import_version_id is not None else Schedule.version_id.is_(None),
             ))).all()
             for sch in published:
                 slot = {
@@ -594,9 +581,14 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str):
                 restored_base_slots.append(slot)
                 same_cell = [*same_cell, slot]
 
+        before_final_normalization = len(aggregated_base_slots)
+        aggregated_base_slots = normalize_base_slots([{**slot, "room": _normalize_room(slot.get("room"))} for slot in aggregated_base_slots])
+        restored_base_slots = normalize_base_slots([{**slot, "room": _normalize_room(slot.get("room"))} for slot in restored_base_slots])
+
         # Prepare payload for Draft Data
         created_curriculum_ids: list[int] = []
         payload = {
+            "base_version_id": import_version_id,
             "base_slots": aggregated_base_slots,
             "substitutions": aggregated_substitutions,
             "cancelled": aggregated_cancelled,
@@ -608,6 +600,7 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str):
         }
         payload_hash = import_payload_hash(payload)
         debug_report = {
+            "base_slots_collapsed": before_final_normalization - len(aggregated_base_slots),
             "pages_fetched": len(page_snapshots),
             "unique_page_urls": len(seen_page_urls),
             "unique_page_hashes": len(seen_page_hashes),
@@ -645,7 +638,6 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str):
             pending_draft
             and (
                 import_payload_hash(pending_draft.data or {}) == payload_hash
-                or import_changes_hash(pending_draft.data or {}) == import_changes_hash(payload)
             )
         )
         current_matches = await matches_published_schedule(db, payload, weeks)
@@ -660,6 +652,7 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str):
             pending_draft.status = "archived"
 
         if pending_matches:
+            pending_draft.data = {**(pending_draft.data or {}), "import_scope": payload["import_scope"]}
             await db.commit()
             draft_id = pending_draft.id
             unchanged = False

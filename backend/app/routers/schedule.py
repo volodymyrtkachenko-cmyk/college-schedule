@@ -14,6 +14,8 @@ from app.models import Group, ImportedScheduleChange, Schedule, Subject, User, S
 from sqlalchemy import and_
 from app.services.schedule import fetch_schedule, fetch_week_schedule, conflicting_lesson, save_schedule_item
 
+from app.routers.schedule_versions import lock_versions
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
@@ -188,6 +190,7 @@ async def create_lesson(payload: LessonMutation, db: AsyncSession = Depends(get_
             payload.day_of_week is None and payload.date is None:
         raise HTTPException(422, "Не всі обов'язкові поля заповнені")
 
+    await lock_versions(db)
     user_groups = await load_user_groups(db, current_user)
     check_group_access(current_user, user_groups, payload.group_id)
     
@@ -207,6 +210,7 @@ async def create_lesson(payload: LessonMutation, db: AsyncSession = Depends(get_
 @router.patch("/schedule/{lesson_id}", response_model=ScheduleItem)
 async def update_lesson(lesson_id: int, payload: LessonMutation, db: AsyncSession = Depends(get_db),
                         current_user: User = Depends(require_roles("admin", "editor"))):
+    await lock_versions(db)
     item = await db.get(Schedule, lesson_id)
     if item is None or not item.is_active:
         raise HTTPException(404, "Заняття не знайдено")
@@ -223,6 +227,7 @@ async def update_lesson(lesson_id: int, payload: LessonMutation, db: AsyncSessio
 @router.delete("/schedule/{lesson_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_lesson(lesson_id: int, db: AsyncSession = Depends(get_db),
                         current_user: User = Depends(require_roles("admin", "editor"))):
+    await lock_versions(db)
     item = await db.get(Schedule, lesson_id)
     if item is None or not item.is_active:
         raise HTTPException(404, "Заняття не знайдено")
