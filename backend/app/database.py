@@ -5,6 +5,8 @@ from sqlalchemy.orm import DeclarativeBase
 from app.config import settings
 
 def normalize_database_url(url: str) -> str:
+    if url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql://", 1)
     if url.startswith("postgresql://"):
         return url.replace("postgresql://", "postgresql+psycopg://", 1)
     if url.startswith("sqlite://") and "+aiosqlite" not in url:
