@@ -4,20 +4,18 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased, joinedload, selectinload, with_loader_criteria
 
-from app.models import ImportedScheduleChange, LessonNote, Schedule, SchedulePeriod, SchedulePeriodSlot, ScheduleVersion
+from app.models import ImportedScheduleChange, Schedule, SchedulePeriod, SchedulePeriodSlot, ScheduleVersion
 from app.services.settings import settings_service
 from app.services.week import get_week_type
 
 
 def _schedule_load_options(target_date: date | None = None, start_date: date | None = None, end_date: date | None = None):
-    note_criteria = LessonNote.note_date == target_date if target_date is not None else LessonNote.note_date.between(start_date, end_date)
     return (
         joinedload(Schedule.subject),
         joinedload(Schedule.group),
         joinedload(Schedule.teacher),
         joinedload(Schedule.second_teacher),
         selectinload(Schedule.notes),
-        with_loader_criteria(LessonNote, note_criteria),
     )
 
 

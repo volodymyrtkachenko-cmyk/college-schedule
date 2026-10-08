@@ -95,6 +95,7 @@ async def update_user(user_id: int, payload: UserUpdate, db: AsyncSession = Depe
         user.name = payload.name
     if payload.password:
         user.password_hash = hash_password(payload.password)
+        user.session_version = getattr(user, "session_version", 1) + 1
     if payload.role is not None:
         user.role = payload.role
     if payload.is_active is not None:

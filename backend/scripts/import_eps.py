@@ -100,6 +100,9 @@ async def async_main():
                         period_name = p["type"]
                         period_type = get_period_type(period_name)
                         
+                        if period_type == "theory":
+                            continue
+                            
                         stmt = select(SchedulePeriod).where(
                             SchedulePeriod.name == period_name,
                             SchedulePeriod.start_date == start_date,

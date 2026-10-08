@@ -27,6 +27,7 @@ class User(Base):
     name: Mapped[str] = mapped_column(String(255))
     password_hash: Mapped[str] = mapped_column(String(255))
     role: Mapped[str] = mapped_column(String(20), default="viewer")
+    session_version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     allowed_groups: Mapped[list["Group"]] = relationship(secondary=user_group_access, back_populates="managers")
 
@@ -126,16 +127,7 @@ class Schedule(Base):
     )
     second_teacher: Mapped[Optional["Teacher"]] = relationship(foreign_keys=[second_teacher_id])
     subject: Mapped["Subject"] = relationship(back_populates="schedules")
-    notes: Mapped[list["LessonNote"]] = relationship(back_populates="schedule")
 
-class LessonNote(Base):
-    __tablename__ = "lesson_notes"
-    __table_args__ = (UniqueConstraint("schedule_id", "note_date", name="uq_lesson_notes_schedule_date"),)
-    id: Mapped[int] = mapped_column(primary_key=True)
-    schedule_id: Mapped[int] = mapped_column(ForeignKey("schedule.id"), index=True)
-    note_date: Mapped[date] = mapped_column(Date, index=True)
-    note: Mapped[str] = mapped_column(Text)
-    schedule: Mapped["Schedule"] = relationship(back_populates="notes")
 
 class Feedback(Base):
     __tablename__ = "feedback"

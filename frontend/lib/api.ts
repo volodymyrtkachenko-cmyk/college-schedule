@@ -77,19 +77,6 @@ export interface Lesson {
     note_date?: string | null;
 }
 
-export interface LessonNote {
-    id: number;
-    schedule_id: number;
-    note_date: string;
-    note: string;
-}
-
-export interface LessonNoteMutation {
-    schedule_id: number;
-    note_date: string;
-    note: string;
-}
-
 export interface ScheduleResponse {
     date: string;
     week_type: WeekType;
@@ -762,18 +749,6 @@ export const api = {
             body: JSON.stringify(payload)
         }),
         remove: (id: number) => authenticatedRequest<void>(`/api/schedule/${id}`, {method: "DELETE"}),
-    },
-    notes: {
-        list: (scheduleId: number, noteDate: string) => request<LessonNote[]>(`/api/lesson-notes?schedule_id=${scheduleId}&note_date=${encodeURIComponent(noteDate)}`),
-        create: (payload: LessonNoteMutation) => authenticatedRequest<LessonNote>("/api/lesson-notes", {
-            method: "POST",
-            body: JSON.stringify(payload)
-        }),
-        update: (id: number, payload: Partial<LessonNoteMutation>) => authenticatedRequest<LessonNote>(`/api/lesson-notes/${id}`, {
-            method: "PATCH",
-            body: JSON.stringify(payload)
-        }),
-        remove: (id: number) => authenticatedRequest<void>(`/api/lesson-notes/${id}`, {method: "DELETE"}),
     },
 };
 export interface UserResource {

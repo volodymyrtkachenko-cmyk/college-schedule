@@ -162,28 +162,7 @@ export function AdminScheduleEditor() {
         throw e; 
     }
   };
-  
-  const saveNote = async (lesson: Lesson, note: string, date: string) => {
-    try {
-      const saved = lesson.note_id
-        ? await api.notes.update(lesson.note_id, { note })
-        : await api.notes.create({ schedule_id: lesson.id, note_date: date, note });
-      updateLesson({ ...lesson, note: saved.note, note_id: saved.id, note_date: saved.note_date });
-      setToast({ message: "Примітку збережено.", type: "success" });
-    } catch (e) {
-      throw e;
-    }
   };
-  
-  const deleteNote = async (lesson: Lesson, date: string) => {
-    try {
-      if (lesson.note_id) await api.notes.remove(lesson.note_id);
-      updateLesson({ ...lesson, note: null, note_id: null, note_date: date });
-      setToast({ message: "Примітку видалено.", type: "success" });
-    } catch(e) {
-      setToast({ message: e instanceof Error ? e.message : "Не вдалося видалити.", type: "error" });
-      throw e;
-    }
   };
 
   return (

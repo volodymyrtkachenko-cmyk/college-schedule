@@ -72,9 +72,9 @@ export function LessonCard({
   onNoteDelete?: () => Promise<void>;
 }) {
   const isSelectedForMove = movingLesson?.id === lesson.id;
-  const noteExpanded = noteExpandedId === lesson.id;
+  const noteExpanded = false;
   
-  const noteForDate = lesson.note && (!lesson.note_date || lesson.note_date === targetDate) ? lesson.note : "";
+  const noteForDate = "";
   const [editingNote, setEditingNote] = useState(false);
   const [note, setNote] = useState(noteForDate);
   const [busy, setBusy] = useState(false);

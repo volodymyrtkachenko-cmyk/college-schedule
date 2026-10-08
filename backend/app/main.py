@@ -12,7 +12,6 @@ from app.database import engine
 from app.routers import schedule_versions
 from app.routers import (
     admin_import, aliases, auth, curriculums, directory, drafts, educational_process, generator,
-    health, lesson_notes, schedule, schedule_periods, statistics,
     settings as settings_router, teacher_constraints, users,
 )
 from app.routers.schedule_now import router as schedule_now_router
@@ -119,7 +118,6 @@ app.include_router(directory.router, prefix="/api")
 app.include_router(directory.admin_router, prefix="/api")
 app.include_router(auth.router, prefix="/api")
 app.include_router(users.router, prefix="/api")
-app.include_router(lesson_notes.router, prefix="/api")
 app.include_router(settings_router.router, prefix="/api")
 app.include_router(curriculums.router, prefix="/api")
 app.include_router(generator.router, prefix="/api")

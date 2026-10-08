@@ -94,19 +94,35 @@ async def refresh(
         raise HTTPException(status_code=401, detail="Потрібна авторизація")
     claims = decode_token(token, "refresh")
     jti = claims.get("jti")
-    if jti:
-        is_blocked = await db.scalar(select(TokenBlocklist).where(TokenBlocklist.jti == jti))
-        if is_blocked:
-            raise HTTPException(status_code=401, detail="Сеанс завершено. Увійдіть знову.")
+    
     try:
         user_id = int(claims["sub"])
     except (TypeError, ValueError) as exc:
         raise HTTPException(status_code=401, detail="Некоректний токен") from exc
+        
     user = await db.scalar(select(User).where(User.id == user_id).options(selectinload(User.allowed_groups)))
     if user is None or not user.is_active:
         raise HTTPException(status_code=401, detail="Користувач не активний або не існує")
+        
+    if jti:
+        is_blocked = await db.scalar(select(TokenBlocklist).where(TokenBlocklist.jti == jti))
+        if is_blocked:
+            # Replay attack or double-use of refresh token: compromise signal. Revoke entire token family!
+            user.session_version = getattr(user, "session_version", 1) + 1
+            await db.commit()
+            raise HTTPException(status_code=401, detail="Виявлено спробу компрометації. Усі ваші сеанси завершено. Увійдіть знову.")
+
+    if claims.get("session_version") and claims.get("session_version") != getattr(user, "session_version", 1):
+        raise HTTPException(status_code=401, detail="Сесія відкликана. Будь ласка, увійдіть знову.")
+        
+    # Valid refresh token. Consume it by adding to blocklist.
+    if jti:
+        db.add(TokenBlocklist(jti=jti))
+        
     new_refresh = create_refresh_token(user)
     set_refresh_cookie(response, new_refresh)
+    await db.commit()
+    
     return TokenResponse(access_token=create_access_token(user), refresh_token=new_refresh, user=UserResponse(
             id=user.id, username=user.username, email=user.email, name=user.name, role=user.role, is_active=user.is_active,
             allowed_groups=[g.id for g in user.allowed_groups] if user.allowed_groups else []

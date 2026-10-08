@@ -31,6 +31,7 @@ def create_token(user: User, *, token_type: str, expires_delta: timedelta) -> st
         "sub": str(user.id),
         "role": user.role,
         "type": token_type,
+        "session_version": getattr(user, "session_version", 1),
         "iat": now,
         "exp": now + expires_delta,
         "jti": str(uuid4()),
@@ -94,6 +95,8 @@ async def get_current_user(
     user = await db.scalar(select(User).where(User.id == user_id))
     if user is None or not user.is_active:
         raise HTTPException(status_code=401, detail="Користувач не активний або не існує")
+    if payload.get("session_version") and payload.get("session_version") != getattr(user, "session_version", 1):
+        raise HTTPException(status_code=401, detail="Сесія відкликана. Будь ласка, увійдіть знову.")
     return user
 
 
