@@ -12,7 +12,7 @@ from app.database import engine
 from app.routers import schedule_versions
 from app.routers import (
     admin_import, aliases, auth, curriculums, directory, drafts, educational_process, generator,
-    settings as settings_router, teacher_constraints, users,
+    health, schedule, schedule_periods, statistics, settings as settings_router, teacher_constraints, users,
 )
 from app.routers.schedule_now import router as schedule_now_router
 
