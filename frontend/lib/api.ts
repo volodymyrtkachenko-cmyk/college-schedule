@@ -605,6 +605,8 @@ export interface DraftRecord {
   draft_type: "import" | "generated";
   status: string;
   created_at: string;
+  revision: number;
+
   data?: {
     substitutions?: ImportSubstitution[];
     cancelled?: ImportCancellation[];
@@ -639,8 +641,10 @@ export const apiGenerator = {
       body: JSON.stringify({ day_of_week: day, lesson_number: lesson, week_type: week })
     }, false, true, token);
   },
-  publish: async (id: number, token: string, targetVersionId?: number): Promise<{message: string}> => {
-    const url = `/api/drafts/${id}/publish${targetVersionId ? `?target_version_id=${targetVersionId}` : ''}`;
+  publish: async (id: number, token: string, targetVersionId?: number, expectedRevision?: number): Promise<{message: string}> => {
+    let url = `/api/drafts/${id}/publish?`;
+    if (targetVersionId) url += `target_version_id=${targetVersionId}&`;
+    if (expectedRevision) url += `expected_revision=${expectedRevision}`;
     return request<{message: string}>(url, { method: "POST" }, false, true, token);
   },
   updateImportChanges: async (id: number, data: Pick<ImporterReport, "substitutions" | "cancelled">, token: string): Promise<void> => {
@@ -709,6 +713,8 @@ export interface NoteRevision {
   event: string;
   snapshot: { note: string; subject_name: string; note_date: string; lesson_number: number; archived: boolean; actor_name?: string | null };
   created_at: string;
+  revision: number;
+
 }
 
 export const api = {

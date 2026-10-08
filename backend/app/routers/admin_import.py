@@ -653,6 +653,7 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str):
 
         if pending_matches:
             pending_draft.data = {**(pending_draft.data or {}), "import_scope": payload["import_scope"]}
+            pending_draft.revision += 1
             await db.commit()
             draft_id = pending_draft.id
             unchanged = False
@@ -707,6 +708,7 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str):
                 
             
             draft.data = {**payload, "created_curriculum_ids": created_curriculum_ids}
+            draft.revision += 1
             await db.commit()
 
             

@@ -317,7 +317,7 @@ async def test_publishing_carries_explicit_stream_id_to_schedule(api_client):
     assert draft_slots.status_code == 200
     assert draft_slots.json()[0]["curriculum"]["teacher"]["room"] == "Room 101"
 
-    published = await client.post(f"/api/drafts/{draft_id}/publish", headers=headers)
+    published = await client.post(f"/api/drafts/{draft_id}/publish?expected_revision=1", headers=headers)
     assert published.status_code == 200
     schedule = await client.get(
         f"/api/schedule?group_id={data['group_id']}&target_date=2025-09-01"
@@ -566,7 +566,7 @@ async def test_publishing_import_retires_old_changes_in_scope(api_client):
         await session.commit()
         draft_id = draft.id
 
-    response = await client.post(f"/api/drafts/{draft_id}/publish", headers=headers)
+    response = await client.post(f"/api/drafts/{draft_id}/publish?expected_revision=1", headers=headers)
     assert response.status_code == 200
 
     async with data["sessions"]() as session:
@@ -761,7 +761,7 @@ async def test_publishing_blocks_replacement_with_manual_overrides(api_client):
         await session.commit()
         draft_id = draft.id
 
-    response = await client.post(f"/api/drafts/{draft_id}/publish", headers=headers)
+    response = await client.post(f"/api/drafts/{draft_id}/publish?expected_revision=1", headers=headers)
     assert response.status_code == 409, response.text
     assert response.json()["detail"]["code"] == "manual_overrides_require_mapping"
     async with data["sessions"]() as session:

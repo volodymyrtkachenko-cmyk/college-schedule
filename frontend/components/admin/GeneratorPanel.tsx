@@ -143,7 +143,8 @@ export function GeneratorPanel() {
     if (!confirm("Опублікувати цей розклад? Він замінить поточний опублікований розклад для вибраної версії.")) return;
     try {
       const session = await api.auth.ensureAuthenticated();
-      await api.generator.publish(id, session.access_token, targetVersionId || undefined);
+      const targetDraft = drafts.find(d => d.id === id);
+      await api.generator.publish(id, session.access_token, targetVersionId || undefined, targetDraft?.revision || 1);
       setToast({message: "Розклад опубліковано.", type: "success"});
       await loadDrafts();
     } catch(err: any) {

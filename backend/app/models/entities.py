@@ -311,6 +311,8 @@ class ScheduleDraft(Base):
     name: Mapped[str] = mapped_column(String(255))
     draft_type: Mapped[str] = mapped_column(String(20), default="generated", server_default="generated")
     status: Mapped[str] = mapped_column(String(20), default="draft")
+    revision: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+
     data: Mapped[Optional[dict]] = mapped_column(sa.JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

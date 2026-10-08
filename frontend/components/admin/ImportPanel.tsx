@@ -200,7 +200,7 @@ export function ImportPanel() {
     setError(null);
     try {
       const session = await api.auth.ensureAuthenticated();
-      await api.generator.publish(draftId, session.access_token, targetVersionId || undefined);
+      await api.generator.publish(draftId, session.access_token, targetVersionId || undefined, draftData?.revision || 1);
       setStatus("success");
     } catch (err: any) {
       setError(err?.message || "Не вдалося опублікувати імпорт.");

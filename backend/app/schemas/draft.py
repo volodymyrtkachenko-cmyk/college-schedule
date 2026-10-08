@@ -10,6 +10,8 @@ class ScheduleDraftResponse(BaseModel):
     draft_type: Literal["import", "generated"]
     status: str
     created_at: datetime
+    revision: int
+
     data: dict | None = None
 
 class ScheduleSlotBase(BaseModel):
