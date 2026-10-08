@@ -713,7 +713,6 @@ export interface NoteRevision {
   event: string;
   snapshot: { note: string; subject_name: string; note_date: string; lesson_number: number; archived: boolean; actor_name?: string | null };
   created_at: string;
-  revision: number;
 
 }
 
