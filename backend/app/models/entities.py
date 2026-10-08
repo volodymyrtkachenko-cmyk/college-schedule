@@ -1,6 +1,8 @@
 import sqlalchemy as sa
 from datetime import date, datetime, time, timezone
 from typing import Optional
+from sqlalchemy.dialects.postgresql import ExcludeConstraint
+from sqlalchemy import func, text
 from sqlalchemy import Table, Column, Boolean, CheckConstraint, Date, DateTime, ForeignKey, Integer, String, Text, Time, UniqueConstraint, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
@@ -91,8 +93,15 @@ class Subject(Base):
 
 class ScheduleVersion(Base):
     __tablename__ = "schedule_versions"
-    __table_args__ = (
+        __table_args__ = (
         CheckConstraint("valid_from <= valid_until", name="ck_version_dates"),
+        CheckConstraint("length(trim(name)) > 0 AND length(name) <= 255", name="ck_version_name"),
+        ExcludeConstraint(
+            (func.daterange(valid_from, valid_until, '[]'), '&&'),
+            where=(is_active == True),
+            name="excl_active_version_overlap"
+        ),
+    ),
         CheckConstraint("length(trim(name)) > 0 AND length(name) <= 255", name="ck_version_name"),
     )
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -105,8 +114,15 @@ class ScheduleVersion(Base):
 
 class Schedule(Base):
     __tablename__ = "schedule"
-    __table_args__ = (
-        CheckConstraint("lesson_number BETWEEN 1 AND 4", name="chk_schedule_lesson_number"),
+        __table_args__ = (
+        CheckConstraint("valid_from <= valid_until", name="ck_version_dates"),
+        CheckConstraint("length(trim(name)) > 0 AND length(name) <= 255", name="ck_version_name"),
+        ExcludeConstraint(
+            (func.daterange(valid_from, valid_until, '[]'), '&&'),
+            where=(is_active == True),
+            name="excl_active_version_overlap"
+        ),
+    ),
         Index("ix_schedule_group_day", "group_id", "day_of_week"),
         Index("ix_schedule_teacher_day", "teacher_id", "day_of_week"),
     )
@@ -162,7 +178,15 @@ class BellSchedule(Base):
 
 class ScheduleOverride(Base):
     __tablename__ = "schedule_override"
-    __table_args__ = (UniqueConstraint("group_id", "date", "lesson_number", name="uq_schedule_override_cell"),)
+        __table_args__ = (
+        CheckConstraint("valid_from <= valid_until", name="ck_version_dates"),
+        CheckConstraint("length(trim(name)) > 0 AND length(name) <= 255", name="ck_version_name"),
+        ExcludeConstraint(
+            (func.daterange(valid_from, valid_until, '[]'), '&&'),
+            where=(is_active == True),
+            name="excl_active_version_overlap"
+        ),
+    ),)
     id: Mapped[int] = mapped_column(primary_key=True)
     schedule_id: Mapped[Optional[int]] = mapped_column(ForeignKey("schedule.id"), index=True)
     group_id: Mapped[int] = mapped_column(ForeignKey("groups.id"), index=True)
@@ -183,8 +207,15 @@ class ScheduleOverride(Base):
 
 class SchedulePeriod(Base):
     __tablename__ = "schedule_periods"
-    __table_args__ = (
-        CheckConstraint("period_type IN ('theory', 'session', 'practice', 'holiday', 'diploma', 'attestation')", name="ck_schedule_period_type"),
+        __table_args__ = (
+        CheckConstraint("valid_from <= valid_until", name="ck_version_dates"),
+        CheckConstraint("length(trim(name)) > 0 AND length(name) <= 255", name="ck_version_name"),
+        ExcludeConstraint(
+            (func.daterange(valid_from, valid_until, '[]'), '&&'),
+            where=(is_active == True),
+            name="excl_active_version_overlap"
+        ),
+    )", name="ck_schedule_period_type"),
         CheckConstraint("start_date <= end_date", name="ck_schedule_period_dates"),
         Index("ix_schedule_period_dates", "start_date", "end_date"),
     )
@@ -203,8 +234,15 @@ class SchedulePeriod(Base):
 
 class SchedulePeriodSlot(Base):
     __tablename__ = "schedule_period_slots"
-    __table_args__ = (
-        UniqueConstraint("period_id", "group_id", "day_of_week", "lesson_number", name="uq_period_group_slot"),
+        __table_args__ = (
+        CheckConstraint("valid_from <= valid_until", name="ck_version_dates"),
+        CheckConstraint("length(trim(name)) > 0 AND length(name) <= 255", name="ck_version_name"),
+        ExcludeConstraint(
+            (func.daterange(valid_from, valid_until, '[]'), '&&'),
+            where=(is_active == True),
+            name="excl_active_version_overlap"
+        ),
+    ),
         CheckConstraint("day_of_week BETWEEN 1 AND 5", name="ck_period_slot_weekday"),
         CheckConstraint("lesson_number BETWEEN 1 AND 4", name="ck_period_slot_lesson"),
     )
@@ -233,8 +271,15 @@ class SchedulePeriodSlot(Base):
 
 class ImportedScheduleChange(Base):
     __tablename__ = "imported_schedule_changes"
-    __table_args__ = (
-        UniqueConstraint("date", "group_id", "lesson_number", "version", name="uq_imported_schedule_change_cell_version"),
+        __table_args__ = (
+        CheckConstraint("valid_from <= valid_until", name="ck_version_dates"),
+        CheckConstraint("length(trim(name)) > 0 AND length(name) <= 255", name="ck_version_name"),
+        ExcludeConstraint(
+            (func.daterange(valid_from, valid_until, '[]'), '&&'),
+            where=(is_active == True),
+            name="excl_active_version_overlap"
+        ),
+    ),
         CheckConstraint("kind IN ('substitution', 'cancelled')", name="ck_imported_schedule_change_kind"),
         CheckConstraint("lesson_number BETWEEN 1 AND 4", name="ck_imported_schedule_change_lesson"),
     )
@@ -265,11 +310,15 @@ class ImportedScheduleChange(Base):
 
 class Curriculum(Base):
     __tablename__ = "curriculums"
-    __table_args__ = (
-        UniqueConstraint(
-            "group_id", "subject_id", "teacher_id", "second_teacher_id",
-            "is_stream", "stream_id", name="uq_curriculum_assignment",
+        __table_args__ = (
+        CheckConstraint("valid_from <= valid_until", name="ck_version_dates"),
+        CheckConstraint("length(trim(name)) > 0 AND length(name) <= 255", name="ck_version_name"),
+        ExcludeConstraint(
+            (func.daterange(valid_from, valid_until, '[]'), '&&'),
+            where=(is_active == True),
+            name="excl_active_version_overlap"
         ),
+    ),
     )
     id: Mapped[int] = mapped_column(primary_key=True)
     group_id: Mapped[int] = mapped_column(ForeignKey("groups.id"), index=True)
@@ -294,8 +343,15 @@ class Curriculum(Base):
 
 class TeacherConstraint(Base):
     __tablename__ = "teacher_constraints"
-    __table_args__ = (
-        UniqueConstraint("teacher_id", "day_of_week", "lesson_number", name="uq_teacher_constraint_slot"),
+        __table_args__ = (
+        CheckConstraint("valid_from <= valid_until", name="ck_version_dates"),
+        CheckConstraint("length(trim(name)) > 0 AND length(name) <= 255", name="ck_version_name"),
+        ExcludeConstraint(
+            (func.daterange(valid_from, valid_until, '[]'), '&&'),
+            where=(is_active == True),
+            name="excl_active_version_overlap"
+        ),
+    ),
     )
     id: Mapped[int] = mapped_column(primary_key=True)
     teacher_id: Mapped[int] = mapped_column(ForeignKey("teachers.id"), index=True)
@@ -335,7 +391,15 @@ class ScheduleSlot(Base):
 
 class EntityAlias(Base):
     __tablename__ = "entity_aliases"
-    __table_args__ = (UniqueConstraint("entity_type", "parsed_name", name="uq_entity_alias_name"),)
+        __table_args__ = (
+        CheckConstraint("valid_from <= valid_until", name="ck_version_dates"),
+        CheckConstraint("length(trim(name)) > 0 AND length(name) <= 255", name="ck_version_name"),
+        ExcludeConstraint(
+            (func.daterange(valid_from, valid_until, '[]'), '&&'),
+            where=(is_active == True),
+            name="excl_active_version_overlap"
+        ),
+    ),)
     id: Mapped[int] = mapped_column(primary_key=True)
     entity_type: Mapped[str] = mapped_column(String(50), index=True) # "subject", "teacher", "group"
     parsed_name: Mapped[str] = mapped_column(String(255), index=True)
