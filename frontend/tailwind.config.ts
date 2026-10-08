@@ -9,7 +9,7 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-                sys: {
+        sys: {
           bg: '#0D1117',
           card: '#161B22',
           border: '#30363D',
@@ -26,7 +26,6 @@ const config: Config = {
             secondary: '#9CA3AF',
             muted: '#8B949E',
           }
-        }
         }
       }
     }
