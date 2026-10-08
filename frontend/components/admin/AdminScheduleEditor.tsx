@@ -76,7 +76,9 @@ export function AdminScheduleEditor() {
   const weekRange = useMemo(() => {
     const end = new Date(weekAnchorDate);
     end.setDate(end.getDate() + 6);
-    return `${new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "long" }).format(weekAnchorDate)} – ${new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "long", year: "numeric" }).format(end)}`;
+    const startOpts: Intl.DateTimeFormatOptions = { day: "numeric", month: "long" };
+    if (weekAnchorDate.getFullYear() !== end.getFullYear()) startOpts.year = "numeric";
+    return `${new Intl.DateTimeFormat("uk-UA", startOpts).format(weekAnchorDate)} – ${new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "long", year: "numeric" }).format(end)}`;
   }, [weekAnchorDate]);
 
   const resetWeek = () => setWeekAnchorDate(getMondayOf(new Date()));
@@ -216,9 +218,10 @@ export function AdminScheduleEditor() {
               <span className="truncate">{weekRange}</span>
               <div className="ml-2 hidden sm:block shrink-0"><WeekTypeBadge weekType={weekType} /></div>
             </div>
-            <div className="flex w-full sm:w-auto items-center justify-between gap-3">
-               <div className="sm:hidden shrink-0"><WeekTypeBadge weekType={weekType} /></div>
-               <div className="flex w-full sm:w-auto items-center gap-1 rounded-lg border border-sys-border bg-sys-card p-1 text-sm">
+            <div className="flex w-full sm:w-auto flex-col sm:flex-row items-stretch sm:items-center gap-3">
+               <div className="flex items-center justify-between gap-3">
+                 <div className="sm:hidden shrink-0"><WeekTypeBadge weekType={weekType} /></div>
+                 <div className="flex w-full sm:w-auto items-center justify-between gap-1 rounded-lg border border-sys-border bg-sys-card p-1 text-sm">
               <button type="button" aria-label="Попередній тиждень" onClick={() => {
                 const prev = new Date(weekAnchorDate);
                 prev.setDate(prev.getDate() - 7);
@@ -236,11 +239,12 @@ export function AdminScheduleEditor() {
               }} className="relative z-10 flex min-h-[38px] min-w-[38px] items-center justify-center rounded-md p-1.5 px-3 text-sys-text-secondary hover:bg-sys-bg hover:text-sys-text-primary focus:ring-2 focus:ring-sys-accent focus:outline-none transition-colors">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
               </button>
-            </div>
+                 </div>
+               </div>
             
             {versions.length > 0 && (
               <select 
-                className="form-control text-sm py-1.5"
+                className="form-control text-sm py-1.5 w-full sm:w-auto"
                 value=""
                 onChange={(e) => {
                   if (e.target.value) {

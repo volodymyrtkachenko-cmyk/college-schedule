@@ -281,8 +281,11 @@ export function SchedulePeriodsPanel() {
       </div>
       <div className="space-y-4">
       {[1, 2, 3, 4].map(courseNum => {
-         const year = 27 - courseNum;
-         const courseGroups = sortedGroups.filter(g => g.course === courseNum || (g.course == null && g.name.includes(`-${year}-`)));
+         const now = new Date();
+         const currentAcademicStartYear = now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear() - 1;
+         const shortYear = currentAcademicStartYear % 100;
+         const entryYear = shortYear - courseNum + 1;
+         const courseGroups = sortedGroups.filter(g => g.course === courseNum || (g.course == null && g.name.includes(`-${entryYear}-`)));
          if (courseGroups.length === 0) return null;
          
          const allSelected = courseGroups.every(g => draft?.group_ids.includes(g.id));

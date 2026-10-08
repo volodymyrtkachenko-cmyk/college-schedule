@@ -176,24 +176,13 @@ export function LessonCard({
                       type="button"
                       onClick={(e) => { e.stopPropagation(); onMoveSelect(lesson); }}
                       aria-label="Перемістити пару"
-                      className="flex h-8 w-8 items-center justify-center rounded-lg text-sys-text-secondary transition-colors hover:bg-sys-accent/10 hover:text-sys-accent text-[16px]"
+                      className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors text-[16px] ${isSelectedForMove ? "bg-sys-accent text-white" : "text-sys-text-secondary hover:bg-sys-accent/10 hover:text-sys-accent"}`}
                     >
                       <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="5 9 2 12 5 15"/><polyline points="9 5 12 2 15 5"/><polyline points="19 9 22 12 19 15"/><polyline points="9 19 12 22 15 19"/><line x1="2" x2="22" y1="12" y2="12"/><line x1="12" x2="12" y1="2" y2="22"/></svg>
                     </button>
                  )}
                  {(canEdit || hasNote) && (
-                    <button type="button" aria-label={canEdit ? hasNote ? "Редагувати примітку" : "Додати примітку" : "Показати примітку"} onClick={(e) => {
-                      e.stopPropagation();
-                      if (canEdit) {
-                         if (!hasNote) setNote("");
-                         setEditingNote(!editingNote);
-                      } else {
-                         setNoteExpandedId?.(noteExpanded ? null : lesson.id);
-                      }
-                    }} 
-                      className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors text-[16px] ${hasNote ? 'bg-sys-accent/10 text-sys-accent' : 'text-sys-text-secondary hover:bg-white/5 hover:text-white'}`}>
-                      <MessageIcon filled={hasNote} />
-                    </button>
+                    
                  )}
             </div>
           </div>
@@ -219,44 +208,8 @@ export function LessonCard({
         </div>
       </div>
 
-      {canEdit && onMoveSelect && !lesson.is_replacement && (
-        <button
-          type="button"
-          aria-label={`Перемістити ${lesson.subject_name}`}
-          aria-pressed={isSelectedForMove}
-          onClick={(event) => {
-            event.stopPropagation();
-            onMoveSelect(isSelectedForMove ? null : lesson);
-          }}
-          className={`mt-4 rounded-md border px-3 py-2 text-[13px] min-h-[36px] font-semibold transition-colors w-full ${
-            isSelectedForMove
-              ? "border-sys-accent/50 bg-sys-accent/10 text-sys-accent"
-              : "border-sys-border text-sys-text-secondary hover:border-sys-accent/50 hover:text-sys-accent"
-          }`}
-        >
-          {isSelectedForMove ? "Обрано для переміщення" : "Перемістити"}
-        </button>
-      )}
       
-      {/* Note full text display */}
-      {((hasNote && !editingNote) || (hasNote && noteExpanded && !editingNote)) && (
-        <div className="mt-4 flex gap-2 border-t border-[#30363D] pt-4 text-[14px] text-sys-text-secondary font-medium w-full relative z-10 transition-all">
-          <NoteIcon className="shrink-0 text-[16px] mt-[2px] text-sys-accent" />
-          <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{renderNote(noteForDate)}</p>
-        </div>
-      )}
-
-      {/* Editor Box */}
-      {canEdit && editingNote && <form onSubmit={submitNote} className="mt-4 space-y-3 border-t border-[#30363D] pt-4 relative z-10">
-        <label className="sr-only" htmlFor={`note-${lesson.id}-${targetDate}`}>Примітка</label>
-        <textarea id={`note-${lesson.id}-${targetDate}`} value={note} onChange={(event) => setNote(event.target.value)} rows={3} maxLength={2000} placeholder="Варіант роботи, аудиторія або інша примітка" className="w-full rounded-md border border-[#30363D] bg-[#010409] px-3 py-2 text-[14px] text-white outline-none focus:border-sys-accent focus:ring-1 focus:ring-sys-accent" />
-        {error && <p role="alert" className="text-[13px] text-rose-400 font-medium">{error}</p>}
-        <div className="flex flex-wrap gap-2">
-          <button type="submit" disabled={busy || !note.trim()} className="rounded bg-sys-accent hover:bg-[#238636] px-4 py-2 min-h-[36px] text-[13px] font-bold text-white disabled:opacity-50 transition-colors">Зберегти</button>
-          {noteForDate && <button type="button" disabled={busy} onClick={deleteNote} className="rounded border border-[#30363D] px-4 py-2 min-h-[36px] text-[13px] font-medium text-rose-400 hover:bg-rose-400/10 disabled:opacity-50 transition-colors">Видалити</button>}
-          <button type="button" disabled={busy} onClick={() => setEditingNote(false)} className="rounded border border-[#30363D] px-4 py-2 min-h-[36px] text-[13px] font-medium text-sys-text-secondary hover:text-white disabled:opacity-50 transition-colors">Скасувати</button>
-        </div>
-      </form>}
-    </article>
+      
+      </article>
   );
 }

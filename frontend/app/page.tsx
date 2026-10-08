@@ -113,7 +113,9 @@ export default function HomePage() {
   const weekRange = useMemo(() => {
     const end = new Date(weekAnchorDate);
     end.setDate(end.getDate() + 6);
-    return `${new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "long" }).format(weekAnchorDate)} – ${new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "long", year: "numeric" }).format(end)}`;
+    const startOpts: Intl.DateTimeFormatOptions = { day: "numeric", month: "long" };
+    if (weekAnchorDate.getFullYear() !== end.getFullYear()) startOpts.year = "numeric";
+    return `${new Intl.DateTimeFormat("uk-UA", startOpts).format(weekAnchorDate)} – ${new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "long", year: "numeric" }).format(end)}`;
   }, [weekAnchorDate]);
 
   const resetWeek = () => setWeekAnchorDate(getMondayOf(new Date()));
@@ -129,7 +131,11 @@ export default function HomePage() {
         Вийти
       </button>
     </div>
-  ) : null;
+  ) : (
+    <a href="/admin" className="text-[13px] font-medium text-sys-text-secondary hover:text-white transition-colors underline-offset-4 hover:underline whitespace-nowrap">
+      Для працівників
+    </a>
+  );
 
   if (!loading && !isSetupComplete) {
     return <WelcomeScreen groups={groups} teachers={teachers} initialMode={mode} onComplete={(m, id) => {
