@@ -286,26 +286,27 @@ async def trigger_import(
     weeks: int = Query(2, description="Number of weeks to fetch"),
     db: AsyncSession = Depends(get_db),
     _import_lock: None = Depends(import_lock_dependency),
-    internal_cron: bool = False,
 ):
-    # Check auth
-    if not internal_cron:
-        cron_secret = request.headers.get("Authorization")
-        if cron_secret and cron_secret.startswith("Bearer "):
-            cron_secret = cron_secret.split(" ")[1]
-        
-        import_secret = getattr(settings, "IMPORT_CRON_SECRET", None)
-        is_cron = bool(import_secret) and cron_secret == import_secret
-        if not is_cron:
-            if not cron_secret:
-                raise HTTPException(status_code=401, detail="Потрібна авторизація")
-            # Check standard admin token
-            from app.core.security import get_current_user
-            from fastapi.security import HTTPAuthorizationCredentials
-            credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=cron_secret)
-            user = await get_current_user(credentials=credentials, db=db)
-            if not user or user.role != "admin":
-                raise HTTPException(status_code=403, detail="Недостатньо прав")
+    cron_secret = request.headers.get("Authorization")
+    if cron_secret and cron_secret.startswith("Bearer "):
+        cron_secret = cron_secret.split(" ")[1]
+    
+    import_secret = getattr(settings, "IMPORT_CRON_SECRET", None)
+    is_cron = bool(import_secret) and cron_secret == import_secret
+    
+    if not is_cron:
+        if not cron_secret:
+            raise HTTPException(status_code=401, detail="Потрібна авторизація")
+        from app.core.security import get_current_user
+        from fastapi.security import HTTPAuthorizationCredentials
+        credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=cron_secret)
+        user = await get_current_user(credentials=credentials, db=db)
+        if not user or user.role != "admin":
+            raise HTTPException(status_code=403, detail="Недостатньо прав")
+            
+    return await execute_import_logic(db, weeks)
+
+async def execute_import_logic(db: AsyncSession, weeks: int = 2):
     
     fetcher = ScheduleFetcher()
     parser = KREParser()

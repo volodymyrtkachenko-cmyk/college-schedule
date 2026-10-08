@@ -54,7 +54,7 @@ async def lifespan(_: FastAPI):
     async def auto_import_loop():
         # Start the loop, wait a bit first so app can finish starting
         await asyncio.sleep(60)
-        from app.routers.admin_import import trigger_import
+        from app.routers.admin_import import execute_import_logic
         from app.database import async_session_factory
         from fastapi import Request
         class DummyRequest:
@@ -65,7 +65,7 @@ async def lifespan(_: FastAPI):
                 async with async_session_factory() as db:
                     print("Запуск автоматичного імпорту замін...")
                     # Pass a dummy request without secret, but we bypass auth check because we will just patch it to accept an internal call
-                    await trigger_import(request=DummyRequest(), weeks=2, db=db, _import_lock=None, internal_cron=True)
+                    await execute_import_logic(db=db, weeks=2)
             except Exception as e:
                 print(f"Помилка автоматичного імпорту: {e}")
             

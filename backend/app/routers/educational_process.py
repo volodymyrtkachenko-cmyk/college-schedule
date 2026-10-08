@@ -114,43 +114,4 @@ async def get_matrix(
         courses=result_courses
     )
 
-@router.get("/debug-safe")
-async def debug_safe(db: AsyncSession = Depends(get_db)):
-    import traceback
-    try:
-        from scripts.import_eps import async_main
-        await async_main()
-        error = "Success"
-    except Exception as e:
-        error = traceback.format_exc()
-        
-    result = await db.execute(select(Group))
-    groups = result.scalars().all()
-    group_info = [{"name": g.name, "year": g.year_of_admission, "course": g.course} for g in groups]
-        
-    return {"error": error, "groups": group_info}
 
-@router.get("/debug")
-async def debug_import(db: AsyncSession = Depends(get_db)):
-    import io
-    import sys
-    import traceback
-    from scripts.import_eps import async_main
-    
-    old_stdout = sys.stdout
-    new_stdout = io.StringIO()
-    sys.stdout = new_stdout
-    
-    error = None
-    try:
-        await async_main()
-    except Exception as e:
-        error = traceback.format_exc()
-    finally:
-        sys.stdout = old_stdout
-        
-    result = await db.execute(select(Group))
-    groups = result.scalars().all()
-    group_info = [{"name": g.name, "year": g.year_of_admission, "course": g.course} for g in groups]
-        
-    return {"log": new_stdout.getvalue(), "error": error, "groups": group_info}
