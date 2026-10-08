@@ -332,6 +332,11 @@ async def _resolve_entities(db: AsyncSession, item, payload, group_id, create):
     return group, subject, teacher, second_teacher
 
 async def _apply_and_commit(db: AsyncSession, item, payload, group, subject, teacher, second_teacher, day, lesson_number, week_type, stream_id, create):
+    if not create:
+        from app.services.lesson_notes import reconcile_template_notes
+        await reconcile_template_notes(db, item, group_id=group.id, subject_id=subject.id,
+            day=day, lesson_number=lesson_number, week_type=week_type,
+            actor_id=db.info.get("note_actor_id"))
     item.group_id = group.id
     item.subject_id = subject.id
     item.teacher_id = teacher.id if teacher else (None if "teacher_id" in payload.model_fields_set or "teacher" in payload.model_fields_set else item.teacher_id)

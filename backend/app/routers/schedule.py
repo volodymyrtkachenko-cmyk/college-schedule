@@ -16,6 +16,8 @@ from app.services.schedule import fetch_schedule, fetch_week_schedule, conflicti
 
 from app.routers.schedule_versions import lock_versions
 
+from app.services.lesson_notes import attach_notes
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
@@ -146,12 +148,12 @@ async def schedule(group_id: int | None = None, teacher_id: int | None = None,
     return ScheduleResponse(
         date=target_date,
         week_type=week_type,
-        lessons=serialize_schedule_items(lessons, week_type, target_date, bell_t),
+        lessons=await attach_notes(db, target_date, serialize_schedule_items(lessons, week_type, target_date, bell_t)),
     )
 
 @router.get("/schedule/today", response_model=ScheduleResponse)
 async def today(response: Response, group_id: int | None = None, teacher_id: int | None = None, db: AsyncSession = Depends(get_db)):
-    response.headers["Cache-Control"] = "public, max-age=60, stale-while-revalidate=300"
+    response.headers["Cache-Control"] = "no-cache"
     response.headers["Vary"] = "Date, Origin, Accept-Encoding"
     target = today_local()
     if target.isoweekday() > 5:
@@ -161,7 +163,7 @@ async def today(response: Response, group_id: int | None = None, teacher_id: int
 @router.get("/schedule/week")
 async def week(response: Response, group_id: int | None = None, teacher_id: int | None = None, target_date: date | None = None,
                db: AsyncSession = Depends(get_db)):
-    response.headers["Cache-Control"] = "public, max-age=60, stale-while-revalidate=300"
+    response.headers["Cache-Control"] = "no-cache"
     response.headers["Vary"] = "Date, Origin, Accept-Encoding"
     requested = target_date or today_local()
     start = requested - timedelta(days=requested.isoweekday() - 1)
@@ -171,12 +173,12 @@ async def week(response: Response, group_id: int | None = None, teacher_id: int 
         ScheduleResponse(
             date=start + timedelta(days=i),
             week_type=week_type,
-            lessons=serialize_schedule_items(
+            lessons=await attach_notes(db, start + timedelta(days=i), serialize_schedule_items(
                 lessons_by_day.get(i + 1, []),
                 week_type,
                 start + timedelta(days=i),
                 bell_t,
-            ),
+            )),
         )
         for i in range(5)
     ]
@@ -220,6 +222,7 @@ async def update_lesson(lesson_id: int, payload: LessonMutation, db: AsyncSessio
     if payload.group_id is not None and payload.group_id != item.group_id:
         check_group_access(current_user, user_groups, payload.group_id)
         
+    db.info["note_actor_id"] = current_user.id
     saved_item = await save_schedule_item(item, payload, db)
     bell_t = await get_bell_times(db)
     return to_item(saved_item, saved_item.week_type, payload.date or today_local(), bell_t)
@@ -234,6 +237,8 @@ async def delete_lesson(lesson_id: int, db: AsyncSession = Depends(get_db),
 
     user_groups = await load_user_groups(db, current_user)
     check_group_access(current_user, user_groups, item.group_id)
+    from app.services.lesson_notes import archive_template_notes
+    await archive_template_notes(db, item, current_user.id)
     item.is_active = False
     try:
         await db.commit()
@@ -313,3 +318,4 @@ async def bulk_curator_hours(payload: BulkCuratorRequest, db: AsyncSession = Dep
         await db.rollback()
         logger.exception("bulk_curator_hours failed")
         raise HTTPException(status_code=500, detail="Внутрішня помилка сервера")
+

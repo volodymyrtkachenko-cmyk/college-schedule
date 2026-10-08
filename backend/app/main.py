@@ -9,7 +9,7 @@ from slowapi.errors import RateLimitExceeded
 from app.analytics import track_request
 from app.config import settings
 from app.database import engine
-from app.routers import schedule_versions
+from app.routers import schedule_versions, lesson_notes
 from app.routers import (
     admin_import, aliases, auth, curriculums, directory, drafts, educational_process, generator,
     health, schedule, schedule_periods, statistics, settings as settings_router, teacher_constraints, users,
@@ -133,6 +133,7 @@ async def analytics_middleware(request: Request, call_next):
 
 app.include_router(health.router, prefix="/api")
 app.include_router(schedule.router, prefix="/api")
+app.include_router(lesson_notes.router, prefix="/api")
 app.include_router(schedule_now_router, prefix="/api/schedule")
 app.include_router(directory.router, prefix="/api")
 app.include_router(directory.admin_router, prefix="/api")
@@ -153,4 +154,5 @@ app.include_router(teacher_constraints.router, prefix="/api")
 @app.api_route("/api/ping", methods=["GET", "POST"])
 async def ping(leave: int = 0):
     return {"status": "ok"}
+
 
