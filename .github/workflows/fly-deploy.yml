@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - 'backend/**'
+      - '.github/workflows/fly-deploy.yml'
 permissions:
   contents: read
 concurrency:
@@ -11,6 +12,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   verify:
+    name: Backend, PostgreSQL migration and frontend checks
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -48,6 +50,7 @@ jobs:
         working-directory: frontend
   deploy:
     needs: verify
+    name: Deploy verified app
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

@@ -115,6 +115,8 @@ class ScheduleItem(BaseModel):
     group_name: str | None = None
     note: str | None = None
     note_id: int | None = None
+    note_revision: int = 0
+    note_date: DateType | None = None
 
 class ScheduleResponse(BaseModel):
     date: date
