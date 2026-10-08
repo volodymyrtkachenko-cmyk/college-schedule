@@ -1,20 +1,69 @@
-name: Fly Deploy
+name: Verified Fly Deploy
 on:
   push:
-    branches:
-      - main
+    branches: [main]
     paths:
       - 'backend/**'
-      - '.github/workflows/fly-deploy.yml'
+permissions:
+  contents: read
+concurrency:
+  group: fly-deploy-${{ github.ref }}
+  cancel-in-progress: false
 jobs:
-  deploy:
-    name: Deploy app
+  verify:
     runs-on: ubuntu-latest
-    concurrency: deploy-group    # optional: ensure only one action runs at a time
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: college_schedule
+          POSTGRES_PASSWORD: isolated-ci-only
+          POSTGRES_DB: college_schedule_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U college_schedule -d college_schedule_test"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+    env:
+      DATABASE_URL: 'sqlite+aiosqlite:///:memory:'
+      RUN_MIGRATIONS: 'false'
+      RUN_CRON: 'false'
+      ENVIRONMENT: development
+      TEST_POSTGRES_URL: postgresql+psycopg://college_schedule:isolated-ci-only@localhost:5432/college_schedule_test
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r backend/requirements.txt
+      - run: pytest -q
+        working-directory: backend
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - run: npx tsc --noEmit && node --test tests/*.cjs
+        working-directory: frontend
+  deploy:
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Skip an outdated commit
+        id: head
+        run: |
+          remote_head=$(git ls-remote origin refs/heads/main | cut -f1)
+          if [ "$remote_head" = "$GITHUB_SHA" ]; then
+            echo 'current=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'current=false' >> "$GITHUB_OUTPUT"
+          fi
       - uses: superfly/flyctl-actions/setup-flyctl@master
+        if: steps.head.outputs.current == 'true'
       - run: flyctl deploy --remote-only
-        working-directory: ./backend
+        if: steps.head.outputs.current == 'true'
+        working-directory: backend
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
