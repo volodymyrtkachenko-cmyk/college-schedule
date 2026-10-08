@@ -74,6 +74,7 @@ export interface Lesson {
     group_name?: string;
     note: string | null;
     note_id?: number | null;
+    note_revision?: number;
     note_date?: string | null;
 }
 
@@ -224,7 +225,7 @@ async function parseError(response: Response) {
         if (typeof body.detail === "string") {
             const raw = body.detail.toLowerCase();
             if (raw.includes("unique constraint failed")) {
-                if (raw.includes("username")) return "Користувач із таким ім’ям уже існує.";
+                if (raw.includes("username")) return "Користувач із таким ім’я�� уже існує.";
                 if (raw.includes("name")) return "Такий запис уже існує (назва має бути унікальною).";
                 return "Запис з такими даними вже існує.";
             }
@@ -691,7 +692,38 @@ export const apiImporter = {
   }
 };
 
+export interface OccurrenceNote {
+  id: number;
+  group_id: number;
+  note_date: string;
+  lesson_number: number;
+  subject_id: number;
+  note: string;
+  revision: number;
+  archived: boolean;
+}
+
+export interface NoteRevision {
+  note_id: number;
+  revision: number;
+  event: string;
+  snapshot: { note: string; subject_name: string; note_date: string; lesson_number: number; archived: boolean; actor_name?: string | null };
+  created_at: string;
+}
+
 export const api = {
+  notes: {
+    save: (groupId: number, date: string, lessonNumber: number, subjectId: number, note: string, expectedRevision: number) =>
+      request<OccurrenceNote>(`/api/lesson-notes/${groupId}/${date}/${lessonNumber}`, {
+        method: "PUT", body: JSON.stringify({ subject_id: subjectId, note, expected_revision: expectedRevision }),
+      }, true, true),
+    remove: (groupId: number, date: string, lessonNumber: number, subjectId: number, expectedRevision: number) =>
+      request<void>(`/api/lesson-notes/${groupId}/${date}/${lessonNumber}?subject_id=${subjectId}&expected_revision=${expectedRevision}`, {
+        method: "DELETE",
+      }, true, true),
+    history: (groupId: number, date: string, lessonNumber: number) =>
+      request<NoteRevision[]>(`/api/lesson-notes/${groupId}/${date}/${lessonNumber}/history`, { cache: "no-store" }, true, true),
+  },
   importer: apiImporter,
   constraints: apiConstraints,
   generator: apiGenerator,
@@ -826,3 +858,4 @@ export interface UserResource {
     is_active: boolean;
     allowed_groups: number[];
 }
+
