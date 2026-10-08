@@ -348,7 +348,7 @@ async def _apply_and_commit(db: AsyncSession, item, payload, group, subject, tea
 
     try:
         await db.commit()
-        await db.refresh(item, ["group", "subject", "teacher", "second_teacher", "notes"])
+        await db.refresh(item, ["group", "subject", "teacher", "second_teacher"])
     except IntegrityError as exc:
         await db.rollback()
         raise HTTPException(409, "Неможливо зберегти: такий запис або графік вже існує і перетинається з іншим.") from exc
