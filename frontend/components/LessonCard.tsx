@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { LessonNote } from "./LessonNote";
 import { Lesson } from "../lib/api";
 
 function EditIcon() {
@@ -165,6 +165,8 @@ export function LessonCard({
 
       
       
+      <LessonNote key={`${lesson.group_id}:${targetDate}:${lesson.lesson_number}:${lesson.subject_id}`} lesson={lesson} date={targetDate} />
       </article>
   );
 }
+

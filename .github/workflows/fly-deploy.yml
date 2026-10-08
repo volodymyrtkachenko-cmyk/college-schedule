@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - 'backend/**'
+      - 'frontend/**'
       - '.github/workflows/fly-deploy.yml'
 permissions:
   contents: read
