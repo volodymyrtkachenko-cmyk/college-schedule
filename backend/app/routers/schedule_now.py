@@ -35,7 +35,7 @@ async def get_schedule_now(db: AsyncSession = Depends(get_db)):
 
     response_data = []
     for ln in active_lessons:
-        ovr = next((o for o in getattr(ln, "overrides", []) if o.date == today_date), None)
+        ovr = None
         if ovr and ovr.cancelled:
             continue
             

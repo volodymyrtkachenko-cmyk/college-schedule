@@ -15,7 +15,7 @@ def _schedule_load_options(target_date: date | None = None, start_date: date | N
         joinedload(Schedule.group),
         joinedload(Schedule.teacher),
         joinedload(Schedule.second_teacher),
-        selectinload(Schedule.notes),
+        
     )
 
 

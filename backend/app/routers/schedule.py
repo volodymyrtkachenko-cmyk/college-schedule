@@ -50,7 +50,7 @@ def to_item(item, week_type, target_date, bell_times=None, *, item_id=None, is_r
     if bell_times is None:
         bell_times = {}
 
-    matching_note = next((n for n in getattr(item, "notes", []) if n.note_date == target_date), None)
+    matching_note = None
     t_names = []
     t_rooms = []
     if item.teacher:
