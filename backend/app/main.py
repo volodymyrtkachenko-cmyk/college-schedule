@@ -77,8 +77,18 @@ async def lifespan(_: FastAPI):
     else:
         cron_task = None
 
-    yield
-    await engine.dispose()
+    try:
+        yield
+    finally:
+        try:
+            if cron_task is not None:
+                cron_task.cancel()
+                try:
+                    await cron_task
+                except asyncio.CancelledError:
+                    pass
+        finally:
+            await engine.dispose()
 
 
 app = FastAPI(

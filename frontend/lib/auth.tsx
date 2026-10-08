@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
-import { api, AuthUser } from "./api";
+import { api, AuthUser, AuthSupersededError } from "./api";
 
 interface AuthContextValue {
   user: AuthUser | null;
@@ -18,12 +18,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let mounted = true;
+    const generation = api.auth.generation();
     api.auth.ensureAuthenticated()
       .then((session) => {
-        if (mounted) setUser(session.user);
+        if (mounted && generation === api.auth.generation() && api.auth.isCurrentSession(session)) setUser(session.user);
       })
       .catch((e) => {
-        if (mounted && !e.message?.includes("Auth generation changed") && !e.message?.includes("superseded")) {
+        if (mounted && generation === api.auth.generation() && !(e instanceof AuthSupersededError)) {
           setUser(null);
         }
       })
@@ -35,20 +36,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function login(username: string, password: string) {
     const session = await api.auth.login(username, password);
+    if (!api.auth.isCurrentSession(session)) throw new AuthSupersededError();
     setUser(session.user);
   }
 
   useEffect(() => {
-    if (typeof BroadcastChannel === "undefined") return;
-    const channel = new BroadcastChannel("auth_sync");
-    channel.onmessage = (e) => {
-      if (e.data === "logout") {
-        api.auth.clear();
-        setUser(null);
-        window.location.href = "/login";
-      }
+    const receiveLogout = () => {
+      api.auth.clear();
+      setUser(null);
+      window.location.href = "/login";
     };
-    return () => channel.close();
+    let channel: BroadcastChannel | null = null;
+    try {
+      if (typeof BroadcastChannel !== "undefined") {
+        channel = new BroadcastChannel("auth_sync");
+        channel.onmessage = event => {
+          if (event.data === "logout") receiveLogout();
+        };
+      }
+    } catch { /* Storage-event fallback below. */ }
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === "college-schedule:logout" && event.newValue) receiveLogout();
+    };
+    window.addEventListener("storage", onStorage);
+    return () => {
+      channel?.close();
+      window.removeEventListener("storage", onStorage);
+    };
   }, []);
 
   async function logout() {
@@ -69,6 +83,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch (e) {
         console.warn("BroadcastChannel not supported", e);
       }
+      try {
+        localStorage.setItem("college-schedule:logout", `${Date.now()}:${Math.random()}`);
+      } catch { /* Storage may be disabled. */ }
       setUser(null);
       window.location.href = "/login";
     } else {

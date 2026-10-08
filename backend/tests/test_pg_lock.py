@@ -1,65 +1,100 @@
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from fastapi import HTTPException
 import asyncio
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
+import pytest
+from fastapi import HTTPException
+from app.services.import_lock import import_mutex
 
-from app.routers.admin_import import execute_import_logic
+@pytest.fixture
+def anyio_backend():
+    return 'asyncio'
+
+def resources():
+    conn = SimpleNamespace(
+        dialect=SimpleNamespace(name='postgresql'),
+        scalar=AsyncMock(side_effect=[True, True]),
+        rollback=AsyncMock(), invalidate=AsyncMock(), close=AsyncMock(),
+    )
+    engine = SimpleNamespace(connect=AsyncMock(return_value=conn))
+    return engine, conn
 
 @pytest.mark.anyio
-async def test_execute_import_logic_pg_lock():
-    mock_db = AsyncMock()
-    mock_conn = AsyncMock()
-    mock_conn.dialect.name = "postgresql"
-    
-    # Setup the mock engine to return our mock_conn
-    mock_engine = MagicMock()
-    mock_context = AsyncMock()
-    mock_context.__aenter__.return_value = mock_conn
-    mock_engine.connect.return_value = mock_context
-    
-    # We will test two scenarios:
-    # 1. Lock acquired successfully, _do_import works, lock released
-    # 2. Lock acquired, task cancelled, lock still released (shielded)
-    
-    with patch("app.routers.admin_import.engine", mock_engine), \
-         patch("app.routers.admin_import._do_import", new_callable=AsyncMock) as mock_do_import:
-         
-        mock_conn.scalar.return_value = True # Lock acquired
-        
-        # Test 1: Normal success
-        await execute_import_logic(mock_db, 2)
-        
-        mock_conn.scalar.assert_called_once()
-        mock_do_import.assert_called_once()
-        mock_conn.execute.assert_called_once() # Unlock called
-        mock_conn.commit.assert_called_once()
-        
-        # Test 2: Task cancelled during _do_import
-        mock_conn.reset_mock()
-        mock_do_import.reset_mock()
-        mock_conn.scalar.return_value = True # Lock acquired
-        
-        mock_do_import.side_effect = asyncio.CancelledError("Cancelled")
-        
-        with pytest.raises(asyncio.CancelledError):
-            await execute_import_logic(mock_db, 2)
-            
-        mock_conn.scalar.assert_called_once()
-        mock_do_import.assert_called_once()
-        # Ensure unlock still called
-        mock_conn.execute.assert_called_once()
-        mock_conn.commit.assert_called_once()
-        
-        # Test 3: Lock unavailable
-        mock_conn.reset_mock()
-        mock_do_import.reset_mock()
-        mock_conn.scalar.return_value = False # Lock unavailable
-        
-        with pytest.raises(HTTPException) as exc:
-            await execute_import_logic(mock_db, 2)
-        assert exc.value.status_code == 409
-        
-        mock_conn.scalar.assert_called_once()
-        mock_do_import.assert_not_called()
-        # Unlock NOT called
-        mock_conn.execute.assert_not_called()
+async def test_success():
+    engine, conn = resources()
+    async with import_mutex(engine, 'test'):
+        pass
+    assert conn.scalar.await_count == 2
+    conn.close.assert_awaited_once()
+    conn.invalidate.assert_not_awaited()
+
+@pytest.mark.anyio
+async def test_busy():
+    engine, conn = resources(); conn.scalar.side_effect = [False]
+    with pytest.raises(HTTPException) as exc:
+        async with import_mutex(engine, 'test'):
+            pytest.fail('Must not run')
+    assert exc.value.status_code == 409
+    assert conn.scalar.await_count == 1
+    conn.close.assert_awaited_once()
+
+@pytest.mark.anyio
+async def test_unknown_acquire_invalidates():
+    engine, conn = resources(); conn.scalar.side_effect = asyncio.CancelledError()
+    with pytest.raises(asyncio.CancelledError):
+        async with import_mutex(engine, 'test'):
+            pass
+    conn.invalidate.assert_awaited_once()
+    conn.close.assert_awaited_once()
+
+@pytest.mark.anyio
+async def test_body_cancellation_releases_lock():
+    engine, conn = resources()
+    with pytest.raises(asyncio.CancelledError):
+        async with import_mutex(engine, 'test'):
+            raise asyncio.CancelledError()
+    assert conn.scalar.await_count == 2
+    conn.close.assert_awaited_once()
+
+@pytest.mark.anyio
+async def test_real_task_cancel_during_unlock_waits_for_cleanup():
+    engine, conn = resources()
+    started, finish = asyncio.Event(), asyncio.Event()
+    events = []
+    async def scalar(sql, params):
+        if 'try_advisory' in str(sql):
+            return True
+        events.append('unlock-start'); started.set()
+        await finish.wait(); events.append('unlock-end'); return True
+    async def close():
+        events.append('close')
+    conn.scalar.side_effect = scalar; conn.close.side_effect = close
+    async def run():
+        async with import_mutex(engine, 'test'):
+            return 'success'
+    task = asyncio.create_task(run())
+    await started.wait(); task.cancel(); await asyncio.sleep(0)
+    task.cancel(); await asyncio.sleep(0)
+    assert not task.done()
+    assert 'close' not in events
+    finish.set()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert events == ['unlock-start', 'unlock-end', 'close']
+
+@pytest.mark.anyio
+async def test_unlock_failure_invalidates_and_closes():
+    engine, conn = resources()
+    conn.scalar.side_effect = [True, RuntimeError('unlock failed')]
+    with pytest.raises(RuntimeError, match='unlock failed'):
+        async with import_mutex(engine, 'test'):
+            pass
+    conn.invalidate.assert_awaited_once(); conn.close.assert_awaited_once()
+
+@pytest.mark.anyio
+async def test_cleanup_does_not_mask_body_error():
+    engine, conn = resources()
+    conn.scalar.side_effect = [True, RuntimeError('unlock failed')]
+    with pytest.raises(ValueError, match='primary'):
+        async with import_mutex(engine, 'test'):
+            raise ValueError('primary')
+    conn.invalidate.assert_awaited_once(); conn.close.assert_awaited_once()

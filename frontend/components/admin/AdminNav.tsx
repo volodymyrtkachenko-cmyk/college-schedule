@@ -2,29 +2,33 @@
 
 import Link from "next/link";
 import { useAuth, canAccessAdmin } from "../../lib/auth";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, ReferenceResource } from "../../lib/api";
 
 export const referenceLabels: Record<ReferenceResource, string> = {
   faculties: "Спеціальності", groups: "Групи", teachers: "Викладачі", subjects: "Предмети",
 };
 
-export function AdminNav({ active }: { active: string }) { 
+export function AdminNav({ active }: { active: string }) {
   const { user, logout } = useAuth();
     const [online, setOnline] = useState<number | null>(null);
   const [metrics, setMetrics] = useState<any>(null);
   const [isOpen, setIsOpen] = useState(false); // Mobile menu drawer toggle
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState("");
+  const logoutInFlight = useRef(false);
 
   const handleLogout = async () => {
-    if (isLoggingOut) return;
+    if (logoutInFlight.current) return;
+    logoutInFlight.current = true;
     setIsLoggingOut(true);
     setLogoutError("");
     try {
       await logout();
     } catch (e: any) {
       setLogoutError(e.message || "Помилка виходу");
+    } finally {
+      logoutInFlight.current = false;
       setIsLoggingOut(false);
     }
   };
@@ -152,15 +156,15 @@ export function AdminNav({ active }: { active: string }) {
              </div>
            )}
            <div className="flex flex-col gap-1 w-full">
-           <button 
-             disabled={isLoggingOut} 
-             onClick={() => { setIsOpen(false); handleLogout(); }} 
+           <button
+             disabled={isLoggingOut}
+             onClick={() => { void handleLogout(); }}
              className={`w-full text-left flex items-center justify-center gap-2 px-3 py-2.5 text-[14px] font-bold rounded-[8px] ${isLoggingOut ? 'opacity-50 cursor-not-allowed text-rose-300 bg-rose-300/10' : 'text-rose-500/80 bg-rose-500/10 hover:text-rose-400 hover:bg-rose-500/20 active:scale-95'} transition-all`}
            >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
               {isLoggingOut ? "Вихід..." : "Вийти з облікового запису"}
            </button>
-           {logoutError && <div className="text-red-500 text-xs text-center font-medium mt-1">{logoutError}</div>}
+           {logoutError && <div role="alert" className="text-red-500 text-xs text-center font-medium mt-1">{logoutError}</div>}
            </div>
        </div>
     </nav>
@@ -188,8 +192,8 @@ export function AdminNav({ active }: { active: string }) {
 
       {/* Mobile Drawer Overlay */}
       {isOpen && (
-        <div 
-          className="fixed inset-0 z-[60] bg-[#0b1120]/80 backdrop-blur-sm sm:hidden transition-opacity duration-300" 
+        <div
+          className="fixed inset-0 z-[60] bg-[#0b1120]/80 backdrop-blur-sm sm:hidden transition-opacity duration-300"
           onClick={() => setIsOpen(false)}
         />
       )}

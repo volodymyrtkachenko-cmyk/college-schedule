@@ -145,22 +145,47 @@ async def me(user: User = Depends(get_current_user), db: AsyncSession = Depends(
 async def logout(
     response: Response,
     refresh_cookie: str | None = Cookie(default=None, alias=settings.auth_cookie_name),
-    db: AsyncSession = Depends(get_db)):
-    
-    token = refresh_cookie
-    if token:
+    db: AsyncSession = Depends(get_db),
+):
+    claims = None
+    if refresh_cookie:
         try:
-            claims = decode_token(token, "refresh")
-            jti = claims.get("jti")
-            if jti:
-                db.add(TokenBlocklist(jti=jti))
-                await db.commit()
+            claims = decode_token(refresh_cookie, "refresh")
+        except HTTPException as exc:
+            if exc.status_code != 401:
+                raise
+            # An invalid/expired cookie can be removed without a DB write.
+
+    if claims is not None:
+        jti = claims.get("jti")
+        if not isinstance(jti, str) or not jti:
+            raise HTTPException(401, "Некоректний refresh-токен")
+        try:
+            dialect = db.get_bind().dialect.name
+            if dialect == "postgresql":
+                from sqlalchemy.dialects.postgresql import insert
+            elif dialect == "sqlite":
+                from sqlalchemy.dialects.sqlite import insert
+            else:
+                raise RuntimeError("Unsupported auth database")
+            statement = insert(TokenBlocklist).values(jti=jti)
+            await db.execute(statement.on_conflict_do_nothing(index_elements=["jti"]))
+            await db.commit()
         except Exception:
-            pass
+            await db.rollback()
+            import logging
+            from uuid import uuid4
+            error_id = str(uuid4())
+            logging.getLogger(__name__).exception("Logout persistence failed [%s]", error_id)
+            raise HTTPException(503, detail={
+                "msg": "Не вдалося завершити серверний сеанс. Спробуйте ще раз.",
+                "error_id": error_id,
+            })
+
     response.delete_cookie(
         key=settings.auth_cookie_name,
         secure=settings.auth_cookie_secure,
         samesite="none" if settings.auth_cookie_secure else "lax",
-        path="/"
+        path="/",
     )
     return {"status": "ok"}

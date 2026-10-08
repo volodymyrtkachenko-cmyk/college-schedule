@@ -142,6 +142,43 @@ let authGeneration = 0;
 let refreshPromise: Promise<AuthSession> | null = null;
 let bootstrapPromise: Promise<AuthSession> | null = null;
 let sessionPromise: Promise<AuthSession> | null = null;
+// Add after the auth promise declarations in frontend/lib/api.ts.
+let authHttpTail: Promise<void> = Promise.resolve();
+let logoutPending = false;
+
+export class AuthSupersededError extends Error {
+    constructor() {
+        super("Auth operation superseded");
+        this.name = "AuthSupersededError";
+    }
+}
+
+function advanceAuthGeneration(): number {
+    authGeneration++;
+    refreshPromise = null;
+    bootstrapPromise = null;
+    sessionPromise = null;
+    return authGeneration;
+}
+
+function assertAuthGeneration(generation: number): void {
+    if (generation !== authGeneration) throw new AuthSupersededError();
+}
+
+// Serialize cookie-changing operations in this tab. Web Locks also coordinate
+// supported same-origin tabs. Browser tests are still required.
+function authHttp<T>(operation: () => Promise<T>): Promise<T> {
+    const execute = async () => {
+        if (typeof navigator !== "undefined" && navigator.locks) {
+            return navigator.locks.request("college-schedule-auth", operation);
+        }
+        return operation();
+    };
+    const result = authHttpTail.then(execute, execute);
+    authHttpTail = result.then(() => undefined, () => undefined);
+    return result;
+}
+
 const directoryCache = new Map<string, { expiresAt: number; promise: Promise<unknown> }>();
 const DIRECTORY_CACHE_TTL = 60_000;
 
@@ -237,38 +274,35 @@ async function authenticatedRequest<T>(path: string, init: RequestInit = {}): Pr
 }
 
 async function refresh(): Promise<AuthSession> {
+    if (logoutPending) throw new AuthSupersededError();
     if (!refreshPromise) {
         const generation = authGeneration;
-        const promise = rawRequest<AuthSession>("/api/auth/refresh", {
-            method: "POST"
-        })
-            .then((session) => {
-                if (authGeneration !== generation) throw new Error("Auth generation changed during refresh");
-                accessToken = session.access_token;
-                currentSession = session;
-                return session;
-            })
-            .finally(() => {
-                if (refreshPromise === promise) {
-                    refreshPromise = null;
-                }
-            });
+        const promise = authHttp(async () => {
+            assertAuthGeneration(generation);
+            return rawRequest<AuthSession>("/api/auth/refresh", { method: "POST" });
+        }).then((session) => {
+            assertAuthGeneration(generation);
+            accessToken = session.access_token;
+            currentSession = session;
+            return session;
+        }).finally(() => {
+            if (refreshPromise === promise) refreshPromise = null;
+        });
         refreshPromise = promise;
     }
     return refreshPromise;
 }
 
 async function bootstrap(): Promise<AuthSession> {
+    if (logoutPending) throw new AuthSupersededError();
     if (currentSession) return currentSession;
     if (!bootstrapPromise) {
         const generation = authGeneration;
         const promise = refresh().then(session => {
-            if (authGeneration !== generation) throw new Error("Auth generation changed during bootstrap");
+            assertAuthGeneration(generation);
             return session;
         }).finally(() => {
-            if (bootstrapPromise === promise) {
-                bootstrapPromise = null;
-            }
+            if (bootstrapPromise === promise) bootstrapPromise = null;
         });
         bootstrapPromise = promise;
     }
@@ -276,23 +310,20 @@ async function bootstrap(): Promise<AuthSession> {
 }
 
 async function getSession(): Promise<AuthSession> {
+    if (logoutPending) throw new AuthSupersededError();
     if (!sessionPromise) {
         const generation = authGeneration;
-        const promise = bootstrap()
-            .then(async (session) => {
-                if (authGeneration !== generation) throw new Error("Auth generation changed before /me");
-                const user = await rawRequest<AuthUser>("/api/auth/me", {
-                    headers: {Authorization: "Bearer " + session.access_token},
-                });
-                if (authGeneration !== generation) throw new Error("Auth generation changed after /me");
-                currentSession = {...session, user};
-                return currentSession;
-            })
-            .finally(() => {
-                if (sessionPromise === promise) {
-                    sessionPromise = null;
-                }
+        const promise = bootstrap().then(async session => {
+            assertAuthGeneration(generation);
+            const user = await rawRequest<AuthUser>("/api/auth/me", {
+                headers: { Authorization: "Bearer " + session.access_token },
             });
+            assertAuthGeneration(generation);
+            currentSession = { ...session, user };
+            return currentSession;
+        }).finally(() => {
+            if (sessionPromise === promise) sessionPromise = null;
+        });
         sessionPromise = promise;
     }
     return sessionPromise;
@@ -305,6 +336,7 @@ async function request<T>(
     requiresAuth = false,
     authToken?: string,
 ): Promise<T> {
+    const requestGeneration = authGeneration;
     if (requiresAuth && !authToken && !accessToken) {
         authToken = (await bootstrap()).access_token;
     }
@@ -314,12 +346,15 @@ async function request<T>(
     try {
         return await rawRequest<T>(path, {...init, headers});
     } catch (error) {
+        if (requiresAuth && requestGeneration !== authGeneration) throw new AuthSupersededError();
         if (requiresAuth && retry && error instanceof ApiError && error.status === 401) {
             try {
                 const session = await refresh();
                 return await request<T>(path, init, false, true, session.access_token);
             } catch (refreshErr) {
-                api.auth.clear();
+                if (requestGeneration === authGeneration && !(refreshErr instanceof AuthSupersededError)) {
+                    api.auth.clear();
+                }
                 throw refreshErr;
             }
         }
@@ -650,41 +685,43 @@ export const api = {
   curriculums: apiCurriculums,
   calendarPeriods: apiSchedulePeriods,
     auth: {
-        login: async (username: string, password: string) => {
-            authGeneration++;
-            const session = await rawRequest<AuthSession>("/api/auth/login", {
-                method: "POST",
-                body: JSON.stringify({username, password})
+        login: async (username: string, password: string): Promise<AuthSession> => {
+            if (logoutPending) throw new Error("Дочекайтеся завершення виходу.");
+            const generation = advanceAuthGeneration();
+            const session = await authHttp(async () => {
+                assertAuthGeneration(generation);
+                return rawRequest<AuthSession>("/api/auth/login", {
+                    method: "POST",
+                    body: JSON.stringify({ username, password }),
+                });
             });
+            assertAuthGeneration(generation);
             accessToken = session.access_token;
-            
-            
             currentSession = session;
             return session;
         },
         refresh, bootstrap, ensureAuthenticated: getSession,
+        generation: () => authGeneration,
+        isCurrentSession: (session: AuthSession) => currentSession === session,
         clear: () => {
-            authGeneration++;
+            advanceAuthGeneration();
             accessToken = null;
             currentSession = null;
-            refreshPromise = null;
-            bootstrapPromise = null;
-            sessionPromise = null;
         },
-        logout: async () => {
+        logout: async (): Promise<boolean> => {
+            if (logoutPending) throw new Error("Вихід уже виконується.");
+            logoutPending = true;
+            const generation = advanceAuthGeneration();
             try {
-                const res = await fetch(`${API_URL}/api/auth/logout`, {
-                    method: "POST",
-                    credentials: "include"
+                // Wait for earlier cookie-changing requests before revoking the cookie.
+                await authHttp(async () => {
+                    assertAuthGeneration(generation);
+                    await rawRequest<{status: string}>("/api/auth/logout", { method: "POST" });
                 });
-                if (res.ok) {
-                    api.auth.clear();
-                    return true;
-                }
-                return false;
-            } catch (e) {
-                console.error("Failed to call server logout", e);
-                return false;
+                if (generation === authGeneration) api.auth.clear();
+                return true;
+            } finally {
+                logoutPending = false;
             }
         },
     },

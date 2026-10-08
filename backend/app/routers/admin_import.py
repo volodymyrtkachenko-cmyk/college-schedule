@@ -12,6 +12,8 @@ from sqlalchemy import text, delete, select, func
 from sqlalchemy.orm import joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db, engine
+from app.services.import_lock import import_mutex
+from app.routers.auth import limiter
 from app.core.security import require_roles
 from app.core.time import now_local
 from app.services.importer.fetcher import ScheduleFetcher
@@ -281,40 +283,27 @@ async def trigger_import(
     db: AsyncSession = Depends(get_db),
     user=Depends(require_roles("admin"))
 ):
+    logger.info("Manual import accepted: actor=%s weeks=%s", user.id, weeks)
     return await execute_import_logic(db, weeks)
 
 async def execute_import_logic(db: AsyncSession, weeks: int = 2):
-    if not (1 <= weeks <= 4):
-        raise HTTPException(status_code=422, detail="Weeks must be between 1 and 4")
-        
-    lock_key = 424242
+    if not 1 <= weeks <= 4:
+        raise HTTPException(422, "Weeks must be between 1 and 4")
     import uuid
-    error_id = str(uuid.uuid4())[:8]
-    
-    async with engine.connect() as lock_conn:
-        lock_acquired = False
-        if lock_conn.dialect.name == "postgresql":
-            try:
-                lock_acquired = await lock_conn.scalar(text("SELECT pg_try_advisory_lock(:key)").bindparams(key=lock_key))
-            except Exception as e:
-                logger.error(f"Failed to acquire lock [{error_id}]: {e}")
-                raise HTTPException(status_code=500, detail={"msg": "Помилка блокування.", "error_id": error_id})
-                
-            if not lock_acquired:
-                raise HTTPException(status_code=409, detail="Імпорт вже виконується іншим процесом")
-                
-        try:
+    error_id = str(uuid.uuid4())
+    try:
+        async with import_mutex(engine, error_id):
             return await _do_import(db, weeks, error_id)
-        finally:
-            if lock_acquired and lock_conn.dialect.name == "postgresql":
-                try:
-                    import asyncio
-                    # Shield unlock from cancellation to ensure it runs even if task is cancelled
-                    await asyncio.shield(lock_conn.execute(text("SELECT pg_advisory_unlock(:key)").bindparams(key=lock_key)))
-                    await asyncio.shield(lock_conn.commit())
-                except BaseException as e:
-                    logger.error(f"Failed to unlock postgres lock [{error_id}]: {e}", exc_info=True)
-                    await lock_conn.invalidate()
+    except HTTPException:
+        raise
+    except asyncio.CancelledError:
+        raise
+    except Exception:
+        logger.exception("Import infrastructure failed [%s]", error_id)
+        raise HTTPException(503, detail={
+            "msg": "Імпорт тимчасово недоступний. Зверніться до підтримки.",
+            "error_id": error_id,
+        })
 
 async def _do_import(db: AsyncSession, weeks: int, error_id: str):
     
@@ -761,6 +750,8 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str):
                 ),
             }
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Import error [{error_id}]: {e}", exc_info=True)
         set_active_jobs(0)
@@ -769,6 +760,7 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str):
 
 
 @router.post("/import/cron")
+@limiter.limit("3/hour")
 async def import_data_cron(
     request: Request,
     db: AsyncSession = Depends(get_db),
@@ -776,11 +768,13 @@ async def import_data_cron(
 ):
     import_secret = getattr(settings, "IMPORT_CRON_SECRET", None)
     if not import_secret or not cron_key:
+        logger.warning("Cron import denied: missing configuration or key")
         raise HTTPException(status_code=401, detail="Unauthorized cron")
     
     import hmac
-    import secrets
     if not hmac.compare_digest(cron_key.encode(), import_secret.encode()):
+        logger.warning("Cron import denied: invalid key")
         raise HTTPException(status_code=401, detail="Unauthorized cron")
         
+    logger.info("Cron import accepted")
     return await execute_import_logic(db, 2)
