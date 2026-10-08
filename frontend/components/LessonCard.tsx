@@ -53,8 +53,8 @@ function renderNote(note: string) {
 }
 
 export function LessonCard({
-  lesson, targetDate, mode, scheduleMode, canEdit, onEdit, onDelete, hasNote,
-  noteExpandedId, setNoteExpandedId, movingLesson, onMoveSelect, onNoteSave, onNoteDelete,
+  lesson, targetDate, mode, scheduleMode, canEdit, onEdit, onDelete, 
+   movingLesson, onMoveSelect, 
 }: {
   lesson: Lesson;
   targetDate: string;
@@ -63,52 +63,15 @@ export function LessonCard({
   canEdit: boolean;
   onEdit?: (lesson: Lesson) => void;
   onDelete?: (id: number) => void;
-  hasNote?: boolean;
-  noteExpandedId?: number | null;
-  setNoteExpandedId?: (id: number | null) => void;
-  movingLesson?: Lesson | null;
+        movingLesson?: Lesson | null;
   onMoveSelect?: (lesson: Lesson | null) => void;
-  onNoteSave?: (note: string) => Promise<void>;
-  onNoteDelete?: () => Promise<void>;
+  
+  
 }) {
   const isSelectedForMove = movingLesson?.id === lesson.id;
-  const noteExpanded = false;
   
-  const noteForDate = "";
-  const [editingNote, setEditingNote] = useState(false);
-  const [note, setNote] = useState(noteForDate);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-
-  const submitNote = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!onNoteSave) return;
-    setBusy(true);
-    setError("");
-    try {
-      await onNoteSave(note.trim());
-      setEditingNote(false);
-    } catch (e: any) {
-      setError(e.message || "Сталася помилка при збереженні примітки.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const deleteNote = async () => {
-    if (!onNoteDelete || !lesson.note_id) return;
-    setBusy(true);
-    try {
-      await onNoteDelete();
-      setEditingNote(false);
-      setNote("");
-    } catch (e: any) {
-      setError(e.message || "Сталася помилка.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
+  
+  
   const [startT, endT] = lesson.time.split("-");
   let primaryName = lesson.teacher_name ? formatTeacherName(lesson.teacher_name) : null;
   if (scheduleMode === "teacher" && lesson.group_name) {
@@ -131,18 +94,13 @@ export function LessonCard({
         event.dataTransfer.effectAllowed = "move";
         onMoveSelect?.(lesson);
       }}
-      onClick={(e) => {
-        const target = e.target as HTMLElement;
-        if (target.closest('button') || target.tagName === 'TEXTAREA' || target.tagName === 'A') return;
-        if (hasNote) setNoteExpandedId?.(noteExpanded ? null : lesson.id);
-      }}
-      className={`relative min-w-0 flex flex-col items-stretch overflow-hidden rounded-2xl border bg-sys-card shadow-sm transition-colors duration-200 min-h-[110px] ${
+            className={`relative min-w-0 flex flex-col items-stretch overflow-hidden rounded-2xl border bg-sys-card shadow-sm transition-colors duration-200 min-h-[110px] ${
         isDay ? "p-3 xl:p-4" : "p-3"
       } ${
         isSelectedForMove ? "border-emerald-400 ring-1 ring-emerald-400/70" : "border-sys-border"
       } ${
         lesson.is_relevant_this_week ? "" : "opacity-40 grayscale"
-      } ${lesson.is_replacement ? "ring-1 ring-sys-warning/60 !border-sys-warning/40 bg-sys-warning/[0.02]" : canEdit ? "cursor-grab active:cursor-grabbing" : ""} ${hasNote ? "cursor-pointer hover:shadow-md" : ""}`}
+      } ${lesson.is_replacement ? "ring-1 ring-sys-warning/60 !border-sys-warning/40 bg-sys-warning/[0.02]" : canEdit ? "cursor-grab active:cursor-grabbing" : ""} `}
     >
       <div className={`flex items-center w-full ${isDay ? "gap-3 xl:gap-4" : "gap-2"}`}>
         {isDay && (
@@ -174,16 +132,13 @@ export function LessonCard({
                  {canEdit && onMoveSelect && !movingLesson && (
                     <button
                       type="button"
-                      onClick={(e) => { e.stopPropagation(); onMoveSelect(lesson); }}
-                      aria-label="Перемістити пару"
+                                            aria-label="Перемістити пару"
                       className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors text-[16px] ${isSelectedForMove ? "bg-sys-accent text-white" : "text-sys-text-secondary hover:bg-sys-accent/10 hover:text-sys-accent"}`}
                     >
                       <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="5 9 2 12 5 15"/><polyline points="9 5 12 2 15 5"/><polyline points="19 9 22 12 19 15"/><polyline points="9 19 12 22 15 19"/><line x1="2" x2="22" y1="12" y2="12"/><line x1="12" x2="12" y1="2" y2="22"/></svg>
                     </button>
                  )}
-                 {(canEdit || hasNote) && (
-                    
-                 )}
+                 
             </div>
           </div>
           

@@ -164,8 +164,6 @@ export function AdminScheduleEditor() {
         throw e; 
     }
   };
-  };
-  };
 
   return (
     <div className="w-full">
@@ -263,7 +261,7 @@ export function AdminScheduleEditor() {
           </div>
           </div>
           <ScheduleWeekGrid week={week} availabilityWeek={availabilityWeek} availabilityError={availabilityError} scheduleMode={mode} canEdit={true} movingLesson={movingLesson} onMoveSelect={setMovingLesson} onMove={(lesson, date, lessonNumber) => void moveLesson(lesson, date, lessonNumber)} onEdit={(lesson) => { const date = week.find((day) => day.lessons.some((item) => item.id === lesson.id))?.date ?? (today?.date || week?.[0]?.date); setEditor({ lesson, date }); }} onCreate={(date) => setEditor({ date })}
-            onNoteSave={saveNote} onNoteDelete={deleteNote} />
+             />
         </div>
       ) : null}
 

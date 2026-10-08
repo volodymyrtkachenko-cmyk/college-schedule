@@ -9,7 +9,7 @@ function shortDate(value: string) {
   return new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "short" }).format(new Date(`${value}T12:00:00`));
 }
 
-export function ScheduleDay({ schedule, isToday = false, mode = "day", scheduleMode = "student", canEdit = false, onEdit, onCreate, onNoteSave, onNoteDelete, movingLesson, onMoveSelect, onMove, canMoveTo }: {
+export function ScheduleDay({ schedule, isToday = false, mode = "day", scheduleMode = "student", canEdit = false, onEdit, onCreate,  movingLesson, onMoveSelect, onMove, canMoveTo }: {
   schedule: ScheduleResponse; isToday?: boolean; mode?: "day"|"week"; scheduleMode?: "student"|"teacher"; canEdit?: boolean;
   onEdit?: (lesson: Lesson) => void; onCreate?: (date: string) => void;
   onNoteSave?: (lesson: Lesson, note: string, date: string) => Promise<void>;
@@ -32,9 +32,7 @@ export function ScheduleDay({ schedule, isToday = false, mode = "day", scheduleM
       scheduleMode={scheduleMode}
       canEdit={canEdit}
       onEdit={onEdit}
-      onNoteSave={onNoteSave ? (note) => onNoteSave(lesson, note, schedule.date) : undefined}
-      onNoteDelete={onNoteDelete ? () => onNoteDelete(lesson, schedule.date) : undefined}
-      onMoveSelect={onMoveSelect}
+                  onMoveSelect={onMoveSelect}
       movingLesson={movingLesson}
     />
   );

@@ -6,7 +6,7 @@ import { LessonCard } from "./LessonCard";
 import { motion, AnimatePresence } from "framer-motion";
 import { formatLessonCount } from "../lib/format";
 
-export function ScheduleWeekGrid({ week, availabilityWeek, availabilityError, scheduleMode = "student", canEdit = false, onEdit, onCreate, onNoteSave, onNoteDelete, movingLesson, onMoveSelect, onMove }: {
+export function ScheduleWeekGrid({ week, availabilityWeek, availabilityError, scheduleMode = "student", canEdit = false, onEdit, onCreate, movingLesson, onMoveSelect, onMove }: {
   week: ScheduleResponse[]; scheduleMode?: "student"|"teacher"; canEdit?: boolean; onEdit?: (lesson: Lesson) => void; onCreate?: (date: string) => void;
   availabilityWeek?: ScheduleResponse[] | null;
   availabilityError?: string | null;
@@ -74,8 +74,6 @@ export function ScheduleWeekGrid({ week, availabilityWeek, availabilityError, sc
     canEdit,
     onEdit,
     onCreate,
-    onNoteSave,
-    onNoteDelete,
     movingLesson,
     onMoveSelect,
     onMove,
@@ -191,9 +189,7 @@ export function ScheduleWeekGrid({ week, availabilityWeek, availabilityError, sc
                             scheduleMode={scheduleMode}
                             canEdit={canEdit}
                             onEdit={onEdit}
-                            onNoteSave={onNoteSave ? (note) => onNoteSave(lesson, note, day.date) : undefined}
-                            onNoteDelete={onNoteDelete ? () => onNoteDelete(lesson, day.date) : undefined}
-                            onMoveSelect={onMoveSelect}
+                                                                                    onMoveSelect={onMoveSelect}
                           />
                         ))}
                       </div>
