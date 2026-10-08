@@ -327,9 +327,8 @@ async def publish_draft(
     group_ids = {s.curriculum.group_id for s in slots}
 
     from app.core.time import today_local
-    from app.models.entities import SchedulePublication, SchedulePublicationSnapshot
-import json
-from app.models.entities import ScheduleVersion
+    from app.models.entities import SchedulePublication, SchedulePublicationSnapshot, ScheduleVersion
+    import json
     anchored_import = draft.draft_type == "import" and "base_version_id" in (draft.data or {})
     if anchored_import:
         anchor = draft.data["base_version_id"]
@@ -372,6 +371,33 @@ from app.models.entities import ScheduleVersion
             .values(status="archived")
         )
 
+
+    # Fetch existing slots for snapshot before we delete them
+    before_by_group = {gid: [] for gid in group_ids}
+    if group_ids:
+        from sqlalchemy.orm import joinedload
+        fetch_q = select(Schedule).options(
+            joinedload(Schedule.subject),
+            joinedload(Schedule.teacher),
+            joinedload(Schedule.second_teacher)
+        ).where(Schedule.group_id.in_(group_ids))
+        if target_version_id is not None:
+            fetch_q = fetch_q.where(Schedule.version_id == target_version_id)
+        else:
+            fetch_q = fetch_q.where(Schedule.version_id.is_(None))
+        existing_schedules = (await db.scalars(fetch_q)).all()
+        
+        for s in existing_schedules:
+            before_by_group[s.group_id].append({
+                "id": s.id,
+                "day_of_week": s.day_of_week,
+                "lesson_number": s.lesson_number,
+                "week_type": s.week_type,
+                "subject_name": s.subject.name if s.subject else None,
+                "teacher_name": s.teacher.name if s.teacher else None,
+                "room": s.room_override
+            })
+
     if group_ids:
         schedule_ids_query = select(Schedule.id).where(Schedule.group_id.in_(group_ids))
         if target_version_id is not None:
@@ -409,8 +435,39 @@ from app.models.entities import ScheduleVersion
             )
         )
     
-    if new_schedules:
-        db.add_all(new_schedules)
+    
+    publication = SchedulePublication(
+        version_id=target_version_id,
+        actor_id=admin.id,
+        scope_manifest=json.dumps({"group_ids": list(group_ids)})
+    )
+    db.add(publication)
+    await db.flush()
+    db.add_all(new_schedules)
+    await db.flush()
+    
+    # Create snapshots
+    after_by_group = {gid: [] for gid in group_ids}
+    for s in new_schedules:
+        after_by_group[s.group_id].append({
+            "id": s.id,
+            "day_of_week": s.day_of_week,
+            "lesson_number": s.lesson_number,
+            "week_type": s.week_type,
+            "subject_id": s.subject_id, # Can't use subject.name easily here unless we query it or load it from curriculum
+            "teacher_id": s.teacher_id,
+            "room": s.room_override
+        })
+        
+    for gid in group_ids:
+        snap = SchedulePublicationSnapshot(
+            publication_id=publication.id,
+            group_id=gid,
+            before_data=json.dumps({"slots": before_by_group[gid]}),
+            after_data=json.dumps({"slots": after_by_group.get(gid, [])})
+        )
+        db.add(snap)
+
     
     # Reconcile notes to archive those where the subject changed or lesson was deleted
     if group_ids:

@@ -1,7 +1,7 @@
 from app.core.time import today_local, now_local
 import logging
 from datetime import date, time, timedelta
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status, Request
 from pydantic import BaseModel
 from sqlalchemy import select, delete
 from sqlalchemy.orm import selectinload
@@ -186,7 +186,38 @@ async def schedule(group_id: int | None = None, teacher_id: int | None = None,
     )
 
 @router.get("/schedule/today", response_model=ScheduleResponse)
-async def today(response: Response, group_id: int | None = None, teacher_id: int | None = None, db: AsyncSession = Depends(get_db)):
+async def today(
+    request: Request,
+    response: Response,
+    group_id: int | None = None,
+    teacher_id: int | None = None,
+    db: AsyncSession = Depends(get_db)
+):
+    if group_id:
+        scope = await db.get(Group, group_id)
+    elif teacher_id:
+        scope = await db.get(Teacher, teacher_id)
+    else:
+        scope = None
+
+    if scope and getattr(scope, "updated_at", None):
+        import datetime
+        last_modified = scope.updated_at.replace(microsecond=0)
+        if last_modified.tzinfo is None:
+            last_modified = last_modified.replace(tzinfo=datetime.timezone.utc)
+        if_modified_since = request.headers.get("if-modified-since")
+        if if_modified_since:
+            try:
+                from email.utils import parsedate_to_datetime
+                client_time = parsedate_to_datetime(if_modified_since)
+                if last_modified <= client_time:
+                    return Response(status_code=304)
+            except Exception:
+                pass
+        
+        from email.utils import format_datetime
+        response.headers["Last-Modified"] = format_datetime(last_modified, usegmt=True)
+
     response.headers["Cache-Control"] = "no-cache"
     response.headers["Vary"] = "Date, Origin, Accept-Encoding"
     target = today_local()
@@ -195,8 +226,40 @@ async def today(response: Response, group_id: int | None = None, teacher_id: int
     return await schedule(group_id=group_id, teacher_id=teacher_id, target_date=target, day_of_week=target.isoweekday(), db=db)
 
 @router.get("/schedule/week")
-async def week(response: Response, group_id: int | None = None, teacher_id: int | None = None, target_date: date | None = None,
-               db: AsyncSession = Depends(get_db)):
+async def week(
+    request: Request,
+    response: Response,
+    group_id: int | None = None,
+    teacher_id: int | None = None,
+    target_date: date | None = None,
+    db: AsyncSession = Depends(get_db)
+):
+    # T11: PWA Offline caching via Last-Modified
+    if group_id:
+        scope = await db.get(Group, group_id)
+    elif teacher_id:
+        scope = await db.get(Teacher, teacher_id)
+    else:
+        scope = None
+
+    if scope and getattr(scope, "updated_at", None):
+        import datetime
+        last_modified = scope.updated_at.replace(microsecond=0)
+        if last_modified.tzinfo is None:
+            last_modified = last_modified.replace(tzinfo=datetime.timezone.utc)
+        if_modified_since = request.headers.get("if-modified-since")
+        if if_modified_since:
+            try:
+                from email.utils import parsedate_to_datetime
+                client_time = parsedate_to_datetime(if_modified_since)
+                if last_modified <= client_time:
+                    return Response(status_code=304)
+            except Exception:
+                pass
+        
+        from email.utils import format_datetime
+        response.headers["Last-Modified"] = format_datetime(last_modified, usegmt=True)
+
     response.headers["Cache-Control"] = "no-cache"
     response.headers["Vary"] = "Date, Origin, Accept-Encoding"
     requested = target_date or today_local()

@@ -23,7 +23,7 @@ def verify(conn):
     old=[t for t in Base.metadata.sorted_tables if t.name not in NEW_TABLES]
     Base.metadata.create_all(conn,tables=old)
     before=set(inspect(conn).get_table_names())
-    conn.execute(text("INSERT INTO groups (id,name,is_active) VALUES (998,'migration-sentinel',true)"))
+    conn.execute(text("INSERT INTO groups (id,name,is_active,updated_at) VALUES (998,'migration-sentinel',true,CURRENT_TIMESTAMP)"))
     with Operations.context(MigrationContext.configure(conn)):
         migration().upgrade()
     assert set(inspect(conn).get_table_names())-before==NEW_TABLES
