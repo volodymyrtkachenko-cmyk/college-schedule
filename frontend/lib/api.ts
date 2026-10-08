@@ -112,8 +112,7 @@ export interface AuthUser {
 
 export interface AuthSession {
     access_token: string;
-    refresh_token: string;
-    token_type: "bearer";
+        token_type: "bearer";
     user: AuthUser;
 }
 
@@ -138,7 +137,6 @@ export interface LessonMutation {
 // turns API requests into relative frontend URLs.
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 let accessToken: string | null = null;
-let refreshToken: string | null = null;
 let currentSession: AuthSession | null = null;
 let refreshPromise: Promise<AuthSession> | null = null;
 let bootstrapPromise: Promise<AuthSession> | null = null;
@@ -152,20 +150,9 @@ export class ApiError extends Error {
     }
 }
 
-const refreshStorageKey = "college_schedule_refresh_token";
 
-function storedRefreshToken() {
-    if (typeof window === "undefined") return null;
-    return window.sessionStorage.getItem(refreshStorageKey);
-}
 
-function rememberRefreshToken(token: string) {
-    if (typeof window !== "undefined") window.sessionStorage.setItem(refreshStorageKey, token);
-}
 
-function forgetRefreshToken() {
-    if (typeof window !== "undefined") window.sessionStorage.removeItem(refreshStorageKey);
-}
 
 function localDate(date: Date) {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -250,19 +237,11 @@ async function authenticatedRequest<T>(path: string, init: RequestInit = {}): Pr
 
 async function refresh(): Promise<AuthSession> {
     if (!refreshPromise) {
-        const token = refreshToken ?? storedRefreshToken();
-        if (!token) {
-            return Promise.reject(new ApiError(401, "Немає токена для оновлення сесії."));
-        }
-        refreshToken = token;
         refreshPromise = rawRequest<AuthSession>("/api/auth/refresh", {
-            method: "POST",
-            body: JSON.stringify({refresh_token: token})
+            method: "POST"
         })
             .then((session) => {
                 accessToken = session.access_token;
-                refreshToken = session.refresh_token;
-                rememberRefreshToken(session.refresh_token);
                 currentSession = session;
                 return session;
             })
@@ -658,18 +637,18 @@ export const api = {
                 body: JSON.stringify({username, password})
             });
             accessToken = session.access_token;
-            refreshToken = session.refresh_token;
-            rememberRefreshToken(session.refresh_token);
+            
+            
             currentSession = session;
             return session;
         },
         refresh, bootstrap, ensureAuthenticated: getSession, clear: () => {
             accessToken = null;
-            refreshToken = null;
+            
             currentSession = null;
             bootstrapPromise = null;
             sessionPromise = null;
-            forgetRefreshToken();
+            
         },
     },
     groups: () => cachedDirectoryRequest<ReferenceRecord[]>("/api/groups"),

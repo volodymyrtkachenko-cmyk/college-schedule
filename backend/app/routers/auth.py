@@ -45,8 +45,7 @@ class UserResponse(BaseModel):
 
 class TokenResponse(BaseModel):
     access_token: str
-    refresh_token: str
-    token_type: str = "bearer"
+        token_type: str = "bearer"
     user: UserResponse
 
 
@@ -57,7 +56,7 @@ def set_refresh_cookie(response: Response, token: str) -> None:
         max_age=settings.refresh_token_expire_days * 86400,
         httponly=True,
         secure=settings.auth_cookie_secure,
-        samesite="lax",
+        samesite="none" if settings.auth_cookie_secure else "lax",
         path="/",
     )
 
@@ -74,7 +73,7 @@ async def login(request: Request, payload: LoginRequest, response: Response, db:
     set_refresh_cookie(response, refresh_token)
     return TokenResponse(
         access_token=create_access_token(user),
-        refresh_token=refresh_token,
+        
         user=UserResponse(
             id=user.id, username=user.username, email=user.email, name=user.name, role=user.role, is_active=user.is_active,
             allowed_groups=[g.id for g in user.allowed_groups] if user.allowed_groups else []
@@ -85,11 +84,10 @@ async def login(request: Request, payload: LoginRequest, response: Response, db:
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh(
     response: Response,
-    payload: RefreshRequest | None = None,
     refresh_cookie: str | None = Cookie(default=None, alias=settings.auth_cookie_name),
     db: AsyncSession = Depends(get_db),
 ):
-    token = (payload.refresh_token if payload else None) or refresh_cookie
+    token = refresh_cookie
     if not token:
         raise HTTPException(status_code=401, detail="Потрібна авторизація")
     claims = decode_token(token, "refresh")
@@ -123,7 +121,7 @@ async def refresh(
     set_refresh_cookie(response, new_refresh)
     await db.commit()
     
-    return TokenResponse(access_token=create_access_token(user), refresh_token=new_refresh, user=UserResponse(
+    return TokenResponse(access_token=create_access_token(user),  user=UserResponse(
             id=user.id, username=user.username, email=user.email, name=user.name, role=user.role, is_active=user.is_active,
             allowed_groups=[g.id for g in user.allowed_groups] if user.allowed_groups else []
         ))
@@ -146,11 +144,10 @@ async def me(user: User = Depends(get_current_user), db: AsyncSession = Depends(
 @router.post("/logout")
 async def logout(
     response: Response,
-    payload: RefreshRequest | None = None,
     refresh_cookie: str | None = Cookie(default=None, alias=settings.auth_cookie_name),
     db: AsyncSession = Depends(get_db)):
     
-    token = (payload.refresh_token if payload else None) or refresh_cookie
+    token = refresh_cookie
     if token:
         try:
             claims = decode_token(token, "refresh")
@@ -160,5 +157,10 @@ async def logout(
                 await db.commit()
         except Exception:
             pass
-    response.delete_cookie(key=settings.auth_cookie_name)
+    response.delete_cookie(
+        key=settings.auth_cookie_name,
+        secure=settings.auth_cookie_secure,
+        samesite="none" if settings.auth_cookie_secure else "lax",
+        path="/"
+    )
     return {"status": "ok"}
