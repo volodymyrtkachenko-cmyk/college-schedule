@@ -1,6 +1,5 @@
 from app.core.time import today_local, now_local
 from datetime import datetime
-from app.core.time import now_local, today_local
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,7 +7,9 @@ from typing import List, Dict, Any
 
 from app.database import get_db
 from app.models import BellSchedule
-from app.services.schedule import fetch_schedule, week_types_overlap
+from app.services.projection import build_projection
+from app.services.settings import settings_service
+from app.services.week import get_week_type
 from app.core.security import get_current_user
 
 router = APIRouter(prefix="/now", tags=["schedule"])
@@ -27,31 +28,22 @@ async def get_schedule_now(db: AsyncSession = Depends(get_db)):
             current_lesson = bell.lesson_number
             break
             
-    week_type, lessons = await fetch_schedule(db, target_date=today_date)
-    active_lessons = [L for L in lessons if week_types_overlap(L.week_type, week_type)]
+    semester_start = await settings_service.get_semester_start(db)
+    week_type = get_week_type(today_date, semester_start)
+    
+    lessons = await build_projection(db, target_date=today_date)
     
     if current_lesson:
-        active_lessons = [L for L in active_lessons if L.lesson_number == current_lesson]
+        active_lessons = [L for L in lessons if L.lesson_number == current_lesson]
+    else:
+        active_lessons = lessons
 
     response_data = []
     for ln in active_lessons:
-        ovr = None
-        if ovr and ovr.cancelled:
-            continue
-            
-        grp = ln.group.name if ln.group else "Unknown"
-        subj_name = (ovr.subject.name if ovr and ovr.subject else (ln.subject.name if ln.subject else "-"))
-        t1_name = (ovr.teacher.name if ovr and ovr.teacher else (ln.teacher.name if ln.teacher else "-"))
-        
-        room_val = "-"
-        if ovr and ovr.room:
-            room_val = ovr.room
-        elif ln.room_override:
-            room_val = ln.room_override
-        elif ovr and ovr.teacher and ovr.teacher.room:
-            room_val = ovr.teacher.room
-        elif not ovr and ln.teacher and ln.teacher.room:
-            room_val = ln.teacher.room
+        grp = ln.group_name or "Unknown"
+        subj_name = ln.subject_name or "-"
+        t1_name = ln.teacher_name or "-"
+        room_val = ln.room or "-"
             
         response_data.append({
             "lesson_number": ln.lesson_number,

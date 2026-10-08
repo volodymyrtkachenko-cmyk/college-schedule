@@ -22,7 +22,39 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+from app.services.projection import EffectiveLesson
+
+def effective_to_item(item: EffectiveLesson, week_type: str, target_date: date, bell_times=None) -> ScheduleItem:
+    if bell_times is None:
+        bell_times = {}
+    
+    return ScheduleItem(
+        id=item.source_ref_id or -item.lesson_number,
+        group_id=item.group_id,
+        subject_id=item.subject_id,
+        teacher_id=item.teacher_id,
+        second_teacher_id=item.second_teacher_id,
+        day_of_week=target_date.isoweekday(),
+        lesson_number=item.lesson_number,
+        time=f"{bell_times.get(item.lesson_number, ('00:00', '00:00'))[0]}-{bell_times.get(item.lesson_number, ('', ''))[1]}",
+        subject=item.subject_name or "Unknown",
+        teacher=item.teacher_name,
+        room=item.room,
+        room_override=item.room,
+        subject_name=item.subject_name or "Unknown",
+        teacher_name=item.teacher_name,
+        stream_id=item.stream_id,
+        week_type=week_type,
+        is_relevant_this_week=True,
+        is_replacement=item.is_replacement,
+        group_name=item.group_name,
+        note=item.note_text,
+        note_id=item.note_id,
+        note_revision=item.note_revision
+    )
+
 def check_group_access(user: User, user_allowed_groups: list[int], group_id: int):
+
     if user.role == "admin": return
     if group_id not in user_allowed_groups:
         raise HTTPException(status_code=403, detail="Ви не маєте доступу до зміни розкладу цієї групи")
@@ -119,7 +151,9 @@ def imported_change_to_item(change, week_type, target_date, bell_times=None):
 def serialize_schedule_items(lessons, week_type, target_date, bell_times):
     items = []
     for lesson in lessons:
-        if isinstance(lesson, ImportedScheduleChange):
+        if isinstance(lesson, EffectiveLesson):
+            item = effective_to_item(lesson, week_type, target_date, bell_times)
+        elif isinstance(lesson, ImportedScheduleChange):
             item = imported_change_to_item(lesson, week_type, target_date, bell_times)
         else:
             is_replacement = (

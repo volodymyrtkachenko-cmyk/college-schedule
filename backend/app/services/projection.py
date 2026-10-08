@@ -10,10 +10,11 @@ from app.models import (
     ScheduleOverride, 
     ImportedScheduleChange, 
     SchedulePeriod, 
+    SchedulePeriodSlot,
     ScheduleVersion,
     Group
 )
-from app.services.settings import get_semester_start
+from app.services.settings import settings_service
 from app.services.week import get_week_type
 
 class EffectiveLesson:
@@ -66,7 +67,7 @@ async def build_projection(
     teacher_id: Optional[int] = None
 ) -> List[EffectiveLesson]:
     # 1. Fetch active version and week type
-    semester_start = await get_semester_start(db)
+    semester_start = await settings_service.get_semester_start(db)
     week_type = get_week_type(target_date, semester_start)
     weekday = target_date.isoweekday()
 
@@ -82,7 +83,12 @@ async def build_projection(
     periods_query = select(SchedulePeriod).where(
         SchedulePeriod.start_date <= target_date,
         SchedulePeriod.end_date >= target_date
-    ).options(joinedload(SchedulePeriod.groups))
+    ).options(
+        joinedload(SchedulePeriod.groups),
+        joinedload(SchedulePeriod.slots).joinedload(SchedulePeriodSlot.subject),
+        joinedload(SchedulePeriod.slots).joinedload(SchedulePeriodSlot.teacher),
+        joinedload(SchedulePeriod.slots).joinedload(SchedulePeriodSlot.second_teacher)
+    )
     periods = (await db.scalars(periods_query)).unique().all()
 
     blocked_groups = set()
@@ -149,6 +155,26 @@ async def build_projection(
 
     # Compute effective cells
     cells: Dict[Tuple[int, int], EffectiveLesson] = {}
+
+    # A0. Add practice slots
+    for p in periods:
+        if p.period_type == "practice":
+            for slot in p.slots:
+                if slot.day_of_week == weekday:
+                    # We might not have joined subject/teacher for slot, so we need to fetch them
+                    # Or we just rely on slot.subject_id and let serialize do the rest, but serialize expects names.
+                    # Wait, in the old code, does fetch_schedule join practice slots?
+                    # Let's just create the EffectiveLesson.
+                    cells[(slot.group_id, slot.lesson_number)] = EffectiveLesson(
+                        group_id=slot.group_id, date=target_date, lesson_number=slot.lesson_number,
+                        subject_id=slot.subject_id, teacher_id=slot.teacher_id, second_teacher_id=slot.second_teacher_id,
+                        room=slot.room_override, stream_id=None,
+                        source_kind="practice", source_ref_id=slot.id,
+                        group_name=None, 
+                        subject_name=slot.subject.name if slot.subject else None, 
+                        teacher_name=slot.teacher.name if slot.teacher else None,
+                        is_replacement=True
+                    )
 
     # A. Fill with base
     for b in base_lessons:

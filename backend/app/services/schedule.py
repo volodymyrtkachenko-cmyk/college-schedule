@@ -82,6 +82,7 @@ async def fetch_schedule(db: AsyncSession, target_date: date,
             previous_change.date == ImportedScheduleChange.date,
             previous_change.group_id == ImportedScheduleChange.group_id,
             previous_change.lesson_number == ImportedScheduleChange.lesson_number,
+            previous_change.is_published.is_(True),
         )
         .order_by(previous_change.version.desc())
         .limit(1)
@@ -188,33 +189,21 @@ async def _active_periods(db: AsyncSession, target_date: date):
 
 
 
+from app.services.projection import build_projection
+
 async def fetch_week_schedule(db: AsyncSession, start_date: date, group_id: int | None = None, teacher_id: int | None = None):
     """Fetch date-aware schedules for weekdays, including temporary periods."""
     semester_start = await settings_service.get_semester_start(db)
     week_type = get_week_type(start_date, semester_start)
     
-    end_date = start_date + timedelta(days=4)
-    # Fetch all periods that overlap with this week
-    all_periods = (await db.scalars(
-        select(SchedulePeriod)
-        .where(SchedulePeriod.start_date <= end_date, SchedulePeriod.end_date >= start_date)
-        .options(selectinload(SchedulePeriod.groups))
-    )).unique().all()
-
     lessons_by_day = {}
     for weekday in range(1, 6):
         target_date = start_date + timedelta(days=weekday - 1)
-        # Filter periods for just this day to pass to fetch_schedule
-        day_periods = [p for p in all_periods if p.start_date <= target_date <= p.end_date]
-        
-        _, lessons = await fetch_schedule(
+        lessons = await build_projection(
             db,
             target_date,
             group_id=group_id,
-            teacher_id=teacher_id,
-            day_of_week=weekday,
-            semester_start=semester_start,
-            periods=day_periods
+            teacher_id=teacher_id
         )
         lessons_by_day[weekday] = lessons
 
