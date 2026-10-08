@@ -239,7 +239,7 @@ async function authenticatedRequest<T>(path: string, init: RequestInit = {}): Pr
 async function refresh(): Promise<AuthSession> {
     if (!refreshPromise) {
         const generation = authGeneration;
-        refreshPromise = rawRequest<AuthSession>("/api/auth/refresh", {
+        const promise = rawRequest<AuthSession>("/api/auth/refresh", {
             method: "POST"
         })
             .then((session) => {
@@ -249,10 +249,11 @@ async function refresh(): Promise<AuthSession> {
                 return session;
             })
             .finally(() => {
-                if (authGeneration === generation) {
+                if (refreshPromise === promise) {
                     refreshPromise = null;
                 }
             });
+        refreshPromise = promise;
     }
     return refreshPromise;
 }
@@ -261,31 +262,38 @@ async function bootstrap(): Promise<AuthSession> {
     if (currentSession) return currentSession;
     if (!bootstrapPromise) {
         const generation = authGeneration;
-        bootstrapPromise = refresh().then(session => {
+        const promise = refresh().then(session => {
             if (authGeneration !== generation) throw new Error("Auth generation changed during bootstrap");
             return session;
         }).finally(() => {
-            if (authGeneration === generation) {
+            if (bootstrapPromise === promise) {
                 bootstrapPromise = null;
             }
         });
+        bootstrapPromise = promise;
     }
     return bootstrapPromise;
 }
 
 async function getSession(): Promise<AuthSession> {
     if (!sessionPromise) {
-        sessionPromise = bootstrap()
+        const generation = authGeneration;
+        const promise = bootstrap()
             .then(async (session) => {
+                if (authGeneration !== generation) throw new Error("Auth generation changed before /me");
                 const user = await rawRequest<AuthUser>("/api/auth/me", {
                     headers: {Authorization: "Bearer " + session.access_token},
                 });
+                if (authGeneration !== generation) throw new Error("Auth generation changed after /me");
                 currentSession = {...session, user};
                 return currentSession;
             })
             .finally(() => {
-                sessionPromise = null;
+                if (sessionPromise === promise) {
+                    sessionPromise = null;
+                }
             });
+        sessionPromise = promise;
     }
     return sessionPromise;
 }
@@ -659,6 +667,7 @@ export const api = {
             authGeneration++;
             accessToken = null;
             currentSession = null;
+            refreshPromise = null;
             bootstrapPromise = null;
             sessionPromise = null;
         },

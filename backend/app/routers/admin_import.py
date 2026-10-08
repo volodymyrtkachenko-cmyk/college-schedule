@@ -277,7 +277,7 @@ async def matches_published_schedule(db: AsyncSession, payload: dict, weeks: int
 @router.post("/import")
 async def trigger_import(
     request: Request,
-    weeks: int = Query(2, description="Number of weeks to fetch"),
+    weeks: int = Query(2, ge=1, le=4, description="Number of weeks to fetch"),
     db: AsyncSession = Depends(get_db),
     user=Depends(require_roles("admin"))
 ):
@@ -308,9 +308,11 @@ async def execute_import_logic(db: AsyncSession, weeks: int = 2):
         finally:
             if lock_acquired and lock_conn.dialect.name == "postgresql":
                 try:
-                    await lock_conn.execute(text("SELECT pg_advisory_unlock(:key)").bindparams(key=lock_key))
-                    await lock_conn.commit()
-                except Exception as e:
+                    import asyncio
+                    # Shield unlock from cancellation to ensure it runs even if task is cancelled
+                    await asyncio.shield(lock_conn.execute(text("SELECT pg_advisory_unlock(:key)").bindparams(key=lock_key)))
+                    await asyncio.shield(lock_conn.commit())
+                except BaseException as e:
                     logger.error(f"Failed to unlock postgres lock [{error_id}]: {e}", exc_info=True)
                     await lock_conn.invalidate()
 
@@ -760,8 +762,6 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str):
             }
         }
     except Exception as e:
-        import uuid
-        error_id = str(uuid.uuid4())[:8]
         logger.error(f"Import error [{error_id}]: {e}", exc_info=True)
         set_active_jobs(0)
         raise HTTPException(status_code=500, detail={"msg": "Внутрішня помилка імпорту. Зверніться до підтримки.", "error_id": error_id})

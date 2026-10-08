@@ -17,10 +17,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let mounted = true;
     api.auth.ensureAuthenticated()
-      .then((session) => setUser(session.user))
-      .catch(() => setUser(null))
-      .finally(() => setLoading(false));
+      .then((session) => {
+        if (mounted) setUser(session.user);
+      })
+      .catch((e) => {
+        if (mounted && !e.message?.includes("Auth generation changed") && !e.message?.includes("superseded")) {
+          setUser(null);
+        }
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+    return () => { mounted = false; };
   }, []);
 
   async function login(username: string, password: string) {
@@ -29,6 +39,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   useEffect(() => {
+    if (typeof BroadcastChannel === "undefined") return;
     const channel = new BroadcastChannel("auth_sync");
     channel.onmessage = (e) => {
       if (e.data === "logout") {
@@ -50,9 +61,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     if (success) {
       try {
-        const channel = new BroadcastChannel("auth_sync");
-        channel.postMessage("logout");
-        channel.close();
+        if (typeof BroadcastChannel !== "undefined") {
+            const channel = new BroadcastChannel("auth_sync");
+            channel.postMessage("logout");
+            channel.close();
+        }
       } catch (e) {
         console.warn("BroadcastChannel not supported", e);
       }
