@@ -44,3 +44,4 @@ backend/rotate_password.py
 backend/run_alembic.py
 *.db
 
+duplicate-repair-*.json
