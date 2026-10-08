@@ -123,8 +123,8 @@ export function useSchedule(weekAnchorDate: Date) {
   };
 
   useEffect(() => {
-    if (mode === "student" && groupId === null) return;
-    if (mode === "teacher" && teacherId === null) return;
+    if (mode === "student" && !groupId) { setWeek([]); setToday(null); return; }
+    if (mode === "teacher" && !teacherId) { setWeek([]); setToday(null); return; }
     
     const dateKey = `${weekAnchorDate.getFullYear()}-${String(weekAnchorDate.getMonth() + 1).padStart(2, "0")}-${String(weekAnchorDate.getDate()).padStart(2, "0")}`;
     const targetKey = mode === "student" ? `groupId:${groupId}` : `teacherId:${teacherId}`;

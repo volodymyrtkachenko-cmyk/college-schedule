@@ -181,7 +181,7 @@ export function AdminScheduleEditor() {
             <div className="w-full sm:w-64 text-sys-text-primary">
               <SearchableSelect
                  value={groupId ?? null}
-                 onChange={(val) => startTransition(() => setGroupId(val ? Number(val) : 0))}
+                 onChange={(val) => startTransition(() => setGroupId(val ? Number(val) : null))}
                  options={groups}
                  placeholder="Оберіть групу"
                  disabled={isPending}
@@ -193,7 +193,7 @@ export function AdminScheduleEditor() {
             <div className="w-full sm:w-64 text-sys-text-primary">
               <SearchableSelect
                  value={teacherId ?? null}
-                 onChange={(val) => startTransition(() => setTeacherId(val ? Number(val) : 0))}
+                 onChange={(val) => startTransition(() => setTeacherId(val ? Number(val) : null))}
                  options={teachers}
                  placeholder="Оберіть викладача"
                  disabled={isPending}
