@@ -209,7 +209,7 @@ async def build_projection(
             cells[key] = EffectiveLesson(
                 group_id=imp.group_id, date=target_date, lesson_number=imp.lesson_number,
                 subject_id=imp.subject_id, teacher_id=imp.teacher_id, second_teacher_id=imp.second_teacher_id,
-                room=imp.room, stream_id=None,
+                room=getattr(imp, 'room', None), stream_id=None,
                 source_kind="import", source_ref_id=imp.id,
                 group_name=imp.group.name if imp.group else None,
                 subject_name=imp.subject.name if imp.subject else None,

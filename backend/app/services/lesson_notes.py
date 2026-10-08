@@ -5,7 +5,8 @@ from sqlalchemy import select
 from app.models import (Group, User, Schedule, ScheduleVersion, ScheduleOverride,
                         ImportedScheduleChange, SchedulePeriodSlot, LessonOccurrenceNote, LessonNoteRevision)
 from app.models.lesson_notes import utcnow
-from app.services.schedule import fetch_schedule
+from app.services.projection import build_projection
+from app.models import Subject
 from app.services.settings import settings_service
 from app.services.week import get_week_type
 
@@ -36,16 +37,22 @@ async def active_note(db, group_id, note_date, lesson_number):
 async def occurrence(db, group_id, note_date, lesson_number):
     if note_date.isoweekday() > 5:
         reject("note_weekday_invalid", "Примітки доступні для навчальних днів", 422)
-    _, lessons = await fetch_schedule(db, note_date, group_id=group_id)
-    matches = [item for item in lessons if item.lesson_number == lesson_number]
+    
+    # Use unified projection
+    projection = await build_projection(db, target_date=note_date, group_id=group_id)
+    
+    matches = [
+        item for item in projection 
+        if item.group_id == group_id and item.date == note_date and item.lesson_number == lesson_number
+    ]
     if len(matches) != 1:
         reject("note_occurrence_missing_or_ambiguous", "Заняття відсутнє або неоднозначне. Оновіть розклад.")
     item = matches[0]
-    if isinstance(item, Schedule):
-        override = await db.scalar(select(ScheduleOverride).where(
-            ScheduleOverride.schedule_id == item.id, ScheduleOverride.date == note_date))
-        if override and override.subject_id is not None and override.subject_id != item.subject_id:
-            reject("note_override_requires_projection", "Примітка до ручної заміни потребує узгодженого відображення предмета.")
+    
+    # For subject_name we need to fetch subject name since EffectiveLesson only has subject_id
+    subject_name = await db.scalar(select(Subject.name).where(Subject.id == item.subject_id))
+    setattr(item, "subject", type("Subj", (), {"name": subject_name}))
+    
     return item
 
 
@@ -87,12 +94,11 @@ async def write_note(db, user, group_id, note_date, lesson_number, payload):
         await db.flush()
         current = None
     if current is None:
-        kind = "imported" if isinstance(item, ImportedScheduleChange) else "period" if isinstance(item, SchedulePeriodSlot) else "schedule"
         current = LessonOccurrenceNote(
             group_id=group_id, note_date=note_date, lesson_number=lesson_number,
             subject_id=item.subject_id, subject_name=item.subject.name,
             note=payload.note, revision=1, archived=False,
-            origin_kind=kind, origin_id=item.id, created_by=user.id, updated_by=user.id,
+            origin_kind='imported' if item.source_kind == 'import' else 'period' if item.source_kind == 'practice' else 'schedule', origin_id=item.source_ref_id, created_by=user.id, updated_by=user.id,
         )
         db.add(current)
         event = "created"
