@@ -138,7 +138,7 @@ export interface LessonMutation {
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 let accessToken: string | null = null;
 let currentSession: AuthSession | null = null;
-let isLoggedOut = false;
+let authGeneration = 0;
 let refreshPromise: Promise<AuthSession> | null = null;
 let bootstrapPromise: Promise<AuthSession> | null = null;
 let sessionPromise: Promise<AuthSession> | null = null;
@@ -238,17 +238,20 @@ async function authenticatedRequest<T>(path: string, init: RequestInit = {}): Pr
 
 async function refresh(): Promise<AuthSession> {
     if (!refreshPromise) {
+        const generation = authGeneration;
         refreshPromise = rawRequest<AuthSession>("/api/auth/refresh", {
             method: "POST"
         })
             .then((session) => {
-                if (isLoggedOut) throw new Error("Logged out during refresh");
+                if (authGeneration !== generation) throw new Error("Auth generation changed during refresh");
                 accessToken = session.access_token;
                 currentSession = session;
                 return session;
             })
             .finally(() => {
-                refreshPromise = null;
+                if (authGeneration === generation) {
+                    refreshPromise = null;
+                }
             });
     }
     return refreshPromise;
@@ -257,8 +260,14 @@ async function refresh(): Promise<AuthSession> {
 async function bootstrap(): Promise<AuthSession> {
     if (currentSession) return currentSession;
     if (!bootstrapPromise) {
-        bootstrapPromise = refresh().finally(() => {
-            bootstrapPromise = null;
+        const generation = authGeneration;
+        bootstrapPromise = refresh().then(session => {
+            if (authGeneration !== generation) throw new Error("Auth generation changed during bootstrap");
+            return session;
+        }).finally(() => {
+            if (authGeneration === generation) {
+                bootstrapPromise = null;
+            }
         });
     }
     return bootstrapPromise;
@@ -634,7 +643,7 @@ export const api = {
   calendarPeriods: apiSchedulePeriods,
     auth: {
         login: async (username: string, password: string) => {
-            isLoggedOut = false;
+            authGeneration++;
             const session = await rawRequest<AuthSession>("/api/auth/login", {
                 method: "POST",
                 body: JSON.stringify({username, password})
@@ -647,7 +656,7 @@ export const api = {
         },
         refresh, bootstrap, ensureAuthenticated: getSession,
         clear: () => {
-            isLoggedOut = true;
+            authGeneration++;
             accessToken = null;
             currentSession = null;
             bootstrapPromise = null;

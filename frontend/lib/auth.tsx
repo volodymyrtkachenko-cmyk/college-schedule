@@ -7,7 +7,7 @@ interface AuthContextValue {
   user: AuthUser | null;
   loading: boolean;
   login: (username: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -41,18 +41,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   async function logout() {
+    let success = false;
     try {
-      const success = await api.auth.logout();
-      if (success) {
+      success = await api.auth.logout();
+    } catch (e) {
+      console.error("Logout error", e);
+    }
+    
+    if (success) {
+      try {
         const channel = new BroadcastChannel("auth_sync");
         channel.postMessage("logout");
         channel.close();
-        setUser(null);
-        window.location.href = "/login";
+      } catch (e) {
+        console.warn("BroadcastChannel not supported", e);
       }
-    } catch (e) {
-      console.error("Logout failed", e);
-      // Don't clear local state if server logout failed!
+      setUser(null);
+      window.location.href = "/login";
+    } else {
+      throw new Error("Не вдалося вийти з системи. Сервер недоступний.");
     }
   }
 

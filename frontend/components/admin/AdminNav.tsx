@@ -14,6 +14,20 @@ export function AdminNav({ active }: { active: string }) {
     const [online, setOnline] = useState<number | null>(null);
   const [metrics, setMetrics] = useState<any>(null);
   const [isOpen, setIsOpen] = useState(false); // Mobile menu drawer toggle
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState("");
+
+  const handleLogout = async () => {
+    if (isLoggingOut) return;
+    setIsLoggingOut(true);
+    setLogoutError("");
+    try {
+      await logout();
+    } catch (e: any) {
+      setLogoutError(e.message || "Помилка виходу");
+      setIsLoggingOut(false);
+    }
+  };
 
   useEffect(() => {
     const fetchMetrics = async () => {
@@ -137,10 +151,17 @@ export function AdminNav({ active }: { active: string }) {
                <div className="flex justify-between w-full"><span>Імпорт:</span> <span className="font-medium">{metrics.last_successful_import ? new Date(metrics.last_successful_import * 1000).toLocaleTimeString("uk-UA") : "Немає даних"}</span></div>
              </div>
            )}
-           <button onClick={() => { setIsOpen(false); logout(); }} className="w-full text-left flex items-center justify-center gap-2 px-3 py-2.5 text-[14px] font-bold rounded-[8px] text-rose-500/80 bg-rose-500/10 hover:text-rose-400 hover:bg-rose-500/20 active:scale-95 transition-all">
+           <div className="flex flex-col gap-1 w-full">
+           <button 
+             disabled={isLoggingOut} 
+             onClick={() => { setIsOpen(false); handleLogout(); }} 
+             className={`w-full text-left flex items-center justify-center gap-2 px-3 py-2.5 text-[14px] font-bold rounded-[8px] ${isLoggingOut ? 'opacity-50 cursor-not-allowed text-rose-300 bg-rose-300/10' : 'text-rose-500/80 bg-rose-500/10 hover:text-rose-400 hover:bg-rose-500/20 active:scale-95'} transition-all`}
+           >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-              Вийти з облікового запису
+              {isLoggingOut ? "Вихід..." : "Вийти з облікового запису"}
            </button>
+           {logoutError && <div className="text-red-500 text-xs text-center font-medium mt-1">{logoutError}</div>}
+           </div>
        </div>
     </nav>
   );

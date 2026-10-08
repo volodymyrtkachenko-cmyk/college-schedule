@@ -284,13 +284,37 @@ async def trigger_import(
     return await execute_import_logic(db, weeks)
 
 async def execute_import_logic(db: AsyncSession, weeks: int = 2):
+    if not (1 <= weeks <= 4):
+        raise HTTPException(status_code=422, detail="Weeks must be between 1 and 4")
+        
     lock_key = 424242
-    lock_conn = await engine.connect().__aenter__()
-    if lock_conn.dialect.name == "postgresql":
-        lock_acquired = await lock_conn.scalar(text("SELECT pg_try_advisory_lock(:key)").bindparams(key=lock_key))
-        if not lock_acquired:
-            await lock_conn.__aexit__(None, None, None)
-            raise HTTPException(status_code=409, detail="Імпорт вже виконується іншим процесом")
+    import uuid
+    error_id = str(uuid.uuid4())[:8]
+    
+    async with engine.connect() as lock_conn:
+        lock_acquired = False
+        if lock_conn.dialect.name == "postgresql":
+            try:
+                lock_acquired = await lock_conn.scalar(text("SELECT pg_try_advisory_lock(:key)").bindparams(key=lock_key))
+            except Exception as e:
+                logger.error(f"Failed to acquire lock [{error_id}]: {e}")
+                raise HTTPException(status_code=500, detail={"msg": "Помилка блокування.", "error_id": error_id})
+                
+            if not lock_acquired:
+                raise HTTPException(status_code=409, detail="Імпорт вже виконується іншим процесом")
+                
+        try:
+            return await _do_import(db, weeks, error_id)
+        finally:
+            if lock_acquired and lock_conn.dialect.name == "postgresql":
+                try:
+                    await lock_conn.execute(text("SELECT pg_advisory_unlock(:key)").bindparams(key=lock_key))
+                    await lock_conn.commit()
+                except Exception as e:
+                    logger.error(f"Failed to unlock postgres lock [{error_id}]: {e}", exc_info=True)
+                    await lock_conn.invalidate()
+
+async def _do_import(db: AsyncSession, weeks: int, error_id: str):
     
     fetcher = ScheduleFetcher()
     parser = KREParser()
@@ -742,11 +766,7 @@ async def execute_import_logic(db: AsyncSession, weeks: int = 2):
         set_active_jobs(0)
         raise HTTPException(status_code=500, detail={"msg": "Внутрішня помилка імпорту. Зверніться до підтримки.", "error_id": error_id})
 
-    finally:
-        if lock_conn.dialect.name == "postgresql":
-            await lock_conn.execute(text("SELECT pg_advisory_unlock(:key)").bindparams(key=lock_key))
-            await lock_conn.commit()
-        await lock_conn.__aexit__(None, None, None)
+
 
 @router.post("/import/cron")
 async def import_data_cron(
