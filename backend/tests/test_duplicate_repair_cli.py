@@ -28,3 +28,20 @@ def test_cli_sqlite_apply_still_forbidden_with_all_flags(tmp_path):
     assert result.returncode==1
     assert json.loads(receipt.read_text())['code']=='apply_requires_postgresql'
     assert path.read_bytes()==before
+
+def test_cli_covered_week_mode_is_explicit_and_read_only(tmp_path):
+    path=tmp_path/'existing.db';out=tmp_path/'plan-v2.json';create_file(path)
+    with sqlite3.connect(path) as c:
+        c.execute("INSERT INTO schedule VALUES(34,1,1,NULL,1,NULL,2,4,'both',1,0,'212',NULL)")
+    before=path.read_bytes()
+    refused=run(path,['--output',str(out)])
+    assert refused.returncode==1
+    assert json.loads(out.read_text())['code']=='non_exact_week_overlap_requires_review'
+    allowed=run(path,['--output',str(out),'--allow-covered-week-duplicates','--expected-active-count','34','--expected-set-count','1'])
+    assert allowed.returncode==0,allowed.stdout+allowed.stderr
+    plan=json.loads(out.read_text())
+    assert plan['format_version']==2
+    assert plan['allow_covered_week_duplicates'] is True
+    assert plan['actions'][0]['keep_id']==34
+    assert plan['actions'][0]['coverage_before']==plan['actions'][0]['coverage_after']
+    assert path.read_bytes()==before

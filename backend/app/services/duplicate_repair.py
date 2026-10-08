@@ -15,7 +15,7 @@ def digest(value):
 def signature(row):
     return tuple((name,row[name]) for name in sorted(row) if name not in ('id','is_active'))
 
-async def read_state(conn):
+async def read_state(conn, *, allow_covered_week_duplicates=False):
     inspector_tables=await conn.run_sync(lambda c:inspect(c).get_table_names())
     if 'schedule' not in inspector_tables or 'schedule_versions' not in inspector_tables:
         raise RepairRefused('required_schema_missing')
@@ -46,9 +46,26 @@ async def read_state(conn):
             key=(*cell,week)
             old=cells.get(key)
             if old and old[0]!=assignment: raise RepairRefused('overlapping_assignment_conflict')
-            if old and old[1]!=row['week_type']: raise RepairRefused('non_exact_week_overlap_requires_review')
+            if old and old[1]!=row['week_type'] and not allow_covered_week_duplicates: raise RepairRefused('non_exact_week_overlap_requires_review')
             cells[key]=(assignment,row['week_type'])
     groups=[sorted(ids) for ids in sets.values() if len(ids)>1]
+    if allow_covered_week_duplicates:
+        assignments=defaultdict(list)
+        for row in active:
+            key=tuple((k,row[k]) for k in sorted(row) if k not in ('id','is_active','week_type'))
+            assignments[key].append(row)
+        groups=[]
+        for rows_in_assignment in assignments.values():
+            both=[row for row in rows_in_assignment if row['week_type']=='both']
+            if both:
+                keeper=min(row['id'] for row in both)
+                other=sorted(row['id'] for row in rows_in_assignment if row['id']!=keeper)
+                if other:groups.append([keeper,*other])
+            else:
+                # Never synthesize both from two separate week assignments.
+                for week in ('numerator','denominator'):
+                    ids=sorted(row['id'] for row in rows_in_assignment if row['week_type']==week)
+                    if len(ids)>1:groups.append(ids)
     candidate_ids={id for ids in groups for id in ids}
     references=[];source_columns=set();source_tables=set()
     for name in sorted(inspector_tables):
@@ -82,20 +99,29 @@ async def read_state(conn):
     actions=[]
     for ids in sorted(groups,key=lambda ids:ids[0]):
         row=by_id[ids[0]]
-        actions.append({'keep_id':ids[0],'deactivate_ids':ids[1:],'count':len(ids),
+        original_week_types=sorted({by_id[id]['week_type'] for id in ids})
+        covered_before=sorted({week for id in ids for week in coverage(by_id[id]['week_type'])})
+        covered_after=sorted(coverage(row['week_type']))
+        if covered_before!=covered_after:raise RepairRefused('week_coverage_would_change')
+        actions.append({'original_week_types':original_week_types,'coverage_before':covered_before,
+                        'coverage_after':covered_after,'reason':'covered_by_existing_both' if len(original_week_types)>1 else 'exact_duplicates',
+                        'keep_id':ids[0],'deactivate_ids':ids[1:],'count':len(ids),
                         'group_id':row['group_id'],'version_id':row['version_id'],
                         'day_of_week':row['day_of_week'],'lesson_number':row['lesson_number'],
                         'week_type':row['week_type'],'assignment_hash':digest(dict(signature(row)))})
-    core={'format_version':1,'operation':'soft_deactivate_exact_duplicates','database_state_hash':digest(snapshot),
+    core={'format_version':2,'allow_covered_week_duplicates':allow_covered_week_duplicates,'operation':'soft_deactivate_exact_duplicates','database_state_hash':digest(snapshot),
           'active_before':len(active),'duplicate_set_count':len(actions),
           'deactivate_count':sum(len(a['deactivate_ids']) for a in actions),'actions':actions}
     plan={**core,'plan_hash':digest(core)}
     return plan,source_tables
 
-async def create_plan(conn):
-    return (await read_state(conn))[0]
+async def create_plan(conn, *, allow_covered_week_duplicates=False):
+    return (await read_state(conn,allow_covered_week_duplicates=allow_covered_week_duplicates))[0]
 
 async def apply_reviewed_plan(conn,reviewed,*,allow_sqlite_test=False):
+    if reviewed.get('format_version')!=2 or type(reviewed.get('allow_covered_week_duplicates')) is not bool:
+        raise RepairRefused('new_reviewed_plan_required')
+    allow_covered=reviewed['allow_covered_week_duplicates']
     if conn.dialect.name=='postgresql':
         await conn.execute(text("SET LOCAL lock_timeout='5s'"))
         for key in (424243,424242):
@@ -103,13 +129,13 @@ async def apply_reviewed_plan(conn,reviewed,*,allow_sqlite_test=False):
                 raise RepairRefused('another_mutation_or_import_is_running')
         await conn.execute(text('LOCK TABLE schedule, schedule_versions IN SHARE ROW EXCLUSIVE MODE'))
         # Inspect first, then lock source-reference tables before authoritative revalidation.
-        _,source_tables=await read_state(conn)
+        _,source_tables=await read_state(conn,allow_covered_week_duplicates=allow_covered)
         preparer=conn.dialect.identifier_preparer
         for name in sorted(source_tables):
             await conn.execute(text('LOCK TABLE '+preparer.quote(name)+' IN SHARE ROW EXCLUSIVE MODE'))
     elif not (allow_sqlite_test and conn.dialect.name=='sqlite'):
         raise RepairRefused('apply_requires_postgresql')
-    current,_=await read_state(conn)
+    current,_=await read_state(conn,allow_covered_week_duplicates=allow_covered)
     if current!=reviewed:raise RepairRefused('stale_or_modified_plan_regenerate_and_review')
     ids=[id for action in current['actions'] for id in action['deactivate_ids']]
     affected=0
@@ -117,7 +143,7 @@ async def apply_reviewed_plan(conn,reviewed,*,allow_sqlite_test=False):
         result=await conn.execute(update(Schedule.__table__).where(Schedule.id.in_(ids[start:start+400]),Schedule.is_active.is_(True)).values(is_active=False))
         affected+=result.rowcount
     if affected!=len(ids):raise RepairRefused('unexpected_affected_row_count')
-    after,_=await read_state(conn)
+    after,_=await read_state(conn,allow_covered_week_duplicates=allow_covered)
     if after['active_before']!=current['active_before']-len(ids) or after['duplicate_set_count']:
         raise RepairRefused('post_repair_verification_failed')
     return {'status':'applied','operation':current['operation'],'plan_hash':current['plan_hash'],

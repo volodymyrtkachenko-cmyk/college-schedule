@@ -99,3 +99,68 @@ async def test_sqlite_apply_forbidden_outside_explicit_unit_test(db_fixture):
     async with engine.connect() as conn:plan=await create_plan(conn)
     with pytest.raises(RepairRefused,match='apply_requires_postgresql'):
         async with engine.begin() as conn:await apply_reviewed_plan(conn,plan)
+
+async def add_existing_both(engine,ids,changes=None):
+    async with async_sessionmaker(engine,expire_on_commit=False)() as db:
+        first=await db.get(Schedule,ids[0])
+        values={column.name:getattr(first,column.name) for column in Schedule.__table__.columns if column.name!='id'}
+        values.update(week_type='both');values.update(changes or {})
+        row=Schedule(**values);db.add(row);await db.commit();return row.id
+
+@pytest.mark.anyio
+async def test_default_still_refuses_covered_week_case(db_fixture):
+    engine,ids=db_fixture;await add_existing_both(engine,ids)
+    with pytest.raises(RepairRefused,match='non_exact_week_overlap_requires_review'):
+        async with engine.connect() as conn:await create_plan(conn)
+
+@pytest.mark.anyio
+async def test_opted_in_plan_keeps_existing_both_even_when_id_is_larger(db_fixture):
+    engine,ids=db_fixture;both_id=await add_existing_both(engine,ids)
+    async with engine.connect() as conn:plan=await create_plan(conn,allow_covered_week_duplicates=True)
+    assert plan['actions'][0]['keep_id']==both_id
+    assert plan['actions'][0]['deactivate_ids']==ids
+    assert plan['actions'][0]['reason']=='covered_by_existing_both'
+    assert plan['actions'][0]['coverage_before']==plan['actions'][0]['coverage_after']==['denominator','numerator']
+
+@pytest.mark.anyio
+async def test_covered_week_apply_preserves_both_weeks_and_all_rows(db_fixture):
+    from app.services.schedule import fetch_schedule
+    engine,ids=db_fixture;both_id=await add_existing_both(engine,ids)
+    async with engine.connect() as conn:plan=await create_plan(conn,allow_covered_week_duplicates=True)
+    async with engine.begin() as conn:receipt=await apply_reviewed_plan(conn,plan,allow_sqlite_test=True)
+    assert receipt['deactivated_count']==33
+    async with async_sessionmaker(engine,expire_on_commit=False)() as db:
+        row=await db.get(Schedule,both_id)
+        assert row.is_active and row.week_type=='both'
+        assert await db.scalar(select(func.count()).select_from(Schedule))==34
+        for target in (date(2026,10,20),date(2026,10,27)):
+            _,lessons=await fetch_schedule(db,target,group_id=row.group_id,semester_start=date(2026,10,12),periods=[])
+            assert [lesson.id for lesson in lessons]==[both_id]
+
+@pytest.mark.anyio
+@pytest.mark.parametrize('changes',[{'room_override':'213'},{'stream_id':'different'},{'second_teacher_id':1},{'is_replacement':True}])
+async def test_opt_in_does_not_ignore_other_assignment_fields(db_fixture,changes):
+    engine,ids=db_fixture;await add_existing_both(engine,ids,changes)
+    with pytest.raises(RepairRefused,match='overlapping_assignment_conflict'):
+        async with engine.connect() as conn:await create_plan(conn,allow_covered_week_duplicates=True)
+
+@pytest.mark.anyio
+async def test_covered_group_reference_still_blocks_plan(db_fixture):
+    engine,ids=db_fixture;await add_existing_both(engine,ids)
+    async with async_sessionmaker(engine)() as db:
+        db.add(ScheduleOverride(schedule_id=ids[-1],date=date(2026,10,20),cancelled=True));await db.commit()
+    with pytest.raises(RepairRefused,match='references_requires_manual_mapping'):
+        async with engine.connect() as conn:await create_plan(conn,allow_covered_week_duplicates=True)
+
+@pytest.mark.anyio
+async def test_separate_numerator_and_denominator_never_synthesizes_both(db_fixture):
+    engine,ids=db_fixture
+    async with async_sessionmaker(engine,expire_on_commit=False)() as db:
+        first=await db.get(Schedule,ids[0])
+        values={column.name:getattr(first,column.name) for column in Schedule.__table__.columns if column.name!='id'}
+        values['week_type']='numerator';db.add(Schedule(**values));await db.commit()
+    async with engine.connect() as conn:plan=await create_plan(conn,allow_covered_week_duplicates=True)
+    async with engine.begin() as conn:await apply_reviewed_plan(conn,plan,allow_sqlite_test=True)
+    async with engine.connect() as conn:
+        weeks=list((await conn.scalars(select(Schedule.week_type).where(Schedule.is_active.is_(True)))).all())
+        assert sorted(weeks)==['denominator','numerator']

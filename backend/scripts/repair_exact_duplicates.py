@@ -18,7 +18,7 @@ async def run(args):
             if args.approve_plan_hash!=reviewed.get('plan_hash'):raise RepairRefused('approved_hash_mismatch')
             async with engine.begin() as conn:
                 if args.expected_active_count is not None or args.expected_set_count is not None:
-                    fresh=await create_plan(conn)
+                    fresh=await create_plan(conn,allow_covered_week_duplicates=reviewed.get('allow_covered_week_duplicates',False))
                     if args.expected_active_count is not None and fresh['active_before']!=args.expected_active_count:raise RepairRefused('unexpected_active_count')
                     if args.expected_set_count is not None and fresh['duplicate_set_count']!=args.expected_set_count:raise RepairRefused('unexpected_duplicate_set_count')
                 result=await apply_reviewed_plan(conn,reviewed)
@@ -30,7 +30,7 @@ async def run(args):
                 if conn.dialect.name=='postgresql':await conn.exec_driver_sql('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY')
                 elif conn.dialect.name=='sqlite':await conn.exec_driver_sql('PRAGMA query_only=ON')
                 else:raise RepairRefused('unsupported_dialect')
-                result=await create_plan(conn)
+                result=await create_plan(conn,allow_covered_week_duplicates=args.allow_covered_week_duplicates)
                 if args.expected_active_count is not None and result['active_before']!=args.expected_active_count:raise RepairRefused('unexpected_active_count')
                 if args.expected_set_count is not None and result['duplicate_set_count']!=args.expected_set_count:raise RepairRefused('unexpected_duplicate_set_count')
                 await conn.rollback()
@@ -54,6 +54,7 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output',required=True)
     parser.add_argument('--apply',action='store_true')
+    parser.add_argument('--allow-covered-week-duplicates',action='store_true',help='PLAN: permit removal of identical narrower weeks already covered by an existing both row')
     parser.add_argument('--plan')
     parser.add_argument('--approve-plan-hash')
     parser.add_argument('--backup-confirmed',action='store_true')
