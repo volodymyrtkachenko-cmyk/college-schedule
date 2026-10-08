@@ -7,16 +7,24 @@ branch_labels = None
 depends_on = None
 
 def upgrade():
-    op.create_table(
-        'token_blocklist',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('jti', sa.String(), nullable=False),
-        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
-        sa.PrimaryKeyConstraint('id')
-    )
-    op.create_index(op.f('ix_token_blocklist_jti'), 'token_blocklist', ['jti'], unique=True)
-    
-    op.add_column('users', sa.Column('session_version', sa.Integer(), server_default='1', nullable=False))
+    op.execute("""
+    CREATE TABLE IF NOT EXISTS token_blocklist (
+        id SERIAL PRIMARY KEY,
+        jti VARCHAR NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS ix_token_blocklist_jti ON token_blocklist (jti);
+    """)
+    op.execute("""
+    DO $$
+    BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                       WHERE table_name='users' AND column_name='session_version') THEN
+            ALTER TABLE users ADD COLUMN session_version INTEGER DEFAULT 1 NOT NULL;
+        END IF;
+    END
+    $$;
+    """)
 
 def downgrade():
     op.drop_column('users', 'session_version')
