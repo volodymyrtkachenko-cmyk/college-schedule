@@ -45,7 +45,7 @@ async def test_login_me_and_refresh(auth_client):
     assert login.status_code == 200
     tokens = login.json()
     assert tokens["user"]["role"] == "admin"
-    assert tokens["access_token"] and tokens["refresh_token"]
+    assert tokens["access_token"]
     assert "college_schedule_refresh" in login.headers.get("set-cookie", "")
     assert "Path=/" in login.headers.get("set-cookie", "")
 
@@ -53,7 +53,7 @@ async def test_login_me_and_refresh(auth_client):
     assert me.status_code == 200
     assert me.json()["username"] == "admin"
 
-    refresh = await auth_client.post("/api/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
+    refresh = await auth_client.post("/api/auth/refresh")
     assert refresh.status_code == 200
     assert refresh.json()["access_token"] != tokens["access_token"]
 
@@ -78,7 +78,7 @@ async def test_login_errors_and_roles(auth_client):
     assert bad_login.status_code == 401
     assert bad_login.json()["detail"] == "Неправильне ім'я користувача або пароль"
 
-    missing_refresh = await auth_client.post("/api/auth/refresh", json={})
+    missing_refresh = await auth_client.post("/api/auth/refresh")
     assert missing_refresh.status_code == 401
     assert missing_refresh.json()["detail"] == missing_refresh.json()["detail"]
 

@@ -31,7 +31,6 @@ from app.routers.admin_import import (
     matches_published_schedule,
 )
 from app.routers.admin_import import IMPORT_PAGE_RETRIES
-from app.routers.admin_import import IMPORT_LOCK
 
 @pytest.fixture
 async def api_client():
@@ -727,9 +726,6 @@ def test_import_retries_are_enabled_for_transient_source_failures():
     assert IMPORT_PAGE_RETRIES >= 3
 
 
-@pytest.mark.anyio
-async def test_import_lock_is_not_held_after_dependency_release():
-    assert not IMPORT_LOCK.locked()
 
 
 @pytest.mark.anyio

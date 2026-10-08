@@ -28,8 +28,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(session.user);
   }
 
-  function logout() {
-    api.auth.clear();
+  async function logout() {
+    await api.auth.logout();
     setUser(null);
     window.location.href = "/login";
   }

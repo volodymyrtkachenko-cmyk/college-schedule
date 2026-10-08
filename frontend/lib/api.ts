@@ -642,13 +642,24 @@ export const api = {
             currentSession = session;
             return session;
         },
-        refresh, bootstrap, ensureAuthenticated: getSession, clear: () => {
+        refresh, bootstrap, ensureAuthenticated: getSession,
+        clear: () => {
             accessToken = null;
-            
             currentSession = null;
             bootstrapPromise = null;
             sessionPromise = null;
-            
+        },
+        logout: async () => {
+            try {
+                await fetch(`${API_URL}/api/auth/logout`, {
+                    method: "POST",
+                    credentials: "include" // Send refresh cookie to be invalidated
+                });
+            } catch (e) {
+                console.error("Failed to call server logout", e);
+            } finally {
+                api.auth.clear();
+            }
         },
     },
     groups: () => cachedDirectoryRequest<ReferenceRecord[]>("/api/groups"),

@@ -1,14 +1,13 @@
 from fastapi import Request
 from app.config import settings
-import asyncio
 import httpx
 import hashlib
 import json
 import logging
 from datetime import datetime, timedelta
-from fastapi import APIRouter, Depends, HTTPException, Query, Security
+from fastapi import APIRouter, Depends, HTTPException, Query, Security, Header, BackgroundTasks
 from fastapi.security.api_key import APIKeyHeader
-from sqlalchemy import delete, select, func
+from sqlalchemy import text, delete, select, func
 from sqlalchemy.orm import joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
@@ -26,7 +25,6 @@ from collections.abc import AsyncIterator
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin", tags=["admin"])
 IMPORT_PAGE_RETRIES = 3
-IMPORT_LOCK = asyncio.Lock()
 
 
 async def import_lock_dependency() -> AsyncIterator[None]:
@@ -307,6 +305,10 @@ async def trigger_import(
     return await execute_import_logic(db, weeks)
 
 async def execute_import_logic(db: AsyncSession, weeks: int = 2):
+    lock_acquired = await db.scalar(text("SELECT pg_try_advisory_xact_lock(424242)"))
+    if not lock_acquired:
+        raise HTTPException(status_code=409, detail="Імпорт вже виконується іншим процесом")
+
     
     fetcher = ScheduleFetcher()
     parser = KREParser()
@@ -715,18 +717,14 @@ async def execute_import_logic(db: AsyncSession, weeks: int = 2):
             draft.data = {**payload, "created_curriculum_ids": created_curriculum_ids}
             await db.commit()
             
-            # --- Auto-publish (Always publish as requested by user) ---
             is_auto_published = False
-            try:
-                await publish_draft(id=draft_id, db=db)
-                is_auto_published = True
-                logger.info(f"Auto-published draft {draft_id}")
-            except Exception as e:
-                logger.error(f"Auto-publish failed for draft {draft_id}: {e}")
 
             
         set_active_jobs(0)
         record_successful_import()
+        
+        if db.bind.dialect.name == "postgresql":
+            await db.execute(text("SELECT pg_advisory_unlock(:key)").bindparams(key=lock_key))
         return {
             "status": "success", 
             "groups_processed": len(group_ids),
@@ -761,4 +759,19 @@ async def execute_import_logic(db: AsyncSession, weeks: int = 2):
     except Exception as e:
         logger.error(f"Import error: {e}", exc_info=True)
         set_active_jobs(0)
+        
+        if db.bind.dialect.name == "postgresql":
+            await db.execute(text("SELECT pg_advisory_unlock(:key)").bindparams(key=lock_key))
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/import/cron")
+async def import_data_cron(
+    bg_tasks: BackgroundTasks,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    force: bool = False,
+    cron_key: str | None = Header(None, alias="X-Cron-Key")
+):
+    if not cron_key or cron_key != settings.cron_secret_key:
+        raise HTTPException(status_code=401, detail="Unauthorized cron")
+    return await execute_import_logic(db, 2)
