@@ -91,7 +91,7 @@ async def update_user(user_id: int, payload: UserUpdate, db: AsyncSession = Depe
     
     if user.role == "admin" and (payload.role in ["editor", "viewer"] or payload.is_active is False):
         from sqlalchemy import func
-        active_admins = await db.scalar(select(func.count()).where(User.role == "admin", User.is_active.is_(True)))
+        active_admins = len((await db.scalars(select(User.id).where(User.role == "admin", User.is_active.is_(True)).with_for_update())).all())
         if active_admins <= 1:
             raise HTTPException(status_code=403, detail="Неможливо понизити або деактивувати останнього активного адміністратора")
         
@@ -130,7 +130,7 @@ async def delete_user(user_id: int, db: AsyncSession = Depends(get_db), current_
         
     if user.role == "admin":
         from sqlalchemy import func
-        active_admins = await db.scalar(select(func.count()).where(User.role == "admin", User.is_active.is_(True)))
+        active_admins = len((await db.scalars(select(User.id).where(User.role == "admin", User.is_active.is_(True)).with_for_update())).all())
         if active_admins <= 1:
             raise HTTPException(status_code=403, detail="Неможливо видалити останнього адміністратора")
     await db.delete(user)

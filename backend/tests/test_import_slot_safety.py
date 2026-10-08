@@ -131,7 +131,7 @@ async def test_duplicate_draft_rejected_before_any_publish_write(context):
     db.add_all([curriculum,draft,existing]);await db.flush()
     db.add_all([ScheduleSlot(draft_id=draft.id,curriculum_id=curriculum.id,day_of_week=2,lesson_number=4,week_type='denominator') for _ in range(20)])
     await db.commit()
-    with pytest.raises(HTTPException) as exc: await drafts.publish_draft(draft.id,expected_revision=1,db=db,admin=None)
+    with pytest.raises(HTTPException) as exc: await drafts.publish_draft(draft.id,expected_revision=1,db=db,admin=SimpleNamespace(id=1))
     assert exc.value.status_code==409
     assert exc.value.detail['code']=='draft_duplicate_slots'
     assert draft.status=='DRAFT'
@@ -140,7 +140,7 @@ async def test_duplicate_draft_rejected_before_any_publish_write(context):
 @pytest.mark.anyio
 async def test_repeat_publish_returns_409(context):
     db,_=context;draft=ScheduleDraft(name='Published',status='published');db.add(draft);await db.commit()
-    with pytest.raises(HTTPException) as exc: await drafts.publish_draft(draft.id,expected_revision=1,db=db,admin=None)
+    with pytest.raises(HTTPException) as exc: await drafts.publish_draft(draft.id,expected_revision=1,db=db,admin=SimpleNamespace(id=1))
     assert exc.value.status_code==409
 
 @pytest.mark.anyio
@@ -168,7 +168,7 @@ async def test_farther_denominators_have_one_pair_after_safe_explicit_publish(co
     monkeypatch.setattr(admin_import,'matches_published_schedule',AsyncMock(return_value=False))
     result=await admin_import._do_import(db,2,'calendar-test')
     draft = await db.get(ScheduleDraft, result['meta']['draft_created'])
-    await drafts.publish_draft(result['meta']['draft_created'],expected_revision=draft.revision,db=db,admin=None)
+    await drafts.publish_draft(result['meta']['draft_created'],expected_revision=draft.revision,db=db,admin=SimpleNamespace(id=1))
     for target in (date(2026,10,20),date(2026,11,3),date(2026,11,17)):
         wt,lessons=await fetch_schedule(db,target,group_id=ids['group_id'],semester_start=date(2026,10,12),periods=[])
         assert wt=='denominator'

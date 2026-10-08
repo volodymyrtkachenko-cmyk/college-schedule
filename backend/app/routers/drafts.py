@@ -21,6 +21,7 @@ from app.services.settings import settings_service
 from app.services.week import get_week_type
 from datetime import datetime as _dt
 
+from app.services.notes_reconciliation import reconcile_notes_after_publish
 from app.services.import_slot_safety import normalize_base_slots, guard_protected_replacement, version_for_import
 from app.routers.schedule_versions import lock_versions
 
@@ -326,7 +327,9 @@ async def publish_draft(
     group_ids = {s.curriculum.group_id for s in slots}
 
     from app.core.time import today_local
-    from app.models.entities import ScheduleVersion
+    from app.models.entities import SchedulePublication, SchedulePublicationSnapshot
+import json
+from app.models.entities import ScheduleVersion
     anchored_import = draft.draft_type == "import" and "base_version_id" in (draft.data or {})
     if anchored_import:
         anchor = draft.data["base_version_id"]
@@ -354,11 +357,7 @@ async def publish_draft(
         if not version:
             raise HTTPException(status_code=404, detail="Вказану цільову версію розкладу не знайдено.")
 
-    if group_ids:
-        protected_query = select(Schedule.id).where(Schedule.group_id.in_(group_ids))
-        protected_query = protected_query.where(Schedule.version_id == target_version_id if target_version_id is not None else Schedule.version_id.is_(None))
-        protected_ids = list((await db.scalars(protected_query)).all())
-        await guard_protected_replacement(db,protected_ids)
+
 
     # Mark old published as archived
     await db.execute(update(ScheduleDraft).where(ScheduleDraft.status == "published").values(status="archived"))
@@ -412,6 +411,11 @@ async def publish_draft(
     
     if new_schedules:
         db.add_all(new_schedules)
+    
+    # Reconcile notes to archive those where the subject changed or lesson was deleted
+    if group_ids:
+        await reconcile_notes_after_publish(db, group_ids, admin.id)
+
         await db.flush()
 
     if draft.draft_type == "import":

@@ -340,3 +340,24 @@ class EntityAlias(Base):
     entity_type: Mapped[str] = mapped_column(String(50), index=True) # "subject", "teacher", "group"
     parsed_name: Mapped[str] = mapped_column(String(255), index=True)
     actual_id: Mapped[int] = mapped_column(Integer)
+
+
+class SchedulePublication(Base):
+    __tablename__ = "schedule_publications"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    version_id: Mapped[int] = mapped_column(ForeignKey("schedule_versions.id", ondelete="CASCADE"), index=True)
+    actor_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    timestamp: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    scope_manifest: Mapped[str] = mapped_column(Text)
+    source_fingerprint: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+class SchedulePublicationSnapshot(Base):
+    __tablename__ = "schedule_publication_snapshots"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    publication_id: Mapped[int] = mapped_column(ForeignKey("schedule_publications.id", ondelete="CASCADE"), index=True)
+    group_id: Mapped[int] = mapped_column(ForeignKey("groups.id"), index=True)
+    date: Mapped[date] = mapped_column(Date)
+    lesson_number: Mapped[int] = mapped_column(Integer)
+    before_data: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    after_data: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
