@@ -715,14 +715,14 @@ async def execute_import_logic(db: AsyncSession, weeks: int = 2):
             draft.data = {**payload, "created_curriculum_ids": created_curriculum_ids}
             await db.commit()
             
-            # --- Auto-publish if no unresolved entities ---
+            # --- Auto-publish (Always publish as requested by user) ---
             is_auto_published = False
-            if len(aggregated_unresolved) == 0:
-                try:
-                    await publish_draft(id=draft_id, db=db)
-                    is_auto_published = True
-                except Exception as e:
-                    logger.error(f"Auto-publish failed: {e}")
+            try:
+                await publish_draft(id=draft_id, db=db)
+                is_auto_published = True
+                logger.info(f"Auto-published draft {draft_id}")
+            except Exception as e:
+                logger.error(f"Auto-publish failed for draft {draft_id}: {e}")
 
             
         return {
