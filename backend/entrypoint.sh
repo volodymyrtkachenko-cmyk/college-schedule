@@ -5,8 +5,11 @@ set -e
 if [ "$1" = 'release' ]; then
     echo "Running migrations (release)..."
     alembic upgrade head
-    echo "Importing educational process schedule (release)..."
-    python scripts/import_eps.py
+    # A code release must not silently re-import/mutate the educational process.
+    if [ "${IMPORT_EPS_ON_RELEASE:-false}" = "true" ]; then
+        echo "Importing educational process schedule (explicit release opt-in)..."
+        python scripts/import_eps.py
+    fi
     exit 0
 fi
 
