@@ -106,7 +106,10 @@ async def analytics_middleware(request: Request, call_next):
         record_request_metrics(duration_ms, True)
         raise e
 
+from app.routers import schedule_dated
+
 app.include_router(health.router, prefix="/api")
+app.include_router(schedule_dated.router)
 app.include_router(schedule.router, prefix="/api")
 app.include_router(lesson_notes.router, prefix="/api")
 app.include_router(schedule_now_router, prefix="/api/schedule")
