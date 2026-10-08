@@ -36,7 +36,7 @@ def effective_to_item(item: EffectiveLesson, week_type: str, target_date: date, 
         second_teacher_id=item.second_teacher_id,
         day_of_week=target_date.isoweekday(),
         lesson_number=item.lesson_number,
-        time=f"{bell_times.get(item.lesson_number, ('00:00', '00:00'))[0]}-{bell_times.get(item.lesson_number, ('', ''))[1]}",
+        time=f"{b[0]}-{b[1]}" if (b := (bell_times or {}).get(item.lesson_number)) else "Невідомо",
         subject=item.subject_name or "Unknown",
         teacher=item.teacher_name,
         room=item.room,
@@ -101,7 +101,7 @@ def to_item(item, week_type, target_date, bell_times=None, *, item_id=None, is_r
     room_name = getattr(item, 'room_override', None) or (" / ".join(t_rooms) if t_rooms else None)
     return ScheduleItem(id=item.id if item_id is None else item_id, group_id=item.group_id, subject_id=item.subject_id, teacher_id=item.teacher_id, second_teacher_id=item.second_teacher_id,
         day_of_week=item.day_of_week, lesson_number=item.lesson_number,
-        time=f"{bell_times.get(item.lesson_number, ('00:00', '00:00'))[0]}-{bell_times.get(item.lesson_number, ('', ''))[1]}",
+        time=f"{b[0]}-{b[1]}" if (b := (bell_times or {}).get(item.lesson_number)) else "Невідомо",
         subject=item.subject.name, teacher=teacher_name, room=room_name, room_override=getattr(item, 'room_override', None),
         subject_name=item.subject.name, teacher_name=teacher_name,
         stream_id=getattr(item, "stream_id", None),
@@ -130,8 +130,8 @@ def imported_change_to_item(change, week_type, target_date, bell_times=None):
         second_teacher_id=change.second_teacher_id,
         day_of_week=target_date.isoweekday(),
         lesson_number=change.lesson_number,
-        time=f"{(bell_times or {}).get(change.lesson_number, ('00:00', '00:00'))[0]}-"
-        f"{(bell_times or {}).get(change.lesson_number, ('', ''))[1]}",
+        time=f"{b[0]}-{b[1]}" if (b := (bell_times or {}).get(change.lesson_number)) else "Невідомо",
+
         subject=change.subject.name,
         teacher=teacher_name,
         room=change.room_override,
