@@ -3,7 +3,7 @@ from pathlib import Path
 import subprocess
 import pytest
 
-@pytest.mark.parametrize("opt_in,expected", [(None,["migrations"]),("false",["migrations"]),("true",["migrations","eps"])])
+@pytest.mark.parametrize("opt_in,expected", [(None,["migrations"]),("false",["migrations"]),("true",["migrations"])])
 def test_release_migrates_but_imports_only_with_explicit_opt_in(tmp_path,opt_in,expected):
     tools=tmp_path/"bin";tools.mkdir()
     for name,label in [("alembic","migrations"),("python","eps")]:

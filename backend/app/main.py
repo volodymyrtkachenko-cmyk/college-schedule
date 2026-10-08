@@ -23,32 +23,6 @@ import os
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    # Запуск міграцій автоматично на старті (важливо для Render, де entrypoint.sh може ігноруватися)
-    # На Fly.io ми відключаємо це через змінну RUN_MIGRATIONS=false, бо там є release_command.
-    if os.environ.get("RUN_MIGRATIONS", "true").lower() == "true" and not os.environ.get("FLY_REGION"):
-        def run_migrations():
-            from alembic.config import Config
-            from alembic import command
-            alembic_cfg = Config("alembic.ini")
-            command.upgrade(alembic_cfg, "head")
-            
-        try:
-            loop = asyncio.get_running_loop()
-            await loop.run_in_executor(None, run_migrations)
-            print("Міграції успішно застосовано.")
-        except Exception as e:
-            print(f"Помилка при виконанні міграцій: {e}")
-
-        
-        # Запуск імпорту графіку освітнього процесу
-        try:
-            from scripts.import_eps import async_main as import_eps_main
-            print("Імпорт Графіку освітнього процесу на 2026/2027...")
-            await import_eps_main()
-            print("Імпорт успішно завершено!")
-        except Exception as e:
-            print(f"Помилка імпорту: {e}")
-
     # --- Background Cron Job for Auto Import ---
     async def auto_import_loop():
         # Start the loop, wait a bit first so app can finish starting
@@ -71,8 +45,9 @@ async def lifespan(_: FastAPI):
             # Wait 1 hour
             await asyncio.sleep(3600)
     
-    # Start background task if on Fly.io or RUN_CRON is set
-    if os.environ.get("FLY_REGION") or os.environ.get("RUN_CRON") == "true":
+    # Start background task only if RUN_CRON is explicitly true
+    run_cron = os.getenv("RUN_CRON", "false").strip().lower() == "true"
+    if run_cron:
         cron_task = asyncio.create_task(auto_import_loop())
     else:
         cron_task = None
