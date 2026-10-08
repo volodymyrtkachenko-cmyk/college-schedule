@@ -28,10 +28,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(session.user);
   }
 
+  useEffect(() => {
+    const channel = new BroadcastChannel("auth_sync");
+    channel.onmessage = (e) => {
+      if (e.data === "logout") {
+        api.auth.clear();
+        setUser(null);
+        window.location.href = "/login";
+      }
+    };
+    return () => channel.close();
+  }, []);
+
   async function logout() {
-    await api.auth.logout();
-    setUser(null);
-    window.location.href = "/login";
+    try {
+      const success = await api.auth.logout();
+      if (success) {
+        const channel = new BroadcastChannel("auth_sync");
+        channel.postMessage("logout");
+        channel.close();
+        setUser(null);
+        window.location.href = "/login";
+      }
+    } catch (e) {
+      console.error("Logout failed", e);
+      // Don't clear local state if server logout failed!
+    }
   }
 
   return <AuthContext.Provider value={{ user, loading, login, logout }}>{children}</AuthContext.Provider>;

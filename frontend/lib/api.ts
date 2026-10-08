@@ -138,6 +138,7 @@ export interface LessonMutation {
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 let accessToken: string | null = null;
 let currentSession: AuthSession | null = null;
+let isLoggedOut = false;
 let refreshPromise: Promise<AuthSession> | null = null;
 let bootstrapPromise: Promise<AuthSession> | null = null;
 let sessionPromise: Promise<AuthSession> | null = null;
@@ -241,6 +242,7 @@ async function refresh(): Promise<AuthSession> {
             method: "POST"
         })
             .then((session) => {
+                if (isLoggedOut) throw new Error("Logged out during refresh");
                 accessToken = session.access_token;
                 currentSession = session;
                 return session;
@@ -632,6 +634,7 @@ export const api = {
   calendarPeriods: apiSchedulePeriods,
     auth: {
         login: async (username: string, password: string) => {
+            isLoggedOut = false;
             const session = await rawRequest<AuthSession>("/api/auth/login", {
                 method: "POST",
                 body: JSON.stringify({username, password})
@@ -644,6 +647,7 @@ export const api = {
         },
         refresh, bootstrap, ensureAuthenticated: getSession,
         clear: () => {
+            isLoggedOut = true;
             accessToken = null;
             currentSession = null;
             bootstrapPromise = null;
@@ -651,14 +655,18 @@ export const api = {
         },
         logout: async () => {
             try {
-                await fetch(`${API_URL}/api/auth/logout`, {
+                const res = await fetch(`${API_URL}/api/auth/logout`, {
                     method: "POST",
-                    credentials: "include" // Send refresh cookie to be invalidated
+                    credentials: "include"
                 });
+                if (res.ok) {
+                    api.auth.clear();
+                    return true;
+                }
+                return false;
             } catch (e) {
                 console.error("Failed to call server logout", e);
-            } finally {
-                api.auth.clear();
+                return false;
             }
         },
     },

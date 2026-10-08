@@ -1,6 +1,7 @@
 from fastapi import Request
 from app.config import settings
 import httpx
+import asyncio
 import hashlib
 import json
 import logging
@@ -10,7 +11,7 @@ from fastapi.security.api_key import APIKeyHeader
 from sqlalchemy import text, delete, select, func
 from sqlalchemy.orm import joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.database import get_db
+from app.database import get_db, engine
 from app.core.security import require_roles
 from app.core.time import now_local
 from app.services.importer.fetcher import ScheduleFetcher
@@ -27,12 +28,7 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 IMPORT_PAGE_RETRIES = 3
 
 
-async def import_lock_dependency() -> AsyncIterator[None]:
-    await IMPORT_LOCK.acquire()
-    try:
-        yield
-    finally:
-        IMPORT_LOCK.release()
+
 
 def hash_payload(payload: dict) -> str:
     serialized = json.dumps(payload, sort_keys=True, default=str)
@@ -283,32 +279,18 @@ async def trigger_import(
     request: Request,
     weeks: int = Query(2, description="Number of weeks to fetch"),
     db: AsyncSession = Depends(get_db),
-    _import_lock: None = Depends(import_lock_dependency),
+    user=Depends(require_roles("admin"))
 ):
-    cron_secret = request.headers.get("Authorization")
-    if cron_secret and cron_secret.startswith("Bearer "):
-        cron_secret = cron_secret.split(" ")[1]
-    
-    import_secret = getattr(settings, "IMPORT_CRON_SECRET", None)
-    is_cron = bool(import_secret) and cron_secret == import_secret
-    
-    if not is_cron:
-        if not cron_secret:
-            raise HTTPException(status_code=401, detail="Потрібна авторизація")
-        from app.core.security import get_current_user
-        from fastapi.security import HTTPAuthorizationCredentials
-        credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=cron_secret)
-        user = await get_current_user(credentials=credentials, db=db)
-        if not user or user.role != "admin":
-            raise HTTPException(status_code=403, detail="Недостатньо прав")
-            
     return await execute_import_logic(db, weeks)
 
 async def execute_import_logic(db: AsyncSession, weeks: int = 2):
-    lock_acquired = await db.scalar(text("SELECT pg_try_advisory_xact_lock(424242)"))
-    if not lock_acquired:
-        raise HTTPException(status_code=409, detail="Імпорт вже виконується іншим процесом")
-
+    lock_key = 424242
+    lock_conn = await engine.connect().__aenter__()
+    if lock_conn.dialect.name == "postgresql":
+        lock_acquired = await lock_conn.scalar(text("SELECT pg_try_advisory_lock(:key)").bindparams(key=lock_key))
+        if not lock_acquired:
+            await lock_conn.__aexit__(None, None, None)
+            raise HTTPException(status_code=409, detail="Імпорт вже виконується іншим процесом")
     
     fetcher = ScheduleFetcher()
     parser = KREParser()
@@ -722,9 +704,6 @@ async def execute_import_logic(db: AsyncSession, weeks: int = 2):
             
         set_active_jobs(0)
         record_successful_import()
-        
-        if db.bind.dialect.name == "postgresql":
-            await db.execute(text("SELECT pg_advisory_unlock(:key)").bindparams(key=lock_key))
         return {
             "status": "success", 
             "groups_processed": len(group_ids),
@@ -757,21 +736,31 @@ async def execute_import_logic(db: AsyncSession, weeks: int = 2):
             }
         }
     except Exception as e:
-        logger.error(f"Import error: {e}", exc_info=True)
+        import uuid
+        error_id = str(uuid.uuid4())[:8]
+        logger.error(f"Import error [{error_id}]: {e}", exc_info=True)
         set_active_jobs(0)
-        
-        if db.bind.dialect.name == "postgresql":
-            await db.execute(text("SELECT pg_advisory_unlock(:key)").bindparams(key=lock_key))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail={"msg": "Внутрішня помилка імпорту. Зверніться до підтримки.", "error_id": error_id})
+
+    finally:
+        if lock_conn.dialect.name == "postgresql":
+            await lock_conn.execute(text("SELECT pg_advisory_unlock(:key)").bindparams(key=lock_key))
+            await lock_conn.commit()
+        await lock_conn.__aexit__(None, None, None)
 
 @router.post("/import/cron")
 async def import_data_cron(
-    bg_tasks: BackgroundTasks,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    force: bool = False,
     cron_key: str | None = Header(None, alias="X-Cron-Key")
 ):
-    if not cron_key or cron_key != settings.cron_secret_key:
+    import_secret = getattr(settings, "IMPORT_CRON_SECRET", None)
+    if not import_secret or not cron_key:
         raise HTTPException(status_code=401, detail="Unauthorized cron")
+    
+    import hmac
+    import secrets
+    if not hmac.compare_digest(cron_key.encode(), import_secret.encode()):
+        raise HTTPException(status_code=401, detail="Unauthorized cron")
+        
     return await execute_import_logic(db, 2)
