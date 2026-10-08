@@ -1,0 +1,17 @@
+{
+  "mode": "read_only",
+  "dialect": "postgresql",
+  "lesson_notes_table_exists": false,
+  "new_occurrence_notes_table_exists": false,
+  "alembic_revisions": [
+    "20261008_add_token_blocklist"
+  ],
+  "schedule_override_count": 0,
+  "orphan_overrides_count": 0,
+  "invalid_version_ids": [],
+  "active_overlap_pairs": [],
+  "requires_legacy_notes_preservation": false,
+  "ready_for_version_constraints": true,
+  "approved_to_run_all_pending_migrations": false,
+  "reason": "Backup/restore and legacy note preservation must be reviewed before alembic upgrade head."
+}
