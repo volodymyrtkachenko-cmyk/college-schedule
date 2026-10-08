@@ -207,6 +207,19 @@ async function parseError(response: Response) {
         const body = await response.json();
         if (response.status >= 500) return "Сталася помилка на сервері. Спробуйте ще раз пізніше.";
         
+        if (body.detail && typeof body.detail === "object" && !Array.isArray(body.detail)) {
+            const messages: Record<string, string> = {
+                active_version_overlap: "Дати перетинаються з іншою активною версією.",
+                clone_self: "Не можна клонувати версію в саму себе.",
+                clone_target_not_empty: "Цільова версія вже містить заняття. Безпечний перезапис потребує окремого перегляду наслідків.",
+                clone_source_empty: "Версія-джерело не містить занять.",
+                version_delete_requires_data_policy: "Активну або заповнену версію не можна видалити без окремого захисту даних.",
+                version_constraint_conflict: "Зміна суперечить обмеженням версій. Оновіть дані та повторіть перевірку.",
+            };
+            return typeof body.detail.msg === "string" ? body.detail.msg
+                : messages[body.detail.code] ?? "Операцію заблоковано через конфлікт даних.";
+        }
+
         // Custom backend string messages
         if (typeof body.detail === "string") {
             const raw = body.detail.toLowerCase();

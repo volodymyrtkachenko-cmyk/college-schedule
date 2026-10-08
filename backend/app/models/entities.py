@@ -91,6 +91,10 @@ class Subject(Base):
 
 class ScheduleVersion(Base):
     __tablename__ = "schedule_versions"
+    __table_args__ = (
+        CheckConstraint("valid_from <= valid_until", name="ck_version_dates"),
+        CheckConstraint("length(trim(name)) > 0 AND length(name) <= 255", name="ck_version_name"),
+    )
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(255))
     valid_from: Mapped[date] = mapped_column(Date, index=True)

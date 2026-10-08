@@ -47,7 +47,7 @@ export function ScheduleVersionsPanel() {
       setDraft(null);
     } catch (e) {
       console.error(e);
-      alert("Помилка збереження");
+      alert(e instanceof Error ? e.message : "Помилка збереження");
     } finally {
       setIsSubmitting(false);
     }
@@ -61,7 +61,7 @@ export function ScheduleVersionsPanel() {
       setVersionToDelete(null);
     } catch (e) {
       console.error(e);
-      alert("Не вдалося видалити версію");
+      alert(e instanceof Error ? e.message : "Не вдалося видалити версію");
     }
   }
 
@@ -75,7 +75,7 @@ export function ScheduleVersionsPanel() {
       setCloneSourceId("");
     } catch (e) {
       console.error(e);
-      alert("Помилка клонування");
+      alert(e instanceof Error ? e.message : "Помилка клонування");
     } finally {
       setIsSubmitting(false);
     }

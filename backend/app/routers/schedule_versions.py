@@ -1,104 +1,160 @@
 from datetime import date
-from typing import List, Optional
-
+from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, ConfigDict
-from sqlalchemy import select, insert, delete
+from pydantic import BaseModel, ConfigDict, StringConstraints, ValidationError, model_validator
+from sqlalchemy import select, insert, func, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
-
 from app.database import get_db
 from app.models.entities import ScheduleVersion, Schedule, User
 from app.core.security import require_roles
 
 router = APIRouter(prefix="/schedule-versions", tags=["Schedule Versions"])
+VersionName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)]
 
 class ScheduleVersionBase(BaseModel):
-    name: str
+    name: VersionName
     valid_from: date
     valid_until: date
     is_active: bool = True
+
+    @model_validator(mode="after")
+    def valid_dates(self):
+        if self.valid_from > self.valid_until:
+            raise ValueError("valid_from must not be after valid_until")
+        return self
 
 class ScheduleVersionCreate(ScheduleVersionBase):
     pass
 
 class ScheduleVersionUpdate(BaseModel):
-    name: Optional[str] = None
-    valid_from: Optional[date] = None
-    valid_until: Optional[date] = None
-    is_active: Optional[bool] = None
+    model_config = ConfigDict(extra="forbid")
+    name: VersionName | None = None
+    valid_from: date | None = None
+    valid_until: date | None = None
+    is_active: bool | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_explicit_null(cls, value):
+        if isinstance(value, dict):
+            for key in ("name", "valid_from", "valid_until", "is_active"):
+                if key in value and value[key] is None:
+                    raise ValueError(f"{key} must not be null")
+        return value
 
 class ScheduleVersionResponse(ScheduleVersionBase):
     id: int
     model_config = ConfigDict(from_attributes=True)
 
-@router.get("", response_model=List[ScheduleVersionResponse])
-async def list_versions(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(ScheduleVersion).order_by(ScheduleVersion.valid_from.desc()))
-    return result.scalars().all()
+async def lock_versions(db: AsyncSession):
+    if db.get_bind().dialect.name == "postgresql":
+        await db.execute(text("SELECT pg_advisory_xact_lock(424243)"))
 
-@router.post("", response_model=ScheduleVersionResponse)
-async def create_version(data: ScheduleVersionCreate, db: AsyncSession = Depends(get_db), _: User = Depends(require_roles('admin'))):
+async def require_no_overlap(db: AsyncSession, data: ScheduleVersionBase, exclude_id=None):
+    if not data.is_active:
+        return
+    query = select(ScheduleVersion.id).where(
+        ScheduleVersion.is_active.is_(True),
+        ScheduleVersion.valid_from <= data.valid_until,
+        ScheduleVersion.valid_until >= data.valid_from,
+    )
+    if exclude_id is not None:
+        query = query.where(ScheduleVersion.id != exclude_id)
+    overlap = await db.scalar(query.limit(1))
+    if overlap is not None:
+        raise HTTPException(409, detail={"code": "active_version_overlap", "version_id": overlap})
+
+async def commit_version_change(db: AsyncSession):
+    try:
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        raise HTTPException(409, detail={"code": "version_constraint_conflict"}) from exc
+
+@router.get("", response_model=list[ScheduleVersionResponse])
+async def list_versions(db: AsyncSession = Depends(get_db)):
+    return list((await db.scalars(select(ScheduleVersion).order_by(
+        ScheduleVersion.valid_from.desc(), ScheduleVersion.id.desc()
+    ))).all())
+
+@router.post("", response_model=ScheduleVersionResponse, status_code=201)
+async def create_version(data: ScheduleVersionCreate, db: AsyncSession = Depends(get_db),
+                         _: User = Depends(require_roles("admin"))):
+    await lock_versions(db)
+    await require_no_overlap(db, data)
     version = ScheduleVersion(**data.model_dump())
     db.add(version)
-    await db.commit()
+    await commit_version_change(db)
     await db.refresh(version)
     return version
 
 @router.patch("/{version_id}", response_model=ScheduleVersionResponse)
-async def update_version(version_id: int, data: ScheduleVersionUpdate, db: AsyncSession = Depends(get_db), _: User = Depends(require_roles('admin'))):
-    version = await db.get(ScheduleVersion, version_id)
-    if not version:
-        raise HTTPException(status_code=404, detail="Версію розкладу не знайдено")
-    
-    update_data = data.model_dump(exclude_unset=True)
-    for k, v in update_data.items():
-        setattr(version, k, v)
-        
-    await db.commit()
+async def update_version(version_id: int, data: ScheduleVersionUpdate,
+                         db: AsyncSession = Depends(get_db),
+                         _: User = Depends(require_roles("admin"))):
+    await lock_versions(db)
+    version = await db.scalar(select(ScheduleVersion).where(
+        ScheduleVersion.id == version_id
+    ).with_for_update())
+    if version is None:
+        raise HTTPException(404, "Версію розкладу не знайдено")
+    merged = {key: getattr(version, key) for key in ("name", "valid_from", "valid_until", "is_active")}
+    merged.update(data.model_dump(exclude_unset=True))
+    try:
+        validated = ScheduleVersionBase.model_validate(merged)
+    except ValidationError as exc:
+        raise HTTPException(422, detail=exc.errors(include_input=False, include_context=False)) from exc
+    await require_no_overlap(db, validated, exclude_id=version.id)
+    for key, value in validated.model_dump().items():
+        setattr(version, key, value)
+    await commit_version_change(db)
     await db.refresh(version)
     return version
 
 @router.delete("/{version_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_version(version_id: int, db: AsyncSession = Depends(get_db), _: User = Depends(require_roles('admin'))):
+async def delete_version(version_id: int, db: AsyncSession = Depends(get_db),
+                         _: User = Depends(require_roles("admin"))):
+    await lock_versions(db)
     version = await db.get(ScheduleVersion, version_id)
-    if not version:
-        raise HTTPException(status_code=404, detail="Версію розкладу не знайдено")
+    if version is None:
+        raise HTTPException(404, "Версію розкладу не знайдено")
+    has_rows = await db.scalar(select(func.count()).select_from(Schedule).where(Schedule.version_id == version_id))
+    if version.is_active or has_rows:
+        raise HTTPException(409, detail={
+            "code": "version_delete_requires_data_policy",
+            "msg": "Активну або заповнену версію не можна видалити цією операцією. Спочатку деактивуйте її; дані та історія мають зберігатися.",
+        })
     await db.delete(version)
-    await db.commit()
+    await commit_version_change(db)
 
 @router.post("/{version_id}/clone-from/{source_version_id}")
-async def clone_version_schedule(version_id: int, source_version_id: int, db: AsyncSession = Depends(get_db), _: User = Depends(require_roles('admin'))):
-    target_version = await db.get(ScheduleVersion, version_id)
-    if not target_version:
-        raise HTTPException(status_code=404, detail="Цільову версію розкладу не знайдено")
-        
-    # Get all schedules from source (or default if source_version_id is 0)
-    source_filter = Schedule.version_id == source_version_id if source_version_id > 0 else Schedule.version_id.is_(None)
-    schedules = (await db.scalars(select(Schedule).where(source_filter))).all()
-    
-    # Delete existing schedules in target to avoid duplicates
-    await db.execute(delete(Schedule).where(Schedule.version_id == version_id))
-    
-    # Insert new
-    if schedules:
-        new_schedules = []
-        for s in schedules:
-            new_schedules.append({
-                "group_id": s.group_id,
-                "teacher_id": s.teacher_id,
-                "second_teacher_id": s.second_teacher_id,
-                "subject_id": s.subject_id,
-                "stream_id": s.stream_id,
-                "day_of_week": s.day_of_week,
-                "lesson_number": s.lesson_number,
-                "week_type": s.week_type,
-                "is_active": s.is_active,
-                "is_replacement": s.is_replacement,
-                "room_override": s.room_override,
-                "version_id": version_id
-            })
-        await db.execute(insert(Schedule).values(new_schedules))
-        
-    await db.commit()
-    return {"status": "cloned", "count": len(schedules)}
+async def clone_version_schedule(version_id: int, source_version_id: int,
+                                 db: AsyncSession = Depends(get_db),
+                                 _: User = Depends(require_roles("admin"))):
+    if source_version_id < 0:
+        raise HTTPException(422, "source_version_id must be non-negative")
+    if version_id == source_version_id:
+        raise HTTPException(409, detail={"code": "clone_self"})
+    await lock_versions(db)
+    target = await db.get(ScheduleVersion, version_id)
+    if target is None:
+        raise HTTPException(404, "Цільову версію розкладу не знайдено")
+    if source_version_id != 0 and await db.get(ScheduleVersion, source_version_id) is None:
+        raise HTTPException(404, "Версію-джерело не знайдено")
+    target_count = await db.scalar(select(func.count()).select_from(Schedule).where(Schedule.version_id == version_id))
+    if target_count:
+        raise HTTPException(409, detail={
+            "code": "clone_target_not_empty",
+            "msg": "Ціль містить заняття. Перезапис потребує preview та mapping ручних змін; мовчазне очищення заборонено.",
+        })
+    source_filter = Schedule.version_id == source_version_id if source_version_id else Schedule.version_id.is_(None)
+    rows = list((await db.scalars(select(Schedule).where(source_filter))).all())
+    if not rows:
+        raise HTTPException(409, detail={"code": "clone_source_empty"})
+    fields = ("group_id", "teacher_id", "second_teacher_id", "subject_id", "stream_id",
+              "day_of_week", "lesson_number", "week_type", "is_active", "is_replacement", "room_override")
+    values = [{**{key: getattr(row, key) for key in fields}, "version_id": version_id} for row in rows]
+    await db.execute(insert(Schedule), values)
+    await commit_version_change(db)
+    return {"status": "cloned", "count": len(values)}
