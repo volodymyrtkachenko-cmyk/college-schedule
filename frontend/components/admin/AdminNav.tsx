@@ -11,7 +11,8 @@ export const referenceLabels: Record<ReferenceResource, string> = {
 
 export function AdminNav({ active }: { active: string }) { 
   const { user, logout } = useAuth();
-  const [online, setOnline] = useState<number | null>(null);
+    const [online, setOnline] = useState<number | null>(null);
+  const [metrics, setMetrics] = useState<any>(null);
   const [isOpen, setIsOpen] = useState(false); // Mobile menu drawer toggle
 
   useEffect(() => {
@@ -19,10 +20,11 @@ export function AdminNav({ active }: { active: string }) {
       if (document.visibilityState !== "visible") return;
       try {
         const session = await api.auth.ensureAuthenticated();
-        const data = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/metrics`, {
+                const data = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/metrics`, {
           headers: { "Authorization": `Bearer ${session.access_token}` }
         }).then(res => res.json());
         setOnline(data.online);
+        setMetrics(data);
       } catch (e) {
         // fail silently
       }
@@ -118,14 +120,23 @@ export function AdminNav({ active }: { active: string }) {
        )}
 
        <div className="mt-auto pt-8 flex flex-col gap-3">
-           <div className="flex flex-col items-start gap-1.5 rounded-[10px] border border-emerald-500/10 bg-emerald-500/5 px-4 py-3 shadow-sm">
+                      <div className="flex flex-col items-start gap-1.5 rounded-[10px] border border-emerald-500/10 bg-emerald-500/5 px-4 py-3 shadow-sm mb-3">
               <span className="text-[10px] text-emerald-600/70 dark:text-emerald-400/70 font-bold uppercase tracking-widest">Відвідувачі</span>
               <div className="flex items-center gap-2">
                 <span className="relative flex h-2 w-2 shrink-0"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span></span>
                 <span className="text-[13px] font-semibold text-emerald-600 dark:text-emerald-400">{online !== null ? online : "…"} зараз на сайті</span>
               </div>
            </div>
-           
+
+           {metrics && (
+             <div className="flex flex-col items-start gap-2 rounded-[10px] border border-sys-border bg-sys-card px-4 py-3 shadow-sm mb-3 text-xs text-sys-text-secondary">
+               <span className="text-[10px] font-bold uppercase tracking-widest text-sys-text-primary">Стан системи</span>
+               <div className="flex justify-between w-full"><span>Помилки:</span> <span className="font-medium">{(metrics.error_rate * 100).toFixed(1)}%</span></div>
+               <div className="flex justify-between w-full"><span>Затримка:</span> <span className="font-medium">{metrics.avg_latency_ms.toFixed(0)} мс</span></div>
+               <div className="flex justify-between w-full"><span>Фонові задачі:</span> <span className="font-medium">{metrics.active_jobs}</span></div>
+               <div className="flex justify-between w-full"><span>Імпорт:</span> <span className="font-medium">{metrics.last_successful_import ? new Date(metrics.last_successful_import * 1000).toLocaleTimeString("uk-UA") : "Немає даних"}</span></div>
+             </div>
+           )}
            <button onClick={() => { setIsOpen(false); logout(); }} className="w-full text-left flex items-center justify-center gap-2 px-3 py-2.5 text-[14px] font-bold rounded-[8px] text-rose-500/80 bg-rose-500/10 hover:text-rose-400 hover:bg-rose-500/20 active:scale-95 transition-all">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
               Вийти з облікового запису

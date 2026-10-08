@@ -3,8 +3,17 @@ import { useEffect } from "react";
 
 export function Heartbeat() {
     useEffect(() => {
+        // Generate a random session ID for anonymous active-user metrics
+        let sessionId = sessionStorage.getItem("pulse_sid");
+        if (!sessionId) {
+            sessionId = Math.random().toString(36).substring(2, 15);
+            sessionStorage.setItem("pulse_sid", sessionId);
+        }
+
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || "";
+        
         const ping = () => {
-            fetch("/api/ping").catch(() => {});
+            fetch(`${baseUrl}/api/ping?sid=${sessionId}`).catch(() => {});
         };
 
         // Ping every 30 seconds if tab is active
@@ -17,7 +26,7 @@ export function Heartbeat() {
         const handleVisibilityChange = () => {
             if (document.visibilityState === "hidden") {
                 // Send a beacon to immediately remove the user from online count
-                navigator.sendBeacon("/api/ping?leave=1");
+                navigator.sendBeacon(`${baseUrl}/api/ping?sid=${sessionId}&leave=1`);
             } else {
                 ping();
             }

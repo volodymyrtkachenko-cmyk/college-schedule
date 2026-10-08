@@ -9,23 +9,24 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        sys: {
+                sys: {
           bg: '#0D1117',
           card: '#161B22',
-          border: '#21262D',
+          border: '#30363D',
           input: '#010409',
           tabActive: '#21262D',
           destructive: '#F85149',
-          accent: '#1F6FEB',
+          accent: '#58A6FF',
           neon: '#00E5FF',
           warning: '#FFD600',
           warningText: '#0D1117',
           text: {
             subject: '#FFFFFF',
-            primary: '#FFFFFF',
-            secondary: '#8B949E',
-            muted: '#6E7681',
+            primary: '#F0F6FC',
+            secondary: '#9CA3AF',
+            muted: '#8B949E',
           }
+        }
         }
       }
     }

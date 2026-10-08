@@ -725,6 +725,8 @@ async def execute_import_logic(db: AsyncSession, weeks: int = 2):
                 logger.error(f"Auto-publish failed for draft {draft_id}: {e}")
 
             
+        set_active_jobs(0)
+        record_successful_import()
         return {
             "status": "success", 
             "groups_processed": len(group_ids),
@@ -758,4 +760,5 @@ async def execute_import_logic(db: AsyncSession, weeks: int = 2):
         }
     except Exception as e:
         logger.error(f"Import error: {e}", exc_info=True)
+        set_active_jobs(0)
         raise HTTPException(status_code=500, detail=str(e))

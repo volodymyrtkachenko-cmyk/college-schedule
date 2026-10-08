@@ -107,9 +107,19 @@ app.add_middleware(
 
 @app.middleware("http")
 async def analytics_middleware(request: Request, call_next):
-    track_request(request)
-    response = await call_next(request)
-    return response
+    from app.analytics import record_request_metrics
+    import time
+    start_time = time.time()
+    try:
+        track_request(request)
+        response = await call_next(request)
+        duration_ms = (time.time() - start_time) * 1000
+        record_request_metrics(duration_ms, response.status_code >= 500)
+        return response
+    except Exception as e:
+        duration_ms = (time.time() - start_time) * 1000
+        record_request_metrics(duration_ms, True)
+        raise e
 
 app.include_router(health.router, prefix="/api")
 app.include_router(schedule.router, prefix="/api")
