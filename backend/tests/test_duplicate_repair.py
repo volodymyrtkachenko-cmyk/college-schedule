@@ -60,7 +60,7 @@ async def test_stale_plan_rejected_without_changes(db_fixture):
 async def test_references_block_repair_without_deleting_override(db_fixture):
     engine,ids=db_fixture
     async with async_sessionmaker(engine)() as db:
-        db.add(ScheduleOverride(schedule_id=ids[-1],date=date(2026,10,20),room='Manual',cancelled=False));await db.commit()
+        db.add(ScheduleOverride(schedule_id=ids[-1],group_id=1,lesson_number=2,date=date(2026,10,20),room='Manual',cancelled=False));await db.commit()
     with pytest.raises(RepairRefused,match='references_requires_manual_mapping'):
         async with engine.connect() as conn:await create_plan(conn)
     async with engine.connect() as conn:
@@ -148,7 +148,7 @@ async def test_opt_in_does_not_ignore_other_assignment_fields(db_fixture,changes
 async def test_covered_group_reference_still_blocks_plan(db_fixture):
     engine,ids=db_fixture;await add_existing_both(engine,ids)
     async with async_sessionmaker(engine)() as db:
-        db.add(ScheduleOverride(schedule_id=ids[-1],date=date(2026,10,20),cancelled=True));await db.commit()
+        db.add(ScheduleOverride(schedule_id=ids[-1],group_id=1,lesson_number=2,date=date(2026,10,20),cancelled=True));await db.commit()
     with pytest.raises(RepairRefused,match='references_requires_manual_mapping'):
         async with engine.connect() as conn:await create_plan(conn,allow_covered_week_duplicates=True)
 

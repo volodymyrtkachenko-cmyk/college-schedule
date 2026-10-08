@@ -162,18 +162,23 @@ class BellSchedule(Base):
 
 class ScheduleOverride(Base):
     __tablename__ = "schedule_override"
-    __table_args__ = (UniqueConstraint("schedule_id", "date", name="uq_schedule_override_date"),)
+    __table_args__ = (UniqueConstraint("group_id", "date", "lesson_number", name="uq_schedule_override_cell"),)
     id: Mapped[int] = mapped_column(primary_key=True)
-    schedule_id: Mapped[int] = mapped_column(ForeignKey("schedule.id"), index=True)
+    schedule_id: Mapped[Optional[int]] = mapped_column(ForeignKey("schedule.id"), index=True)
+    group_id: Mapped[int] = mapped_column(ForeignKey("groups.id"), index=True)
     date: Mapped[date] = mapped_column(Date, index=True)
+    lesson_number: Mapped[int] = mapped_column(Integer)
     teacher_id: Mapped[Optional[int]] = mapped_column(ForeignKey("teachers.id"))
+    second_teacher_id: Mapped[Optional[int]] = mapped_column(ForeignKey("teachers.id"), nullable=True)
     subject_id: Mapped[Optional[int]] = mapped_column(ForeignKey("subjects.id"))
+    stream_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     room: Mapped[Optional[str]] = mapped_column(String(100))
     cancelled: Mapped[bool] = mapped_column(Boolean, default=False)
     
     subject: Mapped[Optional["Subject"]] = relationship()
-    teacher: Mapped[Optional["Teacher"]] = relationship()
-    schedule: Mapped["Schedule"] = relationship()
+    teacher: Mapped[Optional["Teacher"]] = relationship(foreign_keys=[teacher_id])
+    second_teacher: Mapped[Optional["Teacher"]] = relationship(foreign_keys=[second_teacher_id])
+    schedule: Mapped[Optional["Schedule"]] = relationship()
 
 
 class SchedulePeriod(Base):

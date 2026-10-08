@@ -111,7 +111,7 @@ async def test_clone_and_delete_do_not_erase_target_or_overrides(client_and_sess
         db.add_all([group,subject]);await db.flush()
         row=Schedule(group_id=group.id,subject_id=subject.id,day_of_week=1,lesson_number=1,week_type='both',version_id=target['id'])
         db.add(row);await db.flush()
-        override=ScheduleOverride(schedule_id=row.id,date=date(2026,10,5),room='Manual',cancelled=False)
+        override=ScheduleOverride(schedule_id=row.id,group_id=1,lesson_number=2,date=date(2026,10,5),room='Manual',cancelled=False)
         db.add(override);await db.commit();row_id=row.id;override_id=override.id
     assert (await client.post(f"/api/schedule-versions/{target['id']}/clone-from/{source['id']}")).status_code==409
     assert (await client.delete(f"/api/schedule-versions/{target['id']}")).status_code==409

@@ -745,6 +745,8 @@ async def test_publishing_blocks_replacement_with_manual_overrides(api_client):
         session.add_all([
             ScheduleOverride(
                 schedule_id=data["lesson_id"],
+                group_id=data["group_id"],
+                lesson_number=2,
                 date=date(2025, 9, 1),
                 cancelled=True,
             ),
