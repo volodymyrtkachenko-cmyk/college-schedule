@@ -21,6 +21,7 @@ from app.services.importer.parsers.kre_parser import KREParser
 from app.services.importer.normalizer import EntityNormalizer
 from app.services.importer.differ import ScheduleDiffer
 from app.routers.drafts import publish_draft
+from app.analytics import set_active_jobs, record_successful_import
 from app.models import ScheduleDraft, ScheduleSlot, Curriculum, Schedule, ImportedScheduleChange
 import traceback
 from collections.abc import AsyncIterator
@@ -639,6 +640,7 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str):
         pending_draft = await db.scalar(pending_stmt)
 
         unchanged = False
+        is_auto_published = False
         pending_matches = (
             pending_draft
             and (
@@ -713,8 +715,6 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str):
             
             draft.data = {**payload, "created_curriculum_ids": created_curriculum_ids}
             await db.commit()
-            
-            is_auto_published = False
 
             
         set_active_jobs(0)
