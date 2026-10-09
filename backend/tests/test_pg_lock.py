@@ -13,6 +13,7 @@ def resources():
     conn = SimpleNamespace(
         dialect=SimpleNamespace(name='postgresql'),
         scalar=AsyncMock(side_effect=[True, True]),
+        begin=AsyncMock(return_value=SimpleNamespace(rollback=AsyncMock())),
         rollback=AsyncMock(), invalidate=AsyncMock(), close=AsyncMock(),
     )
     engine = SimpleNamespace(connect=AsyncMock(return_value=conn))
@@ -23,7 +24,7 @@ async def test_success():
     engine, conn = resources()
     async with import_mutex(engine, 'test'):
         pass
-    assert conn.scalar.await_count == 2
+    assert conn.scalar.await_count == 1
     conn.close.assert_awaited_once()
     conn.invalidate.assert_not_awaited()
 
@@ -52,7 +53,7 @@ async def test_body_cancellation_releases_lock():
     with pytest.raises(asyncio.CancelledError):
         async with import_mutex(engine, 'test'):
             raise asyncio.CancelledError()
-    assert conn.scalar.await_count == 2
+    assert conn.scalar.await_count == 1
     conn.close.assert_awaited_once()
 
 @pytest.mark.anyio
@@ -60,14 +61,12 @@ async def test_real_task_cancel_during_unlock_waits_for_cleanup():
     engine, conn = resources()
     started, finish = asyncio.Event(), asyncio.Event()
     events = []
-    async def scalar(sql, params):
-        if 'try_advisory' in str(sql):
-            return True
+    async def rollback():
         events.append('unlock-start'); started.set()
-        await finish.wait(); events.append('unlock-end'); return True
+        await finish.wait(); events.append('unlock-end')
     async def close():
         events.append('close')
-    conn.scalar.side_effect = scalar; conn.close.side_effect = close
+    conn.rollback.side_effect = rollback; conn.close.side_effect = close
     async def run():
         async with import_mutex(engine, 'test'):
             return 'success'
@@ -84,7 +83,7 @@ async def test_real_task_cancel_during_unlock_waits_for_cleanup():
 @pytest.mark.anyio
 async def test_unlock_failure_invalidates_and_closes():
     engine, conn = resources()
-    conn.scalar.side_effect = [True, RuntimeError('unlock failed')]
+    conn.rollback.side_effect = RuntimeError('unlock failed')
     with pytest.raises(RuntimeError, match='unlock failed'):
         async with import_mutex(engine, 'test'):
             pass
@@ -93,7 +92,7 @@ async def test_unlock_failure_invalidates_and_closes():
 @pytest.mark.anyio
 async def test_cleanup_does_not_mask_body_error():
     engine, conn = resources()
-    conn.scalar.side_effect = [True, RuntimeError('unlock failed')]
+    conn.rollback.side_effect = RuntimeError('unlock failed')
     with pytest.raises(ValueError, match='primary'):
         async with import_mutex(engine, 'test'):
             raise ValueError('primary')
