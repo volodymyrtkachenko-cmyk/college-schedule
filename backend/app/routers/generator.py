@@ -8,6 +8,8 @@ import time
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from app.models.entities import User
+from sqlalchemy.orm import selectinload
 from sqlalchemy.orm import joinedload
 import asyncio
 
@@ -119,20 +121,26 @@ async def _complete_generation(
 
 
 @router.post("", response_model=ScheduleDraftResponse, status_code=202)
+
+
 async def generate_schedule(
     background_tasks: BackgroundTasks,
     max_time_in_seconds: int = Query(default=solver.DEFAULT_SOLVE_TIME_SECONDS, gt=0),
     db: AsyncSession = Depends(get_db),
-    admin=Depends(require_roles("admin"))
+    current_user: User = Depends(require_roles("admin", "editor"))
 ):
-    curriculums = (
-        await db.scalars(
-            select(Curriculum).options(
-                joinedload(Curriculum.group),
-                joinedload(Curriculum.subject),
-            )
-        )
-    ).all()
+    query = select(Curriculum).options(
+        joinedload(Curriculum.group),
+        joinedload(Curriculum.subject),
+    )
+    if current_user.role == "editor":
+        u = await db.scalar(select(User).options(selectinload(User.allowed_groups)).where(User.id == current_user.id))
+        user_groups = [g.id for g in u.allowed_groups] if u else []
+        if not user_groups:
+            raise HTTPException(status_code=403, detail="Немає доступу до жодної групи")
+        query = query.where(Curriculum.group_id.in_(user_groups))
+        
+    curriculums = (await db.scalars(query)).all()
     constraints = (await db.scalars(select(TeacherConstraint))).all()
 
     if not curriculums:

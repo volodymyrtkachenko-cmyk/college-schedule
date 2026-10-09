@@ -353,8 +353,16 @@ class BulkCuratorRequest(BaseModel):
     action: str = "create" # "create" or "delete"
 
 @router.post("/schedule/bulk-curator")
-async def bulk_curator_hours(payload: BulkCuratorRequest, db: AsyncSession = Depends(get_db), _: object = Depends(require_roles("admin"))):
+async def bulk_curator_hours(payload: BulkCuratorRequest, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_roles("admin", "editor"))):
     try:
+        user_groups = await load_user_groups(db, current_user)
+        if current_user.role == "editor":
+            if not payload.group_ids:
+                payload.group_ids = user_groups
+            else:
+                if not set(payload.group_ids).issubset(set(user_groups)):
+                    from fastapi import HTTPException
+                    raise HTTPException(403, "Ви не маєте доступу до однієї або кількох вказаних груп")
         subject_name = "Виховна година"
         
         # Find or create subject
