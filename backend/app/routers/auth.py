@@ -189,3 +189,23 @@ async def logout(
         path="/",
     )
     return {"status": "ok"}
+
+@router.post("/revoke-all")
+async def revoke_all(
+    response: Response,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Revokes all active sessions for the current user.
+    """
+    user.session_version = getattr(user, "session_version", 1) + 1
+    await db.commit()
+    response.delete_cookie(
+        key=settings.auth_cookie_name,
+        secure=settings.cookie_secure,
+        httponly=settings.cookie_httponly,
+        samesite=settings.cookie_samesite,
+        path="/"
+    )
+    return {"message": "Усі сеанси завершено"}
