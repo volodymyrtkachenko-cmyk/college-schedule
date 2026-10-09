@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.schemas import LessonMutation, ScheduleItem, ScheduleResponse
 from app.core.security import require_roles
-from app.models import Group, ImportedScheduleChange, Schedule, Subject, User, ScheduleVersion
+from app.models import Group, Teacher, ImportedScheduleChange, Schedule, Subject, User, ScheduleVersion
 from sqlalchemy import and_
 from app.services.schedule import fetch_schedule, fetch_week_schedule, conflicting_lesson, save_schedule_item
 
