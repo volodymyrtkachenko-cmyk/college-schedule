@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, StringConstraints, ValidationError, model_validator
@@ -219,3 +219,38 @@ async def revert_publication(
     
     await db.commit()
     return {"message": "Публікацію успішно скасовано"}
+
+from typing import List
+
+class PublicationResponse(BaseModel):
+    id: int
+    version_id: int | None
+    actor_id: int | None
+    timestamp: datetime
+    scope_manifest: str
+    is_reverted: bool
+
+@router.get("/publications", response_model=List[PublicationResponse])
+async def get_publications(
+    limit: int = 50,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles("admin", "editor"))
+):
+    from app.models.entities import SchedulePublication
+    publications = (await db.scalars(
+        select(SchedulePublication)
+        .order_by(SchedulePublication.timestamp.desc())
+        .limit(limit)
+    )).all()
+    
+    return [
+        PublicationResponse(
+            id=p.id,
+            version_id=p.version_id,
+            actor_id=p.actor_id,
+            timestamp=p.timestamp,
+            scope_manifest=p.scope_manifest,
+            is_reverted=p.is_reverted
+        )
+        for p in publications
+    ]
