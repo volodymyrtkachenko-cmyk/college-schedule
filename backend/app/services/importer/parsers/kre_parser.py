@@ -109,6 +109,8 @@ class KREParser:
                         room = text
                     else:
                         # Прибираємо слово (заміна) незалежно від регістру
+                        if re.search(r'(?i)\(заміна\)', text):
+                            is_substitution = True
                         clean_text = re.sub(r'(?i)\(заміна\)', '', text).strip()
                         if clean_text:
                             teacher_names.append(clean_text)
