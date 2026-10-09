@@ -33,7 +33,9 @@ export function GeneratorPanel() {
   const [filterTeacherId, setFilterTeacherId] = useState<number | null>(null);
   const [activeWeek, setActiveWeek] = useState<"numerator" | "denominator">("numerator");
   const [selectedSlotId, setSelectedSlotId] = useState<number | null>(null);
-  const [draftToDelete, setDraftToDelete] = useState<DraftRecord | null>(null);
+    const [draftToDelete, setDraftToDelete] = useState<DraftRecord | null>(null);
+  const [publishingId, setPublishingId] = useState<number | null>(null);
+  const [moving, setMoving] = useState(false);
   
   const [toast, setToast] = useState<{message: string, type: "success"|"error"} | null>(null);
 
