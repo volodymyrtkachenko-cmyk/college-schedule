@@ -19,12 +19,6 @@ async def _finish_connection(conn: AsyncConnection, acquired: bool,
         elif acquired:
             try:
                 async with asyncio.timeout(CLEANUP_SQL_TIMEOUT):
-                    unlocked = await conn.scalar(
-                        text("SELECT pg_advisory_unlock(:key)"),
-                        {"key": IMPORT_LOCK_KEY},
-                    )
-                    if unlocked is not True:
-                        raise RuntimeError("Import lock was not owned by this connection")
                     await conn.rollback()
             except BaseException:
                 # Do not put a possibly locked physical session back into the pool.
@@ -64,15 +58,17 @@ async def import_mutex(engine: AsyncEngine, error_id: str):
         if conn.dialect.name == "postgresql":
             # Cancellation during acquire can leave the result unknown.
             uncertain = True
+            trans = await conn.begin()
             acquired = bool(await conn.scalar(
-                text("SELECT pg_try_advisory_lock(:key)"),
+                text("SELECT pg_try_advisory_xact_lock(:key)"),
                 {"key": IMPORT_LOCK_KEY},
             ))
             uncertain = False
             if not acquired:
+                await trans.rollback()
                 raise HTTPException(409, "Імпорт вже виконується іншим процесом")
-            # End the SQL transaction; session lock survives this rollback.
-            await conn.rollback()
+            # Keep transaction open to retain the physical connection (PgBouncer compatibility)
+            # xact_lock will be automatically released when conn is closed/rolled back in finally block.
         else:
             if _local_lock.locked():
                 raise HTTPException(409, "Імпорт вже виконується")
