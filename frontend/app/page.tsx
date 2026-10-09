@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 import { getMondayOf } from "../lib/date";
 import { WelcomeScreen } from "../components/WelcomeScreen";
 import { SearchableSelect } from "../components/SearchableSelect";
+import { useToast } from "../components/ToastProvider";
 
 export default function HomePage() {
   const getInitialAnchor = () => {
@@ -61,7 +62,7 @@ export default function HomePage() {
       setIsDownloaded(!!localStorage.getItem(`offline_marker:${targetKey}`));
     }
   }, [mode, groupId, teacherId]);
-  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const { showToast: setToast } = useToast();
 
   const handleDownloadOffline = async () => {
     setIsDownloading(true);
@@ -69,10 +70,10 @@ export default function HomePage() {
       const target = mode === "student" ? { groupId: groupId ?? undefined } : { teacherId: teacherId ?? undefined };
       await downloadForOffline(target, weekAnchorDate);
       setIsDownloaded(true);
-      setToast({ message: "Розклад збережено на пристрій.", type: "success" });
+      setToast("Розклад збережено на пристрій.", "success");
     } catch (e) {
       console.error(e);
-      setToast({ message: "Не вдалося зберегти розклад на пристрій. Перевірте підключення та спробуйте ще раз.", type: "error" });
+      setToast("Не вдалося зберегти розклад на пристрій. Перевірте підключення та спробуйте ще раз.", "error");
     } finally {
       setIsDownloading(false);
     }
@@ -102,13 +103,6 @@ export default function HomePage() {
   const [view, setView] = useState<"today" | "week">("today");
   const weekType = view === "week" ? ((week?.[0]?.week_type) ?? "both") : (today?.week_type ?? "both");
   const isWeekend = [0, 6].includes(new Date().getDay());
-
-  useEffect(() => {
-    if (toast) {
-      const timer = setTimeout(() => setToast(null), 4000);
-      return () => clearTimeout(timer);
-    }
-  }, [toast]);
 
   const weekRange = useMemo(() => {
     const end = new Date(weekAnchorDate);
@@ -320,19 +314,7 @@ export default function HomePage() {
           </div>
         )}
         
-        {toast && (
-          <div className={`fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:bottom-6 z-[100] flex animate-in slide-in-from-bottom-5 items-center gap-2 rounded-[8px] border px-4 py-3 text-sm shadow-2xl backdrop-blur-md ${
-            toast.type === "success"
-            ? "border-emerald-500/40 bg-emerald-950/90 text-emerald-200"
-            : "border-rose-500/40 bg-rose-950/90 text-rose-200"
-          }`}>
-             {toast.type === "success" 
-               ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><path d="M5 12l5 5l10 -10"/></svg>
-               : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-             }
-             {toast.message}
-          </div>
-        )}
+        
       </div>
 
       <BottomNav view={view} onViewChange={setView} />

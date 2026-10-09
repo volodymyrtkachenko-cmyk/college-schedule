@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AuthProvider } from "../lib/auth";
 import { Heartbeat } from "../components/Heartbeat";
+import { ToastProvider } from "../components/ToastProvider";
 
 export const metadata: Metadata = {
   title: "Розклад занять | ДФКР",
@@ -32,8 +33,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       </head>
       <body>
         <AuthProvider>
+          <ToastProvider>
           <Heartbeat />
           {children}
+        </ToastProvider>
         </AuthProvider>
       </body>
     </html>

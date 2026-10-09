@@ -8,6 +8,7 @@ import { Lesson, LessonMutation, api } from "../../lib/api";
 import { invalidateScheduleCache, useSchedule } from "../../lib/hooks";
 import { getMondayOf } from "../../lib/date";
 import { SearchableSelect } from "../SearchableSelect";
+import { useToast } from "../ToastProvider";
 
 export function AdminScheduleEditor() {
   const [weekAnchorDate, setWeekAnchorDate] = useState(() => {
@@ -31,16 +32,9 @@ export function AdminScheduleEditor() {
   const [editor, setEditor] = useState<{ lesson?: Lesson; date: string } | null>(null);
   const [movingLesson, setMovingLesson] = useState<Lesson | null>(null);
   const [moving, setMoving] = useState(false);
-  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const { showToast: setToast } = useToast();
   const [versions, setVersions] = useState<import("../../lib/api").ScheduleVersion[]>([]);
   const weekType = (week?.[0]?.week_type) ?? today?.week_type ?? "both";
-
-  useEffect(() => {
-    if (toast) {
-      const timer = setTimeout(() => setToast(null), 4000);
-      return () => clearTimeout(timer);
-    }
-  }, [toast]);
 
   useEffect(() => {
     setMovingLesson(null);
@@ -92,7 +86,7 @@ export function AdminScheduleEditor() {
     try { 
         const saved = await api.lessons.update(lesson.id, payload); 
         updateLesson(saved); 
-        setToast({ message: "Заняття збережено.", type: "success" }); 
+        setToast("Заняття збережено.", "success"); 
     } catch (e) { 
         setToday(previousToday); setWeek(previousWeek); 
         throw e; 
@@ -135,11 +129,11 @@ export function AdminScheduleEditor() {
       })) ?? null);
       setMovingLesson(null);
       invalidateScheduleCache();
-      setToast({ message: "Заняття переміщено.", type: "success" });
+      setToast("Заняття переміщено.", "success");
     } catch (cause) {
       setWeek(previousWeek);
       setToday(previousToday);
-      setToast({ message: cause instanceof Error ? cause.message : "Не вдалося перемістити заняття.", type: "error" });
+      setToast(cause instanceof Error ? cause.message : "Не вдалося перемістити заняття.", "error");
     } finally {
       setMoving(false);
     }
@@ -149,7 +143,7 @@ export function AdminScheduleEditor() {
     try {
       const created = await api.lessons.create(payload);
       addLesson(payload.date ?? new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(new Date()), created);
-      setToast({ message: "Заняття додано.", type: "success" });
+      setToast("Заняття додано.", "success");
     } catch (e) {
       throw e;
     }
@@ -157,10 +151,10 @@ export function AdminScheduleEditor() {
   
   const remove = async (lesson: Lesson) => {
     const previousToday = today, previousWeek = week; removeLesson(lesson.id);
-    try { await api.lessons.remove(lesson.id); setToast({ message: "Заняття видалено.", type: "success" }); }
+    try { await api.lessons.remove(lesson.id); setToast("Заняття видалено.", "success"); }
     catch (e) { 
         setToday(previousToday); setWeek(previousWeek); 
-        setToast({ message: e instanceof Error ? e.message : "Помилка видалення", type: "error" });
+        setToast(e instanceof Error ? e.message : "Помилка видалення", "error");
         throw e; 
     }
   };
@@ -271,19 +265,7 @@ export function AdminScheduleEditor() {
 
       {editor && <LessonEditor key={editor.lesson?.id ?? editor.date + "-" + (editor.lesson?.lesson_number ?? "new")} initialWeekType={weekType} lesson={editor.lesson} date={editor.date} scheduleMode={mode} defaultGroupId={groupId} defaultTeacherId={teacherId} groups={groups} onClose={() => setEditor(null)} onSave={(payload) => editor.lesson ? edit(editor.lesson, editor.date, payload) : create(payload)} onDelete={editor.lesson ? () => remove(editor.lesson!) : undefined} />}
 
-      {toast && (
-        <div className={`fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:bottom-6 z-[100] flex animate-in slide-in-from-bottom-5 items-center gap-2 rounded-[8px] border px-4 py-3 text-sm shadow-2xl backdrop-blur-md ${
-          toast.type === "success"
-          ? "border-emerald-500/40 bg-emerald-950/90 text-emerald-200"
-          : "border-rose-500/40 bg-rose-950/90 text-rose-200"
-        }`}>
-           {toast.type === "success" 
-             ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><path d="M5 12l5 5l10 -10"/></svg>
-             : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-           }
-           {toast.message}
-        </div>
-      )}
+      
     </div>
   );
 }

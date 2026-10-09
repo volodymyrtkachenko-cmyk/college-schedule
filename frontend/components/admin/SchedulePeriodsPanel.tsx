@@ -12,6 +12,7 @@ import {
 import { invalidateScheduleCache } from "../../lib/hooks";
 import { SearchableSelect } from "../SearchableSelect";
 import { ConfirmModal } from "./ConfirmModal";
+import { useToast } from "../ToastProvider";
 
 type SlotDraft = SchedulePeriodSlotMutation & { key: string };
 type PeriodDraft = {
@@ -106,7 +107,7 @@ export function SchedulePeriodsPanel() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const { showToast: setToast } = useToast();
   
   // Filters
   const [filterType, setFilterType] = useState<string>("");
@@ -151,12 +152,6 @@ export function SchedulePeriodsPanel() {
     void load();
   }, []);
 
-  useEffect(() => {
-    if (!toast) return;
-    const timer = setTimeout(() => setToast(null), 4500);
-    return () => clearTimeout(timer);
-  }, [toast]);
-
   function setGroupsForDraft(group_ids: number[]) {
     setDraft((current) => {
       if (!current) return current;
@@ -195,24 +190,24 @@ export function SchedulePeriodsPanel() {
     event.preventDefault();
     if (!draft) return;
     if (draft.start_date > draft.end_date) {
-      setToast({ message: "Дата початку має бути не пізніше дати завершення.", type: "error" });
+      setToast("Дата початку має бути не пізніше дати завершення.", "error");
       return;
     }
     if (draft.period_type === "practice") {
       if (!draft.group_ids.length) {
-        setToast({ message: "Оберіть хоча б одну групу для практики.", type: "error" });
+        setToast("Оберіть хоча б одну групу для практики.", "error");
         return;
       }
       if (draft.slots.some((slot) => !slot.subject_id || !slot.teacher_id)) {
-        setToast({ message: "Для кожної пари оберіть предмет і викладача.", type: "error" });
+        setToast("Для кожної пари оберіть предмет і викладача.", "error");
         return;
       }
       if (draft.group_ids.some((group_id) => !draft.slots.some((slot) => slot.group_id === group_id))) {
-        setToast({ message: "Додайте хоча б одну пару для кожної вибраної групи.", type: "error" });
+        setToast("Додайте хоча б одну пару для кожної вибраної групи.", "error");
         return;
       }
     } else if (!draft.holiday_all_groups && !draft.group_ids.length) {
-      setToast({ message: "Оберіть хоча б одну групу або застосуйте період до всіх груп.", type: "error" });
+      setToast("Оберіть хоча б одну групу або застосуйте період до всіх груп.", "error");
       return;
     }
 
@@ -238,9 +233,9 @@ export function SchedulePeriodsPanel() {
       ].sort((a, b) => b.start_date.localeCompare(a.start_date)));
       setDraft(null);
       invalidateScheduleCache();
-      setToast({ message: "Період збережено.", type: "success" });
+      setToast("Період збережено.", "success");
     } catch (cause) {
-      setToast({ message: cause instanceof Error ? cause.message : "Не вдалося зберегти період.", type: "error" });
+      setToast(cause instanceof Error ? cause.message : "Не вдалося зберегти період.", "error");
     } finally {
       setSaving(false);
     }
@@ -254,9 +249,9 @@ export function SchedulePeriodsPanel() {
       setPeriods((current) => current.filter((item) => item.id !== periodToDelete.id));
       if (draft?.id === periodToDelete.id) setDraft(null);
       invalidateScheduleCache();
-      setToast({ message: "Період видалено.", type: "success" });
+      setToast("Період видалено.", "success");
     } catch (cause) {
-      setToast({ message: cause instanceof Error ? cause.message : "Не вдалося видалити період.", type: "error" });
+      setToast(cause instanceof Error ? cause.message : "Не вдалося видалити період.", "error");
     } finally {
       setPeriodToDelete(null);
     }
@@ -621,15 +616,7 @@ export function SchedulePeriodsPanel() {
           onCancel={() => setPeriodToDelete(null)}
         />
       )}
-      {toast && (
-        <div role="status" className={`fixed bottom-4 left-4 right-4 z-[200] rounded-xl border px-4 py-3 text-sm shadow-2xl sm:left-auto sm:right-6 sm:w-auto ${
-          toast.type === "success"
-            ? "border-emerald-500/40 bg-emerald-950/90 text-emerald-200"
-            : "border-rose-500/40 bg-rose-950/90 text-rose-200"
-        }`}>
-          {toast.message}
-        </div>
-      )}
+      
     </section>
   );
 }

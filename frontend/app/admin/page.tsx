@@ -21,6 +21,7 @@ const SemesterSettingsPanel = dynamic(() => import("../../components/admin/Semes
 const ImportPanel = dynamic(() => import("../../components/admin/ImportPanel").then((module) => module.ImportPanel), { ssr: false });
 
 import { ApiError } from "../../lib/api";
+import { useToast } from "../../components/ToastProvider";
 
 
 const resources = Object.keys(referenceLabels) as ReferenceResource[];
@@ -73,7 +74,7 @@ function AdminContent() {
   // undefined = list view, null = add new, object = edit existing
   const [editor, setEditor] = useState<ReferenceRecord | null | undefined>(undefined);
   
-  const [toast, setToast] = useState<{message: string, type: "success" | "error"} | null>(null);
+  const { showToast: setToast } = useToast();
   const [itemToDelete, setItemToDelete] = useState<ReferenceRecord | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -106,14 +107,6 @@ function AdminContent() {
     return () => { cancelled = true; };
   }, [authLoading, activeResource, currentTab, user]);
 
-  // Toast auto-hide
-  useEffect(() => {
-    if (toast) {
-      const timer = setTimeout(() => setToast(null), 4000);
-      return () => clearTimeout(timer);
-    }
-  }, [toast]);
-
   if (authLoading) return <main className="min-h-screen bg-sys-bg p-8 text-sys-text-secondary">Перевірка доступу…</main>;
   if (!canAccessAdmin(user)) return <main className="flex min-h-screen items-center justify-center bg-sys-bg p-6 text-center text-sys-text-primary"><div><h1 className="text-2xl font-bold">Доступ заборонено</h1><p className="mt-2 text-sys-text-secondary">Цей розділ доступний лише адміністраторам.</p><a href="/" className="mt-5 inline-block text-sys-accent hover:underline">На головну</a></div></main>;
 
@@ -137,7 +130,7 @@ function AdminContent() {
       }
     }
     setEditor(undefined); 
-    setToast({ message: editor ? "Зміни збережено." : "Запис додано.", type: "success" });
+    setToast(editor ? "Зміни збережено." : "Запис додано.", "success");
   }
 
   async function confirmRemove(item: ReferenceRecord) {
@@ -147,15 +140,15 @@ function AdminContent() {
       await api.references.remove(activeResource, item.id, session.access_token);
       invalidateDirectoryCache();
       setItems((current) => current.filter((value) => value.id !== item.id)); 
-      setToast({ message: "Запис видалено.", type: "success" });
+      setToast("Запис видалено.", "success");
     }
     catch (e) {
       if (e instanceof ApiError && e.status === 409) {
-         setToast({ message: "Запис не можна видалити, оскільки він використовується в розкладі.", type: "error" });
+         setToast("Запис не можна видалити, оскільки він використовується в розкладі.", "error");
       } else if (e instanceof Error) {
-         setToast({ message: e.message, type: "error" });
+         setToast(e.message, "error");
       } else {
-         setToast({ message: "Не вдалося видалити запис.", type: "error" });
+         setToast("Не вдалося видалити запис.", "error");
       }
     } finally {
       setItemToDelete(null);
@@ -242,20 +235,7 @@ function AdminContent() {
         
         <ReferenceTable resource={activeResource} items={filteredAndSortedItems} faculties={faculties} loading={loading} error={error} onEdit={setEditor} onDelete={setItemToDelete} />
         
-        {/* Toast */}
-        {toast && (
-          <div className={`fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:bottom-6 z-[100] flex animate-in slide-in-from-bottom-5 items-center gap-2 rounded-[8px] border px-4 py-3 text-sm shadow-2xl backdrop-blur-md ${
-            toast.type === "success"
-            ? "border-emerald-500/40 bg-emerald-950/90 text-emerald-200"
-            : "border-rose-500/40 bg-rose-950/90 text-rose-200"
-          }`}>
-             {toast.type === "success" 
-               ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><path d="M5 12l5 5l10 -10"/></svg>
-               : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-             }
-             {toast.message}
-          </div>
-        )}
+        
         {itemToDelete && (
           <ConfirmModal 
              isOpen 

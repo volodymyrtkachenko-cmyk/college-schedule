@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { api, TeacherConstraintRecord } from "../../lib/api";
 import { SearchableSelect } from "../SearchableSelect";
+import { useToast } from "../ToastProvider";
 
 export function ConstraintsPanel() {
   const [items, setItems] = useState<TeacherConstraintRecord[]>([]);
@@ -12,7 +13,7 @@ export function ConstraintsPanel() {
   const [teacherId, setTeacherId] = useState<number | "">("");
   const [day, setDay] = useState<number>(1);
   const [lesson, setLesson] = useState<number>(1);
-  const [toast, setToast] = useState<{message: string, type: "success"|"error"} | null>(null);
+  const { showToast: setToast } = useToast();
 
   useEffect(() => {
     loadData();
@@ -29,21 +30,21 @@ export function ConstraintsPanel() {
       const res = await api.constraints.list(session.access_token);
       setItems(res);
     } catch(err: any) {
-      setToast({message: err.message, type: "error"});
+      setToast(err.message, "error");
     } finally {
       setLoading(false);
     }
   }
 
   async function handleAdd() {
-    if (!teacherId) return setToast({message: "Оберіть викладача.", type: "error"});
+    if (!teacherId) return setToast("Оберіть викладача.", "error");
     try {
       const session = await api.auth.ensureAuthenticated();
       const res = await api.constraints.create(Number(teacherId), day, lesson, session.access_token);
       setItems([res, ...items]);
-      setToast({message: "Обмеження додано.", type: "success"});
+      setToast("Обмеження додано.", "success");
     } catch(err: any) {
-      setToast({message: err.message, type: "error"});
+      setToast(err.message, "error");
     }
   }
 
@@ -52,9 +53,9 @@ export function ConstraintsPanel() {
       const session = await api.auth.ensureAuthenticated();
       await api.constraints.remove(id, session.access_token);
       setItems(items.filter(i => i.id !== id));
-      setToast({message: "Обмеження видалено.", type: "success"});
+      setToast("Обмеження видалено.", "success");
     } catch(err: any) {
-      setToast({message: err.message, type: "error"});
+      setToast(err.message, "error");
     }
   }
 
@@ -133,11 +134,7 @@ export function ConstraintsPanel() {
         </div>
       )}
 
-      {toast && (
-          <div className={`fixed bottom-6 right-6 z-[200] flex animate-in slide-in-from-bottom-5 items-center gap-2 rounded-[8px] border px-4 py-3 text-sm shadow-2xl backdrop-blur-md ${toast.type === 'success' ? 'border-emerald-500/40 bg-emerald-950/90 text-emerald-200' : 'border-rose-500/40 bg-rose-950/90 text-rose-200'}`}>
-            {toast.message}
-          </div>
-      )}
+      
     </>
   );
 }

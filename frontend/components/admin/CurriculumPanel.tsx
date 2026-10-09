@@ -5,6 +5,7 @@ import { api, CurriculumRecord, CurriculumMutation, ReferenceRecord } from "../.
 import { ConfirmModal } from "./ConfirmModal";
 import { SearchableSelect } from "../SearchableSelect";
 import { SearchableMultiSelect } from "../SearchableMultiSelect";
+import { useToast } from "../ToastProvider";
 
 function formatGroupCount(count: number) {
   const remainder10 = count % 10;
@@ -27,7 +28,7 @@ export function CurriculumPanel() {
   const [error, setError] = useState<string | null>(null);
   
   const [searchTerm, setSearchTerm] = useState("");
-  const [toast, setToast] = useState<{message: string, type: "success"|"error"} | null>(null);
+  const { showToast: setToast } = useToast();
   
   const [editor, setEditor] = useState<Partial<CurriculumRecord> | null>(null);
   const [selectedGroupIds, setSelectedGroupIds] = useState<number[]>([]);
@@ -56,13 +57,6 @@ export function CurriculumPanel() {
     load();
   }, []);
 
-  useEffect(() => {
-    if (toast) {
-      const timer = setTimeout(() => setToast(null), 4000);
-      return () => clearTimeout(timer);
-    }
-  }, [toast]);
-
   const filteredItems = items.filter(i => {
     const q = searchTerm.toLowerCase();
     return i.group.name.toLowerCase().includes(q) || 
@@ -78,7 +72,7 @@ export function CurriculumPanel() {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!editor || (!editor.id && selectedGroupIds.length === 0) || (editor.id && !editor.group_id) || !editor.subject_id || !editor.teacher_id) {
-      setToast({ message: "Оберіть групу, предмет і викладача.", type: "error" });
+      setToast("Оберіть групу, предмет і викладача.", "error");
       return;
     }
     
@@ -104,7 +98,7 @@ export function CurriculumPanel() {
       if (editor.id) {
         const updated = await api.curriculums.update(editor.id, payload, session.access_token);
         setItems(curr => curr.map(c => c.id === updated.id ? updated : c));
-        setToast({message: "Навчальне навантаження оновлено.", type:"success"});
+        setToast("Навчальне навантаження оновлено.", "success");
       } else {
         const streamId = payload.is_stream ? `stream_${crypto.randomUUID()}` : null;
         const results = await Promise.allSettled(
@@ -119,19 +113,14 @@ export function CurriculumPanel() {
         if (failed) {
           const latestItems = await api.curriculums.list(session.access_token);
           setItems(latestItems);
-          setToast({
-            message: created.length
-              ? `Навантаження збережено для ${created.length} із ${results.length} груп. Для решти зберегти не вдалося.`
-              : "Не вдалося додати навантаження для вибраних груп.",
-            type: "error",
-          });
+          setToast("", "error");
           return;
         }
-        setToast({message: `Однакове навантаження додано для ${formatGroupCount(created.length)}.`, type:"success"});
+        setToast(`Однакове навантаження додано для ${formatGroupCount(created.length)}.`, "success");
       }
       setEditor(null);
     } catch(err: any) {
-      setToast({message: err.message, type: "error"});
+      setToast(err.message, "error");
     }
   }
 
@@ -141,9 +130,9 @@ export function CurriculumPanel() {
       const session = await api.auth.ensureAuthenticated();
       await api.curriculums.remove(itemToDelete.id, session.access_token);
       setItems(curr => curr.filter(c => c.id !== itemToDelete.id));
-      setToast({message: "Навчальне навантаження видалено.", type: "success"});
+      setToast("Навчальне навантаження видалено.", "success");
     } catch(err: any) {
-      setToast({message: err.message, type: "error"});
+      setToast(err.message, "error");
     } finally {
       setItemToDelete(null);
     }
@@ -421,19 +410,7 @@ export function CurriculumPanel() {
          />
       )}
 
-      {toast && (
-        <div className={`fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:bottom-6 z-[200] flex animate-in slide-in-from-bottom-5 items-center gap-2 rounded-[8px] border px-4 py-3 text-sm shadow-2xl backdrop-blur-md ${
-          toast.type === "success"
-          ? "border-emerald-500/40 bg-emerald-950/90 text-emerald-200"
-          : "border-rose-500/40 bg-rose-950/90 text-rose-200"
-        }`}>
-           {toast.type === "success" 
-             ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><path d="M5 12l5 5l10 -10"/></svg>
-             : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-           }
-           {toast.message}
-        </div>
-      )}
+      
     </>
   );
 }

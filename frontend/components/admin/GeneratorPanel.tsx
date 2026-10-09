@@ -5,6 +5,7 @@ import { api, DraftRecord, DraftSlotRecord, DraftSubstitutionRecord } from "../.
 import { ConfirmModal } from "./ConfirmModal";
 import { SearchableSelect } from "../SearchableSelect";
 import { formatLessonCount, formatTeacherName } from "../../lib/format";
+import { useToast } from "../ToastProvider";
 
 const draftStatusLabels: Record<string, string> = {
   DRAFT: "Чернетка",
@@ -37,18 +38,11 @@ export function GeneratorPanel() {
   const [publishingId, setPublishingId] = useState<number | null>(null);
   const [moving, setMoving] = useState(false);
   
-  const [toast, setToast] = useState<{message: string, type: "success"|"error"} | null>(null);
+  const { showToast: setToast } = useToast();
 
   useEffect(() => {
     loadDrafts();
   }, []);
-
-  useEffect(() => {
-    if (toast) {
-      const timer = setTimeout(() => setToast(null), 4000);
-      return () => clearTimeout(timer);
-    }
-  }, [toast]);
 
   async function loadDrafts() {
     try {
@@ -87,7 +81,7 @@ export function GeneratorPanel() {
       setActiveWeek("numerator");
       setSelectedSlotId(null);
     } catch(err: any) {
-      setToast({message: err.message, type: "error"});
+      setToast(err.message, "error");
     } finally {
       setLoading(false);
     }
@@ -119,10 +113,10 @@ export function GeneratorPanel() {
       if (completed.status !== "DRAFT") {
         throw new Error("Створення не завершилося. Спробуйте ще раз або зверніться до адміністратора.");
       }
-      setToast({message: "Розклад створено.", type: "success"});
+      setToast("Розклад створено.", "success");
       await loadDrafts();
     } catch(err: any) {
-      setToast({message: err.message, type: "error"});
+      setToast(err.message, "error");
     } finally {
       setGenerating(false);
     }
@@ -132,10 +126,10 @@ export function GeneratorPanel() {
     try {
       const session = await api.auth.ensureAuthenticated();
       await api.generator.deleteDraft(id, session.access_token);
-      setToast({message: "Розклад видалено.", type: "success"});
+      setToast("Розклад видалено.", "success");
       await loadDrafts();
     } catch(err: any) {
-      setToast({message: err.message, type: "error"});
+      setToast(err.message, "error");
     } finally {
       setDraftToDelete(null);
     }
@@ -147,10 +141,10 @@ export function GeneratorPanel() {
       const session = await api.auth.ensureAuthenticated();
       const targetDraft = drafts.find(d => d.id === id);
       await api.generator.publish(id, session.access_token, targetVersionId || undefined, targetDraft?.revision || 1);
-      setToast({message: "Розклад опубліковано.", type: "success"});
+      setToast("Розклад опубліковано.", "success");
       await loadDrafts();
     } catch(err: any) {
-      setToast({message: err.message, type: "error"});
+      setToast(err.message, "error");
     }
   }
 
@@ -162,9 +156,9 @@ export function GeneratorPanel() {
       const updated = await api.generator.moveSlot(slotId, day, lesson, week, session.access_token);
       setSlots(curr => curr.map(s => s.id === updated.id ? updated : s));
       setSelectedSlotId(null);
-      setToast({message: "Заняття переміщено.", type: "success"});
+      setToast("Заняття переміщено.", "success");
     } catch(err: any) {
-      setToast({message: err.message, type: "error"});
+      setToast(err.message, "error");
     } finally {
       setMoving(false);
     }
@@ -424,7 +418,7 @@ export function GeneratorPanel() {
                 : "У цьому тижні пар немає."}
           </p>
         )}
-        {toast && <Toast toast={toast} />}
+        
       </div>
     );
   }
@@ -504,7 +498,7 @@ export function GeneratorPanel() {
         </div>
       )}
 
-      {toast && <Toast toast={toast} />}
+      
       <ConfirmModal
         isOpen={draftToDelete !== null}
         title="Видалити розклад?"
@@ -518,18 +512,4 @@ export function GeneratorPanel() {
   );
 }
 
-function Toast({toast}: {toast: {message: string, type: "success"|"error"}}) {
-  return (
-    <div className={`fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:bottom-6 z-[200] flex animate-in slide-in-from-bottom-5 items-center gap-2 rounded-[8px] border px-4 py-3 text-sm shadow-2xl backdrop-blur-md ${
-      toast.type === "success"
-      ? "border-emerald-500/40 bg-emerald-950/90 text-emerald-200"
-      : "border-rose-500/40 bg-rose-950/90 text-rose-200"
-    }`}>
-       {toast.type === "success" 
-         ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><path d="M5 12l5 5l10 -10"/></svg>
-         : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-       }
-       {toast.message}
-    </div>
-  )
-}
+
