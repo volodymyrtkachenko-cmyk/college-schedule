@@ -2,7 +2,7 @@ from datetime import date
 from typing import Optional, List, Dict
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_, and_
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, aliased
 from collections import defaultdict
 
 from app.models import (
@@ -121,15 +121,16 @@ async def build_projection(
     base_lessons = (await db.scalars(base_query)).all()
 
     # 4. Imported Changes
+    previous_change = aliased(ImportedScheduleChange)
     latest_import_version = (
-        select(ImportedScheduleChange.version)
+        select(previous_change.version)
         .where(
-            ImportedScheduleChange.date == ImportedScheduleChange.date,
-            ImportedScheduleChange.group_id == ImportedScheduleChange.group_id,
-            ImportedScheduleChange.lesson_number == ImportedScheduleChange.lesson_number,
-            ImportedScheduleChange.is_published.is_(True)
+            previous_change.date == ImportedScheduleChange.date,
+            previous_change.group_id == ImportedScheduleChange.group_id,
+            previous_change.lesson_number == ImportedScheduleChange.lesson_number,
+            previous_change.is_published.is_(True)
         )
-        .order_by(ImportedScheduleChange.version.desc())
+        .order_by(previous_change.version.desc())
         .limit(1)
         .scalar_subquery()
     )

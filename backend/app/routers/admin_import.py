@@ -393,6 +393,7 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str):
                         
                 return parsed_results
 
+        scraped_weeks = set()
         async with httpx.AsyncClient(timeout=20.0) as client:
             tasks = [fetch_and_parse(client, g_id) for g_id in group_ids]
             parsed_weeks = await asyncio.gather(*tasks, return_exceptions=True)
@@ -402,19 +403,20 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str):
                     errors.append({"group": group_ids[g_idx], "error": str(parsed_week_list)})
                     continue
                 for parsed_week in parsed_week_list:
-                    parsed_week, source_url, page_hash = parsed_week
+                    parsed_week_obj, source_url, page_hash = parsed_week
+                    scraped_weeks.add(parsed_week_obj.week_type)
                     page_snapshots.append({
                         "group_id": group_ids[g_idx],
                         "url": source_url,
                         "html_hash": page_hash,
-                        "dates": sorted({lesson.date.isoformat() for lesson in parsed_week.lessons}),
-                        "week_type": parsed_week.week_type,
+                        "dates": sorted({lesson.date.isoformat() for lesson in parsed_week_obj.lessons}),
+                        "week_type": parsed_week_obj.week_type,
                     })
                     seen_page_urls.add(source_url)
                     seen_page_hashes.add(page_hash)
-                    raw_lessons += len(parsed_week.lessons)
-                    imported_dates.update(lesson.date.isoformat() for lesson in parsed_week.lessons)
-                    diff_report = await differ.diff(parsed_week)
+                    raw_lessons += len(parsed_week_obj.lessons)
+                    imported_dates.update(lesson.date.isoformat() for lesson in parsed_week_obj.lessons)
+                    diff_report = await differ.diff(parsed_week_obj)
                     for item in diff_report["unresolved"]:
                         key = f"{item['type']}_{item['raw']}"
                         aggregated_unresolved[key] = item
@@ -495,16 +497,21 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str):
         )
 
         # Імпорт не повинен повертати вручну додані пари.
-        # Єдиний виняток — виховна година щочетверга на 4-й парі.
+        scraped_both = "both" in scraped_weeks
+        scraped_numerator = scraped_both or "numerator" in scraped_weeks
+        scraped_denominator = scraped_both or "denominator" in scraped_weeks
+
         def covers(imported_week: str, existing_week: str) -> bool:
             return imported_week == "both" or imported_week == existing_week
 
-        all_published = [
-            schedule for schedule in current_schedules
-            if schedule.day_of_week == 4 and schedule.lesson_number == 4
-        ]
-        for sch in all_published:
-            if not sch.subject or sch.subject.name.strip().casefold() != "виховна година":
+        for sch in current_schedules:
+            is_vyhovna = sch.day_of_week == 4 and sch.lesson_number == 4 and sch.subject and sch.subject.name.strip().casefold() == "виховна година"
+            
+            if sch.week_type == "numerator" and scraped_numerator and not is_vyhovna:
+                continue
+            if sch.week_type == "denominator" and scraped_denominator and not is_vyhovna:
+                continue
+            if sch.week_type == "both" and scraped_numerator and scraped_denominator and not is_vyhovna:
                 continue
             matching_import = [
                 slot
@@ -534,6 +541,11 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str):
                             if imported_same_cell[0]["week_type"] == "numerator"
                             else "numerator"
                         )
+                    elif not imported_same_cell:
+                        if scraped_denominator and not scraped_numerator:
+                            preserved_week = "numerator"
+                        elif scraped_numerator and not scraped_denominator:
+                            preserved_week = "denominator"
                 aggregated_base_slots.append({
                     "day_of_week": sch.day_of_week,
                     "lesson_number": sch.lesson_number,
