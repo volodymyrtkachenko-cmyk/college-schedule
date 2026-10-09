@@ -45,9 +45,14 @@ export function ScheduleWeekGrid({ week, availabilityWeek, availabilityError, sc
       ?.filter((day) => (new Date(`${day.date}T12:00:00`).getDay() || 7) === targetWeekday)
       .flatMap((day) => day.lessons)
       .filter((candidate) => !candidate.is_replacement);
-    if (!targetLessons || (lesson.day_of_week === targetWeekday && lesson.lesson_number === lessonNumber)) {
+    if (lesson.day_of_week === targetWeekday && lesson.lesson_number === lessonNumber) {
       return false;
     }
+    if (!availabilityWeek) {
+      return true; // Allow optimistic dragging while loading
+    }
+    if (!targetLessons) return true;
+
     const movingTeacherIds = new Set([lesson.teacher_id, lesson.second_teacher_id].filter((id): id is number => id !== null));
     return !targetLessons.some((other) => {
       if (other.id === lesson.id || other.lesson_number !== lessonNumber) return false;
