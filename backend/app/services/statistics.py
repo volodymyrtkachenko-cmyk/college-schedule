@@ -242,7 +242,6 @@ async def _scheduled_hours(
                         change.id,
                         None,
                         teacher_id is not None,
-                        replaced=True,
                     )
 
 
