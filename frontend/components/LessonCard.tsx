@@ -117,7 +117,7 @@ export function LessonCard({
         {/* Content */}
         <div className="flex-1 min-w-0 flex flex-col justify-center">
           <div className={`flex items-start justify-between ${isDay ? "gap-3" : "gap-2"}`}>
-            <h3 className={`text-white font-bold leading-snug break-words ${isDay ? "text-base" : "text-[14px]"}`}>
+            <h3 className={`flex-1 min-w-0 text-white font-bold leading-snug break-words ${isDay ? "text-base" : "text-[14px]"}`}>
               {lesson.subject_name}
             </h3>
             
@@ -129,11 +129,12 @@ export function LessonCard({
                       <EditIcon />
                     </button>
                  )}
-                 {canEdit && onMoveSelect && !movingLesson && (
+                 {canEdit && onMoveSelect && !movingLesson && !lesson.is_replacement && (
                     <button
                       type="button"
-                                            aria-label="Перемістити пару"
-                      className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors text-[16px] ${isSelectedForMove ? "bg-sys-accent text-white" : "text-sys-text-secondary hover:bg-sys-accent/10 hover:text-sys-accent"}`}
+                      aria-label="Перемістити пару"
+                      onClick={(e) => { e.stopPropagation(); onMoveSelect(lesson); }}
+                      className={`flex shrink-0 h-8 w-8 items-center justify-center rounded-lg transition-colors text-[16px] ${isSelectedForMove ? "bg-sys-accent text-white" : "text-sys-text-secondary hover:bg-sys-accent/10 hover:text-sys-accent"}`}
                     >
                       <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="5 9 2 12 5 15"/><polyline points="9 5 12 2 15 5"/><polyline points="19 9 22 12 19 15"/><polyline points="9 19 12 22 15 19"/><line x1="2" x2="22" y1="12" y2="12"/><line x1="12" x2="12" y1="2" y2="22"/></svg>
                     </button>
