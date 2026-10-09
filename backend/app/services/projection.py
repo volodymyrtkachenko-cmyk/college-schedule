@@ -60,6 +60,20 @@ class EffectiveLesson:
     def occurrence_key(self) -> str:
         return f"group_{self.group_id}_{self.date.isoformat()}_slot_{self.lesson_number}"
 
+def resolve_effective_room(
+    room_override: Optional[str],
+    teacher: Optional[Any] = None,
+    second_teacher: Optional[Any] = None,
+) -> Optional[str]:
+    if room_override and room_override.strip():
+        return room_override.strip()
+    rooms = []
+    if teacher and getattr(teacher, "room", None) and teacher.room.strip():
+        rooms.append(teacher.room.strip())
+    if second_teacher and getattr(second_teacher, "room", None) and second_teacher.room.strip():
+        rooms.append(second_teacher.room.strip())
+    return " / ".join(rooms) if rooms else None
+
 async def build_projection(
     db: AsyncSession, 
     target_date: date, 
@@ -166,14 +180,16 @@ async def build_projection(
                     # Or we just rely on slot.subject_id and let serialize do the rest, but serialize expects names.
                     # Wait, in the old code, does fetch_schedule join practice slots?
                     # Let's just create the EffectiveLesson.
+                    slot_room = resolve_effective_room(slot.room_override, slot.teacher, slot.second_teacher)
+                    slot_teacher_name = slot.teacher.name if slot.teacher else None
                     cells[(slot.group_id, slot.lesson_number)] = EffectiveLesson(
                         group_id=slot.group_id, date=target_date, lesson_number=slot.lesson_number,
                         subject_id=slot.subject_id, teacher_id=slot.teacher_id, second_teacher_id=slot.second_teacher_id,
-                        room=slot.room_override, stream_id=None,
+                        room=slot_room, stream_id=None,
                         source_kind="practice", source_ref_id=slot.id,
                         group_name=None, 
                         subject_name=slot.subject.name if slot.subject else None, 
-                        teacher_name=slot.teacher.name if slot.teacher else None,
+                        teacher_name=slot_teacher_name,
                         is_replacement=True
                     )
 
@@ -185,14 +201,16 @@ async def build_projection(
         is_practice = b.group_id in practice_groups
         if is_practice: continue # T10 priority: practice overrides base
 
+        b_room = resolve_effective_room(b.room_override, b.teacher, b.second_teacher)
+        b_teacher_name = b.teacher.name if b.teacher else None
         cells[(b.group_id, b.lesson_number)] = EffectiveLesson(
             group_id=b.group_id, date=target_date, lesson_number=b.lesson_number,
             subject_id=b.subject_id, teacher_id=b.teacher_id, second_teacher_id=b.second_teacher_id,
-            room=b.room_override, stream_id=b.stream_id,
+            room=b_room, stream_id=b.stream_id,
             source_kind="base", source_ref_id=b.id,
             group_name=b.group.name if b.group else None,
             subject_name=b.subject.name if b.subject else None,
-            teacher_name=b.teacher.name if b.teacher else None,
+            teacher_name=b_teacher_name,
             is_replacement=b.is_replacement
         )
 
@@ -207,14 +225,17 @@ async def build_projection(
                 cells[key].source_kind = "import"
                 cells[key].source_ref_id = imp.id
         elif imp.kind == "substitution":
+            imp_room_override = getattr(imp, 'room_override', getattr(imp, 'room', None))
+            imp_room = resolve_effective_room(imp_room_override, imp.teacher, imp.second_teacher)
+            imp_teacher_name = imp.teacher.name if imp.teacher else None
             cells[key] = EffectiveLesson(
                 group_id=imp.group_id, date=target_date, lesson_number=imp.lesson_number,
                 subject_id=imp.subject_id, teacher_id=imp.teacher_id, second_teacher_id=imp.second_teacher_id,
-                room=getattr(imp, 'room', None), stream_id=None,
+                room=imp_room, stream_id=None,
                 source_kind="import", source_ref_id=imp.id,
                 group_name=imp.group.name if imp.group else None,
                 subject_name=imp.subject.name if imp.subject else None,
-                teacher_name=imp.teacher.name if imp.teacher else None,
+                teacher_name=imp_teacher_name,
                 is_replacement=True
             )
 
@@ -230,15 +251,15 @@ async def build_projection(
                 cells[key].source_ref_id = ovr.id
         else:
             # Add or replace
+            ovr_room = resolve_effective_room(ovr.room, ovr.teacher, ovr.second_teacher)
+            ovr_teacher_name = ovr.teacher.name if ovr.teacher else None
             cells[key] = EffectiveLesson(
                 group_id=ovr.group_id, date=target_date, lesson_number=ovr.lesson_number,
                 subject_id=ovr.subject_id, teacher_id=ovr.teacher_id, second_teacher_id=ovr.second_teacher_id,
-                room=ovr.room, stream_id=ovr.stream_id,
+                room=ovr_room, stream_id=ovr.stream_id,
                 source_kind="manual", source_ref_id=ovr.id,
-                # We might need a separate query for group name if it's an addition without schedule_id
-                # but for now we skip filling names, can be joined or handled.
                 subject_name=ovr.subject.name if ovr.subject else None,
-                teacher_name=ovr.teacher.name if ovr.teacher else None,
+                teacher_name=ovr_teacher_name,
                 is_replacement=True
             )
 

@@ -97,6 +97,7 @@ def to_item(item, week_type, target_date, bell_times=None, *, item_id=None, is_r
         t_names.append(item.second_teacher.name)
         if item.second_teacher.room:
             t_rooms.append(item.second_teacher.room)
+
     teacher_name = " / ".join(t_names) if t_names else None
     room_name = getattr(item, 'room_override', None) or (" / ".join(t_rooms) if t_rooms else None)
     return ScheduleItem(id=item.id if item_id is None else item_id, group_id=item.group_id, subject_id=item.subject_id, teacher_id=item.teacher_id, second_teacher_id=item.second_teacher_id,
@@ -117,11 +118,18 @@ def imported_change_to_item(change, week_type, target_date, bell_times=None):
     """Adapt a date-specific imported replacement to the regular schedule API shape."""
     if change.kind != "substitution" or change.subject is None:
         return None
-    teacher_name = change.teacher.name if change.teacher else None
+    t_names = []
+    t_rooms = []
+    if change.teacher:
+        t_names.append(change.teacher.name)
+        if change.teacher.room:
+            t_rooms.append(change.teacher.room)
     if change.second_teacher:
-        teacher_name = " / ".join(
-            name for name in (teacher_name, change.second_teacher.name) if name
-        )
+        t_names.append(change.second_teacher.name)
+        if change.second_teacher.room:
+            t_rooms.append(change.second_teacher.room)
+    teacher_name = " / ".join(t_names) if t_names else None
+    room_name = change.room_override or (" / ".join(t_rooms) if t_rooms else None)
     return ScheduleItem(
         id=-change.id,
         group_id=change.group_id,
@@ -134,7 +142,7 @@ def imported_change_to_item(change, week_type, target_date, bell_times=None):
 
         subject=change.subject.name,
         teacher=teacher_name,
-        room=change.room_override,
+        room=room_name,
         room_override=change.room_override,
         subject_name=change.subject.name,
         teacher_name=teacher_name,

@@ -105,15 +105,15 @@ class KREParser:
                 meta_nodes = lesson_node.css(".ktt-lesson__meta")
                 for meta in meta_nodes:
                     text = meta.text(strip=True)
-                    if text.lower().startswith("аудиторія") or text.lower().startswith("ауд"):
-                        room = text
-                    else:
-                        # Прибираємо слово (заміна) незалежно від регістру
-                        if re.search(r'(?i)\(заміна\)', text):
-                            is_substitution = True
-                        clean_text = re.sub(r'(?i)\(заміна\)', '', text).strip()
-                        if clean_text:
-                            teacher_names.append(clean_text)
+                    # Прибираємо слово (заміна) незалежно від регістру перед перевіркою
+                    if re.search(r'(?i)\(заміна\)', text):
+                        is_substitution = True
+                    clean_text = re.sub(r'(?i)\(заміна\)', '', text).strip()
+                    clean_lower = clean_text.lower()
+                    if clean_lower.startswith("аудиторія") or clean_lower.startswith("ауд"):
+                        room = clean_text
+                    elif clean_text:
+                        teacher_names.append(clean_text)
                 
                 teacher_name = " / ".join(teacher_names) if teacher_names else None
                 

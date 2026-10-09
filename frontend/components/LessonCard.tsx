@@ -52,6 +52,15 @@ function renderNote(note: string) {
   });
 }
 
+function formatRoom(room: string) {
+  const clean = room.split(",").map(p => p.trim()).filter(Boolean).join(" / ");
+  const lower = clean.toLowerCase();
+  if (lower.startsWith("ауд") || lower.startsWith("каб") || lower.startsWith("спорт") || lower.startsWith("дист") || lower.startsWith("акт")) {
+    return clean;
+  }
+  return `ауд. ${clean}`;
+}
+
 export function LessonCard({
   lesson, targetDate, mode, scheduleMode, canEdit, onEdit, onDelete, 
    movingLesson, onMoveSelect, 
@@ -149,7 +158,7 @@ export function LessonCard({
             ) : <div className="flex-1" />}
             {lesson.room && (
               <span className="bg-[#21262D] text-white text-xs px-2.5 py-0.5 rounded-md border border-[#30363D] shrink-0 ml-auto">
-                ауд. {lesson.room.replace(/,\s*/g, ' / ')}
+                {formatRoom(lesson.room)}
               </span>
             )}
           </div>
