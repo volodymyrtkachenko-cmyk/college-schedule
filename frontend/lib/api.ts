@@ -717,6 +717,11 @@ export interface NoteRevision {
 }
 
 export const api = {
+
+  publications: {
+    list: () => request<any[]>("/api/schedule-versions/publications", { method: "GET" }, true, true),
+    revert: (id: number) => request<void>(`/api/schedule-versions/publications/${id}/revert`, { method: "POST" }, true, true),
+  },
   notes: {
     save: (groupId: number, date: string, lessonNumber: number, subjectId: number, note: string, expectedRevision: number) =>
       request<OccurrenceNote>(`/api/lesson-notes/${groupId}/${date}/${lessonNumber}`, {

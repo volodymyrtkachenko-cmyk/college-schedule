@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { api, ScheduleVersion } from "../../lib/api";
 import { ConfirmModal } from "./ConfirmModal";
+import { PublicationHistory } from "./PublicationHistory";
 
 type VersionDraft = Partial<ScheduleVersion> & { key: string };
 
@@ -279,6 +280,7 @@ export function ScheduleVersionsPanel() {
           onCancel={() => setVersionToDelete(null)}
         />
       )}
+      <PublicationHistory />
     </section>
   );
 }
