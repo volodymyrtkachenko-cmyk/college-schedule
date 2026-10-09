@@ -153,7 +153,9 @@ export function GeneratorPanel() {
   }
 
   async function handleMove(slotId: number, day: number, lesson: number, week: string) {
+    if (moving) return;
     try {
+      setMoving(true);
       const session = await api.auth.ensureAuthenticated();
       const updated = await api.generator.moveSlot(slotId, day, lesson, week, session.access_token);
       setSlots(curr => curr.map(s => s.id === updated.id ? updated : s));
@@ -161,6 +163,8 @@ export function GeneratorPanel() {
       setToast({message: "Заняття переміщено.", type: "success"});
     } catch(err: any) {
       setToast({message: err.message, type: "error"});
+    } finally {
+      setMoving(false);
     }
   }
 
@@ -394,9 +398,9 @@ export function GeneratorPanel() {
                         type="button"
                         aria-label={`Перемістити пару на ${dayNames[day]}, ${lesson}-ту пару`}
                         onClick={() => {
-                          if (selectedSlot) void handleMove(selectedSlot.id, day, lesson, activeWeek);
+                          if (selectedSlot && !moving) void handleMove(selectedSlot.id, day, lesson, activeWeek);
                         }}
-                        className="mt-2 flex min-h-10 w-full items-center justify-center rounded-lg border border-emerald-400/40 bg-emerald-500/10 px-2 py-2 text-xs font-semibold text-emerald-300 transition-colors hover:bg-emerald-500/20"
+                        disabled={moving} className="mt-2 flex min-h-10 w-full items-center justify-center rounded-lg border border-emerald-400/40 bg-emerald-500/10 px-2 py-2 text-xs font-semibold text-emerald-300 transition-colors hover:bg-emerald-500/20 disabled:opacity-50"
                       >
                         Перемістити сюди
                       </button>
@@ -479,7 +483,7 @@ export function GeneratorPanel() {
                   <td className="px-5 py-3 text-right flex justify-end gap-2">
                     <button onClick={() => loadSlots(d)} className="px-3 py-1.5 text-xs font-semibold rounded bg-sys-accent/10 text-sys-accent hover:bg-sys-accent/20 transition">Переглянути</button>
                     {d.status === 'DRAFT' && (
-                       <button onClick={() => handlePublish(d.id)} className="px-3 py-1.5 text-xs font-semibold rounded bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition">Опублікувати</button>
+                       <button onClick={() => handlePublish(d.id)} disabled={publishingId === d.id} className="px-3 py-1.5 text-xs font-semibold rounded bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition disabled:opacity-50">{publishingId === d.id ? "Публікація..." : "Опублікувати"}</button>
                     )}
                     {d.status !== 'published' && (
                       <button onClick={() => setDraftToDelete(d)} className="px-3 py-1.5 text-xs font-semibold rounded bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition">Видалити</button>

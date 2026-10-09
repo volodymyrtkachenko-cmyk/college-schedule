@@ -13,6 +13,7 @@ export interface Publication {
 export const PublicationHistory: React.FC = () => {
   const [publications, setPublications] = useState<Publication[]>([]);
   const [loading, setLoading] = useState(false);
+  const [revertingId, setRevertingId] = useState<number | null>(null);
 
   const fetchPublications = async () => {
     try {
@@ -33,11 +34,14 @@ export const PublicationHistory: React.FC = () => {
   const handleRevert = async (id: number) => {
     if (!window.confirm("Ви дійсно хочете скасувати цю публікацію? Це відновить розклад до стану ПЕРЕД публікацією.")) return;
     try {
+      setRevertingId(id);
       await api.publications.revert(id);
       alert("Публікацію успішно скасовано.");
       fetchPublications();
     } catch (e: any) {
       alert("Помилка: " + (e.response?.data?.detail || e.message));
+    } finally {
+      setRevertingId(null);
     }
   };
 
@@ -81,9 +85,10 @@ export const PublicationHistory: React.FC = () => {
                       {!p.is_reverted && (
                         <button
                           onClick={() => handleRevert(p.id)}
-                          className="bg-red-500/20 text-red-400 hover:bg-red-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                          disabled={revertingId === p.id}
+                          className="bg-red-500/20 text-red-400 hover:bg-red-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50"
                         >
-                          Відкотити
+                          {revertingId === p.id ? "Скасування..." : "Відкотити"}
                         </button>
                       )}
                     </td>

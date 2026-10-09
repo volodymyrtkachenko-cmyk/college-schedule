@@ -1,14 +1,24 @@
 "use client";
+import { useState } from "react";
 
 type Props = {
   isOpen: boolean;
   title: string;
   message?: string;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
   onCancel: () => void;
 };
 
 export function ConfirmModal({ isOpen, title, message, onConfirm, onCancel }: Props) {
+  const [processing, setProcessing] = useState(false);
+  const handleConfirm = async () => {
+    setProcessing(true);
+    try {
+      await onConfirm();
+    } finally {
+      setProcessing(false);
+    }
+  };
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm">
@@ -26,7 +36,7 @@ export function ConfirmModal({ isOpen, title, message, onConfirm, onCancel }: Pr
           <button type="button" onClick={onCancel} className="rounded-lg border border-sys-border px-4 py-2 text-sm font-medium text-sys-text-primary hover:bg-sys-bg transition-colors">
             Скасувати
           </button>
-          <button type="button" onClick={onConfirm} className="rounded-lg bg-rose-500 px-5 py-2 text-sm font-medium text-white hover:bg-rose-400 transition-colors shadow-sm">
+          <button type="button" onClick={handleConfirm} disabled={processing} className="rounded-lg bg-rose-500 disabled:opacity-50 px-5 py-2 text-sm font-medium text-white hover:bg-rose-400 transition-colors shadow-sm">
             Видалити
           </button>
         </div>
