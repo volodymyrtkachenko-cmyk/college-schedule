@@ -158,3 +158,64 @@ async def clone_version_schedule(version_id: int, source_version_id: int,
     await db.execute(insert(Schedule), values)
     await commit_version_change(db)
     return {"status": "cloned", "count": len(values)}
+
+@router.post("/publications/{publication_id}/revert")
+async def revert_publication(
+    publication_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles("admin", "editor"))
+):
+    from app.models.entities import SchedulePublication, SchedulePublicationSnapshot, ImportedScheduleChange, Schedule
+    import json
+    
+    pub = await db.get(SchedulePublication, publication_id)
+    if not pub:
+        raise HTTPException(status_code=404, detail="Публікацію не знайдено")
+    if pub.is_reverted:
+        raise HTTPException(status_code=400, detail="Ця публікація вже скасована")
+        
+    # Mark as reverted
+    pub.is_reverted = True
+    
+    # Revert imported changes
+    await db.execute(
+        sa.update(ImportedScheduleChange)
+        .where(ImportedScheduleChange.publication_id == publication_id)
+        .values(is_published=False)
+    )
+    
+    # Revert base schedule
+    snapshots = (await db.scalars(
+        select(SchedulePublicationSnapshot)
+        .where(SchedulePublicationSnapshot.publication_id == publication_id)
+    )).all()
+    
+    if snapshots:
+        # We need to delete the current active slots for the groups in the scope and version
+        group_ids = [snap.group_id for snap in snapshots]
+        await db.execute(
+            sa.delete(Schedule)
+            .where(
+                Schedule.group_id.in_(group_ids),
+                Schedule.version_id == pub.version_id
+            )
+        )
+        
+        # Restore before_data
+        for snap in snapshots:
+            before = json.loads(snap.before_data)
+            for slot in before.get("slots", []):
+                db.add(Schedule(
+                    group_id=snap.group_id,
+                    day_of_week=slot["day_of_week"],
+                    lesson_number=slot["lesson_number"],
+                    week_type=slot["week_type"],
+                    subject_id=slot.get("subject_id"),
+                    teacher_id=slot.get("teacher_id"),
+                    room_override=slot.get("room"),
+                    version_id=pub.version_id,
+                    is_active=True
+                ))
+    
+    await db.commit()
+    return {"message": "Публікацію успішно скасовано"}

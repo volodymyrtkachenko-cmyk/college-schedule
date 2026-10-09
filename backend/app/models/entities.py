@@ -243,6 +243,7 @@ class ImportedScheduleChange(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     draft_id: Mapped[Optional[int]] = mapped_column(ForeignKey("schedule_drafts.id", ondelete="SET NULL"), nullable=True, index=True)
+    publication_id: Mapped[Optional[int]] = mapped_column(ForeignKey("schedule_publications.id", ondelete="CASCADE"), nullable=True, index=True)
     date: Mapped[date] = mapped_column(Date, index=True)
     kind: Mapped[str] = mapped_column(String(20))
     group_id: Mapped[int] = mapped_column(ForeignKey("groups.id", ondelete="CASCADE"), index=True)
@@ -352,6 +353,7 @@ class SchedulePublication(Base):
     timestamp: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
     scope_manifest: Mapped[str] = mapped_column(Text)
     source_fingerprint: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    is_reverted: Mapped[bool] = mapped_column(Boolean, default=False)
 
 class SchedulePublicationSnapshot(Base):
     __tablename__ = "schedule_publication_snapshots"

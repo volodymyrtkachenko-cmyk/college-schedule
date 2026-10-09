@@ -571,6 +571,7 @@ async def publish_draft(
             )
             db.add(ImportedScheduleChange(
                     draft_id=draft.id,
+                publication_id=publication.id,
                     date=d_obj,
                     kind="substitution",
                     group_id=sub["group_id"],
@@ -596,6 +597,7 @@ async def publish_draft(
             )
             db.add(ImportedScheduleChange(
                 draft_id=draft.id,
+                publication_id=publication.id,
                 date=d_obj,
                 kind="cancelled",
                 group_id=canc["group_id"],
