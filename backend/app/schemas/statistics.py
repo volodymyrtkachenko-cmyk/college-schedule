@@ -10,6 +10,9 @@ class StatisticsEntry(BaseModel):
     completed_hours: int
     planned_hours: int | None = None
     progress_percent: float | None = None
+    notes_count: int = 0
+    cancelled_count: int = 0
+    replaced_count: int = 0
 
 
 class StatisticsResponse(BaseModel):

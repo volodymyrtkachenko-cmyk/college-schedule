@@ -51,6 +51,9 @@ async def group_statistics(
                 if planned_by_subject.get(subject_id, 0) > 0
                 else None
             ),
+            "notes_count": scheduled.get(subject_id, {}).get("notes_count", 0),
+            "cancelled_count": scheduled.get(subject_id, {}).get("cancelled_count", 0),
+            "replaced_count": scheduled.get(subject_id, {}).get("replaced_count", 0),
         }
         for subject_id in subject_ids
     ]
@@ -197,6 +200,7 @@ async def _scheduled_hours(
                         or item.version_id != active_version_id
                     ):
                         continue
+                    # Regular base lesson
                     _record_lesson(
                         result,
                         unique_lessons,
@@ -225,6 +229,7 @@ async def _scheduled_hours(
                         )
                     ):
                         continue
+                    # Substituted lesson
                     _record_lesson(
                         result,
                         unique_lessons,
@@ -237,7 +242,38 @@ async def _scheduled_hours(
                         change.id,
                         None,
                         teacher_id is not None,
+                        replaced=True,
                     )
+
+
+                for change in latest_changes.values():
+                    if (
+                        change.date != current_date
+                        or change.kind != "cancelled"
+                        or change.group_id in holiday_group_ids | practice_group_ids
+                        or (group_id is not None and change.group_id != group_id)
+                        or (
+                            teacher_id is not None
+                            and teacher_id
+                            not in (change.teacher_id, change.second_teacher_id)
+                        )
+                    ):
+                        continue
+                    if change.subject_id is not None:
+                        _record_lesson(
+                            result,
+                            unique_lessons,
+                            change.group_id,
+                            change.group.name,
+                            change.subject_id,
+                            change.subject.name,
+                            current_date,
+                            change.lesson_number,
+                            change.id,
+                            None,
+                            teacher_id is not None,
+                            cancelled=True,
+                        )
 
                 for period in practice_periods:
                     for slot in period.slots:

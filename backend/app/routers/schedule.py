@@ -205,6 +205,8 @@ async def today(
         last_modified = scope.updated_at.replace(microsecond=0)
         if last_modified.tzinfo is None:
             last_modified = last_modified.replace(tzinfo=datetime.timezone.utc)
+        else:
+            last_modified = last_modified.astimezone(datetime.timezone.utc)
         if_modified_since = request.headers.get("if-modified-since")
         if if_modified_since:
             try:
@@ -247,6 +249,8 @@ async def week(
         last_modified = scope.updated_at.replace(microsecond=0)
         if last_modified.tzinfo is None:
             last_modified = last_modified.replace(tzinfo=datetime.timezone.utc)
+        else:
+            last_modified = last_modified.astimezone(datetime.timezone.utc)
         if_modified_since = request.headers.get("if-modified-since")
         if if_modified_since:
             try:
