@@ -49,7 +49,15 @@ export function ScheduleWeekGrid({ week, availabilityWeek, availabilityError, sc
       return false;
     }
     if (!availabilityWeek) {
-      return true; // Allow optimistic dragging while loading
+      // Local check while global schedule is loading
+      const localDay = week.find((d) => d.date === targetDate);
+      if (!localDay) return true;
+      return !localDay.lessons.some((other) => {
+        if (other.id === lesson.id || other.lesson_number !== lessonNumber) return false;
+        if (other.is_replacement) return false;
+        const weeksOverlap = lesson.week_type === "both" || other.week_type === "both" || lesson.week_type === other.week_type;
+        return weeksOverlap;
+      });
     }
     if (!targetLessons) return true;
 
@@ -180,7 +188,7 @@ export function ScheduleWeekGrid({ week, availabilityWeek, availabilityError, sc
                       if (movingLesson && canChooseTarget) onMove?.(movingLesson, day.date, lessonNumber);
                     }}
                     className={`min-h-[110px] border-b border-r border-sys-border p-2 transition-colors ${
-                      canChooseTarget ? "bg-emerald-500/[0.08] ring-1 ring-inset ring-emerald-400/40" : "hover:bg-white/[0.02]"
+                      canChooseTarget ? (cellLessons.some(l => l.is_replacement) ? "bg-amber-500/[0.12] ring-1 ring-inset ring-amber-400/50" : "bg-emerald-500/[0.08] ring-1 ring-inset ring-emerald-400/40") : "hover:bg-white/[0.02]"
                     }`}
                   >
                     {cellLessons.length > 0 && (
@@ -206,7 +214,7 @@ export function ScheduleWeekGrid({ week, availabilityWeek, availabilityError, sc
                         onClick={() => {
                           if (movingLesson) onMove?.(movingLesson, day.date, lessonNumber);
                         }}
-                        className="mt-2 flex min-h-10 w-full items-center justify-center rounded-lg border border-emerald-400/40 bg-emerald-500/10 px-2 py-2 text-xs font-semibold text-emerald-300 transition-colors hover:bg-emerald-500/20"
+                        className={`mt-2 flex min-h-10 w-full items-center justify-center rounded-lg border px-2 py-2 text-xs font-semibold transition-colors ${cellLessons.some(l => l.is_replacement) ? 'border-amber-400/40 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20' : 'border-emerald-400/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20'}`}
                       >
                         Перемістити сюди
                       </button>
