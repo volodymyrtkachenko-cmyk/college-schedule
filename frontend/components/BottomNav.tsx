@@ -1,6 +1,6 @@
 export function BottomNav({ view, onViewChange }: { view: "today" | "week"; onViewChange: (view: "today" | "week") => void }) {
   return (
-    <nav aria-label="Перегляд розкладу" className="fixed inset-x-0 bottom-0 z-20 border-t border-sys-border bg-sys-bg/95 p-2 backdrop-blur md:hidden">
+    <nav aria-label="Перегляд розкладу" className="fixed inset-x-0 bottom-0 z-20 border-t border-sys-border bg-sys-bg/95 p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur md:hidden">
       <div className="mx-auto flex max-w-md justify-around">
         {(["today", "week"] as const).map((item) => (
           <button

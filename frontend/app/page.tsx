@@ -141,7 +141,7 @@ export default function HomePage() {
   }
 
   return (
-    <main className="min-h-screen bg-sys-bg pb-24 text-sys-text-primary md:pb-8">
+    <main className="min-h-screen bg-sys-bg pb-[calc(6rem+env(safe-area-inset-bottom))] text-sys-text-primary md:pb-8">
       <OfflineIndicator />
       <InstallPrompt />
       <header className="border-b border-sys-border bg-sys-card">
