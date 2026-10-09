@@ -42,62 +42,64 @@ export const PublicationHistory: React.FC = () => {
   };
 
   return (
-    <div className="bg-white p-4 rounded shadow-md mt-4">
-      <h3 className="text-lg font-bold mb-4">Історія публікацій (Відкат розкладу)</h3>
+    <div className="surface-panel p-6 mt-6 rounded-xl border border-sys-border">
+      <h3 className="text-lg font-bold mb-4 text-sys-text-primary">Історія публікацій (Відкат розкладу)</h3>
       {loading ? (
-        <p>Завантаження...</p>
+        <p className="text-sys-text-secondary">Завантаження...</p>
       ) : (
-        <table className="min-w-full text-sm text-left">
-          <thead className="text-xs text-gray-700 uppercase bg-gray-100">
-            <tr>
-              <th className="px-4 py-2">ID</th>
-              <th className="px-4 py-2">Дата/Час</th>
-              <th className="px-4 py-2">Версія Бази</th>
-              <th className="px-4 py-2">Масштаб (Групи)</th>
-              <th className="px-4 py-2">Статус</th>
-              <th className="px-4 py-2">Дія</th>
-            </tr>
-          </thead>
-          <tbody>
-            {publications.map((p) => {
-              const scope = JSON.parse(p.scope_manifest);
-              return (
-                <tr key={p.id} className="border-b">
-                  <td className="px-4 py-2">{p.id}</td>
-                  <td className="px-4 py-2">{new Date(p.timestamp).toLocaleString("uk-UA")}</td>
-                  <td className="px-4 py-2">{p.version_id || "Імпорт (без версії)"}</td>
-                  <td className="px-4 py-2">
-                    {scope.group_ids?.length ? `${scope.group_ids.length} груп` : "Всі"}
-                  </td>
-                  <td className="px-4 py-2">
-                    {p.is_reverted ? (
-                      <span className="text-red-600 font-bold">Скасовано</span>
-                    ) : (
-                      <span className="text-green-600">Активна</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-2">
-                    {!p.is_reverted && (
-                      <button
-                        onClick={() => handleRevert(p.id)}
-                        className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs"
-                      >
-                        Відкотити
-                      </button>
-                    )}
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm text-left text-sys-text-secondary">
+            <thead className="text-xs uppercase bg-black/20 text-sys-text-muted">
+              <tr>
+                <th className="px-4 py-3">ID</th>
+                <th className="px-4 py-3">Дата/Час</th>
+                <th className="px-4 py-3">Версія Бази</th>
+                <th className="px-4 py-3">Масштаб (Групи)</th>
+                <th className="px-4 py-3">Статус</th>
+                <th className="px-4 py-3">Дія</th>
+              </tr>
+            </thead>
+            <tbody>
+              {publications.map((p) => {
+                const scope = JSON.parse(p.scope_manifest);
+                return (
+                  <tr key={p.id} className="border-b border-sys-border/50 hover:bg-white/5">
+                    <td className="px-4 py-3 font-medium text-sys-text-primary">{p.id}</td>
+                    <td className="px-4 py-3">{new Date(p.timestamp).toLocaleString("uk-UA")}</td>
+                    <td className="px-4 py-3">{p.version_id || "Імпорт (без версії)"}</td>
+                    <td className="px-4 py-3">
+                      {scope.group_ids?.length ? `${scope.group_ids.length} груп` : "Всі"}
+                    </td>
+                    <td className="px-4 py-3">
+                      {p.is_reverted ? (
+                        <span className="text-red-400 font-medium">Скасовано</span>
+                      ) : (
+                        <span className="text-emerald-400 font-medium">Активна</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {!p.is_reverted && (
+                        <button
+                          onClick={() => handleRevert(p.id)}
+                          className="bg-red-500/20 text-red-400 hover:bg-red-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                        >
+                          Відкотити
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+              {publications.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="text-center py-6 text-sys-text-muted">
+                    Історія публікацій порожня
                   </td>
                 </tr>
-              );
-            })}
-            {publications.length === 0 && (
-              <tr>
-                <td colSpan={6} className="text-center py-4 text-gray-500">
-                  Історія публікацій порожня
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+              )}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );
