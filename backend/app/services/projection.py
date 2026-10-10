@@ -169,7 +169,17 @@ async def build_projection(
     overrides = (await db.scalars(override_query)).all()
 
     # Compute effective cells
-    cells: Dict[Tuple[int, int], EffectiveLesson] = {}
+    # Several base lessons may legitimately share one group/slot (subgroups, streams),
+    # so cells are keyed by a unique source id and grouped by slot for overrides.
+    cells: Dict[Tuple[int, int, str], EffectiveLesson] = {}
+
+    def slot_keys(g, n):
+        return [k for k in cells if k[0] == g and k[1] == n]
+
+    def replace_slot(g, n, lesson, uid):
+        for k in slot_keys(g, n):
+            del cells[k]
+        cells[(g, n, uid)] = lesson
 
     # A0. Add practice slots
     for p in periods:
@@ -182,7 +192,7 @@ async def build_projection(
                     # Let's just create the EffectiveLesson.
                     slot_room = resolve_effective_room(slot.room_override, slot.teacher, slot.second_teacher)
                     slot_teacher_name = slot.teacher.name if slot.teacher else None
-                    cells[(slot.group_id, slot.lesson_number)] = EffectiveLesson(
+                    cells[(slot.group_id, slot.lesson_number, f"p{slot.id}")] = EffectiveLesson(
                         group_id=slot.group_id, date=target_date, lesson_number=slot.lesson_number,
                         subject_id=slot.subject_id, teacher_id=slot.teacher_id, second_teacher_id=slot.second_teacher_id,
                         room=slot_room, stream_id=None,
@@ -203,7 +213,7 @@ async def build_projection(
 
         b_room = resolve_effective_room(b.room_override, b.teacher, b.second_teacher)
         b_teacher_name = b.teacher.name if b.teacher else None
-        cells[(b.group_id, b.lesson_number)] = EffectiveLesson(
+        cells[(b.group_id, b.lesson_number, f"b{b.id}")] = EffectiveLesson(
             group_id=b.group_id, date=target_date, lesson_number=b.lesson_number,
             subject_id=b.subject_id, teacher_id=b.teacher_id, second_teacher_id=b.second_teacher_id,
             room=b_room, stream_id=b.stream_id,
@@ -220,15 +230,15 @@ async def build_projection(
         if imp.group_id in blocked_groups:
             continue
         if imp.kind == "cancelled":
-            if key in cells:
-                cells[key].is_cancelled = True
-                cells[key].source_kind = "import"
-                cells[key].source_ref_id = imp.id
+            for k in slot_keys(*key):
+                cells[k].is_cancelled = True
+                cells[k].source_kind = "import"
+                cells[k].source_ref_id = imp.id
         elif imp.kind == "substitution":
             imp_room_override = getattr(imp, 'room_override', getattr(imp, 'room', None))
             imp_room = resolve_effective_room(imp_room_override, imp.teacher, imp.second_teacher)
             imp_teacher_name = imp.teacher.name if imp.teacher else None
-            cells[key] = EffectiveLesson(
+            replace_slot(*key, EffectiveLesson(
                 group_id=imp.group_id, date=target_date, lesson_number=imp.lesson_number,
                 subject_id=imp.subject_id, teacher_id=imp.teacher_id, second_teacher_id=imp.second_teacher_id,
                 room=imp_room, stream_id=None,
@@ -237,7 +247,7 @@ async def build_projection(
                 subject_name=imp.subject.name if imp.subject else None,
                 teacher_name=imp_teacher_name,
                 is_replacement=True
-            )
+            ), f"i{imp.id}")
 
     # C. Apply Manual Overrides
     for ovr in overrides:
@@ -245,15 +255,15 @@ async def build_projection(
         if ovr.group_id in blocked_groups:
             continue
         if ovr.cancelled:
-            if key in cells:
-                cells[key].is_cancelled = True
-                cells[key].source_kind = "manual"
-                cells[key].source_ref_id = ovr.id
+            for k in slot_keys(*key):
+                cells[k].is_cancelled = True
+                cells[k].source_kind = "manual"
+                cells[k].source_ref_id = ovr.id
         else:
             # Add or replace
             ovr_room = resolve_effective_room(ovr.room, ovr.teacher, ovr.second_teacher)
             ovr_teacher_name = ovr.teacher.name if ovr.teacher else None
-            cells[key] = EffectiveLesson(
+            replace_slot(*key, EffectiveLesson(
                 group_id=ovr.group_id, date=target_date, lesson_number=ovr.lesson_number,
                 subject_id=ovr.subject_id, teacher_id=ovr.teacher_id, second_teacher_id=ovr.second_teacher_id,
                 room=ovr_room, stream_id=ovr.stream_id,
@@ -261,7 +271,7 @@ async def build_projection(
                 subject_name=ovr.subject.name if ovr.subject else None,
                 teacher_name=ovr_teacher_name,
                 is_replacement=True
-            )
+            ), f"o{ovr.id}")
 
     # Filter results
     results = [c for c in cells.values() if not c.is_cancelled]
