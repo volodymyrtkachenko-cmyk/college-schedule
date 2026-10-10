@@ -1,103 +1,40 @@
-import { Lesson, ScheduleResponse } from "../lib/api";
+import { ScheduleResponse } from "../lib/api";
 import { LessonCard } from "./LessonCard";
 
-function dayName(value: string) {
-  return new Intl.DateTimeFormat("uk-UA", { weekday: "long" }).format(new Date(`${value}T12:00:00`));
-}
+const fmt = (value: string, options: Intl.DateTimeFormatOptions) =>
+  new Intl.DateTimeFormat("uk-UA", options).format(new Date(`${value}T12:00:00`));
 
-function shortDate(value: string) {
-  return new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "short" }).format(new Date(`${value}T12:00:00`));
-}
-
-export function ScheduleDay({ schedule, isToday = false, mode = "day", scheduleMode = "student", canEdit = false, onEdit, onCreate,  movingLesson, onMoveSelect, onMove, canMoveTo }: {
-  schedule: ScheduleResponse; isToday?: boolean; mode?: "day"|"week"; scheduleMode?: "student"|"teacher"; canEdit?: boolean;
-  onEdit?: (lesson: Lesson) => void; onCreate?: (date: string) => void;
-  onNoteSave?: (lesson: Lesson, note: string, date: string) => Promise<void>;
-  onNoteDelete?: (lesson: Lesson, date: string) => Promise<void>;
-  movingLesson?: Lesson | null;
-  onMoveSelect?: (lesson: Lesson | null) => void;
-  onMove?: (lesson: Lesson, date: string, lessonNumber: number) => void;
-  canMoveTo?: (lesson: Lesson, date: string, lessonNumber: number) => boolean;
+/** Read-only list of one day's lessons, ordered by slot (several lessons per slot are all shown). */
+export function ScheduleDay({ schedule, isToday = false, mode = "day", scheduleMode = "student" }: {
+  schedule: ScheduleResponse; isToday?: boolean; mode?: "day" | "week"; scheduleMode?: "student" | "teacher";
 }) {
   const orderedLessons = [...schedule.lessons].sort(
     (left, right) => left.lesson_number - right.lesson_number || left.id - right.id,
-  );
-  const lessonsByNumber = new Map(orderedLessons.map((lesson) => [lesson.lesson_number, lesson]));
-  const renderLesson = (lesson: Lesson) => (
-    <LessonCard
-      key={lesson.id}
-      lesson={lesson}
-      targetDate={schedule.date}
-      mode={mode}
-      scheduleMode={scheduleMode}
-      canEdit={canEdit}
-      onEdit={onEdit}
-                  onMoveSelect={onMoveSelect}
-      movingLesson={movingLesson}
-    />
   );
 
   return (
     <section className={`min-w-0 ${isToday ? "rounded-3xl border border-sys-accent/30 bg-sys-accent/[0.03] p-1.5 shadow-[0_0_20px_rgba(88,166,255,0.08)]" : ""}`}>
       <header className={`mb-4 flex ${mode === "week" ? "flex-col items-start gap-1 px-1" : "items-baseline justify-between gap-2 px-3 pt-2"}`}>
         <div className="flex items-center gap-2">
-          {isToday && (
-            <span className="flex h-2 w-2 rounded-full bg-sys-accent shadow-[0_0_8px_rgba(88,166,255,0.8)] animate-pulse" />
-          )}
-          <h2 className="capitalize font-bold tracking-tight text-sys-text-primary text-[17px]">{dayName(schedule.date)}</h2>
+          {isToday && <span className="flex h-2 w-2 animate-pulse rounded-full bg-sys-accent shadow-[0_0_8px_rgba(88,166,255,0.8)]" />}
+          <h2 className="text-[17px] font-bold capitalize tracking-tight text-sys-text-primary">{fmt(schedule.date, { weekday: "long" })}</h2>
         </div>
         <span className={`pr-2 text-[13px] font-medium ${isToday ? "text-sys-accent" : "text-sys-text-muted"}`}>
-          {shortDate(schedule.date)}
+          {fmt(schedule.date, { day: "numeric", month: "short" })}
         </span>
       </header>
-      {canEdit && mode === "week" ? (
+
+      {orderedLessons.length ? (
         <div className="min-w-0 space-y-2">
-          {[1, 2, 3, 4].map((lessonNumber) => {
-            const lesson = lessonsByNumber.get(lessonNumber);
-            const available = !!movingLesson && !!canMoveTo?.(movingLesson, schedule.date, lessonNumber);
-            return (
-              <div
-                key={lessonNumber}
-                onDragOver={(event) => {
-                  if (available) event.preventDefault();
-                }}
-                onDrop={(event) => {
-                  event.preventDefault();
-                  if (movingLesson && available) onMove?.(movingLesson, schedule.date, lessonNumber);
-                }}
-                className={`min-h-[4.25rem] rounded-xl transition-colors ${
-                  available ? "bg-emerald-500/[0.08] ring-1 ring-inset ring-emerald-400/40" : ""
-                }`}
-              >
-                {lesson ? renderLesson(lesson) : (
-                  <button
-                    type="button"
-                    disabled={!available}
-                    onClick={() => {
-                      if (movingLesson && available) onMove?.(movingLesson, schedule.date, lessonNumber);
-                    }}
-                    className={`flex min-h-[4.25rem] w-full items-center justify-center rounded-xl border border-dashed px-3 text-xs transition-colors ${
-                      available
-                        ? "border-emerald-400/50 bg-emerald-500/10 font-semibold text-emerald-300 hover:bg-emerald-500/20"
-                        : "border-sys-border/70 text-sys-text-muted"
-                    }`}
-                    aria-label={available ? `Перемістити пару на ${lessonNumber}-ту пару` : `Вільна ${lessonNumber}-та пара`}
-                  >
-                    {available ? "Перемістити сюди" : `Вільна ${lessonNumber}-та пара`}
-                  </button>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      ) : schedule.lessons.length ? (
-        <div className="min-w-0 space-y-2">
-          {orderedLessons.map(renderLesson)}
+          {orderedLessons.map((lesson) => (
+            <LessonCard key={lesson.id} lesson={lesson} targetDate={schedule.date} mode={mode} scheduleMode={scheduleMode} canEdit={false} />
+          ))}
         </div>
       ) : (
-        <div className="rounded-xl border border-dashed border-sys-border bg-sys-card/30 px-4 py-8 text-center text-sm text-sys-text-muted">На цей день занять немає.</div>
+        <div className="rounded-xl border border-dashed border-sys-border bg-sys-card/30 px-4 py-8 text-center text-sm text-sys-text-muted">
+          На цей день занять немає.
+        </div>
       )}
-      {canEdit && <button type="button" onClick={() => onCreate?.(schedule.date)} className={`mt-3 w-full rounded-lg border border-dashed border-sys-border px-3 py-2.5 text-sm text-sys-text-secondary transition-colors hover:border-sys-accent hover:bg-sys-accent/5 hover:text-sys-accent ${mode === "week" ? "py-2 text-[13px]" : ""}`}>+ {mode === "week" ? "Додати" : "Додати заняття"}</button>}
     </section>
   );
 }

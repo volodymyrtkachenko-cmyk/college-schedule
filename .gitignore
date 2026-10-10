@@ -45,3 +45,9 @@ backend/run_alembic.py
 *.db
 
 duplicate-repair-*.json
+
+# Local one-off scripts and scratch files
+.local-scripts/
+scratch/
+*.orig
+backend/*.db

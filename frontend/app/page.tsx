@@ -260,7 +260,7 @@ export default function HomePage() {
                   <div className="mb-4 mt-2 flex justify-end">
                     <WeekTypeBadge weekType={today.week_type} />
                   </div>
-                  <ScheduleDay schedule={today} isToday scheduleMode={mode} canEdit={false} />
+                  <ScheduleDay schedule={today} isToday scheduleMode={mode} />
                 </>
               )}
             </div>

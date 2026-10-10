@@ -236,3 +236,20 @@ function getLastLessonEnd(lessons: Lesson[]): number | null {
     .filter((value): value is number => value !== null);
   return ends.length ? Math.max(...ends) : null;
 }
+
+/** Abbreviates one or several teachers ("A B C / D E F" -> "A B.C. / D E.F."). */
+export function formatTeachers(value: string): string {
+  return value
+    .split(/\s*[,/]\s*/)
+    .map((name) => formatTeacherName(name))
+    .filter(Boolean)
+    .join(" / ");
+}
+
+const ROOM_PREFIXES = ["ауд", "каб", "спорт", "дист", "акт"];
+
+export function formatRoom(room: string): string {
+  const clean = room.split(",").map((part) => part.trim()).filter(Boolean).join(" / ");
+  const lower = clean.toLowerCase();
+  return ROOM_PREFIXES.some((prefix) => lower.startsWith(prefix)) ? clean : `ауд. ${clean}`;
+}
