@@ -246,7 +246,7 @@ export function formatTeachers(value: string): string {
     .join(" / ");
 }
 
-const ROOM_PREFIXES = ["ауд", "каб", "спорт", "дист", "акт"];
+const ROOM_PREFIXES = ["ауд", "каб", "спорт", "дист", "акт", "ск"];
 
 export function formatRoom(room: string): string {
   const clean = room.split(",").map((part) => part.trim()).filter(Boolean).join(" / ");
