@@ -118,7 +118,7 @@ export default function HomePage() {
     <div className="flex items-center gap-2">
       {canAccessAdmin(user) && (
         <a href="/admin" className="rounded-lg bg-sys-accent px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white whitespace-nowrap shadow-sm hover:bg-[#238636] transition-colors">
-          Керування
+          Для працівників
         </a>
       )}
       <button onClick={logout} className="rounded-lg bg-transparent border border-sys-border px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-sys-text-secondary whitespace-nowrap hover:text-white hover:bg-sys-bg transition-colors">
@@ -126,7 +126,7 @@ export default function HomePage() {
       </button>
     </div>
   ) : (
-    <a href="/admin" className="text-[13px] font-medium text-sys-text-secondary hover:text-white transition-colors underline-offset-4 hover:underline whitespace-nowrap">
+    <a href="/login" className="text-[13px] font-medium text-sys-text-secondary hover:text-white transition-colors underline-offset-4 hover:underline whitespace-nowrap">
       Для працівників
     </a>
   );
