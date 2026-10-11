@@ -5,7 +5,7 @@ from sqlalchemy.orm import joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import Schedule, Subject, Teacher, Group
 from app.services.importer.parsers.kre_parser import ParsedWeek
-from app.services.importer.normalizer import EntityNormalizer
+from app.services.importer.normalizer import EntityNormalizer, clean_name
 
 class ScheduleDiffer:
     def __init__(self, db: AsyncSession, normalizer: EntityNormalizer):
@@ -28,31 +28,32 @@ class ScheduleDiffer:
         # --- Auto-create missing entities ---
         for lesson in parsed_week.lessons:
             if lesson.group_name and not self.normalizer.normalize_group(lesson.group_name):
-                new_group = Group(name=lesson.group_name, is_active=True)
+                new_group = Group(name=clean_name(lesson.group_name), is_active=True)
                 self.db.add(new_group)
                 await self.db.flush()
-                self.normalizer.groups[lesson.group_name.lower().strip()] = new_group.id
+                self.normalizer.remember("group", lesson.group_name, new_group.id)
                 self.unresolved_entities.append({"type": "group", "raw": lesson.group_name})
             
             if lesson.subject_name and not self.normalizer.normalize_subject(lesson.subject_name):
-                new_subj = Subject(name=lesson.subject_name, is_active=True)
+                new_subj = Subject(name=clean_name(lesson.subject_name), is_active=True)
                 self.db.add(new_subj)
                 await self.db.flush()
-                self.normalizer.subjects[lesson.subject_name.lower().strip()] = new_subj.id
+                self.normalizer.remember("subject", lesson.subject_name, new_subj.id)
                 self.unresolved_entities.append({"type": "subject", "raw": lesson.subject_name})
                 
             if lesson.teacher_name:
                 for t in lesson.teacher_name.split("/"):
                     t_name = t.strip()
                     if t_name and not self.normalizer.normalize_teacher(t_name):
-                        new_teacher = Teacher(name=t_name, is_active=True)
+                        new_teacher = Teacher(name=clean_name(t_name), is_active=True)
                         self.db.add(new_teacher)
                         await self.db.flush()
-                        self.normalizer.teachers[t_name.lower().strip()] = new_teacher.id
+                        self.normalizer.remember("teacher", t_name, new_teacher.id)
                         self.unresolved_entities.append({"type": "teacher", "raw": t_name})
 
-        # Commit to ensure IDs are persistent
-        await self.db.commit()
+        # Flush only: entities are committed together with the import result,
+        # so a failed import does not leave orphan groups/subjects/teachers.
+        await self.db.flush()
 
         for lesson in parsed_week.lessons:
             group_id = None

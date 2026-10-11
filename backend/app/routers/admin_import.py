@@ -393,7 +393,7 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str):
                         
                 return parsed_results
 
-        scraped_weeks = set()
+        scraped_weeks: dict[int, set[str]] = {}
         async with httpx.AsyncClient(timeout=20.0) as client:
             tasks = [fetch_and_parse(client, g_id) for g_id in group_ids]
             parsed_weeks = await asyncio.gather(*tasks, return_exceptions=True)
@@ -404,7 +404,6 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str):
                     continue
                 for parsed_week in parsed_week_list:
                     parsed_week_obj, source_url, page_hash = parsed_week
-                    scraped_weeks.add(parsed_week_obj.week_type)
                     page_snapshots.append({
                         "group_id": group_ids[g_idx],
                         "url": source_url,
@@ -417,6 +416,13 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str):
                     raw_lessons += len(parsed_week_obj.lessons)
                     imported_dates.update(lesson.date.isoformat() for lesson in parsed_week_obj.lessons)
                     diff_report = await differ.diff(parsed_week_obj)
+                    page_group_ids = {
+                        item["group_id"]
+                        for key in ("base_slots", "substitutions", "cancelled")
+                        for item in diff_report[key]
+                    }
+                    for page_group_id in page_group_ids:
+                        scraped_weeks.setdefault(page_group_id, set()).add(parsed_week_obj.week_type)
                     for item in diff_report["unresolved"]:
                         key = f"{item['type']}_{item['raw']}"
                         aggregated_unresolved[key] = item
@@ -497,14 +503,18 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str):
         )
 
         # Імпорт не повинен повертати вручну додані пари.
-        scraped_both = "both" in scraped_weeks
-        scraped_numerator = scraped_both or "numerator" in scraped_weeks
-        scraped_denominator = scraped_both or "denominator" in scraped_weeks
+        # Покриття тижнів рахуємо окремо для кожної групи: порожній тиждень
+        # (канікули) у групи не повинен видаляти її розклад.
+        def coverage(group_id: int) -> tuple[bool, bool]:
+            weeks_seen = scraped_weeks.get(group_id, set())
+            both = "both" in weeks_seen
+            return both or "numerator" in weeks_seen, both or "denominator" in weeks_seen
 
         def covers(imported_week: str, existing_week: str) -> bool:
             return imported_week == "both" or imported_week == existing_week
 
         for sch in current_schedules:
+            scraped_numerator, scraped_denominator = coverage(sch.group_id)
             is_vyhovna = sch.day_of_week == 4 and sch.lesson_number == 4 and sch.subject and sch.subject.name.strip().casefold() == "виховна година"
             
             if sch.week_type == "numerator" and scraped_numerator and not is_vyhovna:

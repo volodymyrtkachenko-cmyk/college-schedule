@@ -64,16 +64,13 @@ class KREParser:
         # 10:40 -> 2
         # 12:30 -> 3
         # 14:00 -> 4
+        bells = {(7, 30): 0, (9, 0): 1, (10, 40): 2, (12, 30): 3, (14, 0): 4, (15, 30): 5}
+
         def resolve_lesson_number(time_str: str) -> Optional[int]:
-            if not time_str:
+            match = re.search(r"(\d{1,2}):(\d{2})", time_str or "")
+            if not match:
                 return None
-            if "7:30" in time_str or "07:30" in time_str: return 0
-            if "9:00" in time_str or "09:00" in time_str: return 1
-            if "10:40" in time_str: return 2
-            if "12:30" in time_str: return 3
-            if "14:00" in time_str: return 4
-            if "15:30" in time_str: return 5
-            return None
+            return bells.get((int(match.group(1)), int(match.group(2))))
 
         for day in day_nodes:
             date_str = day.attributes.get("data-day")
@@ -94,8 +91,7 @@ class KREParser:
                 lesson_number = resolve_lesson_number(time_str)
                 
                 if lesson_number is None:
-                    logger.warning(f"Unknown bell time '{time_str}' on {date_str} for {active_group}. Skipping.")
-                    continue
+                    raise ParseError(f"Unknown bell time '{time_str}' on {date_str} for group {active_group}")
                 
                 subject_node = lesson_node.css_first(".ktt-lesson__subject")
                 subject_name = subject_node.text(strip=True) if subject_node else None
@@ -139,6 +135,7 @@ class KREParser:
                 week.lessons.append(pl)
                 
         if len(week.lessons) == 0:
-            raise ParseError("Parsed 0 lessons. HTML structure anomaly.")
+            # Empty week (holidays/practice) is valid; the importer must not treat it as deletions.
+            logger.info("Parsed 0 lessons for group %s (empty week)", active_group)
 
         return week
