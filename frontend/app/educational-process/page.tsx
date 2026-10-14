@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { api } from "@/lib/api";
 
 interface CellInfo {
     week_number: number;
@@ -153,8 +154,7 @@ export default function EducationalProcessPage() {
     
     useEffect(() => {
         setLoading(true);
-        fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/api/educational-process?academic_year_start=${year}`)
-            .then(r => r.json())
+        api.educationalProcess<EducationalProcessMatrix>(year)
             .then(data => {
                 setMatrix(data);
                 setLoading(false);

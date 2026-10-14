@@ -132,7 +132,29 @@ class KREParser:
                     is_substitution=is_substitution,
                     is_cancelled=is_cancelled
                 )
-                week.lessons.append(pl)
+                existing = next(
+                    (
+                        item for item in week.lessons
+                        if item.date == pl.date
+                        and item.group_name == pl.group_name
+                        and item.lesson_number == pl.lesson_number
+                        and item.subject_name == pl.subject_name
+                        and item.is_substitution == pl.is_substitution
+                        and item.is_cancelled == pl.is_cancelled
+                    ),
+                    None,
+                )
+                if existing:
+                    if pl.teacher_name and pl.teacher_name not in (existing.teacher_name or ""):
+                        existing.teacher_name = (
+                            f"{existing.teacher_name} / {pl.teacher_name}"
+                            if existing.teacher_name
+                            else pl.teacher_name
+                        )
+                    if pl.room and pl.room not in (existing.room or ""):
+                        existing.room = f"{existing.room} / {pl.room}" if existing.room else pl.room
+                else:
+                    week.lessons.append(pl)
                 
         if len(week.lessons) == 0:
             # Empty week (holidays/practice) is valid; the importer must not treat it as deletions.

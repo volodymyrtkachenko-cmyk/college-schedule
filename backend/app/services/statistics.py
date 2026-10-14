@@ -242,6 +242,7 @@ async def _scheduled_hours(
                         change.id,
                         None,
                         teacher_id is not None,
+                        replaced=True,
                     )
 
 
@@ -325,17 +326,29 @@ def _record_lesson(
     lesson_id: int,
     stream_id: str | None,
     is_teacher: bool,
+    *,
+    cancelled: bool = False,
+    replaced: bool = False,
 ) -> None:
+    key = group_id if is_teacher else subject_id
+    name = group_name if is_teacher else subject_name
+    entry = result.setdefault(
+        key,
+        {"name": name, "hours": 0, "notes_count": 0, "cancelled_count": 0, "replaced_count": 0},
+    )
+    if cancelled:
+        entry["cancelled_count"] += 1
+        return
+
     if not is_teacher:
         lesson_key = (lesson_date, lesson_number, subject_id)
         if lesson_key in unique_lessons:
             return
         unique_lessons.add(lesson_key)
 
-    key = group_id if is_teacher else subject_id
-    name = group_name if is_teacher else subject_name
-    entry = result.setdefault(key, {"name": name, "hours": 0})
     entry["hours"] += 2
+    if replaced:
+        entry["replaced_count"] += 1
     if is_teacher:
         unique_lessons.add(
             (lesson_date, lesson_number, "stream", stream_id)

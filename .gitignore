@@ -19,6 +19,8 @@ out/
 *.tsbuildinfo
 frontend/public/sw.js
 frontend/public/workbox-*.js
+frontend/public/swe-worker-*.js
+*-prod.json
 
 # IDE and OS files
 .DS_Store
@@ -51,3 +53,13 @@ duplicate-repair-*.json
 scratch/
 *.orig
 backend/*.db
+
+import-duplicates.json
+backend/group2-preflight-*.json
+frontend/public/sw.js
+frontend/public/workbox-*.js
+frontend/public/fallback-*.js
+important_files.txt
+frontend_components.txt
+
+

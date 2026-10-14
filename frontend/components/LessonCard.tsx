@@ -20,7 +20,8 @@ export function LessonCard({
 }) {
   const isSelectedForMove = movingLesson?.id === lesson.id;
   const isDay = mode !== "week";
-  const canMove = canEdit && !!onMoveSelect && !lesson.is_replacement;
+  const canEditTemplate = canEdit && !lesson.is_replacement && lesson.id > 0;
+  const canMove = canEditTemplate && !!onMoveSelect;
   const [startT, endT] = lesson.time.split("-");
 
   const secondary =
@@ -61,7 +62,7 @@ export function LessonCard({
             <h3 className={`min-w-0 flex-1 break-words font-bold leading-snug text-sys-text-subject ${isDay ? "text-base" : "text-sm"}`}>
               {lesson.subject_name}
             </h3>
-            {canEdit && (
+            {canEditTemplate && (
               <div className="flex shrink-0 items-center">
                 <button type="button" aria-label={`Редагувати ${lesson.subject_name}`} onClick={() => onEdit?.(lesson)}
                   className={`${ICON_BUTTON} text-sys-text-secondary hover:bg-sys-accent/10 hover:text-sys-accent`}>

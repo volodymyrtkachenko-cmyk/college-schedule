@@ -19,164 +19,30 @@ def _schedule_load_options(target_date: date | None = None, start_date: date | N
     )
 
 
-async def fetch_schedule(db: AsyncSession, target_date: date,
-                          group_id: int | None = None,
-                          teacher_id: int | None = None,
-                          day_of_week: int | None = None,
-                          semester_start: date | None = None,
-                          periods: list | None = None):
+from app.services.projection import build_projection
+
+
+async def fetch_schedule(
+    db: AsyncSession,
+    target_date: date,
+    group_id: int | None = None,
+    teacher_id: int | None = None,
+    day_of_week: int | None = None,
+    semester_start: date | None = None,
+    periods: list | None = None,
+):
     if semester_start is None:
         semester_start = await settings_service.get_semester_start(db)
+    if day_of_week is not None and day_of_week != target_date.isoweekday():
+        target_date = target_date + timedelta(days=day_of_week - target_date.isoweekday())
     week_type = get_week_type(target_date, semester_start)
-    weekday = target_date.isoweekday() if day_of_week is None else day_of_week
-
-    if periods is None:
-        periods = await _active_periods(db, target_date)
-
-    holidays = [period for period in periods if period.period_type in ("holiday", "session", "diploma", "attestation")]
-    if any(not period.groups for period in holidays):
-        return week_type, []
-
-    holiday_group_ids = {group.id for period in holidays for group in period.groups}
-    if group_id is not None and group_id in holiday_group_ids:
-        return week_type, []
-
-    practice_periods = [period for period in periods if period.period_type == "practice"]
-    practice_group_ids = {group.id for period in practice_periods for group in period.groups}
-    unavailable_group_ids = holiday_group_ids | practice_group_ids
-    active_version = await db.scalar(
-        select(ScheduleVersion).where(
-            ScheduleVersion.valid_from <= target_date,
-            ScheduleVersion.valid_until >= target_date,
-            ScheduleVersion.is_active.is_(True)
-        ).order_by(ScheduleVersion.valid_from.desc()).limit(1)
+    lessons = await build_projection(
+        db,
+        target_date=target_date,
+        group_id=group_id,
+        teacher_id=teacher_id,
     )
-
-    conditions = [
-        Schedule.day_of_week == weekday,
-        Schedule.is_active.is_(True),
-        Schedule.week_type.in_(("both", week_type)),
-    ]
-    if active_version:
-        conditions.append(Schedule.version_id == active_version.id)
-    else:
-        conditions.append(Schedule.version_id.is_(None))
-    if group_id is not None:
-        conditions.append(Schedule.group_id == group_id)
-    if unavailable_group_ids:
-        conditions.append(Schedule.group_id.not_in(unavailable_group_ids))
-    if teacher_id is not None:
-        conditions.append(or_(Schedule.teacher_id == teacher_id, Schedule.second_teacher_id == teacher_id))
-
-    query = (
-        select(Schedule)
-        .where(*conditions)
-        .options(*_schedule_load_options(target_date=target_date))
-    )
-    regular_lessons = list((await db.scalars(query.order_by(Schedule.lesson_number))).unique().all())
-
-    previous_change = aliased(ImportedScheduleChange)
-    latest_version = (
-        select(previous_change.version)
-        .where(
-            previous_change.date == ImportedScheduleChange.date,
-            previous_change.group_id == ImportedScheduleChange.group_id,
-            previous_change.lesson_number == ImportedScheduleChange.lesson_number,
-            previous_change.is_published.is_(True),
-        )
-        .order_by(previous_change.version.desc())
-        .limit(1)
-        .scalar_subquery()
-    )
-    imported_query = (
-        select(ImportedScheduleChange)
-        .where(
-            ImportedScheduleChange.date == target_date,
-            ImportedScheduleChange.is_published.is_(True),
-            ImportedScheduleChange.version == latest_version,
-        )
-        .options(
-            joinedload(ImportedScheduleChange.group),
-            joinedload(ImportedScheduleChange.subject),
-            joinedload(ImportedScheduleChange.teacher),
-            joinedload(ImportedScheduleChange.second_teacher),
-        )
-    )
-    imported_changes = (await db.scalars(imported_query)).unique().all()
-    cancelled_cells = {
-        (change.group_id, change.lesson_number)
-        for change in imported_changes
-        if change.kind == "cancelled"
-    }
-    substitutions = [
-        change for change in imported_changes
-        if change.kind == "substitution"
-    ]
-
-    # Apply ScheduleOverrides and imported cancellations/replacements.
-    if regular_lessons:
-        from app.models.entities import ScheduleOverride
-        override_query = select(ScheduleOverride.schedule_id).where(
-            ScheduleOverride.date == target_date,
-            ScheduleOverride.schedule_id.in_([l.id for l in regular_lessons]),
-            ScheduleOverride.cancelled == True
-        )
-        cancelled_schedule_ids = set((await db.scalars(override_query)).all())
-        
-        filtered_lessons = []
-        for lesson in regular_lessons:
-            if lesson.id not in cancelled_schedule_ids and (lesson.group_id, lesson.lesson_number) not in cancelled_cells and not any(
-                change.group_id == lesson.group_id and change.lesson_number == lesson.lesson_number
-                for change in substitutions
-            ):
-                filtered_lessons.append(lesson)
-        regular_lessons = filtered_lessons
-
-    practice_slots = []
-    if practice_periods:
-        period_ids = [period.id for period in practice_periods]
-        slot_conditions = [
-            SchedulePeriodSlot.period_id.in_(period_ids),
-            SchedulePeriodSlot.day_of_week == weekday,
-        ]
-        if holiday_group_ids:
-            slot_conditions.append(SchedulePeriodSlot.group_id.not_in(holiday_group_ids))
-        if group_id is not None:
-            slot_conditions.append(SchedulePeriodSlot.group_id == group_id)
-        if teacher_id is not None:
-            slot_conditions.append(or_(
-                SchedulePeriodSlot.teacher_id == teacher_id,
-                SchedulePeriodSlot.second_teacher_id == teacher_id,
-            ))
-        slot_query = (
-            select(SchedulePeriodSlot)
-            .where(*slot_conditions)
-            .options(
-                joinedload(SchedulePeriodSlot.group),
-                joinedload(SchedulePeriodSlot.subject),
-                joinedload(SchedulePeriodSlot.teacher),
-                joinedload(SchedulePeriodSlot.second_teacher),
-            )
-        )
-        practice_slots = (await db.scalars(slot_query)).unique().all()
-
-    replacement_slots = [
-        change for change in substitutions
-        if not holiday_group_ids
-        or change.group_id not in holiday_group_ids
-    ]
-    if group_id is not None:
-        replacement_slots = [change for change in replacement_slots if change.group_id == group_id]
-    if teacher_id is not None:
-        replacement_slots = [
-            change for change in replacement_slots
-            if change.teacher_id == teacher_id or change.second_teacher_id == teacher_id
-        ]
-
-    return week_type, sorted(
-        [*regular_lessons, *practice_slots, *replacement_slots],
-        key=lambda item: (item.lesson_number, item.group.name),
-    )
+    return week_type, lessons
 
 
 async def _active_periods(db: AsyncSession, target_date: date):

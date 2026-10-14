@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../../lib/api";
+import { invalidateScheduleCache } from "../../lib/hooks";
+import { useToast } from "../ToastProvider";
 
 export interface Publication {
   id: number;
@@ -14,6 +16,7 @@ export const PublicationHistory: React.FC = () => {
   const [publications, setPublications] = useState<Publication[]>([]);
   const [loading, setLoading] = useState(false);
   const [revertingId, setRevertingId] = useState<number | null>(null);
+  const { showToast } = useToast();
 
   const fetchPublications = async () => {
     try {
@@ -36,10 +39,11 @@ export const PublicationHistory: React.FC = () => {
     try {
       setRevertingId(id);
       await api.publications.revert(id);
-      alert("Публікацію успішно скасовано.");
-      fetchPublications();
+      invalidateScheduleCache();
+      showToast("Публікацію успішно скасовано.", "success");
+      await fetchPublications();
     } catch (e: any) {
-      alert("Помилка: " + (e.response?.data?.detail || e.message));
+      showToast(e instanceof Error ? e.message : "Помилка скасування публікації", "error");
     } finally {
       setRevertingId(null);
     }

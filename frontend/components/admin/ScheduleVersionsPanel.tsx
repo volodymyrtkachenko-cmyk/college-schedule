@@ -94,6 +94,8 @@ export function ScheduleVersionsPanel() {
     }
   };
 
+  const todayIso = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(new Date());
+
   return (
     <section className="space-y-6">
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-sys-border pb-5">
@@ -126,7 +128,7 @@ export function ScheduleVersionsPanel() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {versions.map((version) => {
-            const isActiveNow = new Date(version.valid_from) <= new Date() && new Date(version.valid_until) >= new Date();
+            const isActiveNow = version.is_active && version.valid_from <= todayIso && version.valid_until >= todayIso;
             return (
               <div key={version.id} className={`group flex flex-col justify-between rounded-2xl border p-5 transition-all duration-300 hover:shadow-lg ${isActiveNow ? 'border-sys-accent/40 bg-gradient-to-b from-white/5 to-sys-bg shadow-[0_0_15px_rgba(14,165,233,0.1)]' : 'border-sys-border/60 bg-sys-card hover:border-sys-border hover:bg-sys-card/80'}`}>
                 <div>

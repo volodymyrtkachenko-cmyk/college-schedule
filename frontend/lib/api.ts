@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 export interface ScheduleVersion {
   id: number;
@@ -90,6 +90,9 @@ export interface StatisticsEntry {
     completed_hours: number;
     planned_hours: number | null;
     progress_percent: number | null;
+    notes_count?: number;
+    cancelled_count?: number;
+    replaced_count?: number;
 }
 
 export interface StatisticsResponse {
@@ -225,7 +228,7 @@ async function parseError(response: Response) {
         if (typeof body.detail === "string") {
             const raw = body.detail.toLowerCase();
             if (raw.includes("unique constraint failed")) {
-                if (raw.includes("username")) return "Користувач із таким ім’я�� уже існує.";
+                if (raw.includes("username")) return "Користувач із таким ім’ям уже існує.";
                 if (raw.includes("name")) return "Такий запис уже існує (назва має бути унікальною).";
                 return "Запис з такими даними вже існує.";
             }
@@ -431,7 +434,7 @@ export interface CurriculumMutation {
 
 
 export interface ImporterReport {
-    unresolved: { type: string; raw: string }[];
+    unresolved: { type: string; raw: string; actual_id?: number }[];
     substitutions: ImportSubstitution[];
     cancelled: ImportCancellation[];
     base_slots: any[];
@@ -502,19 +505,19 @@ export const apiCurriculums = {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
-    }, false, true, token);
+    }, true, true, token);
   },
   update: async (id: number, payload: Partial<CurriculumMutation>, token: string): Promise<CurriculumRecord> => {
     return request<CurriculumRecord>(`/api/curriculums/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
-    }, false, true, token);
+    }, true, true, token);
   },
   remove: async (id: number, token: string): Promise<void> => {
     return request<void>(`/api/curriculums/${id}`, {
       method: "DELETE",
-    }, false, true, token);
+    }, true, true, token);
   }
 };
 
@@ -559,19 +562,19 @@ export interface SchedulePeriodMutation {
 
 export const apiSchedulePeriods = {
   list: (token: string): Promise<SchedulePeriodRecord[]> =>
-    request<SchedulePeriodRecord[]>("/api/calendar-periods/", {}, false, true, token),
+    request<SchedulePeriodRecord[]>("/api/calendar-periods/", {}, true, true, token),
   create: (payload: SchedulePeriodMutation, token: string): Promise<SchedulePeriodRecord> =>
     request<SchedulePeriodRecord>("/api/calendar-periods/", {
       method: "POST",
       body: JSON.stringify(payload),
-    }, false, true, token),
+    }, true, true, token),
   update: (id: number, payload: SchedulePeriodMutation, token: string): Promise<SchedulePeriodRecord> =>
     request<SchedulePeriodRecord>(`/api/calendar-periods/${id}`, {
       method: "PUT",
       body: JSON.stringify(payload),
-    }, false, true, token),
+    }, true, true, token),
   remove: (id: number, token: string): Promise<void> =>
-    request<void>(`/api/calendar-periods/${id}`, { method: "DELETE" }, false, true, token),
+    request<void>(`/api/calendar-periods/${id}`, { method: "DELETE" }, true, true, token),
 };
 
 export interface DraftSlotRecord {
@@ -617,42 +620,42 @@ export const apiGenerator = {
   generate: async (token: string, max_time: number = 600): Promise<DraftRecord> => {
     return request<DraftRecord>(`/api/generator?max_time_in_seconds=${max_time}`, {
       method: "POST",
-    }, false, true, token);
+    }, true, true, token);
   },
   listDrafts: async (token: string): Promise<DraftRecord[]> => {
-    return request<DraftRecord[]>(`/api/drafts/`, {}, false, true, token);
+    return request<DraftRecord[]>(`/api/drafts/`, {}, true, true, token);
   },
   getDraft: async (id: number, token: string): Promise<DraftRecord> => {
-    return request<DraftRecord>(`/api/drafts/${id}`, {}, false, true, token);
+    return request<DraftRecord>(`/api/drafts/${id}`, {}, true, true, token);
   },
   deleteDraft: async (id: number, token: string): Promise<void> => {
-    return request<void>(`/api/drafts/${id}`, { method: "DELETE" }, false, true, token);
+    return request<void>(`/api/drafts/${id}`, { method: "DELETE" }, true, true, token);
   },
   getSlots: async (id: number, token: string): Promise<DraftSlotRecord[]> => {
-    return request<DraftSlotRecord[]>(`/api/drafts/${id}/slots`, {}, false, true, token);
+    return request<DraftSlotRecord[]>(`/api/drafts/${id}/slots`, {}, true, true, token);
   },
   getSubstitutions: async (id: number, token: string): Promise<DraftSubstitutionRecord[]> => {
-    return request<DraftSubstitutionRecord[]>(`/api/drafts/${id}/substitutions`, {}, false, true, token);
+    return request<DraftSubstitutionRecord[]>(`/api/drafts/${id}/substitutions`, {}, true, true, token);
   },
   moveSlot: async (slotId: number, day: number, lesson: number, week: string, token: string): Promise<DraftSlotRecord> => {
     return request<DraftSlotRecord>(`/api/drafts/slots/${slotId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ day_of_week: day, lesson_number: lesson, week_type: week })
-    }, false, true, token);
+    }, true, true, token);
   },
   publish: async (id: number, token: string, targetVersionId?: number, expectedRevision?: number): Promise<{message: string}> => {
     let url = `/api/drafts/${id}/publish?`;
     if (targetVersionId) url += `target_version_id=${targetVersionId}&`;
     if (expectedRevision) url += `expected_revision=${expectedRevision}`;
-    return request<{message: string}>(url, { method: "POST" }, false, true, token);
+    return request<{message: string}>(url, { method: "POST" }, true, true, token);
   },
   updateImportChanges: async (id: number, data: Pick<ImporterReport, "substitutions" | "cancelled">, token: string): Promise<void> => {
     return request<void>(`/api/drafts/${id}/import-changes`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
-    }, false, true, token);
+    }, true, true, token);
   }
 };
 export interface TeacherConstraintRecord {
@@ -668,17 +671,17 @@ export const apiConstraints = {
   list: async (token: string, teacherId?: number): Promise<TeacherConstraintRecord[]> => {
     let url = `/api/teacher-constraints/`;
     if (teacherId) url += `?teacher_id=${teacherId}`;
-    return request<TeacherConstraintRecord[]>(url, {}, false, true, token);
+    return request<TeacherConstraintRecord[]>(url, {}, true, true, token);
   },
   create: async (teacherId: number, day: number, lesson: number, token: string): Promise<TeacherConstraintRecord> => {
     return request<TeacherConstraintRecord>(`/api/teacher-constraints/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ teacher_id: teacherId, day_of_week: day, lesson_number: lesson, is_hard_constraint: true })
-    }, false, true, token);
+    }, true, true, token);
   },
   remove: async (id: number, token: string): Promise<void> => {
-    return request<void>(`/api/teacher-constraints/${id}`, { method: "DELETE" }, false, true, token);
+    return request<void>(`/api/teacher-constraints/${id}`, { method: "DELETE" }, true, true, token);
   }
 };
 
@@ -686,13 +689,13 @@ export const apiImporter = {
   importData: async (token: string): Promise<ImporterResponse> => {
     return request<ImporterResponse>("/api/admin/import", {
       method: "POST"
-    }, false, true, token);
+    }, true, true, token);
   },
   bulkCreateAliases: async (aliases: AliasMutation[], token: string): Promise<{status: string, inserted: number}> => {
     return request<{status: string, inserted: number}>("/api/aliases/bulk", {
       method: "POST",
       body: JSON.stringify(aliases)
-    }, false, true, token);
+    }, true, true, token);
   }
 };
 
@@ -802,7 +805,7 @@ export const api = {
                 method,
                 body: payload === undefined ? undefined : JSON.stringify(payload),
             },
-            false,
+            true,
             true,
             token,
         ),
@@ -824,6 +827,8 @@ export const api = {
         if (target.teacherId) params.set("teacher_id", String(target.teacherId));
         return request<StatisticsResponse>(`/api/statistics/?${params.toString()}`);
     },
+    educationalProcess: <T = any>(year: number) =>
+        request<T>(`/api/educational-process?academic_year_start=${year}`),
     settings: {
         semesterStart: () => request<SemesterStartSetting>("/api/settings/semester-start"),
         semesterDates: () => request<SemesterDatesSetting>("/api/settings/semester-dates"),
@@ -831,7 +836,7 @@ export const api = {
             request<SemesterDatesSetting>("/api/settings/semester-dates", {
                 method: "PUT",
                 body: JSON.stringify(payload),
-            }, false, true, token),
+            }, true, true, token),
     },
 
     scheduleVersions: {

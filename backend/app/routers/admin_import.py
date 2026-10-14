@@ -23,7 +23,7 @@ from app.services.importer.differ import ScheduleDiffer
 from app.routers.drafts import publish_draft
 from app.analytics import set_active_jobs, record_successful_import
 from app.services.import_slot_safety import normalize_base_slots, version_for_import
-from app.models import ScheduleDraft, ScheduleSlot, Curriculum, Schedule, ImportedScheduleChange
+from app.models import ScheduleDraft, ScheduleSlot, Curriculum, Schedule, ImportedScheduleChange, Group
 import traceback
 from collections.abc import AsyncIterator
 
@@ -468,7 +468,7 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str):
             select(Schedule)
             .where(Schedule.is_active.is_(True),
                    Schedule.version_id == import_version_id if import_version_id is not None else Schedule.version_id.is_(None))
-            .options(joinedload(Schedule.subject), joinedload(Schedule.teacher))
+            .options(joinedload(Schedule.subject), joinedload(Schedule.teacher), joinedload(Schedule.group))
         )).all()
         
         scope_dates_obj = {datetime.strptime(value, "%Y-%m-%d").date() for value in imported_dates}
@@ -556,15 +556,19 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str):
                             preserved_week = "numerator"
                         elif scraped_numerator and not scraped_denominator:
                             preserved_week = "denominator"
+                teacher_id = sch.teacher_id
+                if is_vyhovna and not teacher_id and getattr(sch, "group", None) and sch.group.curator_id:
+                    teacher_id = sch.group.curator_id
                 aggregated_base_slots.append({
                     "day_of_week": sch.day_of_week,
                     "lesson_number": sch.lesson_number,
                     "group_id": sch.group_id,
                     "subject_id": sch.subject_id,
-                    "teacher_id": sch.teacher_id,
+                    "teacher_id": teacher_id,
                     "second_teacher_id": sch.second_teacher_id,
                     "room": sch.room_override,
                     "week_type": preserved_week,
+                    "is_vyhovna": is_vyhovna,
                 })
         
         # На сайті на місці заміни оригінальної пари немає. Відновлюємо її з поточного
@@ -694,13 +698,29 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str):
             draft_id = draft.id
             
             # Save Base Slots
+            all_group_ids = {slot["group_id"] for slot in aggregated_base_slots}
+            groups_map = {}
+            if all_group_ids:
+                g_res = await db.scalars(select(Group).where(Group.id.in_(all_group_ids)))
+                groups_map = {g.id: g for g in g_res}
+
             for slot in aggregated_base_slots:
+                tid = slot.get("teacher_id")
+                if not tid and slot.get("is_vyhovna"):
+                    grp = groups_map.get(slot["group_id"])
+                    if grp and grp.curator_id:
+                        tid = grp.curator_id
+                        slot["teacher_id"] = tid
+
+                if not tid:
+                    logger.warning("Skipping base slot without teacher_id for group %s, subject %s", slot["group_id"], slot["subject_id"])
+                    continue
+
                 stmt_c = select(Curriculum).where(
                     Curriculum.group_id == slot["group_id"],
-                    Curriculum.subject_id == slot["subject_id"]
+                    Curriculum.subject_id == slot["subject_id"],
+                    Curriculum.teacher_id == tid,
                 )
-                if slot["teacher_id"]:
-                    stmt_c = stmt_c.where(Curriculum.teacher_id == slot["teacher_id"])
                 if slot.get("second_teacher_id"):
                     stmt_c = stmt_c.where(Curriculum.second_teacher_id == slot["second_teacher_id"])
                 
@@ -709,7 +729,7 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str):
                     curr = Curriculum(
                         group_id=slot["group_id"],
                         subject_id=slot["subject_id"],
-                        teacher_id=slot["teacher_id"] or 1,
+                        teacher_id=tid,
                         second_teacher_id=slot.get("second_teacher_id"),
                         pairs_per_2_weeks=2,
                         total_hours=0

@@ -32,14 +32,14 @@ class ScheduleDiffer:
                 self.db.add(new_group)
                 await self.db.flush()
                 self.normalizer.remember("group", lesson.group_name, new_group.id)
-                self.unresolved_entities.append({"type": "group", "raw": lesson.group_name})
+                self.unresolved_entities.append({"type": "group", "raw": lesson.group_name, "actual_id": new_group.id})
             
             if lesson.subject_name and not self.normalizer.normalize_subject(lesson.subject_name):
                 new_subj = Subject(name=clean_name(lesson.subject_name), is_active=True)
                 self.db.add(new_subj)
                 await self.db.flush()
                 self.normalizer.remember("subject", lesson.subject_name, new_subj.id)
-                self.unresolved_entities.append({"type": "subject", "raw": lesson.subject_name})
+                self.unresolved_entities.append({"type": "subject", "raw": lesson.subject_name, "actual_id": new_subj.id})
                 
             if lesson.teacher_name:
                 for t in lesson.teacher_name.split("/"):
@@ -49,7 +49,7 @@ class ScheduleDiffer:
                         self.db.add(new_teacher)
                         await self.db.flush()
                         self.normalizer.remember("teacher", t_name, new_teacher.id)
-                        self.unresolved_entities.append({"type": "teacher", "raw": t_name})
+                        self.unresolved_entities.append({"type": "teacher", "raw": t_name, "actual_id": new_teacher.id})
 
         # Flush only: entities are committed together with the import result,
         # so a failed import does not leave orphan groups/subjects/teachers.

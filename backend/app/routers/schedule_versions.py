@@ -2,7 +2,7 @@ from datetime import date, datetime
 from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, StringConstraints, ValidationError, model_validator
-from sqlalchemy import select, insert, func, text
+from sqlalchemy import select, insert, update, delete, func, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
@@ -163,60 +163,84 @@ async def clone_version_schedule(version_id: int, source_version_id: int,
 async def revert_publication(
     publication_id: int,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles("admin", "editor"))
+    user: User = Depends(require_roles("admin", "editor")),
 ):
-    from app.models.entities import SchedulePublication, SchedulePublicationSnapshot, ImportedScheduleChange, Schedule
+    from sqlalchemy.orm import selectinload
+    from app.models.entities import (
+        SchedulePublication,
+        SchedulePublicationSnapshot,
+        ImportedScheduleChange,
+        Schedule,
+    )
+    from app.services.notes_reconciliation import reconcile_notes_after_publish
     import json
-    
+
+    await lock_versions(db)
     pub = await db.get(SchedulePublication, publication_id)
     if not pub:
         raise HTTPException(status_code=404, detail="Публікацію не знайдено")
     if pub.is_reverted:
         raise HTTPException(status_code=400, detail="Ця публікація вже скасована")
-        
-    # Mark as reverted
+
+    snapshots = (
+        await db.scalars(
+            select(SchedulePublicationSnapshot).where(
+                SchedulePublicationSnapshot.publication_id == publication_id
+            )
+        )
+    ).all()
+    group_ids = [snap.group_id for snap in snapshots]
+
+    if user.role == "editor":
+        u = await db.scalar(
+            select(User).options(selectinload(User.allowed_groups)).where(User.id == user.id)
+        )
+        allowed = {g.id for g in u.allowed_groups} if u else set()
+        if not set(group_ids).issubset(allowed):
+            raise HTTPException(status_code=403, detail="Немає доступу до груп цієї публікації")
+
     pub.is_reverted = True
-    
-    # Revert imported changes
+
     await db.execute(
-        sa.update(ImportedScheduleChange)
+        update(ImportedScheduleChange)
         .where(ImportedScheduleChange.publication_id == publication_id)
         .values(is_published=False)
     )
-    
-    # Revert base schedule
-    snapshots = (await db.scalars(
-        select(SchedulePublicationSnapshot)
-        .where(SchedulePublicationSnapshot.publication_id == publication_id)
-    )).all()
-    
+
     if snapshots:
-        # We need to delete the current active slots for the groups in the scope and version
-        group_ids = [snap.group_id for snap in snapshots]
-        await db.execute(
-            sa.delete(Schedule)
-            .where(
-                Schedule.group_id.in_(group_ids),
-                Schedule.version_id == pub.version_id
-            )
+        version_cond = (
+            Schedule.version_id == pub.version_id
+            if pub.version_id is not None
+            else Schedule.version_id.is_(None)
         )
-        
-        # Restore before_data
+        await db.execute(
+            delete(Schedule).where(Schedule.group_id.in_(group_ids), version_cond)
+        )
+
         for snap in snapshots:
             before = json.loads(snap.before_data)
             for slot in before.get("slots", []):
-                db.add(Schedule(
-                    group_id=snap.group_id,
-                    day_of_week=slot["day_of_week"],
-                    lesson_number=slot["lesson_number"],
-                    week_type=slot["week_type"],
-                    subject_id=slot.get("subject_id"),
-                    teacher_id=slot.get("teacher_id"),
-                    room_override=slot.get("room"),
-                    version_id=pub.version_id,
-                    is_active=True
-                ))
-    
+                if not slot.get("subject_id"):
+                    continue
+                db.add(
+                    Schedule(
+                        group_id=snap.group_id,
+                        day_of_week=slot["day_of_week"],
+                        lesson_number=slot["lesson_number"],
+                        week_type=slot["week_type"],
+                        subject_id=slot["subject_id"],
+                        teacher_id=slot.get("teacher_id"),
+                        second_teacher_id=slot.get("second_teacher_id"),
+                        stream_id=slot.get("stream_id"),
+                        is_replacement=slot.get("is_replacement", False),
+                        room_override=slot.get("room"),
+                        version_id=pub.version_id,
+                        is_active=True,
+                    )
+                )
+        await db.flush()
+        await reconcile_notes_after_publish(db, set(group_ids), user.id)
+
     await db.commit()
     return {"message": "Публікацію успішно скасовано"}
 

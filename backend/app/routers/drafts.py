@@ -97,7 +97,25 @@ async def list_drafts(
 ):
     query = select(ScheduleDraft).order_by(ScheduleDraft.created_at.desc())
     if current_user.role == "editor":
-        pass # To fully secure list, we would filter drafts by groups, but for now we let them list it, or just let them see all drafts, they can't access them anyway. Actually, we should filter!
+        u = await db.scalar(select(User).options(selectinload(User.allowed_groups)).where(User.id == current_user.id))
+        allowed = {g.id for g in u.allowed_groups} if u else set()
+        drafts = (await db.scalars(query)).all()
+        visible = []
+        for d in drafts:
+            draft_groups = set()
+            if d.draft_type == "import" and d.data:
+                import_scope = d.data.get("import_scope") or {}
+                draft_groups = {int(v) for v in import_scope.get("group_ids", [])}
+                if not draft_groups:
+                    subs = d.data.get("substitutions", [])
+                    cancels = d.data.get("cancelled", [])
+                    draft_groups = {int(item["group_id"]) for item in [*subs, *cancels] if item.get("group_id") is not None}
+            else:
+                slots = (await db.scalars(select(ScheduleSlot).where(ScheduleSlot.draft_id == d.id).options(selectinload(ScheduleSlot.curriculum)))).all()
+                draft_groups = {s.curriculum.group_id for s in slots if s.curriculum}
+            if draft_groups and draft_groups.issubset(allowed):
+                visible.append(d)
+        return visible
     result = await db.execute(query)
     return result.scalars().all()
 
@@ -333,13 +351,6 @@ async def publish_draft(
             detail="У цьому розкладі немає жодного заняття. Публікація стерла б поточний розклад, тому її заблоковано.",
         )
 
-    # A draft can only be published once.
-    
-    if draft.revision != expected_revision:
-        raise HTTPException(409, f"Чернетка була змінена (очікувалась ревізія {expected_revision}, але зараз {draft.revision}). Будь ласка, перегляньте її знову.")
-    if draft.status in {"published", "archived"}:
-        raise HTTPException(status_code=409, detail="Ця чернетка вже опублікована або заархівована")
-
     # Replace only the groups represented by this draft.  Publishing a partial
     # draft must never erase unrelated groups or their date overrides.
     slots = (await db.scalars(
@@ -426,9 +437,14 @@ async def publish_draft(
                 "day_of_week": s.day_of_week,
                 "lesson_number": s.lesson_number,
                 "week_type": s.week_type,
+                "subject_id": s.subject_id,
+                "teacher_id": s.teacher_id,
+                "second_teacher_id": s.second_teacher_id,
+                "stream_id": s.stream_id,
+                "is_replacement": s.is_replacement,
                 "subject_name": s.subject.name if s.subject else None,
                 "teacher_name": s.teacher.name if s.teacher else None,
-                "room": s.room_override
+                "room": s.room_override,
             })
 
     if group_ids:

@@ -28,8 +28,15 @@ def effective_to_item(item: EffectiveLesson, week_type: str, target_date: date, 
     if bell_times is None:
         bell_times = {}
     
+    # Додатний ID дозволено лише для базових записів таблиці Schedule
+    item_id = (
+        item.source_ref_id
+        if item.source_kind == "base" and item.source_ref_id
+        else -(item.source_ref_id or item.lesson_number)
+    )
+
     return ScheduleItem(
-        id=item.source_ref_id or -item.lesson_number,
+        id=item_id,
         group_id=item.group_id,
         subject_id=item.subject_id,
         teacher_id=item.teacher_id,
@@ -50,7 +57,7 @@ def effective_to_item(item: EffectiveLesson, week_type: str, target_date: date, 
         group_name=item.group_name,
         note=item.note_text,
         note_id=item.note_id,
-        note_revision=item.note_revision
+        note_revision=item.note_revision,
     )
 
 def check_group_access(user: User, user_allowed_groups: list[int], group_id: int):
@@ -316,7 +323,9 @@ async def create_lesson(payload: LessonMutation, db: AsyncSession = Depends(get_
     db.add(item)
     saved_item = await save_schedule_item(item, payload, db, create=True)
     bell_t = await get_bell_times(db)
-    return to_item(saved_item, saved_item.week_type, payload.date or today_local(), bell_t)
+    effective_date = payload.date or today_local()
+    serialized = to_item(saved_item, saved_item.week_type, effective_date, bell_t)
+    return (await attach_notes(db, effective_date, [serialized]))[0]
 
 @router.patch("/schedule/{lesson_id}", response_model=ScheduleItem)
 async def update_lesson(lesson_id: int, payload: LessonMutation, db: AsyncSession = Depends(get_db),
@@ -334,7 +343,9 @@ async def update_lesson(lesson_id: int, payload: LessonMutation, db: AsyncSessio
     db.info["note_actor_id"] = current_user.id
     saved_item = await save_schedule_item(item, payload, db)
     bell_t = await get_bell_times(db)
-    return to_item(saved_item, saved_item.week_type, payload.date or today_local(), bell_t)
+    effective_date = payload.date or today_local()
+    serialized = to_item(saved_item, saved_item.week_type, effective_date, bell_t)
+    return (await attach_notes(db, effective_date, [serialized]))[0]
 
 @router.delete("/schedule/{lesson_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_lesson(lesson_id: int, db: AsyncSession = Depends(get_db),
@@ -365,72 +376,110 @@ class BulkCuratorRequest(BaseModel):
     action: str = "create" # "create" or "delete"
 
 @router.post("/schedule/bulk-curator")
-async def bulk_curator_hours(payload: BulkCuratorRequest, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_roles("admin", "editor"))):
+async def bulk_curator_hours(
+    payload: BulkCuratorRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles("admin", "editor")),
+):
     try:
+        await lock_versions(db)
         user_groups = await load_user_groups(db, current_user)
         if current_user.role == "editor":
             if not payload.group_ids:
                 payload.group_ids = user_groups
-            else:
-                if not set(payload.group_ids).issubset(set(user_groups)):
-                    from fastapi import HTTPException
-                    raise HTTPException(403, "Ви не маєте доступу до однієї або кількох вказаних груп")
+            elif not set(payload.group_ids).issubset(set(user_groups)):
+                raise HTTPException(403, "Ви не маєте доступу до однієї або кількох вказаних груп")
+
+        today = today_local()
+        active_version = await db.scalar(
+            select(ScheduleVersion)
+            .where(
+                ScheduleVersion.valid_from <= today,
+                ScheduleVersion.valid_until >= today,
+                ScheduleVersion.is_active.is_(True),
+            )
+            .order_by(ScheduleVersion.valid_from.desc())
+            .limit(1)
+        )
+        version_id = active_version.id if active_version else None
+
         subject_name = "Виховна година"
-        
-        # Find or create subject
         subject = await db.scalar(select(Subject).where(Subject.name == subject_name))
         if not subject:
-            subject = Subject(name=subject_name)
+            subject = Subject(name=subject_name, is_active=True)
             db.add(subject)
             await db.flush()
-            
-        query = select(Group).where(Group.is_active == True)
+
+        query = select(Group).where(Group.is_active.is_(True))
         if payload.group_ids:
             query = query.where(Group.id.in_(payload.group_ids))
         groups = (await db.scalars(query)).all()
-        
+
         deleted_count = 0
         created_count = 0
         skipped_count = 0
-        
+
+        from sqlalchemy import update
         for group in groups:
-            # Delete existing curator hour at this specific time slot
-            from sqlalchemy import update
-            upd_query = update(Schedule).where(
-                Schedule.group_id == group.id,
-                Schedule.subject_id == subject.id,
-                Schedule.day_of_week == payload.day_of_week,
-                Schedule.lesson_number == payload.lesson_number,
-                Schedule.week_type.in_(("both", payload.week_type))
-            ).values(is_active=False)
+            version_cond = (
+                Schedule.version_id == version_id
+                if version_id is not None
+                else Schedule.version_id.is_(None)
+            )
+            upd_query = (
+                update(Schedule)
+                .where(
+                    Schedule.group_id == group.id,
+                    Schedule.subject_id == subject.id,
+                    Schedule.day_of_week == payload.day_of_week,
+                    Schedule.lesson_number == payload.lesson_number,
+                    Schedule.week_type.in_(("both", payload.week_type)),
+                    Schedule.is_active.is_(True),
+                    version_cond,
+                )
+                .values(is_active=False)
+            )
             res = await db.execute(upd_query)
             deleted_count += res.rowcount
-            
+
             if payload.action == "create":
-                # Check for conflict with OTHER subjects
+                if not group.curator_id:
+                    skipped_count += 1
+                    continue
+
                 conflict = await conflicting_lesson(
-                    db, group_id=group.id, day_of_week=payload.day_of_week,
-                    lesson_number=payload.lesson_number, week_type=payload.week_type,
-                    teacher_id=group.curator_id, subject_id=subject.id
+                    db,
+                    group_id=group.id,
+                    day_of_week=payload.day_of_week,
+                    lesson_number=payload.lesson_number,
+                    week_type=payload.week_type,
+                    teacher_id=group.curator_id,
+                    subject_id=subject.id,
+                    version_id=version_id,
                 )
                 if conflict:
                     skipped_count += 1
                     continue
-                    
-                new_lesson = Schedule(
-                    group_id=group.id,
-                    subject_id=subject.id,
-                    teacher_id=group.curator_id,
-                    day_of_week=payload.day_of_week,
-                    lesson_number=payload.lesson_number,
-                    week_type=payload.week_type,
-                    is_active=True
+
+                db.add(
+                    Schedule(
+                        group_id=group.id,
+                        subject_id=subject.id,
+                        teacher_id=group.curator_id,
+                        day_of_week=payload.day_of_week,
+                        lesson_number=payload.lesson_number,
+                        week_type=payload.week_type,
+                        version_id=version_id,
+                        is_active=True,
+                    )
                 )
-                db.add(new_lesson)
                 created_count += 1
-                
+
         await db.commit()
         return {"created": created_count, "deleted": deleted_count, "skipped": skipped_count}
+    except HTTPException:
+        await db.rollback()
+        raise
     except Exception as e:
         await db.rollback()
         logger.exception("bulk_curator_hours failed")

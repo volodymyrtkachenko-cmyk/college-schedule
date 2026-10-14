@@ -250,19 +250,26 @@ export default function HomePage() {
           <div>
             <div className={view === "today" ? "block" : "hidden"}>
 
-              {isWeekend ? (
-                <div className="rounded-2xl border border-slate-700/50 bg-slate-800/40 px-6 py-14 text-center shadow-sm">
-                  <div className="text-5xl" aria-hidden="true">🛋️</div>
-                  <h2 className="mt-4 text-lg font-semibold text-sys-text-primary">Сьогодні вихідний</h2>
-                </div>
-              ) : (
-                <>
-                  <div className="mb-4 mt-2 flex justify-end">
+              {isWeekend && (
+                <div className="mb-4 rounded-2xl border border-slate-700/50 bg-slate-800/40 px-5 py-4 text-center sm:flex sm:items-center sm:justify-between sm:text-left">
+                  <div className="flex items-center justify-center gap-3 sm:justify-start">
+                    <span className="text-2xl" aria-hidden="true">🛋️</span>
+                    <div>
+                      <h2 className="text-sm font-semibold text-sys-text-primary">Сьогодні вихідний</h2>
+                      <p className="text-xs text-sys-text-secondary">Нижче показано розклад на найближчий навчальний день</p>
+                    </div>
+                  </div>
+                  <div className="mt-2 sm:mt-0">
                     <WeekTypeBadge weekType={today.week_type} />
                   </div>
-                  <ScheduleDay schedule={today} isToday scheduleMode={mode} />
-                </>
+                </div>
               )}
+              {!isWeekend && (
+                <div className="mb-4 mt-2 flex justify-end">
+                  <WeekTypeBadge weekType={today.week_type} />
+                </div>
+              )}
+              <ScheduleDay schedule={today} isToday={!isWeekend} scheduleMode={mode} />
             </div>
             
             <div className={view === "week" ? "block w-full min-w-0" : "hidden"}>

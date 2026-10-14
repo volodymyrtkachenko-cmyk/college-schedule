@@ -38,25 +38,26 @@ export function ImportPanel() {
   const [importHistory, setImportHistory] = useState<Array<{ id: number; name: string; status: string; created_at: string; data?: { substitutions?: ImportSubstitution[]; cancelled?: ImportCancellation[] } | null }>>([]);
   const importRequestId = useRef(0);
 
-  useEffect(() => {
-    async function loadDicts() {
-      try {
-        const session = await api.auth.ensureAuthenticated();
-        const [t, s, g, v] = await Promise.all([
-          api.references.list("teachers", session.access_token),
-          api.references.list("subjects", session.access_token),
-          api.references.list("groups", session.access_token),
-          api.scheduleVersions.list(),
-        ]);
-        setTeachers(t);
-        setSubjects(s);
-        setGroups(g);
-        setVersions(v);
-      } catch (err) {
-        console.error("Failed to load dictionaries", err);
-      }
+  const loadDicts = async () => {
+    try {
+      const session = await api.auth.ensureAuthenticated();
+      const [t, s, g, v] = await Promise.all([
+        api.references.list("teachers", session.access_token),
+        api.references.list("subjects", session.access_token),
+        api.references.list("groups", session.access_token),
+        api.scheduleVersions.list(),
+      ]);
+      setTeachers(t);
+      setSubjects(s);
+      setGroups(g);
+      setVersions(v);
+    } catch (err) {
+      console.error("Failed to load dictionaries", err);
     }
-    loadDicts();
+  };
+
+  useEffect(() => {
+    void loadDicts();
   }, []);
 
   useEffect(() => {
@@ -86,11 +87,14 @@ export function ImportPanel() {
         setCancelled(nextCancelled);
         setReport({
           unresolved: [],
-          base_slots: [],
+          base_slots: (pending.data as any).base_slots ?? [],
           substitutions: nextSubstitutions,
           cancelled: nextCancelled,
         });
-                setStatus(nextSubstitutions.filter(s => (s as any).is_new !== false).length || nextCancelled.filter(c => (c as any).is_new !== false).length ? "mapping" : "unchanged");
+        const hasNewChanges =
+          nextSubstitutions.some((s) => (s as any).is_new !== false) ||
+          nextCancelled.some((c) => (c as any).is_new !== false);
+        setStatus(hasNewChanges ? "mapping" : "ready");
       } catch {
         // The import button remains available when no pending draft can be loaded.
       }
@@ -103,7 +107,7 @@ export function ImportPanel() {
     setLoading(true);
     setError(null);
     setStatus("importing");
-    
+
     try {
       const session = await api.auth.ensureAuthenticated();
       const res = await api.importer.importData(session.access_token);
@@ -116,24 +120,28 @@ export function ImportPanel() {
         setStatus("unchanged");
         return;
       }
-      
-      if (res.report.unresolved.length > 0 || res.report.substitutions.filter((s: any) => s.is_new !== false).length > 0 || (res.report.cancelled?.filter((c: any) => c.is_new !== false).length ?? 0) > 0) {
-        setReport(res.report);
-        setSubstitutions(res.report.substitutions);
-        setCancelled(res.report.cancelled ?? []);
-        setStatus("mapping");
-        // Initialize mappings state
+
+      if (res.report.unresolved.length > 0) {
+        await loadDicts();
+      }
+
+      const hasNewSubs = res.report.substitutions.some((s: any) => s.is_new !== false);
+      const hasNewCancels = (res.report.cancelled ?? []).some((c: any) => c.is_new !== false);
+
+      setReport(res.report);
+      setSubstitutions(res.report.substitutions);
+      setCancelled(res.report.cancelled ?? []);
+
+      if (res.report.unresolved.length > 0 || hasNewSubs || hasNewCancels) {
         const initialMap: Record<string, number> = {};
-        res.report.unresolved.forEach(item => { initialMap[item.raw] = 0; });
+        res.report.unresolved.forEach((item) => {
+          initialMap[item.raw] = item.actual_id ?? 0;
+        });
         setMappings(initialMap);
-            } else {
-        setReport(res.report);
-        setSubstitutions(res.report.substitutions);
-        setCancelled(res.report.cancelled ?? []);
-        if (res.meta?.draft_created) {
-            api.generator.deleteDraft(res.meta.draft_created, session.access_token).catch(() => {});
-        }
-        setDraftId(null);
+        setStatus("mapping");
+      } else if (res.meta?.draft_created) {
+        setStatus("ready");
+      } else {
         setStatus("unchanged");
       }
     } catch (err: any) {

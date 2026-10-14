@@ -74,6 +74,17 @@ def resolve_effective_room(
         rooms.append(second_teacher.room.strip())
     return " / ".join(rooms) if rooms else None
 
+def resolve_teacher_names(
+    teacher: Optional[Any] = None,
+    second_teacher: Optional[Any] = None,
+) -> Optional[str]:
+    names = []
+    if teacher and getattr(teacher, "name", None):
+        names.append(teacher.name.strip())
+    if second_teacher and getattr(second_teacher, "name", None):
+        names.append(second_teacher.name.strip())
+    return " / ".join(names) if names else None
+
 async def build_projection(
     db: AsyncSession, 
     target_date: date, 
@@ -99,6 +110,7 @@ async def build_projection(
         SchedulePeriod.end_date >= target_date
     ).options(
         joinedload(SchedulePeriod.groups),
+        joinedload(SchedulePeriod.slots).joinedload(SchedulePeriodSlot.group),
         joinedload(SchedulePeriod.slots).joinedload(SchedulePeriodSlot.subject),
         joinedload(SchedulePeriod.slots).joinedload(SchedulePeriodSlot.teacher),
         joinedload(SchedulePeriod.slots).joinedload(SchedulePeriodSlot.second_teacher)
@@ -163,6 +175,7 @@ async def build_projection(
     override_query = select(ScheduleOverride).where(
         ScheduleOverride.date == target_date
     ).options(
+        joinedload(ScheduleOverride.group),
         joinedload(ScheduleOverride.subject), joinedload(ScheduleOverride.teacher),
         joinedload(ScheduleOverride.second_teacher)
     )
@@ -191,13 +204,13 @@ async def build_projection(
                     # Wait, in the old code, does fetch_schedule join practice slots?
                     # Let's just create the EffectiveLesson.
                     slot_room = resolve_effective_room(slot.room_override, slot.teacher, slot.second_teacher)
-                    slot_teacher_name = slot.teacher.name if slot.teacher else None
+                    slot_teacher_name = resolve_teacher_names(slot.teacher, slot.second_teacher)
                     cells[(slot.group_id, slot.lesson_number, f"p{slot.id}")] = EffectiveLesson(
                         group_id=slot.group_id, date=target_date, lesson_number=slot.lesson_number,
                         subject_id=slot.subject_id, teacher_id=slot.teacher_id, second_teacher_id=slot.second_teacher_id,
                         room=slot_room, stream_id=None,
                         source_kind="practice", source_ref_id=slot.id,
-                        group_name=None, 
+                        group_name=slot.group.name if getattr(slot, "group", None) else None, 
                         subject_name=slot.subject.name if slot.subject else None, 
                         teacher_name=slot_teacher_name,
                         is_replacement=True
@@ -212,7 +225,7 @@ async def build_projection(
         if is_practice: continue # T10 priority: practice overrides base
 
         b_room = resolve_effective_room(b.room_override, b.teacher, b.second_teacher)
-        b_teacher_name = b.teacher.name if b.teacher else None
+        b_teacher_name = resolve_teacher_names(b.teacher, b.second_teacher)
         cells[(b.group_id, b.lesson_number, f"b{b.id}")] = EffectiveLesson(
             group_id=b.group_id, date=target_date, lesson_number=b.lesson_number,
             subject_id=b.subject_id, teacher_id=b.teacher_id, second_teacher_id=b.second_teacher_id,
@@ -237,7 +250,7 @@ async def build_projection(
         elif imp.kind == "substitution":
             imp_room_override = getattr(imp, 'room_override', getattr(imp, 'room', None))
             imp_room = resolve_effective_room(imp_room_override, imp.teacher, imp.second_teacher)
-            imp_teacher_name = imp.teacher.name if imp.teacher else None
+            imp_teacher_name = resolve_teacher_names(imp.teacher, imp.second_teacher)
             replace_slot(*key, EffectiveLesson(
                 group_id=imp.group_id, date=target_date, lesson_number=imp.lesson_number,
                 subject_id=imp.subject_id, teacher_id=imp.teacher_id, second_teacher_id=imp.second_teacher_id,
@@ -262,12 +275,13 @@ async def build_projection(
         else:
             # Add or replace
             ovr_room = resolve_effective_room(ovr.room, ovr.teacher, ovr.second_teacher)
-            ovr_teacher_name = ovr.teacher.name if ovr.teacher else None
+            ovr_teacher_name = resolve_teacher_names(ovr.teacher, ovr.second_teacher)
             replace_slot(*key, EffectiveLesson(
                 group_id=ovr.group_id, date=target_date, lesson_number=ovr.lesson_number,
                 subject_id=ovr.subject_id, teacher_id=ovr.teacher_id, second_teacher_id=ovr.second_teacher_id,
                 room=ovr_room, stream_id=ovr.stream_id,
                 source_kind="manual", source_ref_id=ovr.id,
+                group_name=ovr.group.name if getattr(ovr, "group", None) else None,
                 subject_name=ovr.subject.name if ovr.subject else None,
                 teacher_name=ovr_teacher_name,
                 is_replacement=True

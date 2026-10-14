@@ -203,9 +203,9 @@ async def revoke_all(
     await db.commit()
     response.delete_cookie(
         key=settings.auth_cookie_name,
-        secure=settings.cookie_secure,
-        httponly=settings.cookie_httponly,
-        samesite=settings.cookie_samesite,
-        path="/"
+        secure=settings.auth_cookie_secure,
+        httponly=True,
+        samesite="none" if settings.auth_cookie_secure else "lax",
+        path="/",
     )
     return {"message": "Усі сеанси завершено"}
