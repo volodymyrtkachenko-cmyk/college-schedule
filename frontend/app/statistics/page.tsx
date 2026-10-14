@@ -205,8 +205,22 @@ export default function StatisticsPage() {
         </section>
 
         {referencesLoading || statsLoading ? (
-          <div className="rounded-2xl border border-sys-border bg-sys-card/50 p-10 text-center text-sys-text-secondary">
-            Завантаження статистики…
+          <div className="space-y-4 animate-pulse" aria-busy="true">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="h-28 rounded-2xl border border-sys-border/60 bg-sys-card/70" />
+              <div className="h-28 rounded-2xl border border-sys-border/60 bg-sys-card/70" />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div key={i} className="h-24 rounded-2xl border border-sys-border/60 bg-sys-card/70 p-4 flex items-center gap-4">
+                  <div className="w-16 h-16 rounded-full bg-slate-800 shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 w-3/4 rounded bg-slate-700/70" />
+                    <div className="h-3 w-1/2 rounded bg-slate-800" />
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         ) : error ? (
           <div role="alert" className="rounded-2xl border border-rose-400/20 bg-rose-400/5 p-6 text-center text-rose-200">

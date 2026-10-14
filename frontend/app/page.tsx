@@ -243,7 +243,27 @@ export default function HomePage() {
         </div>
 
         {loading ? (
-          <div className="rounded-2xl border border-sys-border bg-sys-card/50 p-12 text-center text-sys-text-secondary">Завантаження розкладу…</div>
+          <div className="space-y-3" aria-busy="true" aria-label="Завантаження розкладу">
+            {[1, 2, 3, 4].map((num) => (
+              <div
+                key={num}
+                className="flex items-start gap-4 rounded-xl border border-sys-border/60 bg-sys-card/70 p-4 animate-pulse"
+              >
+                <div className="flex w-12 shrink-0 flex-col gap-1.5">
+                  <div className="h-5 w-6 rounded bg-slate-700/70" />
+                  <div className="h-3 w-10 rounded bg-slate-800" />
+                  <div className="h-3 w-10 rounded bg-slate-800" />
+                </div>
+                <div className="flex flex-1 flex-col gap-2.5">
+                  <div className="h-4 w-3/5 rounded bg-slate-700/70" />
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="h-3.5 w-2/5 rounded bg-slate-800" />
+                    <div className="h-5 w-14 rounded-md bg-slate-800" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         ) : error ? (
           <div className="rounded-2xl border border-rose-400/20 bg-rose-400/5 p-8 text-center text-rose-200">{error}</div>
         ) : today ? (
