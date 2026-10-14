@@ -23,8 +23,8 @@ export function ScheduleEditGrid({ week, scheduleMode, onEdit, onCreate, movingL
 }) {
   return (
     <div className="overflow-x-auto rounded-2xl border border-sys-border bg-sys-card/50">
-      <div className="grid min-w-[1150px] grid-cols-[5rem_repeat(5,minmax(13.5rem,1fr))]">
-        <div className="sticky left-0 z-20 border-b border-r border-sys-border bg-sys-card p-3 text-center text-xs font-semibold uppercase text-sys-text-muted">
+      <div className="grid min-w-[980px] grid-cols-[4.5rem_repeat(5,minmax(11.5rem,1fr))]">
+        <div className="sticky left-0 z-20 border-b border-r border-sys-border bg-sys-card p-2 sm:p-3 text-center text-xs font-semibold uppercase text-sys-text-muted">
           Пара
         </div>
         {week.map((day) => (
@@ -39,9 +39,9 @@ export function ScheduleEditGrid({ week, scheduleMode, onEdit, onCreate, movingL
         ))}
 
         {LESSON_NUMBERS.flatMap((lessonNumber) => [
-          <div key={`lesson-${lessonNumber}`} className="sticky left-0 z-10 border-b border-r border-sys-border bg-sys-card p-3 text-center">
-            <div className="text-lg font-bold text-sys-text-primary">{lessonNumber}</div>
-            <div className="text-xs text-sys-text-muted">{DEFAULT_LESSON_TIMES[lessonNumber]}</div>
+          <div key={`lesson-${lessonNumber}`} className="sticky left-0 z-10 border-b border-r border-sys-border bg-sys-card p-2 sm:p-3 text-center">
+            <div className="text-base sm:text-lg font-bold text-sys-text-primary">{lessonNumber}</div>
+            <div className="text-[11px] sm:text-xs text-sys-text-muted">{DEFAULT_LESSON_TIMES[lessonNumber]}</div>
           </div>,
           ...week.map((day) => {
             const cellLessons = day.lessons.filter((lesson) => lesson.lesson_number === lessonNumber);
