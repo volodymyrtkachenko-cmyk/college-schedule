@@ -42,7 +42,9 @@ export type ReferenceResource = "faculties" | "groups" | "teachers" | "subjects"
 
 export interface ReferenceRecord extends DirectoryItem {
     short_name?: string | null;
-    faculty_id?: number;
+    faculty_id?: number | null;
+    curator_id?: number | null;
+    year_of_admission?: number | null;
     email?: string | null;
     room?: string | null;
   room_override?: string | null;

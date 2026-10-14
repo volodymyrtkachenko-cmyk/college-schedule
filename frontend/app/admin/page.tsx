@@ -31,14 +31,17 @@ const resourceConfig: Record<ReferenceResource, {
   needsFaculties?: boolean;
   affectsSchedule?: boolean;
   searchFields?: (keyof ReferenceRecord)[];
-  searchRelations?: (item: ReferenceRecord, faculties: ReferenceRecord[]) => (string | undefined | null)[];
+  searchRelations?: (item: ReferenceRecord, faculties: ReferenceRecord[], teachers?: ReferenceRecord[]) => (string | undefined | null)[];
 }> = {
   faculties: { addLabel: "спеціальність", searchFields: ["name", "short_name"] },
   groups: {
-    addLabel: "групу", needsFaculties: true, affectsSchedule: true,
+    addLabel: "групу",
+    needsFaculties: true,
+    affectsSchedule: true,
     searchFields: ["name"],
-    searchRelations: (item, faculties) => [
-      faculties.find(f => f.id === item.faculty_id)?.name,
+    searchRelations: (item, faculties, teachers = []) => [
+      faculties.find((f) => f.id === item.faculty_id)?.name,
+      teachers.find((t) => t.id === item.curator_id)?.name,
     ],
   },
   teachers: { addLabel: "викладача", affectsSchedule: true, searchFields: ["name", "room"] },
@@ -68,6 +71,7 @@ function AdminContent() {
   : null;
   const [items, setItems] = useState<ReferenceRecord[]>([]);
   const [faculties, setFaculties] = useState<ReferenceRecord[]>([]);
+  const [teachers, setTeachers] = useState<ReferenceRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -106,11 +110,13 @@ function AdminContent() {
       .then((session) => Promise.all([
         api.references.list(activeResource, session.access_token),
         resourceConfig[activeResource].needsFaculties ? api.directory.faculties() : Promise.resolve([]),
+        activeResource === "groups" ? api.directory.teachers() : Promise.resolve([]),
       ]))
-      .then(([nextItems, nextFaculties]) => {
+      .then(([nextItems, nextFaculties, nextTeachers]) => {
         if (!cancelled) {
           setItems(nextItems);
           setFaculties(nextFaculties);
+          setTeachers(nextTeachers);
         }
       })
       .catch((e) => {
@@ -242,7 +248,7 @@ function AdminContent() {
       });
       if (matchesField) return true;
 
-      const rels = resourceConfig[activeResource].searchRelations?.(item, faculties) || [];
+      const rels = resourceConfig[activeResource].searchRelations?.(item, faculties, teachers) || [];
       if (rels.some(r => r && r.toLowerCase().includes(q))) return true;
       
       return false;
@@ -389,10 +395,26 @@ function AdminContent() {
         )}
 
         {editor !== undefined && (
-          <ReferenceForm resource={activeResource} item={editor ?? undefined} faculties={faculties} onCancel={() => setEditor(undefined)} onSubmit={save} />
+          <ReferenceForm
+            resource={activeResource}
+            item={editor ?? undefined}
+            faculties={faculties}
+            teachers={teachers}
+            onCancel={() => setEditor(undefined)}
+            onSubmit={save}
+          />
         )}
         
-        <ReferenceTable resource={activeResource} items={filteredAndSortedItems} faculties={faculties} loading={loading} error={error} onEdit={setEditor} onDelete={setItemToDelete} />
+        <ReferenceTable
+          resource={activeResource}
+          items={filteredAndSortedItems}
+          faculties={faculties}
+          teachers={teachers}
+          loading={loading}
+          error={error}
+          onEdit={setEditor}
+          onDelete={setItemToDelete}
+        />
         
         
         {itemToDelete && (

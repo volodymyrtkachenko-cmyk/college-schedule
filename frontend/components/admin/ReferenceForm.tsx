@@ -8,6 +8,7 @@ type Props = {
     resource: ReferenceResource;
     item?: ReferenceRecord;
     faculties?: ReferenceRecord[];
+    teachers?: ReferenceRecord[];
     onCancel: () => void;
     onSubmit: (value: ReferenceMutation) => Promise<void>
 };
@@ -19,12 +20,12 @@ const fields: Record<ReferenceResource, { key: keyof ReferenceMutation; label: s
     subjects: [{key: "name", label: "Назва"}],
 };
 
-export function ReferenceForm({ resource, item, faculties = [], onCancel, onSubmit }: Props) {
+export function ReferenceForm({ resource, item, faculties = [], teachers = [], onCancel, onSubmit }: Props) {
     const inputRef = useRef<HTMLInputElement>(null);
     const [value, setValue] = useState<Record<string, string>>({});
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const extraKeys = resource === "groups" ? ["faculty_id"] : [];
+    const extraKeys = resource === "groups" ? ["faculty_id", "curator_id"] : [];
 
     useEffect(() => {
         setValue(Object.fromEntries(
@@ -77,16 +78,29 @@ export function ReferenceForm({ resource, item, faculties = [], onCancel, onSubm
                         </label>
                     ))}
                     {resource === "groups" && (
-                        <div className="flex flex-col gap-1.5 text-sm text-sys-text-secondary">
-                            Спеціальність
-                            <SearchableSelect
-                                options={faculties}
-                                value={value.faculty_id ? Number(value.faculty_id) : null}
-                                onChange={(id) => setValue({ ...value, faculty_id: id ? String(id) : "" })}
-                                placeholder="Без спеціальності"
-                                ariaLabel="Спеціальність"
-                            />
-                        </div>
+                        <>
+                            <div className="flex flex-col gap-1.5 text-sm text-sys-text-secondary">
+                                Спеціальність
+                                <SearchableSelect
+                                    options={faculties}
+                                    value={value.faculty_id ? Number(value.faculty_id) : null}
+                                    onChange={(id) => setValue({ ...value, faculty_id: id ? String(id) : "" })}
+                                    placeholder="Без спеціальності"
+                                    ariaLabel="Спеціальність"
+                                />
+                            </div>
+                            <label className="flex flex-col gap-1.5 text-sm text-sys-text-secondary">
+                                Куратор групи
+                                <SearchableSelect
+                                    options={teachers}
+                                    value={value.curator_id ? Number(value.curator_id) : null}
+                                    onChange={(id) => setValue({ ...value, curator_id: id ? String(id) : "" })}
+                                    placeholder="Оберіть куратора..."
+                                    emptyLabel="Без куратора"
+                                    ariaLabel="Куратор групи"
+                                />
+                            </label>
+                        </>
                     )}
                 </div>
                 {error && <p role="alert" className="mt-4 text-sm text-sys-destructive">{error}</p>}
