@@ -26,11 +26,14 @@ const DEFAULT_GROUPS_ORDER = [
 function normalizeRoomText(room: string): string {
   const clean = room.trim();
   const lower = clean.toLowerCase();
-  if (lower.includes("спорт") && lower.includes("1")) return "ск1";
-  if (lower.includes("спорт") && lower.includes("2")) return "ск2";
-  if (lower.includes("спорт") && lower.includes("3")) return "ск3";
-  if (lower.startsWith("ск")) return clean.replace(/\s+/g, "");
-  if (lower.startsWith("дист")) return "дист";
+
+  if (lower.includes("спорт") || lower.startsWith("ск")) {
+    const match = lower.match(/[1-3]/);
+    return match ? `ск${match[0]}` : "СК";
+  }
+  if (lower.startsWith("дист")) {
+    return "дист";
+  }
   return clean.replace(/^ауд\.?\s*/i, "").trim();
 }
 
@@ -44,6 +47,17 @@ function computeWeekType(targetDateStr: string): "чисельник" | "зна�
   return Math.abs(weekIndex) % 2 === 0 ? "знаменник" : "чисельник";
 }
 
+function getSubjectTypography(subject: string): { fontSize: string; lineHeight: string } {
+  const len = subject.length;
+  if (len > 54) {
+    return { fontSize: "8pt", lineHeight: "9.5pt" };
+  }
+  if (len > 32) {
+    return { fontSize: "9pt", lineHeight: "10.5pt" };
+  }
+  return { fontSize: "10pt", lineHeight: "11.5pt" };
+}
+
 interface CellContent {
   subject: string;
   t1: string;
@@ -55,20 +69,40 @@ interface CellContent {
 function splitSubgroups(lesson?: Lesson): CellContent | null {
   if (!lesson) return null;
   const teachers = (lesson.teacher_name || "")
-    .split("/")
+    .split(/\s*[/]\s*|\s*;\s*/)
     .map((s) => s.trim())
     .filter(Boolean);
+
   const rooms = (lesson.room || "")
-    .split("/")
+    .split(/\s*[,/;]\s*/)
     .map(normalizeRoomText)
     .filter(Boolean);
 
+  const t1 = teachers[0] || "";
+  const t2 = teachers.length > 1 ? teachers[1] : null;
+
+  let r1 = "";
+  let r2: string | null = null;
+
+  if (t2) {
+    if (rooms.length >= 2) {
+      r1 = rooms[0];
+      r2 = rooms[1];
+    } else if (rooms.length === 1) {
+      r1 = rooms[0];
+      r2 = rooms[0];
+    }
+  } else {
+    r1 = rooms[0] || "";
+    r2 = null;
+  }
+
   return {
     subject: lesson.subject_name || lesson.subject || "",
-    t1: teachers[0] || "",
-    r1: rooms[0] || "",
-    t2: teachers.length > 1 ? teachers[1] : null,
-    r2: rooms.length > 1 ? rooms[1] : (teachers.length > 1 ? rooms[0] || "" : null),
+    t1,
+    r1,
+    t2,
+    r2,
   };
 }
 
@@ -168,12 +202,34 @@ export function OfficialPrintModal({
         <head>
           <meta charset="utf-8" />
           <title>rozklad_${targetDate}</title>
-          <link rel="preconnect" href="https://fonts.googleapis.com">
-          <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-          <link href="https://fonts.googleapis.com/css2?family=Arimo:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
           <style>
+            @font-face {
+              font-family: 'Arimo';
+              font-style: normal;
+              font-weight: 400;
+              src: url('https://cdn.jsdelivr.net/gh/google/fonts@main/apache/arimo/Arimo-Regular.ttf') format('truetype');
+            }
+            @font-face {
+              font-family: 'Arimo';
+              font-style: normal;
+              font-weight: 700;
+              src: url('https://cdn.jsdelivr.net/gh/google/fonts@main/apache/arimo/Arimo-Bold.ttf') format('truetype');
+            }
+            @font-face {
+              font-family: 'Arimo';
+              font-style: italic;
+              font-weight: 400;
+              src: url('https://cdn.jsdelivr.net/gh/google/fonts@main/apache/arimo/Arimo-Italic.ttf') format('truetype');
+            }
+            @font-face {
+              font-family: 'Arimo';
+              font-style: italic;
+              font-weight: 700;
+              src: url('https://cdn.jsdelivr.net/gh/google/fonts@main/apache/arimo/Arimo-BoldItalic.ttf') format('truetype');
+            }
+
             @page {
-              size: A4 landscape;
+              size: 297mm 210mm;
               margin: 7.8mm 7.5mm 6mm 6mm;
             }
             * {
@@ -181,10 +237,11 @@ export function OfficialPrintModal({
               -webkit-print-color-adjust: exact;
               print-color-adjust: exact;
             }
-            body {
+            html, body {
               margin: 0;
               padding: 0;
-              font-family: "Arimo", "Arial", sans-serif;
+              width: 283mm;
+              font-family: "Arial", "Arimo", sans-serif;
               color: #000;
               background: #fff;
               -webkit-font-smoothing: antialiased;
@@ -195,14 +252,14 @@ export function OfficialPrintModal({
               font-size: 20pt;
               text-align: center;
               line-height: 1.1;
-              margin: 0 0 4mm 0;
+              margin: 0 0 10pt 0;
               white-space: nowrap;
             }
             table.schedule-table {
               table-layout: fixed;
               width: 283mm;
               border-collapse: collapse;
-              margin: 0 auto;
+              margin: 0;
             }
             thead {
               display: table-header-group;
@@ -212,8 +269,8 @@ export function OfficialPrintModal({
             }
             tfoot td {
               border: none !important;
-              padding-top: 3mm !important;
-              font-family: "Arimo", "Arial", sans-serif;
+              padding-top: 4pt !important;
+              font-family: "Arial", "Arimo", sans-serif;
               font-size: 7pt;
               color: #000;
               text-align: left;
@@ -221,7 +278,7 @@ export function OfficialPrintModal({
             th {
               border: 1px solid #000;
               background-color: #f2f2f2;
-              padding: 1mm 0.5mm;
+              padding: 1pt;
               vertical-align: middle;
             }
             th.th-group {
@@ -246,15 +303,15 @@ export function OfficialPrintModal({
               line-height: 1.05;
             }
             tr.group-row {
-              height: 15.3mm;
-              min-height: 15.3mm;
-              border-bottom: 2px solid #000;
+              height: 43.5pt;
+              min-height: 43.5pt;
+              border-bottom: 2pt solid #000;
               page-break-inside: avoid;
               break-inside: avoid;
             }
             td {
               border: 1px solid #000;
-              padding: 1mm 1.5mm;
+              padding: 2pt 3pt;
               vertical-align: top;
             }
             td.td-group {
@@ -268,43 +325,60 @@ export function OfficialPrintModal({
             }
             td.td-subject {
               width: 44.8mm;
-              font-size: 10pt;
-              line-height: 1.15;
+              max-width: 44.8mm;
+              padding: 2pt 3pt;
+              vertical-align: top;
             }
             td.td-room {
               width: 9mm;
+              max-width: 9mm;
               color: #1f4e8c;
               font-weight: 700;
               font-size: 10pt;
-              line-height: 1.15;
               text-align: center;
               vertical-align: top;
-              padding-left: 0.5mm;
-              padding-right: 0.5mm;
+              padding: 2pt 1pt;
+              overflow: hidden;
+              white-space: nowrap;
             }
             .subj-title {
               font-weight: 700;
-              font-size: 10pt;
               color: #000;
               word-break: break-word;
-              margin-bottom: 0.5mm;
+              display: -webkit-box;
+              -webkit-line-clamp: 3;
+              -webkit-box-orient: vertical;
+              overflow: hidden;
+              margin-bottom: 1.5pt;
             }
             .teacher-line {
               font-style: italic;
               font-size: 10pt;
               color: #000;
-              line-height: 1.15;
+              line-height: 11pt;
+              height: 11pt;
+              white-space: nowrap;
+              overflow: hidden;
             }
-            .sub-teacher-line {
-              font-style: italic;
-              font-size: 9.5pt;
-              color: #000;
-              line-height: 1.15;
-              margin-top: 0.5mm;
+            .room-flex {
+              display: flex;
+              flex-direction: column;
+              height: 100%;
+              width: 100%;
+            }
+            .room-flex.single {
+              justify-content: flex-start;
+            }
+            .room-flex.multi {
+              justify-content: flex-end;
             }
             .room-line {
               color: #1f4e8c;
               font-weight: 700;
+              font-size: 10pt;
+              line-height: 11pt;
+              height: 11pt;
+              text-align: center;
             }
           </style>
         </head>
@@ -341,7 +415,7 @@ export function OfficialPrintModal({
       <style>{`
         @media print {
           @page {
-            size: A4 landscape;
+            size: 297mm 210mm;
             margin: 7.8mm 7.5mm 6mm 6mm;
           }
           html, body {
@@ -371,7 +445,7 @@ export function OfficialPrintModal({
           .print-sheet {
             width: 283mm !important;
             max-width: none !important;
-            margin: 0 auto !important;
+            margin: 0 !important;
             padding: 0 !important;
             overflow: visible !important;
           }
@@ -428,7 +502,7 @@ export function OfficialPrintModal({
         ) : (
           <div ref={printSheetRef} className="print-sheet mx-auto w-[283mm] print:w-[283mm]">
             {/* Заголовок по центру: Courier New Bold 20pt в один рядок */}
-            <h1 className="header-title font-mono font-bold text-[20pt] text-center leading-tight mb-3 text-black whitespace-nowrap">
+            <h1 className="header-title font-mono font-bold text-[20pt] text-center leading-tight mb-2 text-black whitespace-nowrap">
               РОЗКЛАД ЗАНЯТЬ на {formattedDate}, {DAY_NAMES_LOWER[dow] || ""}, {weekLabel}
             </h1>
 
@@ -474,7 +548,7 @@ export function OfficialPrintModal({
                 <tr>
                   <td
                     colSpan={11}
-                    className="border-none pt-2 font-sans text-[7pt] text-black text-left"
+                    className="border-none pt-1 font-sans text-[7pt] text-black text-left"
                   >
                     {DAY_NAMES_LOWER[dow] || ""}, {weekLabel}
                   </td>
@@ -491,7 +565,7 @@ export function OfficialPrintModal({
                   return (
                     <tr
                       key={`g-${group.id}`}
-                      className="group-row border-b-2 border-black h-[15.3mm] min-h-[15.3mm] break-inside-avoid"
+                      className="group-row border-b-2 border-black h-[43.5pt] min-h-[43.5pt] break-inside-avoid"
                     >
                       {/* Номер групи: Arial Bold 22pt по центру клітинки */}
                       <td className="td-group border border-black text-center align-middle font-bold text-[22pt] leading-none px-0 py-1">
@@ -499,44 +573,51 @@ export function OfficialPrintModal({
                       </td>
 
                       {/* 5 слотів (0, 1, 2, 3, 4) */}
-                      {cells.map((c, idx) => (
-                        <React.Fragment key={`g-${group.id}-slot-${idx}`}>
-                          {/* Текст пари: назва предмета Arial Bold 10pt + викладач Arial Italic 10pt */}
-                          <td className="td-subject border border-black p-1 align-top text-black">
-                            {c ? (
-                              <div className="flex flex-col justify-start">
-                                <div className="subj-title font-bold text-[10pt] leading-[1.15] text-black">
-                                  {c.subject}
-                                </div>
-                                <div className="teacher-line italic text-[10pt] leading-[1.15] text-black">
-                                  {c.t1}
-                                </div>
-                                {c.t2 && (
-                                  <div className="sub-teacher-line italic text-[9.5pt] leading-[1.15] text-black mt-0.5">
-                                    {c.t2}
-                                  </div>
-                                )}
-                              </div>
-                            ) : null}
-                          </td>
+                      {cells.map((c, idx) => {
+                        const typo = c ? getSubjectTypography(c.subject) : null;
+                        const hasMulti = Boolean(c?.t2);
 
-                          {/* Колонка аудиторії: 9mm, синій колір #1f4e8c, Arial Bold 10pt, зверху */}
-                          <td className="td-room border border-black p-0.5 text-center align-top font-bold text-[10pt] text-[#1f4e8c]">
-                            {c ? (
-                              <div className="flex flex-col justify-start">
-                                <div className="room-line leading-[1.15]">
-                                  {c.r1}
-                                </div>
-                                {c.t2 && (
-                                  <div className="room-line leading-[1.15] mt-0.5">
-                                    {c.r2 || ""}
+                        return (
+                          <React.Fragment key={`g-${group.id}-slot-${idx}`}>
+                            {/* Текст пари: назва предмета Arial Bold 10pt (автозменшення) + викладач Arial Italic 10pt */}
+                            <td className="td-subject border border-black p-1 align-top text-black">
+                              {c && typo ? (
+                                <div className="flex flex-col justify-start">
+                                  <div
+                                    className="subj-title font-bold text-black"
+                                    style={{
+                                      fontSize: typo.fontSize,
+                                      lineHeight: typo.lineHeight,
+                                    }}
+                                  >
+                                    {c.subject}
                                   </div>
-                                )}
-                              </div>
-                            ) : null}
-                          </td>
-                        </React.Fragment>
-                      ))}
+                                  <div className="teacher-line italic text-[10pt] leading-[11pt] text-black">
+                                    {c.t1}
+                                  </div>
+                                  {c.t2 && (
+                                    <div className="teacher-line italic text-[10pt] leading-[11pt] text-black">
+                                      {c.t2}
+                                    </div>
+                                  )}
+                                </div>
+                              ) : null}
+                            </td>
+
+                            {/* Колонка аудиторії: 9mm, синій колір #1f4e8c, Arial Bold 10pt */}
+                            <td className="td-room border border-black p-0.5 text-center align-top font-bold text-[10pt] text-[#1f4e8c]">
+                              {c ? (
+                                <div className={`room-flex ${hasMulti ? "multi" : "single"}`}>
+                                  <div className="room-line leading-[11pt]">{c.r1}</div>
+                                  {hasMulti && (
+                                    <div className="room-line leading-[11pt]">{c.r2 || ""}</div>
+                                  )}
+                                </div>
+                              ) : null}
+                            </td>
+                          </React.Fragment>
+                        );
+                      })}
                     </tr>
                   );
                 })}
