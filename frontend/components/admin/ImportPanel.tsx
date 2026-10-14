@@ -33,6 +33,7 @@ export function ImportPanel() {
   const [cancelled, setCancelled] = useState<ImportCancellation[]>([]);
   const [draftId, setDraftId] = useState<number | null>(null);
   const [selectedHistory, setSelectedHistory] = useState<number | null>(null);
+  const [historyFilter, setHistoryFilter] = useState("");
   const [historySlots, setHistorySlots] = useState<DraftSlotRecord[]>([]);
   const [historyChanges, setHistoryChanges] = useState<Awaited<ReturnType<typeof api.generator.getSubstitutions>>>([]);
   const [importHistory, setImportHistory] = useState<Array<{ id: number; name: string; status: string; created_at: string; data?: { substitutions?: ImportSubstitution[]; cancelled?: ImportCancellation[] } | null }>>([]);
@@ -243,6 +244,7 @@ export function ImportPanel() {
 
   const viewHistory = async (id: number) => {
     try {
+      setHistoryFilter("");
       const session = await api.auth.ensureAuthenticated();
       const [nextSlots, nextChanges] = await Promise.all([
         api.generator.getSlots(id, session.access_token),
@@ -298,6 +300,27 @@ export function ImportPanel() {
     if (!value) return "Дата не вибрана";
     return new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "long", year: "numeric" }).format(new Date(`${value}T00:00:00`));
   };
+
+  const filteredHistorySlots = historySlots.filter((slot) => {
+    if (!historyFilter) return true;
+    const q = historyFilter.toLowerCase().trim();
+    return (
+      slot.curriculum.group.name.toLowerCase().includes(q) ||
+      slot.curriculum.subject.name.toLowerCase().includes(q) ||
+      (DAY_NAMES[slot.day_of_week] || "").toLowerCase().includes(q)
+    );
+  });
+
+  const filteredHistoryChanges = historyChanges.filter((change) => {
+    if (!historyFilter) return true;
+    const q = historyFilter.toLowerCase().trim();
+    return (
+      (change.group_name || "").toLowerCase().includes(q) ||
+      (change.subject_name || "").toLowerCase().includes(q) ||
+      (change.teacher_name || "").toLowerCase().includes(q) ||
+      change.date.toLowerCase().includes(q)
+    );
+  });
 
   return (
     <div className="bg-sys-card rounded-xl p-6 border border-sys-border">
@@ -363,15 +386,24 @@ export function ImportPanel() {
                    </div>
                    {selectedHistory !== null && (
                      <div className="mt-4 rounded-xl border border-sys-border bg-sys-bg/40 p-4">
-                       <div className="mb-3 flex items-center justify-between">
+                       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                          <h4 className="font-semibold">Перегляд імпорту</h4>
-                         <button type="button" onClick={() => setSelectedHistory(null)} className="text-sm text-sys-text-secondary hover:text-white">Закрити</button>
+                         <div className="flex items-center gap-2">
+                           <input
+                             type="search"
+                             value={historyFilter}
+                             onChange={(e) => setHistoryFilter(e.target.value)}
+                             placeholder="Фільтр за групою, предметом..."
+                             className="form-control text-xs py-1 px-2.5 w-44 sm:w-60"
+                           />
+                           <button type="button" onClick={() => setSelectedHistory(null)} className="text-sm text-sys-text-secondary hover:text-white">Закрити</button>
+                         </div>
                        </div>
                        <div className="max-h-80 overflow-auto text-xs">
                          <table className="w-full text-left">
                            <thead><tr className="border-b border-sys-border text-sys-text-muted"><th className="p-2">Група</th><th className="p-2">Предмет</th><th className="p-2">День</th><th className="p-2">Пара</th><th className="p-2">Тиждень</th></tr></thead>
                            <tbody>
-                             {historySlots.map(slot => (
+                             {filteredHistorySlots.map(slot => (
                                <tr key={slot.id} className="border-b border-sys-border/50">
                                  <td className="p-2">{slot.curriculum.group.name}</td>
                                  <td className="p-2">{slot.curriculum.subject.name}</td>
@@ -385,7 +417,7 @@ export function ImportPanel() {
                          {historyChanges.length > 0 && (
                            <div className="mt-4 space-y-1 border-t border-sys-border pt-3">
                              <div className="mb-2 font-semibold text-sys-text-secondary">Імпортні зміни</div>
-                             {historyChanges.map((change, index) => (
+                             {filteredHistoryChanges.map((change, index) => (
                                <div key={`${change.date}-${change.group_id}-${change.lesson_number}-${index}`} className="flex flex-wrap gap-x-3 gap-y-1 rounded-lg bg-white/[0.03] p-2">
                                  <span>{change.date}</span>
                                  <span>{change.group_name ?? "Невідома група"}</span>
@@ -397,7 +429,11 @@ export function ImportPanel() {
                              ))}
                            </div>
                          )}
-                         {!historySlots.length && !historyChanges.length && <p className="p-3 text-sys-text-muted">В імпорті немає слотів або змін.</p>}
+                         {!filteredHistorySlots.length && !filteredHistoryChanges.length && (
+                           <p className="p-3 text-sys-text-muted">
+                             {historyFilter ? "Нічого не знайдено за заданим фільтром." : "В імпорті немає слотів або змін."}
+                           </p>
+                         )}
                        </div>
                      </div>
                    )}
@@ -585,6 +621,20 @@ export function ImportPanel() {
             <div className="animate-in fade-in text-center py-10 bg-amber-500/5 border border-amber-500/20 rounded-2xl">
                 <h3 className="text-2xl font-bold text-amber-200 mb-2">Імпорт готовий до публікації</h3>
                 <p className="text-sys-text-secondary max-w-md mx-auto mb-6">Перевірте зміни імпорту, а потім опублікуйте чернетку окремою дією.</p>
+                <div className="flex flex-wrap justify-center gap-4 mb-6 text-sm">
+                  <div className="rounded-xl border border-sys-border bg-sys-card px-4 py-2.5 text-center">
+                    <div className="text-xs text-sys-text-secondary">Базові слоти</div>
+                    <div className="text-lg font-bold text-sys-text-primary">{report?.base_slots?.length || 0}</div>
+                  </div>
+                  <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-2.5 text-center">
+                    <div className="text-xs text-amber-300">Заміни</div>
+                    <div className="text-lg font-bold text-amber-200">{substitutions.length}</div>
+                  </div>
+                  <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-2.5 text-center">
+                    <div className="text-xs text-rose-300">Скасування</div>
+                    <div className="text-lg font-bold text-rose-200">{cancelled.length}</div>
+                  </div>
+                </div>
                 {versions.length > 0 && (
                   <div className="flex justify-center items-center gap-3 mb-6">
                     <span className="text-sm font-medium text-sys-text-secondary">Публікувати у версію:</span>

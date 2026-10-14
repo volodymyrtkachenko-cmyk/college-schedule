@@ -31,6 +31,8 @@ export function AdminScheduleEditor() {
   const [isPending, startTransition] = useTransition();
   const [editor, setEditor] = useState<{ lesson?: Lesson; date: string } | null>(null);
   const [movingLesson, setMovingLesson] = useState<Lesson | null>(null);
+  const [isCopyMode, setIsCopyMode] = useState(false);
+  const [returnTarget, setReturnTarget] = useState<{ mode: "student" | "teacher"; id: number; label: string } | null>(null);
   const [moving, setMoving] = useState(false);
   const { showToast: setToast } = useToast();
   const [versions, setVersions] = useState<import("../../lib/api").ScheduleVersion[]>([]);
@@ -38,6 +40,7 @@ export function AdminScheduleEditor() {
 
   useEffect(() => {
     setMovingLesson(null);
+    setIsCopyMode(false);
   }, [weekAnchorDate, mode, groupId, teacherId]);
 
   useEffect(() => {
@@ -93,6 +96,60 @@ export function AdminScheduleEditor() {
     }
   };
 
+  const handleCopySelect = (lesson: Lesson | null) => {
+    setMovingLesson(lesson);
+    setIsCopyMode(!!lesson);
+  };
+
+  const handleMoveSelect = (lesson: Lesson | null) => {
+    setMovingLesson(lesson);
+    setIsCopyMode(false);
+  };
+
+  const cancelOnDate = async (lesson: Lesson, date: string) => {
+    try {
+      await api.dated.cancel({ lesson_id: lesson.id, date });
+      setToast("Заняття на дату скасовано.", "success");
+      invalidateScheduleCache();
+      const updatedWeek = await (mode === "student" && groupId ? api.week(groupId, undefined, weekAnchorDate) : teacherId ? api.week(undefined, teacherId, weekAnchorDate) : null);
+      if (updatedWeek) setWeek(updatedWeek);
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : "Не вдалося скасувати заняття на дату", "error");
+    }
+  };
+
+  const handleQuickJump = (target: { mode: "student" | "teacher"; id: number }) => {
+    const currentLabel =
+      mode === "student"
+        ? groups.find((g) => g.id === groupId)?.name || "групи"
+        : teachers.find((t) => t.id === teacherId)?.name || "викладача";
+
+    setReturnTarget({ mode, id: mode === "student" ? (groupId || 0) : (teacherId || 0), label: currentLabel });
+
+    startTransition(() => {
+      toggleMode(target.mode);
+      if (target.mode === "student") {
+        setGroupId(target.id);
+      } else {
+        setTeacherId(target.id);
+      }
+    });
+  };
+
+  const handleReturnBack = () => {
+    if (!returnTarget) return;
+    const target = returnTarget;
+    setReturnTarget(null);
+    startTransition(() => {
+      toggleMode(target.mode);
+      if (target.mode === "student") {
+        setGroupId(target.id);
+      } else {
+        setTeacherId(target.id);
+      }
+    });
+  };
+
   const moveLesson = async (lesson: Lesson, date: string, lessonNumber: number) => {
     if (moving || lesson.is_replacement) return;
     const previousToday = today;
@@ -100,6 +157,27 @@ export function AdminScheduleEditor() {
     const targetDate = new Date(`${date}T12:00:00`).getDay() || 7;
     setMoving(true);
     try {
+      if (isCopyMode) {
+        const created = await api.lessons.create({
+          group_id: lesson.group_id,
+          subject_id: lesson.subject_id,
+          teacher_id: lesson.teacher_id,
+          second_teacher_id: lesson.second_teacher_id,
+          day_of_week: targetDate,
+          lesson_number: lessonNumber,
+          week_type: lesson.week_type,
+          room: lesson.room_override || "",
+          date: date,
+          is_replacement: false,
+        });
+        addLesson(date, created);
+        setMovingLesson(null);
+        setIsCopyMode(false);
+        invalidateScheduleCache();
+        setToast("Заняття скопійовано.", "success");
+        return;
+      }
+
       const saved = await api.lessons.update(lesson.id, {
         day_of_week: targetDate,
         lesson_number: lessonNumber,
@@ -133,7 +211,7 @@ export function AdminScheduleEditor() {
     } catch (cause) {
       setWeek(previousWeek);
       setToday(previousToday);
-      setToast(cause instanceof Error ? cause.message : "Не вдалося перемістити заняття.", "error");
+      setToast(cause instanceof Error ? cause.message : (isCopyMode ? "Не вдалося скопіювати заняття." : "Не вдалося перемістити заняття."), "error");
     } finally {
       setMoving(false);
     }
@@ -198,6 +276,26 @@ export function AdminScheduleEditor() {
         </div>
       </div>
 
+      {returnTarget && (
+        <div className="mb-4 flex items-center justify-between rounded-xl border border-sys-accent/30 bg-sys-accent/10 px-4 py-2.5 text-sm">
+          <span className="text-sys-text-secondary">
+            Редагування розкладу:{" "}
+            <strong className="text-sys-text-primary">
+              {mode === "student"
+                ? groups.find((g) => g.id === groupId)?.name
+                : teachers.find((t) => t.id === teacherId)?.name}
+            </strong>
+          </span>
+          <button
+            type="button"
+            onClick={handleReturnBack}
+            className="rounded-lg bg-sys-accent px-3 py-1 text-xs font-semibold text-[#0b1120] transition-opacity hover:opacity-90"
+          >
+            ← Повернутися до {returnTarget.label}
+          </button>
+        </div>
+      )}
+
       {loading ? (
         <div className="rounded-2xl border border-sys-border bg-sys-card/50 p-12 text-center text-sys-text-secondary">Завантаження розкладу…</div>
       ) : error ? (
@@ -254,8 +352,22 @@ export function AdminScheduleEditor() {
             )}
           </div>
           </div>
-          <ScheduleWeekGrid week={week} availabilityWeek={availabilityWeek} availabilityError={availabilityError} scheduleMode={mode} canEdit={true} movingLesson={movingLesson} onMoveSelect={setMovingLesson} onMove={(lesson, date, lessonNumber) => void moveLesson(lesson, date, lessonNumber)} onEdit={(lesson) => { const date = week.find((day) => day.lessons.some((item) => item.id === lesson.id))?.date ?? (today?.date || week?.[0]?.date); setEditor({ lesson, date }); }} onCreate={(date) => setEditor({ date })}
-             />
+          <ScheduleWeekGrid
+            week={week}
+            availabilityWeek={availabilityWeek}
+            availabilityError={availabilityError}
+            scheduleMode={mode}
+            canEdit={true}
+            movingLesson={movingLesson}
+            isCopyMode={isCopyMode}
+            onMoveSelect={handleMoveSelect}
+            onCopySelect={handleCopySelect}
+            onCancelDated={cancelOnDate}
+            onQuickJump={handleQuickJump}
+            onMove={(lesson, date, lessonNumber) => void moveLesson(lesson, date, lessonNumber)}
+            onEdit={(lesson) => { const date = week.find((day) => day.lessons.some((item) => item.id === lesson.id))?.date ?? (today?.date || week?.[0]?.date); setEditor({ lesson, date }); }}
+            onCreate={(date) => setEditor({ date })}
+          />
         </div>
       ) : null}
 
@@ -263,7 +375,22 @@ export function AdminScheduleEditor() {
         <div className="rounded-2xl border border-dashed border-sys-border p-12 text-center text-sys-text-secondary">Оберіть ціль розкладу для перегляду та редагування.</div>
       )}
 
-      {editor && <LessonEditor key={editor.lesson?.id ?? editor.date + "-" + (editor.lesson?.lesson_number ?? "new")} initialWeekType={weekType} lesson={editor.lesson} date={editor.date} scheduleMode={mode} defaultGroupId={groupId} defaultTeacherId={teacherId} groups={groups} onClose={() => setEditor(null)} onSave={(payload) => editor.lesson ? edit(editor.lesson, editor.date, payload) : create(payload)} onDelete={editor.lesson ? () => remove(editor.lesson!) : undefined} />}
+      {editor && (
+        <LessonEditor
+          key={editor.lesson?.id ?? editor.date + "-" + (editor.lesson?.lesson_number ?? "new")}
+          initialWeekType={weekType}
+          lesson={editor.lesson}
+          date={editor.date}
+          scheduleMode={mode}
+          defaultGroupId={groupId}
+          defaultTeacherId={teacherId}
+          groups={groups}
+          availabilityWeek={availabilityWeek}
+          onClose={() => setEditor(null)}
+          onSave={(payload) => editor.lesson ? edit(editor.lesson, editor.date, payload) : create(payload)}
+          onDelete={editor.lesson ? () => remove(editor.lesson!) : undefined}
+        />
+      )}
 
       
     </div>

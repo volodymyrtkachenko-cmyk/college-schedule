@@ -73,11 +73,20 @@ function AdminContent() {
   
   // undefined = list view, null = add new, object = edit existing
   const [editor, setEditor] = useState<ReferenceRecord | null | undefined>(undefined);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkText, setBulkText] = useState("");
+  const [bulkFacultyId, setBulkFacultyId] = useState<number | null>(null);
+  const [bulkSaving, setBulkSaving] = useState(false);
+  const [bulkError, setBulkError] = useState<string | null>(null);
   
   const { showToast: setToast } = useToast();
   const [itemToDelete, setItemToDelete] = useState<ReferenceRecord | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
+  const parsedLines = bulkText
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
 
   useEffect(() => {
     if (authLoading) return;
@@ -89,6 +98,10 @@ function AdminContent() {
     setItems([]);
     setEditor(undefined);
     setSearchTerm("");
+    setBulkOpen(false);
+    setBulkText("");
+    setBulkFacultyId(null);
+    setBulkError(null);
     api.auth.ensureAuthenticated()
       .then((session) => Promise.all([
         api.references.list(activeResource, session.access_token),
@@ -109,6 +122,69 @@ function AdminContent() {
 
   if (authLoading) return <main className="min-h-screen bg-sys-bg p-8 text-sys-text-secondary">Перевірка доступу…</main>;
   if (!canAccessAdmin(user)) return <main className="flex min-h-screen items-center justify-center bg-sys-bg p-6 text-center text-sys-text-primary"><div><h1 className="text-2xl font-bold">Доступ заборонено</h1><p className="mt-2 text-sys-text-secondary">Цей розділ доступний лише адміністраторам.</p><a href="/" className="mt-5 inline-block text-sys-accent hover:underline">На головну</a></div></main>;
+
+  async function saveBulk() {
+    if (!activeResource || parsedLines.length === 0) return;
+    if (activeResource === "groups" && faculties.length > 0 && !bulkFacultyId) {
+      setBulkError("Оберіть спеціальність для груп зі списку.");
+      return;
+    }
+    setBulkSaving(true);
+    setBulkError(null);
+    try {
+      const session = await api.auth.ensureAuthenticated();
+      const createdItems: ReferenceRecord[] = [];
+
+      for (const line of parsedLines) {
+        let payload: ReferenceMutation;
+        if (activeResource === "teachers") {
+          let name = line;
+          let room: string | null = null;
+          if (line.includes("\t")) {
+            const parts = line.split("\t");
+            name = parts[0].trim();
+            room = parts[1]?.trim() || null;
+          } else if (line.includes(",")) {
+            const parts = line.split(",");
+            name = parts[0].trim();
+            room = parts[1]?.trim() || null;
+          } else {
+            const bracketMatch = line.match(/^(.*?)\s*\[(.*?)\]$/);
+            const roomMatch = line.match(/^(.*?)\s+([0-9]+[а-яА-Яa-zA-Z0-9\-\/]*)$/);
+            if (bracketMatch) {
+              name = bracketMatch[1].trim();
+              room = bracketMatch[2].trim() || null;
+            } else if (roomMatch) {
+              name = roomMatch[1].trim();
+              room = roomMatch[2].trim() || null;
+            }
+          }
+          payload = { name, room } as ReferenceMutation;
+        } else if (activeResource === "groups") {
+          payload = { name: line, faculty_id: bulkFacultyId } as unknown as ReferenceMutation;
+        } else {
+          payload = { name: line } as ReferenceMutation;
+        }
+
+        if (!payload.name) continue;
+        const created = await api.references.create(activeResource, payload, session.access_token);
+        createdItems.push(created);
+      }
+
+      setItems((current) => [...current, ...createdItems]);
+      if (resourceConfig[activeResource].affectsSchedule) {
+        invalidateDirectoryCache();
+        window.localStorage.removeItem("schedule:groups");
+      }
+      setBulkOpen(false);
+      setBulkText("");
+      setToast(`Успішно імпортовано ${createdItems.length} записів.`, "success");
+    } catch (e) {
+      setBulkError(e instanceof Error ? e.message : "Помилка при пакетному імпорті.");
+    } finally {
+      setBulkSaving(false);
+    }
+  }
 
   async function save(payload: ReferenceMutation) {
     if (!activeResource) return;
@@ -223,11 +299,94 @@ function AdminContent() {
            </div>
            
            <div className="flex gap-2">
+             <button
+               type="button"
+               onClick={() => { setBulkOpen(!bulkOpen); setBulkError(null); }}
+               className="shrink-0 rounded-[6px] border border-sys-border bg-sys-card px-4 py-2 text-sm font-semibold text-sys-text-primary hover:bg-sys-card/80 transition-colors"
+             >
+               📋 Додати списком
+             </button>
              <button onClick={() => setEditor(null)} className="shrink-0 rounded-[6px] bg-sys-accent px-4 py-2 text-sm font-semibold text-[#0b1120] hover:opacity-90 transition-opacity">
                 + Додати {resourceConfig[activeResource].addLabel}
              </button>
            </div>
         </div>
+
+        {bulkOpen && (
+          <div className="surface-panel p-4 rounded-xl border border-sys-border bg-sys-card space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-sys-text-primary">
+                Пакетне додавання ({referenceLabels[activeResource]})
+              </h3>
+              <button
+                type="button"
+                onClick={() => setBulkOpen(false)}
+                className="text-sys-text-secondary hover:text-sys-text-primary text-lg"
+              >
+                ×
+              </button>
+            </div>
+            <p className="text-xs text-sys-text-secondary">
+              {activeResource === "teachers" && "Введіть по одному запису на рядок у форматі: ПІБ [аудиторія] або ПІБ через кому/табуляцію (наприклад: Шевченко Т.Г. 204)."}
+              {activeResource === "groups" && "Введіть назви груп по одній на рядок (наприклад: КН-21)."}
+              {activeResource === "subjects" && "Введіть назви предметів по одній на рядок."}
+              {activeResource === "faculties" && "Введіть назви спеціальностей по одній на рядок."}
+            </p>
+
+            {activeResource === "groups" && faculties.length > 0 && (
+              <div>
+                <label className="block text-xs font-medium text-sys-text-secondary mb-1">
+                  Спеціальність для всіх груп зі списку:
+                </label>
+                <select
+                  value={bulkFacultyId ?? ""}
+                  onChange={(e) => setBulkFacultyId(e.target.value ? Number(e.target.value) : null)}
+                  className="form-control text-sm w-full sm:w-72"
+                >
+                  <option value="">-- Оберіть спеціальність --</option>
+                  {faculties.map((f) => (
+                    <option key={f.id} value={f.id}>{f.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <textarea
+              rows={6}
+              value={bulkText}
+              onChange={(e) => setBulkText(e.target.value)}
+              placeholder={"Вставте список...\nРядок 1\nРядок 2"}
+              className="form-control w-full font-mono text-sm p-3"
+              disabled={bulkSaving}
+            />
+
+            {bulkError && <p className="text-xs text-rose-400">{bulkError}</p>}
+
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-sys-text-secondary">
+                Виявлено рядків: <strong>{parsedLines.length}</strong>
+              </span>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setBulkOpen(false)}
+                  disabled={bulkSaving}
+                  className="rounded-md border border-sys-border px-3 py-1.5 text-xs text-sys-text-secondary hover:text-sys-text-primary"
+                >
+                  Скасувати
+                </button>
+                <button
+                  type="button"
+                  onClick={saveBulk}
+                  disabled={bulkSaving || parsedLines.length === 0}
+                  className="rounded-md bg-sys-accent px-4 py-1.5 text-xs font-semibold text-[#0b1120] hover:opacity-90 disabled:opacity-50"
+                >
+                  {bulkSaving ? "Збереження…" : `Імпортувати (${parsedLines.length})`}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {editor !== undefined && (
           <ReferenceForm resource={activeResource} item={editor ?? undefined} faculties={faculties} onCancel={() => setEditor(undefined)} onSubmit={save} />

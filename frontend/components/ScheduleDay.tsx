@@ -62,6 +62,9 @@ export function ScheduleDay({
   onEdit,
   movingLesson,
   onMoveSelect,
+  onCopySelect,
+  onCancelDated,
+  onQuickJump,
 }: {
   schedule: ScheduleResponse;
   isToday?: boolean;
@@ -71,6 +74,9 @@ export function ScheduleDay({
   onEdit?: (lesson: Lesson) => void;
   movingLesson?: Lesson | null;
   onMoveSelect?: (lesson: Lesson | null) => void;
+  onCopySelect?: (lesson: Lesson) => void;
+  onCancelDated?: (lesson: Lesson, date: string) => void;
+  onQuickJump?: (target: { mode: "student" | "teacher"; id: number; label: string }) => void;
 }) {
   const { showToast } = useToast();
   const [kyivNow, setKyivNow] = useState<{ dateIso: string; minutes: number } | null>(null);
@@ -194,6 +200,9 @@ export function ScheduleDay({
                   onEdit={onEdit}
                   movingLesson={movingLesson}
                   onMoveSelect={onMoveSelect}
+                  onCopySelect={onCopySelect}
+                  onCancelDated={onCancelDated}
+                  onQuickJump={onQuickJump}
                 />
               </motion.div>
             );

@@ -8,13 +8,16 @@ const shortDate = (date: string) =>
   new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "short" }).format(new Date(`${date}T12:00:00`));
 
 /** Admin week table: rows are lesson slots (1-4), columns are weekdays. */
-export function ScheduleEditGrid({ week, scheduleMode, onEdit, onCreate, movingLesson, onMoveSelect, onMove, canMoveTo }: {
+export function ScheduleEditGrid({ week, scheduleMode, onEdit, onCreate, movingLesson, onMoveSelect, onCopySelect, onCancelDated, onQuickJump, onMove, canMoveTo }: {
   week: ScheduleResponse[];
   scheduleMode: "student" | "teacher";
   onEdit?: (lesson: Lesson) => void;
   onCreate?: (date: string) => void;
   movingLesson?: Lesson | null;
   onMoveSelect?: (lesson: Lesson | null) => void;
+  onCopySelect?: (lesson: Lesson) => void;
+  onCancelDated?: (lesson: Lesson, date: string) => void;
+  onQuickJump?: (target: { mode: "student" | "teacher"; id: number; label: string }) => void;
   onMove?: (lesson: Lesson, date: string, lessonNumber: number) => void;
   canMoveTo: (lesson: Lesson, date: string, lessonNumber: number) => boolean;
 }) {
@@ -58,7 +61,8 @@ export function ScheduleEditGrid({ week, scheduleMode, onEdit, onCreate, movingL
                   <div className="space-y-2">
                     {cellLessons.map((lesson) => (
                       <LessonCard key={`${day.date}-${lesson.id}`} lesson={lesson} targetDate={day.date} mode="week"
-                        scheduleMode={scheduleMode} canEdit onEdit={onEdit} movingLesson={movingLesson} onMoveSelect={onMoveSelect} />
+                        scheduleMode={scheduleMode} canEdit onEdit={onEdit} movingLesson={movingLesson} onMoveSelect={onMoveSelect}
+                        onCopySelect={onCopySelect} onCancelDated={onCancelDated} onQuickJump={onQuickJump} />
                     ))}
                   </div>
                 )}

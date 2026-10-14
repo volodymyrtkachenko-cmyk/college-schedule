@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 export interface ScheduleVersion {
   id: number;
@@ -862,6 +862,40 @@ export const api = {
             body: JSON.stringify(payload)
         }),
         remove: (id: number) => authenticatedRequest<void>(`/api/schedule/${id}`, {method: "DELETE"}),
+    },
+    dated: {
+        cancel: (payload: { group_id: number; date: string; lesson_number: number }) =>
+            authenticatedRequest<{ status: string }>("/api/schedule/dated/cancel", {
+                method: "POST",
+                body: JSON.stringify(payload),
+            }),
+        replace: (payload: {
+            group_id: number;
+            date: string;
+            lesson_number: number;
+            subject_id?: number | null;
+            teacher_id?: number | null;
+            second_teacher_id?: number | null;
+            room?: string | null;
+            stream_id?: string | null;
+        }) =>
+            authenticatedRequest<{ status: string }>("/api/schedule/dated/replace", {
+                method: "POST",
+                body: JSON.stringify(payload),
+            }),
+        move: (payload: {
+            source_group_id: number;
+            source_date: string;
+            source_lesson_number: number;
+            target_group_id: number;
+            target_date: string;
+            target_lesson_number: number;
+            expected_note_revision?: number | null;
+        }) =>
+            authenticatedRequest<{ status: string }>("/api/schedule/dated/move", {
+                method: "POST",
+                body: JSON.stringify(payload),
+            }),
     },
 };
 export interface UserResource {

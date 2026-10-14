@@ -101,6 +101,33 @@ export default function HomePage() {
   };
 
   const [view, setView] = useState<"today" | "week">("today");
+  const [returnTarget, setReturnTarget] = useState<{
+    mode: "student" | "teacher";
+    id: number;
+    label: string;
+  } | null>(null);
+
+  const handleQuickJump = (target: { mode: "student" | "teacher"; id: number; label: string }) => {
+    const currentId = mode === "student" ? groupId : teacherId;
+    const currentLabel =
+      mode === "student"
+        ? groups.find((g) => g.id === groupId)?.name || "Моєї групи"
+        : teachers.find((t) => t.id === teacherId)?.name || "Мого розкладу";
+    if (currentId) {
+      setReturnTarget({ mode, id: currentId, label: currentLabel });
+    }
+    toggleMode(target.mode);
+    if (target.mode === "student") setGroupId(target.id);
+    else setTeacherId(target.id);
+  };
+
+  const handleReturnBack = () => {
+    if (!returnTarget) return;
+    toggleMode(returnTarget.mode);
+    if (returnTarget.mode === "student") setGroupId(returnTarget.id);
+    else setTeacherId(returnTarget.id);
+    setReturnTarget(null);
+  };
   const weekType = view === "week" ? ((week?.[0]?.week_type) ?? "both") : (today?.week_type ?? "both");
   const isWeekend = [0, 6].includes(new Date().getDay());
 
@@ -242,6 +269,26 @@ export default function HomePage() {
           </div>
         </div>
 
+        {returnTarget && (
+          <div className="mb-4 flex items-center justify-between rounded-xl border border-sys-accent/30 bg-sys-accent/10 px-4 py-2.5 text-sm">
+            <span className="text-sys-text-secondary">
+              Перегляд розкладу:{" "}
+              <strong className="text-sys-text-primary">
+                {mode === "student"
+                  ? groups.find((g) => g.id === groupId)?.name
+                  : teachers.find((t) => t.id === teacherId)?.name}
+              </strong>
+            </span>
+            <button
+              type="button"
+              onClick={handleReturnBack}
+              className="rounded-lg bg-sys-accent px-3 py-1 text-xs font-semibold text-[#0b1120] transition-opacity hover:opacity-90"
+            >
+              ← Повернутися до {returnTarget.label}
+            </button>
+          </div>
+        )}
+
         {loading ? (
           <div className="space-y-3" aria-busy="true" aria-label="Завантаження розкладу">
             {[1, 2, 3, 4].map((num) => (
@@ -289,7 +336,12 @@ export default function HomePage() {
                   <WeekTypeBadge weekType={today.week_type} />
                 </div>
               )}
-              <ScheduleDay schedule={today} isToday={!isWeekend} scheduleMode={mode} />
+              <ScheduleDay
+                schedule={today}
+                isToday={!isWeekend}
+                scheduleMode={mode}
+                onQuickJump={handleQuickJump}
+              />
             </div>
             
             <div className={view === "week" ? "block w-full min-w-0" : "hidden"}>
@@ -330,7 +382,12 @@ export default function HomePage() {
                      </div>
                 </div>
                </div>
-              <ScheduleWeekGrid week={week} scheduleMode={mode} canEdit={false} />
+              <ScheduleWeekGrid
+                week={week}
+                scheduleMode={mode}
+                canEdit={false}
+                onQuickJump={handleQuickJump}
+              />
             </div>
           </div>
         ) : null}

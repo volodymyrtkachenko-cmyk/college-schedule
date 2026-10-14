@@ -9,6 +9,25 @@ import { formatRoom, formatTeachers } from "../lib/format";
 const ICON_BUTTON =
   "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-base transition-colors";
 
+function CopyIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+      <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+    </svg>
+  );
+}
+
+function CalendarOffIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4.2 4.2A2 2 0 0 0 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 1.8-1.2" />
+      <path d="M21 15V6a2 2 0 0 0-2-2H9" />
+      <line x1="2" x2="22" y1="2" y2="22" />
+    </svg>
+  );
+}
+
 function parseMinutes(timeStr?: string): number | null {
   if (!timeStr) return null;
   const [h, m] = timeStr.trim().split(":").map(Number);
@@ -43,7 +62,17 @@ function getRoomBadgeMeta(room: string) {
 }
 
 export function LessonCard({
-  lesson, targetDate, mode, scheduleMode, canEdit, onEdit, movingLesson, onMoveSelect,
+  lesson,
+  targetDate,
+  mode,
+  scheduleMode,
+  canEdit,
+  onEdit,
+  movingLesson,
+  onMoveSelect,
+  onCopySelect,
+  onCancelDated,
+  onQuickJump,
 }: {
   lesson: Lesson;
   targetDate: string;
@@ -53,6 +82,9 @@ export function LessonCard({
   onEdit?: (lesson: Lesson) => void;
   movingLesson?: Lesson | null;
   onMoveSelect?: (lesson: Lesson | null) => void;
+  onCopySelect?: (lesson: Lesson) => void;
+  onCancelDated?: (lesson: Lesson, date: string) => void;
+  onQuickJump?: (target: { mode: "student" | "teacher"; id: number; label: string }) => void;
 }) {
   const isSelectedForMove = movingLesson?.id === lesson.id;
   const isDay = mode !== "week";
@@ -74,19 +106,15 @@ export function LessonCard({
 
   const isLive = Boolean(
     isTodayTarget &&
-    startMin !== null &&
-    endMin !== null &&
-    nowState &&
-    nowState.minutes >= startMin &&
-    nowState.minutes < endMin
+      startMin !== null &&
+      endMin !== null &&
+      nowState &&
+      nowState.minutes >= startMin &&
+      nowState.minutes < endMin
   );
 
   const isPast = Boolean(
-    isTodayTarget &&
-    endMin !== null &&
-    nowState &&
-    nowState.minutes >= endMin &&
-    !canEdit
+    isTodayTarget && endMin !== null && nowState && nowState.minutes >= endMin && !canEdit
   );
 
   const progressPercent =
@@ -100,7 +128,24 @@ export function LessonCard({
   const secondary =
     scheduleMode === "teacher" && lesson.group_name
       ? `Група ${lesson.group_name}`
-      : lesson.teacher_name ? formatTeachers(lesson.teacher_name) : null;
+      : lesson.teacher_name
+        ? formatTeachers(lesson.teacher_name)
+        : null;
+
+  const canJump = Boolean(
+    onQuickJump &&
+      ((scheduleMode === "teacher" && lesson.group_id) ||
+        (scheduleMode !== "teacher" && lesson.teacher_id))
+  );
+
+  const handleSecondaryClick = () => {
+    if (!onQuickJump) return;
+    if (scheduleMode === "teacher" && lesson.group_id) {
+      onQuickJump({ mode: "student", id: lesson.group_id, label: lesson.group_name || "Група" });
+    } else if (scheduleMode !== "teacher" && lesson.teacher_id) {
+      onQuickJump({ mode: "teacher", id: lesson.teacher_id, label: lesson.teacher_name || "Викладач" });
+    }
+  };
 
   const stateClass = isLive
     ? "border-sys-accent/60 ring-1 ring-sys-accent/50 bg-gradient-to-r from-sys-accent/[0.08] via-sys-card to-sys-card shadow-[0_0_20px_rgba(56,189,248,0.12)]"
@@ -116,10 +161,17 @@ export function LessonCard({
     <article
       draggable={canMove}
       onDragStart={(event) => {
-        if (!canMove) { event.preventDefault(); return; }
+        if (!canMove) {
+          event.preventDefault();
+          return;
+        }
         event.dataTransfer.setData("text/plain", String(lesson.id));
-        event.dataTransfer.effectAllowed = "move";
-        onMoveSelect?.(lesson);
+        event.dataTransfer.effectAllowed = event.altKey ? "copy" : "move";
+        if (event.altKey && onCopySelect) {
+          onCopySelect(lesson);
+        } else {
+          onMoveSelect?.(lesson);
+        }
       }}
       className={`relative flex min-w-0 flex-col overflow-hidden rounded-xl border bg-sys-card shadow-sm transition-all duration-300 ${
         isDay ? "p-3 xl:p-4" : "p-2.5"
@@ -142,8 +194,8 @@ export function LessonCard({
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 flex-1">
               {isLive && (
-                <div className="mb-1 inline-flex items-center gap-1.5 rounded-full bg-sys-accent/15 px-2 py-0.5 text-[11px] font-semibold text-sys-accent border border-sys-accent/30">
-                  <span className="h-1.5 w-1.5 rounded-full bg-sys-accent animate-ping" />
+                <div className="mb-1 inline-flex items-center gap-1.5 rounded-full border border-sys-accent/30 bg-sys-accent/15 px-2 py-0.5 text-[11px] font-semibold text-sys-accent">
+                  <span className="h-1.5 w-1.5 animate-ping rounded-full bg-sys-accent" />
                   <span>Зараз іде • ще {remainingMin} хв</span>
                 </div>
               )}
@@ -151,17 +203,61 @@ export function LessonCard({
                 {lesson.subject_name}
               </h3>
             </div>
-            {canEditTemplate && (
-              <div className="flex shrink-0 items-center">
-                <button type="button" aria-label={`Редагувати ${lesson.subject_name}`} onClick={() => onEdit?.(lesson)}
-                  className={`${ICON_BUTTON} text-sys-text-secondary hover:bg-sys-accent/10 hover:text-sys-accent`}>
-                  <EditIcon />
-                </button>
-                {canMove && !movingLesson && (
-                  <button type="button" aria-label="Перемістити пару"
-                    onClick={(event) => { event.stopPropagation(); onMoveSelect?.(lesson); }}
-                    className={`${ICON_BUTTON} text-sys-text-secondary hover:bg-sys-accent/10 hover:text-sys-accent`}>
-                    <MoveIcon />
+            {canEdit && (
+              <div className="flex shrink-0 items-center gap-0.5">
+                {canEditTemplate && (
+                  <>
+                    <button
+                      type="button"
+                      title="Редагувати шаблон пари"
+                      aria-label={`Редагувати ${lesson.subject_name}`}
+                      onClick={() => onEdit?.(lesson)}
+                      className={`${ICON_BUTTON} text-sys-text-secondary hover:bg-sys-accent/10 hover:text-sys-accent`}
+                    >
+                      <EditIcon />
+                    </button>
+                    {canMove && !movingLesson && (
+                      <button
+                        type="button"
+                        title="Перемістити пару"
+                        aria-label="Перемістити пару"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onMoveSelect?.(lesson);
+                        }}
+                        className={`${ICON_BUTTON} text-sys-text-secondary hover:bg-sys-accent/10 hover:text-sys-accent`}
+                      >
+                        <MoveIcon />
+                      </button>
+                    )}
+                    {onCopySelect && !movingLesson && (
+                      <button
+                        type="button"
+                        title="Дублювати пару в інший слот"
+                        aria-label="Дублювати пару"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onCopySelect(lesson);
+                        }}
+                        className={`${ICON_BUTTON} text-sys-text-secondary hover:bg-sky-500/10 hover:text-sky-400`}
+                      >
+                        <CopyIcon />
+                      </button>
+                    )}
+                  </>
+                )}
+                {onCancelDated && lesson.group_id && (
+                  <button
+                    type="button"
+                    title={`Скасувати лише на ${targetDate}`}
+                    aria-label="Скасувати лише на цю дату"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onCancelDated(lesson, targetDate);
+                    }}
+                    className={`${ICON_BUTTON} text-sys-text-secondary hover:bg-rose-500/10 hover:text-rose-400`}
+                  >
+                    <CalendarOffIcon />
                   </button>
                 )}
               </div>
@@ -170,7 +266,23 @@ export function LessonCard({
 
           {(secondary || lesson.room) && (
             <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-              {secondary && <p className="min-w-0 break-words text-sm text-sys-text-secondary">{secondary}</p>}
+              {secondary &&
+                (canJump ? (
+                  <button
+                    type="button"
+                    onClick={handleSecondaryClick}
+                    title={
+                      scheduleMode === "teacher"
+                        ? "Переглянути розклад цієї групи"
+                        : "Переглянути розклад цього викладача"
+                    }
+                    className="min-w-0 break-words text-left text-sm text-sys-text-secondary underline-offset-4 transition-colors hover:text-sys-accent hover:underline"
+                  >
+                    {secondary}
+                  </button>
+                ) : (
+                  <p className="min-w-0 break-words text-sm text-sys-text-secondary">{secondary}</p>
+                ))}
               {lesson.room && roomMeta && (
                 <span className={`ml-auto inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium ${roomMeta.tone}`}>
                   <span aria-hidden="true" className="text-[11px]">{roomMeta.icon}</span>
@@ -191,7 +303,7 @@ export function LessonCard({
       <LessonNote key={`${lesson.group_id}:${targetDate}:${lesson.lesson_number}:${lesson.subject_id}`} lesson={lesson} date={targetDate} />
 
       {isLive && (
-        <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-sys-border/40 overflow-hidden">
+        <div className="absolute bottom-0 left-0 right-0 h-[3px] overflow-hidden bg-sys-border/40">
           <div
             className="h-full bg-sys-accent shadow-[0_0_8px_rgba(56,189,248,0.8)] transition-all duration-500 ease-out"
             style={{ width: `${progressPercent}%` }}

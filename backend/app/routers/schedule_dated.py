@@ -52,63 +52,83 @@ class DatedReplacePayload(BaseModel):
 async def cancel_dated_lesson(
     payload: DatedCancelPayload,
     db: AsyncSession = Depends(get_db),
-    actor: User = Depends(require_editor)
+    actor: User = Depends(require_editor),
 ):
     await lock_versions(db)
     await authorize_group(db, actor, payload.group_id)
-    
+
     note = await active_note(db, payload.group_id, payload.date, payload.lesson_number)
     if note:
         await archive_note(db, note, "lesson_deleted", actor.id)
-        
-    ovr = ScheduleOverride(
-        group_id=payload.group_id,
-        date=payload.date,
-        lesson_number=payload.lesson_number,
-        cancelled=True
+
+    existing = await db.scalar(
+        select(ScheduleOverride).where(
+            ScheduleOverride.group_id == payload.group_id,
+            ScheduleOverride.date == payload.date,
+            ScheduleOverride.lesson_number == payload.lesson_number,
+        )
     )
-    db.add(ovr)
-    try:
-        await db.commit()
-    except Exception:
-        await db.rollback()
-        raise HTTPException(409, "Конфлікт створення (можливо, override вже існує)")
+    if existing:
+        existing.cancelled = True
+    else:
+        db.add(
+            ScheduleOverride(
+                group_id=payload.group_id,
+                date=payload.date,
+                lesson_number=payload.lesson_number,
+                cancelled=True,
+            )
+        )
+    await db.commit()
     return {"status": "cancelled"}
+
 
 @router.post("/replace")
 async def replace_dated_lesson(
     payload: DatedReplacePayload,
     db: AsyncSession = Depends(get_db),
-    actor: User = Depends(require_editor)
+    actor: User = Depends(require_editor),
 ):
     await lock_versions(db)
     await authorize_group(db, actor, payload.group_id)
-    
+
     projection = await build_projection(db, payload.date, group_id=payload.group_id)
     matches = [item for item in projection if item.lesson_number == payload.lesson_number]
-    
+
     note = await active_note(db, payload.group_id, payload.date, payload.lesson_number)
     if note:
         if not matches or matches[0].subject_id != payload.subject_id:
             await archive_note(db, note, "subject_changed", actor.id)
-            
-    ovr = ScheduleOverride(
-        group_id=payload.group_id,
-        date=payload.date,
-        lesson_number=payload.lesson_number,
-        subject_id=payload.subject_id,
-        teacher_id=payload.teacher_id,
-        second_teacher_id=payload.second_teacher_id,
-        room=payload.room,
-        stream_id=payload.stream_id,
-        cancelled=False
+
+    existing = await db.scalar(
+        select(ScheduleOverride).where(
+            ScheduleOverride.group_id == payload.group_id,
+            ScheduleOverride.date == payload.date,
+            ScheduleOverride.lesson_number == payload.lesson_number,
+        )
     )
-    db.add(ovr)
-    try:
-        await db.commit()
-    except Exception:
-        await db.rollback()
-        raise HTTPException(409, "Конфлікт створення (можливо, override вже існує)")
+    if existing:
+        existing.subject_id = payload.subject_id
+        existing.teacher_id = payload.teacher_id
+        existing.second_teacher_id = payload.second_teacher_id
+        existing.room = payload.room
+        existing.stream_id = payload.stream_id
+        existing.cancelled = False
+    else:
+        db.add(
+            ScheduleOverride(
+                group_id=payload.group_id,
+                date=payload.date,
+                lesson_number=payload.lesson_number,
+                subject_id=payload.subject_id,
+                teacher_id=payload.teacher_id,
+                second_teacher_id=payload.second_teacher_id,
+                room=payload.room,
+                stream_id=payload.stream_id,
+                cancelled=False,
+            )
+        )
+    await db.commit()
     return {"status": "replaced"}
 
 from app.services.lesson_notes import snapshot_revision

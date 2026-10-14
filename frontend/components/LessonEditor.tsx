@@ -1,6 +1,6 @@
 "use client";
 import { FormEvent, useEffect, useRef, useState, useMemo } from "react";
-import { api, DirectoryItem, Lesson, LessonMutation, WeekType } from "../lib/api";
+import { api, DirectoryItem, Lesson, LessonMutation, ScheduleResponse, WeekType } from "../lib/api";
 import { ReferenceRecord } from "../lib/api";
 import { SearchableSelect } from "./SearchableSelect";
 import { SearchableTextInput } from "./SearchableTextInput";
@@ -12,6 +12,7 @@ type Props = {
   defaultTeacherId: number | null;
   groups: ReferenceRecord[];
   initialWeekType?: WeekType;
+  availabilityWeek?: ScheduleResponse[] | null;
   onSave: (payload: LessonMutation) => Promise<void>;
   onDelete?: () => Promise<void>;
   onClose: () => void;
@@ -48,7 +49,7 @@ function initial(lesson: Lesson | undefined, date: string, scheduleMode: "studen
     room: lesson?.room_override ?? "",
   };
 }
-export function LessonEditor({ lesson, date, scheduleMode, defaultGroupId, defaultTeacherId, groups, initialWeekType = "both", onSave, onDelete, onClose }: Props) {
+export function LessonEditor({ lesson, date, scheduleMode, defaultGroupId, defaultTeacherId, groups, initialWeekType = "both", availabilityWeek, onSave, onDelete, onClose }: Props) {
   const dialogRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
      setTimeout(() => dialogRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
@@ -90,6 +91,41 @@ export function LessonEditor({ lesson, date, scheduleMode, defaultGroupId, defau
     if (!teachers) return [];
     return Array.from(new Set(teachers.map(t => t.room).filter(Boolean))).sort();
   }, [teachers]);
+
+  const currentRoom = (form.room ? form.room.trim() : "") || (teacherRoom ? teacherRoom.trim() : "");
+
+  const roomConflictInfo = useMemo(() => {
+    if (!availabilityWeek || !currentRoom) return null;
+    const targetDay = form.day_of_week ?? dayFromDate(date);
+    const targetLessonNum = form.lesson_number;
+    const targetWeekType = form.week_type ?? "both";
+
+    for (const day of availabilityWeek) {
+      const dayNum = new Date(`${day.date}T12:00:00`).getDay() || 7;
+      if (dayNum !== targetDay) continue;
+
+      for (const l of day.lessons) {
+        if (lesson && l.id === lesson.id) continue;
+        if (l.lesson_number !== targetLessonNum) continue;
+
+        const weekOverlap =
+          targetWeekType === "both" ||
+          l.week_type === "both" ||
+          targetWeekType === l.week_type;
+
+        if (!weekOverlap) continue;
+
+        const lessonRoom = (l.room_override || l.room || "").trim();
+        if (lessonRoom && lessonRoom.toLowerCase() === currentRoom.toLowerCase()) {
+          const detail = l.group_name
+            ? `${l.group_name} (${l.subject_name || l.teacher_name || ""})`
+            : (l.subject_name || "Інше заняття");
+          return detail;
+        }
+      }
+    }
+    return null;
+  }, [availabilityWeek, currentRoom, form.day_of_week, form.lesson_number, form.week_type, date, lesson]);
 
   const sortedSubjects = useMemo(() => {
     if (!form.teacher_id || !teacherSubjects[form.teacher_id]) return subjects;
@@ -221,6 +257,11 @@ export function LessonEditor({ lesson, date, scheduleMode, defaultGroupId, defau
               placeholder={teacherRoom ? `За замовчуванням: ${teacherRoom}` : "Введіть аудиторію"}
             />
             <p className="mt-1 text-xs text-sys-text-secondary">Якщо поле порожнє, використовується аудиторія викладача.</p>
+            {roomConflictInfo && (
+              <p className="mt-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs text-amber-300">
+                ⚠️ У цей час аудиторія зайнята: <strong>{roomConflictInfo}</strong>
+              </p>
+            )}
           </label>
 {scheduleMode === "student" && (
             <label className="sm:col-span-2 flex items-center gap-2 cursor-pointer mt-1 !flex-row w-fit">

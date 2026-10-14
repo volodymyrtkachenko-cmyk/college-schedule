@@ -15,13 +15,36 @@ const dayVariants = {
 const localDateString = (date = new Date()) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 
-export function ScheduleWeekGrid({ week, availabilityWeek, availabilityError, scheduleMode = "student", canEdit = false, onEdit, onCreate, movingLesson, onMoveSelect, onMove }: {
-  week: ScheduleResponse[]; scheduleMode?: "student" | "teacher"; canEdit?: boolean; onEdit?: (lesson: Lesson) => void; onCreate?: (date: string) => void;
+export function ScheduleWeekGrid({
+  week,
+  availabilityWeek,
+  availabilityError,
+  scheduleMode = "student",
+  canEdit = false,
+  onEdit,
+  onCreate,
+  movingLesson,
+  isCopyMode = false,
+  onMoveSelect,
+  onCopySelect,
+  onCancelDated,
+  onMove,
+  onQuickJump,
+}: {
+  week: ScheduleResponse[];
+  scheduleMode?: "student" | "teacher";
+  canEdit?: boolean;
+  onEdit?: (lesson: Lesson) => void;
+  onCreate?: (date: string) => void;
   availabilityWeek?: ScheduleResponse[] | null;
   availabilityError?: string | null;
   movingLesson?: Lesson | null;
+  isCopyMode?: boolean;
   onMoveSelect?: (lesson: Lesson | null) => void;
+  onCopySelect?: (lesson: Lesson) => void;
+  onCancelDated?: (lesson: Lesson, date: string) => void;
   onMove?: (lesson: Lesson, date: string, lessonNumber: number) => void;
+  onQuickJump?: (target: { mode: "student" | "teacher"; id: number; label: string }) => void;
 }) {
   const [activeIdx, setActiveIdx] = useState(0);
   const [direction, setDirection] = useState(0);
@@ -48,7 +71,9 @@ export function ScheduleWeekGrid({ week, availabilityWeek, availabilityError, sc
         {movingLesson && (
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-400/30 bg-emerald-500/[0.08] px-4 py-3">
             <p className="text-sm text-sys-text-primary">
-              Перетягніть <strong>{movingLesson.subject_name}</strong> або виберіть підсвічене вільне місце.
+              {isCopyMode ? "Оберіть підсвічене вільне місце для копіювання " : "Перетягніть "}
+              <strong>{movingLesson.subject_name}</strong>
+              {isCopyMode ? "." : " або виберіть підсвічене вільне місце."}
               {availabilityWeek ? " Перевіряємо конфлікти групи та викладача в усьому розкладі." : " Перевіряємо доступні місця…"}
             </p>
             <button type="button" onClick={() => onMoveSelect?.(null)}
@@ -63,7 +88,7 @@ export function ScheduleWeekGrid({ week, availabilityWeek, availabilityError, sc
           </p>
         )}
         <ScheduleEditGrid week={week} scheduleMode={scheduleMode} onEdit={onEdit} onCreate={onCreate}
-          movingLesson={movingLesson} onMoveSelect={onMoveSelect} onMove={onMove} canMoveTo={canMoveTo} />
+          movingLesson={movingLesson} onMoveSelect={onMoveSelect} onCopySelect={onCopySelect} onCancelDated={onCancelDated} onQuickJump={onQuickJump} onMove={onMove} canMoveTo={canMoveTo} />
       </div>
     );
   }
@@ -75,7 +100,7 @@ export function ScheduleWeekGrid({ week, availabilityWeek, availabilityError, sc
       <div className="hidden items-start gap-3 overflow-x-auto pb-4 md:flex xl:gap-4" style={{ scrollbarWidth: "thin" }}>
         {week.map((day) => (
           <div key={`desktop-${day.date}`} className="min-w-[220px] flex-1 shrink-0">
-            <ScheduleDay schedule={day} mode="day" scheduleMode={scheduleMode} />
+            <ScheduleDay schedule={day} mode="day" scheduleMode={scheduleMode} onQuickJump={onQuickJump} />
           </div>
         ))}
       </div>
@@ -115,7 +140,7 @@ export function ScheduleWeekGrid({ week, availabilityWeek, availabilityError, sc
                   if (offset.x > 50 && activeIdx > 0) switchTab(activeIdx - 1);
                   else if (offset.x < -50 && activeIdx < week.length - 1) switchTab(activeIdx + 1);
                 }}>
-                <ScheduleDay schedule={activeDay} mode="day" scheduleMode={scheduleMode} />
+                <ScheduleDay schedule={activeDay} mode="day" scheduleMode={scheduleMode} onQuickJump={onQuickJump} />
               </motion.div>
             )}
           </AnimatePresence>
