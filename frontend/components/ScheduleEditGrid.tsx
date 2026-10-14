@@ -23,7 +23,7 @@ export function ScheduleEditGrid({ week, scheduleMode, onEdit, onCreate, movingL
 }) {
   return (
     <div className="overflow-x-auto rounded-2xl border border-sys-border bg-sys-card/50">
-      <div className="grid min-w-[1000px] grid-cols-[5.5rem_repeat(5,minmax(11rem,1fr))]">
+      <div className="grid min-w-[1150px] grid-cols-[5rem_repeat(5,minmax(13.5rem,1fr))]">
         <div className="sticky left-0 z-20 border-b border-r border-sys-border bg-sys-card p-3 text-center text-xs font-semibold uppercase text-sys-text-muted">
           Пара
         </div>
