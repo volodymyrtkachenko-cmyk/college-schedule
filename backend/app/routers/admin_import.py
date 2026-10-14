@@ -149,7 +149,7 @@ def _slot_matches(incoming: dict, existing: Schedule) -> bool:
     ):
         return False
     incoming_room = _normalize_room(incoming.get("room"))
-    existing_room = _normalize_room(existing.room_override)
+    existing_room = _normalize_room(_schedule_room(existing))
     return incoming_room == existing_room
 
 
@@ -256,7 +256,7 @@ async def matches_published_schedule(db: AsyncSession, payload: dict, weeks: int
         schedules = [s for s in schedules if s.group_id in scope_groups]
 
     incoming_slots = payload.get("base_slots", [])
-    if len(incoming_slots) != len(schedules):
+    if scope_groups and len(incoming_slots) != len(schedules):
         return False
 
     used_schedule_ids: set[int] = set()
@@ -271,6 +271,9 @@ async def matches_published_schedule(db: AsyncSession, payload: dict, weeks: int
         if match is None:
             return False
         used_schedule_ids.add(match.id)
+
+    if scope_groups and len(used_schedule_ids) != len(schedules):
+        return False
 
     scope = payload.get("import_scope") or {}
     scope_dates = {
