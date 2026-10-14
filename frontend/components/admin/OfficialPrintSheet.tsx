@@ -49,10 +49,13 @@ function computeWeekType(targetDateStr: string): "чисельник" | "зна�
 
 function getSubjectTypography(subject: string): { fontSize: string; lineHeight: string } {
   const len = subject.length;
-  if (len > 54) {
+  if (len > 68) {
+    return { fontSize: "7pt", lineHeight: "8.5pt" };
+  }
+  if (len > 48) {
     return { fontSize: "8pt", lineHeight: "9.5pt" };
   }
-  if (len > 32) {
+  if (len > 28) {
     return { fontSize: "9pt", lineHeight: "10.5pt" };
   }
   return { fontSize: "10pt", lineHeight: "11.5pt" };
@@ -207,25 +210,37 @@ export function OfficialPrintModal({
               font-family: 'Arimo';
               font-style: normal;
               font-weight: 400;
-              src: url('https://cdn.jsdelivr.net/gh/google/fonts@main/apache/arimo/Arimo-Regular.ttf') format('truetype');
+              src: local('Arimo'), local('Arial'), url('/fonts/Arimo-Regular.ttf') format('truetype');
             }
             @font-face {
               font-family: 'Arimo';
               font-style: normal;
               font-weight: 700;
-              src: url('https://cdn.jsdelivr.net/gh/google/fonts@main/apache/arimo/Arimo-Bold.ttf') format('truetype');
+              src: local('Arimo Bold'), local('Arimo-Bold'), local('Arial Bold'), local('Arial-Bold'), url('/fonts/Arimo-Bold.ttf') format('truetype');
             }
             @font-face {
               font-family: 'Arimo';
               font-style: italic;
               font-weight: 400;
-              src: url('https://cdn.jsdelivr.net/gh/google/fonts@main/apache/arimo/Arimo-Italic.ttf') format('truetype');
+              src: local('Arimo Italic'), local('Arimo-Italic'), local('Arial Italic'), local('Arial-Italic'), url('/fonts/Arimo-Italic.ttf') format('truetype');
             }
             @font-face {
               font-family: 'Arimo';
               font-style: italic;
               font-weight: 700;
-              src: url('https://cdn.jsdelivr.net/gh/google/fonts@main/apache/arimo/Arimo-BoldItalic.ttf') format('truetype');
+              src: local('Arimo Bold Italic'), local('Arimo-BoldItalic'), local('Arial Bold Italic'), local('Arial-BoldItalic'), url('/fonts/Arimo-BoldItalic.ttf') format('truetype');
+            }
+            @font-face {
+              font-family: 'Cousine';
+              font-style: normal;
+              font-weight: 700;
+              src: local('Cousine Bold'), local('Cousine-Bold'), local('Courier New Bold'), local('Courier New'), url('/fonts/Cousine-Bold.ttf') format('truetype');
+            }
+            @font-face {
+              font-family: 'Tinos';
+              font-style: normal;
+              font-weight: 700;
+              src: local('Tinos Bold'), local('Tinos-Bold'), local('Times New Roman Bold'), local('Times New Roman'), url('/fonts/Tinos-Bold.ttf') format('truetype');
             }
 
             @page {
@@ -241,13 +256,13 @@ export function OfficialPrintModal({
               margin: 0;
               padding: 0;
               width: 283mm;
-              font-family: "Arial", "Arimo", sans-serif;
+              font-family: "Arimo", "Arial", sans-serif;
               color: #000;
               background: #fff;
               -webkit-font-smoothing: antialiased;
             }
             .header-title {
-              font-family: "Courier New", Courier, monospace;
+              font-family: "Cousine", "Courier New", monospace;
               font-weight: 700;
               font-size: 20pt;
               text-align: center;
@@ -270,16 +285,20 @@ export function OfficialPrintModal({
             tfoot td {
               border: none !important;
               padding-top: 4pt !important;
-              font-family: "Arial", "Arimo", sans-serif;
+              font-family: "Arimo", "Arial", sans-serif;
               font-size: 7pt;
               color: #000;
               text-align: left;
             }
             th {
+              height: 25pt;
               border: 1px solid #000;
               background-color: #f2f2f2;
-              padding: 1pt;
+              padding: 0 1pt;
               vertical-align: middle;
+            }
+            thead tr {
+              height: 25pt;
             }
             th.th-group {
               width: 14mm;
@@ -289,7 +308,7 @@ export function OfficialPrintModal({
               line-height: 1.1;
             }
             th.th-slot {
-              font-family: "Times New Roman", Times, serif;
+              font-family: "Tinos", "Times New Roman", serif;
               font-size: 14pt;
               font-weight: 700;
               text-align: center;
@@ -309,13 +328,9 @@ export function OfficialPrintModal({
               page-break-inside: avoid;
               break-inside: avoid;
             }
-            td {
-              border: 1px solid #000;
-              padding: 2pt 3pt;
-              vertical-align: top;
-            }
             td.td-group {
               width: 14mm;
+              border: 1px solid #000;
               font-size: 22pt;
               font-weight: 700;
               text-align: center;
@@ -323,62 +338,46 @@ export function OfficialPrintModal({
               line-height: 1;
               padding: 0;
             }
-            td.td-subject {
-              width: 44.8mm;
-              max-width: 44.8mm;
-              padding: 2pt 3pt;
-              vertical-align: top;
+            td.td-slot {
+              padding: 0 !important;
+              vertical-align: top !important;
+              height: 43.5pt;
+              min-height: 43.5pt;
+              background: linear-gradient(#000, #000) no-repeat calc(100% - 9mm) 0 / 1px 100%;
             }
-            td.td-room {
-              width: 9mm;
-              max-width: 9mm;
-              color: #1f4e8c;
-              font-weight: 700;
-              font-size: 10pt;
-              text-align: center;
-              vertical-align: top;
-              padding: 2pt 1pt;
-              overflow: hidden;
-              white-space: nowrap;
+            .cell-grid {
+              display: grid;
+              grid-template-columns: 1fr 9mm;
+              padding: 2pt 0;
+              min-height: 43.5pt;
             }
-            .subj-title {
+            .subj-text {
+              padding: 0 3pt 2pt 3pt;
               font-weight: 700;
               color: #000;
-              word-break: break-word;
-              display: -webkit-box;
-              -webkit-line-clamp: 3;
-              -webkit-box-orient: vertical;
-              overflow: hidden;
-              margin-bottom: 1.5pt;
+              overflow-wrap: anywhere;
             }
-            .teacher-line {
+            .teacher-text {
+              padding: 0 3pt;
               font-style: italic;
-              font-size: 10pt;
               color: #000;
-              line-height: 11pt;
-              height: 11pt;
               white-space: nowrap;
               overflow: hidden;
+              height: 11pt;
+              line-height: 11pt;
             }
-            .room-flex {
-              display: flex;
-              flex-direction: column;
-              height: 100%;
-              width: 100%;
-            }
-            .room-flex.single {
-              justify-content: flex-start;
-            }
-            .room-flex.multi {
-              justify-content: flex-end;
-            }
-            .room-line {
+            .room-text {
+              text-align: center;
               color: #1f4e8c;
               font-weight: 700;
               font-size: 10pt;
               line-height: 11pt;
               height: 11pt;
-              text-align: center;
+              overflow: hidden;
+              white-space: nowrap;
+            }
+            .room-empty {
+              height: 11pt;
             }
           </style>
         </head>
@@ -448,6 +447,57 @@ export function OfficialPrintModal({
             margin: 0 !important;
             padding: 0 !important;
             overflow: visible !important;
+          }
+          table.schedule-table {
+            table-layout: fixed !important;
+            width: 283mm !important;
+            border-collapse: collapse !important;
+          }
+          th {
+            height: 25pt !important;
+          }
+          td.td-slot {
+            padding: 0 !important;
+            vertical-align: top !important;
+            height: 43.5pt !important;
+            min-height: 43.5pt !important;
+            background: linear-gradient(#000, #000) no-repeat calc(100% - 9mm) 0 / 1px 100% !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          .cell-grid {
+            display: grid !important;
+            grid-template-columns: 1fr 9mm !important;
+            padding: 2pt 0 !important;
+            min-height: 43.5pt !important;
+          }
+          .subj-text {
+            padding: 0 3pt 2pt 3pt !important;
+            font-weight: 700 !important;
+            color: #000 !important;
+            overflow-wrap: anywhere !important;
+          }
+          .teacher-text {
+            padding: 0 3pt !important;
+            font-style: italic !important;
+            color: #000 !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            height: 11pt !important;
+            line-height: 11pt !important;
+          }
+          .room-text {
+            text-align: center !important;
+            color: #1f4e8c !important;
+            font-weight: 700 !important;
+            font-size: 10pt !important;
+            line-height: 11pt !important;
+            height: 11pt !important;
+            overflow: hidden !important;
+            white-space: nowrap !important;
+          }
+          .room-empty {
+            height: 11pt !important;
           }
         }
       `}</style>
@@ -523,17 +573,17 @@ export function OfficialPrintModal({
               {/* Шапка: 25pt, повторюється на кожній сторінці */}
               <thead className="table-header-group">
                 <tr className="bg-neutral-100 print:bg-neutral-100 h-[25pt]">
-                  <th className="th-group border border-black px-1 py-0.5 text-center font-bold text-[9pt] leading-tight">
+                  <th className="th-group border border-black px-1 py-0 text-center font-bold text-[9pt] leading-tight">
                     Номер
                     <br />
                     групи
                   </th>
                   {[0, 1, 2, 3, 4].map((num) => (
                     <React.Fragment key={`head-pair-${num}`}>
-                      <th className="th-slot border border-black px-1 py-0.5 text-center font-serif font-bold text-[14pt]">
+                      <th className="th-slot border border-black px-1 py-0 text-center font-serif font-bold text-[14pt]">
                         {num}
                       </th>
-                      <th className="th-room border border-black px-0.5 py-0.5 text-center font-sans font-normal text-[7pt] leading-none">
+                      <th className="th-room border border-black px-0.5 py-0 text-center font-sans font-normal text-[7pt] leading-none">
                         Ном.
                         <br />
                         ауд.
@@ -572,50 +622,151 @@ export function OfficialPrintModal({
                         {group.name}
                       </td>
 
-                      {/* 5 слотів (0, 1, 2, 3, 4) */}
+                      {/* 5 слотів (0, 1, 2, 3, 4), кожен слот colspan=2 із 2-колонковим Grid 1fr 9mm */}
                       {cells.map((c, idx) => {
-                        const typo = c ? getSubjectTypography(c.subject) : null;
-                        const hasMulti = Boolean(c?.t2);
+                        if (!c) {
+                          return (
+                            <td
+                              key={`g-${group.id}-slot-${idx}`}
+                              colSpan={2}
+                              className="td-slot border border-black"
+                              style={{
+                                background:
+                                  "linear-gradient(#000, #000) no-repeat calc(100% - 9mm) 0 / 1px 100%",
+                              }}
+                            />
+                          );
+                        }
+
+                        const typo = getSubjectTypography(c.subject);
+                        const isMulti = Boolean(c.t2);
 
                         return (
-                          <React.Fragment key={`g-${group.id}-slot-${idx}`}>
-                            {/* Текст пари: назва предмета Arial Bold 10pt (автозменшення) + викладач Arial Italic 10pt */}
-                            <td className="td-subject border border-black p-1 align-top text-black">
-                              {c && typo ? (
-                                <div className="flex flex-col justify-start">
+                          <td
+                            key={`g-${group.id}-slot-${idx}`}
+                            colSpan={2}
+                            className="td-slot border border-black"
+                            style={{
+                              background:
+                                "linear-gradient(#000, #000) no-repeat calc(100% - 9mm) 0 / 1px 100%",
+                            }}
+                          >
+                            <div
+                              className="cell-grid"
+                              style={{
+                                display: "grid",
+                                gridTemplateColumns: "1fr 9mm",
+                                padding: "2pt 0",
+                                minHeight: "43.5pt",
+                              }}
+                            >
+                              {isMulti ? (
+                                <>
+                                  {/* Рядок 1: Назва предмета + порожнє місце під ауд */}
                                   <div
-                                    className="subj-title font-bold text-black"
+                                    className="subj-text font-bold text-black"
                                     style={{
                                       fontSize: typo.fontSize,
                                       lineHeight: typo.lineHeight,
+                                      padding: "0 3pt 2pt 3pt",
+                                      overflowWrap: "anywhere",
                                     }}
                                   >
                                     {c.subject}
                                   </div>
-                                  <div className="teacher-line italic text-[10pt] leading-[11pt] text-black">
+                                  <div className="room-empty" style={{ height: "11pt" }}></div>
+
+                                  {/* Рядок 2: Викладач 1 + Аудиторія 1 */}
+                                  <div
+                                    className="teacher-text italic text-[10pt] leading-[11pt] text-black"
+                                    style={{
+                                      padding: "0 3pt",
+                                      height: "11pt",
+                                      overflow: "hidden",
+                                      whiteSpace: "nowrap",
+                                    }}
+                                  >
                                     {c.t1}
                                   </div>
-                                  {c.t2 && (
-                                    <div className="teacher-line italic text-[10pt] leading-[11pt] text-black">
-                                      {c.t2}
-                                    </div>
-                                  )}
-                                </div>
-                              ) : null}
-                            </td>
+                                  <div
+                                    className="room-text font-bold text-[#1f4e8c] text-[10pt] leading-[11pt]"
+                                    style={{
+                                      textAlign: "center",
+                                      height: "11pt",
+                                      overflow: "hidden",
+                                      whiteSpace: "nowrap",
+                                    }}
+                                  >
+                                    {c.r1}
+                                  </div>
 
-                            {/* Колонка аудиторії: 9mm, синій колір #1f4e8c, Arial Bold 10pt */}
-                            <td className="td-room border border-black p-0.5 text-center align-top font-bold text-[10pt] text-[#1f4e8c]">
-                              {c ? (
-                                <div className={`room-flex ${hasMulti ? "multi" : "single"}`}>
-                                  <div className="room-line leading-[11pt]">{c.r1}</div>
-                                  {hasMulti && (
-                                    <div className="room-line leading-[11pt]">{c.r2 || ""}</div>
-                                  )}
-                                </div>
-                              ) : null}
-                            </td>
-                          </React.Fragment>
+                                  {/* Рядок 3: Викладач 2 + Аудиторія 2 */}
+                                  <div
+                                    className="teacher-text italic text-[10pt] leading-[11pt] text-black"
+                                    style={{
+                                      padding: "0 3pt",
+                                      height: "11pt",
+                                      overflow: "hidden",
+                                      whiteSpace: "nowrap",
+                                    }}
+                                  >
+                                    {c.t2}
+                                  </div>
+                                  <div
+                                    className="room-text font-bold text-[#1f4e8c] text-[10pt] leading-[11pt]"
+                                    style={{
+                                      textAlign: "center",
+                                      height: "11pt",
+                                      overflow: "hidden",
+                                      whiteSpace: "nowrap",
+                                    }}
+                                  >
+                                    {c.r2 || ""}
+                                  </div>
+                                </>
+                              ) : (
+                                <>
+                                  {/* Рядок 1: Назва предмета + Аудиторія (як в оригіналі) */}
+                                  <div
+                                    className="subj-text font-bold text-black"
+                                    style={{
+                                      fontSize: typo.fontSize,
+                                      lineHeight: typo.lineHeight,
+                                      padding: "0 3pt 2pt 3pt",
+                                      overflowWrap: "anywhere",
+                                    }}
+                                  >
+                                    {c.subject}
+                                  </div>
+                                  <div
+                                    className="room-text font-bold text-[#1f4e8c] text-[10pt] leading-[11pt]"
+                                    style={{
+                                      textAlign: "center",
+                                      height: "11pt",
+                                      overflow: "hidden",
+                                      whiteSpace: "nowrap",
+                                    }}
+                                  >
+                                    {c.r1}
+                                  </div>
+
+                                  {/* Рядок 2: Викладач + порожнє місце під ауд */}
+                                  <div
+                                    className="teacher-text italic text-[10pt] leading-[11pt] text-black"
+                                    style={{
+                                      padding: "0 3pt",
+                                      height: "11pt",
+                                      overflow: "hidden",
+                                      whiteSpace: "nowrap",
+                                    }}
+                                  >
+                                    {c.t1}
+                                  </div>
+                                  <div className="room-empty" style={{ height: "11pt" }}></div>
+                                </>
+                              )}
+                            </div>
+                          </td>
                         );
                       })}
                     </tr>
