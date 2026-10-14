@@ -29,11 +29,7 @@ def effective_to_item(item: EffectiveLesson, week_type: str, target_date: date, 
         bell_times = {}
     
     # Додатний ID дозволено лише для базових записів таблиці Schedule
-    item_id = (
-        item.source_ref_id
-        if item.source_kind == "base" and item.source_ref_id
-        else -(item.source_ref_id or item.lesson_number)
-    )
+    item_id = item.id
 
     return ScheduleItem(
         id=item_id,

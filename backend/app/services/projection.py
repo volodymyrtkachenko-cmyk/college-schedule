@@ -57,6 +57,12 @@ class EffectiveLesson:
         self.note_text: Optional[str] = None
 
     @property
+    def id(self) -> int:
+        if self.source_kind == "base" and self.source_ref_id:
+            return self.source_ref_id
+        return -(self.source_ref_id or self.lesson_number)
+
+    @property
     def occurrence_key(self) -> str:
         return f"group_{self.group_id}_{self.date.isoformat()}_slot_{self.lesson_number}"
 
