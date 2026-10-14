@@ -177,6 +177,7 @@ class ScheduleOverride(Base):
     room: Mapped[Optional[str]] = mapped_column(String(100))
     cancelled: Mapped[bool] = mapped_column(Boolean, default=False)
     
+    group: Mapped["Group"] = relationship()
     subject: Mapped[Optional["Subject"]] = relationship()
     teacher: Mapped[Optional["Teacher"]] = relationship(foreign_keys=[teacher_id])
     second_teacher: Mapped[Optional["Teacher"]] = relationship(foreign_keys=[second_teacher_id])
