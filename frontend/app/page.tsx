@@ -16,6 +16,14 @@ import { SearchableSelect } from "../components/SearchableSelect";
 import { useToast } from "../components/ToastProvider";
 import { QuickJumpTarget, findGroupIdByName, findTeacherIdByName } from "../lib/quickJump";
 
+interface PinnedTarget {
+  mode: "student" | "teacher";
+  id: number;
+  name: string;
+}
+
+const MAX_PINS = 3;
+
 export default function HomePage() {
   const getInitialAnchor = () => {
     const date = new Date();
@@ -144,6 +152,40 @@ export default function HomePage() {
     else setTeacherId(returnTarget.id);
     setReturnTarget(null);
   };
+
+  const [pins, setPins] = useState<PinnedTarget[]>([]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("schedule:pins");
+      if (raw) setPins(JSON.parse(raw).slice(0, MAX_PINS));
+    } catch {}
+  }, []);
+
+  const currentId = mode === "student" ? groupId : teacherId;
+  const currentName =
+    mode === "student"
+      ? groups.find((g) => g.id === groupId)?.name
+      : teachers.find((t) => t.id === teacherId)?.name;
+
+  const isCurrentPinned = Boolean(
+    currentId && pins.some((p) => p.mode === mode && p.id === currentId)
+  );
+
+  const togglePinCurrent = () => {
+    if (!currentId || !currentName) return;
+    setPins((prev) => {
+      const exists = prev.some((p) => p.mode === mode && p.id === currentId);
+      const next = exists
+        ? prev.filter((p) => !(p.mode === mode && p.id === currentId))
+        : [{ mode, id: currentId, name: currentName }, ...prev].slice(0, MAX_PINS);
+      try {
+        localStorage.setItem("schedule:pins", JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  };
+
   const weekType = view === "week" ? ((week?.[0]?.week_type) ?? "both") : (today?.week_type ?? "both");
   const isWeekend = [0, 6].includes(new Date().getDay());
 
@@ -244,25 +286,71 @@ export default function HomePage() {
                   </button>
                 </div>
               )}
-              <label className="min-w-0 rounded-xl border border-sys-border bg-sys-card px-3 py-2 sm:w-56">
-                <span className="mb-1 block text-[11px] font-medium text-sys-text-muted">
-                  {mode === "student" ? "Група" : "Викладач"}
-                </span>
-                <div>
-                  <SearchableSelect
-                    options={mode === "student" ? groups : teachers}
-                    value={mode === "student" ? groupId : teacherId}
-                    onChange={(id) => {
-                      if (id === null) return;
-                      if (mode === "student") setGroupId(id);
-                      else setTeacherId(id);
-                    }}
-                    ariaLabel={mode === "student" ? "Обрати групу" : "Обрати викладача"}
-                    placeholder={mode === "student" ? "Оберіть групу" : "Оберіть викладача"}
-                    emptyLabel="Очистити вибір"
-                  />
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center gap-1.5">
+                  <label className="min-w-0 flex-1 rounded-xl border border-sys-border bg-sys-card px-3 py-2 sm:w-56">
+                    <span className="mb-1 block text-[11px] font-medium text-sys-text-muted">
+                      {mode === "student" ? "Група" : "Викладач"}
+                    </span>
+                    <SearchableSelect
+                      options={mode === "student" ? groups : teachers}
+                      value={mode === "student" ? groupId : teacherId}
+                      onChange={(id) => {
+                        if (id === null) return;
+                        if (mode === "student") setGroupId(id);
+                        else setTeacherId(id);
+                      }}
+                      ariaLabel={mode === "student" ? "Обрати групу" : "Обрати викладача"}
+                      placeholder={mode === "student" ? "Оберіть групу" : "Оберіть викладача"}
+                      emptyLabel="Очистити вибір"
+                    />
+                  </label>
+                  {currentId && (
+                    <button
+                      type="button"
+                      onClick={togglePinCurrent}
+                      title={
+                        isCurrentPinned
+                          ? "Прибрати із закріплених"
+                          : "Закріпити для швидкого доступу (до 3-х)"
+                      }
+                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition-colors ${
+                        isCurrentPinned
+                          ? "border-amber-400/40 bg-amber-400/10 text-amber-300"
+                          : "border-sys-border bg-sys-card text-sys-text-muted hover:text-sys-text-primary"
+                      }`}
+                    >
+                      {isCurrentPinned ? "★" : "☆"}
+                    </button>
+                  )}
                 </div>
-              </label>
+
+                {pins.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {pins.map((pin) => {
+                      const active = pin.mode === mode && pin.id === currentId;
+                      return (
+                        <button
+                          key={`${pin.mode}-${pin.id}`}
+                          type="button"
+                          onClick={() => {
+                            toggleMode(pin.mode);
+                            if (pin.mode === "student") setGroupId(pin.id);
+                            else setTeacherId(pin.id);
+                          }}
+                          className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-colors ${
+                            active
+                              ? "border-sys-accent/50 bg-sys-accent/15 text-sys-accent"
+                              : "border-sys-border/70 bg-sys-card/60 text-sys-text-secondary hover:text-sys-text-primary"
+                          }`}
+                        >
+                          <span className="truncate max-w-[110px]">{pin.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
             <div className="hidden md:block ml-2">
               <UserControls />

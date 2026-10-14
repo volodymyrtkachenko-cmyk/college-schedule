@@ -10,6 +10,7 @@ import { getMondayOf } from "../../lib/date";
 import { SearchableSelect } from "../SearchableSelect";
 import { useToast } from "../ToastProvider";
 import { QuickJumpTarget, findGroupIdByName, findTeacherIdByName } from "../../lib/quickJump";
+import { OfficialPrintModal } from "./OfficialPrintSheet";
 
 export function AdminScheduleEditor() {
   const [weekAnchorDate, setWeekAnchorDate] = useState(() => {
@@ -38,6 +39,12 @@ export function AdminScheduleEditor() {
   const { showToast: setToast } = useToast();
   const [versions, setVersions] = useState<import("../../lib/api").ScheduleVersion[]>([]);
   const weekType = (week?.[0]?.week_type) ?? today?.week_type ?? "both";
+  const [curatorModalOpen, setCuratorModalOpen] = useState(false);
+  const [curatorDay, setCuratorDay] = useState(4);
+  const [curatorLesson, setCuratorLesson] = useState(4);
+  const [curatorWeek, setCuratorWeek] = useState<"both" | "numerator" | "denominator">("both");
+  const [curatorLoading, setCuratorLoading] = useState(false);
+  const [printModalOpen, setPrintModalOpen] = useState(false);
 
   useEffect(() => {
     setMovingLesson(null);
@@ -261,6 +268,38 @@ export function AdminScheduleEditor() {
     }
   };
 
+  const runBulkCurator = async (action: "create" | "delete") => {
+    setCuratorLoading(true);
+    try {
+      const res = await api.lessons.bulkCurator({
+        day_of_week: curatorDay,
+        lesson_number: curatorLesson,
+        week_type: curatorWeek,
+        group_ids: [],
+        action,
+      });
+      invalidateScheduleCache();
+      setToast(
+        action === "create"
+          ? `Виховні години створено: ${res.created} (пропущено: ${res.skipped})`
+          : `Виховні години видалено: ${res.deleted}`,
+        "success"
+      );
+      setCuratorModalOpen(false);
+      // Оновлюємо поточний тиждень
+      const refreshed = await api.week(
+        mode === "student" ? (groupId ?? undefined) : undefined,
+        mode === "teacher" ? (teacherId ?? undefined) : undefined,
+        weekAnchorDate
+      );
+      setWeek(refreshed);
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : "Помилка операції з виховними годинами", "error");
+    } finally {
+      setCuratorLoading(false);
+    }
+  };
+
   return (
     <div className="w-full">
       <div className="mb-4 flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-between gap-4">
@@ -374,6 +413,20 @@ export function AdminScheduleEditor() {
                 ))}
               </select>
             )}
+            <button
+              type="button"
+              onClick={() => setCuratorModalOpen(true)}
+              className="rounded-lg border border-sys-border bg-sys-card px-3 py-1.5 text-xs font-semibold text-sys-text-primary hover:bg-white/5"
+            >
+              🎓 Виховна година
+            </button>
+            <button
+              type="button"
+              onClick={() => setPrintModalOpen(true)}
+              className="rounded-lg border border-sys-border bg-sys-card px-3 py-1.5 text-xs font-semibold text-sys-text-primary hover:bg-white/5"
+            >
+              🖨️ Друк
+            </button>
           </div>
           </div>
           <ScheduleWeekGrid
@@ -415,8 +468,73 @@ export function AdminScheduleEditor() {
           onDelete={editor.lesson ? () => remove(editor.lesson!) : undefined}
         />
       )}
+      {curatorModalOpen && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-sys-border bg-sys-card p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold text-sys-text-primary">🎓 Масова виховна година</h3>
+              <button type="button" onClick={() => setCuratorModalOpen(false)} className="text-sm text-sys-text-secondary hover:text-white">✕</button>
+            </div>
+            <p className="text-xs text-sys-text-secondary">
+              Автоматично призначає предмет «Виховна година» всім активним групам, у яких вказаний куратор і немає накладки у цей час.
+            </p>
+            <div className="grid grid-cols-3 gap-3">
+              <label className="space-y-1">
+                <span className="text-xs text-sys-text-secondary">День</span>
+                <select value={curatorDay} onChange={(e) => setCuratorDay(Number(e.target.value))} className="form-control w-full text-sm">
+                  <option value={1}>Понеділок</option>
+                  <option value={2}>Вівторок</option>
+                  <option value={3}>Середа</option>
+                  <option value={4}>Четвер</option>
+                  <option value={5}>П’ятниця</option>
+                </select>
+              </label>
+              <label className="space-y-1">
+                <span className="text-xs text-sys-text-secondary">Пара</span>
+                <select value={curatorLesson} onChange={(e) => setCuratorLesson(Number(e.target.value))} className="form-control w-full text-sm">
+                  {[1, 2, 3, 4].map((n) => (
+                    <option key={n} value={n}>{n}-та пара</option>
+                  ))}
+                </select>
+              </label>
+              <label className="space-y-1">
+                <span className="text-xs text-sys-text-secondary">Тиждень</span>
+                <select value={curatorWeek} onChange={(e) => setCuratorWeek(e.target.value as any)} className="form-control w-full text-sm">
+                  <option value="both">Обидва</option>
+                  <option value="numerator">Чисельник</option>
+                  <option value="denominator">Знаменник</option>
+                </select>
+              </label>
+            </div>
+            <div className="flex justify-between gap-2 pt-2">
+              <button
+                type="button"
+                disabled={curatorLoading}
+                onClick={() => void runBulkCurator("delete")}
+                className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-300 hover:bg-rose-500/20 disabled:opacity-50"
+              >
+                Очистити слот
+              </button>
+              <button
+                type="button"
+                disabled={curatorLoading}
+                onClick={() => void runBulkCurator("create")}
+                className="rounded-lg bg-sys-accent px-4 py-2 text-xs font-bold text-[#0b1120] hover:opacity-90 disabled:opacity-50"
+              >
+                {curatorLoading ? "Виконуємо..." : "Проставити всім групам"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
-      
+      {printModalOpen && (
+        <OfficialPrintModal
+          groups={groups}
+          defaultDate={week?.[0]?.date || new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(new Date())}
+          onClose={() => setPrintModalOpen(false)}
+        />
+      )}
     </div>
   );
 }

@@ -17,39 +17,49 @@ def slot_assignment(slot):
     return (slot['subject_id'],slot.get('teacher_id'),slot.get('second_teacher_id'),
             room,slot.get('stream_id'),bool(slot.get('is_replacement',False)))
 
-def normalize_base_slots(slots):
-    """Merge identical assignments/week coverage; reject different overlapping assignments."""
+def normalize_base_slots(slots, *, prefer_incoming: bool = False):
+    """Merge identical assignments/week coverage; when prefer_incoming=True, newer slot wins."""
     assignments = {}
     occupied = {}
     for original in slots:
         slot = dict(original)
-        if not isinstance(slot.get('group_id'),int) or slot['group_id'] <= 0:
-            raise HTTPException(422,detail={'code':'invalid_import_group'})
-        if slot.get('day_of_week') not in range(1,6) or slot.get('lesson_number') not in range(1,5):
-            raise HTTPException(422,detail={'code':'invalid_import_slot'})
-        cell = (slot['group_id'],slot['day_of_week'],slot['lesson_number'])
+        if not isinstance(slot.get('group_id'), int) or slot['group_id'] <= 0:
+            raise HTTPException(422, detail={'code': 'invalid_import_group'})
+        if slot.get('day_of_week') not in range(1, 6) or slot.get('lesson_number') not in range(1, 5):
+            raise HTTPException(422, detail={'code': 'invalid_import_slot'})
+        cell = (slot['group_id'], slot['day_of_week'], slot['lesson_number'])
         assignment = slot_assignment(slot)
-        weeks = coverage(slot.get('week_type','both'))
+        weeks = coverage(slot.get('week_type', 'both'))
         for week in weeks:
-            key = (*cell,week)
+            key = (*cell, week)
             if key in occupied and occupied[key] != assignment:
-                raise HTTPException(409,detail={
-                    'code':'import_cell_conflict','group_id':cell[0],
-                    'day_of_week':cell[1],'lesson_number':cell[2],'week_type':week,
-                    'msg':'Різні заняття перетинаються в одному слоті. Потрібен ручний розгляд; запис не виконано.',
-                })
-            occupied[key]=assignment
-        key = (cell,assignment)
+                if prefer_incoming:
+                    old_assignment = occupied[key]
+                    old_entry = assignments.get((cell, old_assignment))
+                    if old_entry:
+                        old_entry[1].discard(week)
+                        if not old_entry[1]:
+                            del assignments[(cell, old_assignment)]
+                else:
+                    raise HTTPException(409, detail={
+                        'code': 'import_cell_conflict', 'group_id': cell[0],
+                        'day_of_week': cell[1], 'lesson_number': cell[2], 'week_type': week,
+                        'msg': 'Різні заняття перетинаються в одному слоті. Потрібен ручний розгляд; запис не виконано.',
+                    })
+            occupied[key] = assignment
+        key = (cell, assignment)
         if key not in assignments:
-            slot['room']=assignment[3]
-            assignments[key]=(slot,set(weeks))
+            slot['room'] = assignment[3]
+            assignments[key] = (slot, set(weeks))
         else:
             assignments[key][1].update(weeks)
-    result=[]
-    for slot,weeks in assignments.values():
-        slot['week_type']='both' if len(weeks)==2 else next(iter(weeks))
+    result = []
+    for slot, weeks in assignments.values():
+        if not weeks:
+            continue
+        slot['week_type'] = 'both' if len(weeks) == 2 else next(iter(weeks))
         result.append(slot)
-    return sorted(result,key=lambda s:(s['group_id'],s['day_of_week'],s['lesson_number'],s['week_type']))
+    return sorted(result, key=lambda s: (s['group_id'], s['day_of_week'], s['lesson_number'], s['week_type']))
 
 async def version_for_date(db,target_date):
     ids=list((await db.scalars(select(ScheduleVersion.id).where(

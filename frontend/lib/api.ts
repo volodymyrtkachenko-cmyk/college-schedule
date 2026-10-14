@@ -864,6 +864,20 @@ export const api = {
             body: JSON.stringify(payload)
         }),
         remove: (id: number) => authenticatedRequest<void>(`/api/schedule/${id}`, {method: "DELETE"}),
+        bulkCurator: (payload: {
+            day_of_week: number;
+            lesson_number: number;
+            week_type: WeekType;
+            group_ids: number[];
+            action: "create" | "delete";
+        }) =>
+            authenticatedRequest<{ created: number; deleted: number; skipped: number }>(
+                "/api/schedule/bulk-curator",
+                {
+                    method: "POST",
+                    body: JSON.stringify(payload),
+                }
+            ),
     },
     dated: {
         cancel: (payload: { group_id: number; date: string; lesson_number: number }) =>

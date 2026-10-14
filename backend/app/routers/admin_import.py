@@ -145,11 +145,12 @@ def _slot_matches(incoming: dict, existing: Schedule) -> bool:
         or incoming.get("second_teacher_id") != existing.second_teacher_id
         or incoming["day_of_week"] != existing.day_of_week
         or incoming["lesson_number"] != existing.lesson_number
-        or not _week_matches(incoming.get("week_type", "both"), existing.week_type)
+        or incoming.get("week_type", "both") != existing.week_type
     ):
         return False
     incoming_room = _normalize_room(incoming.get("room"))
-    return not incoming_room or incoming_room == _normalize_room(_schedule_room(existing))
+    existing_room = _normalize_room(existing.room_override)
+    return incoming_room == existing_room
 
 
 def _substitution_matches_schedule(substitution: dict, schedules: list[Schedule]) -> bool:
@@ -240,6 +241,9 @@ async def _latest_published_changes(
 
 
 async def matches_published_schedule(db: AsyncSession, payload: dict, weeks: int) -> bool:
+    scope = payload.get("import_scope") or {}
+    scope_groups = set(scope.get("group_ids", []))
+
     schedules = (await db.scalars(
         select(Schedule)
         .where(Schedule.is_active.is_(True))
@@ -248,8 +252,15 @@ async def matches_published_schedule(db: AsyncSession, payload: dict, weeks: int
     if "base_version_id" in payload:
         version_id = payload["base_version_id"]
         schedules = [s for s in schedules if s.version_id == version_id]
+    if scope_groups:
+        schedules = [s for s in schedules if s.group_id in scope_groups]
+
+    incoming_slots = payload.get("base_slots", [])
+    if len(incoming_slots) != len(schedules):
+        return False
+
     used_schedule_ids: set[int] = set()
-    for incoming in payload.get("base_slots", []):
+    for incoming in incoming_slots:
         match = next(
             (
                 schedule for schedule in schedules
@@ -462,7 +473,7 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str):
 
         # Scope every restoration to one unambiguous version for source dates.
         import_version_id = await version_for_import(db, imported_dates, now_local().date())
-        aggregated_base_slots = normalize_base_slots([{**slot, "room": _normalize_room(slot.get("room"))} for slot in aggregated_base_slots])
+        aggregated_base_slots = normalize_base_slots([{**slot, "room": _normalize_room(slot.get("room"))} for slot in aggregated_base_slots], prefer_incoming=True)
 
         current_schedules = (await db.scalars(
             select(Schedule)
@@ -608,8 +619,8 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str):
                 same_cell = [*same_cell, slot]
 
         before_final_normalization = len(aggregated_base_slots)
-        aggregated_base_slots = normalize_base_slots([{**slot, "room": _normalize_room(slot.get("room"))} for slot in aggregated_base_slots])
-        restored_base_slots = normalize_base_slots([{**slot, "room": _normalize_room(slot.get("room"))} for slot in restored_base_slots])
+        aggregated_base_slots = normalize_base_slots([{**slot, "room": _normalize_room(slot.get("room"))} for slot in aggregated_base_slots], prefer_incoming=True)
+        restored_base_slots = normalize_base_slots([{**slot, "room": _normalize_room(slot.get("room"))} for slot in restored_base_slots], prefer_incoming=True)
 
         # Prepare payload for Draft Data
         created_curriculum_ids: list[int] = []
