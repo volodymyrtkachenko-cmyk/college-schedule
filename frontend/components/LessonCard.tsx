@@ -1,10 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { LessonNote } from "./LessonNote";
 import { EditIcon, MoveIcon } from "./LessonIcons";
 import { Lesson } from "../lib/api";
-import { formatRoom, formatTeachers } from "../lib/format";
+import { formatRoom } from "../lib/format";
+import { QuickJumpTarget, parseLessonTeachers, parseLessonGroups } from "../lib/quickJump";
+
+export type { QuickJumpTarget };
 
 const ICON_BUTTON =
   "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-base transition-colors";
@@ -84,7 +87,7 @@ export function LessonCard({
   onMoveSelect?: (lesson: Lesson | null) => void;
   onCopySelect?: (lesson: Lesson) => void;
   onCancelDated?: (lesson: Lesson, date: string) => void;
-  onQuickJump?: (target: { mode: "student" | "teacher"; id: number; label: string }) => void;
+  onQuickJump?: (target: QuickJumpTarget) => void;
 }) {
   const isSelectedForMove = movingLesson?.id === lesson.id;
   const isDay = mode !== "week";
@@ -125,27 +128,10 @@ export function LessonCard({
   const remainingMin =
     isLive && endMin !== null && nowState ? Math.max(1, endMin - nowState.minutes) : 0;
 
-  const secondary =
-    scheduleMode === "teacher" && lesson.group_name
-      ? `Група ${lesson.group_name}`
-      : lesson.teacher_name
-        ? formatTeachers(lesson.teacher_name)
-        : null;
-
-  const canJump = Boolean(
-    onQuickJump &&
-      ((scheduleMode === "teacher" && lesson.group_id) ||
-        (scheduleMode !== "teacher" && lesson.teacher_id))
-  );
-
-  const handleSecondaryClick = () => {
-    if (!onQuickJump) return;
-    if (scheduleMode === "teacher" && lesson.group_id) {
-      onQuickJump({ mode: "student", id: lesson.group_id, label: lesson.group_name || "Група" });
-    } else if (scheduleMode !== "teacher" && lesson.teacher_id) {
-      onQuickJump({ mode: "teacher", id: lesson.teacher_id, label: lesson.teacher_name || "Викладач" });
-    }
-  };
+  const isTeacherView = scheduleMode === "teacher";
+  const secondaryItems = useMemo(() => {
+    return isTeacherView ? parseLessonGroups(lesson) : parseLessonTeachers(lesson);
+  }, [isTeacherView, lesson]);
 
   const stateClass = isLive
     ? "border-sys-accent/60 ring-1 ring-sys-accent/50 bg-gradient-to-r from-sys-accent/[0.08] via-sys-card to-sys-card shadow-[0_0_20px_rgba(56,189,248,0.12)]"
@@ -264,25 +250,41 @@ export function LessonCard({
             )}
           </div>
 
-          {(secondary || lesson.room) && (
+          {(secondaryItems.length > 0 || lesson.room) && (
             <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-              {secondary &&
-                (canJump ? (
-                  <button
-                    type="button"
-                    onClick={handleSecondaryClick}
-                    title={
-                      scheduleMode === "teacher"
-                        ? "Переглянути розклад цієї групи"
-                        : "Переглянути розклад цього викладача"
-                    }
-                    className="min-w-0 break-words text-left text-sm text-sys-text-secondary underline-offset-4 transition-colors hover:text-sys-accent hover:underline"
-                  >
-                    {secondary}
-                  </button>
-                ) : (
-                  <p className="min-w-0 break-words text-sm text-sys-text-secondary">{secondary}</p>
-                ))}
+              {secondaryItems.length > 0 && (
+                <div className="min-w-0 break-words text-left text-sm text-sys-text-secondary">
+                  {isTeacherView && (
+                    <span className="text-sys-text-muted">
+                      {secondaryItems.length > 1 ? "Групи " : "Група "}
+                    </span>
+                  )}
+                  {secondaryItems.map((item, index) => (
+                    <span key={`${item.name}-${index}`}>
+                      {index > 0 && <span className="text-sys-text-muted"> / </span>}
+                      {onQuickJump ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onQuickJump(item.target);
+                          }}
+                          title={
+                            item.target.mode === "teacher"
+                              ? `Переглянути розклад викладача ${item.displayName}`
+                              : `Переглянути розклад групи ${item.displayName}`
+                          }
+                          className="font-medium underline-offset-4 transition-colors hover:text-sys-accent hover:underline focus:outline-none focus:text-sys-accent"
+                        >
+                          {item.displayName}
+                        </button>
+                      ) : (
+                        <span>{item.displayName}</span>
+                      )}
+                    </span>
+                  ))}
+                </div>
+              )}
               {lesson.room && roomMeta && (
                 <span className={`ml-auto inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium ${roomMeta.tone}`}>
                   <span aria-hidden="true" className="text-[11px]">{roomMeta.icon}</span>

@@ -14,6 +14,7 @@ import { getMondayOf } from "../lib/date";
 import { WelcomeScreen } from "../components/WelcomeScreen";
 import { SearchableSelect } from "../components/SearchableSelect";
 import { useToast } from "../components/ToastProvider";
+import { QuickJumpTarget, findGroupIdByName, findTeacherIdByName } from "../lib/quickJump";
 
 export default function HomePage() {
   const getInitialAnchor = () => {
@@ -107,7 +108,22 @@ export default function HomePage() {
     label: string;
   } | null>(null);
 
-  const handleQuickJump = (target: { mode: "student" | "teacher"; id: number; label: string }) => {
+  const handleQuickJump = (target: QuickJumpTarget) => {
+    let targetId = target.id;
+    if (!targetId && target.name) {
+      if (target.mode === "student") {
+        targetId = findGroupIdByName(target.name, groups);
+      } else {
+        targetId = findTeacherIdByName(target.name, teachers);
+      }
+    }
+
+    if (!targetId) {
+      const typeLabel = target.mode === "student" ? "групу" : "викладача";
+      setToast(`Не вдалося знайти ${typeLabel} "${target.label || target.name}"`, "error");
+      return;
+    }
+
     const currentId = mode === "student" ? groupId : teacherId;
     const currentLabel =
       mode === "student"
@@ -117,8 +133,8 @@ export default function HomePage() {
       setReturnTarget({ mode, id: currentId, label: currentLabel });
     }
     toggleMode(target.mode);
-    if (target.mode === "student") setGroupId(target.id);
-    else setTeacherId(target.id);
+    if (target.mode === "student") setGroupId(targetId);
+    else setTeacherId(targetId);
   };
 
   const handleReturnBack = () => {

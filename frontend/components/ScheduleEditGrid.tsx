@@ -1,6 +1,6 @@
 import { Lesson, ScheduleResponse } from "../lib/api";
 import { DEFAULT_LESSON_TIMES, LESSON_NUMBERS } from "../lib/constants/lessons";
-import { LessonCard } from "./LessonCard";
+import { LessonCard, QuickJumpTarget } from "./LessonCard";
 
 const longWeekday = (date: string) =>
   new Intl.DateTimeFormat("uk-UA", { weekday: "long" }).format(new Date(`${date}T12:00:00`));
@@ -17,7 +17,7 @@ export function ScheduleEditGrid({ week, scheduleMode, onEdit, onCreate, movingL
   onMoveSelect?: (lesson: Lesson | null) => void;
   onCopySelect?: (lesson: Lesson) => void;
   onCancelDated?: (lesson: Lesson, date: string) => void;
-  onQuickJump?: (target: { mode: "student" | "teacher"; id: number; label: string }) => void;
+  onQuickJump?: (target: QuickJumpTarget) => void;
   onMove?: (lesson: Lesson, date: string, lessonNumber: number) => void;
   canMoveTo: (lesson: Lesson, date: string, lessonNumber: number) => boolean;
 }) {

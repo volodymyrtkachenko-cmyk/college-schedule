@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { ScheduleResponse, Lesson } from "../lib/api";
 import { formatRoom, formatTeachers } from "../lib/format";
 import { useToast } from "./ToastProvider";
-import { LessonCard } from "./LessonCard";
+import { LessonCard, QuickJumpTarget } from "./LessonCard";
 
 const NUM_EMOJI: Record<number, string> = { 1: "1️⃣", 2: "2️⃣", 3: "3️⃣", 4: "4️⃣", 5: "5️⃣" };
 
@@ -76,7 +76,7 @@ export function ScheduleDay({
   onMoveSelect?: (lesson: Lesson | null) => void;
   onCopySelect?: (lesson: Lesson) => void;
   onCancelDated?: (lesson: Lesson, date: string) => void;
-  onQuickJump?: (target: { mode: "student" | "teacher"; id: number; label: string }) => void;
+  onQuickJump?: (target: QuickJumpTarget) => void;
 }) {
   const { showToast } = useToast();
   const [kyivNow, setKyivNow] = useState<{ dateIso: string; minutes: number } | null>(null);

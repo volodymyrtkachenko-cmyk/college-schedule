@@ -4,6 +4,7 @@ import { Lesson, ScheduleResponse } from "../lib/api";
 import { canMoveLesson } from "../lib/scheduleMove";
 import { ScheduleDay } from "./ScheduleDay";
 import { ScheduleEditGrid } from "./ScheduleEditGrid";
+import { QuickJumpTarget } from "./LessonCard";
 import { motion, AnimatePresence } from "framer-motion";
 
 const dayVariants = {
@@ -44,7 +45,7 @@ export function ScheduleWeekGrid({
   onCopySelect?: (lesson: Lesson) => void;
   onCancelDated?: (lesson: Lesson, date: string) => void;
   onMove?: (lesson: Lesson, date: string, lessonNumber: number) => void;
-  onQuickJump?: (target: { mode: "student" | "teacher"; id: number; label: string }) => void;
+  onQuickJump?: (target: QuickJumpTarget) => void;
 }) {
   const [activeIdx, setActiveIdx] = useState(0);
   const [direction, setDirection] = useState(0);

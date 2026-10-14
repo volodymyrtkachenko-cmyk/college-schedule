@@ -9,6 +9,7 @@ import { invalidateScheduleCache, useSchedule } from "../../lib/hooks";
 import { getMondayOf } from "../../lib/date";
 import { SearchableSelect } from "../SearchableSelect";
 import { useToast } from "../ToastProvider";
+import { QuickJumpTarget, findGroupIdByName, findTeacherIdByName } from "../../lib/quickJump";
 
 export function AdminScheduleEditor() {
   const [weekAnchorDate, setWeekAnchorDate] = useState(() => {
@@ -126,7 +127,22 @@ export function AdminScheduleEditor() {
     }
   };
 
-  const handleQuickJump = (target: { mode: "student" | "teacher"; id: number; label?: string }) => {
+  const handleQuickJump = (target: QuickJumpTarget) => {
+    let targetId = target.id;
+    if (!targetId && target.name) {
+      if (target.mode === "student") {
+        targetId = findGroupIdByName(target.name, groups);
+      } else {
+        targetId = findTeacherIdByName(target.name, teachers);
+      }
+    }
+
+    if (!targetId) {
+      const typeLabel = target.mode === "student" ? "групу" : "викладача";
+      setToast(`Не вдалося знайти ${typeLabel} "${target.label || target.name}"`, "error");
+      return;
+    }
+
     const currentLabel =
       mode === "student"
         ? groups.find((g) => g.id === groupId)?.name || "групи"
@@ -137,9 +153,9 @@ export function AdminScheduleEditor() {
     startTransition(() => {
       toggleMode(target.mode);
       if (target.mode === "student") {
-        setGroupId(target.id);
+        setGroupId(targetId);
       } else {
-        setTeacherId(target.id);
+        setTeacherId(targetId);
       }
     });
   };
