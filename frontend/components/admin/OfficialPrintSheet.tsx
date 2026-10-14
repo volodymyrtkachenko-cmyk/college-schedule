@@ -348,30 +348,35 @@ export function OfficialPrintModal({
             .cell-grid {
               display: grid;
               grid-template-columns: 1fr 9mm;
+              align-content: start;
+              grid-auto-rows: min-content;
+              font-size: 10pt;
               padding: 2pt 0;
               min-height: 43.5pt;
             }
-            .subj-text {
+            .subj, .subj-text {
               padding: 0 3pt 2pt 3pt;
               font-weight: 700;
               color: #000;
-              overflow-wrap: anywhere;
+              overflow-wrap: break-word;
+              word-wrap: break-word;
             }
-            .teacher-text {
+            .teacher, .teacher-text {
               padding: 0 3pt;
               font-style: italic;
               color: #000;
+              font-size: 10pt !important;
+              line-height: 11pt !important;
+              height: 11pt;
               white-space: nowrap;
               overflow: hidden;
-              height: 11pt;
-              line-height: 11pt;
             }
-            .room-text {
+            .room, .room-text {
               text-align: center;
               color: #1f4e8c;
               font-weight: 700;
-              font-size: 10pt;
-              line-height: 11pt;
+              font-size: 10pt !important;
+              line-height: 11pt !important;
               height: 11pt;
               overflow: hidden;
               white-space: nowrap;
@@ -468,25 +473,30 @@ export function OfficialPrintModal({
           .cell-grid {
             display: grid !important;
             grid-template-columns: 1fr 9mm !important;
+            align-content: start !important;
+            grid-auto-rows: min-content !important;
+            font-size: 10pt !important;
             padding: 2pt 0 !important;
             min-height: 43.5pt !important;
           }
-          .subj-text {
+          .subj, .subj-text {
             padding: 0 3pt 2pt 3pt !important;
             font-weight: 700 !important;
             color: #000 !important;
-            overflow-wrap: anywhere !important;
+            overflow-wrap: break-word !important;
+            word-wrap: break-word !important;
           }
-          .teacher-text {
+          .teacher, .teacher-text {
             padding: 0 3pt !important;
             font-style: italic !important;
             color: #000 !important;
+            font-size: 10pt !important;
+            line-height: 11pt !important;
+            height: 11pt !important;
             white-space: nowrap !important;
             overflow: hidden !important;
-            height: 11pt !important;
-            line-height: 11pt !important;
           }
-          .room-text {
+          .room, .room-text {
             text-align: center !important;
             color: #1f4e8c !important;
             font-weight: 700 !important;
@@ -656,6 +666,9 @@ export function OfficialPrintModal({
                               style={{
                                 display: "grid",
                                 gridTemplateColumns: "1fr 9mm",
+                                alignContent: "start",
+                                gridAutoRows: "min-content",
+                                fontSize: "10pt",
                                 padding: "2pt 0",
                                 minHeight: "43.5pt",
                               }}
@@ -669,7 +682,8 @@ export function OfficialPrintModal({
                                       fontSize: typo.fontSize,
                                       lineHeight: typo.lineHeight,
                                       padding: "0 3pt 2pt 3pt",
-                                      overflowWrap: "anywhere",
+                                      overflowWrap: "break-word",
+                                      wordWrap: "break-word",
                                     }}
                                   >
                                     {c.subject}
@@ -680,6 +694,8 @@ export function OfficialPrintModal({
                                   <div
                                     className="teacher-text italic text-[10pt] leading-[11pt] text-black"
                                     style={{
+                                      fontSize: "10pt",
+                                      lineHeight: "11pt",
                                       padding: "0 3pt",
                                       height: "11pt",
                                       overflow: "hidden",
@@ -691,6 +707,8 @@ export function OfficialPrintModal({
                                   <div
                                     className="room-text font-bold text-[#1f4e8c] text-[10pt] leading-[11pt]"
                                     style={{
+                                      fontSize: "10pt",
+                                      lineHeight: "11pt",
                                       textAlign: "center",
                                       height: "11pt",
                                       overflow: "hidden",
@@ -704,6 +722,8 @@ export function OfficialPrintModal({
                                   <div
                                     className="teacher-text italic text-[10pt] leading-[11pt] text-black"
                                     style={{
+                                      fontSize: "10pt",
+                                      lineHeight: "11pt",
                                       padding: "0 3pt",
                                       height: "11pt",
                                       overflow: "hidden",
@@ -715,6 +735,8 @@ export function OfficialPrintModal({
                                   <div
                                     className="room-text font-bold text-[#1f4e8c] text-[10pt] leading-[11pt]"
                                     style={{
+                                      fontSize: "10pt",
+                                      lineHeight: "11pt",
                                       textAlign: "center",
                                       height: "11pt",
                                       overflow: "hidden",
@@ -733,7 +755,8 @@ export function OfficialPrintModal({
                                       fontSize: typo.fontSize,
                                       lineHeight: typo.lineHeight,
                                       padding: "0 3pt 2pt 3pt",
-                                      overflowWrap: "anywhere",
+                                      overflowWrap: "break-word",
+                                      wordWrap: "break-word",
                                     }}
                                   >
                                     {c.subject}
@@ -741,6 +764,8 @@ export function OfficialPrintModal({
                                   <div
                                     className="room-text font-bold text-[#1f4e8c] text-[10pt] leading-[11pt]"
                                     style={{
+                                      fontSize: "10pt",
+                                      lineHeight: "11pt",
                                       textAlign: "center",
                                       height: "11pt",
                                       overflow: "hidden",
@@ -754,6 +779,8 @@ export function OfficialPrintModal({
                                   <div
                                     className="teacher-text italic text-[10pt] leading-[11pt] text-black"
                                     style={{
+                                      fontSize: "10pt",
+                                      lineHeight: "11pt",
                                       padding: "0 3pt",
                                       height: "11pt",
                                       overflow: "hidden",
