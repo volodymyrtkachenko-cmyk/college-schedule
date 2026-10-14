@@ -107,8 +107,16 @@ export function AdminScheduleEditor() {
   };
 
   const cancelOnDate = async (lesson: Lesson, date: string) => {
+    if (!lesson.group_id) {
+      setToast("Неможливо скасувати заняття без визначеної групи", "error");
+      return;
+    }
     try {
-      await api.dated.cancel({ lesson_id: lesson.id, date });
+      await api.dated.cancel({
+        group_id: lesson.group_id,
+        date,
+        lesson_number: lesson.lesson_number,
+      });
       setToast("Заняття на дату скасовано.", "success");
       invalidateScheduleCache();
       const updatedWeek = await (mode === "student" && groupId ? api.week(groupId, undefined, weekAnchorDate) : teacherId ? api.week(undefined, teacherId, weekAnchorDate) : null);
@@ -118,7 +126,7 @@ export function AdminScheduleEditor() {
     }
   };
 
-  const handleQuickJump = (target: { mode: "student" | "teacher"; id: number }) => {
+  const handleQuickJump = (target: { mode: "student" | "teacher"; id: number; label?: string }) => {
     const currentLabel =
       mode === "student"
         ? groups.find((g) => g.id === groupId)?.name || "групи"
