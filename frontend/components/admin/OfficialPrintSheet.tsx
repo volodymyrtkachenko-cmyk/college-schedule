@@ -3,7 +3,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { api, Lesson, ReferenceRecord } from "../../lib/api";
-import { formatRoom, formatTeachers } from "../../lib/format";
 
 const DAY_NAMES_LOWER: Record<number, string> = {
   1: "понеділок",
@@ -15,25 +14,57 @@ const DAY_NAMES_LOWER: Record<number, string> = {
   7: "неділя",
 };
 
-function splitSubgroups(lesson?: Lesson): {
+// За замовчуванням порядок груп як в оригіналі адміністрації:
+// блоки 92–99, 87–89, 90–91, 81–86, 75–80
+const DEFAULT_GROUPS_ORDER = [
+  92, 93, 94, 95, 96, 97, 98, 99,
+  87, 88, 89, 90, 91,
+  81, 82, 83, 84, 85, 86,
+  75, 76, 77, 78, 79, 80,
+];
+
+function normalizeRoomText(room: string): string {
+  const clean = room.trim();
+  const lower = clean.toLowerCase();
+  if (lower.includes("спорт") && lower.includes("1")) return "ск1";
+  if (lower.includes("спорт") && lower.includes("2")) return "ск2";
+  if (lower.includes("спорт") && lower.includes("3")) return "ск3";
+  if (lower.startsWith("ск")) return clean.replace(/\s+/g, "");
+  if (lower.startsWith("дист")) return "дист";
+  return clean.replace(/^ауд\.?\s*/i, "").trim();
+}
+
+function computeWeekType(targetDateStr: string): "чисельник" | "знаменник" {
+  const [y, m, d] = targetDateStr.split("-").map(Number);
+  const targetDate = new Date(Date.UTC(y, m - 1, d));
+  const anchorDate = new Date(Date.UTC(2026, 8, 7)); // 2026-09-07 = знаменник (month index 8 is September)
+  const diffMs = targetDate.getTime() - anchorDate.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const weekIndex = Math.floor(diffDays / 7);
+  return Math.abs(weekIndex) % 2 === 0 ? "знаменник" : "чисельник";
+}
+
+interface CellContent {
   subject: string;
   t1: string;
   r1: string;
   t2: string | null;
   r2: string | null;
-} | null {
+}
+
+function splitSubgroups(lesson?: Lesson): CellContent | null {
   if (!lesson) return null;
   const teachers = (lesson.teacher_name || "")
     .split("/")
-    .map((s) => formatTeachers(s.trim()))
+    .map((s) => s.trim())
     .filter(Boolean);
   const rooms = (lesson.room || "")
     .split("/")
-    .map((s) => formatRoom(s.trim()).replace(/^ауд\.?\s*/i, "").trim())
+    .map(normalizeRoomText)
     .filter(Boolean);
 
   return {
-    subject: lesson.subject_name,
+    subject: lesson.subject_name || lesson.subject || "",
     t1: teachers[0] || "",
     r1: rooms[0] || "",
     t2: teachers.length > 1 ? teachers[1] : null,
@@ -54,7 +85,6 @@ export function OfficialPrintModal({
   const [targetDate, setTargetDate] = useState(defaultDate);
   const [loading, setLoading] = useState(false);
   const [lessonsByGroup, setLessonsByGroup] = useState<Record<number, Record<number, Lesson>>>({});
-  const [weekType, setWeekType] = useState<"numerator" | "denominator" | "both">("numerator");
   const [loadedDate, setLoadedDate] = useState<string | null>(null);
 
   const printSheetRef = useRef<HTMLDivElement>(null);
@@ -70,7 +100,6 @@ export function OfficialPrintModal({
       const weekData = await api.week(undefined, undefined, dateObj);
       const daySchedule = weekData.find((d) => d.date === dateStr) ?? weekData[0];
       if (daySchedule) {
-        setWeekType(daySchedule.week_type);
         const map: Record<number, Record<number, Lesson>> = {};
         for (const item of daySchedule.lessons) {
           if (!item.group_id) continue;
@@ -91,17 +120,24 @@ export function OfficialPrintModal({
     }
   }, [defaultDate]);
 
-  const dateObj = new Date(`${targetDate}T12:00:00`);
-  const dow = dateObj.getDay() || 7;
-  const formattedDate = `${String(dateObj.getDate()).padStart(2, "0")}.${String(
-    dateObj.getMonth() + 1
-  ).padStart(2, "0")}.${dateObj.getFullYear()}`;
-  const weekLabel = weekType === "denominator" ? "знаменник" : "чисельник";
+  const [y, m, d] = targetDate.split("-").map(Number);
+  const dateObj = new Date(Date.UTC(y, m - 1, d));
+  const dow = dateObj.getUTCDay() || 7;
+  const formattedDate = `${String(d).padStart(2, "0")}.${String(m).padStart(2, "0")}.${y}`;
+  const weekLabel = computeWeekType(targetDate);
 
-  // Сортування груп за спаданням курсу/номера (92..99, 81..91, 75..80)
-  const sortedGroups = [...groups].sort((a, b) =>
-    b.name.localeCompare(a.name, "uk", { numeric: true })
-  );
+  // Сортування груп за оригінальним порядком MS Access адміністрації:
+  // 92..99, 87..89, 90..91, 81..86, 75..80
+  const sortedGroups = [...groups].sort((a, b) => {
+    const numA = parseInt(a.name, 10);
+    const numB = parseInt(b.name, 10);
+    const idxA = DEFAULT_GROUPS_ORDER.indexOf(numA);
+    const idxB = DEFAULT_GROUPS_ORDER.indexOf(numB);
+    if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+    if (idxA !== -1) return -1;
+    if (idxB !== -1) return 1;
+    return a.name.localeCompare(b.name, "uk", { numeric: true });
+  });
 
   const handlePrint = () => {
     if (!printSheetRef.current) {
@@ -131,11 +167,14 @@ export function OfficialPrintModal({
       <html>
         <head>
           <meta charset="utf-8" />
-          <title>РОЗКЛАД ЗАНЯТЬ на ${formattedDate}, ${DAY_NAMES_LOWER[dow] || ""}, ${weekLabel}</title>
+          <title>rozklad_${targetDate}</title>
+          <link rel="preconnect" href="https://fonts.googleapis.com">
+          <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+          <link href="https://fonts.googleapis.com/css2?family=Arimo:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
           <style>
             @page {
               size: A4 landscape;
-              margin: 6mm 6mm;
+              margin: 7.8mm 7.5mm 6mm 6mm;
             }
             * {
               box-sizing: border-box;
@@ -145,64 +184,127 @@ export function OfficialPrintModal({
             body {
               margin: 0;
               padding: 0;
-              font-family: "Times New Roman", Times, serif;
+              font-family: "Arimo", "Arial", sans-serif;
               color: #000;
               background: #fff;
-              font-size: 9pt;
+              -webkit-font-smoothing: antialiased;
             }
-            .header-block {
-              text-align: right;
-              font-weight: bold;
-              font-size: 13pt;
-              line-height: 1.25;
-              margin-bottom: 8px;
+            .header-title {
+              font-family: "Courier New", Courier, monospace;
+              font-weight: 700;
+              font-size: 20pt;
+              text-align: center;
+              line-height: 1.1;
+              margin: 0 0 4mm 0;
+              white-space: nowrap;
             }
-            table {
-              width: 100%;
+            table.schedule-table {
+              table-layout: fixed;
+              width: 283mm;
               border-collapse: collapse;
-              border: 1px solid #000;
-              font-size: 8.5pt;
-              line-height: 1.15;
+              margin: 0 auto;
             }
-            th, td {
-              border: 1px solid #000;
-              padding: 2px 3px;
+            thead {
+              display: table-header-group;
+            }
+            tfoot {
+              display: table-footer-group;
+            }
+            tfoot td {
+              border: none !important;
+              padding-top: 3mm !important;
+              font-family: "Arimo", "Arial", sans-serif;
+              font-size: 7pt;
               color: #000;
+              text-align: left;
             }
             th {
+              border: 1px solid #000;
               background-color: #f2f2f2;
-              text-align: center;
-              font-weight: bold;
-            }
-            .td-group {
-              width: 50px;
-              text-align: center;
-              font-size: 11pt;
-              font-weight: bold;
+              padding: 1mm 0.5mm;
               vertical-align: middle;
             }
-            .td-subject {
-              vertical-align: top;
-            }
-            .td-room {
-              width: 38px;
+            th.th-group {
+              width: 14mm;
+              font-size: 9pt;
+              font-weight: 700;
               text-align: center;
-              vertical-align: bottom;
-              font-weight: 500;
-            }
-            .subject-text {
-              font-weight: 600;
-              font-size: 8.5pt;
-              word-break: break-word;
-              line-height: 1.15;
-            }
-            .teacher-text {
-              font-size: 8pt;
               line-height: 1.1;
             }
-            tr {
+            th.th-slot {
+              font-family: "Times New Roman", Times, serif;
+              font-size: 14pt;
+              font-weight: 700;
+              text-align: center;
+              width: 44.8mm;
+            }
+            th.th-room {
+              width: 9mm;
+              font-size: 7pt;
+              font-weight: normal;
+              text-align: center;
+              line-height: 1.05;
+            }
+            tr.group-row {
+              height: 15.3mm;
+              min-height: 15.3mm;
+              border-bottom: 2px solid #000;
               page-break-inside: avoid;
               break-inside: avoid;
+            }
+            td {
+              border: 1px solid #000;
+              padding: 1mm 1.5mm;
+              vertical-align: top;
+            }
+            td.td-group {
+              width: 14mm;
+              font-size: 22pt;
+              font-weight: 700;
+              text-align: center;
+              vertical-align: middle;
+              line-height: 1;
+              padding: 0;
+            }
+            td.td-subject {
+              width: 44.8mm;
+              font-size: 10pt;
+              line-height: 1.15;
+            }
+            td.td-room {
+              width: 9mm;
+              color: #1f4e8c;
+              font-weight: 700;
+              font-size: 10pt;
+              line-height: 1.15;
+              text-align: center;
+              vertical-align: top;
+              padding-left: 0.5mm;
+              padding-right: 0.5mm;
+            }
+            .subj-title {
+              font-weight: 700;
+              font-size: 10pt;
+              color: #000;
+              word-break: break-word;
+              margin-bottom: 0.5mm;
+            }
+            .teacher-line {
+              font-style: italic;
+              font-size: 10pt;
+              color: #000;
+              line-height: 1.15;
+            }
+            .sub-teacher-line {
+              font-style: italic;
+              font-size: 9.5pt;
+              color: #000;
+              line-height: 1.15;
+              margin-top: 0.5mm;
+            }
+            .room-line {
+              color: #1f4e8c;
+              font-weight: 700;
             }
           </style>
         </head>
@@ -226,7 +328,7 @@ export function OfficialPrintModal({
           }
         }, 1500);
       }
-    }, 200);
+    }, 250);
   };
 
   if (!mounted) return null;
@@ -240,7 +342,7 @@ export function OfficialPrintModal({
         @media print {
           @page {
             size: A4 landscape;
-            margin: 6mm 6mm;
+            margin: 7.8mm 7.5mm 6mm 6mm;
           }
           html, body {
             background: #fff !important;
@@ -267,32 +369,11 @@ export function OfficialPrintModal({
             display: none !important;
           }
           .print-sheet {
-            max-width: 100% !important;
-            margin: 0 !important;
+            width: 283mm !important;
+            max-width: none !important;
+            margin: 0 auto !important;
             padding: 0 !important;
             overflow: visible !important;
-          }
-          table.official-table {
-            width: 100% !important;
-            border-collapse: collapse !important;
-            font-family: "Times New Roman", Times, serif !important;
-            font-size: 8.5pt !important;
-            line-height: 1.15 !important;
-            color: #000 !important;
-          }
-          table.official-table th,
-          table.official-table td {
-            border: 1px solid #000 !important;
-            color: #000 !important;
-          }
-          table.official-table th {
-            background-color: #f3f3f3 !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-          tr {
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
           }
         }
       `}</style>
@@ -300,7 +381,7 @@ export function OfficialPrintModal({
       {/* Панель керування (ховається під час друку) */}
       <div className="print-hide flex flex-wrap items-center justify-between gap-4 border-b border-sys-border bg-sys-card px-6 py-4">
         <div className="flex items-center gap-3">
-          <h2 className="text-lg font-bold text-white">🖨️ Друк розкладу (формат адміністрації)</h2>
+          <h2 className="text-lg font-bold text-white">🖨️ Офіційний розклад (формат адміністрації)</h2>
           <input
             type="date"
             value={targetDate}
@@ -336,7 +417,7 @@ export function OfficialPrintModal({
         </div>
       </div>
 
-      {/* Аркуш для перегляду та друку */}
+      {/* Аркуш для попереднього перегляду та друку */}
       <div className="flex-1 overflow-auto bg-white p-6 text-black print:overflow-visible print:p-0">
         {!loadedDate ? (
           <div className="py-20 text-center text-slate-500 print-hide">
@@ -345,86 +426,118 @@ export function OfficialPrintModal({
               : "Оберіть дату та натисніть «Сформувати відомість», щоб згенерувати таблицю по всіх групах коледжу."}
           </div>
         ) : (
-          <div ref={printSheetRef} className="print-sheet mx-auto max-w-[1200px] print:max-w-none">
-            <div className="header-block mb-3 text-right font-serif text-base font-bold leading-snug">
-              <div>РОЗКЛАД ЗАНЯТЬ на</div>
-              <div>
-                {formattedDate}, {DAY_NAMES_LOWER[dow] || ""}, {weekLabel}
-              </div>
-            </div>
+          <div ref={printSheetRef} className="print-sheet mx-auto w-[283mm] print:w-[283mm]">
+            {/* Заголовок по центру: Courier New Bold 20pt в один рядок */}
+            <h1 className="header-title font-mono font-bold text-[20pt] text-center leading-tight mb-3 text-black whitespace-nowrap">
+              РОЗКЛАД ЗАНЯТЬ на {formattedDate}, {DAY_NAMES_LOWER[dow] || ""}, {weekLabel}
+            </h1>
 
-            <table className="official-table w-full border-collapse border border-black font-serif text-[11px] leading-tight text-black">
-              <thead>
-                <tr className="bg-neutral-100 print:bg-neutral-100">
-                  <th className="w-12 border border-black px-1 py-1 text-center font-bold">
+            {/* Таблиця розкладу: table-layout fixed, ширина 283mm */}
+            <table className="schedule-table w-[283mm] table-fixed border-collapse border border-black font-sans text-black">
+              <colgroup>
+                {/* 1. Номер групи: 14mm */}
+                <col style={{ width: "14mm" }} />
+                {/* 5 слотів (0, 1, 2, 3, 4): текст 44.8mm + ауд 9mm */}
+                {[0, 1, 2, 3, 4].map((slot) => (
+                  <React.Fragment key={`col-slot-${slot}`}>
+                    <col style={{ width: "44.8mm" }} />
+                    <col style={{ width: "9mm" }} />
+                  </React.Fragment>
+                ))}
+              </colgroup>
+
+              {/* Шапка: 25pt, повторюється на кожній сторінці */}
+              <thead className="table-header-group">
+                <tr className="bg-neutral-100 print:bg-neutral-100 h-[25pt]">
+                  <th className="th-group border border-black px-1 py-0.5 text-center font-bold text-[9pt] leading-tight">
                     Номер
                     <br />
                     групи
                   </th>
                   {[0, 1, 2, 3, 4].map((num) => (
-                    <th key={`h-${num}`} colSpan={2} className="border border-black p-0">
-                      <div className="grid grid-cols-[1fr_38px] divide-x divide-black">
-                        <div className="flex items-center justify-center py-1 font-bold">{num}</div>
-                        <div className="py-0.5 text-center text-[10px] font-normal leading-none">
-                          Ном.
-                          <br />
-                          ауд.
-                        </div>
-                      </div>
-                    </th>
+                    <React.Fragment key={`head-pair-${num}`}>
+                      <th className="th-slot border border-black px-1 py-0.5 text-center font-serif font-bold text-[14pt]">
+                        {num}
+                      </th>
+                      <th className="th-room border border-black px-0.5 py-0.5 text-center font-sans font-normal text-[7pt] leading-none">
+                        Ном.
+                        <br />
+                        ауд.
+                      </th>
+                    </React.Fragment>
                   ))}
                 </tr>
               </thead>
+
+              {/* Футер: знизу ліворуч, 7pt, на кожній сторінці */}
+              <tfoot className="table-footer-group">
+                <tr>
+                  <td
+                    colSpan={11}
+                    className="border-none pt-2 font-sans text-[7pt] text-black text-left"
+                  >
+                    {DAY_NAMES_LOWER[dow] || ""}, {weekLabel}
+                  </td>
+                </tr>
+              </tfoot>
+
               <tbody>
                 {sortedGroups.map((group) => {
                   const groupLessons = lessonsByGroup[group.id] || {};
-                  const cells = [0, 1, 2, 3, 4].map((num) => splitSubgroups(groupLessons[num]));
-                  const hasSecondRow = cells.some((c) => c?.t2);
+                  const cells = [0, 1, 2, 3, 4].map((num) =>
+                    splitSubgroups(groupLessons[num])
+                  );
 
                   return (
-                    <React.Fragment key={group.id}>
-                      <tr key={`g-${group.id}-r1`} className="break-inside-avoid">
-                        <td
-                          rowSpan={hasSecondRow ? 2 : 1}
-                          className="td-group border border-black px-1 py-1 text-center text-sm font-bold align-middle"
-                        >
-                          {group.name}
-                        </td>
-                        {cells.map((c, idx) => (
-                          <td key={`g-${group.id}-p-${idx}-subj`} className="td-subject border border-black px-1.5 py-0.5 align-top">
+                    <tr
+                      key={`g-${group.id}`}
+                      className="group-row border-b-2 border-black h-[15.3mm] min-h-[15.3mm] break-inside-avoid"
+                    >
+                      {/* Номер групи: Arial Bold 22pt по центру клітинки */}
+                      <td className="td-group border border-black text-center align-middle font-bold text-[22pt] leading-none px-0 py-1">
+                        {group.name}
+                      </td>
+
+                      {/* 5 слотів (0, 1, 2, 3, 4) */}
+                      {cells.map((c, idx) => (
+                        <React.Fragment key={`g-${group.id}-slot-${idx}`}>
+                          {/* Текст пари: назва предмета Arial Bold 10pt + викладач Arial Italic 10pt */}
+                          <td className="td-subject border border-black p-1 align-top text-black">
                             {c ? (
-                              <>
-                                <div className="subject-text font-medium truncate max-w-[165px] print:max-w-none print:whitespace-normal">{c.subject}</div>
-                                <div className="teacher-text text-[10.5px]">{c.t1}</div>
-                              </>
+                              <div className="flex flex-col justify-start">
+                                <div className="subj-title font-bold text-[10pt] leading-[1.15] text-black">
+                                  {c.subject}
+                                </div>
+                                <div className="teacher-line italic text-[10pt] leading-[1.15] text-black">
+                                  {c.t1}
+                                </div>
+                                {c.t2 && (
+                                  <div className="sub-teacher-line italic text-[9.5pt] leading-[1.15] text-black mt-0.5">
+                                    {c.t2}
+                                  </div>
+                                )}
+                              </div>
                             ) : null}
                           </td>
-                        )).flatMap((subjTd, idx) => [
-                          subjTd,
-                          <td
-                            key={`g-${group.id}-p-${idx}-room`}
-                            className="td-room w-[38px] border border-black px-1 py-0.5 text-center align-bottom font-medium"
-                          >
-                            {cells[idx]?.r1 || ""}
-                          </td>,
-                        ])}
-                      </tr>
-                      {hasSecondRow && (
-                        <tr key={`g-${group.id}-r2`} className="break-inside-avoid">
-                          {cells.flatMap((c, idx) => [
-                            <td key={`g-${group.id}-p-${idx}-sub2`} className="td-subject border border-black px-1.5 py-0.5 align-top">
-                              {c?.t2 ? <div className="teacher-text text-[10.5px]">{c.t2}</div> : null}
-                            </td>,
-                            <td
-                              key={`g-${group.id}-p-${idx}-room2`}
-                              className="td-room w-[38px] border border-black px-1 py-0.5 text-center align-bottom font-medium"
-                            >
-                              {c?.t2 ? c.r2 || "" : ""}
-                            </td>,
-                          ])}
-                        </tr>
-                      )}
-                    </React.Fragment>
+
+                          {/* Колонка аудиторії: 9mm, синій колір #1f4e8c, Arial Bold 10pt, зверху */}
+                          <td className="td-room border border-black p-0.5 text-center align-top font-bold text-[10pt] text-[#1f4e8c]">
+                            {c ? (
+                              <div className="flex flex-col justify-start">
+                                <div className="room-line leading-[1.15]">
+                                  {c.r1}
+                                </div>
+                                {c.t2 && (
+                                  <div className="room-line leading-[1.15] mt-0.5">
+                                    {c.r2 || ""}
+                                  </div>
+                                )}
+                              </div>
+                            ) : null}
+                          </td>
+                        </React.Fragment>
+                      ))}
+                    </tr>
                   );
                 })}
               </tbody>
