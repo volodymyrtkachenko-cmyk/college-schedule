@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.models import Group, Schedule, Subject, Teacher
+from app.models import Group, Schedule, Subject, Teacher, ScheduleOverride
 from app.models.lesson_notes import LessonOccurrenceNote
 from app.services.projection import build_projection
 
@@ -223,7 +223,7 @@ def _match_announcement_to_lesson(
             score += 25.0
             subject_matched = True
     elif "іноземн" in subject_lower or "англ" in subject_lower:
-        if "іноземн" in text_lower or "англ" in text_lower:
+        if "іноземн" in text_lower or "англ" in text_lower or "токарєв" in text_lower or "хочинськ" in text_lower:
             score += 25.0
             subject_matched = True
     else:
@@ -264,6 +264,10 @@ async def ensure_known_online_links(db: AsyncSession) -> None:
     - Комп'ютерна електроніка (Філімончук А.В.): https://zoom.us/j/2783533865?pwd=dfkr
     - Комп'ютерна схемотехніка (Дворніченко Н.Ф.): https://us02web.zoom.us/j/83833012124?pwd=c8TCu5Ebfxj9wBLJP9kX2f1eFkqsbP.1
     - Українська мова (Прощенко І.М.): https://meet.google.com/wis-yind-cnt
+    - Іноземна мова (Токарєва О.В. / Хочинська О.С.):
+        Токарєва: https://meet.google.com/vxe-jxdp-drx
+        Хочинська: https://us02web.zoom.us/j/6642778085?pwd=ZzFKMHJkS0pWbjRhMEFwbHA3cXJOdz09&omn=82076789020
+    - Скасовує пару фізкультури у вівторок (пари немає).
     """
     group = await db.scalar(
         select(Group).where(
@@ -276,7 +280,40 @@ async def ensure_known_online_links(db: AsyncSession) -> None:
     if not group:
         return
 
-    # Очищаємо помилкові онлайн-посилання з уроків фізвиховання
+    # 1. Скасовуємо пару фізкультури у вівторок (13.10.2026 та інші вівторки)
+    target_mondays = [date(2026, 10, 12)]
+    today_kyiv = datetime.now(KYIV_TZ).date()
+    cur_mon = today_kyiv - timedelta(days=today_kyiv.weekday())
+    if cur_mon not in target_mondays:
+        target_mondays.append(cur_mon)
+
+    target_tuesdays = set()
+    for m in target_mondays:
+        target_tuesdays.add(m + timedelta(days=1))
+        target_tuesdays.add(m + timedelta(days=8))
+        target_tuesdays.add(m - timedelta(days=6))
+
+    for tue_date in target_tuesdays:
+        pe_override = await db.scalar(
+            select(ScheduleOverride).where(
+                ScheduleOverride.group_id == group.id,
+                ScheduleOverride.date == tue_date,
+                ScheduleOverride.lesson_number == 2,
+            )
+        )
+        if pe_override:
+            pe_override.cancelled = True
+        else:
+            db.add(
+                ScheduleOverride(
+                    group_id=group.id,
+                    date=tue_date,
+                    lesson_number=2,
+                    cancelled=True,
+                )
+            )
+
+    # Очищаємо/архівуємо будь-які нотатки до уроків фізвиховання
     pe_notes = (await db.scalars(
         select(LessonOccurrenceNote).where(
             LessonOccurrenceNote.group_id == group.id,
@@ -285,13 +322,7 @@ async def ensure_known_online_links(db: AsyncSession) -> None:
         )
     )).all()
     for pn in pe_notes:
-        cleaned = "\n".join(
-            line for line in pn.note.split("\n") if not URL_RE.search(line)
-        ).strip()
-        if not cleaned:
-            pn.archived = True
-        else:
-            pn.note = cleaned
+        pn.archived = True
         pn.revision += 1
         pn.updated_at = datetime.now(timezone.utc)
 
@@ -322,17 +353,17 @@ async def ensure_known_online_links(db: AsyncSession) -> None:
             an.revision += 1
             an.updated_at = datetime.now(timezone.utc)
 
-    # Визначаємо дати для перевірки: активний тиждень жовтня (12-16 жовтня 2026) та поточний тиждень
-    target_mondays = [date(2026, 10, 12)]
-    today_kyiv = datetime.now(KYIV_TZ).date()
-    cur_mon = today_kyiv - timedelta(days=today_kyiv.weekday())
-    if cur_mon not in target_mondays:
-        target_mondays.append(cur_mon)
+    foreign_lang_note = (
+        "Токарєва: https://meet.google.com/vxe-jxdp-drx\n"
+        "Хочинська: https://us02web.zoom.us/j/6642778085?pwd=ZzFKMHJkS0pWbjRhMEFwbHA3cXJOdz09&omn=82076789020"
+    )
 
     known_links = {
         "електронік": "https://zoom.us/j/2783533865?pwd=dfkr",
         "схемотехнік": "https://us02web.zoom.us/j/83833012124?pwd=c8TCu5Ebfxj9wBLJP9kX2f1eFkqsbP.1",
         "українськ": "https://meet.google.com/wis-yind-cnt",
+        "іноземн": foreign_lang_note,
+        "англ": foreign_lang_note,
     }
 
     for mon in target_mondays:
@@ -369,10 +400,17 @@ async def ensure_known_online_links(db: AsyncSession) -> None:
                 )
 
                 if existing:
-                    if matched_url not in existing.note:
+                    needs_update = False
+                    if "іноземн" in subj_lower or "англ" in subj_lower:
+                        if "Токарєва" not in existing.note or "Хочинська" not in existing.note:
+                            needs_update = True
+                    elif matched_url not in existing.note:
+                        needs_update = True
+
+                    if needs_update:
                         user_lines = [
                             l.strip() for l in existing.note.split("\n")
-                            if not URL_RE.search(l) and not re.search(r"^(?:id|код|пароль)\b", l, re.I) and l.strip()
+                            if not URL_RE.search(l) and not re.search(r"^(?:id|код|пароль|токарєв|хочинськ)\b", l, re.I) and l.strip()
                         ]
                         existing.note = f"{matched_url}\n{chr(10).join(user_lines)}".strip() if user_lines else matched_url
                         existing.subject_id = lesson.subject_id
@@ -570,26 +608,50 @@ async def sync_from_classroom(
                 if _is_physical_education(lesson.subject_name) or _is_curator_hour(lesson.subject_name):
                     continue
 
-                best_ann = None
-                best_score = 0.0
-                for ann in parsed_announcements:
-                    s = _match_announcement_to_lesson(ann, lesson, target_date)
-                    if s > best_score:
-                        best_score = s
-                        best_ann = ann
+                # Підтримка підгруп / кількох викладачів (наприклад "Токарєва О.В. / Хочинська О.С.")
+                teacher_splits = [t.strip() for t in (lesson.teacher_name or "").split("/") if t.strip()]
+                matched_links = []
 
-                if not best_ann or best_score < 20.0:
+                if len(teacher_splits) > 1:
+                    for t_item in teacher_splits:
+                        best_ann = None
+                        best_score = 0.0
+                        for ann in parsed_announcements:
+                            fake_lesson = type("FakeLesson", (), {
+                                "teacher_name": t_item,
+                                "subject_name": lesson.subject_name,
+                                "lesson_number": lesson.lesson_number,
+                            })()
+                            s = _match_announcement_to_lesson(ann, fake_lesson, target_date)
+                            if s > best_score:
+                                best_score = s
+                                best_ann = ann
+                        if best_ann and best_score >= 20.0:
+                            short_name = t_item.split()[0]
+                            matched_links.append(f"{short_name}: {best_ann['url']}")
+
+                if not matched_links:
+                    best_ann = None
+                    best_score = 0.0
+                    for ann in parsed_announcements:
+                        s = _match_announcement_to_lesson(ann, lesson, target_date)
+                        if s > best_score:
+                            best_score = s
+                            best_ann = ann
+
+                    if best_ann and best_score >= 20.0:
+                        url_str = best_ann["url"]
+                        is_meet = "meet.google.com" in url_str.lower()
+                        has_pwd_in_url = "pwd=" in url_str.lower()
+                        parts_line = [url_str]
+                        if not is_meet and not has_pwd_in_url and best_ann.get("zoom_pass"):
+                            parts_line.append(f"Код: {best_ann['zoom_pass']}")
+                        matched_links.append(" | ".join(parts_line))
+
+                if not matched_links:
                     continue
 
-                url_str = best_ann["url"]
-                is_meet = "meet.google.com" in url_str.lower()
-                has_pwd_in_url = "pwd=" in url_str.lower()
-
-                parts_line = [url_str]
-                if not is_meet and not has_pwd_in_url and best_ann["zoom_pass"]:
-                    parts_line.append(f"Код: {best_ann['zoom_pass']}")
-
-                formatted_link_note = " | ".join(parts_line)
+                formatted_link_note = "\n".join(matched_links)
 
                 existing_note = await db.scalar(
                     select(LessonOccurrenceNote).where(
@@ -604,7 +666,7 @@ async def sync_from_classroom(
                     user_lines = [
                         line.strip()
                         for line in existing_note.note.split("\n")
-                        if not URL_RE.search(line) and not re.search(r"^(?:id|код|пароль)\b", line, re.I) and line.strip()
+                        if not URL_RE.search(line) and not re.search(r"^(?:id|код|пароль|токарєв|хочинськ)\b", line, re.I) and line.strip()
                     ]
                     new_note_content = (
                         f"{formatted_link_note}\n{chr(10).join(user_lines)}".strip()[:500]
@@ -637,7 +699,7 @@ async def sync_from_classroom(
                     )
                     synced_links += 1
 
-        # Гарантуємо наявність перевірених постійних посилань
+        # Гарантуємо наявність перевірених постійних посилань та скасування фізкультури
         await ensure_known_online_links(db)
         await db.commit()
 

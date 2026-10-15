@@ -115,13 +115,15 @@ export function getVisibleUserNote(note?: string | null): string {
     .split("\n")
     .map((line) => {
       if (line.trim().startsWith("[TASK]")) return "";
-      // Без \b перед кирилицею, бо в JS \b не працює з українськими літерами!
       const cleaned = line
-        .replace(/https?:\/\/(?:meet\.google\.com|[a-z0-9.-]*zoom\.us)\/[^\s|]+/gi, "")
+        .replace(/^(?:(?:[А-Яа-яІіЇїЄєa-zA-Z\s.'—–\-/]+\d*|підгрупа\s*\d*)\s*[:\-–]\s*)?https?:\/\/(?:meet\.google\.com|[a-z0-9.-]*zoom\.us)\/[^\s|]+/gi, "")
         .replace(/(?:Ідентифікатор(?:\s+конференції)?|Meeting\s*ID|ID)\s*:\s*[\d\s\-]+/gi, "")
         .replace(/(?:Код(?:\s+доступ[уа])?|Passcode|Пароль)\s*:\s*[A-Za-zА-Яа-яІіЇїЄє0-9_.\-]+/gi, "")
         .replace(/\|/g, " ")
         .trim();
+      if (/^[А-Яа-яІіЇїЄєa-zA-Z\s.'—–\-:]+$/.test(cleaned) && /(?:токарєв|хочинськ|підгруп)/i.test(cleaned)) {
+        return "";
+      }
       return cleaned;
     })
     .filter(Boolean)
@@ -129,45 +131,69 @@ export function getVisibleUserNote(note?: string | null): string {
     .trim();
 }
 
-function extractOnlineMeetingInfo(note?: string | null, room?: string | null) {
+export interface MeetingInfo {
+  url: string;
+  platform: "meet" | "zoom";
+  passcode: string | null;
+  label?: string;
+}
+
+export function extractOnlineMeetings(note?: string | null, room?: string | null): MeetingInfo[] {
   const lines = `${room || ""}\n${note || ""}`.split("\n");
+  const results: MeetingInfo[] = [];
+  const seenUrls = new Set<string>();
 
   for (const line of lines) {
-    const urlMatch = line.match(
-      /https?:\/\/(?:meet\.google\.com|[a-z0-9.-]*zoom\.us)\/[^\s<>"')|]+/i
+    const urlMatches = Array.from(
+      line.matchAll(/https?:\/\/(?:meet\.google\.com|[a-z0-9.-]*zoom\.us)\/[^\s<>"')|]+/gi)
     );
-    if (!urlMatch) continue;
 
-    let url = urlMatch[0];
-    const isMeet = url.toLowerCase().includes("meet.google.com");
+    for (const match of urlMatches) {
+      let url = match[0];
+      if (seenUrls.has(url.toLowerCase())) continue;
+      seenUrls.add(url.toLowerCase());
 
-    // Для Google Meet жодних кодів доступу не буває
-    if (isMeet) {
-      return { url, platform: "meet" as const, passcode: null };
+      const isMeet = url.toLowerCase().includes("meet.google.com");
+      const hasEmbeddedPwd = /[?&]pwd=[^&\s]+/i.test(url);
+
+      const passMatch = line.match(
+        /(?:Код(?:\s+доступ[уа])?|Passcode|Пароль)\s*:\s*([A-Za-z0-9_.\-]+)/i
+      );
+      const rawPass = passMatch ? passMatch[1] : null;
+
+      if (!isMeet && !hasEmbeddedPwd && rawPass) {
+        const sep = url.includes("?") ? "&" : "?";
+        url = `${url}${sep}pwd=${encodeURIComponent(rawPass)}`;
+      }
+
+      let label: string | undefined;
+      const lowerLine = line.toLowerCase();
+      if (lowerLine.includes("токарєв")) {
+        label = "Токарєва";
+      } else if (lowerLine.includes("хочинськ")) {
+        label = "Хочинська";
+      } else {
+        const prefixMatch = line.match(
+          /^([А-Яа-яІіЇїЄєa-zA-Z\s.'—–\-]+|\d+\s*підгрупа|підгрупа\s*\d+)\s*[:\-–]\s*https?/i
+        );
+        if (prefixMatch) {
+          const raw = prefixMatch[1].trim();
+          if (raw.length >= 3 && raw.length <= 25) {
+            label = raw;
+          }
+        }
+      }
+
+      results.push({
+        url,
+        platform: isMeet ? "meet" : "zoom",
+        passcode: hasEmbeddedPwd ? null : rawPass,
+        label,
+      });
     }
-
-    // Для Zoom перевіряємо, чи вже вшитий пароль у саме посилання (?pwd=...)
-    const hasEmbeddedPwd = /[?&]pwd=[^&\s]+/i.test(url);
-
-    const passMatch = line.match(
-      /(?:Код(?:\s+доступ[уа])?|Passcode|Пароль)\s*:\s*([A-Za-z0-9_.\-]+)/i
-    );
-    const rawPass = passMatch ? passMatch[1] : null;
-
-    // Якщо в URL ще немає ?pwd=, але є код — додаємо його в URL
-    if (!hasEmbeddedPwd && rawPass) {
-      const sep = url.includes("?") ? "&" : "?";
-      url = `${url}${sep}pwd=${encodeURIComponent(rawPass)}`;
-    }
-
-    // Показуємо бейдж 🔑 ТІЛЬКИ якщо в оригінальному URL не було зашифрованого ?pwd=
-    return {
-      url,
-      platform: "zoom" as const,
-      passcode: hasEmbeddedPwd ? null : rawPass,
-    };
   }
-  return null;
+
+  return results;
 }
 
 export function LessonCard({
@@ -238,7 +264,8 @@ export function LessonCard({
     isLive && endMin !== null && nowState ? Math.max(1, endMin - nowState.minutes) : 0;
 
   const isTeacherView = scheduleMode === "teacher";
-  const meeting = extractOnlineMeetingInfo(lesson.note, lesson.room);
+  const meetings = extractOnlineMeetings(lesson.note, lesson.room);
+  const hasMeeting = meetings.length > 0;
   const secondaryItems = useMemo(() => {
     return isTeacherView ? parseLessonGroups(lesson) : parseLessonTeachers(lesson);
   }, [isTeacherView, lesson]);
@@ -312,7 +339,7 @@ export function LessonCard({
             )}
           </div>
 
-          {(secondaryItems.length > 0 || lesson.room || meeting) && (
+          {(secondaryItems.length > 0 || lesson.room || hasMeeting) && (
             <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
               {secondaryItems.length > 0 && (
                 <div className="min-w-0 break-words text-left text-sm text-sys-text-secondary">
@@ -348,39 +375,57 @@ export function LessonCard({
                 </div>
               )}
               <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5">
-                {meeting && (
+                {hasMeeting && (
                   <div className="flex flex-wrap items-center justify-end gap-1.5">
-                    <a
-                      href={meeting.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border px-2 py-0.5 text-[11px] font-bold transition-colors ${
-                        meeting.platform === "meet"
-                          ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
-                          : "border-sky-500/40 bg-sky-500/15 text-sky-300 hover:bg-sky-500/25"
-                      }`}
-                    >
-                      <span>{meeting.platform === "meet" ? "🎥 Meet" : "📹 Zoom"}</span>
-                      <span>↗</span>
-                    </a>
-                    {meeting.passcode && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          void navigator.clipboard.writeText(meeting.passcode!);
-                        }}
-                        title="Натисніть, щоб скопіювати код доступу"
-                        className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold text-amber-300 hover:bg-amber-500/20"
-                      >
-                        <span>🔑</span>
-                        <span>{meeting.passcode}</span>
-                      </button>
-                    )}
+                    {meetings.map((m, idx) => (
+                      <div key={`${m.url}-${idx}`} className="flex flex-wrap items-center justify-end gap-1">
+                        <a
+                          href={m.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          title={
+                            m.label
+                              ? `${m.label} (${m.platform === "meet" ? "Google Meet" : "Zoom"})`
+                              : m.platform === "meet"
+                              ? "Google Meet"
+                              : "Zoom"
+                          }
+                          className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border px-2 py-0.5 text-[11px] font-bold transition-colors ${
+                            m.platform === "meet"
+                              ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
+                              : "border-sky-500/40 bg-sky-500/15 text-sky-300 hover:bg-sky-500/25"
+                          }`}
+                        >
+                          <span>{m.platform === "meet" ? "🎥" : "📹"}</span>
+                          <span>
+                            {m.label
+                              ? m.label
+                              : m.platform === "meet"
+                              ? "Meet"
+                              : "Zoom"}
+                          </span>
+                          <span>↗</span>
+                        </a>
+                        {m.passcode && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void navigator.clipboard.writeText(m.passcode!);
+                            }}
+                            title="Натисніть, щоб скопіювати код доступу"
+                            className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold text-amber-300 hover:bg-amber-500/20"
+                          >
+                            <span>🔑</span>
+                            <span>{m.passcode}</span>
+                          </button>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 )}
-                {!meeting && lesson.room && roomMeta && (
+                {!hasMeeting && lesson.room && roomMeta && (
                   <span className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium ${roomMeta.tone}`}>
                     <span aria-hidden="true" className="text-[11px]">{roomMeta.icon}</span>
                     <span>{formatRoom(lesson.room)}</span>
