@@ -13,6 +13,7 @@ import { getMondayOf } from "../lib/date";
 import { WelcomeScreen } from "../components/WelcomeScreen";
 import { SearchableSelect } from "../components/SearchableSelect";
 import { useToast } from "../components/ToastProvider";
+import { ClassroomSyncButton } from "../components/ClassroomSyncButton";
 import { QuickJumpTarget, findGroupIdByName, findTeacherIdByName } from "../lib/quickJump";
 
 interface PinnedTarget {
@@ -192,6 +193,13 @@ export default function HomePage() {
 
   const UserControls = () => (
     <div className="flex items-center gap-2">
+      <ClassroomSyncButton
+        currentGroupId={mode === "student" ? groupId : null}
+        onSynced={(detectedGroupId) => {
+          toggleMode("student");
+          setGroupId(detectedGroupId);
+        }}
+      />
       <button
         type="button"
         onClick={() => {

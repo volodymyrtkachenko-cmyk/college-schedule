@@ -109,6 +109,24 @@ function getEventBadge(eventType?: string | null, eventTitle?: string | null) {
   }
 }
 
+function extractOnlineMeetingInfo(note?: string | null, room?: string | null) {
+  const combined = `${room || ""} ${note || ""}`;
+  const urlMatch = combined.match(
+    /https?:\/\/(?:meet\.google\.com|[a-z0-9.-]*zoom\.us)\/[^\s<>"')|]+/i
+  );
+  if (!urlMatch) return null;
+
+  const url = urlMatch[0];
+  const isMeet = url.toLowerCase().includes("meet.google.com");
+  const passMatch = combined.match(/(?:Код(?:\s+доступу)?|Passcode|Пароль)\s*:\s*([A-Za-z0-9_.\-]+)/i);
+
+  return {
+    url,
+    platform: isMeet ? ("meet" as const) : ("zoom" as const),
+    passcode: passMatch ? passMatch[1] : null,
+  };
+}
+
 export function LessonCard({
   lesson,
   targetDate,
@@ -177,6 +195,7 @@ export function LessonCard({
     isLive && endMin !== null && nowState ? Math.max(1, endMin - nowState.minutes) : 0;
 
   const isTeacherView = scheduleMode === "teacher";
+  const meeting = extractOnlineMeetingInfo(lesson.note, lesson.room);
   const secondaryItems = useMemo(() => {
     return isTeacherView ? parseLessonGroups(lesson) : parseLessonTeachers(lesson);
   }, [isTeacherView, lesson]);
@@ -250,7 +269,7 @@ export function LessonCard({
             )}
           </div>
 
-          {(secondaryItems.length > 0 || lesson.room) && (
+          {(secondaryItems.length > 0 || lesson.room || meeting) && (
             <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
               {secondaryItems.length > 0 && (
                 <div className="min-w-0 break-words text-left text-sm text-sys-text-secondary">
@@ -285,12 +304,45 @@ export function LessonCard({
                   ))}
                 </div>
               )}
-              {lesson.room && roomMeta && (
-                <span className={`ml-auto inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium ${roomMeta.tone}`}>
-                  <span aria-hidden="true" className="text-[11px]">{roomMeta.icon}</span>
-                  <span>{formatRoom(lesson.room)}</span>
-                </span>
-              )}
+              <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5">
+                {meeting && (
+                  <div className="flex flex-wrap items-center justify-end gap-1">
+                    <a
+                      href={meeting.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-bold transition-colors ${
+                        meeting.platform === "meet"
+                          ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
+                          : "border-sky-500/40 bg-sky-500/15 text-sky-300 hover:bg-sky-500/25"
+                      }`}
+                    >
+                      <span>{meeting.platform === "meet" ? "🎥 Meet" : "📹 Zoom"}</span>
+                      <span>↗</span>
+                    </a>
+                    {meeting.passcode && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void navigator.clipboard.writeText(meeting.passcode!);
+                        }}
+                        title="Натисніть, щоб скопіювати код доступу"
+                        className="inline-flex items-center gap-1 rounded-md border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-semibold text-amber-300 hover:bg-amber-500/20"
+                      >
+                        🔑 {meeting.passcode}
+                      </button>
+                    )}
+                  </div>
+                )}
+                {lesson.room && roomMeta && (
+                  <span className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium ${roomMeta.tone}`}>
+                    <span aria-hidden="true" className="text-[11px]">{roomMeta.icon}</span>
+                    <span>{formatRoom(lesson.room)}</span>
+                  </span>
+                )}
+              </div>
             </div>
           )}
 

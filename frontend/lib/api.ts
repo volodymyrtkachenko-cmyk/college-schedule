@@ -974,7 +974,22 @@ export const api = {
                 method: "DELETE",
             }),
     },
+    classroom: {
+        sync: (accessToken: string, groupId?: number) =>
+            rawRequest<{ group_id: number; group_name: string; synced_links: number }>("/api/classroom/sync", {
+                method: "POST",
+                body: JSON.stringify({
+                    access_token: accessToken,
+                    group_id: groupId,
+                }),
+            }),
+    },
 };
+export interface ClassroomSyncResult {
+    group_id: number;
+    group_name: string;
+    synced_links: number;
+}
 export interface UserResource {
     id: number;
     username: string;
