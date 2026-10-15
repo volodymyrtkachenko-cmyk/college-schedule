@@ -31,6 +31,7 @@ export function ScheduleWeekGrid({
   onMoveSelect,
   onCopySelect,
   onCancelDated,
+  onRestoreDated,
   onMove,
   onQuickJump,
 }: {
@@ -46,6 +47,7 @@ export function ScheduleWeekGrid({
   onMoveSelect?: (lesson: Lesson | null) => void;
   onCopySelect?: (lesson: Lesson) => void;
   onCancelDated?: (lesson: Lesson, date: string) => void;
+  onRestoreDated?: (lesson: Lesson, date: string) => void;
   onMove?: (lesson: Lesson, date: string, lessonNumber: number) => void;
   onQuickJump?: (target: QuickJumpTarget) => void;
 }) {
@@ -100,7 +102,7 @@ export function ScheduleWeekGrid({
           </p>
         )}
         <ScheduleEditGrid week={week} scheduleMode={scheduleMode} onEdit={onEdit} onCreate={onCreate}
-          movingLesson={movingLesson} onMoveSelect={onMoveSelect} onCopySelect={onCopySelect} onCancelDated={onCancelDated} onQuickJump={onQuickJump} onMove={onMove} canMoveTo={canMoveTo} />
+          movingLesson={movingLesson} onMoveSelect={onMoveSelect} onCopySelect={onCopySelect} onCancelDated={onCancelDated} onRestoreDated={onRestoreDated} onQuickJump={onQuickJump} onMove={onMove} canMoveTo={canMoveTo} />
       </div>
     );
   }

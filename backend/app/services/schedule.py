@@ -30,6 +30,7 @@ async def fetch_schedule(
     day_of_week: int | None = None,
     semester_start: date | None = None,
     periods: list | None = None,
+    include_cancelled: bool = False,
 ):
     if semester_start is None:
         semester_start = await settings_service.get_semester_start(db)
@@ -41,6 +42,7 @@ async def fetch_schedule(
         target_date=target_date,
         group_id=group_id,
         teacher_id=teacher_id,
+        include_cancelled=include_cancelled,
     )
     return week_type, lessons
 
@@ -62,9 +64,12 @@ async def fetch_week_schedule(
     start_date: date,
     group_id: int | None = None,
     teacher_id: int | None = None,
+    include_cancelled: bool = False,
 ):
     """Fetch date-aware schedules for weekdays using a single batched query pass."""
-    return await build_week_projection(db, start_date, group_id=group_id, teacher_id=teacher_id)
+    return await build_week_projection(
+        db, start_date, group_id=group_id, teacher_id=teacher_id, include_cancelled=include_cancelled
+    )
 
 
 def week_types_overlap(left: str, right: str) -> bool:

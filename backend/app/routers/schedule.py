@@ -50,6 +50,7 @@ def effective_to_item(item: EffectiveLesson, week_type: str, target_date: date, 
         week_type=week_type,
         is_relevant_this_week=True,
         is_replacement=item.is_replacement,
+        is_cancelled=getattr(item, "is_cancelled", False),
         group_name=item.group_name,
         note=item.note_text,
         note_id=item.note_id,
@@ -119,6 +120,7 @@ def to_item(item, week_type, target_date, bell_times=None, *, item_id=None, is_r
         week_type=item.week_type,
         is_relevant_this_week=item.week_type in ("both", week_type),
         is_replacement=getattr(item, "is_replacement", False) if is_replacement is None else is_replacement,
+        is_cancelled=getattr(item, "is_cancelled", False),
         group_name=getattr(item.group, "name", None),
         note=matching_note.note if matching_note else None,
         note_id=matching_note.id if matching_note else None)
@@ -149,9 +151,18 @@ def serialize_schedule_items(lessons, week_type, target_date, bell_times):
 @router.get("/schedule", response_model=ScheduleResponse)
 async def schedule(group_id: int | None = None, teacher_id: int | None = None,
                    day_of_week: int | None = Query(None, ge=1, le=7),
-                   target_date: date | None = None, db: AsyncSession = Depends(get_db)):
+                   target_date: date | None = None,
+                   include_cancelled: bool = Query(False),
+                   db: AsyncSession = Depends(get_db)):
     target_date = target_date or today_local()
-    week_type, lessons = await fetch_schedule(db=db, target_date=target_date, group_id=group_id, teacher_id=teacher_id, day_of_week=day_of_week)
+    week_type, lessons = await fetch_schedule(
+        db=db,
+        target_date=target_date,
+        group_id=group_id,
+        teacher_id=teacher_id,
+        day_of_week=day_of_week,
+        include_cancelled=include_cancelled,
+    )
     bell_t = await get_bell_times(db)
     return ScheduleResponse(
         date=target_date,
@@ -165,6 +176,7 @@ async def today(
     response: Response,
     group_id: int | None = None,
     teacher_id: int | None = None,
+    include_cancelled: bool = Query(False),
     db: AsyncSession = Depends(get_db)
 ):
     if group_id:
@@ -199,7 +211,7 @@ async def today(
     target = today_local()
     if target.isoweekday() > 5:
         target = target + timedelta(days=8 - target.isoweekday())
-    return await schedule(group_id=group_id, teacher_id=teacher_id, target_date=target, day_of_week=target.isoweekday(), db=db)
+    return await schedule(group_id=group_id, teacher_id=teacher_id, target_date=target, day_of_week=target.isoweekday(), include_cancelled=include_cancelled, db=db)
 
 @router.get("/schedule/week")
 async def week(
@@ -208,6 +220,7 @@ async def week(
     group_id: int | None = None,
     teacher_id: int | None = None,
     target_date: date | None = None,
+    include_cancelled: bool = Query(False),
     db: AsyncSession = Depends(get_db)
 ):
     # T11: PWA Offline caching via Last-Modified
@@ -242,7 +255,7 @@ async def week(
     response.headers["Vary"] = "Date, Origin, Accept-Encoding"
     requested = target_date or today_local()
     start = requested - timedelta(days=requested.isoweekday() - 1)
-    week_type, lessons_by_day = await fetch_week_schedule(db, start, group_id, teacher_id)
+    week_type, lessons_by_day = await fetch_week_schedule(db, start, group_id, teacher_id, include_cancelled=include_cancelled)
     bell_t = await get_bell_times(db)
     from app.services.lesson_notes import attach_week_notes
     days_serialized = [

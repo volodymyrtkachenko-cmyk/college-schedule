@@ -28,7 +28,7 @@ export function AdminScheduleEditor() {
     return Math.abs(weekAnchorDate.getTime() - todayAnchor.getTime()) < 1000 * 60 * 60 * 24;
   }, [weekAnchorDate]);
 
-  const { mode, toggleMode, teachers, teacherId, setTeacherId, groups, groupId, setGroupId, today, week, loading, error, setToday, setWeek, updateLesson, removeLesson, addLesson } = useSchedule(weekAnchorDate);
+  const { mode, toggleMode, teachers, teacherId, setTeacherId, groups, groupId, setGroupId, today, week, loading, error, setToday, setWeek, updateLesson, removeLesson, addLesson } = useSchedule(weekAnchorDate, true);
   const [availabilityWeek, setAvailabilityWeek] = useState<Awaited<ReturnType<typeof api.week>> | null>(null);
   const [availabilityError, setAvailabilityError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -141,10 +141,30 @@ export function AdminScheduleEditor() {
       });
       setToast("Заняття на дату скасовано.", "success");
       invalidateScheduleCache();
-      const updatedWeek = await (mode === "student" && groupId ? api.week(groupId, undefined, weekAnchorDate) : teacherId ? api.week(undefined, teacherId, weekAnchorDate) : null);
+      const updatedWeek = await (mode === "student" && groupId ? api.week(groupId, undefined, weekAnchorDate, true) : teacherId ? api.week(undefined, teacherId, weekAnchorDate, true) : null);
       if (updatedWeek) setWeek(updatedWeek);
     } catch (e) {
       setToast(e instanceof Error ? e.message : "Не вдалося скасувати заняття на дату", "error");
+    }
+  };
+
+  const restoreOnDate = async (lesson: Lesson, date: string) => {
+    if (!lesson.group_id) {
+      setToast("Неможливо відновити заняття без визначеної групи", "error");
+      return;
+    }
+    try {
+      await api.dated.restore({
+        group_id: lesson.group_id,
+        date,
+        lesson_number: lesson.lesson_number,
+      });
+      setToast("Заняття відновлено!", "success");
+      invalidateScheduleCache();
+      const updatedWeek = await (mode === "student" && groupId ? api.week(groupId, undefined, weekAnchorDate, true) : teacherId ? api.week(undefined, teacherId, weekAnchorDate, true) : null);
+      if (updatedWeek) setWeek(updatedWeek);
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : "Не вдалося відновити заняття", "error");
     }
   };
 
@@ -461,6 +481,7 @@ export function AdminScheduleEditor() {
             onMoveSelect={handleMoveSelect}
             onCopySelect={handleCopySelect}
             onCancelDated={cancelOnDate}
+            onRestoreDated={restoreOnDate}
             onQuickJump={handleQuickJump}
             onMove={(lesson, date, lessonNumber) => void moveLesson(lesson, date, lessonNumber)}
             onEdit={(lesson) => { const date = week.find((day) => day.lessons.some((item) => item.id === lesson.id))?.date ?? (today?.date || week?.[0]?.date); setEditor({ lesson, date }); }}

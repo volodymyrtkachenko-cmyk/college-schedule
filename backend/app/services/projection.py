@@ -95,7 +95,8 @@ async def build_projection(
     db: AsyncSession, 
     target_date: date, 
     group_id: Optional[int] = None, 
-    teacher_id: Optional[int] = None
+    teacher_id: Optional[int] = None,
+    include_cancelled: bool = False,
 ) -> List[EffectiveLesson]:
     # 1. Fetch active version and week type
     semester_start = await settings_service.get_semester_start(db)
@@ -282,10 +283,26 @@ async def build_projection(
         if ovr.group_id in blocked_groups:
             continue
         if ovr.cancelled:
+            found = False
             for k in slot_keys(*key):
                 cells[k].is_cancelled = True
                 cells[k].source_kind = "manual"
                 cells[k].source_ref_id = ovr.id
+                found = True
+            if not found:
+                ovr_room = resolve_effective_room(ovr.room, ovr.teacher, ovr.second_teacher)
+                ovr_teacher_name = resolve_teacher_names(ovr.teacher, ovr.second_teacher)
+                cells[(ovr.group_id, ovr.lesson_number, f"o{ovr.id}")] = EffectiveLesson(
+                    group_id=ovr.group_id, date=target_date, lesson_number=ovr.lesson_number,
+                    subject_id=ovr.subject_id, teacher_id=ovr.teacher_id, second_teacher_id=ovr.second_teacher_id,
+                    room=ovr_room, stream_id=ovr.stream_id,
+                    source_kind="manual", source_ref_id=ovr.id,
+                    is_cancelled=True,
+                    group_name=ovr.group.name if getattr(ovr, "group", None) else None,
+                    subject_name=ovr.subject.name if ovr.subject else "Скасована пара",
+                    teacher_name=ovr_teacher_name,
+                    is_replacement=True,
+                )
         else:
             # Add or replace
             ovr_room = resolve_effective_room(ovr.room, ovr.teacher, ovr.second_teacher)
@@ -302,7 +319,7 @@ async def build_projection(
             ), f"o{ovr.id}")
 
     # Filter results
-    results = [c for c in cells.values() if not c.is_cancelled]
+    results = [c for c in cells.values() if include_cancelled or not c.is_cancelled]
 
     if group_id:
         results = [c for c in results if c.group_id == group_id]
@@ -322,6 +339,7 @@ async def build_week_projection(
     start_date: date,
     group_id: Optional[int] = None,
     teacher_id: Optional[int] = None,
+    include_cancelled: bool = False,
 ) -> Tuple[str, Dict[int, List[EffectiveLesson]]]:
     """Batch-load 5 weekdays (Mon..Fri) in 5 queries instead of 25."""
     end_date = start_date + timedelta(days=4)
@@ -553,10 +571,32 @@ async def build_week_projection(
                 continue
             key = (ovr.group_id, ovr.lesson_number)
             if ovr.cancelled:
+                found = False
                 for k in slot_keys(*key):
                     cells[k].is_cancelled = True
                     cells[k].source_kind = "manual"
                     cells[k].source_ref_id = ovr.id
+                    found = True
+                if not found:
+                    ovr_room = resolve_effective_room(ovr.room, ovr.teacher, ovr.second_teacher)
+                    ovr_teacher_name = resolve_teacher_names(ovr.teacher, ovr.second_teacher)
+                    cells[(ovr.group_id, ovr.lesson_number, f"o{ovr.id}")] = EffectiveLesson(
+                        group_id=ovr.group_id,
+                        date=target_date,
+                        lesson_number=ovr.lesson_number,
+                        subject_id=ovr.subject_id,
+                        teacher_id=ovr.teacher_id,
+                        second_teacher_id=ovr.second_teacher_id,
+                        room=ovr_room,
+                        stream_id=ovr.stream_id,
+                        source_kind="manual",
+                        source_ref_id=ovr.id,
+                        is_cancelled=True,
+                        group_name=ovr.group.name if getattr(ovr, "group", None) else None,
+                        subject_name=ovr.subject.name if ovr.subject else "Скасована пара",
+                        teacher_name=ovr_teacher_name,
+                        is_replacement=True,
+                    )
             else:
                 ovr_room = resolve_effective_room(ovr.room, ovr.teacher, ovr.second_teacher)
                 ovr_teacher_name = resolve_teacher_names(ovr.teacher, ovr.second_teacher)
@@ -581,7 +621,7 @@ async def build_week_projection(
                     f"o{ovr.id}",
                 )
 
-        results = [c for c in cells.values() if not c.is_cancelled]
+        results = [c for c in cells.values() if include_cancelled or not c.is_cancelled]
         if group_id:
             results = [c for c in results if c.group_id == group_id]
         if teacher_id:

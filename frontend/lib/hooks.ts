@@ -35,7 +35,7 @@ export function useOnlineStatus() {
   return online;
 }
 
-export function useSchedule(weekAnchorDate: Date) {
+export function useSchedule(weekAnchorDate: Date, includeCancelled = false) {
   const { user } = useAuth();
   const [isSetupComplete, setIsSetupComplete] = useState(false);
   const [mode, setMode] = useState<"student" | "teacher">("student");
@@ -128,8 +128,9 @@ export function useSchedule(weekAnchorDate: Date) {
     
     const dateKey = `${weekAnchorDate.getFullYear()}-${String(weekAnchorDate.getMonth() + 1).padStart(2, "0")}-${String(weekAnchorDate.getDate()).padStart(2, "0")}`;
     const targetKey = mode === "student" ? `groupId:${groupId}` : `teacherId:${teacherId}`;
-    const todayKey = `schedule:today:${targetKey}`;
-    const weekKey = `schedule:week:${targetKey}:${dateKey}`;
+    const cancelSuffix = includeCancelled ? ":all" : "";
+    const todayKey = `schedule:today:${targetKey}${cancelSuffix}`;
+    const weekKey = `schedule:week:${targetKey}:${dateKey}${cancelSuffix}`;
     
     const targetGroupId = mode === "student" ? (groupId as number) : undefined;
     const targetTeacherId = mode === "teacher" ? (teacherId as number) : undefined;
@@ -172,7 +173,10 @@ export function useSchedule(weekAnchorDate: Date) {
           }
       }
 
-      Promise.all([api.today(targetGroupId, targetTeacherId), api.week(targetGroupId, targetTeacherId, weekAnchorDate)])
+      Promise.all([
+        api.today(targetGroupId, targetTeacherId, includeCancelled),
+        api.week(targetGroupId, targetTeacherId, weekAnchorDate, includeCancelled)
+      ])
         .then(([todayResponse, weekResponse]) => {
           if (!isSubscribed) return;
           setToday(todayResponse);

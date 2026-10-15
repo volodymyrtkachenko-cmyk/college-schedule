@@ -95,7 +95,7 @@ class SubjectUpdate(BaseModel):
 class ScheduleItem(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
-    subject_id: int
+    subject_id: int | None = None
     teacher_id: int | None = None
     second_teacher_id: int | None = None
     stream_id: str | None = None
@@ -111,6 +111,7 @@ class ScheduleItem(BaseModel):
     week_type: str
     is_relevant_this_week: bool
     is_replacement: bool = False
+    is_cancelled: bool = False
     group_id: int | None = None
     group_name: str | None = None
     note: str | None = None

@@ -83,6 +83,31 @@ async def cancel_dated_lesson(
     return {"status": "cancelled"}
 
 
+@router.post("/restore")
+async def restore_dated_lesson(
+    payload: DatedCancelPayload,
+    db: AsyncSession = Depends(get_db),
+    actor: User = Depends(require_editor),
+):
+    await lock_versions(db)
+    await authorize_group(db, actor, payload.group_id)
+
+    existing = await db.scalar(
+        select(ScheduleOverride).where(
+            ScheduleOverride.group_id == payload.group_id,
+            ScheduleOverride.date == payload.date,
+            ScheduleOverride.lesson_number == payload.lesson_number,
+        )
+    )
+    if existing:
+        if existing.subject_id is None:
+            await db.delete(existing)
+        else:
+            existing.cancelled = False
+        await db.commit()
+    return {"status": "restored"}
+
+
 @router.post("/replace")
 async def replace_dated_lesson(
     payload: DatedReplacePayload,

@@ -91,6 +91,7 @@ export interface Lesson {
     teacher_name: string | null;
     week_type: WeekType;
     is_replacement?: boolean;
+    is_cancelled?: boolean;
     is_relevant_this_week: boolean;
     group_name?: string;
     note: string | null;
@@ -835,11 +836,18 @@ export const api = {
         update: (resource: ReferenceResource, id: number, payload: Partial<ReferenceMutation>, token: string) => api.references.request<ReferenceRecord>(`${resource}/${id}`, "PATCH", token, payload),
         remove: (resource: ReferenceResource, id: number, token: string) => api.references.request<void>(`${resource}/${id}`, "DELETE", token),
     },
-    today: (groupId?: number, teacherId?: number) => request<ScheduleResponse>(`/api/schedule/today?${groupId ? `group_id=${groupId}` : `teacher_id=${teacherId}`}`),
-    week: (groupId?: number, teacherId?: number, date = new Date()) => {
+    today: (groupId?: number, teacherId?: number, includeCancelled?: boolean) => {
+        const params = new URLSearchParams();
+        if (groupId) params.set("group_id", String(groupId));
+        if (teacherId) params.set("teacher_id", String(teacherId));
+        if (includeCancelled) params.set("include_cancelled", "true");
+        return request<ScheduleResponse>(`/api/schedule/today?${params.toString()}`);
+    },
+    week: (groupId?: number, teacherId?: number, date = new Date(), includeCancelled?: boolean) => {
         const params = new URLSearchParams({ target_date: localDate(date) });
         if (groupId) params.set("group_id", String(groupId));
         if (teacherId) params.set("teacher_id", String(teacherId));
+        if (includeCancelled) params.set("include_cancelled", "true");
         return request<ScheduleResponse[]>(`/api/schedule/week?${params.toString()}`);
     },
     statistics: (target: { groupId?: number; teacherId?: number }) => {
@@ -901,6 +909,11 @@ export const api = {
     dated: {
         cancel: (payload: { group_id: number; date: string; lesson_number: number }) =>
             authenticatedRequest<{ status: string }>("/api/schedule/dated/cancel", {
+                method: "POST",
+                body: JSON.stringify(payload),
+            }),
+        restore: (payload: { group_id: number; date: string; lesson_number: number }) =>
+            authenticatedRequest<{ status: string }>("/api/schedule/dated/restore", {
                 method: "POST",
                 body: JSON.stringify(payload),
             }),

@@ -74,6 +74,7 @@ export function ScheduleDay({
   onMoveSelect,
   onCopySelect,
   onCancelDated,
+  onRestoreDated,
   onQuickJump,
 }: {
   schedule: ScheduleResponse;
@@ -86,6 +87,7 @@ export function ScheduleDay({
   onMoveSelect?: (lesson: Lesson | null) => void;
   onCopySelect?: (lesson: Lesson) => void;
   onCancelDated?: (lesson: Lesson, date: string) => void;
+  onRestoreDated?: (lesson: Lesson, date: string) => void;
   onQuickJump?: (target: QuickJumpTarget) => void;
 }) {
   const { showToast } = useToast();
@@ -253,6 +255,7 @@ export function ScheduleDay({
                   onMoveSelect={onMoveSelect}
                   onCopySelect={onCopySelect}
                   onCancelDated={onCancelDated}
+                  onRestoreDated={onRestoreDated}
                   onQuickJump={onQuickJump}
                 />
               </motion.div>

@@ -79,6 +79,7 @@ export function LessonCard({
   onMoveSelect,
   onCopySelect,
   onCancelDated,
+  onRestoreDated,
   onQuickJump,
 }: {
   lesson: Lesson;
@@ -91,11 +92,12 @@ export function LessonCard({
   onMoveSelect?: (lesson: Lesson | null) => void;
   onCopySelect?: (lesson: Lesson) => void;
   onCancelDated?: (lesson: Lesson, date: string) => void;
+  onRestoreDated?: (lesson: Lesson, date: string) => void;
   onQuickJump?: (target: QuickJumpTarget) => void;
 }) {
   const isSelectedForMove = movingLesson?.id === lesson.id;
   const isDay = mode !== "week";
-  const canEditTemplate = canEdit && !lesson.is_replacement && lesson.id > 0;
+  const canEditTemplate = canEdit && !lesson.is_replacement && !lesson.is_cancelled && lesson.id > 0;
   const canMove = canEditTemplate && !!onMoveSelect;
   const [startT, endT] = lesson.time.split("-");
 
@@ -137,13 +139,15 @@ export function LessonCard({
     return isTeacherView ? parseLessonGroups(lesson) : parseLessonTeachers(lesson);
   }, [isTeacherView, lesson]);
 
-  const stateClass = isLive
-    ? "border-sys-accent/60 ring-1 ring-sys-accent/50 bg-gradient-to-r from-sys-accent/[0.08] via-sys-card to-sys-card shadow-[0_0_20px_rgba(56,189,248,0.12)]"
-    : lesson.is_replacement
-      ? "border-sys-warning/40 ring-1 ring-sys-warning/60 bg-sys-warning/[0.03]"
-      : isSelectedForMove
-        ? "border-emerald-400 ring-1 ring-emerald-400/70"
-        : "border-sys-border";
+  const stateClass = lesson.is_cancelled
+    ? "border-rose-500/40 border-dashed bg-rose-500/[0.04] opacity-80"
+    : isLive
+      ? "border-sys-accent/60 ring-1 ring-sys-accent/50 bg-gradient-to-r from-sys-accent/[0.08] via-sys-card to-sys-card shadow-[0_0_20px_rgba(56,189,248,0.12)]"
+      : lesson.is_replacement
+        ? "border-sys-warning/40 ring-1 ring-sys-warning/60 bg-sys-warning/[0.03]"
+        : isSelectedForMove
+          ? "border-emerald-400 ring-1 ring-emerald-400/70"
+          : "border-sys-border";
 
   const roomMeta = lesson.room ? getRoomBadgeMeta(lesson.room) : null;
 
@@ -189,7 +193,7 @@ export function LessonCard({
             </div>
           )}
 
-          <h3 className={`min-w-0 break-words font-bold leading-snug text-sys-text-subject ${isDay ? "text-base" : "text-sm"}`}>
+          <h3 className={`min-w-0 break-words font-bold leading-snug ${lesson.is_cancelled ? "line-through text-sys-text-muted" : "text-sys-text-subject"} ${isDay ? "text-base" : "text-sm"}`}>
             {lesson.subject_name}
           </h3>
 
@@ -237,78 +241,113 @@ export function LessonCard({
             </div>
           )}
 
-          {lesson.is_replacement && (
+          {lesson.is_cancelled ? (
+            <span className="inline-flex w-fit items-center gap-1 rounded border border-rose-500/40 bg-rose-500/15 px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-rose-400">
+              ❌ Скасовано
+            </span>
+          ) : lesson.is_replacement ? (
             <span className="inline-flex w-fit items-center gap-1 rounded bg-sys-warning px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-sys-warningText">
               ⚡ Заміна
             </span>
-          )}
+          ) : null}
 
           {canEdit && (
             <div className="mt-1 flex flex-wrap items-center gap-1 border-t border-sys-border/30 pt-1.5">
-              {canEditTemplate && (
-                <>
+              {lesson.is_cancelled ? (
+                onRestoreDated && lesson.group_id && (
                   <button
                     type="button"
-                    title="Редагувати шаблон пари"
-                    aria-label={`Редагувати ${lesson.subject_name}`}
                     onClick={(e) => {
                       e.stopPropagation();
-                      onEdit?.(lesson);
+                      onRestoreDated(lesson, targetDate);
                     }}
-                    className={`${ICON_BUTTON} hover:border-sys-accent/60 hover:bg-sys-accent/15 hover:text-sys-accent`}
+                    title={`Відновити пару на ${targetDate}`}
+                    aria-label="Відновити пару на цю дату"
+                    className="inline-flex items-center gap-1 rounded-md border border-emerald-500/50 bg-emerald-500/15 px-2.5 py-1 text-xs font-semibold text-emerald-400 shadow-xs transition-colors hover:border-emerald-500 hover:bg-emerald-500/25"
                   >
-                    <EditIcon />
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                      <path d="M3 3v5h5" />
+                    </svg>
+                    <span>Відновити пару</span>
                   </button>
-                  {canMove && !movingLesson && (
-                    <button
-                      type="button"
-                      title="Перемістити пару"
-                      aria-label="Перемістити пару"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onMoveSelect?.(lesson);
-                      }}
-                      className={`${ICON_BUTTON} hover:border-emerald-500/60 hover:bg-emerald-500/15 hover:text-emerald-400`}
-                    >
-                      <MoveIcon />
-                    </button>
+                )
+              ) : (
+                <>
+                  {canEditTemplate && (
+                    <>
+                      <button
+                        type="button"
+                        title="Редагувати шаблон пари"
+                        aria-label={`Редагувати ${lesson.subject_name}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onEdit?.(lesson);
+                        }}
+                        className={`${ICON_BUTTON} hover:border-sys-accent/60 hover:bg-sys-accent/15 hover:text-sys-accent`}
+                      >
+                        <EditIcon />
+                      </button>
+                      {canMove && !movingLesson && (
+                        <button
+                          type="button"
+                          title="Перемістити пару"
+                          aria-label="Перемістити пару"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onMoveSelect?.(lesson);
+                          }}
+                          className={`${ICON_BUTTON} hover:border-emerald-500/60 hover:bg-emerald-500/15 hover:text-emerald-400`}
+                        >
+                          <MoveIcon />
+                        </button>
+                      )}
+                      {onCopySelect && !movingLesson && (
+                        <button
+                          type="button"
+                          title="Дублювати пару в інший слот"
+                          aria-label="Дублювати пару"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onCopySelect(lesson);
+                          }}
+                          className={`${ICON_BUTTON} hover:border-sky-500/60 hover:bg-sky-500/15 hover:text-sky-400`}
+                        >
+                          <CopyIcon />
+                        </button>
+                      )}
+                    </>
                   )}
-                  {onCopySelect && !movingLesson && (
+                  {onCancelDated && lesson.group_id && (
                     <button
                       type="button"
-                      title="Дублювати пару в інший слот"
-                      aria-label="Дублювати пару"
+                      title={`Скасувати лише на ${targetDate}`}
+                      aria-label="Скасувати лише на цю дату"
                       onClick={(event) => {
                         event.stopPropagation();
-                        onCopySelect(lesson);
+                        if (
+                          typeof window !== "undefined" &&
+                          !window.confirm(`Ви впевнені, що хочете скасувати пару "${lesson.subject_name}" на ${targetDate}?`)
+                        ) {
+                          return;
+                        }
+                        onCancelDated(lesson, targetDate);
                       }}
-                      className={`${ICON_BUTTON} hover:border-sky-500/60 hover:bg-sky-500/15 hover:text-sky-400`}
+                      className={`${ICON_BUTTON} hover:border-rose-500/60 hover:bg-rose-500/15 hover:text-rose-400`}
                     >
-                      <CopyIcon />
+                      <CalendarOffIcon />
                     </button>
                   )}
                 </>
-              )}
-              {onCancelDated && lesson.group_id && (
-                <button
-                  type="button"
-                  title={`Скасувати лише на ${targetDate}`}
-                  aria-label="Скасувати лише на цю дату"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onCancelDated(lesson, targetDate);
-                  }}
-                  className={`${ICON_BUTTON} hover:border-rose-500/60 hover:bg-rose-500/15 hover:text-rose-400`}
-                >
-                  <CalendarOffIcon />
-                </button>
               )}
             </div>
           )}
         </div>
       </div>
 
-      <LessonNote key={`${lesson.group_id}:${targetDate}:${lesson.lesson_number}:${lesson.subject_id}`} lesson={lesson} date={targetDate} />
+      {!lesson.is_cancelled && (
+        <LessonNote key={`${lesson.group_id}:${targetDate}:${lesson.lesson_number}:${lesson.subject_id}`} lesson={lesson} date={targetDate} />
+      )}
 
       {isLive && (
         <div className="absolute bottom-0 left-0 right-0 h-[3px] overflow-hidden bg-sys-border/40">
