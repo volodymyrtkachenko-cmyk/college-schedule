@@ -22,6 +22,7 @@ from app.services.week import get_week_type
 from datetime import datetime as _dt
 
 from app.services.import_slot_safety import normalize_base_slots, version_for_import
+from app.routers.schedule_versions import lock_versions
 
 router = APIRouter(prefix="/drafts", tags=["Drafts"])
 
