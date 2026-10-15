@@ -114,11 +114,12 @@ export function getVisibleUserNote(note?: string | null): string {
   return note
     .split("\n")
     .map((line) => {
-      // Прибираємо технічні сегменти, які вже показані кнопками Meet / Zoom / Код
+      if (line.trim().startsWith("[TASK]")) return "";
+      // Без \b перед кирилицею, бо в JS \b не працює з українськими літерами!
       const cleaned = line
         .replace(/https?:\/\/(?:meet\.google\.com|[a-z0-9.-]*zoom\.us)\/[^\s|]+/gi, "")
-        .replace(/\bID\s*:\s*[\d\s\-\u00a0]+/gi, "")
-        .replace(/\b(?:Код(?:\s+доступ[уа])?|Passcode|Пароль)\s*:\s*[A-Za-z0-9_.\-]+/gi, "")
+        .replace(/(?:Ідентифікатор(?:\s+конференції)?|Meeting\s*ID|ID)\s*:\s*[\d\s\-]+/gi, "")
+        .replace(/(?:Код(?:\s+доступ[уа])?|Passcode|Пароль)\s*:\s*[A-Za-zА-Яа-яІіЇїЄє0-9_.\-]+/gi, "")
         .replace(/\|/g, " ")
         .trim();
       return cleaned;
@@ -137,18 +138,33 @@ function extractOnlineMeetingInfo(note?: string | null, room?: string | null) {
     );
     if (!urlMatch) continue;
 
-    const url = urlMatch[0];
+    let url = urlMatch[0];
     const isMeet = url.toLowerCase().includes("meet.google.com");
 
-    // Шукаємо код доступу ТІЛЬКИ в цьому ж рядку (або в параметрі ?pwd= для Zoom)
+    // Для Google Meet жодних кодів доступу не буває
+    if (isMeet) {
+      return { url, platform: "meet" as const, passcode: null };
+    }
+
+    // Для Zoom перевіряємо, чи вже вшитий пароль у саме посилання (?pwd=...)
+    const hasEmbeddedPwd = /[?&]pwd=[^&\s]+/i.test(url);
+
     const passMatch = line.match(
       /(?:Код(?:\s+доступ[уа])?|Passcode|Пароль)\s*:\s*([A-Za-z0-9_.\-]+)/i
     );
+    const rawPass = passMatch ? passMatch[1] : null;
 
+    // Якщо в URL ще немає ?pwd=, але є код — додаємо його в URL
+    if (!hasEmbeddedPwd && rawPass) {
+      const sep = url.includes("?") ? "&" : "?";
+      url = `${url}${sep}pwd=${encodeURIComponent(rawPass)}`;
+    }
+
+    // Показуємо бейдж 🔑 ТІЛЬКИ якщо в оригінальному URL не було зашифрованого ?pwd=
     return {
       url,
-      platform: isMeet ? ("meet" as const) : ("zoom" as const),
-      passcode: passMatch ? passMatch[1] : null,
+      platform: "zoom" as const,
+      passcode: hasEmbeddedPwd ? null : rawPass,
     };
   }
   return null;

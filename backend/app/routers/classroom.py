@@ -65,25 +65,35 @@ def _extract_group_from_course_name(course_name: str, groups: list[Group]) -> Op
     return None
 
 
-def _parse_announcement(text: str, created_dt: datetime) -> dict:
+def _parse_announcement(text: str, created_dt: datetime, materials: Optional[list] = None) -> dict:
     """Витягує з тексту оголошення дату пари, номер пари, лінк Meet/Zoom, ID та код доступу."""
+    # 1. Шукаємо посилання в тексті АБО в прикріплених матеріалах оголошення Classroom
     url_match = URL_RE.search(text)
+    url = url_match.group(0) if url_match else None
+
+    if not url and materials:
+        for mat in materials:
+            link_url = mat.get("link", {}).get("url", "")
+            if URL_RE.search(link_url):
+                url = URL_RE.search(link_url).group(0)
+                break
+
     zoom_id_match = ZOOM_ID_RE.search(text)
     zoom_pass_match = ZOOM_PASS_RE.search(text)
 
-    url = url_match.group(0) if url_match else None
     zoom_id = re.sub(r"[\s\-\u00a0]", "", zoom_id_match.group(1)) if zoom_id_match else None
     zoom_pass = zoom_pass_match.group(1) if zoom_pass_match else None
 
+    # Якщо в пості немає посилання, але є Ідентифікатор конференції Zoom (як у Філімончука) — генеруємо прямий лінк!
     if not url and zoom_id:
         url = f"https://zoom.us/j/{zoom_id}"
+        if zoom_pass:
+            url = f"{url}?pwd={zoom_pass}"
 
-    # 1. Визначаємо дату проведення пари
+    # 2. Визначаємо дату пари (спочатку шукаємо явну дату ДД.ММ.РРРР у тексті)
     target_date = created_dt.date()
-    lower_text = text.lower()
+    has_explicit_date = False
     date_match = DATE_RE.search(text)
-    has_explicit_date_or_today = False
-
     if date_match:
         day_s, month_s, year_s = date_match.groups()
         year = int(year_s) if year_s else created_dt.year
@@ -91,17 +101,17 @@ def _parse_announcement(text: str, created_dt: datetime) -> dict:
             year += 2000
         try:
             target_date = date(year, int(month_s), int(day_s))
-            has_explicit_date_or_today = True
+            has_explicit_date = True
         except ValueError:
             pass
-    elif "сьогодні" in lower_text or (created_dt.date() == datetime.now(KYIV_TZ).date() and created_dt.hour < 16):
-        has_explicit_date_or_today = True
-    elif "завтра" in lower_text or created_dt.hour >= 16:
+    elif "сьогодні" in text.lower() or (created_dt.date() == datetime.now(KYIV_TZ).date() and created_dt.hour < 16):
+        has_explicit_date = True
+    elif "завтра" in text.lower() or created_dt.hour >= 16:
         # Якщо викладач пише пост увечері (як Філімончук о 18:22) або пише слово "завтра"
         target_date = created_dt.date() + timedelta(days=1)
-        has_explicit_date_or_today = True
+        has_explicit_date = True
 
-    # 2. Визначаємо номер пари за часом (напр. "о 10:40,", "о 12-30", "о 09:03")
+    # 3. Визначаємо номер пари за часом (напр. "о 10:40,", "о 12-30", "о 09:03")
     lesson_number = None
     for m in TIME_RE.finditer(text):
         h, mins = int(m.group(1)), int(m.group(2))
@@ -117,7 +127,8 @@ def _parse_announcement(text: str, created_dt: datetime) -> dict:
         "zoom_pass": zoom_pass,
         "target_date": target_date,
         "lesson_number": lesson_number,
-        "has_explicit_date_or_today": has_explicit_date_or_today,
+        "has_explicit_date": has_explicit_date,
+        "has_explicit_date_or_today": has_explicit_date,
     }
 
 
@@ -206,6 +217,33 @@ async def sync_from_classroom(
             pn.revision += 1
             pn.updated_at = datetime.now(timezone.utc)
 
+        # Очищаємо залишкові " | ID: ... | Код: ..." з активних нотаток групи, якщо пароль вже є в URL Zoom
+        all_active_notes = (await db.scalars(
+            select(LessonOccurrenceNote).where(
+                LessonOccurrenceNote.group_id == detected_group.id,
+                LessonOccurrenceNote.archived.is_(False),
+            )
+        )).all()
+        for an in all_active_notes:
+            modified = False
+            new_lines = []
+            for line in an.note.split("\n"):
+                if "zoom.us" in line.lower() and "pwd=" in line.lower():
+                    cleaned_line = re.sub(
+                        r"\s*\|\s*(?:ID|Код(?:\s+доступ[уа])?|Passcode|Пароль|Meeting ID).*$",
+                        "",
+                        line,
+                        flags=re.IGNORECASE,
+                    ).strip()
+                    if cleaned_line != line:
+                        modified = True
+                        line = cleaned_line
+                new_lines.append(line)
+            if modified:
+                an.note = "\n".join(new_lines).strip()
+                an.revision += 1
+                an.updated_at = datetime.now(timezone.utc)
+
         synced_links = 0
         user_names_cache: dict[str, str] = {}
 
@@ -237,7 +275,7 @@ async def sync_from_classroom(
                 if (datetime.now(KYIV_TZ).date() - created_dt.date()).days > 7:
                     continue
 
-                parsed = _parse_announcement(text, created_dt)
+                parsed = _parse_announcement(text, created_dt, ann.get("materials"))
                 if not parsed["url"]:
                     continue
 
@@ -300,12 +338,16 @@ async def sync_from_classroom(
                     continue
 
                 # 4. Формуємо компактний запис у нотатці до пари (доступний усій групі!)
-                note_lines = [parsed["url"]]
-                if parsed["zoom_id"]:
-                    note_lines.append(f"ID: {parsed['zoom_id']}")
-                if parsed["zoom_pass"]:
-                    note_lines.append(f"Код: {parsed['zoom_pass']}")
-                formatted_link_note = " | ".join(note_lines)
+                url_str = parsed["url"]
+                is_meet = "meet.google.com" in url_str.lower()
+                has_pwd_in_url = "pwd=" in url_str.lower()
+
+                parts_line = [url_str]
+                # Додаємо Код тільки для Zoom і тільки якщо в посиланні ще немає зашифрованого ?pwd=
+                if not is_meet and not has_pwd_in_url and parsed["zoom_pass"]:
+                    parts_line.append(f"Код: {parsed['zoom_pass']}")
+
+                formatted_link_note = " | ".join(parts_line)
 
                 existing_note = await db.scalar(
                     select(LessonOccurrenceNote).where(
