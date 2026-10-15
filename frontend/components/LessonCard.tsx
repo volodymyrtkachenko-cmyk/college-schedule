@@ -380,7 +380,7 @@ export function LessonCard({
                     )}
                   </div>
                 )}
-                {lesson.room && roomMeta && (
+                {!meeting && lesson.room && roomMeta && (
                   <span className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium ${roomMeta.tone}`}>
                     <span aria-hidden="true" className="text-[11px]">{roomMeta.icon}</span>
                     <span>{formatRoom(lesson.room)}</span>

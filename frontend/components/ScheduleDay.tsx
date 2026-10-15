@@ -54,7 +54,8 @@ function buildTelegramShareText(schedule: ScheduleResponse, scheduleMode: "stude
       }
     }
     const rep = evTag || (l.is_replacement ? " ⚡ЗАМІНА" : "");
-    const room = l.room ? ` • 🚪 ${formatRoom(l.room)}` : "";
+    const hasMeeting = Boolean(l.note && /(meet\.google\.com|zoom\.us)/i.test(l.note));
+    const room = (!hasMeeting && l.room) ? ` • 🚪 ${formatRoom(l.room)}` : "";
     const who =
       scheduleMode === "teacher" && l.group_name
         ? `👥 ${l.group_name}`
