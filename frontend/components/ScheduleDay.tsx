@@ -6,6 +6,7 @@ import { ScheduleResponse, Lesson } from "../lib/api";
 import { formatRoom, formatTeachers } from "../lib/format";
 import { useToast } from "./ToastProvider";
 import { LessonCard, QuickJumpTarget } from "./LessonCard";
+import { shareScheduleAsImage } from "../lib/shareImage";
 
 const NUM_EMOJI: Record<number, string> = { 1: "1️⃣", 2: "2️⃣", 3: "3️⃣", 4: "4️⃣", 5: "5️⃣" };
 
@@ -123,6 +124,35 @@ export function ScheduleDay({
     }
   };
 
+  const [sharingImage, setSharingImage] = useState(false);
+
+  const handleShareImage = async () => {
+    if (sharingImage) return;
+    setSharingImage(true);
+    try {
+      const firstLesson = schedule.lessons[0];
+      const ownerLabel =
+        scheduleMode === "teacher"
+          ? firstLesson?.teacher_name || "Розклад викладача"
+          : firstLesson?.group_name
+            ? `Група ${firstLesson.group_name}`
+            : "Розклад занять";
+
+      const result = await shareScheduleAsImage(schedule, scheduleMode, ownerLabel);
+      if (result === "copied") {
+        showToast("Картинку скопійовано! Натисніть Ctrl+V у Telegram", "success");
+      } else if (result === "downloaded") {
+        showToast("Картинку розкладу завантажено", "success");
+      }
+    } catch (err) {
+      if (err instanceof Error && err.name !== "AbortError") {
+        showToast("Не вдалося створити картинку розкладу", "error");
+      }
+    } finally {
+      setSharingImage(false);
+    }
+  };
+
   const orderedLessons = [...schedule.lessons].sort(
     (left, right) => left.lesson_number - right.lesson_number || left.id - right.id,
   );
@@ -139,19 +169,35 @@ export function ScheduleDay({
             {fmt(schedule.date, { day: "numeric", month: "short" })}
           </span>
           {orderedLessons.length > 0 && (
-            <button
-              type="button"
-              onClick={handleShareDay}
-              title="Скопіювати розклад для Telegram"
-              aria-label="Скопіювати розклад дня"
-              className="flex h-7 w-7 items-center justify-center rounded-lg border border-sys-border/60 bg-sys-bg/40 text-sys-text-secondary transition-colors hover:border-sys-accent/40 hover:text-sys-accent"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
-                <polyline points="16 6 12 2 8 6" />
-                <line x1="12" y1="2" x2="12" y2="15" />
-              </svg>
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => void handleShareImage()}
+                disabled={sharingImage}
+                title="Скопіювати або зберегти розклад як PNG-картинку"
+                aria-label="Поділитися картинкою розкладу"
+                className="flex h-7 w-7 items-center justify-center rounded-lg border border-sys-border/60 bg-sys-bg/40 text-sys-text-secondary transition-colors hover:border-sys-accent/40 hover:text-sys-accent disabled:opacity-50"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+                  <circle cx="9" cy="9" r="2" />
+                  <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                onClick={handleShareDay}
+                title="Скопіювати розклад для Telegram"
+                aria-label="Скопіювати розклад дня"
+                className="flex h-7 w-7 items-center justify-center rounded-lg border border-sys-border/60 bg-sys-bg/40 text-sys-text-secondary transition-colors hover:border-sys-accent/40 hover:text-sys-accent"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+                  <polyline points="16 6 12 2 8 6" />
+                  <line x1="12" y1="2" x2="12" y2="15" />
+                </svg>
+              </button>
+            </div>
           )}
         </div>
       </header>
