@@ -726,5 +726,34 @@ def test_import_retries_are_enabled_for_transient_source_failures():
     assert IMPORT_PAGE_RETRIES >= 3
 
 
+@pytest.mark.anyio
+async def test_academic_event_appears_in_schedule_projection(api_client):
+    client, headers, data = api_client
+    event_payload = {
+        "group_id": data["group_id"],
+        "title": "Екзамен з вищої математики",
+        "custom_subject": "Вища математика (Екзамен)",
+        "event_type": "exam",
+        "event_date": "2025-09-01",
+        "lesson_number": 2,
+        "start_time": "10:35",
+        "room": "301",
+        "note": "Принести заліковку",
+    }
+    resp = await client.post("/api/events", json=event_payload, headers=headers)
+    assert resp.status_code == 201
+
+    sched_resp = await client.get(f"/api/schedule?group_id={data['group_id']}&target_date=2025-09-01")
+    assert sched_resp.status_code == 200
+    lessons = sched_resp.json()["lessons"]
+    exam_lesson = next((l for l in lessons if l["lesson_number"] == 2), None)
+    assert exam_lesson is not None
+    assert exam_lesson["subject_name"] == "Вища математика (Екзамен)"
+    assert exam_lesson["event_type"] == "exam"
+    assert exam_lesson["event_title"] == "Екзамен з вищої математики"
+    assert exam_lesson["room"] == "301"
+
+
+
 
 

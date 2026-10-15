@@ -25,11 +25,13 @@ export interface AcademicEvent {
   group_name?: string | null;
   subject_id?: number | null;
   subject_name?: string | null;
+  custom_subject?: string | null;
   teacher_id?: number | null;
   teacher_name?: string | null;
   title: string;
   event_type: AcademicEventType;
   event_date: string;
+  lesson_number?: number | null;
   start_time: string;
   end_time?: string | null;
   room?: string | null;
@@ -98,6 +100,9 @@ export interface Lesson {
     note_id?: number | null;
     note_revision?: number;
     note_date?: string | null;
+    event_type?: string | null;
+    event_title?: string | null;
+    custom_subject?: string | null;
 }
 
 export interface ScheduleResponse {

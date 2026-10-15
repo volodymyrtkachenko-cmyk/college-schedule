@@ -17,10 +17,12 @@ router = APIRouter(prefix="/api/events", tags=["events"])
 class EventCreatePayload(BaseModel):
     group_id: int
     subject_id: Optional[int] = None
+    custom_subject: Optional[str] = Field(default=None, max_length=200)
     teacher_id: Optional[int] = None
     title: Optional[str] = Field(default=None, max_length=200)
     event_type: str = Field(default="exam", pattern="^(exam|consultation|credit|defense|general)$")
     event_date: date
+    lesson_number: Optional[int] = Field(default=None, ge=1, le=8)
     start_time: str = Field(default="09:00", max_length=10)
     end_time: Optional[str] = Field(default=None, max_length=10)
     room: Optional[str] = Field(default=None, max_length=50)
@@ -33,11 +35,13 @@ class EventResponseItem(BaseModel):
     group_name: Optional[str] = None
     subject_id: Optional[int] = None
     subject_name: Optional[str] = None
+    custom_subject: Optional[str] = None
     teacher_id: Optional[int] = None
     teacher_name: Optional[str] = None
     title: str
     event_type: str
     event_date: date
+    lesson_number: Optional[int] = None
     start_time: str
     end_time: Optional[str] = None
     room: Optional[str] = None
@@ -47,19 +51,27 @@ class EventResponseItem(BaseModel):
 def _serialize_event(ev: AcademicEvent) -> EventResponseItem:
     resolved_title = (
         (ev.title or "").strip()
+        or (ev.custom_subject or "").strip()
         or (ev.subject.name if ev.subject else "Подія")
+    )
+    resolved_subject_name = (
+        (ev.custom_subject or "").strip()
+        or (ev.subject.name if ev.subject else None)
+        or resolved_title
     )
     return EventResponseItem(
         id=ev.id,
         group_id=ev.group_id,
         group_name=ev.group.name if ev.group else None,
         subject_id=ev.subject_id,
-        subject_name=ev.subject.name if ev.subject else None,
+        subject_name=resolved_subject_name,
+        custom_subject=ev.custom_subject,
         teacher_id=ev.teacher_id,
         teacher_name=ev.teacher.name if ev.teacher else None,
         title=resolved_title,
         event_type=ev.event_type,
         event_date=ev.event_date,
+        lesson_number=ev.lesson_number,
         start_time=ev.start_time,
         end_time=ev.end_time,
         room=ev.room,
@@ -115,16 +127,38 @@ async def create_event(
         if payload.group_id not in allowed:
             raise HTTPException(status_code=403, detail="Немає доступу до цієї групи")
 
-    if not payload.subject_id and not (payload.title and payload.title.strip()):
+    has_subject = bool(payload.subject_id or (payload.custom_subject and payload.custom_subject.strip()))
+    has_title = bool(payload.title and payload.title.strip())
+    if not has_subject and not has_title:
         raise HTTPException(status_code=422, detail="Вкажіть предмет або назву події")
+
+    lesson_num = payload.lesson_number
+    if not lesson_num and payload.start_time:
+        try:
+            h, m = map(int, payload.start_time.split(":")[:2])
+            mins = h * 60 + m
+            if mins < 10 * 60 + 30:
+                lesson_num = 1
+            elif mins < 12 * 60 + 15:
+                lesson_num = 2
+            elif mins < 13 * 60 + 55:
+                lesson_num = 3
+            elif mins < 15 * 60 + 25:
+                lesson_num = 4
+            else:
+                lesson_num = 5
+        except Exception:
+            lesson_num = 1
 
     ev = AcademicEvent(
         group_id=payload.group_id,
         subject_id=payload.subject_id,
+        custom_subject=payload.custom_subject.strip() if payload.custom_subject else None,
         teacher_id=payload.teacher_id,
         title=payload.title.strip() if payload.title else None,
         event_type=payload.event_type,
         event_date=payload.event_date,
+        lesson_number=lesson_num,
         start_time=payload.start_time.strip(),
         end_time=payload.end_time.strip() if payload.end_time else None,
         room=payload.room.strip() if payload.room else None,

@@ -376,8 +376,10 @@ class AcademicEvent(Base):
     teacher_id: Mapped[Optional[int]] = mapped_column(ForeignKey("teachers.id", ondelete="SET NULL"), nullable=True, index=True)
 
     title: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    custom_subject: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     event_type: Mapped[str] = mapped_column(String(32), default="exam", nullable=False)  # exam | consultation | credit | defense | general
     event_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    lesson_number: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     start_time: Mapped[str] = mapped_column(String(10), nullable=False, default="09:00")
     end_time: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
     room: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)

@@ -30,6 +30,7 @@ def effective_to_item(item: EffectiveLesson, week_type: str, target_date: date, 
     
     # Додатний ID дозволено лише для базових записів таблиці Schedule
     item_id = item.id
+    time_val = item.time or (f"{b[0]}-{b[1]}" if (b := (bell_times or {}).get(item.lesson_number)) else "Невідомо")
 
     return ScheduleItem(
         id=item_id,
@@ -39,7 +40,7 @@ def effective_to_item(item: EffectiveLesson, week_type: str, target_date: date, 
         second_teacher_id=item.second_teacher_id,
         day_of_week=target_date.isoweekday(),
         lesson_number=item.lesson_number,
-        time=f"{b[0]}-{b[1]}" if (b := (bell_times or {}).get(item.lesson_number)) else "Невідомо",
+        time=time_val,
         subject=item.subject_name or "Unknown",
         teacher=item.teacher_name,
         room=item.room,
@@ -55,6 +56,8 @@ def effective_to_item(item: EffectiveLesson, week_type: str, target_date: date, 
         note=item.note_text,
         note_id=item.note_id,
         note_revision=item.note_revision,
+        event_type=item.event_type,
+        event_title=item.event_title,
     )
 
 def check_group_access(user: User, user_allowed_groups: list[int], group_id: int):
@@ -87,7 +90,13 @@ async def get_bell_times(db):
     result = (
         {r.lesson_number: (r.start_time.strftime("%H:%M"), r.end_time.strftime("%H:%M")) for r in records}
         if records
-        else {}
+        else {
+            1: ("09:00", "10:20"),
+            2: ("10:35", "11:55"),
+            3: ("12:25", "13:45"),
+            4: ("14:00", "15:20"),
+            5: ("15:35", "16:55"),
+        }
     )
     if result:
         _bell_cache = (now, result)

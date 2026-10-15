@@ -22,6 +22,12 @@ from app.routers.schedule_now import router as schedule_now_router
 async def lifespan(_: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(AcademicEvent.__table__.create, checkfirst=True)
+        try:
+            from sqlalchemy import text
+            await conn.execute(text("ALTER TABLE schedule_events ADD COLUMN IF NOT EXISTS lesson_number INTEGER"))
+            await conn.execute(text("ALTER TABLE schedule_events ADD COLUMN IF NOT EXISTS custom_subject VARCHAR(200)"))
+        except Exception:
+            pass
     try:
         yield
     finally:

@@ -585,6 +585,7 @@ export function AdminScheduleEditor() {
           teachers={teachers}
           onClose={() => setEventsModalOpen(false)}
           setToast={setToast}
+          onEventsChanged={() => invalidateScheduleCache()}
         />
       )}
     </div>

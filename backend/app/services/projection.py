@@ -12,7 +12,8 @@ from app.models import (
     SchedulePeriod, 
     SchedulePeriodSlot,
     ScheduleVersion,
-    Group
+    Group,
+    AcademicEvent,
 )
 from app.services.settings import settings_service
 from app.services.week import get_week_type
@@ -35,6 +36,9 @@ class EffectiveLesson:
         subject_name: Optional[str] = None,
         teacher_name: Optional[str] = None,
         is_replacement: bool = False,
+        event_type: Optional[str] = None,
+        event_title: Optional[str] = None,
+        time: Optional[str] = None,
     ):
         self.group_id = group_id
         self.date = date
@@ -51,6 +55,9 @@ class EffectiveLesson:
         self.subject_name = subject_name
         self.teacher_name = teacher_name
         self.is_replacement = is_replacement
+        self.event_type = event_type
+        self.event_title = event_title
+        self.time = time
 
         self.note_id: Optional[int] = None
         self.note_revision: int = 0
@@ -90,6 +97,23 @@ def resolve_teacher_names(
     if second_teacher and getattr(second_teacher, "name", None):
         names.append(second_teacher.name.strip())
     return " / ".join(names) if names else None
+
+def infer_lesson_number(start_time: str) -> int:
+    try:
+        h, m = map(int, start_time.split(":")[:2])
+        mins = h * 60 + m
+        if mins < 10 * 60 + 30:
+            return 1
+        elif mins < 12 * 60 + 15:
+            return 2
+        elif mins < 13 * 60 + 55:
+            return 3
+        elif mins < 15 * 60 + 25:
+            return 4
+        else:
+            return 5
+    except Exception:
+        return 1
 
 async def build_projection(
     db: AsyncSession, 
@@ -132,9 +156,13 @@ async def build_projection(
                 blocked_groups.add(g.id)
             elif p.period_type == "practice":
                 practice_groups.add(g.id)
-    if any(not p.groups for p in periods if p.period_type in ("holiday", "session", "diploma", "attestation")):
+    if any(not p.groups for p in periods if p.period_type == "holiday"):
         # Global holiday
         return []
+
+    is_all_groups_blocked = any(
+        not p.groups for p in periods if p.period_type in ("session", "diploma", "attestation")
+    )
 
     # 3. Base Schedule
     base_conds = [
@@ -233,7 +261,7 @@ async def build_projection(
 
     # A. Fill with base
     for b in base_lessons:
-        if b.group_id in blocked_groups:
+        if is_all_groups_blocked or b.group_id in blocked_groups:
             continue
         # practice groups normally don't have regular lessons, but if they do, we can skip or mark cancelled
         is_practice = b.group_id in practice_groups
@@ -317,6 +345,54 @@ async def build_projection(
                 teacher_name=ovr_teacher_name,
                 is_replacement=True
             ), f"o{ovr.id}")
+
+    # D. Apply Academic Events (Exams, Consultations, Credits, Defenses, Special Events)
+    events_stmt = (
+        select(AcademicEvent)
+        .where(AcademicEvent.event_date == target_date)
+        .options(
+            joinedload(AcademicEvent.group),
+            joinedload(AcademicEvent.subject),
+            joinedload(AcademicEvent.teacher),
+        )
+    )
+    if group_id is not None:
+        events_stmt = events_stmt.where(AcademicEvent.group_id == group_id)
+    if teacher_id is not None:
+        events_stmt = events_stmt.where(AcademicEvent.teacher_id == teacher_id)
+
+    day_events = (await db.scalars(events_stmt)).all()
+    for ev in day_events:
+        l_num = ev.lesson_number or infer_lesson_number(ev.start_time)
+        resolved_subject = (
+            (ev.custom_subject or "").strip()
+            or (ev.subject.name if ev.subject else None)
+            or (ev.title or "").strip()
+            or "Подія"
+        )
+        time_str = f"{ev.start_time}-{ev.end_time}" if ev.end_time else ev.start_time
+        ev_lesson = EffectiveLesson(
+            group_id=ev.group_id,
+            date=target_date,
+            lesson_number=l_num,
+            subject_id=ev.subject_id,
+            teacher_id=ev.teacher_id,
+            second_teacher_id=None,
+            room=ev.room or (ev.teacher.room if ev.teacher and ev.teacher.room else None),
+            stream_id=None,
+            source_kind="event",
+            source_ref_id=ev.id,
+            group_name=ev.group.name if ev.group else None,
+            subject_name=resolved_subject,
+            teacher_name=ev.teacher.name if ev.teacher else None,
+            is_replacement=True,
+            event_type=ev.event_type,
+            event_title=ev.title,
+            time=time_str,
+        )
+        if ev.note:
+            ev_lesson.note_text = ev.note
+        replace_slot(ev.group_id, l_num, ev_lesson, f"e{ev.id}")
 
     # Filter results
     results = [c for c in cells.values() if include_cancelled or not c.is_cancelled]
@@ -447,6 +523,22 @@ async def build_week_projection(
         )
     ).all()
 
+    events_stmt = (
+        select(AcademicEvent)
+        .where(AcademicEvent.event_date.between(start_date, end_date))
+        .options(
+            joinedload(AcademicEvent.group),
+            joinedload(AcademicEvent.subject),
+            joinedload(AcademicEvent.teacher),
+        )
+    )
+    if group_id is not None:
+        events_stmt = events_stmt.where(AcademicEvent.group_id == group_id)
+    if teacher_id is not None:
+        events_stmt = events_stmt.where(AcademicEvent.teacher_id == teacher_id)
+
+    all_events = (await db.scalars(events_stmt)).all()
+
     lessons_by_day: Dict[int, List[EffectiveLesson]] = {}
 
     for weekday in range(1, 6):
@@ -457,13 +549,13 @@ async def build_week_projection(
         )
         day_periods = [p for p in periods if p.start_date <= target_date <= p.end_date]
 
-        if any(
-            not p.groups
-            for p in day_periods
-            if p.period_type in ("holiday", "session", "diploma", "attestation")
-        ):
+        if any(not p.groups for p in day_periods if p.period_type == "holiday"):
             lessons_by_day[weekday] = []
             continue
+
+        is_all_groups_blocked = any(
+            not p.groups for p in day_periods if p.period_type in ("session", "diploma", "attestation")
+        )
 
         blocked_groups = set()
         practice_groups = set()
@@ -511,7 +603,7 @@ async def build_week_projection(
         for b in all_base_lessons:
             if b.day_of_week != weekday or b.version_id != expected_version_id:
                 continue
-            if b.group_id in blocked_groups or b.group_id in practice_groups:
+            if is_all_groups_blocked or b.group_id in blocked_groups or b.group_id in practice_groups:
                 continue
             b_room = resolve_effective_room(b.room_override, b.teacher, b.second_teacher)
             b_teacher_name = resolve_teacher_names(b.teacher, b.second_teacher)
@@ -620,6 +712,40 @@ async def build_week_projection(
                     ),
                     f"o{ovr.id}",
                 )
+
+        for ev in all_events:
+            if ev.event_date != target_date:
+                continue
+            l_num = ev.lesson_number or infer_lesson_number(ev.start_time)
+            resolved_subject = (
+                (ev.custom_subject or "").strip()
+                or (ev.subject.name if ev.subject else None)
+                or (ev.title or "").strip()
+                or "Подія"
+            )
+            time_str = f"{ev.start_time}-{ev.end_time}" if ev.end_time else ev.start_time
+            ev_lesson = EffectiveLesson(
+                group_id=ev.group_id,
+                date=target_date,
+                lesson_number=l_num,
+                subject_id=ev.subject_id,
+                teacher_id=ev.teacher_id,
+                second_teacher_id=None,
+                room=ev.room or (ev.teacher.room if ev.teacher and ev.teacher.room else None),
+                stream_id=None,
+                source_kind="event",
+                source_ref_id=ev.id,
+                group_name=ev.group.name if ev.group else None,
+                subject_name=resolved_subject,
+                teacher_name=ev.teacher.name if ev.teacher else None,
+                is_replacement=True,
+                event_type=ev.event_type,
+                event_title=ev.title,
+                time=time_str,
+            )
+            if ev.note:
+                ev_lesson.note_text = ev.note
+            replace_slot(ev.group_id, l_num, ev_lesson, f"e{ev.id}")
 
         results = [c for c in cells.values() if include_cancelled or not c.is_cancelled]
         if group_id:

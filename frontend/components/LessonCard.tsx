@@ -68,6 +68,47 @@ function getRoomBadgeMeta(room: string) {
   return { icon: "🚪", tone: "border-sys-border bg-sys-tabActive text-sys-text-primary" };
 }
 
+function getEventBadge(eventType?: string | null, eventTitle?: string | null) {
+  if (!eventType) return null;
+  switch (eventType) {
+    case "exam":
+      return {
+        label: "📝 Екзамен",
+        title: eventTitle || "Екзамен",
+        badgeClass: "border-rose-500/40 bg-rose-500/15 text-rose-300",
+        cardClass: "border-rose-500/40 ring-1 ring-rose-500/40 bg-gradient-to-br from-rose-950/20 via-sys-card to-sys-card",
+      };
+    case "consultation":
+      return {
+        label: "💬 Консультація",
+        title: eventTitle || "Консультація",
+        badgeClass: "border-amber-500/40 bg-amber-500/15 text-amber-300",
+        cardClass: "border-amber-500/40 ring-1 ring-amber-500/40 bg-gradient-to-br from-amber-950/20 via-sys-card to-sys-card",
+      };
+    case "credit":
+      return {
+        label: "✅ Залік",
+        title: eventTitle || "Залік",
+        badgeClass: "border-emerald-500/40 bg-emerald-500/15 text-emerald-300",
+        cardClass: "border-emerald-500/40 ring-1 ring-emerald-500/40 bg-gradient-to-br from-emerald-950/20 via-sys-card to-sys-card",
+      };
+    case "defense":
+      return {
+        label: "🎓 Захист",
+        title: eventTitle || "Захист",
+        badgeClass: "border-purple-500/40 bg-purple-500/15 text-purple-300",
+        cardClass: "border-purple-500/40 ring-1 ring-purple-500/40 bg-gradient-to-br from-purple-950/20 via-sys-card to-sys-card",
+      };
+    default:
+      return {
+        label: "📌 Подія",
+        title: eventTitle || "Подія",
+        badgeClass: "border-sky-500/40 bg-sky-500/15 text-sky-300",
+        cardClass: "border-sky-500/40 ring-1 ring-sky-500/40 bg-gradient-to-br from-sky-950/20 via-sys-card to-sys-card",
+      };
+  }
+}
+
 export function LessonCard({
   lesson,
   targetDate,
@@ -139,15 +180,19 @@ export function LessonCard({
     return isTeacherView ? parseLessonGroups(lesson) : parseLessonTeachers(lesson);
   }, [isTeacherView, lesson]);
 
+  const eventBadge = getEventBadge(lesson.event_type, lesson.event_title);
+
   const stateClass = lesson.is_cancelled
     ? "border-rose-500/40 border-dashed bg-rose-500/[0.04] opacity-80"
     : isLive
       ? "border-sys-accent/60 ring-1 ring-sys-accent/50 bg-gradient-to-r from-sys-accent/[0.08] via-sys-card to-sys-card shadow-[0_0_20px_rgba(56,189,248,0.12)]"
-      : lesson.is_replacement
-        ? "border-sys-warning/40 ring-1 ring-sys-warning/60 bg-sys-warning/[0.03]"
-        : isSelectedForMove
-          ? "border-emerald-400 ring-1 ring-emerald-400/70"
-          : "border-sys-border";
+      : eventBadge
+        ? eventBadge.cardClass
+        : lesson.is_replacement
+          ? "border-sys-warning/40 ring-1 ring-sys-warning/60 bg-sys-warning/[0.03]"
+          : isSelectedForMove
+            ? "border-emerald-400 ring-1 ring-emerald-400/70"
+            : "border-sys-border";
 
   const roomMeta = lesson.room ? getRoomBadgeMeta(lesson.room) : null;
 
@@ -193,9 +238,16 @@ export function LessonCard({
             </div>
           )}
 
-          <h3 className={`min-w-0 break-words font-bold leading-snug ${lesson.is_cancelled ? "line-through text-sys-text-muted" : "text-sys-text-subject"} ${isDay ? "text-base" : "text-sm"}`}>
-            {lesson.subject_name}
-          </h3>
+          <div className="flex flex-col">
+            <h3 className={`min-w-0 break-words font-bold leading-snug ${lesson.is_cancelled ? "line-through text-sys-text-muted" : "text-sys-text-subject"} ${isDay ? "text-base" : "text-sm"}`}>
+              {lesson.subject_name}
+            </h3>
+            {lesson.event_title && lesson.event_title !== lesson.subject_name && (
+              <span className="mt-0.5 text-xs font-semibold text-sys-text-secondary">
+                {lesson.event_title}
+              </span>
+            )}
+          </div>
 
           {(secondaryItems.length > 0 || lesson.room) && (
             <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
@@ -244,6 +296,10 @@ export function LessonCard({
           {lesson.is_cancelled ? (
             <span className="inline-flex w-fit items-center gap-1 rounded border border-rose-500/40 bg-rose-500/15 px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-rose-400">
               ❌ Скасовано
+            </span>
+          ) : eventBadge ? (
+            <span className={`inline-flex w-fit items-center gap-1 rounded border px-2 py-0.5 text-xs font-bold uppercase tracking-wider ${eventBadge.badgeClass}`}>
+              {eventBadge.label}
             </span>
           ) : lesson.is_replacement ? (
             <span className="inline-flex w-fit items-center gap-1 rounded bg-sys-warning px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-sys-warningText">

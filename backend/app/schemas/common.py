@@ -118,6 +118,9 @@ class ScheduleItem(BaseModel):
     note_id: int | None = None
     note_revision: int = 0
     note_date: DateType | None = None
+    event_type: str | None = None
+    event_title: str | None = None
+    custom_subject: str | None = None
 
 class ScheduleResponse(BaseModel):
     date: date

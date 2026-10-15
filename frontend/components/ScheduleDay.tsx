@@ -42,7 +42,18 @@ function buildTelegramShareText(schedule: ScheduleResponse, scheduleMode: "stude
 
   const lines = sortedLessons.map((l) => {
     const num = NUM_EMOJI[l.lesson_number] ?? `${l.lesson_number}.`;
-    const rep = l.is_replacement ? " ⚡ЗАМІНА" : "";
+    let evTag = "";
+    if (l.event_type) {
+      if (l.event_type === "exam") evTag = " [📝 ЕКЗАМЕН]";
+      else if (l.event_type === "consultation") evTag = " [💬 КОНСУЛЬТАЦІЯ]";
+      else if (l.event_type === "credit") evTag = " [✅ ЗАЛІК]";
+      else if (l.event_type === "defense") evTag = " [🎓 ЗАХИСТ]";
+      else evTag = " [📌 ПОДІЯ]";
+      if (l.event_title && l.event_title !== l.subject_name) {
+        evTag += ` (${l.event_title})`;
+      }
+    }
+    const rep = evTag || (l.is_replacement ? " ⚡ЗАМІНА" : "");
     const room = l.room ? ` • 🚪 ${formatRoom(l.room)}` : "";
     const who =
       scheduleMode === "teacher" && l.group_name

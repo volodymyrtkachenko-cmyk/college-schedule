@@ -136,20 +136,28 @@ export async function generateScheduleCardBlob(
     for (const lesson of lessons) {
       const cardW = width - padding * 2;
       drawRoundedRect(ctx, padding, currentY, cardW, cardHeight, 14);
-      ctx.fillStyle = lesson.is_replacement
-        ? "rgba(245, 158, 11, 0.07)"
-        : "rgba(30, 41, 59, 0.65)";
+      ctx.fillStyle = lesson.event_type
+        ? (lesson.event_type === "exam" ? "rgba(225, 29, 72, 0.09)" : "rgba(14, 165, 233, 0.09)")
+        : lesson.is_replacement
+          ? "rgba(245, 158, 11, 0.07)"
+          : "rgba(30, 41, 59, 0.65)";
       ctx.fill();
 
-      ctx.strokeStyle = lesson.is_replacement
-        ? "rgba(245, 158, 11, 0.45)"
-        : "rgba(148, 163, 184, 0.16)";
+      ctx.strokeStyle = lesson.event_type
+        ? (lesson.event_type === "exam" ? "rgba(225, 29, 72, 0.45)" : "rgba(14, 165, 233, 0.45)")
+        : lesson.is_replacement
+          ? "rgba(245, 158, 11, 0.45)"
+          : "rgba(148, 163, 184, 0.16)";
       ctx.lineWidth = 1;
       ctx.stroke();
 
       // Ліва колонка: номер пари + час
       const [startT, endT] = lesson.time.split("-");
-      ctx.fillStyle = lesson.is_replacement ? "#fbbf24" : "#38bdf8";
+      ctx.fillStyle = lesson.event_type
+        ? (lesson.event_type === "exam" ? "#fb7185" : "#38bdf8")
+        : lesson.is_replacement
+          ? "#fbbf24"
+          : "#38bdf8";
       ctx.font = "800 22px Inter, system-ui, sans-serif";
       ctx.fillText(String(lesson.lesson_number), padding + 18, currentY + 34);
 
@@ -171,7 +179,10 @@ export async function generateScheduleCardBlob(
 
       ctx.fillStyle = "#f8fafc";
       ctx.font = "700 15px Inter, system-ui, sans-serif";
-      const subjectLines = wrapText(ctx, lesson.subject_name, maxSubjectWidth);
+      const subjectDisplay = lesson.event_title && lesson.event_title !== lesson.subject_name
+        ? `${lesson.subject_name} (${lesson.event_title})`
+        : lesson.subject_name;
+      const subjectLines = wrapText(ctx, subjectDisplay, maxSubjectWidth);
       subjectLines.forEach((line, i) => {
         ctx.fillText(line, textX, currentY + 28 + i * 18);
       });
@@ -189,8 +200,23 @@ export async function generateScheduleCardBlob(
         ctx.fillText(secondary, textX, currentY + 72);
       }
 
-      // Бейдж заміни
-      if (lesson.is_replacement) {
+      // Бейдж події / заміни
+      if (lesson.event_type) {
+        let evLabel = "📌 ПОДІЯ";
+        let evBg = "#0284c7";
+        if (lesson.event_type === "exam") { evLabel = "📝 ЕКЗАМЕН"; evBg = "#e11d48"; }
+        else if (lesson.event_type === "consultation") { evLabel = "💬 КОНСУЛЬТАЦІЯ"; evBg = "#d97706"; }
+        else if (lesson.event_type === "credit") { evLabel = "✅ ЗАЛІК"; evBg = "#059669"; }
+        else if (lesson.event_type === "defense") { evLabel = "🎓 ЗАХИСТ"; evBg = "#7c3aed"; }
+        ctx.font = "700 10px Inter, system-ui, sans-serif";
+        const evW = ctx.measureText(evLabel).width + 14;
+        const evX = width - padding - 14 - evW;
+        drawRoundedRect(ctx, evX, currentY + 14, evW, 20, 6);
+        ctx.fillStyle = evBg;
+        ctx.fill();
+        ctx.fillStyle = "#ffffff";
+        ctx.fillText(evLabel, evX + 7, currentY + 27);
+      } else if (lesson.is_replacement) {
         const repText = "⚡ ЗАМІНА";
         ctx.font = "700 10px Inter, system-ui, sans-serif";
         const repW = ctx.measureText(repText).width + 14;
