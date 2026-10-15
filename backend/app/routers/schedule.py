@@ -68,12 +68,24 @@ async def load_user_groups(db: AsyncSession, user: User) -> list[int]:
 
 
 
+import time as _time
 from app.models import BellSchedule
+
+_bell_cache: tuple[float, dict[int, tuple[str, str]]] | None = None
+
 async def get_bell_times(db):
+    global _bell_cache
+    now = _time.monotonic()
+    if _bell_cache is not None and now - _bell_cache[0] < 300.0:
+        return _bell_cache[1]
     records = (await db.scalars(select(BellSchedule).where(BellSchedule.is_active == True))).all()
-    if records:
-        return {r.lesson_number: (r.start_time.strftime('%H:%M'), r.end_time.strftime('%H:%M')) for r in records}
-    return dict()
+    result = (
+        {r.lesson_number: (r.start_time.strftime("%H:%M"), r.end_time.strftime("%H:%M")) for r in records}
+        if records
+        else {}
+    )
+    _bell_cache = (now, result)
+    return result
 
 def to_item(item, week_type, target_date, bell_times=None, *, item_id=None, is_replacement=None):
     if bell_times is None:
@@ -227,19 +239,25 @@ async def week(
     start = requested - timedelta(days=requested.isoweekday() - 1)
     week_type, lessons_by_day = await fetch_week_schedule(db, start, group_id, teacher_id)
     bell_t = await get_bell_times(db)
-    return [
-        ScheduleResponse(
-            date=start + timedelta(days=i),
-            week_type=week_type,
-            lessons=await attach_notes(db, start + timedelta(days=i), serialize_schedule_items(
+    from app.services.lesson_notes import attach_week_notes
+    days_serialized = [
+        (
+            start + timedelta(days=i),
+            serialize_schedule_items(
                 lessons_by_day.get(i + 1, []),
                 week_type,
                 start + timedelta(days=i),
                 bell_t,
-            )),
+            ),
         )
         for i in range(5)
     ]
+    await attach_week_notes(db, days_serialized)
+    return [
+        ScheduleResponse(date=day_date, week_type=week_type, lessons=day_lessons)
+        for day_date, day_lessons in days_serialized
+    ]
+
 
 
 @router.post("/schedule", response_model=ScheduleItem, status_code=status.HTTP_201_CREATED)

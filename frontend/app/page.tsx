@@ -7,7 +7,7 @@ import { InstallPrompt } from "../components/InstallPrompt";
 import { ScheduleDay } from "../components/ScheduleDay";
 import { ScheduleWeekGrid } from "../components/ScheduleWeekGrid";
 import { WeekTypeBadge } from "../components/WeekTypeBadge";
-import { useSchedule, useIsStandalonePwa, downloadForOffline } from "../lib/hooks";
+import { useSchedule, useIsStandalonePwa, downloadForOffline, invalidateScheduleCache } from "../lib/hooks";
 import { useAuth, canAccessAdmin } from "../lib/auth";
 import { getMondayOf } from "../lib/date";
 import { WelcomeScreen } from "../components/WelcomeScreen";
@@ -58,6 +58,19 @@ export default function HomePage() {
   };
 
   const { isSetupComplete, completeSetup, mode, toggleMode, teachers, teacherId, setTeacherId, groups, groupId, setGroupId, today, week, loading, error } = useSchedule(weekAnchorDate);
+
+  // Автоскрол до поточної пари
+  useEffect(() => {
+    if (loading) return;
+    const timer = setTimeout(() => {
+      const liveCard = document.querySelector('[data-live="true"]');
+      if (liveCard && window.innerWidth < 768) {
+        liveCard.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [loading, view, groupId, teacherId]);
+
   const { user, loading: authLoading, logout } = useAuth();
   
   const isStandalone = useIsStandalonePwa();
@@ -178,21 +191,36 @@ export default function HomePage() {
 
   const resetWeek = () => setWeekAnchorDate(getMondayOf(new Date()));
 
-  const UserControls = () => user ? (
+  const UserControls = () => (
     <div className="flex items-center gap-2">
-      {canAccessAdmin(user) && (
-        <a href="/admin" className="rounded-lg bg-sys-accent px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white whitespace-nowrap shadow-sm hover:bg-[#238636] transition-colors">
+      <button
+        type="button"
+        onClick={() => {
+          invalidateScheduleCache();
+          setToast("Кеш розкладу оновлено", "info");
+        }}
+        title="Оновити розклад"
+        className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg border border-sys-border bg-sys-card text-xs sm:text-sm text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/40 transition-colors"
+      >
+        🔄
+      </button>
+      {user ? (
+        <>
+          {canAccessAdmin(user) && (
+            <a href="/admin" className="rounded-lg bg-sys-accent px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white whitespace-nowrap shadow-sm hover:bg-[#238636] transition-colors">
+              Для працівників
+            </a>
+          )}
+          <button onClick={logout} className="rounded-lg bg-transparent border border-sys-border px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-sys-text-secondary whitespace-nowrap hover:text-white hover:bg-sys-bg transition-colors">
+            Вийти
+          </button>
+        </>
+      ) : (
+        <a href="/login" className="text-[13px] font-medium text-sys-text-secondary hover:text-white transition-colors underline-offset-4 hover:underline whitespace-nowrap">
           Для працівників
         </a>
       )}
-      <button onClick={logout} className="rounded-lg bg-transparent border border-sys-border px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-sys-text-secondary whitespace-nowrap hover:text-white hover:bg-sys-bg transition-colors">
-        Вийти
-      </button>
     </div>
-  ) : (
-    <a href="/login" className="text-[13px] font-medium text-sys-text-secondary hover:text-white transition-colors underline-offset-4 hover:underline whitespace-nowrap">
-      Для працівників
-    </a>
   );
 
   if (!loading && !isSetupComplete) {
@@ -345,10 +373,23 @@ export default function HomePage() {
             <h2 className="text-xl font-semibold">{view === "today" ? "Розклад на сьогодні" : "Розклад на тиждень"}</h2>
           </div>
           
-          <div role="group" aria-label="Режим перегляду розкладу" className="flex rounded-lg border border-sys-border bg-sys-card p-1 text-sm relative">
-            <div className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-sys-accent/10 border border-sys-accent/20 rounded-md shadow-sm transition-all duration-300 ease-out z-0" style={{ left: view === 'today' ? '4px' : 'calc(50% + 2px)' }}></div>
-            <button type="button" aria-pressed={view === "today"} onClick={() => setView("today")} className={`w-24 relative z-10 rounded-md px-4 py-2 text-sm font-medium transition-colors ${view === 'today' ? 'text-sys-accent' : 'text-sys-text-secondary hover:text-sys-text-primary'}`}>Сьогодні</button>
-            <button type="button" aria-pressed={view === "week"} onClick={() => setView("week")} className={`w-24 relative z-10 rounded-md px-4 py-2 text-sm font-medium transition-colors ${view === 'week' ? 'text-sys-accent' : 'text-sys-text-secondary hover:text-sys-text-primary'}`}>Тиждень</button>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                invalidateScheduleCache();
+                setToast("Кеш розкладу оновлено", "info");
+              }}
+              title="Оновити розклад"
+              className="flex h-10 w-10 items-center justify-center rounded-lg border border-sys-border bg-sys-card text-sm text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/40 transition-colors"
+            >
+              🔄
+            </button>
+            <div role="group" aria-label="Режим перегляду розкладу" className="flex rounded-lg border border-sys-border bg-sys-card p-1 text-sm relative">
+              <div className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-sys-accent/10 border border-sys-accent/20 rounded-md shadow-sm transition-all duration-300 ease-out z-0" style={{ left: view === 'today' ? '4px' : 'calc(50% + 2px)' }}></div>
+              <button type="button" aria-pressed={view === "today"} onClick={() => setView("today")} className={`w-24 relative z-10 rounded-md px-4 py-2 text-sm font-medium transition-colors ${view === 'today' ? 'text-sys-accent' : 'text-sys-text-secondary hover:text-sys-text-primary'}`}>Сьогодні</button>
+              <button type="button" aria-pressed={view === "week"} onClick={() => setView("week")} className={`w-24 relative z-10 rounded-md px-4 py-2 text-sm font-medium transition-colors ${view === 'week' ? 'text-sys-accent' : 'text-sys-text-secondary hover:text-sys-text-primary'}`}>Тиждень</button>
+            </div>
           </div>
         </div>
 

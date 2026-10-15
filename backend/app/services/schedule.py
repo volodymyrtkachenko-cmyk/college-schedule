@@ -55,25 +55,16 @@ async def _active_periods(db: AsyncSession, target_date: date):
 
 
 
-from app.services.projection import build_projection
+from app.services.projection import build_projection, build_week_projection
 
-async def fetch_week_schedule(db: AsyncSession, start_date: date, group_id: int | None = None, teacher_id: int | None = None):
-    """Fetch date-aware schedules for weekdays, including temporary periods."""
-    semester_start = await settings_service.get_semester_start(db)
-    week_type = get_week_type(start_date, semester_start)
-    
-    lessons_by_day = {}
-    for weekday in range(1, 6):
-        target_date = start_date + timedelta(days=weekday - 1)
-        lessons = await build_projection(
-            db,
-            target_date,
-            group_id=group_id,
-            teacher_id=teacher_id
-        )
-        lessons_by_day[weekday] = lessons
-
-    return week_type, lessons_by_day
+async def fetch_week_schedule(
+    db: AsyncSession,
+    start_date: date,
+    group_id: int | None = None,
+    teacher_id: int | None = None,
+):
+    """Fetch date-aware schedules for weekdays using a single batched query pass."""
+    return await build_week_projection(db, start_date, group_id=group_id, teacher_id=teacher_id)
 
 
 def week_types_overlap(left: str, right: str) -> bool:

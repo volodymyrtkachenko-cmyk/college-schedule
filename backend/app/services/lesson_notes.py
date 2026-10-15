@@ -136,6 +136,34 @@ async def attach_notes(db, target_date, items):
     return items
 
 
+async def attach_week_notes(db, days_items: list[tuple]):
+    """Attach occurrence notes for multiple (target_date, items) pairs in a single query."""
+    all_dates = {d for d, items in days_items if items}
+    all_groups = {item.group_id for _, items in days_items for item in items if item.group_id}
+    if not all_dates or not all_groups:
+        return
+
+    rows = (
+        await db.scalars(
+            select(LessonOccurrenceNote).where(
+                LessonOccurrenceNote.note_date.in_(all_dates),
+                LessonOccurrenceNote.group_id.in_(all_groups),
+                LessonOccurrenceNote.archived.is_(False),
+            )
+        )
+    ).all()
+    indexed = {(r.note_date, r.group_id, r.lesson_number, r.subject_id): r for r in rows}
+
+    for target_date, items in days_items:
+        for item in items:
+            row = indexed.get((target_date, item.group_id, item.lesson_number, item.subject_id))
+            if row:
+                item.note = row.note
+                item.note_id = row.id
+                item.note_revision = row.revision
+                item.note_date = target_date
+
+
 async def reconcile_template_notes(db, item, *, group_id, subject_id, day, lesson_number, week_type, actor_id):
     """Current PATCH edits a recurring template; move its dated notes within each week.
 

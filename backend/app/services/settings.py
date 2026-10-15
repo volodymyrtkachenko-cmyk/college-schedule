@@ -1,3 +1,4 @@
+import time
 from datetime import date
 
 from sqlalchemy import select
@@ -7,10 +8,23 @@ from app.config import settings
 
 SEMESTER_START_KEY = "semester_start"
 SEMESTER_END_KEY = "semester_end"
+_CACHE_TTL = 300.0
 
 class SettingsService:
+    def __init__(self) -> None:
+        self._cache: dict[str, tuple[float, str | None]] = {}
+
+    def invalidate_cache(self) -> None:
+        self._cache.clear()
+
     async def get(self, db: AsyncSession, key: str, default: str | None = None) -> str | None:
+        now = time.monotonic()
+        cached = self._cache.get(key)
+        if cached is not None and now - cached[0] < _CACHE_TTL:
+            return cached[1] if cached[1] is not None else default
+
         value = await db.scalar(select(Setting.value).where(Setting.key == key))
+        self._cache[key] = (now, value)
         return value if value is not None else default
 
     async def set(self, db: AsyncSession, key: str, value: str) -> None:
@@ -20,6 +34,7 @@ class SettingsService:
         else:
             setting.value = value
         await db.commit()
+        self.invalidate_cache()
 
     async def get_semester_start(self, db: AsyncSession) -> date:
         value = await self.get(
@@ -65,5 +80,6 @@ class SettingsService:
             else:
                 setting.value = value
         await db.commit()
+        self.invalidate_cache()
 
 settings_service = SettingsService()

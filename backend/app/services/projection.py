@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from typing import Any, Optional, List, Dict, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_, and_
@@ -145,6 +145,8 @@ async def build_projection(
         base_conds.append(Schedule.version_id == active_version.id)
     else:
         base_conds.append(Schedule.version_id.is_(None))
+    if group_id is not None:
+        base_conds.append(Schedule.group_id == group_id)
 
     base_query = select(Schedule).where(*base_conds).options(
         joinedload(Schedule.group), joinedload(Schedule.subject),
@@ -167,20 +169,26 @@ async def build_projection(
         .scalar_subquery()
     )
 
-    import_query = select(ImportedScheduleChange).where(
+    import_conds = [
         ImportedScheduleChange.date == target_date,
         ImportedScheduleChange.is_published.is_(True),
-        ImportedScheduleChange.version == latest_import_version
-    ).options(
+        ImportedScheduleChange.version == latest_import_version,
+    ]
+    if group_id is not None:
+        import_conds.append(ImportedScheduleChange.group_id == group_id)
+
+    import_query = select(ImportedScheduleChange).where(*import_conds).options(
         joinedload(ImportedScheduleChange.group), joinedload(ImportedScheduleChange.subject),
         joinedload(ImportedScheduleChange.teacher), joinedload(ImportedScheduleChange.second_teacher)
     )
     imported_changes = (await db.scalars(import_query)).all()
 
     # 5. Manual Overrides
-    override_query = select(ScheduleOverride).where(
-        ScheduleOverride.date == target_date
-    ).options(
+    override_conds = [ScheduleOverride.date == target_date]
+    if group_id is not None:
+        override_conds.append(ScheduleOverride.group_id == group_id)
+
+    override_query = select(ScheduleOverride).where(*override_conds).options(
         joinedload(ScheduleOverride.group),
         joinedload(ScheduleOverride.subject), joinedload(ScheduleOverride.teacher),
         joinedload(ScheduleOverride.second_teacher)
@@ -307,3 +315,278 @@ async def build_projection(
     # ... logic to attach notes ...
 
     return sorted(results, key=lambda x: x.lesson_number)
+
+
+async def build_week_projection(
+    db: AsyncSession,
+    start_date: date,
+    group_id: Optional[int] = None,
+    teacher_id: Optional[int] = None,
+) -> Tuple[str, Dict[int, List[EffectiveLesson]]]:
+    """Batch-load 5 weekdays (Mon..Fri) in 5 queries instead of 25."""
+    end_date = start_date + timedelta(days=4)
+    semester_start = await settings_service.get_semester_start(db)
+    week_type = get_week_type(start_date, semester_start)
+
+    versions = (
+        await db.scalars(
+            select(ScheduleVersion)
+            .where(
+                ScheduleVersion.valid_from <= end_date,
+                ScheduleVersion.valid_until >= start_date,
+                ScheduleVersion.is_active.is_(True),
+            )
+            .order_by(ScheduleVersion.valid_from.desc())
+        )
+    ).all()
+
+    periods = (
+        await db.scalars(
+            select(SchedulePeriod)
+            .where(
+                SchedulePeriod.start_date <= end_date,
+                SchedulePeriod.end_date >= start_date,
+            )
+            .options(
+                joinedload(SchedulePeriod.groups),
+                joinedload(SchedulePeriod.slots).joinedload(SchedulePeriodSlot.group),
+                joinedload(SchedulePeriod.slots).joinedload(SchedulePeriodSlot.subject),
+                joinedload(SchedulePeriod.slots).joinedload(SchedulePeriodSlot.teacher),
+                joinedload(SchedulePeriod.slots).joinedload(SchedulePeriodSlot.second_teacher),
+            )
+        )
+    ).unique().all()
+
+    base_conds = [
+        Schedule.day_of_week.between(1, 5),
+        Schedule.is_active.is_(True),
+        Schedule.week_type.in_(("both", week_type)),
+    ]
+    if group_id is not None:
+        base_conds.append(Schedule.group_id == group_id)
+
+    all_base_lessons = (
+        await db.scalars(
+            select(Schedule)
+            .where(*base_conds)
+            .options(
+                joinedload(Schedule.group),
+                joinedload(Schedule.subject),
+                joinedload(Schedule.teacher),
+                joinedload(Schedule.second_teacher),
+            )
+        )
+    ).all()
+
+    previous_change = aliased(ImportedScheduleChange)
+    latest_import_version = (
+        select(previous_change.version)
+        .where(
+            previous_change.date == ImportedScheduleChange.date,
+            previous_change.group_id == ImportedScheduleChange.group_id,
+            previous_change.lesson_number == ImportedScheduleChange.lesson_number,
+            previous_change.is_published.is_(True),
+        )
+        .order_by(previous_change.version.desc())
+        .limit(1)
+        .scalar_subquery()
+    )
+    import_conds = [
+        ImportedScheduleChange.date.between(start_date, end_date),
+        ImportedScheduleChange.is_published.is_(True),
+        ImportedScheduleChange.version == latest_import_version,
+    ]
+    if group_id is not None:
+        import_conds.append(ImportedScheduleChange.group_id == group_id)
+
+    all_imported = (
+        await db.scalars(
+            select(ImportedScheduleChange)
+            .where(*import_conds)
+            .options(
+                joinedload(ImportedScheduleChange.group),
+                joinedload(ImportedScheduleChange.subject),
+                joinedload(ImportedScheduleChange.teacher),
+                joinedload(ImportedScheduleChange.second_teacher),
+            )
+        )
+    ).all()
+
+    override_conds = [ScheduleOverride.date.between(start_date, end_date)]
+    if group_id is not None:
+        override_conds.append(ScheduleOverride.group_id == group_id)
+
+    all_overrides = (
+        await db.scalars(
+            select(ScheduleOverride)
+            .where(*override_conds)
+            .options(
+                joinedload(ScheduleOverride.group),
+                joinedload(ScheduleOverride.subject),
+                joinedload(ScheduleOverride.teacher),
+                joinedload(ScheduleOverride.second_teacher),
+            )
+        )
+    ).all()
+
+    lessons_by_day: Dict[int, List[EffectiveLesson]] = {}
+
+    for weekday in range(1, 6):
+        target_date = start_date + timedelta(days=weekday - 1)
+        active_version = next(
+            (v for v in versions if v.valid_from <= target_date <= v.valid_until),
+            None,
+        )
+        day_periods = [p for p in periods if p.start_date <= target_date <= p.end_date]
+
+        if any(
+            not p.groups
+            for p in day_periods
+            if p.period_type in ("holiday", "session", "diploma", "attestation")
+        ):
+            lessons_by_day[weekday] = []
+            continue
+
+        blocked_groups = set()
+        practice_groups = set()
+        for p in day_periods:
+            for g in p.groups:
+                if p.period_type in ("holiday", "session", "diploma", "attestation"):
+                    blocked_groups.add(g.id)
+                elif p.period_type == "practice":
+                    practice_groups.add(g.id)
+
+        cells: Dict[Tuple[int, int, str], EffectiveLesson] = {}
+
+        def slot_keys(g, n):
+            return [k for k in cells if k[0] == g and k[1] == n]
+
+        def replace_slot(g, n, lesson, uid):
+            for k in slot_keys(g, n):
+                del cells[k]
+            cells[(g, n, uid)] = lesson
+
+        for p in day_periods:
+            if p.period_type == "practice":
+                for slot in p.slots:
+                    if slot.day_of_week == weekday and (group_id is None or slot.group_id == group_id):
+                        slot_room = resolve_effective_room(slot.room_override, slot.teacher, slot.second_teacher)
+                        slot_teacher_name = resolve_teacher_names(slot.teacher, slot.second_teacher)
+                        cells[(slot.group_id, slot.lesson_number, f"p{slot.id}")] = EffectiveLesson(
+                            group_id=slot.group_id,
+                            date=target_date,
+                            lesson_number=slot.lesson_number,
+                            subject_id=slot.subject_id,
+                            teacher_id=slot.teacher_id,
+                            second_teacher_id=slot.second_teacher_id,
+                            room=slot_room,
+                            stream_id=None,
+                            source_kind="practice",
+                            source_ref_id=slot.id,
+                            group_name=slot.group.name if getattr(slot, "group", None) else None,
+                            subject_name=slot.subject.name if slot.subject else None,
+                            teacher_name=slot_teacher_name,
+                            is_replacement=True,
+                        )
+
+        expected_version_id = active_version.id if active_version else None
+        for b in all_base_lessons:
+            if b.day_of_week != weekday or b.version_id != expected_version_id:
+                continue
+            if b.group_id in blocked_groups or b.group_id in practice_groups:
+                continue
+            b_room = resolve_effective_room(b.room_override, b.teacher, b.second_teacher)
+            b_teacher_name = resolve_teacher_names(b.teacher, b.second_teacher)
+            cells[(b.group_id, b.lesson_number, f"b{b.id}")] = EffectiveLesson(
+                group_id=b.group_id,
+                date=target_date,
+                lesson_number=b.lesson_number,
+                subject_id=b.subject_id,
+                teacher_id=b.teacher_id,
+                second_teacher_id=b.second_teacher_id,
+                room=b_room,
+                stream_id=b.stream_id,
+                source_kind="base",
+                source_ref_id=b.id,
+                group_name=b.group.name if b.group else None,
+                subject_name=b.subject.name if b.subject else None,
+                teacher_name=b_teacher_name,
+                is_replacement=b.is_replacement,
+            )
+
+        for imp in all_imported:
+            if imp.date != target_date or imp.group_id in blocked_groups:
+                continue
+            key = (imp.group_id, imp.lesson_number)
+            if imp.kind == "cancelled":
+                for k in slot_keys(*key):
+                    cells[k].is_cancelled = True
+                    cells[k].source_kind = "import"
+                    cells[k].source_ref_id = imp.id
+            elif imp.kind == "substitution":
+                imp_room_override = getattr(imp, "room_override", getattr(imp, "room", None))
+                imp_room = resolve_effective_room(imp_room_override, imp.teacher, imp.second_teacher)
+                imp_teacher_name = resolve_teacher_names(imp.teacher, imp.second_teacher)
+                replace_slot(
+                    *key,
+                    EffectiveLesson(
+                        group_id=imp.group_id,
+                        date=target_date,
+                        lesson_number=imp.lesson_number,
+                        subject_id=imp.subject_id,
+                        teacher_id=imp.teacher_id,
+                        second_teacher_id=imp.second_teacher_id,
+                        room=imp_room,
+                        stream_id=None,
+                        source_kind="import",
+                        source_ref_id=imp.id,
+                        group_name=imp.group.name if imp.group else None,
+                        subject_name=imp.subject.name if imp.subject else None,
+                        teacher_name=imp_teacher_name,
+                        is_replacement=True,
+                    ),
+                    f"i{imp.id}",
+                )
+
+        for ovr in all_overrides:
+            if ovr.date != target_date or ovr.group_id in blocked_groups:
+                continue
+            key = (ovr.group_id, ovr.lesson_number)
+            if ovr.cancelled:
+                for k in slot_keys(*key):
+                    cells[k].is_cancelled = True
+                    cells[k].source_kind = "manual"
+                    cells[k].source_ref_id = ovr.id
+            else:
+                ovr_room = resolve_effective_room(ovr.room, ovr.teacher, ovr.second_teacher)
+                ovr_teacher_name = resolve_teacher_names(ovr.teacher, ovr.second_teacher)
+                replace_slot(
+                    *key,
+                    EffectiveLesson(
+                        group_id=ovr.group_id,
+                        date=target_date,
+                        lesson_number=ovr.lesson_number,
+                        subject_id=ovr.subject_id,
+                        teacher_id=ovr.teacher_id,
+                        second_teacher_id=ovr.second_teacher_id,
+                        room=ovr_room,
+                        stream_id=ovr.stream_id,
+                        source_kind="manual",
+                        source_ref_id=ovr.id,
+                        group_name=ovr.group.name if getattr(ovr, "group", None) else None,
+                        subject_name=ovr.subject.name if ovr.subject else None,
+                        teacher_name=ovr_teacher_name,
+                        is_replacement=True,
+                    ),
+                    f"o{ovr.id}",
+                )
+
+        results = [c for c in cells.values() if not c.is_cancelled]
+        if group_id:
+            results = [c for c in results if c.group_id == group_id]
+        if teacher_id:
+            results = [c for c in results if c.teacher_id == teacher_id or c.second_teacher_id == teacher_id]
+
+        lessons_by_day[weekday] = sorted(results, key=lambda x: x.lesson_number)
+
+    return week_type, lessons_by_day

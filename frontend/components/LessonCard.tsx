@@ -145,6 +145,7 @@ export function LessonCard({
 
   return (
     <article
+      data-live={isLive ? "true" : undefined}
       draggable={canMove}
       onDragStart={(event) => {
         if (!canMove) {

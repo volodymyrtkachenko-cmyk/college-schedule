@@ -1,6 +1,8 @@
+import time
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status, Request
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 from slowapi import Limiter
@@ -61,6 +63,19 @@ def set_refresh_cookie(response: Response, token: str) -> None:
     )
 
 
+_last_blocklist_cleanup: float = 0.0
+CLEANUP_INTERVAL_SECONDS = 3600
+
+async def _cleanup_expired_blocklist(db: AsyncSession) -> None:
+    global _last_blocklist_cleanup
+    now_ts = time.monotonic()
+    if now_ts - _last_blocklist_cleanup < CLEANUP_INTERVAL_SECONDS:
+        return
+    _last_blocklist_cleanup = now_ts
+    cutoff = datetime.now(timezone.utc) - timedelta(days=settings.refresh_token_expire_days + 1)
+    await db.execute(delete(TokenBlocklist).where(TokenBlocklist.created_at < cutoff))
+
+
 @router.post("/login", response_model=TokenResponse)
 @limiter.limit("5/minute")
 async def login(request: Request, payload: LoginRequest, response: Response, db: AsyncSession = Depends(get_db)):
@@ -119,6 +134,7 @@ async def refresh(
         
     new_refresh = create_refresh_token(user)
     set_refresh_cookie(response, new_refresh)
+    await _cleanup_expired_blocklist(db)
     await db.commit()
     
     return TokenResponse(access_token=create_access_token(user),  user=UserResponse(

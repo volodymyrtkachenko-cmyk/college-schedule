@@ -57,9 +57,18 @@ export function AdminScheduleEditor() {
       .catch((e) => console.error("Failed to load versions", e));
   }, []);
 
+  // Очищуємо кеш доступності при зміні тижня
   useEffect(() => {
-    let active = true;
     setAvailabilityWeek(null);
+    setAvailabilityError(null);
+  }, [weekAnchorDate]);
+
+  // Завантажуємо розклад усього коледжу ЛИШЕ коли адмін почав перетягувати або редагувати пару
+  const needsAvailability = Boolean(movingLesson || editor);
+
+  useEffect(() => {
+    if (!needsAvailability || availabilityWeek !== null) return;
+    let active = true;
     setAvailabilityError(null);
     const otherWeekAnchor = new Date(weekAnchorDate);
     otherWeekAnchor.setDate(otherWeekAnchor.getDate() + 7);
@@ -71,12 +80,15 @@ export function AdminScheduleEditor() {
         if (active) setAvailabilityWeek([...currentWeek, ...otherWeek]);
       })
       .catch((cause) => {
-        if (active) setAvailabilityError(cause instanceof Error ? cause.message : "Не вдалося перевірити вільні місця.");
+        if (active)
+          setAvailabilityError(
+            cause instanceof Error ? cause.message : "Не вдалося перевірити вільні місця."
+          );
       });
     return () => {
       active = false;
     };
-  }, [weekAnchorDate]);
+  }, [needsAvailability, availabilityWeek, weekAnchorDate]);
 
   const weekRange = useMemo(() => {
     const end = new Date(weekAnchorDate);
