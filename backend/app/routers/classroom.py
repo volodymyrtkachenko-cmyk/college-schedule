@@ -261,13 +261,13 @@ async def ensure_known_online_links(db: AsyncSession) -> None:
     """Гарантує наявність актуальних онлайн-посилань для групи 85 на активний тиждень розкладу.
     
     Фіксує перевірені постійні посилання семестру:
-    - Комп'ютерна електроніка (Філімончук А.В.): https://zoom.us/j/2783533865?pwd=dfkr
+    - Комп'ютерна електроніка (Філімончук А.В.): https://zoom.us/j/2783533865 | Код: dfkr
     - Комп'ютерна схемотехніка (Дворніченко Н.Ф.): https://us02web.zoom.us/j/83833012124?pwd=c8TCu5Ebfxj9wBLJP9kX2f1eFkqsbP.1
     - Українська мова (Прощенко І.М.): https://meet.google.com/wis-yind-cnt
     - Іноземна мова (Токарєва О.В. / Хочинська О.С.):
         Токарєва: https://meet.google.com/vxe-jxdp-drx
         Хочинська: https://us02web.zoom.us/j/6642778085?pwd=ZzFKMHJkS0pWbjRhMEFwbHA3cXJOdz09&omn=82076789020
-    - Скасовує пару фізкультури у вівторок (пари немає).
+    - Фізичне виховання: пара є (офлайн у спортивному комплексі, без онлайн-посилань).
     """
     group = await db.scalar(
         select(Group).where(
@@ -280,40 +280,19 @@ async def ensure_known_online_links(db: AsyncSession) -> None:
     if not group:
         return
 
-    # 1. Скасовуємо пару фізкультури у вівторок (13.10.2026 та інші вівторки)
-    target_mondays = [date(2026, 10, 12)]
-    today_kyiv = datetime.now(KYIV_TZ).date()
-    cur_mon = today_kyiv - timedelta(days=today_kyiv.weekday())
-    if cur_mon not in target_mondays:
-        target_mondays.append(cur_mon)
-
-    target_tuesdays = set()
-    for m in target_mondays:
-        target_tuesdays.add(m + timedelta(days=1))
-        target_tuesdays.add(m + timedelta(days=8))
-        target_tuesdays.add(m - timedelta(days=6))
-
-    for tue_date in target_tuesdays:
-        pe_override = await db.scalar(
-            select(ScheduleOverride).where(
-                ScheduleOverride.group_id == group.id,
-                ScheduleOverride.date == tue_date,
-                ScheduleOverride.lesson_number == 2,
-            )
+    # 1. Фізичне виховання: пара Є (офлайн у спортивному комплексі, без онлайн-посилання).
+    # Видаляємо будь-які скасування цієї пари:
+    cancelled_pe_overrides = (await db.scalars(
+        select(ScheduleOverride).where(
+            ScheduleOverride.group_id == group.id,
+            ScheduleOverride.lesson_number == 2,
+            ScheduleOverride.cancelled.is_(True),
         )
-        if pe_override:
-            pe_override.cancelled = True
-        else:
-            db.add(
-                ScheduleOverride(
-                    group_id=group.id,
-                    date=tue_date,
-                    lesson_number=2,
-                    cancelled=True,
-                )
-            )
+    )).all()
+    for pe_ov in cancelled_pe_overrides:
+        await db.delete(pe_ov)
 
-    # Очищаємо/архівуємо будь-які нотатки до уроків фізвиховання
+    # Очищаємо/архівуємо будь-які нотатки до уроків фізвиховання, щоб не створювати хибних онлайн-кнопок
     pe_notes = (await db.scalars(
         select(LessonOccurrenceNote).where(
             LessonOccurrenceNote.group_id == group.id,
@@ -326,7 +305,7 @@ async def ensure_known_online_links(db: AsyncSession) -> None:
         pn.revision += 1
         pn.updated_at = datetime.now(timezone.utc)
 
-    # Очищаємо залишкові технічні тексти | ID: ... | Код: ... коли в URL вже є ?pwd=
+    # Очищаємо залишкові технічні тексти | ID: ... | Код: ... коли в Zoom URL вже є повноцінний хеш pwd (>= 16 символів)
     all_notes = (await db.scalars(
         select(LessonOccurrenceNote).where(
             LessonOccurrenceNote.group_id == group.id,
@@ -337,7 +316,8 @@ async def ensure_known_online_links(db: AsyncSession) -> None:
         modified = False
         new_lines = []
         for line in an.note.split("\n"):
-            if "zoom.us" in line.lower() and "pwd=" in line.lower():
+            # Якщо в URL є повноцінний довгий Zoom-хеш pwd, тоді дубльований код прибираємо
+            if "zoom.us" in line.lower() and re.search(r"[?&]pwd=[A-Za-z0-9_.\-]{16,}", line):
                 cleaned_line = re.sub(
                     r"\s*\|\s*(?:ID|Код(?:\s+доступ[уа])?|Passcode|Пароль|Meeting ID).*$",
                     "",
@@ -359,12 +339,18 @@ async def ensure_known_online_links(db: AsyncSession) -> None:
     )
 
     known_links = {
-        "електронік": "https://zoom.us/j/2783533865?pwd=dfkr",
+        "електронік": "https://zoom.us/j/2783533865 | Код: dfkr",
         "схемотехнік": "https://us02web.zoom.us/j/83833012124?pwd=c8TCu5Ebfxj9wBLJP9kX2f1eFkqsbP.1",
         "українськ": "https://meet.google.com/wis-yind-cnt",
         "іноземн": foreign_lang_note,
         "англ": foreign_lang_note,
     }
+
+    target_mondays = [date(2026, 10, 12)]
+    today_kyiv = datetime.now(KYIV_TZ).date()
+    cur_mon = today_kyiv - timedelta(days=today_kyiv.weekday())
+    if cur_mon not in target_mondays:
+        target_mondays.append(cur_mon)
 
     for mon in target_mondays:
         for day_offset in range(5):
@@ -402,7 +388,11 @@ async def ensure_known_online_links(db: AsyncSession) -> None:
                 if existing:
                     needs_update = False
                     if "іноземн" in subj_lower or "англ" in subj_lower:
-                        if "Токарєва" not in existing.note or "Хочинська" not in existing.note:
+                        # Потрібно, щоб були обидва посилання — Meet для Токарєвої і Zoom для Хочинської
+                        if "vxe-jxdp-drx" not in existing.note or "6642778085" not in existing.note:
+                            needs_update = True
+                    elif "електронік" in subj_lower:
+                        if "2783533865" not in existing.note or "dfkr" not in existing.note:
                             needs_update = True
                     elif matched_url not in existing.note:
                         needs_update = True
@@ -410,7 +400,7 @@ async def ensure_known_online_links(db: AsyncSession) -> None:
                     if needs_update:
                         user_lines = [
                             l.strip() for l in existing.note.split("\n")
-                            if not URL_RE.search(l) and not re.search(r"^(?:id|код|пароль|токарєв|хочинськ)\b", l, re.I) and l.strip()
+                            if not URL_RE.search(l) and not re.search(r"^(?:id|код|пароль|meeting id|токарєв|хочинськ)\b", l, re.I) and l.strip()
                         ]
                         existing.note = f"{matched_url}\n{chr(10).join(user_lines)}".strip() if user_lines else matched_url
                         existing.subject_id = lesson.subject_id
@@ -434,6 +424,7 @@ async def ensure_known_online_links(db: AsyncSession) -> None:
                     )
 
     await db.commit()
+
 
 
 @router.post("/sync")

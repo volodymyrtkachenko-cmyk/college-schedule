@@ -113,20 +113,32 @@ export function getVisibleUserNote(note?: string | null): string {
   if (!note) return "";
   return note
     .split("\n")
-    .map((line) => {
-      if (line.trim().startsWith("[TASK]")) return "";
-      const cleaned = line
-        .replace(/^(?:(?:[А-Яа-яІіЇїЄєa-zA-Z\s.'—–\-/]+\d*|підгрупа\s*\d*)\s*[:\-–]\s*)?https?:\/\/(?:meet\.google\.com|[a-z0-9.-]*zoom\.us)\/[^\s|]+/gi, "")
-        .replace(/(?:Ідентифікатор(?:\s+конференції)?|Meeting\s*ID|ID)\s*:\s*[\d\s\-]+/gi, "")
-        .replace(/(?:Код(?:\s+доступ[уа])?|Passcode|Пароль)\s*:\s*[A-Za-zА-Яа-яІіЇїЄє0-9_.\-]+/gi, "")
-        .replace(/\|/g, " ")
-        .trim();
-      if (/^[А-Яа-яІіЇїЄєa-zA-Z\s.'—–\-:]+$/.test(cleaned) && /(?:токарєв|хочинськ|підгруп)/i.test(cleaned)) {
-        return "";
+    .map((line) => line.trim())
+    .filter((line) => {
+      if (!line) return false;
+      if (line.startsWith("[TASK]")) return false;
+      // Якщо рядок містить URL зустрічі
+      if (/https?:\/\/(?:meet\.google\.com|[a-z0-9.-]*zoom\.us)/i.test(line)) {
+        return false;
       }
-      return cleaned;
+      // Якщо рядок є службовим (ID, код, пароль)
+      if (/^(?:Ідентифікатор(?:\s+конференції)?|Meeting\s*ID|ID|Код(?:\s+доступ[уа])?|Passcode|Пароль)\s*[:\-]/i.test(line)) {
+        return false;
+      }
+      // Якщо рядок є заголовком конференції чи закликом підключитись
+      if (/^(?:Zoom|Meet|Google Meet|Підключитися|Приєднатися|Конференція)(?:\s+Zoom|\s+Meet)?\s*[:\-]?$/i.test(line)) {
+        return false;
+      }
+      // Якщо рядок є лише префіксом викладача/підгрупи (наприклад "Токарєва:", "Хочинська:", "Токарєва О.В.:")
+      if (/^(?:Токарєв[а-яА-Я.]*|Хочинськ[а-яА-Я.]*|Токарев[а-яА-Я.]*|Хочинск[а-яА-Я.]*|[1-9]\s*підгрупа|підгрупа\s*[1-9]|викладач\s*[:\-]?)\s*[:\-]?$/i.test(line)) {
+        return false;
+      }
+      // Якщо рядок є розділювачем
+      if (/^[-—_|~*=]{1,5}$/.test(line)) {
+        return false;
+      }
+      return true;
     })
-    .filter(Boolean)
     .join("\n")
     .trim();
 }
@@ -138,7 +150,22 @@ export interface MeetingInfo {
   label?: string;
 }
 
-export function extractOnlineMeetings(note?: string | null, room?: string | null): MeetingInfo[] {
+export function extractOnlineMeetings(
+  note?: string | null,
+  room?: string | null,
+  teacherName?: string | null,
+  subjectName?: string | null
+): MeetingInfo[] {
+  const isForeignLang = Boolean(
+    (subjectName && /іноземн|англ/i.test(subjectName)) ||
+    (teacherName && /токарєв|хочинськ/i.test(teacherName))
+  );
+
+  const isElectronics = Boolean(
+    (subjectName && /електронік/i.test(subjectName)) ||
+    (teacherName && /філімончук/i.test(teacherName))
+  );
+
   const lines = `${room || ""}\n${note || ""}`.split("\n");
   const results: MeetingInfo[] = [];
   const seenUrls = new Set<string>();
@@ -154,23 +181,27 @@ export function extractOnlineMeetings(note?: string | null, room?: string | null
       seenUrls.add(url.toLowerCase());
 
       const isMeet = url.toLowerCase().includes("meet.google.com");
-      const hasEmbeddedPwd = /[?&]pwd=[^&\s]+/i.test(url);
+      // Zoom-хеш містить принаймні 16 символів base64
+      const hasAuthenticPwdHash = /[?&]pwd=[A-Za-z0-9_.\-]{16,}/i.test(url);
 
       const passMatch = line.match(
         /(?:Код(?:\s+доступ[уа])?|Passcode|Пароль)\s*:\s*([A-Za-z0-9_.\-]+)/i
       );
-      const rawPass = passMatch ? passMatch[1] : null;
+      // Якщо в URL стоїть короткий пароль типу ?pwd=dfkr, дістаємо його як явний код
+      const shortUrlPwdMatch = url.match(/[?&]pwd=([A-Za-z0-9_.\-]{1,15})(?:&|$)/i);
+      let rawPass =
+        (passMatch ? passMatch[1] : null) ||
+        (shortUrlPwdMatch ? shortUrlPwdMatch[1] : null);
 
-      if (!isMeet && !hasEmbeddedPwd && rawPass) {
-        const sep = url.includes("?") ? "&" : "?";
-        url = `${url}${sep}pwd=${encodeURIComponent(rawPass)}`;
+      if (isElectronics && !isMeet && !rawPass) {
+        rawPass = "dfkr";
       }
 
       let label: string | undefined;
       const lowerLine = line.toLowerCase();
-      if (lowerLine.includes("токарєв")) {
+      if (lowerLine.includes("токарєв") || lowerLine.includes("токарев")) {
         label = "Токарєва";
-      } else if (lowerLine.includes("хочинськ")) {
+      } else if (lowerLine.includes("хочинськ") || lowerLine.includes("хочинск")) {
         label = "Хочинська";
       } else {
         const prefixMatch = line.match(
@@ -184,12 +215,73 @@ export function extractOnlineMeetings(note?: string | null, room?: string | null
         }
       }
 
+      // Якщо мітка не з рядка, перевіряємо викладачів пари
+      if (!label && isForeignLang) {
+        label = isMeet ? "Токарєва" : "Хочинська";
+      }
+
       results.push({
         url,
         platform: isMeet ? "meet" : "zoom",
-        passcode: hasEmbeddedPwd ? null : rawPass,
+        passcode: hasAuthenticPwdHash ? null : rawPass,
         label,
       });
+    }
+  }
+
+  // Спеціальний випадок: якщо предмет — Іноземна мова (Токарєва / Хочинська), гарантуємо обидва посилання
+  if (isForeignLang) {
+    const tokarevaIndex = results.findIndex(
+      (r) => r.label === "Токарєва" || r.url.includes("vxe-jxdp-drx") || r.platform === "meet"
+    );
+    const khochynskaIndex = results.findIndex(
+      (r) => r.label === "Хочинська" || r.url.includes("6642778085") || r.platform === "zoom"
+    );
+
+    if (tokarevaIndex === -1) {
+      results.unshift({
+        url: "https://meet.google.com/vxe-jxdp-drx",
+        platform: "meet",
+        passcode: null,
+        label: "Токарєва",
+      });
+    } else {
+      results[tokarevaIndex].label = "Токарєва";
+    }
+
+    if (khochynskaIndex === -1) {
+      results.push({
+        url: "https://us02web.zoom.us/j/6642778085?pwd=ZzFKMHJkS0pWbjRhMEFwbHA3cXJOdz09&omn=82076789020",
+        platform: "zoom",
+        passcode: null,
+        label: "Хочинська",
+      });
+    } else {
+      results[khochynskaIndex].label = "Хочинська";
+    }
+
+    // Сортуємо: Токарєва перша, Хочинська друга
+    results.sort((a, b) => {
+      if (a.label === "Токарєва") return -1;
+      if (b.label === "Токарєва") return 1;
+      return 0;
+    });
+  }
+
+  // Якщо електроніка, гарантуємо наявність пароля dfkr для Zoom-посилань
+  if (isElectronics) {
+    if (results.length === 0) {
+      results.push({
+        url: "https://zoom.us/j/2783533865",
+        platform: "zoom",
+        passcode: "dfkr",
+      });
+    } else {
+      for (const r of results) {
+        if (r.platform === "zoom" && !r.passcode) {
+          r.passcode = "dfkr";
+        }
+      }
     }
   }
 
@@ -231,6 +323,7 @@ export function LessonCard({
   const [startT, endT] = lesson.time.split("-");
 
   const [nowState, setNowState] = useState<{ dateIso: string; minutes: number } | null>(null);
+  const [copiedPass, setCopiedPass] = useState<string | null>(null);
 
   useEffect(() => {
     setNowState(getKyivNow());
@@ -264,7 +357,7 @@ export function LessonCard({
     isLive && endMin !== null && nowState ? Math.max(1, endMin - nowState.minutes) : 0;
 
   const isTeacherView = scheduleMode === "teacher";
-  const meetings = extractOnlineMeetings(lesson.note, lesson.room);
+  const meetings = extractOnlineMeetings(lesson.note, lesson.room, lesson.teacher_name, lesson.subject_name);
   const hasMeeting = meetings.length > 0;
   const secondaryItems = useMemo(() => {
     return isTeacherView ? parseLessonGroups(lesson) : parseLessonTeachers(lesson);
@@ -413,12 +506,14 @@ export function LessonCard({
                             onClick={(e) => {
                               e.stopPropagation();
                               void navigator.clipboard.writeText(m.passcode!);
+                              setCopiedPass(m.passcode!);
+                              setTimeout(() => setCopiedPass(null), 2000);
                             }}
                             title="Натисніть, щоб скопіювати код доступу"
-                            className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold text-amber-300 hover:bg-amber-500/20"
+                            className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold text-amber-300 transition-colors hover:bg-amber-500/20 active:scale-95"
                           >
-                            <span>🔑</span>
-                            <span>{m.passcode}</span>
+                            <span>{copiedPass === m.passcode ? "✓" : "🔑"}</span>
+                            <span>{copiedPass === m.passcode ? "Скопійовано" : m.passcode}</span>
                           </button>
                         )}
                       </div>
