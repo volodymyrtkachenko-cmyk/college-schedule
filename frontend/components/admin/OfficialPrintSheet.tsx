@@ -267,7 +267,7 @@ export function OfficialPrintModal({
               font-size: 20pt;
               text-align: center;
               line-height: 1.1;
-              margin: 0 0 10pt 0;
+              margin: 0 0 4pt 0;
               white-space: nowrap;
             }
             table.schedule-table {
@@ -284,7 +284,7 @@ export function OfficialPrintModal({
             }
             tfoot td {
               border: none !important;
-              padding-top: 4pt !important;
+              padding-top: 2pt !important;
               font-family: "Arimo", "Arial", sans-serif;
               font-size: 7pt;
               color: #000;
@@ -345,17 +345,42 @@ export function OfficialPrintModal({
               min-height: 43.5pt;
               background: linear-gradient(#000, #000) no-repeat calc(100% - 9mm) 0 / 1px 100%;
             }
+            td.td-empty-slot {
+              width: 44.8mm;
+              height: 43.5pt;
+              min-height: 43.5pt;
+              border: 1px solid #000;
+              padding: 0;
+            }
+            td.td-empty-room {
+              width: 9mm;
+              height: 43.5pt;
+              min-height: 43.5pt;
+              border: 1px solid #000;
+              padding: 0;
+            }
+            .col-divider {
+              position: absolute;
+              top: 0;
+              bottom: 0;
+              right: 9mm;
+              width: 0;
+              border-right: 1px solid #000;
+              pointer-events: none;
+            }
             .cell-grid {
+              position: relative;
               display: grid;
               grid-template-columns: 1fr 9mm;
               align-content: start;
               grid-auto-rows: min-content;
               font-size: 10pt;
-              padding: 2pt 0;
+              padding: 1.5pt 0;
               min-height: 43.5pt;
+              height: 100%;
             }
             .subj, .subj-text {
-              padding: 0 3pt 2pt 3pt;
+              padding: 0 3pt 1.5pt 3pt;
               font-weight: 700;
               color: #000;
               overflow-wrap: break-word;
@@ -470,17 +495,42 @@ export function OfficialPrintModal({
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
+          td.td-empty-slot {
+            width: 44.8mm !important;
+            height: 43.5pt !important;
+            min-height: 43.5pt !important;
+            border: 1px solid #000 !important;
+            padding: 0 !important;
+          }
+          td.td-empty-room {
+            width: 9mm !important;
+            height: 43.5pt !important;
+            min-height: 43.5pt !important;
+            border: 1px solid #000 !important;
+            padding: 0 !important;
+          }
+          .col-divider {
+            position: absolute !important;
+            top: 0 !important;
+            bottom: 0 !important;
+            right: 9mm !important;
+            width: 0 !important;
+            border-right: 1px solid #000 !important;
+            pointer-events: none !important;
+          }
           .cell-grid {
+            position: relative !important;
             display: grid !important;
             grid-template-columns: 1fr 9mm !important;
             align-content: start !important;
             grid-auto-rows: min-content !important;
             font-size: 10pt !important;
-            padding: 2pt 0 !important;
+            padding: 1.5pt 0 !important;
             min-height: 43.5pt !important;
+            height: 100% !important;
           }
           .subj, .subj-text {
-            padding: 0 3pt 2pt 3pt !important;
+            padding: 0 3pt 1.5pt 3pt !important;
             font-weight: 700 !important;
             color: #000 !important;
             overflow-wrap: break-word !important;
@@ -562,7 +612,7 @@ export function OfficialPrintModal({
         ) : (
           <div ref={printSheetRef} className="print-sheet mx-auto w-[283mm] print:w-[283mm]">
             {/* Заголовок по центру: Courier New Bold 20pt в один рядок */}
-            <h1 className="header-title font-mono font-bold text-[20pt] text-center leading-tight mb-2 text-black whitespace-nowrap">
+            <h1 className="header-title font-mono font-bold text-[20pt] text-center leading-tight mb-1 text-black whitespace-nowrap">
               РОЗКЛАД ЗАНЯТЬ на {formattedDate}, {DAY_NAMES_LOWER[dow] || ""}, {weekLabel}
             </h1>
 
@@ -632,19 +682,14 @@ export function OfficialPrintModal({
                         {group.name}
                       </td>
 
-                      {/* 5 слотів (0, 1, 2, 3, 4), кожен слот colspan=2 із 2-колонковим Grid 1fr 9mm */}
+                      {/* 5 слотів (0, 1, 2, 3, 4) */}
                       {cells.map((c, idx) => {
                         if (!c) {
                           return (
-                            <td
-                              key={`g-${group.id}-slot-${idx}`}
-                              colSpan={2}
-                              className="td-slot border border-black"
-                              style={{
-                                background:
-                                  "linear-gradient(#000, #000) no-repeat calc(100% - 9mm) 0 / 1px 100%",
-                              }}
-                            />
+                            <React.Fragment key={`g-${group.id}-slot-${idx}`}>
+                              <td className="td-empty-slot border border-black p-0" />
+                              <td className="td-empty-room border border-black p-0" />
+                            </React.Fragment>
                           );
                         }
 
@@ -664,15 +709,29 @@ export function OfficialPrintModal({
                             <div
                               className="cell-grid"
                               style={{
+                                position: "relative",
                                 display: "grid",
                                 gridTemplateColumns: "1fr 9mm",
                                 alignContent: "start",
                                 gridAutoRows: "min-content",
                                 fontSize: "10pt",
-                                padding: "2pt 0",
+                                padding: "1.5pt 0",
                                 minHeight: "43.5pt",
+                                height: "100%",
                               }}
                             >
+                              <div
+                                className="col-divider"
+                                style={{
+                                  position: "absolute",
+                                  top: 0,
+                                  bottom: 0,
+                                  right: "9mm",
+                                  width: 0,
+                                  borderRight: "1px solid #000",
+                                  pointerEvents: "none",
+                                }}
+                              />
                               {isMulti ? (
                                 <>
                                   {/* Рядок 1: Назва предмета + порожнє місце під ауд */}
@@ -681,7 +740,7 @@ export function OfficialPrintModal({
                                     style={{
                                       fontSize: typo.fontSize,
                                       lineHeight: typo.lineHeight,
-                                      padding: "0 3pt 2pt 3pt",
+                                      padding: "0 3pt 1.5pt 3pt",
                                       overflowWrap: "break-word",
                                       wordWrap: "break-word",
                                     }}
@@ -754,7 +813,7 @@ export function OfficialPrintModal({
                                     style={{
                                       fontSize: typo.fontSize,
                                       lineHeight: typo.lineHeight,
-                                      padding: "0 3pt 2pt 3pt",
+                                      padding: "0 3pt 1.5pt 3pt",
                                       overflowWrap: "break-word",
                                       wordWrap: "break-word",
                                     }}
