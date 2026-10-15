@@ -14,7 +14,6 @@ import { WelcomeScreen } from "../components/WelcomeScreen";
 import { SearchableSelect } from "../components/SearchableSelect";
 import { useToast } from "../components/ToastProvider";
 import { QuickJumpTarget, findGroupIdByName, findTeacherIdByName } from "../lib/quickJump";
-import { EventsTimeline } from "../components/EventsTimeline";
 
 interface PinnedTarget {
   mode: "student" | "teacher";
@@ -412,8 +411,6 @@ export default function HomePage() {
             </button>
           </div>
         )}
-
-        <EventsTimeline groupId={groupId} mode={mode} teacherId={teacherId} />
 
         {loading ? (
           <div className="space-y-3" aria-busy="true" aria-label="Завантаження розкладу">
