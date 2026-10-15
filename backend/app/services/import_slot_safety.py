@@ -76,30 +76,3 @@ async def version_for_import(db,date_strings,fallback_date):
     if len(ids)>1:
         raise HTTPException(409,detail={'code':'import_spans_versions','msg':'Імпорт охоплює різні версії. Розділіть його за періодами; змішування шаблонів заборонено.'})
     return next(iter(ids))
-
-async def guard_protected_replacement(db,schedule_ids):
-    """Stop destructive v4 publish until a reviewed mapping is implemented in 2B."""
-    if not schedule_ids:
-        return
-    overrides=await db.scalar(select(func.count()).select_from(ScheduleOverride).where(
-        ScheduleOverride.schedule_id.in_(schedule_ids)))
-    if overrides:
-        raise HTTPException(409,detail={'code':'manual_overrides_require_mapping',
-            'msg':'Публікація зачіпає ручні overrides. Потрібен mapping; їх видалення заблоковано.'})
-    conn=await db.connection()
-    tables=set(await conn.run_sync(lambda c: inspect(c).get_table_names()))
-    for table in ('lesson_notes','lesson_occurrence_notes'):
-        if table not in tables:
-            continue
-        columns=set(await conn.run_sync(lambda c: [x['name'] for x in inspect(c).get_columns(table)]))
-        if table=='lesson_notes' and 'schedule_id' in columns:
-            # SQLAlchemy reflects the legacy table only; no note text is loaded.
-            from sqlalchemy import Table,MetaData
-            reflected=await conn.run_sync(lambda c: Table(table,MetaData(),autoload_with=c))
-            count=await db.scalar(select(func.count()).select_from(reflected).where(reflected.c.schedule_id.in_(schedule_ids)))
-        else:
-            # Unknown/future note structure: conservative gate, not an unsafe guess.
-            count=await conn.scalar(text(f'SELECT COUNT(*) FROM {table}'))
-        if count:
-            raise HTTPException(409,detail={'code':'lesson_notes_require_mapping',
-                'msg':'Публікація може зачепити примітки. Спочатку потрібен безпечний mapping групи 2B.'})

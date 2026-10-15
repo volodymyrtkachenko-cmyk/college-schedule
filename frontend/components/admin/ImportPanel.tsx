@@ -1,17 +1,8 @@
 import { useState, useEffect, useRef } from "react";
-import { api, DraftSlotRecord, ImportCancellation, ImportSubstitution, ImporterResponse, ReferenceRecord } from "../../lib/api";
+import { api, ImportCancellation, ImportSubstitution, ImporterResponse, ReferenceRecord } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 import { SearchableSelect } from "../SearchableSelect";
-
-const DAY_NAMES: Record<number, string> = {
-  1: "Понеділок",
-  2: "Вівторок",
-  3: "Середа",
-  4: "Четвер",
-  5: "П’ятниця",
-  6: "Субота",
-  7: "Неділя",
-};
+import { PublicationHistory } from "./PublicationHistory";
 
 export function ImportPanel() {
   const { user } = useAuth();
@@ -32,11 +23,6 @@ export function ImportPanel() {
   const [substitutions, setSubstitutions] = useState<ImportSubstitution[]>([]);
   const [cancelled, setCancelled] = useState<ImportCancellation[]>([]);
   const [draftId, setDraftId] = useState<number | null>(null);
-  const [selectedHistory, setSelectedHistory] = useState<number | null>(null);
-  const [historyFilter, setHistoryFilter] = useState("");
-  const [historySlots, setHistorySlots] = useState<DraftSlotRecord[]>([]);
-  const [historyChanges, setHistoryChanges] = useState<Awaited<ReturnType<typeof api.generator.getSubstitutions>>>([]);
-  const [importHistory, setImportHistory] = useState<Array<{ id: number; name: string; status: string; created_at: string; data?: { substitutions?: ImportSubstitution[]; cancelled?: ImportCancellation[] } | null }>>([]);
   const importRequestId = useRef(0);
 
   const loadDicts = async () => {
@@ -68,9 +54,6 @@ export function ImportPanel() {
         const session = await api.auth.ensureAuthenticated();
         const drafts = await api.generator.listDrafts(session.access_token);
         if (requestId !== importRequestId.current) return;
-        setImportHistory(
-          drafts.filter((draft) => draft.draft_type === "import" && draft.status !== "pending").slice(0, 10),
-        );
         const pending = drafts.find(
           (draft) => draft.draft_type === "import" && draft.status === "pending",
         );
@@ -242,33 +225,7 @@ export function ImportPanel() {
     }
   };
 
-  const viewHistory = async (id: number) => {
-    try {
-      setHistoryFilter("");
-      const session = await api.auth.ensureAuthenticated();
-      const [nextSlots, nextChanges] = await Promise.all([
-        api.generator.getSlots(id, session.access_token),
-        api.generator.getSubstitutions(id, session.access_token),
-      ]);
-      setHistorySlots(nextSlots);
-      setHistoryChanges(nextChanges);
-      setSelectedHistory(id);
-    } catch (err: any) {
-      setError(err?.message || "Не вдалося завантажити імпорт.");
-    }
-  };
 
-  const deleteHistory = async (id: number) => {
-    if (!window.confirm("Видалити цей імпорт з архіву? Відновити його буде неможливо.")) return;
-    try {
-      const session = await api.auth.ensureAuthenticated();
-      await api.generator.deleteDraft(id, session.access_token);
-      setImportHistory(current => current.filter(item => item.id !== id));
-      if (selectedHistory === id) setSelectedHistory(null);
-    } catch (err: any) {
-      setError(err?.message || "Не вдалося видалити імпорт.");
-    }
-  };
 
   const handlePrimaryAction = async () => {
     if (!report) return;
@@ -301,26 +258,7 @@ export function ImportPanel() {
     return new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "long", year: "numeric" }).format(new Date(`${value}T00:00:00`));
   };
 
-  const filteredHistorySlots = historySlots.filter((slot) => {
-    if (!historyFilter) return true;
-    const q = historyFilter.toLowerCase().trim();
-    return (
-      slot.curriculum.group.name.toLowerCase().includes(q) ||
-      slot.curriculum.subject.name.toLowerCase().includes(q) ||
-      (DAY_NAMES[slot.day_of_week] || "").toLowerCase().includes(q)
-    );
-  });
 
-  const filteredHistoryChanges = historyChanges.filter((change) => {
-    if (!historyFilter) return true;
-    const q = historyFilter.toLowerCase().trim();
-    return (
-      (change.group_name || "").toLowerCase().includes(q) ||
-      (change.subject_name || "").toLowerCase().includes(q) ||
-      (change.teacher_name || "").toLowerCase().includes(q) ||
-      change.date.toLowerCase().includes(q)
-    );
-  });
 
   return (
     <div className="bg-sys-card rounded-xl p-6 border border-sys-border">
@@ -355,90 +293,6 @@ export function ImportPanel() {
                      <><svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Імпортуємо...</>
                    ) : "Почати імпорт"}
                </button>
-               {importHistory.length > 0 && (
-                 <div className="mt-8 border-t border-sys-border pt-5">
-                   <h3 className="mb-3 text-sm font-semibold text-sys-text-primary">Історія імпортів</h3>
-                   <div className="space-y-2">
-                     {importHistory.map((item) => (
-                       <div key={item.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-sys-border bg-sys-card p-3 text-sm">
-                         <div>
-                           <div className="font-medium text-sys-text-primary">{item.name}</div>
-                           <div className="text-xs text-sys-text-muted">
-                             {new Intl.DateTimeFormat("uk-UA", { dateStyle: "medium", timeStyle: "short" }).format(new Date(item.created_at))}
-                           </div>
-                         </div>
-                         <div className="flex flex-wrap items-center gap-2 text-xs text-sys-text-secondary">
-                           <span>Заміни: {item.data?.substitutions?.length ?? 0}</span>
-                           <span>Скасування: {item.data?.cancelled?.length ?? 0}</span>
-                           <span className="rounded bg-white/5 px-2 py-1">{item.status === "published" ? "Опубліковано" : "Архів"}</span>
-                           <button type="button" onClick={() => void viewHistory(item.id)} className="rounded-lg border border-sys-accent/30 px-2 py-1 text-sys-accent hover:bg-sys-accent/10">Переглянути</button>
-                           {item.status === "published" && (
-                             <a href="/admin?resource=schedule" className="rounded-lg bg-sys-accent px-2 py-1 font-semibold text-[#0b1120] hover:opacity-90">
-                               Редагувати розклад
-                             </a>
-                           )}
-                           {item.status === "archived" && (
-                             <button type="button" onClick={() => void deleteHistory(item.id)} className="rounded-lg border border-rose-400/30 px-2 py-1 text-rose-300 hover:bg-rose-500/10">Видалити</button>
-                           )}
-                         </div>
-                       </div>
-                     ))}
-                   </div>
-                   {selectedHistory !== null && (
-                     <div className="mt-4 rounded-xl border border-sys-border bg-sys-bg/40 p-4">
-                       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                         <h4 className="font-semibold">Перегляд імпорту</h4>
-                         <div className="flex items-center gap-2">
-                           <input
-                             type="search"
-                             value={historyFilter}
-                             onChange={(e) => setHistoryFilter(e.target.value)}
-                             placeholder="Фільтр за групою, предметом..."
-                             className="form-control text-xs py-1 px-2.5 w-44 sm:w-60"
-                           />
-                           <button type="button" onClick={() => setSelectedHistory(null)} className="text-sm text-sys-text-secondary hover:text-white">Закрити</button>
-                         </div>
-                       </div>
-                       <div className="max-h-80 overflow-auto text-xs">
-                         <table className="w-full text-left">
-                           <thead><tr className="border-b border-sys-border text-sys-text-muted"><th className="p-2">Група</th><th className="p-2">Предмет</th><th className="p-2">День</th><th className="p-2">Пара</th><th className="p-2">Тиждень</th></tr></thead>
-                           <tbody>
-                             {filteredHistorySlots.map(slot => (
-                               <tr key={slot.id} className="border-b border-sys-border/50">
-                                 <td className="p-2">{slot.curriculum.group.name}</td>
-                                 <td className="p-2">{slot.curriculum.subject.name}</td>
-                                 <td className="p-2">{DAY_NAMES[slot.day_of_week] ?? slot.day_of_week}</td>
-                                 <td className="p-2">{slot.lesson_number}</td>
-                                 <td className="p-2">{slot.week_type === "numerator" ? "Чисельник" : slot.week_type === "denominator" ? "Знаменник" : "Обидва"}</td>
-                               </tr>
-                             ))}
-                           </tbody>
-                         </table>
-                         {historyChanges.length > 0 && (
-                           <div className="mt-4 space-y-1 border-t border-sys-border pt-3">
-                             <div className="mb-2 font-semibold text-sys-text-secondary">Імпортні зміни</div>
-                             {filteredHistoryChanges.map((change, index) => (
-                               <div key={`${change.date}-${change.group_id}-${change.lesson_number}-${index}`} className="flex flex-wrap gap-x-3 gap-y-1 rounded-lg bg-white/[0.03] p-2">
-                                 <span>{change.date}</span>
-                                 <span>{change.group_name ?? "Невідома група"}</span>
-                                 <span>{change.lesson_number}-та пара</span>
-                                 <span className={change.kind === "cancelled" ? "text-rose-300" : "text-amber-200"}>
-                                   {change.kind === "cancelled" ? "Скасовано" : `${change.subject_name ?? "Заміна"} · ${change.teacher_name ?? "Без викладача"}`}
-                                 </span>
-                               </div>
-                             ))}
-                           </div>
-                         )}
-                         {!filteredHistorySlots.length && !filteredHistoryChanges.length && (
-                           <p className="p-3 text-sys-text-muted">
-                             {historyFilter ? "Нічого не знайдено за заданим фільтром." : "В імпорті немає слотів або змін."}
-                           </p>
-                         )}
-                       </div>
-                     </div>
-                   )}
-                 </div>
-               )}
             </div>
         )}
 
@@ -689,6 +543,10 @@ export function ImportPanel() {
             </div>
         )}
       </div>
+
+      {status !== "importing" && status !== "mapping" && (
+        <PublicationHistory />
+      )}
     </div>
   );
 }

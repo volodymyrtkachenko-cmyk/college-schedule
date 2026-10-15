@@ -91,51 +91,66 @@ export function AdminNav({ active }: { active: string }) {
        </button>
        </div>
 
-       <div className="mb-2 pl-2 text-[11px] font-bold uppercase tracking-wider text-sys-text-secondary">Розклад</div>
-       <Link href="/admin?resource=schedule" onClick={() => setIsOpen(false)} className={linkClass(active === "schedule")}>
-         Перегляд розкладу
-       </Link>
+        <div className="mb-2 pl-2 text-[11px] font-bold uppercase tracking-wider text-sys-text-secondary">Основне</div>
+        <div className="space-y-1">
+          <Link href="/admin?resource=schedule" onClick={() => setIsOpen(false)} className={linkClass(active === "schedule")}>
+            Розклад
+          </Link>
 
-       {user?.role === "admin" && (
-         <>
-           <div className="mb-2 mt-6 border-t border-sys-border/50 pl-2 pt-5 text-[11px] font-bold uppercase tracking-wider text-sys-text-secondary">Підготовка розкладу</div>
-           <Link href="/admin?resource=import" onClick={() => setIsOpen(false)} className={linkClass(active === "import")}>
-             Імпорт з kre.dp.ua
-           </Link>
+          {user?.role === "admin" && (
+            <>
+              <Link href="/admin?resource=import" onClick={() => setIsOpen(false)} className={linkClass(active === "import")}>
+                Імпорт з КРЕ
+              </Link>
+              <Link href="/admin?resource=periods" onClick={() => setIsOpen(false)} className={linkClass(active === "periods")}>
+                Періоди (Практики/Канікули)
+              </Link>
+              <Link href="/admin?resource=versions" onClick={() => setIsOpen(false)} className={linkClass(active === "versions")}>
+                Версії
+              </Link>
+              <Link href="/admin?resource=semester" onClick={() => setIsOpen(false)} className={linkClass(active === "semester")}>
+                Семестр
+              </Link>
 
-           <Link href="/admin?resource=generator" onClick={() => setIsOpen(false)} className={linkClass(active === "generator")}>
-             Генератор розкладу
-           </Link>
-           <Link href="/admin?resource=constraints" onClick={() => setIsOpen(false)} className={linkClass(active === "constraints")}>
-             Доступність викладачів
-           </Link>
-           <Link href="/admin?resource=curriculum" onClick={() => setIsOpen(false)} className={linkClass(active === "curriculum")}>
-             Навчальне навантаження
-           </Link>
-           <Link href="/admin?resource=periods" onClick={() => setIsOpen(false)} className={linkClass(active === "periods")}>
-             Практики й канікули
-           </Link>
-           <Link href="/admin?resource=versions" onClick={() => setIsOpen(false)} className={linkClass(active === "versions")}>
-             Версії розкладу
-           </Link>
-           <Link href="/admin?resource=semester" onClick={() => setIsOpen(false)} className={linkClass(active === "semester")}>
-             Налаштування семестру
-           </Link>
-           <div className="mb-2 mt-6 border-t border-sys-border/50 pl-2 pt-5 text-[11px] font-bold uppercase tracking-wider text-sys-text-secondary">Довідкова інформація</div>
-           <div className="space-y-1">
-             {resources.map(r => (
-               <Link key={r} href={`/admin?resource=${r}`} onClick={() => setIsOpen(false)} className={linkClass(active === r)}>
-                 {referenceLabels[r]}
-               </Link>
-             ))}
-           </div>
+              <details
+                className="group mt-2 rounded-lg border border-sys-border/40 bg-white/[0.02] p-1.5"
+                open={["curriculum", "constraints", "generator"].includes(active)}
+              >
+                <summary className="flex cursor-pointer select-none items-center justify-between px-2 py-1.5 text-xs font-semibold text-sys-text-secondary transition-colors hover:text-sys-text-primary">
+                  <span>⚙️ Автогенератор (Додатково)</span>
+                  <span className="text-[10px] transition-transform group-open:rotate-180">▼</span>
+                </summary>
+                <div className="mt-1 space-y-1 pt-1 border-t border-sys-border/20">
+                  <Link href="/admin?resource=curriculum" onClick={() => setIsOpen(false)} className={linkClass(active === "curriculum")}>
+                    Навантаження
+                  </Link>
+                  <Link href="/admin?resource=constraints" onClick={() => setIsOpen(false)} className={linkClass(active === "constraints")}>
+                    Обмеження
+                  </Link>
+                  <Link href="/admin?resource=generator" onClick={() => setIsOpen(false)} className={linkClass(active === "generator")}>
+                    Автогенератор
+                  </Link>
+                </div>
+              </details>
+            </>
+          )}
+        </div>
 
-           <div className="mb-2 mt-6 border-t border-sys-border/50 pl-2 pt-5 text-[11px] font-bold uppercase tracking-wider text-sys-text-secondary">Користувачі</div>
-           <Link href="/admin?resource=users" onClick={() => setIsOpen(false)} className={linkClass(active === "users")}>
-             Облікові записи
-           </Link>
-         </>
-       )}
+        {user?.role === "admin" && (
+          <>
+            <div className="mb-2 mt-6 border-t border-sys-border/50 pl-2 pt-5 text-[11px] font-bold uppercase tracking-wider text-sys-text-secondary">Довідники</div>
+            <div className="space-y-1">
+              {(["groups", "teachers", "subjects", "faculties"] as ReferenceResource[]).map(r => (
+                <Link key={r} href={`/admin?resource=${r}`} onClick={() => setIsOpen(false)} className={linkClass(active === r)}>
+                  {referenceLabels[r]}
+                </Link>
+              ))}
+              <Link href="/admin?resource=users" onClick={() => setIsOpen(false)} className={linkClass(active === "users")}>
+                Користувачі
+              </Link>
+            </div>
+          </>
+        )}
 
        <div className="mt-auto pt-8 flex flex-col gap-3">
                       <div className="flex flex-col items-start gap-1.5 rounded-[10px] border border-emerald-500/10 bg-emerald-500/5 px-4 py-3 shadow-sm mb-3">

@@ -16,54 +16,12 @@ from app.routers import (
 )
 from app.routers.schedule_now import router as schedule_now_router
 
-
-import asyncio
-
-import os
-
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    # --- Background Cron Job for Auto Import ---
-    async def auto_import_loop():
-        # Start the loop, wait a bit first so app can finish starting
-        await asyncio.sleep(60)
-        from app.routers.admin_import import execute_import_logic
-        from app.database import async_session_factory
-        from fastapi import Request
-        class DummyRequest:
-            headers = {}
-        
-        while True:
-            try:
-                async with async_session_factory() as db:
-                    print("Запуск автоматичного імпорту замін...")
-                    # Pass a dummy request without secret, but we bypass auth check because we will just patch it to accept an internal call
-                    await execute_import_logic(db=db, weeks=2)
-            except Exception as e:
-                print(f"Помилка автоматичного імпорту: {e}")
-            
-            # Wait 1 hour
-            await asyncio.sleep(3600)
-    
-    # Start background task only if RUN_CRON is explicitly true
-    run_cron = os.getenv("RUN_CRON", "false").strip().lower() == "true"
-    if run_cron:
-        cron_task = asyncio.create_task(auto_import_loop())
-    else:
-        cron_task = None
-
     try:
         yield
     finally:
-        try:
-            if cron_task is not None:
-                cron_task.cancel()
-                try:
-                    await cron_task
-                except asyncio.CancelledError:
-                    pass
-        finally:
-            await engine.dispose()
+        await engine.dispose()
 
 
 app = FastAPI(

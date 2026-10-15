@@ -9,7 +9,6 @@ import { ScheduleWeekGrid } from "../components/ScheduleWeekGrid";
 import { WeekTypeBadge } from "../components/WeekTypeBadge";
 import { useSchedule, useIsStandalonePwa, downloadForOffline } from "../lib/hooks";
 import { useAuth, canAccessAdmin } from "../lib/auth";
-import { useRouter } from "next/navigation";
 import { getMondayOf } from "../lib/date";
 import { WelcomeScreen } from "../components/WelcomeScreen";
 import { SearchableSelect } from "../components/SearchableSelect";
@@ -88,26 +87,6 @@ export default function HomePage() {
     }
   };
   
-  // Easter Egg states
-  const router = useRouter();
-  const [clickCount, setClickCount] = useState(0);
-
-  useEffect(() => {
-    if (clickCount > 0) {
-      const timer = setTimeout(() => setClickCount(0), 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [clickCount]);
-
-  const handleSecretClick = () => {
-    setClickCount(prev => {
-      if (prev + 1 >= 5) {
-        router.push("/login");
-        return 0;
-      }
-      return prev + 1;
-    });
-  };
 
   const [view, setView] = useState<"today" | "week">("today");
   const [returnTarget, setReturnTarget] = useState<{
@@ -236,7 +215,7 @@ export default function HomePage() {
               <a href="https://kre.dp.ua/" target="_blank" rel="noopener noreferrer" className="inline-block hover:opacity-80 transition-opacity" title="Головна сторінка закладу">
                 <p className="text-xs font-bold uppercase tracking-[0.2em] text-sys-text-secondary">ДФКР</p>
               </a>
-                            <h1 onClick={handleSecretClick} className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl cursor-pointer select-none text-sys-text-primary">Розклад занять</h1>
+              <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl text-sys-text-primary">Розклад занять</h1>
               <div className="flex gap-4">
                 <a href="/statistics" className="mt-1 inline-block text-sm font-medium text-sys-accent transition-colors hover:text-sys-text-primary">
                   Статистика

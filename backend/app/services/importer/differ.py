@@ -13,11 +13,6 @@ class ScheduleDiffer:
         self.normalizer = normalizer
         self.unresolved_entities = []
 
-    async def _get_current_schedule(self, start_date: date, end_date: date) -> Dict[str, Any]:
-        # Implementation depends on logic structure
-        # E.g. get all entries from schedule table for the week days ...
-        pass
-
     async def diff(self, parsed_week: ParsedWeek) -> dict:
         substitutions = []
         unresolved_substitutions = []

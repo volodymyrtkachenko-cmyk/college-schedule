@@ -112,15 +112,14 @@ export default function StatisticsPage() {
   }, [mode, groupId, teacherId, referencesLoading]);
 
   const displayedEntries = useMemo(
-    () => mode === "teacher"
-      ? [...(stats?.entries ?? [])].sort((a, b) => b.completed_hours - a.completed_hours)
-      : stats?.entries ?? [],
-    [mode, stats],
+    () => [...(stats?.entries ?? [])].sort((a, b) => b.completed_hours - a.completed_hours),
+    [stats],
   );
-  const maxGroupHours = useMemo(
+  const maxEntryHours = useMemo(
     () => Math.max(0, ...displayedEntries.map((entry) => entry.completed_hours)),
     [displayedEntries],
   );
+  const hasGlobalPlan = Boolean(stats?.planned_hours && stats.planned_hours > 0);
 
   const selectedName = mode === "student"
     ? groups.find((item) => item.id === groupId)?.name
@@ -250,21 +249,23 @@ export default function StatisticsPage() {
                 </p>
                 <p className="mt-1 text-xs text-sys-text-muted">академічних годин</p>
               </div>
-              {mode === "student" ? (
+              {mode === "student" && hasGlobalPlan ? (
                 <div className="rounded-2xl border border-sys-border bg-sys-card p-5 text-center flex flex-col justify-center items-center">
                   <p className="text-xs font-semibold uppercase tracking-wider text-sys-text-secondary">Всього за планом</p>
                   <p className="mt-2 text-4xl font-black text-white">
-                    {stats.planned_hours ?? 0}
+                    {stats.planned_hours}
                   </p>
                   <p className="mt-1 text-xs text-sys-text-muted">
-                    {stats.planned_hours ? getProgressMessage(stats.total_hours, stats.planned_hours) : "Невідомо"}
+                    {getProgressMessage(stats.total_hours, stats.planned_hours!)}
                   </p>
                 </div>
               ) : (
                 <div className="rounded-2xl border border-sys-border bg-sys-card p-5 text-center flex flex-col justify-center items-center">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-sys-text-secondary">Активних груп</p>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-sys-text-secondary">
+                    {mode === "student" ? "Дисциплін" : "Активних груп"}
+                  </p>
                   <p className="mt-2 text-4xl font-black text-white">{stats.entries.length}</p>
-                  <p className="mt-1 text-xs text-sys-text-muted">за поточний розклад</p>
+                  <p className="mt-1 text-xs text-sys-text-muted">за поточний семестр</p>
                 </div>
               )}
             </section>
@@ -282,67 +283,55 @@ export default function StatisticsPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                   {displayedEntries.map((entry) => {
                     const totalHours = entry.planned_hours ?? 0;
-                    const hasPlannedHours = totalHours > 0;
+                    const hasPlannedHours = mode === "student" && totalHours > 0;
+                    const relativePercent =
+                      maxEntryHours > 0 ? Math.round((entry.completed_hours / maxEntryHours) * 100) : 0;
                     const progress = hasPlannedHours
                       ? getProgressPercentage(entry.completed_hours, totalHours)
-                      : 0;
+                      : relativePercent;
                     const clampedProgress = Math.min(100, Math.max(0, progress));
-                    
-                    const circumference = 2 * Math.PI * 20; // r=20
-                    const strokeDashoffset = mode === "student" && hasPlannedHours 
-                        ? circumference - (clampedProgress / 100) * circumference
-                        : mode !== "student" && maxGroupHours > 0
-                            ? circumference - ((entry.completed_hours / maxGroupHours) * 100 / 100) * circumference
-                            : circumference;
 
-                    const colorClass = mode === "student"
-                      ? progress >= 100 ? "text-emerald-500" : progress >= 50 ? "text-purple-500" : "text-blue-500"
-                      : "text-emerald-400";
+                    const circumference = 2 * Math.PI * 20;
+                    const strokeDashoffset = circumference - (clampedProgress / 100) * circumference;
+
+                    const colorClass = hasPlannedHours
+                      ? progress >= 100
+                        ? "text-emerald-500"
+                        : progress >= 50
+                          ? "text-purple-500"
+                          : "text-blue-500"
+                      : "text-sys-accent";
 
                     return (
                       <div key={entry.id} className="rounded-2xl border border-sys-border bg-sys-card p-4 flex items-center gap-4 hover:bg-white/5 transition-colors">
                         <div className="relative w-16 h-16 shrink-0 flex items-center justify-center">
-                            {(mode !== "student" || hasPlannedHours) ? (
-                                <>
-                                    <svg className="w-full h-full transform -rotate-90" viewBox="0 0 48 48">
-                                        <circle 
-                                            cx="24" cy="24" r="20" 
-                                            stroke="currentColor" 
-                                            strokeWidth="4" 
-                                            fill="none" 
-                                            className="text-slate-800" 
-                                        />
-                                        <circle 
-                                            cx="24" cy="24" r="20" 
-                                            stroke="currentColor" 
-                                            strokeWidth="4" 
-                                            fill="none" 
-                                            strokeDasharray={circumference} 
-                                            strokeDashoffset={strokeDashoffset} 
-                                            className={`${colorClass} transition-all duration-1000 ease-out`} 
-                                            strokeLinecap="round" 
-                                        />
-                                    </svg>
-                                    <span className="absolute text-xs font-bold text-slate-300">
-                                        {mode === "student" ? `${Math.round(clampedProgress)}%` : entry.completed_hours}
-                                    </span>
-                                </>
-                            ) : (
-                                <div className="w-full h-full rounded-full border-4 border-slate-700 border-dashed flex items-center justify-center">
-                                    <span className="text-xs font-bold text-slate-400">?</span>
-                                </div>
-                            )}
+                          <svg className="w-full h-full transform -rotate-90" viewBox="0 0 48 48">
+                            <circle
+                              cx="24" cy="24" r="20"
+                              stroke="currentColor" strokeWidth="4" fill="none"
+                              className="text-slate-800"
+                            />
+                            <circle
+                              cx="24" cy="24" r="20"
+                              stroke="currentColor" strokeWidth="4" fill="none"
+                              strokeDasharray={circumference}
+                              strokeDashoffset={strokeDashoffset}
+                              className={`${colorClass} transition-all duration-1000 ease-out`}
+                              strokeLinecap="round"
+                            />
+                          </svg>
+                          <span className="absolute text-xs font-bold text-slate-200">
+                            {hasPlannedHours ? `${Math.round(clampedProgress)}%` : `${entry.completed_hours}г`}
+                          </span>
                         </div>
                         <div className="flex-1 min-w-0">
                           <h3 className="truncate font-semibold text-sm mb-1 text-slate-200" title={entry.name}>
                             {entry.name}
                           </h3>
                           <p className="text-xs text-slate-400">
-                            {mode === "student" ? (
-                                hasPlannedHours ? `${entry.completed_hours} / ${totalHours} год.` : `${entry.completed_hours} год. (Поза планом)`
-                            ) : (
-                                `${entry.completed_hours} акад. год.`
-                            )}
+                            {hasPlannedHours
+                              ? `${entry.completed_hours} / ${totalHours} год.`
+                              : `${entry.completed_hours} акад. год.`}
                           </p>
                           {mode === "student" && Boolean(entry.replaced_count || entry.cancelled_count || entry.notes_count) && (
                             <div className="mt-1.5 flex flex-wrap gap-1.5 text-[11px]">

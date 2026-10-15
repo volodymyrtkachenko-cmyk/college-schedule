@@ -8,8 +8,7 @@ from sqlalchemy.ext.asyncio import create_async_engine,async_sessionmaker
 from app.database import Base
 from app.models import Group,Subject,Teacher,Schedule,ScheduleDraft,ScheduleSlot,Curriculum,ScheduleVersion,ImportedScheduleChange
 from app.routers import admin_import,drafts
-from app.services.schedule import fetch_schedule
-from app.services.import_slot_safety import normalize_base_slots,version_for_import,guard_protected_replacement
+from app.services.import_slot_safety import normalize_base_slots,version_for_import
 
 @pytest.fixture
 def anyio_backend(): return 'asyncio'
@@ -152,15 +151,6 @@ async def test_import_crossing_versions_rejected(context):
     assert exc.value.status_code==409
     assert exc.value.detail['code']=='import_spans_versions'
 
-@pytest.mark.anyio
-async def test_legacy_notes_block_destructive_replacement(context):
-    db,ids=context;row=Schedule(**ids,day_of_week=2,lesson_number=4,week_type='denominator');db.add(row);await db.flush()
-    await db.execute(text('CREATE TABLE lesson_notes(id INTEGER PRIMARY KEY,schedule_id INTEGER,note TEXT)'))
-    await db.execute(text('INSERT INTO lesson_notes(id,schedule_id,note) VALUES(1,:id,:note)'),{'id':row.id,'note':'preserve-test-note'})
-    await db.commit()
-    with pytest.raises(HTTPException) as exc: await guard_protected_replacement(db,[row.id])
-    assert exc.value.detail['code']=='lesson_notes_require_mapping'
-    assert await db.scalar(text('SELECT note FROM lesson_notes WHERE id=1'))=='preserve-test-note'
 
 @pytest.mark.anyio
 async def test_farther_denominators_have_one_pair_after_safe_explicit_publish(context,monkeypatch):

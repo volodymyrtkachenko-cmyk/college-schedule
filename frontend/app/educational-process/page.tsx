@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api } from "../../lib/api";
 
@@ -50,25 +49,6 @@ const TYPE_COLORS: Record<string, string> = {
     attestation: "bg-blue-600 text-white",
 };
 
-const TYPE_LABELS: Record<string, string> = {
-    theory: "Т",
-    session: "С",
-    holiday: "К",
-    diploma: "Д",
-    attestation: "А",
-};
-
-function getPracticeAbbr(name: string | null) {
-    if (!name) return "П";
-    const n = name.toLowerCase();
-    if (n.includes("електрорадіомонтажна")) return "Пем";
-    if (n.includes("комп'ютерна")) return "Пк";
-    if (n.includes("професійна")) return "Ппр";
-    if (n.includes("технологічна")) return "Пт";
-    if (n.includes("переддипломна")) return "Ппд";
-    return "П";
-}
-
 function getPracticeColor(name: string | null) {
     if (!name) return "bg-orange-300 text-black";
     const n = name.toLowerCase();
@@ -85,11 +65,6 @@ function getCellStyles(cell: {period_type: string, name: string | null}) {
         return getPracticeColor(cell.name);
     }
     return TYPE_COLORS[cell.period_type] || "bg-gray-500 text-white";
-}
-
-function getCellLabel(cell: {period_type: string, name: string | null}) {
-    // Вміст комірок (літери Т, К, тощо) прибрано за запитом користувача
-    return "";
 }
 
 function formatDate(dateStr: string) {
@@ -142,7 +117,6 @@ function mergeCells(cells: CellInfo[], weeks: WeekInfo[]): MergedPeriod[] {
 }
 
 export default function EducationalProcessPage() {
-    const router = useRouter();
     const [matrix, setMatrix] = useState<EducationalProcessMatrix | null>(null);
     const [loading, setLoading] = useState(true);
     const [selectedGroups, setSelectedGroups] = useState<number[]>([]);
@@ -215,11 +189,12 @@ export default function EducationalProcessPage() {
                                                         <span className="text-[11px] opacity-70 my-1 font-medium">до</span>
                                                         <span>{formatDate(m.end_date)}</span>
                                                     </div>
-                                                    <div className="flex-1 py-4 px-5 flex items-center gap-4">
-                                                        <span className={`w-10 h-10 shrink-0 flex items-center justify-center font-bold rounded-lg shadow-sm text-base ${getCellStyles(m)}`}>
-                                                            {getCellLabel(m)}
-                                                        </span>
-                                                        <span className="text-base font-medium text-slate-700 dark:text-slate-300">
+                                                    <div className="flex-1 py-4 px-5 flex items-center gap-3.5">
+                                                        <span
+                                                            aria-hidden="true"
+                                                            className={`w-2 h-7 shrink-0 rounded-full shadow-sm ${getCellStyles(m)}`}
+                                                        />
+                                                        <span className="text-base font-medium text-slate-700 dark:text-slate-200">
                                                             {m.period_type === "practice" ? m.name : (TYPE_NAMES[m.period_type] || m.period_type)}
                                                         </span>
                                                     </div>

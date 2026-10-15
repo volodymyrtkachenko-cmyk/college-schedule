@@ -67,16 +67,6 @@ async def load_user_groups(db: AsyncSession, user: User) -> list[int]:
     return [g.id for g in u.allowed_groups] if u else []
 
 
-def format_teacher_name(name: str) -> str:
-    if not name:
-        return name
-    parts = [p.strip("., ") for p in name.split() if p.strip("., ")]
-    if len(parts) >= 3:
-        return f"{parts[0]} {parts[1][0].upper()}. {parts[2][0].upper()}."
-    elif len(parts) == 2:
-        return f"{parts[0]} {parts[1][0].upper()}."
-    return name
-
 
 from app.models import BellSchedule
 async def get_bell_times(db):
@@ -117,55 +107,11 @@ def to_item(item, week_type, target_date, bell_times=None, *, item_id=None, is_r
         note_id=matching_note.id if matching_note else None)
 
 
-def imported_change_to_item(change, week_type, target_date, bell_times=None):
-    """Adapt a date-specific imported replacement to the regular schedule API shape."""
-    if change.kind != "substitution" or change.subject is None:
-        return None
-    t_names = []
-    t_rooms = []
-    if change.teacher:
-        t_names.append(change.teacher.name)
-        if change.teacher.room:
-            t_rooms.append(change.teacher.room)
-    if change.second_teacher:
-        t_names.append(change.second_teacher.name)
-        if change.second_teacher.room:
-            t_rooms.append(change.second_teacher.room)
-    teacher_name = " / ".join(t_names) if t_names else None
-    room_name = change.room_override or (" / ".join(t_rooms) if t_rooms else None)
-    return ScheduleItem(
-        id=-change.id,
-        group_id=change.group_id,
-        subject_id=change.subject_id,
-        teacher_id=change.teacher_id,
-        second_teacher_id=change.second_teacher_id,
-        day_of_week=target_date.isoweekday(),
-        lesson_number=change.lesson_number,
-        time=f"{b[0]}-{b[1]}" if (b := (bell_times or {}).get(change.lesson_number)) else "Невідомо",
-
-        subject=change.subject.name,
-        teacher=teacher_name,
-        room=room_name,
-        room_override=change.room_override,
-        subject_name=change.subject.name,
-        teacher_name=teacher_name,
-        stream_id=None,
-        week_type="both",
-        is_relevant_this_week=True,
-        is_replacement=True,
-        group_name=change.group.name if change.group else None,
-        note=None,
-        note_id=None,
-    )
-
-
 def serialize_schedule_items(lessons, week_type, target_date, bell_times):
     items = []
     for lesson in lessons:
         if isinstance(lesson, EffectiveLesson):
             item = effective_to_item(lesson, week_type, target_date, bell_times)
-        elif isinstance(lesson, ImportedScheduleChange):
-            item = imported_change_to_item(lesson, week_type, target_date, bell_times)
         else:
             is_replacement = (
                 True
