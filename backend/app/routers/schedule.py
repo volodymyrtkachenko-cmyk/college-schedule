@@ -73,6 +73,10 @@ from app.models import BellSchedule
 
 _bell_cache: tuple[float, dict[int, tuple[str, str]]] | None = None
 
+def invalidate_bell_cache() -> None:
+    global _bell_cache
+    _bell_cache = None
+
 async def get_bell_times(db):
     global _bell_cache
     now = _time.monotonic()
@@ -84,7 +88,8 @@ async def get_bell_times(db):
         if records
         else {}
     )
-    _bell_cache = (now, result)
+    if result:
+        _bell_cache = (now, result)
     return result
 
 def to_item(item, week_type, target_date, bell_times=None, *, item_id=None, is_replacement=None):

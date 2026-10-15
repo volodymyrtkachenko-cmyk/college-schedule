@@ -58,19 +58,6 @@ export default function HomePage() {
   };
 
   const { isSetupComplete, completeSetup, mode, toggleMode, teachers, teacherId, setTeacherId, groups, groupId, setGroupId, today, week, loading, error } = useSchedule(weekAnchorDate);
-
-  // Автоскрол до поточної пари
-  useEffect(() => {
-    if (loading) return;
-    const timer = setTimeout(() => {
-      const liveCard = document.querySelector('[data-live="true"]');
-      if (liveCard && window.innerWidth < 768) {
-        liveCard.scrollIntoView({ behavior: "smooth", block: "center" });
-      }
-    }, 250);
-    return () => clearTimeout(timer);
-  }, [loading, view, groupId, teacherId]);
-
   const { user, loading: authLoading, logout } = useAuth();
   
   const isStandalone = useIsStandalonePwa();
@@ -102,6 +89,18 @@ export default function HomePage() {
   
 
   const [view, setView] = useState<"today" | "week">("today");
+
+  // Автоскрол до поточної пари
+  useEffect(() => {
+    if (loading) return;
+    const timer = setTimeout(() => {
+      const liveCard = document.querySelector('[data-live="true"]');
+      if (liveCard && window.innerWidth < 768) {
+        liveCard.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [loading, view, groupId, teacherId]);
   const [returnTarget, setReturnTarget] = useState<{
     mode: "student" | "teacher";
     id: number;

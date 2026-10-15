@@ -17,6 +17,9 @@ class SettingsService:
     def invalidate_cache(self) -> None:
         self._cache.clear()
 
+    def clear_cache(self) -> None:
+        self.invalidate_cache()
+
     async def get(self, db: AsyncSession, key: str, default: str | None = None) -> str | None:
         now = time.monotonic()
         cached = self._cache.get(key)
