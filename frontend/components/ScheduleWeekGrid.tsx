@@ -16,6 +16,8 @@ const dayVariants = {
 const localDateString = (date = new Date()) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 
+const UK_SHORT_WEEKDAY_FMT = new Intl.DateTimeFormat("uk-UA", { weekday: "short" });
+
 export function ScheduleWeekGrid({
   week,
   availabilityWeek,
@@ -49,6 +51,15 @@ export function ScheduleWeekGrid({
 }) {
   const [activeIdx, setActiveIdx] = useState(0);
   const [direction, setDirection] = useState(0);
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const update = () => setIsDesktop(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
 
   // Keep the active day aligned with reality when the week changes
   useEffect(() => {
@@ -97,56 +108,67 @@ export function ScheduleWeekGrid({
   const activeDay = week[activeIdx];
   return (
     <div className="w-full pb-4">
-      {/* Desktop: all days side by side */}
-      <div className="hidden items-start gap-3 overflow-x-auto pb-4 md:flex xl:gap-4" style={{ scrollbarWidth: "thin" }}>
-        {week.map((day) => (
-          <div key={`desktop-${day.date}`} className="min-w-[220px] flex-1 shrink-0">
-            <ScheduleDay schedule={day} mode="day" scheduleMode={scheduleMode} onQuickJump={onQuickJump} />
-          </div>
-        ))}
-      </div>
-
-      {/* Mobile: day tabs + swipeable day */}
-      <div className="flex w-full flex-col md:hidden">
-        {week.length > 0 && (
-          <div role="group" aria-label="Оберіть день тижня" className="relative z-10 mb-8 mt-2 flex w-full justify-between px-2">
-            {week.map((day, idx) => {
-              const dateObj = new Date(`${day.date}T12:00:00`);
-              const dayLetter = new Intl.DateTimeFormat("uk-UA", { weekday: "short" }).format(dateObj).charAt(0).toUpperCase();
-              const isActive = activeIdx === idx;
-              return (
-                <button key={`tab-${day.date}`} type="button" onClick={() => switchTab(idx)} aria-pressed={isActive}
-                  className="flex w-10 flex-col items-center justify-center gap-3 transition-colors focus:outline-none">
-                  <span className={`text-xs font-semibold ${isActive ? "text-sys-text-primary" : "text-sys-text-secondary"}`}>{dayLetter}</span>
-                  <span className={`flex h-9 w-9 items-center justify-center rounded-full text-[15px] font-bold transition-all ${
-                    isActive ? "bg-sys-accent text-white shadow-[0_0_12px_rgba(88,166,255,0.4)]" : "text-sys-text-primary hover:bg-sys-card"
-                  }`}>
-                    {dateObj.getDate()}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        <div className="relative min-h-[600px] w-full overflow-hidden">
-          <AnimatePresence initial={false} custom={direction}>
-            {activeDay && (
-              <motion.div key={`mobile-${activeDay.date}`} custom={direction} variants={dayVariants}
-                initial="enter" animate="center" exit="exit"
-                transition={{ x: { type: "spring", stiffness: 300, damping: 30 }, opacity: { duration: 0.2 } }}
-                className="left-0 top-0 w-full"
-                drag="x" dragConstraints={{ left: 0, right: 0 }} dragElastic={1}
-                onDragEnd={(_, { offset }) => {
-                  if (offset.x > 50 && activeIdx > 0) switchTab(activeIdx - 1);
-                  else if (offset.x < -50 && activeIdx < week.length - 1) switchTab(activeIdx + 1);
-                }}>
-                <ScheduleDay schedule={activeDay} mode="day" scheduleMode={scheduleMode} onQuickJump={onQuickJump} />
-              </motion.div>
-            )}
-          </AnimatePresence>
+      {isDesktop ? (
+        /* Desktop: монтується ЛИШЕ на екранах >= 768px */
+        <div className="hidden items-start gap-3 overflow-x-auto pb-4 md:flex xl:gap-4" style={{ scrollbarWidth: "thin" }}>
+          {week.map((day) => (
+            <div key={`desktop-${day.date}`} className="min-w-[220px] flex-1 shrink-0">
+              <ScheduleDay schedule={day} mode="day" scheduleMode={scheduleMode} onQuickJump={onQuickJump} />
+            </div>
+          ))}
         </div>
-      </div>
+      ) : (
+        /* Mobile: легкий рендер лише 1 активного дня з плавним скролом */
+        <div className="flex w-full flex-col md:hidden">
+          {week.length > 0 && (
+            <div role="group" aria-label="Оберіть день тижня" className="relative z-10 mb-5 mt-1 flex w-full justify-between px-2">
+              {week.map((day, idx) => {
+                const dateObj = new Date(`${day.date}T12:00:00`);
+                const dayLetter = UK_SHORT_WEEKDAY_FMT.format(dateObj).charAt(0).toUpperCase();
+                const isActive = activeIdx === idx;
+                return (
+                  <button key={`tab-${day.date}`} type="button" onClick={() => switchTab(idx)} aria-pressed={isActive}
+                    className="flex w-10 flex-col items-center justify-center gap-2 transition-colors focus:outline-none">
+                    <span className={`text-xs font-semibold ${isActive ? "text-sys-text-primary" : "text-sys-text-secondary"}`}>{dayLetter}</span>
+                    <span className={`flex h-9 w-9 items-center justify-center rounded-full text-[15px] font-bold transition-transform ${
+                      isActive ? "bg-sys-accent text-white shadow-[0_0_12px_rgba(88,166,255,0.4)] scale-105" : "text-sys-text-primary hover:bg-sys-card"
+                    }`}>
+                      {dateObj.getDate()}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          <div className="relative w-full overflow-x-hidden">
+            <AnimatePresence initial={false} custom={direction} mode="popLayout">
+              {activeDay && (
+                <motion.div
+                  key={`mobile-${activeDay.date}`}
+                  custom={direction}
+                  variants={dayVariants}
+                  initial="enter"
+                  animate="center"
+                  exit="exit"
+                  transition={{ x: { type: "tween", duration: 0.22, ease: "easeOut" }, opacity: { duration: 0.15 } }}
+                  className="w-full touch-pan-y will-change-transform"
+                  drag="x"
+                  dragDirectionLock
+                  dragConstraints={{ left: 0, right: 0 }}
+                  dragElastic={0.25}
+                  onDragEnd={(_, { offset, velocity }) => {
+                    if ((offset.x > 55 || velocity.x > 400) && activeIdx > 0) switchTab(activeIdx - 1);
+                    else if ((offset.x < -55 || velocity.x < -400) && activeIdx < week.length - 1) switchTab(activeIdx + 1);
+                  }}
+                >
+                  <ScheduleDay schedule={activeDay} mode="day" scheduleMode={scheduleMode} onQuickJump={onQuickJump} />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

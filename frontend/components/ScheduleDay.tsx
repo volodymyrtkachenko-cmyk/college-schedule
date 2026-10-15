@@ -9,15 +9,24 @@ import { LessonCard, QuickJumpTarget } from "./LessonCard";
 
 const NUM_EMOJI: Record<number, string> = { 1: "1️⃣", 2: "2️⃣", 3: "3️⃣", 4: "4️⃣", 5: "5️⃣" };
 
+const KYIV_DATE_FMT = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" });
+const KYIV_TIME_FMT = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Europe/Kyiv",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
+const SHARE_DATE_FMT = new Intl.DateTimeFormat("uk-UA", {
+  weekday: "long",
+  day: "numeric",
+  month: "long",
+});
+
 const fmt = (value: string, options: Intl.DateTimeFormatOptions) =>
   new Intl.DateTimeFormat("uk-UA", options).format(new Date(`${value}T12:00:00`));
 
 function buildTelegramShareText(schedule: ScheduleResponse, scheduleMode: "student" | "teacher" | "admin"): string {
-  const dateFormatted = new Intl.DateTimeFormat("uk-UA", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  }).format(new Date(`${schedule.date}T12:00:00`));
+  const dateFormatted = SHARE_DATE_FMT.format(new Date(`${schedule.date}T12:00:00`));
   const weekLabel =
     schedule.week_type === "numerator" ? "Чисельник" : schedule.week_type === "denominator" ? "Знаменник" : "";
 
@@ -84,14 +93,10 @@ export function ScheduleDay({
   useEffect(() => {
     const update = () => {
       const now = new Date();
-      const dateIso = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(now);
-      const hm = new Intl.DateTimeFormat("en-GB", {
-        timeZone: "Europe/Kyiv",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      }).format(now);
-      setKyivNow({ dateIso, minutes: parseMin(hm) ?? 0 });
+      setKyivNow({
+        dateIso: KYIV_DATE_FMT.format(now),
+        minutes: parseMin(KYIV_TIME_FMT.format(now)) ?? 0,
+      });
     };
     update();
     const id = setInterval(update, 30_000);

@@ -38,16 +38,20 @@ function parseMinutes(timeStr?: string): number | null {
   return h * 60 + m;
 }
 
+const KYIV_DATE_FMT = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" });
+const KYIV_TIME_FMT = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Europe/Kyiv",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
+
 function getKyivNow() {
   const now = new Date();
-  const dateIso = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(now);
-  const timeParts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Europe/Kyiv",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(now);
-  return { dateIso, minutes: parseMinutes(timeParts) ?? 0 };
+  return {
+    dateIso: KYIV_DATE_FMT.format(now),
+    minutes: parseMinutes(KYIV_TIME_FMT.format(now)) ?? 0,
+  };
 }
 
 function getRoomBadgeMeta(room: string) {

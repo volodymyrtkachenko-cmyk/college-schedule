@@ -438,80 +438,81 @@ export default function HomePage() {
           <div className="rounded-2xl border border-rose-400/20 bg-rose-400/5 p-8 text-center text-rose-200">{error}</div>
         ) : today ? (
           <div>
-            <div className={view === "today" ? "block" : "hidden"}>
-
-              {isWeekend && (
-                <div className="mb-4 rounded-2xl border border-slate-700/50 bg-slate-800/40 px-5 py-4 text-center sm:flex sm:items-center sm:justify-between sm:text-left">
-                  <div className="flex items-center justify-center gap-3 sm:justify-start">
-                    <span className="text-2xl" aria-hidden="true">🛋️</span>
-                    <div>
-                      <h2 className="text-sm font-semibold text-sys-text-primary">Сьогодні вихідний</h2>
-                      <p className="text-xs text-sys-text-secondary">Нижче показано розклад на найближчий навчальний день</p>
+            {view === "today" ? (
+              <div>
+                {isWeekend && (
+                  <div className="mb-4 rounded-2xl border border-slate-700/50 bg-slate-800/40 px-5 py-4 text-center sm:flex sm:items-center sm:justify-between sm:text-left">
+                    <div className="flex items-center justify-center gap-3 sm:justify-start">
+                      <span className="text-2xl" aria-hidden="true">🛋️</span>
+                      <div>
+                        <h2 className="text-sm font-semibold text-sys-text-primary">Сьогодні вихідний</h2>
+                        <p className="text-xs text-sys-text-secondary">Нижче показано розклад на найближчий навчальний день</p>
+                      </div>
+                    </div>
+                    <div className="mt-2 sm:mt-0">
+                      <WeekTypeBadge weekType={today.week_type} />
                     </div>
                   </div>
-                  <div className="mt-2 sm:mt-0">
+                )}
+                {!isWeekend && (
+                  <div className="mb-4 mt-2 flex justify-end">
                     <WeekTypeBadge weekType={today.week_type} />
                   </div>
-                </div>
-              )}
-              {!isWeekend && (
-                <div className="mb-4 mt-2 flex justify-end">
-                  <WeekTypeBadge weekType={today.week_type} />
-                </div>
-              )}
-              <ScheduleDay
-                schedule={today}
-                isToday={!isWeekend}
-                scheduleMode={mode}
-                onQuickJump={handleQuickJump}
-              />
-            </div>
-            
-            <div className={view === "week" ? "block w-full min-w-0" : "hidden"}>
-               <div className="mb-4 mt-2 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center rounded-xl bg-sys-card p-3 border border-sys-border/50">
+                )}
+                <ScheduleDay
+                  schedule={today}
+                  isToday={!isWeekend}
+                  scheduleMode={mode}
+                  onQuickJump={handleQuickJump}
+                />
+              </div>
+            ) : (
+              <div className="w-full min-w-0">
+                <div className="mb-4 mt-2 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center rounded-xl bg-sys-card p-3 border border-sys-border/50">
                   <div className="text-[13px] font-medium text-sys-text-primary flex items-center gap-2 w-full sm:w-auto overflow-hidden">
                     <svg width="1.2em" height="1.2em" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-sys-accent shrink-0"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
                     <span className="truncate">{weekRange}</span>
                     <div className="ml-2 hidden sm:block shrink-0"><WeekTypeBadge weekType={weekType} /></div>
                   </div>
                   <div className="flex w-full sm:w-auto items-center justify-between gap-3">
-                     <div className="sm:hidden shrink-0"><WeekTypeBadge weekType={weekType} /></div>
-                     <div role="group" aria-label="Навігація тижнями" className="flex w-full items-center justify-between gap-1 rounded-lg border border-sys-border bg-sys-card p-1 text-sm sm:w-auto">
-                       <button
-                         type="button"
-                         onClick={() => shiftWeek(-1)}
-                         aria-label="Попередній тиждень"
-                         className="flex items-center justify-center rounded-md min-h-[38px] min-w-[38px] text-sys-text-secondary transition-colors hover:bg-sys-bg hover:text-sys-text-primary focus:ring-2 focus:ring-sys-accent focus:outline-none"
-                       >
-                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-                       </button>
-                       <button
-                         type="button"
-                         onClick={resetWeek}
-                         disabled={isCurrentWeek}
-                         aria-pressed={isCurrentWeek}
-                         className="min-w-28 flex-1 rounded-md px-3 min-h-[38px] text-center text-[13px] font-medium text-sys-text-primary transition-colors hover:bg-sys-bg disabled:cursor-default disabled:text-sys-accent disabled:bg-sys-accent/10 sm:flex-none"
-                       >
-                         {isCurrentWeek ? "Сьогодні" : "Поточний"}
-                       </button>
-                       <button
-                         type="button"
-                         onClick={() => shiftWeek(1)}
-                         aria-label="Наступний тиждень"
-                         className="flex items-center justify-center rounded-md min-h-[38px] min-w-[38px] text-sys-text-secondary transition-colors hover:bg-sys-bg hover:text-sys-text-primary focus:ring-2 focus:ring-sys-accent focus:outline-none"
-                       >
-                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
-                       </button>
-                     </div>
+                    <div className="sm:hidden shrink-0"><WeekTypeBadge weekType={weekType} /></div>
+                    <div role="group" aria-label="Навігація тижнями" className="flex w-full items-center justify-between gap-1 rounded-lg border border-sys-border bg-sys-card p-1 text-sm sm:w-auto">
+                      <button
+                        type="button"
+                        onClick={() => shiftWeek(-1)}
+                        aria-label="Попередній тиждень"
+                        className="flex items-center justify-center rounded-md min-h-[38px] min-w-[38px] text-sys-text-secondary transition-colors hover:bg-sys-bg hover:text-sys-text-primary focus:ring-2 focus:ring-sys-accent focus:outline-none"
+                      >
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={resetWeek}
+                        disabled={isCurrentWeek}
+                        aria-pressed={isCurrentWeek}
+                        className="min-w-28 flex-1 rounded-md px-3 min-h-[38px] text-center text-[13px] font-medium text-sys-text-primary transition-colors hover:bg-sys-bg disabled:cursor-default disabled:text-sys-accent disabled:bg-sys-accent/10 sm:flex-none"
+                      >
+                        {isCurrentWeek ? "Сьогодні" : "Поточний"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => shiftWeek(1)}
+                        aria-label="Наступний тиждень"
+                        className="flex items-center justify-center rounded-md min-h-[38px] min-w-[38px] text-sys-text-secondary transition-colors hover:bg-sys-bg hover:text-sys-text-primary focus:ring-2 focus:ring-sys-accent focus:outline-none"
+                      >
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                      </button>
+                    </div>
+                  </div>
                 </div>
-               </div>
-              <ScheduleWeekGrid
-                week={week}
-                scheduleMode={mode}
-                canEdit={false}
-                onQuickJump={handleQuickJump}
-              />
-            </div>
+                <ScheduleWeekGrid
+                  week={week}
+                  scheduleMode={mode}
+                  canEdit={false}
+                  onQuickJump={handleQuickJump}
+                />
+              </div>
+            )}
           </div>
         ) : null}
         
