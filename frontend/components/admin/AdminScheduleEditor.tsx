@@ -11,6 +11,7 @@ import { SearchableSelect } from "../SearchableSelect";
 import { useToast } from "../ToastProvider";
 import { QuickJumpTarget, findGroupIdByName, findTeacherIdByName } from "../../lib/quickJump";
 import { OfficialPrintModal } from "./OfficialPrintSheet";
+import { EventsModal } from "./EventsModal";
 
 export function AdminScheduleEditor() {
   const [weekAnchorDate, setWeekAnchorDate] = useState(() => {
@@ -45,6 +46,7 @@ export function AdminScheduleEditor() {
   const [curatorWeek, setCuratorWeek] = useState<"both" | "numerator" | "denominator">("both");
   const [curatorLoading, setCuratorLoading] = useState(false);
   const [printModalOpen, setPrintModalOpen] = useState(false);
+  const [eventsModalOpen, setEventsModalOpen] = useState(false);
 
   useEffect(() => {
     setMovingLesson(null);
@@ -434,6 +436,13 @@ export function AdminScheduleEditor() {
             </button>
             <button
               type="button"
+              onClick={() => setEventsModalOpen(true)}
+              className="rounded-lg border border-sys-border bg-sys-card px-3 py-1.5 text-xs font-semibold text-sys-text-primary hover:bg-white/5"
+            >
+              📅 Сесія / Події
+            </button>
+            <button
+              type="button"
               onClick={() => setPrintModalOpen(true)}
               className="rounded-lg border border-sys-border bg-sys-card px-3 py-1.5 text-xs font-semibold text-sys-text-primary hover:bg-white/5"
             >
@@ -545,6 +554,16 @@ export function AdminScheduleEditor() {
           groups={groups}
           defaultDate={week?.[0]?.date || new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(new Date())}
           onClose={() => setPrintModalOpen(false)}
+        />
+      )}
+
+      {eventsModalOpen && (
+        <EventsModal
+          defaultGroupId={groupId}
+          groups={groups}
+          teachers={teachers}
+          onClose={() => setEventsModalOpen(false)}
+          setToast={setToast}
         />
       )}
     </div>

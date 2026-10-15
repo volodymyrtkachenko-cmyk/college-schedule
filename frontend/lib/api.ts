@@ -17,6 +17,25 @@ export interface ScheduleVersionMutation {
 
 export type WeekType = "numerator" | "denominator" | "both";
 
+export type AcademicEventType = "exam" | "consultation" | "credit" | "defense" | "general";
+
+export interface AcademicEvent {
+  id: number;
+  group_id: number;
+  group_name?: string | null;
+  subject_id?: number | null;
+  subject_name?: string | null;
+  teacher_id?: number | null;
+  teacher_name?: string | null;
+  title: string;
+  event_type: AcademicEventType;
+  event_date: string;
+  start_time: string;
+  end_time?: string | null;
+  room?: string | null;
+  note?: string | null;
+}
+
 export interface SemesterStartSetting {
     value: string;
 }
@@ -911,6 +930,24 @@ export const api = {
             authenticatedRequest<{ status: string }>("/api/schedule/dated/move", {
                 method: "POST",
                 body: JSON.stringify(payload),
+            }),
+    },
+    events: {
+        list: (params: { group_id?: number; teacher_id?: number; from_date?: string }) => {
+            const qs = new URLSearchParams();
+            if (params.group_id) qs.set("group_id", String(params.group_id));
+            if (params.teacher_id) qs.set("teacher_id", String(params.teacher_id));
+            if (params.from_date) qs.set("from_date", params.from_date);
+            return request<AcademicEvent[]>(`/api/events?${qs.toString()}`);
+        },
+        create: (payload: Omit<AcademicEvent, "id" | "group_name" | "subject_name" | "teacher_name" | "title"> & { title?: string | null }) =>
+            authenticatedRequest<AcademicEvent>("/api/events", {
+                method: "POST",
+                body: JSON.stringify(payload),
+            }),
+        remove: (id: number) =>
+            authenticatedRequest<{ status: string }>(`/api/events/${id}`, {
+                method: "DELETE",
             }),
     },
 };

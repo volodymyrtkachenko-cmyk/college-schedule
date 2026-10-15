@@ -14,10 +14,14 @@ from app.routers import (
     admin_import, aliases, auth, curriculums, directory, drafts, educational_process, generator,
     health, schedule, schedule_periods, statistics, settings as settings_router, teacher_constraints, users,
 )
+from app.models import AcademicEvent
+from app.routers.events import router as events_router
 from app.routers.schedule_now import router as schedule_now_router
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    async with engine.begin() as conn:
+        await conn.run_sync(AcademicEvent.__table__.create, checkfirst=True)
     try:
         yield
     finally:
@@ -86,6 +90,7 @@ app.include_router(statistics.router, prefix="/api")
 app.include_router(admin_import.router, prefix="/api")
 app.include_router(aliases.router, prefix="/api")
 app.include_router(teacher_constraints.router, prefix="/api")
+app.include_router(events_router)
 
 @app.api_route("/api/ping", methods=["GET", "POST"])
 async def ping(leave: int = 0):
