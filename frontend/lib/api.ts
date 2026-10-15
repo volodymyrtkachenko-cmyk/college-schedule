@@ -28,7 +28,7 @@ export interface AcademicEvent {
   custom_subject?: string | null;
   teacher_id?: number | null;
   teacher_name?: string | null;
-  title: string;
+  title?: string | null;
   event_type: AcademicEventType;
   event_date: string;
   lesson_number?: number | null;
@@ -959,7 +959,7 @@ export const api = {
             if (params.from_date) qs.set("from_date", params.from_date);
             return request<AcademicEvent[]>(`/api/events?${qs.toString()}`);
         },
-        create: (payload: Omit<AcademicEvent, "id" | "group_name" | "subject_name" | "teacher_name" | "title"> & { title?: string | null }) =>
+        create: (payload: Omit<AcademicEvent, "id" | "group_name" | "subject_name" | "teacher_name">) =>
             authenticatedRequest<AcademicEvent>("/api/events", {
                 method: "POST",
                 body: JSON.stringify(payload),
