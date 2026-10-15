@@ -103,6 +103,7 @@ export interface Lesson {
     event_type?: string | null;
     event_title?: string | null;
     custom_subject?: string | null;
+    event_id?: number | null;
 }
 
 export interface ScheduleResponse {
@@ -961,6 +962,11 @@ export const api = {
         create: (payload: Omit<AcademicEvent, "id" | "group_name" | "subject_name" | "teacher_name" | "title"> & { title?: string | null }) =>
             authenticatedRequest<AcademicEvent>("/api/events", {
                 method: "POST",
+                body: JSON.stringify(payload),
+            }),
+        update: (id: number, payload: Partial<Omit<AcademicEvent, "id" | "group_name" | "subject_name" | "teacher_name">>) =>
+            authenticatedRequest<AcademicEvent>(`/api/events/${id}`, {
+                method: "PATCH",
                 body: JSON.stringify(payload),
             }),
         remove: (id: number) =>

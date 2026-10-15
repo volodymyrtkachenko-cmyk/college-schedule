@@ -121,6 +121,7 @@ class ScheduleItem(BaseModel):
     event_type: str | None = None
     event_title: str | None = None
     custom_subject: str | None = None
+    event_id: int | None = None
 
 class ScheduleResponse(BaseModel):
     date: date

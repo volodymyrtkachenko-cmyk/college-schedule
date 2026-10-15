@@ -18,6 +18,7 @@ export function EventsModal({
   groups,
   subjects: initialSubjects,
   teachers: initialTeachers,
+  eventToEdit,
   onClose,
   setToast,
   onEventsChanged,
@@ -26,17 +27,32 @@ export function EventsModal({
   groups: ReferenceRecord[];
   subjects?: ReferenceRecord[];
   teachers?: ReferenceRecord[];
+  eventToEdit?: AcademicEvent | null;
   onClose: () => void;
   setToast: (msg: string, tone?: "success" | "error") => void;
   onEventsChanged?: () => void;
 }) {
-  const [groupId, setGroupId] = useState<number | null>(defaultGroupId ?? groups[0]?.id ?? null);
-  const [eventType, setEventType] = useState<AcademicEventType>("exam");
-  const [lessonNumber, setLessonNumber] = useState<number | null>(1);
-  const [subjectId, setSubjectId] = useState<number | null>(null);
-  const [customSubject, setCustomSubject] = useState("");
-  const [customTitle, setCustomTitle] = useState("");
-  const [teacherId, setTeacherId] = useState<number | null>(null);
+  const [groupId, setGroupId] = useState<number | null>(
+    eventToEdit ? eventToEdit.group_id : (defaultGroupId ?? groups[0]?.id ?? null)
+  );
+  const [eventType, setEventType] = useState<AcademicEventType>(
+    eventToEdit ? eventToEdit.event_type : "exam"
+  );
+  const [lessonNumber, setLessonNumber] = useState<number | null>(
+    eventToEdit !== undefined ? (eventToEdit?.lesson_number ?? null) : 1
+  );
+  const [subjectId, setSubjectId] = useState<number | null>(
+    eventToEdit ? (eventToEdit.subject_id ?? null) : null
+  );
+  const [customSubject, setCustomSubject] = useState(
+    eventToEdit?.custom_subject ?? ""
+  );
+  const [customTitle, setCustomTitle] = useState(
+    eventToEdit?.title ?? ""
+  );
+  const [teacherId, setTeacherId] = useState<number | null>(
+    eventToEdit ? (eventToEdit.teacher_id ?? null) : null
+  );
   const [subjects, setSubjects] = useState<ReferenceRecord[]>(initialSubjects ?? []);
   const [teachers, setTeachers] = useState<ReferenceRecord[]>(initialTeachers ?? []);
 
@@ -53,13 +69,35 @@ export function EventsModal({
   }, [initialTeachers]);
 
   const [eventDate, setEventDate] = useState(
-    new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(new Date())
+    eventToEdit?.event_date ?? new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(new Date())
   );
-  const [startTime, setStartTime] = useState("09:00");
-  const [room, setRoom] = useState("");
-  const [note, setNote] = useState("");
+  const [startTime, setStartTime] = useState(
+    eventToEdit?.start_time ?? "09:00"
+  );
+  const [room, setRoom] = useState(
+    eventToEdit?.room ?? ""
+  );
+  const [note, setNote] = useState(
+    eventToEdit?.note ?? ""
+  );
   const [events, setEvents] = useState<AcademicEvent[]>([]);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (eventToEdit) {
+      setGroupId(eventToEdit.group_id);
+      setEventType(eventToEdit.event_type);
+      setLessonNumber(eventToEdit.lesson_number ?? null);
+      setSubjectId(eventToEdit.subject_id ?? null);
+      setCustomSubject(eventToEdit.custom_subject ?? "");
+      setCustomTitle(eventToEdit.title ?? "");
+      setTeacherId(eventToEdit.teacher_id ?? null);
+      setEventDate(eventToEdit.event_date);
+      setStartTime(eventToEdit.start_time);
+      setRoom(eventToEdit.room ?? "");
+      setNote(eventToEdit.note ?? "");
+    }
+  }, [eventToEdit]);
 
   const loadEvents = async (gid: number | null) => {
     if (!gid) return;
@@ -82,7 +120,7 @@ export function EventsModal({
     }
   };
 
-  const handleCreate = async () => {
+  const handleSave = async () => {
     if (!groupId) return;
     const hasSubject = Boolean(subjectId || customSubject.trim());
     const hasTitle = Boolean(customTitle.trim());
@@ -92,6 +130,27 @@ export function EventsModal({
     }
     setSaving(true);
     try {
+      if (eventToEdit && eventToEdit.id) {
+        await api.events.update(eventToEdit.id, {
+          group_id: groupId,
+          subject_id: subjectId,
+          custom_subject: customSubject.trim() || null,
+          teacher_id: teacherId,
+          title: customTitle.trim() || null,
+          event_type: eventType,
+          event_date: eventDate,
+          lesson_number: lessonNumber,
+          start_time: startTime,
+          room: room.trim() || null,
+          note: note.trim() || null,
+        });
+        invalidateScheduleCache();
+        onEventsChanged?.();
+        setToast("Зміни у події збережено", "success");
+        onClose();
+        return;
+      }
+
       await api.events.create({
         group_id: groupId,
         subject_id: subjectId,
@@ -113,7 +172,7 @@ export function EventsModal({
       onEventsChanged?.();
       setToast("Подію додано та включено в розклад як пару", "success");
     } catch (e) {
-      setToast(e instanceof Error ? e.message : "Не вдалося створити подію", "error");
+      setToast(e instanceof Error ? e.message : "Не вдалося зберегти подію", "error");
     } finally {
       setSaving(false);
     }
@@ -138,7 +197,9 @@ export function EventsModal({
           <div className="flex items-center gap-2">
             <span className="text-xl">📅</span>
             <div>
-              <h3 className="text-base font-bold text-sys-text-primary">Розклад сесії та спеціальних подій</h3>
+              <h3 className="text-base font-bold text-sys-text-primary">
+                {eventToEdit ? "Редагування події сесії" : "Розклад сесії та спеціальних подій"}
+              </h3>
               <p className="text-xs text-sys-text-secondary">Події автоматично відображаються у розкладі як звичайні пари</p>
             </div>
           </div>
@@ -310,62 +371,101 @@ export function EventsModal({
             </label>
           </div>
 
-          <div className="flex justify-end pt-1">
-            <button
-              type="button"
-              disabled={saving || !groupId}
-              onClick={() => void handleCreate()}
-              className="rounded-lg bg-sys-accent px-4 py-2 text-xs font-bold text-[#0b1120] shadow-sm transition-all hover:opacity-90 disabled:opacity-50"
-            >
-              {saving ? "Додаємо..." : "+ Додати подію у розклад"}
-            </button>
-          </div>
-
-          {/* Список призначених подій */}
-          <div className="border-t border-sys-border pt-4">
-            <h4 className="mb-2 text-xs font-semibold uppercase text-sys-text-muted">
-              Призначені події групи ({events.length})
-            </h4>
-            {events.length === 0 ? (
-              <p className="text-xs text-sys-text-secondary">Подій для цієї групи ще немає.</p>
-            ) : (
-              <div className="space-y-2">
-                {events.map((ev) => (
-                  <div
-                    key={ev.id}
-                    className="flex items-center justify-between rounded-xl border border-sys-border bg-sys-bg/50 px-3.5 py-2.5 text-xs transition-colors hover:border-sys-border/80"
+          <div className="flex items-center justify-between pt-3 border-t border-sys-border">
+            {eventToEdit ? (
+              <>
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={async () => {
+                    if (typeof window !== "undefined" && window.confirm("Ви дійсно бажаєте видалити цю подію з розкладу?")) {
+                      await handleDelete(eventToEdit.id);
+                      onClose();
+                    }
+                  }}
+                  className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-3.5 py-2 text-xs font-bold text-rose-400 transition-colors hover:bg-rose-500/20 disabled:opacity-50"
+                >
+                  Видалити подію
+                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="rounded-lg border border-sys-border px-3.5 py-2 text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary"
                   >
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-white">{ev.event_date}</span>
-                        <span className="rounded bg-sys-bg px-1.5 py-0.5 font-mono text-[11px] text-sys-accent">
-                          {ev.lesson_number ? `${ev.lesson_number} пара` : ""} {ev.start_time}
-                        </span>
-                        <span className="font-semibold text-sys-accent">
-                          {ev.custom_subject || ev.subject_name || ev.title}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 text-[11px] text-sys-text-secondary">
-                        {ev.title && ev.title !== ev.custom_subject && ev.title !== ev.subject_name && (
-                          <span className="italic">{ev.title}</span>
-                        )}
-                        {ev.teacher_name && <span>• {ev.teacher_name}</span>}
-                        {ev.room && <span>• ауд. {ev.room}</span>}
-                        {ev.note && <span className="text-amber-300/80">• {ev.note}</span>}
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => void handleDelete(ev.id)}
-                      className="ml-3 rounded-md px-2 py-1 text-rose-400 transition-colors hover:bg-rose-500/10 hover:text-rose-300 font-semibold"
-                    >
-                      Видалити
-                    </button>
-                  </div>
-                ))}
+                    Скасувати
+                  </button>
+                  <button
+                    type="button"
+                    disabled={saving || !groupId}
+                    onClick={() => void handleSave()}
+                    className="rounded-lg bg-sys-accent px-4 py-2 text-xs font-bold text-[#0b1120] shadow-sm transition-all hover:opacity-90 disabled:opacity-50"
+                  >
+                    {saving ? "Зберігаємо..." : "Зберегти зміни"}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="flex w-full justify-end">
+                <button
+                  type="button"
+                  disabled={saving || !groupId}
+                  onClick={() => void handleSave()}
+                  className="rounded-lg bg-sys-accent px-4 py-2 text-xs font-bold text-[#0b1120] shadow-sm transition-all hover:opacity-90 disabled:opacity-50"
+                >
+                  {saving ? "Додаємо..." : "+ Додати подію у розклад"}
+                </button>
               </div>
             )}
           </div>
+
+          {/* Список призначених подій (тільки у режимі створення) */}
+          {!eventToEdit && (
+            <div className="border-t border-sys-border pt-4">
+              <h4 className="mb-2 text-xs font-semibold uppercase text-sys-text-muted">
+                Призначені події групи ({events.length})
+              </h4>
+              {events.length === 0 ? (
+                <p className="text-xs text-sys-text-secondary">Подій для цієї групи ще немає.</p>
+              ) : (
+                <div className="space-y-2">
+                  {events.map((ev) => (
+                    <div
+                      key={ev.id}
+                      className="flex items-center justify-between rounded-xl border border-sys-border bg-sys-bg/50 px-3.5 py-2.5 text-xs transition-colors hover:border-sys-border/80"
+                    >
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-white">{ev.event_date}</span>
+                          <span className="rounded bg-sys-bg px-1.5 py-0.5 font-mono text-[11px] text-sys-accent">
+                            {ev.lesson_number ? `${ev.lesson_number} пара` : ""} {ev.start_time}
+                          </span>
+                          <span className="font-semibold text-sys-accent">
+                            {ev.custom_subject || ev.subject_name || ev.title}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-[11px] text-sys-text-secondary">
+                          {ev.title && ev.title !== ev.custom_subject && ev.title !== ev.subject_name && (
+                            <span className="italic">{ev.title}</span>
+                          )}
+                          {ev.teacher_name && <span>• {ev.teacher_name}</span>}
+                          {ev.room && <span>• ауд. {ev.room}</span>}
+                          {ev.note && <span className="text-amber-300/80">• {ev.note}</span>}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => void handleDelete(ev.id)}
+                        className="ml-3 rounded-md px-2 py-1 text-rose-400 transition-colors hover:bg-rose-500/10 hover:text-rose-300 font-semibold"
+                      >
+                        Видалити
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

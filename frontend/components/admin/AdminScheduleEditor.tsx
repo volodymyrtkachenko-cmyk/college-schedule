@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { ScheduleWeekGrid } from "../ScheduleWeekGrid";
 import { WeekTypeBadge } from "../WeekTypeBadge";
 import { LessonEditor } from "../LessonEditor";
-import { Lesson, LessonMutation, api } from "../../lib/api";
+import { Lesson, LessonMutation, AcademicEvent, AcademicEventType, api } from "../../lib/api";
 import { invalidateScheduleCache, useSchedule } from "../../lib/hooks";
 import { getMondayOf } from "../../lib/date";
 import { SearchableSelect } from "../SearchableSelect";
@@ -12,6 +12,7 @@ import { useToast } from "../ToastProvider";
 import { QuickJumpTarget, findGroupIdByName, findTeacherIdByName } from "../../lib/quickJump";
 import { OfficialPrintModal } from "./OfficialPrintSheet";
 import { EventsModal } from "./EventsModal";
+import { DEFAULT_LESSON_TIMES } from "../../lib/constants/lessons";
 
 export function AdminScheduleEditor() {
   const [weekAnchorDate, setWeekAnchorDate] = useState(() => {
@@ -47,6 +48,7 @@ export function AdminScheduleEditor() {
   const [curatorLoading, setCuratorLoading] = useState(false);
   const [printModalOpen, setPrintModalOpen] = useState(false);
   const [eventsModalOpen, setEventsModalOpen] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<AcademicEvent | null>(null);
 
   useEffect(() => {
     setMovingLesson(null);
@@ -216,12 +218,60 @@ export function AdminScheduleEditor() {
   };
 
   const moveLesson = async (lesson: Lesson, date: string, lessonNumber: number) => {
-    if (moving || lesson.is_replacement) return;
+    const isEvent = Boolean(lesson.event_type || lesson.event_id);
+    if (moving || (lesson.is_replacement && !isEvent)) return;
     const previousToday = today;
     const previousWeek = week;
     const targetDate = new Date(`${date}T12:00:00`).getDay() || 7;
     setMoving(true);
     try {
+      if (isEvent) {
+        const evId = lesson.event_id ?? (lesson.id < 0 ? -lesson.id : lesson.id);
+        const startTime = DEFAULT_LESSON_TIMES[lessonNumber]?.split(/[-–]/)[0]?.trim() || "09:00";
+        if (isCopyMode) {
+          await api.events.create({
+            group_id: lesson.group_id ?? groupId ?? 0,
+            subject_id: lesson.subject_id ?? null,
+            custom_subject: lesson.custom_subject || lesson.subject_name || null,
+            teacher_id: lesson.teacher_id ?? null,
+            title: lesson.event_title || lesson.custom_subject || lesson.subject_name || "",
+            event_type: (lesson.event_type as AcademicEventType) || "exam",
+            event_date: date,
+            lesson_number: lessonNumber,
+            start_time: startTime,
+            room: lesson.room || lesson.room_override || null,
+            note: lesson.note || null,
+          });
+          setMovingLesson(null);
+          setIsCopyMode(false);
+          invalidateScheduleCache();
+          const refreshed = await api.week(
+            mode === "student" ? (groupId ?? undefined) : undefined,
+            mode === "teacher" ? (teacherId ?? undefined) : undefined,
+            weekAnchorDate
+          );
+          setWeek(refreshed);
+          setToast("Подію сесії скопійовано.", "success");
+          return;
+        }
+
+        await api.events.update(evId, {
+          event_date: date,
+          lesson_number: lessonNumber,
+          start_time: startTime,
+        });
+        setMovingLesson(null);
+        invalidateScheduleCache();
+        const refreshed = await api.week(
+          mode === "student" ? (groupId ?? undefined) : undefined,
+          mode === "teacher" ? (teacherId ?? undefined) : undefined,
+          weekAnchorDate
+        );
+        setWeek(refreshed);
+        setToast("Подію сесії переміщено.", "success");
+        return;
+      }
+
       if (isCopyMode) {
         const created = await api.lessons.create({
           group_id: lesson.group_id,
@@ -484,7 +534,33 @@ export function AdminScheduleEditor() {
             onRestoreDated={restoreOnDate}
             onQuickJump={handleQuickJump}
             onMove={(lesson, date, lessonNumber) => void moveLesson(lesson, date, lessonNumber)}
-            onEdit={(lesson) => { const date = week.find((day) => day.lessons.some((item) => item.id === lesson.id))?.date ?? (today?.date || week?.[0]?.date); setEditor({ lesson, date }); }}
+            onEdit={(lesson) => {
+              if (lesson.event_type || lesson.event_id) {
+                const evId = lesson.event_id ?? (lesson.id < 0 ? -lesson.id : lesson.id);
+                const targetDate = week.find((day) => day.lessons.some((item) => item.id === lesson.id))?.date ?? (today?.date || week?.[0]?.date) ?? "";
+                const cleanSubject = lesson.custom_subject || lesson.subject_name;
+                setEditingEvent({
+                  id: evId,
+                  group_id: lesson.group_id ?? groupId ?? 0,
+                  group_name: lesson.group_name ?? null,
+                  subject_id: lesson.subject_id ?? null,
+                  subject_name: lesson.subject_name ?? null,
+                  custom_subject: lesson.custom_subject ?? null,
+                  teacher_id: lesson.teacher_id ?? null,
+                  teacher_name: lesson.teacher_name ?? null,
+                  title: lesson.event_title || cleanSubject || "",
+                  event_type: (lesson.event_type as AcademicEventType) || "exam",
+                  event_date: targetDate,
+                  lesson_number: lesson.lesson_number,
+                  start_time: (lesson.time && lesson.time.split(/[-–]/)[0]?.trim()) || "09:00",
+                  room: lesson.room || lesson.room_override || null,
+                  note: lesson.note || null,
+                });
+                return;
+              }
+              const date = week.find((day) => day.lessons.some((item) => item.id === lesson.id))?.date ?? (today?.date || week?.[0]?.date);
+              setEditor({ lesson, date });
+            }}
             onCreate={(date) => setEditor({ date })}
           />
         </div>
@@ -585,7 +661,35 @@ export function AdminScheduleEditor() {
           teachers={teachers}
           onClose={() => setEventsModalOpen(false)}
           setToast={setToast}
-          onEventsChanged={() => invalidateScheduleCache()}
+          onEventsChanged={async () => {
+            invalidateScheduleCache();
+            const refreshed = await api.week(
+              mode === "student" ? (groupId ?? undefined) : undefined,
+              mode === "teacher" ? (teacherId ?? undefined) : undefined,
+              weekAnchorDate
+            );
+            setWeek(refreshed);
+          }}
+        />
+      )}
+
+      {editingEvent && (
+        <EventsModal
+          defaultGroupId={editingEvent.group_id || groupId}
+          groups={groups}
+          teachers={teachers}
+          eventToEdit={editingEvent}
+          onClose={() => setEditingEvent(null)}
+          setToast={setToast}
+          onEventsChanged={async () => {
+            invalidateScheduleCache();
+            const refreshed = await api.week(
+              mode === "student" ? (groupId ?? undefined) : undefined,
+              mode === "teacher" ? (teacherId ?? undefined) : undefined,
+              weekAnchorDate
+            );
+            setWeek(refreshed);
+          }}
         />
       )}
     </div>

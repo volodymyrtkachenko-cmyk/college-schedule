@@ -29,6 +29,21 @@ class EventCreatePayload(BaseModel):
     note: Optional[str] = Field(default=None, max_length=500)
 
 
+class EventUpdatePayload(BaseModel):
+    group_id: Optional[int] = None
+    subject_id: Optional[int] = None
+    custom_subject: Optional[str] = Field(default=None, max_length=200)
+    teacher_id: Optional[int] = None
+    title: Optional[str] = Field(default=None, max_length=200)
+    event_type: Optional[str] = Field(default=None, pattern="^(exam|consultation|credit|defense|general)$")
+    event_date: Optional[date] = None
+    lesson_number: Optional[int] = Field(default=None, ge=1, le=8)
+    start_time: Optional[str] = Field(default=None, max_length=10)
+    end_time: Optional[str] = Field(default=None, max_length=10)
+    room: Optional[str] = Field(default=None, max_length=50)
+    note: Optional[str] = Field(default=None, max_length=500)
+
+
 class EventResponseItem(BaseModel):
     id: int
     group_id: int
@@ -165,6 +180,58 @@ async def create_event(
         note=payload.note.strip() if payload.note else None,
     )
     db.add(ev)
+    await db.commit()
+
+    stmt = (
+        select(AcademicEvent)
+        .where(AcademicEvent.id == ev.id)
+        .options(
+            joinedload(AcademicEvent.group),
+            joinedload(AcademicEvent.subject),
+            joinedload(AcademicEvent.teacher),
+        )
+    )
+    loaded = await db.scalar(stmt)
+    return _serialize_event(loaded)
+
+
+@router.patch("/{event_id}", response_model=EventResponseItem)
+async def update_event(
+    event_id: int,
+    payload: EventUpdatePayload,
+    db: AsyncSession = Depends(get_db),
+    actor: User = Depends(require_roles("admin", "editor")),
+):
+    ev = await db.get(AcademicEvent, event_id)
+    if not ev:
+        raise HTTPException(status_code=404, detail="Подію не знайдено")
+    if actor.role == "editor":
+        allowed = await _get_user_allowed_groups(db, actor)
+        if ev.group_id not in allowed:
+            raise HTTPException(status_code=403, detail="Немає доступу до цієї групи")
+        if payload.group_id is not None and payload.group_id not in allowed:
+            raise HTTPException(status_code=403, detail="Немає доступу до нової групи")
+
+    update_data = payload.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        if field == "custom_subject":
+            ev.custom_subject = value.strip() if value else None
+        elif field == "title":
+            ev.title = value.strip() if value else None
+        elif field == "room":
+            ev.room = value.strip() if value else None
+        elif field == "note":
+            ev.note = value.strip() if value else None
+        elif field == "start_time" and value:
+            ev.start_time = value.strip()
+        else:
+            setattr(ev, field, value)
+
+    if "lesson_number" in update_data and payload.lesson_number is not None and "start_time" not in update_data:
+        bell_defaults = {1: "09:00", 2: "10:40", 3: "12:30", 4: "14:00", 5: "15:30"}
+        if payload.lesson_number in bell_defaults:
+            ev.start_time = bell_defaults[payload.lesson_number]
+
     await db.commit()
 
     stmt = (

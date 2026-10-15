@@ -58,6 +58,8 @@ def effective_to_item(item: EffectiveLesson, week_type: str, target_date: date, 
         note_revision=item.note_revision,
         event_type=item.event_type,
         event_title=item.event_title,
+        custom_subject=item.custom_subject,
+        event_id=item.event_id,
     )
 
 def check_group_access(user: User, user_allowed_groups: list[int], group_id: int):

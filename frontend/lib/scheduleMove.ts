@@ -2,7 +2,7 @@ import type { Lesson, ScheduleResponse } from "./api";
 
 const weekdayOf = (date: string) => new Date(`${date}T12:00:00`).getDay() || 7;
 const weeksOverlap = (a: Lesson, b: Lesson) =>
-  a.week_type === "both" || b.week_type === "both" || a.week_type === b.week_type;
+  !a.week_type || !b.week_type || a.week_type === "both" || b.week_type === "both" || a.week_type === b.week_type;
 
 /** Whether `lesson` may be moved to the given date/slot without a group or teacher clash. */
 export function canMoveLesson(
@@ -13,7 +13,14 @@ export function canMoveLesson(
   availabilityWeek?: ScheduleResponse[] | null,
 ): boolean {
   const targetWeekday = weekdayOf(targetDate);
-  if (lesson.day_of_week === targetWeekday && lesson.lesson_number === lessonNumber) return false;
+  if (lesson.event_type || lesson.event_id) {
+    const originDay = week.find((day) => day.lessons.some((l) => l.id === lesson.id));
+    if (originDay && originDay.date === targetDate && lesson.lesson_number === lessonNumber) {
+      return false;
+    }
+  } else {
+    if (lesson.day_of_week === targetWeekday && lesson.lesson_number === lessonNumber) return false;
+  }
 
   if (!availabilityWeek) {
     // Local check while the global schedule is loading

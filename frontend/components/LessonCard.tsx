@@ -138,7 +138,8 @@ export function LessonCard({
 }) {
   const isSelectedForMove = movingLesson?.id === lesson.id;
   const isDay = mode !== "week";
-  const canEditTemplate = canEdit && !lesson.is_replacement && !lesson.is_cancelled && lesson.id > 0;
+  const isEvent = Boolean(lesson.event_type || lesson.event_id);
+  const canEditTemplate = canEdit && !lesson.is_cancelled && (!lesson.is_replacement || isEvent);
   const canMove = canEditTemplate && !!onMoveSelect;
   const [startT, endT] = lesson.time.split("-");
 
@@ -334,7 +335,7 @@ export function LessonCard({
                     <>
                       <button
                         type="button"
-                        title="Редагувати шаблон пари"
+                        title={isEvent ? "Редагувати подію сесії" : "Редагувати шаблон пари"}
                         aria-label={`Редагувати ${lesson.subject_name}`}
                         onClick={(e) => {
                           e.stopPropagation();
@@ -347,7 +348,7 @@ export function LessonCard({
                       {canMove && !movingLesson && (
                         <button
                           type="button"
-                          title="Перемістити пару"
+                          title={isEvent ? "Перемістити подію" : "Перемістити пару"}
                           aria-label="Перемістити пару"
                           onClick={(event) => {
                             event.stopPropagation();
@@ -361,7 +362,7 @@ export function LessonCard({
                       {onCopySelect && !movingLesson && (
                         <button
                           type="button"
-                          title="Дублювати пару в інший слот"
+                          title={isEvent ? "Дублювати подію в інший слот" : "Дублювати пару в інший слот"}
                           aria-label="Дублювати пару"
                           onClick={(event) => {
                             event.stopPropagation();

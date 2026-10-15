@@ -38,6 +38,8 @@ class EffectiveLesson:
         is_replacement: bool = False,
         event_type: Optional[str] = None,
         event_title: Optional[str] = None,
+        custom_subject: Optional[str] = None,
+        event_id: Optional[int] = None,
         time: Optional[str] = None,
     ):
         self.group_id = group_id
@@ -57,6 +59,8 @@ class EffectiveLesson:
         self.is_replacement = is_replacement
         self.event_type = event_type
         self.event_title = event_title
+        self.custom_subject = custom_subject
+        self.event_id = event_id
         self.time = time
 
         self.note_id: Optional[int] = None
@@ -388,6 +392,8 @@ async def build_projection(
             is_replacement=True,
             event_type=ev.event_type,
             event_title=ev.title,
+            custom_subject=ev.custom_subject,
+            event_id=ev.id,
             time=time_str,
         )
         if ev.note:
@@ -741,6 +747,8 @@ async def build_week_projection(
                 is_replacement=True,
                 event_type=ev.event_type,
                 event_title=ev.title,
+                custom_subject=ev.custom_subject,
+                event_id=ev.id,
                 time=time_str,
             )
             if ev.note:
