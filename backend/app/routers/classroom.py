@@ -171,7 +171,17 @@ def _match_announcement_to_lesson(
     target_date: date,
 ) -> float:
     """Оцінює відповідність оголошення парі (0.0 = не підходить)."""
-    if _is_physical_education(lesson.subject_name) or _is_curator_hour(lesson.subject_name):
+    if _is_curator_hour(lesson.subject_name):
+        return 0.0
+
+    # КРИТИЧНО: Якщо в пості вказано конкретну дату (наприклад 13.10),
+    # посилання підтягується ВИКЛЮЧНО на цю дату, на інші тижні не поширюється!
+    if ann.get("has_explicit_date") and ann.get("target_date") != target_date:
+        return 0.0
+
+    # КРИТИЧНО: Якщо в пості вказано конкретний час / номер пари (наприклад 10:40 -> 2 пара),
+    # посилання підтягується ВИКЛЮЧНО на цей номер пари!
+    if ann.get("lesson_number") is not None and ann.get("lesson_number") != lesson.lesson_number:
         return 0.0
 
     text_lower = ann["text"].lower()
@@ -226,6 +236,10 @@ def _match_announcement_to_lesson(
         if "іноземн" in text_lower or "англ" in text_lower or "токарєв" in text_lower or "хочинськ" in text_lower:
             score += 25.0
             subject_matched = True
+    elif "фізичн" in subject_lower or "спорт" in subject_lower:
+        if "фізичн" in text_lower or "спорт" in text_lower or teacher_matched or "філіппов" in text_lower:
+            score += 30.0
+            subject_matched = True
     else:
         quoted_match = QUOTED_SUBJECT_RE.search(text_lower)
         if quoted_match:
@@ -242,19 +256,20 @@ def _match_announcement_to_lesson(
         if ann.get("target_date") == target_date:
             score += 20.0
         else:
-            score -= 5.0
+            return 0.0
 
     # 4. Бонус за точний збіг номера пари за часом
     if ann.get("lesson_number") is not None:
         if ann.get("lesson_number") == lesson.lesson_number:
             score += 15.0
         else:
-            score -= 5.0
+            return 0.0
 
     created_ts = ann.get("created_dt", datetime.now(KYIV_TZ)).timestamp()
     score += (created_ts % 10000) / 10000.0
 
     return score
+
 
 
 async def ensure_known_online_links(db: AsyncSession) -> None:
@@ -280,7 +295,7 @@ async def ensure_known_online_links(db: AsyncSession) -> None:
     if not group:
         return
 
-    # 1. Фізичне виховання: пара Є (офлайн у спортивному комплексі, без онлайн-посилання).
+    # 1. Фізичне виховання:
     # Видаляємо будь-які скасування цієї пари:
     cancelled_pe_overrides = (await db.scalars(
         select(ScheduleOverride).where(
@@ -292,18 +307,56 @@ async def ensure_known_online_links(db: AsyncSession) -> None:
     for pe_ov in cancelled_pe_overrides:
         await db.delete(pe_ov)
 
-    # Очищаємо/архівуємо будь-які нотатки до уроків фізвиховання, щоб не створювати хибних онлайн-кнопок
-    pe_notes = (await db.scalars(
+    # На конкретну дату 13.10.2026 викладач Дмитро Філіппов призначив пару онлайн:
+    # "Вітаю!!! Приєднуємося 13.10 о 10:40 https://meet.google.com/ggf-ntii-kmb"
+    # Додаємо це посилання виключно на цю конкретну дату (на інші тижні НЕ додаємо):
+    pe_13_date = date(2026, 10, 13)
+    pe_13_note = await db.scalar(
+        select(LessonOccurrenceNote).where(
+            LessonOccurrenceNote.note_date == pe_13_date,
+            LessonOccurrenceNote.group_id == group.id,
+            LessonOccurrenceNote.lesson_number == 2,
+            LessonOccurrenceNote.archived.is_(False),
+        )
+    )
+    if pe_13_note:
+        if "meet.google.com/ggf-ntii-kmb" not in pe_13_note.note:
+            pe_13_note.note = "https://meet.google.com/ggf-ntii-kmb"
+            pe_13_note.revision += 1
+            pe_13_note.updated_at = datetime.now(timezone.utc)
+    else:
+        proj_13 = await build_projection(db, pe_13_date, group_id=group.id)
+        day_13_lessons = proj_13[1] if isinstance(proj_13, tuple) else proj_13
+        pe_lesson = next((l for l in (day_13_lessons or []) if l.lesson_number == 2), None)
+        db.add(
+            LessonOccurrenceNote(
+                note_date=pe_13_date,
+                group_id=group.id,
+                lesson_number=2,
+                subject_id=pe_lesson.subject_id if pe_lesson else None,
+                subject_name=pe_lesson.subject_name if pe_lesson else "Фізичне виховання",
+                note="https://meet.google.com/ggf-ntii-kmb",
+                revision=1,
+                archived=False,
+                origin_kind="classroom",
+                origin_id=0,
+            )
+        )
+
+    # На всі інші тижні фізкультура залишається без онлайн-посилань (офлайн у спортивному комплексі):
+    other_pe_notes = (await db.scalars(
         select(LessonOccurrenceNote).where(
             LessonOccurrenceNote.group_id == group.id,
+            LessonOccurrenceNote.note_date != pe_13_date,
             LessonOccurrenceNote.archived.is_(False),
             LessonOccurrenceNote.subject_name.ilike("%фізичн%"),
         )
     )).all()
-    for pn in pe_notes:
-        pn.archived = True
-        pn.revision += 1
-        pn.updated_at = datetime.now(timezone.utc)
+    for opn in other_pe_notes:
+        if "meet.google.com" in opn.note or "zoom.us" in opn.note:
+            opn.archived = True
+            opn.revision += 1
+            opn.updated_at = datetime.now(timezone.utc)
 
     # Очищаємо залишкові технічні тексти | ID: ... | Код: ... коли в Zoom URL вже є повноцінний хеш pwd (>= 16 символів)
     all_notes = (await db.scalars(
@@ -469,25 +522,6 @@ async def sync_from_classroom(
         if not matched_courses:
             matched_courses = courses[:5]
 
-        # Очищення помилково прив'язаних онлайн-посилань з уроків фізичного виховання
-        pe_notes = (await db.scalars(
-            select(LessonOccurrenceNote).where(
-                LessonOccurrenceNote.group_id == detected_group.id,
-                LessonOccurrenceNote.archived.is_(False),
-                LessonOccurrenceNote.subject_name.ilike("%фізичн%"),
-            )
-        )).all()
-        for pn in pe_notes:
-            cleaned = "\n".join(
-                line for line in pn.note.split("\n") if not URL_RE.search(line)
-            ).strip()
-            if not cleaned:
-                pn.archived = True
-            else:
-                pn.note = cleaned
-            pn.revision += 1
-            pn.updated_at = datetime.now(timezone.utc)
-
         # Очищаємо залишкові " | ID: ... | Код: ..." з активних нотаток групи, якщо пароль вже є в URL Zoom
         all_active_notes = (await db.scalars(
             select(LessonOccurrenceNote).where(
@@ -596,7 +630,7 @@ async def sync_from_classroom(
             for lesson in day_lessons:
                 if not lesson.subject_id or not (1 <= lesson.lesson_number <= 4):
                     continue
-                if _is_physical_education(lesson.subject_name) or _is_curator_hour(lesson.subject_name):
+                if _is_curator_hour(lesson.subject_name):
                     continue
 
                 # Підтримка підгруп / кількох викладачів (наприклад "Токарєва О.В. / Хочинська О.С.")
