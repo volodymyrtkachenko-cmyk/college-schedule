@@ -17,12 +17,22 @@ from app.services.projection import build_projection
 router = APIRouter(prefix="/api/classroom", tags=["classroom"])
 KYIV_TZ = ZoneInfo("Europe/Kyiv")
 
-# Регулярні вирази під реальні пости викладачів КРЕ
-URL_RE = re.compile(r"https?://(?:meet\.google\.com|[a-z0-9.-]*zoom\.us)/[^\s<>\"')]+", re.IGNORECASE)
-ZOOM_ID_RE = re.compile(r"(?:Ідентифікатор(?:\s+конференції)?|Meeting\s*ID)\s*[:\-]?\s*(\d{3}[\s\-]?\d{3,4}[\s\-]?\d{3,4})", re.IGNORECASE)
-ZOOM_PASS_RE = re.compile(r"(?:Код\s+доступ[уа]|Passcode|Пароль)\s*[:\-]?\s*([A-Za-z0-9_.\-]+)", re.IGNORECASE)
+# 1. Виправлені регулярні вирази (коректно ловлять "о 10:40," з комою та ID Zoom з пробілами):
+URL_RE = re.compile(
+    r"https?://(?:meet\.google\.com|[a-z0-9.-]*zoom\.us)/[^\s<>\"')]+",
+    re.IGNORECASE,
+)
+ZOOM_ID_RE = re.compile(
+    r"(?:Ідентифікатор(?:\s+конференції)?|Meeting\s*ID)\s*[:\-]?\s*(\d{3}[\s\-\u00a0]?\d{3,4}[\s\-\u00a0]?\d{3,4})",
+    re.IGNORECASE,
+)
+ZOOM_PASS_RE = re.compile(
+    r"(?:Код\s+доступ[уа]|Passcode|Пароль)\s*[:\-]?\s*([A-Za-z0-9_.\-]+)",
+    re.IGNORECASE,
+)
 DATE_RE = re.compile(r"\b(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?\b")
-TIME_RE = re.compile(r"(?:\bо\s+|\bв\s+|\bна\s+|,\s*|\b)(\d{1,2})[:\-](\d{2})\b", re.IGNORECASE)
+TIME_RE = re.compile(r"(?:о\s+|в\s+|на\s+|\b)(\d{1,2})[:\-](\d{2})(?!\d)", re.IGNORECASE)
+QUOTED_SUBJECT_RE = re.compile(r"[\"«„]([^\"»“]{4,80})[\"»“]")
 
 
 class ClassroomSyncRequest(BaseModel):
@@ -62,7 +72,7 @@ def _parse_announcement(text: str, created_dt: datetime) -> dict:
     zoom_pass_match = ZOOM_PASS_RE.search(text)
 
     url = url_match.group(0) if url_match else None
-    zoom_id = re.sub(r"[\s\-]", "", zoom_id_match.group(1)) if zoom_id_match else None
+    zoom_id = re.sub(r"[\s\-\u00a0]", "", zoom_id_match.group(1)) if zoom_id_match else None
     zoom_pass = zoom_pass_match.group(1) if zoom_pass_match else None
 
     if not url and zoom_id:
@@ -72,6 +82,8 @@ def _parse_announcement(text: str, created_dt: datetime) -> dict:
     target_date = created_dt.date()
     lower_text = text.lower()
     date_match = DATE_RE.search(text)
+    has_explicit_date_or_today = False
+
     if date_match:
         day_s, month_s, year_s = date_match.groups()
         year = int(year_s) if year_s else created_dt.year
@@ -79,13 +91,17 @@ def _parse_announcement(text: str, created_dt: datetime) -> dict:
             year += 2000
         try:
             target_date = date(year, int(month_s), int(day_s))
+            has_explicit_date_or_today = True
         except ValueError:
             pass
+    elif "сьогодні" in lower_text or (created_dt.date() == datetime.now(KYIV_TZ).date() and created_dt.hour < 16):
+        has_explicit_date_or_today = True
     elif "завтра" in lower_text or created_dt.hour >= 16:
         # Якщо викладач пише пост увечері (як Філімончук о 18:22) або пише слово "завтра"
         target_date = created_dt.date() + timedelta(days=1)
+        has_explicit_date_or_today = True
 
-    # 2. Визначаємо номер пари за часом (напр. "о 10:40", "о 12-30", "о 09:03")
+    # 2. Визначаємо номер пари за часом (напр. "о 10:40,", "о 12-30", "о 09:03")
     lesson_number = None
     for m in TIME_RE.finditer(text):
         h, mins = int(m.group(1)), int(m.group(2))
@@ -101,7 +117,31 @@ def _parse_announcement(text: str, created_dt: datetime) -> dict:
         "zoom_pass": zoom_pass,
         "target_date": target_date,
         "lesson_number": lesson_number,
+        "has_explicit_date_or_today": has_explicit_date_or_today,
     }
+
+
+def _lesson_matches_author_or_text(lesson, author_surname: str, text_lower: str) -> bool:
+    """Перевіряє, чи належить пара автору поста в Classroom або згаданому в тексті предмету."""
+    if author_surname and lesson.teacher_name:
+        if author_surname in lesson.teacher_name.lower():
+            return True
+
+    # Перевірка назви в лапках, наприклад "Комп'ютерна електроніка", «Технології webдизайну»
+    quoted_match = QUOTED_SUBJECT_RE.search(text_lower)
+    if quoted_match and lesson.subject_name:
+        quoted = quoted_match.group(1).strip()
+        if len(quoted) >= 4 and (quoted[:8] in lesson.subject_name.lower() or lesson.subject_name.lower()[:8] in quoted):
+            return True
+
+    if lesson.subject_name:
+        subj_low = lesson.subject_name.lower()
+        # Перевіряємо збіг за ключовими словами предмета (напр. "комп'ютерна електроніка", "webдизайну", "української мови")
+        subj_words = [w for w in re.split(r"[\s,()\-]+", subj_low) if len(w) >= 5]
+        if subj_words and any(w[:6] in text_lower for w in subj_words):
+            return True
+
+    return False
 
 
 @router.post("/sync")
@@ -146,6 +186,25 @@ async def sync_from_classroom(
 
         if not matched_courses:
             matched_courses = courses[:5]
+
+        # Очищення помилково прив'язаних онлайн-посилань з уроків фізичного виховання
+        pe_notes = (await db.scalars(
+            select(LessonOccurrenceNote).where(
+                LessonOccurrenceNote.group_id == detected_group.id,
+                LessonOccurrenceNote.archived.is_(False),
+                LessonOccurrenceNote.subject_name.ilike("%фізичн%"),
+            )
+        )).all()
+        for pn in pe_notes:
+            cleaned = "\n".join(
+                line for line in pn.note.split("\n") if not URL_RE.search(line)
+            ).strip()
+            if not cleaned:
+                pn.archived = True
+            else:
+                pn.note = cleaned
+            pn.revision += 1
+            pn.updated_at = datetime.now(timezone.utc)
 
         synced_links = 0
         user_names_cache: dict[str, str] = {}
@@ -208,37 +267,31 @@ async def sync_from_classroom(
                 if not day_lessons:
                     continue
 
+                text_lower = text.lower()
+                candidate_lessons = [
+                    l for l in day_lessons
+                    if _lesson_matches_author_or_text(l, author_surname, text_lower)
+                ]
+
                 # 3. Знаходимо відповідну пару в розкладі на цей день
                 matched_lesson = None
+
                 if parsed["lesson_number"] is not None:
+                    # 1. Якщо є і номер пари за часом, і збіг за викладачем/предметом — ідеальний збіг
                     matched_lesson = next(
-                        (l for l in day_lessons if l.lesson_number == parsed["lesson_number"]),
+                        (l for l in candidate_lessons if l.lesson_number == parsed["lesson_number"]),
                         None,
                     )
+                    # 2. Дозволяємо брати пару суто за часом ЛИШЕ тоді, коли автор поста невідомий і в пості явно вказана дата (як у Домніної)
+                    if not matched_lesson and not candidate_lessons and parsed.get("has_explicit_date_or_today"):
+                        matched_lesson = next(
+                            (l for l in day_lessons if l.lesson_number == parsed["lesson_number"]),
+                            None,
+                        )
 
-                if not matched_lesson and author_parts:
-                    matched_lesson = next(
-                        (
-                            l for l in day_lessons
-                            if l.teacher_name and any(part in l.teacher_name.lower() for part in author_parts)
-                        ),
-                        None,
-                    )
-                elif not matched_lesson and author_surname:
-                    matched_lesson = next(
-                        (
-                            l for l in day_lessons
-                            if l.teacher_name and author_surname in l.teacher_name.lower()
-                        ),
-                        None,
-                    )
-
-                if not matched_lesson:
-                    # Fallback: пошук за згадкою назви предмета в лапках або в тексті
-                    for l in day_lessons:
-                        if l.subject_name and l.subject_name.lower()[:12] in text.lower():
-                            matched_lesson = l
-                            break
+                # 3. Якщо час не розпізнано або викладач помилився в часі, але в цей день у нього лише одна пара (як у Філімончука в п'ятницю)
+                if not matched_lesson and len(candidate_lessons) == 1:
+                    matched_lesson = candidate_lessons[0]
 
                 if not matched_lesson or not matched_lesson.subject_id:
                     continue
@@ -264,8 +317,22 @@ async def sync_from_classroom(
                 )
 
                 if existing_note:
-                    if parsed["url"] not in existing_note.note:
-                        existing_note.note = f"{formatted_link_note}\n{existing_note.note}".strip()[:500]
+                    # Прибираємо старі авто-посилання, зберігаючи власні нотатки користувачів
+                    user_lines = [
+                        line.strip()
+                        for line in existing_note.note.split("\n")
+                        if not URL_RE.search(line) and line.strip()
+                    ]
+                    new_note_content = (
+                        f"{formatted_link_note}\n{chr(10).join(user_lines)}".strip()[:500]
+                        if user_lines
+                        else formatted_link_note[:500]
+                    )
+
+                    if existing_note.note != new_note_content or existing_note.subject_id != matched_lesson.subject_id:
+                        existing_note.note = new_note_content
+                        existing_note.subject_id = matched_lesson.subject_id
+                        existing_note.subject_name = matched_lesson.subject_name or existing_note.subject_name
                         existing_note.archived = False
                         existing_note.revision += 1
                         existing_note.updated_at = datetime.now(timezone.utc)

@@ -109,22 +109,49 @@ function getEventBadge(eventType?: string | null, eventTitle?: string | null) {
   }
 }
 
+export function getVisibleUserNote(note?: string | null): string {
+  if (!note) return "";
+  return note
+    .split("\n")
+    .map((line) => {
+      // Прибираємо технічні сегменти, які вже показані кнопками Meet / Zoom / Код
+      const cleaned = line
+        .replace(/https?:\/\/(?:meet\.google\.com|[a-z0-9.-]*zoom\.us)\/[^\s|]+/gi, "")
+        .replace(/\bID\s*:\s*[\d\s\-\u00a0]+/gi, "")
+        .replace(/\b(?:Код(?:\s+доступ[уа])?|Passcode|Пароль)\s*:\s*[A-Za-z0-9_.\-]+/gi, "")
+        .replace(/\|/g, " ")
+        .trim();
+      return cleaned;
+    })
+    .filter(Boolean)
+    .join("\n")
+    .trim();
+}
+
 function extractOnlineMeetingInfo(note?: string | null, room?: string | null) {
-  const combined = `${room || ""} ${note || ""}`;
-  const urlMatch = combined.match(
-    /https?:\/\/(?:meet\.google\.com|[a-z0-9.-]*zoom\.us)\/[^\s<>"')|]+/i
-  );
-  if (!urlMatch) return null;
+  const lines = `${room || ""}\n${note || ""}`.split("\n");
 
-  const url = urlMatch[0];
-  const isMeet = url.toLowerCase().includes("meet.google.com");
-  const passMatch = combined.match(/(?:Код(?:\s+доступу)?|Passcode|Пароль)\s*:\s*([A-Za-z0-9_.\-]+)/i);
+  for (const line of lines) {
+    const urlMatch = line.match(
+      /https?:\/\/(?:meet\.google\.com|[a-z0-9.-]*zoom\.us)\/[^\s<>"')|]+/i
+    );
+    if (!urlMatch) continue;
 
-  return {
-    url,
-    platform: isMeet ? ("meet" as const) : ("zoom" as const),
-    passcode: passMatch ? passMatch[1] : null,
-  };
+    const url = urlMatch[0];
+    const isMeet = url.toLowerCase().includes("meet.google.com");
+
+    // Шукаємо код доступу ТІЛЬКИ в цьому ж рядку (або в параметрі ?pwd= для Zoom)
+    const passMatch = line.match(
+      /(?:Код(?:\s+доступ[уа])?|Passcode|Пароль)\s*:\s*([A-Za-z0-9_.\-]+)/i
+    );
+
+    return {
+      url,
+      platform: isMeet ? ("meet" as const) : ("zoom" as const),
+      passcode: passMatch ? passMatch[1] : null,
+    };
+  }
+  return null;
 }
 
 export function LessonCard({
@@ -306,13 +333,13 @@ export function LessonCard({
               )}
               <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5">
                 {meeting && (
-                  <div className="flex flex-wrap items-center justify-end gap-1">
+                  <div className="flex flex-wrap items-center justify-end gap-1.5">
                     <a
                       href={meeting.url}
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={(e) => e.stopPropagation()}
-                      className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-bold transition-colors ${
+                      className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border px-2 py-0.5 text-[11px] font-bold transition-colors ${
                         meeting.platform === "meet"
                           ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
                           : "border-sky-500/40 bg-sky-500/15 text-sky-300 hover:bg-sky-500/25"
@@ -329,9 +356,10 @@ export function LessonCard({
                           void navigator.clipboard.writeText(meeting.passcode!);
                         }}
                         title="Натисніть, щоб скопіювати код доступу"
-                        className="inline-flex items-center gap-1 rounded-md border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-semibold text-amber-300 hover:bg-amber-500/20"
+                        className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold text-amber-300 hover:bg-amber-500/20"
                       >
-                        🔑 {meeting.passcode}
+                        <span>🔑</span>
+                        <span>{meeting.passcode}</span>
                       </button>
                     )}
                   </div>
@@ -454,7 +482,7 @@ export function LessonCard({
         </div>
       </div>
 
-      {!lesson.is_cancelled && (
+      {!lesson.is_cancelled && (canEdit || getVisibleUserNote(lesson.note).length > 0) && (
         <LessonNote key={`${lesson.group_id}:${targetDate}:${lesson.lesson_number}:${lesson.subject_id}`} lesson={lesson} date={targetDate} />
       )}
 

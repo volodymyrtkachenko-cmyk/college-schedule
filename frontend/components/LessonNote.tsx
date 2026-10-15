@@ -3,6 +3,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { api, Lesson, NoteRevision } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { invalidateScheduleCache, useOnlineStatus } from "../lib/hooks";
+import { getVisibleUserNote } from "./LessonCard";
 
 export function LessonNote({ lesson, date }: { lesson: Lesson; date: string }) {
   const { user } = useAuth();
@@ -69,12 +70,18 @@ export function LessonNote({ lesson, date }: { lesson: Lesson; date: string }) {
     } finally { pending.current = false; if (mounted.current) setBusy(false); }
   }
 
+  const visibleNote = getVisibleUserNote(note);
+
+  if (!canManage && !visibleNote) {
+    return null;
+  }
+
   return <section aria-label="Примітка до конкретної пари" className="mt-3 border-t border-sys-border pt-2 text-sm"
     onClick={e => e.stopPropagation()} onDragStart={e => { e.preventDefault(); e.stopPropagation(); }}>
-    {note && <p className="whitespace-pre-wrap break-words text-sys-text-secondary">{note}</p>}
+    {visibleNote && <p className="whitespace-pre-wrap break-words text-sys-text-secondary">{visibleNote}</p>}
     {canManage && !editing && <div className="mt-1 flex flex-wrap gap-3">
       <button type="button" disabled={busy} onClick={() => { setDraft(note); setEditRevision(revision); setEditing(true); setError(null); }}
-        className="text-sys-accent disabled:opacity-50">{note ? "Редагувати примітку" : "+ Примітка"}</button>
+        className="text-sys-accent disabled:opacity-50">{visibleNote ? "Редагувати примітку" : "+ Примітка"}</button>
       <button type="button" disabled={busy || !online} onClick={showHistory} className="text-sys-text-secondary">Історія</button>
     </div>}
     {canManage && editing && <form onSubmit={e => { e.preventDefault(); void mutate(false); }} className="space-y-2">
