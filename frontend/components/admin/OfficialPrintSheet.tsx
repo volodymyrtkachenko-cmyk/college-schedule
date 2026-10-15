@@ -338,46 +338,25 @@ export function OfficialPrintModal({
               line-height: 1;
               padding: 0;
             }
-            td.td-slot {
-              padding: 0 !important;
-              vertical-align: top !important;
-              height: 43.5pt;
-              min-height: 43.5pt;
-              background: linear-gradient(#000, #000) no-repeat calc(100% - 9mm) 0 / 1px 100%;
-            }
-            td.td-empty-slot {
+            td.td-subj {
               width: 44.8mm;
               height: 43.5pt;
               min-height: 43.5pt;
               border: 1px solid #000;
               padding: 0;
+              vertical-align: top;
             }
-            td.td-empty-room {
+            td.td-room {
               width: 9mm;
               height: 43.5pt;
               min-height: 43.5pt;
               border: 1px solid #000;
               padding: 0;
+              vertical-align: top;
+              text-align: center;
             }
-            .col-divider {
-              position: absolute;
-              top: 0;
-              bottom: 0;
-              right: 9mm;
-              width: 0;
-              border-right: 1px solid #000;
-              pointer-events: none;
-            }
-            .cell-grid {
-              position: relative;
-              display: grid;
-              grid-template-columns: 1fr 9mm;
-              align-content: start;
-              grid-auto-rows: min-content;
-              font-size: 10pt;
-              padding: 1.5pt 0;
-              min-height: 43.5pt;
-              height: 100%;
+            td.td-room.align-bottom {
+              vertical-align: bottom !important;
             }
             .subj, .subj-text {
               padding: 0 3pt 1.5pt 3pt;
@@ -486,48 +465,25 @@ export function OfficialPrintModal({
           th {
             height: 25pt !important;
           }
-          td.td-slot {
-            padding: 0 !important;
-            vertical-align: top !important;
-            height: 43.5pt !important;
-            min-height: 43.5pt !important;
-            background: linear-gradient(#000, #000) no-repeat calc(100% - 9mm) 0 / 1px 100% !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-          td.td-empty-slot {
+          td.td-subj {
             width: 44.8mm !important;
             height: 43.5pt !important;
             min-height: 43.5pt !important;
             border: 1px solid #000 !important;
             padding: 0 !important;
+            vertical-align: top !important;
           }
-          td.td-empty-room {
+          td.td-room {
             width: 9mm !important;
             height: 43.5pt !important;
             min-height: 43.5pt !important;
             border: 1px solid #000 !important;
             padding: 0 !important;
+            vertical-align: top !important;
+            text-align: center !important;
           }
-          .col-divider {
-            position: absolute !important;
-            top: 0 !important;
-            bottom: 0 !important;
-            right: 9mm !important;
-            width: 0 !important;
-            border-right: 1px solid #000 !important;
-            pointer-events: none !important;
-          }
-          .cell-grid {
-            position: relative !important;
-            display: grid !important;
-            grid-template-columns: 1fr 9mm !important;
-            align-content: start !important;
-            grid-auto-rows: min-content !important;
-            font-size: 10pt !important;
-            padding: 1.5pt 0 !important;
-            min-height: 43.5pt !important;
-            height: 100% !important;
+          td.td-room.align-bottom {
+            vertical-align: bottom !important;
           }
           .subj, .subj-text {
             padding: 0 3pt 1.5pt 3pt !important;
@@ -687,8 +643,8 @@ export function OfficialPrintModal({
                         if (!c) {
                           return (
                             <React.Fragment key={`g-${group.id}-slot-${idx}`}>
-                              <td className="td-empty-slot border border-black p-0" />
-                              <td className="td-empty-room border border-black p-0" />
+                              <td className="td-subj border border-black p-0" />
+                              <td className="td-room border border-black p-0" />
                             </React.Fragment>
                           );
                         }
@@ -697,89 +653,38 @@ export function OfficialPrintModal({
                         const isMulti = Boolean(c.t2);
 
                         return (
-                          <td
-                            key={`g-${group.id}-slot-${idx}`}
-                            colSpan={2}
-                            className="td-slot border border-black"
-                            style={{
-                              background:
-                                "linear-gradient(#000, #000) no-repeat calc(100% - 9mm) 0 / 1px 100%",
-                            }}
-                          >
-                            <div
-                              className="cell-grid"
-                              style={{
-                                position: "relative",
-                                display: "grid",
-                                gridTemplateColumns: "1fr 9mm",
-                                alignContent: "start",
-                                gridAutoRows: "min-content",
-                                fontSize: "10pt",
-                                padding: "1.5pt 0",
-                                minHeight: "43.5pt",
-                                height: "100%",
-                              }}
-                            >
-                              <div
-                                className="col-divider"
-                                style={{
-                                  position: "absolute",
-                                  top: 0,
-                                  bottom: 0,
-                                  right: "9mm",
-                                  width: 0,
-                                  borderRight: "1px solid #000",
-                                  pointerEvents: "none",
-                                }}
-                              />
-                              {isMulti ? (
-                                <>
-                                  {/* Рядок 1: Назва предмета + порожнє місце під ауд */}
+                          <React.Fragment key={`g-${group.id}-slot-${idx}`}>
+                            {/* Колонка пари (предмет + викладач): 44.8mm */}
+                            <td className="td-subj border border-black p-0 align-top">
+                              <div style={{ padding: "1.5pt 0" }}>
+                                <div
+                                  className="subj-text font-bold text-black"
+                                  style={{
+                                    fontSize: typo.fontSize,
+                                    lineHeight: typo.lineHeight,
+                                    padding: "0 3pt 1.5pt 3pt",
+                                    overflowWrap: "break-word",
+                                    wordWrap: "break-word",
+                                  }}
+                                >
+                                  {c.subject}
+                                </div>
+                                <div
+                                  className="teacher-text italic text-black"
+                                  style={{
+                                    fontSize: "10pt",
+                                    lineHeight: "11pt",
+                                    padding: "0 3pt",
+                                    height: "11pt",
+                                    overflow: "hidden",
+                                    whiteSpace: "nowrap",
+                                  }}
+                                >
+                                  {c.t1}
+                                </div>
+                                {c.t2 && (
                                   <div
-                                    className="subj-text font-bold text-black"
-                                    style={{
-                                      fontSize: typo.fontSize,
-                                      lineHeight: typo.lineHeight,
-                                      padding: "0 3pt 1.5pt 3pt",
-                                      overflowWrap: "break-word",
-                                      wordWrap: "break-word",
-                                    }}
-                                  >
-                                    {c.subject}
-                                  </div>
-                                  <div className="room-empty" style={{ height: "11pt" }}></div>
-
-                                  {/* Рядок 2: Викладач 1 + Аудиторія 1 */}
-                                  <div
-                                    className="teacher-text italic text-[10pt] leading-[11pt] text-black"
-                                    style={{
-                                      fontSize: "10pt",
-                                      lineHeight: "11pt",
-                                      padding: "0 3pt",
-                                      height: "11pt",
-                                      overflow: "hidden",
-                                      whiteSpace: "nowrap",
-                                    }}
-                                  >
-                                    {c.t1}
-                                  </div>
-                                  <div
-                                    className="room-text font-bold text-[#1f4e8c] text-[10pt] leading-[11pt]"
-                                    style={{
-                                      fontSize: "10pt",
-                                      lineHeight: "11pt",
-                                      textAlign: "center",
-                                      height: "11pt",
-                                      overflow: "hidden",
-                                      whiteSpace: "nowrap",
-                                    }}
-                                  >
-                                    {c.r1}
-                                  </div>
-
-                                  {/* Рядок 3: Викладач 2 + Аудиторія 2 */}
-                                  <div
-                                    className="teacher-text italic text-[10pt] leading-[11pt] text-black"
+                                    className="teacher-text italic text-black"
                                     style={{
                                       fontSize: "10pt",
                                       lineHeight: "11pt",
@@ -791,37 +696,50 @@ export function OfficialPrintModal({
                                   >
                                     {c.t2}
                                   </div>
+                                )}
+                              </div>
+                            </td>
+
+                            {/* Колонка аудиторії: 9mm, синій колір #1f4e8c */}
+                            <td
+                              className={`td-room border border-black p-0 text-center ${
+                                isMulti ? "align-bottom" : "align-top"
+                              }`}
+                              style={{ verticalAlign: isMulti ? "bottom" : "top" }}
+                            >
+                              <div style={{ padding: "1.5pt 0" }}>
+                                {isMulti ? (
+                                  <>
+                                    <div
+                                      className="room-text font-bold text-[#1f4e8c]"
+                                      style={{
+                                        fontSize: "10pt",
+                                        lineHeight: "11pt",
+                                        textAlign: "center",
+                                        height: "11pt",
+                                        overflow: "hidden",
+                                        whiteSpace: "nowrap",
+                                      }}
+                                    >
+                                      {c.r1}
+                                    </div>
+                                    <div
+                                      className="room-text font-bold text-[#1f4e8c]"
+                                      style={{
+                                        fontSize: "10pt",
+                                        lineHeight: "11pt",
+                                        textAlign: "center",
+                                        height: "11pt",
+                                        overflow: "hidden",
+                                        whiteSpace: "nowrap",
+                                      }}
+                                    >
+                                      {c.r2 || ""}
+                                    </div>
+                                  </>
+                                ) : (
                                   <div
-                                    className="room-text font-bold text-[#1f4e8c] text-[10pt] leading-[11pt]"
-                                    style={{
-                                      fontSize: "10pt",
-                                      lineHeight: "11pt",
-                                      textAlign: "center",
-                                      height: "11pt",
-                                      overflow: "hidden",
-                                      whiteSpace: "nowrap",
-                                    }}
-                                  >
-                                    {c.r2 || ""}
-                                  </div>
-                                </>
-                              ) : (
-                                <>
-                                  {/* Рядок 1: Назва предмета + Аудиторія (як в оригіналі) */}
-                                  <div
-                                    className="subj-text font-bold text-black"
-                                    style={{
-                                      fontSize: typo.fontSize,
-                                      lineHeight: typo.lineHeight,
-                                      padding: "0 3pt 1.5pt 3pt",
-                                      overflowWrap: "break-word",
-                                      wordWrap: "break-word",
-                                    }}
-                                  >
-                                    {c.subject}
-                                  </div>
-                                  <div
-                                    className="room-text font-bold text-[#1f4e8c] text-[10pt] leading-[11pt]"
+                                    className="room-text font-bold text-[#1f4e8c]"
                                     style={{
                                       fontSize: "10pt",
                                       lineHeight: "11pt",
@@ -833,26 +751,10 @@ export function OfficialPrintModal({
                                   >
                                     {c.r1}
                                   </div>
-
-                                  {/* Рядок 2: Викладач + порожнє місце під ауд */}
-                                  <div
-                                    className="teacher-text italic text-[10pt] leading-[11pt] text-black"
-                                    style={{
-                                      fontSize: "10pt",
-                                      lineHeight: "11pt",
-                                      padding: "0 3pt",
-                                      height: "11pt",
-                                      overflow: "hidden",
-                                      whiteSpace: "nowrap",
-                                    }}
-                                  >
-                                    {c.t1}
-                                  </div>
-                                  <div className="room-empty" style={{ height: "11pt" }}></div>
-                                </>
-                              )}
-                            </div>
-                          </td>
+                                )}
+                              </div>
+                            </td>
+                          </React.Fragment>
                         );
                       })}
                     </tr>
