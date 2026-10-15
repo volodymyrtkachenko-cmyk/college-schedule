@@ -286,7 +286,7 @@ export function ImportPanel() {
             <div>
                <p className="text-sys-text-secondary text-sm mb-6 max-w-lg">
                    Натисніть кнопку нижче, щоб система автоматично обійшла всі групи на сайті kre.dp.ua,
-                   зібрала актуальний розклад та віднайшла зміни. Базовий розклад при цьому не змінюється.
+                   зібрала актуальний розклад та віднайшла зміни. Зміни зберігаються у чернетку для попереднього перегляду і застосовуються лише після підтвердження публікації.
                </p>
                <button onClick={handleImport} disabled={loading} className="bg-sys-accent text-[#0b1120] font-bold py-2 px-5 rounded-lg disabled:opacity-50 flex items-center gap-2">
                    {loading ? (

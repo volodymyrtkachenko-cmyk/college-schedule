@@ -182,6 +182,24 @@ async def revert_publication(
     if pub.is_reverted:
         raise HTTPException(status_code=400, detail="Ця публікація вже скасована")
 
+    # Забороняємо відкат старої публікації, якщо після неї є новіші активні публікації в цій же версії
+    newer_active = await db.scalar(
+        select(SchedulePublication.id)
+        .where(
+            SchedulePublication.version_id == pub.version_id
+            if pub.version_id is not None
+            else SchedulePublication.version_id.is_(None),
+            SchedulePublication.is_reverted.is_(False),
+            SchedulePublication.id > pub.id,
+        )
+        .limit(1)
+    )
+    if newer_active is not None:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Спочатку скасуйте новішу публікацію (#{newer_active}). Відкат можливий лише послідовно.",
+        )
+
     snapshots = (
         await db.scalars(
             select(SchedulePublicationSnapshot).where(
