@@ -14,13 +14,11 @@ const DAY_NAMES_LOWER: Record<number, string> = {
   7: "неділя",
 };
 
-// За замовчуванням порядок груп як в оригіналі адміністрації:
-// блоки 92–99, 87–89, 90–91, 81–86, 75–80
+// Порядок груп за спаданням: від 99 до 75
 const DEFAULT_GROUPS_ORDER = [
-  92, 93, 94, 95, 96, 97, 98, 99,
-  87, 88, 89, 90, 91,
-  81, 82, 83, 84, 85, 86,
-  75, 76, 77, 78, 79, 80,
+  99, 98, 97, 96, 95, 94, 93, 92, 91, 90,
+  89, 88, 87, 86, 85, 84, 83, 82, 81, 80,
+  79, 78, 77, 76, 75,
 ];
 
 function normalizeRoomText(room: string): string {
@@ -163,8 +161,7 @@ export function OfficialPrintModal({
   const formattedDate = `${String(d).padStart(2, "0")}.${String(m).padStart(2, "0")}.${y}`;
   const weekLabel = computeWeekType(targetDate);
 
-  // Сортування груп за оригінальним порядком MS Access адміністрації:
-  // 92..99, 87..89, 90..91, 81..86, 75..80
+  // Сортування груп за спаданням від 99 до 75:
   const sortedGroups = [...groups].sort((a, b) => {
     const numA = parseInt(a.name, 10);
     const numB = parseInt(b.name, 10);
@@ -173,7 +170,13 @@ export function OfficialPrintModal({
     if (idxA !== -1 && idxB !== -1) return idxA - idxB;
     if (idxA !== -1) return -1;
     if (idxB !== -1) return 1;
-    return a.name.localeCompare(b.name, "uk", { numeric: true });
+    if (!isNaN(numA) && !isNaN(numB)) {
+      if (numA !== numB) return numB - numA;
+      return a.name.localeCompare(b.name, "uk", { numeric: true });
+    }
+    if (!isNaN(numA)) return -1;
+    if (!isNaN(numB)) return 1;
+    return b.name.localeCompare(a.name, "uk", { numeric: true });
   });
 
   const handlePrint = () => {
