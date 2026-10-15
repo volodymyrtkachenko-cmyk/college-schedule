@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import create_async_engine,async_sessionmaker
 from app.database import Base
 from app.models import Group,Subject,Teacher,Schedule,ScheduleDraft,ScheduleSlot,Curriculum,ScheduleVersion,ImportedScheduleChange
 from app.routers import admin_import,drafts
+from app.services.schedule import fetch_schedule
 from app.services.import_slot_safety import normalize_base_slots,version_for_import
 
 @pytest.fixture
