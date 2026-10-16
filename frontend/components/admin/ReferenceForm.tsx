@@ -16,7 +16,12 @@ type Props = {
 const fields: Record<ReferenceResource, { key: keyof ReferenceMutation; label: string; type?: string }[]> = {
     faculties: [{key: "name", label: "Назва"}, {key: "short_name", label: "Скорочення"}],
     groups: [{key: "name", label: "Назва"}],
-    teachers: [{key: "name", label: "Ім’я"}, {key: "room", label: "Аудиторія (постійна)"}],
+    teachers: [
+        {key: "name", label: "Скорочене ім’я (для розкладу)"},
+        {key: "full_name", label: "Повне ім’я (ПІБ з Classroom)"},
+        {key: "email", label: "Email"},
+        {key: "room", label: "Аудиторія (постійна)"},
+    ],
     subjects: [{key: "name", label: "Назва"}],
 };
 

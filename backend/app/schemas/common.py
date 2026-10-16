@@ -29,6 +29,7 @@ class GroupResource(DirectoryResource):
 
 
 class TeacherResource(DirectoryResource):
+    full_name: str | None = None
     email: str | None = None
     room: str | None = None
 
@@ -65,12 +66,14 @@ class GroupUpdate(BaseModel):
 
 class TeacherCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
+    full_name: str | None = Field(default=None, max_length=150)
     email: str | None = Field(default=None, max_length=255)
     room: str | None = Field(default=None, max_length=100)
 
 
 class TeacherUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
+    full_name: str | None = Field(default=None, max_length=150)
     email: str | None = Field(default=None, max_length=255)
     room: str | None = Field(default=None, max_length=100)
 

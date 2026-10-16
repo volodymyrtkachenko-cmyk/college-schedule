@@ -62,6 +62,7 @@ export interface DirectoryItem {
 export type ReferenceResource = "faculties" | "groups" | "teachers" | "subjects";
 
 export interface ReferenceRecord extends DirectoryItem {
+    full_name?: string | null;
     short_name?: string | null;
     faculty_id?: number | null;
     curator_id?: number | null;
@@ -975,20 +976,40 @@ export const api = {
             }),
     },
     classroom: {
-        sync: (accessToken: string, groupId?: number) =>
-            rawRequest<{ group_id: number; group_name: string; synced_links: number }>("/api/classroom/sync", {
+        sync: (
+            tokenOrPayload: string | { code?: string; access_token?: string; group_id?: number; week_start?: string },
+            groupId?: number
+        ) => {
+            const body = typeof tokenOrPayload === "string"
+                ? { access_token: tokenOrPayload, group_id: groupId }
+                : tokenOrPayload;
+            return rawRequest<{
+                group_id: number;
+                group_name: string;
+                course_name?: string;
+                synced_links: number;
+                synced_tasks: number;
+                synced_students: number;
+            }>("/api/classroom/sync", {
                 method: "POST",
-                body: JSON.stringify({
-                    access_token: accessToken,
-                    group_id: groupId,
-                }),
-            }),
+                body: JSON.stringify(body),
+            });
+        },
+        groupStudents: (groupId: number) =>
+            authenticatedRequest<{
+                course_name: string | null;
+                last_synced_at: string | null;
+                students: Array<{ id: number; full_name: string; email?: string | null; photo_url?: string | null }>;
+            }>(`/api/classroom/groups/${groupId}/students`),
     },
 };
 export interface ClassroomSyncResult {
     group_id: number;
     group_name: string;
+    course_name?: string;
     synced_links: number;
+    synced_tasks: number;
+    synced_students: number;
 }
 export interface UserResource {
     id: number;

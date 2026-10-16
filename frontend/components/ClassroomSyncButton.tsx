@@ -12,6 +12,8 @@ const SCOPES = [
   "https://www.googleapis.com/auth/classroom.courses.readonly",
   "https://www.googleapis.com/auth/classroom.announcements.readonly",
   "https://www.googleapis.com/auth/classroom.rosters.readonly",
+  "https://www.googleapis.com/auth/classroom.coursework.me.readonly",
+  "https://www.googleapis.com/auth/classroom.coursework.students.readonly",
 ].join(" ");
 
 export function ClassroomSyncButton({
@@ -55,8 +57,11 @@ export function ClassroomSyncButton({
             const res = await api.classroom.sync(resp.access_token, currentGroupId ?? undefined);
             invalidateScheduleCache();
             onSynced(res.group_id);
+            const parts = [`підтягнуто ${res.synced_links} онлайн-пар`];
+            if (res.synced_tasks > 0) parts.push(`${res.synced_tasks} завдань`);
+            if (res.synced_students > 0) parts.push(`${res.synced_students} студентів`);
             showToast(
-              `Група ${res.group_name}: підтягнуто ${res.synced_links} онлайн-пар із Classroom!`,
+              `Група ${res.group_name}: ${parts.join(", ")} із Classroom!`,
               "success"
             );
           } catch (err) {

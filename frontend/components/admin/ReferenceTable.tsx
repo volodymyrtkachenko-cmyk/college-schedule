@@ -11,7 +11,27 @@ function TrashIcon() {
   return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h16" /><path d="M10 11v6" /><path d="M14 11v6" /><path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12" /><path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3" /></svg>;
 }
 
-export function ReferenceTable({ resource, items, faculties = [], teachers = [], loading, error, onEdit, onDelete }: { resource: ReferenceResource; items: ReferenceRecord[]; faculties?: ReferenceRecord[]; teachers?: ReferenceRecord[]; loading: boolean; error: string | null; onEdit: (item: ReferenceRecord) => void; onDelete: (item: ReferenceRecord) => void }) {
+export function ReferenceTable({
+  resource,
+  items,
+  faculties = [],
+  teachers = [],
+  loading,
+  error,
+  onEdit,
+  onDelete,
+  onOpenRoster,
+}: {
+  resource: ReferenceResource;
+  items: ReferenceRecord[];
+  faculties?: ReferenceRecord[];
+  teachers?: ReferenceRecord[];
+  loading: boolean;
+  error: string | null;
+  onEdit: (item: ReferenceRecord) => void;
+  onDelete: (item: ReferenceRecord) => void;
+  onOpenRoster?: (group: { id: number; name: string }) => void;
+}) {
   if (loading) return <div className="rounded-[8px] border-[0.5px] border-sys-border bg-sys-card p-10 text-center text-sys-text-secondary">Завантаження…</div>;
   if (error) return <div role="alert" className="rounded-[8px] border-[0.5px] border-sys-destructive/30 bg-sys-card p-6 text-sys-destructive">{error}</div>;
   const facultyNames = new Map(faculties.map((faculty) => [faculty.id, faculty.name]));
@@ -36,7 +56,14 @@ export function ReferenceTable({ resource, items, faculties = [], teachers = [],
         <tbody className="divide-y divide-sys-border">
           {items.map((item) => (
             <tr key={item.id} className="hover:bg-sys-card/50 transition-colors">
-              <td className="px-5 py-3 text-sys-text-subject">{item.name}</td>
+              <td className="px-5 py-3 text-sys-text-subject">
+                <div>{item.name}</div>
+                {resource === "teachers" && item.full_name && (
+                  <span className="block text-xs text-emerald-400">
+                    Повне ім&apos;я: {item.full_name} {item.email ? `(${item.email})` : ""}
+                  </span>
+                )}
+              </td>
               {resource === "groups" && (
                 <>
                   <td className="px-5 py-3 text-sys-text-secondary">
@@ -53,6 +80,15 @@ export function ReferenceTable({ resource, items, faculties = [], teachers = [],
                 </td>
               )}
               <td className="px-5 py-3 text-right space-x-3">
+                {resource === "groups" && onOpenRoster && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenRoster({ id: item.id, name: item.name })}
+                    className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-2.5 py-1 text-xs font-semibold text-sky-300 hover:bg-sky-500/20 inline-flex align-middle"
+                  >
+                    👥 Студенти
+                  </button>
+                )}
                 <button aria-label={`Редагувати ${item.name}`} onClick={() => onEdit(item)} className="text-sys-text-muted hover:text-sys-text-primary transition-colors inline-flex align-middle">
                   <EditIcon />
                 </button>

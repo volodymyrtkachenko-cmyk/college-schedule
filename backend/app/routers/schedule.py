@@ -191,6 +191,10 @@ async def today(
     db: AsyncSession = Depends(get_db)
 ):
     if group_id:
+        from app.routers.classroom import trigger_background_sync_if_needed
+        await trigger_background_sync_if_needed(db, group_id)
+
+    if group_id:
         scope = await db.get(Group, group_id)
     elif teacher_id:
         scope = await db.get(Teacher, teacher_id)
@@ -234,6 +238,10 @@ async def week(
     include_cancelled: bool = Query(False),
     db: AsyncSession = Depends(get_db)
 ):
+    if group_id:
+        from app.routers.classroom import trigger_background_sync_if_needed
+        await trigger_background_sync_if_needed(db, group_id)
+
     # T11: PWA Offline caching via Last-Modified
     if group_id:
         scope = await db.get(Group, group_id)

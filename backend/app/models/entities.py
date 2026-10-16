@@ -70,8 +70,9 @@ class Teacher(Base):
     __tablename__ = "teachers"
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(255), index=True)
+    full_name: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
-    email: Mapped[Optional[str]] = mapped_column(String(255))
+    email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     room: Mapped[Optional[str]] = mapped_column(String(100))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     
@@ -388,5 +389,34 @@ class AcademicEvent(Base):
     group: Mapped["Group"] = relationship("Group")
     subject: Mapped[Optional["Subject"]] = relationship("Subject")
     teacher: Mapped[Optional["Teacher"]] = relationship("Teacher")
+
+
+class GroupStudent(Base):
+    __tablename__ = "group_students"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    group_id: Mapped[int] = mapped_column(ForeignKey("groups.id", ondelete="CASCADE"), nullable=False, index=True)
+    classroom_user_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    full_name: Mapped[str] = mapped_column(String(150), nullable=False)
+    email: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
+    photo_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+
+    group: Mapped["Group"] = relationship("Group")
+
+
+class ClassroomGroupBinding(Base):
+    __tablename__ = "classroom_group_bindings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    group_id: Mapped[int] = mapped_column(ForeignKey("groups.id", ondelete="CASCADE"), unique=True, nullable=False, index=True)
+    course_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    course_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    refresh_token: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
+    access_token: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
+    last_synced_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    group: Mapped["Group"] = relationship("Group")
+
 
 

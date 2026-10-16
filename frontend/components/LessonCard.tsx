@@ -109,11 +109,27 @@ function getEventBadge(eventType?: string | null, eventTitle?: string | null) {
   }
 }
 
+export function extractClassroomTasks(note?: string | null): Array<{ title: string; url: string }> {
+  if (!note) return [];
+  const tasks: Array<{ title: string; url: string }> = [];
+  for (const line of note.split("\n")) {
+    if (line.trim().startsWith("[TASK]")) {
+      const raw = line.replace("[TASK]", "").trim();
+      const [titlePart, urlPart] = raw.split("|").map((s) => s.trim());
+      if (titlePart && urlPart && urlPart.startsWith("http")) {
+        tasks.push({ title: titlePart, url: urlPart });
+      }
+    }
+  }
+  return tasks;
+}
+
 export function getVisibleUserNote(note?: string | null): string {
   if (!note) return "";
   return note
     .split("\n")
     .map((line) => {
+      if (line.trim().startsWith("[TASK]")) return "";
       // Прибираємо технічні сегменти, які вже показані кнопками Meet / Zoom / Код
       const cleaned = line
         .replace(/https?:\/\/(?:meet\.google\.com|[a-z0-9.-]*zoom\.us)\/[^\s|]+/gi, "")
@@ -338,6 +354,7 @@ export function LessonCard({
     isLive && endMin !== null && nowState ? Math.max(1, endMin - nowState.minutes) : 0;
 
   const isTeacherView = scheduleMode === "teacher";
+  const tasks = extractClassroomTasks(lesson.note);
   const meetings = extractOnlineMeetings(lesson.note, lesson.room, lesson.teacher_name, lesson.subject_name);
   const hasMeeting = meetings.length > 0;
   const secondaryItems = useMemo(() => {
@@ -502,6 +519,24 @@ export function LessonCard({
                   </span>
                 )}
               </div>
+            </div>
+          )}
+
+          {tasks.length > 0 && (
+            <div className="mt-1 flex flex-col gap-1">
+              {tasks.map((task, idx) => (
+                <a
+                  key={idx}
+                  href={task.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="inline-flex items-center justify-between gap-2 rounded-lg border border-purple-500/35 bg-purple-500/10 px-2.5 py-1 text-xs font-medium text-purple-200 transition-colors hover:bg-purple-500/20"
+                >
+                  <span className="truncate">📌 Здача: {task.title}</span>
+                  <span className="shrink-0 font-bold text-purple-300">Classroom ↗</span>
+                </a>
+              ))}
             </div>
           )}
 
