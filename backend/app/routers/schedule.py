@@ -268,12 +268,6 @@ async def week(
     start = requested - timedelta(days=requested.isoweekday() - 1)
     week_type, lessons_by_day = await fetch_week_schedule(db, start, group_id, teacher_id, include_cancelled=include_cancelled)
     bell_t = await get_bell_times(db)
-    if group_id == 85:
-        try:
-            from app.routers.classroom import ensure_known_online_links
-            await ensure_known_online_links(db)
-        except Exception:
-            pass
     from app.services.lesson_notes import attach_week_notes
     days_serialized = [
         (

@@ -30,13 +30,6 @@ async def lifespan(_: FastAPI):
         except Exception:
             pass
     try:
-        from app.database import async_session_factory
-        from app.routers.classroom import ensure_known_online_links
-        async with async_session_factory() as session:
-            await ensure_known_online_links(session)
-    except Exception:
-        pass
-    try:
         yield
     finally:
         await engine.dispose()
