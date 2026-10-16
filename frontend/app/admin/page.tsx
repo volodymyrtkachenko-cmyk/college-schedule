@@ -23,6 +23,56 @@ const ImportPanel = dynamic(() => import("../../components/admin/ImportPanel").t
 import { ApiError } from "../../lib/api";
 import { useToast } from "../../components/ToastProvider";
 
+function extractSurname(fullName: string): string {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  if (parts.length <= 1) return fullName;
+
+  const last = parts[parts.length - 1].toLowerCase();
+  if (
+    last.endsWith("ович") ||
+    last.endsWith("івна") ||
+    last.endsWith("евич") ||
+    last.endsWith("євич") ||
+    last.endsWith("овна") ||
+    last.endsWith("евна")
+  ) {
+    return parts[0];
+  }
+
+  const isSurnameLike = (w: string) => {
+    const l = w.toLowerCase();
+    return (
+      l.endsWith("ко") ||
+      l.endsWith("ук") ||
+      l.endsWith("юк") ||
+      l.endsWith("ак") ||
+      l.endsWith("як") ||
+      l.endsWith("ич") ||
+      l.endsWith("іч") ||
+      l.endsWith("ський") ||
+      l.endsWith("ська") ||
+      l.endsWith("цький") ||
+      l.endsWith("цька") ||
+      l.endsWith("ов") ||
+      l.endsWith("ова") ||
+      l.endsWith("єв") ||
+      l.endsWith("єва") ||
+      l.endsWith("ін") ||
+      l.endsWith("іна") ||
+      l.endsWith("ець") ||
+      l.endsWith("єць") ||
+      l.endsWith("ий") ||
+      l.endsWith("ій")
+    );
+  };
+
+  const firstLike = isSurnameLike(parts[0]);
+  const lastLike = isSurnameLike(parts[parts.length - 1]);
+
+  if (firstLike && !lastLike) return parts[0];
+  if (!firstLike && lastLike) return parts[parts.length - 1];
+  return parts[parts.length - 1];
+}
 
 const resources = Object.keys(referenceLabels) as ReferenceResource[];
 
@@ -89,6 +139,7 @@ function AdminContent() {
 
   const [rosterGroup, setRosterGroup] = useState<{ id: number; name: string } | null>(null);
   const [studentSearch, setStudentSearch] = useState("");
+  const [studentSortBy, setStudentSortBy] = useState<"surname" | "name">("surname");
   const [studentSortOrder, setStudentSortOrder] = useState<"asc" | "desc">("asc");
   const [bulkStudentOpen, setBulkStudentOpen] = useState(false);
   const [bulkStudentText, setBulkStudentText] = useState("");
@@ -104,6 +155,7 @@ function AdminContent() {
   const openGroupRoster = async (group: { id: number; name: string }) => {
     setRosterGroup(group);
     setStudentSearch("");
+    setStudentSortBy("surname");
     setStudentSortOrder("asc");
     setBulkStudentOpen(false);
     setBulkStudentText("");
@@ -580,13 +632,25 @@ function AdminContent() {
                         type="text"
                         value={studentSearch}
                         onChange={(e) => setStudentSearch(e.target.value)}
-                        placeholder="Пошук студента за ПІБ чи email..."
+                        placeholder="Пошук студента за прізвищем, ім'ям чи email..."
                         className="flex-1 rounded-lg border border-sys-border bg-sys-bg/60 px-3 py-1.5 text-xs text-sys-text-primary placeholder:text-sys-text-muted focus:border-emerald-500 focus:outline-none"
                       />
                       <button
                         type="button"
+                        onClick={() => setStudentSortBy((prev) => (prev === "surname" ? "name" : "surname"))}
+                        className={`rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap ${
+                          studentSortBy === "surname"
+                            ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-400"
+                            : "border-sys-border bg-sys-card text-sys-text-secondary hover:text-white"
+                        }`}
+                        title="Перемкнути: сортування за прізвищем чи за повним ім'ям"
+                      >
+                        {studentSortBy === "surname" ? "👤 По прізвищу" : "📝 По імені"}
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => setStudentSortOrder((prev) => (prev === "asc" ? "desc" : "asc"))}
-                        className="flex items-center gap-1.5 rounded-lg border border-sys-border/80 bg-sys-card px-2.5 py-1.5 text-xs font-semibold text-sys-text-secondary hover:border-emerald-500/50 hover:text-white transition-colors whitespace-nowrap"
+                        className="flex items-center gap-1 rounded-lg border border-sys-border/80 bg-sys-card px-2 py-1.5 text-xs font-semibold text-sys-text-secondary hover:border-emerald-500/50 hover:text-white transition-colors whitespace-nowrap"
                         title="Змінити напрямок сортування (А-Я / Я-А)"
                       >
                         <span>{studentSortOrder === "asc" ? "🔤 А → Я" : "🔤 Я → А"}</span>
@@ -614,7 +678,12 @@ function AdminContent() {
                           })
                           .slice()
                           .sort((a, b) => {
-                            const res = a.full_name.localeCompare(b.full_name, "uk", { sensitivity: "base" });
+                            const valA = studentSortBy === "surname" ? extractSurname(a.full_name) : a.full_name;
+                            const valB = studentSortBy === "surname" ? extractSurname(b.full_name) : b.full_name;
+                            let res = valA.localeCompare(valB, "uk", { sensitivity: "base" });
+                            if (res === 0) {
+                              res = a.full_name.localeCompare(b.full_name, "uk", { sensitivity: "base" });
+                            }
                             return studentSortOrder === "asc" ? res : -res;
                           })
                           .map((st, i) => (

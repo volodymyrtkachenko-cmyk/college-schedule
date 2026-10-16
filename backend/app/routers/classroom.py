@@ -59,9 +59,39 @@ UKR_ALPHABET = "абвгґдеєжзиіїйклмнопрстуфхцчшщью
 UKR_ORDER = {ch: i for i, ch in enumerate(UKR_ALPHABET)}
 
 
+def extract_surname(name: str) -> str:
+    """Витягує прізвище студента з повного імені ('Ім'я Прізвище' або 'Прізвище Ім'я По-батькові')."""
+    parts = (name or "").strip().split()
+    if len(parts) <= 1:
+        return name or ""
+    last = parts[-1].lower()
+    if last.endswith(("ович", "івна", "евич", "євич", "овна", "евна")):
+        return parts[0]
+
+    def is_surname_like(w: str) -> bool:
+        lw = w.lower()
+        return lw.endswith((
+            "ко", "ук", "юк", "ак", "як", "ич", "іч",
+            "ський", "ська", "цький", "цька",
+            "ов", "ова", "єв", "єва", "ін", "іна",
+            "ець", "єць", "ий", "ій"
+        ))
+
+    first_like = is_surname_like(parts[0])
+    last_like = is_surname_like(parts[-1])
+    if first_like and not last_like:
+        return parts[0]
+    if not first_like and last_like:
+        return parts[-1]
+    return parts[-1]
+
+
 def ukr_sort_key(name: str) -> list[int]:
-    """Формує ключ для коректного українського алфавітного сортування (А-Я, І, Ї, Є, Ґ)."""
-    return [UKR_ORDER.get(ch, 1000 + ord(ch)) for ch in (name or "").lower().strip()]
+    """Формує ключ для коректного українського сортування ЗА ПРІЗВИЩЕМ (А-Я, І, Ї, Є, Ґ)."""
+    surname = extract_surname(name)
+    surname_key = [UKR_ORDER.get(ch, 1000 + ord(ch)) for ch in surname.lower().strip()]
+    full_key = [UKR_ORDER.get(ch, 1000 + ord(ch)) for ch in (name or "").lower().strip()]
+    return surname_key + [0] + full_key
 
 
 class ClassroomSyncRequest(BaseModel):
