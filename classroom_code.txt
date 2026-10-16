@@ -22,19 +22,20 @@ URL_RE = re.compile(
     re.IGNORECASE,
 )
 ZOOM_ID_RE = re.compile(
-    r"(?:Ідентифікатор(?:\s+конференції)?|Meeting\s*ID)\s*[:\-]?\s*(\d{3}[\s\-\u00a0]?\d{3,4}[\s\-\u00a0]?\d{3,4})",
+    r"(?:[ІИіи]дентификатор(?:\s+конференц[іїие])?|Meeting\s*ID|\bID(?:\s+конференц[іїие])?)\s*[:\-]?\s*(\d[\d\s\-\u00a0]{8,15}\d)",
     re.IGNORECASE,
 )
 ZOOM_PASS_RE = re.compile(
-    r"(?:Код\s+доступ[уа]|Passcode|Пароль)\s*[:\-]?\s*([A-Za-z0-9_.\-]+)",
+    r"(?:Код(?:\s+доступ[уае])?|Passcode|Пароль)\s*[:\-]?\s*([A-Za-z0-9_.\-]+)",
     re.IGNORECASE,
 )
-DATE_RE = re.compile(r"(?<![:\d])(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?(?![:\d])")
+DATE_RE = re.compile(r"(?<!\d)(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?(?!\d)")
 DATE_TEXT_RE = re.compile(
     r"\b(\d{1,2})\s+(січня|лютого|березня|квітня|травня|червня|липня|серпня|вересня|жовтня|листопада|грудня)\b",
     re.IGNORECASE,
 )
-TIME_PREFIX_RE = re.compile(r"(?:\bо\s+|\bоб\s+|\bв\s+|\bна\s+)(\d{1,2})[:\-](\d{2})(?!\d)", re.IGNORECASE)
+TIME_AMPM_RE = re.compile(r"(?<!\d)(\d{1,2})[:.](\d{2})\s*(AM|PM)\b", re.IGNORECASE)
+TIME_PREFIX_RE = re.compile(r"(?:\bо\s+|\bоб\s+|\bв\s+|\bна\s+|\bчас\s*[:\-]?\s*)(\d{1,2})[:.\-](\d{2})(?!\d)", re.IGNORECASE)
 TIME_COLON_RE = re.compile(r"(?<![.\d])(\d{1,2}):(\d{2})(?![.\d])")
 
 UKR_MONTHS = {
@@ -118,11 +119,12 @@ def _parse_announcement(text: str, created_dt: datetime, materials: Optional[lis
     text_norm = _norm(text)
     target_date: Optional[date] = None
 
+    # 1. Пріоритет: дати з явним роком (наприклад 14.10.2026 чи 16.10.2026)
     for dm in DATE_RE.finditer(text):
         day_s, month_s, year_s = dm.groups()
         d_i, m_i = int(day_s), int(month_s)
-        if 1 <= d_i <= 31 and 1 <= m_i <= 12:
-            year = int(year_s) if year_s else created_dt.year
+        if 1 <= d_i <= 31 and 1 <= m_i <= 12 and year_s:
+            year = int(year_s)
             if year < 100:
                 year += 2000
             try:
@@ -131,6 +133,7 @@ def _parse_announcement(text: str, created_dt: datetime, materials: Optional[lis
             except ValueError:
                 continue
 
+    # 2. Текстові дати (наприклад "16 жовтня")
     if target_date is None:
         tdm = DATE_TEXT_RE.search(text_norm)
         if tdm:
@@ -142,24 +145,57 @@ def _parse_announcement(text: str, created_dt: datetime, materials: Optional[lis
                 except ValueError:
                     pass
 
+    # 3. Числові дати без року (наприклад 12.10 або 16.10)
     if target_date is None:
-        if "завтра" in text_norm or created_dt.hour >= 16:
+        for dm in DATE_RE.finditer(text):
+            day_s, month_s, year_s = dm.groups()
+            d_i, m_i = int(day_s), int(month_s)
+            if 1 <= d_i <= 31 and 1 <= m_i <= 12 and abs(m_i - created_dt.month) <= 1:
+                try:
+                    target_date = date(created_dt.year, m_i, d_i)
+                    break
+                except ValueError:
+                    continue
+
+    # 4. Відносні дати ("завтра", "сьогодні", або час створення)
+    if target_date is None:
+        if "завтра" in text_norm:
+            target_date = created_dt.date() + timedelta(days=1)
+        elif "сьогодні" in text_norm:
+            target_date = created_dt.date()
+        elif created_dt.hour >= 16:
             target_date = created_dt.date() + timedelta(days=1)
         else:
             target_date = created_dt.date()
 
     lesson_number: Optional[int] = None
-    for tm in TIME_PREFIX_RE.finditer(text_norm):
-        h, mins = int(tm.group(1)), int(tm.group(2))
-        if 7 <= h <= 16 and 0 <= mins <= 59:
+
+    # Час формату 09.00 AM / 10:40 AM
+    for tm in TIME_AMPM_RE.finditer(text):
+        h, mins, ampm = int(tm.group(1)), int(tm.group(2)), tm.group(3).upper()
+        if ampm == "PM" and h < 12:
+            h += 12
+        elif ampm == "AM" and h == 12:
+            h = 0
+        if 7 <= h <= 18 and 0 <= mins <= 59:
             lesson_number = _time_to_lesson_number(h, mins)
             if lesson_number is not None:
                 break
 
+    # Час з прийменником (о 10:40, на 09:00, о 12-30, час: 09:00)
+    if lesson_number is None:
+        for tm in TIME_PREFIX_RE.finditer(text_norm):
+            h, mins = int(tm.group(1)), int(tm.group(2))
+            if 7 <= h <= 18 and 0 <= mins <= 59:
+                lesson_number = _time_to_lesson_number(h, mins)
+                if lesson_number is not None:
+                    break
+
+    # Будь-який інший час через двокрапку (10:40)
     if lesson_number is None:
         for tm in TIME_COLON_RE.finditer(text_norm):
             h, mins = int(tm.group(1)), int(tm.group(2))
-            if 7 <= h <= 16 and 0 <= mins <= 59:
+            if 7 <= h <= 18 and 0 <= mins <= 59:
                 lesson_number = _time_to_lesson_number(h, mins)
                 if lesson_number is not None:
                     break
