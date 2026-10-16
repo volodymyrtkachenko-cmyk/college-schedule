@@ -22,7 +22,7 @@ URL_RE = re.compile(
     re.IGNORECASE,
 )
 ZOOM_ID_RE = re.compile(
-    r"(?:[ІИіи]дентификатор(?:\s+конференц[іїие])?|Meeting\s*ID|\bID(?:\s+конференц[іїие])?)\s*[:\-]?\s*(\d[\d\s\-\u00a0]{8,15}\d)",
+    r"(?:[ІИіи]дент[иі]ф[иі]катор(?:\s+\S+)?|Meeting\s*ID|\bID(?:\s+\S+)?)\s*[:\-]?\s*(\d[\d\s\-\u00a0]{8,15}\d)",
     re.IGNORECASE,
 )
 ZOOM_PASS_RE = re.compile(
@@ -213,10 +213,13 @@ def _matches_teacher_or_subject(ann: dict, lesson) -> bool:
     subj_norm = _norm(lesson.subject_name)
     teacher_norm = _norm(lesson.teacher_name)
     text_norm = ann["text_norm"]
+    course_title_norm = ann.get("course_title_norm", "")
     author_tokens: list[str] = ann.get("author_tokens", [])
 
     if "виховн" in subj_norm:
         return False
+
+    combined_text = f"{course_title_norm} {text_norm}".strip()
 
     lesson_surnames = [
         re.sub(r"[^а-яіїєґ']", "", part.split()[0])
@@ -228,7 +231,7 @@ def _matches_teacher_or_subject(ann: dict, lesson) -> bool:
     for s in lesson_surnames:
         if any(s in tok or tok in s for tok in author_tokens):
             return True
-        if s in text_norm:
+        if s in combined_text:
             return True
 
     keywords = [
@@ -242,11 +245,11 @@ def _matches_teacher_or_subject(ann: dict, lesson) -> bool:
         ("фізичн", ("фізичн", "фізкультур")),
     ]
     for subj_key, text_keys in keywords:
-        if subj_key in subj_norm and any(tk in text_norm for tk in text_keys):
+        if subj_key in subj_norm and any(tk in combined_text for tk in text_keys):
             return True
 
     subj_words = [w for w in re.split(r"[^а-яіїєґa-z']+", subj_norm) if len(w) >= 6]
-    if subj_words and any(w[:6] in text_norm for w in subj_words):
+    if subj_words and any(w[:6] in combined_text for w in subj_words):
         return True
 
     return False
@@ -352,19 +355,17 @@ async def sync_from_classroom(
 
         courses = courses_resp.json().get("courses", [])
         detected_group: Optional[Group] = None
-        matched_courses = []
 
         if payload.group_id:
             detected_group = next((g for g in all_groups if g.id == payload.group_id), None)
 
-        for c in courses:
-            full_title = f"{c.get('name', '')} {c.get('section', '')}".strip()
-            g = _extract_group_from_course_name(full_title, all_groups)
-            if g:
-                if not detected_group:
+        if not detected_group:
+            for c in courses:
+                full_title = f"{c.get('name', '')} {c.get('section', '')}".strip()
+                g = _extract_group_from_course_name(full_title, all_groups)
+                if g:
                     detected_group = g
-                if detected_group and g.id == detected_group.id:
-                    matched_courses.append(c)
+                    break
 
         if not detected_group:
             raise HTTPException(
@@ -372,8 +373,8 @@ async def sync_from_classroom(
                 detail="Не знайдено курс вашої групи у Google Classroom (наприклад, КІ-24-2/9-85).",
             )
 
-        if not matched_courses:
-            matched_courses = courses[:3]
+        # Опитуємо всі активні курси студента: кожен викладач створює окремий курс під свій предмет
+        courses_to_scan = courses
 
         # Межі ТІЛЬКИ ПОТОЧНОГО тижня (Понеділок .. П'ятниця)
         today_kyiv = payload.week_start or datetime.now(KYIV_TZ).date()
@@ -412,8 +413,10 @@ async def sync_from_classroom(
         # КРОК 2: Збираємо оголошення зі стрічки Classroom
         parsed_announcements: list[dict] = []
 
-        for course in matched_courses:
+        for course in courses_to_scan:
             course_id = course["id"]
+            course_title = f"{course.get('name', '')} {course.get('section', '')}".strip()
+            course_title_norm = _norm(course_title)
             teacher_tokens_by_uid: dict[str, list[str]] = {}
 
             t_resp = await client.get(
@@ -450,6 +453,8 @@ async def sync_from_classroom(
                 parsed = _parse_announcement(text, created_dt, ann.get("materials"))
                 if not parsed:
                     continue
+
+                parsed["course_title_norm"] = course_title_norm
 
                 creator_id = ann.get("creatorUserId", "")
                 author_tokens = teacher_tokens_by_uid.get(creator_id, [])
