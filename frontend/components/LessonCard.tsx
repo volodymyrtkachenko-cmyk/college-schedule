@@ -243,38 +243,13 @@ export function extractOnlineMeetings(
     }
   }
 
-  // Спеціальний випадок: якщо предмет — Іноземна мова (Токарєва / Хочинська), гарантуємо обидва посилання
-  if (isForeignLang) {
-    const tokarevaIndex = results.findIndex(
-      (r) => r.label === "Токарєва" || r.url.includes("vxe-jxdp-drx") || r.platform === "meet"
-    );
-    const khochynskaIndex = results.findIndex(
-      (r) => r.label === "Хочинська" || r.url.includes("6642778085") || r.platform === "zoom"
-    );
-
-    if (tokarevaIndex === -1) {
-      results.unshift({
-        url: "https://meet.google.com/vxe-jxdp-drx",
-        platform: "meet",
-        passcode: null,
-        label: "Токарєва",
-      });
-    } else {
-      results[tokarevaIndex].label = "Токарєва";
+  // Якщо в нотатці чи аудиторії є посилання для Іноземної мови — підписуємо та впорядковуємо
+  if (isForeignLang && results.length > 0) {
+    for (const r of results) {
+      if (!r.label) {
+        r.label = r.platform === "meet" ? "Токарєва" : "Хочинська";
+      }
     }
-
-    if (khochynskaIndex === -1) {
-      results.push({
-        url: "https://us02web.zoom.us/j/6642778085?pwd=ZzFKMHJkS0pWbjRhMEFwbHA3cXJOdz09&omn=82076789020",
-        platform: "zoom",
-        passcode: null,
-        label: "Хочинська",
-      });
-    } else {
-      results[khochynskaIndex].label = "Хочинська";
-    }
-
-    // Сортуємо: Токарєва перша, Хочинська друга
     results.sort((a, b) => {
       if (a.label === "Токарєва") return -1;
       if (b.label === "Токарєва") return 1;
@@ -282,19 +257,11 @@ export function extractOnlineMeetings(
     });
   }
 
-  // Якщо електроніка, гарантуємо наявність пароля dfkr для Zoom-посилань
-  if (isElectronics) {
-    if (results.length === 0) {
-      results.push({
-        url: "https://zoom.us/j/2783533865",
-        platform: "zoom",
-        passcode: "dfkr",
-      });
-    } else {
-      for (const r of results) {
-        if (r.platform === "zoom" && !r.passcode) {
-          r.passcode = "dfkr";
-        }
+  // Якщо електроніка і в нотатці ДІЙСНО є Zoom-посилання без пароля — додаємо пароль dfkr
+  if (isElectronics && results.length > 0) {
+    for (const r of results) {
+      if (r.platform === "zoom" && !r.passcode) {
+        r.passcode = "dfkr";
       }
     }
   }
