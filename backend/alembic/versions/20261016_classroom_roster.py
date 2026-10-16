@@ -13,46 +13,102 @@ depends_on = None
 
 
 def upgrade():
-    conn = op.get_bind()
-    insp = sa.inspect(conn)
-    teacher_cols = [c["name"] for c in insp.get_columns("teachers")]
-    if "full_name" not in teacher_cols:
-        op.add_column("teachers", sa.Column("full_name", sa.String(150), nullable=True))
-    if "email" not in teacher_cols:
-        op.add_column("teachers", sa.Column("email", sa.String(255), nullable=True))
+    bind = op.get_bind()
+    is_sqlite = bind.dialect.name == "sqlite"
 
-    tables = insp.get_table_names()
-    if "group_students" not in tables:
-        op.create_table(
-            "group_students",
-            sa.Column("id", sa.Integer(), primary_key=True, index=True),
-            sa.Column("group_id", sa.Integer(), sa.ForeignKey("groups.id", ondelete="CASCADE"), nullable=False),
-            sa.Column("classroom_user_id", sa.String(64), nullable=False),
-            sa.Column("full_name", sa.String(150), nullable=False),
-            sa.Column("email", sa.String(150), nullable=True),
-            sa.Column("photo_url", sa.String(500), nullable=True),
+    if is_sqlite:
+        try:
+            op.execute("ALTER TABLE teachers ADD COLUMN full_name VARCHAR(150)")
+        except Exception:
+            pass
+        try:
+            op.execute("ALTER TABLE teachers ADD COLUMN email VARCHAR(255)")
+        except Exception:
+            pass
+        op.execute("""
+        CREATE TABLE IF NOT EXISTS group_students (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+            classroom_user_id VARCHAR(64) NOT NULL,
+            full_name VARCHAR(150) NOT NULL,
+            email VARCHAR(150),
+            photo_url VARCHAR(500)
         )
-        op.create_index("ix_group_students_id", "group_students", ["id"])
-        op.create_index("ix_group_students_group_id", "group_students", ["group_id"])
-        op.create_index("ix_group_students_classroom_user_id", "group_students", ["classroom_user_id"])
+        """)
+        op.execute("CREATE INDEX IF NOT EXISTS ix_group_students_group_id ON group_students (group_id)")
+        op.execute("CREATE INDEX IF NOT EXISTS ix_group_students_classroom_user_id ON group_students (classroom_user_id)")
 
-    if "classroom_group_bindings" not in tables:
-        op.create_table(
-            "classroom_group_bindings",
-            sa.Column("id", sa.Integer(), primary_key=True, index=True),
-            sa.Column("group_id", sa.Integer(), sa.ForeignKey("groups.id", ondelete="CASCADE"), unique=True, nullable=False),
-            sa.Column("course_id", sa.String(64), nullable=False),
-            sa.Column("course_name", sa.String(200), nullable=False),
-            sa.Column("refresh_token", sa.String(512), nullable=True),
-            sa.Column("access_token", sa.String(512), nullable=True),
-            sa.Column("last_synced_at", sa.DateTime(timezone=True), nullable=True),
-            sa.Column("is_active", sa.Boolean(), server_default=sa.text("true"), nullable=False),
+        op.execute("""
+        CREATE TABLE IF NOT EXISTS classroom_group_bindings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            group_id INTEGER NOT NULL UNIQUE REFERENCES groups(id) ON DELETE CASCADE,
+            course_id VARCHAR(64) NOT NULL,
+            course_name VARCHAR(200) NOT NULL,
+            refresh_token VARCHAR(512),
+            access_token VARCHAR(512),
+            last_synced_at TIMESTAMP,
+            is_active BOOLEAN NOT NULL DEFAULT 1
         )
-        op.create_index("ix_classroom_group_bindings_id", "classroom_group_bindings", ["id"])
-        op.create_index("ix_classroom_group_bindings_group_id", "classroom_group_bindings", ["group_id"], unique=True)
+        """)
+        op.execute("CREATE UNIQUE INDEX IF NOT EXISTS ix_classroom_group_bindings_group_id ON classroom_group_bindings (group_id)")
+    else:
+        # PostgreSQL (Production on Fly.io)
+        op.execute("""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns 
+                WHERE table_name='teachers' AND column_name='full_name'
+            ) THEN
+                ALTER TABLE teachers ADD COLUMN full_name VARCHAR(150);
+            END IF;
+
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns 
+                WHERE table_name='teachers' AND column_name='email'
+            ) THEN
+                ALTER TABLE teachers ADD COLUMN email VARCHAR(255);
+            END IF;
+        END
+        $$;
+
+        CREATE TABLE IF NOT EXISTS group_students (
+            id SERIAL PRIMARY KEY,
+            group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+            classroom_user_id VARCHAR(64) NOT NULL,
+            full_name VARCHAR(150) NOT NULL,
+            email VARCHAR(150),
+            photo_url VARCHAR(500)
+        );
+
+        CREATE INDEX IF NOT EXISTS ix_group_students_group_id ON group_students (group_id);
+        CREATE INDEX IF NOT EXISTS ix_group_students_classroom_user_id ON group_students (classroom_user_id);
+
+        CREATE TABLE IF NOT EXISTS classroom_group_bindings (
+            id SERIAL PRIMARY KEY,
+            group_id INTEGER NOT NULL UNIQUE REFERENCES groups(id) ON DELETE CASCADE,
+            course_id VARCHAR(64) NOT NULL,
+            course_name VARCHAR(200) NOT NULL,
+            refresh_token VARCHAR(512),
+            access_token VARCHAR(512),
+            last_synced_at TIMESTAMP WITH TIME ZONE,
+            is_active BOOLEAN NOT NULL DEFAULT true
+        );
+
+        CREATE UNIQUE INDEX IF NOT EXISTS ix_classroom_group_bindings_group_id ON classroom_group_bindings (group_id);
+        """)
 
 
 def downgrade():
-    op.drop_table("classroom_group_bindings")
-    op.drop_table("group_students")
-    op.drop_column("teachers", "full_name")
+    bind = op.get_bind()
+    is_sqlite = bind.dialect.name == "sqlite"
+
+    if is_sqlite:
+        op.execute("DROP TABLE IF EXISTS classroom_group_bindings")
+        op.execute("DROP TABLE IF EXISTS group_students")
+    else:
+        op.execute("""
+        DROP TABLE IF EXISTS classroom_group_bindings CASCADE;
+        DROP TABLE IF EXISTS group_students CASCADE;
+        ALTER TABLE teachers DROP COLUMN IF EXISTS full_name;
+        """)
