@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -601,22 +601,94 @@ async def perform_course_sync(
             except Exception as e:
                 logger.warning(f"Could not sync students for course {c_id}: {e}")
 
-        if students_by_user_id:
-            await db.execute(delete(GroupStudent).where(GroupStudent.group_id == group.id))
-            await db.flush()
-            sorted_students = sorted(students_by_user_id.values(), key=lambda s: s["full_name"])
-            for s in sorted_students:
+        # Спроба знайти одногрупників через Google People Directory API (@kre.dp.ua)
+        try:
+            search_queries = [group.name]
+            clean_digits = re.findall(r"\d+", group.name)
+            if clean_digits and clean_digits[-1] not in search_queries:
+                search_queries.append(clean_digits[-1])
+
+            for sq in search_queries:
+                people_resp = await client.get(
+                    "https://people.googleapis.com/v1/people:searchDirectoryPeople",
+                    params={
+                        "query": sq,
+                        "readMask": "names,emailAddresses,photos",
+                        "sources": ["DIRECTORY_SOURCE_TYPE_DOMAIN_PROFILE"],
+                        "pageSize": 50,
+                    },
+                    headers=headers,
+                )
+                if people_resp.status_code == 200:
+                    people_data = people_resp.json()
+                    for person in people_data.get("people", []):
+                        names = person.get("names", [])
+                        full_name = names[0].get("displayName", "").strip() if names else ""
+                        emails = person.get("emailAddresses", [])
+                        email = emails[0].get("value", "").strip() if emails else ""
+                        photos = person.get("photos", [])
+                        photo = photos[0].get("url") if photos else None
+
+                        if not full_name:
+                            continue
+
+                        is_group_match = False
+                        if email and group.name.lower() in email.lower():
+                            is_group_match = True
+                        elif email and clean_digits and any(f"-{d}@" in email.lower() or f".{d}@" in email.lower() or f"_{d}@" in email.lower() for d in clean_digits):
+                            is_group_match = True
+                        elif sq == group.name:
+                            is_group_match = True
+
+                        if is_group_match:
+                            p_uid = f"dir_{abs(hash(email or full_name)) % (10**12)}"
+                            if p_uid not in students_by_user_id:
+                                students_by_user_id[p_uid] = {
+                                    "classroom_user_id": p_uid[:64],
+                                    "full_name": full_name[:150],
+                                    "email": email[:150] or None,
+                                    "photo_url": photo[:500] if photo else None,
+                                }
+                            else:
+                                if not students_by_user_id[p_uid]["email"] and email:
+                                    students_by_user_id[p_uid]["email"] = email[:150]
+                                if not students_by_user_id[p_uid]["photo_url"] and photo:
+                                    students_by_user_id[p_uid]["photo_url"] = photo[:500]
+        except Exception as e:
+            logger.warning(f"People API directory search skipped: {e}")
+
+        # UPSERT замість DELETE: не затираємо вже наявних у базі студентів групи!
+        existing_students = (
+            await db.scalars(
+                select(GroupStudent).where(GroupStudent.group_id == group.id)
+            )
+        ).all()
+        existing_by_uid = {s.classroom_user_id: s for s in existing_students if s.classroom_user_id}
+        existing_by_name = {_norm(s.full_name): s for s in existing_students}
+
+        for uid, s_info in students_by_user_id.items():
+            norm_name = _norm(s_info["full_name"])
+            target_row = existing_by_uid.get(uid) or existing_by_name.get(norm_name)
+            if target_row:
+                if uid and not target_row.classroom_user_id.startswith("manual_"):
+                    target_row.classroom_user_id = uid
+                target_row.full_name = s_info["full_name"]
+                if s_info["email"]:
+                    target_row.email = s_info["email"]
+                if s_info["photo_url"]:
+                    target_row.photo_url = s_info["photo_url"]
+            else:
                 db.add(
                     GroupStudent(
                         group_id=group.id,
-                        classroom_user_id=s["classroom_user_id"],
-                        full_name=s["full_name"],
-                        email=s["email"],
-                        photo_url=s["photo_url"],
+                        classroom_user_id=s_info["classroom_user_id"],
+                        full_name=s_info["full_name"],
+                        email=s_info["email"],
+                        photo_url=s_info["photo_url"],
                     )
                 )
                 synced_students += 1
-            await db.flush()
+        await db.flush()
 
         # 2. Скануємо всі курси викладачів
         for course in courses:
@@ -1025,3 +1097,101 @@ async def get_group_students(
             for s in students
         ],
     }
+
+
+class BulkStudentsPayload(BaseModel):
+    raw_text: str
+    replace_existing: bool = False
+
+
+IGNORE_ROSTER_LINES = {
+    "преподаватели", "викладачі", "teachers",
+    "учащиеся", "студенти", "здобувачі освіти", "students", "classmates",
+    "одногрупники", "однокурсники", "пользователи", "користувачі", "people",
+    "додати", "добавить", "пригласить", "запросити", "дія", "действие", "actions",
+}
+
+
+@router.post("/groups/{group_id}/students/bulk")
+async def bulk_import_group_students(
+    group_id: int,
+    payload: BulkStudentsPayload,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_roles("admin", "editor")),
+):
+    """Дозволяє за 1 секунду вставити скопійований список студентів зі сторінки 'Пользователи' у Classroom або відомості."""
+    group = await db.get(Group, group_id)
+    if not group:
+        raise HTTPException(status_code=404, detail="Групу не знайдено")
+
+    if payload.replace_existing:
+        await db.execute(delete(GroupStudent).where(GroupStudent.group_id == group_id))
+        await db.flush()
+
+    existing = (
+        await db.scalars(select(GroupStudent).where(GroupStudent.group_id == group_id))
+    ).all()
+    existing_names = {_norm(s.full_name) for s in existing}
+
+    added = 0
+    for raw_line in payload.raw_text.splitlines():
+        line = re.sub(r"^\s*\d+[\.\)\-]\s*", "", raw_line).strip()
+        if not line or len(line) < 4:
+            continue
+        line_norm = _norm(line)
+        if line_norm in IGNORE_ROSTER_LINES:
+            continue
+        if re.match(r"^\d+\s+(учащ|студент|здобувач|people|students)", line_norm):
+            continue
+
+        email_match = re.search(r"[\w.\-+]+@[\w.\-]+\.\w+", line)
+        email = email_match.group(0) if email_match else None
+        if email:
+            line = line.replace(email, "").strip(" -|,;()\t")
+
+        words = [w for w in line.split() if len(w) >= 2]
+        if len(words) < 2 or len(words) > 4:
+            continue
+
+        clean_name = " ".join(words)[:150]
+        norm_name = _norm(clean_name)
+        if norm_name in existing_names:
+            continue
+
+        db.add(
+            GroupStudent(
+                group_id=group_id,
+                classroom_user_id=f"manual_{group_id}_{abs(hash(norm_name)) % 10**8}",
+                full_name=clean_name,
+                email=email[:150] if email else None,
+                photo_url=None,
+            )
+        )
+        existing_names.add(norm_name)
+        added += 1
+
+    await db.commit()
+    total_count = await db.scalar(
+        select(func.count(GroupStudent.id)).where(GroupStudent.group_id == group_id)
+    )
+    return {"added": added, "total": total_count or len(existing_names)}
+
+
+@router.delete("/groups/{group_id}/students/{student_id}")
+async def remove_group_student(
+    group_id: int,
+    student_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_roles("admin", "editor")),
+):
+    st = await db.scalar(
+        select(GroupStudent).where(
+            GroupStudent.id == student_id,
+            GroupStudent.group_id == group_id,
+        )
+    )
+    if not st:
+        raise HTTPException(status_code=404, detail="Студента не знайдено")
+    await db.delete(st)
+    await db.commit()
+    return {"status": "deleted"}

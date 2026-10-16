@@ -1001,6 +1001,21 @@ export const api = {
                 last_synced_at: string | null;
                 students: Array<{ id: number; full_name: string; email?: string | null; photo_url?: string | null }>;
             }>(`/api/classroom/groups/${groupId}/students`),
+        bulkImportStudents: (groupId: number, raw_text: string, replace_existing: boolean = false) =>
+            authenticatedRequest<{ added: number; total: number }>(
+                `/api/classroom/groups/${groupId}/students/bulk`,
+                {
+                    method: "POST",
+                    body: JSON.stringify({ raw_text, replace_existing }),
+                }
+            ),
+        deleteStudent: (groupId: number, studentId: number) =>
+            authenticatedRequest<{ status: string }>(
+                `/api/classroom/groups/${groupId}/students/${studentId}`,
+                {
+                    method: "DELETE",
+                }
+            ),
     },
 };
 export interface ClassroomSyncResult {
