@@ -1,18 +1,3 @@
-﻿================================================================================
-ПОВНИЙ КОД МОДУЛЯ GOOGLE CLASSROOM (BACKEND + FRONTEND)
-================================================================================
-
-ЗМІСТ:
-1. backend/app/routers/classroom.py — Бекенд: авторизація Google Classroom API, парсинг курсів, 
-   витягування Meet/Zoom посилань з оголошень, розумне зіставлення з парами, автосинхронізація у LessonOccurrenceNote
-2. frontend/components/ClassroomSyncButton.tsx — Фронтенд: Google Identity Services (OAuth2 GIS), 
-   кнопка запуску синхронізації та сповіщення (Toast)
-3. frontend/lib/api.ts — TypeScript API-клієнт для виклику ендпоінта /api/classroom/sync
-4. backend/app/main.py та schedule.py — Підключення роутера та виклик ensure_known_online_links
-
-================================================================================
-ФАЙЛ 1: backend/app/routers/classroom.py
-================================================================================
 import re
 from datetime import date, datetime, timedelta, timezone
 from typing import Optional
@@ -27,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.models import Group
 from app.models.lesson_notes import LessonOccurrenceNote
-from app.services.projection import build_projection
+from app.services.projection import build_projection, build_week_projection
 
 router = APIRouter(prefix="/api/classroom", tags=["classroom"])
 KYIV_TZ = ZoneInfo("Europe/Kyiv")
@@ -239,16 +224,23 @@ async def _save_link_to_slot(
     url_line: str,
     matched_prefix: Optional[str] = None,
 ) -> None:
-    note_row = await db.scalar(
-        select(LessonOccurrenceNote).where(
-            LessonOccurrenceNote.note_date == target_date,
-            LessonOccurrenceNote.group_id == group_id,
-            LessonOccurrenceNote.lesson_number == lesson.lesson_number,
+    active_row = (
+        await db.scalars(
+            select(LessonOccurrenceNote)
+            .where(
+                LessonOccurrenceNote.note_date == target_date,
+                LessonOccurrenceNote.group_id == group_id,
+                LessonOccurrenceNote.lesson_number == lesson.lesson_number,
+                LessonOccurrenceNote.archived.is_(False),
+            )
+            .order_by(LessonOccurrenceNote.id.desc())
+            .limit(1)
         )
-    )
-    if note_row:
+    ).first()
+
+    if active_row:
         kept_lines = []
-        for line in note_row.note.split("\n"):
+        for line in active_row.note.split("\n"):
             l_str = line.strip()
             if not l_str:
                 continue
@@ -258,31 +250,51 @@ async def _save_link_to_slot(
             else:
                 kept_lines.append(l_str)
 
-        note_row.note = (
+        active_row.note = (
             f"{url_line}\n{chr(10).join(kept_lines)}"[:500]
             if kept_lines
             else url_line[:500]
         )
-        note_row.subject_id = lesson.subject_id
-        note_row.subject_name = lesson.subject_name or note_row.subject_name
-        note_row.archived = False
-        note_row.revision += 1
-        note_row.updated_at = datetime.now(timezone.utc)
+        active_row.subject_id = lesson.subject_id
+        active_row.subject_name = lesson.subject_name or active_row.subject_name
+        active_row.revision += 1
+        active_row.updated_at = datetime.now(timezone.utc)
     else:
-        db.add(
-            LessonOccurrenceNote(
-                note_date=target_date,
-                group_id=group_id,
-                lesson_number=lesson.lesson_number,
-                subject_id=lesson.subject_id,
-                subject_name=lesson.subject_name or "",
-                note=url_line[:500],
-                revision=1,
-                archived=False,
-                origin_kind="classroom",
-                origin_id=0,
+        existing_row = (
+            await db.scalars(
+                select(LessonOccurrenceNote)
+                .where(
+                    LessonOccurrenceNote.note_date == target_date,
+                    LessonOccurrenceNote.group_id == group_id,
+                    LessonOccurrenceNote.lesson_number == lesson.lesson_number,
+                )
+                .order_by(LessonOccurrenceNote.id.desc())
+                .limit(1)
             )
-        )
+        ).first()
+
+        if existing_row:
+            existing_row.note = url_line[:500]
+            existing_row.subject_id = lesson.subject_id
+            existing_row.subject_name = lesson.subject_name or ""
+            existing_row.archived = False
+            existing_row.revision += 1
+            existing_row.updated_at = datetime.now(timezone.utc)
+        else:
+            db.add(
+                LessonOccurrenceNote(
+                    note_date=target_date,
+                    group_id=group_id,
+                    lesson_number=lesson.lesson_number,
+                    subject_id=lesson.subject_id,
+                    subject_name=lesson.subject_name or "",
+                    note=url_line[:500],
+                    revision=1,
+                    archived=False,
+                    origin_kind="classroom",
+                    origin_id=0,
+                )
+            )
 
 
 @router.post("/sync")
@@ -332,11 +344,12 @@ async def sync_from_classroom(
         week_monday = today_kyiv - timedelta(days=today_kyiv.weekday())
         week_friday = week_monday + timedelta(days=4)
 
-        # КРОК 1: ПОВНІСТЮ ВИДАЛЯЄМО всі старі авто-посилання цієї групи з бази даних (щоб на інших тижнях і днях без постів стояла лише аудиторія)
+        # КРОК 1: Очищаємо всі старі авто-посилання цієї групи з бази даних (щоб на інших тижнях і днях без постів стояла лише аудиторія)
         all_group_notes = (
             await db.scalars(
                 select(LessonOccurrenceNote).where(
-                    LessonOccurrenceNote.group_id == detected_group.id
+                    LessonOccurrenceNote.group_id == detected_group.id,
+                    LessonOccurrenceNote.archived.is_(False),
                 )
             )
         ).all()
@@ -354,7 +367,9 @@ async def sync_from_classroom(
                 gn.revision += 1
                 gn.updated_at = datetime.now(timezone.utc)
             else:
-                await db.delete(gn)
+                gn.archived = True
+                gn.revision += 1
+                gn.updated_at = datetime.now(timezone.utc)
 
         await db.flush()
 
@@ -416,14 +431,15 @@ async def sync_from_classroom(
                 parsed_announcements.append(parsed)
 
         # Завантажуємо розклад ЛИШЕ на 5 днів поточного тижня (week_monday .. week_friday)
+        _, lessons_by_day = await build_week_projection(
+            db, week_monday, group_id=detected_group.id
+        )
         week_days_lessons: dict[date, list] = {}
-        for i in range(5):
-            d = week_monday + timedelta(days=i)
-            proj_res = await build_projection(db, d, group_id=detected_group.id)
-            raw_list = proj_res[1] if isinstance(proj_res, tuple) else proj_res
+        for weekday in range(1, 6):
+            d = week_monday + timedelta(days=weekday - 1)
             week_days_lessons[d] = [
-                l for l in (raw_list or [])
-                if l.subject_id and (1 <= l.lesson_number <= 4)
+                l for l in lessons_by_day.get(weekday, [])
+                if getattr(l, "subject_id", None) and (1 <= getattr(l, "lesson_number", 0) <= 4)
             ]
 
         # КРОК 3: Ставимо посилання ВИКЛЮЧНО на ту дату і ту пару поточного тижня, де є реальний пост!
@@ -483,128 +499,3 @@ async def sync_from_classroom(
         "group_name": detected_group.name,
         "synced_links": synced_links,
     }
-
-================================================================================
-ФАЙЛ 2: frontend/components/ClassroomSyncButton.tsx
-================================================================================
-"use client";
-
-import { useState } from "react";
-import { api } from "../lib/api";
-import { invalidateScheduleCache } from "../lib/hooks";
-import { useToast } from "./ToastProvider";
-
-const GOOGLE_CLIENT_ID =
-  process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
-  "1079868158360-ok75uv5l93pcql2iktfcple97sdu180b.apps.googleusercontent.com";
-const SCOPES = [
-  "https://www.googleapis.com/auth/classroom.courses.readonly",
-  "https://www.googleapis.com/auth/classroom.announcements.readonly",
-  "https://www.googleapis.com/auth/classroom.rosters.readonly",
-].join(" ");
-
-export function ClassroomSyncButton({
-  currentGroupId,
-  onSynced,
-}: {
-  currentGroupId: number | null;
-  onSynced: (detectedGroupId: number) => void;
-}) {
-  const [syncing, setSyncing] = useState(false);
-  const { showToast } = useToast();
-
-  const loadGsiScript = (): Promise<void> =>
-    new Promise((resolve, reject) => {
-      if ((window as any).google?.accounts?.oauth2) return resolve();
-      const script = document.createElement("script");
-      script.src = "https://accounts.google.com/gsi/client";
-      script.async = true;
-      script.onload = () => resolve();
-      script.onerror = () => reject(new Error("Не вдалося завантажити Google OAuth"));
-      document.body.appendChild(script);
-    });
-
-  const handleSync = async () => {
-    if (!GOOGLE_CLIENT_ID) {
-      showToast("Додайте NEXT_PUBLIC_GOOGLE_CLIENT_ID у .env", "error");
-      return;
-    }
-    setSyncing(true);
-    try {
-      await loadGsiScript();
-      const tokenClient = (window as any).google.accounts.oauth2.initTokenClient({
-        client_id: GOOGLE_CLIENT_ID,
-        scope: SCOPES,
-        callback: async (resp: any) => {
-          if (resp.error || !resp.access_token) {
-            setSyncing(false);
-            return;
-          }
-          try {
-            const res = await api.classroom.sync(resp.access_token, currentGroupId ?? undefined);
-            invalidateScheduleCache();
-            onSynced(res.group_id);
-            showToast(
-              `Група ${res.group_name}: підтягнуто ${res.synced_links} онлайн-пар із Classroom!`,
-              "success"
-            );
-          } catch (err) {
-            showToast(err instanceof Error ? err.message : "Помилка синхронізації", "error");
-          } finally {
-            setSyncing(false);
-          }
-        },
-      });
-      tokenClient.requestAccessToken({ prompt: "" });
-    } catch (err) {
-      setSyncing(false);
-      showToast("Не вдалося підключитися до Google Classroom", "error");
-    }
-  };
-
-  return (
-    <button
-      type="button"
-      onClick={() => void handleSync()}
-      disabled={syncing}
-      title="Підтягнути групу та посилання на пари з Google Classroom"
-      className="inline-flex h-8 sm:h-9 items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 sm:px-3 text-xs font-semibold text-emerald-300 transition-colors hover:bg-emerald-500/20 disabled:opacity-50"
-    >
-      <span>🎓</span>
-      <span className="hidden sm:inline">{syncing ? "Синхронізація..." : "Classroom"}</span>
-    </button>
-  );
-}
-
-
-================================================================================
-ФАЙЛ 3: frontend/lib/api.ts (фрагмент API для Classroom)
-================================================================================
-    classroom: {
-        sync: (accessToken: string, groupId?: number) =>
-            rawRequest<{ group_id: number; group_name: string; synced_links: number }>("/api/classroom/sync", {
-                method: "POST",
-                body: JSON.stringify({
-                    access_token: accessToken,
-                    group_id: groupId,
-                }),
-            }),
-    },
-};
-export interface ClassroomSyncResult {
-    group_id: number;
-    group_name: string;
-    synced_links: number;
-}
-
-================================================================================
-ФАЙЛ 4: Підключення роутера (backend/app/main.py та backend/app/routers/schedule.py)
-================================================================================
-# backend/app/main.py:
-from app.routers.classroom import router as classroom_router, ensure_known_online_links
-app.include_router(classroom_router)
-
-# backend/app/routers/schedule.py:
-# Під час відкриття розкладу автоматично перевіряються та актуалізуються онлайн-посилання:
-from app.routers.classroom import ensure_known_online_links
-await ensure_known_online_links(db)

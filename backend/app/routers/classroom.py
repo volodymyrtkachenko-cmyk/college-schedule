@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.models import Group
 from app.models.lesson_notes import LessonOccurrenceNote
-from app.services.projection import build_projection
+from app.services.projection import build_projection, build_week_projection
 
 router = APIRouter(prefix="/api/classroom", tags=["classroom"])
 KYIV_TZ = ZoneInfo("Europe/Kyiv")
@@ -224,16 +224,23 @@ async def _save_link_to_slot(
     url_line: str,
     matched_prefix: Optional[str] = None,
 ) -> None:
-    note_row = await db.scalar(
-        select(LessonOccurrenceNote).where(
-            LessonOccurrenceNote.note_date == target_date,
-            LessonOccurrenceNote.group_id == group_id,
-            LessonOccurrenceNote.lesson_number == lesson.lesson_number,
+    active_row = (
+        await db.scalars(
+            select(LessonOccurrenceNote)
+            .where(
+                LessonOccurrenceNote.note_date == target_date,
+                LessonOccurrenceNote.group_id == group_id,
+                LessonOccurrenceNote.lesson_number == lesson.lesson_number,
+                LessonOccurrenceNote.archived.is_(False),
+            )
+            .order_by(LessonOccurrenceNote.id.desc())
+            .limit(1)
         )
-    )
-    if note_row:
+    ).first()
+
+    if active_row:
         kept_lines = []
-        for line in note_row.note.split("\n"):
+        for line in active_row.note.split("\n"):
             l_str = line.strip()
             if not l_str:
                 continue
@@ -243,31 +250,51 @@ async def _save_link_to_slot(
             else:
                 kept_lines.append(l_str)
 
-        note_row.note = (
+        active_row.note = (
             f"{url_line}\n{chr(10).join(kept_lines)}"[:500]
             if kept_lines
             else url_line[:500]
         )
-        note_row.subject_id = lesson.subject_id
-        note_row.subject_name = lesson.subject_name or note_row.subject_name
-        note_row.archived = False
-        note_row.revision += 1
-        note_row.updated_at = datetime.now(timezone.utc)
+        active_row.subject_id = lesson.subject_id
+        active_row.subject_name = lesson.subject_name or active_row.subject_name
+        active_row.revision += 1
+        active_row.updated_at = datetime.now(timezone.utc)
     else:
-        db.add(
-            LessonOccurrenceNote(
-                note_date=target_date,
-                group_id=group_id,
-                lesson_number=lesson.lesson_number,
-                subject_id=lesson.subject_id,
-                subject_name=lesson.subject_name or "",
-                note=url_line[:500],
-                revision=1,
-                archived=False,
-                origin_kind="classroom",
-                origin_id=0,
+        existing_row = (
+            await db.scalars(
+                select(LessonOccurrenceNote)
+                .where(
+                    LessonOccurrenceNote.note_date == target_date,
+                    LessonOccurrenceNote.group_id == group_id,
+                    LessonOccurrenceNote.lesson_number == lesson.lesson_number,
+                )
+                .order_by(LessonOccurrenceNote.id.desc())
+                .limit(1)
             )
-        )
+        ).first()
+
+        if existing_row:
+            existing_row.note = url_line[:500]
+            existing_row.subject_id = lesson.subject_id
+            existing_row.subject_name = lesson.subject_name or ""
+            existing_row.archived = False
+            existing_row.revision += 1
+            existing_row.updated_at = datetime.now(timezone.utc)
+        else:
+            db.add(
+                LessonOccurrenceNote(
+                    note_date=target_date,
+                    group_id=group_id,
+                    lesson_number=lesson.lesson_number,
+                    subject_id=lesson.subject_id,
+                    subject_name=lesson.subject_name or "",
+                    note=url_line[:500],
+                    revision=1,
+                    archived=False,
+                    origin_kind="classroom",
+                    origin_id=0,
+                )
+            )
 
 
 @router.post("/sync")
@@ -317,11 +344,12 @@ async def sync_from_classroom(
         week_monday = today_kyiv - timedelta(days=today_kyiv.weekday())
         week_friday = week_monday + timedelta(days=4)
 
-        # КРОК 1: ПОВНІСТЮ ВИДАЛЯЄМО всі старі авто-посилання цієї групи з бази даних (щоб на інших тижнях і днях без постів стояла лише аудиторія)
+        # КРОК 1: Очищаємо всі старі авто-посилання цієї групи з бази даних (щоб на інших тижнях і днях без постів стояла лише аудиторія)
         all_group_notes = (
             await db.scalars(
                 select(LessonOccurrenceNote).where(
-                    LessonOccurrenceNote.group_id == detected_group.id
+                    LessonOccurrenceNote.group_id == detected_group.id,
+                    LessonOccurrenceNote.archived.is_(False),
                 )
             )
         ).all()
@@ -339,7 +367,9 @@ async def sync_from_classroom(
                 gn.revision += 1
                 gn.updated_at = datetime.now(timezone.utc)
             else:
-                await db.delete(gn)
+                gn.archived = True
+                gn.revision += 1
+                gn.updated_at = datetime.now(timezone.utc)
 
         await db.flush()
 
@@ -401,14 +431,15 @@ async def sync_from_classroom(
                 parsed_announcements.append(parsed)
 
         # Завантажуємо розклад ЛИШЕ на 5 днів поточного тижня (week_monday .. week_friday)
+        _, lessons_by_day = await build_week_projection(
+            db, week_monday, group_id=detected_group.id
+        )
         week_days_lessons: dict[date, list] = {}
-        for i in range(5):
-            d = week_monday + timedelta(days=i)
-            proj_res = await build_projection(db, d, group_id=detected_group.id)
-            raw_list = proj_res[1] if isinstance(proj_res, tuple) else proj_res
+        for weekday in range(1, 6):
+            d = week_monday + timedelta(days=weekday - 1)
             week_days_lessons[d] = [
-                l for l in (raw_list or [])
-                if l.subject_id and (1 <= l.lesson_number <= 4)
+                l for l in lessons_by_day.get(weekday, [])
+                if getattr(l, "subject_id", None) and (1 <= getattr(l, "lesson_number", 0) <= 4)
             ]
 
         # КРОК 3: Ставимо посилання ВИКЛЮЧНО на ту дату і ту пару поточного тижня, де є реальний пост!
