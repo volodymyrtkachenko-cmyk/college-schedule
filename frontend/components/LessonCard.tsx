@@ -113,34 +113,48 @@ export function getVisibleUserNote(note?: string | null): string {
   if (!note) return "";
   return note
     .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => {
-      if (!line) return false;
-      if (line.startsWith("[TASK]")) return false;
-      // Якщо рядок містить URL зустрічі
-      if (/https?:\/\/(?:meet\.google\.com|[a-z0-9.-]*zoom\.us)/i.test(line)) {
-        return false;
-      }
-      // Якщо рядок є службовим (ID, код, пароль)
-      if (/^(?:Ідентифікатор(?:\s+конференції)?|Meeting\s*ID|ID|Код(?:\s+доступ[уа])?|Passcode|Пароль)\s*[:\-]/i.test(line)) {
-        return false;
-      }
-      // Якщо рядок є заголовком конференції чи закликом підключитись
-      if (/^(?:Zoom|Meet|Google Meet|Підключитися|Приєднатися|Конференція)(?:\s+Zoom|\s+Meet)?\s*[:\-]?$/i.test(line)) {
-        return false;
-      }
-      // Якщо рядок є лише префіксом викладача/підгрупи (наприклад "Токарєва:", "Хочинська:", "Токарєва О.В.:")
-      if (/^(?:Токарєв[а-яА-Я.]*|Хочинськ[а-яА-Я.]*|Токарев[а-яА-Я.]*|Хочинск[а-яА-Я.]*|[1-9]\s*підгрупа|підгрупа\s*[1-9]|викладач\s*[:\-]?)\s*[:\-]?$/i.test(line)) {
-        return false;
-      }
-      // Якщо рядок є розділювачем
-      if (/^[-—_|~*=]{1,5}$/.test(line)) {
-        return false;
-      }
-      return true;
+    .map((line) => {
+      // Прибираємо технічні сегменти, які вже показані кнопками Meet / Zoom / Код
+      const cleaned = line
+        .replace(/https?:\/\/(?:meet\.google\.com|[a-z0-9.-]*zoom\.us)\/[^\s|]+/gi, "")
+        .replace(/\b(?:Ідентифікатор(?:\s+конференції)?|Meeting\s*ID|ID)\s*[:\-]?\s*[\d\s\-]+/gi, "")
+        .replace(/\b(?:Код(?:\s+доступу)?|Passcode|Пароль)\s*[:\-]?\s*[A-Za-z0-9_.\-]+/gi, "")
+        .replace(/^(?:Токарєв[а-яА-Я.]*|Хочинськ[а-яА-Я.]*|Токарев[а-яА-Я.]*|Хочинск[а-яА-Я.]*|[1-9]\s*підгрупа|підгрупа\s*[1-9]|викладач)\s*[:\-]?$/gi, "")
+        .replace(/^(?:Zoom|Meet|Google Meet|Підключитися|Приєднатися|Конференція)(?:\s+Zoom|\s+Meet)?\s*[:\-]?$/gi, "")
+        .replace(/^[-—_|~*=]{1,5}$/g, "")
+        .replace(/\|/g, " ")
+        .trim();
+      return cleaned;
     })
+    .filter(Boolean)
     .join("\n")
     .trim();
+}
+
+export function extractOnlineMeetingInfo(note?: string | null, room?: string | null) {
+  const lines = `${room || ""}\n${note || ""}`.split("\n");
+
+  for (const line of lines) {
+    const urlMatch = line.match(
+      /https?:\/\/(?:meet\.google\.com|[a-z0-9.-]*zoom\.us)\/[^\s<>"')|]+/i
+    );
+    if (!urlMatch) continue;
+
+    const url = urlMatch[0];
+    const isMeet = url.toLowerCase().includes("meet.google.com");
+
+    // Шукаємо код доступу ТІЛЬКИ в цьому ж рядку (або в параметрі ?pwd= для Zoom)
+    const passMatch = line.match(
+      /(?:Код(?:\s+доступ[уа])?|Passcode|Пароль)\s*[:\-]?\s*([A-Za-z0-9_.\-]+)/i
+    );
+
+    return {
+      url,
+      platform: isMeet ? ("meet" as const) : ("zoom" as const),
+      passcode: passMatch ? passMatch[1] : null,
+    };
+  }
+  return null;
 }
 
 export interface MeetingInfo {
@@ -471,7 +485,7 @@ export function LessonCard({
                 {hasMeeting && (
                   <div className="flex flex-wrap items-center justify-end gap-1.5">
                     {meetings.map((m, idx) => (
-                      <div key={`${m.url}-${idx}`} className="flex flex-wrap items-center justify-end gap-1">
+                      <div key={`${m.url}-${idx}`} className="flex flex-wrap items-center justify-end gap-1.5">
                         <a
                           href={m.url}
                           target="_blank"
@@ -490,14 +504,8 @@ export function LessonCard({
                               : "border-sky-500/40 bg-sky-500/15 text-sky-300 hover:bg-sky-500/25"
                           }`}
                         >
-                          <span>{m.platform === "meet" ? "🎥" : "📹"}</span>
-                          <span>
-                            {m.label
-                              ? m.label
-                              : m.platform === "meet"
-                              ? "Meet"
-                              : "Zoom"}
-                          </span>
+                          <span>{m.platform === "meet" ? "🎥 Meet" : "📹 Zoom"}</span>
+                          {m.label && <span className="text-[10px] opacity-80">({m.label})</span>}
                           <span>↗</span>
                         </a>
                         {m.passcode && (
@@ -510,9 +518,9 @@ export function LessonCard({
                               setTimeout(() => setCopiedPass(null), 2000);
                             }}
                             title="Натисніть, щоб скопіювати код доступу"
-                            className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold text-amber-300 transition-colors hover:bg-amber-500/20 active:scale-95"
+                            className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold text-amber-300 hover:bg-amber-500/20 active:scale-95"
                           >
-                            <span>{copiedPass === m.passcode ? "✓" : "🔑"}</span>
+                            <span>🔑</span>
                             <span>{copiedPass === m.passcode ? "Скопійовано" : m.passcode}</span>
                           </button>
                         )}
