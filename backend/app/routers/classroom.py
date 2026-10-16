@@ -529,54 +529,94 @@ async def perform_course_sync(
     teacher_tokens_by_uid: dict[str, list[str]] = {}
 
     async with httpx.AsyncClient(timeout=15.0) as client:
-        # Визначаємо основний курс групи для отримання списку студентів
-        primary_course = None
-        if group_course_id:
-            primary_course = next((c for c in courses if c.get("id") == group_course_id), None)
-        if not primary_course:
+        # Визначаємо курси, які належать цій групі для отримання повного списку студентів
+        all_active_groups = (await db.scalars(select(Group).where(Group.is_active.is_(True)))).all()
+        target_group_courses = []
+        for c in courses:
+            full_title = f"{c.get('name', '')} {c.get('section', '')} {c.get('descriptionHeading', '')}".strip()
+            matched_other = _extract_group_from_course_name(full_title, all_active_groups)
+            if matched_other:
+                if matched_other.id == group.id:
+                    target_group_courses.append(c)
+            elif group_course_id and c.get("id") == group_course_id:
+                target_group_courses.append(c)
+
+        if not target_group_courses:
             for c in courses:
                 full_title = f"{c.get('name', '')} {c.get('section', '')}".strip()
                 g = _extract_group_from_course_name(full_title, [group])
                 if g and g.id == group.id:
-                    primary_course = c
+                    target_group_courses.append(c)
                     break
-        if not primary_course and courses:
-            primary_course = courses[0]
+        if not target_group_courses and courses:
+            target_group_courses = [courses[0]]
 
-        # 1. Синхронізація списку студентів з основного курсу групи
-        if primary_course:
+        # 1. Синхронізація списку студентів з усіх курсів групи (підгрупи, дисципліни)
+        students_by_user_id: dict[str, dict] = {}
+        for gc in target_group_courses:
+            c_id = gc.get("id")
+            if not c_id:
+                continue
             try:
-                s_resp = await client.get(
-                    f"https://classroom.googleapis.com/v1/courses/{primary_course['id']}/students",
-                    params={"pageSize": 100},
-                    headers=headers,
-                )
-                if s_resp.status_code == 200:
-                    students_data = s_resp.json().get("students", [])
-                    if students_data:
-                        await db.execute(delete(GroupStudent).where(GroupStudent.group_id == group.id))
-                        await db.flush()
-                        for s_item in students_data:
-                            prof = s_item.get("profile", {})
-                            s_name = prof.get("name", {}).get("fullName", "").strip()
-                            if not s_name:
-                                continue
-                            photo = prof.get("photoUrl")
-                            if photo and photo.startswith("//"):
-                                photo = f"https:{photo}"
-                            db.add(
-                                GroupStudent(
-                                    group_id=group.id,
-                                    classroom_user_id=(s_item.get("userId") or "")[:64],
-                                    full_name=s_name[:150],
-                                    email=(prof.get("emailAddress") or "")[:150] or None,
-                                    photo_url=photo[:500] if photo else None,
-                                )
-                            )
-                            synced_students += 1
-                        await db.flush()
+                page_token = None
+                while True:
+                    params = {"pageSize": 100}
+                    if page_token:
+                        params["pageToken"] = page_token
+                    s_resp = await client.get(
+                        f"https://classroom.googleapis.com/v1/courses/{c_id}/students",
+                        params=params,
+                        headers=headers,
+                    )
+                    if s_resp.status_code != 200:
+                        break
+                    s_data = s_resp.json()
+                    for s_item in s_data.get("students", []):
+                        uid = (s_item.get("userId") or "").strip()
+                        prof = s_item.get("profile", {})
+                        s_name = prof.get("name", {}).get("fullName", "").strip()
+                        if not s_name:
+                            continue
+                        photo = prof.get("photoUrl")
+                        if photo and photo.startswith("//"):
+                            photo = f"https:{photo}"
+                        email = (prof.get("emailAddress") or "").strip()
+
+                        if uid not in students_by_user_id:
+                            students_by_user_id[uid] = {
+                                "classroom_user_id": uid[:64],
+                                "full_name": s_name[:150],
+                                "email": email[:150] or None,
+                                "photo_url": photo[:500] if photo else None,
+                            }
+                        else:
+                            if not students_by_user_id[uid]["email"] and email:
+                                students_by_user_id[uid]["email"] = email[:150]
+                            if not students_by_user_id[uid]["photo_url"] and photo:
+                                students_by_user_id[uid]["photo_url"] = photo[:500]
+
+                    page_token = s_data.get("nextPageToken")
+                    if not page_token:
+                        break
             except Exception as e:
-                logger.warning(f"Could not sync students: {e}")
+                logger.warning(f"Could not sync students for course {c_id}: {e}")
+
+        if students_by_user_id:
+            await db.execute(delete(GroupStudent).where(GroupStudent.group_id == group.id))
+            await db.flush()
+            sorted_students = sorted(students_by_user_id.values(), key=lambda s: s["full_name"])
+            for s in sorted_students:
+                db.add(
+                    GroupStudent(
+                        group_id=group.id,
+                        classroom_user_id=s["classroom_user_id"],
+                        full_name=s["full_name"],
+                        email=s["email"],
+                        photo_url=s["photo_url"],
+                    )
+                )
+                synced_students += 1
+            await db.flush()
 
         # 2. Скануємо всі курси викладачів
         for course in courses:

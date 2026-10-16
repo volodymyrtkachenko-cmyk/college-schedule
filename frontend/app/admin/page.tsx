@@ -88,6 +88,7 @@ function AdminContent() {
   const [searchTerm, setSearchTerm] = useState("");
 
   const [rosterGroup, setRosterGroup] = useState<{ id: number; name: string } | null>(null);
+  const [studentSearch, setStudentSearch] = useState("");
   const [rosterData, setRosterData] = useState<{
     course_name: string | null;
     last_synced_at: string | null;
@@ -97,6 +98,7 @@ function AdminContent() {
 
   const openGroupRoster = async (group: { id: number; name: string }) => {
     setRosterGroup(group);
+    setStudentSearch("");
     setRosterLoading(true);
     try {
       const data = await api.classroom.groupStudents(group.id);
@@ -453,8 +455,13 @@ function AdminContent() {
             <div className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-sys-border bg-sys-card shadow-2xl">
               <div className="flex items-center justify-between border-b border-sys-border px-5 py-4">
                 <div>
-                  <h3 className="text-base font-bold text-white">
-                    👥 Студенти групи {rosterGroup.name}
+                  <h3 className="flex items-center gap-2 text-base font-bold text-white">
+                    <span>👥 Студенти групи {rosterGroup.name}</span>
+                    {rosterData?.students && rosterData.students.length > 0 && (
+                      <span className="rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-xs font-semibold text-emerald-400">
+                        {rosterData.students.length} осіб
+                      </span>
+                    )}
                   </h3>
                   {rosterData?.course_name && (
                     <p className="text-xs text-emerald-400">
@@ -476,6 +483,18 @@ function AdminContent() {
                 </button>
               </div>
 
+              {rosterData && rosterData.students.length > 0 && (
+                <div className="border-b border-sys-border/60 bg-sys-bg/30 px-5 py-2.5">
+                  <input
+                    type="text"
+                    value={studentSearch}
+                    onChange={(e) => setStudentSearch(e.target.value)}
+                    placeholder="Пошук студента за ПІБ чи email..."
+                    className="w-full rounded-lg border border-sys-border bg-sys-bg/60 px-3 py-1.5 text-xs text-sys-text-primary placeholder:text-sys-text-muted focus:border-emerald-500 focus:outline-none"
+                  />
+                </div>
+              )}
+
               <div className="flex-1 overflow-y-auto p-5">
                 {rosterLoading ? (
                   <p className="text-sm text-sys-text-secondary">Завантаження списку...</p>
@@ -485,7 +504,16 @@ function AdminContent() {
                   </p>
                 ) : (
                   <ol className="space-y-2">
-                    {rosterData.students.map((st, i) => (
+                    {rosterData.students
+                      .filter((st) => {
+                        if (!studentSearch.trim()) return true;
+                        const q = studentSearch.toLowerCase();
+                        return (
+                          st.full_name.toLowerCase().includes(q) ||
+                          (st.email && st.email.toLowerCase().includes(q))
+                        );
+                      })
+                      .map((st, i) => (
                       <li
                         key={st.id}
                         className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/40 px-3.5 py-2.5 text-sm"
