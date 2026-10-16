@@ -55,6 +55,14 @@ UKR_MONTHS = {
     "лип": 7, "сер": 8, "вер": 9, "жов": 10, "лис": 11, "гру": 12,
 }
 
+UKR_ALPHABET = "абвгґдеєжзиіїйклмнопрстуфхцчшщьюя"
+UKR_ORDER = {ch: i for i, ch in enumerate(UKR_ALPHABET)}
+
+
+def ukr_sort_key(name: str) -> list[int]:
+    """Формує ключ для коректного українського алфавітного сортування (А-Я, І, Ї, Є, Ґ)."""
+    return [UKR_ORDER.get(ch, 1000 + ord(ch)) for ch in (name or "").lower().strip()]
+
 
 class ClassroomSyncRequest(BaseModel):
     code: Optional[str] = None
@@ -1078,9 +1086,9 @@ async def get_group_students(
         await db.scalars(
             select(GroupStudent)
             .where(GroupStudent.group_id == group_id)
-            .order_by(GroupStudent.full_name.asc())
         )
     ).all()
+    students = sorted(students, key=lambda s: ukr_sort_key(s.full_name))
     binding = await db.scalar(
         select(ClassroomGroupBinding).where(ClassroomGroupBinding.group_id == group_id)
     )

@@ -89,6 +89,7 @@ function AdminContent() {
 
   const [rosterGroup, setRosterGroup] = useState<{ id: number; name: string } | null>(null);
   const [studentSearch, setStudentSearch] = useState("");
+  const [studentSortOrder, setStudentSortOrder] = useState<"asc" | "desc">("asc");
   const [bulkStudentOpen, setBulkStudentOpen] = useState(false);
   const [bulkStudentText, setBulkStudentText] = useState("");
   const [bulkStudentReplace, setBulkStudentReplace] = useState(false);
@@ -103,6 +104,7 @@ function AdminContent() {
   const openGroupRoster = async (group: { id: number; name: string }) => {
     setRosterGroup(group);
     setStudentSearch("");
+    setStudentSortOrder("asc");
     setBulkStudentOpen(false);
     setBulkStudentText("");
     setBulkStudentReplace(false);
@@ -573,14 +575,22 @@ function AdminContent() {
               ) : (
                 <>
                   {rosterData && rosterData.students.length > 0 && (
-                    <div className="border-b border-sys-border/60 bg-sys-bg/30 px-5 py-2.5">
+                    <div className="flex items-center gap-2 border-b border-sys-border/60 bg-sys-bg/30 px-5 py-2.5">
                       <input
                         type="text"
                         value={studentSearch}
                         onChange={(e) => setStudentSearch(e.target.value)}
                         placeholder="Пошук студента за ПІБ чи email..."
-                        className="w-full rounded-lg border border-sys-border bg-sys-bg/60 px-3 py-1.5 text-xs text-sys-text-primary placeholder:text-sys-text-muted focus:border-emerald-500 focus:outline-none"
+                        className="flex-1 rounded-lg border border-sys-border bg-sys-bg/60 px-3 py-1.5 text-xs text-sys-text-primary placeholder:text-sys-text-muted focus:border-emerald-500 focus:outline-none"
                       />
+                      <button
+                        type="button"
+                        onClick={() => setStudentSortOrder((prev) => (prev === "asc" ? "desc" : "asc"))}
+                        className="flex items-center gap-1.5 rounded-lg border border-sys-border/80 bg-sys-card px-2.5 py-1.5 text-xs font-semibold text-sys-text-secondary hover:border-emerald-500/50 hover:text-white transition-colors whitespace-nowrap"
+                        title="Змінити напрямок сортування (А-Я / Я-А)"
+                      >
+                        <span>{studentSortOrder === "asc" ? "🔤 А → Я" : "🔤 Я → А"}</span>
+                      </button>
                     </div>
                   )}
 
@@ -601,6 +611,11 @@ function AdminContent() {
                               st.full_name.toLowerCase().includes(q) ||
                               (st.email && st.email.toLowerCase().includes(q))
                             );
+                          })
+                          .slice()
+                          .sort((a, b) => {
+                            const res = a.full_name.localeCompare(b.full_name, "uk", { sensitivity: "base" });
+                            return studentSortOrder === "asc" ? res : -res;
                           })
                           .map((st, i) => (
                           <li
