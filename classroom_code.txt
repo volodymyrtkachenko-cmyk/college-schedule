@@ -1,4 +1,6 @@
+import logging
 import re
+import traceback
 from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 from zoneinfo import ZoneInfo
@@ -21,6 +23,8 @@ from app.models import (
 )
 from app.models.lesson_notes import LessonOccurrenceNote
 from app.services.projection import build_projection, build_week_projection
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/classroom", tags=["classroom"])
 KYIV_TZ = ZoneInfo("Europe/Kyiv")
@@ -272,6 +276,11 @@ async def _save_link_to_slot(
     url_line: str,
     matched_prefix: Optional[str] = None,
 ) -> None:
+    if not lesson or not getattr(lesson, "subject_id", None):
+        return
+    if not (1 <= getattr(lesson, "lesson_number", 0) <= 4):
+        return
+
     active_row = (
         await db.scalars(
             select(LessonOccurrenceNote)
@@ -306,9 +315,10 @@ async def _save_link_to_slot(
             else url_line[:500]
         )
         active_row.subject_id = lesson.subject_id
-        active_row.subject_name = lesson.subject_name or active_row.subject_name
+        active_row.subject_name = (lesson.subject_name or active_row.subject_name)[:255]
         active_row.revision += 1
         active_row.updated_at = datetime.now(timezone.utc)
+        await db.flush()
     else:
         existing_row = (
             await db.scalars(
@@ -317,6 +327,7 @@ async def _save_link_to_slot(
                     LessonOccurrenceNote.note_date == target_date,
                     LessonOccurrenceNote.group_id == group_id,
                     LessonOccurrenceNote.lesson_number == lesson.lesson_number,
+                    LessonOccurrenceNote.archived.is_(True),
                 )
                 .order_by(LessonOccurrenceNote.id.desc())
                 .limit(1)
@@ -326,10 +337,11 @@ async def _save_link_to_slot(
         if existing_row:
             existing_row.note = url_line[:500]
             existing_row.subject_id = lesson.subject_id
-            existing_row.subject_name = lesson.subject_name or ""
+            existing_row.subject_name = (lesson.subject_name or "")[:255]
             existing_row.archived = False
             existing_row.revision += 1
             existing_row.updated_at = datetime.now(timezone.utc)
+            await db.flush()
         else:
             db.add(
                 LessonOccurrenceNote(
@@ -337,7 +349,7 @@ async def _save_link_to_slot(
                     group_id=group_id,
                     lesson_number=lesson.lesson_number,
                     subject_id=lesson.subject_id,
-                    subject_name=lesson.subject_name or "",
+                    subject_name=(lesson.subject_name or "")[:255],
                     note=url_line[:500],
                     revision=1,
                     archived=False,
@@ -345,6 +357,7 @@ async def _save_link_to_slot(
                     origin_id=0,
                 )
             )
+            await db.flush()
 
 
 async def _upsert_task_line(
@@ -355,6 +368,11 @@ async def _upsert_task_line(
     task_line: str,
     unique_link: str,
 ) -> bool:
+    if not lesson or not getattr(lesson, "subject_id", None):
+        return False
+    if not (1 <= getattr(lesson, "lesson_number", 0) <= 4):
+        return False
+
     existing = (
         await db.scalars(
             select(LessonOccurrenceNote)
@@ -373,9 +391,10 @@ async def _upsert_task_line(
         if unique_link not in existing.note:
             existing.note = f"{existing.note}\n{task_line}".strip()[:500]
             existing.subject_id = lesson.subject_id
-            existing.subject_name = lesson.subject_name or existing.subject_name
+            existing.subject_name = (lesson.subject_name or existing.subject_name)[:255]
             existing.revision += 1
             existing.updated_at = datetime.now(timezone.utc)
+            await db.flush()
             return True
         return False
     else:
@@ -386,6 +405,7 @@ async def _upsert_task_line(
                     LessonOccurrenceNote.note_date == target_date,
                     LessonOccurrenceNote.group_id == group_id,
                     LessonOccurrenceNote.lesson_number == lesson.lesson_number,
+                    LessonOccurrenceNote.archived.is_(True),
                 )
                 .order_by(LessonOccurrenceNote.id.desc())
                 .limit(1)
@@ -395,10 +415,11 @@ async def _upsert_task_line(
         if archived_row:
             archived_row.note = task_line[:500]
             archived_row.subject_id = lesson.subject_id
-            archived_row.subject_name = lesson.subject_name or ""
+            archived_row.subject_name = (lesson.subject_name or "")[:255]
             archived_row.archived = False
             archived_row.revision += 1
             archived_row.updated_at = datetime.now(timezone.utc)
+            await db.flush()
             return True
         else:
             db.add(
@@ -407,7 +428,7 @@ async def _upsert_task_line(
                     group_id=group_id,
                     lesson_number=lesson.lesson_number,
                     subject_id=lesson.subject_id,
-                    subject_name=lesson.subject_name or "",
+                    subject_name=(lesson.subject_name or "")[:255],
                     note=task_line[:500],
                     revision=1,
                     archived=False,
@@ -415,6 +436,7 @@ async def _upsert_task_line(
                     origin_id=0,
                 )
             )
+            await db.flush()
             return True
 
 
@@ -460,6 +482,8 @@ async def perform_course_sync(
         await db.scalars(
             select(LessonOccurrenceNote).where(
                 LessonOccurrenceNote.group_id == group.id,
+                LessonOccurrenceNote.note_date >= week_monday,
+                LessonOccurrenceNote.note_date <= week_friday,
                 LessonOccurrenceNote.archived.is_(False),
             )
         )
@@ -521,33 +545,38 @@ async def perform_course_sync(
 
         # 1. Синхронізація списку студентів з основного курсу групи
         if primary_course:
-            s_resp = await client.get(
-                f"https://classroom.googleapis.com/v1/courses/{primary_course['id']}/students",
-                params={"pageSize": 100},
-                headers=headers,
-            )
-            if s_resp.status_code == 200:
-                students_data = s_resp.json().get("students", [])
-                if students_data:
-                    await db.execute(delete(GroupStudent).where(GroupStudent.group_id == group.id))
-                    for s_item in students_data:
-                        prof = s_item.get("profile", {})
-                        s_name = prof.get("name", {}).get("fullName", "").strip()
-                        if not s_name:
-                            continue
-                        photo = prof.get("photoUrl")
-                        if photo and photo.startswith("//"):
-                            photo = f"https:{photo}"
-                        db.add(
-                            GroupStudent(
-                                group_id=group.id,
-                                classroom_user_id=s_item.get("userId", ""),
-                                full_name=s_name,
-                                email=prof.get("emailAddress"),
-                                photo_url=photo,
+            try:
+                s_resp = await client.get(
+                    f"https://classroom.googleapis.com/v1/courses/{primary_course['id']}/students",
+                    params={"pageSize": 100},
+                    headers=headers,
+                )
+                if s_resp.status_code == 200:
+                    students_data = s_resp.json().get("students", [])
+                    if students_data:
+                        await db.execute(delete(GroupStudent).where(GroupStudent.group_id == group.id))
+                        await db.flush()
+                        for s_item in students_data:
+                            prof = s_item.get("profile", {})
+                            s_name = prof.get("name", {}).get("fullName", "").strip()
+                            if not s_name:
+                                continue
+                            photo = prof.get("photoUrl")
+                            if photo and photo.startswith("//"):
+                                photo = f"https:{photo}"
+                            db.add(
+                                GroupStudent(
+                                    group_id=group.id,
+                                    classroom_user_id=(s_item.get("userId") or "")[:64],
+                                    full_name=s_name[:150],
+                                    email=(prof.get("emailAddress") or "")[:150] or None,
+                                    photo_url=photo[:500] if photo else None,
+                                )
                             )
-                        )
-                        synced_students += 1
+                            synced_students += 1
+                        await db.flush()
+            except Exception as e:
+                logger.warning(f"Could not sync students: {e}")
 
         # 2. Скануємо всі курси викладачів
         for course in courses:
@@ -556,124 +585,140 @@ async def perform_course_sync(
             course_title_norm = _norm(course_title)
 
             # Оновлюємо викладачів курсу
-            t_resp = await client.get(
-                f"https://classroom.googleapis.com/v1/courses/{course_id}/teachers",
-                headers=headers,
-            )
-            if t_resp.status_code == 200:
-                for t_item in t_resp.json().get("teachers", []):
-                    uid = t_item.get("userId")
-                    prof = t_item.get("profile", {})
-                    fn = prof.get("name", {}).get("fullName", "").strip()
-                    email = prof.get("emailAddress")
-                    if uid and fn:
-                        teacher_tokens_by_uid[uid] = [w for w in _norm(fn).split() if len(w) >= 3]
+            try:
+                t_resp = await client.get(
+                    f"https://classroom.googleapis.com/v1/courses/{course_id}/teachers",
+                    headers=headers,
+                )
+                if t_resp.status_code == 200:
+                    for t_item in t_resp.json().get("teachers", []):
+                        uid = t_item.get("userId")
+                        prof = t_item.get("profile", {})
+                        fn = prof.get("name", {}).get("fullName", "").strip()
+                        email = prof.get("emailAddress")
+                        if uid and fn:
+                            teacher_tokens_by_uid[uid] = [w for w in _norm(fn).split() if len(w) >= 3]
 
-                    if fn:
-                        parts = [p for p in fn.split() if len(p) > 2]
-                        for part in parts:
-                            part_low = part.lower()
-                            matched_db_t = next(
-                                (dbt for dbt in db_teachers if part_low in dbt.name.lower()),
-                                None,
-                            )
-                            if matched_db_t:
-                                if not matched_db_t.full_name:
-                                    matched_db_t.full_name = fn
-                                if email and not matched_db_t.email:
-                                    matched_db_t.email = email
-                                break
+                        if fn:
+                            parts = [p for p in fn.split() if len(p) > 2]
+                            for part in parts:
+                                part_low = part.lower()
+                                matched_db_t = next(
+                                    (dbt for dbt in db_teachers if part_low in dbt.name.lower()),
+                                    None,
+                                )
+                                if matched_db_t:
+                                    if not matched_db_t.full_name:
+                                        matched_db_t.full_name = fn[:150]
+                                    if email and not matched_db_t.email:
+                                        matched_db_t.email = email[:255]
+                                    break
+            except Exception as e:
+                logger.warning(f"Could not fetch teachers for course {course_id}: {e}")
 
             # 3. Витягуємо оголошення зі стрічки (Meet / Zoom)
-            ann_resp = await client.get(
-                f"https://classroom.googleapis.com/v1/courses/{course_id}/announcements",
-                params={"pageSize": 40},
-                headers=headers,
-            )
-            if ann_resp.status_code == 200:
-                for ann in ann_resp.json().get("announcements", []):
-                    text = ann.get("text", "")
-                    if not text:
-                        continue
-                    created_raw = ann.get("creationTime") or ann.get("updateTime")
-                    created_dt = (
-                        datetime.fromisoformat(created_raw.replace("Z", "+00:00")).astimezone(KYIV_TZ)
-                        if created_raw
-                        else datetime.now(KYIV_TZ)
-                    )
+            try:
+                ann_resp = await client.get(
+                    f"https://classroom.googleapis.com/v1/courses/{course_id}/announcements",
+                    params={"pageSize": 40},
+                    headers=headers,
+                )
+                if ann_resp.status_code == 200:
+                    for ann in ann_resp.json().get("announcements", []):
+                        text = ann.get("text", "")
+                        if not text:
+                            continue
+                        created_raw = ann.get("creationTime") or ann.get("updateTime")
+                        created_dt = (
+                            datetime.fromisoformat(created_raw.replace("Z", "+00:00")).astimezone(KYIV_TZ)
+                            if created_raw
+                            else datetime.now(KYIV_TZ)
+                        )
 
-                    parsed = _parse_announcement(text, created_dt, ann.get("materials"))
-                    if not parsed:
-                        continue
+                        parsed = _parse_announcement(text, created_dt, ann.get("materials"))
+                        if not parsed:
+                            continue
 
-                    parsed["course_title_norm"] = course_title_norm
-                    creator_id = ann.get("creatorUserId", "")
-                    parsed["author_tokens"] = teacher_tokens_by_uid.get(creator_id, [])
-                    parsed_announcements.append(parsed)
+                        parsed["course_title_norm"] = course_title_norm
+                        creator_id = ann.get("creatorUserId", "")
+                        parsed["author_tokens"] = teacher_tokens_by_uid.get(creator_id, [])
+                        parsed_announcements.append(parsed)
+            except Exception as e:
+                logger.warning(f"Could not fetch announcements for course {course_id}: {e}")
 
             # 4. Витягуємо завдання ЛИШЕ з встановленою датою здачі (dueDate)
-            cw_resp = await client.get(
-                f"https://classroom.googleapis.com/v1/courses/{course_id}/courseWork",
-                params={"pageSize": 30},
-                headers=headers,
-            )
-            if cw_resp.status_code == 200:
-                for cw in cw_resp.json().get("courseWork", []):
-                    due = cw.get("dueDate")
-                    # ЖОРСТКА УМОВА: якщо дати здачі немає — пропускаємо!
-                    if not due or not due.get("year") or not due.get("month") or not due.get("day"):
-                        continue
+            try:
+                cw_resp = await client.get(
+                    f"https://classroom.googleapis.com/v1/courses/{course_id}/courseWork",
+                    params={"pageSize": 30},
+                    headers=headers,
+                )
+                if cw_resp.status_code == 200:
+                    for cw in cw_resp.json().get("courseWork", []):
+                        due = cw.get("dueDate")
+                        # ЖОРСТКА УМОВА: якщо дати здачі немає — пропускаємо!
+                        if not due or not due.get("year") or not due.get("month") or not due.get("day"):
+                            continue
 
-                    try:
-                        due_date = date(int(due["year"]), int(due["month"]), int(due["day"]))
-                    except ValueError:
-                        continue
+                        try:
+                            due_date = date(int(due["year"]), int(due["month"]), int(due["day"]))
+                        except ValueError:
+                            continue
 
-                    # Не додаємо дедлайни, які вже минули більше ніж 3 дні тому
-                    if (datetime.now(KYIV_TZ).date() - due_date).days > 3:
-                        continue
+                        # Не додаємо дедлайни, які вже минули більше ніж 3 дні тому
+                        if (datetime.now(KYIV_TZ).date() - due_date).days > 3:
+                            continue
 
-                    title = (cw.get("title") or "Завдання").strip()
-                    alt_link = cw.get("alternateLink", "").strip()
-                    if not alt_link:
-                        continue
+                        title = (cw.get("title") or "Завдання").strip()
+                        alt_link = cw.get("alternateLink", "").strip()
+                        if not alt_link:
+                            continue
 
-                    _, day_lessons = await build_projection(db, due_date, group_id=group.id)
-                    if not day_lessons:
-                        continue
+                        _, day_lessons = await build_projection(db, due_date, group_id=group.id)
+                        if not day_lessons:
+                            continue
 
-                    author_tokens = teacher_tokens_by_uid.get(cw.get("creatorUserId", ""), [])
-                    target_lesson = None
+                        valid_lessons = [
+                            l for l in day_lessons
+                            if getattr(l, "subject_id", None) and (1 <= getattr(l, "lesson_number", 0) <= 4) and not getattr(l, "is_cancelled", False)
+                        ]
+                        if not valid_lessons:
+                            continue
 
-                    # Шукаємо пару з цим викладачем або предметом у день здачі
-                    for l in day_lessons:
-                        t_norm = _norm(l.teacher_name)
-                        s_norm = _norm(l.subject_name)
-                        if author_tokens and any(tok in t_norm for tok in author_tokens):
-                            target_lesson = l
-                            break
-                        if s_norm and len(s_norm) >= 6 and s_norm[:8] in _norm(title):
-                            target_lesson = l
-                            break
-                        if course_title_norm and len(course_title_norm) >= 6 and s_norm and (course_title_norm in s_norm or s_norm in course_title_norm):
-                            target_lesson = l
-                            break
+                        author_tokens = teacher_tokens_by_uid.get(cw.get("creatorUserId", ""), [])
+                        target_lesson = None
 
-                    # Якщо в день дедлайну немає пари з цього предмета — кріпимо до першої пари цього дня
-                    if not target_lesson:
-                        target_lesson = day_lessons[0]
+                        # Шукаємо пару з цим викладачем або предметом у день здачі
+                        for l in valid_lessons:
+                            t_norm = _norm(l.teacher_name)
+                            s_norm = _norm(l.subject_name)
+                            if author_tokens and any(tok in t_norm for tok in author_tokens):
+                                target_lesson = l
+                                break
+                            if s_norm and len(s_norm) >= 6 and s_norm[:8] in _norm(title):
+                                target_lesson = l
+                                break
+                            if course_title_norm and len(course_title_norm) >= 6 and s_norm and (course_title_norm in s_norm or s_norm in course_title_norm):
+                                target_lesson = l
+                                break
 
-                    task_line = f"[TASK] {title} | {alt_link}"
-                    added = await _upsert_task_line(
-                        db=db,
-                        target_date=due_date,
-                        group_id=group.id,
-                        lesson=target_lesson,
-                        task_line=task_line,
-                        unique_link=alt_link,
-                    )
-                    if added:
-                        synced_tasks += 1
+                        # Якщо в день дедлайну немає пари з цього предмета — кріпимо до першої валідної пари цього дня
+                        if not target_lesson:
+                            target_lesson = valid_lessons[0]
+
+                        task_line = f"[TASK] {title[:120]} | {alt_link[:250]}"
+                        added = await _upsert_task_line(
+                            db=db,
+                            target_date=due_date,
+                            group_id=group.id,
+                            lesson=target_lesson,
+                            task_line=task_line,
+                            unique_link=alt_link,
+                        )
+                        if added:
+                            synced_tasks += 1
+            except Exception as e:
+                logger.warning(f"Could not fetch courseWork for course {course_id}: {e}")
 
     # КРОК 5: Ставимо розпізнані посилання Meet / Zoom на відповідні пари поточного тижня
     parsed_announcements.sort(key=lambda x: x["created_dt"])
@@ -734,112 +779,124 @@ async def sync_from_classroom(
     payload: ClassroomSyncRequest,
     db: AsyncSession = Depends(get_db),
 ):
-    access_token = payload.access_token
-    refresh_token = None
+    try:
+        access_token = payload.access_token
+        refresh_token = None
 
-    # Якщо передано authorization code (для постійного фонового синку)
-    if payload.code and settings.google_client_id and settings.google_client_secret:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            token_resp = await client.post(
-                "https://oauth2.googleapis.com/token",
-                data={
-                    "code": payload.code,
-                    "client_id": settings.google_client_id,
-                    "client_secret": settings.google_client_secret,
-                    "redirect_uri": "postmessage",
-                    "grant_type": "authorization_code",
-                },
+        # Якщо передано authorization code (для постійного фонового синку)
+        if payload.code and settings.google_client_id and settings.google_client_secret:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                token_resp = await client.post(
+                    "https://oauth2.googleapis.com/token",
+                    data={
+                        "code": payload.code,
+                        "client_id": settings.google_client_id,
+                        "client_secret": settings.google_client_secret,
+                        "redirect_uri": "postmessage",
+                        "grant_type": "authorization_code",
+                    },
+                )
+                if token_resp.status_code == 200:
+                    token_data = token_resp.json()
+                    access_token = token_data.get("access_token")
+                    refresh_token = token_data.get("refresh_token")
+
+        if not access_token:
+            raise HTTPException(status_code=400, detail="Не вдалося отримати токен доступу Google")
+
+        headers = {"Authorization": f"Bearer {access_token}"}
+        all_groups = (await db.scalars(select(Group).where(Group.is_active.is_(True)))).all()
+
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            courses_resp = await client.get(
+                "https://classroom.googleapis.com/v1/courses",
+                params={"courseStates": "ACTIVE", "pageSize": 30},
+                headers=headers,
             )
-            if token_resp.status_code == 200:
-                token_data = token_resp.json()
-                access_token = token_data.get("access_token")
-                refresh_token = token_data.get("refresh_token")
+            if courses_resp.status_code != 200:
+                raise HTTPException(status_code=401, detail="Не вдалося прочитати курси з Google Classroom")
 
-    if not access_token:
-        raise HTTPException(status_code=400, detail="Не вдалося отримати токен доступу Google")
+            courses = courses_resp.json().get("courses", [])
 
-    headers = {"Authorization": f"Bearer {access_token}"}
-    all_groups = (await db.scalars(select(Group).where(Group.is_active.is_(True)))).all()
+        detected_group: Optional[Group] = None
+        matched_course = None
 
-    async with httpx.AsyncClient(timeout=15.0) as client:
-        courses_resp = await client.get(
-            "https://classroom.googleapis.com/v1/courses",
-            params={"courseStates": "ACTIVE", "pageSize": 30},
-            headers=headers,
+        if payload.group_id:
+            detected_group = next((g for g in all_groups if g.id == payload.group_id), None)
+
+        for c in courses:
+            full_title = f"{c.get('name', '')} {c.get('section', '')}".strip()
+            g = _extract_group_from_course_name(full_title, all_groups)
+            if g:
+                if detected_group is None:
+                    detected_group = g
+                    matched_course = c
+                    break
+                elif g.id == detected_group.id:
+                    matched_course = c
+                    break
+
+        if not detected_group:
+            raise HTTPException(
+                status_code=404,
+                detail="Не знайдено курс вашої групи у Classroom (наприклад, КІ-24-2/9-85).",
+            )
+
+        # Зберігаємо прив'язку курсу для автоматичного фонового оновлення всієї групи
+        binding = await db.scalar(
+            select(ClassroomGroupBinding).where(ClassroomGroupBinding.group_id == detected_group.id)
         )
-        if courses_resp.status_code != 200:
-            raise HTTPException(status_code=401, detail="Не вдалося прочитати курси з Google Classroom")
+        group_course_id = matched_course["id"] if matched_course else (courses[0]["id"] if courses else "")
+        group_course_name = matched_course.get("name", "") if matched_course else (courses[0].get("name", "") if courses else "")
 
-        courses = courses_resp.json().get("courses", [])
+        if binding is None:
+            binding = ClassroomGroupBinding(
+                group_id=detected_group.id,
+                course_id=group_course_id[:64],
+                course_name=group_course_name[:200],
+                access_token=access_token[:512],
+                refresh_token=refresh_token[:512] if refresh_token else None,
+                last_synced_at=datetime.now(timezone.utc),
+                is_active=True,
+            )
+            db.add(binding)
+        else:
+            if group_course_id:
+                binding.course_id = group_course_id[:64]
+                binding.course_name = group_course_name[:200]
+            binding.access_token = access_token[:512]
+            if refresh_token:
+                binding.refresh_token = refresh_token[:512]
+            binding.last_synced_at = datetime.now(timezone.utc)
+            binding.is_active = True
 
-    detected_group: Optional[Group] = None
-    matched_course = None
+        await db.flush()
 
-    if payload.group_id:
-        detected_group = next((g for g in all_groups if g.id == payload.group_id), None)
+        stats = await perform_course_sync(
+            db,
+            detected_group,
+            courses,
+            access_token,
+            group_course_id=binding.course_id,
+            week_start=payload.week_start,
+        )
+        await db.commit()
 
-    for c in courses:
-        full_title = f"{c.get('name', '')} {c.get('section', '')}".strip()
-        g = _extract_group_from_course_name(full_title, all_groups)
-        if g:
-            if detected_group is None:
-                detected_group = g
-                matched_course = c
-                break
-            elif g.id == detected_group.id:
-                matched_course = c
-                break
-
-    if not detected_group:
+        return {
+            "group_id": detected_group.id,
+            "group_name": detected_group.name,
+            "course_name": binding.course_name,
+            **stats,
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(f"Classroom sync error: {traceback.format_exc()}")
+        await db.rollback()
         raise HTTPException(
-            status_code=404,
-            detail="Не знайдено курс вашої групи у Classroom (наприклад, КІ-24-2/9-85).",
+            status_code=500,
+            detail=f"Помилка синхронізації Classroom: {str(exc)}",
         )
-
-    # Зберігаємо прив'язку курсу для автоматичного фонового оновлення всієї групи
-    binding = await db.scalar(
-        select(ClassroomGroupBinding).where(ClassroomGroupBinding.group_id == detected_group.id)
-    )
-    group_course_id = matched_course["id"] if matched_course else (courses[0]["id"] if courses else "")
-    group_course_name = matched_course.get("name", "") if matched_course else (courses[0].get("name", "") if courses else "")
-
-    if binding is None:
-        binding = ClassroomGroupBinding(
-            group_id=detected_group.id,
-            course_id=group_course_id,
-            course_name=group_course_name,
-            access_token=access_token,
-            refresh_token=refresh_token,
-            last_synced_at=datetime.now(timezone.utc),
-            is_active=True,
-        )
-        db.add(binding)
-    else:
-        if group_course_id:
-            binding.course_id = group_course_id
-            binding.course_name = group_course_name
-        binding.access_token = access_token
-        if refresh_token:
-            binding.refresh_token = refresh_token
-        binding.last_synced_at = datetime.now(timezone.utc)
-        binding.is_active = True
-
-    stats = await perform_course_sync(
-        db,
-        detected_group,
-        courses,
-        access_token,
-        group_course_id=binding.course_id,
-        week_start=payload.week_start,
-    )
-    await db.commit()
-
-    return {
-        "group_id": detected_group.id,
-        "group_name": detected_group.name,
-        "course_name": binding.course_name,
-        **stats,
-    }
 
 
 async def trigger_background_sync_if_needed(db: AsyncSession, group_id: Optional[int]) -> None:
@@ -894,7 +951,8 @@ async def trigger_background_sync_if_needed(db: AsyncSession, group_id: Optional
             group_course_id=binding.course_id,
         )
         await db.commit()
-    except Exception:
+    except Exception as e:
+        logger.warning(f"Background Classroom sync failed for group {group_id}: {e}")
         await db.rollback()
 
 
