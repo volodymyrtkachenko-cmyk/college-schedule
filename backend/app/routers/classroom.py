@@ -192,7 +192,7 @@ def _time_to_lesson_number(hour: int, minute: int) -> Optional[int]:
 
 def _extract_group_from_course_name(course_name: str, groups: list[Group]) -> Optional[Group]:
     for g in sorted(groups, key=lambda x: len(x.name), reverse=True):
-        pattern = rf"(?:^|[\s\-/—_]){re.escape(g.name)}(?:$|[\s\-/—_)])"
+        pattern = rf"(?:^|[\s\-/—_(\[])\s*{re.escape(g.name)}\s*(?:$|[\s\-/—_.)\]])"
         if re.search(pattern, course_name, re.IGNORECASE):
             return g
     return None
@@ -687,18 +687,20 @@ async def perform_course_sync(
 
         for c in courses:
             full_title = f"{c.get('name', '')} {c.get('section', '')} {c.get('descriptionHeading', '')}".strip()
-            matched_other = _extract_group_from_course_name(full_title, all_active_groups)
-            if matched_other:
-                if matched_other.id == group.id:
+            matched_g = _extract_group_from_course_name(full_title, all_active_groups)
+            if matched_g:
+                if matched_g.id == group.id:
                     target_group_courses.append(c)
                     relevant_courses.append(c)
+                # Якщо курс містить назву іншої групи — КАТЕГОРИЧНО ігноруємо його для поточної групи!
             else:
                 relevant_courses.append(c)
                 if group_course_id and c.get("id") == group_course_id:
                     target_group_courses.append(c)
 
         if not target_group_courses and courses:
-            target_group_courses = [courses[0]]
+            # Якщо немає курсів з назвою групи, беремо лише той курс, який безпосередньо прив'язаний
+            target_group_courses = [c for c in courses if group_course_id and c.get("id") == group_course_id] or [courses[0]]
         if not relevant_courses:
             relevant_courses = target_group_courses
 
@@ -1482,3 +1484,64 @@ async def remove_group_student(
     await db.delete(st)
     await db.commit()
     return {"status": "deleted"}
+
+
+@router.post("/clear-all-data")
+async def clear_all_classroom_data(
+    group_id: Optional[int] = None,
+    wipe_secret: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Очищає всі Classroom-прив'язки (classroom_group_bindings) та автоматичні нотатки/посилання/ДЗ.
+    Ручні текстові нотатки студентів та викладачів залишаються недоторканими.
+    """
+    if wipe_secret and wipe_secret != settings.wipe_secret:
+        raise HTTPException(status_code=403, detail="Невірний секрет очищення")
+
+    # 1. Видаляємо зв'язки
+    binding_stmt = delete(ClassroomGroupBinding)
+    if group_id:
+        binding_stmt = binding_stmt.where(ClassroomGroupBinding.group_id == group_id)
+    binding_res = await db.execute(binding_stmt)
+    deleted_bindings = binding_res.rowcount or 0
+
+    # 2. Очищаємо всі автоматичні нотатки [TASK], посилання Meet/Zoom
+    notes_query = select(LessonOccurrenceNote).where(LessonOccurrenceNote.archived.is_(False))
+    if group_id:
+        notes_query = notes_query.where(LessonOccurrenceNote.group_id == group_id)
+    notes = (await db.scalars(notes_query)).all()
+
+    cleaned_notes_count = 0
+    archived_notes_count = 0
+
+    for gn in notes:
+        manual_lines = [
+            line.strip()
+            for line in gn.note.split("\n")
+            if line.strip()
+            and not line.strip().startswith("[TASK]")
+            and not URL_RE.search(line)
+            and not re.search(r"(?:Код|ID|Passcode|Пароль)\s*:", line, re.IGNORECASE)
+        ]
+        if manual_lines:
+            new_text = "\n".join(manual_lines)
+            if gn.note != new_text:
+                gn.note = new_text
+                gn.revision += 1
+                gn.updated_at = datetime.now(timezone.utc)
+                cleaned_notes_count += 1
+        else:
+            gn.archived = True
+            gn.revision += 1
+            gn.updated_at = datetime.now(timezone.utc)
+            archived_notes_count += 1
+
+    await db.commit()
+    return {
+        "status": "success",
+        "deleted_bindings": deleted_bindings,
+        "cleaned_notes": cleaned_notes_count,
+        "archived_auto_notes": archived_notes_count,
+    }
+
