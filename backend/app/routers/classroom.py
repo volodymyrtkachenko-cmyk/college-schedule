@@ -79,17 +79,32 @@ COMMON_FIRST_NAMES = {
     "христина", "ярослава", "уляна", "соломія", "маргарита", "інна", "галина",
 }
 
-SUBJECT_KEYWORDS = [
-    ("електронік", ("електронік",)),
-    ("схемотехнік", ("схемотехнік",)),
-    ("українськ", ("українськ", "мови за пс")),
-    ("дизайн", ("дизайн", "web")),
-    ("математик", ("математик", "дискретн")),
-    ("філософ", ("філософ", "соціолог", "релігієзнав")),
-    ("іноземн", ("іноземн", "англ")),
-    ("фізичн", ("фізичн", "фізкультур", "спорт")),
-    ("інформатик", ("інформатик", "програмув", "алгоритм")),
-    ("фізик", ("фізик",)),
+STOP_WORDS = {
+    "комп'ютерна", "комп'ютерні", "комп'ютер", "комп'ютерної", "комп'ютерних", "комп",
+    "технології", "технологія", "технологій",
+    "основи", "основа", "основ",
+    "мова", "мови", "мову",
+    "професійним", "професійного", "професійної", "спрямуванням", "спрямування",
+    "знань", "знання",
+    "вихованя", "виховання", "година", "години",
+    "робота", "лабораторна", "практична", "завдання", "тема", "курс",
+    "група", "групи", "коледж", "студент", "студенти",
+}
+
+SUBJECT_RULES = [
+    # (корені предмета в розкладі, синоніми в Classroom, ключові корені викладачів)
+    (["електронік"], ["електронік"], ["філімончук"]),
+    (["схемотехнік"], ["схемотехнік"], ["дворніченк"]),
+    (["дискретн", "математик"], ["дискретн", "математик"], ["гончаров"]),
+    (["українськ"], ["українськ", "укр"], ["прощенк"]),
+    (["іноземн"], ["іноземн", "англ", "english", "foreign"], ["токарєв", "хочинськ"]),
+    (["дизайн", "web", "веб"], ["дизайн", "web", "веб"], ["грабовчак"]),
+    (["філософ", "соціолог", "релігієзнав"], ["філософ", "соціолог", "релігієзнав"], ["домнін"]),
+    (["фізичн вихов", "фізкультур", "спорт"], ["фізичн вихов", "фізкультур", "спорт"], ["філіппов"]),
+    (["мереж"], ["мереж", "network"], []),
+    (["програмув", "алгоритм", "інформатик"], ["програмув", "алгоритм", "інформатик"], []),
+    (["фізик"], ["фізик"], []),
+    (["історі"], ["історі", "history"], []),
 ]
 
 
@@ -310,26 +325,53 @@ def _matches_lesson(
 
     combined_text = f"{course_title_norm} {text_norm}".strip()
 
+    # 1. ПЕРЕВІРКА ПО ВИКЛАДАЧУ ПАРИ
     lesson_surnames = [
         re.sub(r"[^а-яіїєґ']", "", part.split()[0])
         for part in teacher_norm.split("/")
         if part.strip()
     ]
-    lesson_surnames = [s for s in lesson_surnames if len(s) >= 3]
+    lesson_surnames = [s for s in lesson_surnames if len(s) >= 3 and s not in STOP_WORDS]
 
+    teacher_matched = False
     for s in lesson_surnames:
         if any(s in tok or tok in s for tok in author_tokens):
-            return True
+            teacher_matched = True
+            break
         if s in combined_text:
-            return True
+            teacher_matched = True
+            break
 
-    for subj_key, text_keys in SUBJECT_KEYWORDS:
-        if subj_key in subj_norm and any(tk in combined_text for tk in text_keys):
-            return True
+    # 2. ПЕРЕВІРКА ЗА ПРАВИЛАМИ ПРЕДМЕТІВ
+    for subj_roots, classroom_synonyms, teacher_keys in SUBJECT_RULES:
+        matches_this_rule = any(sr in subj_norm for sr in subj_roots) or any(
+            any(tk in s or s in tk for tk in teacher_keys)
+            for s in lesson_surnames
+        )
+        if not matches_this_rule:
+            continue
 
-    subj_words = [w for w in re.split(r"[^а-яіїєґa-z']+", subj_norm) if len(w) >= 6]
-    if subj_words and any(w[:6] in combined_text for w in subj_words):
+        has_synonym = any(syn in combined_text for syn in classroom_synonyms)
+        has_teacher = teacher_matched or any(
+            any(tk in tok or tok in tk for tok in author_tokens)
+            for tk in teacher_keys
+        ) or any(tk in combined_text for tk in teacher_keys)
+
+        if has_synonym or has_teacher:
+            return True
+        else:
+            # Урок належить до цього конкретного правила, але завдання не містить ані його синонімів, ані викладача
+            return False
+
+    # 3. Резервне співпадіння для інших дисциплін без стоп-слів
+    if teacher_matched:
         return True
+
+    words = [w for w in re.split(r"[^а-яіїєґa-z']+", subj_norm) if len(w) >= 5 and w not in STOP_WORDS]
+    for w in words:
+        root = w[:5]
+        if root not in STOP_WORDS and root in combined_text:
+            return True
 
     return False
 
@@ -794,10 +836,12 @@ async def perform_course_sync(
 
         bundles = await asyncio.gather(*(fetch_course_bundle(c) for c in relevant_courses[:10]))
 
+        course_teachers_tokens: dict[str, list[str]] = {}
         for course, (t_resp, ann_resp, cw_resp) in bundles:
             course_id = course["id"]
             course_title = f"{course.get('name', '')} {course.get('section', '')}".strip()
             course_title_norm = _norm(course_title)
+            course_teachers_tokens[course_id] = []
 
             if not isinstance(t_resp, Exception) and t_resp.status_code == 200:
                 for t_item in t_resp.json().get("teachers", []):
@@ -805,8 +849,11 @@ async def perform_course_sync(
                     prof = t_item.get("profile", {})
                     fn = prof.get("name", {}).get("fullName", "").strip()
                     email = prof.get("emailAddress")
-                    if uid and fn:
-                        teacher_tokens_by_uid[uid] = [w for w in _norm(fn).split() if len(w) >= 3]
+                    if fn:
+                        t_toks = [w for w in _norm(fn).split() if len(w) >= 3]
+                        if uid:
+                            teacher_tokens_by_uid[uid] = t_toks
+                        course_teachers_tokens[course_id].extend(t_toks)
 
                     if fn:
                         parts = [p for p in fn.split() if len(p) > 2]
@@ -854,8 +901,10 @@ async def perform_course_sync(
                         except Exception:
                             teacher_tokens_by_uid[creator_id] = []
 
+                    course_toks = course_teachers_tokens.get(course_id, [])
+                    creator_toks = teacher_tokens_by_uid.get(creator_id, [])
                     parsed["course_title_norm"] = course_title_norm
-                    parsed["author_tokens"] = teacher_tokens_by_uid.get(creator_id, [])
+                    parsed["author_tokens"] = list(set(creator_toks + course_toks))
                     parsed_announcements.append(parsed)
 
             if not isinstance(cw_resp, Exception) and cw_resp.status_code == 200:
@@ -890,12 +939,16 @@ async def perform_course_sync(
                         except Exception:
                             teacher_tokens_by_uid[creator_id] = []
 
+                    course_toks = course_teachers_tokens.get(course_id, [])
+                    creator_toks = teacher_tokens_by_uid.get(creator_id, [])
+                    all_author_tokens = list(set(creator_toks + course_toks))
+
                     raw_coursework_items.append({
                         "due_date": due_date,
                         "alt_link": alt_link,
                         "title_norm": _norm(cw.get("title") or ""),
                         "course_title_norm": course_title_norm,
-                        "author_tokens": teacher_tokens_by_uid.get(creator_id, []),
+                        "author_tokens": all_author_tokens,
                     })
 
     # КРОК 4: Прикріплюємо домашні завдання (точна дата дедлайну -> або наступна найближча пара)
@@ -945,9 +998,9 @@ async def perform_course_sync(
         # Дата дедлайну додається ТІЛЬКИ якщо на дату дедлайну пари не було (перенесено на наступну пару)
         is_shifted = target_date_for_task != due_date
         label_text = (
-            f"Домашнє завдання (до {due_date.strftime('%d.%m')})"
+            f"ДЗ (до {due_date.strftime('%d.%m')})"
             if is_shifted
-            else "Домашнє завдання"
+            else "ДЗ"
         )
 
         if teacher_badge:

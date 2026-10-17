@@ -133,9 +133,9 @@ export function extractClassroomTasks(note?: string | null): ClassroomTaskItem[]
         rest = badgeMatch[2].trim();
       }
 
-      // Навіть якщо в старих записах залишилась стара назва, приводимо до єдиного стандарту "Домашнє завдання"
+      // Приводимо будь-які старі чи нові формати ("Домашнє завдання", "Здача: ...") до лаконічного стандарту "ДЗ"
       const dueMatch = rest.match(/\(до\s+\d{2}\.\d{2}\)/i);
-      const label = dueMatch ? `Домашнє завдання ${dueMatch[0]}` : "Домашнє завдання";
+      const label = dueMatch ? `ДЗ ${dueMatch[0]}` : "ДЗ";
 
       tasks.push({ teacher, label, url: urlPart });
     }
