@@ -88,6 +88,7 @@ export function ScheduleDay({
   onCancelDated,
   onRestoreDated,
   onQuickJump,
+  hideHeaderOnMobile = false,
 }: {
   schedule: ScheduleResponse;
   isToday?: boolean;
@@ -101,9 +102,15 @@ export function ScheduleDay({
   onCancelDated?: (lesson: Lesson, date: string) => void;
   onRestoreDated?: (lesson: Lesson, date: string) => void;
   onQuickJump?: (target: QuickJumpTarget) => void;
+  hideHeaderOnMobile?: boolean;
 }) {
   const { showToast } = useToast();
   const [kyivNow, setKyivNow] = useState<{ dateIso: string; minutes: number } | null>(null);
+  const [expandedLessonKey, setExpandedLessonKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    setExpandedLessonKey(null);
+  }, [schedule.date]);
 
   useEffect(() => {
     const update = () => {
@@ -173,7 +180,7 @@ export function ScheduleDay({
 
   return (
     <section className={`min-w-0 ${isToday ? "rounded-3xl border border-sys-accent/30 bg-sys-accent/[0.03] p-1.5 shadow-[0_0_20px_rgba(88,166,255,0.08)]" : ""}`}>
-      <header className={`mb-4 flex ${mode === "week" ? "items-center justify-between px-1" : "items-center justify-between gap-2 px-3 pt-2"}`}>
+      <header className={`mb-3 flex ${mode === "week" ? "items-center justify-between px-1" : "items-center justify-between gap-2 px-2 sm:px-3 pt-1"} ${hideHeaderOnMobile ? "hidden sm:flex" : ""}`}>
         <div className="flex items-center gap-2">
           {isToday && <span className="flex h-2 w-2 animate-pulse rounded-full bg-sys-accent shadow-[0_0_8px_rgba(88,166,255,0.8)]" />}
           <h2 className="text-[17px] font-bold capitalize tracking-tight text-sys-text-primary">{fmt(schedule.date, { weekday: "long" })}</h2>
@@ -227,6 +234,7 @@ export function ScheduleDay({
           className="flex flex-col gap-2.5"
         >
           {orderedLessons.map((lesson, idx) => {
+            const lessonKey = `${lesson.id}-${lesson.lesson_number}`;
             const prev = idx > 0 ? orderedLessons[idx - 1] : null;
             const prevEnd = prev ? parseMin(prev.time.split("-")[1]) : null;
             const currStart = parseMin(lesson.time.split("-")[0]);
@@ -242,7 +250,7 @@ export function ScheduleDay({
 
             return (
               <motion.div
-                key={`${lesson.id}-${lesson.lesson_number}`}
+                key={lessonKey}
                 variants={{
                   hidden: { opacity: 0, y: 8 },
                   visible: { opacity: 1, y: 0, transition: { duration: 0.18, ease: "easeOut" } },
@@ -269,6 +277,10 @@ export function ScheduleDay({
                   onCancelDated={onCancelDated}
                   onRestoreDated={onRestoreDated}
                   onQuickJump={onQuickJump}
+                  isExpanded={expandedLessonKey === lessonKey}
+                  onToggleExpand={() =>
+                    setExpandedLessonKey((prev) => (prev === lessonKey ? null : lessonKey))
+                  }
                 />
               </motion.div>
             );

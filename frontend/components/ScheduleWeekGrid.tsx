@@ -74,6 +74,9 @@ export function ScheduleWeekGrid({
     if (idx === activeIdx) return;
     setDirection(idx > activeIdx ? 1 : -1);
     setActiveIdx(idx);
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "instant" });
+    }
   };
 
   const canMoveTo = (lesson: Lesson, date: string, lessonNumber: number) =>
@@ -110,67 +113,88 @@ export function ScheduleWeekGrid({
   const activeDay = week[activeIdx];
   return (
     <div className="w-full pb-4">
-      {isDesktop ? (
-        /* Desktop: монтується ЛИШЕ на екранах >= 768px */
-        <div className="hidden items-start gap-3 overflow-x-auto pb-4 md:flex xl:gap-4" style={{ scrollbarWidth: "thin" }}>
-          {week.map((day) => (
-            <div key={`desktop-${day.date}`} className="min-w-[220px] flex-1 shrink-0">
-              <ScheduleDay schedule={day} mode="day" scheduleMode={scheduleMode} onQuickJump={onQuickJump} />
-            </div>
-          ))}
-        </div>
-      ) : (
-        /* Mobile: легкий рендер лише 1 активного дня з плавним скролом */
-        <div className="flex w-full flex-col md:hidden">
-          {week.length > 0 && (
-            <div role="group" aria-label="Оберіть день тижня" className="relative z-10 mb-5 mt-1 flex w-full justify-between px-2">
-              {week.map((day, idx) => {
-                const dateObj = new Date(`${day.date}T12:00:00`);
-                const dayLetter = UK_SHORT_WEEKDAY_FMT.format(dateObj).charAt(0).toUpperCase();
-                const isActive = activeIdx === idx;
-                return (
-                  <button key={`tab-${day.date}`} type="button" onClick={() => switchTab(idx)} aria-pressed={isActive}
-                    className="flex w-10 flex-col items-center justify-center gap-2 transition-colors focus:outline-none">
-                    <span className={`text-xs font-semibold ${isActive ? "text-sys-text-primary" : "text-sys-text-secondary"}`}>{dayLetter}</span>
-                    <span className={`flex h-9 w-9 items-center justify-center rounded-full text-[15px] font-bold transition-transform ${
-                      isActive ? "bg-sys-accent text-white shadow-[0_0_12px_rgba(88,166,255,0.4)] scale-105" : "text-sys-text-primary hover:bg-sys-card"
-                    }`}>
-                      {dateObj.getDate()}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          <div className="relative w-full overflow-x-hidden">
-            <AnimatePresence initial={false} custom={direction} mode="popLayout">
-              {activeDay && (
-                <motion.div
-                  key={`mobile-${activeDay.date}`}
-                  custom={direction}
-                  variants={dayVariants}
-                  initial="enter"
-                  animate="center"
-                  exit="exit"
-                  transition={{ x: { type: "tween", duration: 0.22, ease: "easeOut" }, opacity: { duration: 0.15 } }}
-                  className="w-full touch-pan-y will-change-transform"
-                  drag="x"
-                  dragDirectionLock
-                  dragConstraints={{ left: 0, right: 0 }}
-                  dragElastic={0.25}
-                  onDragEnd={(_, { offset, velocity }) => {
-                    if ((offset.x > 55 || velocity.x > 400) && activeIdx > 0) switchTab(activeIdx - 1);
-                    else if ((offset.x < -55 || velocity.x < -400) && activeIdx < week.length - 1) switchTab(activeIdx + 1);
-                  }}
-                >
-                  <ScheduleDay schedule={activeDay} mode="day" scheduleMode={scheduleMode} onQuickJump={onQuickJump} />
-                </motion.div>
-              )}
-            </AnimatePresence>
+      {/* Desktop (>= 1024px): 5 колонок, картки у згорнутому стані з вирівняною висотою */}
+      <div className="hidden lg:grid lg:grid-cols-5 items-start gap-3 xl:gap-4 pb-4">
+        {week.map((day) => (
+          <div key={`desktop-${day.date}`} className="min-w-0 flex-1">
+            <ScheduleDay schedule={day} mode="week" scheduleMode={scheduleMode} onQuickJump={onQuickJump} />
           </div>
+        ))}
+      </div>
+
+      {/* Tablet (640px – 1023px): горизонтальний скрол зі snap-прокруткою */}
+      <div className="hidden sm:flex lg:hidden items-start gap-3 overflow-x-auto snap-x snap-mandatory pb-4" style={{ scrollbarWidth: "thin" }}>
+        {week.map((day) => (
+          <div key={`tablet-${day.date}`} className="snap-start min-w-[280px] sm:min-w-[320px] flex-1 shrink-0">
+            <ScheduleDay schedule={day} mode="week" scheduleMode={scheduleMode} onQuickJump={onQuickJump} />
+          </div>
+        ))}
+      </div>
+
+      {/* Mobile (< 640px): один день за раз зі свайпом і табами */}
+      <div className="flex w-full flex-col sm:hidden">
+        {week.length > 0 && (
+          <div role="group" aria-label="Оберіть день тижня" className="relative z-10 mb-4 mt-1 flex w-full justify-between gap-1 px-1">
+            {week.map((day, idx) => {
+              const dateObj = new Date(`${day.date}T12:00:00`);
+              const dayLetter = UK_SHORT_WEEKDAY_FMT.format(dateObj).charAt(0).toUpperCase();
+              const isActive = activeIdx === idx;
+              const isTodayDate = day.date === localDateString();
+              const hasLessons = day.lessons.length > 0;
+              return (
+                <button
+                  key={`tab-${day.date}`}
+                  type="button"
+                  onClick={() => switchTab(idx)}
+                  aria-pressed={isActive}
+                  className="flex flex-1 flex-col items-center justify-center gap-1 py-1 transition-colors focus:outline-none"
+                >
+                  <span className={`text-[11px] font-semibold ${isActive ? "text-sys-accent font-bold" : "text-sys-text-secondary"}`}>
+                    {dayLetter}
+                  </span>
+                  <span className={`flex h-8 w-8 items-center justify-center rounded-full text-[14px] font-bold transition-all ${
+                    isActive
+                      ? "bg-sys-accent text-white shadow-sm scale-105"
+                      : isTodayDate
+                      ? "border border-sys-accent/40 bg-sys-accent/10 text-sys-accent"
+                      : "text-sys-text-primary hover:bg-sys-card"
+                  }`}>
+                    {dateObj.getDate()}
+                  </span>
+                  <span className={`h-1 w-1 rounded-full ${isActive ? "bg-sys-accent" : hasLessons ? "bg-sys-accent" : "bg-transparent"}`} />
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="relative w-full overflow-x-hidden">
+          <AnimatePresence initial={false} custom={direction} mode="popLayout">
+            {activeDay && (
+              <motion.div
+                key={`mobile-${activeDay.date}`}
+                custom={direction}
+                variants={dayVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={{ x: { type: "tween", duration: 0.22, ease: "easeOut" }, opacity: { duration: 0.15 } }}
+                className="w-full touch-pan-y will-change-transform"
+                drag="x"
+                dragDirectionLock
+                dragConstraints={{ left: 0, right: 0 }}
+                dragElastic={0.25}
+                onDragEnd={(_, { offset, velocity }) => {
+                  if ((offset.x > 50 || velocity.x > 350) && activeIdx > 0) switchTab(activeIdx - 1);
+                  else if ((offset.x < -50 || velocity.x < -350) && activeIdx < week.length - 1) switchTab(activeIdx + 1);
+                }}
+              >
+                <ScheduleDay schedule={activeDay} mode="day" scheduleMode={scheduleMode} onQuickJump={onQuickJump} hideHeaderOnMobile={true} />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
-      )}
+      </div>
     </div>
   );
 }

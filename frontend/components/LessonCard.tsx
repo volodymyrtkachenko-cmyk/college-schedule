@@ -293,6 +293,8 @@ export function LessonCard({
   onCancelDated,
   onRestoreDated,
   onQuickJump,
+  isExpanded: controlledExpanded,
+  onToggleExpand,
 }: {
   lesson: Lesson;
   targetDate: string;
@@ -306,6 +308,8 @@ export function LessonCard({
   onCancelDated?: (lesson: Lesson, date: string) => void;
   onRestoreDated?: (lesson: Lesson, date: string) => void;
   onQuickJump?: (target: QuickJumpTarget) => void;
+  isExpanded?: boolean;
+  onToggleExpand?: () => void;
 }) {
   const isSelectedForMove = movingLesson?.id === lesson.id;
   const isDay = mode !== "week";
@@ -313,6 +317,18 @@ export function LessonCard({
   const canEditTemplate = canEdit && !lesson.is_cancelled && (!lesson.is_replacement || isEvent);
   const canMove = canEditTemplate && !!onMoveSelect;
   const [startT, endT] = lesson.time.split("-");
+
+  const [internalExpanded, setInternalExpanded] = useState(false);
+  const isExpanded = controlledExpanded !== undefined ? controlledExpanded : internalExpanded;
+
+  const toggleExpand = () => {
+    vibrateTap(10);
+    if (onToggleExpand) {
+      onToggleExpand();
+    } else {
+      setInternalExpanded((prev) => !prev);
+    }
+  };
 
   const [nowState, setNowState] = useState<{ dateIso: string; minutes: number } | null>(null);
   const [copiedPass, setCopiedPass] = useState<string | null>(null);
@@ -360,6 +376,18 @@ export function LessonCard({
     return isTeacherView ? parseLessonGroups(lesson) : parseLessonTeachers(lesson);
   }, [isTeacherView, lesson.group_id, lesson.group_name, lesson.teacher_id, lesson.second_teacher_id, lesson.teacher_name]);
 
+  const rooms = useMemo(() => {
+    if (!lesson.room) return [];
+    return lesson.room
+      .split(/\s*[,/;]\s*/)
+      .map((r) => r.trim())
+      .filter(Boolean);
+  }, [lesson.room]);
+
+  const hasTwoTeachersWithRooms = !isTeacherView && secondaryItems.length === 2 && rooms.length >= 2;
+  const hasTwoGroupsWithRooms = isTeacherView && secondaryItems.length === 2 && rooms.length >= 2;
+  const isDualWithRooms = hasTwoTeachersWithRooms || hasTwoGroupsWithRooms;
+
   const eventBadge = useMemo(
     () => getEventBadge(lesson.event_type, lesson.event_title),
     [lesson.event_type, lesson.event_title]
@@ -380,6 +408,18 @@ export function LessonCard({
   return (
     <article
       data-live={isLive ? "true" : undefined}
+      role="button"
+      tabIndex={0}
+      aria-expanded={isExpanded}
+      aria-controls={`lesson-details-${lesson.id}-${lesson.lesson_number}`}
+      aria-label={`Пара ${lesson.lesson_number}: ${lesson.subject_name}. ${isExpanded ? "Згорнути" : "Розгорнути"}`}
+      onClick={toggleExpand}
+      onKeyDown={(e) => {
+        if ((e.key === "Enter" || e.key === " ") && e.target === e.currentTarget) {
+          e.preventDefault();
+          toggleExpand();
+        }
+      }}
       draggable={canMove}
       onDragStart={(event) => {
         if (!canMove) {
@@ -394,167 +434,251 @@ export function LessonCard({
           onMoveSelect?.(lesson);
         }
       }}
-      className={`relative flex min-w-0 flex-col overflow-hidden rounded-xl border bg-sys-card shadow-sm transition-all duration-300 ${
-        isDay ? "p-3 xl:p-4" : "p-2.5"
+      className={`relative flex min-w-0 flex-col overflow-hidden rounded-xl border bg-sys-card shadow-sm transition-all duration-200 ease-out motion-reduce:transition-none cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-sys-accent ${
+        isDay ? "p-3 xl:p-3.5" : "p-2.5"
       } ${stateClass} ${
         !lesson.is_relevant_this_week ? "opacity-60" : isPast ? "opacity-55 hover:opacity-100" : ""
       } ${canMove ? "cursor-grab active:cursor-grabbing" : ""}`}
     >
-      <div className={`flex items-start ${isDay ? "gap-3 xl:gap-4" : "gap-2"}`}>
-        {isDay && (
-          <div className="flex w-12 shrink-0 flex-col text-left sm:w-14">
-            <span className={`mb-1 text-xl font-bold leading-none ${isLive ? "text-sys-accent" : "text-sys-neon"}`}>
-              {lesson.lesson_number}
-            </span>
-            <span className="text-xs font-medium text-sys-text-secondary">{startT}</span>
-            <span className="text-xs font-medium text-sys-text-secondary">{endT}</span>
-          </div>
-        )}
+      {/* Collapsed top row (max 3 lines) */}
+      <div className="flex items-start gap-2.5 sm:gap-3">
+        {/* Left: lesson number + start time only */}
+        <div className="flex w-11 sm:w-12 shrink-0 flex-col text-left">
+          <span className={`text-lg sm:text-xl font-bold leading-none ${isLive ? "text-sys-accent" : "text-sys-neon"}`}>
+            {lesson.lesson_number}
+          </span>
+          <span className="text-[11px] sm:text-xs font-semibold text-sys-text-secondary mt-0.5">
+            {startT}
+          </span>
+        </div>
 
-        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-          {isLive && (
-            <div className="mb-0.5 inline-flex w-fit items-center gap-1.5 rounded-full border border-sys-accent/30 bg-sys-accent/15 px-2 py-0.5 text-[11px] font-semibold text-sys-accent">
-              <span className="h-1.5 w-1.5 animate-ping rounded-full bg-sys-accent" />
-              <span>Зараз іде • ще {remainingMin} хв</span>
-            </div>
-          )}
-
-          <div className="flex flex-col">
-            <h3 className={`min-w-0 break-words font-bold leading-snug ${lesson.is_cancelled ? "line-through text-sys-text-muted" : "text-sys-text-subject"} ${isDay ? "text-base" : "text-sm"}`}>
+        {/* Center: Subject name (max 2 lines in collapsed) + Teacher(s) & rooms */}
+        <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5">
+          <div className="flex items-baseline gap-1.5 min-w-0">
+            <h3
+              className={`min-w-0 break-words font-semibold leading-snug text-sm sm:text-[15px] ${
+                lesson.is_cancelled
+                  ? "line-through text-sys-text-muted"
+                  : "text-sys-text-subject"
+              } ${isExpanded ? "" : "line-clamp-2"}`}
+            >
               {lesson.subject_name}
             </h3>
-            {lesson.event_title && lesson.event_title !== lesson.subject_name && (
-              <span className="mt-0.5 text-xs font-semibold text-sys-text-secondary">
-                {lesson.event_title}
+            {lesson.is_replacement && !lesson.is_cancelled && (
+              <span className="inline-flex shrink-0 items-center rounded bg-sys-warning/20 px-1 py-0.2 text-[10px] font-bold uppercase text-sys-warningText" title="Заміна">
+                ⚡
+              </span>
+            )}
+            {lesson.is_cancelled && (
+              <span className="inline-flex shrink-0 items-center rounded bg-rose-500/20 px-1 py-0.2 text-[10px] font-bold uppercase text-rose-300" title="Скасовано">
+                ❌
               </span>
             )}
           </div>
 
-          {(secondaryItems.length > 0 || lesson.room || hasMeeting) && (
-            <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-              {secondaryItems.length > 0 && (
-                <div className="min-w-0 break-words text-left text-sm text-sys-text-secondary">
-                  {isTeacherView && (
-                    <span className="text-sys-text-muted">
-                      {secondaryItems.length > 1 ? "Групи " : "Група "}
-                    </span>
-                  )}
-                  {secondaryItems.map((item, index) => (
-                    <span key={`${item.name}-${index}`}>
-                      {index > 0 && <span className="text-sys-text-muted"> / </span>}
-                      {onQuickJump ? (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onQuickJump(item.target);
-                          }}
-                          title={
-                            item.target.mode === "teacher"
-                              ? `Переглянути розклад викладача ${item.displayName}`
-                              : `Переглянути розклад групи ${item.displayName}`
-                          }
-                          className="font-medium underline-offset-4 transition-colors hover:text-sys-accent hover:underline focus:outline-none focus:text-sys-accent"
-                        >
-                          {item.displayName}
-                        </button>
-                      ) : (
-                        <span>{item.displayName}</span>
-                      )}
-                    </span>
-                  ))}
-                </div>
+          {/* Teacher row: dual teacher "Токарєва О.В. · 419 / Хочинська О.С. · 408" or single */}
+          {isDualWithRooms ? (
+            <div className="text-xs text-sys-text-secondary leading-tight min-w-0">
+              <span>
+                {onQuickJump ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onQuickJump(secondaryItems[0].target);
+                    }}
+                    className="font-medium underline-offset-2 hover:text-sys-accent hover:underline focus:outline-none"
+                  >
+                    {secondaryItems[0].displayName}
+                  </button>
+                ) : (
+                  <span>{secondaryItems[0].displayName}</span>
+                )}
+                <span className="text-sys-text-muted"> · </span>
+                <span className="font-medium text-sys-text-primary">{formatRoom(rooms[0])}</span>
+              </span>
+              <span className="text-sys-text-muted mx-1">/</span>
+              <span>
+                {onQuickJump ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onQuickJump(secondaryItems[1].target);
+                    }}
+                    className="font-medium underline-offset-2 hover:text-sys-accent hover:underline focus:outline-none"
+                  >
+                    {secondaryItems[1].displayName}
+                  </button>
+                ) : (
+                  <span>{secondaryItems[1].displayName}</span>
+                )}
+                <span className="text-sys-text-muted"> · </span>
+                <span className="font-medium text-sys-text-primary">{formatRoom(rooms[1])}</span>
+              </span>
+            </div>
+          ) : secondaryItems.length > 0 ? (
+            <div className="truncate text-xs text-sys-text-secondary">
+              {isTeacherView && (
+                <span className="text-sys-text-muted">
+                  {secondaryItems.length > 1 ? "Групи: " : "Група: "}
+                </span>
               )}
-              <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5">
-                {hasMeeting && (
-                  <div className="flex flex-wrap items-center justify-end gap-1.5">
-                    {meetings.map((m, idx) => (
-                      <div key={`${m.url}-${idx}`} className="flex flex-wrap items-center justify-end gap-1.5">
-                        <a
-                          href={m.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            vibrateTap(12);
-                          }}
-                          title={
-                            m.label
-                              ? `${m.label} (${m.platform === "meet" ? "Google Meet" : "Zoom"})`
-                              : m.platform === "meet"
-                              ? "Google Meet"
-                              : "Zoom"
-                          }
-                          className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border px-2 py-0.5 text-[11px] font-bold transition-colors ${
-                            m.platform === "meet"
-                              ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
-                              : "border-sky-500/40 bg-sky-500/15 text-sky-300 hover:bg-sky-500/25"
-                          }`}
-                        >
-                          <span>{m.platform === "meet" ? "🎥 Meet" : "📹 Zoom"}</span>
-                          {m.label && <span className="text-[10px] opacity-80">({m.label})</span>}
-                          <span>↗</span>
-                        </a>
-                        {m.passcode && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              vibrateTap(12);
-                              void navigator.clipboard.writeText(m.passcode!);
-                              setCopiedPass(m.passcode!);
-                              setTimeout(() => setCopiedPass(null), 2000);
-                            }}
-                            title="Натисніть, щоб скопіювати код доступу"
-                            className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold text-amber-300 hover:bg-amber-500/20 active:scale-95"
-                          >
-                            <span>🔑</span>
-                            <span>{copiedPass === m.passcode ? "Скопійовано" : m.passcode}</span>
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {!hasMeeting && lesson.room && (
-                  <div className="flex flex-wrap items-center justify-end gap-1">
-                    {lesson.room
-                      .split(/\s*[,/;]\s*/)
-                      .map((r) => r.trim())
-                      .filter(Boolean)
-                      .map((singleRoom, rIdx, arr) => {
-                        const meta = getRoomBadgeMeta(singleRoom);
-                        const subTeacher =
-                          arr.length > 1 && secondaryItems[rIdx]
-                            ? secondaryItems[rIdx].displayName.split(" ")[0]
-                            : null;
-                        return (
-                          <span
-                            key={`${singleRoom}-${rIdx}`}
-                            title={subTeacher ? `${subTeacher}: ${formatRoom(singleRoom)}` : formatRoom(singleRoom)}
-                            className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium ${meta.tone}`}
-                          >
-                            <span aria-hidden="true" className="text-[11px]">{meta.icon}</span>
-                            {subTeacher && <span className="text-[10px] opacity-75">{subTeacher}:</span>}
-                            <span>{formatRoom(singleRoom)}</span>
-                          </span>
-                        );
-                      })}
-                  </div>
-                )}
-              </div>
+              {secondaryItems.map((item, idx) => (
+                <span key={`${item.name}-${idx}`}>
+                  {idx > 0 && <span className="text-sys-text-muted"> / </span>}
+                  {onQuickJump ? (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onQuickJump(item.target);
+                      }}
+                      className="font-medium underline-offset-2 hover:text-sys-accent hover:underline focus:outline-none"
+                    >
+                      {item.displayName}
+                    </button>
+                  ) : (
+                    <span>{item.displayName}</span>
+                  )}
+                </span>
+              ))}
+            </div>
+          ) : null}
+        </div>
+
+        {/* Right side: room badge & single homework badge */}
+        <div className="shrink-0 flex flex-col items-end justify-between gap-1 self-stretch">
+          {!isDualWithRooms && (
+            <div>
+              {hasMeeting ? (
+                <span className="inline-flex items-center gap-1 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-300">
+                  {meetings[0].platform === "meet" ? "🎥 Meet" : "📹 Zoom"}
+                </span>
+              ) : lesson.room ? (
+                (() => {
+                  const meta = getRoomBadgeMeta(lesson.room);
+                  return (
+                    <span
+                      title={formatRoom(lesson.room)}
+                      className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs font-medium ${meta.tone}`}
+                    >
+                      <span aria-hidden="true" className="text-[11px]">{meta.icon}</span>
+                      <span>{formatRoom(lesson.room)}</span>
+                    </span>
+                  );
+                })()
+              ) : null}
             </div>
           )}
 
           {tasks.length > 0 && (
-            <div className="mt-1.5 flex flex-col gap-1.5">
+            <span
+              title={`${tasks.length} домашніх завдань (натисніть пару для перегляду)`}
+              className="inline-flex shrink-0 items-center gap-1 rounded-md border border-purple-500/35 bg-purple-500/10 px-1.5 py-0.5 text-[11px] font-semibold text-purple-200"
+            >
+              <span>📌 {tasks.length} ДЗ</span>
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Expanded Accordion Details */}
+      {isExpanded && (
+        <div
+          id={`lesson-details-${lesson.id}-${lesson.lesson_number}`}
+          className="mt-2.5 flex flex-col gap-2 border-t border-sys-border/50 pt-2.5 transition-all duration-200 ease-out motion-reduce:transition-none"
+        >
+          {/* Full time range & live status */}
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2 font-medium text-sys-text-secondary">
+              <span className="font-semibold text-sys-text-primary">{startT} – {endT}</span>
+              {isLive && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-sys-accent/30 bg-sys-accent/15 px-2 py-0.5 text-[11px] font-semibold text-sys-accent">
+                  <span className="h-1.5 w-1.5 animate-ping rounded-full bg-sys-accent" />
+                  <span>Зараз іде • ще {remainingMin} хв</span>
+                </span>
+              )}
+            </div>
+
+            {eventBadge && (
+              <span className={`inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider ${eventBadge.badgeClass}`}>
+                {eventBadge.label}
+              </span>
+            )}
+          </div>
+
+          {lesson.event_title && lesson.event_title !== lesson.subject_name && (
+            <div className="text-xs font-semibold text-sys-text-secondary">
+              {lesson.event_title}
+            </div>
+          )}
+
+          {/* Online meetings full controls */}
+          {hasMeeting && (
+            <div className="flex flex-wrap items-center gap-2 pt-0.5">
+              {meetings.map((m, idx) => (
+                <div key={`${m.url}-${idx}`} className="flex flex-wrap items-center gap-1.5">
+                  <a
+                    href={m.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      vibrateTap(12);
+                    }}
+                    title={
+                      m.label
+                        ? `${m.label} (${m.platform === "meet" ? "Google Meet" : "Zoom"})`
+                        : m.platform === "meet"
+                        ? "Google Meet"
+                        : "Zoom"
+                    }
+                    className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border px-2.5 py-1 text-xs font-bold transition-colors ${
+                      m.platform === "meet"
+                        ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
+                        : "border-sky-500/40 bg-sky-500/15 text-sky-300 hover:bg-sky-500/25"
+                    }`}
+                  >
+                    <span>{m.platform === "meet" ? "🎥 Google Meet" : "📹 Zoom"}</span>
+                    {m.label && <span className="text-[11px] opacity-80">({m.label})</span>}
+                    <span>↗</span>
+                  </a>
+                  {m.passcode && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        vibrateTap(12);
+                        void navigator.clipboard.writeText(m.passcode!);
+                        setCopiedPass(m.passcode!);
+                        setTimeout(() => setCopiedPass(null), 2000);
+                      }}
+                      title="Натисніть, щоб скопіювати код доступу"
+                      className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-xs font-semibold text-amber-300 hover:bg-amber-500/20 active:scale-95"
+                    >
+                      <span>🔑</span>
+                      <span>{copiedPass === m.passcode ? "Скопійовано" : m.passcode}</span>
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Full list of homework tasks with Classroom ↗ */}
+          {tasks.length > 0 && (
+            <div className="flex flex-col gap-1.5 pt-1">
               {tasks.map((task, idx) => (
                 <a
                   key={idx}
                   href={task.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  onClick={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    vibrateTap(10);
+                  }}
                   title={`${task.teacher ? `[${task.teacher}] ` : ""}📌 ${task.label} — Відкрити в Classroom`}
                   className="group flex flex-wrap items-center justify-between gap-x-2 gap-y-1 rounded-lg border border-purple-500/35 bg-purple-500/10 px-2.5 py-1.5 text-xs font-medium text-purple-200 transition-colors hover:bg-purple-500/20"
                 >
@@ -574,20 +698,7 @@ export function LessonCard({
             </div>
           )}
 
-          {lesson.is_cancelled ? (
-            <span className="inline-flex w-fit items-center gap-1 rounded border border-rose-500/40 bg-rose-500/15 px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-rose-400">
-              ❌ Скасовано
-            </span>
-          ) : eventBadge ? (
-            <span className={`inline-flex w-fit items-center gap-1 rounded border px-2 py-0.5 text-xs font-bold uppercase tracking-wider ${eventBadge.badgeClass}`}>
-              {eventBadge.label}
-            </span>
-          ) : lesson.is_replacement ? (
-            <span className="inline-flex w-fit items-center gap-1 rounded bg-sys-warning px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-sys-warningText">
-              ⚡ Заміна
-            </span>
-          ) : null}
-
+          {/* Admin edit controls */}
           {canEdit && (
             <div className="mt-1 flex flex-wrap items-center gap-1 border-t border-sys-border/30 pt-1.5">
               {lesson.is_cancelled ? (
@@ -679,13 +790,17 @@ export function LessonCard({
               )}
             </div>
           )}
-        </div>
-      </div>
 
-      {!lesson.is_cancelled && (canEdit || visibleNoteText.length > 0) && (
-        <LessonNote key={`${lesson.group_id}:${targetDate}:${lesson.lesson_number}:${lesson.subject_id}`} lesson={lesson} date={targetDate} />
+          {/* User note */}
+          {!lesson.is_cancelled && (canEdit || visibleNoteText.length > 0) && (
+            <div onClick={(e) => e.stopPropagation()}>
+              <LessonNote key={`${lesson.group_id}:${targetDate}:${lesson.lesson_number}:${lesson.subject_id}`} lesson={lesson} date={targetDate} />
+            </div>
+          )}
+        </div>
       )}
 
+      {/* Progress bar at the bottom for live lesson */}
       {isLive && (
         <div className="absolute bottom-0 left-0 right-0 h-[3px] overflow-hidden bg-sys-border/40">
           <div

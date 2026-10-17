@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { BottomNav } from "../components/BottomNav";
 import { OfflineIndicator } from "../components/OfflineIndicator";
 import { InstallPrompt } from "../components/InstallPrompt";
@@ -14,6 +14,8 @@ import { WelcomeScreen } from "../components/WelcomeScreen";
 import { SearchableSelect } from "../components/SearchableSelect";
 import { useToast } from "../components/ToastProvider";
 import { QuickJumpTarget, findGroupIdByName, findTeacherIdByName } from "../lib/quickJump";
+
+const UK_SHORT_WEEKDAY_FMT = new Intl.DateTimeFormat("uk-UA", { weekday: "short" });
 
 interface PinnedTarget {
   mode: "student" | "teacher";
@@ -203,7 +205,86 @@ export default function HomePage() {
     return { displayDaySchedule: today, isShowingTomorrow: false };
   }, [today, week]);
 
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [activeDayDate, setActiveDayDate] = useState<string>("");
+
+  useEffect(() => {
+    if (displayDaySchedule?.date) {
+      setActiveDayDate(displayDaySchedule.date);
+    } else if (today?.date) {
+      setActiveDayDate(today.date);
+    } else if (week.length > 0) {
+      setActiveDayDate(week[0].date);
+    }
+  }, [displayDaySchedule?.date, today?.date, week]);
+
+  const resetScroll = () => {
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "instant" });
+    }
+  };
+
+  const handleSelectDay = (date: string) => {
+    setActiveDayDate(date);
+    resetScroll();
+  };
+
+  const goToPrevDay = () => {
+    if (!week.length) return;
+    const currentIdx = week.findIndex((d) => d.date === activeDayDate);
+    if (currentIdx > 0) {
+      handleSelectDay(week[currentIdx - 1].date);
+    } else {
+      shiftWeek(-1);
+      resetScroll();
+    }
+  };
+
+  const goToNextDay = () => {
+    if (!week.length) return;
+    const currentIdx = week.findIndex((d) => d.date === activeDayDate);
+    if (currentIdx !== -1 && currentIdx < week.length - 1) {
+      handleSelectDay(week[currentIdx + 1].date);
+    } else {
+      shiftWeek(1);
+      resetScroll();
+    }
+  };
+
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      touchStartRef.current = {
+        x: e.touches[0].clientX,
+        y: e.touches[0].clientY,
+        time: Date.now(),
+      };
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!touchStartRef.current || e.changedTouches.length === 0) return;
+    const start = touchStartRef.current;
+    const touch = e.changedTouches[0];
+    const diffX = touch.clientX - start.x;
+    const diffY = touch.clientY - start.y;
+    touchStartRef.current = null;
+
+    if (Math.abs(diffX) > Math.abs(diffY) * 1.5 && Math.abs(diffX) > 45) {
+      if (diffX < 0) {
+        goToNextDay();
+      } else {
+        goToPrevDay();
+      }
+    }
+  };
+
   const isWeekend = [0, 6].includes(new Date().getDay());
+
+  const selectedDaySchedule = useMemo(() => {
+    return (week && week.find((d) => d.date === activeDayDate)) || displayDaySchedule || today;
+  }, [week, activeDayDate, displayDaySchedule, today]);
 
   const weekRange = useMemo(() => {
     const end = new Date(weekAnchorDate);
@@ -249,7 +330,251 @@ export default function HomePage() {
     <main className="min-h-screen bg-sys-bg pb-[calc(6rem+env(safe-area-inset-bottom))] text-sys-text-primary md:pb-8">
       <OfflineIndicator />
       <InstallPrompt />
-      <header className="border-b border-sys-border bg-sys-card">
+      {/* Mobile Compact Header (<640px) - Single Row (Title/Group/Star/⋯) */}
+      <header className="sm:hidden border-b border-sys-border bg-sys-card px-3 py-2">
+        <div className="flex items-center justify-between gap-2">
+          {/* Brand */}
+          <a href="https://kre.dp.ua/" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 shrink-0 hover:opacity-85" title="ДФКР">
+            <span className="rounded bg-sys-accent/15 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-sys-accent">
+              ДФКР
+            </span>
+            <span className="text-sm font-bold tracking-tight text-sys-text-primary">
+              Розклад
+            </span>
+          </a>
+
+          {/* Group / Teacher Selector */}
+          <div className="min-w-0 flex-1 max-w-[210px]">
+            <SearchableSelect
+              options={mode === "student" ? groups : teachers}
+              value={mode === "student" ? groupId : teacherId}
+              onChange={(id) => {
+                if (id === null) return;
+                if (mode === "student") setGroupId(id);
+                else setTeacherId(id);
+              }}
+              ariaLabel={mode === "student" ? "Обрати групу" : "Обрати викладача"}
+              placeholder={mode === "student" ? "Оберіть групу" : "Оберіть викладача"}
+              emptyLabel="Очистити вибір"
+            />
+          </div>
+
+          {/* Star pin button + "⋯" Menu button */}
+          <div className="flex items-center gap-1 shrink-0">
+            {currentId && (
+              <button
+                type="button"
+                onClick={togglePinCurrent}
+                title={isCurrentPinned ? "Прибрати із закріплених" : "Закріпити для швидкого доступу"}
+                aria-label={isCurrentPinned ? "Відкріпити" : "Закріпити"}
+                className={`flex h-9 w-9 items-center justify-center rounded-lg border text-base transition-colors ${
+                  isCurrentPinned
+                    ? "border-amber-400/40 bg-amber-400/10 text-amber-300"
+                    : "border-sys-border bg-sys-bg/60 text-sys-text-muted hover:text-sys-text-primary"
+                }`}
+              >
+                {isCurrentPinned ? "★" : "☆"}
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen((prev) => !prev)}
+              aria-label="Додаткове меню"
+              aria-expanded={mobileMenuOpen}
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-sys-border bg-sys-bg/60 text-base font-bold text-sys-text-secondary hover:text-sys-text-primary active:scale-95 transition-transform"
+            >
+              ⋯
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Mobile Sticky Day Tabs (<640px) */}
+      <div className="sticky top-0 z-20 border-b border-sys-border bg-sys-bg/95 backdrop-blur px-2.5 py-1.5 sm:hidden">
+        <div className="flex items-center justify-between gap-1">
+          {/* Day Tabs */}
+          <div role="group" aria-label="Оберіть день тижня" className="flex items-center justify-between flex-1 gap-1">
+            {week.map((day) => {
+              const dateObj = new Date(`${day.date}T12:00:00`);
+              const dayLetter = UK_SHORT_WEEKDAY_FMT.format(dateObj).charAt(0).toUpperCase();
+              const isSelected = activeDayDate === day.date;
+              const isTodayDate = day.date === (today?.date);
+              const hasLessons = day.lessons.length > 0;
+              const isWeekendDay = [0, 6].includes(dateObj.getDay());
+
+              return (
+                <button
+                  key={`mobile-tab-${day.date}`}
+                  type="button"
+                  onClick={() => handleSelectDay(day.date)}
+                  aria-pressed={isSelected}
+                  className={`flex flex-1 flex-col items-center justify-center py-1 px-1 rounded-xl transition-all ${
+                    isSelected
+                      ? "bg-sys-accent text-white shadow-sm"
+                      : isTodayDate
+                      ? "border border-sys-accent/40 bg-sys-accent/10 text-sys-accent"
+                      : "text-sys-text-secondary hover:bg-sys-card"
+                  }`}
+                >
+                  <span className={`text-[11px] font-semibold leading-tight ${isSelected ? "text-white" : isTodayDate ? "text-sys-accent" : "text-sys-text-secondary"}`}>
+                    {dayLetter}
+                  </span>
+                  <span className={`text-[14px] font-bold leading-tight ${isSelected ? "text-white" : isTodayDate ? "text-sys-accent" : "text-sys-text-primary"}`}>
+                    {dateObj.getDate()}
+                  </span>
+                  <span
+                    className={`mt-0.5 h-1 w-1 rounded-full ${
+                      isSelected
+                        ? "bg-white"
+                        : hasLessons
+                        ? "bg-sys-accent"
+                        : isWeekendDay
+                        ? "bg-slate-500"
+                        : "bg-transparent"
+                    }`}
+                  />
+                </button>
+              );
+            })}
+          </div>
+
+          {/* View toggle (Сьогодні / Тиждень) in the same row */}
+          <div className="shrink-0 pl-1 flex items-center">
+            <button
+              type="button"
+              onClick={() => {
+                setView((v) => (v === "today" ? "week" : "today"));
+                resetScroll();
+              }}
+              aria-label={view === "today" ? "Перейти до тижневого розкладу" : "Перейти до розкладу на день"}
+              className="flex h-9 items-center gap-1 rounded-lg border border-sys-border bg-sys-card px-2.5 text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary transition-colors"
+            >
+              <span>{view === "today" ? "Тиждень" : "День"}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile Drawer / Sheet for secondary actions ("⋯" Menu) */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/60 backdrop-blur-xs sm:hidden" onClick={() => setMobileMenuOpen(false)}>
+          <div
+            className="w-full rounded-t-2xl border-t border-sys-border bg-sys-card p-4 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-sys-border" />
+            <div className="flex items-center justify-between pb-3 border-b border-sys-border/50">
+              <span className="text-sm font-bold text-sys-text-primary">Меню розкладу</span>
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-sys-border text-xs text-sys-text-secondary hover:text-sys-text-primary"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Mode switch */}
+            {teachers.length > 0 && (
+              <div className="mt-3">
+                <span className="mb-1.5 block text-xs font-semibold text-sys-text-secondary">Режим перегляду</span>
+                <div role="group" aria-label="Тип розкладу" className="flex rounded-lg border border-sys-border bg-sys-bg p-1 relative w-full">
+                  <button
+                    type="button"
+                    aria-pressed={mode === "student"}
+                    onClick={() => {
+                      toggleMode("student");
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`flex-1 rounded-md px-3 py-2 text-xs font-semibold transition-colors ${
+                      mode === "student" ? "bg-sys-accent text-white shadow-xs" : "text-sys-text-secondary hover:text-sys-text-primary"
+                    }`}
+                  >
+                    Для групи
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={mode === "teacher"}
+                    onClick={() => {
+                      toggleMode("teacher");
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`flex-1 rounded-md px-3 py-2 text-xs font-semibold transition-colors ${
+                      mode === "teacher" ? "bg-sys-accent text-white shadow-xs" : "text-sys-text-secondary hover:text-sys-text-primary"
+                    }`}
+                  >
+                    Для викладача
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Pinned shortcuts */}
+            {pins.length > 0 && (
+              <div className="mt-3">
+                <span className="mb-1.5 block text-xs font-semibold text-sys-text-secondary">Закріплені</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {pins.map((pin) => (
+                    <button
+                      key={`menu-pin-${pin.mode}-${pin.id}`}
+                      type="button"
+                      onClick={() => {
+                        toggleMode(pin.mode);
+                        if (pin.mode === "student") setGroupId(pin.id);
+                        else setTeacherId(pin.id);
+                        setMobileMenuOpen(false);
+                      }}
+                      className="rounded-full border border-sys-border bg-sys-bg px-3 py-1 text-xs font-medium text-sys-text-secondary hover:text-sys-text-primary"
+                    >
+                      ★ {pin.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Secondary Links & Controls */}
+            <div className="mt-4 flex flex-col gap-2 border-t border-sys-border/50 pt-3">
+              <a
+                href="/statistics"
+                className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 px-3.5 py-2.5 text-xs font-semibold text-sys-text-primary hover:border-sys-accent/40"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                <span>📊 Статистика</span>
+                <span className="text-sys-text-muted">↗</span>
+              </a>
+              <a
+                href="/educational-process"
+                className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 px-3.5 py-2.5 text-xs font-semibold text-sys-text-primary hover:border-sys-accent/40"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                <span>📅 Графік процесу</span>
+                <span className="text-sys-text-muted">↗</span>
+              </a>
+              {isStandalone && !isDownloaded && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    void handleDownloadOffline();
+                  }}
+                  disabled={isDownloading}
+                  className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 px-3.5 py-2.5 text-xs font-semibold text-sys-text-primary disabled:opacity-50"
+                >
+                  <span>💾 {isDownloading ? "Зберігаємо…" : "Зберегти на пристрій"}</span>
+                </button>
+              )}
+              <div className="pt-2">
+                <UserControls />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Desktop Header (>= 640px) */}
+      <header className="hidden sm:block border-b border-sys-border bg-sys-card">
         <div className="mx-auto flex max-w-[1800px] flex-col md:flex-row md:items-center justify-between gap-4 px-3 py-5 sm:px-5 lg:px-6 xl:px-8">
           <div className="flex items-start justify-between w-full md:w-auto">
             <div>
@@ -442,36 +767,35 @@ export default function HomePage() {
         ) : today ? (
           <div>
             {view === "today" ? (
-              <div>
+              <div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} className="min-w-0 touch-pan-y">
                 {isWeekend && (
-                  <div className="mb-4 rounded-2xl border border-slate-700/50 bg-slate-800/40 px-5 py-4 text-center sm:flex sm:items-center sm:justify-between sm:text-left">
-                    <div className="flex items-center justify-center gap-3 sm:justify-start">
-                      <span className="text-2xl" aria-hidden="true">🛋️</span>
-                      <div>
-                        <h2 className="text-sm font-semibold text-sys-text-primary">Сьогодні вихідний</h2>
-                        <p className="text-xs text-sys-text-secondary">Нижче показано розклад на найближчий навчальний день</p>
-                      </div>
+                  <div className="mb-2.5 flex h-9 max-h-10 items-center justify-between rounded-lg border border-slate-700/50 bg-slate-800/50 px-3 text-xs text-sys-text-secondary">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span aria-hidden="true">🛋️</span>
+                      <span className="font-semibold text-sys-text-primary whitespace-nowrap">Сьогодні вихідний</span>
+                      <span className="hidden sm:inline truncate">— розклад найближчого навчального дня</span>
                     </div>
-                    <div className="mt-2 sm:mt-0">
+                    <div className="shrink-0 ml-2">
                       <WeekTypeBadge weekType={today.week_type} />
                     </div>
                   </div>
                 )}
                 {!isWeekend && (
-                  <div className="mb-4 mt-2 flex justify-end">
+                  <div className="mb-3 hidden sm:flex justify-end">
                     <WeekTypeBadge weekType={today.week_type} />
                   </div>
                 )}
                 {isShowingTomorrow && !isWeekend && (
-                  <div className="mb-3 flex items-center justify-between rounded-xl border border-sys-accent/30 bg-sys-accent/10 px-4 py-2.5 text-xs text-sys-text-primary">
+                  <div className="mb-2.5 flex items-center justify-between rounded-xl border border-sys-accent/30 bg-sys-accent/10 px-3.5 py-2 text-xs text-sys-text-primary">
                     <span>🌙 Пари на сьогодні завершено — показано <strong>розклад на завтра</strong></span>
                   </div>
                 )}
                 <ScheduleDay
-                  schedule={displayDaySchedule ?? today}
-                  isToday={!isWeekend && !isShowingTomorrow}
+                  schedule={selectedDaySchedule ?? today}
+                  isToday={selectedDaySchedule?.date === today?.date && !isWeekend && !isShowingTomorrow}
                   scheduleMode={mode}
                   onQuickJump={handleQuickJump}
+                  hideHeaderOnMobile={true}
                 />
               </div>
             ) : (
