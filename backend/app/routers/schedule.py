@@ -1,7 +1,7 @@
 from app.core.time import today_local, now_local
 import logging
 from datetime import date, time, timedelta
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response, status, Request
 from pydantic import BaseModel
 from sqlalchemy import select, delete
 from sqlalchemy.orm import selectinload
@@ -185,14 +185,15 @@ async def schedule(group_id: int | None = None, teacher_id: int | None = None,
 async def today(
     request: Request,
     response: Response,
+    background_tasks: BackgroundTasks,
     group_id: int | None = None,
     teacher_id: int | None = None,
     include_cancelled: bool = Query(False),
     db: AsyncSession = Depends(get_db)
 ):
     if group_id:
-        from app.routers.classroom import trigger_background_sync_if_needed
-        await trigger_background_sync_if_needed(db, group_id)
+        from app.routers.classroom import run_background_sync_task
+        background_tasks.add_task(run_background_sync_task, group_id)
 
     if group_id:
         scope = await db.get(Group, group_id)
@@ -232,6 +233,7 @@ async def today(
 async def week(
     request: Request,
     response: Response,
+    background_tasks: BackgroundTasks,
     group_id: int | None = None,
     teacher_id: int | None = None,
     target_date: date | None = None,
@@ -239,8 +241,8 @@ async def week(
     db: AsyncSession = Depends(get_db)
 ):
     if group_id:
-        from app.routers.classroom import trigger_background_sync_if_needed
-        await trigger_background_sync_if_needed(db, group_id)
+        from app.routers.classroom import run_background_sync_task
+        background_tasks.add_task(run_background_sync_task, group_id)
 
     # T11: PWA Offline caching via Last-Modified
     if group_id:

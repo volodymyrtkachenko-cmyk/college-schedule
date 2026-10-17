@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import re
 import traceback
@@ -13,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.core.security import require_roles
-from app.database import get_db
+from app.database import async_session_factory, get_db
 from app.models import (
     ClassroomGroupBinding,
     Group,
@@ -22,7 +23,7 @@ from app.models import (
     User,
 )
 from app.models.lesson_notes import LessonOccurrenceNote
-from app.services.projection import build_projection, build_week_projection
+from app.services.projection import build_week_projection
 
 logger = logging.getLogger(__name__)
 
@@ -71,27 +72,46 @@ COMMON_FIRST_NAMES = {
     "павло", "руслан", "віталій", "ігор", "олесь", "олег", "сергій", "юрій", "ярослав",
     "тимофій", "матвій", "назар", "захар", "глеб", "гліб", "вадим", "костянтин", "микола",
     "михайло", "антон", "арсен", "арсеній", "віктор", "василь", "георгій", "давид", "марк",
-    "ростислав", "святослав", "станіслав", "степан", "тараc", "тарас", "федір", "вадим",
-    "анна", "ганна", "софія", "марія", "вікторія", "дар'я", "дарія", "анастасія", "векторія",
+    "ростислав", "святослав", "станіслав", "степан", "тарас", "федір",
+    "анна", "ганна", "софія", "марія", "вікторія", "дар'я", "дарія", "анастасія",
     "катерина", "аліна", "поліна", "юлія", "ольга", "олена", "наталія", "ірина", "тетяна",
     "ксенія", "оксана", "діана", "валерія", "вероніка", "єлизавета", "мілана", "каріна",
-    "кристина", "христина", "ярослава", "уляна", "соломія", "маргарита", "інна", "галина",
+    "христина", "ярослава", "уляна", "соломія", "маргарита", "інна", "галина",
 }
+
+SUBJECT_KEYWORDS = [
+    ("електронік", ("електронік",)),
+    ("схемотехнік", ("схемотехнік",)),
+    ("українськ", ("українськ", "мови за пс")),
+    ("дизайн", ("дизайн", "web")),
+    ("математик", ("математик", "дискретн")),
+    ("філософ", ("філософ", "соціолог", "релігієзнав")),
+    ("іноземн", ("іноземн", "англ")),
+    ("фізичн", ("фізичн", "фізкультур", "спорт")),
+    ("інформатик", ("інформатик", "програмув", "алгоритм")),
+    ("фізик", ("фізик",)),
+]
+
+
+def _norm(s: Optional[str]) -> str:
+    if not s:
+        return ""
+    res = s.lower()
+    for ch in ("’", "ʼ", "`", "´", "‘"):
+        res = res.replace(ch, "'")
+    return res.strip()
 
 
 def extract_surname(name: str) -> str:
-    """Витягує прізвище з ПІБ ('Ім'я Прізвище' або 'Прізвище Ім'я По-батькові')."""
     parts = [p.strip() for p in (name or "").strip().split() if p.strip()]
     if len(parts) <= 1:
         return name or ""
 
-    # Якщо 3 слова і останнє по-батькові — перше слово завжди прізвище
     last_low = _norm(parts[-1])
     if last_low.endswith(("ович", "івна", "евич", "євич", "овна", "евна", "ічна")):
         return parts[0]
 
     first_low = _norm(parts[0])
-    # Якщо перше слово є в словнику типових імен, то прізвище — останнє слово
     if first_low in COMMON_FIRST_NAMES and last_low not in COMMON_FIRST_NAMES:
         return parts[-1]
     if last_low in COMMON_FIRST_NAMES and first_low not in COMMON_FIRST_NAMES:
@@ -103,7 +123,7 @@ def extract_surname(name: str) -> str:
             "ко", "ук", "юк", "чук", "ак", "як", "ич", "іч",
             "ський", "ська", "цький", "цька", "зький", "зька",
             "ов", "ова", "єв", "єва", "ев", "ева", "ін", "іна", "їн", "їна",
-            "ець", "єць", "ий", "ій", "ник", "чук", "ша", "ча", "га",
+            "ець", "єць", "ий", "ій", "ник", "ша", "ча", "га",
         ))
 
     first_like = is_surname_like(parts[0])
@@ -116,7 +136,6 @@ def extract_surname(name: str) -> str:
 
 
 def ukr_sort_key(name: str) -> list[int]:
-    """Формує ключ для коректного українського сортування за прізвищем."""
     surname = extract_surname(name)
     surname_key = [UKR_ORDER.get(ch, 1000 + ord(ch)) for ch in _norm(surname)]
     full_key = [UKR_ORDER.get(ch, 1000 + ord(ch)) for ch in _norm(name)]
@@ -131,17 +150,7 @@ class ClassroomSyncRequest(BaseModel):
 
 
 async def ensure_known_online_links(db: AsyncSession) -> None:
-    """Порожня заглушка для зворотної сумісності імпортів."""
     return None
-
-
-def _norm(s: Optional[str]) -> str:
-    if not s:
-        return ""
-    res = s.lower()
-    for ch in ("’", "ʼ", "`", "´", "‘"):
-        res = res.replace(ch, "'")
-    return res.strip()
 
 
 def _time_to_lesson_number(hour: int, minute: int) -> Optional[int]:
@@ -185,7 +194,6 @@ def _parse_announcement(text: str, created_dt: datetime, materials: Optional[lis
     zoom_id = re.sub(r"[\s\-\u00a0]", "", zoom_id_match.group(1)) if zoom_id_match else None
     zoom_pass = zoom_pass_match.group(1).rstrip(".,;!") if zoom_pass_match else None
 
-    # Автоматично вшиваємо пароль прямо в Zoom-посилання, щоб вхід був у 1 клік без зайвих бейджів
     if not url and zoom_id:
         url = f"https://zoom.us/j/{zoom_id}"
         if zoom_pass:
@@ -200,7 +208,6 @@ def _parse_announcement(text: str, created_dt: datetime, materials: Optional[lis
     text_norm = _norm(text)
     target_date: Optional[date] = None
 
-    # 1. Дати з явним роком (напр. 15.10.2026)
     for dm in DATE_RE.finditer(text):
         day_s, month_s, year_s = dm.groups()
         d_i, m_i = int(day_s), int(month_s)
@@ -214,7 +221,6 @@ def _parse_announcement(text: str, created_dt: datetime, materials: Optional[lis
             except ValueError:
                 continue
 
-    # 2. Текстові дати (напр. "16 жовтня")
     if target_date is None:
         tdm = DATE_TEXT_RE.search(text_norm)
         if tdm:
@@ -226,7 +232,6 @@ def _parse_announcement(text: str, created_dt: datetime, materials: Optional[lis
                 except ValueError:
                     pass
 
-    # 3. Числові дати без року (напр. 13.10)
     if target_date is None:
         for dm in DATE_RE.finditer(text):
             day_s, month_s, _ = dm.groups()
@@ -238,7 +243,6 @@ def _parse_announcement(text: str, created_dt: datetime, materials: Optional[lis
                 except ValueError:
                     continue
 
-    # 4. Відносні дати ("завтра", "сьогодні", або вечірній пост після 16:00)
     if target_date is None:
         if "завтра" in text_norm:
             target_date = created_dt.date() + timedelta(days=1)
@@ -292,12 +296,14 @@ def _parse_announcement(text: str, created_dt: datetime, materials: Optional[lis
     }
 
 
-def _matches_teacher_or_subject(ann: dict, lesson) -> bool:
+def _matches_lesson(
+    lesson,
+    course_title_norm: str,
+    text_norm: str,
+    author_tokens: list[str],
+) -> bool:
     subj_norm = _norm(lesson.subject_name)
     teacher_norm = _norm(lesson.teacher_name)
-    text_norm = ann["text_norm"]
-    course_title_norm = ann.get("course_title_norm", "")
-    author_tokens: list[str] = ann.get("author_tokens", [])
 
     if "виховн" in subj_norm:
         return False
@@ -317,17 +323,7 @@ def _matches_teacher_or_subject(ann: dict, lesson) -> bool:
         if s in combined_text:
             return True
 
-    keywords = [
-        ("електронік", ("електронік",)),
-        ("схемотехнік", ("схемотехнік",)),
-        ("українськ", ("українськ", "мови за пс")),
-        ("дизайн", ("дизайн", "web")),
-        ("математик", ("математик", "дискретн")),
-        ("філософ", ("філософ", "соціолог", "релігієзнав")),
-        ("іноземн", ("іноземн", "англ")),
-        ("фізичн", ("фізичн", "фізкультур")),
-    ]
-    for subj_key, text_keys in keywords:
+    for subj_key, text_keys in SUBJECT_KEYWORDS:
         if subj_key in subj_norm and any(tk in combined_text for tk in text_keys):
             return True
 
@@ -336,6 +332,30 @@ def _matches_teacher_or_subject(ann: dict, lesson) -> bool:
         return True
 
     return False
+
+
+def _resolve_matched_teacher_surname(lesson, author_tokens: list[str], combined_text: str) -> Optional[str]:
+    """Повертає прізвище конкретного викладача ТІЛЬКИ якщо на парі двоє викладачів (підгрупи)."""
+    teacher_parts = [p.strip() for p in (lesson.teacher_name or "").split("/") if p.strip()]
+    if len(teacher_parts) <= 1 and not getattr(lesson, "second_teacher_id", None):
+        return None
+
+    for tp in teacher_parts:
+        surname_clean = tp.split()[0].strip()
+        surname_norm = re.sub(r"[^а-яіїєґ']", "", _norm(surname_clean))
+        if len(surname_norm) < 3:
+            continue
+        if any(surname_norm in tok or tok in surname_norm for tok in author_tokens):
+            return surname_clean
+        if surname_norm in combined_text:
+            return surname_clean
+
+    if "токарєв" in combined_text or any("токарєв" in tok for tok in author_tokens):
+        return "Токарєва"
+    if "хочинськ" in combined_text or any("хочинськ" in tok for tok in author_tokens):
+        return "Хочинська"
+
+    return None
 
 
 async def _save_link_to_slot(
@@ -547,9 +567,7 @@ async def perform_course_sync(
 
     db_teachers = (await db.scalars(select(Teacher))).all()
 
-    # КРОК 1: Очищаємо старі авто-посилання та старі [TASK] на ВСІХ тижнях групи,
-    # щоб на минулих і майбутніх (офлайн) тижнях не висіли клоновані кнопки Meet/Zoom,
-    # але ЗБЕРІГАЄМО всі ручні текстові нотатки студентів!
+    # КРОК 1: Глобальне м'яке очищення старих авто-посилань та старих [TASK] на всіх тижнях групи
     all_group_notes = (
         await db.scalars(
             select(LessonOccurrenceNote).where(
@@ -581,21 +599,29 @@ async def perform_course_sync(
 
     await db.flush()
 
-    # Завантажуємо розклад цільового тижня одним пакетним запитом
-    _, lessons_by_day = await build_week_projection(
-        db, week_monday, group_id=group.id
-    )
-    week_days_lessons: dict[date, list] = {}
-    for weekday in range(1, 6):
-        d = week_monday + timedelta(days=weekday - 1)
-        week_days_lessons[d] = [
-            l for l in lessons_by_day.get(weekday, [])
-            if getattr(l, "subject_id", None)
-            and (1 <= getattr(l, "lesson_number", 0) <= 4)
-            and not getattr(l, "is_cancelled", False)
-        ]
+    # КРОК 2: Завантажуємо розклад одразу на 3 тижні вперед (поточний + 2 наступні),
+    # щоб без N+1 запитів до БД знаходити НАСТУПНУ НАЙБЛИЖЧУ ПАРУ для дедлайнів!
+    horizon_lessons_by_date: dict[date, list] = {}
+    for w_offset in (0, 1, 2):
+        w_mon = week_monday + timedelta(days=w_offset * 7)
+        _, w_by_day = await build_week_projection(db, w_mon, group_id=group.id)
+        for weekday in range(1, 6):
+            d = w_mon + timedelta(days=weekday - 1)
+            horizon_lessons_by_date[d] = [
+                l for l in w_by_day.get(weekday, [])
+                if getattr(l, "subject_id", None)
+                and (1 <= getattr(l, "lesson_number", 0) <= 4)
+                and not getattr(l, "is_cancelled", False)
+            ]
+
+    week_days_lessons = {
+        d: lessons
+        for d, lessons in horizon_lessons_by_date.items()
+        if week_monday <= d <= week_friday
+    }
 
     parsed_announcements: list[dict] = []
+    raw_coursework_items: list[dict] = []
     teacher_tokens_by_uid: dict[str, list[str]] = {}
 
     async with httpx.AsyncClient(timeout=15.0) as client:
@@ -610,7 +636,6 @@ async def perform_course_sync(
                 if matched_other.id == group.id:
                     target_group_courses.append(c)
                     relevant_courses.append(c)
-                # Курси ІНШИХ груп пропускаємо, щоб не тягнути чужі посилання і не витрачати квоту API
             else:
                 relevant_courses.append(c)
                 if group_course_id and c.get("id") == group_course_id:
@@ -621,7 +646,7 @@ async def perform_course_sync(
         if not relevant_courses:
             relevant_courses = target_group_courses
 
-        # 1. Синхронізація списку студентів із курсів цієї групи
+        # 1. Синхронізація списку студентів
         students_by_user_id: dict[str, dict] = {}
         for gc in target_group_courses:
             c_id = gc.get("id")
@@ -713,7 +738,6 @@ async def perform_course_sync(
         except Exception as e:
             logger.warning(f"People API directory search skipped: {e}")
 
-        # UPSERT замість DELETE: накопичуємо склад групи без затирання
         existing_students = (
             await db.scalars(
                 select(GroupStudent).where(GroupStudent.group_id == group.id)
@@ -746,69 +770,78 @@ async def perform_course_sync(
                 synced_students += 1
         await db.flush()
 
-        # 2. Скануємо релевантні курси цієї групи (обмежуємо до 10 для економії квот Google API)
-        for course in relevant_courses[:10]:
+        # 2. ПАРАЛЕЛЬНЕ сканування курсів (прискорює синхронізацію в 5-6 разів)
+        sem = asyncio.Semaphore(4)
+
+        async def fetch_course_bundle(course: dict):
+            c_id = course["id"]
+            async with sem:
+                t_task = client.get(
+                    f"https://classroom.googleapis.com/v1/courses/{c_id}/teachers",
+                    headers=headers,
+                )
+                a_task = client.get(
+                    f"https://classroom.googleapis.com/v1/courses/{c_id}/announcements",
+                    params={"pageSize": 25},
+                    headers=headers,
+                )
+                cw_task = client.get(
+                    f"https://classroom.googleapis.com/v1/courses/{c_id}/courseWork",
+                    params={"pageSize": 25},
+                    headers=headers,
+                )
+                return course, await asyncio.gather(t_task, a_task, cw_task, return_exceptions=True)
+
+        bundles = await asyncio.gather(*(fetch_course_bundle(c) for c in relevant_courses[:10]))
+
+        for course, (t_resp, ann_resp, cw_resp) in bundles:
             course_id = course["id"]
             course_title = f"{course.get('name', '')} {course.get('section', '')}".strip()
             course_title_norm = _norm(course_title)
 
-            # Оновлюємо викладачів курсу
-            try:
-                t_resp = await client.get(
-                    f"https://classroom.googleapis.com/v1/courses/{course_id}/teachers",
-                    headers=headers,
-                )
-                if t_resp.status_code == 200:
-                    for t_item in t_resp.json().get("teachers", []):
-                        uid = t_item.get("userId")
-                        prof = t_item.get("profile", {})
-                        fn = prof.get("name", {}).get("fullName", "").strip()
-                        email = prof.get("emailAddress")
-                        if uid and fn:
-                            teacher_tokens_by_uid[uid] = [w for w in _norm(fn).split() if len(w) >= 3]
+            if not isinstance(t_resp, Exception) and t_resp.status_code == 200:
+                for t_item in t_resp.json().get("teachers", []):
+                    uid = t_item.get("userId")
+                    prof = t_item.get("profile", {})
+                    fn = prof.get("name", {}).get("fullName", "").strip()
+                    email = prof.get("emailAddress")
+                    if uid and fn:
+                        teacher_tokens_by_uid[uid] = [w for w in _norm(fn).split() if len(w) >= 3]
 
-                        if fn:
-                            parts = [p for p in fn.split() if len(p) > 2]
-                            for part in parts:
-                                part_low = part.lower()
-                                matched_db_t = next(
-                                    (dbt for dbt in db_teachers if part_low in dbt.name.lower()),
-                                    None,
-                                )
-                                if matched_db_t:
-                                    if not matched_db_t.full_name:
-                                        matched_db_t.full_name = fn[:150]
-                                    if email and not matched_db_t.email:
-                                        matched_db_t.email = email[:255]
-                                    break
-            except Exception as e:
-                logger.warning(f"Could not fetch teachers for course {course_id}: {e}")
+                    if fn:
+                        parts = [p for p in fn.split() if len(p) > 2]
+                        for part in parts:
+                            part_low = part.lower()
+                            matched_db_t = next(
+                                (dbt for dbt in db_teachers if part_low in dbt.name.lower()),
+                                None,
+                            )
+                            if matched_db_t:
+                                if not matched_db_t.full_name:
+                                    matched_db_t.full_name = fn[:150]
+                                if email and not matched_db_t.email:
+                                    matched_db_t.email = email[:255]
+                                break
 
-            # 3. Витягуємо оголошення зі стрічки (Meet / Zoom)
-            try:
-                ann_resp = await client.get(
-                    f"https://classroom.googleapis.com/v1/courses/{course_id}/announcements",
-                    params={"pageSize": 25},
-                    headers=headers,
-                )
-                if ann_resp.status_code == 200:
-                    for ann in ann_resp.json().get("announcements", []):
-                        text = ann.get("text", "")
-                        if not text:
-                            continue
-                        created_raw = ann.get("creationTime") or ann.get("updateTime")
-                        created_dt = (
-                            datetime.fromisoformat(created_raw.replace("Z", "+00:00")).astimezone(KYIV_TZ)
-                            if created_raw
-                            else datetime.now(KYIV_TZ)
-                        )
+            if not isinstance(ann_resp, Exception) and ann_resp.status_code == 200:
+                for ann in ann_resp.json().get("announcements", []):
+                    text = ann.get("text", "")
+                    if not text:
+                        continue
+                    created_raw = ann.get("creationTime") or ann.get("updateTime")
+                    created_dt = (
+                        datetime.fromisoformat(created_raw.replace("Z", "+00:00")).astimezone(KYIV_TZ)
+                        if created_raw
+                        else datetime.now(KYIV_TZ)
+                    )
 
-                        parsed = _parse_announcement(text, created_dt, ann.get("materials"))
-                        if not parsed:
-                            continue
+                    parsed = _parse_announcement(text, created_dt, ann.get("materials"))
+                    if not parsed:
+                        continue
 
-                        creator_id = ann.get("creatorUserId", "")
-                        if creator_id and creator_id not in teacher_tokens_by_uid:
+                    creator_id = ann.get("creatorUserId", "")
+                    if creator_id and creator_id not in teacher_tokens_by_uid:
+                        try:
                             prof_resp = await client.get(
                                 f"https://classroom.googleapis.com/v1/courses/{course_id}/teachers/{creator_id}",
                                 headers=headers,
@@ -818,90 +851,120 @@ async def perform_course_sync(
                                 teacher_tokens_by_uid[creator_id] = [w for w in fn.split() if len(w) >= 3]
                             else:
                                 teacher_tokens_by_uid[creator_id] = []
+                        except Exception:
+                            teacher_tokens_by_uid[creator_id] = []
 
-                        parsed["course_title_norm"] = course_title_norm
-                        parsed["author_tokens"] = teacher_tokens_by_uid.get(creator_id, [])
-                        parsed_announcements.append(parsed)
-            except Exception as e:
-                logger.warning(f"Could not fetch announcements for course {course_id}: {e}")
+                    parsed["course_title_norm"] = course_title_norm
+                    parsed["author_tokens"] = teacher_tokens_by_uid.get(creator_id, [])
+                    parsed_announcements.append(parsed)
 
-            # 4. Витягуємо завдання ЛИШЕ з встановленою датою здачі (dueDate)
-            try:
-                cw_resp = await client.get(
-                    f"https://classroom.googleapis.com/v1/courses/{course_id}/courseWork",
-                    params={"pageSize": 25},
-                    headers=headers,
-                )
-                if cw_resp.status_code == 200:
-                    for cw in cw_resp.json().get("courseWork", []):
-                        due = cw.get("dueDate")
-                        if not due or not due.get("year") or not due.get("month") or not due.get("day"):
-                            continue
+            if not isinstance(cw_resp, Exception) and cw_resp.status_code == 200:
+                for cw in cw_resp.json().get("courseWork", []):
+                    due = cw.get("dueDate")
+                    if not due or not due.get("year") or not due.get("month") or not due.get("day"):
+                        continue
+                    try:
+                        due_date = date(int(due["year"]), int(due["month"]), int(due["day"]))
+                    except ValueError:
+                        continue
 
+                    if (today_kyiv - due_date).days > 3:
+                        continue
+
+                    alt_link = (cw.get("alternateLink") or "").strip()
+                    if not alt_link:
+                        continue
+
+                    creator_id = cw.get("creatorUserId", "")
+                    if creator_id and creator_id not in teacher_tokens_by_uid:
                         try:
-                            due_date = date(int(due["year"]), int(due["month"]), int(due["day"]))
-                        except ValueError:
-                            continue
+                            prof_resp = await client.get(
+                                f"https://classroom.googleapis.com/v1/courses/{course_id}/teachers/{creator_id}",
+                                headers=headers,
+                            )
+                            if prof_resp.status_code == 200:
+                                fn = _norm(prof_resp.json().get("profile", {}).get("name", {}).get("fullName", ""))
+                                teacher_tokens_by_uid[creator_id] = [w for w in fn.split() if len(w) >= 3]
+                            else:
+                                teacher_tokens_by_uid[creator_id] = []
+                        except Exception:
+                            teacher_tokens_by_uid[creator_id] = []
 
-                        if (datetime.now(KYIV_TZ).date() - due_date).days > 3:
-                            continue
+                    raw_coursework_items.append({
+                        "due_date": due_date,
+                        "alt_link": alt_link,
+                        "title_norm": _norm(cw.get("title") or ""),
+                        "course_title_norm": course_title_norm,
+                        "author_tokens": teacher_tokens_by_uid.get(creator_id, []),
+                    })
 
-                        title = (cw.get("title") or "Завдання").strip()
-                        alt_link = cw.get("alternateLink", "").strip()
-                        if not alt_link:
-                            continue
+    # КРОК 4: Прикріплюємо домашні завдання (точна дата дедлайну -> або наступна найближча пара)
+    sorted_horizon_dates = sorted(horizon_lessons_by_date.keys())
 
-                        # Використовуємо кеш поточного тижня або викликаємо build_projection (повертає list)
-                        if due_date in week_days_lessons:
-                            day_lessons = week_days_lessons[due_date]
-                        else:
-                            day_lessons = await build_projection(db, due_date, group_id=group.id)
+    for cw_item in raw_coursework_items:
+        due_date: date = cw_item["due_date"]
+        alt_link: str = cw_item["alt_link"]
+        course_title_norm: str = cw_item["course_title_norm"]
+        title_norm: str = cw_item["title_norm"]
+        author_tokens: list[str] = cw_item["author_tokens"]
+        combined_cw_text = f"{course_title_norm} {title_norm}".strip()
 
-                        if not day_lessons:
-                            continue
+        target_date_for_task: Optional[date] = None
+        target_lesson = None
 
-                        valid_lessons = [
-                            l for l in day_lessons
-                            if getattr(l, "subject_id", None)
-                            and (1 <= getattr(l, "lesson_number", 0) <= 4)
-                            and not getattr(l, "is_cancelled", False)
-                        ]
-                        if not valid_lessons:
-                            continue
+        # 1) Перевіряємо, чи є пара з цього предмета прямо у день дедлайну
+        if due_date in horizon_lessons_by_date:
+            exact_candidates = [
+                l for l in horizon_lessons_by_date[due_date]
+                if _matches_lesson(l, course_title_norm, title_norm, author_tokens)
+            ]
+            if exact_candidates:
+                target_lesson = exact_candidates[0]
+                target_date_for_task = due_date
 
-                        creator_id = cw.get("creatorUserId", "")
-                        author_tokens = teacher_tokens_by_uid.get(creator_id, [])
-                        target_lesson = None
+        # 2) Якщо на дату дедлайну пари немає — шукаємо НАСТУПНУ НАЙБЛИЖЧУ таку пару
+        if target_lesson is None:
+            for d_candidate in sorted_horizon_dates:
+                if d_candidate <= due_date:
+                    continue
+                next_candidates = [
+                    l for l in horizon_lessons_by_date[d_candidate]
+                    if _matches_lesson(l, course_title_norm, title_norm, author_tokens)
+                ]
+                if next_candidates:
+                    target_lesson = next_candidates[0]
+                    target_date_for_task = d_candidate
+                    break
 
-                        for l in valid_lessons:
-                            t_norm = _norm(l.teacher_name)
-                            s_norm = _norm(l.subject_name)
-                            if author_tokens and any(tok in t_norm for tok in author_tokens):
-                                target_lesson = l
-                                break
-                            if s_norm and len(s_norm) >= 6 and s_norm[:8] in _norm(title):
-                                target_lesson = l
-                                break
-                            if course_title_norm and len(course_title_norm) >= 6 and s_norm and (course_title_norm in s_norm or s_norm in course_title_norm):
-                                target_lesson = l
-                                break
+        if not target_lesson or not target_date_for_task:
+            continue
 
-                        if not target_lesson:
-                            target_lesson = valid_lessons[0]
+        # Викладач вказується ТІЛЬКИ якщо на парі двоє викладачів (підгрупи)
+        teacher_badge = _resolve_matched_teacher_surname(target_lesson, author_tokens, combined_cw_text)
 
-                        task_line = f"[TASK] {title[:120]} | {alt_link[:250]}"
-                        added = await _upsert_task_line(
-                            db=db,
-                            target_date=due_date,
-                            group_id=group.id,
-                            lesson=target_lesson,
-                            task_line=task_line,
-                            unique_link=alt_link,
-                        )
-                        if added:
-                            synced_tasks += 1
-            except Exception as e:
-                logger.warning(f"Could not fetch courseWork for course {course_id}: {e}")
+        # Дата дедлайну додається ТІЛЬКИ якщо на дату дедлайну пари не було (перенесено на наступну пару)
+        is_shifted = target_date_for_task != due_date
+        label_text = (
+            f"Домашнє завдання (до {due_date.strftime('%d.%m')})"
+            if is_shifted
+            else "Домашнє завдання"
+        )
+
+        if teacher_badge:
+            task_line = f"[TASK] [{teacher_badge}] {label_text} | {alt_link[:250]}"
+        else:
+            task_line = f"[TASK] {label_text} | {alt_link[:250]}"
+
+        added = await _upsert_task_line(
+            db=db,
+            target_date=target_date_for_task,
+            group_id=group.id,
+            lesson=target_lesson,
+            task_line=task_line,
+            unique_link=alt_link,
+        )
+        if added:
+            synced_tasks += 1
 
     # КРОК 5: Ставимо розпізнані посилання Meet / Zoom СТРОГО на відповідні пари поточного тижня
     parsed_announcements.sort(key=lambda x: x["created_dt"])
@@ -914,7 +977,10 @@ async def perform_course_sync(
         if not day_lessons:
             continue
 
-        candidates = [l for l in day_lessons if _matches_teacher_or_subject(pa, l)]
+        candidates = [
+            l for l in day_lessons
+            if _matches_lesson(l, pa.get("course_title_norm", ""), pa["text_norm"], pa.get("author_tokens", []))
+        ]
         matched_lesson = None
 
         if pa["lesson_number"] is not None:
@@ -934,14 +1000,10 @@ async def perform_course_sync(
             continue
 
         url_line = pa["url"]
-        teacher_parts = [p.strip() for p in (matched_lesson.teacher_name or "").split("/") if p.strip()]
-        matched_prefix = None
-        if len(teacher_parts) > 1:
-            for tp in teacher_parts:
-                tp_norm = _norm(tp)
-                if any(tok in tp_norm for tok in pa.get("author_tokens", [])) or _norm(tp.split()[0]) in pa["text_norm"]:
-                    matched_prefix = tp.split()[0]
-                    break
+        combined_ann = f"{pa.get('course_title_norm', '')} {pa['text_norm']}".strip()
+        matched_prefix = _resolve_matched_teacher_surname(
+            matched_lesson, pa.get("author_tokens", []), combined_ann
+        )
         if matched_prefix:
             url_line = f"{matched_prefix}: {url_line}"
 
@@ -1080,8 +1142,13 @@ async def sync_from_classroom(
         )
 
 
+async def run_background_sync_task(group_id: int) -> None:
+    """Неблокуюча фонова задача синхронізації у власній сесії БД."""
+    async with async_session_factory() as db:
+        await trigger_background_sync_if_needed(db, group_id)
+
+
 async def trigger_background_sync_if_needed(db: AsyncSession, group_id: Optional[int]) -> None:
-    """Автоматично оновлює дані з Classroom у фоні (не частіше ніж раз на 15 хв для економії квот Google API)."""
     if not group_id:
         return
     try:
@@ -1112,6 +1179,10 @@ async def trigger_background_sync_if_needed(db: AsyncSession, group_id: Optional
         if not group:
             return
 
+        # Одразу оновлюємо мітку часу, щоб паралельні запити не запускали дубль синку
+        binding.last_synced_at = now
+        await db.commit()
+
         headers = {"Authorization": f"Bearer {token}"}
         async with httpx.AsyncClient(timeout=15.0) as client:
             courses_resp = await client.get(
@@ -1123,7 +1194,6 @@ async def trigger_background_sync_if_needed(db: AsyncSession, group_id: Optional
                 return
             courses = courses_resp.json().get("courses", [])
 
-        binding.last_synced_at = now
         await perform_course_sync(
             db,
             group,

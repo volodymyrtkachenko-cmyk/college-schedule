@@ -173,12 +173,17 @@ export function useSchedule(weekAnchorDate: Date, includeCancelled = false) {
           }
       }
 
-      Promise.all([
-        api.today(targetGroupId, targetTeacherId, includeCancelled),
-        api.week(targetGroupId, targetTeacherId, weekAnchorDate, includeCancelled)
-      ])
-        .then(([todayResponse, weekResponse]) => {
+      const nowKyiv = new Date();
+      const todayIso = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(nowKyiv);
+      const isWeekday = nowKyiv.getDay() >= 1 && nowKyiv.getDay() <= 5;
+
+      api.week(targetGroupId, targetTeacherId, weekAnchorDate, includeCancelled)
+        .then(async (weekResponse) => {
           if (!isSubscribed) return;
+          const matchingDay = isWeekday ? weekResponse.find((d) => d.date === todayIso) : undefined;
+          const todayResponse = matchingDay ?? (await api.today(targetGroupId, targetTeacherId, includeCancelled));
+          if (!isSubscribed) return;
+
           setToday(todayResponse);
           setWeek(weekResponse);
           window.localStorage.setItem(todayKey, JSON.stringify(todayResponse));
@@ -186,10 +191,12 @@ export function useSchedule(weekAnchorDate: Date, includeCancelled = false) {
           memoryCache.set(memKey, { time: Date.now(), today: todayResponse, week: weekResponse });
         })
         .catch(() => {
-          if (!hasCachedSchedule && isSubscribed) setError("Не вдалося завантажити розклад. Перевірте підключення до інтернету та спробуйте ще раз.");
+          if (!hasCachedSchedule && isSubscribed) {
+            setError("Не вдалося завантажити розклад. Перевірте підключення до інтернету та спробуйте ще раз.");
+          }
         })
         .finally(() => {
-            if (isSubscribed) setLoading(false);
+          if (isSubscribed) setLoading(false);
         });
     };
 

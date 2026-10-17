@@ -109,16 +109,35 @@ function getEventBadge(eventType?: string | null, eventTitle?: string | null) {
   }
 }
 
-export function extractClassroomTasks(note?: string | null): Array<{ title: string; url: string }> {
+export interface ClassroomTaskItem {
+  teacher?: string | null;
+  label: string;
+  url: string;
+}
+
+export function extractClassroomTasks(note?: string | null): ClassroomTaskItem[] {
   if (!note) return [];
-  const tasks: Array<{ title: string; url: string }> = [];
+  const tasks: ClassroomTaskItem[] = [];
   for (const line of note.split("\n")) {
     if (line.trim().startsWith("[TASK]")) {
       const raw = line.replace("[TASK]", "").trim();
-      const [titlePart, urlPart] = raw.split("|").map((s) => s.trim());
-      if (titlePart && urlPart && urlPart.startsWith("http")) {
-        tasks.push({ title: titlePart, url: urlPart });
+      const [leftPart, urlPart] = raw.split("|").map((s) => s.trim());
+      if (!leftPart || !urlPart || !urlPart.startsWith("http")) continue;
+
+      let teacher: string | null = null;
+      let rest = leftPart;
+
+      const badgeMatch = leftPart.match(/^\[([^\]]+)\]\s*(.*)$/);
+      if (badgeMatch) {
+        teacher = badgeMatch[1].trim();
+        rest = badgeMatch[2].trim();
       }
+
+      // Навіть якщо в старих записах залишилась стара назва, приводимо до єдиного стандарту "Домашнє завдання"
+      const dueMatch = rest.match(/\(до\s+\d{2}\.\d{2}\)/i);
+      const label = dueMatch ? `Домашнє завдання ${dueMatch[0]}` : "Домашнє завдання";
+
+      tasks.push({ teacher, label, url: urlPart });
     }
   }
   return tasks;
@@ -493,7 +512,7 @@ export function LessonCard({
           )}
 
           {tasks.length > 0 && (
-            <div className="mt-1 flex flex-col gap-1">
+            <div className="mt-1.5 flex flex-col gap-1.5">
               {tasks.map((task, idx) => (
                 <a
                   key={idx}
@@ -501,9 +520,16 @@ export function LessonCard({
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}
-                  className="inline-flex items-center justify-between gap-2 rounded-lg border border-purple-500/35 bg-purple-500/10 px-2.5 py-1 text-xs font-medium text-purple-200 transition-colors hover:bg-purple-500/20"
+                  className="inline-flex items-center justify-between gap-2 rounded-lg border border-purple-500/35 bg-purple-500/10 px-2.5 py-1.5 text-xs font-medium text-purple-200 transition-colors hover:bg-purple-500/20"
                 >
-                  <span className="truncate">📌 Здача: {task.title}</span>
+                  <div className="flex min-w-0 items-center gap-1.5">
+                    {task.teacher && (
+                      <span className="shrink-0 rounded bg-purple-500/30 px-1.5 py-0.5 text-[10px] font-bold text-purple-100">
+                        {task.teacher}
+                      </span>
+                    )}
+                    <span className="truncate">📌 {task.label}</span>
+                  </div>
                   <span className="shrink-0 font-bold text-purple-300">Classroom ↗</span>
                 </a>
               ))}
