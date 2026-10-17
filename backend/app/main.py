@@ -31,6 +31,22 @@ async def lifespan(_: FastAPI):
             await conn.execute(text("ALTER TABLE teachers ADD COLUMN IF NOT EXISTS email VARCHAR(255)"))
             await conn.execute(text("ALTER TABLE schedule_events ADD COLUMN IF NOT EXISTS lesson_number INTEGER"))
             await conn.execute(text("ALTER TABLE schedule_events ADD COLUMN IF NOT EXISTS custom_subject VARCHAR(200)"))
+            await conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_schedule_active_lookup "
+                "ON schedule (version_id, is_active, day_of_week, group_id)"
+            ))
+            await conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_imp_changes_lookup "
+                "ON imported_schedule_changes (date, is_published, group_id, lesson_number, version DESC)"
+            ))
+            await conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_override_date_group "
+                "ON schedule_override (date, group_id, lesson_number)"
+            ))
+            await conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_notes_week_lookup "
+                "ON lesson_occurrence_notes (note_date, group_id, archived)"
+            ))
         except Exception:
             pass
     try:

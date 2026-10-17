@@ -259,21 +259,31 @@ async def matches_published_schedule(db: AsyncSession, payload: dict, weeks: int
     if scope_groups and len(incoming_slots) != len(schedules):
         return False
 
-    used_schedule_ids: set[int] = set()
-    for incoming in incoming_slots:
-        match = next(
-            (
-                schedule for schedule in schedules
-                if schedule.id not in used_schedule_ids and _slot_matches(incoming, schedule)
-            ),
-            None,
-        )
-        if match is None:
-            return False
-        used_schedule_ids.add(match.id)
+    from collections import Counter
 
-    if scope_groups and len(used_schedule_ids) != len(schedules):
-        return False
+    def _inc_sig(s: dict) -> tuple:
+        return (
+            s["group_id"], s["subject_id"], s["teacher_id"], s.get("second_teacher_id"),
+            s["day_of_week"], s["lesson_number"], s.get("week_type", "both"),
+            _normalize_room(s.get("room")),
+        )
+
+    def _db_sig(s: Schedule) -> tuple:
+        return (
+            s.group_id, s.subject_id, s.teacher_id, s.second_teacher_id,
+            s.day_of_week, s.lesson_number, s.week_type,
+            _normalize_room(_schedule_room(s)),
+        )
+
+    incoming_counts = Counter(_inc_sig(s) for s in incoming_slots)
+    existing_counts = Counter(_db_sig(s) for s in schedules)
+    if scope_groups:
+        if incoming_counts != existing_counts:
+            return False
+    else:
+        for sig, cnt in incoming_counts.items():
+            if existing_counts[sig] < cnt:
+                return False
 
     scope = payload.get("import_scope") or {}
     scope_dates = {
@@ -455,19 +465,25 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str):
                         item["group_id"] for item in diff_report["cancelled"]
                     )
 
-        if errors:
+        if errors and not imported_group_ids:
             failed_groups = sorted({
-                error["group"]
+                str(error["group"])
                 for error in errors
                 if error.get("group") is not None
             })
             raise HTTPException(
                 status_code=502,
                 detail={
-                    "message": "Імпорт перервано: не всі групи вдалося завантажити.",
+                    "message": "Сайт kre.dp.ua тимчасово недоступний: не вдалося завантажити жодної групи.",
                     "failed_groups": failed_groups,
                     "errors": errors,
                 },
+            )
+        elif errors:
+            logger.warning(
+                "Partial import fallback: %d group(s) timed out on kre.dp.ua, proceeding with %d healthy groups",
+                len(errors),
+                len(imported_group_ids),
             )
                 
         raw_base_slots = len(aggregated_base_slots)

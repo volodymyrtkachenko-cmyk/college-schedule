@@ -343,14 +343,21 @@ export function LessonCard({
     isLive && endMin !== null && nowState ? Math.max(1, endMin - nowState.minutes) : 0;
 
   const isTeacherView = scheduleMode === "teacher";
-  const tasks = extractClassroomTasks(lesson.note);
-  const meetings = extractOnlineMeetings(lesson.note, lesson.room, lesson.teacher_name, lesson.subject_name);
+  const tasks = useMemo(() => extractClassroomTasks(lesson.note), [lesson.note]);
+  const meetings = useMemo(
+    () => extractOnlineMeetings(lesson.note, lesson.room, lesson.teacher_name, lesson.subject_name),
+    [lesson.note, lesson.room, lesson.teacher_name, lesson.subject_name]
+  );
+  const visibleNoteText = useMemo(() => getVisibleUserNote(lesson.note), [lesson.note]);
   const hasMeeting = meetings.length > 0;
   const secondaryItems = useMemo(() => {
     return isTeacherView ? parseLessonGroups(lesson) : parseLessonTeachers(lesson);
-  }, [isTeacherView, lesson]);
+  }, [isTeacherView, lesson.group_id, lesson.group_name, lesson.teacher_id, lesson.second_teacher_id, lesson.teacher_name]);
 
-  const eventBadge = getEventBadge(lesson.event_type, lesson.event_title);
+  const eventBadge = useMemo(
+    () => getEventBadge(lesson.event_type, lesson.event_title),
+    [lesson.event_type, lesson.event_title]
+  );
 
   const stateClass = lesson.is_cancelled
     ? "border-rose-500/40 border-dashed bg-rose-500/[0.04] opacity-80"
@@ -647,7 +654,7 @@ export function LessonCard({
         </div>
       </div>
 
-      {!lesson.is_cancelled && (canEdit || getVisibleUserNote(lesson.note).length > 0) && (
+      {!lesson.is_cancelled && (canEdit || visibleNoteText.length > 0) && (
         <LessonNote key={`${lesson.group_id}:${targetDate}:${lesson.lesson_number}:${lesson.subject_id}`} lesson={lesson} date={targetDate} />
       )}
 

@@ -29,5 +29,8 @@ def bump_group_updated_at(session: Session, flush_context, instances):
         session.execute(update(Group).where(Group.id.in_(groups_to_bump)).values(updated_at=datetime.now(timezone.utc)))
     if teachers_to_bump:
         session.execute(update(Teacher).where(Teacher.id.in_(teachers_to_bump)).values(updated_at=datetime.now(timezone.utc)))
+    if groups_to_bump or teachers_to_bump:
+        from app.services.projection import invalidate_projection_cache
+        invalidate_projection_cache()
 
 event.listen(Session, "before_flush", bump_group_updated_at)

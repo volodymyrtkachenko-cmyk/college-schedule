@@ -888,19 +888,21 @@ async def perform_course_sync(
         bundles = await asyncio.gather(*(fetch_course_bundle(c) for c in relevant_courses[:10]))
 
         course_teachers_tokens: dict[str, list[str]] = {}
+        topics_by_course: dict[str, dict[str, str]] = {}
+        missing_creators: set[tuple[str, str]] = set()
+
+        # Прохід 1: Парсимо вже отриманих викладачів/теми та збираємо невідомі creatorUserId
         for course, (t_resp, ann_resp, cw_resp, top_resp) in bundles:
             course_id = course["id"]
-            course_title = f"{course.get('name', '')} {course.get('section', '')}".strip()
-            course_title_norm = _norm(course_title)
             course_teachers_tokens[course_id] = []
-
             topics_by_id: dict[str, str] = {}
+
             if not isinstance(top_resp, Exception) and top_resp.status_code == 200:
                 for top in top_resp.json().get("topic", []):
-                    t_id = top.get("topicId")
-                    t_name = top.get("name")
+                    t_id, t_name = top.get("topicId"), top.get("name")
                     if t_id and t_name:
                         topics_by_id[t_id] = t_name
+            topics_by_course[course_id] = topics_by_id
 
             if not isinstance(t_resp, Exception) and t_resp.status_code == 200:
                 for t_item in t_resp.json().get("teachers", []):
@@ -914,7 +916,6 @@ async def perform_course_sync(
                             teacher_tokens_by_uid[uid] = t_toks
                         course_teachers_tokens[course_id].extend(t_toks)
 
-                    if fn:
                         parts = [p for p in fn.split() if len(p) > 2]
                         for part in parts:
                             part_low = part.lower()
@@ -931,6 +932,48 @@ async def perform_course_sync(
 
             if not isinstance(ann_resp, Exception) and ann_resp.status_code == 200:
                 for ann in ann_resp.json().get("announcements", []):
+                    cid = ann.get("creatorUserId", "")
+                    if cid and cid not in teacher_tokens_by_uid:
+                        missing_creators.add((course_id, cid))
+
+            if not isinstance(cw_resp, Exception) and cw_resp.status_code == 200:
+                for cw in cw_resp.json().get("courseWork", []):
+                    cid = cw.get("creatorUserId", "")
+                    if cid and cid not in teacher_tokens_by_uid:
+                        missing_creators.add((course_id, cid))
+
+        # Оптимізація 1.1: Завантажуємо всі відсутні профілі викладачів ОДНИМ паралельним пакетом
+        if missing_creators:
+            async def _fetch_missing_creator(c_id: str, u_id: str):
+                async with sem:
+                    try:
+                        r = await client.get(
+                            f"https://classroom.googleapis.com/v1/courses/{c_id}/teachers/{u_id}",
+                            headers=headers,
+                        )
+                        if r.status_code == 200:
+                            fn = _norm(r.json().get("profile", {}).get("name", {}).get("fullName", ""))
+                            return u_id, [w for w in fn.split() if len(w) >= 3]
+                    except Exception:
+                        pass
+                    return u_id, []
+
+            fetched_profiles = await asyncio.gather(
+                *(_fetch_missing_creator(c_id, u_id) for c_id, u_id in missing_creators)
+            )
+            for u_id, toks in fetched_profiles:
+                if toks or u_id not in teacher_tokens_by_uid:
+                    teacher_tokens_by_uid[u_id] = toks
+
+        # Прохід 2: Миттєва обробка оголошень та ДЗ у пам'яті без жодного HTTP-запиту
+        for course, (_, ann_resp, cw_resp, _) in bundles:
+            course_id = course["id"]
+            course_title = f"{course.get('name', '')} {course.get('section', '')}".strip()
+            course_title_norm = _norm(course_title)
+            topics_by_id = topics_by_course.get(course_id, {})
+
+            if not isinstance(ann_resp, Exception) and ann_resp.status_code == 200:
+                for ann in ann_resp.json().get("announcements", []):
                     text = ann.get("text", "")
                     if not text:
                         continue
@@ -938,31 +981,14 @@ async def perform_course_sync(
                     created_dt = (
                         datetime.fromisoformat(created_raw.replace("Z", "+00:00")).astimezone(KYIV_TZ)
                         if created_raw
-                        else datetime.now(KYIV_TZ)
+                        else now_kyiv
                     )
-
                     parsed = _parse_announcement(text, created_dt, ann.get("materials"))
                     if not parsed:
                         continue
 
                     creator_id = ann.get("creatorUserId", "")
-                    if creator_id and creator_id not in teacher_tokens_by_uid:
-                        try:
-                            prof_resp = await client.get(
-                                f"https://classroom.googleapis.com/v1/courses/{course_id}/teachers/{creator_id}",
-                                headers=headers,
-                            )
-                            if prof_resp.status_code == 200:
-                                fn = _norm(prof_resp.json().get("profile", {}).get("name", {}).get("fullName", ""))
-                                teacher_tokens_by_uid[creator_id] = [w for w in fn.split() if len(w) >= 3]
-                            else:
-                                teacher_tokens_by_uid[creator_id] = []
-                        except Exception:
-                            teacher_tokens_by_uid[creator_id] = []
-
-                    ann_author_tokens = []
-                    if creator_id and creator_id in teacher_tokens_by_uid:
-                        ann_author_tokens.extend(teacher_tokens_by_uid[creator_id])
+                    ann_author_tokens = list(teacher_tokens_by_uid.get(creator_id, []))
                     if len(course_teachers_tokens.get(course_id, [])) <= 2:
                         ann_author_tokens.extend(course_teachers_tokens[course_id])
 
@@ -992,37 +1018,17 @@ async def perform_course_sync(
                             due_date = None
 
                     if due_date is not None:
-                        # Відкидаємо завдання з минулих тижнів або далі ніж наступний тиждень
                         if due_date < tasks_window_start or due_date > tasks_window_end:
                             continue
                     else:
-                        # Завдання БЕЗ строку здачі: беремо лише свіжі (не старіші 7 днів від публікації)
                         if (today_real - created_dt.date()).days > 7:
                             continue
 
                     creator_id = cw.get("creatorUserId", "")
-                    if creator_id and creator_id not in teacher_tokens_by_uid:
-                        try:
-                            prof_resp = await client.get(
-                                f"https://classroom.googleapis.com/v1/courses/{course_id}/teachers/{creator_id}",
-                                headers=headers,
-                            )
-                            if prof_resp.status_code == 200:
-                                fn = _norm(prof_resp.json().get("profile", {}).get("name", {}).get("fullName", ""))
-                                teacher_tokens_by_uid[creator_id] = [w for w in fn.split() if len(w) >= 3]
-                            else:
-                                teacher_tokens_by_uid[creator_id] = []
-                        except Exception:
-                            teacher_tokens_by_uid[creator_id] = []
-
-                    topic_id = cw.get("topicId")
-                    topic_name = topics_by_id.get(topic_id, "")
+                    topic_name = topics_by_id.get(cw.get("topicId"), "")
                     topic_norm = _norm(topic_name)
 
-                    task_author_tokens = []
-                    if creator_id and creator_id in teacher_tokens_by_uid:
-                        task_author_tokens.extend(teacher_tokens_by_uid[creator_id])
-
+                    task_author_tokens = list(teacher_tokens_by_uid.get(creator_id, []))
                     if len(course_teachers_tokens.get(course_id, [])) <= 2:
                         task_author_tokens.extend(course_teachers_tokens[course_id])
 
@@ -1032,7 +1038,6 @@ async def perform_course_sync(
                             if clean_t_surname not in task_author_tokens:
                                 task_author_tokens.append(clean_t_surname)
 
-                    task_author_tokens = list(set(task_author_tokens))
                     title_norm = _norm(cw.get("title") or "")
                     combined_cw_text = f"{topic_norm} {title_norm} {course_title_norm}".strip()
 
@@ -1044,7 +1049,7 @@ async def perform_course_sync(
                         "topic_norm": topic_norm,
                         "course_title_norm": course_title_norm,
                         "combined_text": combined_cw_text,
-                        "author_tokens": task_author_tokens,
+                        "author_tokens": list(set(task_author_tokens)),
                     })
 
     # КРОК 4: Прикріплюємо ДЗ (лише на поточний та наступний тиждень!)
@@ -1314,6 +1319,8 @@ async def sync_from_classroom(
         )
         await db.commit()
 
+        _sync_backoff_state.pop(detected_group.id, None)
+
         return {
             "group_id": detected_group.id,
             "group_name": detected_group.name,
@@ -1337,9 +1344,23 @@ async def run_background_sync_task(group_id: int) -> None:
         await trigger_background_sync_if_needed(db, group_id)
 
 
+import time as _time
+
+# (group_id -> (consecutive_failures, next_allowed_monotonic_ts))
+_sync_backoff_state: dict[int, tuple[int, float]] = {}
+_SYNC_LOCK_GROUPS: set[int] = set()
+
+
 async def trigger_background_sync_if_needed(db: AsyncSession, group_id: Optional[int]) -> None:
-    if not group_id:
+    if not group_id or group_id in _SYNC_LOCK_GROUPS:
         return
+
+    now_mono = _time.monotonic()
+    failures, next_allowed = _sync_backoff_state.get(group_id, (0, 0.0))
+    if now_mono < next_allowed:
+        return
+
+    _SYNC_LOCK_GROUPS.add(group_id)
     try:
         binding = await db.scalar(
             select(ClassroomGroupBinding).where(
@@ -1360,6 +1381,12 @@ async def trigger_background_sync_if_needed(db: AsyncSession, group_id: Optional
             if fresh:
                 token = fresh
                 binding.access_token = fresh
+            elif not token:
+                # refresh_token відкликаний або невалідний — ставимо backoff до 4 годин
+                new_fails = failures + 1
+                delay = min(14400.0, 900.0 * (2 ** min(new_fails, 4)))
+                _sync_backoff_state[group_id] = (new_fails, _time.monotonic() + delay)
+                return
 
         if not token:
             return
@@ -1368,10 +1395,6 @@ async def trigger_background_sync_if_needed(db: AsyncSession, group_id: Optional
         if not group:
             return
 
-        # Одразу оновлюємо мітку часу, щоб паралельні запити не запускали дубль синку
-        binding.last_synced_at = now
-        await db.commit()
-
         headers = {"Authorization": f"Bearer {token}"}
         async with httpx.AsyncClient(timeout=15.0) as client:
             courses_resp = await client.get(
@@ -1379,10 +1402,20 @@ async def trigger_background_sync_if_needed(db: AsyncSession, group_id: Optional
                 params={"courseStates": "ACTIVE", "pageSize": 25},
                 headers=headers,
             )
+            if courses_resp.status_code in (401, 403, 429):
+                new_fails = failures + 1
+                delay = min(14400.0, 900.0 * (2 ** min(new_fails, 4)))
+                _sync_backoff_state[group_id] = (new_fails, _time.monotonic() + delay)
+                if courses_resp.status_code in (401, 403) and not binding.refresh_token:
+                    # Прострочений одноразовий access_token без refresh_token — очищуємо, щоб не спамити
+                    binding.access_token = None
+                    await db.commit()
+                return
             if courses_resp.status_code != 200:
                 return
             courses = courses_resp.json().get("courses", [])
 
+        binding.last_synced_at = now
         await perform_course_sync(
             db,
             group,
@@ -1391,9 +1424,15 @@ async def trigger_background_sync_if_needed(db: AsyncSession, group_id: Optional
             group_course_id=binding.course_id,
         )
         await db.commit()
+        _sync_backoff_state.pop(group_id, None)
     except Exception as e:
-        logger.warning(f"Background Classroom sync failed for group {group_id}: {e}")
+        new_fails = failures + 1
+        delay = min(7200.0, 300.0 * (2 ** min(new_fails, 4)))
+        _sync_backoff_state[group_id] = (new_fails, _time.monotonic() + delay)
+        logger.warning(f"Background Classroom sync failed for group {group_id} (backoff {delay:.0f}s): {e}")
         await db.rollback()
+    finally:
+        _SYNC_LOCK_GROUPS.discard(group_id)
 
 
 @router.get("/groups/{group_id}/students")

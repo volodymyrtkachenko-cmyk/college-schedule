@@ -125,53 +125,80 @@ export function useSchedule(weekAnchorDate: Date, includeCancelled = false) {
   useEffect(() => {
     if (mode === "student" && !groupId) { setWeek([]); setToday(null); return; }
     if (mode === "teacher" && !teacherId) { setWeek([]); setToday(null); return; }
-    
-    const dateKey = `${weekAnchorDate.getFullYear()}-${String(weekAnchorDate.getMonth() + 1).padStart(2, "0")}-${String(weekAnchorDate.getDate()).padStart(2, "0")}`;
+
+    const formatDateKey = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+    const dateKey = formatDateKey(weekAnchorDate);
     const targetKey = mode === "student" ? `groupId:${groupId}` : `teacherId:${teacherId}`;
     const cancelSuffix = includeCancelled ? ":all" : "";
     const todayKey = `schedule:today:${targetKey}${cancelSuffix}`;
     const weekKey = `schedule:week:${targetKey}:${dateKey}${cancelSuffix}`;
-    
+
     const targetGroupId = mode === "student" ? (groupId as number) : undefined;
     const targetTeacherId = mode === "teacher" ? (teacherId as number) : undefined;
     const memKey = `${todayKey}|${weekKey}`;
 
     let isSubscribed = true;
+    let prefetchTimer: ReturnType<typeof setTimeout> | null = null;
+
+    // 3.2: Фоновий prefetch сусідніх тижнів (← та →) для миттєвого перемикання без скелетонів
+    const prefetchAdjacentWeeks = (currentToday: ScheduleResponse) => {
+      if (typeof navigator !== "undefined" && !navigator.onLine) return;
+      for (const offsetDays of [-7, 7]) {
+        const adjDate = new Date(weekAnchorDate);
+        adjDate.setDate(adjDate.getDate() + offsetDays);
+        const adjDateKey = formatDateKey(adjDate);
+        const adjWeekKey = `schedule:week:${targetKey}:${adjDateKey}${cancelSuffix}`;
+        const adjMemKey = `${todayKey}|${adjWeekKey}`;
+
+        const existingMem = memoryCache.get(adjMemKey);
+        if (existingMem && Date.now() - existingMem.time < CACHE_TTL) continue;
+
+        api.week(targetGroupId, targetTeacherId, adjDate, includeCancelled)
+          .then((adjWeek) => {
+            try {
+              window.localStorage.setItem(adjWeekKey, JSON.stringify(adjWeek));
+            } catch {}
+            memoryCache.set(adjMemKey, { time: Date.now(), today: currentToday, week: adjWeek });
+          })
+          .catch(() => {});
+      }
+    };
 
     const fetchSchedule = (forceNetwork = false) => {
       let hasCachedSchedule = false;
-      try {
-        const cachedToday = window.localStorage.getItem(todayKey);
-        const cachedWeek = window.localStorage.getItem(weekKey);
-        if (cachedToday) {
-            const parsedToday = JSON.parse(cachedToday) as ScheduleResponse;
-            // Provide stale cache immediately
-            setToday(parsedToday);
+
+      // 5.1: Stale-While-Revalidate — спочатку миттєво показуємо дані з memoryCache або localStorage
+      const memCached = memoryCache.get(memKey);
+      if (memCached) {
+        setToday(memCached.today);
+        setWeek(memCached.week);
+        setLoading(false);
+        hasCachedSchedule = true;
+        if (!forceNetwork && Date.now() - memCached.time < CACHE_TTL) {
+          return;
+        }
+      } else {
+        try {
+          const cachedToday = window.localStorage.getItem(todayKey);
+          const cachedWeek = window.localStorage.getItem(weekKey);
+          if (cachedToday && cachedWeek) {
+            setToday(JSON.parse(cachedToday) as ScheduleResponse);
+            setWeek(JSON.parse(cachedWeek) as ScheduleResponse[]);
+            setLoading(false);
             hasCachedSchedule = true;
+          }
+        } catch {
+          window.localStorage.removeItem(todayKey);
+          window.localStorage.removeItem(weekKey);
         }
-        if (cachedWeek) {
-          setWeek(JSON.parse(cachedWeek) as ScheduleResponse[]);
-          hasCachedSchedule = true;
-        }
-      } catch {
-        window.localStorage.removeItem(todayKey);
-        window.localStorage.removeItem(weekKey);
       }
 
-      if (!forceNetwork) {
-          setLoading(!hasCachedSchedule);
+      if (!hasCachedSchedule) {
+        setLoading(true);
       }
       setError(null);
-
-      if (!forceNetwork) {
-          const cached = memoryCache.get(memKey);
-          if (cached && Date.now() - cached.time < CACHE_TTL) {
-             setToday(cached.today);
-             setWeek(cached.week);
-             setLoading(false);
-             return;
-          }
-      }
 
       const nowKyiv = new Date();
       const todayIso = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(nowKyiv);
@@ -186,9 +213,14 @@ export function useSchedule(weekAnchorDate: Date, includeCancelled = false) {
 
           setToday(todayResponse);
           setWeek(weekResponse);
-          window.localStorage.setItem(todayKey, JSON.stringify(todayResponse));
-          window.localStorage.setItem(weekKey, JSON.stringify(weekResponse));
+          try {
+            window.localStorage.setItem(todayKey, JSON.stringify(todayResponse));
+            window.localStorage.setItem(weekKey, JSON.stringify(weekResponse));
+          } catch {}
           memoryCache.set(memKey, { time: Date.now(), today: todayResponse, week: weekResponse });
+
+          if (prefetchTimer) clearTimeout(prefetchTimer);
+          prefetchTimer = setTimeout(() => prefetchAdjacentWeeks(todayResponse), 350);
         })
         .catch(() => {
           if (!hasCachedSchedule && isSubscribed) {
@@ -203,16 +235,9 @@ export function useSchedule(weekAnchorDate: Date, includeCancelled = false) {
     fetchSchedule();
 
     const handleVisibility = () => {
-      if (document.visibilityState === "visible") {
-          // Reuse the short-lived memory cache when returning to the tab.
-          // A stale entry still triggers the normal background refresh.
-          fetchSchedule();
-      }
+      if (document.visibilityState === "visible") fetchSchedule();
     };
-    
-    const handleOnline = () => {
-        fetchSchedule(true);
-    };
+    const handleOnline = () => fetchSchedule(true);
     const handleScheduleRefresh = () => fetchSchedule(true);
 
     window.addEventListener("visibilitychange", handleVisibility);
@@ -221,6 +246,7 @@ export function useSchedule(weekAnchorDate: Date, includeCancelled = false) {
 
     return () => {
       isSubscribed = false;
+      if (prefetchTimer) clearTimeout(prefetchTimer);
       window.removeEventListener("visibilitychange", handleVisibility);
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("schedule:refresh", handleScheduleRefresh);
