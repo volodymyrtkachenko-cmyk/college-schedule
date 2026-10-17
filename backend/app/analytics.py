@@ -2,62 +2,92 @@ import time
 import hashlib
 from fastapi import Request
 
-# Simple in-memory tracker
-# Maps user identifiers (IP + User-Agent hash) to their last seen unix timestamp
-_active_users = {}
+# In-memory presence tracker
+# Maps tab/session identifiers (sid:client_tab) to user presence info:
+# {"last_seen": float, "role": str, "username": str, "name": str}
+_active_users: dict[str, dict] = {}
 
-# Since the frontend sends a ping every 30 seconds while visible,
-# a window of 45 seconds is enough to consider them offline if they stop.
-ACTIVE_WINDOW = 45
+# With a frontend ping interval of 15 seconds, a 35-second window
+# provides instant detection while tolerating minor network latency.
+ACTIVE_WINDOW = 35
 
 MAX_TRACKED_USERS = 5000
 
 def get_client_ip(request: Request) -> str:
-    # Uvicorn with --proxy-headers handles X-Forwarded-For, but just in case
-    # it's misconfigured or behind multiple proxies:
     forwarded = request.headers.get("X-Forwarded-For")
     if forwarded:
         return forwarded.split(",")[0].strip()
     return request.client.host if request.client else "unknown"
 
 def track_request(request: Request):
-    # Ignore health checks, metrics, and static files if any
     path = request.url.path
     if path in ("/api/health", "/api/metrics") or not path.startswith("/api/"):
         return
 
-    # Use explicitly provided session-id from heartbeat (sid)
-    # If not present, fallback to IP+UA hash
-    sid = request.query_params.get("sid")
-    if sid:
-        identifier = f"sid:{sid}"
-    else:
+    # Check for session id from query param or header
+    sid = request.query_params.get("sid") or request.headers.get("X-Session-Id")
+
+    # Only track active user presence from /api/ping or requests explicitly tagged with sid.
+    # We do NOT fallback to IP+UA for untagged requests because that causes duplicate
+    # phantom entries alongside sid heartbeats and incorrectly collapses multiple users on the same Wi-Fi.
+    if not sid and path != "/api/ping":
+        return
+
+    if not sid:
         ip = get_client_ip(request)
         ua = request.headers.get("user-agent", "unknown")
-        identifier = hashlib.md5(f"{ip}-{ua}".encode()).hexdigest()
+        sid = hashlib.md5(f"{ip}-{ua}".encode()).hexdigest()
+
+    identifier = f"sid:{sid}"
 
     # If the user closes the tab/app, the frontend sends a leave beacon
     if request.query_params.get("leave") == "1":
         _active_users.pop(identifier, None)
         return
 
-    _active_users[identifier] = time.time()
-    
-    # Prevent unbounded memory growth from attacks
-    if len(_active_users) > MAX_TRACKED_USERS:
-        # Drop the oldest entries
-        sorted_ips = sorted(_active_users.items(), key=lambda x: x[1])
-        # Remove the oldest 1000
-        for k, _ in sorted_ips[:1000]:
-            _active_users.pop(k, None)
+    role = request.query_params.get("role") or "guest"
+    username = request.query_params.get("u") or ""
+    name = request.query_params.get("n") or ""
 
-def get_online_count() -> int:
-    now = time.time()
-    # Cleanup old entries and count
-    expired = [key for key, last_seen in _active_users.items() if now - last_seen > ACTIVE_WINDOW]
-    for key in expired:
-        del _active_users[key]
-    return len(_active_users)
+    # Verify authorization if staff role (admin/editor) is reported
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header.split(" ", 1)[1]
+        try:
+            from app.core.security import decode_token
+            payload = decode_token(token, expected_type="access")
+            verified_role = payload.get("role")
+            if verified_role:
+                role = verified_role
+        except Exception:
+            pass
+    elif role in ("admin", "editor"):
+        token_param = request.query_params.get("token")
+        if token_param:
+            try:
+                from app.core.security import decode_token
+                payload = decode_token(token_param, expected_type="access")
+                role = payload.get("role", "guest")
+            except Exception:
+                role = "guest"
+        else:
+            role = "guest"
+
+    _active_users[identifier] = {
+        "last_seen": time.time(),
+        "role": role,
+        "username": username,
+        "name": name,
+    }
+
+    # Prevent unbounded memory growth
+    if len(_active_users) > MAX_TRACKED_USERS:
+        sorted_users = sorted(
+            _active_users.items(),
+            key=lambda x: x[1]["last_seen"] if isinstance(x[1], dict) else x[1]
+        )
+        for k, _ in sorted_users[:1000]:
+            _active_users.pop(k, None)
 
 _metrics = {
     "total_requests": 0,
@@ -83,13 +113,79 @@ def set_active_jobs(count: int):
     _metrics["active_jobs"] = count
 
 def get_system_metrics() -> dict:
-    total = _metrics["total_requests"]
-    err_rate = (_metrics["error_count"] / total) if total > 0 else 0
-    avg_latency = (_metrics["total_latency_ms"] / total) if total > 0 else 0
+    now = time.time()
+
+    # Expire inactive sessions
+    expired = [
+        k for k, v in _active_users.items()
+        if (now - (v["last_seen"] if isinstance(v, dict) else v)) > ACTIVE_WINDOW
+    ]
+    for k in expired:
+        _active_users.pop(k, None)
+
+    # Group tabs by client_id to count distinct people/devices
+    clients: dict[str, dict] = {}
+    for k, v in _active_users.items():
+        sid = k.removeprefix("sid:")
+        client_id = sid.split("_")[0] if "_" in sid else sid
+
+        if not isinstance(v, dict):
+            entry = {"role": "guest", "username": "", "name": ""}
+        else:
+            entry = v
+
+        if client_id not in clients:
+            clients[client_id] = entry
+        else:
+            # Upgrade role if any active tab has elevated privileges
+            cur_role = clients[client_id].get("role", "guest")
+            new_role = entry.get("role", "guest")
+            if new_role == "admin" or (new_role == "editor" and cur_role != "admin"):
+                clients[client_id] = entry
+
+    total = len(clients)
+    guests = 0
+    admins = 0
+    editors = 0
+    staff: list[dict] = []
+
+    for c in clients.values():
+        role = c.get("role", "guest")
+        if role == "admin":
+            admins += 1
+            staff.append({
+                "role": "admin",
+                "username": c.get("username", ""),
+                "name": c.get("name", "") or c.get("username", "Адміністратор"),
+            })
+        elif role == "editor":
+            editors += 1
+            staff.append({
+                "role": "editor",
+                "username": c.get("username", ""),
+                "name": c.get("name", "") or c.get("username", "Редактор"),
+            })
+        else:
+            guests += 1
+
+    total_req = _metrics["total_requests"]
+    err_rate = (_metrics["error_count"] / total_req) if total_req > 0 else 0
+    avg_latency = (_metrics["total_latency_ms"] / total_req) if total_req > 0 else 0
+
     return {
-        "online": get_online_count(),
+        "online": total,
+        "online_details": {
+            "total": total,
+            "guests": guests,
+            "admins": admins,
+            "editors": editors,
+            "staff": staff,
+        },
         "error_rate": err_rate,
         "avg_latency_ms": avg_latency,
         "last_successful_import": _metrics["last_successful_import"],
-        "active_jobs": _metrics["active_jobs"]
+        "active_jobs": _metrics["active_jobs"],
     }
+
+def get_online_count() -> int:
+    return get_system_metrics()["online"]

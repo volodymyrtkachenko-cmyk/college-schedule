@@ -48,7 +48,7 @@ export function AdminNav({ active }: { active: string }) {
       }
     };
     fetchMetrics();
-    const interval = setInterval(fetchMetrics, 30_000);
+    const interval = setInterval(fetchMetrics, 5_000);
     document.addEventListener("visibilitychange", fetchMetrics);
     return () => {
       clearInterval(interval);
@@ -153,12 +153,60 @@ export function AdminNav({ active }: { active: string }) {
         )}
 
        <div className="mt-auto pt-8 flex flex-col gap-3">
-                      <div className="flex flex-col items-start gap-1.5 rounded-[10px] border border-emerald-500/10 bg-emerald-500/5 px-4 py-3 shadow-sm mb-3">
-              <span className="text-[10px] text-emerald-600/70 dark:text-emerald-400/70 font-bold uppercase tracking-widest">Відвідувачі</span>
-              <div className="flex items-center gap-2">
-                <span className="relative flex h-2 w-2 shrink-0"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span></span>
-                <span className="text-[13px] font-semibold text-emerald-600 dark:text-emerald-400">{online !== null ? online : "…"} зараз на сайті</span>
+                      <div className="flex flex-col items-start gap-2 rounded-[10px] border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 shadow-sm mb-3">
+              <div className="flex items-center justify-between w-full">
+                <span className="text-[10px] text-emerald-600/80 dark:text-emerald-400/80 font-bold uppercase tracking-wider">
+                  Онлайн зараз
+                </span>
+                <span className="relative flex h-2 w-2 shrink-0">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+                </span>
               </div>
+
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-xl font-black tracking-tight text-emerald-600 dark:text-emerald-400">
+                  {online !== null ? online : "…"}
+                </span>
+                <span className="text-xs text-sys-text-secondary font-medium">
+                  {online === 1 ? "користувач" : (online && online >= 2 && online <= 4 ? "користувачі" : "користувачів")}
+                </span>
+              </div>
+
+              {metrics?.online_details && (
+                <div className="flex flex-wrap gap-1.5 pt-1 w-full border-t border-emerald-500/10 text-[11px]">
+                  {metrics.online_details.guests > 0 && (
+                    <span className="inline-flex items-center gap-1 rounded bg-sys-bg/60 px-2 py-0.5 text-sys-text-secondary border border-sys-border/40 font-medium" title="Звичайні користувачі або студенти без авторизації">
+                      <span>👤</span>
+                      <span>{metrics.online_details.guests} {metrics.online_details.guests === 1 ? "гість/студент" : "студентів"}</span>
+                    </span>
+                  )}
+                  {metrics.online_details.admins > 0 && (
+                    <span className="inline-flex items-center gap-1 rounded bg-amber-500/10 px-2 py-0.5 text-amber-500 dark:text-amber-400 border border-amber-500/25 font-semibold" title={metrics.online_details.staff?.filter((s: any) => s.role === 'admin').map((s: any) => s.name || s.username).join(', ')}>
+                      <span>🛡️</span>
+                      <span>{metrics.online_details.admins} {metrics.online_details.admins === 1 ? "адмін" : "адмінів"}</span>
+                    </span>
+                  )}
+                  {metrics.online_details.editors > 0 && (
+                    <span className="inline-flex items-center gap-1 rounded bg-blue-500/10 px-2 py-0.5 text-blue-500 dark:text-blue-400 border border-blue-500/25 font-semibold" title={metrics.online_details.staff?.filter((s: any) => s.role === 'editor').map((s: any) => s.name || s.username).join(', ')}>
+                      <span>✏️</span>
+                      <span>{metrics.online_details.editors} {metrics.online_details.editors === 1 ? "редактор" : "редакторів"}</span>
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {metrics?.online_details?.staff?.length > 0 && (
+                <div className="flex flex-col gap-1 text-[11px] text-sys-text-secondary w-full pt-1">
+                  {metrics.online_details.staff.map((s: any, idx: number) => (
+                    <div key={idx} className="flex items-center gap-1.5 truncate text-emerald-600/90 dark:text-emerald-400/90">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 inline-block shrink-0"></span>
+                      <span className="font-semibold truncate">{s.name || s.username}</span>
+                      <span className="text-[10px] opacity-75 shrink-0">({s.role === "admin" ? "адмін" : "редактор"})</span>
+                    </div>
+                  ))}
+                </div>
+              )}
            </div>
 
            {metrics && (
