@@ -107,6 +107,13 @@ SUBJECT_RULES = [
     (["історі"], ["історі", "history"], []),
 ]
 
+BELL_END_MINUTES = {
+    1: 10 * 60 + 20,
+    2: 12 * 60 + 0,
+    3: 13 * 60 + 50,
+    4: 15 * 60 + 20,
+}
+
 
 def _norm(s: Optional[str]) -> str:
     if not s:
@@ -603,9 +610,17 @@ async def perform_course_sync(
     synced_tasks = 0
     synced_students = 0
 
-    today_kyiv = week_start or datetime.now(KYIV_TZ).date()
+    now_kyiv = datetime.now(KYIV_TZ)
+    today_real = now_kyiv.date()
+    current_monday = today_real - timedelta(days=today_real.weekday())
+
+    today_kyiv = week_start or today_real
     week_monday = today_kyiv - timedelta(days=today_kyiv.weekday())
     week_friday = week_monday + timedelta(days=4)
+
+    # Вікно збереження ДЗ: виключно ПОТОЧНИЙ і НАСТУПНИЙ тиждень (з минулих тижнів все очищається у Кроці 1)
+    tasks_window_start = min(current_monday, week_monday)
+    tasks_window_end = max(current_monday, week_monday) + timedelta(days=11)  # п'ятниця наступного тижня
 
     db_teachers = (await db.scalars(select(Teacher))).all()
 
@@ -641,11 +656,10 @@ async def perform_course_sync(
 
     await db.flush()
 
-    # КРОК 2: Завантажуємо розклад одразу на 3 тижні вперед (поточний + 2 наступні),
-    # щоб без N+1 запитів до БД знаходити НАСТУПНУ НАЙБЛИЖЧУ ПАРУ для дедлайнів!
+    # КРОК 2: Завантажуємо розклад на 2 тижні (поточний + наступний тиждень)
     horizon_lessons_by_date: dict[date, list] = {}
-    for w_offset in (0, 1, 2):
-        w_mon = week_monday + timedelta(days=w_offset * 7)
+    for w_offset in (0, 1):
+        w_mon = tasks_window_start + timedelta(days=w_offset * 7)
         _, w_by_day = await build_week_projection(db, w_mon, group_id=group.id)
         for weekday in range(1, 6):
             d = w_mon + timedelta(days=weekday - 1)
@@ -926,20 +940,33 @@ async def perform_course_sync(
 
             if not isinstance(cw_resp, Exception) and cw_resp.status_code == 200:
                 for cw in cw_resp.json().get("courseWork", []):
-                    due = cw.get("dueDate")
-                    if not due or not due.get("year") or not due.get("month") or not due.get("day"):
-                        continue
-                    try:
-                        due_date = date(int(due["year"]), int(due["month"]), int(due["day"]))
-                    except ValueError:
-                        continue
-
-                    if (today_kyiv - due_date).days > 3:
-                        continue
-
                     alt_link = (cw.get("alternateLink") or "").strip()
                     if not alt_link:
                         continue
+
+                    created_raw = cw.get("creationTime") or cw.get("updateTime")
+                    created_dt = (
+                        datetime.fromisoformat(created_raw.replace("Z", "+00:00")).astimezone(KYIV_TZ)
+                        if created_raw
+                        else now_kyiv
+                    )
+
+                    due = cw.get("dueDate")
+                    due_date: Optional[date] = None
+                    if due and due.get("year") and due.get("month") and due.get("day"):
+                        try:
+                            due_date = date(int(due["year"]), int(due["month"]), int(due["day"]))
+                        except ValueError:
+                            due_date = None
+
+                    if due_date is not None:
+                        # Відкидаємо завдання з минулих тижнів або далі ніж наступний тиждень
+                        if due_date < tasks_window_start or due_date > tasks_window_end:
+                            continue
+                    else:
+                        # Завдання БЕЗ строку здачі: беремо лише свіжі (не старіші 7 днів від публікації)
+                        if (today_real - created_dt.date()).days > 7:
+                            continue
 
                     creator_id = cw.get("creatorUserId", "")
                     if creator_id and creator_id not in teacher_tokens_by_uid:
@@ -964,11 +991,9 @@ async def perform_course_sync(
                     if creator_id and creator_id in teacher_tokens_by_uid:
                         task_author_tokens.extend(teacher_tokens_by_uid[creator_id])
 
-                    # Якщо курс вузький (1-2 вчителі), додаємо викладачів курсу
                     if len(course_teachers_tokens.get(course_id, [])) <= 2:
                         task_author_tokens.extend(course_teachers_tokens[course_id])
 
-                    # Витягуємо викладача з назви теми, якщо там є ПІБ (наприклад, "Філімончук", "Гончаров", "Філіппов", "Грабовчак")
                     for dbt in db_teachers:
                         clean_t_surname = _norm(dbt.name.split()[0])
                         if len(clean_t_surname) >= 3 and clean_t_surname in topic_norm:
@@ -981,6 +1006,7 @@ async def perform_course_sync(
 
                     raw_coursework_items.append({
                         "due_date": due_date,
+                        "created_dt": created_dt,
                         "alt_link": alt_link,
                         "title_norm": title_norm,
                         "topic_norm": topic_norm,
@@ -989,53 +1015,86 @@ async def perform_course_sync(
                         "author_tokens": task_author_tokens,
                     })
 
-    # КРОК 4: Прикріплюємо домашні завдання (точна дата дедлайну -> або наступна найближча пара)
-    sorted_horizon_dates = sorted(horizon_lessons_by_date.keys())
+    # КРОК 4: Прикріплюємо ДЗ (лише на поточний та наступний тиждень!)
+    sorted_horizon_dates = sorted(
+        d for d in horizon_lessons_by_date.keys()
+        if tasks_window_start <= d <= tasks_window_end
+    )
 
     for cw_item in raw_coursework_items:
-        due_date: date = cw_item["due_date"]
+        due_date: Optional[date] = cw_item["due_date"]
+        created_dt: datetime = cw_item["created_dt"]
         alt_link: str = cw_item["alt_link"]
         combined_cw_text = cw_item["combined_text"]
         author_tokens = cw_item["author_tokens"]
 
         target_date_for_task: Optional[date] = None
         target_lesson = None
+        is_shifted_deadline = False
 
-        # 1) Перевіряємо, чи є пара з цього предмета прямо у день дедлайну
-        if due_date in horizon_lessons_by_date:
-            exact_candidates = [
-                l for l in horizon_lessons_by_date[due_date]
-                if _matches_lesson(l, combined_cw_text, "", author_tokens)
-            ]
-            if exact_candidates:
-                target_lesson = exact_candidates[0]
-                target_date_for_task = due_date
+        if due_date is not None:
+            # 1) Якщо є дата здачі: шукаємо пару прямо в день дедлайну
+            if due_date in horizon_lessons_by_date:
+                exact_candidates = [
+                    l for l in horizon_lessons_by_date[due_date]
+                    if _matches_lesson(l, combined_cw_text, "", author_tokens)
+                ]
+                if exact_candidates:
+                    target_lesson = exact_candidates[0]
+                    target_date_for_task = due_date
 
-        # 2) Якщо на дату дедлайну пари немає — шукаємо НАСТУПНУ НАЙБЛИЖЧУ таку пару
-        if target_lesson is None:
+            # 2) Якщо на дату дедлайну пари немає — шукаємо НАСТУПНУ НАЙБЛИЖЧУ пару
+            if target_lesson is None:
+                for d_candidate in sorted_horizon_dates:
+                    if d_candidate <= due_date:
+                        continue
+                    next_candidates = [
+                        l for l in horizon_lessons_by_date[d_candidate]
+                        if _matches_lesson(l, combined_cw_text, "", author_tokens)
+                    ]
+                    if next_candidates:
+                        target_lesson = next_candidates[0]
+                        target_date_for_task = d_candidate
+                        is_shifted_deadline = True
+                        break
+        else:
+            # 3) Якщо завдання БЕЗ дати здачі — кріпимо ТІЛЬКИ на одну наступну найближчу пару після публікації (в межах 7 днів)
+            created_date = created_dt.date()
+            created_mins = created_dt.hour * 60 + created_dt.minute
+            max_no_due_date = min(tasks_window_end, created_date + timedelta(days=7))
+
             for d_candidate in sorted_horizon_dates:
-                if d_candidate <= due_date:
+                if d_candidate < created_date or d_candidate > max_no_due_date:
                     continue
-                next_candidates = [
+                day_matches = [
                     l for l in horizon_lessons_by_date[d_candidate]
                     if _matches_lesson(l, combined_cw_text, "", author_tokens)
                 ]
-                if next_candidates:
-                    target_lesson = next_candidates[0]
+                if not day_matches:
+                    continue
+
+                if d_candidate == created_date:
+                    after_creation = [
+                        l for l in day_matches
+                        if BELL_END_MINUTES.get(l.lesson_number, 15 * 60) > created_mins
+                    ]
+                    if after_creation:
+                        target_lesson = after_creation[0]
+                        target_date_for_task = d_candidate
+                        break
+                else:
+                    target_lesson = day_matches[0]
                     target_date_for_task = d_candidate
                     break
 
         if not target_lesson or not target_date_for_task:
             continue
 
-        # Викладач вказується ТІЛЬКИ якщо на парі двоє викладачів (підгрупи)
         teacher_badge = _resolve_matched_teacher_surname(target_lesson, author_tokens, combined_cw_text)
 
-        # Дата дедлайну додається ТІЛЬКИ якщо на дату дедлайну пари не було (перенесено на наступну пару)
-        is_shifted = target_date_for_task != due_date
         label_text = (
             f"ДЗ (до {due_date.strftime('%d.%m')})"
-            if is_shifted
+            if (due_date is not None and is_shifted_deadline)
             else "ДЗ"
         )
 
@@ -1151,23 +1210,25 @@ async def sync_from_classroom(
 
             courses = courses_resp.json().get("courses", [])
 
+        courses_by_group_id: dict[int, tuple[Group, dict]] = {}
+        for c in courses:
+            full_title = f"{c.get('name', '')} {c.get('section', '')} {c.get('descriptionHeading', '')}".strip()
+            g = _extract_group_from_course_name(full_title, all_groups)
+            if g and g.id not in courses_by_group_id:
+                courses_by_group_id[g.id] = (g, c)
+
         detected_group: Optional[Group] = None
         matched_course = None
 
-        if payload.group_id:
-            detected_group = next((g for g in all_groups if g.id == payload.group_id), None)
-
-        for c in courses:
-            full_title = f"{c.get('name', '')} {c.get('section', '')}".strip()
-            g = _extract_group_from_course_name(full_title, all_groups)
-            if g:
-                if detected_group is None:
-                    detected_group = g
-                    matched_course = c
-                    break
-                elif g.id == detected_group.id:
-                    matched_course = c
-                    break
+        if len(courses_by_group_id) == 1:
+            # У студента курси лише однієї групи -> ігноруємо чужу відкриту вкладку і беремо його реальну групу!
+            detected_group, matched_course = next(iter(courses_by_group_id.values()))
+        elif len(courses_by_group_id) > 1:
+            # У викладача курси кількох груп -> якщо відкрита вкладка є серед його курсів, синхронізуємо її
+            if payload.group_id and payload.group_id in courses_by_group_id:
+                detected_group, matched_course = courses_by_group_id[payload.group_id]
+            else:
+                detected_group, matched_course = next(iter(courses_by_group_id.values()))
 
         if not detected_group:
             raise HTTPException(

@@ -63,12 +63,16 @@ export function ClassroomSyncButton({
               week_start: weekStart,
             });
             invalidateScheduleCache();
+            const switchedGroup = currentGroupId !== null && currentGroupId !== res.group_id;
             onSynced(res.group_id);
             const parts = [`підтягнуто ${res.synced_links} онлайн-пар`];
             if (res.synced_tasks > 0) parts.push(`${res.synced_tasks} завдань`);
             if (res.synced_students > 0) parts.push(`${res.synced_students} студентів`);
+            const prefix = switchedGroup
+              ? `Перемкнуто на вашу групу ${res.group_name}`
+              : `Група ${res.group_name}`;
             showToast(
-              `Група ${res.group_name}: ${parts.join(", ")} із Classroom!`,
+              `${prefix}: ${parts.join(", ")} із Classroom!`,
               "success"
             );
           } catch (err) {
