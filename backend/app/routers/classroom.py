@@ -47,8 +47,15 @@ DATE_TEXT_RE = re.compile(
     re.IGNORECASE,
 )
 TIME_AMPM_RE = re.compile(r"(?<!\d)(\d{1,2})[:.](\d{2})\s*(AM|PM)\b", re.IGNORECASE)
-TIME_PREFIX_RE = re.compile(r"(?:\bо\s+|\bоб\s+|\bв\s+|\bна\s+|\bчас\s*[:\-]?\s*)(\d{1,2})[:.\-](\d{2})(?!\d)", re.IGNORECASE)
+TIME_PREFIX_RE = re.compile(
+    r"(?:\bо\s+|\bоб\s+|\bв\s+|\bна\s+|\bчас\s*[:\-]?\s*)(\d{1,2})[:.\-](\d{2})(?!\d)",
+    re.IGNORECASE,
+)
 TIME_COLON_RE = re.compile(r"(?<![.\d])(\d{1,2}):(\d{2})(?![.\d])")
+LESSON_NUM_RE = re.compile(
+    r"\b([1-4])(?:\s*[-–]?\s*(?:а|ша|га|тя|та|у|шу|гу|тю|ту|ій|тій))?\s+пар[ауиіою]\b",
+    re.IGNORECASE,
+)
 
 UKR_MONTHS = {
     "січ": 1, "лют": 2, "бер": 3, "кві": 4, "тра": 5, "чер": 6,
@@ -58,23 +65,45 @@ UKR_MONTHS = {
 UKR_ALPHABET = "абвгґдеєжзиіїйклмнопрстуфхцчшщьюя"
 UKR_ORDER = {ch: i for i, ch in enumerate(UKR_ALPHABET)}
 
+COMMON_FIRST_NAMES = {
+    "олександр", "максим", "артем", "дмитро", "владислав", "андрій", "данило", "іван",
+    "кирило", "микита", "богдан", "денис", "євген", "євгеній", "ілля", "роман", "володимир",
+    "павло", "руслан", "віталій", "ігор", "олесь", "олег", "сергій", "юрій", "ярослав",
+    "тимофій", "матвій", "назар", "захар", "глеб", "гліб", "вадим", "костянтин", "микола",
+    "михайло", "антон", "арсен", "арсеній", "віктор", "василь", "георгій", "давид", "марк",
+    "ростислав", "святослав", "станіслав", "степан", "тараc", "тарас", "федір", "вадим",
+    "анна", "ганна", "софія", "марія", "вікторія", "дар'я", "дарія", "анастасія", "векторія",
+    "катерина", "аліна", "поліна", "юлія", "ольга", "олена", "наталія", "ірина", "тетяна",
+    "ксенія", "оксана", "діана", "валерія", "вероніка", "єлизавета", "мілана", "каріна",
+    "кристина", "христина", "ярослава", "уляна", "соломія", "маргарита", "інна", "галина",
+}
+
 
 def extract_surname(name: str) -> str:
-    """Витягує прізвище студента з повного імені ('Ім'я Прізвище' або 'Прізвище Ім'я По-батькові')."""
-    parts = (name or "").strip().split()
+    """Витягує прізвище з ПІБ ('Ім'я Прізвище' або 'Прізвище Ім'я По-батькові')."""
+    parts = [p.strip() for p in (name or "").strip().split() if p.strip()]
     if len(parts) <= 1:
         return name or ""
-    last = parts[-1].lower()
-    if last.endswith(("ович", "івна", "евич", "євич", "овна", "евна")):
+
+    # Якщо 3 слова і останнє по-батькові — перше слово завжди прізвище
+    last_low = _norm(parts[-1])
+    if last_low.endswith(("ович", "івна", "евич", "євич", "овна", "евна", "ічна")):
+        return parts[0]
+
+    first_low = _norm(parts[0])
+    # Якщо перше слово є в словнику типових імен, то прізвище — останнє слово
+    if first_low in COMMON_FIRST_NAMES and last_low not in COMMON_FIRST_NAMES:
+        return parts[-1]
+    if last_low in COMMON_FIRST_NAMES and first_low not in COMMON_FIRST_NAMES:
         return parts[0]
 
     def is_surname_like(w: str) -> bool:
-        lw = w.lower()
+        lw = _norm(w)
         return lw.endswith((
-            "ко", "ук", "юк", "ак", "як", "ич", "іч",
-            "ський", "ська", "цький", "цька",
-            "ов", "ова", "єв", "єва", "ін", "іна",
-            "ець", "єць", "ий", "ій"
+            "ко", "ук", "юк", "чук", "ак", "як", "ич", "іч",
+            "ський", "ська", "цький", "цька", "зький", "зька",
+            "ов", "ова", "єв", "єва", "ев", "ева", "ін", "іна", "їн", "їна",
+            "ець", "єць", "ий", "ій", "ник", "чук", "ша", "ча", "га",
         ))
 
     first_like = is_surname_like(parts[0])
@@ -87,10 +116,10 @@ def extract_surname(name: str) -> str:
 
 
 def ukr_sort_key(name: str) -> list[int]:
-    """Формує ключ для коректного українського сортування ЗА ПРІЗВИЩЕМ (А-Я, І, Ї, Є, Ґ)."""
+    """Формує ключ для коректного українського сортування за прізвищем."""
     surname = extract_surname(name)
-    surname_key = [UKR_ORDER.get(ch, 1000 + ord(ch)) for ch in surname.lower().strip()]
-    full_key = [UKR_ORDER.get(ch, 1000 + ord(ch)) for ch in (name or "").lower().strip()]
+    surname_key = [UKR_ORDER.get(ch, 1000 + ord(ch)) for ch in _norm(surname)]
+    full_key = [UKR_ORDER.get(ch, 1000 + ord(ch)) for ch in _norm(name)]
     return surname_key + [0] + full_key
 
 
@@ -102,7 +131,7 @@ class ClassroomSyncRequest(BaseModel):
 
 
 async def ensure_known_online_links(db: AsyncSession) -> None:
-    """Порожня заглушка для сумісності імпортів — жодного автозаповнення без постів."""
+    """Порожня заглушка для зворотної сумісності імпортів."""
     return None
 
 
@@ -156,6 +185,7 @@ def _parse_announcement(text: str, created_dt: datetime, materials: Optional[lis
     zoom_id = re.sub(r"[\s\-\u00a0]", "", zoom_id_match.group(1)) if zoom_id_match else None
     zoom_pass = zoom_pass_match.group(1).rstrip(".,;!") if zoom_pass_match else None
 
+    # Автоматично вшиваємо пароль прямо в Zoom-посилання, щоб вхід був у 1 клік без зайвих бейджів
     if not url and zoom_id:
         url = f"https://zoom.us/j/{zoom_id}"
         if zoom_pass:
@@ -170,7 +200,7 @@ def _parse_announcement(text: str, created_dt: datetime, materials: Optional[lis
     text_norm = _norm(text)
     target_date: Optional[date] = None
 
-    # 1. Пріоритет: дати з явним роком (наприклад 14.10.2026 чи 16.10.2026)
+    # 1. Дати з явним роком (напр. 15.10.2026)
     for dm in DATE_RE.finditer(text):
         day_s, month_s, year_s = dm.groups()
         d_i, m_i = int(day_s), int(month_s)
@@ -184,7 +214,7 @@ def _parse_announcement(text: str, created_dt: datetime, materials: Optional[lis
             except ValueError:
                 continue
 
-    # 2. Текстові дати (наприклад "16 жовтня")
+    # 2. Текстові дати (напр. "16 жовтня")
     if target_date is None:
         tdm = DATE_TEXT_RE.search(text_norm)
         if tdm:
@@ -196,10 +226,10 @@ def _parse_announcement(text: str, created_dt: datetime, materials: Optional[lis
                 except ValueError:
                     pass
 
-    # 3. Числові дати без року (наприклад 12.10 або 16.10)
+    # 3. Числові дати без року (напр. 13.10)
     if target_date is None:
         for dm in DATE_RE.finditer(text):
-            day_s, month_s, year_s = dm.groups()
+            day_s, month_s, _ = dm.groups()
             d_i, m_i = int(day_s), int(month_s)
             if 1 <= d_i <= 31 and 1 <= m_i <= 12 and abs(m_i - created_dt.month) <= 1:
                 try:
@@ -208,7 +238,7 @@ def _parse_announcement(text: str, created_dt: datetime, materials: Optional[lis
                 except ValueError:
                     continue
 
-    # 4. Відносні дати ("завтра", "сьогодні", або час створення)
+    # 4. Відносні дати ("завтра", "сьогодні", або вечірній пост після 16:00)
     if target_date is None:
         if "завтра" in text_norm:
             target_date = created_dt.date() + timedelta(days=1)
@@ -221,7 +251,6 @@ def _parse_announcement(text: str, created_dt: datetime, materials: Optional[lis
 
     lesson_number: Optional[int] = None
 
-    # Час формату 09.00 AM / 10:40 AM
     for tm in TIME_AMPM_RE.finditer(text):
         h, mins, ampm = int(tm.group(1)), int(tm.group(2)), tm.group(3).upper()
         if ampm == "PM" and h < 12:
@@ -233,7 +262,6 @@ def _parse_announcement(text: str, created_dt: datetime, materials: Optional[lis
             if lesson_number is not None:
                 break
 
-    # Час з прийменником (о 10:40, на 09:00, о 12-30, час: 09:00)
     if lesson_number is None:
         for tm in TIME_PREFIX_RE.finditer(text_norm):
             h, mins = int(tm.group(1)), int(tm.group(2))
@@ -242,7 +270,6 @@ def _parse_announcement(text: str, created_dt: datetime, materials: Optional[lis
                 if lesson_number is not None:
                     break
 
-    # Будь-який інший час через двокрапку (10:40)
     if lesson_number is None:
         for tm in TIME_COLON_RE.finditer(text_norm):
             h, mins = int(tm.group(1)), int(tm.group(2))
@@ -250,6 +277,11 @@ def _parse_announcement(text: str, created_dt: datetime, materials: Optional[lis
                 lesson_number = _time_to_lesson_number(h, mins)
                 if lesson_number is not None:
                     break
+
+    if lesson_number is None:
+        lm = LESSON_NUM_RE.search(text_norm)
+        if lm:
+            lesson_number = int(lm.group(1))
 
     return {
         "url": url,
@@ -342,7 +374,7 @@ async def _save_link_to_slot(
             if l_str.startswith("[TASK]"):
                 kept_lines.append(l_str)
             elif URL_RE.search(l_str):
-                if matched_prefix and not l_str.startswith(matched_prefix):
+                if matched_prefix and not l_str.lower().startswith(matched_prefix.lower()):
                     kept_lines.append(l_str)
             else:
                 kept_lines.append(l_str)
@@ -515,35 +547,33 @@ async def perform_course_sync(
 
     db_teachers = (await db.scalars(select(Teacher))).all()
 
-    # КРОК 1: Очищаємо старі авто-посилання Meet/Zoom поточного тижня, але ЗБЕРІГАЄМО ручні нотатки та [TASK]
+    # КРОК 1: Очищаємо старі авто-посилання та старі [TASK] на ВСІХ тижнях групи,
+    # щоб на минулих і майбутніх (офлайн) тижнях не висіли клоновані кнопки Meet/Zoom,
+    # але ЗБЕРІГАЄМО всі ручні текстові нотатки студентів!
     all_group_notes = (
         await db.scalars(
             select(LessonOccurrenceNote).where(
                 LessonOccurrenceNote.group_id == group.id,
-                LessonOccurrenceNote.note_date >= week_monday,
-                LessonOccurrenceNote.note_date <= week_friday,
                 LessonOccurrenceNote.archived.is_(False),
             )
         )
     ).all()
 
     for gn in all_group_notes:
-        user_and_tasks = [
+        manual_lines = [
             line.strip()
             for line in gn.note.split("\n")
             if line.strip()
-            and (
-                line.strip().startswith("[TASK]")
-                or (
-                    not URL_RE.search(line)
-                    and not re.search(r"(?:Код|ID|Passcode|Пароль)\s*:", line, re.IGNORECASE)
-                )
-            )
+            and not line.strip().startswith("[TASK]")
+            and not URL_RE.search(line)
+            and not re.search(r"(?:Код|ID|Passcode|Пароль)\s*:", line, re.IGNORECASE)
         ]
-        if user_and_tasks:
-            gn.note = "\n".join(user_and_tasks)
-            gn.revision += 1
-            gn.updated_at = datetime.now(timezone.utc)
+        if manual_lines:
+            new_text = "\n".join(manual_lines)
+            if gn.note != new_text:
+                gn.note = new_text
+                gn.revision += 1
+                gn.updated_at = datetime.now(timezone.utc)
         else:
             gn.archived = True
             gn.revision += 1
@@ -551,7 +581,7 @@ async def perform_course_sync(
 
     await db.flush()
 
-    # Завантажуємо розклад поточного тижня
+    # Завантажуємо розклад цільового тижня одним пакетним запитом
     _, lessons_by_day = await build_week_projection(
         db, week_monday, group_id=group.id
     )
@@ -560,36 +590,38 @@ async def perform_course_sync(
         d = week_monday + timedelta(days=weekday - 1)
         week_days_lessons[d] = [
             l for l in lessons_by_day.get(weekday, [])
-            if getattr(l, "subject_id", None) and (1 <= getattr(l, "lesson_number", 0) <= 4)
+            if getattr(l, "subject_id", None)
+            and (1 <= getattr(l, "lesson_number", 0) <= 4)
+            and not getattr(l, "is_cancelled", False)
         ]
 
     parsed_announcements: list[dict] = []
     teacher_tokens_by_uid: dict[str, list[str]] = {}
 
     async with httpx.AsyncClient(timeout=15.0) as client:
-        # Визначаємо курси, які належать цій групі для отримання повного списку студентів
         all_active_groups = (await db.scalars(select(Group).where(Group.is_active.is_(True)))).all()
         target_group_courses = []
+        relevant_courses = []
+
         for c in courses:
             full_title = f"{c.get('name', '')} {c.get('section', '')} {c.get('descriptionHeading', '')}".strip()
             matched_other = _extract_group_from_course_name(full_title, all_active_groups)
             if matched_other:
                 if matched_other.id == group.id:
                     target_group_courses.append(c)
-            elif group_course_id and c.get("id") == group_course_id:
-                target_group_courses.append(c)
-
-        if not target_group_courses:
-            for c in courses:
-                full_title = f"{c.get('name', '')} {c.get('section', '')}".strip()
-                g = _extract_group_from_course_name(full_title, [group])
-                if g and g.id == group.id:
+                    relevant_courses.append(c)
+                # Курси ІНШИХ груп пропускаємо, щоб не тягнути чужі посилання і не витрачати квоту API
+            else:
+                relevant_courses.append(c)
+                if group_course_id and c.get("id") == group_course_id:
                     target_group_courses.append(c)
-                    break
+
         if not target_group_courses and courses:
             target_group_courses = [courses[0]]
+        if not relevant_courses:
+            relevant_courses = target_group_courses
 
-        # 1. Синхронізація списку студентів з усіх курсів групи (підгрупи, дисципліни)
+        # 1. Синхронізація списку студентів із курсів цієї групи
         students_by_user_id: dict[str, dict] = {}
         for gc in target_group_courses:
             c_id = gc.get("id")
@@ -613,7 +645,7 @@ async def perform_course_sync(
                         uid = (s_item.get("userId") or "").strip()
                         prof = s_item.get("profile", {})
                         s_name = prof.get("name", {}).get("fullName", "").strip()
-                        if not s_name:
+                        if not s_name or not uid:
                             continue
                         photo = prof.get("photoUrl")
                         if photo and photo.startswith("//"):
@@ -639,27 +671,27 @@ async def perform_course_sync(
             except Exception as e:
                 logger.warning(f"Could not sync students for course {c_id}: {e}")
 
-        # Спроба знайти одногрупників через Google People Directory API (@kre.dp.ua)
+        # Пошук одногрупників через Google People Directory API (@kre.dp.ua)
         try:
             search_queries = [group.name]
-            clean_digits = re.findall(r"\d+", group.name)
-            if clean_digits and clean_digits[-1] not in search_queries:
-                search_queries.append(clean_digits[-1])
+            for gc in target_group_courses:
+                c_name = (gc.get("name") or "").strip()
+                if c_name and c_name not in search_queries:
+                    search_queries.append(c_name)
 
-            for sq in search_queries:
+            for sq in search_queries[:2]:
                 people_resp = await client.get(
                     "https://people.googleapis.com/v1/people:searchDirectoryPeople",
                     params={
                         "query": sq,
-                        "readMask": "names,emailAddresses,photos",
+                        "readMask": "names,emailAddresses,photos,organizations",
                         "sources": ["DIRECTORY_SOURCE_TYPE_DOMAIN_PROFILE"],
-                        "pageSize": 50,
+                        "pageSize": 100,
                     },
                     headers=headers,
                 )
                 if people_resp.status_code == 200:
-                    people_data = people_resp.json()
-                    for person in people_data.get("people", []):
+                    for person in people_resp.json().get("people", []):
                         names = person.get("names", [])
                         full_name = names[0].get("displayName", "").strip() if names else ""
                         emails = person.get("emailAddresses", [])
@@ -670,32 +702,18 @@ async def perform_course_sync(
                         if not full_name:
                             continue
 
-                        is_group_match = False
-                        if email and group.name.lower() in email.lower():
-                            is_group_match = True
-                        elif email and clean_digits and any(f"-{d}@" in email.lower() or f".{d}@" in email.lower() or f"_{d}@" in email.lower() for d in clean_digits):
-                            is_group_match = True
-                        elif sq == group.name:
-                            is_group_match = True
-
-                        if is_group_match:
-                            p_uid = f"dir_{abs(hash(email or full_name)) % (10**12)}"
-                            if p_uid not in students_by_user_id:
-                                students_by_user_id[p_uid] = {
-                                    "classroom_user_id": p_uid[:64],
-                                    "full_name": full_name[:150],
-                                    "email": email[:150] or None,
-                                    "photo_url": photo[:500] if photo else None,
-                                }
-                            else:
-                                if not students_by_user_id[p_uid]["email"] and email:
-                                    students_by_user_id[p_uid]["email"] = email[:150]
-                                if not students_by_user_id[p_uid]["photo_url"] and photo:
-                                    students_by_user_id[p_uid]["photo_url"] = photo[:500]
+                        p_uid = f"dir_{abs(hash(email or full_name)) % (10**12)}"
+                        if p_uid not in students_by_user_id:
+                            students_by_user_id[p_uid] = {
+                                "classroom_user_id": p_uid[:64],
+                                "full_name": full_name[:150],
+                                "email": email[:150] or None,
+                                "photo_url": photo[:500] if photo else None,
+                            }
         except Exception as e:
             logger.warning(f"People API directory search skipped: {e}")
 
-        # UPSERT замість DELETE: не затираємо вже наявних у базі студентів групи!
+        # UPSERT замість DELETE: накопичуємо склад групи без затирання
         existing_students = (
             await db.scalars(
                 select(GroupStudent).where(GroupStudent.group_id == group.id)
@@ -728,8 +746,8 @@ async def perform_course_sync(
                 synced_students += 1
         await db.flush()
 
-        # 2. Скануємо всі курси викладачів
-        for course in courses:
+        # 2. Скануємо релевантні курси цієї групи (обмежуємо до 10 для економії квот Google API)
+        for course in relevant_courses[:10]:
             course_id = course["id"]
             course_title = f"{course.get('name', '')} {course.get('section', '')}".strip()
             course_title_norm = _norm(course_title)
@@ -770,7 +788,7 @@ async def perform_course_sync(
             try:
                 ann_resp = await client.get(
                     f"https://classroom.googleapis.com/v1/courses/{course_id}/announcements",
-                    params={"pageSize": 40},
+                    params={"pageSize": 25},
                     headers=headers,
                 )
                 if ann_resp.status_code == 200:
@@ -789,8 +807,19 @@ async def perform_course_sync(
                         if not parsed:
                             continue
 
-                        parsed["course_title_norm"] = course_title_norm
                         creator_id = ann.get("creatorUserId", "")
+                        if creator_id and creator_id not in teacher_tokens_by_uid:
+                            prof_resp = await client.get(
+                                f"https://classroom.googleapis.com/v1/courses/{course_id}/teachers/{creator_id}",
+                                headers=headers,
+                            )
+                            if prof_resp.status_code == 200:
+                                fn = _norm(prof_resp.json().get("profile", {}).get("name", {}).get("fullName", ""))
+                                teacher_tokens_by_uid[creator_id] = [w for w in fn.split() if len(w) >= 3]
+                            else:
+                                teacher_tokens_by_uid[creator_id] = []
+
+                        parsed["course_title_norm"] = course_title_norm
                         parsed["author_tokens"] = teacher_tokens_by_uid.get(creator_id, [])
                         parsed_announcements.append(parsed)
             except Exception as e:
@@ -800,13 +829,12 @@ async def perform_course_sync(
             try:
                 cw_resp = await client.get(
                     f"https://classroom.googleapis.com/v1/courses/{course_id}/courseWork",
-                    params={"pageSize": 30},
+                    params={"pageSize": 25},
                     headers=headers,
                 )
                 if cw_resp.status_code == 200:
                     for cw in cw_resp.json().get("courseWork", []):
                         due = cw.get("dueDate")
-                        # ЖОРСТКА УМОВА: якщо дати здачі немає — пропускаємо!
                         if not due or not due.get("year") or not due.get("month") or not due.get("day"):
                             continue
 
@@ -815,7 +843,6 @@ async def perform_course_sync(
                         except ValueError:
                             continue
 
-                        # Не додаємо дедлайни, які вже минули більше ніж 3 дні тому
                         if (datetime.now(KYIV_TZ).date() - due_date).days > 3:
                             continue
 
@@ -824,21 +851,28 @@ async def perform_course_sync(
                         if not alt_link:
                             continue
 
-                        _, day_lessons = await build_projection(db, due_date, group_id=group.id)
+                        # Використовуємо кеш поточного тижня або викликаємо build_projection (повертає list)
+                        if due_date in week_days_lessons:
+                            day_lessons = week_days_lessons[due_date]
+                        else:
+                            day_lessons = await build_projection(db, due_date, group_id=group.id)
+
                         if not day_lessons:
                             continue
 
                         valid_lessons = [
                             l for l in day_lessons
-                            if getattr(l, "subject_id", None) and (1 <= getattr(l, "lesson_number", 0) <= 4) and not getattr(l, "is_cancelled", False)
+                            if getattr(l, "subject_id", None)
+                            and (1 <= getattr(l, "lesson_number", 0) <= 4)
+                            and not getattr(l, "is_cancelled", False)
                         ]
                         if not valid_lessons:
                             continue
 
-                        author_tokens = teacher_tokens_by_uid.get(cw.get("creatorUserId", ""), [])
+                        creator_id = cw.get("creatorUserId", "")
+                        author_tokens = teacher_tokens_by_uid.get(creator_id, [])
                         target_lesson = None
 
-                        # Шукаємо пару з цим викладачем або предметом у день здачі
                         for l in valid_lessons:
                             t_norm = _norm(l.teacher_name)
                             s_norm = _norm(l.subject_name)
@@ -852,7 +886,6 @@ async def perform_course_sync(
                                 target_lesson = l
                                 break
 
-                        # Якщо в день дедлайну немає пари з цього предмета — кріпимо до першої валідної пари цього дня
                         if not target_lesson:
                             target_lesson = valid_lessons[0]
 
@@ -870,7 +903,7 @@ async def perform_course_sync(
             except Exception as e:
                 logger.warning(f"Could not fetch courseWork for course {course_id}: {e}")
 
-    # КРОК 5: Ставимо розпізнані посилання Meet / Zoom на відповідні пари поточного тижня
+    # КРОК 5: Ставимо розпізнані посилання Meet / Zoom СТРОГО на відповідні пари поточного тижня
     parsed_announcements.sort(key=lambda x: x["created_dt"])
     for pa in parsed_announcements:
         target_date: date = pa["target_date"]
@@ -933,7 +966,6 @@ async def sync_from_classroom(
         access_token = payload.access_token
         refresh_token = None
 
-        # Якщо передано authorization code (для постійного фонового синку)
         if payload.code and settings.google_client_id and settings.google_client_secret:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 token_resp = await client.post(
@@ -992,7 +1024,6 @@ async def sync_from_classroom(
                 detail="Не знайдено курс вашої групи у Classroom (наприклад, КІ-24-2/9-85).",
             )
 
-        # Зберігаємо прив'язку курсу для автоматичного фонового оновлення всієї групи
         binding = await db.scalar(
             select(ClassroomGroupBinding).where(ClassroomGroupBinding.group_id == detected_group.id)
         )
@@ -1050,7 +1081,7 @@ async def sync_from_classroom(
 
 
 async def trigger_background_sync_if_needed(db: AsyncSession, group_id: Optional[int]) -> None:
-    """Автоматично оновлює дані з Classroom у фоні (не частіше ніж раз на 5 хв), якщо група підключена."""
+    """Автоматично оновлює дані з Classroom у фоні (не частіше ніж раз на 15 хв для економії квот Google API)."""
     if not group_id:
         return
     try:
@@ -1064,7 +1095,7 @@ async def trigger_background_sync_if_needed(db: AsyncSession, group_id: Optional
             return
 
         now = datetime.now(timezone.utc)
-        if binding.last_synced_at and (now - binding.last_synced_at).total_seconds() < 300:
+        if binding.last_synced_at and (now - binding.last_synced_at).total_seconds() < 900:
             return
 
         token = binding.access_token
@@ -1085,7 +1116,7 @@ async def trigger_background_sync_if_needed(db: AsyncSession, group_id: Optional
         async with httpx.AsyncClient(timeout=15.0) as client:
             courses_resp = await client.get(
                 "https://classroom.googleapis.com/v1/courses",
-                params={"courseStates": "ACTIVE", "pageSize": 30},
+                params={"courseStates": "ACTIVE", "pageSize": 25},
                 headers=headers,
             )
             if courses_resp.status_code != 200:
@@ -1114,8 +1145,7 @@ async def get_group_students(
 ):
     students = (
         await db.scalars(
-            select(GroupStudent)
-            .where(GroupStudent.group_id == group_id)
+            select(GroupStudent).where(GroupStudent.group_id == group_id)
         )
     ).all()
     students = sorted(students, key=lambda s: ukr_sort_key(s.full_name))
@@ -1157,7 +1187,6 @@ async def bulk_import_group_students(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_roles("admin", "editor")),
 ):
-    """Дозволяє за 1 секунду вставити скопійований список студентів зі сторінки 'Пользователи' у Classroom або відомості."""
     group = await db.get(Group, group_id)
     if not group:
         raise HTTPException(status_code=404, detail="Групу не знайдено")

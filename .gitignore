@@ -60,6 +60,7 @@ frontend/public/sw.js
 frontend/public/workbox-*.js
 frontend/public/fallback-*.js
 important_files.txt
+important_files_part*.txt
 frontend_components.txt
 
 

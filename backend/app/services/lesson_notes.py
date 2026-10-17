@@ -79,6 +79,14 @@ async def archive_note(db, row, event, actor_id):
     await snapshot_revision(db, row, event, actor_id)
 
 
+import re
+
+_AUTO_LINE_RE = re.compile(
+    r"https?://(?:meet\.google\.com|[a-z0-9.-]*zoom\.us)/[^\s<>\"')|]+",
+    re.IGNORECASE,
+)
+
+
 async def write_note(db, user, group_id, note_date, lesson_number, payload):
     await authorize_group(db, user, group_id)
     item = await occurrence(db, group_id, note_date, lesson_number)
@@ -98,12 +106,23 @@ async def write_note(db, user, group_id, note_date, lesson_number, payload):
             group_id=group_id, note_date=note_date, lesson_number=lesson_number,
             subject_id=item.subject_id, subject_name=item.subject.name,
             note=payload.note, revision=1, archived=False,
-            origin_kind='imported' if item.source_kind == 'import' else 'period' if item.source_kind == 'practice' else 'schedule', origin_id=item.source_ref_id, created_by=user.id, updated_by=user.id,
+            origin_kind='imported' if item.source_kind == 'import' else 'period' if item.source_kind == 'practice' else 'schedule',
+            origin_id=item.source_ref_id or 0, created_by=user.id, updated_by=user.id,
         )
         db.add(current)
         event = "created"
     else:
-        current.note = payload.note
+        # Зберігаємо існуючі авто-посилання Classroom та [TASK], якщо редактор редагував лише текстову примітку
+        preserved_auto = [
+            line.strip()
+            for line in current.note.split("\n")
+            if line.strip() and (
+                line.strip().startswith("[TASK]")
+                or (_AUTO_LINE_RE.search(line) and not _AUTO_LINE_RE.search(payload.note))
+            )
+        ]
+        combined_note = "\n".join(preserved_auto + [payload.note.strip()]).strip()
+        current.note = combined_note[:10000]
         current.revision += 1
         current.updated_by = user.id
         current.updated_at = utcnow()

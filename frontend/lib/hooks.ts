@@ -218,7 +218,7 @@ export function useSchedule(weekAnchorDate: Date, includeCancelled = false) {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("schedule:refresh", handleScheduleRefresh);
     };
-  }, [mode, groupId, teacherId, weekAnchorDate]);
+  }, [mode, groupId, teacherId, weekAnchorDate, includeCancelled]);
 
   useEffect(() => {
     let active = true;

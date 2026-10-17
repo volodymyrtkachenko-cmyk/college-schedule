@@ -1,7 +1,7 @@
 from collections import defaultdict
 from datetime import date, timedelta
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 
@@ -14,6 +14,7 @@ from app.models import (
     ImportedScheduleChange,
     Teacher,
 )
+from app.models.lesson_notes import LessonOccurrenceNote
 from app.services.week import get_week_type
 
 
@@ -34,6 +35,20 @@ async def group_statistics(
         db, semester_start, through_date, group_id=group.id
     )
 
+    notes_rows = (
+        await db.execute(
+            select(LessonOccurrenceNote.subject_id, func.count(LessonOccurrenceNote.id))
+            .where(
+                LessonOccurrenceNote.group_id == group.id,
+                LessonOccurrenceNote.archived.is_(False),
+                LessonOccurrenceNote.note_date >= semester_start,
+                LessonOccurrenceNote.note_date <= through_date,
+            )
+            .group_by(LessonOccurrenceNote.subject_id)
+        )
+    ).all()
+    notes_by_subject = {subj_id: cnt for subj_id, cnt in notes_rows}
+
     planned_by_subject: dict[int, int] = defaultdict(int)
     names = {item.subject_id: item.subject.name for item in curricula}
     for item in curricula:
@@ -51,7 +66,7 @@ async def group_statistics(
                 if planned_by_subject.get(subject_id, 0) > 0
                 else None
             ),
-            "notes_count": scheduled.get(subject_id, {}).get("notes_count", 0),
+            "notes_count": notes_by_subject.get(subject_id, 0),
             "cancelled_count": scheduled.get(subject_id, {}).get("cancelled_count", 0),
             "replaced_count": scheduled.get(subject_id, {}).get("replaced_count", 0),
         }

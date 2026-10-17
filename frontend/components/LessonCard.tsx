@@ -130,12 +130,12 @@ export function getVisibleUserNote(note?: string | null): string {
     .split("\n")
     .map((line) => {
       if (line.trim().startsWith("[TASK]")) return "";
-      // Прибираємо технічні сегменти, які вже показані кнопками Meet / Zoom / Код
+      // ВАЖЛИВО: без \b перед кирилицею, бо в JS \b працює лише для латиниці!
       const cleaned = line
         .replace(/https?:\/\/(?:meet\.google\.com|[a-z0-9.-]*zoom\.us)\/[^\s|]+/gi, "")
-        .replace(/\b(?:Ідентифікатор(?:\s+конференції)?|Meeting\s*ID|ID)\s*[:\-]?\s*[\d\s\-]+/gi, "")
-        .replace(/\b(?:Код(?:\s+доступу)?|Passcode|Пароль)\s*[:\-]?\s*[A-Za-z0-9_.\-]+/gi, "")
-        .replace(/^(?:Токарєв[а-яА-Я.]*|Хочинськ[а-яА-Я.]*|Токарев[а-яА-Я.]*|Хочинск[а-яА-Я.]*|[1-9]\s*підгрупа|підгрупа\s*[1-9]|викладач)\s*[:\-]?\s*$/gi, "")
+        .replace(/(?:Ідентифікатор(?:\s+конференції)?|Meeting\s*ID|ID)\s*[:\-]?\s*[\d\s\-]+/gi, "")
+        .replace(/(?:Код(?:\s+доступ[уа])?|Passcode|Пароль)\s*[:\-]?\s*[A-Za-zА-Яа-яІіЇїЄєҐґ0-9_.\-]+/gi, "")
+        .replace(/^(?:Токарєв[а-яА-ЯіїєґІЇЄҐ.]*|Хочинськ[а-яА-ЯіїєґІЇЄҐ.]*|Токарев[а-яА-Я.]*|Хочинск[а-яА-Я.]*|[1-9]\s*підгрупа|підгрупа\s*[1-9]|викладач)\s*[:\-]?\s*$/gi, "")
         .replace(/^(?:Zoom|Meet|Google Meet|Підключитися|Приєднатися|Конференція)(?:\s+Zoom|\s+Meet)?\s*[:\-]?$/gi, "")
         .replace(/^[-—_|~*=]{1,5}$/g, "")
         .replace(/\|/g, " ")
@@ -148,29 +148,8 @@ export function getVisibleUserNote(note?: string | null): string {
 }
 
 export function extractOnlineMeetingInfo(note?: string | null, room?: string | null) {
-  const lines = `${room || ""}\n${note || ""}`.split("\n");
-
-  for (const line of lines) {
-    const urlMatch = line.match(
-      /https?:\/\/(?:meet\.google\.com|[a-z0-9.-]*zoom\.us)\/[^\s<>"')|]+/i
-    );
-    if (!urlMatch) continue;
-
-    const url = urlMatch[0];
-    const isMeet = url.toLowerCase().includes("meet.google.com");
-
-    // Шукаємо код доступу ТІЛЬКИ в цьому ж рядку (або в параметрі ?pwd= для Zoom)
-    const passMatch = line.match(
-      /(?:Код(?:\s+доступ[уа])?|Passcode|Пароль)\s*[:\-]?\s*([A-Za-z0-9_.\-]+)/i
-    );
-
-    return {
-      url,
-      platform: isMeet ? ("meet" as const) : ("zoom" as const),
-      passcode: passMatch ? passMatch[1] : null,
-    };
-  }
-  return null;
+  const meetings = extractOnlineMeetings(note, room);
+  return meetings[0] ?? null;
 }
 
 export interface MeetingInfo {
@@ -211,20 +190,21 @@ export function extractOnlineMeetings(
       seenUrls.add(url.toLowerCase());
 
       const isMeet = url.toLowerCase().includes("meet.google.com");
-      // Zoom-хеш містить принаймні 16 символів base64
-      const hasAuthenticPwdHash = /[?&]pwd=[A-Za-z0-9_.\-]{16,}/i.test(url);
+      const hasPwdInUrl = /[?&]pwd=[^&\s]+/i.test(url);
 
       const passMatch = line.match(
-        /(?:Код(?:\s+доступ[уа])?|Passcode|Пароль)\s*:\s*([A-Za-z0-9_.\-]+)/i
+        /(?:Код(?:\s+доступ[уа])?|Passcode|Пароль)\s*[:\-]?\s*([A-Za-z0-9_.\-]+)/i
       );
-      // Якщо в URL стоїть короткий пароль типу ?pwd=dfkr, дістаємо його як явний код
-      const shortUrlPwdMatch = url.match(/[?&]pwd=([A-Za-z0-9_.\-]{1,15})(?:&|$)/i);
-      let rawPass =
-        (passMatch ? passMatch[1] : null) ||
-        (shortUrlPwdMatch ? shortUrlPwdMatch[1] : null);
+      let rawPass = passMatch ? passMatch[1] : null;
 
-      if (isElectronics && !isMeet && !rawPass) {
+      if (isElectronics && !isMeet && !hasPwdInUrl && !rawPass) {
         rawPass = "dfkr";
+      }
+
+      // Якщо це Zoom і в URL ще немає ?pwd=, вшиваємо код прямо в посилання!
+      if (!isMeet && !hasPwdInUrl && rawPass) {
+        const sep = url.includes("?") ? "&" : "?";
+        url = `${url}${sep}pwd=${encodeURIComponent(rawPass)}`;
       }
 
       let label: string | undefined;
@@ -235,7 +215,7 @@ export function extractOnlineMeetings(
         label = "Хочинська";
       } else {
         const prefixMatch = line.match(
-          /^([А-Яа-яІіЇїЄєa-zA-Z\s.'—–\-]+|\d+\s*підгрупа|підгрупа\s*\d+)\s*[:\-–]\s*https?/i
+          /^([А-Яа-яІіЇїЄєҐґa-zA-Z\s.'—–\-]+|\d+\s*підгрупа|підгрупа\s*\d+)\s*[:\-–]\s*https?/i
         );
         if (prefixMatch) {
           const raw = prefixMatch[1].trim();
@@ -245,21 +225,20 @@ export function extractOnlineMeetings(
         }
       }
 
-      // Якщо мітка не з рядка, перевіряємо викладачів пари
       if (!label && isForeignLang) {
         label = isMeet ? "Токарєва" : "Хочинська";
       }
 
+      // Оскільки пароль або вже був у ?pwd=, або щойно вшитий у URL, окремий бейдж 🔑 не потрібен
       results.push({
         url,
         platform: isMeet ? "meet" : "zoom",
-        passcode: hasAuthenticPwdHash ? null : rawPass,
+        passcode: null,
         label,
       });
     }
   }
 
-  // Якщо в нотатці чи аудиторії є посилання для Іноземної мови — підписуємо та впорядковуємо
   if (isForeignLang && results.length > 0) {
     for (const r of results) {
       if (!r.label) {
@@ -271,15 +250,6 @@ export function extractOnlineMeetings(
       if (b.label === "Токарєва") return 1;
       return 0;
     });
-  }
-
-  // Якщо електроніка і в нотатці ДІЙСНО є Zoom-посилання без пароля — додаємо пароль dfkr
-  if (isElectronics && results.length > 0) {
-    for (const r of results) {
-      if (r.platform === "zoom" && !r.passcode) {
-        r.passcode = "dfkr";
-      }
-    }
   }
 
   return results;

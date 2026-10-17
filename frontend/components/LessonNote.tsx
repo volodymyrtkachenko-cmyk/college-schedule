@@ -86,7 +86,7 @@ export function LessonNote({ lesson, date }: { lesson: Lesson; date: string }) {
     onClick={e => e.stopPropagation()} onDragStart={e => { e.preventDefault(); e.stopPropagation(); }}>
     {visibleNote && <p className="whitespace-pre-wrap break-words text-sys-text-secondary">{visibleNote}</p>}
     {canManage && !editing && <div className="mt-1 flex flex-wrap gap-3">
-      <button type="button" disabled={busy} onClick={() => { setDraft(cleanDisplayNote); setEditRevision(revision); setEditing(true); setError(null); }}
+      <button type="button" disabled={busy} onClick={() => { setDraft(visibleNote); setEditRevision(revision); setEditing(true); setError(null); }}
         className="text-sys-accent disabled:opacity-50">{visibleNote ? "Редагувати примітку" : "+ Примітка"}</button>
       <button type="button" disabled={busy || !online} onClick={showHistory} className="text-sys-text-secondary">Історія</button>
     </div>}

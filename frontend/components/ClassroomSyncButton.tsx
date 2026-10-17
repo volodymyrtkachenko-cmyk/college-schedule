@@ -19,9 +19,11 @@ const SCOPES = [
 
 export function ClassroomSyncButton({
   currentGroupId,
+  weekStart,
   onSynced,
 }: {
   currentGroupId: number | null;
+  weekStart?: string;
   onSynced: (detectedGroupId: number) => void;
 }) {
   const [syncing, setSyncing] = useState(false);
@@ -55,7 +57,11 @@ export function ClassroomSyncButton({
             return;
           }
           try {
-            const res = await api.classroom.sync(resp.access_token, currentGroupId ?? undefined);
+            const res = await api.classroom.sync({
+              access_token: resp.access_token,
+              group_id: currentGroupId ?? undefined,
+              week_start: weekStart,
+            });
             invalidateScheduleCache();
             onSynced(res.group_id);
             const parts = [`підтягнуто ${res.synced_links} онлайн-пар`];

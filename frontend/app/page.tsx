@@ -195,6 +195,7 @@ export default function HomePage() {
     <div className="flex items-center gap-2">
       <ClassroomSyncButton
         currentGroupId={mode === "student" ? groupId : null}
+        weekStart={`${weekAnchorDate.getFullYear()}-${String(weekAnchorDate.getMonth() + 1).padStart(2, "0")}-${String(weekAnchorDate.getDate()).padStart(2, "0")}`}
         onSynced={(detectedGroupId) => {
           toggleMode("student");
           setGroupId(detectedGroupId);
@@ -381,17 +382,6 @@ export default function HomePage() {
           </div>
           
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                invalidateScheduleCache();
-                setToast("Кеш розкладу оновлено", "info");
-              }}
-              title="Оновити розклад"
-              className="flex h-10 w-10 items-center justify-center rounded-lg border border-sys-border bg-sys-card text-sm text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/40 transition-colors"
-            >
-              🔄
-            </button>
             <div role="group" aria-label="Режим перегляду розкладу" className="flex rounded-lg border border-sys-border bg-sys-card p-1 text-sm relative">
               <div className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-sys-accent/10 border border-sys-accent/20 rounded-md shadow-sm transition-all duration-300 ease-out z-0" style={{ left: view === 'today' ? '4px' : 'calc(50% + 2px)' }}></div>
               <button type="button" aria-pressed={view === "today"} onClick={() => setView("today")} className={`w-24 relative z-10 rounded-md px-4 py-2 text-sm font-medium transition-colors ${view === 'today' ? 'text-sys-accent' : 'text-sys-text-secondary hover:text-sys-text-primary'}`}>Сьогодні</button>
