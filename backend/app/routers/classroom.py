@@ -34,6 +34,14 @@ URL_RE = re.compile(
     r"https?://(?:meet\.google\.com|[a-z0-9.-]*zoom\.us)/[^\s<>\"')|]+",
     re.IGNORECASE,
 )
+BARE_MEET_RE = re.compile(
+    r"(?<![/\w.-])(?:meet\.google\.com/)?([a-z]{3}-[a-z]{4}-[a-z]{3})\b",
+    re.IGNORECASE,
+)
+ONLINE_HINT_RE = re.compile(
+    r"(?:meet|zoom|конференц|ідентифікатор|meeting|код|passcode|пароль|посилання|http|[a-z]{3}-[a-z]{4}-[a-z]{3})",
+    re.IGNORECASE,
+)
 ZOOM_ID_RE = re.compile(
     r"(?:[ІИіи]дент[иі]ф[иі]катор(?:\s+\S+)?|Meeting\s*ID|\bID(?:\s+\S+)?)\s*[:\-]?\s*(\d[\d\s\-\u00a0]{8,15}\d)",
     re.IGNORECASE,
@@ -199,8 +207,16 @@ def _extract_group_from_course_name(course_name: str, groups: list[Group]) -> Op
 
 
 def _parse_announcement(text: str, created_dt: datetime, materials: Optional[list] = None) -> Optional[dict]:
+    if not materials and not ONLINE_HINT_RE.search(text):
+        return None
+
     url_match = URL_RE.search(text)
     url = url_match.group(0).rstrip(".,;!") if url_match else None
+
+    if not url:
+        bare_m = BARE_MEET_RE.search(text)
+        if bare_m:
+            url = f"https://meet.google.com/{bare_m.group(1).lower()}"
 
     if not url and materials:
         for mat in materials:
@@ -1130,9 +1146,9 @@ async def perform_course_sync(
         teacher_badge = _resolve_matched_teacher_surname(target_lesson, author_tokens, combined_cw_text)
 
         label_text = (
-            f"ДЗ (до {due_date.strftime('%d.%m')})"
+            f"Домашнє завдання (до {due_date.strftime('%d.%m')})"
             if (due_date is not None and is_shifted_deadline)
-            else "ДЗ"
+            else "Домашнє завдання"
         )
 
         if teacher_badge:
@@ -1619,5 +1635,22 @@ async def clear_all_classroom_data(
         "deleted_bindings": deleted_bindings,
         "cleaned_notes": cleaned_notes_count,
         "archived_auto_notes": archived_notes_count,
+    }
+
+
+@router.get("/groups/{group_id}/status")
+async def get_classroom_group_status(
+    group_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    binding = await db.scalar(
+        select(ClassroomGroupBinding).where(
+            ClassroomGroupBinding.group_id == group_id,
+            ClassroomGroupBinding.is_active.is_(True),
+        )
+    )
+    return {
+        "connected": bool(binding),
+        "last_synced_at": binding.last_synced_at.isoformat() if (binding and binding.last_synced_at) else None,
     }
 

@@ -274,6 +274,12 @@ export function extractOnlineMeetings(
   return results;
 }
 
+function vibrateTap(ms = 10) {
+  if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+    try { navigator.vibrate(ms); } catch {}
+  }
+}
+
 export function LessonCard({
   lesson,
   targetDate,
@@ -370,8 +376,6 @@ export function LessonCard({
           : isSelectedForMove
             ? "border-emerald-400 ring-1 ring-emerald-400/70"
             : "border-sys-border";
-
-  const roomMeta = lesson.room ? getRoomBadgeMeta(lesson.room) : null;
 
   return (
     <article
@@ -470,7 +474,10 @@ export function LessonCard({
                           href={m.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            vibrateTap(12);
+                          }}
                           title={
                             m.label
                               ? `${m.label} (${m.platform === "meet" ? "Google Meet" : "Zoom"})`
@@ -493,6 +500,7 @@ export function LessonCard({
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
+                              vibrateTap(12);
                               void navigator.clipboard.writeText(m.passcode!);
                               setCopiedPass(m.passcode!);
                               setTimeout(() => setCopiedPass(null), 2000);
@@ -508,11 +516,31 @@ export function LessonCard({
                     ))}
                   </div>
                 )}
-                {!hasMeeting && lesson.room && roomMeta && (
-                  <span className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium ${roomMeta.tone}`}>
-                    <span aria-hidden="true" className="text-[11px]">{roomMeta.icon}</span>
-                    <span>{formatRoom(lesson.room)}</span>
-                  </span>
+                {!hasMeeting && lesson.room && (
+                  <div className="flex flex-wrap items-center justify-end gap-1">
+                    {lesson.room
+                      .split(/\s*[,/;]\s*/)
+                      .map((r) => r.trim())
+                      .filter(Boolean)
+                      .map((singleRoom, rIdx, arr) => {
+                        const meta = getRoomBadgeMeta(singleRoom);
+                        const subTeacher =
+                          arr.length > 1 && secondaryItems[rIdx]
+                            ? secondaryItems[rIdx].displayName.split(" ")[0]
+                            : null;
+                        return (
+                          <span
+                            key={`${singleRoom}-${rIdx}`}
+                            title={subTeacher ? `${subTeacher}: ${formatRoom(singleRoom)}` : formatRoom(singleRoom)}
+                            className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium ${meta.tone}`}
+                          >
+                            <span aria-hidden="true" className="text-[11px]">{meta.icon}</span>
+                            {subTeacher && <span className="text-[10px] opacity-75">{subTeacher}:</span>}
+                            <span>{formatRoom(singleRoom)}</span>
+                          </span>
+                        );
+                      })}
+                  </div>
                 )}
               </div>
             </div>

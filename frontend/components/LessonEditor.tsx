@@ -87,10 +87,37 @@ export function LessonEditor({ lesson, date, scheduleMode, defaultGroupId, defau
     return rooms.length > 0 ? rooms.join(" / ") : "";
   }, [teachers, form.teacher_id, form.second_teacher_id]);
 
+  const occupiedRoomsMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (!availabilityWeek) return map;
+    const targetDay = form.day_of_week ?? dayFromDate(date);
+    const targetLessonNum = form.lesson_number;
+    const targetWeekType = form.week_type ?? "both";
+
+    for (const day of availabilityWeek) {
+      const dayNum = new Date(`${day.date}T12:00:00`).getDay() || 7;
+      if (dayNum !== targetDay) continue;
+      for (const l of day.lessons) {
+        if (lesson && l.id === lesson.id) continue;
+        if (l.lesson_number !== targetLessonNum) continue;
+        const weekOverlap =
+          targetWeekType === "both" || l.week_type === "both" || targetWeekType === l.week_type;
+        if (!weekOverlap) continue;
+        const r = (l.room_override || l.room || "").trim();
+        if (r) map.set(r.toLowerCase(), l.group_name || l.subject_name || "зайнято");
+      }
+    }
+    return map;
+  }, [availabilityWeek, form.day_of_week, form.lesson_number, form.week_type, date, lesson]);
+
   const uniqueRooms = useMemo(() => {
     if (!teachers) return [];
-    return Array.from(new Set(teachers.map(t => t.room).filter(Boolean))).sort();
-  }, [teachers]);
+    const baseRooms = Array.from(new Set(teachers.map((t) => t.room).filter(Boolean) as string[])).sort();
+    return baseRooms.map((r) => {
+      const busyBy = occupiedRoomsMap.get(r.trim().toLowerCase());
+      return busyBy ? `${r} (⚠️ зайнято: ${busyBy})` : r;
+    });
+  }, [teachers, occupiedRoomsMap]);
 
   const currentRoom = (form.room ? form.room.trim() : "") || (teacherRoom ? teacherRoom.trim() : "");
 
@@ -230,7 +257,17 @@ export function LessonEditor({ lesson, date, scheduleMode, defaultGroupId, defau
             <SearchableSelect
               options={sortedSubjects}
               value={form.subject_id ?? null}
-              onChange={(id) => update("subject_id", id ?? undefined)}
+              onChange={(id) => {
+                update("subject_id", id ?? undefined);
+                if (id && !form.teacher_id) {
+                  const matchingTeachers = Object.entries(teacherSubjects)
+                    .filter(([, subjIds]) => subjIds.includes(id))
+                    .map(([tId]) => Number(tId));
+                  if (matchingTeachers.length === 1) {
+                    update("teacher_id", matchingTeachers[0]);
+                  }
+                }
+              }}
               disabled={loadingDirectories}
               placeholder={loadingDirectories ? "Завантаження…" : "Знайти предмет"}
             />
@@ -251,9 +288,9 @@ export function LessonEditor({ lesson, date, scheduleMode, defaultGroupId, defau
           
           <label className="form-label sm:col-span-2">Аудиторія
             <SearchableTextInput
-              options={uniqueRooms as string[]}
+              options={uniqueRooms}
               value={form.room ?? ""}
-              onChange={(val) => update("room", val)}
+              onChange={(val) => update("room", val.replace(/\s*\(⚠️.*?\)\s*$/, ""))}
               placeholder={teacherRoom ? `За замовчуванням: ${teacherRoom}` : "Введіть аудиторію"}
             />
             <p className="mt-1 text-xs text-sys-text-secondary">Якщо поле порожнє, використовується аудиторія викладача.</p>

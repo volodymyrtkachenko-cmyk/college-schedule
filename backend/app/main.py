@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -5,10 +6,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+from sqlalchemy import select
 
 from app.analytics import track_request
 from app.config import settings
-from app.database import engine
+from app.database import engine, async_session_factory
 from app.routers import schedule_versions, lesson_notes
 from app.routers import (
     admin_import, aliases, auth, curriculums, directory, drafts, educational_process, generator,
@@ -19,8 +21,28 @@ from app.routers.classroom import router as classroom_router
 from app.routers.events import router as events_router
 from app.routers.schedule_now import router as schedule_now_router
 
+async def background_classroom_sync():
+    """Фоновий воркер: кожні 15 хв оновлює Classroom для всіх підключених груп."""
+    from app.routers.classroom import trigger_background_sync_if_needed
+    import logging
+    while True:
+        await asyncio.sleep(900)  # 15 хвилин
+        try:
+            async with async_session_factory() as db:
+                bindings = (await db.scalars(
+                    select(ClassroomGroupBinding).where(ClassroomGroupBinding.is_active.is_(True))
+                )).all()
+                for binding in bindings:
+                    await trigger_background_sync_if_needed(db, binding.group_id)
+                    await asyncio.sleep(10)  # Пауза між групами, щоб не вибити ліміти Google API
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logging.getLogger(__name__).error(f"Global auto-sync error: {e}")
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    sync_task = asyncio.create_task(background_classroom_sync())
     async with engine.begin() as conn:
         await conn.run_sync(AcademicEvent.__table__.create, checkfirst=True)
         await conn.run_sync(GroupStudent.__table__.create, checkfirst=True)
@@ -52,6 +74,7 @@ async def lifespan(_: FastAPI):
     try:
         yield
     finally:
+        sync_task.cancel()
         await engine.dispose()
 
 

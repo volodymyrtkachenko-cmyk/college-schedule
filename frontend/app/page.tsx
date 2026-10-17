@@ -13,7 +13,6 @@ import { getMondayOf } from "../lib/date";
 import { WelcomeScreen } from "../components/WelcomeScreen";
 import { SearchableSelect } from "../components/SearchableSelect";
 import { useToast } from "../components/ToastProvider";
-import { ClassroomSyncButton } from "../components/ClassroomSyncButton";
 import { QuickJumpTarget, findGroupIdByName, findTeacherIdByName } from "../lib/quickJump";
 
 interface PinnedTarget {
@@ -179,6 +178,31 @@ export default function HomePage() {
   };
 
   const weekType = view === "week" ? ((week?.[0]?.week_type) ?? "both") : (today?.week_type ?? "both");
+
+  const { displayDaySchedule, isShowingTomorrow } = useMemo(() => {
+    if (!today) return { displayDaySchedule: null, isShowingTomorrow: false };
+    const now = new Date();
+    const kyivHour = Number(
+      new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Kyiv", hour: "2-digit", hour12: false }).format(now)
+    );
+    const kyivMin = Number(
+      new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Kyiv", minute: "2-digit" }).format(now)
+    );
+    const totalMins = kyivHour * 60 + kyivMin;
+    const dow = now.getDay();
+
+    if (dow >= 1 && dow <= 4 && totalMins >= 15 * 60 + 25 && week.length > 0) {
+      const tomorrow = new Date(now);
+      tomorrow.setDate(now.getDate() + 1);
+      const tomorrowIso = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(tomorrow);
+      const foundTomorrow = week.find((d) => d.date === tomorrowIso);
+      if (foundTomorrow) {
+        return { displayDaySchedule: foundTomorrow, isShowingTomorrow: true };
+      }
+    }
+    return { displayDaySchedule: today, isShowingTomorrow: false };
+  }, [today, week]);
+
   const isWeekend = [0, 6].includes(new Date().getDay());
 
   const weekRange = useMemo(() => {
@@ -193,14 +217,6 @@ export default function HomePage() {
 
   const UserControls = () => (
     <div className="flex items-center gap-2">
-      <ClassroomSyncButton
-        currentGroupId={mode === "student" ? groupId : null}
-        weekStart={`${weekAnchorDate.getFullYear()}-${String(weekAnchorDate.getMonth() + 1).padStart(2, "0")}-${String(weekAnchorDate.getDate()).padStart(2, "0")}`}
-        onSynced={(detectedGroupId) => {
-          toggleMode("student");
-          setGroupId(detectedGroupId);
-        }}
-      />
       {user ? (
         <>
           {canAccessAdmin(user) && (
@@ -446,9 +462,14 @@ export default function HomePage() {
                     <WeekTypeBadge weekType={today.week_type} />
                   </div>
                 )}
+                {isShowingTomorrow && !isWeekend && (
+                  <div className="mb-3 flex items-center justify-between rounded-xl border border-sys-accent/30 bg-sys-accent/10 px-4 py-2.5 text-xs text-sys-text-primary">
+                    <span>🌙 Пари на сьогодні завершено — показано <strong>розклад на завтра</strong></span>
+                  </div>
+                )}
                 <ScheduleDay
-                  schedule={today}
-                  isToday={!isWeekend}
+                  schedule={displayDaySchedule ?? today}
+                  isToday={!isWeekend && !isShowingTomorrow}
                   scheduleMode={mode}
                   onQuickJump={handleQuickJump}
                 />

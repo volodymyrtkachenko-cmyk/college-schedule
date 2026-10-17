@@ -126,6 +126,23 @@ export function useSchedule(weekAnchorDate: Date, includeCancelled = false) {
     if (mode === "student" && !groupId) { setWeek([]); setToday(null); return; }
     if (mode === "teacher" && !teacherId) { setWeek([]); setToday(null); return; }
 
+    // Очищення застарілих ключів schedule:week:* (старших за 14 днів)
+    try {
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - 14);
+      const cutoffIso = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, "0")}-${String(cutoff.getDate()).padStart(2, "0")}`;
+      for (let i = 0; i < window.localStorage.length; i++) {
+        const k = window.localStorage.key(i);
+        if (k && k.startsWith("schedule:week:")) {
+          const dateMatch = k.match(/:(\d{4}-\d{2}-\d{2})(?::all)?$/);
+          if (dateMatch && dateMatch[1] < cutoffIso) {
+            window.localStorage.removeItem(k);
+            i--;
+          }
+        }
+      }
+    } catch {}
+
     const formatDateKey = (d: Date) =>
       `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 

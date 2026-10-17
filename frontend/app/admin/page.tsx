@@ -22,6 +22,7 @@ const ImportPanel = dynamic(() => import("../../components/admin/ImportPanel").t
 
 import { ApiError } from "../../lib/api";
 import { useToast } from "../../components/ToastProvider";
+import { ClassroomSyncButton } from "../../components/ClassroomSyncButton";
 
 function extractSurname(fullName: string): string {
   const parts = fullName.trim().split(/\s+/).filter(Boolean);
@@ -564,6 +565,30 @@ function AdminContent() {
                   )}
                 </div>
                 <div className="flex items-center gap-2">
+                  <ClassroomSyncButton
+                    currentGroupId={rosterGroup.id}
+                    onSynced={() => openGroupRoster(rosterGroup)}
+                  />
+                  {rosterData && rosterData.students.length > 0 && !bulkStudentOpen && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const sorted = [...rosterData.students].sort((a, b) => {
+                          const valA = studentSortBy === "surname" ? extractSurname(a.full_name) : a.full_name;
+                          const valB = studentSortBy === "surname" ? extractSurname(b.full_name) : b.full_name;
+                          const res = valA.localeCompare(valB, "uk", { sensitivity: "base" });
+                          return studentSortOrder === "asc" ? res : -res;
+                        });
+                        const text = sorted.map((s, idx) => `${idx + 1}. ${s.full_name}`).join("\n");
+                        void navigator.clipboard.writeText(text);
+                        setToast(`Скопійовано список (${sorted.length} студентів)`, "success");
+                      }}
+                      className="rounded-lg border border-sky-500/40 bg-sky-500/10 px-2.5 py-1 text-xs font-semibold text-sky-300 hover:bg-sky-500/20 transition-colors"
+                      title="Скопіювати нумерований список групи у буфер обміну"
+                    >
+                      📄 Копіювати список
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => setBulkStudentOpen(!bulkStudentOpen)}
