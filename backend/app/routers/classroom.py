@@ -654,6 +654,36 @@ async def perform_course_sync(
             gn.revision += 1
             gn.updated_at = datetime.now(timezone.utc)
 
+    # Додатковий захист: очищаємо залишкові авто-нотатки з інших груп,
+    # які не мають власних активних прив'язок до Classroom
+    active_binding_group_ids = (
+        await db.scalars(select(ClassroomGroupBinding.group_id).where(ClassroomGroupBinding.is_active.is_(True)))
+    ).all()
+    orphan_notes = (
+        await db.scalars(
+            select(LessonOccurrenceNote).where(
+                LessonOccurrenceNote.group_id.not_in(active_binding_group_ids),
+                LessonOccurrenceNote.archived.is_(False),
+                (LessonOccurrenceNote.note.like("%[TASK]%") | LessonOccurrenceNote.note.like("%meet.google.com%") | LessonOccurrenceNote.note.like("%zoom.us%"))
+            )
+        )
+    ).all()
+    for on in orphan_notes:
+        clean_lines = [
+            l.strip()
+            for l in on.note.split("\n")
+            if l.strip()
+            and not l.strip().startswith("[TASK]")
+            and not URL_RE.search(l)
+            and not re.search(r"(?:Код|ID|Passcode|Пароль)\s*:", l, re.IGNORECASE)
+        ]
+        if clean_lines:
+            on.note = "\n".join(clean_lines)
+        else:
+            on.archived = True
+        on.revision += 1
+        on.updated_at = datetime.now(timezone.utc)
+
     await db.flush()
 
     # КРОК 2: Завантажуємо розклад на 2 тижні (поточний + наступний тиждень)
@@ -1264,6 +1294,13 @@ async def sync_from_classroom(
                 binding.refresh_token = refresh_token[:512]
             binding.last_synced_at = datetime.now(timezone.utc)
             binding.is_active = True
+
+        # Захист: якщо це студент (1 група), деактивуємо всі старі прив'язки інших груп,
+        # які могли випадково створитися раніше з цим токеном
+        if len(courses_by_group_id) == 1:
+            await db.execute(
+                delete(ClassroomGroupBinding).where(ClassroomGroupBinding.group_id != detected_group.id)
+            )
 
         await db.flush()
 
