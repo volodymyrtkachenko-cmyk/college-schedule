@@ -520,17 +520,20 @@ export function LessonCard({
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}
-                  className="inline-flex items-center justify-between gap-2 rounded-lg border border-purple-500/35 bg-purple-500/10 px-2.5 py-1.5 text-xs font-medium text-purple-200 transition-colors hover:bg-purple-500/20"
+                  title={`${task.teacher ? `[${task.teacher}] ` : ""}📌 ${task.label} — Відкрити в Classroom`}
+                  className="group flex flex-wrap items-center justify-between gap-x-2 gap-y-1 rounded-lg border border-purple-500/35 bg-purple-500/10 px-2.5 py-1.5 text-xs font-medium text-purple-200 transition-colors hover:bg-purple-500/20"
                 >
-                  <div className="flex min-w-0 items-center gap-1.5">
+                  <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                     {task.teacher && (
                       <span className="shrink-0 rounded bg-purple-500/30 px-1.5 py-0.5 text-[10px] font-bold text-purple-100">
                         {task.teacher}
                       </span>
                     )}
-                    <span className="truncate">📌 {task.label}</span>
+                    <span className="font-semibold text-purple-100">📌 {task.label}</span>
                   </div>
-                  <span className="shrink-0 font-bold text-purple-300">Classroom ↗</span>
+                  <span className="ml-auto shrink-0 text-[11px] font-bold text-purple-300 transition-transform group-hover:translate-x-0.5">
+                    Classroom ↗
+                  </span>
                 </a>
               ))}
             </div>
