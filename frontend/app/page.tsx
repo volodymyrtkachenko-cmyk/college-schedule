@@ -7,7 +7,7 @@ import { InstallPrompt } from "../components/InstallPrompt";
 import { ScheduleDay } from "../components/ScheduleDay";
 import { ScheduleWeekGrid } from "../components/ScheduleWeekGrid";
 import { WeekTypeBadge } from "../components/WeekTypeBadge";
-import { useSchedule, useIsStandalonePwa, downloadForOffline, invalidateScheduleCache } from "../lib/hooks";
+import { useSchedule, useIsStandalonePwa, downloadForOffline } from "../lib/hooks";
 import { useAuth, canAccessAdmin } from "../lib/auth";
 import { getMondayOf } from "../lib/date";
 import { WelcomeScreen } from "../components/WelcomeScreen";
@@ -201,17 +201,6 @@ export default function HomePage() {
           setGroupId(detectedGroupId);
         }}
       />
-      <button
-        type="button"
-        onClick={() => {
-          invalidateScheduleCache();
-          setToast("Кеш розкладу оновлено", "info");
-        }}
-        title="Оновити розклад"
-        className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg border border-sys-border bg-sys-card text-xs sm:text-sm text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/40 transition-colors"
-      >
-        🔄
-      </button>
       {user ? (
         <>
           {canAccessAdmin(user) && (
