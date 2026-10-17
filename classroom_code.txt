@@ -832,16 +832,29 @@ async def perform_course_sync(
                     params={"pageSize": 25},
                     headers=headers,
                 )
-                return course, await asyncio.gather(t_task, a_task, cw_task, return_exceptions=True)
+                top_task = client.get(
+                    f"https://classroom.googleapis.com/v1/courses/{c_id}/topics",
+                    params={"pageSize": 50},
+                    headers=headers,
+                )
+                return course, await asyncio.gather(t_task, a_task, cw_task, top_task, return_exceptions=True)
 
         bundles = await asyncio.gather(*(fetch_course_bundle(c) for c in relevant_courses[:10]))
 
         course_teachers_tokens: dict[str, list[str]] = {}
-        for course, (t_resp, ann_resp, cw_resp) in bundles:
+        for course, (t_resp, ann_resp, cw_resp, top_resp) in bundles:
             course_id = course["id"]
             course_title = f"{course.get('name', '')} {course.get('section', '')}".strip()
             course_title_norm = _norm(course_title)
             course_teachers_tokens[course_id] = []
+
+            topics_by_id: dict[str, str] = {}
+            if not isinstance(top_resp, Exception) and top_resp.status_code == 200:
+                for top in top_resp.json().get("topic", []):
+                    t_id = top.get("topicId")
+                    t_name = top.get("name")
+                    if t_id and t_name:
+                        topics_by_id[t_id] = t_name
 
             if not isinstance(t_resp, Exception) and t_resp.status_code == 200:
                 for t_item in t_resp.json().get("teachers", []):
@@ -901,10 +914,14 @@ async def perform_course_sync(
                         except Exception:
                             teacher_tokens_by_uid[creator_id] = []
 
-                    course_toks = course_teachers_tokens.get(course_id, [])
-                    creator_toks = teacher_tokens_by_uid.get(creator_id, [])
+                    ann_author_tokens = []
+                    if creator_id and creator_id in teacher_tokens_by_uid:
+                        ann_author_tokens.extend(teacher_tokens_by_uid[creator_id])
+                    if len(course_teachers_tokens.get(course_id, [])) <= 2:
+                        ann_author_tokens.extend(course_teachers_tokens[course_id])
+
                     parsed["course_title_norm"] = course_title_norm
-                    parsed["author_tokens"] = list(set(creator_toks + course_toks))
+                    parsed["author_tokens"] = list(set(ann_author_tokens))
                     parsed_announcements.append(parsed)
 
             if not isinstance(cw_resp, Exception) and cw_resp.status_code == 200:
@@ -939,16 +956,37 @@ async def perform_course_sync(
                         except Exception:
                             teacher_tokens_by_uid[creator_id] = []
 
-                    course_toks = course_teachers_tokens.get(course_id, [])
-                    creator_toks = teacher_tokens_by_uid.get(creator_id, [])
-                    all_author_tokens = list(set(creator_toks + course_toks))
+                    topic_id = cw.get("topicId")
+                    topic_name = topics_by_id.get(topic_id, "")
+                    topic_norm = _norm(topic_name)
+
+                    task_author_tokens = []
+                    if creator_id and creator_id in teacher_tokens_by_uid:
+                        task_author_tokens.extend(teacher_tokens_by_uid[creator_id])
+
+                    # Якщо курс вузький (1-2 вчителі), додаємо викладачів курсу
+                    if len(course_teachers_tokens.get(course_id, [])) <= 2:
+                        task_author_tokens.extend(course_teachers_tokens[course_id])
+
+                    # Витягуємо викладача з назви теми, якщо там є ПІБ (наприклад, "Філімончук", "Гончаров", "Філіппов", "Грабовчак")
+                    for dbt in db_teachers:
+                        clean_t_surname = _norm(dbt.name.split()[0])
+                        if len(clean_t_surname) >= 3 and clean_t_surname in topic_norm:
+                            if clean_t_surname not in task_author_tokens:
+                                task_author_tokens.append(clean_t_surname)
+
+                    task_author_tokens = list(set(task_author_tokens))
+                    title_norm = _norm(cw.get("title") or "")
+                    combined_cw_text = f"{topic_norm} {title_norm} {course_title_norm}".strip()
 
                     raw_coursework_items.append({
                         "due_date": due_date,
                         "alt_link": alt_link,
-                        "title_norm": _norm(cw.get("title") or ""),
+                        "title_norm": title_norm,
+                        "topic_norm": topic_norm,
                         "course_title_norm": course_title_norm,
-                        "author_tokens": all_author_tokens,
+                        "combined_text": combined_cw_text,
+                        "author_tokens": task_author_tokens,
                     })
 
     # КРОК 4: Прикріплюємо домашні завдання (точна дата дедлайну -> або наступна найближча пара)
@@ -957,10 +995,8 @@ async def perform_course_sync(
     for cw_item in raw_coursework_items:
         due_date: date = cw_item["due_date"]
         alt_link: str = cw_item["alt_link"]
-        course_title_norm: str = cw_item["course_title_norm"]
-        title_norm: str = cw_item["title_norm"]
-        author_tokens: list[str] = cw_item["author_tokens"]
-        combined_cw_text = f"{course_title_norm} {title_norm}".strip()
+        combined_cw_text = cw_item["combined_text"]
+        author_tokens = cw_item["author_tokens"]
 
         target_date_for_task: Optional[date] = None
         target_lesson = None
@@ -969,7 +1005,7 @@ async def perform_course_sync(
         if due_date in horizon_lessons_by_date:
             exact_candidates = [
                 l for l in horizon_lessons_by_date[due_date]
-                if _matches_lesson(l, course_title_norm, title_norm, author_tokens)
+                if _matches_lesson(l, combined_cw_text, "", author_tokens)
             ]
             if exact_candidates:
                 target_lesson = exact_candidates[0]
@@ -982,7 +1018,7 @@ async def perform_course_sync(
                     continue
                 next_candidates = [
                     l for l in horizon_lessons_by_date[d_candidate]
-                    if _matches_lesson(l, course_title_norm, title_norm, author_tokens)
+                    if _matches_lesson(l, combined_cw_text, "", author_tokens)
                 ]
                 if next_candidates:
                     target_lesson = next_candidates[0]
