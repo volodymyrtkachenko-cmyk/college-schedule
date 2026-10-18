@@ -57,6 +57,8 @@ class EffectiveLesson:
         custom_subject: Optional[str] = None,
         event_id: Optional[int] = None,
         time: Optional[str] = None,
+        moved_to_date: Optional[date] = None,
+        moved_to_lesson: Optional[int] = None,
     ):
         self.group_id = group_id
         self.date = date
@@ -78,6 +80,8 @@ class EffectiveLesson:
         self.custom_subject = custom_subject
         self.event_id = event_id
         self.time = time
+        self.moved_to_date = moved_to_date
+        self.moved_to_lesson = moved_to_lesson
 
         self.note_id: Optional[int] = None
         self.note_revision: int = 0
@@ -189,6 +193,8 @@ async def build_projection(
         Schedule.day_of_week == weekday,
         Schedule.is_active.is_(True),
         Schedule.week_type.in_(("both", week_type)),
+        or_(Schedule.effective_from.is_(None), Schedule.effective_from <= target_date),
+        or_(Schedule.effective_until.is_(None), Schedule.effective_until >= target_date),
     ]
     if active_version:
         base_conds.append(Schedule.version_id == active_version.id)
@@ -336,6 +342,8 @@ async def build_projection(
                 cells[k].is_cancelled = True
                 cells[k].source_kind = "manual"
                 cells[k].source_ref_id = ovr.id
+                cells[k].moved_to_date = getattr(ovr, "moved_to_date", None)
+                cells[k].moved_to_lesson = getattr(ovr, "moved_to_lesson", None)
                 found = True
             if not found:
                 ovr_room = resolve_effective_room(ovr.room, ovr.teacher, ovr.second_teacher)
@@ -350,6 +358,8 @@ async def build_projection(
                     subject_name=ovr.subject.name if ovr.subject else "Скасована пара",
                     teacher_name=ovr_teacher_name,
                     is_replacement=True,
+                    moved_to_date=getattr(ovr, "moved_to_date", None),
+                    moved_to_lesson=getattr(ovr, "moved_to_lesson", None),
                 )
         else:
             # Add or replace
@@ -631,6 +641,10 @@ async def build_week_projection(
         for b in all_base_lessons:
             if b.day_of_week != weekday or b.version_id != expected_version_id:
                 continue
+            if b.effective_from is not None and b.effective_from > target_date:
+                continue
+            if b.effective_until is not None and b.effective_until < target_date:
+                continue
             if is_all_groups_blocked or b.group_id in blocked_groups or b.group_id in practice_groups:
                 continue
             b_room = resolve_effective_room(b.room_override, b.teacher, b.second_teacher)
@@ -696,6 +710,8 @@ async def build_week_projection(
                     cells[k].is_cancelled = True
                     cells[k].source_kind = "manual"
                     cells[k].source_ref_id = ovr.id
+                    cells[k].moved_to_date = getattr(ovr, "moved_to_date", None)
+                    cells[k].moved_to_lesson = getattr(ovr, "moved_to_lesson", None)
                     found = True
                 if not found:
                     ovr_room = resolve_effective_room(ovr.room, ovr.teacher, ovr.second_teacher)
@@ -716,6 +732,8 @@ async def build_week_projection(
                         subject_name=ovr.subject.name if ovr.subject else "Скасована пара",
                         teacher_name=ovr_teacher_name,
                         is_replacement=True,
+                        moved_to_date=getattr(ovr, "moved_to_date", None),
+                        moved_to_lesson=getattr(ovr, "moved_to_lesson", None),
                     )
             else:
                 ovr_room = resolve_effective_room(ovr.room, ovr.teacher, ovr.second_teacher)

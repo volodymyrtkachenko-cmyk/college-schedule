@@ -11,6 +11,7 @@ import { api, invalidateDirectoryCache, ReferenceMutation, ReferenceRecord, Refe
 import { useAuth, canAccessAdmin } from "../../lib/auth";
 import { ConfirmModal } from "../../components/admin/ConfirmModal";
 import { AdminScheduleEditor } from "../../components/admin/AdminScheduleEditor";
+const PermanentScheduleEditor = dynamic(() => import("../../components/admin/PermanentScheduleEditor").then((module) => module.PermanentScheduleEditor), { ssr: false });
 const UsersPanel = dynamic(() => import("../../components/admin/users/UsersPanel").then((module) => module.UsersPanel), { ssr: false });
 const CurriculumPanel = dynamic(() => import("../../components/admin/CurriculumPanel").then((module) => module.CurriculumPanel), { ssr: false });
 const GeneratorPanel = dynamic(() => import("../../components/admin/GeneratorPanel").then((module) => module.GeneratorPanel), { ssr: false });
@@ -374,10 +375,12 @@ function AdminContent() {
       <AdminNav active={currentTab} />
       
       <div className="flex-1 overflow-y-auto overflow-x-auto pb-safe relative bg-sys-bg">
-        <div className={`mx-auto space-y-5 px-4 py-4 sm:px-6 sm:py-6 ${currentTab === "schedule" ? "max-w-[1700px] w-full" : "max-w-[1440px] w-full"}`}>
+        <div className={`mx-auto space-y-5 px-4 py-4 sm:px-6 sm:py-6 ${currentTab === "schedule" || currentTab === "permanent-schedule" ? "max-w-[1700px] w-full" : "max-w-[1440px] w-full"}`}>
         
         {currentTab === "schedule" ? (
           <AdminScheduleEditor />
+        ) : currentTab === "permanent-schedule" ? (
+          <PermanentScheduleEditor />
         ) : currentTab === "curriculum" ? (
           <CurriculumPanel />
         ) : currentTab === "generator" ? (

@@ -17,6 +17,7 @@ import { PageHeader } from "./PageHeader";
 import { MobileWeekBar } from "../MobileWeekBar";
 import { MobileWeekDaysStrip } from "../MobileWeekDaysStrip";
 import { LessonCard } from "../LessonCard";
+import { isSlotInPast } from "../ScheduleEditGrid";
 
 function GraduationIcon() {
   return (
@@ -48,11 +49,11 @@ function PrinterIcon() {
   );
 }
 
+const MAX_ONE_OFF_WEEKS_AHEAD = 2;
+
 export type ScheduleBuffer =
-  | { type: "single"; mode: "copy" | "move"; lesson: Lesson; sourceDate: string }
-  | { type: "multi"; mode: "copy" | "move"; items: Array<{ lesson: Lesson; date: string }>; anchorLessonId: number }
-  | { type: "day"; mode: "copy" | "move"; sourceDate: string; lessons: Lesson[] }
-  | { type: "week"; mode: "copy" | "move"; sourceWeekAnchor: string; days: import("../../lib/api").ScheduleResponse[] }
+  | { type: "single"; mode: "move"; lesson: Lesson; sourceDate: string }
+  | { type: "day"; mode: "move"; sourceDate: string; lessons: Lesson[] }
   | null;
 
 export interface SwapState {
@@ -72,10 +73,14 @@ export function AdminScheduleEditor() {
     return getMondayOf(date);
   });
 
+  const todayAnchor = useMemo(() => getMondayOf(new Date()), []);
   const isCurrentWeek = useMemo(() => {
-    const todayAnchor = getMondayOf(new Date());
     return Math.abs(weekAnchorDate.getTime() - todayAnchor.getTime()) < 1000 * 60 * 60 * 24;
-  }, [weekAnchorDate]);
+  }, [weekAnchorDate, todayAnchor]);
+
+  const diffWeeks = useMemo(() => {
+    return Math.round((weekAnchorDate.getTime() - todayAnchor.getTime()) / (7 * 24 * 60 * 60 * 1000));
+  }, [weekAnchorDate, todayAnchor]);
 
   const { mode, toggleMode, teachers, teacherId, setTeacherId, groups, groupId, setGroupId, today, week, loading, error, setToday, setWeek, updateLesson, removeLesson, addLesson } = useSchedule(weekAnchorDate, true);
   const [availabilityWeek, setAvailabilityWeek] = useState<Awaited<ReturnType<typeof api.week>> | null>(null);
@@ -110,18 +115,40 @@ export function AdminScheduleEditor() {
   // Swap State
   const [swapSource, setSwapSource] = useState<SwapState | null>(null);
 
-  // Multi-selection State
-  const [isSelectMode, setIsSelectMode] = useState(false);
-  const [selectedLessonIds, setSelectedLessonIds] = useState<Set<number>>(new Set());
+  const isRestrictedMode = Boolean(buffer || swapSource);
+  const canGoPrev = !isRestrictedMode || diffWeeks > 0;
+  const canGoNext = !isRestrictedMode || diffWeeks < MAX_ONE_OFF_WEEKS_AHEAD;
 
-  // Derived single moving/copying lesson for compatibility
+  const { showToast: setToast } = useToast();
+
+  const handlePrevWeek = () => {
+    if (!canGoPrev) {
+      setToast("Далі змінювати не можна", "info");
+      return;
+    }
+    const prev = new Date(weekAnchorDate);
+    prev.setDate(prev.getDate() - 7);
+    setWeekAnchorDate(prev);
+  };
+
+  const handleNextWeek = () => {
+    if (!canGoNext) {
+      setToast("Далі змінювати не можна", "info");
+      return;
+    }
+    const next = new Date(weekAnchorDate);
+    next.setDate(next.getDate() + 7);
+    setWeekAnchorDate(next);
+  };
+
+  // Derived single moving lesson for compatibility
   const movingLesson = buffer?.type === "single" ? buffer.lesson : null;
-  const isCopyMode = buffer?.type === "single" ? buffer.mode === "copy" : false;
+  const isCopyMode = false;
 
   const [returnTarget, setReturnTarget] = useState<{ mode: "student" | "teacher"; id: number; label: string } | null>(null);
   const [moving, setMoving] = useState(false);
-  const { showToast: setToast } = useToast();
   const [versions, setVersions] = useState<import("../../lib/api").ScheduleVersion[]>([]);
+  const activeVersion = useMemo(() => versions.find((v) => v.is_active) || versions[0] || null, [versions]);
   const weekType = (week?.[0]?.week_type) ?? today?.week_type ?? "both";
   const [curatorModalOpen, setCuratorModalOpen] = useState(false);
   const [curatorDay, setCuratorDay] = useState(4);
@@ -132,27 +159,22 @@ export function AdminScheduleEditor() {
   const [eventsModalOpen, setEventsModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<AcademicEvent | null>(null);
 
-  // Close swap/selection when mode/group changes, but preserve buffer across weeks!
+  // Close swap when mode/group changes, but preserve buffer across weeks!
   useEffect(() => {
     setSwapSource(null);
   }, [mode, groupId, teacherId]);
 
-  // Esc key clears buffer, swap, and selection mode
+  // Esc key clears buffer and swap
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         if (swapSource) setSwapSource(null);
-        else if (isSelectMode) {
-          setIsSelectMode(false);
-          setSelectedLessonIds(new Set());
-        } else if (buffer) {
-          setBuffer(null);
-        }
+        else if (buffer) setBuffer(null);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [swapSource, isSelectMode, buffer]);
+  }, [swapSource, buffer]);
 
   useEffect(() => {
     api.scheduleVersions.list()
@@ -205,26 +227,28 @@ export function AdminScheduleEditor() {
   const LESSON_TIMES: Record<number, string> = { 1: "09:00-10:20", 2: "10:40-12:00", 3: "12:30-13:50", 4: "14:00-15:20", 5: "15:30-16:50" };
 
   const edit = async (lesson: Lesson, date: string, payload: LessonMutation) => {
-    const previousToday = today, previousWeek = week;
-    const time = LESSON_TIMES[payload.lesson_number];
-    if (!time) throw new Error(`Невідомий номер пари: ${payload.lesson_number}`);
-    updateLesson({ ...lesson, lesson_number: payload.lesson_number, time, week_type: payload.week_type });
-    try { 
-        const saved = await api.lessons.update(lesson.id, payload); 
-        updateLesson(saved); 
-        setToast("Заняття збережено.", "success"); 
-    } catch (e) { 
-        setToday(previousToday); setWeek(previousWeek); 
-        throw e; 
-    }
-  };
-
-  const handleCopySelect = (lesson: Lesson | null) => {
-    if (lesson) {
-      const srcDate = week?.find((d) => d.lessons.some((l) => l.id === lesson.id))?.date || week?.[0]?.date || "";
-      setBuffer({ type: "single", mode: "copy", lesson, sourceDate: srcDate });
-    } else {
-      setBuffer(null);
+    try {
+      const gid = payload.group_id ?? lesson.group_id ?? (groupId ?? 0);
+      await api.dated.replace({
+        group_id: gid,
+        date,
+        lesson_number: payload.lesson_number,
+        subject_id: payload.subject_id ?? null,
+        teacher_id: payload.teacher_id ?? null,
+        second_teacher_id: payload.second_teacher_id ?? null,
+        room: payload.room ?? null,
+      });
+      invalidateScheduleCache();
+      const refreshed = await api.week(
+        mode === "student" ? (groupId ?? undefined) : undefined,
+        mode === "teacher" ? (teacherId ?? undefined) : undefined,
+        weekAnchorDate
+      );
+      setWeek(refreshed);
+      setToast("Разову зміну збережено.", "success");
+    } catch (e: any) {
+      setToast(e?.message || "Не вдалося зберегти зміну.", "error");
+      throw e;
     }
   };
 
@@ -235,6 +259,16 @@ export function AdminScheduleEditor() {
     } else {
       setBuffer(null);
     }
+  };
+
+  const handleOpenPermanentSchedule = (lesson: Lesson) => {
+    const vId = activeVersion ? activeVersion.id : "";
+    const weekTypeParam = lesson.week_type === "denominator" ? "denominator" : "numerator";
+    const highlightParam = `${lesson.day_of_week}-${lesson.lesson_number}`;
+    const groupParam = lesson.group_id ? `&group_id=${lesson.group_id}` : (groupId ? `&group_id=${groupId}` : "");
+    const teacherParam = lesson.teacher_id ? `&teacher_id=${lesson.teacher_id}` : (teacherId ? `&teacher_id=${teacherId}` : "");
+    const modeParam = `&mode=${mode}`;
+    window.location.href = `/admin?resource=permanent-schedule&version_id=${vId}&week_type=${weekTypeParam}&highlight=${highlightParam}${modeParam}${groupParam}${teacherParam}`;
   };
 
   const cancelOnDate = async (lesson: Lesson, date: string) => {
@@ -377,59 +411,28 @@ export function AdminScheduleEditor() {
         return;
       }
 
-      if (isCopyMode) {
-        const created = await api.lessons.create({
-          group_id: lesson.group_id,
-          subject_id: lesson.subject_id,
-          teacher_id: lesson.teacher_id,
-          second_teacher_id: lesson.second_teacher_id,
-          day_of_week: targetDate,
-          lesson_number: lessonNumber,
-          week_type: lesson.week_type,
-          room: lesson.room_override || "",
-          date: date,
-          is_replacement: false,
-        });
-        addLesson(date, created);
-        invalidateScheduleCache();
-        setToast("Заняття скопійовано.", "success");
-        return;
-      }
-
-      const saved = await api.lessons.update(lesson.id, {
-        day_of_week: targetDate,
-        lesson_number: lessonNumber,
-        date,
-        week_type: lesson.week_type,
+      const sourceDate = buffer?.type === "single" ? buffer.sourceDate : (week?.find((d) => d.lessons.some((l) => l.id === lesson.id))?.date || "");
+      await api.dated.move({
+        source_group_id: lesson.group_id ?? groupId ?? 0,
+        source_date: sourceDate,
+        source_lesson_number: lesson.lesson_number,
+        target_group_id: lesson.group_id ?? groupId ?? 0,
+        target_date: date,
+        target_lesson_number: lessonNumber,
       });
-      setWeek((current) => current.map((day) => ({
-        ...day,
-        lessons: [
-          ...day.lessons.filter((item) => item.id !== lesson.id),
-          ...(day.date === date ? [saved] : []),
-        ].sort((a, b) => a.lesson_number - b.lesson_number),
-      })));
-      setToday((current) => current ? {
-        ...current,
-        lessons: [
-          ...current.lessons.filter((item) => item.id !== lesson.id),
-          ...(current.date === date ? [saved] : []),
-        ].sort((a, b) => a.lesson_number - b.lesson_number),
-      } : current);
-      setAvailabilityWeek((current) => current?.map((day) => ({
-        ...day,
-        lessons: [
-          ...day.lessons.filter((item) => item.id !== lesson.id),
-          ...((new Date(`${day.date}T12:00:00`).getDay() || 7) === targetDate ? [saved] : []),
-        ].sort((a, b) => a.lesson_number - b.lesson_number),
-      })) ?? null);
       setBuffer(null);
       invalidateScheduleCache();
-      setToast("Заняття переміщено.", "success");
+      const refreshed = await api.week(
+        mode === "student" ? (groupId ?? undefined) : undefined,
+        mode === "teacher" ? (teacherId ?? undefined) : undefined,
+        weekAnchorDate
+      );
+      setWeek(refreshed);
+      setToast("Заняття перенесено (разова зміна).", "success");
     } catch (cause) {
       setWeek(previousWeek);
       setToday(previousToday);
-      setToast(cause instanceof Error ? cause.message : (isCopyMode ? "Не вдалося скопіювати заняття." : "Не вдалося перемістити заняття."), "error");
+      setToast(cause instanceof Error ? cause.message : "Не вдалося перемістити заняття.", "error");
     } finally {
       setMoving(false);
     }
@@ -437,22 +440,34 @@ export function AdminScheduleEditor() {
   
   const create = async (payload: LessonMutation) => {
     try {
-      const created = await api.lessons.create(payload);
-      addLesson(payload.date ?? new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(new Date()), created);
-      setToast("Заняття додано.", "success");
-    } catch (e) {
+      const targetDate = payload.date ?? new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(new Date());
+      const gid = payload.group_id ?? (groupId ?? 0);
+      await api.dated.replace({
+        group_id: gid,
+        date: targetDate,
+        lesson_number: payload.lesson_number,
+        subject_id: payload.subject_id ?? null,
+        teacher_id: payload.teacher_id ?? null,
+        second_teacher_id: payload.second_teacher_id ?? null,
+        room: payload.room ?? null,
+      });
+      invalidateScheduleCache();
+      const refreshed = await api.week(
+        mode === "student" ? (groupId ?? undefined) : undefined,
+        mode === "teacher" ? (teacherId ?? undefined) : undefined,
+        weekAnchorDate
+      );
+      setWeek(refreshed);
+      setToast("Разову пару додано.", "success");
+    } catch (e: any) {
+      setToast(e instanceof Error ? e.message : "Не вдалося додати пару", "error");
       throw e;
     }
   };
   
-  const remove = async (lesson: Lesson) => {
-    const previousToday = today, previousWeek = week; removeLesson(lesson.id);
-    try { await api.lessons.remove(lesson.id); setToast("Заняття видалено.", "success"); }
-    catch (e) { 
-        setToday(previousToday); setWeek(previousWeek); 
-        setToast(e instanceof Error ? e.message : "Помилка видалення", "error");
-        throw e; 
-    }
+  const remove = async (lesson: Lesson, targetDate?: string) => {
+    const dateToCancel = targetDate || week?.find((day) => day.lessons.some((item) => item.id === lesson.id))?.date || (today?.date || week?.[0]?.date) || "";
+    await cancelOnDate(lesson, dateToCancel);
   };
 
   const handleSwapSelect = async (targetLesson: Lesson, targetDate: string) => {
@@ -499,70 +514,20 @@ export function AdminScheduleEditor() {
   const handlePasteToSlot = async (targetDate: string, lessonNumber: number) => {
     if (!buffer) return;
 
-    if (buffer.type === "single") {
+    if (buffer.type === "single" && buffer.mode === "move") {
       const srcGroupId = buffer.lesson.group_id ?? groupId ?? 0;
       const tgtGroupId = groupId ?? srcGroupId;
       try {
-        if (buffer.mode === "copy") {
-          await api.dated.copy({
-            source_group_id: srcGroupId,
-            source_date: buffer.sourceDate,
-            source_lesson_number: buffer.lesson.lesson_number,
-            target_group_id: tgtGroupId,
-            target_date: targetDate,
-            target_lesson_number: lessonNumber,
-          });
-          setToast("Заняття скопійовано.", "success");
-        } else {
-          await api.dated.move({
-            source_group_id: srcGroupId,
-            source_date: buffer.sourceDate,
-            source_lesson_number: buffer.lesson.lesson_number,
-            target_group_id: tgtGroupId,
-            target_date: targetDate,
-            target_lesson_number: lessonNumber,
-          });
-          setToast("Заняття переміщено.", "success");
-          setBuffer(null);
-        }
-        invalidateScheduleCache();
-        const refreshed = await api.week(
-          mode === "student" ? (groupId ?? undefined) : undefined,
-          mode === "teacher" ? (teacherId ?? undefined) : undefined,
-          weekAnchorDate
-        );
-        setWeek(refreshed);
-      } catch (err: any) {
-        setToast(err?.message || "Помилка вставки заняття", "error");
-      }
-      return;
-    }
-
-    if (buffer.type === "multi") {
-      const anchor = buffer.items.find((i) => i.lesson.id === buffer.anchorLessonId) || buffer.items[0];
-      const anchorSlot = anchor?.lesson.lesson_number ?? 1;
-      const deltaSlot = lessonNumber - anchorSlot;
-
-      const items = buffer.items.map((item) => {
-        const newSlot = Math.max(1, Math.min(5, item.lesson.lesson_number + deltaSlot));
-        return {
-          source_group_id: item.lesson.group_id ?? groupId ?? 0,
-          source_date: item.date,
-          source_lesson_number: item.lesson.lesson_number,
-          target_group_id: item.lesson.group_id ?? groupId ?? 0,
+        await api.dated.move({
+          source_group_id: srcGroupId,
+          source_date: buffer.sourceDate,
+          source_lesson_number: buffer.lesson.lesson_number,
+          target_group_id: tgtGroupId,
           target_date: targetDate,
-          target_lesson_number: newSlot,
-        };
-      });
-
-      try {
-        const res = await api.dated.batch({
-          action: buffer.mode as "copy" | "move",
-          items,
-          skip_conflicts: true,
+          target_lesson_number: lessonNumber,
         });
-        setToast(`Вставлено ${res.succeeded} з ${res.total} пар.`, "success");
-        if (buffer.mode === "move") setBuffer(null);
+        setToast("Заняття перенесено (разова зміна).", "success");
+        setBuffer(null);
         invalidateScheduleCache();
         const refreshed = await api.week(
           mode === "student" ? (groupId ?? undefined) : undefined,
@@ -571,19 +536,10 @@ export function AdminScheduleEditor() {
         );
         setWeek(refreshed);
       } catch (err: any) {
-        setToast(err?.message || "Помилка вставки пар", "error");
+        setToast(err?.message || "Помилка перенесення заняття", "error");
       }
-    }
-  };
-
-  const handleCopyDay = (sourceDate: string) => {
-    const dayLessons = week.find((d) => d.date === sourceDate)?.lessons || [];
-    if (!dayLessons.length) {
-      setToast("У цей день немає пар для копіювання", "info");
       return;
     }
-    setBuffer({ type: "day", mode: "copy", sourceDate, lessons: dayLessons });
-    setToast(`Скопійовано ${dayLessons.length} пар дня. Оберіть день для вставки у меню «⋯».`, "info");
   };
 
   const handleMoveDay = (sourceDate: string) => {
@@ -593,7 +549,7 @@ export function AdminScheduleEditor() {
       return;
     }
     setBuffer({ type: "day", mode: "move", sourceDate, lessons: dayLessons });
-    setToast(`Перенесення ${dayLessons.length} пар дня. Оберіть день для вставки у меню «⋯».`, "info");
+    setToast(`Перенесення ${dayLessons.length} пар дня. Оберіть день для вставки у меню «⋮».`, "info");
   };
 
   const handlePasteDay = async (targetDate: string) => {
@@ -608,12 +564,12 @@ export function AdminScheduleEditor() {
     }));
     try {
       const res = await api.dated.batch({
-        action: buffer.mode,
+        action: "move",
         items,
         skip_conflicts: true,
       });
-      setToast(`Вставлено ${res.succeeded} з ${res.total} пар дня.`, "success");
-      if (buffer.mode === "move") setBuffer(null);
+      setToast(`Перенесено ${res.succeeded} з ${res.total} пар дня.`, "success");
+      setBuffer(null);
       invalidateScheduleCache();
       const refreshed = await api.week(
         mode === "student" ? (groupId ?? undefined) : undefined,
@@ -622,186 +578,7 @@ export function AdminScheduleEditor() {
       );
       setWeek(refreshed);
     } catch (err: any) {
-      setToast(err?.message || "Помилка вставки дня", "error");
-    }
-  };
-
-  const handleCopyWeek = () => {
-    const allLessons = week.flatMap((d) => d.lessons);
-    if (!allLessons.length) {
-      setToast("На цьому тижні немає пар", "info");
-      return;
-    }
-    setBuffer({
-      type: "week",
-      mode: "copy",
-      sourceWeekAnchor: week[0]?.date || "",
-      days: week,
-    });
-    setToast(`Тиждень (${allLessons.length} пар) скопійовано. Перейдіть на інший тиждень і натисніть «Вставити».`, "info");
-  };
-
-  const handleMoveWeek = () => {
-    const allLessons = week.flatMap((d) => d.lessons);
-    if (!allLessons.length) {
-      setToast("На цьому тижні немає пар", "info");
-      return;
-    }
-    setBuffer({
-      type: "week",
-      mode: "move",
-      sourceWeekAnchor: week[0]?.date || "",
-      days: week,
-    });
-    setToast(`Тиждень (${allLessons.length} пар) у режимі перенесення. Перейдіть на інший тиждень і натисніть «Вставити».`, "info");
-  };
-
-  const handlePasteWeek = async (allowConflicts: boolean) => {
-    if (buffer?.type !== "week") return;
-    const items: Array<{
-      source_group_id: number;
-      source_date: string;
-      source_lesson_number: number;
-      target_group_id: number;
-      target_date: string;
-      target_lesson_number: number;
-    }> = [];
-    buffer.days.forEach((srcDay, dayIdx) => {
-      const targetDay = week[dayIdx];
-      if (!targetDay) return;
-      srcDay.lessons.forEach((l) => {
-        items.push({
-          source_group_id: l.group_id ?? groupId ?? 0,
-          source_date: srcDay.date,
-          source_lesson_number: l.lesson_number,
-          target_group_id: l.group_id ?? groupId ?? 0,
-          target_date: targetDay.date,
-          target_lesson_number: l.lesson_number,
-        });
-      });
-    });
-
-    try {
-      const res = await api.dated.batch({
-        action: buffer.mode,
-        items,
-        skip_conflicts: !allowConflicts,
-      });
-      const total = res.total;
-      const skipped = total - res.succeeded;
-      if (!allowConflicts) {
-        setToast(`Вставлено ${res.succeeded} з ${total} пар (пропущено ${skipped} конфліктних).`, "success");
-      } else {
-        setToast(`Вставлено ${res.succeeded} пар тижня.`, "success");
-      }
-      if (buffer.mode === "move") setBuffer(null);
-      invalidateScheduleCache();
-      const refreshed = await api.week(
-        mode === "student" ? (groupId ?? undefined) : undefined,
-        mode === "teacher" ? (teacherId ?? undefined) : undefined,
-        weekAnchorDate
-      );
-      setWeek(refreshed);
-    } catch (err: any) {
-      setToast(err?.message || "Помилка вставки тижня", "error");
-    }
-  };
-
-  const handleToggleSelectLesson = (lesson: Lesson) => {
-    setSelectedLessonIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(lesson.id)) next.delete(lesson.id);
-      else next.add(lesson.id);
-      return next;
-    });
-    setIsSelectMode(true);
-  };
-
-  const handleSelectDayLessons = (date: string) => {
-    const dayLessons = week.find((d) => d.date === date)?.lessons || [];
-    setSelectedLessonIds((prev) => {
-      const next = new Set(prev);
-      dayLessons.forEach((l) => next.add(l.id));
-      return next;
-    });
-    setIsSelectMode(true);
-    setToast(`Вибрано ${dayLessons.length} пар дня.`, "info");
-  };
-
-  const handleCopySelected = () => {
-    const items: Array<{ lesson: Lesson; date: string }> = [];
-    week.forEach((day) => {
-      day.lessons.forEach((l) => {
-        if (selectedLessonIds.has(l.id)) {
-          items.push({ lesson: l, date: day.date });
-        }
-      });
-    });
-    if (!items.length) return;
-    setBuffer({
-      type: "multi",
-      mode: "copy",
-      items,
-      anchorLessonId: items[0].lesson.id,
-    });
-    setIsSelectMode(false);
-    setSelectedLessonIds(new Set());
-    setToast(`Скопійовано ${items.length} пар. Оберіть слот для вставки.`, "info");
-  };
-
-  const handleMoveSelected = () => {
-    const items: Array<{ lesson: Lesson; date: string }> = [];
-    week.forEach((day) => {
-      day.lessons.forEach((l) => {
-        if (selectedLessonIds.has(l.id)) {
-          items.push({ lesson: l, date: day.date });
-        }
-      });
-    });
-    if (!items.length) return;
-    setBuffer({
-      type: "multi",
-      mode: "move",
-      items,
-      anchorLessonId: items[0].lesson.id,
-    });
-    setIsSelectMode(false);
-    setSelectedLessonIds(new Set());
-    setToast(`Перенесення ${items.length} пар. Оберіть слот для вставки.`, "info");
-  };
-
-  const handleDeleteSelected = async () => {
-    const items: Array<{ lesson: Lesson; date: string }> = [];
-    week.forEach((day) => {
-      day.lessons.forEach((l) => {
-        if (selectedLessonIds.has(l.id)) {
-          items.push({ lesson: l, date: day.date });
-        }
-      });
-    });
-    if (!items.length) return;
-    if (!confirm(`Ви дійсно бажаєте скасувати ${items.length} вибраних пар на ці дати?`)) return;
-
-    try {
-      for (const item of items) {
-        await api.dated.cancel({
-          group_id: item.lesson.group_id ?? groupId ?? 0,
-          date: item.date,
-          lesson_number: item.lesson.lesson_number,
-        });
-      }
-      setToast(`Скасовано ${items.length} пар.`, "success");
-      setSelectedLessonIds(new Set());
-      setIsSelectMode(false);
-      invalidateScheduleCache();
-      const refreshed = await api.week(
-        mode === "student" ? (groupId ?? undefined) : undefined,
-        mode === "teacher" ? (teacherId ?? undefined) : undefined,
-        weekAnchorDate
-      );
-      setWeek(refreshed);
-    } catch (err: any) {
-      setToast(err?.message || "Помилка групового скасування", "error");
+      setToast(err?.message || "Помилка перенесення дня", "error");
     }
   };
 
@@ -865,19 +642,27 @@ export function AdminScheduleEditor() {
         if (selectedDayIndex < 4) {
           setSelectedDayIndex((prev) => prev + 1);
         } else {
-          const next = new Date(weekAnchorDate);
-          next.setDate(next.getDate() + 7);
-          setWeekAnchorDate(next);
-          setSelectedDayIndex(0);
+          if (!canGoNext) {
+            setToast("Далі змінювати не можна", "info");
+          } else {
+            const next = new Date(weekAnchorDate);
+            next.setDate(next.getDate() + 7);
+            setWeekAnchorDate(next);
+            setSelectedDayIndex(0);
+          }
         }
       } else {
         if (selectedDayIndex > 0) {
           setSelectedDayIndex((prev) => prev - 1);
         } else {
-          const prev = new Date(weekAnchorDate);
-          prev.setDate(prev.getDate() - 7);
-          setWeekAnchorDate(prev);
-          setSelectedDayIndex(4);
+          if (!canGoPrev) {
+            setToast("Далі змінювати не можна", "info");
+          } else {
+            const prev = new Date(weekAnchorDate);
+            prev.setDate(prev.getDate() - 7);
+            setWeekAnchorDate(prev);
+            setSelectedDayIndex(4);
+          }
         }
       }
       touchStartX.current = null;
@@ -989,262 +774,145 @@ export function AdminScheduleEditor() {
         <div className="rounded-2xl border border-rose-400/20 bg-rose-400/5 p-8 text-center text-rose-200">{error}</div>
       ) : week ? (
         <div className="w-full min-w-0">
-          <div className="mb-4 mt-2 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center rounded-xl bg-sys-card/50 p-3 border border-sys-border">
-            <div className="text-[13px] font-medium text-sys-text-primary flex items-center gap-2 w-full sm:w-auto overflow-hidden">
+          <div className="mb-4 mt-2 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-sys-card/50 p-3 border border-sys-border">
+            <div className="text-[13px] font-medium text-sys-text-primary flex shrink-0 items-center gap-2 whitespace-nowrap">
               <svg width="1.2em" height="1.2em" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-sys-accent shrink-0"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-              <span className="truncate">{weekRange}</span>
-              <div className="ml-2 hidden sm:block shrink-0"><WeekTypeBadge weekType={weekType} /></div>
+              <span className="shrink-0 whitespace-nowrap font-semibold">{weekRange}</span>
+              <div className="shrink-0 whitespace-nowrap"><WeekTypeBadge weekType={weekType} /></div>
+              <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30 whitespace-nowrap">
+                Разова зміна
+              </span>
             </div>
-            <div className="flex w-full sm:w-auto flex-col sm:flex-row items-stretch sm:items-center gap-3">
-               <div className="flex items-center justify-between gap-3">
-                 <div className="sm:hidden shrink-0"><WeekTypeBadge weekType={weekType} /></div>
-                 <div className="flex w-full sm:w-auto items-center justify-between gap-1 rounded-lg border border-sys-border bg-sys-card p-1 text-sm">
-              <button type="button" aria-label="Попередній тиждень" onClick={() => {
-                const prev = new Date(weekAnchorDate);
-                prev.setDate(prev.getDate() - 7);
-                setWeekAnchorDate(prev);
-              }} className="relative z-10 flex min-h-[38px] min-w-[38px] items-center justify-center rounded-md p-1.5 px-3 text-sys-text-secondary hover:bg-sys-bg hover:text-sys-text-primary focus:ring-2 focus:ring-sys-accent focus:outline-none transition-colors">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-              </button>
-              
-              <button type="button" onClick={resetWeek} className={`relative z-10 text-center min-h-[38px] rounded-md px-3 py-1.5 font-medium transition-colors ${isCurrentWeek ? 'text-sys-accent bg-sys-accent/10' : 'text-sys-text-secondary hover:bg-sys-bg hover:text-sys-text-primary'}`}>Сьогодні</button>
-              
-              <button type="button" aria-label="Наступний тиждень" onClick={() => {
-                const next = new Date(weekAnchorDate);
-                next.setDate(next.getDate() + 7);
-                setWeekAnchorDate(next);
-              }} className="relative z-10 flex min-h-[38px] min-w-[38px] items-center justify-center rounded-md p-1.5 px-3 text-sys-text-secondary hover:bg-sys-bg hover:text-sys-text-primary focus:ring-2 focus:ring-sys-accent focus:outline-none transition-colors">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
-              </button>
-                 </div>
-               </div>
-            
-            {versions.length > 0 && (
-              <select 
-                className="form-control text-sm py-1.5 w-full sm:w-auto"
-                value=""
-                onChange={(e) => {
-                  if (e.target.value) {
-                    const v = versions.find(v => v.id === Number(e.target.value));
-                    if (v) setWeekAnchorDate(getMondayOf(new Date(v.valid_from)));
-                  }
-                }}
-                aria-label="Перейти до версії"
+
+            <div className="flex flex-wrap items-center gap-2.5">
+              <div className="flex items-center gap-1 rounded-lg border border-sys-border bg-sys-card p-1 text-sm">
+                <button
+                  type="button"
+                  aria-label="Попередній тиждень"
+                  aria-disabled={!canGoPrev}
+                  title={!canGoPrev ? "Далі змінювати не можна" : undefined}
+                  onClick={handlePrevWeek}
+                  className={`relative z-10 flex min-h-[38px] min-w-[38px] items-center justify-center rounded-md p-1.5 px-3 transition-colors ${
+                    !canGoPrev
+                      ? "opacity-40 cursor-not-allowed text-sys-text-muted"
+                      : "text-sys-text-secondary hover:bg-sys-bg hover:text-sys-text-primary focus:ring-2 focus:ring-sys-accent focus:outline-none"
+                  }`}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                </button>
+                
+                <button
+                  type="button"
+                  onClick={resetWeek}
+                  className={`relative z-10 text-center min-h-[38px] rounded-md px-3 py-1.5 font-medium transition-colors ${isCurrentWeek ? 'text-sys-accent bg-sys-accent/10' : 'text-sys-text-secondary hover:bg-sys-bg hover:text-sys-text-primary'}`}
+                >
+                  Сьогодні
+                </button>
+                
+                <button
+                  type="button"
+                  aria-label="Наступний тиждень"
+                  aria-disabled={!canGoNext}
+                  title={!canGoNext ? "Далі змінювати не можна" : undefined}
+                  onClick={handleNextWeek}
+                  className={`relative z-10 flex min-h-[38px] min-w-[38px] items-center justify-center rounded-md p-1.5 px-3 transition-colors ${
+                    !canGoNext
+                      ? "opacity-40 cursor-not-allowed text-sys-text-muted"
+                      : "text-sys-text-secondary hover:bg-sys-bg hover:text-sys-text-primary focus:ring-2 focus:ring-sys-accent focus:outline-none"
+                  }`}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                </button>
+              </div>
+
+              <a
+                href={`/admin?resource=permanent-schedule${activeVersion ? `&version_id=${activeVersion.id}` : ""}`}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-3 py-1.5 text-xs font-semibold text-indigo-300 hover:bg-indigo-500/20 transition-colors whitespace-nowrap"
+                title="Редагувати постійний розклад версії"
               >
-                <option value="">Перейти до версії...</option>
-                {versions.map(v => (
-                  <option key={v.id} value={v.id}>{v.name}</option>
-                ))}
-              </select>
-            )}
-            <button
-              type="button"
-              onClick={handleCopyWeek}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-sys-border bg-sys-card px-3 py-1.5 text-xs font-semibold text-sys-text-primary hover:bg-white/5"
-              title="Скопіювати весь тиждень у буфер"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
-                <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
-              </svg>
-              <span>Копіювати тиждень</span>
-            </button>
-            <button
-              type="button"
-              onClick={handleMoveWeek}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-sys-border bg-sys-card px-3 py-1.5 text-xs font-semibold text-sys-text-primary hover:bg-white/5"
-              title="Перемістити весь тиждень"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="5 9 2 12 5 15" />
-                <polyline points="9 5 12 2 15 5" />
-                <polyline points="15 19 12 22 9 19" />
-                <polyline points="19 9 22 12 19 15" />
-                <line x1="2" x2="22" y1="12" y2="12" />
-                <line x1="12" x2="12" y1="2" y2="22" />
-              </svg>
-              <span>Перемістити тиждень</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsSelectMode(!isSelectMode)}
-              className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                isSelectMode
-                  ? "border-sys-accent bg-sys-accent/15 text-sys-accent"
-                  : "border-sys-border bg-sys-card text-sys-text-primary hover:bg-white/5"
-              }`}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect width="18" height="18" x="3" y="3" rx="2" />
-                <path d="m9 12 2 2 4-4" />
-              </svg>
-              <span>{isSelectMode ? "Режим вибору (активний)" : "Вибрати кілька"}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setCuratorModalOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-sys-border bg-sys-card px-3 py-1.5 text-xs font-semibold text-sys-text-primary hover:bg-white/5"
-            >
-              <GraduationIcon />
-              <span>Виховна година</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setEventsModalOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-sys-border bg-sys-card px-3 py-1.5 text-xs font-semibold text-sys-text-primary hover:bg-white/5"
-            >
-              <CalendarEventIcon />
-              <span>Сесія / Події</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setPrintModalOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-sys-border bg-sys-card px-3 py-1.5 text-xs font-semibold text-sys-text-primary hover:bg-white/5"
-            >
-              <PrinterIcon />
-              <span>Друк</span>
-            </button>
-          </div>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
+                  <line x1="16" y1="2" x2="16" y2="6" />
+                  <line x1="8" y1="2" x2="8" y2="6" />
+                  <line x1="3" y1="10" x2="21" y2="10" />
+                </svg>
+                <span className="whitespace-nowrap">Постійний розклад</span>
+              </a>
+
+              <button
+                type="button"
+                onClick={() => setCuratorModalOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-sys-border bg-sys-card px-3 py-1.5 text-xs font-semibold text-sys-text-primary hover:bg-white/5 whitespace-nowrap"
+              >
+                <GraduationIcon />
+                <span className="whitespace-nowrap">Виховна година</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setEventsModalOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-sys-border bg-sys-card px-3 py-1.5 text-xs font-semibold text-sys-text-primary hover:bg-white/5 whitespace-nowrap"
+              >
+                <CalendarEventIcon />
+                <span className="whitespace-nowrap">Сесія / Події</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setPrintModalOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-sys-border bg-sys-card px-3 py-1.5 text-xs font-semibold text-sys-text-primary hover:bg-white/5 whitespace-nowrap"
+              >
+                <PrinterIcon />
+                <span className="whitespace-nowrap">Друк</span>
+              </button>
+            </div>
           </div>
 
-          {/* Buffer / Swap / Selection Active Banner */}
+          {/* Buffer / Swap Active Banner */}
           {swapSource ? (
             <div className="sticky top-2 z-40 mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-sys-accent/40 bg-sys-card p-3 shadow-xl backdrop-blur-md">
-              <div className="flex items-center gap-2.5">
-                <span className="text-lg">⇄</span>
-                <div>
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="text-lg shrink-0">⇄</span>
+                <div className="min-w-0">
                   <p className="text-xs font-bold text-sys-text-primary">
                     Обмін парами: «{swapSource.lesson.subject_name}» ({swapSource.lesson.lesson_number}-та пара)
                   </p>
-                  <p className="text-[11px] text-sys-text-secondary">
-                    Оберіть іншу пару в розкладі для взаємного обміну місцями або порожній слот для перенесення.
+                  <p className="text-[11px] text-sys-text-secondary break-words">
+                    Разова зміна · {weekRange} · {weekType === "numerator" ? "Чисельник" : weekType === "denominator" ? "Знаменник" : "Обидва"} — діє лише на цей тиждень. Оберіть іншу пару для взаємного обміну або вільний слот для перенесення.
                   </p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setSwapSource(null)}
-                className="rounded-lg border border-sys-border bg-white/5 px-3 py-1.5 text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/10"
+                className="shrink-0 rounded-lg border border-sys-border bg-white/5 px-3 py-1.5 text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/10"
               >
                 ✕ Скасувати
               </button>
             </div>
           ) : buffer ? (
             <div className="sticky top-2 z-40 mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-500/40 bg-sys-card p-3 shadow-xl backdrop-blur-md">
-              <div className="flex items-center gap-2.5">
-                <span className="text-lg">{buffer.mode === "copy" ? "📋" : "✂️"}</span>
-                <div>
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="text-lg shrink-0">✂️</span>
+                <div className="min-w-0">
                   <p className="text-xs font-bold text-sys-text-primary">
-                    {buffer.type === "single" && (
-                      <span>
-                        {buffer.mode === "copy" ? "Копіювання" : "Перенесення"}: «{buffer.lesson.subject_name}»
-                      </span>
-                    )}
-                    {buffer.type === "multi" && (
-                      <span>
-                        {buffer.mode === "copy" ? "Копіювання" : "Перенесення"}: {buffer.items.length} вибраних пар
-                      </span>
-                    )}
-                    {buffer.type === "day" && (
-                      <span>
-                        {buffer.mode === "copy" ? "Копіювання" : "Перенесення"} дня ({buffer.lessons.length} пар)
-                      </span>
-                    )}
-                    {buffer.type === "week" && (
-                      <span>
-                        {buffer.mode === "copy" ? "Копіювання" : "Перенесення"} всього тижня
-                      </span>
-                    )}
+                    {buffer.type === "single"
+                      ? `Перенесення пари: «${buffer.lesson.subject_name}»`
+                      : `Перенесення дня (${buffer.lessons.length} пар)`}
                   </p>
-                  <p className="text-[11px] text-sys-text-secondary">
-                    {buffer.type === "week"
-                      ? "Перейдіть на потрібний тиждень та оберіть спосіб вставки праворуч."
-                      : buffer.type === "day"
-                      ? "Оберіть день і в меню дня (⋯) натисніть «Вставити день сюди»."
-                      : "Натисніть «Вставити сюди» у будь-якому вільному слоті."}
+                  <p className="text-[11px] text-sys-text-secondary break-words">
+                    Разова зміна · {weekRange} · {weekType === "numerator" ? "Чисельник" : weekType === "denominator" ? "Знаменник" : "Обидва"} — діє лише на цей тиждень. {buffer.type === "day" ? "Оберіть день і в меню дня (⋮) натисніть «Вставити день сюди»." : "Натисніть «Вставити сюди» у будь-якому вільному слоті."}
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                {buffer.type === "week" && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => handlePasteWeek(false)}
-                      className="rounded-lg border border-sys-accent/40 bg-sys-accent/15 px-3 py-1.5 text-xs font-semibold text-sys-accent hover:bg-sys-accent/25 transition-colors"
-                    >
-                      Вставити без конфліктних
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handlePasteWeek(true)}
-                      className="rounded-lg bg-sys-accent px-3 py-1.5 text-xs font-bold text-[#0b1120] hover:opacity-90 transition-opacity"
-                    >
-                      Вставити всі
-                    </button>
-                  </>
-                )}
-                {buffer.mode === "copy" && buffer.type === "single" && (
-                  <button
-                    type="button"
-                    onClick={() => setBuffer(null)}
-                    className="rounded-lg bg-emerald-500/20 border border-emerald-500/40 px-3 py-1.5 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/30 transition-colors"
-                  >
-                    Готово
-                  </button>
-                )}
+              <div className="flex items-center gap-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => setBuffer(null)}
-                  className="rounded-lg border border-sys-border bg-white/5 px-3 py-1.5 text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/10 transition-colors"
-                >
-                  ✕ Скасувати
-                </button>
-              </div>
-            </div>
-          ) : isSelectMode ? (
-            <div className="sticky top-2 z-40 mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-sys-accent/40 bg-sys-card p-3 shadow-xl backdrop-blur-md">
-              <div className="flex items-center gap-2">
-                <span className="text-base">☑️</span>
-                <p className="text-xs font-bold text-sys-text-primary">
-                  Режим вибору: вибрано {selectedLessonIds.size} пар
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  disabled={selectedLessonIds.size === 0}
-                  onClick={handleCopySelected}
-                  className="rounded-lg border border-sys-border bg-sys-card px-3 py-1.5 text-xs font-semibold text-sys-text-primary hover:bg-white/5 disabled:opacity-40"
-                >
-                  📋 Копіювати
-                </button>
-                <button
-                  type="button"
-                  disabled={selectedLessonIds.size === 0}
-                  onClick={handleMoveSelected}
-                  className="rounded-lg border border-sys-border bg-sys-card px-3 py-1.5 text-xs font-semibold text-sys-text-primary hover:bg-white/5 disabled:opacity-40"
-                >
-                  ✂️ Перемістити
-                </button>
-                <button
-                  type="button"
-                  disabled={selectedLessonIds.size === 0}
-                  onClick={handleDeleteSelected}
-                  className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-300 hover:bg-rose-500/20 disabled:opacity-40"
-                >
-                  🗑️ Видалити
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsSelectMode(false);
-                    setSelectedLessonIds(new Set());
-                  }}
                   className="rounded-lg border border-sys-border bg-white/5 px-3 py-1.5 text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary"
                 >
-                  ✕ Готово
+                  ✕ Скасувати
                 </button>
               </div>
             </div>
@@ -1259,29 +927,22 @@ export function AdminScheduleEditor() {
               scheduleMode={mode}
               canEdit={true}
               movingLesson={movingLesson}
-              isCopyMode={isCopyMode}
               onMoveSelect={handleMoveSelect}
-              onCopySelect={handleCopySelect}
               onCancelDated={cancelOnDate}
               onRestoreDated={restoreOnDate}
               onQuickJump={handleQuickJump}
               onMove={(lesson, date, lessonNumber) => void moveLesson(lesson, date, lessonNumber)}
               onEdit={(lesson) => handleEditLesson(lesson)}
               onCreate={(date, lessonNumber) => setEditor({ date, lesson: lessonNumber ? { lesson_number: lessonNumber } as any : undefined })}
-              isSelectMode={isSelectMode}
-              selectedLessonIds={selectedLessonIds}
-              onToggleSelectLesson={handleToggleSelectLesson}
-              onSelectMultipleLessons={handleToggleSelectLesson}
               swapSourceLesson={swapSource?.lesson}
               swapSourceDate={swapSource?.date}
               onSwapSelectLesson={handleSwapSelect}
               hasBufferContent={Boolean(buffer)}
               onPasteToSlot={handlePasteToSlot}
-              onCopyDay={handleCopyDay}
               onMoveDay={handleMoveDay}
-              onSelectDayLessons={handleSelectDayLessons}
               onPasteDay={handlePasteDay}
               canPasteDay={buffer?.type === "day"}
+              onOpenPermanentSchedule={handleOpenPermanentSchedule}
             />
           </div>
 
@@ -1291,16 +952,8 @@ export function AdminScheduleEditor() {
               weekRange={weekRange}
               weekType={weekType}
               isCurrentWeek={isCurrentWeek}
-              onPrevWeek={() => {
-                const prev = new Date(weekAnchorDate);
-                prev.setDate(prev.getDate() - 7);
-                setWeekAnchorDate(prev);
-              }}
-              onNextWeek={() => {
-                const next = new Date(weekAnchorDate);
-                next.setDate(next.getDate() + 7);
-                setWeekAnchorDate(next);
-              }}
+              onPrevWeek={handlePrevWeek}
+              onNextWeek={handleNextWeek}
               onResetWeek={resetWeek}
             />
             <MobileWeekDaysStrip
@@ -1365,6 +1018,7 @@ export function AdminScheduleEditor() {
                         const hasSlotContent = slotLessons.length > 0;
                         const isBufferActive = Boolean(buffer);
                         const isSwapActive = Boolean(swapSource);
+                        const isPast = isSlotInPast(currentDay.date, slotNum);
 
                         return (
                           <div key={slotNum} className="rounded-xl border border-sys-border bg-sys-card/70 p-3 shadow-xs">
@@ -1392,20 +1046,13 @@ export function AdminScheduleEditor() {
                                       if (l) setBuffer({ type: "single", mode: "move", lesson: l, sourceDate: currentDay.date });
                                       else setBuffer(null);
                                     }}
-                                    onCopySelect={(l) => {
-                                      if (l) setBuffer({ type: "single", mode: "copy", lesson: l, sourceDate: currentDay.date });
-                                      else setBuffer(null);
-                                    }}
                                     onCancelDated={cancelOnDate}
                                     onRestoreDated={restoreOnDate}
                                     onQuickJump={handleQuickJump}
                                     hideTimeColumn={true}
-                                    isSelectMode={isSelectMode}
-                                    isSelected={selectedLessonIds.has(lesson.id)}
-                                    onToggleSelect={() => handleToggleSelectLesson(lesson)}
                                     onSwapSelect={() => handleSwapSelect(lesson, currentDay.date)}
-                                    onSelectMultiple={() => handleToggleSelectLesson(lesson)}
                                     isSwapSource={swapSource?.lesson.id === lesson.id && swapSource.date === currentDay.date}
+                                    onOpenPermanentSchedule={handleOpenPermanentSchedule}
                                   />
                                 ))}
                               </div>
@@ -1413,7 +1060,9 @@ export function AdminScheduleEditor() {
                               <div className="flex flex-col sm:flex-row items-center justify-between gap-2 py-1">
                                 <span className="text-xs text-sys-text-muted/60">Пари немає</span>
                                 <div className="flex items-center gap-2 w-full sm:w-auto">
-                                  {isSwapActive ? (
+                                  {isPast ? (
+                                    <span className="text-xs text-sys-text-muted/60">Час минув</span>
+                                  ) : isSwapActive ? (
                                     <button
                                       type="button"
                                       onClick={() => handleSwapMoveToEmpty(currentDay.date, slotNum)}
@@ -1427,16 +1076,17 @@ export function AdminScheduleEditor() {
                                       onClick={() => handlePasteToSlot(currentDay.date, slotNum)}
                                       className="flex-1 sm:flex-none min-h-[38px] px-3 rounded-lg border border-dashed border-sys-accent/40 bg-sys-accent/10 text-xs font-semibold text-sys-accent hover:bg-sys-accent/20 transition-colors"
                                     >
-                                      📋 Вставити сюди
+                                      📥 Перемістити сюди
                                     </button>
-                                  ) : null}
-                                  <button
-                                    type="button"
-                                    onClick={() => setEditor({ date: currentDay.date, lesson: { lesson_number: slotNum } as any })}
-                                    className="flex-1 sm:flex-none min-h-[38px] px-3 rounded-lg border border-dashed border-sys-border bg-white/5 text-xs font-medium text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent transition-colors"
-                                  >
-                                    + Додати пару
-                                  </button>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => setEditor({ date: currentDay.date, lesson: { lesson_number: slotNum } as any })}
+                                      className="flex-1 sm:flex-none min-h-[38px] px-3 rounded-lg border border-dashed border-sys-border bg-white/5 text-xs font-medium text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent transition-colors"
+                                    >
+                                      + Додати пару
+                                    </button>
+                                  )}
                                 </div>
                               </div>
                             )}
@@ -1469,7 +1119,9 @@ export function AdminScheduleEditor() {
           availabilityWeek={availabilityWeek}
           onClose={() => setEditor(null)}
           onSave={(payload) => editor.lesson ? edit(editor.lesson, editor.date, payload) : create(payload)}
-          onDelete={editor.lesson ? () => remove(editor.lesson!) : undefined}
+          onDelete={editor.lesson ? () => remove(editor.lesson!, editor.date) : undefined}
+          isOneOff={true}
+          weekRangeText={weekRange}
         />
       )}
       {curatorModalOpen && (
@@ -1619,18 +1271,13 @@ export function AdminScheduleEditor() {
               </button>
             </div>
             <div className="grid grid-cols-1 gap-2 pt-1">
-              <button
-                type="button"
-                onClick={() => {
-                  setMobileActionsOpen(false);
-                  const currentDay = week[selectedDayIndex];
-                  if (currentDay) handleCopyDay(currentDay.date);
-                }}
-                className="flex items-center gap-3 w-full rounded-xl border border-sys-border bg-sys-bg/60 p-3 text-left text-sm font-medium text-sys-text-primary hover:bg-sys-bg"
+              <a
+                href={`/admin?resource=permanent-schedule${activeVersion ? `&version_id=${activeVersion.id}` : ""}`}
+                className="flex items-center gap-3 w-full rounded-xl border border-indigo-500/30 bg-indigo-500/10 p-3 text-left text-sm font-semibold text-indigo-300 hover:bg-indigo-500/20"
               >
-                <span className="text-base">📋</span>
-                <span>Копіювати цей день</span>
-              </button>
+                <span className="text-base">📅</span>
+                <span>Постійний розклад</span>
+              </a>
               <button
                 type="button"
                 onClick={() => {
@@ -1657,28 +1304,6 @@ export function AdminScheduleEditor() {
                   <span>Вставити день у цей день</span>
                 </button>
               )}
-              <button
-                type="button"
-                onClick={() => {
-                  setMobileActionsOpen(false);
-                  handleCopyWeek();
-                }}
-                className="flex items-center gap-3 w-full rounded-xl border border-sys-border bg-sys-bg/60 p-3 text-left text-sm font-medium text-sys-text-primary hover:bg-sys-bg"
-              >
-                <span className="text-base">📅</span>
-                <span>Копіювати весь тиждень</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setMobileActionsOpen(false);
-                  setIsSelectMode(!isSelectMode);
-                }}
-                className="flex items-center gap-3 w-full rounded-xl border border-sys-border bg-sys-bg/60 p-3 text-left text-sm font-medium text-sys-text-primary hover:bg-sys-bg"
-              >
-                <span className="text-base">☑️</span>
-                <span>{isSelectMode ? "Вимкнути вибір пар" : "Вибрати кілька пар"}</span>
-              </button>
               <div className="my-1 border-t border-sys-border/40" />
               <button
                 type="button"

@@ -14,6 +14,7 @@ export const referenceLabels: Record<ReferenceResource, string> = {
 
 export const pageTitles: Record<string, string> = {
   schedule: "Розклад",
+  "permanent-schedule": "Постійний розклад",
   import: "Імпорт з КРЕ",
   periods: "Графік процесу",
   versions: "Версії",

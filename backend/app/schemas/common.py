@@ -125,6 +125,8 @@ class ScheduleItem(BaseModel):
     event_title: str | None = None
     custom_subject: str | None = None
     event_id: int | None = None
+    moved_to_date: DateType | None = None
+    moved_to_lesson: int | None = None
 
 class ScheduleResponse(BaseModel):
     date: date
@@ -154,6 +156,7 @@ class SemesterDatesUpdate(BaseModel):
 
 
 class LessonMutation(BaseModel):
+    version_id: int | None = None
     group_id: int | None = None
     subject_id: int | None = None
     teacher_id: int | None = None

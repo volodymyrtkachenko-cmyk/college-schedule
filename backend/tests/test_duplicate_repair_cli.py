@@ -3,9 +3,9 @@ from pathlib import Path
 
 def create_file(path):
     with sqlite3.connect(path) as c:
-        c.executescript('''CREATE TABLE schedule(id INTEGER PRIMARY KEY,group_id INTEGER,teacher_id INTEGER,second_teacher_id INTEGER,subject_id INTEGER,stream_id TEXT,day_of_week INTEGER,lesson_number INTEGER,week_type TEXT,is_active BOOLEAN,is_replacement BOOLEAN,room_override TEXT,version_id INTEGER);
+        c.executescript('''CREATE TABLE schedule(id INTEGER PRIMARY KEY,group_id INTEGER,teacher_id INTEGER,second_teacher_id INTEGER,subject_id INTEGER,stream_id TEXT,day_of_week INTEGER,lesson_number INTEGER,week_type TEXT,is_active BOOLEAN,is_replacement BOOLEAN,room_override TEXT,version_id INTEGER,effective_from DATE,effective_until DATE);
         CREATE TABLE schedule_versions(id INTEGER PRIMARY KEY,name TEXT,valid_from DATE,valid_until DATE,is_active BOOLEAN);''')
-        for i in range(1,34):c.execute("INSERT INTO schedule VALUES(?,1,1,NULL,1,NULL,2,4,'denominator',1,0,'212',NULL)",(i,))
+        for i in range(1,34):c.execute("INSERT INTO schedule VALUES(?,1,1,NULL,1,NULL,2,4,'denominator',1,0,'212',NULL,NULL,NULL)",(i,))
 
 def run(path,args):
     env={**os.environ,'DATABASE_URL':f'sqlite+aiosqlite:///{path}','RUN_MIGRATIONS':'false','RUN_CRON':'false'}
@@ -32,7 +32,7 @@ def test_cli_sqlite_apply_still_forbidden_with_all_flags(tmp_path):
 def test_cli_covered_week_mode_is_explicit_and_read_only(tmp_path):
     path=tmp_path/'existing.db';out=tmp_path/'plan-v2.json';create_file(path)
     with sqlite3.connect(path) as c:
-        c.execute("INSERT INTO schedule VALUES(34,1,1,NULL,1,NULL,2,4,'both',1,0,'212',NULL)")
+        c.execute("INSERT INTO schedule VALUES(34,1,1,NULL,1,NULL,2,4,'both',1,0,'212',NULL,NULL,NULL)")
     before=path.read_bytes()
     refused=run(path,['--output',str(out)])
     assert refused.returncode==1

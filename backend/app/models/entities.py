@@ -126,6 +126,8 @@ class Schedule(Base):
     is_replacement: Mapped[bool] = mapped_column(Boolean, default=False)
     room_override: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     version_id: Mapped[Optional[int]] = mapped_column(ForeignKey("schedule_versions.id", ondelete="CASCADE"), nullable=True, index=True)
+    effective_from: Mapped[Optional[date]] = mapped_column(Date, nullable=True, index=True)
+    effective_until: Mapped[Optional[date]] = mapped_column(Date, nullable=True, index=True)
     
     group: Mapped["Group"] = relationship(back_populates="schedules")
     version: Mapped[Optional["ScheduleVersion"]] = relationship(back_populates="schedules")
@@ -177,6 +179,8 @@ class ScheduleOverride(Base):
     stream_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     room: Mapped[Optional[str]] = mapped_column(String(100))
     cancelled: Mapped[bool] = mapped_column(Boolean, default=False)
+    moved_to_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    moved_to_lesson: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     
     group: Mapped["Group"] = relationship()
     subject: Mapped[Optional["Subject"]] = relationship()

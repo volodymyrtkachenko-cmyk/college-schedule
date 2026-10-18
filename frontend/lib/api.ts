@@ -105,12 +105,31 @@ export interface Lesson {
     event_title?: string | null;
     custom_subject?: string | null;
     event_id?: number | null;
+    moved_to_date?: string | null;
+    moved_to_lesson?: number | null;
+    effective_from?: string | null;
+    effective_until?: string | null;
+    version_id?: number | null;
 }
 
 export interface ScheduleResponse {
     date: string;
     week_type: WeekType;
     lessons: Lesson[];
+}
+
+export interface TemplateDaySchedule {
+    day_of_week: number;
+    name: string;
+    lessons: Lesson[];
+}
+
+export interface TemplateScheduleResponse {
+    version: ScheduleVersion;
+    week_type: WeekType;
+    effective_from: string;
+    days: TemplateDaySchedule[];
+    all_lessons: Lesson[];
 }
 
 export interface StatisticsEntry {
@@ -163,6 +182,7 @@ export interface LessonMutation {
   room_override?: string | null;
     week_type: WeekType;
     is_replacement?: boolean;
+    version_id?: number | null;
 }
 
 // NEXT_PUBLIC_* values are embedded by Next.js at build time. Keep the
@@ -993,6 +1013,80 @@ export const api = {
                 total: number;
                 succeeded: number;
             }>("/api/schedule/dated/batch", {
+                method: "POST",
+                body: JSON.stringify(payload),
+            }),
+    },
+    template: {
+        get: (params: {
+            version_id: number;
+            group_id?: number;
+            teacher_id?: number;
+            week_type?: string;
+            effective_date?: string;
+        }) => {
+            const qs = new URLSearchParams({ version_id: String(params.version_id) });
+            if (params.group_id) qs.set("group_id", String(params.group_id));
+            if (params.teacher_id) qs.set("teacher_id", String(params.teacher_id));
+            if (params.week_type) qs.set("week_type", params.week_type);
+            if (params.effective_date) qs.set("effective_date", params.effective_date);
+            return authenticatedRequest<TemplateScheduleResponse>(`/api/schedule/template?${qs.toString()}`);
+        },
+        createLesson: (payload: LessonMutation) =>
+            authenticatedRequest<{ lesson: Lesson; affected_dates: string[] }>("/api/schedule/template/lesson", {
+                method: "POST",
+                body: JSON.stringify(payload),
+            }),
+        updateLesson: (id: number, payload: LessonMutation) =>
+            authenticatedRequest<{ lesson: Lesson; affected_dates: string[] }>(`/api/schedule/template/lesson/${id}`, {
+                method: "PATCH",
+                body: JSON.stringify(payload),
+            }),
+        deleteLesson: (id: number) =>
+            authenticatedRequest<{ status: string; affected_dates: string[] }>(`/api/schedule/template/lesson/${id}`, {
+                method: "DELETE",
+            }),
+        copy: (payload: {
+            version_id: number;
+            source_lesson_id: number;
+            target_day_of_week: number;
+            target_lesson_number: number;
+            target_week_type: string;
+        }) =>
+            authenticatedRequest<{ lesson: Lesson; affected_dates: string[] }>("/api/schedule/template/copy", {
+                method: "POST",
+                body: JSON.stringify(payload),
+            }),
+        move: (payload: {
+            version_id: number;
+            source_lesson_id: number;
+            target_day_of_week: number;
+            target_lesson_number: number;
+            target_week_type: string;
+        }) =>
+            authenticatedRequest<{ lesson: Lesson; affected_dates: string[] }>("/api/schedule/template/move", {
+                method: "POST",
+                body: JSON.stringify(payload),
+            }),
+        swap: (payload: {
+            version_id: number;
+            first_lesson_id: number;
+            second_lesson_id: number;
+        }) =>
+            authenticatedRequest<{ status: string; affected_dates: string[] }>("/api/schedule/template/swap", {
+                method: "POST",
+                body: JSON.stringify(payload),
+            }),
+        dayAction: (payload: {
+            action: "copy" | "move";
+            version_id: number;
+            group_id: number;
+            source_day_of_week: number;
+            source_week_type: string;
+            target_day_of_week: number;
+            target_week_type: string;
+        }) =>
+            authenticatedRequest<{ status: string; count: number; affected_dates: string[] }>("/api/schedule/template/day-action", {
                 method: "POST",
                 body: JSON.stringify(payload),
             }),

@@ -15,6 +15,7 @@ from app.routers import schedule_versions, lesson_notes
 from app.routers import (
     admin_import, aliases, auth, curriculums, directory, drafts, educational_process, generator,
     health, schedule, schedule_periods, statistics, settings as settings_router, teacher_constraints, users,
+    schedule_dated, schedule_template,
 )
 from app.models import AcademicEvent, GroupStudent, ClassroomGroupBinding
 from app.routers.classroom import router as classroom_router
@@ -122,6 +123,7 @@ from app.routers import schedule_dated
 
 app.include_router(health.router, prefix="/api")
 app.include_router(schedule_dated.router)
+app.include_router(schedule_template.router, prefix="/api")
 app.include_router(schedule.router, prefix="/api")
 app.include_router(lesson_notes.router, prefix="/api")
 app.include_router(schedule_now_router, prefix="/api/schedule")

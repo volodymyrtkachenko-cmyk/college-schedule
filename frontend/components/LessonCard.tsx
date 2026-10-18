@@ -49,6 +49,57 @@ function CheckSquareIcon() {
   );
 }
 
+const UKR_DAY_NAMES: Record<number, string> = {
+  1: "Понеділок",
+  2: "Вівторок",
+  3: "Середа",
+  4: "Четвер",
+  5: "П'ятниця",
+  6: "Субота",
+  7: "Неділя",
+};
+
+function formatMovedTo(movedToDate?: string | null, movedToLesson?: number | null) {
+  if (!movedToDate) return null;
+  const parts = movedToDate.split("-").map(Number);
+  if (parts.length === 3) {
+    const d = new Date(parts[0], parts[1] - 1, parts[2]);
+    const dow = d.getDay() === 0 ? 7 : d.getDay();
+    const dayName = UKR_DAY_NAMES[dow] || "";
+    return `Перенесено → ${dayName}, ${movedToLesson || "?"} пара`;
+  }
+  return `Перенесено → ${movedToDate}`;
+}
+
+function TrashIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 6h18" />
+      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+      <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+      <line x1="10" x2="10" y1="11" y2="17" />
+      <line x1="14" x2="14" y1="11" y2="17" />
+    </svg>
+  );
+}
+
+function TemplateIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
+      <line x1="16" x2="16" y1="2" y2="6" />
+      <line x1="8" x2="8" y1="2" y2="6" />
+      <line x1="3" x2="21" y1="10" y2="10" />
+      <path d="M8 14h.01" />
+      <path d="M12 14h.01" />
+      <path d="M16 14h.01" />
+      <path d="M8 18h.01" />
+      <path d="M12 18h.01" />
+      <path d="M16 18h.01" />
+    </svg>
+  );
+}
+
 function parseMinutes(timeStr?: string): number | null {
   if (!timeStr) return null;
   const [h, m] = timeStr.trim().split(":").map(Number);
@@ -330,6 +381,9 @@ export function LessonCard({
   onSwapSelect,
   onSelectMultiple,
   isSwapSource = false,
+  onOpenPermanentSchedule,
+  isTemplateMode = false,
+  onDeleteTemplate,
 }: {
   lesson: Lesson;
   targetDate: string;
@@ -350,6 +404,9 @@ export function LessonCard({
   onSwapSelect?: (lesson: Lesson) => void;
   onSelectMultiple?: (lesson: Lesson) => void;
   isSwapSource?: boolean;
+  onOpenPermanentSchedule?: (lesson: Lesson) => void;
+  isTemplateMode?: boolean;
+  onDeleteTemplate?: (lesson: Lesson) => void;
 }) {
   const isSelectedForMove = movingLesson?.id === lesson.id;
   const isDay = mode !== "week";
@@ -493,15 +550,9 @@ export function LessonCard({
   return (
     <article
       data-live={isLive ? "true" : undefined}
-      draggable={canMove && !isSelectMode}
-      onClick={(e) => {
-        if (isSelectMode) {
-          e.stopPropagation();
-          onToggleSelect?.(lesson);
-        }
-      }}
+      draggable={canMove}
       onDragStart={(event) => {
-        if (!canMove || isSelectMode) {
+        if (!canMove) {
           event.preventDefault();
           return;
         }
@@ -517,28 +568,9 @@ export function LessonCard({
         isDay ? "p-3 xl:p-3.5" : "p-2.5"
       } ${stateClass} ${
         !lesson.is_relevant_this_week ? "opacity-60" : isPast ? "opacity-55 hover:opacity-100" : ""
-      } ${isSelectMode ? "cursor-pointer" : canMove ? "cursor-grab active:cursor-grabbing" : ""}`}
+      } ${canMove ? "cursor-grab active:cursor-grabbing" : ""}`}
     >
-      {/* Multi-select checkbox */}
-      {isSelectMode && (
-        <div
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleSelect?.(lesson);
-          }}
-          className="absolute left-2 top-2 z-20 flex h-7 w-7 items-center justify-center cursor-pointer"
-        >
-          <input
-            type="checkbox"
-            checked={isSelected}
-            onChange={() => onToggleSelect?.(lesson)}
-            aria-label={`Вибрати пару ${lesson.subject_name}`}
-            className="h-4 w-4 rounded border-sys-border accent-sys-accent cursor-pointer"
-          />
-        </div>
-      )}
-
-      <div className={`flex items-start gap-2.5 sm:gap-3 ${isSelectMode ? "pl-7" : ""}`}>
+      <div className="flex items-start gap-2.5 sm:gap-3">
         {/* Left: narrow fixed column (number + start time) */}
         {!hideTimeColumn && (
           <div className="flex w-11 sm:w-12 shrink-0 flex-col text-left">
@@ -588,7 +620,7 @@ export function LessonCard({
                         e.stopPropagation();
                         onQuickJump(secondaryItems[0].target);
                       }}
-                      className="text-left font-medium underline-offset-2 hover:text-sys-accent hover:underline focus:outline-none"
+                      className="text-left font-medium text-sys-text-secondary no-underline underline-offset-2 hover:text-sys-accent hover:underline focus:outline-none"
                     >
                       {secondaryItems[0].displayName}
                     </button>
@@ -653,7 +685,7 @@ export function LessonCard({
                         e.stopPropagation();
                         onQuickJump(secondaryItems[1].target);
                       }}
-                      className="text-left font-medium underline-offset-2 hover:text-sys-accent hover:underline focus:outline-none"
+                      className="text-left font-medium text-sys-text-secondary no-underline underline-offset-2 hover:text-sys-accent hover:underline focus:outline-none"
                     >
                       {secondaryItems[1].displayName}
                     </button>
@@ -725,7 +757,7 @@ export function LessonCard({
                         e.stopPropagation();
                         onQuickJump(item.target);
                       }}
-                      className="font-medium underline-offset-2 hover:text-sys-accent hover:underline focus:outline-none"
+                      className="font-medium text-sys-text-secondary no-underline underline-offset-2 hover:text-sys-accent hover:underline focus:outline-none"
                     >
                       {item.displayName}
                     </button>
@@ -806,9 +838,15 @@ export function LessonCard({
               )}
 
               {lesson.is_cancelled ? (
-                <span className="inline-flex shrink-0 items-center gap-1 rounded border border-rose-500/40 bg-rose-500/15 px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-rose-400">
-                  ❌ Скасовано
-                </span>
+                lesson.moved_to_date ? (
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded border border-amber-500/40 bg-amber-500/15 px-1.5 py-0.5 text-[11px] font-bold tracking-wide text-amber-300">
+                    ↪ {formatMovedTo(lesson.moved_to_date, lesson.moved_to_lesson)}
+                  </span>
+                ) : (
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded border border-rose-500/40 bg-rose-500/15 px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-rose-400">
+                    ❌ Скасовано
+                  </span>
+                )
               ) : eventBadge ? (
                 <span className={`inline-flex shrink-0 items-center gap-1 rounded border px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wider ${eventBadge.badgeClass}`}>
                   {eventBadge.label}
@@ -822,7 +860,7 @@ export function LessonCard({
 
             {/* Actions for canEdit pinned to bottom-right */}
             {canEdit && (
-              <div className="flex items-center gap-1 shrink-0 whitespace-nowrap relative">
+              <div className="flex items-center gap-1 shrink-0 whitespace-nowrap ml-auto relative">
                 {lesson.is_cancelled ? (
                   onRestoreDated && lesson.group_id && (
                     <button
@@ -831,8 +869,8 @@ export function LessonCard({
                         e.stopPropagation();
                         onRestoreDated(lesson, targetDate);
                       }}
-                      title={`Відновити пару на ${targetDate}`}
-                      className="inline-flex items-center gap-1 rounded-md border border-emerald-500/50 bg-emerald-500/15 px-2 py-0.5 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/25 active:scale-[0.98] transition-colors"
+                      title={lesson.moved_to_date ? "Скасувати перенесення та відновити пару" : `Відновити пару на ${targetDate}`}
+                      className="inline-flex min-h-[44px] min-w-[44px] sm:min-h-[32px] items-center justify-center rounded-md border border-emerald-500/50 bg-emerald-500/15 px-2.5 py-1 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/25 active:scale-[0.98] transition-colors whitespace-nowrap"
                     >
                       Відновити
                     </button>
@@ -879,109 +917,162 @@ export function LessonCard({
                         />
                         <div
                           onClick={(e) => e.stopPropagation()}
-                          className="absolute right-0 bottom-full mb-1 z-50 min-w-[170px] rounded-xl border border-sys-border bg-sys-card shadow-2xl p-1 text-xs space-y-0.5 animate-in fade-in zoom-in-95 duration-150"
+                          className="absolute right-0 bottom-full mb-1 z-50 min-w-[190px] rounded-xl border border-sys-border bg-sys-card shadow-2xl p-1 text-xs space-y-0.5 animate-in fade-in zoom-in-95 duration-150"
                         >
-                          {canMove && !movingLesson && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setMoreOpen(false);
-                                onMoveSelect?.(lesson);
-                              }}
-                              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-sys-text-primary hover:bg-emerald-500/10 hover:text-emerald-400 transition-colors"
-                            >
-                              <MoveIcon />
-                              <span>Перемістити</span>
-                            </button>
-                          )}
-
-                          {onCopySelect && !movingLesson && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setMoreOpen(false);
-                                onCopySelect(lesson);
-                              }}
-                              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-sys-text-primary hover:bg-sky-500/10 hover:text-sky-400 transition-colors"
-                            >
-                              <CopyIcon />
-                              <span>Копіювати</span>
-                            </button>
-                          )}
-
-                          {onSwapSelect && !movingLesson && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setMoreOpen(false);
-                                onSwapSelect(lesson);
-                              }}
-                              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-sys-text-primary hover:bg-amber-500/10 hover:text-amber-400 transition-colors"
-                            >
-                              <SwapIcon />
-                              <span>Поміняти місцями</span>
-                            </button>
-                          )}
-
-                          {onSelectMultiple && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setMoreOpen(false);
-                                onSelectMultiple(lesson);
-                              }}
-                              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-sys-text-primary hover:bg-sys-accent/10 hover:text-sys-accent transition-colors"
-                            >
-                              <CheckSquareIcon />
-                              <span>Вибрати кілька</span>
-                            </button>
-                          )}
-
-                          {onCancelDated && lesson.group_id && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setMoreOpen(false);
-                                if (
-                                  typeof window !== "undefined" &&
-                                  window.confirm(`Скасувати пару «${lesson.subject_name}» на ${targetDate}?`)
-                                ) {
-                                  onCancelDated(lesson, targetDate);
-                                }
-                              }}
-                              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-rose-400 hover:bg-rose-500/10 transition-colors"
-                            >
-                              <CalendarOffIcon />
-                              <span>Приховати на дату</span>
-                            </button>
-                          )}
-
-                          {lesson.group_id && (
+                          {isTemplateMode ? (
                             <>
-                              <div className="border-t border-sys-border/40 my-1" />
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setMoreOpen(false);
-                                  setNoteModalMode("edit");
-                                }}
-                                className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-sys-text-secondary hover:text-sys-accent hover:bg-sys-accent/10 transition-colors"
-                              >
-                                <span>💬</span>
-                                <span>{visibleNoteText ? "Редагувати примітку" : "+ Примітка"}</span>
-                              </button>
+                              {onCopySelect && !movingLesson && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setMoreOpen(false);
+                                    onCopySelect(lesson);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-sys-text-primary hover:bg-sky-500/10 hover:text-sky-400 transition-colors"
+                                >
+                                  <CopyIcon />
+                                  <span>Копіювати</span>
+                                </button>
+                              )}
 
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setMoreOpen(false);
-                                  setNoteModalMode("history");
-                                }}
-                                className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/5 transition-colors"
-                              >
-                                <span>📜</span>
-                                <span>Історія примітки</span>
-                              </button>
+                              {onMoveSelect && !movingLesson && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setMoreOpen(false);
+                                    onMoveSelect(lesson);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-sys-text-primary hover:bg-emerald-500/10 hover:text-emerald-400 transition-colors"
+                                >
+                                  <MoveIcon />
+                                  <span>Перемістити</span>
+                                </button>
+                              )}
+
+                              {onSwapSelect && !movingLesson && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setMoreOpen(false);
+                                    onSwapSelect(lesson);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-sys-text-primary hover:bg-amber-500/10 hover:text-amber-400 transition-colors"
+                                >
+                                  <SwapIcon />
+                                  <span>Поміняти місцями</span>
+                                </button>
+                              )}
+
+                              {onDeleteTemplate && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setMoreOpen(false);
+                                    if (
+                                      typeof window !== "undefined" &&
+                                      window.confirm(`Видалити пару «${lesson.subject_name}» з постійного розкладу?`)
+                                    ) {
+                                      onDeleteTemplate(lesson);
+                                    }
+                                  }}
+                                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-rose-400 hover:bg-rose-500/10 transition-colors"
+                                >
+                                  <TrashIcon />
+                                  <span>Видалити</span>
+                                </button>
+                              )}
+                            </>
+                          ) : (
+                            <>
+                              {canMove && !movingLesson && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setMoreOpen(false);
+                                    onMoveSelect?.(lesson);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-sys-text-primary hover:bg-emerald-500/10 hover:text-emerald-400 transition-colors"
+                                >
+                                  <MoveIcon />
+                                  <span>Перенести</span>
+                                </button>
+                              )}
+
+                              {onSwapSelect && !movingLesson && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setMoreOpen(false);
+                                    onSwapSelect(lesson);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-sys-text-primary hover:bg-amber-500/10 hover:text-amber-400 transition-colors"
+                                >
+                                  <SwapIcon />
+                                  <span>Поміняти місцями</span>
+                                </button>
+                              )}
+
+                              {onCancelDated && lesson.group_id && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setMoreOpen(false);
+                                    if (
+                                      typeof window !== "undefined" &&
+                                      window.confirm(`Скасувати пару «${lesson.subject_name}» на ${targetDate}?`)
+                                    ) {
+                                      onCancelDated(lesson, targetDate);
+                                    }
+                                  }}
+                                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-rose-400 hover:bg-rose-500/10 transition-colors"
+                                >
+                                  <CalendarOffIcon />
+                                  <span>Скасувати</span>
+                                </button>
+                              )}
+
+                              {onOpenPermanentSchedule && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setMoreOpen(false);
+                                    onOpenPermanentSchedule(lesson);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-sys-accent hover:bg-sys-accent/10 transition-colors"
+                                >
+                                  <TemplateIcon />
+                                  <span>Змінити в постійному розкладі</span>
+                                </button>
+                              )}
+
+                              {lesson.group_id && (
+                                <>
+                                  <div className="border-t border-sys-border/40 my-1" />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setMoreOpen(false);
+                                      setNoteModalMode("edit");
+                                    }}
+                                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-sys-text-secondary hover:text-sys-accent hover:bg-sys-accent/10 transition-colors"
+                                  >
+                                    <span>💬</span>
+                                    <span>{visibleNoteText ? "Редагувати примітку" : "+ Примітка"}</span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setMoreOpen(false);
+                                      setNoteModalMode("history");
+                                    }}
+                                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/5 transition-colors"
+                                  >
+                                    <span>📜</span>
+                                    <span>Історія примітки</span>
+                                  </button>
+                                </>
+                              )}
                             </>
                           )}
                         </div>

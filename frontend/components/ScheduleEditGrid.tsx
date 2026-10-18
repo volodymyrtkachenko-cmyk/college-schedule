@@ -8,6 +8,32 @@ const longWeekday = (date: string) =>
 const shortDate = (date: string) =>
   new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "short" }).format(new Date(`${date}T12:00:00`));
 
+const KYIV_DATE_FMT = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" });
+const KYIV_TIME_FMT = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Europe/Kyiv",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
+
+export function isSlotInPast(slotDate: string, lessonNumber: number) {
+  const now = new Date();
+  const todayIso = KYIV_DATE_FMT.format(now);
+  if (slotDate < todayIso) return true;
+  if (slotDate > todayIso) return false;
+  const lessonTimes: Record<number, string> = {
+    1: "10:20",
+    2: "12:00",
+    3: "13:50",
+    4: "15:20",
+    5: "16:50",
+  };
+  const endTime = lessonTimes[lessonNumber];
+  if (!endTime) return false;
+  const nowTime = KYIV_TIME_FMT.format(now);
+  return nowTime >= endTime;
+}
+
 export interface DayActionOptions {
   onCopyDay?: (date: string) => void;
   onMoveDay?: (date: string) => void;
@@ -47,6 +73,7 @@ export function ScheduleEditGrid({
   onSelectDayLessons,
   onPasteDay,
   canPasteDay,
+  onOpenPermanentSchedule,
 }: {
   week: ScheduleResponse[];
   scheduleMode: "student" | "teacher";
@@ -77,6 +104,7 @@ export function ScheduleEditGrid({
   onSelectDayLessons?: (date: string) => void;
   onPasteDay?: (targetDate: string) => void;
   canPasteDay?: boolean;
+  onOpenPermanentSchedule?: (lesson: Lesson) => void;
 }) {
   const [activeDayMenu, setActiveDayMenu] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -140,54 +168,43 @@ export function ScheduleEditGrid({
                       ref={menuRef}
                       className="absolute right-0 top-full mt-1 z-50 w-48 rounded-xl border border-sys-border bg-sys-card p-1 text-left shadow-xl animate-in fade-in zoom-in-95 duration-150"
                     >
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveDayMenu(null);
-                          onCopyDay?.(day.date);
-                        }}
-                        className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-sys-text-secondary hover:bg-white/5 hover:text-sys-text-primary transition-colors"
-                      >
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
-                          <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
-                        </svg>
-                        <span>Копіювати день</span>
-                      </button>
+                      {onCopyDay && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveDayMenu(null);
+                            onCopyDay(day.date);
+                          }}
+                          className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-sys-text-secondary hover:bg-white/5 hover:text-sys-text-primary transition-colors"
+                        >
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+                            <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+                          </svg>
+                          <span>Копіювати день</span>
+                        </button>
+                      )}
 
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveDayMenu(null);
-                          onMoveDay?.(day.date);
-                        }}
-                        className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-sys-text-secondary hover:bg-white/5 hover:text-sys-text-primary transition-colors"
-                      >
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <polyline points="5 9 2 12 5 15" />
-                          <polyline points="9 5 12 2 15 5" />
-                          <polyline points="15 19 12 22 9 19" />
-                          <polyline points="19 9 22 12 19 15" />
-                          <line x1="2" x2="22" y1="12" y2="12" />
-                          <line x1="12" x2="12" y1="2" y2="22" />
-                        </svg>
-                        <span>Перемістити день</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveDayMenu(null);
-                          onSelectDayLessons?.(day.date);
-                        }}
-                        className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-sys-text-secondary hover:bg-white/5 hover:text-sys-text-primary transition-colors"
-                      >
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <rect width="18" height="18" x="3" y="3" rx="2" />
-                          <path d="m9 12 2 2 4-4" />
-                        </svg>
-                        <span>Вибрати кілька</span>
-                      </button>
+                      {onMoveDay && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveDayMenu(null);
+                            onMoveDay(day.date);
+                          }}
+                          className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-sys-text-secondary hover:bg-white/5 hover:text-sys-text-primary transition-colors"
+                        >
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <polyline points="5 9 2 12 5 15" />
+                            <polyline points="9 5 12 2 15 5" />
+                            <polyline points="15 19 12 22 9 19" />
+                            <polyline points="19 9 22 12 19 15" />
+                            <line x1="2" x2="22" y1="12" y2="12" />
+                            <line x1="12" x2="12" y1="2" y2="22" />
+                          </svg>
+                          <span>Перемістити день</span>
+                        </button>
+                      )}
 
                       {canPasteDay && (
                         <>
@@ -239,8 +256,9 @@ export function ScheduleEditGrid({
           ...week.map((day) => {
             const cellLessons = day.lessons.filter((lesson) => lesson.lesson_number === lessonNumber);
             const hasReplacement = cellLessons.some((lesson) => lesson.is_replacement);
-            const canChooseTarget = !!movingLesson && canMoveTo(movingLesson, day.date, lessonNumber);
-            const isSwapMode = !!swapSourceLesson;
+            const isPast = isSlotInPast(day.date, lessonNumber);
+            const canChooseTarget = !isPast && !!movingLesson && canMoveTo(movingLesson, day.date, lessonNumber);
+            const isSwapMode = !isPast && !!swapSourceLesson;
             const drop = () => {
               if (movingLesson && canChooseTarget) onMove?.(movingLesson, day.date, lessonNumber);
             };
@@ -256,7 +274,9 @@ export function ScheduleEditGrid({
                   drop();
                 }}
                 className={`border-b border-r border-sys-border p-1.5 transition-colors self-stretch min-h-[96px] flex flex-col justify-start ${
-                  canChooseTarget
+                  isPast && (movingLesson || swapSourceLesson)
+                    ? "opacity-40 bg-black/10 cursor-not-allowed"
+                    : canChooseTarget
                     ? hasReplacement
                       ? "bg-amber-500/[0.12] ring-1 ring-inset ring-amber-400/50"
                       : "bg-emerald-500/[0.08] ring-1 ring-inset ring-emerald-400/40"
@@ -286,8 +306,8 @@ export function ScheduleEditGrid({
                         isSelectMode={isSelectMode}
                         isSelected={selectedLessonIds?.has(lesson.id)}
                         onToggleSelect={() => onToggleSelectLesson?.(lesson)}
-                        onSwapSelect={() => onSwapSelectLesson?.(lesson, day.date)}
-                        onSelectMultiple={() => onSelectMultipleLessons?.(lesson)}
+                        onSwapSelect={isPast ? undefined : () => onSwapSelectLesson?.(lesson, day.date)}
+                        onOpenPermanentSchedule={onOpenPermanentSchedule}
                         isSwapSource={swapSourceLesson?.id === lesson.id && swapSourceDate === day.date}
                       />
                     ))}

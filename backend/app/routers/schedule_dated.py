@@ -129,10 +129,22 @@ async def restore_dated_lesson(
         )
     )
     if existing:
+        if getattr(existing, "moved_to_date", None) and getattr(existing, "moved_to_lesson", None):
+            target_ovr = await db.scalar(
+                select(ScheduleOverride).where(
+                    ScheduleOverride.group_id == payload.group_id,
+                    ScheduleOverride.date == existing.moved_to_date,
+                    ScheduleOverride.lesson_number == existing.moved_to_lesson,
+                )
+            )
+            if target_ovr:
+                await db.delete(target_ovr)
         if existing.subject_id is None:
             await db.delete(existing)
         else:
             existing.cancelled = False
+            existing.moved_to_date = None
+            existing.moved_to_lesson = None
         await db.commit()
     return {"status": "restored"}
 
@@ -221,7 +233,9 @@ async def move_dated_lesson(
         group_id=payload.source_group_id,
         date=payload.source_date,
         lesson_number=payload.source_lesson_number,
-        cancelled=True
+        cancelled=True,
+        moved_to_date=payload.target_date,
+        moved_to_lesson=payload.target_lesson_number,
     )
     db.add(ovr_cancel)
     
@@ -521,13 +535,17 @@ async def batch_dated_lessons(
             )
             if existing_src_ovr:
                 existing_src_ovr.cancelled = True
+                existing_src_ovr.moved_to_date = item.target_date
+                existing_src_ovr.moved_to_lesson = item.target_lesson_number
             else:
                 db.add(
                     ScheduleOverride(
                         group_id=item.source_group_id,
                         date=item.source_date,
                         lesson_number=item.source_lesson_number,
-                        cancelled=True
+                        cancelled=True,
+                        moved_to_date=item.target_date,
+                        moved_to_lesson=item.target_lesson_number,
                     )
                 )
 

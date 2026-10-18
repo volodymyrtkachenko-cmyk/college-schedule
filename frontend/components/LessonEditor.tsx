@@ -16,6 +16,9 @@ type Props = {
   onSave: (payload: LessonMutation) => Promise<void>;
   onDelete?: () => Promise<void>;
   onClose: () => void;
+  isOneOff?: boolean;
+  weekRangeText?: string;
+  isTemplate?: boolean;
 };
 const LESSON_TIME_LABELS: Record<number, string> = {
   1: "1 пара · 9:00–10:20",
@@ -49,7 +52,22 @@ function initial(lesson: Lesson | undefined, date: string, scheduleMode: "studen
     room: lesson?.room_override ?? "",
   };
 }
-export function LessonEditor({ lesson, date, scheduleMode, defaultGroupId, defaultTeacherId, groups, initialWeekType = "both", availabilityWeek, onSave, onDelete, onClose }: Props) {
+export function LessonEditor({
+  lesson,
+  date,
+  scheduleMode,
+  defaultGroupId,
+  defaultTeacherId,
+  groups,
+  initialWeekType = "both",
+  availabilityWeek,
+  onSave,
+  onDelete,
+  onClose,
+  isOneOff = false,
+  weekRangeText = "",
+  isTemplate = false,
+}: Props) {
   const dialogRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
      setTimeout(() => dialogRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
@@ -234,9 +252,16 @@ export function LessonEditor({ lesson, date, scheduleMode, defaultGroupId, defau
         {/* Sticky Header */}
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-sys-border/50 bg-sys-card px-5 py-4">
           <div>
-            <h3 className="text-base sm:text-lg font-bold text-sys-text-primary">
-              {lesson ? "Редагування заняття" : "Нове заняття"}
-            </h3>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-base sm:text-lg font-bold text-sys-text-primary">
+                {lesson ? "Редагування заняття" : "Нове заняття"}
+              </h3>
+              {isOneOff && weekRangeText && (
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                  Разова зміна · лише {weekRangeText}
+                </span>
+              )}
+            </div>
             <p className="text-xs text-sys-text-secondary mt-0.5">Час визначається номером заняття.</p>
           </div>
           <button
@@ -328,18 +353,20 @@ export function LessonEditor({ lesson, date, scheduleMode, defaultGroupId, defau
                 ))}
               </select>
             </label>
-            <label className="form-label sm:col-span-2">
-              <span>Тип тижня</span>
-              <select
-                className="form-control"
-                value={form.week_type}
-                onChange={(e) => update("week_type", e.target.value as WeekType)}
-              >
-                <option value="both">Щотижня</option>
-                <option value="numerator">Чисельник</option>
-                <option value="denominator">Знаменник</option>
-              </select>
-            </label>
+            {!isOneOff && (
+              <label className="form-label sm:col-span-2">
+                <span>Тип тижня</span>
+                <select
+                  className="form-control"
+                  value={form.week_type}
+                  onChange={(e) => update("week_type", e.target.value as WeekType)}
+                >
+                  <option value="both">Щотижня</option>
+                  <option value="numerator">Чисельник</option>
+                  <option value="denominator">Знаменник</option>
+                </select>
+              </label>
+            )}
             
             <label className="form-label sm:col-span-2">
               <span>Аудиторія</span>
