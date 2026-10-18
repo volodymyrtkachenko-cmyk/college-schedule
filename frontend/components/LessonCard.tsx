@@ -133,9 +133,9 @@ export function extractClassroomTasks(note?: string | null): ClassroomTaskItem[]
         rest = badgeMatch[2].trim();
       }
 
-      // Приводимо будь-які старі чи нові формати ("Домашнє завдання", "Здача: ...") до лаконічного стандарту "ДЗ"
+      // Приводимо до стандарту "до DD.MM" або "ДЗ"
       const dueMatch = rest.match(/\(до\s+\d{2}\.\d{2}\)/i);
-      const label = dueMatch ? `ДЗ ${dueMatch[0]}` : "ДЗ";
+      const label = dueMatch ? dueMatch[0].replace(/[()]/g, "").trim() : "ДЗ";
 
       tasks.push({ teacher, label, url: urlPart });
     }
@@ -293,8 +293,6 @@ export function LessonCard({
   onCancelDated,
   onRestoreDated,
   onQuickJump,
-  isExpanded: controlledExpanded,
-  onToggleExpand,
 }: {
   lesson: Lesson;
   targetDate: string;
@@ -308,8 +306,6 @@ export function LessonCard({
   onCancelDated?: (lesson: Lesson, date: string) => void;
   onRestoreDated?: (lesson: Lesson, date: string) => void;
   onQuickJump?: (target: QuickJumpTarget) => void;
-  isExpanded?: boolean;
-  onToggleExpand?: () => void;
 }) {
   const isSelectedForMove = movingLesson?.id === lesson.id;
   const isDay = mode !== "week";
@@ -318,20 +314,15 @@ export function LessonCard({
   const canMove = canEditTemplate && !!onMoveSelect;
   const [startT, endT] = lesson.time.split("-");
 
-  const [internalExpanded, setInternalExpanded] = useState(false);
-  const isExpanded = controlledExpanded !== undefined ? controlledExpanded : internalExpanded;
+  const [isHwOpen, setIsHwOpen] = useState(false);
 
-  const toggleExpand = () => {
+  const toggleHw = (e: React.MouseEvent | React.KeyboardEvent) => {
+    e.stopPropagation();
     vibrateTap(10);
-    if (onToggleExpand) {
-      onToggleExpand();
-    } else {
-      setInternalExpanded((prev) => !prev);
-    }
+    setIsHwOpen((prev) => !prev);
   };
 
   const [nowState, setNowState] = useState<{ dateIso: string; minutes: number } | null>(null);
-  const [copiedPass, setCopiedPass] = useState<string | null>(null);
 
   useEffect(() => {
     setNowState(getKyivNow());
@@ -385,8 +376,6 @@ export function LessonCard({
   }, [lesson.room]);
 
   const hasTwoTeachersWithRooms = !isTeacherView && secondaryItems.length === 2 && rooms.length >= 2;
-  const hasTwoGroupsWithRooms = isTeacherView && secondaryItems.length === 2 && rooms.length >= 2;
-  const isDualWithRooms = hasTwoTeachersWithRooms || hasTwoGroupsWithRooms;
 
   const eventBadge = useMemo(
     () => getEventBadge(lesson.event_type, lesson.event_title),
@@ -408,18 +397,6 @@ export function LessonCard({
   return (
     <article
       data-live={isLive ? "true" : undefined}
-      role="button"
-      tabIndex={0}
-      aria-expanded={isExpanded}
-      aria-controls={`lesson-details-${lesson.id}-${lesson.lesson_number}`}
-      aria-label={`Пара ${lesson.lesson_number}: ${lesson.subject_name}. ${isExpanded ? "Згорнути" : "Розгорнути"}`}
-      onClick={toggleExpand}
-      onKeyDown={(e) => {
-        if ((e.key === "Enter" || e.key === " ") && e.target === e.currentTarget) {
-          e.preventDefault();
-          toggleExpand();
-        }
-      }}
       draggable={canMove}
       onDragStart={(event) => {
         if (!canMove) {
@@ -434,52 +411,51 @@ export function LessonCard({
           onMoveSelect?.(lesson);
         }
       }}
-      className={`relative flex min-w-0 flex-col overflow-hidden rounded-xl border bg-sys-card shadow-sm transition-all duration-200 ease-out motion-reduce:transition-none cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-sys-accent ${
+      className={`relative flex min-w-0 flex-col overflow-hidden rounded-xl border bg-sys-card shadow-sm transition-colors duration-200 ${
         isDay ? "p-3 xl:p-3.5" : "p-2.5"
       } ${stateClass} ${
         !lesson.is_relevant_this_week ? "opacity-60" : isPast ? "opacity-55 hover:opacity-100" : ""
       } ${canMove ? "cursor-grab active:cursor-grabbing" : ""}`}
     >
-      {/* Collapsed top row (max 3 lines) */}
       <div className="flex items-start gap-2.5 sm:gap-3">
-        {/* Left: lesson number + start time only */}
+        {/* Left: narrow fixed column (number + start time) */}
         <div className="flex w-11 sm:w-12 shrink-0 flex-col text-left">
           <span className={`text-lg sm:text-xl font-bold leading-none ${isLive ? "text-sys-accent" : "text-sys-neon"}`}>
             {lesson.lesson_number}
           </span>
-          <span className="text-[11px] sm:text-xs font-semibold text-sys-text-secondary mt-0.5">
+          <span className="text-[11px] sm:text-xs font-semibold text-sys-text-secondary mt-1">
             {startT}
           </span>
+          {isLive && (
+            <span className="mt-1 flex items-center gap-1 text-[10px] font-semibold text-sys-accent">
+              <span className="h-1.5 w-1.5 animate-ping rounded-full bg-sys-accent" />
+              <span>{remainingMin}хв</span>
+            </span>
+          )}
         </div>
 
-        {/* Center: Subject name (max 2 lines in collapsed) + Teacher(s) & rooms */}
-        <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5">
-          <div className="flex items-baseline gap-1.5 min-w-0">
+        {/* Right: full remaining width column */}
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          {/* Row 1: Subject name (full width, NO line-clamp, NO text-overflow: ellipsis) */}
+          <div className="min-w-0">
             <h3
-              className={`min-w-0 break-words font-semibold leading-snug text-sm sm:text-[15px] ${
-                lesson.is_cancelled
-                  ? "line-through text-sys-text-muted"
-                  : "text-sys-text-subject"
-              } ${isExpanded ? "" : "line-clamp-2"}`}
+              className={`break-words font-semibold leading-snug text-sm sm:text-[15px] ${
+                lesson.is_cancelled ? "line-through text-sys-text-muted" : "text-sys-text-subject"
+              }`}
             >
               {lesson.subject_name}
             </h3>
-            {lesson.is_replacement && !lesson.is_cancelled && (
-              <span className="inline-flex shrink-0 items-center rounded bg-sys-warning/20 px-1 py-0.2 text-[10px] font-bold uppercase text-sys-warningText" title="Заміна">
-                ⚡
-              </span>
-            )}
-            {lesson.is_cancelled && (
-              <span className="inline-flex shrink-0 items-center rounded bg-rose-500/20 px-1 py-0.2 text-[10px] font-bold uppercase text-rose-300" title="Скасовано">
-                ❌
+            {lesson.event_title && lesson.event_title !== lesson.subject_name && (
+              <span className="mt-0.5 block text-xs font-medium text-sys-text-secondary">
+                {lesson.event_title}
               </span>
             )}
           </div>
 
-          {/* Teacher row: dual teacher "Токарєва О.В. · 419 / Хочинська О.С. · 408" or single */}
-          {isDualWithRooms ? (
-            <div className="text-xs text-sys-text-secondary leading-tight min-w-0">
-              <span>
+          {/* Row 2: Teacher(s) - completely visible without trimming, overflow-wrap anywhere */}
+          {hasTwoTeachersWithRooms ? (
+            <div className="flex flex-col gap-0.5 text-xs text-sys-text-secondary [overflow-wrap:anywhere]">
+              <div className="inline-flex items-center whitespace-nowrap">
                 {onQuickJump ? (
                   <button
                     type="button"
@@ -496,9 +472,8 @@ export function LessonCard({
                 )}
                 <span className="text-sys-text-muted"> · </span>
                 <span className="font-medium text-sys-text-primary">{formatRoom(rooms[0])}</span>
-              </span>
-              <span className="text-sys-text-muted mx-1">/</span>
-              <span>
+              </div>
+              <div className="inline-flex items-center whitespace-nowrap">
                 {onQuickJump ? (
                   <button
                     type="button"
@@ -515,10 +490,10 @@ export function LessonCard({
                 )}
                 <span className="text-sys-text-muted"> · </span>
                 <span className="font-medium text-sys-text-primary">{formatRoom(rooms[1])}</span>
-              </span>
+              </div>
             </div>
           ) : secondaryItems.length > 0 ? (
-            <div className="truncate text-xs text-sys-text-secondary">
+            <div className="text-xs text-sys-text-secondary [overflow-wrap:anywhere]">
               {isTeacherView && (
                 <span className="text-sys-text-muted">
                   {secondaryItems.length > 1 ? "Групи: " : "Група: "}
@@ -545,156 +520,125 @@ export function LessonCard({
               ))}
             </div>
           ) : null}
-        </div>
 
-        {/* Right side: room badge & single homework badge */}
-        <div className="shrink-0 flex flex-col items-end justify-between gap-1 self-stretch">
-          {!isDualWithRooms && (
-            <div>
-              {hasMeeting ? (
-                <span className="inline-flex items-center gap-1 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-300">
-                  {meetings[0].platform === "meet" ? "🎥 Meet" : "📹 Zoom"}
+          {/* Row 3: Badges in flex-wrap with gap (room, special venue, online meeting, HW badge, replacement, cancellation) */}
+          <div className="mt-0.5 flex flex-wrap items-center gap-1.5 pt-0.5">
+            {!hasTwoTeachersWithRooms && rooms.length > 0 && (
+              rooms.map((rm, idx) => {
+                const meta = getRoomBadgeMeta(rm);
+                return (
+                  <span
+                    key={`${rm}-${idx}`}
+                    title={formatRoom(rm)}
+                    className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium ${meta.tone}`}
+                  >
+                    <span aria-hidden="true" className="text-[11px]">{meta.icon}</span>
+                    <span>{formatRoom(rm)}</span>
+                  </span>
+                );
+              })
+            )}
+
+            {hasMeeting && meetings.map((m, idx) => (
+              <a
+                key={`${m.url}-${idx}`}
+                href={m.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  vibrateTap(12);
+                }}
+                title={
+                  m.label
+                    ? `${m.label} (${m.platform === "meet" ? "Google Meet" : "Zoom"})`
+                    : m.platform === "meet"
+                    ? "Google Meet"
+                    : "Zoom"
+                }
+                className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border px-2 py-0.5 text-xs font-bold transition-transform active:scale-[0.98] ${
+                  m.platform === "meet"
+                    ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
+                    : "border-sky-500/40 bg-sky-500/15 text-sky-300 hover:bg-sky-500/25"
+                }`}
+              >
+                <span>{m.platform === "meet" ? "🎥 Meet" : "📹 Zoom"}</span>
+                {m.label && <span className="text-[10px] opacity-80">({m.label})</span>}
+                <span>↗</span>
+              </a>
+            ))}
+
+            {tasks.length > 0 && (
+              <button
+                type="button"
+                onClick={toggleHw}
+                aria-expanded={isHwOpen}
+                aria-controls={`hw-list-${lesson.id}-${lesson.lesson_number}`}
+                title={isHwOpen ? "Згорнути завдання" : `${tasks.length} ДЗ — натисніть для перегляду`}
+                className="inline-flex shrink-0 items-center gap-1 rounded-md border border-purple-500/35 bg-purple-500/10 px-2 py-0.5 text-xs font-semibold text-purple-200 hover:bg-purple-500/20 active:scale-[0.98] transition-all duration-100 ease-out focus:outline-none focus:ring-1 focus:ring-purple-400"
+              >
+                <span>📌 {tasks.length} ДЗ</span>
+                <span className={`text-[10px] transition-transform duration-150 motion-reduce:transition-none ${isHwOpen ? "rotate-180" : ""}`}>
+                  ▾
                 </span>
-              ) : lesson.room ? (
-                (() => {
-                  const meta = getRoomBadgeMeta(lesson.room);
-                  return (
-                    <span
-                      title={formatRoom(lesson.room)}
-                      className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs font-medium ${meta.tone}`}
-                    >
-                      <span aria-hidden="true" className="text-[11px]">{meta.icon}</span>
-                      <span>{formatRoom(lesson.room)}</span>
-                    </span>
-                  );
-                })()
-              ) : null}
-            </div>
-          )}
+              </button>
+            )}
 
-          {tasks.length > 0 && (
-            <span
-              title={`${tasks.length} домашніх завдань (натисніть пару для перегляду)`}
-              className="inline-flex shrink-0 items-center gap-1 rounded-md border border-purple-500/35 bg-purple-500/10 px-1.5 py-0.5 text-[11px] font-semibold text-purple-200"
-            >
-              <span>📌 {tasks.length} ДЗ</span>
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Expanded Accordion Details */}
-      {isExpanded && (
-        <div
-          id={`lesson-details-${lesson.id}-${lesson.lesson_number}`}
-          className="mt-2.5 flex flex-col gap-2 border-t border-sys-border/50 pt-2.5 transition-all duration-200 ease-out motion-reduce:transition-none"
-        >
-          {/* Full time range & live status */}
-          <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-            <div className="flex items-center gap-2 font-medium text-sys-text-secondary">
-              <span className="font-semibold text-sys-text-primary">{startT} – {endT}</span>
-              {isLive && (
-                <span className="inline-flex items-center gap-1 rounded-full border border-sys-accent/30 bg-sys-accent/15 px-2 py-0.5 text-[11px] font-semibold text-sys-accent">
-                  <span className="h-1.5 w-1.5 animate-ping rounded-full bg-sys-accent" />
-                  <span>Зараз іде • ще {remainingMin} хв</span>
-                </span>
-              )}
-            </div>
-
-            {eventBadge && (
-              <span className={`inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider ${eventBadge.badgeClass}`}>
+            {lesson.is_cancelled ? (
+              <span className="inline-flex shrink-0 items-center gap-1 rounded border border-rose-500/40 bg-rose-500/15 px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-rose-400">
+                ❌ Скасовано
+              </span>
+            ) : eventBadge ? (
+              <span className={`inline-flex shrink-0 items-center gap-1 rounded border px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wider ${eventBadge.badgeClass}`}>
                 {eventBadge.label}
               </span>
-            )}
+            ) : lesson.is_replacement ? (
+              <span className="inline-flex shrink-0 items-center gap-1 rounded bg-sys-warning px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-sys-warningText">
+                ⚡ Заміна
+              </span>
+            ) : null}
           </div>
 
-          {lesson.event_title && lesson.event_title !== lesson.subject_name && (
-            <div className="text-xs font-semibold text-sys-text-secondary">
-              {lesson.event_title}
-            </div>
-          )}
-
-          {/* Online meetings full controls */}
-          {hasMeeting && (
-            <div className="flex flex-wrap items-center gap-2 pt-0.5">
-              {meetings.map((m, idx) => (
-                <div key={`${m.url}-${idx}`} className="flex flex-wrap items-center gap-1.5">
-                  <a
-                    href={m.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      vibrateTap(12);
-                    }}
-                    title={
-                      m.label
-                        ? `${m.label} (${m.platform === "meet" ? "Google Meet" : "Zoom"})`
-                        : m.platform === "meet"
-                        ? "Google Meet"
-                        : "Zoom"
-                    }
-                    className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border px-2.5 py-1 text-xs font-bold transition-colors ${
-                      m.platform === "meet"
-                        ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
-                        : "border-sky-500/40 bg-sky-500/15 text-sky-300 hover:bg-sky-500/25"
-                    }`}
-                  >
-                    <span>{m.platform === "meet" ? "🎥 Google Meet" : "📹 Zoom"}</span>
-                    {m.label && <span className="text-[11px] opacity-80">({m.label})</span>}
-                    <span>↗</span>
-                  </a>
-                  {m.passcode && (
-                    <button
-                      type="button"
+          {/* Smooth HW expansion container using CSS grid (0fr -> 1fr + opacity 0 -> 1) */}
+          {tasks.length > 0 && (
+            <div
+              id={`hw-list-${lesson.id}-${lesson.lesson_number}`}
+              className={`grid transition-[grid-template-rows] duration-200 ease-smooth motion-reduce:transition-none ${
+                isHwOpen ? "grid-rows-[1fr] mt-2" : "grid-rows-[0fr]"
+              }`}
+            >
+              <div className={`overflow-hidden transition-opacity duration-200 ease-smooth motion-reduce:transition-none ${
+                isHwOpen ? "opacity-100" : "opacity-0"
+              }`}>
+                <div className="flex flex-col gap-1.5 pt-1 border-t border-purple-500/20">
+                  {tasks.map((task, idx) => (
+                    <a
+                      key={idx}
+                      href={task.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
                       onClick={(e) => {
                         e.stopPropagation();
-                        vibrateTap(12);
-                        void navigator.clipboard.writeText(m.passcode!);
-                        setCopiedPass(m.passcode!);
-                        setTimeout(() => setCopiedPass(null), 2000);
+                        vibrateTap(10);
                       }}
-                      title="Натисніть, щоб скопіювати код доступу"
-                      className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-xs font-semibold text-amber-300 hover:bg-amber-500/20 active:scale-95"
+                      title={`${task.teacher ? `[${task.teacher}] ` : ""}📌 ${task.label} — Відкрити в Classroom`}
+                      className="group flex flex-wrap items-center justify-between gap-x-2 gap-y-1 rounded-lg border border-purple-500/35 bg-purple-500/10 px-2.5 py-1.5 text-xs font-medium text-purple-200 transition-colors hover:bg-purple-500/20 active:scale-[0.98]"
                     >
-                      <span>🔑</span>
-                      <span>{copiedPass === m.passcode ? "Скопійовано" : m.passcode}</span>
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Full list of homework tasks with Classroom ↗ */}
-          {tasks.length > 0 && (
-            <div className="flex flex-col gap-1.5 pt-1">
-              {tasks.map((task, idx) => (
-                <a
-                  key={idx}
-                  href={task.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    vibrateTap(10);
-                  }}
-                  title={`${task.teacher ? `[${task.teacher}] ` : ""}📌 ${task.label} — Відкрити в Classroom`}
-                  className="group flex flex-wrap items-center justify-between gap-x-2 gap-y-1 rounded-lg border border-purple-500/35 bg-purple-500/10 px-2.5 py-1.5 text-xs font-medium text-purple-200 transition-colors hover:bg-purple-500/20"
-                >
-                  <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                    {task.teacher && (
-                      <span className="shrink-0 rounded bg-purple-500/30 px-1.5 py-0.5 text-[10px] font-bold text-purple-100">
-                        {task.teacher}
+                      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                        {task.teacher && (
+                          <span className="shrink-0 rounded bg-purple-500/30 px-1.5 py-0.5 text-[10px] font-bold text-purple-100">
+                            {task.teacher}
+                          </span>
+                        )}
+                        <span className="font-semibold text-purple-100">📌 {task.label}</span>
+                      </div>
+                      <span className="ml-auto shrink-0 text-[11px] font-bold text-purple-300 transition-transform group-hover:translate-x-0.5">
+                        Classroom ↗
                       </span>
-                    )}
-                    <span className="font-semibold text-purple-100">📌 {task.label}</span>
-                  </div>
-                  <span className="ml-auto shrink-0 text-[11px] font-bold text-purple-300 transition-transform group-hover:translate-x-0.5">
-                    Classroom ↗
-                  </span>
-                </a>
-              ))}
+                    </a>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 
@@ -711,7 +655,7 @@ export function LessonCard({
                     }}
                     title={`Відновити пару на ${targetDate}`}
                     aria-label="Відновити пару на цю дату"
-                    className="inline-flex items-center gap-1 rounded-md border border-emerald-500/50 bg-emerald-500/15 px-2.5 py-1 text-xs font-semibold text-emerald-400 shadow-xs transition-colors hover:border-emerald-500 hover:bg-emerald-500/25"
+                    className="inline-flex items-center gap-1 rounded-md border border-emerald-500/50 bg-emerald-500/15 px-2.5 py-1 text-xs font-semibold text-emerald-400 shadow-xs transition-colors hover:border-emerald-500 hover:bg-emerald-500/25 active:scale-[0.98]"
                   >
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
@@ -732,7 +676,7 @@ export function LessonCard({
                           e.stopPropagation();
                           onEdit?.(lesson);
                         }}
-                        className={`${ICON_BUTTON} hover:border-sys-accent/60 hover:bg-sys-accent/15 hover:text-sys-accent`}
+                        className={`${ICON_BUTTON} hover:border-sys-accent/60 hover:bg-sys-accent/15 hover:text-sys-accent active:scale-[0.98]`}
                       >
                         <EditIcon />
                       </button>
@@ -745,7 +689,7 @@ export function LessonCard({
                             event.stopPropagation();
                             onMoveSelect?.(lesson);
                           }}
-                          className={`${ICON_BUTTON} hover:border-emerald-500/60 hover:bg-emerald-500/15 hover:text-emerald-400`}
+                          className={`${ICON_BUTTON} hover:border-emerald-500/60 hover:bg-emerald-500/15 hover:text-emerald-400 active:scale-[0.98]`}
                         >
                           <MoveIcon />
                         </button>
@@ -759,7 +703,7 @@ export function LessonCard({
                             event.stopPropagation();
                             onCopySelect(lesson);
                           }}
-                          className={`${ICON_BUTTON} hover:border-sky-500/60 hover:bg-sky-500/15 hover:text-sky-400`}
+                          className={`${ICON_BUTTON} hover:border-sky-500/60 hover:bg-sky-500/15 hover:text-sky-400 active:scale-[0.98]`}
                         >
                           <CopyIcon />
                         </button>
@@ -781,7 +725,7 @@ export function LessonCard({
                         }
                         onCancelDated(lesson, targetDate);
                       }}
-                      className={`${ICON_BUTTON} hover:border-rose-500/60 hover:bg-rose-500/15 hover:text-rose-400`}
+                      className={`${ICON_BUTTON} hover:border-rose-500/60 hover:bg-rose-500/15 hover:text-rose-400 active:scale-[0.98]`}
                     >
                       <CalendarOffIcon />
                     </button>
@@ -798,7 +742,7 @@ export function LessonCard({
             </div>
           )}
         </div>
-      )}
+      </div>
 
       {/* Progress bar at the bottom for live lesson */}
       {isLive && (

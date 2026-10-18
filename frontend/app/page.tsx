@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { BottomNav } from "../components/BottomNav";
 import { OfflineIndicator } from "../components/OfflineIndicator";
 import { InstallPrompt } from "../components/InstallPrompt";
@@ -47,11 +48,17 @@ export default function HomePage() {
     return () => window.removeEventListener("visibilitychange", handleVisibility);
   }, []);
 
+  const shouldReduceMotion = useReducedMotion();
+  const [weekShiftDir, setWeekShiftDir] = useState<number>(0);
+  const [daySlideDir, setDaySlideDir] = useState<number>(0);
+
   const isCurrentWeek = useMemo(() => {
     const todayAnchor = getMondayOf(new Date());
     return Math.abs(weekAnchorDate.getTime() - todayAnchor.getTime()) < 1000 * 60 * 60 * 24;
   }, [weekAnchorDate]);
+
   const shiftWeek = (offset: number) => {
+    setWeekShiftDir(offset);
     setWeekAnchorDate((date) => {
       const next = new Date(date);
       next.setDate(next.getDate() + offset * 7);
@@ -88,9 +95,25 @@ export default function HomePage() {
       setIsDownloading(false);
     }
   };
-  
 
   const [view, setView] = useState<"today" | "week">("today");
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("schedule:view");
+      if (saved === "today" || saved === "week") {
+        setView(saved);
+      }
+    } catch {}
+  }, []);
+
+  const handleViewChange = (nextView: "today" | "week") => {
+    setView(nextView);
+    try {
+      localStorage.setItem("schedule:view", nextView);
+    } catch {}
+    resetScroll();
+  };
 
   // Автоскрол до поточної пари
   useEffect(() => {
@@ -225,6 +248,10 @@ export default function HomePage() {
   };
 
   const handleSelectDay = (date: string) => {
+    if (date === activeDayDate) return;
+    const currentIdx = week.findIndex((d) => d.date === activeDayDate);
+    const nextIdx = week.findIndex((d) => d.date === date);
+    setDaySlideDir(nextIdx >= currentIdx ? 1 : -1);
     setActiveDayDate(date);
     resetScroll();
   };
@@ -233,8 +260,12 @@ export default function HomePage() {
     if (!week.length) return;
     const currentIdx = week.findIndex((d) => d.date === activeDayDate);
     if (currentIdx > 0) {
-      handleSelectDay(week[currentIdx - 1].date);
+      setDaySlideDir(-1);
+      setActiveDayDate(week[currentIdx - 1].date);
+      resetScroll();
     } else {
+      setWeekShiftDir(-1);
+      setDaySlideDir(-1);
       shiftWeek(-1);
       resetScroll();
     }
@@ -244,12 +275,77 @@ export default function HomePage() {
     if (!week.length) return;
     const currentIdx = week.findIndex((d) => d.date === activeDayDate);
     if (currentIdx !== -1 && currentIdx < week.length - 1) {
-      handleSelectDay(week[currentIdx + 1].date);
+      setDaySlideDir(1);
+      setActiveDayDate(week[currentIdx + 1].date);
+      resetScroll();
     } else {
+      setWeekShiftDir(1);
+      setDaySlideDir(1);
       shiftWeek(1);
       resetScroll();
     }
   };
+
+  const tabsContainerRef = useRef<HTMLDivElement>(null);
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  useEffect(() => {
+    if (!week.length || !activeDayDate) return;
+    const idx = week.findIndex((d) => d.date === activeDayDate);
+    if (idx !== -1 && tabRefs.current[idx]) {
+      tabRefs.current[idx]?.scrollIntoView({
+        behavior: "smooth",
+        inline: "center",
+        block: "nearest",
+      });
+    }
+  }, [activeDayDate, week]);
+
+  const handleTabClick = (date: string, idx: number) => {
+    if (view === "today") {
+      handleSelectDay(date);
+    } else {
+      setActiveDayDate(date);
+      const targetEl = document.getElementById(`day-section-${date}`);
+      if (targetEl) {
+        const stickyHeader = document.getElementById("mobile-sticky-tabs");
+        const offset = (stickyHeader?.offsetHeight ?? 52) + 8;
+        const bodyRect = document.body.getBoundingClientRect().top;
+        const elementRect = targetEl.getBoundingClientRect().top;
+        const elementPosition = elementRect - bodyRect;
+        const offsetPosition = elementPosition - offset;
+        window.scrollTo({
+          top: offsetPosition,
+          behavior: "smooth",
+        });
+      }
+    }
+  };
+
+  // Synchronize active tab as user scrolls through week days on mobile
+  useEffect(() => {
+    if (view !== "week" || typeof window === "undefined" || window.innerWidth >= 640) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            const date = entry.target.getAttribute("data-day-date");
+            if (date) {
+              setActiveDayDate(date);
+            }
+          }
+        }
+      },
+      {
+        rootMargin: "-25% 0px -65% 0px",
+        threshold: 0,
+      }
+    );
+
+    const sections = document.querySelectorAll("[data-day-section]");
+    sections.forEach((sec) => observer.observe(sec));
+    return () => observer.disconnect();
+  }, [view, week]);
 
   const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
 
@@ -391,68 +487,69 @@ export default function HomePage() {
       </header>
 
       {/* Mobile Sticky Day Tabs (<640px) */}
-      <div className="sticky top-0 z-20 border-b border-sys-border bg-sys-bg/95 backdrop-blur px-2.5 py-1.5 sm:hidden">
-        <div className="flex items-center justify-between gap-1">
-          {/* Day Tabs */}
-          <div role="group" aria-label="Оберіть день тижня" className="flex items-center justify-between flex-1 gap-1">
-            {week.map((day) => {
-              const dateObj = new Date(`${day.date}T12:00:00`);
-              const dayLetter = UK_SHORT_WEEKDAY_FMT.format(dateObj).charAt(0).toUpperCase();
-              const isSelected = activeDayDate === day.date;
-              const isTodayDate = day.date === (today?.date);
-              const hasLessons = day.lessons.length > 0;
-              const isWeekendDay = [0, 6].includes(dateObj.getDay());
+      <div id="mobile-sticky-tabs" className="sticky top-0 z-20 border-b border-sys-border bg-sys-bg/95 backdrop-blur px-2.5 py-1.5 sm:hidden">
+        <div
+          ref={tabsContainerRef}
+          role="group"
+          aria-label="Оберіть день тижня"
+          className="relative flex items-center justify-between w-full gap-1 overflow-x-auto scrollbar-none"
+        >
+          {week.map((day, idx) => {
+            const dateObj = new Date(`${day.date}T12:00:00`);
+            const dayLetter = UK_SHORT_WEEKDAY_FMT.format(dateObj).charAt(0).toUpperCase();
+            const isSelected = activeDayDate === day.date;
+            const isTodayDate = day.date === (today?.date);
+            const hasLessons = day.lessons.length > 0;
+            const isWeekendDay = [0, 6].includes(dateObj.getDay());
 
-              return (
-                <button
-                  key={`mobile-tab-${day.date}`}
-                  type="button"
-                  onClick={() => handleSelectDay(day.date)}
-                  aria-pressed={isSelected}
-                  className={`flex flex-1 flex-col items-center justify-center py-1 px-1 rounded-xl transition-all ${
-                    isSelected
-                      ? "bg-sys-accent text-white shadow-sm"
-                      : isTodayDate
-                      ? "border border-sys-accent/40 bg-sys-accent/10 text-sys-accent"
-                      : "text-sys-text-secondary hover:bg-sys-card"
-                  }`}
-                >
-                  <span className={`text-[11px] font-semibold leading-tight ${isSelected ? "text-white" : isTodayDate ? "text-sys-accent" : "text-sys-text-secondary"}`}>
-                    {dayLetter}
-                  </span>
-                  <span className={`text-[14px] font-bold leading-tight ${isSelected ? "text-white" : isTodayDate ? "text-sys-accent" : "text-sys-text-primary"}`}>
-                    {dateObj.getDate()}
-                  </span>
-                  <span
-                    className={`mt-0.5 h-1 w-1 rounded-full ${
-                      isSelected
-                        ? "bg-white"
-                        : hasLessons
-                        ? "bg-sys-accent"
-                        : isWeekendDay
-                        ? "bg-slate-500"
-                        : "bg-transparent"
-                    }`}
+            return (
+              <button
+                key={`mobile-tab-${day.date}`}
+                ref={(el) => {
+                  tabRefs.current[idx] = el;
+                }}
+                type="button"
+                onClick={() => handleTabClick(day.date, idx)}
+                aria-pressed={isSelected}
+                className={`relative flex flex-1 flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-colors duration-150 active:scale-[0.98] motion-reduce:transition-none focus:outline-none ${
+                  isSelected
+                    ? "text-white"
+                    : isTodayDate
+                    ? "text-sys-accent border border-sys-accent/40 bg-sys-accent/10"
+                    : "text-sys-text-secondary hover:bg-sys-card"
+                }`}
+              >
+                {isSelected && (
+                  <motion.div
+                    layoutId="mobileActiveDayTabIndicator"
+                    className="absolute inset-0 rounded-xl bg-sys-accent shadow-sm"
+                    transition={{
+                      type: "tween",
+                      duration: shouldReduceMotion ? 0 : 0.2,
+                      ease: [0.2, 0, 0, 1],
+                    }}
                   />
-                </button>
-              );
-            })}
-          </div>
-
-          {/* View toggle (Сьогодні / Тиждень) in the same row */}
-          <div className="shrink-0 pl-1 flex items-center">
-            <button
-              type="button"
-              onClick={() => {
-                setView((v) => (v === "today" ? "week" : "today"));
-                resetScroll();
-              }}
-              aria-label={view === "today" ? "Перейти до тижневого розкладу" : "Перейти до розкладу на день"}
-              className="flex h-9 items-center gap-1 rounded-lg border border-sys-border bg-sys-card px-2.5 text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary transition-colors"
-            >
-              <span>{view === "today" ? "Тиждень" : "День"}</span>
-            </button>
-          </div>
+                )}
+                <span className={`relative z-10 text-[11px] font-semibold leading-tight ${isSelected ? "text-white" : isTodayDate ? "text-sys-accent" : "text-sys-text-secondary"}`}>
+                  {dayLetter}
+                </span>
+                <span className={`relative z-10 text-[14px] font-bold leading-tight ${isSelected ? "text-white" : isTodayDate ? "text-sys-accent" : "text-sys-text-primary"}`}>
+                  {dateObj.getDate()}
+                </span>
+                <span
+                  className={`relative z-10 mt-0.5 h-1 w-1 rounded-full ${
+                    isSelected
+                      ? "bg-white"
+                      : hasLessons
+                      ? "bg-sys-accent"
+                      : isWeekendDay
+                      ? "bg-slate-500"
+                      : "bg-transparent"
+                  }`}
+                />
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -705,17 +802,41 @@ export default function HomePage() {
       </header>
 
       <div className="mx-auto max-w-[1800px] px-3 py-6 sm:px-5 lg:px-6 xl:px-8">
-        <div className="mb-6 hidden items-center justify-between md:flex">
+        <div className="mb-6 hidden items-center justify-between sm:flex">
           <div>
             <p className="text-sm text-sys-text-secondary">{view === "today" ? "Поточний день" : "Навчальний тиждень"}</p>
             <h2 className="text-xl font-semibold">{view === "today" ? "Розклад на сьогодні" : "Розклад на тиждень"}</h2>
           </div>
           
           <div className="flex items-center gap-3">
-            <div role="group" aria-label="Режим перегляду розкладу" className="flex rounded-lg border border-sys-border bg-sys-card p-1 text-sm relative">
-              <div className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-sys-accent/10 border border-sys-accent/20 rounded-md shadow-sm transition-all duration-300 ease-out z-0" style={{ left: view === 'today' ? '4px' : 'calc(50% + 2px)' }}></div>
-              <button type="button" aria-pressed={view === "today"} onClick={() => setView("today")} className={`w-24 relative z-10 rounded-md px-4 py-2 text-sm font-medium transition-colors ${view === 'today' ? 'text-sys-accent' : 'text-sys-text-secondary hover:text-sys-text-primary'}`}>Сьогодні</button>
-              <button type="button" aria-pressed={view === "week"} onClick={() => setView("week")} className={`w-24 relative z-10 rounded-md px-4 py-2 text-sm font-medium transition-colors ${view === 'week' ? 'text-sys-accent' : 'text-sys-text-secondary hover:text-sys-text-primary'}`}>Тиждень</button>
+            <div role="group" aria-label="Режим перегляду розкладу" className="relative flex rounded-lg border border-sys-border bg-sys-card p-1 text-sm">
+              <div
+                className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-sys-accent/10 border border-sys-accent/20 rounded-md shadow-sm transition-transform duration-200 ease-smooth motion-reduce:transition-none z-0"
+                style={{
+                  left: "4px",
+                  transform: view === "today" ? "translateX(0%)" : "translateX(100%)",
+                }}
+              />
+              <button
+                type="button"
+                aria-pressed={view === "today"}
+                onClick={() => handleViewChange("today")}
+                className={`w-24 relative z-10 rounded-md px-4 py-2 text-sm font-medium transition-colors active:scale-[0.98] duration-100 ${
+                  view === "today" ? "text-sys-accent font-semibold" : "text-sys-text-secondary hover:text-sys-text-primary"
+                }`}
+              >
+                Сьогодні
+              </button>
+              <button
+                type="button"
+                aria-pressed={view === "week"}
+                onClick={() => handleViewChange("week")}
+                className={`w-24 relative z-10 rounded-md px-4 py-2 text-sm font-medium transition-colors active:scale-[0.98] duration-100 ${
+                  view === "week" ? "text-sys-accent font-semibold" : "text-sys-text-secondary hover:text-sys-text-primary"
+                }`}
+              >
+                Тиждень
+              </button>
             </div>
           </div>
         </div>
@@ -733,7 +854,7 @@ export default function HomePage() {
             <button
               type="button"
               onClick={handleReturnBack}
-              className="rounded-lg bg-sys-accent px-3 py-1 text-xs font-semibold text-[#0b1120] transition-opacity hover:opacity-90"
+              className="rounded-lg bg-sys-accent px-3 py-1 text-xs font-semibold text-[#0b1120] transition-opacity hover:opacity-90 active:scale-[0.98]"
             >
               ← Повернутися до {returnTarget.label}
             </button>
@@ -765,87 +886,136 @@ export default function HomePage() {
         ) : error ? (
           <div className="rounded-2xl border border-rose-400/20 bg-rose-400/5 p-8 text-center text-rose-200">{error}</div>
         ) : today ? (
-          <div>
-            {view === "today" ? (
-              <div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} className="min-w-0 touch-pan-y">
-                {isWeekend && (
-                  <div className="mb-2.5 flex h-9 max-h-10 items-center justify-between rounded-lg border border-slate-700/50 bg-slate-800/50 px-3 text-xs text-sys-text-secondary">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <span aria-hidden="true">🛋️</span>
-                      <span className="font-semibold text-sys-text-primary whitespace-nowrap">Сьогодні вихідний</span>
-                      <span className="hidden sm:inline truncate">— розклад найближчого навчального дня</span>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={view}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{
+                duration: shouldReduceMotion ? 0 : 0.15,
+                ease: [0.2, 0, 0, 1],
+              }}
+            >
+              {view === "today" ? (
+                <div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} className="min-w-0 touch-pan-y overflow-hidden">
+                  {isWeekend && (
+                    <div className="mb-2.5 flex h-9 max-h-10 items-center justify-between rounded-lg border border-slate-700/50 bg-slate-800/50 px-3 text-xs text-sys-text-secondary">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span aria-hidden="true">🛋️</span>
+                        <span className="font-semibold text-sys-text-primary whitespace-nowrap">Сьогодні вихідний</span>
+                        <span className="hidden sm:inline truncate">— розклад найближчого навчального дня</span>
+                      </div>
+                      <div className="shrink-0 ml-2">
+                        <WeekTypeBadge weekType={today.week_type} />
+                      </div>
                     </div>
-                    <div className="shrink-0 ml-2">
+                  )}
+                  {!isWeekend && (
+                    <div className="mb-3 hidden sm:flex justify-end">
                       <WeekTypeBadge weekType={today.week_type} />
                     </div>
-                  </div>
-                )}
-                {!isWeekend && (
-                  <div className="mb-3 hidden sm:flex justify-end">
-                    <WeekTypeBadge weekType={today.week_type} />
-                  </div>
-                )}
-                {isShowingTomorrow && !isWeekend && (
-                  <div className="mb-2.5 flex items-center justify-between rounded-xl border border-sys-accent/30 bg-sys-accent/10 px-3.5 py-2 text-xs text-sys-text-primary">
-                    <span>🌙 Пари на сьогодні завершено — показано <strong>розклад на завтра</strong></span>
-                  </div>
-                )}
-                <ScheduleDay
-                  schedule={selectedDaySchedule ?? today}
-                  isToday={selectedDaySchedule?.date === today?.date && !isWeekend && !isShowingTomorrow}
-                  scheduleMode={mode}
-                  onQuickJump={handleQuickJump}
-                  hideHeaderOnMobile={true}
-                />
-              </div>
-            ) : (
-              <div className="w-full min-w-0">
-                <div className="mb-4 mt-2 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center rounded-xl bg-sys-card p-3 border border-sys-border/50">
-                  <div className="text-[13px] font-medium text-sys-text-primary flex items-center gap-2 w-full sm:w-auto overflow-hidden">
-                    <svg width="1.2em" height="1.2em" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-sys-accent shrink-0"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                    <span className="truncate">{weekRange}</span>
-                    <div className="ml-2 hidden sm:block shrink-0"><WeekTypeBadge weekType={weekType} /></div>
-                  </div>
-                  <div className="flex w-full sm:w-auto items-center justify-between gap-3">
-                    <div className="sm:hidden shrink-0"><WeekTypeBadge weekType={weekType} /></div>
-                    <div role="group" aria-label="Навігація тижнями" className="flex w-full items-center justify-between gap-1 rounded-lg border border-sys-border bg-sys-card p-1 text-sm sm:w-auto">
-                      <button
-                        type="button"
-                        onClick={() => shiftWeek(-1)}
-                        aria-label="Попередній тиждень"
-                        className="flex items-center justify-center rounded-md min-h-[38px] min-w-[38px] text-sys-text-secondary transition-colors hover:bg-sys-bg hover:text-sys-text-primary focus:ring-2 focus:ring-sys-accent focus:outline-none"
-                      >
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={resetWeek}
-                        disabled={isCurrentWeek}
-                        aria-pressed={isCurrentWeek}
-                        className="min-w-28 flex-1 rounded-md px-3 min-h-[38px] text-center text-[13px] font-medium text-sys-text-primary transition-colors hover:bg-sys-bg disabled:cursor-default disabled:text-sys-accent disabled:bg-sys-accent/10 sm:flex-none"
-                      >
-                        {isCurrentWeek ? "Сьогодні" : "Поточний"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => shiftWeek(1)}
-                        aria-label="Наступний тиждень"
-                        className="flex items-center justify-center rounded-md min-h-[38px] min-w-[38px] text-sys-text-secondary transition-colors hover:bg-sys-bg hover:text-sys-text-primary focus:ring-2 focus:ring-sys-accent focus:outline-none"
-                      >
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
-                      </button>
+                  )}
+                  {isShowingTomorrow && !isWeekend && (
+                    <div className="mb-2.5 flex items-center justify-between rounded-xl border border-sys-accent/30 bg-sys-accent/10 px-3.5 py-2 text-xs text-sys-text-primary">
+                      <span>🌙 Пари на сьогодні завершено — показано <strong>розклад на завтра</strong></span>
+                    </div>
+                  )}
+                  <AnimatePresence initial={false} custom={daySlideDir} mode="wait">
+                    <motion.div
+                      key={selectedDaySchedule?.date || activeDayDate}
+                      custom={daySlideDir}
+                      variants={{
+                        enter: (dir: number) => ({
+                          x: dir > 0 ? 10 : dir < 0 ? -10 : 0,
+                          opacity: 0,
+                        }),
+                        center: {
+                          x: 0,
+                          opacity: 1,
+                        },
+                        exit: (dir: number) => ({
+                          x: dir > 0 ? -10 : dir < 0 ? 10 : 0,
+                          opacity: 0,
+                        }),
+                      }}
+                      initial="enter"
+                      animate="center"
+                      exit="exit"
+                      transition={{
+                        duration: shouldReduceMotion ? 0 : 0.18,
+                        ease: [0.2, 0, 0, 1],
+                      }}
+                    >
+                      <ScheduleDay
+                        schedule={selectedDaySchedule ?? today}
+                        isToday={selectedDaySchedule?.date === today?.date && !isWeekend && !isShowingTomorrow}
+                        scheduleMode={mode}
+                        onQuickJump={handleQuickJump}
+                        hideHeaderOnMobile={true}
+                      />
+                    </motion.div>
+                  </AnimatePresence>
+                </div>
+              ) : (
+                <div className="w-full min-w-0">
+                  <div className="mb-4 mt-2 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center rounded-xl bg-sys-card p-3 border border-sys-border/50">
+                    <div className="text-[13px] font-medium text-sys-text-primary flex items-center gap-2 w-full sm:w-auto overflow-hidden">
+                      <svg width="1.2em" height="1.2em" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-sys-accent shrink-0"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                      <span className="truncate">{weekRange}</span>
+                      <div className="ml-2 hidden sm:block shrink-0"><WeekTypeBadge weekType={weekType} /></div>
+                    </div>
+                    <div className="flex w-full sm:w-auto items-center justify-between gap-3">
+                      <div className="sm:hidden shrink-0"><WeekTypeBadge weekType={weekType} /></div>
+                      <div role="group" aria-label="Навігація тижнями" className="flex w-full items-center justify-between gap-1 rounded-lg border border-sys-border bg-sys-card p-1 text-sm sm:w-auto">
+                        <button
+                          type="button"
+                          onClick={() => shiftWeek(-1)}
+                          aria-label="Попередній тиждень"
+                          className="flex items-center justify-center rounded-md min-h-[38px] min-w-[38px] text-sys-text-secondary transition-colors hover:bg-sys-bg hover:text-sys-text-primary active:scale-[0.98] focus:ring-2 focus:ring-sys-accent focus:outline-none"
+                        >
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={resetWeek}
+                          disabled={isCurrentWeek}
+                          aria-pressed={isCurrentWeek}
+                          className="min-w-28 flex-1 rounded-md px-3 min-h-[38px] text-center text-[13px] font-medium text-sys-text-primary transition-colors hover:bg-sys-bg disabled:cursor-default disabled:text-sys-accent disabled:bg-sys-accent/10 active:scale-[0.98] sm:flex-none"
+                        >
+                          {isCurrentWeek ? "Сьогодні" : "Поточний"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => shiftWeek(1)}
+                          aria-label="Наступний тиждень"
+                          className="flex items-center justify-center rounded-md min-h-[38px] min-w-[38px] text-sys-text-secondary transition-colors hover:bg-sys-bg hover:text-sys-text-primary active:scale-[0.98] focus:ring-2 focus:ring-sys-accent focus:outline-none"
+                        >
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                        </button>
+                      </div>
                     </div>
                   </div>
+                  <motion.div
+                    key={weekAnchorDate.toISOString()}
+                    initial={{ opacity: 0, x: weekShiftDir > 0 ? 8 : weekShiftDir < 0 ? -8 : 0 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{
+                      duration: shouldReduceMotion ? 0 : 0.18,
+                      ease: [0.2, 0, 0, 1],
+                    }}
+                  >
+                    <ScheduleWeekGrid
+                      week={week}
+                      scheduleMode={mode}
+                      canEdit={false}
+                      onQuickJump={handleQuickJump}
+                    />
+                  </motion.div>
                 </div>
-                <ScheduleWeekGrid
-                  week={week}
-                  scheduleMode={mode}
-                  canEdit={false}
-                  onQuickJump={handleQuickJump}
-                />
-              </div>
-            )}
-          </div>
+              )}
+            </motion.div>
+          </AnimatePresence>
         ) : null}
         
         {!loading && !error && ((mode === "student" && !groups.length) || (mode === "teacher" && !teachers.length)) && (
@@ -854,10 +1024,9 @@ export default function HomePage() {
           </div>
         )}
         
-        
       </div>
 
-      <BottomNav view={view} onViewChange={setView} />
+      <BottomNav view={view} onViewChange={handleViewChange} />
     </main>
   );
 }

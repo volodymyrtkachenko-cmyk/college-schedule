@@ -106,11 +106,6 @@ export function ScheduleDay({
 }) {
   const { showToast } = useToast();
   const [kyivNow, setKyivNow] = useState<{ dateIso: string; minutes: number } | null>(null);
-  const [expandedLessonKey, setExpandedLessonKey] = useState<string | null>(null);
-
-  useEffect(() => {
-    setExpandedLessonKey(null);
-  }, [schedule.date]);
 
   useEffect(() => {
     const update = () => {
@@ -229,7 +224,7 @@ export function ScheduleDay({
           animate="visible"
           variants={{
             hidden: {},
-            visible: { transition: { staggerChildren: 0.045 } },
+            visible: { transition: { staggerChildren: 0.02 } },
           }}
           className="flex flex-col gap-2.5"
         >
@@ -253,7 +248,7 @@ export function ScheduleDay({
                 key={lessonKey}
                 variants={{
                   hidden: { opacity: 0, y: 8 },
-                  visible: { opacity: 1, y: 0, transition: { duration: 0.18, ease: "easeOut" } },
+                  visible: { opacity: 1, y: 0, transition: { duration: 0.18, ease: [0.2, 0, 0, 1] } },
                 }}
                 className="flex flex-col gap-2.5"
               >
@@ -277,10 +272,6 @@ export function ScheduleDay({
                   onCancelDated={onCancelDated}
                   onRestoreDated={onRestoreDated}
                   onQuickJump={onQuickJump}
-                  isExpanded={expandedLessonKey === lessonKey}
-                  onToggleExpand={() =>
-                    setExpandedLessonKey((prev) => (prev === lessonKey ? null : lessonKey))
-                  }
                 />
               </motion.div>
             );

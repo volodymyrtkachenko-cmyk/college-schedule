@@ -27,6 +27,9 @@ const config: Config = {
             muted: '#8B949E',
           }
         }
+      },
+      transitionTimingFunction: {
+        smooth: 'cubic-bezier(0.2, 0, 0, 1)',
       }
     }
   },
