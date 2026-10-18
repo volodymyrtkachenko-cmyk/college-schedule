@@ -1121,6 +1121,18 @@ export const api = {
             }),
     },
     classroom: {
+        status: () =>
+            rawRequest<{
+                has_client_secret: boolean;
+                client_id: string;
+            }>("/api/classroom/status"),
+        groupStatus: (groupId: number) =>
+            rawRequest<{
+                connected: boolean;
+                last_synced_at: string | null;
+                has_refresh_token?: boolean;
+                has_client_secret?: boolean;
+            }>(`/api/classroom/groups/${groupId}/status`),
         sync: (
             tokenOrPayload: string | { code?: string; access_token?: string; group_id?: number; week_start?: string },
             groupId?: number

@@ -27,20 +27,34 @@ export function ClassroomSyncButton({
   onSynced: (detectedGroupId: number) => void;
 }) {
   const [syncing, setSyncing] = useState(false);
+  const [hasClientSecret, setHasClientSecret] = useState<boolean>(false);
   const { showToast } = useToast();
 
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.classroom
+      .status()
+      .then((data) => {
+        if (data && typeof data.has_client_secret === "boolean") {
+          setHasClientSecret(data.has_client_secret);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!currentGroupId) {
       setLastSyncedAt(null);
       return;
     }
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-    fetch(`${baseUrl}/api/classroom/groups/${currentGroupId}/status`)
-      .then((r) => (r.ok ? r.json() : null))
+    api.classroom
+      .groupStatus(currentGroupId)
       .then((data) => {
         if (data?.last_synced_at) setLastSyncedAt(data.last_synced_at);
+        if (data && typeof data.has_client_secret === "boolean") {
+          setHasClientSecret(data.has_client_secret);
+        }
       })
       .catch(() => {});
   }, [currentGroupId, syncing]);
@@ -64,14 +78,56 @@ export function ClassroomSyncButton({
       document.body.appendChild(script);
     });
 
-  const handleSync = async () => {
-    if (!GOOGLE_CLIENT_ID) {
-      showToast("Додайте NEXT_PUBLIC_GOOGLE_CLIENT_ID у .env", "error");
-      return;
-    }
-    setSyncing(true);
+  const handleSyncSuccess = (res: any, usedCode: boolean) => {
+    invalidateScheduleCache();
+    const switchedGroup = currentGroupId !== null && currentGroupId !== res.group_id;
+    onSynced(res.group_id);
+    const parts = [`підтягнуто ${res.synced_links} онлайн-пар`];
+    if (res.synced_tasks > 0) parts.push(`${res.synced_tasks} завдань`);
+    if (res.synced_students > 0) parts.push(`${res.synced_students} студентів`);
+    const prefix = switchedGroup
+      ? `Перемкнуто на вашу групу ${res.group_name}`
+      : `Група ${res.group_name}`;
+    const autoNote = usedCode ? " (фонове автооновлення активне)" : "";
+    showToast(
+      `${prefix}: ${parts.join(", ")}${autoNote}!`,
+      "success"
+    );
+  };
+
+  const syncWithToken = () => {
     try {
-      await loadGsiScript();
+      const tokenClient = (window as any).google.accounts.oauth2.initTokenClient({
+        client_id: GOOGLE_CLIENT_ID,
+        scope: SCOPES,
+        callback: async (resp: any) => {
+          if (resp.error || !resp.access_token) {
+            setSyncing(false);
+            return;
+          }
+          try {
+            const res = await api.classroom.sync({
+              access_token: resp.access_token,
+              group_id: currentGroupId ?? undefined,
+              week_start: weekStart,
+            });
+            handleSyncSuccess(res, false);
+          } catch (err) {
+            showToast(err instanceof Error ? err.message : "Помилка синхронізації", "error");
+          } finally {
+            setSyncing(false);
+          }
+        },
+      });
+      tokenClient.requestAccessToken();
+    } catch (err) {
+      setSyncing(false);
+      showToast("Не вдалося відкрити вікно авторизації Google", "error");
+    }
+  };
+
+  const syncWithCode = () => {
+    try {
       const codeClient = (window as any).google.accounts.oauth2.initCodeClient({
         client_id: GOOGLE_CLIENT_ID,
         scope: SCOPES,
@@ -87,27 +143,41 @@ export function ClassroomSyncButton({
               group_id: currentGroupId ?? undefined,
               week_start: weekStart,
             });
-            invalidateScheduleCache();
-            const switchedGroup = currentGroupId !== null && currentGroupId !== res.group_id;
-            onSynced(res.group_id);
-            const parts = [`підтягнуто ${res.synced_links} онлайн-пар`];
-            if (res.synced_tasks > 0) parts.push(`${res.synced_tasks} завдань`);
-            if (res.synced_students > 0) parts.push(`${res.synced_students} студентів`);
-            const prefix = switchedGroup
-              ? `Перемкнуто на вашу групу ${res.group_name}`
-              : `Група ${res.group_name}`;
-            showToast(
-              `${prefix}: ${parts.join(", ")} (автооновлення увімкнено)!`,
-              "success"
-            );
-          } catch (err) {
-            showToast(err instanceof Error ? err.message : "Помилка синхронізації", "error");
+            handleSyncSuccess(res, true);
+          } catch (err: any) {
+            const errMsg = err instanceof Error ? err.message : String(err || "");
+            if (errMsg.includes("GOOGLE_CLIENT_SECRET")) {
+              setHasClientSecret(false);
+              showToast("Сервер не має GOOGLE_CLIENT_SECRET. Перемикаємося на пряму синхронізацію...", "info");
+              syncWithToken();
+              return;
+            }
+            showToast(errMsg || "Помилка синхронізації", "error");
           } finally {
             setSyncing(false);
           }
         },
       });
       codeClient.requestCode();
+    } catch (err) {
+      setSyncing(false);
+      showToast("Не вдалося відкрити вікно авторизації Google", "error");
+    }
+  };
+
+  const handleSync = async () => {
+    if (!GOOGLE_CLIENT_ID) {
+      showToast("Додайте NEXT_PUBLIC_GOOGLE_CLIENT_ID у .env", "error");
+      return;
+    }
+    setSyncing(true);
+    try {
+      await loadGsiScript();
+      if (hasClientSecret) {
+        syncWithCode();
+      } else {
+        syncWithToken();
+      }
     } catch (err) {
       setSyncing(false);
       showToast("Не вдалося підключитися до Google Classroom", "error");

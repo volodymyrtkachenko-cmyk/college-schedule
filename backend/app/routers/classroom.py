@@ -30,6 +30,13 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/classroom", tags=["classroom"])
 KYIV_TZ = ZoneInfo("Europe/Kyiv")
 
+DEFAULT_GOOGLE_CLIENT_ID = "1079868158360-ok75uv5l93pcql2iktfcple97sdu180b.apps.googleusercontent.com"
+
+
+def get_google_client_id() -> str:
+    return (settings.google_client_id or "").strip() or DEFAULT_GOOGLE_CLIENT_ID
+
+
 URL_RE = re.compile(
     r"https?://(?:meet\.google\.com|[a-z0-9.-]*zoom\.us)/[^\s<>\"')|]+",
     re.IGNORECASE,
@@ -596,13 +603,14 @@ async def _upsert_task_line(
 
 
 async def _refresh_google_token(refresh_token: str) -> Optional[str]:
-    if not settings.google_client_id or not settings.google_client_secret:
+    client_id = get_google_client_id()
+    if not client_id or not settings.google_client_secret:
         return None
     async with httpx.AsyncClient(timeout=10.0) as client:
         resp = await client.post(
             "https://oauth2.googleapis.com/token",
             data={
-                "client_id": settings.google_client_id,
+                "client_id": client_id,
                 "client_secret": settings.google_client_secret,
                 "refresh_token": refresh_token,
                 "grant_type": "refresh_token",
@@ -1230,18 +1238,19 @@ async def sync_from_classroom(
         refresh_token = None
 
         if payload.code:
-            if not settings.google_client_id or not settings.google_client_secret:
-                logger.error("Google OAuth code exchange failed: GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET is missing in backend settings.")
+            client_id = get_google_client_id()
+            if not client_id or not settings.google_client_secret:
+                logger.warning("Google OAuth code exchange requested, but GOOGLE_CLIENT_SECRET is missing in backend settings.")
                 raise HTTPException(
-                    status_code=500,
-                    detail="GOOGLE_CLIENT_SECRET не налаштовано на сервері для отримання refresh_token.",
+                    status_code=400,
+                    detail="GOOGLE_CLIENT_SECRET не налаштовано на сервері для отримання refresh_token. Використайте пряму синхронізацію або додайте GOOGLE_CLIENT_SECRET у fly secrets.",
                 )
             async with httpx.AsyncClient(timeout=10.0) as client:
                 token_resp = await client.post(
                     "https://oauth2.googleapis.com/token",
                     data={
                         "code": payload.code,
-                        "client_id": settings.google_client_id,
+                        "client_id": client_id,
                         "client_secret": settings.google_client_secret,
                         "redirect_uri": "postmessage",
                         "grant_type": "authorization_code",
@@ -1654,6 +1663,14 @@ async def clear_all_classroom_data(
     }
 
 
+@router.get("/status")
+async def get_classroom_status():
+    return {
+        "has_client_secret": bool(settings.google_client_secret),
+        "client_id": get_google_client_id(),
+    }
+
+
 @router.get("/groups/{group_id}/status")
 async def get_classroom_group_status(
     group_id: int,
@@ -1668,6 +1685,8 @@ async def get_classroom_group_status(
     return {
         "connected": bool(binding),
         "last_synced_at": binding.last_synced_at.isoformat() if (binding and binding.last_synced_at) else None,
+        "has_refresh_token": bool(binding and binding.refresh_token),
+        "has_client_secret": bool(settings.google_client_secret),
     }
 
 
