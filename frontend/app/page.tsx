@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { BottomNav } from "../components/BottomNav";
 import { OfflineIndicator } from "../components/OfflineIndicator";
 import { InstallPrompt } from "../components/InstallPrompt";
 import { ScheduleDay } from "../components/ScheduleDay";
@@ -57,8 +56,8 @@ export default function HomePage() {
   const [daySlideDir, setDaySlideDir] = useState<number>(0);
 
   const isCurrentWeek = useMemo(() => {
-    const todayAnchor = getMondayOf(new Date());
-    return Math.abs(weekAnchorDate.getTime() - todayAnchor.getTime()) < 1000 * 60 * 60 * 24;
+    const currentAnchor = getInitialAnchor();
+    return Math.abs(weekAnchorDate.getTime() - currentAnchor.getTime()) < 1000 * 60 * 60 * 24;
   }, [weekAnchorDate]);
 
   const shiftWeek = (offset: number) => {
@@ -349,15 +348,15 @@ export default function HomePage() {
   };
 
   const resetWeekPreservingDay = () => {
-    const todayAnchor = getMondayOf(new Date());
+    const currentAnchor = getInitialAnchor();
     setWeekShiftDir(0);
-    setWeekAnchorDate(todayAnchor);
+    setWeekAnchorDate(currentAnchor);
     resetScroll();
   };
 
   const handleJumpToToday = () => {
-    const todayAnchor = getMondayOf(new Date());
-    setWeekAnchorDate(todayAnchor);
+    const currentAnchor = getInitialAnchor();
+    setWeekAnchorDate(currentAnchor);
     setSelectedDayIndex(getInitialDayIndex());
     setDaySlideDir(0);
     resetScroll();
@@ -365,9 +364,6 @@ export default function HomePage() {
 
   const handleViewChange = (nextView: "today" | "week") => {
     setView(nextView);
-    try {
-      localStorage.setItem("schedule:view", nextView);
-    } catch {}
     if (nextView === "today") {
       handleJumpToToday();
     }
@@ -375,6 +371,7 @@ export default function HomePage() {
   };
 
   const isWeekend = [0, 6].includes(new Date().getDay());
+  const isAutoSelectedWeekendDay = isWeekend && isCurrentWeek && selectedDayIndex === 0;
 
   const selectedDaySchedule: ScheduleResponse = useMemo(() => {
     if (week && week.length > 0) {
@@ -402,7 +399,7 @@ export default function HomePage() {
     return `${new Intl.DateTimeFormat("uk-UA", startOpts).format(weekAnchorDate)} – ${new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "long", year: "numeric" }).format(end)}`;
   }, [weekAnchorDate]);
 
-  const resetWeek = () => setWeekAnchorDate(getMondayOf(new Date()));
+  const resetWeek = () => setWeekAnchorDate(getInitialAnchor());
 
   const UserControls = () => (
     <div className="flex items-center gap-2">
@@ -435,7 +432,7 @@ export default function HomePage() {
   }
 
   return (
-    <main className="min-h-screen bg-sys-bg pb-[calc(6rem+env(safe-area-inset-bottom))] text-sys-text-primary md:pb-8">
+    <main className="min-h-screen bg-sys-bg pb-6 text-sys-text-primary md:pb-8">
       <OfflineIndicator />
       <InstallPrompt />
       {/* Mobile Compact Header (<640px) - Single Row (Title/Group/Star/⋯) */}
@@ -815,35 +812,23 @@ export default function HomePage() {
 
       {/* Mobile Content (<640px) */}
       <div className="sm:hidden">
-        {/* Smooth expanding/collapsing week bar in "week" mode */}
-        <div
-          className={`grid transition-[grid-template-rows] duration-200 ease-smooth motion-reduce:transition-none ${
-            view === "week" ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
-          }`}
-        >
-          <div
-            className={`overflow-hidden transition-opacity duration-200 ease-smooth motion-reduce:transition-none ${
-              view === "week" ? "opacity-100" : "opacity-0 pointer-events-none"
-            }`}
-          >
-            <MobileWeekBar
-              weekRange={weekRange}
-              weekType={weekType}
-              isCurrentWeek={isCurrentWeek}
-              onPrevWeek={() => shiftWeekPreservingDay(-1)}
-              onNextWeek={() => shiftWeekPreservingDay(1)}
-              onResetWeek={resetWeekPreservingDay}
-              shouldReduceMotion={shouldReduceMotion ?? false}
-            />
-            <MobileWeekDaysStrip
-              weekAnchorDate={weekAnchorDate}
-              selectedDayIndex={selectedDayIndex}
-              onSelectDay={handleSelectDayIndex}
-              isCurrentWeek={isCurrentWeek}
-              todayIso={todayActualIso}
-            />
-          </div>
-        </div>
+        {/* Mobile Week Bar & Days Strip (Always visible on mobile) */}
+        <MobileWeekBar
+          weekRange={weekRange}
+          weekType={weekType}
+          isCurrentWeek={isCurrentWeek}
+          onPrevWeek={() => shiftWeekPreservingDay(-1)}
+          onNextWeek={() => shiftWeekPreservingDay(1)}
+          onResetWeek={resetWeekPreservingDay}
+          shouldReduceMotion={shouldReduceMotion ?? false}
+        />
+        <MobileWeekDaysStrip
+          weekAnchorDate={weekAnchorDate}
+          selectedDayIndex={selectedDayIndex}
+          onSelectDay={handleSelectDayIndex}
+          isCurrentWeek={isCurrentWeek}
+          todayIso={todayActualIso}
+        />
 
         {returnTarget && (
           <div className="m-3 flex items-center justify-between rounded-xl border border-sys-accent/30 bg-sys-accent/10 px-3 py-2 text-xs">
@@ -895,8 +880,8 @@ export default function HomePage() {
               onJumpToToday={handleJumpToToday}
               daySlideDir={daySlideDir}
               shouldReduceMotion={shouldReduceMotion ?? false}
-              isWeekend={isWeekend && view === "today"}
-              isShowingTomorrow={isShowingTomorrow && !isWeekend && view === "today"}
+              isWeekend={isAutoSelectedWeekendDay}
+              isShowingTomorrow={isShowingTomorrow && !isWeekend}
             />
           )}
 
@@ -1008,13 +993,15 @@ export default function HomePage() {
               {view === "today" ? (
                 <div className="min-w-0 overflow-hidden">
                   {isWeekend && (
-                    <div className="mb-2.5 flex h-9 max-h-10 items-center justify-between rounded-lg border border-slate-700/50 bg-slate-800/50 px-3 text-xs text-sys-text-secondary">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <span aria-hidden="true">🛋️</span>
-                        <span className="font-semibold text-sys-text-primary whitespace-nowrap">Сьогодні вихідний</span>
-                        <span className="hidden sm:inline truncate">— розклад найближчого навчального дня</span>
+                    <div className="mb-3 flex min-h-[52px] items-center justify-between rounded-xl border border-slate-700/50 bg-slate-800/50 px-4 py-2 text-xs">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span aria-hidden="true" className="text-xl shrink-0">🛋️</span>
+                        <div className="flex flex-col min-w-0">
+                          <span className="font-semibold text-sys-text-primary leading-tight">Сьогодні вихідний</span>
+                          <span className="text-sys-text-secondary text-[11px] leading-tight mt-0.5">Показано найближчий навчальний день</span>
+                        </div>
                       </div>
-                      <div className="shrink-0 ml-2">
+                      <div className="shrink-0 ml-3">
                         <WeekTypeBadge weekType={today.week_type} />
                       </div>
                     </div>
@@ -1133,8 +1120,6 @@ export default function HomePage() {
         )}
         
       </div>
-
-      <BottomNav view={view} onViewChange={handleViewChange} />
     </main>
   );
 }

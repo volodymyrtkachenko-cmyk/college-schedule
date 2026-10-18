@@ -454,7 +454,7 @@ export function LessonCard({
           onMoveSelect?.(lesson);
         }
       }}
-      className={`relative flex min-w-0 flex-col overflow-hidden rounded-xl border bg-sys-card shadow-sm transition-colors duration-200 ${
+      className={`relative flex min-w-0 flex-col rounded-xl border bg-sys-card shadow-sm transition-colors duration-200 ${
         isDay ? "p-3 xl:p-3.5" : "p-2.5"
       } ${stateClass} ${
         !lesson.is_relevant_this_week ? "opacity-60" : isPast ? "opacity-55 hover:opacity-100" : ""
@@ -497,91 +497,115 @@ export function LessonCard({
 
           {/* Row 2: Teacher(s) - completely visible without trimming, overflow-wrap anywhere */}
           {isDualTeachers ? (
-            <div className="flex flex-col gap-0.5 text-xs text-sys-text-secondary [overflow-wrap:anywhere]">
+            <div className="flex flex-col gap-2 text-xs text-sys-text-secondary [overflow-wrap:anywhere]">
               {/* Teacher 0 */}
-              <div className="inline-flex items-center whitespace-nowrap">
-                {onQuickJump ? (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onQuickJump(secondaryItems[0].target);
-                    }}
-                    className="font-medium underline-offset-2 hover:text-sys-accent hover:underline focus:outline-none"
-                  >
-                    {secondaryItems[0].displayName}
-                  </button>
-                ) : (
-                  <span>{secondaryItems[0].displayName}</span>
-                )}
-                {teacherMeetings[0] ? (
-                  <a
-                    href={teacherMeetings[0].url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      vibrateTap(12);
-                    }}
-                    className={`ml-1.5 inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-[11px] font-bold transition-transform active:scale-[0.98] ${
-                      teacherMeetings[0].platform === "meet"
-                        ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
-                        : "border-sky-500/40 bg-sky-500/15 text-sky-300 hover:bg-sky-500/25"
-                    }`}
-                  >
-                    <span>{teacherMeetings[0].platform === "meet" ? "Meet" : "Zoom"}</span>
-                    <span className="text-[10px] opacity-80">({secondaryItems[0].displayName.split(" ")[0]})</span>
-                    <span>↗</span>
-                  </a>
-                ) : rooms[0] ? (
-                  <>
-                    <span className="text-sys-text-muted"> · </span>
-                    <span className="font-medium text-sys-text-primary">{formatRoom(rooms[0])}</span>
-                  </>
-                ) : null}
+              <div className="flex flex-col items-start gap-1 min-w-0">
+                <div className="font-medium text-sys-text-secondary [overflow-wrap:anywhere]">
+                  {onQuickJump ? (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onQuickJump(secondaryItems[0].target);
+                      }}
+                      className="text-left font-medium underline-offset-2 hover:text-sys-accent hover:underline focus:outline-none"
+                    >
+                      {secondaryItems[0].displayName}
+                    </button>
+                  ) : (
+                    <span>{secondaryItems[0].displayName}</span>
+                  )}
+                </div>
+                {/* Teacher 0 badge: online link or room */}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {teacherMeetings[0] ? (
+                    <a
+                      href={teacherMeetings[0].url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        vibrateTap(12);
+                      }}
+                      className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-bold transition-transform active:scale-[0.98] ${
+                        teacherMeetings[0].platform === "meet"
+                          ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
+                          : "border-sky-500/40 bg-sky-500/15 text-sky-300 hover:bg-sky-500/25"
+                      }`}
+                    >
+                      <span>{teacherMeetings[0].platform === "meet" ? "🎥 Meet" : "📹 Zoom"}</span>
+                      <span>↗</span>
+                    </a>
+                  ) : rooms[0] ? (
+                    (() => {
+                      const meta = getRoomBadgeMeta(rooms[0]);
+                      return (
+                        <span
+                          title={formatRoom(rooms[0])}
+                          className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium ${meta.tone}`}
+                        >
+                          <span aria-hidden="true" className="text-[11px]">{meta.icon}</span>
+                          <span>{formatRoom(rooms[0])}</span>
+                        </span>
+                      );
+                    })()
+                  ) : null}
+                </div>
               </div>
 
               {/* Teacher 1 */}
-              <div className="inline-flex items-center whitespace-nowrap">
-                {onQuickJump ? (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onQuickJump(secondaryItems[1].target);
-                    }}
-                    className="font-medium underline-offset-2 hover:text-sys-accent hover:underline focus:outline-none"
-                  >
-                    {secondaryItems[1].displayName}
-                  </button>
-                ) : (
-                  <span>{secondaryItems[1].displayName}</span>
-                )}
-                {teacherMeetings[1] ? (
-                  <a
-                    href={teacherMeetings[1].url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      vibrateTap(12);
-                    }}
-                    className={`ml-1.5 inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-[11px] font-bold transition-transform active:scale-[0.98] ${
-                      teacherMeetings[1].platform === "meet"
-                        ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
-                        : "border-sky-500/40 bg-sky-500/15 text-sky-300 hover:bg-sky-500/25"
-                    }`}
-                  >
-                    <span>{teacherMeetings[1].platform === "meet" ? "Meet" : "Zoom"}</span>
-                    <span className="text-[10px] opacity-80">({secondaryItems[1].displayName.split(" ")[0]})</span>
-                    <span>↗</span>
-                  </a>
-                ) : rooms[1] ? (
-                  <>
-                    <span className="text-sys-text-muted"> · </span>
-                    <span className="font-medium text-sys-text-primary">{formatRoom(rooms[1])}</span>
-                  </>
-                ) : null}
+              <div className="flex flex-col items-start gap-1 min-w-0">
+                <div className="font-medium text-sys-text-secondary [overflow-wrap:anywhere]">
+                  {onQuickJump ? (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onQuickJump(secondaryItems[1].target);
+                      }}
+                      className="text-left font-medium underline-offset-2 hover:text-sys-accent hover:underline focus:outline-none"
+                    >
+                      {secondaryItems[1].displayName}
+                    </button>
+                  ) : (
+                    <span>{secondaryItems[1].displayName}</span>
+                  )}
+                </div>
+                {/* Teacher 1 badge: online link or room */}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {teacherMeetings[1] ? (
+                    <a
+                      href={teacherMeetings[1].url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        vibrateTap(12);
+                      }}
+                      className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-bold transition-transform active:scale-[0.98] ${
+                        teacherMeetings[1].platform === "meet"
+                          ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
+                          : "border-sky-500/40 bg-sky-500/15 text-sky-300 hover:bg-sky-500/25"
+                      }`}
+                    >
+                      <span>{teacherMeetings[1].platform === "meet" ? "🎥 Meet" : "📹 Zoom"}</span>
+                      <span>↗</span>
+                    </a>
+                  ) : rooms[1] ? (
+                    (() => {
+                      const meta = getRoomBadgeMeta(rooms[1]);
+                      return (
+                        <span
+                          title={formatRoom(rooms[1])}
+                          className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium ${meta.tone}`}
+                        >
+                          <span aria-hidden="true" className="text-[11px]">{meta.icon}</span>
+                          <span>{formatRoom(rooms[1])}</span>
+                        </span>
+                      );
+                    })()
+                  ) : null}
+                </div>
               </div>
             </div>
           ) : secondaryItems.length > 0 ? (
@@ -615,7 +639,7 @@ export function LessonCard({
 
           {/* Row 3: Badges in flex-wrap with gap */}
           <div className="mt-0.5 flex flex-wrap items-center gap-1.5 pt-0.5">
-            {/* If single teacher and pair has meeting, room badge is suppressed! */}
+            {/* If single teacher and pair has NO meeting, show room badge */}
             {!isDualTeachers && !hasMeeting && rooms.length > 0 && (
               rooms.map((rm, idx) => {
                 const meta = getRoomBadgeMeta(rm);
@@ -632,8 +656,8 @@ export function LessonCard({
               })
             )}
 
-            {/* Online meetings (for single teacher, or dual teacher meetings not bound inline) */}
-            {row3Meetings.map((m, idx) => (
+            {/* Online meetings (for single teacher or teacher view) */}
+            {!isDualTeachers && row3Meetings.map((m, idx) => (
               <a
                 key={`${m.url}-${idx}`}
                 href={m.url}
@@ -643,21 +667,13 @@ export function LessonCard({
                   e.stopPropagation();
                   vibrateTap(12);
                 }}
-                title={
-                  m.label
-                    ? `${m.label} (${m.platform === "meet" ? "Google Meet" : "Zoom"})`
-                    : m.platform === "meet"
-                    ? "Google Meet"
-                    : "Zoom"
-                }
-                className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border px-2 py-0.5 text-xs font-bold transition-transform active:scale-[0.98] ${
+                className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-bold transition-transform active:scale-[0.98] ${
                   m.platform === "meet"
                     ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
                     : "border-sky-500/40 bg-sky-500/15 text-sky-300 hover:bg-sky-500/25"
                 }`}
               >
                 <span>{m.platform === "meet" ? "🎥 Meet" : "📹 Zoom"}</span>
-                {m.label && <span className="text-[10px] opacity-80">({m.label})</span>}
                 <span>↗</span>
               </a>
             ))}

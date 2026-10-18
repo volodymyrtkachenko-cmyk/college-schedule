@@ -5,293 +5,379 @@ import Link from "next/link";
 import { api } from "../../lib/api";
 
 interface CellInfo {
-    week_number: number;
-    period_type: string;
-    name: string | null;
+  week_number: number;
+  period_type: string;
+  name: string | null;
 }
 
 interface GroupProcessInfo {
-    group_id: number;
-    group_name: string;
-    cells: CellInfo[];
+  group_id: number;
+  group_name: string;
+  cells: CellInfo[];
 }
 
 interface CourseProcessInfo {
-    course: number;
-    groups: GroupProcessInfo[];
+  course: number;
+  groups: GroupProcessInfo[];
 }
 
 interface WeekInfo {
-    week_number: number;
-    start_date: string;
-    end_date: string;
+  week_number: number;
+  start_date: string;
+  end_date: string;
 }
 
 interface EducationalProcessMatrix {
-    academic_year_start: number;
-    weeks: WeekInfo[];
-    courses: CourseProcessInfo[];
+  academic_year_start: number;
+  weeks: WeekInfo[];
+  courses: CourseProcessInfo[];
 }
 
 const TYPE_NAMES: Record<string, string> = {
-    theory: "Теоретичне навчання",
-    session: "Екзаменаційна сесія",
-    holiday: "Канікули",
-    diploma: "Дипломне проєктування",
-    attestation: "Атестація",
+  theory: "Теоретичне навчання",
+  session: "Екзаменаційна сесія",
+  holiday: "Канікули",
+  diploma: "Дипломне проєктування",
+  attestation: "Атестація",
 };
 
-const TYPE_COLORS: Record<string, string> = {
-    theory: "bg-white text-black dark:bg-slate-800 dark:text-white border border-slate-200 dark:border-slate-700",
-    session: "bg-red-500 text-white",
-    holiday: "bg-green-500 text-white",
-    diploma: "bg-purple-500 text-white",
-    attestation: "bg-blue-600 text-white",
-};
-
-function getPracticeColor(name: string | null) {
-    if (!name) return "bg-orange-300 text-black";
-    const n = name.toLowerCase();
-    if (n.includes("електрорадіомонтажна")) return "bg-yellow-400 text-black";
-    if (n.includes("комп'ютерна")) return "bg-orange-400 text-black";
-    if (n.includes("професійна")) return "bg-orange-500 text-white";
-    if (n.includes("технологічна")) return "bg-amber-500 text-white";
-    if (n.includes("переддипломна")) return "bg-amber-600 text-white";
-    return "bg-orange-300 text-black";
+interface PeriodStyle {
+  badgeClass: string;
+  dotClass: string;
 }
 
-function getCellStyles(cell: {period_type: string, name: string | null}) {
-    if (cell.period_type === "practice") {
-        return getPracticeColor(cell.name);
-    }
-    return TYPE_COLORS[cell.period_type] || "bg-gray-500 text-white";
+function getPeriodStyle(periodType: string, name: string | null): PeriodStyle {
+  if (periodType === "practice") {
+    return {
+      badgeClass: "border-amber-500/40 bg-amber-500/15 text-amber-300",
+      dotClass: "bg-amber-400",
+    };
+  }
+  switch (periodType) {
+    case "session":
+      return {
+        badgeClass: "border-rose-500/40 bg-rose-500/15 text-rose-300",
+        dotClass: "bg-rose-400",
+      };
+    case "holiday":
+      return {
+        badgeClass: "border-emerald-500/40 bg-emerald-500/15 text-emerald-300",
+        dotClass: "bg-emerald-400",
+      };
+    case "diploma":
+      return {
+        badgeClass: "border-purple-500/40 bg-purple-500/15 text-purple-300",
+        dotClass: "bg-purple-400",
+      };
+    case "attestation":
+      return {
+        badgeClass: "border-sky-500/40 bg-sky-500/15 text-sky-300",
+        dotClass: "bg-sky-400",
+      };
+    case "theory":
+    default:
+      return {
+        badgeClass: "border-sys-border/70 bg-sys-tabActive/50 text-sys-text-primary",
+        dotClass: "bg-slate-400",
+      };
+  }
 }
 
 function formatDate(dateStr: string) {
-    const d = new Date(dateStr);
-    return `${d.getDate().toString().padStart(2, '0')}.${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+  const d = new Date(dateStr);
+  return `${d.getDate().toString().padStart(2, "0")}.${(d.getMonth() + 1).toString().padStart(2, "0")}`;
 }
 
 interface MergedPeriod {
-    start_date: string;
-    end_date: string;
-    period_type: string;
-    name: string | null;
+  start_date: string;
+  end_date: string;
+  period_type: string;
+  name: string | null;
 }
 
 function mergeCells(cells: CellInfo[], weeks: WeekInfo[]): MergedPeriod[] {
-    if (!cells.length || !weeks.length) return [];
-    
-    const sortedCells = [...cells].sort((a, b) => a.week_number - b.week_number);
-    const merged: MergedPeriod[] = [];
-    let currentPeriod: MergedPeriod | null = null;
-    
-    for (const cell of sortedCells) {
-        const week = weeks.find(w => w.week_number === cell.week_number);
-        if (!week) continue;
-        
-        if (!currentPeriod) {
-            currentPeriod = {
-                start_date: week.start_date,
-                end_date: week.end_date,
-                period_type: cell.period_type,
-                name: cell.name
-            };
-        } else if (currentPeriod.period_type === cell.period_type && currentPeriod.name === cell.name) {
-            currentPeriod.end_date = week.end_date;
-        } else {
-            merged.push(currentPeriod);
-            currentPeriod = {
-                start_date: week.start_date,
-                end_date: week.end_date,
-                period_type: cell.period_type,
-                name: cell.name
-            };
-        }
+  if (!cells.length || !weeks.length) return [];
+
+  const sortedCells = [...cells].sort((a, b) => a.week_number - b.week_number);
+  const merged: MergedPeriod[] = [];
+  let currentPeriod: MergedPeriod | null = null;
+
+  for (const cell of sortedCells) {
+    const week = weeks.find((w) => w.week_number === cell.week_number);
+    if (!week) continue;
+
+    if (!currentPeriod) {
+      currentPeriod = {
+        start_date: week.start_date,
+        end_date: week.end_date,
+        period_type: cell.period_type,
+        name: cell.name,
+      };
+    } else if (currentPeriod.period_type === cell.period_type && currentPeriod.name === cell.name) {
+      currentPeriod.end_date = week.end_date;
+    } else {
+      merged.push(currentPeriod);
+      currentPeriod = {
+        start_date: week.start_date,
+        end_date: week.end_date,
+        period_type: cell.period_type,
+        name: cell.name,
+      };
     }
-    if (currentPeriod) {
-        merged.push(currentPeriod);
-    }
-    
-    return merged;
+  }
+  if (currentPeriod) {
+    merged.push(currentPeriod);
+  }
+
+  return merged;
 }
 
 export default function EducationalProcessPage() {
-    const [matrix, setMatrix] = useState<EducationalProcessMatrix | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [selectedGroups, setSelectedGroups] = useState<number[]>([]);
-    
-    const year = useMemo(() => {
-        const now = new Date();
-        return now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear() - 1;
-    }, []);
-    
-    useEffect(() => {
-        setLoading(true);
-        api.educationalProcess<EducationalProcessMatrix>(year)
-            .then(data => {
-                setMatrix(data);
-                setLoading(false);
-            })
-            .catch(err => {
-                console.error(err);
-                setLoading(false);
-            });
-    }, [year]);
+  const [matrix, setMatrix] = useState<EducationalProcessMatrix | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedGroups, setSelectedGroups] = useState<number[]>([]);
 
-    const allGroups = useMemo(() => {
-        if (!matrix) return [];
-        return matrix.courses.flatMap(c => 
-            c.groups.map(g => ({
-                id: g.group_id,
-                name: g.group_name,
-                course: c.course
-            }))
-        ).sort((a, b) => a.name.localeCompare(b.name));
-    }, [matrix]);
+  const year = useMemo(() => {
+    const now = new Date();
+    return now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear() - 1;
+  }, []);
 
-    const filteredCourses = useMemo(() => {
-        if (!matrix) return [];
-        if (selectedGroups.length === 0) return matrix.courses;
-        return matrix.courses.map(c => ({
-            course: c.course,
-            groups: c.groups.filter(g => selectedGroups.includes(g.group_id))
-        })).filter(c => c.groups.length > 0);
-    }, [matrix, selectedGroups]);
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+    api
+      .educationalProcess<EducationalProcessMatrix>(year)
+      .then((data) => {
+        setMatrix(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error(err);
+        setError("Не вдалося завантажити графік навчального процесу.");
+        setLoading(false);
+      });
+  }, [year]);
 
-    const renderTimeline = () => {
-        if (!matrix || !filteredCourses.length) return null;
-        
-        return (
-            <div className="flex flex-col gap-10 mb-8 max-w-3xl mx-auto w-full">
-                {filteredCourses.map(course => (
-                    <div key={course.course} className="flex flex-col gap-5">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-lg shadow-sm">
-                                {course.course}
-                            </div>
-                            <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-200">Курс</h3>
-                        </div>
-                        
-                        <div className="flex flex-col gap-6">
-                            {course.groups.map(group => {
-                                const merged = mergeCells(group.cells, matrix.weeks);
-                                return (
-                                    <div key={group.group_id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
-                                        <div className="bg-slate-100 dark:bg-slate-800 px-5 py-4 font-bold text-xl border-b border-slate-200 dark:border-slate-700 text-center">
-                                            {group.group_name}
-                                        </div>
-                                        <div className="flex flex-col">
-                                            {merged.map((m, idx) => (
-                                                <div key={idx} className="flex border-b last:border-b-0 border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                                    <div className="w-28 shrink-0 py-4 px-3 flex flex-col justify-center items-center text-sm font-semibold text-slate-500 dark:text-slate-400 border-r border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
-                                                        <span>{formatDate(m.start_date)}</span>
-                                                        <span className="text-[11px] opacity-70 my-1 font-medium">до</span>
-                                                        <span>{formatDate(m.end_date)}</span>
-                                                    </div>
-                                                    <div className="flex-1 py-4 px-5 flex items-center gap-3.5">
-                                                        <span
-                                                            aria-hidden="true"
-                                                            className={`w-2 h-7 shrink-0 rounded-full shadow-sm ${getCellStyles(m)}`}
-                                                        />
-                                                        <span className="text-base font-medium text-slate-700 dark:text-slate-200">
-                                                            {m.period_type === "practice" ? m.name : (TYPE_NAMES[m.period_type] || m.period_type)}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                ))}
-            </div>
-        );
-    };
+  const allGroups = useMemo(() => {
+    if (!matrix) return [];
+    return matrix.courses
+      .flatMap((c) =>
+        c.groups.map((g) => ({
+          id: g.group_id,
+          name: g.group_name,
+          course: c.course,
+        }))
+      )
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [matrix]);
 
-    return (
-        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 p-4 md:p-8 font-sans">
-            <div className="max-w-[1400px] mx-auto">
-                <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 max-w-3xl mx-auto w-full">
-                    <div>
-                        <Link href="/" className="text-blue-600 dark:text-blue-400 hover:underline mb-2 inline-block font-medium">
-                            &larr; Назад до розкладу
-                        </Link>
-                        <h1 className="text-3xl font-bold tracking-tight">Графік освітнього процесу на {year}/{year+1} рік</h1>
-                    </div>
-                </header>
-                
-                <div className="mb-10 max-w-3xl mx-auto w-full">
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-lg font-bold text-slate-800 dark:text-slate-200">Групи</h2>
-                        {selectedGroups.length > 0 && (
-                            <button 
-                                onClick={() => setSelectedGroups([])} 
-                                className="text-sm font-medium text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
-                            >
-                                Скинути
-                            </button>
-                        )}
-                    </div>
-                    <div className="flex flex-wrap gap-2.5 max-h-60 overflow-y-auto custom-scrollbar pr-2">
-                        {allGroups.map(g => {
-                            const isSelected = selectedGroups.includes(g.id);
-                            return (
-                                <button
-                                    key={g.id}
-                                    onClick={() => {
-                                        if (isSelected) {
-                                            setSelectedGroups(prev => prev.filter(id => id !== g.id));
-                                        } else {
-                                            setSelectedGroups(prev => [...prev, g.id]);
-                                        }
-                                    }}
-                                    className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                                        isSelected 
-                                            ? 'bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900 shadow-md' 
-                                            : 'bg-slate-200/70 text-slate-600 hover:bg-slate-300/80 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700'
-                                    }`}
-                                >
-                                    {g.name}
-                                </button>
-                            );
-                        })}
-                        {allGroups.length === 0 && !loading && <span className="text-slate-500 text-sm">Немає груп для відображення</span>}
-                    </div>
+  const filteredCourses = useMemo(() => {
+    if (!matrix) return [];
+    if (selectedGroups.length === 0) return matrix.courses;
+    return matrix.courses
+      .map((c) => ({
+        course: c.course,
+        groups: c.groups.filter((g) => selectedGroups.includes(g.group_id)),
+      }))
+      .filter((c) => c.groups.length > 0);
+  }, [matrix, selectedGroups]);
+
+  return (
+    <div className="min-h-screen bg-sys-bg text-sys-text-primary">
+      {/* Mobile Header (<640px) */}
+      <header className="border-b border-sys-border bg-sys-card px-3 py-2.5 sm:hidden">
+        <div className="flex items-center justify-between gap-2">
+          <Link
+            href="/"
+            className="flex items-center gap-1.5 shrink-0 hover:opacity-85"
+            title="Головна сторінка розкладу"
+          >
+            <span className="rounded bg-sys-accent/15 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-sys-accent">
+              ДФКР
+            </span>
+            <span className="text-sm font-bold tracking-tight text-sys-text-primary">
+              Графік процесу
+            </span>
+          </Link>
+          <Link
+            href="/"
+            className="flex items-center gap-1 rounded-lg border border-sys-border bg-sys-bg px-2.5 py-1 text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary active:scale-[0.98] transition-colors"
+          >
+            ← До розкладу
+          </Link>
+        </div>
+      </header>
+
+      {/* Desktop Header (>=640px) */}
+      <header className="hidden sm:block border-b border-sys-border bg-sys-card">
+        <div className="mx-auto flex max-w-[1800px] items-center justify-between px-4 py-5 sm:px-6 lg:px-8">
+          <div>
+            <a
+              href="https://kre.dp.ua/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block hover:opacity-80 transition-opacity"
+            >
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-sys-text-secondary">ДФКР</p>
+            </a>
+            <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl text-sys-text-primary">
+              Графік освітнього процесу
+            </h1>
+            <p className="mt-0.5 text-xs sm:text-sm text-sys-text-secondary">
+              {year}/{year + 1} навчальний рік
+            </p>
+          </div>
+          <Link
+            href="/"
+            className="flex items-center gap-1.5 rounded-xl border border-sys-border bg-sys-bg px-4 py-2 text-sm font-semibold text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/40 active:scale-[0.98] transition-colors"
+          >
+            ← До розкладу занять
+          </Link>
+        </div>
+      </header>
+
+      {/* Page Content */}
+      <main className="mx-auto max-w-[1200px] px-3 py-4 sm:px-6 sm:py-6">
+        {/* Group Filter Pills */}
+        <div className="mb-6 rounded-2xl border border-sys-border bg-sys-card p-4 shadow-sm">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-sys-text-secondary">
+              Фільтр за групами
+            </h2>
+            {selectedGroups.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setSelectedGroups([])}
+                className="text-xs font-semibold text-sys-accent hover:underline focus:outline-none"
+              >
+                Скинути вибір ({selectedGroups.length})
+              </button>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto pr-1">
+            {allGroups.map((g) => {
+              const isSelected = selectedGroups.includes(g.id);
+              return (
+                <button
+                  key={g.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedGroups((prev) =>
+                      isSelected ? prev.filter((id) => id !== g.id) : [...prev, g.id]
+                    );
+                  }}
+                  className={`rounded-full border px-3 py-1 text-xs font-medium transition-all active:scale-[0.96] ${
+                    isSelected
+                      ? "border-sys-accent bg-sys-accent/15 text-sys-accent font-semibold shadow-xs"
+                      : "border-sys-border/70 bg-sys-bg/60 text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-border"
+                  }`}
+                >
+                  {g.name}
+                </button>
+              );
+            })}
+            {allGroups.length === 0 && !loading && (
+              <span className="text-xs text-sys-text-secondary">Немає груп для відображення</span>
+            )}
+          </div>
+        </div>
+
+        {/* States: Loading, Error, Empty, Content */}
+        {loading ? (
+          <div className="space-y-4" aria-busy="true" aria-label="Завантаження графіка">
+            {[1, 2, 3].map((num) => (
+              <div
+                key={num}
+                className="rounded-2xl border border-sys-border/60 bg-sys-card/70 p-5 animate-pulse"
+              >
+                <div className="h-5 w-32 rounded bg-slate-700/60 mb-4" />
+                <div className="space-y-2">
+                  <div className="h-4 w-full rounded bg-slate-800" />
+                  <div className="h-4 w-4/5 rounded bg-slate-800" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : error ? (
+          <div className="rounded-2xl border border-rose-400/20 bg-rose-400/5 p-8 text-center text-sm text-rose-200">
+            {error}
+          </div>
+        ) : !matrix || filteredCourses.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-sys-border bg-sys-card/40 p-12 text-center text-sys-text-secondary">
+            Немає даних графіка освітнього процесу для вибраних параметрів.
+          </div>
+        ) : (
+          <div className="flex flex-col gap-8">
+            {filteredCourses.map((course) => (
+              <section key={course.course} className="flex flex-col gap-4">
+                <div className="flex items-center gap-2.5">
+                  <span className="rounded-lg border border-sys-accent/30 bg-sys-accent/15 px-2.5 py-1 text-xs font-bold text-sys-accent">
+                    {course.course} курс
+                  </span>
+                  <h3 className="text-lg sm:text-xl font-bold text-sys-text-primary">
+                    Навчальний план {course.course}-го курсу
+                  </h3>
                 </div>
 
-                {loading ? (
-                    <div className="flex justify-center p-20">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-                    </div>
-                ) : !matrix || matrix.courses.length === 0 ? (
-                    <div className="text-center p-16 bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 max-w-3xl mx-auto w-full">
-                        <p className="text-lg font-medium text-slate-500">Немає даних для поточного навчального року.</p>
-                    </div>
-                ) : (
-                    renderTimeline()
-                )}
-            </div>
-            <style jsx global>{`
-                .custom-scrollbar::-webkit-scrollbar {
-                    height: 12px;
-                    width: 8px;
-                }
-                .custom-scrollbar::-webkit-scrollbar-track {
-                    background: transparent;
-                }
-                .custom-scrollbar::-webkit-scrollbar-thumb {
-                    background-color: #cbd5e1;
-                    border-radius: 20px;
-                    border: 3px solid transparent;
-                    background-clip: content-box;
-                }
-                .dark .custom-scrollbar::-webkit-scrollbar-thumb {
-                    background-color: #475569;
-                }
-            `}</style>
-        </div>
-    );
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                  {course.groups.map((group) => {
+                    const merged = mergeCells(group.cells, matrix.weeks);
+                    return (
+                      <div
+                        key={group.group_id}
+                        className="flex flex-col rounded-2xl border border-sys-border bg-sys-card overflow-hidden shadow-xs"
+                      >
+                        <div className="border-b border-sys-border/60 bg-sys-card/80 px-4 py-3 font-bold text-sm sm:text-base text-sys-text-primary flex items-center justify-between">
+                          <span>Група {group.group_name}</span>
+                          <span className="text-xs font-normal text-sys-text-secondary">
+                            {merged.length} {merged.length === 1 ? "період" : "періоди"}
+                          </span>
+                        </div>
+
+                        <div className="flex flex-col divide-y divide-sys-border/30">
+                          {merged.map((m, idx) => {
+                            const style = getPeriodStyle(m.period_type, m.name);
+                            const periodLabel =
+                              m.period_type === "practice"
+                                ? m.name || "Практика"
+                                : TYPE_NAMES[m.period_type] || m.period_type;
+
+                            return (
+                              <div
+                                key={idx}
+                                className="flex items-center hover:bg-sys-cardActive/20 transition-colors"
+                              >
+                                {/* Date Range Column */}
+                                <div className="w-24 sm:w-28 shrink-0 py-3 px-2 flex flex-col justify-center items-center text-xs font-semibold text-sys-text-secondary border-r border-sys-border/40 bg-sys-bg/30">
+                                  <span>{formatDate(m.start_date)}</span>
+                                  <span className="text-[10px] text-sys-text-muted my-0.5">до</span>
+                                  <span>{formatDate(m.end_date)}</span>
+                                </div>
+
+                                {/* Period Details Column */}
+                                <div className="flex-1 py-3 px-3.5 sm:px-4 flex items-center gap-2.5 min-w-0">
+                                  <span
+                                    aria-hidden="true"
+                                    className={`h-2.5 w-2.5 shrink-0 rounded-full ${style.dotClass}`}
+                                  />
+                                  <span className="text-xs sm:text-sm font-medium text-sys-text-primary [overflow-wrap:anywhere] min-w-0">
+                                    {periodLabel}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
+          </div>
+        )}
+      </main>
+    </div>
+  );
 }

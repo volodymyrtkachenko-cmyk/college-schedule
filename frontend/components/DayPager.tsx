@@ -239,18 +239,31 @@ export function DayPager({
       id="day-pager-content"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
-      className="w-full min-w-0 touch-pan-y flex flex-col flex-1 min-h-[calc(100dvh-13.5rem)]"
+      className="w-full min-w-0 touch-pan-y flex flex-col flex-1 min-h-[calc(100dvh-10rem)]"
     >
       {/* Top context banners: weekend or tomorrow */}
-      {isWeekend && (
-        <div className="mb-2.5 flex h-9 max-h-10 items-center justify-between rounded-lg border border-slate-700/50 bg-slate-800/50 px-3 text-xs text-sys-text-secondary">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span aria-hidden="true">🛋️</span>
-            <span className="font-semibold text-sys-text-primary whitespace-nowrap">Сьогодні вихідний</span>
-            <span className="truncate">— розклад найближчого навчального дня</span>
-          </div>
-        </div>
-      )}
+      <AnimatePresence>
+        {isWeekend && (
+          <motion.div
+            initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+            animate={{ opacity: 1, height: "auto", marginBottom: 10 }}
+            exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+            transition={{
+              duration: shouldReduceMotion ? 0 : 0.15,
+              ease: [0.2, 0, 0, 1],
+            }}
+            className="overflow-hidden"
+          >
+            <div className="flex min-h-[48px] max-h-[64px] items-center gap-3 rounded-xl border border-slate-700/50 bg-slate-800/50 px-3.5 py-2 text-xs">
+              <span aria-hidden="true" className="text-xl shrink-0">🛋️</span>
+              <div className="flex flex-col min-w-0">
+                <span className="font-semibold text-sys-text-primary leading-tight">Сьогодні вихідний</span>
+                <span className="text-sys-text-secondary text-[11px] leading-tight mt-0.5">Показано найближчий навчальний день</span>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {isShowingTomorrow && !isWeekend && (
         <div className="mb-2.5 flex items-center justify-between rounded-xl border border-sys-accent/30 bg-sys-accent/10 px-3.5 py-2 text-xs text-sys-text-primary">

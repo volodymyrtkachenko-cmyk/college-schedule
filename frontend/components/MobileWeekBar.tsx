@@ -28,14 +28,14 @@ export function MobileWeekBar({
   }, [weekType]);
 
   return (
-    <div className="w-full border-b border-sys-border/60 bg-sys-card/90 backdrop-blur-xs px-2 py-1">
-      <div className="flex h-10 items-center justify-between gap-1 max-w-md mx-auto">
+    <div className={`w-full border-b border-sys-border/60 bg-sys-card/90 backdrop-blur-xs px-2 ${isCurrentWeek ? "py-1 min-h-[44px] max-h-[48px]" : "py-1.5 min-h-[50px] max-h-[56px]"}`}>
+      <div className="flex items-center justify-between gap-1 max-w-md mx-auto">
         {/* Previous Week Button (tap area >= 44x44px) */}
         <button
           type="button"
           onClick={onPrevWeek}
           aria-label="Попередній тиждень"
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg/60 active:scale-[0.94] transition-all duration-100 ease-out focus:outline-none focus:ring-1 focus:ring-sys-accent"
+          className="flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg/60 active:scale-[0.94] transition-all duration-100 ease-out focus:outline-none focus:ring-1 focus:ring-sys-accent"
         >
           <svg
             width="20"
@@ -77,7 +77,7 @@ export function MobileWeekBar({
             title="Натисніть, щоб повернутися на поточний тиждень"
             className="flex min-w-0 flex-1 flex-col items-center justify-center rounded-lg px-2 py-0.5 text-center transition-colors hover:bg-sys-bg/60 active:scale-[0.98]"
           >
-            <div className="flex items-center gap-1.5 truncate">
+            <div className="flex items-center justify-center gap-1.5 truncate max-w-full">
               <span className="truncate text-xs font-semibold text-sys-text-primary">
                 {weekRange}
               </span>
@@ -90,8 +90,8 @@ export function MobileWeekBar({
                 </>
               )}
             </div>
-            <span className="text-[10px] font-medium text-sys-text-muted">
-              (не поточний · натисніть для повернення)
+            <span className="text-[10px] font-medium text-sys-text-muted leading-tight mt-0.5">
+              не поточний · натисніть для повернення
             </span>
           </button>
         )}
