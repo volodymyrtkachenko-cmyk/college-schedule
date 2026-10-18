@@ -384,6 +384,7 @@ export function LessonCard({
   onOpenPermanentSchedule,
   isTemplateMode = false,
   onDeleteTemplate,
+  onRemoveReplacement,
 }: {
   lesson: Lesson;
   targetDate: string;
@@ -397,6 +398,7 @@ export function LessonCard({
   onCopySelect?: (lesson: Lesson) => void;
   onCancelDated?: (lesson: Lesson, date: string) => void;
   onRestoreDated?: (lesson: Lesson, date: string) => void;
+  onRemoveReplacement?: (lesson: Lesson, date: string) => void;
   onQuickJump?: (target: QuickJumpTarget) => void;
   isSelectMode?: boolean;
   isSelected?: boolean;
@@ -411,8 +413,8 @@ export function LessonCard({
   const isSelectedForMove = movingLesson?.id === lesson.id;
   const isDay = mode !== "week";
   const isEvent = Boolean(lesson.event_type || lesson.event_id);
-  const canEditTemplate = canEdit && !lesson.is_cancelled && (!lesson.is_replacement || isEvent);
-  const canMove = canEditTemplate && !!onMoveSelect;
+  const canEditAction = canEdit && !lesson.is_cancelled;
+  const canMove = canEditAction && !!onMoveSelect;
   const [startT, endT] = lesson.time.split("-");
 
   const [isHwOpen, setIsHwOpen] = useState(false);
@@ -769,9 +771,26 @@ export function LessonCard({
             </div>
           ) : null}
 
-          {/* Row 3: Badges in flex-wrap on left, actions pinned on right */}
-          <div className="mt-1 flex items-end justify-between gap-1.5 pt-0.5">
-            <div className="flex flex-wrap items-center gap-1.5 min-w-0 flex-1">
+          {/* Row 3: Badges on left, actions on right; wraps naturally without overlap */}
+          <div
+            className="mt-1 flex flex-wrap items-end gap-x-2 gap-y-1.5 pt-0.5 w-full"
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "flex-end",
+              gap: "6px 8px",
+            }}
+          >
+            <div
+              className="flex flex-wrap items-center gap-1.5 min-w-0 flex-1"
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "6px",
+                flex: "1 1 auto",
+                minWidth: 0,
+              }}
+            >
               {/* If single teacher and pair has NO meeting, show room badge */}
               {!isDualTeachers && !hasMeeting && rooms.length > 0 && (
                 rooms.map((rm, idx) => {
@@ -780,10 +799,11 @@ export function LessonCard({
                     <span
                       key={`${rm}-${idx}`}
                       title={formatRoom(rm)}
-                      className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium ${meta.tone}`}
+                      className={`inline-flex max-w-full [white-space:normal] [overflow-wrap:anywhere] items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium ${meta.tone}`}
+                      style={{ maxWidth: "100%", whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "break-word" }}
                     >
-                      <span aria-hidden="true" className="text-[11px]">{meta.icon}</span>
-                      <span>{formatRoom(rm)}</span>
+                      <span aria-hidden="true" className="shrink-0 text-[11px]">{meta.icon}</span>
+                      <span className="[overflow-wrap:anywhere]">{formatRoom(rm)}</span>
                     </span>
                   );
                 })
@@ -800,13 +820,14 @@ export function LessonCard({
                     e.stopPropagation();
                     vibrateTap(12);
                   }}
-                  className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-bold transition-transform active:scale-[0.98] ${
+                  className={`inline-flex max-w-full [white-space:normal] [overflow-wrap:anywhere] items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-bold transition-transform active:scale-[0.98] ${
                     m.platform === "meet"
                       ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
                       : m.platform === "zoom"
                       ? "border-sky-500/40 bg-sky-500/15 text-sky-300 hover:bg-sky-500/25"
                       : "border-indigo-500/40 bg-indigo-500/15 text-indigo-300 hover:bg-indigo-500/25"
                   }`}
+                  style={{ maxWidth: "100%", whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "break-word" }}
                 >
                   <span>
                     {m.platform === "meet"
@@ -817,7 +838,7 @@ export function LessonCard({
                       ? "💻 Teams"
                       : "🔗 Посилання"}
                   </span>
-                  <span>↗</span>
+                  <span className="shrink-0">↗</span>
                 </a>
               ))}
 
@@ -828,10 +849,11 @@ export function LessonCard({
                   aria-expanded={isHwOpen}
                   aria-controls={`hw-list-${lesson.id}-${lesson.lesson_number}`}
                   title={isHwOpen ? "Згорнути завдання" : `${tasks.length} ДЗ — натисніть для перегляду`}
-                  className="inline-flex shrink-0 items-center gap-1 rounded-md border border-purple-500/35 bg-purple-500/10 px-2 py-0.5 text-xs font-semibold text-purple-200 hover:bg-purple-500/20 active:scale-[0.98] transition-all duration-100 ease-out focus:outline-none focus:ring-1 focus:ring-purple-400"
+                  className="inline-flex max-w-full [white-space:normal] [overflow-wrap:anywhere] items-center gap-1 rounded-md border border-purple-500/35 bg-purple-500/10 px-2 py-0.5 text-xs font-semibold text-purple-200 hover:bg-purple-500/20 active:scale-[0.98] transition-all duration-100 ease-out focus:outline-none focus:ring-1 focus:ring-purple-400"
+                  style={{ maxWidth: "100%", whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "break-word" }}
                 >
-                  <span>📌 {tasks.length} ДЗ</span>
-                  <span className={`text-[10px] transition-transform duration-150 motion-reduce:transition-none ${isHwOpen ? "rotate-180" : ""}`}>
+                  <span className="shrink-0">📌 {tasks.length} ДЗ</span>
+                  <span className={`shrink-0 text-[10px] transition-transform duration-150 motion-reduce:transition-none ${isHwOpen ? "rotate-180" : ""}`}>
                     ▾
                   </span>
                 </button>
@@ -839,28 +861,47 @@ export function LessonCard({
 
               {lesson.is_cancelled ? (
                 lesson.moved_to_date ? (
-                  <span className="inline-flex shrink-0 items-center gap-1 rounded border border-amber-500/40 bg-amber-500/15 px-1.5 py-0.5 text-[11px] font-bold tracking-wide text-amber-300">
+                  <span
+                    className="inline-flex max-w-full [white-space:normal] [overflow-wrap:anywhere] items-center gap-1 rounded border border-amber-500/40 bg-amber-500/15 px-1.5 py-0.5 text-[11px] font-bold tracking-wide text-amber-300"
+                    style={{ maxWidth: "100%", whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "break-word" }}
+                  >
                     ↪ {formatMovedTo(lesson.moved_to_date, lesson.moved_to_lesson)}
                   </span>
                 ) : (
-                  <span className="inline-flex shrink-0 items-center gap-1 rounded border border-rose-500/40 bg-rose-500/15 px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-rose-400">
+                  <span
+                    className="inline-flex max-w-full [white-space:normal] [overflow-wrap:anywhere] items-center gap-1 rounded border border-rose-500/40 bg-rose-500/15 px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-rose-400"
+                    style={{ maxWidth: "100%", whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "break-word" }}
+                  >
                     ❌ Скасовано
                   </span>
                 )
               ) : eventBadge ? (
-                <span className={`inline-flex shrink-0 items-center gap-1 rounded border px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wider ${eventBadge.badgeClass}`}>
+                <span
+                  className={`inline-flex max-w-full [white-space:normal] [overflow-wrap:anywhere] items-center gap-1 rounded border px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wider ${eventBadge.badgeClass}`}
+                  style={{ maxWidth: "100%", whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "break-word" }}
+                >
                   {eventBadge.label}
                 </span>
               ) : lesson.is_replacement ? (
-                <span className="inline-flex shrink-0 items-center gap-1 rounded bg-sys-warning px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-sys-warningText">
+                <span
+                  className="inline-flex max-w-full [white-space:normal] [overflow-wrap:anywhere] items-center gap-1 rounded bg-sys-warning px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-sys-warningText"
+                  style={{ maxWidth: "100%", whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "break-word" }}
+                >
                   ⚡ Заміна
                 </span>
               ) : null}
             </div>
 
-            {/* Actions for canEdit pinned to bottom-right */}
+            {/* Actions for canEdit pinned to bottom-right (wraps to next line when narrow) */}
             {canEdit && (
-              <div className="flex items-center gap-1 shrink-0 whitespace-nowrap ml-auto relative">
+              <div
+                className="relative flex items-center gap-1 shrink-0 whitespace-nowrap ml-auto"
+                style={{
+                  flex: "0 0 auto",
+                  marginLeft: "auto",
+                  whiteSpace: "nowrap",
+                }}
+              >
                 {lesson.is_cancelled ? (
                   onRestoreDated && lesson.group_id && (
                     <button
@@ -871,16 +912,17 @@ export function LessonCard({
                       }}
                       title={lesson.moved_to_date ? "Скасувати перенесення та відновити пару" : `Відновити пару на ${targetDate}`}
                       className="inline-flex min-h-[44px] min-w-[44px] sm:min-h-[32px] items-center justify-center rounded-md border border-emerald-500/50 bg-emerald-500/15 px-2.5 py-1 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/25 active:scale-[0.98] transition-colors whitespace-nowrap"
+                      style={{ whiteSpace: "nowrap" }}
                     >
                       Відновити
                     </button>
                   )
                 ) : (
                   <>
-                    {canEditTemplate && (
+                    {canEditAction && (
                       <button
                         type="button"
-                        title={isEvent ? "Редагувати подію сесії" : "Редагувати пару"}
+                        title={isEvent ? "Редагувати подію сесії" : lesson.is_replacement ? "Редагувати заміну" : "Редагувати пару"}
                         aria-label={`Редагувати ${lesson.subject_name}`}
                         onClick={(e) => {
                           e.stopPropagation();
@@ -1012,26 +1054,47 @@ export function LessonCard({
                                 </button>
                               )}
 
-                              {onCancelDated && lesson.group_id && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setMoreOpen(false);
-                                    if (
-                                      typeof window !== "undefined" &&
-                                      window.confirm(`Скасувати пару «${lesson.subject_name}» на ${targetDate}?`)
-                                    ) {
-                                      onCancelDated(lesson, targetDate);
-                                    }
-                                  }}
-                                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-rose-400 hover:bg-rose-500/10 transition-colors"
-                                >
-                                  <CalendarOffIcon />
-                                  <span>Скасувати</span>
-                                </button>
+                              {lesson.is_replacement ? (
+                                onRemoveReplacement && lesson.group_id && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setMoreOpen(false);
+                                      if (
+                                        typeof window !== "undefined" &&
+                                        window.confirm(`Прибрати заміну «${lesson.subject_name}» на ${targetDate}?`)
+                                      ) {
+                                        onRemoveReplacement(lesson, targetDate);
+                                      }
+                                    }}
+                                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-amber-400 hover:bg-amber-500/10 transition-colors"
+                                  >
+                                    <span>↩</span>
+                                    <span>Прибрати заміну</span>
+                                  </button>
+                                )
+                              ) : (
+                                onCancelDated && lesson.group_id && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setMoreOpen(false);
+                                      if (
+                                        typeof window !== "undefined" &&
+                                        window.confirm(`Скасувати пару «${lesson.subject_name}» на ${targetDate}?`)
+                                      ) {
+                                        onCancelDated(lesson, targetDate);
+                                      }
+                                    }}
+                                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-rose-400 hover:bg-rose-500/10 transition-colors"
+                                  >
+                                    <CalendarOffIcon />
+                                    <span>Скасувати</span>
+                                  </button>
+                                )
                               )}
 
-                              {onOpenPermanentSchedule && (
+                              {onOpenPermanentSchedule && (!lesson.is_replacement || lesson.has_template !== false) && (
                                 <button
                                   type="button"
                                   onClick={() => {

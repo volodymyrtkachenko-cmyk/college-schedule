@@ -74,6 +74,7 @@ export function ScheduleEditGrid({
   onPasteDay,
   canPasteDay,
   onOpenPermanentSchedule,
+  onRemoveReplacement,
 }: {
   week: ScheduleResponse[];
   scheduleMode: "student" | "teacher";
@@ -84,6 +85,7 @@ export function ScheduleEditGrid({
   onCopySelect?: (lesson: Lesson) => void;
   onCancelDated?: (lesson: Lesson, date: string) => void;
   onRestoreDated?: (lesson: Lesson, date: string) => void;
+  onRemoveReplacement?: (lesson: Lesson, date: string) => void;
   onQuickJump?: (target: QuickJumpTarget) => void;
   onMove?: (lesson: Lesson, date: string, lessonNumber: number) => void;
   canMoveTo: (lesson: Lesson, date: string, lessonNumber: number) => boolean;
@@ -302,6 +304,7 @@ export function ScheduleEditGrid({
                         onCopySelect={onCopySelect}
                         onCancelDated={onCancelDated}
                         onRestoreDated={onRestoreDated}
+                        onRemoveReplacement={onRemoveReplacement}
                         onQuickJump={onQuickJump}
                         isSelectMode={isSelectMode}
                         isSelected={selectedLessonIds?.has(lesson.id)}

@@ -6,7 +6,7 @@ from datetime import date
 from typing import Optional, List
 
 from app.database import get_db
-from app.models import ScheduleOverride, User, Group, Subject, Teacher, LessonOccurrenceNote
+from app.models import ScheduleOverride, User, Group, Subject, Teacher, LessonOccurrenceNote, ImportedScheduleChange
 from app.routers.auth import get_current_user
 
 from app.routers.schedule_versions import lock_versions
@@ -194,8 +194,57 @@ async def replace_dated_lesson(
                 cancelled=False,
             )
         )
+    imported_changes = (await db.scalars(
+        select(ImportedScheduleChange).where(
+            ImportedScheduleChange.group_id == payload.group_id,
+            ImportedScheduleChange.date == payload.date,
+            ImportedScheduleChange.lesson_number == payload.lesson_number,
+        )
+    )).all()
+    for imp in imported_changes:
+        imp.manually_edited = True
+
     await db.commit()
+    from app.services.projection import invalidate_projection_cache
+    invalidate_projection_cache(payload.group_id)
     return {"status": "replaced"}
+
+
+@router.post("/remove-replacement")
+async def remove_dated_replacement(
+    payload: DatedCancelPayload,
+    db: AsyncSession = Depends(get_db),
+    actor: User = Depends(require_editor),
+):
+    await lock_versions(db)
+    await authorize_group(db, actor, payload.group_id)
+
+    ovr = await db.scalar(
+        select(ScheduleOverride).where(
+            ScheduleOverride.group_id == payload.group_id,
+            ScheduleOverride.date == payload.date,
+            ScheduleOverride.lesson_number == payload.lesson_number,
+        )
+    )
+    if ovr:
+        await db.delete(ovr)
+
+    imported_list = (await db.scalars(
+        select(ImportedScheduleChange).where(
+            ImportedScheduleChange.group_id == payload.group_id,
+            ImportedScheduleChange.date == payload.date,
+            ImportedScheduleChange.lesson_number == payload.lesson_number,
+            ImportedScheduleChange.is_published.is_(True),
+        )
+    )).all()
+    for imp in imported_list:
+        imp.is_published = False
+
+    await db.commit()
+    from app.services.projection import invalidate_projection_cache
+    invalidate_projection_cache(payload.group_id)
+    return {"status": "removed"}
+
 
 from app.services.lesson_notes import snapshot_revision
 from app.models.lesson_notes import utcnow

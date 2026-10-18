@@ -21,6 +21,7 @@ export function ScheduleWeekGrid({
   onCopySelect,
   onCancelDated,
   onRestoreDated,
+  onRemoveReplacement,
   onMove,
   onQuickJump,
   // New props
@@ -53,6 +54,7 @@ export function ScheduleWeekGrid({
   onCopySelect?: (lesson: Lesson) => void;
   onCancelDated?: (lesson: Lesson, date: string) => void;
   onRestoreDated?: (lesson: Lesson, date: string) => void;
+  onRemoveReplacement?: (lesson: Lesson, date: string) => void;
   onMove?: (lesson: Lesson, date: string, lessonNumber: number) => void;
   onQuickJump?: (target: QuickJumpTarget) => void;
   // Selection & swap
@@ -109,6 +111,7 @@ export function ScheduleWeekGrid({
           onCopySelect={onCopySelect}
           onCancelDated={onCancelDated}
           onRestoreDated={onRestoreDated}
+          onRemoveReplacement={onRemoveReplacement}
           onQuickJump={onQuickJump}
           onMove={onMove}
           canMoveTo={canMoveTo}

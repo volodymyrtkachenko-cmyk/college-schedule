@@ -59,6 +59,7 @@ class EffectiveLesson:
         time: Optional[str] = None,
         moved_to_date: Optional[date] = None,
         moved_to_lesson: Optional[int] = None,
+        has_template: bool = False,
     ):
         self.group_id = group_id
         self.date = date
@@ -82,6 +83,7 @@ class EffectiveLesson:
         self.time = time
         self.moved_to_date = moved_to_date
         self.moved_to_lesson = moved_to_lesson
+        self.has_template = has_template
 
         self.note_id: Optional[int] = None
         self.note_revision: int = 0
@@ -259,8 +261,10 @@ async def build_projection(
         return [k for k in cells if k[0] == g and k[1] == n]
 
     def replace_slot(g, n, lesson, uid):
+        had_template = any(getattr(cells[k], "has_template", False) for k in slot_keys(g, n))
         for k in slot_keys(g, n):
             del cells[k]
+        lesson.has_template = had_template
         cells[(g, n, uid)] = lesson
 
     # A0. Add practice slots
@@ -303,7 +307,8 @@ async def build_projection(
             group_name=b.group.name if b.group else None,
             subject_name=b.subject.name if b.subject else None,
             teacher_name=b_teacher_name,
-            is_replacement=b.is_replacement
+            is_replacement=b.is_replacement,
+            has_template=True,
         )
 
     # B. Apply Imported Changes
@@ -610,8 +615,10 @@ async def build_week_projection(
             return [k for k in cells if k[0] == g and k[1] == n]
 
         def replace_slot(g, n, lesson, uid):
+            had_template = any(getattr(cells[k], "has_template", False) for k in slot_keys(g, n))
             for k in slot_keys(g, n):
                 del cells[k]
+            lesson.has_template = had_template
             cells[(g, n, uid)] = lesson
 
         for p in day_periods:
@@ -664,6 +671,7 @@ async def build_week_projection(
                 subject_name=b.subject.name if b.subject else None,
                 teacher_name=b_teacher_name,
                 is_replacement=b.is_replacement,
+                has_template=True,
             )
 
         for imp in all_imported:

@@ -259,6 +259,7 @@ class ImportedScheduleChange(Base):
     lesson_number: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     room_override: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     is_published: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    manually_edited: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     version: Mapped[int] = mapped_column(Integer, default=1)
 
     draft: Mapped[Optional["ScheduleDraft"]] = relationship()

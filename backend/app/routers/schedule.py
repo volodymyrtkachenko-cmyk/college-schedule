@@ -62,6 +62,7 @@ def effective_to_item(item: EffectiveLesson, week_type: str, target_date: date, 
         event_id=item.event_id,
         moved_to_date=getattr(item, "moved_to_date", None),
         moved_to_lesson=getattr(item, "moved_to_lesson", None),
+        has_template=getattr(item, "has_template", True),
     )
 
 def check_group_access(user: User, user_allowed_groups: list[int], group_id: int):

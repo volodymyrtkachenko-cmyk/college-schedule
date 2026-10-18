@@ -569,6 +569,7 @@ async def publish_draft(
                     ImportedScheduleChange.is_published.is_(True),
                     ImportedScheduleChange.date.in_(scope_dates),
                     ImportedScheduleChange.group_id.in_(scope_group_ids),
+                    ImportedScheduleChange.manually_edited.is_(False),
                 )
                 .values(is_published=False)
             )
@@ -578,6 +579,26 @@ async def publish_draft(
         for sub in substitutions:
             d_str = sub["date"]
             d_obj = datetime.strptime(d_str, "%Y-%m-%d").date() if isinstance(d_str, str) else d_str
+            # Do not overwrite if manually edited or overridden
+            has_manual = await db.scalar(
+                select(ImportedScheduleChange.id).where(
+                    ImportedScheduleChange.date == d_obj,
+                    ImportedScheduleChange.group_id == sub["group_id"],
+                    ImportedScheduleChange.lesson_number == sub["lesson_number"],
+                    ImportedScheduleChange.is_published.is_(True),
+                    ImportedScheduleChange.manually_edited.is_(True),
+                )
+            )
+            has_override = await db.scalar(
+                select(ScheduleOverride.id).where(
+                    ScheduleOverride.group_id == sub["group_id"],
+                    ScheduleOverride.date == d_obj,
+                    ScheduleOverride.lesson_number == sub["lesson_number"],
+                )
+            )
+            if has_manual or has_override:
+                continue
+
             latest = await db.scalar(
                 select(func.max(ImportedScheduleChange.version)).where(
                     ImportedScheduleChange.date == d_obj,
@@ -604,6 +625,25 @@ async def publish_draft(
         for canc in cancelled_lessons:
             d_str = canc["date"]
             d_obj = datetime.strptime(d_str, "%Y-%m-%d").date() if isinstance(d_str, str) else d_str
+            has_manual = await db.scalar(
+                select(ImportedScheduleChange.id).where(
+                    ImportedScheduleChange.date == d_obj,
+                    ImportedScheduleChange.group_id == canc["group_id"],
+                    ImportedScheduleChange.lesson_number == canc["lesson_number"],
+                    ImportedScheduleChange.is_published.is_(True),
+                    ImportedScheduleChange.manually_edited.is_(True),
+                )
+            )
+            has_override = await db.scalar(
+                select(ScheduleOverride.id).where(
+                    ScheduleOverride.group_id == canc["group_id"],
+                    ScheduleOverride.date == d_obj,
+                    ScheduleOverride.lesson_number == canc["lesson_number"],
+                )
+            )
+            if has_manual or has_override:
+                continue
+
             latest = await db.scalar(
                 select(func.max(ImportedScheduleChange.version)).where(
                     ImportedScheduleChange.date == d_obj,

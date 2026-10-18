@@ -127,6 +127,7 @@ class ScheduleItem(BaseModel):
     event_id: int | None = None
     moved_to_date: DateType | None = None
     moved_to_lesson: int | None = None
+    has_template: bool | None = True
 
 class ScheduleResponse(BaseModel):
     date: date

@@ -311,6 +311,26 @@ export function AdminScheduleEditor() {
     }
   };
 
+  const removeReplacementOnDate = async (lesson: Lesson, date: string) => {
+    if (!lesson.group_id) {
+      setToast("Неможливо прибрати заміну без визначеної групи", "error");
+      return;
+    }
+    try {
+      await api.dated.removeReplacement({
+        group_id: lesson.group_id,
+        date,
+        lesson_number: lesson.lesson_number,
+      });
+      setToast("Заміну прибрано, розклад відновлено.", "success");
+      invalidateScheduleCache();
+      const updatedWeek = await (mode === "student" && groupId ? api.week(groupId, undefined, weekAnchorDate, true) : teacherId ? api.week(undefined, teacherId, weekAnchorDate, true) : null);
+      if (updatedWeek) setWeek(updatedWeek);
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : "Не вдалося прибрати заміну", "error");
+    }
+  };
+
   const handleQuickJump = (target: QuickJumpTarget) => {
     let targetId = target.id;
     if (!targetId && target.name) {
@@ -930,6 +950,7 @@ export function AdminScheduleEditor() {
               onMoveSelect={handleMoveSelect}
               onCancelDated={cancelOnDate}
               onRestoreDated={restoreOnDate}
+              onRemoveReplacement={removeReplacementOnDate}
               onQuickJump={handleQuickJump}
               onMove={(lesson, date, lessonNumber) => void moveLesson(lesson, date, lessonNumber)}
               onEdit={(lesson) => handleEditLesson(lesson)}
@@ -1048,6 +1069,7 @@ export function AdminScheduleEditor() {
                                     }}
                                     onCancelDated={cancelOnDate}
                                     onRestoreDated={restoreOnDate}
+                                    onRemoveReplacement={removeReplacementOnDate}
                                     onQuickJump={handleQuickJump}
                                     hideTimeColumn={true}
                                     onSwapSelect={() => handleSwapSelect(lesson, currentDay.date)}

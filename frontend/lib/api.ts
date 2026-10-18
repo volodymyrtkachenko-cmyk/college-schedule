@@ -110,6 +110,7 @@ export interface Lesson {
     effective_from?: string | null;
     effective_until?: string | null;
     version_id?: number | null;
+    has_template?: boolean;
 }
 
 export interface ScheduleResponse {
@@ -968,6 +969,11 @@ export const api = {
             expected_note_revision?: number | null;
         }) =>
             authenticatedRequest<{ status: string }>("/api/schedule/dated/move", {
+                method: "POST",
+                body: JSON.stringify(payload),
+            }),
+        removeReplacement: (payload: { group_id: number; date: string; lesson_number: number }) =>
+            authenticatedRequest<{ status: string }>("/api/schedule/dated/remove-replacement", {
                 method: "POST",
                 body: JSON.stringify(payload),
             }),
