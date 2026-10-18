@@ -1229,7 +1229,13 @@ async def sync_from_classroom(
         access_token = payload.access_token
         refresh_token = None
 
-        if payload.code and settings.google_client_id and settings.google_client_secret:
+        if payload.code:
+            if not settings.google_client_id or not settings.google_client_secret:
+                logger.error("Google OAuth code exchange failed: GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET is missing in backend settings.")
+                raise HTTPException(
+                    status_code=500,
+                    detail="GOOGLE_CLIENT_SECRET не налаштовано на сервері для отримання refresh_token.",
+                )
             async with httpx.AsyncClient(timeout=10.0) as client:
                 token_resp = await client.post(
                     "https://oauth2.googleapis.com/token",
@@ -1245,6 +1251,14 @@ async def sync_from_classroom(
                     token_data = token_resp.json()
                     access_token = token_data.get("access_token")
                     refresh_token = token_data.get("refresh_token")
+                else:
+                    logger.warning(
+                        f"Failed to exchange code: {token_resp.status_code} {token_resp.text}"
+                    )
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Не вдалося обміняти код авторизації Google: {token_resp.text[:200]}",
+                    )
 
         if not access_token:
             raise HTTPException(status_code=400, detail="Не вдалося отримати токен доступу Google")
@@ -1316,11 +1330,13 @@ async def sync_from_classroom(
             binding.last_synced_at = datetime.now(timezone.utc)
             binding.is_active = True
 
-        # Захист: якщо це студент (1 група), деактивуємо всі старі прив'язки інших груп,
-        # які могли випадково створитися раніше з цим токеном
-        if len(courses_by_group_id) == 1:
+        # Видаляємо лише дублікати прив'язки цього ж курсу до чужих груп, НЕ чіпаючи інші підключені групи!
+        if len(courses_by_group_id) == 1 and group_course_id:
             await db.execute(
-                delete(ClassroomGroupBinding).where(ClassroomGroupBinding.group_id != detected_group.id)
+                delete(ClassroomGroupBinding).where(
+                    ClassroomGroupBinding.group_id != detected_group.id,
+                    ClassroomGroupBinding.course_id == group_course_id[:64],
+                )
             )
 
         await db.flush()
@@ -1653,4 +1669,47 @@ async def get_classroom_group_status(
         "connected": bool(binding),
         "last_synced_at": binding.last_synced_at.isoformat() if (binding and binding.last_synced_at) else None,
     }
+
+
+async def sync_all_connected_groups_once() -> dict:
+    """Проходить по всіх підключених групах у classroom_group_bindings і оновлює їх розклад."""
+    synced_groups = []
+    async with async_session_factory() as db:
+        group_ids = (
+            await db.scalars(
+                select(ClassroomGroupBinding.group_id).where(
+                    ClassroomGroupBinding.is_active.is_(True)
+                )
+            )
+        ).all()
+
+    for gid in group_ids:
+        try:
+            async with async_session_factory() as db:
+                await trigger_background_sync_if_needed(db, gid)
+                synced_groups.append(gid)
+            await asyncio.sleep(3)  # Пауза між групами для захисту від Google API Rate Limit
+        except Exception as e:
+            logger.warning(f"Auto-sync skipped for group {gid}: {e}")
+
+    return {"checked_groups": len(group_ids), "processed": synced_groups}
+
+
+async def classroom_auto_sync_loop() -> None:
+    """Нескінченний фоновий цикл: автоматично парсить Classroom кожні 10 хвилин."""
+    await asyncio.sleep(15)  # Перший запуск через 15 секунд після старту сервера
+    while True:
+        try:
+            await sync_all_connected_groups_once()
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.error(f"Classroom auto-sync loop error: {e}")
+        await asyncio.sleep(600)  # Перевірка кожні 10 хвилин
+
+
+@router.post("/sync-all")
+async def manual_trigger_sync_all():
+    """Ендпоінт для примусового запуску автосинхронізації всіх груп (наприклад, із зовнішнього cron)."""
+    return await sync_all_connected_groups_once()
 

@@ -72,17 +72,18 @@ export function ClassroomSyncButton({
     setSyncing(true);
     try {
       await loadGsiScript();
-      const tokenClient = (window as any).google.accounts.oauth2.initTokenClient({
+      const codeClient = (window as any).google.accounts.oauth2.initCodeClient({
         client_id: GOOGLE_CLIENT_ID,
         scope: SCOPES,
+        ux_mode: "popup",
         callback: async (resp: any) => {
-          if (resp.error || !resp.access_token) {
+          if (resp.error || !resp.code) {
             setSyncing(false);
             return;
           }
           try {
             const res = await api.classroom.sync({
-              access_token: resp.access_token,
+              code: resp.code,
               group_id: currentGroupId ?? undefined,
               week_start: weekStart,
             });
@@ -96,7 +97,7 @@ export function ClassroomSyncButton({
               ? `Перемкнуто на вашу групу ${res.group_name}`
               : `Група ${res.group_name}`;
             showToast(
-              `${prefix}: ${parts.join(", ")} із Classroom!`,
+              `${prefix}: ${parts.join(", ")} (автооновлення увімкнено)!`,
               "success"
             );
           } catch (err) {
@@ -106,7 +107,7 @@ export function ClassroomSyncButton({
           }
         },
       });
-      tokenClient.requestAccessToken({ prompt: "" });
+      codeClient.requestCode();
     } catch (err) {
       setSyncing(false);
       showToast("Не вдалося підключитися до Google Classroom", "error");
