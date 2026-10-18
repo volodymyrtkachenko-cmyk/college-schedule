@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { useSearchParams } from "next/navigation";
 import { api, DirectoryItem, Lesson, LessonMutation, ReferenceRecord, ScheduleVersion, TemplateScheduleResponse } from "../../lib/api";
 import { getMondayOf } from "../../lib/date";
@@ -76,6 +77,8 @@ export function PermanentScheduleEditor() {
   } | null>(null);
 
   // Mobile state
+  const shouldReduceMotion = useReducedMotion();
+  const [daySlideDir, setDaySlideDir] = useState(0);
   const [selectedMobileDayIndex, setSelectedMobileDayIndex] = useState(0);
   const [mobileActionsDay, setMobileActionsDay] = useState<number | null>(null);
 
@@ -383,10 +386,12 @@ export function PermanentScheduleEditor() {
 
     if (Math.abs(diffX) > 40 && Math.abs(diffX) > Math.abs(diffY) * 1.5) {
       if (diffX > 0) {
+        setDaySlideDir(1);
         if (selectedMobileDayIndex < 4) {
           setSelectedMobileDayIndex((prev) => prev + 1);
         }
       } else {
+        setDaySlideDir(-1);
         if (selectedMobileDayIndex > 0) {
           setSelectedMobileDayIndex((prev) => prev - 1);
         }
@@ -564,53 +569,69 @@ export function PermanentScheduleEditor() {
       )}
 
       {/* Buffer Active Panel */}
-      {buffer ? (
-        <div className="sticky top-2 z-40 mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-indigo-500/60 bg-sys-card p-3.5 shadow-xl backdrop-blur-md animate-in slide-in-from-top-2">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <span className="text-lg shrink-0">{buffer.mode === "copy" ? "📋" : "✂️"}</span>
-            <div className="min-w-0">
-              <p className="text-xs font-bold text-sys-text-primary">
-                {buffer.mode === "copy" ? "Копіювання в постійний розклад" : "Перенесення в постійному розкладі"} · {weekTypeTitle}
-              </p>
-              <p className="text-[11px] text-sys-text-secondary break-words">
-                {buffer.mode === "copy"
-                  ? `Зміна для всіх тижнів «${weekTypeTitle}» з ${mondayStr}. Можна вставляти в обидва типи тижнів (перемикайте вгорі).`
-                  : `Перенесення для всіх тижнів «${weekTypeTitle}» з ${mondayStr}.`}
-              </p>
+      <AnimatePresence>
+        {buffer ? (
+          <motion.div
+            key="perm-buffer"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: shouldReduceMotion ? 0 : 0.2, ease: [0.2, 0, 0, 1] }}
+            className="sticky top-2 z-40 mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-indigo-500/60 bg-sys-card p-3.5 shadow-xl backdrop-blur-md"
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="text-lg shrink-0">{buffer.mode === "copy" ? "📋" : "✂️"}</span>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-sys-text-primary">
+                  {buffer.mode === "copy" ? "Копіювання в постійний розклад" : "Перенесення в постійному розкладі"} · {weekTypeTitle}
+                </p>
+                <p className="text-[11px] text-sys-text-secondary break-words">
+                  {buffer.mode === "copy"
+                    ? `Зміна для всіх тижнів «${weekTypeTitle}» з ${mondayStr}. Можна вставляти в обидва типи тижнів (перемикайте вгорі).`
+                    : `Перенесення для всіх тижнів «${weekTypeTitle}» з ${mondayStr}.`}
+                </p>
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setBuffer(null)}
+                className="rounded-lg bg-indigo-600 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-indigo-500 transition-colors shadow-sm"
+              >
+                {buffer.mode === "copy" ? "Готово (Esc)" : "✕ Скасувати"}
+              </button>
+            </div>
+          </motion.div>
+        ) : swapSource ? (
+          <motion.div
+            key="perm-swap"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: shouldReduceMotion ? 0 : 0.2, ease: [0.2, 0, 0, 1] }}
+            className="sticky top-2 z-40 mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-indigo-500/60 bg-sys-card p-3.5 shadow-xl backdrop-blur-md"
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="text-lg shrink-0">⇄</span>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-sys-text-primary">
+                  Обмін у постійному розкладі · «{swapSource.lesson.subject_name}»
+                </p>
+                <p className="text-[11px] text-sys-text-secondary break-words">
+                  Оберіть іншу пару в розкладі для взаємного обміну місцями (зміна для всіх тижнів з {mondayStr}).
+                </p>
+              </div>
+            </div>
             <button
               type="button"
-              onClick={() => setBuffer(null)}
-              className="rounded-lg bg-indigo-600 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-indigo-500 transition-colors shadow-sm"
+              onClick={() => setSwapSource(null)}
+              className="rounded-lg border border-sys-border bg-white/5 px-3 py-1.5 text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary"
             >
-              {buffer.mode === "copy" ? "Готово (Esc)" : "✕ Скасувати"}
+              ✕ Скасувати
             </button>
-          </div>
-        </div>
-      ) : swapSource ? (
-        <div className="sticky top-2 z-40 mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-indigo-500/60 bg-sys-card p-3.5 shadow-xl backdrop-blur-md animate-in slide-in-from-top-2">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <span className="text-lg shrink-0">⇄</span>
-            <div className="min-w-0">
-              <p className="text-xs font-bold text-sys-text-primary">
-                Обмін у постійному розкладі · «{swapSource.lesson.subject_name}»
-              </p>
-              <p className="text-[11px] text-sys-text-secondary break-words">
-                Оберіть іншу пару в розкладі для взаємного обміну місцями (зміна для всіх тижнів з {mondayStr}).
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => setSwapSource(null)}
-            className="rounded-lg border border-sys-border bg-white/5 px-3 py-1.5 text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary"
-          >
-            ✕ Скасувати
-          </button>
-        </div>
-      ) : null}
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
 
       {/* Main Grid: Desktop 5 columns without dates */}
       {loading ? (
@@ -749,8 +770,11 @@ export function PermanentScheduleEditor() {
                 <button
                   key={day}
                   type="button"
-                  onClick={() => setSelectedMobileDayIndex(idx)}
-                  className={`flex-1 min-w-[50px] py-1.5 px-2 rounded-lg text-xs font-bold text-center transition-all ${
+                  onClick={() => {
+                    setDaySlideDir(idx > selectedMobileDayIndex ? 1 : -1);
+                    setSelectedMobileDayIndex(idx);
+                  }}
+                  className={`flex-1 min-w-[50px] min-h-[40px] py-1.5 px-2 rounded-lg text-xs font-bold text-center transition-all ${
                     selectedMobileDayIndex === idx
                       ? "bg-indigo-600 text-white shadow-xs"
                       : "text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/5"
@@ -768,33 +792,59 @@ export function PermanentScheduleEditor() {
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
             >
-              {(() => {
-                const currentDayDef = DAYS[selectedMobileDayIndex];
-                const dayLessons = templateData.days.find((d) => d.day_of_week === currentDayDef.day)?.lessons || [];
+              <AnimatePresence initial={false} custom={daySlideDir} mode="wait">
+                {(() => {
+                  const currentDayDef = DAYS[selectedMobileDayIndex];
+                  const dayLessons = templateData.days.find((d) => d.day_of_week === currentDayDef.day)?.lessons || [];
 
-                return (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="text-sm font-semibold capitalize text-sys-text-primary">
-                        {currentDayDef.name}
+                  return (
+                    <motion.div
+                      key={currentDayDef.day}
+                      custom={daySlideDir}
+                      variants={{
+                        enter: (dir: number) => ({
+                          x: dir > 0 ? 12 : dir < 0 ? -12 : 0,
+                          opacity: 0,
+                        }),
+                        center: {
+                          x: 0,
+                          opacity: 1,
+                        },
+                        exit: (dir: number) => ({
+                          x: dir > 0 ? -12 : dir < 0 ? 12 : 0,
+                          opacity: 0,
+                        }),
+                      }}
+                      initial="enter"
+                      animate="center"
+                      exit="exit"
+                      transition={{
+                        duration: shouldReduceMotion ? 0 : 0.18,
+                        ease: [0.2, 0, 0, 1],
+                      }}
+                      className="space-y-3 will-change-transform"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm font-semibold capitalize text-sys-text-primary">
+                          {currentDayDef.name}
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setMobileActionsDay(currentDayDef.day)}
+                            className="min-h-[40px] px-3 rounded-lg border border-sys-border bg-sys-card text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary"
+                          >
+                            ⋯ Дії
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditor({ day_of_week: currentDayDef.day })}
+                            className="min-h-[40px] px-3.5 rounded-lg bg-sys-accent text-xs font-bold text-[#0b1120] hover:opacity-90 active:scale-95 transition-all"
+                          >
+                            + Додати
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => setMobileActionsDay(currentDayDef.day)}
-                          className="h-9 px-2.5 rounded-lg border border-sys-border bg-sys-card text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary"
-                        >
-                          ⋯ Дії
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setEditor({ day_of_week: currentDayDef.day })}
-                          className="h-9 px-3 rounded-lg bg-sys-accent text-xs font-bold text-[#0b1120] hover:opacity-90 active:scale-95 transition-all"
-                        >
-                          + Додати
-                        </button>
-                      </div>
-                    </div>
 
                     <div className="space-y-3">
                       {[1, 2, 3, 4].map((slotNum) => {
@@ -861,9 +911,10 @@ export function PermanentScheduleEditor() {
                         );
                       })}
                     </div>
-                  </div>
+                  </motion.div>
                 );
               })()}
+              </AnimatePresence>
             </div>
           </div>
         </div>
@@ -887,69 +938,88 @@ export function PermanentScheduleEditor() {
       )}
 
       {/* Mobile Day Actions Sheet */}
-      {mobileActionsDay !== null && (
-        <div
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setMobileActionsDay(null);
-          }}
-          className="fixed inset-0 z-50 flex items-end bg-black/60 backdrop-blur-xs sm:hidden"
-        >
-          <div className="w-full rounded-t-2xl border-t border-sys-border bg-sys-card p-5 space-y-4 shadow-xl pb-safe">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-sys-text-primary">
-                Дії для дня: {DAYS.find((d) => d.day === mobileActionsDay)?.name}
-              </span>
-              <button
-                type="button"
-                onClick={() => setMobileActionsDay(null)}
-                className="h-8 w-8 rounded-lg flex items-center justify-center text-sys-text-secondary hover:text-sys-text-primary"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="grid grid-cols-1 gap-2 pt-1">
-              <button
-                type="button"
-                onClick={() => {
-                  const d = mobileActionsDay;
-                  setMobileActionsDay(null);
-                  handleCopyDay(d);
-                }}
-                className="flex items-center gap-3 w-full rounded-xl border border-sys-border bg-sys-bg/60 p-3 text-left text-sm font-medium text-sys-text-primary hover:bg-sys-bg"
-              >
-                <span className="text-base">📋</span>
-                <span>Копіювати цей день</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const d = mobileActionsDay;
-                  setMobileActionsDay(null);
-                  handleMoveDay(d);
-                }}
-                className="flex items-center gap-3 w-full rounded-xl border border-sys-border bg-sys-bg/60 p-3 text-left text-sm font-medium text-sys-text-primary hover:bg-sys-bg"
-              >
-                <span className="text-base">✂️</span>
-                <span>Перемістити цей день</span>
-              </button>
-              {buffer?.type === "day" && (
+      <AnimatePresence>
+        {mobileActionsDay !== null && (
+          <div
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setMobileActionsDay(null);
+            }}
+            className="fixed inset-0 z-50 flex items-end sm:hidden"
+          >
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: shouldReduceMotion ? 0 : 0.18 }}
+              className="fixed inset-0 bg-black/60 backdrop-blur-xs"
+              onClick={() => setMobileActionsDay(null)}
+            />
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{
+                duration: shouldReduceMotion ? 0 : 0.22,
+                ease: [0.2, 0, 0, 1],
+              }}
+              className="relative z-10 w-full rounded-t-2xl border-t border-sys-border bg-sys-card p-5 space-y-4 shadow-xl pb-safe"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-sys-text-primary">
+                  Дії для дня: {DAYS.find((d) => d.day === mobileActionsDay)?.name}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setMobileActionsDay(null)}
+                  className="h-8 w-8 rounded-lg flex items-center justify-center text-sys-text-secondary hover:text-sys-text-primary"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="grid grid-cols-1 gap-2 pt-1">
                 <button
                   type="button"
                   onClick={() => {
                     const d = mobileActionsDay;
                     setMobileActionsDay(null);
-                    handlePasteDay(d);
+                    handleCopyDay(d);
                   }}
-                  className="flex items-center gap-3 w-full rounded-xl border border-indigo-500/40 bg-indigo-500/15 p-3 text-left text-sm font-bold text-indigo-400 hover:bg-indigo-500/25"
+                  className="flex items-center gap-3 w-full rounded-xl border border-sys-border bg-sys-bg/60 p-3 text-left text-sm font-medium text-sys-text-primary hover:bg-sys-bg"
                 >
-                  <span className="text-base">📥</span>
-                  <span>Вставити день у цей день</span>
+                  <span className="text-base">📋</span>
+                  <span>Копіювати цей день</span>
                 </button>
-              )}
-            </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const d = mobileActionsDay;
+                    setMobileActionsDay(null);
+                    handleMoveDay(d);
+                  }}
+                  className="flex items-center gap-3 w-full rounded-xl border border-sys-border bg-sys-bg/60 p-3 text-left text-sm font-medium text-sys-text-primary hover:bg-sys-bg"
+                >
+                  <span className="text-base">✂️</span>
+                  <span>Перемістити цей день</span>
+                </button>
+                {buffer?.type === "day" && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const d = mobileActionsDay;
+                      setMobileActionsDay(null);
+                      handlePasteDay(d);
+                    }}
+                    className="flex items-center gap-3 w-full rounded-xl border border-indigo-500/40 bg-indigo-500/15 p-3 text-left text-sm font-bold text-indigo-400 hover:bg-indigo-500/25"
+                  >
+                    <span className="text-base">📥</span>
+                    <span>Вставити день у цей день</span>
+                  </button>
+                )}
+              </div>
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
     </div>
   );
 }

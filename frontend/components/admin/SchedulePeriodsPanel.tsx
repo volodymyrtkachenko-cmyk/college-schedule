@@ -651,18 +651,18 @@ export function SchedulePeriodsPanel() {
                   </div>
                 </div>
                 
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-0 border-sys-border/30">
                   <button
                     type="button"
                     onClick={() => editPeriod(period)}
-                    className="rounded-lg border border-sys-border bg-sys-card px-3.5 py-1.5 text-xs font-semibold text-sys-text-primary hover:border-sys-accent hover:text-sys-accent transition-colors"
+                    className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0 rounded-lg border border-sys-border bg-sys-card px-3.5 py-1.5 text-xs font-semibold text-sys-text-primary hover:border-sys-accent hover:text-sys-accent transition-colors flex items-center justify-center"
                   >
                     Відкрити
                   </button>
                   <button
                     type="button"
                     onClick={() => setPeriodToDelete(period)}
-                    className="rounded-lg border border-rose-500/20 bg-rose-500/5 px-3.5 py-1.5 text-xs font-semibold text-rose-300 hover:bg-rose-500/20 transition-colors"
+                    className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0 rounded-lg border border-rose-500/20 bg-rose-500/5 px-3.5 py-1.5 text-xs font-semibold text-rose-300 hover:bg-rose-500/20 transition-colors flex items-center justify-center"
                   >
                     Видалити
                   </button>

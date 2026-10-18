@@ -111,7 +111,7 @@ export function SemesterSettingsPanel() {
             )}
           </div>
           
-          <div className="bg-sys-bg/30 px-6 py-4 flex items-center justify-between border-t border-sys-border/50">
+          <div className="bg-sys-bg/30 px-6 py-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-t border-sys-border/50">
             <span className="flex items-center gap-1.5 text-xs font-medium text-sys-text-muted">
               <span className={`h-2 w-2 rounded-full ${configured ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]"}`}></span>
               {configured ? "Налаштовано" : "Не налаштовано"}
@@ -119,7 +119,7 @@ export function SemesterSettingsPanel() {
             <button
               type="submit"
               disabled={saving || loading}
-              className="flex items-center gap-2 rounded-lg bg-sys-accent px-5 py-2 text-sm font-medium text-[#0b1120] hover:opacity-90 disabled:opacity-50 transition-colors"
+              className="flex items-center justify-center gap-2 rounded-lg bg-sys-accent px-5 py-2.5 min-h-[44px] sm:min-h-0 text-sm font-bold text-[#0b1120] hover:opacity-90 disabled:opacity-50 transition-colors w-full sm:w-auto"
             >
               {saving ? (
                 <>

@@ -285,10 +285,10 @@ export function UsersPanel() {
                                 </div>
                             )}
                         </div>
-                        <div className="flex items-center justify-end gap-3 pt-2 border-t border-sys-border/40 text-xs font-semibold">
-                            <button onClick={() => setEditor(u)} className="text-sys-accent hover:underline">Редагувати</button>
+                        <div className="flex items-center justify-end gap-2 pt-2 border-t border-sys-border/40 text-xs font-semibold">
+                            <button onClick={() => setEditor(u)} className="min-h-[40px] px-3.5 rounded-lg border border-sys-border bg-sys-bg/60 text-sys-accent hover:bg-sys-bg flex items-center justify-center">Редагувати</button>
                             {u.id !== currentUser?.id && u.id !== 1 && (
-                                <button onClick={() => remove(u.id)} className="text-rose-400 hover:underline">Видалити</button>
+                                <button onClick={() => remove(u.id)} className="min-h-[40px] px-3.5 rounded-lg border border-rose-500/20 bg-rose-500/5 text-rose-400 hover:bg-rose-500/15 flex items-center justify-center">Видалити</button>
                             )}
                         </div>
                     </div>

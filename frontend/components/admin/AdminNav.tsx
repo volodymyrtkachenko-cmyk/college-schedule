@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useAuth } from "../../lib/auth";
 import { useEffect, useRef, useState } from "react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { api, ReferenceResource } from "../../lib/api";
 
 export const referenceLabels: Record<ReferenceResource, string> = {
@@ -185,6 +186,7 @@ function UsersIcon({ className = "w-4 h-4" }: { className?: string }) {
 
 export function AdminNav({ active }: { active: string }) {
   const { user, logout } = useAuth();
+  const shouldReduceMotion = useReducedMotion();
   const [online, setOnline] = useState<number | null>(null);
   const [metrics, setMetrics] = useState<any>(null);
   const [onlineExpanded, setOnlineExpanded] = useState(false);
@@ -676,24 +678,34 @@ export function AdminNav({ active }: { active: string }) {
       </header>
 
       {/* 2. Mobile Drawer (< 1024px): slides from left with backdrop and touch swipe */}
-      {drawerOpen && (
-        <div
-          className="fixed inset-0 z-[70] bg-[#0b1120]/80 backdrop-blur-xs lg:hidden transition-opacity duration-200"
-          onClick={() => setDrawerOpen(false)}
-        />
-      )}
-      <aside
-        id="admin-drawer"
-        aria-label="Навігація адмінпанелі"
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
-        className={`fixed top-0 left-0 bottom-0 z-[80] w-[min(320px,86vw)] bg-sys-card border-r border-sys-border flex flex-col shadow-2xl transition-transform duration-220 ease-out lg:hidden ${
-          drawerOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
-      >
-        {renderNavContent()}
-      </aside>
+      <AnimatePresence>
+        {drawerOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 z-[70] bg-[#0b1120]/80 backdrop-blur-xs lg:hidden"
+              onClick={() => setDrawerOpen(false)}
+            />
+            <motion.aside
+              id="admin-drawer"
+              aria-label="Навігація адмінпанелі"
+              onTouchStart={onTouchStart}
+              onTouchMove={onTouchMove}
+              onTouchEnd={onTouchEnd}
+              initial={shouldReduceMotion ? { opacity: 0 } : { x: "-100%" }}
+              animate={shouldReduceMotion ? { opacity: 1 } : { x: 0 }}
+              exit={shouldReduceMotion ? { opacity: 0 } : { x: "-100%" }}
+              transition={{ duration: 0.22, ease: [0.2, 0, 0, 1] }}
+              className="fixed top-0 left-0 bottom-0 z-[80] w-[min(320px,86vw)] bg-sys-card border-r border-sys-border flex flex-col shadow-2xl lg:hidden"
+            >
+              {renderNavContent()}
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* 3. Floating desktop toggle button when collapsed */}
       {isDesktopCollapsed && (

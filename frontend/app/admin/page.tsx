@@ -4,6 +4,7 @@
 import dynamic from "next/dynamic";
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { AdminNav, referenceLabels } from "../../components/admin/AdminNav";
 import { ReferenceForm } from "../../components/admin/ReferenceForm";
 import { ReferenceTable } from "../../components/admin/ReferenceTable";
@@ -108,6 +109,7 @@ function SearchIcon() {
 
 function AdminContent() {
   const { user, loading: authLoading, logout } = useAuth();
+  const shouldReduceMotion = useReducedMotion();
   const searchParams = useSearchParams();
   const requested = searchParams.get("resource");
   
@@ -377,6 +379,15 @@ function AdminContent() {
       <div className="flex-1 overflow-y-auto overflow-x-auto pb-safe relative bg-sys-bg">
         <div className={`mx-auto space-y-5 px-4 py-4 sm:px-6 sm:py-6 ${currentTab === "schedule" || currentTab === "permanent-schedule" ? "max-w-[1700px] w-full" : "max-w-[1440px] w-full"}`}>
         
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentTab}
+            initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: shouldReduceMotion ? 0 : -8 }}
+            transition={{ duration: shouldReduceMotion ? 0 : 0.18, ease: [0.2, 0, 0, 1] }}
+            className="w-full space-y-5"
+          >
         {currentTab === "schedule" ? (
           <AdminScheduleEditor />
         ) : currentTab === "permanent-schedule" ? (
@@ -528,16 +539,18 @@ function AdminContent() {
           </div>
         )}
 
-        {editor !== undefined && (
-          <ReferenceForm
-            resource={activeResource}
-            item={editor ?? undefined}
-            faculties={faculties}
-            teachers={teachers}
-            onCancel={() => setEditor(undefined)}
-            onSubmit={save}
-          />
-        )}
+        <AnimatePresence>
+          {editor !== undefined && (
+            <ReferenceForm
+              resource={activeResource}
+              item={editor ?? undefined}
+              faculties={faculties}
+              teachers={teachers}
+              onCancel={() => setEditor(undefined)}
+              onSubmit={save}
+            />
+          )}
+        </AnimatePresence>
         
         <ReferenceTable
           resource={activeResource}
@@ -571,19 +584,28 @@ function AdminContent() {
           />
         )}
 
-        {rosterGroup && (
-          <div
-            className="fixed inset-0 z-[130] flex items-end sm:items-center justify-center bg-black/70 p-0 sm:p-4 backdrop-blur-sm"
-            onClick={(e) => {
-              if (e.target === e.currentTarget) setRosterGroup(null);
-            }}
-          >
-            <div
-              role="dialog"
-              aria-modal="true"
-              aria-label={`Студенти групи ${rosterGroup.name}`}
-              className="flex max-h-[92dvh] sm:max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card shadow-2xl pb-safe animate-in slide-in-from-bottom-6 sm:slide-in-from-bottom-2 duration-200"
+        <AnimatePresence>
+          {rosterGroup && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18 }}
+              className="fixed inset-0 z-[130] flex items-end sm:items-center justify-center bg-black/70 p-0 sm:p-4 backdrop-blur-sm"
+              onClick={(e) => {
+                if (e.target === e.currentTarget) setRosterGroup(null);
+              }}
             >
+              <motion.div
+                role="dialog"
+                aria-modal="true"
+                aria-label={`Студенти групи ${rosterGroup.name}`}
+                initial={shouldReduceMotion ? { opacity: 0 } : { y: "100%", opacity: 0 }}
+                animate={shouldReduceMotion ? { opacity: 1 } : { y: 0, opacity: 1 }}
+                exit={shouldReduceMotion ? { opacity: 0 } : { y: "100%", opacity: 0 }}
+                transition={{ duration: 0.22, ease: [0.2, 0, 0, 1] }}
+                className="flex max-h-[92dvh] sm:max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card shadow-2xl pb-safe"
+              >
               <div className="flex flex-col gap-3 border-b border-sys-border px-5 py-4">
                 <div className="flex items-center justify-between">
                   <div>
@@ -799,11 +821,14 @@ function AdminContent() {
                   </div>
                 </>
               )}
-            </div>
-          </div>
-        )}
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
           </>
         )}
+          </motion.div>
+        </AnimatePresence>
         </div>
       </div>
     </main>

@@ -461,42 +461,90 @@ export function GeneratorPanel() {
                </select>
             </div>
           )}
-          <div className="overflow-x-auto">
-          <table className="w-full min-w-[700px] border-collapse text-left text-sm">
-            <thead className="bg-[#111827]">
-              <tr>
-                <th className="px-5 py-4 font-semibold text-sys-text-secondary text-xs uppercase tracking-wider">№</th>
-                <th className="px-5 py-4 font-semibold text-sys-text-secondary text-xs uppercase tracking-wider">Назва розкладу</th>
-                <th className="px-5 py-4 font-semibold text-sys-text-secondary text-xs uppercase tracking-wider">Статус</th>
-                <th className="px-5 py-4 font-semibold text-sys-text-secondary text-right min-w-[200px]">Дії</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-sys-border/50">
-              {drafts.map(d => (
-                <tr key={d.id} className="hover:bg-white/[0.02] transition-colors">
-                  <td className="px-5 py-3 whitespace-nowrap text-sys-text-muted">#{d.id}</td>
-                  <td className="px-5 py-3 font-semibold text-sys-text-primary">{d.name}</td>
-                  <td className="px-5 py-3">
-                    <span className={`px-2 py-0.5 rounded text-xs font-bold tracking-wider ${d.status === 'published' ? 'bg-emerald-500/10 text-emerald-400' : (d.status === 'DRAFT' || d.status === 'pending') ? 'bg-amber-500/10 text-amber-400' : 'bg-gray-500/10 text-gray-400'}`}>{draftStatusLabels[d.status] ?? "Невідомий статус"}</span>
-                  </td>
-                  <td className="px-5 py-3 text-right flex justify-end gap-2">
-                    <button onClick={() => loadSlots(d)} className="px-3 py-1.5 text-xs font-semibold rounded bg-sys-accent/10 text-sys-accent hover:bg-sys-accent/20 transition">Переглянути</button>
-                    {d.status === 'DRAFT' && (
-                       <button onClick={() => handlePublish(d.id)} disabled={publishingId === d.id} className="px-3 py-1.5 text-xs font-semibold rounded bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition disabled:opacity-50">{publishingId === d.id ? "Публікація..." : "Опублікувати"}</button>
-                    )}
-                    {d.status !== 'published' && (
-                      <button onClick={() => setDraftToDelete(d)} className="px-3 py-1.5 text-xs font-semibold rounded bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition">Видалити</button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {drafts.length === 0 && (
+          {/* Desktop Table (>=640px) */}
+          <div className="hidden sm:block overflow-x-auto">
+            <table className="w-full min-w-[700px] border-collapse text-left text-sm">
+              <thead className="bg-[#111827]">
                 <tr>
-                   <td colSpan={4} className="px-5 py-8 text-center text-sys-text-secondary">Чернеток ще немає. Створіть розклад, щоб він з’явився тут.</td>
+                  <th className="px-5 py-4 font-semibold text-sys-text-secondary text-xs uppercase tracking-wider">№</th>
+                  <th className="px-5 py-4 font-semibold text-sys-text-secondary text-xs uppercase tracking-wider">Назва розкладу</th>
+                  <th className="px-5 py-4 font-semibold text-sys-text-secondary text-xs uppercase tracking-wider">Статус</th>
+                  <th className="px-5 py-4 font-semibold text-sys-text-secondary text-right min-w-[200px]">Дії</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-sys-border/50">
+                {drafts.map(d => (
+                  <tr key={d.id} className="hover:bg-white/[0.02] transition-colors">
+                    <td className="px-5 py-3 whitespace-nowrap text-sys-text-muted">#{d.id}</td>
+                    <td className="px-5 py-3 font-semibold text-sys-text-primary">{d.name}</td>
+                    <td className="px-5 py-3">
+                      <span className={`px-2 py-0.5 rounded text-xs font-bold tracking-wider ${d.status === 'published' ? 'bg-emerald-500/10 text-emerald-400' : (d.status === 'DRAFT' || d.status === 'pending') ? 'bg-amber-500/10 text-amber-400' : 'bg-gray-500/10 text-gray-400'}`}>{draftStatusLabels[d.status] ?? "Невідомий статус"}</span>
+                    </td>
+                    <td className="px-5 py-3 text-right flex justify-end gap-2">
+                      <button onClick={() => loadSlots(d)} className="px-3 py-1.5 text-xs font-semibold rounded bg-sys-accent/10 text-sys-accent hover:bg-sys-accent/20 transition">Переглянути</button>
+                      {d.status === 'DRAFT' && (
+                         <button onClick={() => handlePublish(d.id)} disabled={publishingId === d.id} className="px-3 py-1.5 text-xs font-semibold rounded bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition disabled:opacity-50">{publishingId === d.id ? "Публікація..." : "Опублікувати"}</button>
+                      )}
+                      {d.status !== 'published' && (
+                        <button onClick={() => setDraftToDelete(d)} className="px-3 py-1.5 text-xs font-semibold rounded bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition">Видалити</button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {drafts.length === 0 && (
+                  <tr>
+                     <td colSpan={4} className="px-5 py-8 text-center text-sys-text-secondary">Чернеток ще немає. Створіть розклад, щоб він з’явився тут.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile Card View (<640px) */}
+          <div className="sm:hidden space-y-2.5 p-4">
+            {drafts.map((d) => (
+              <div key={d.id} className="rounded-xl border border-sys-border bg-sys-card p-4 space-y-3 shadow-xs">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <span className="text-[11px] font-mono text-sys-text-muted">#{d.id}</span>
+                    <h4 className="font-semibold text-sm text-sys-text-primary leading-tight mt-0.5">{d.name}</h4>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded text-[11px] font-bold tracking-wider shrink-0 ${d.status === 'published' ? 'bg-emerald-500/10 text-emerald-400' : (d.status === 'DRAFT' || d.status === 'pending') ? 'bg-amber-500/10 text-amber-400' : 'bg-gray-500/10 text-gray-400'}`}>
+                    {draftStatusLabels[d.status] ?? "Невідомий статус"}
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-sys-border/40">
+                  <button
+                    onClick={() => loadSlots(d)}
+                    className="flex-1 min-h-[40px] px-3 py-1.5 text-xs font-semibold rounded-lg bg-sys-accent/10 text-sys-accent hover:bg-sys-accent/20 transition flex items-center justify-center"
+                  >
+                    Переглянути
+                  </button>
+                  {d.status === 'DRAFT' && (
+                    <button
+                      onClick={() => handlePublish(d.id)}
+                      disabled={publishingId === d.id}
+                      className="flex-1 min-h-[40px] px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition disabled:opacity-50 flex items-center justify-center"
+                    >
+                      {publishingId === d.id ? "Публікація..." : "Опублікувати"}
+                    </button>
+                  )}
+                  {d.status !== 'published' && (
+                    <button
+                      onClick={() => setDraftToDelete(d)}
+                      className="min-h-[40px] px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition flex items-center justify-center"
+                    >
+                      Видалити
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+            {drafts.length === 0 && (
+              <div className="py-8 text-center text-sys-text-secondary text-sm">
+                Чернеток ще немає. Створіть розклад, щоб він з’явився тут.
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import { SearchableSelect } from "../SearchableSelect";
 import { ReferenceMutation, ReferenceRecord, ReferenceResource } from "../../lib/api";
 
@@ -37,6 +38,7 @@ export function ReferenceForm({
   onSubmit,
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const shouldReduceMotion = useReducedMotion();
   const [value, setValue] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -89,18 +91,26 @@ export function ReferenceForm({
   }
 
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.18 }}
       className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-xs p-0 sm:p-4"
       onClick={(e) => {
         if (e.target === e.currentTarget) onCancel();
       }}
     >
-      <form
+      <motion.form
         onSubmit={submit}
         role="dialog"
         aria-modal="true"
         aria-labelledby="reference-form-title"
-        className="flex max-h-[92dvh] w-full max-w-lg flex-col rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card shadow-2xl overflow-hidden pb-safe animate-in slide-in-from-bottom-6 sm:slide-in-from-bottom-2 duration-200"
+        initial={shouldReduceMotion ? { opacity: 0 } : { y: "100%", opacity: 0 }}
+        animate={shouldReduceMotion ? { opacity: 1 } : { y: 0, opacity: 1 }}
+        exit={shouldReduceMotion ? { opacity: 0 } : { y: "100%", opacity: 0 }}
+        transition={{ duration: 0.22, ease: [0.2, 0, 0, 1] }}
+        className="flex max-h-[92dvh] w-full max-w-lg flex-col rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card shadow-2xl overflow-hidden pb-safe"
       >
         {/* Sticky Header */}
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-sys-border/50 bg-sys-card px-5 py-4">
@@ -184,7 +194,7 @@ export function ReferenceForm({
             {saving ? "Збереження…" : "Зберегти"}
           </button>
         </div>
-      </form>
-    </div>
+      </motion.form>
+    </motion.div>
   );
 }

@@ -196,11 +196,11 @@ export const PublicationHistory: React.FC = () => {
                     <span>{scope.group_ids?.length ? `${scope.group_ids.length} груп` : "Всі групи"}</span>
                   </div>
                   {isLatestActive && (
-                    <div className="pt-2 border-t border-sys-border/50 flex justify-end">
+                    <div className="pt-2 border-t border-sys-border/50">
                       <button
                         onClick={() => void handleRevert(p.id)}
                         disabled={revertingId === p.id}
-                        className="rounded-lg border border-rose-500/30 bg-rose-500/15 px-3 py-1.5 text-xs font-semibold text-rose-300 transition-colors hover:bg-rose-500/25 disabled:opacity-50"
+                        className="w-full min-h-[44px] flex items-center justify-center rounded-lg border border-rose-500/30 bg-rose-500/15 px-3 py-2 text-xs font-semibold text-rose-300 transition-colors hover:bg-rose-500/25 disabled:opacity-50"
                       >
                         {revertingId === p.id ? "Скасування..." : "Відкотити публікацію"}
                       </button>
