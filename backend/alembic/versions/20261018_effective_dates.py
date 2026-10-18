@@ -1,12 +1,12 @@
 """Add effective date bounds to schedule and moved destination to overrides
 
-Revision ID: 20261018_effective_schedule_dates
+Revision ID: 20261018_effective_dates
 Revises: 20261016_classroom_roster
 """
 from alembic import op
 import sqlalchemy as sa
 
-revision = "20261018_effective_schedule_dates"
+revision = "20261018_effective_dates"
 down_revision = "20261016_classroom_roster"
 branch_labels = None
 depends_on = None
@@ -33,6 +33,14 @@ def upgrade():
         op.execute("""
         DO $$
         BEGIN
+            IF EXISTS (
+                SELECT 1 FROM information_schema.columns 
+                WHERE table_name = 'alembic_version' AND column_name = 'version_num'
+                AND character_maximum_length < 64
+            ) THEN
+                ALTER TABLE alembic_version ALTER COLUMN version_num TYPE VARCHAR(64);
+            END IF;
+
             IF NOT EXISTS (
                 SELECT 1 FROM information_schema.columns 
                 WHERE table_name = 'schedule' AND column_name = 'effective_from'
