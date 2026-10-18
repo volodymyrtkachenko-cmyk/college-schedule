@@ -447,7 +447,7 @@ async def publish_draft(
                 "room": s.room_override,
             })
 
-    if group_ids:
+    if group_ids and slots:
         schedule_ids_query = select(Schedule.id).where(Schedule.group_id.in_(group_ids))
         if target_version_id is not None:
             schedule_ids_query = schedule_ids_query.where(Schedule.version_id == target_version_id)
@@ -484,16 +484,16 @@ async def publish_draft(
             )
         )
     
-    
     publication = SchedulePublication(
         version_id=target_version_id,
         actor_id=current_user.id,
-        scope_manifest=json.dumps({"group_ids": list(group_ids)})
+        scope_manifest=json.dumps({"source": "manual", "group_ids": list(group_ids), "changes_count": len(new_schedules)})
     )
     db.add(publication)
     await db.flush()
-    db.add_all(new_schedules)
-    await db.flush()
+    if new_schedules:
+        db.add_all(new_schedules)
+        await db.flush()
     
     # Create snapshots
     after_by_group = {gid: [] for gid in group_ids}
@@ -503,7 +503,7 @@ async def publish_draft(
             "day_of_week": s.day_of_week,
             "lesson_number": s.lesson_number,
             "week_type": s.week_type,
-            "subject_id": s.subject_id, # Can't use subject.name easily here unless we query it or load it from curriculum
+            "subject_id": s.subject_id,
             "teacher_id": s.teacher_id,
             "room": s.room_override
         })
@@ -607,18 +607,35 @@ async def publish_draft(
                 )
             )
             db.add(ImportedScheduleChange(
-                    draft_id=draft.id,
+                draft_id=draft.id,
                 publication_id=publication.id,
-                    date=d_obj,
-                    kind="substitution",
+                date=d_obj,
+                kind="substitution",
+                group_id=sub["group_id"],
+                subject_id=sub["subject_id"],
+                teacher_id=sub["teacher_id"],
+                second_teacher_id=sub.get("second_teacher_id"),
+                lesson_number=sub["lesson_number"],
+                room_override=sub.get("room"),
+                is_published=True,
+                version=(latest or 0) + 1,
+            ))
+            if draft.draft_type == "import":
+                subj_obj = await db.get(Subject, sub["subject_id"])
+                teach_obj = await db.get(Teacher, sub["teacher_id"])
+                room_str = f", ауд. {sub.get('room')}" if sub.get("room") else ""
+                subj_title = subj_obj.name if subj_obj else ""
+                teach_title = teach_obj.name if teach_obj else ""
+                db.add(SchedulePublicationSnapshot(
+                    publication_id=publication.id,
                     group_id=sub["group_id"],
-                    subject_id=sub["subject_id"],
-                    teacher_id=sub["teacher_id"],
-                    second_teacher_id=sub.get("second_teacher_id"),
+                    date=d_obj,
                     lesson_number=sub["lesson_number"],
-                    room_override=sub.get("room"),
-                    is_published=True,
-                    version=(latest or 0) + 1,
+                    before_data=json.dumps({"summary": "Базовий розклад"}),
+                    after_data=json.dumps({
+                        "kind": "substitution",
+                        "summary": f"{subj_title} ({teach_title}{room_str})".strip()
+                    }),
                 ))
                     
         # 2. Process Cancelled lessons
@@ -661,6 +678,15 @@ async def publish_draft(
                 is_published=True,
                 version=(latest or 0) + 1,
             ))
+            if draft.draft_type == "import":
+                db.add(SchedulePublicationSnapshot(
+                    publication_id=publication.id,
+                    group_id=canc["group_id"],
+                    date=d_obj,
+                    lesson_number=canc["lesson_number"],
+                    before_data=json.dumps({"summary": "Базовий розклад"}),
+                    after_data=json.dumps({"kind": "cancelled", "summary": "Скасовано"}),
+                ))
         
     draft.status = "published"
     await db.commit()

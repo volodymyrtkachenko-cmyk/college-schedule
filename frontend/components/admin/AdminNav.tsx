@@ -190,6 +190,7 @@ export function AdminNav({ active }: { active: string }) {
   const [online, setOnline] = useState<number | null>(null);
   const [metrics, setMetrics] = useState<any>(null);
   const [onlineExpanded, setOnlineExpanded] = useState(false);
+  const [anomalyDraftsCount, setAnomalyDraftsCount] = useState<number>(0);
   const [generatorExpanded, setGeneratorExpanded] = useState(
     ["curriculum", "constraints", "generator"].includes(active)
   );
@@ -283,6 +284,30 @@ export function AdminNav({ active }: { active: string }) {
       document.removeEventListener("visibilitychange", fetchMetrics);
     };
   }, []);
+
+  useEffect(() => {
+    if (user?.role !== "admin") return;
+    let cancelled = false;
+    const checkImportStatus = async () => {
+      if (document.visibilityState !== "visible") return;
+      try {
+        const st = await api.importer.getStatus();
+        if (!cancelled && st) {
+          setAnomalyDraftsCount(st.anomaly_drafts_count || 0);
+        }
+      } catch {
+        // fail silently
+      }
+    };
+    void checkImportStatus();
+    const interval = setInterval(checkImportStatus, 20_000);
+    document.addEventListener("visibilitychange", checkImportStatus);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", checkImportStatus);
+    };
+  }, [user]);
 
   useEffect(() => {
     if (!drawerOpen) return;
@@ -387,6 +412,14 @@ export function AdminNav({ active }: { active: string }) {
                   >
                     <ImportIcon className="w-4 h-4 shrink-0 text-current" />
                     <span className="truncate">Імпорт з КРЕ</span>
+                    {anomalyDraftsCount > 0 && (
+                      <span
+                        className="ml-auto inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-bold leading-none text-white bg-rose-500 rounded-full shadow-xs shrink-0 animate-pulse"
+                        title={`Необхідна перевірка: ${anomalyDraftsCount} аномальних чернеток`}
+                      >
+                        {anomalyDraftsCount}
+                      </span>
+                    )}
                   </Link>
 
                   <Link
@@ -651,13 +684,16 @@ export function AdminNav({ active }: { active: string }) {
             aria-expanded={drawerOpen}
             aria-controls="admin-drawer"
             onClick={() => setDrawerOpen(true)}
-            className="flex items-center justify-center w-10 h-10 rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/5 transition-colors focus:outline-none focus:ring-2 focus:ring-sys-accent"
+            className="relative flex items-center justify-center w-10 h-10 rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/5 transition-colors focus:outline-none focus:ring-2 focus:ring-sys-accent"
           >
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="4" y1="12" x2="20" y2="12" />
               <line x1="4" y1="6" x2="20" y2="6" />
               <line x1="4" y1="18" x2="20" y2="18" />
             </svg>
+            {anomalyDraftsCount > 0 && (
+              <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-sys-bg animate-pulse" />
+            )}
           </button>
           <div className="flex items-center gap-2">
             <span className="text-[12px] font-black tracking-wider text-[#0b1120] bg-sys-accent px-1.5 py-0.5 rounded shadow-xs">
@@ -721,6 +757,9 @@ export function AdminNav({ active }: { active: string }) {
             <line x1="4" y1="6" x2="20" y2="6" />
             <line x1="4" y1="18" x2="20" y2="18" />
           </svg>
+          {anomalyDraftsCount > 0 && (
+            <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-sys-card animate-pulse" />
+          )}
         </button>
       )}
 

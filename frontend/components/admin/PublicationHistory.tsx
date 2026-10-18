@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { api } from "../../lib/api";
+import { api, PublicationChangeItem } from "../../lib/api";
 import { invalidateScheduleCache } from "../../lib/hooks";
 import { useToast } from "../ToastProvider";
+import { PublicationChangesModal } from "./PublicationChangesModal";
 
 export interface Publication {
   id: number;
@@ -12,12 +13,17 @@ export interface Publication {
   timestamp: string;
   scope_manifest: string;
   is_reverted: boolean;
+  source: string;
+  changes_count: number;
 }
 
 export const PublicationHistory: React.FC = () => {
   const [publications, setPublications] = useState<Publication[]>([]);
   const [loading, setLoading] = useState(false);
   const [revertingId, setRevertingId] = useState<number | null>(null);
+  const [selectedPublicationId, setSelectedPublicationId] = useState<number | null>(null);
+  const [changesList, setChangesList] = useState<PublicationChangeItem[]>([]);
+  const [loadingChanges, setLoadingChanges] = useState(false);
   const { showToast } = useToast();
 
   const fetchPublications = async () => {
@@ -36,7 +42,6 @@ export const PublicationHistory: React.FC = () => {
     void fetchPublications();
   }, []);
 
-  // Для кожної версії розкладу відкотити можна лише найостаннішу нескасовану публікацію (LIFO)
   const latestActiveIdByVersion = useMemo(() => {
     const map = new Map<number | null, number>();
     for (const p of publications) {
@@ -67,6 +72,19 @@ export const PublicationHistory: React.FC = () => {
     }
   };
 
+  const handleViewChanges = async (id: number) => {
+    try {
+      setSelectedPublicationId(id);
+      setLoadingChanges(true);
+      const changes = await api.publications.changes(id);
+      setChangesList(changes);
+    } catch (e: any) {
+      showToast(e instanceof Error ? e.message : "Не вдалося завантажити зміни", "error");
+    } finally {
+      setLoadingChanges(false);
+    }
+  };
+
   return (
     <div className="mt-8 border-t border-sys-border pt-6">
       <div className="mb-4 flex items-center justify-between">
@@ -91,17 +109,18 @@ export const PublicationHistory: React.FC = () => {
                 <tr>
                   <th className="px-4 py-3">ID</th>
                   <th className="px-4 py-3">Дата / Час</th>
+                  <th className="px-4 py-3">Джерело</th>
+                  <th className="px-4 py-3">Зміни</th>
                   <th className="px-4 py-3">Версія бази</th>
-                  <th className="px-4 py-3">Масштаб</th>
                   <th className="px-4 py-3">Статус</th>
-                  <th className="px-4 py-3 text-right">Дія</th>
+                  <th className="px-4 py-3 text-right">Дії</th>
                 </tr>
               </thead>
               <tbody>
                 {publications.map((p) => {
-                  const scope = JSON.parse(p.scope_manifest || "{}");
                   const isLatestActive =
                     !p.is_reverted && latestActiveIdByVersion.get(p.version_id) === p.id;
+                  const isAuto = p.source === "auto" || p.source === "Авто";
 
                   return (
                     <tr
@@ -115,10 +134,21 @@ export const PublicationHistory: React.FC = () => {
                         {new Date(p.timestamp).toLocaleString("uk-UA")}
                       </td>
                       <td className="px-4 py-3">
-                        {p.version_id ? `Версія #${p.version_id}` : "Базова"}
+                        {isAuto ? (
+                          <span className="inline-flex items-center rounded-md bg-blue-500/15 px-2 py-0.5 text-xs font-semibold text-blue-400">
+                            Авто
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center rounded-md bg-amber-500/15 px-2 py-0.5 text-xs font-semibold text-amber-400">
+                            Вручну
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 font-medium text-sys-text-primary">
+                        {p.changes_count || 0}
                       </td>
                       <td className="px-4 py-3">
-                        {scope.group_ids?.length ? `${scope.group_ids.length} груп` : "Всі"}
+                        {p.version_id ? `Версія #${p.version_id}` : "Базова"}
                       </td>
                       <td className="px-4 py-3">
                         {p.is_reverted ? (
@@ -137,24 +167,30 @@ export const PublicationHistory: React.FC = () => {
                         )}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        {isLatestActive ? (
+                        <div className="flex items-center justify-end gap-2">
                           <button
-                            onClick={() => void handleRevert(p.id)}
-                            disabled={revertingId === p.id}
-                            className="rounded-lg border border-rose-500/30 bg-rose-500/15 px-3 py-1.5 text-xs font-semibold text-rose-300 transition-colors hover:bg-rose-500/25 disabled:opacity-50"
+                            onClick={() => void handleViewChanges(p.id)}
+                            className="rounded-lg border border-sys-border bg-white/5 px-2.5 py-1.5 text-xs font-medium text-sys-text-secondary transition-colors hover:bg-white/10 hover:text-sys-text-primary"
                           >
-                            {revertingId === p.id ? "Скасування..." : "Відкотити"}
+                            Показати зміни
                           </button>
-                        ) : (
-                          <span className="text-xs text-sys-text-muted">—</span>
-                        )}
+                          {isLatestActive && (
+                            <button
+                              onClick={() => void handleRevert(p.id)}
+                              disabled={revertingId === p.id}
+                              className="rounded-lg border border-rose-500/30 bg-rose-500/15 px-3 py-1.5 text-xs font-semibold text-rose-300 transition-colors hover:bg-rose-500/25 disabled:opacity-50"
+                            >
+                              {revertingId === p.id ? "Скасування..." : "Відкотити"}
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
                 })}
                 {publications.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="py-8 text-center text-sys-text-muted">
+                    <td colSpan={7} className="py-8 text-center text-sys-text-muted">
                       Історія публікацій порожня
                     </td>
                   </tr>
@@ -166,46 +202,63 @@ export const PublicationHistory: React.FC = () => {
           {/* Mobile Card View (<640px) */}
           <div className="sm:hidden space-y-2.5">
             {publications.map((p) => {
-              const scope = JSON.parse(p.scope_manifest || "{}");
               const isLatestActive =
                 !p.is_reverted && latestActiveIdByVersion.get(p.version_id) === p.id;
+              const isAuto = p.source === "auto" || p.source === "Авто";
 
               return (
-                <div key={p.id} className="rounded-xl border border-sys-border bg-sys-card p-3.5 space-y-2 shadow-sm">
+                <div key={p.id} className="rounded-xl border border-sys-border bg-sys-card p-3.5 space-y-2.5 shadow-sm">
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-sys-text-primary text-xs">
-                      #{p.id} • {p.version_id ? `Версія #${p.version_id}` : "Базова версія"}
+                      #{p.id} • {p.version_id ? `Версія #${p.version_id}` : "Базова"}
                     </span>
-                    {p.is_reverted ? (
-                      <span className="inline-flex items-center rounded-md bg-rose-500/10 px-2 py-0.5 text-xs font-medium text-rose-400">
-                        Скасовано
-                      </span>
-                    ) : isLatestActive ? (
-                      <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-500/15 px-2 py-0.5 text-xs font-semibold text-emerald-400">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                        Поточна
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center rounded-md bg-white/5 px-2 py-0.5 text-xs font-medium text-sys-text-muted">
-                        В історії
-                      </span>
-                    )}
+                    <div className="flex items-center gap-1.5">
+                      {isAuto ? (
+                        <span className="inline-flex items-center rounded-md bg-blue-500/15 px-1.5 py-0.5 text-[11px] font-semibold text-blue-400">
+                          Авто
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center rounded-md bg-amber-500/15 px-1.5 py-0.5 text-[11px] font-semibold text-amber-400">
+                          Вручну
+                        </span>
+                      )}
+                      {p.is_reverted ? (
+                        <span className="inline-flex items-center rounded-md bg-rose-500/10 px-2 py-0.5 text-xs font-medium text-rose-400">
+                          Скасовано
+                        </span>
+                      ) : isLatestActive ? (
+                        <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/15 px-2 py-0.5 text-xs font-semibold text-emerald-400">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                          Поточна
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center rounded-md bg-white/5 px-2 py-0.5 text-xs font-medium text-sys-text-muted">
+                          В історії
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className="text-xs text-sys-text-secondary flex items-center justify-between">
                     <span>{new Date(p.timestamp).toLocaleString("uk-UA")}</span>
-                    <span>{scope.group_ids?.length ? `${scope.group_ids.length} груп` : "Всі групи"}</span>
+                    <span>{p.changes_count || 0} змін</span>
                   </div>
-                  {isLatestActive && (
-                    <div className="pt-2 border-t border-sys-border/50">
+                  <div className="pt-2 border-t border-sys-border/50 flex items-center gap-2">
+                    <button
+                      onClick={() => void handleViewChanges(p.id)}
+                      className="flex-1 min-h-[40px] flex items-center justify-center rounded-lg border border-sys-border bg-white/5 px-3 py-2 text-xs font-medium text-sys-text-primary transition-colors hover:bg-white/10"
+                    >
+                      Показати зміни
+                    </button>
+                    {isLatestActive && (
                       <button
                         onClick={() => void handleRevert(p.id)}
                         disabled={revertingId === p.id}
-                        className="w-full min-h-[44px] flex items-center justify-center rounded-lg border border-rose-500/30 bg-rose-500/15 px-3 py-2 text-xs font-semibold text-rose-300 transition-colors hover:bg-rose-500/25 disabled:opacity-50"
+                        className="flex-1 min-h-[40px] flex items-center justify-center rounded-lg border border-rose-500/30 bg-rose-500/15 px-3 py-2 text-xs font-semibold text-rose-300 transition-colors hover:bg-rose-500/25 disabled:opacity-50"
                       >
-                        {revertingId === p.id ? "Скасування..." : "Відкотити публікацію"}
+                        {revertingId === p.id ? "Скасування..." : "Відкотити"}
                       </button>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               );
             })}
@@ -217,6 +270,14 @@ export const PublicationHistory: React.FC = () => {
           </div>
         </>
       )}
+
+      {/* Changes Modal Dialog */}
+      <PublicationChangesModal
+        publicationId={selectedPublicationId}
+        onClose={() => setSelectedPublicationId(null)}
+        onReverted={fetchPublications}
+      />
     </div>
   );
 };
+

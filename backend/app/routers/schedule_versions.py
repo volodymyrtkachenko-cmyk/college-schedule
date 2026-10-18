@@ -225,7 +225,8 @@ async def revert_publication(
         .values(is_published=False)
     )
 
-    if snapshots:
+    slot_snapshots = [s for s in snapshots if s.before_data and '"slots"' in s.before_data]
+    if slot_snapshots:
         version_cond = (
             Schedule.version_id == pub.version_id
             if pub.version_id is not None
@@ -235,7 +236,7 @@ async def revert_publication(
             delete(Schedule).where(Schedule.group_id.in_(group_ids), version_cond)
         )
 
-        for snap in snapshots:
+        for snap in slot_snapshots:
             before = json.loads(snap.before_data)
             for slot in before.get("slots", []):
                 if not slot.get("subject_id"):
@@ -259,6 +260,18 @@ async def revert_publication(
         await db.flush()
         await reconcile_notes_after_publish(db, set(group_ids), user.id)
 
+    # Dismiss notification if it was for this publication
+    try:
+        from app.services.settings import settings_service
+        notif_raw = await settings_service.get(db, "import_latest_notification")
+        if notif_raw:
+            notif = json.loads(notif_raw)
+            if notif.get("publication_id") == publication_id:
+                notif["dismissed"] = True
+                await settings_service.set(db, "import_latest_notification", json.dumps(notif))
+    except Exception:
+        pass
+
     await db.commit()
     return {"message": "Публікацію успішно скасовано"}
 
@@ -271,6 +284,8 @@ class PublicationResponse(BaseModel):
     timestamp: datetime
     scope_manifest: str
     is_reverted: bool
+    source: str = "manual"
+    changes_count: int = 0
 
 @router.get("/publications", response_model=List[PublicationResponse])
 async def get_publications(
@@ -279,20 +294,118 @@ async def get_publications(
     user: User = Depends(require_roles("admin", "editor"))
 ):
     from app.models.entities import SchedulePublication
+    import json
     publications = (await db.scalars(
         select(SchedulePublication)
         .order_by(SchedulePublication.timestamp.desc())
         .limit(limit)
     )).all()
     
-    return [
-        PublicationResponse(
-            id=p.id,
-            version_id=p.version_id,
-            actor_id=p.actor_id,
-            timestamp=p.timestamp,
-            scope_manifest=p.scope_manifest,
-            is_reverted=p.is_reverted
+    result = []
+    for p in publications:
+        source = "manual"
+        changes_count = 0
+        try:
+            scope = json.loads(p.scope_manifest or "{}")
+            source = scope.get("source") or ("auto" if p.actor_id is None else "manual")
+            changes_count = int(scope.get("changes_count") or 0)
+        except Exception:
+            source = "auto" if p.actor_id is None else "manual"
+        result.append(
+            PublicationResponse(
+                id=p.id,
+                version_id=p.version_id,
+                actor_id=p.actor_id,
+                timestamp=p.timestamp,
+                scope_manifest=p.scope_manifest,
+                is_reverted=p.is_reverted,
+                source=source,
+                changes_count=changes_count,
+            )
         )
-        for p in publications
-    ]
+    return result
+
+@router.get("/publications/{publication_id}/changes")
+async def get_publication_changes(
+    publication_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles("admin", "editor")),
+):
+    from app.models.entities import (
+        SchedulePublication,
+        SchedulePublicationSnapshot,
+        ImportedScheduleChange,
+        Group,
+    )
+    from sqlalchemy.orm import joinedload
+    import json
+
+    pub = await db.get(SchedulePublication, publication_id)
+    if not pub:
+        raise HTTPException(status_code=404, detail="Публікацію не знайдено")
+
+    snapshots = (await db.scalars(
+        select(SchedulePublicationSnapshot)
+        .where(SchedulePublicationSnapshot.publication_id == publication_id)
+        .order_by(SchedulePublicationSnapshot.date, SchedulePublicationSnapshot.lesson_number)
+    )).all()
+
+    groups = {g.id: g.name for g in (await db.scalars(select(Group))).all()}
+    changes = []
+
+    for s in snapshots:
+        group_name = groups.get(s.group_id, f"Група #{s.group_id}")
+        before_obj = json.loads(s.before_data or "{}")
+        after_obj = json.loads(s.after_data or "{}")
+
+        if s.date is not None:
+            changes.append({
+                "group_id": s.group_id,
+                "group_name": group_name,
+                "date": s.date.isoformat(),
+                "lesson_number": s.lesson_number,
+                "kind": after_obj.get("kind", "substitution"),
+                "before": before_obj.get("summary") or before_obj.get("text") or "—",
+                "after": after_obj.get("summary") or after_obj.get("text") or "—",
+            })
+        elif "slots" in before_obj or "slots" in after_obj:
+            b_slots = before_obj.get("slots", [])
+            a_slots = after_obj.get("slots", [])
+            changes.append({
+                "group_id": s.group_id,
+                "group_name": group_name,
+                "date": None,
+                "lesson_number": None,
+                "kind": "base_slots",
+                "before": f"{len(b_slots)} пар у базовому розкладі",
+                "after": f"{len(a_slots)} пар у новому розкладі",
+            })
+
+    if not changes:
+        # Fallback to ImportedScheduleChange
+        import_changes = (await db.scalars(
+            select(ImportedScheduleChange)
+            .where(ImportedScheduleChange.publication_id == publication_id)
+            .options(
+                joinedload(ImportedScheduleChange.subject),
+                joinedload(ImportedScheduleChange.teacher),
+            )
+            .order_by(ImportedScheduleChange.date, ImportedScheduleChange.lesson_number)
+        )).all()
+        for ic in import_changes:
+            group_name = groups.get(ic.group_id, f"Група #{ic.group_id}")
+            subj_name = ic.subject.name if ic.subject else ""
+            teach_name = ic.teacher.name if ic.teacher else ""
+            room_str = f", ауд. {ic.room_override}" if ic.room_override else ""
+            after_str = "Скасовано" if ic.kind == "cancelled" else f"{subj_name} ({teach_name}{room_str})".strip()
+            changes.append({
+                "group_id": ic.group_id,
+                "group_name": group_name,
+                "date": ic.date.isoformat(),
+                "lesson_number": ic.lesson_number,
+                "kind": ic.kind,
+                "before": "Базовий розклад",
+                "after": after_str,
+            })
+
+    return changes

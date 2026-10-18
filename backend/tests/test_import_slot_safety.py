@@ -25,6 +25,8 @@ async def context():
     async with sessions() as db:
         g=Group(name='Test group');s=Subject(name='Test subject');t=Teacher(name='Test teacher')
         db.add_all([g,s,t]);await db.commit()
+        from app.services.settings import settings_service
+        await settings_service.set(db, "import_auto_publish", "false")
         yield db,dict(group_id=g.id,subject_id=s.id,teacher_id=t.id)
     await engine.dispose()
 

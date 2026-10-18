@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { api, ImportCancellation, ImportSubstitution, ImporterResponse, ReferenceRecord, ScheduleVersion } from "../../lib/api";
+import { api, ImportCancellation, ImportSubstitution, ImporterResponse, ImportStatusResponse, ReferenceRecord, ScheduleVersion } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 import { SearchableSelect } from "../SearchableSelect";
 import { PublicationHistory } from "./PublicationHistory";
@@ -15,6 +15,9 @@ export function ImportPanel() {
   const [targetVersionId, setTargetVersionId] = useState<number | null>(null);
   const [status, setStatus] = useState<"idle" | "importing" | "mapping" | "ready" | "unchanged" | "success">("idle");
   const [report, setReport] = useState<ImporterResponse["report"] | null>(null);
+  const [importStatus, setImportStatus] = useState<ImportStatusResponse | null>(null);
+  const [autoPublish, setAutoPublish] = useState<boolean>(true);
+  const [savingSettings, setSavingSettings] = useState(false);
   
   // Dictionaries for mapping
   const [teachers, setTeachers] = useState<ReferenceRecord[]>([]);
@@ -89,6 +92,34 @@ export function ImportPanel() {
     void loadPendingImport();
   }, []);
 
+  const loadStatus = async () => {
+    try {
+      const res = await api.importer.getStatus();
+      setImportStatus(res);
+      setAutoPublish(res.settings?.auto_publish ?? true);
+    } catch (e) {
+      console.error("Failed to load import status", e);
+    }
+  };
+
+  useEffect(() => {
+    void loadStatus();
+  }, []);
+
+  const handleToggleAutoPublish = async (enabled: boolean) => {
+    setAutoPublish(enabled);
+    try {
+      setSavingSettings(true);
+      await api.importer.updateSettings({ auto_publish: enabled });
+      await loadStatus();
+    } catch (e) {
+      console.error("Failed to update auto_publish", e);
+      setAutoPublish(!enabled);
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
   const handleImport = async () => {
     importRequestId.current += 1;
     setLoading(true);
@@ -99,12 +130,32 @@ export function ImportPanel() {
       const session = await api.auth.ensureAuthenticated();
       const res = await api.importer.importData(session.access_token);
       setDraftId(res.meta?.draft_created ?? null);
+
+      if (res.meta?.auto_published) {
+        setReport(res.report);
+        setSubstitutions(res.report.substitutions);
+        setCancelled(res.report.cancelled ?? []);
+        setStatus("success");
+        await loadStatus();
+        return;
+      }
+
       if (res.meta?.unchanged) {
         setReport({ ...res.report, substitutions: [], cancelled: [] });
         setSubstitutions([]);
         setCancelled([]);
         setMappings({});
         setStatus("unchanged");
+        await loadStatus();
+        return;
+      }
+
+      if (res.meta?.is_anomaly) {
+        setReport(res.report);
+        setSubstitutions(res.report.substitutions);
+        setCancelled(res.report.cancelled ?? []);
+        setStatus("mapping");
+        await loadStatus();
         return;
       }
 
@@ -131,6 +182,7 @@ export function ImportPanel() {
       } else {
         setStatus("unchanged");
       }
+      await loadStatus();
     } catch (err: any) {
       setError(err?.message || "Скоріш за все сталася помилка з'єднання.");
       setStatus("idle");
@@ -273,7 +325,69 @@ export function ImportPanel() {
 
       <div className="bg-sys-card rounded-xl p-4 sm:p-6 border border-sys-border">
         <div>
-          <h2 className="text-lg font-bold mb-4 text-sys-text-primary">Парсинг з kre.dp.ua</h2>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+            <div>
+              <h2 className="text-lg font-bold text-sys-text-primary">Парсинг з kre.dp.ua</h2>
+              {importStatus?.last_publication && (
+                <div className="mt-1 text-xs text-sys-text-secondary flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                  <span>
+                    Остання публікація: <strong className="text-sys-text-primary">{importStatus.last_publication.source}</strong>,{" "}
+                    {new Date(importStatus.last_publication.timestamp).toLocaleString("uk-UA")},{" "}
+                    <strong className="text-sys-text-primary">{importStatus.last_publication.changes_count} змін</strong>
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {user?.role === "admin" && (
+              <div className="flex items-center gap-3 bg-white/5 border border-sys-border rounded-xl px-3.5 py-2">
+                <span className="text-xs font-semibold text-sys-text-primary">Автопублікація</span>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={autoPublish}
+                    disabled={savingSettings}
+                    onChange={(e) => void handleToggleAutoPublish(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 h-5 bg-sys-border peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sys-accent"></div>
+                </label>
+              </div>
+            )}
+          </div>
+
+        {/* Anomaly draft warning banner */}
+        {importStatus?.pending_anomaly_draft && (
+          <div className="mb-6 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-amber-200 animate-in fade-in">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-start gap-2.5">
+                <svg className="w-5 h-5 shrink-0 text-amber-400 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <div>
+                  <div className="font-bold text-sm text-amber-300">
+                    Автоімпорт знайшов багато змін ({importStatus.pending_anomaly_draft.changes_count}). Перевірте й опублікуйте
+                  </div>
+                  {importStatus.pending_anomaly_draft.anomaly_reasons?.length > 0 && (
+                    <p className="text-xs text-amber-200/80 mt-1">
+                      {importStatus.pending_anomaly_draft.anomaly_reasons.join(" • ")}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setDraftId(importStatus.pending_anomaly_draft!.id);
+                  setStatus("ready");
+                }}
+                className="shrink-0 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/30 px-3.5 py-1.5 text-xs font-semibold transition-colors"
+              >
+                Перевірити та опублікувати
+              </button>
+            </div>
+          </div>
+        )}
         
         {error && (
             <div className="mb-4 bg-red-500/10 border border-red-500/30 text-rose-300 p-3 rounded-lg text-sm">
@@ -295,10 +409,9 @@ export function ImportPanel() {
         {status === "idle" && (
             <div>
                <p className="text-sys-text-secondary text-sm mb-6 max-w-lg">
-                   Натисніть кнопку нижче, щоб система автоматично обійшла всі групи на сайті kre.dp.ua,
-                   зібрала актуальний розклад та віднайшла зміни. Зміни зберігаються у чернетку для попереднього перегляду і застосовуються лише після підтвердження публікації.
+                   Система сама обходить усі групи на kre.dp.ua, знаходить зміни й одразу застосовує їх. Останню публікацію можна відкотити.
                </p>
-               <button onClick={handleImport} disabled={loading} className="bg-sys-accent text-[#0b1120] font-bold py-2 px-5 rounded-lg disabled:opacity-50 flex items-center gap-2">
+               <button onClick={handleImport} disabled={loading} className="bg-sys-accent text-[#0b1120] font-bold py-2.5 px-6 rounded-lg disabled:opacity-50 flex items-center gap-2 hover:opacity-90 active:scale-98 transition-all">
                    {loading ? (
                      <><svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Імпортуємо...</>
                    ) : "Почати імпорт"}

@@ -29,6 +29,8 @@ import { ApiError } from "../../lib/api";
 import { useToast } from "../../components/ToastProvider";
 import { ClassroomSyncButton } from "../../components/ClassroomSyncButton";
 import { PageHeader } from "../../components/admin/PageHeader";
+import { PublicationChangesModal } from "../../components/admin/PublicationChangesModal";
+import { invalidateScheduleCache } from "../../lib/hooks";
 
 function extractSurname(fullName: string): string {
   const parts = fullName.trim().split(/\s+/).filter(Boolean);
@@ -145,6 +147,13 @@ function AdminContent() {
   const [itemToDelete, setItemToDelete] = useState<ReferenceRecord | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
+  // Auto-import notification banner state
+  const [importNotification, setImportNotification] = useState<
+    import("../../lib/api").ImportStatusResponse["active_notification"]
+  >(null);
+  const [selectedNotifPubId, setSelectedNotifPubId] = useState<number | null>(null);
+  const [revertingNotif, setRevertingNotif] = useState(false);
+
   const [rosterGroup, setRosterGroup] = useState<{ id: number; name: string } | null>(null);
   const [studentSearch, setStudentSearch] = useState("");
   const [studentSortBy, setStudentSortBy] = useState<"surname" | "name">("surname");
@@ -211,6 +220,54 @@ function AdminContent() {
     .split("\n")
     .map((l) => l.trim())
     .filter(Boolean);
+
+  useEffect(() => {
+    if (user?.role !== "admin") return;
+    let cancelled = false;
+    api.importer
+      .getStatus()
+      .then((st) => {
+        if (!cancelled && st?.active_notification) {
+          setImportNotification(st.active_notification);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  const handleDismissNotification = async () => {
+    try {
+      await api.importer.dismissNotification();
+    } catch {
+      // ignore
+    } finally {
+      setImportNotification(null);
+    }
+  };
+
+  const handleRevertNotification = async () => {
+    if (!importNotification) return;
+    if (
+      !window.confirm(
+        `Ви дійсно хочете відкотити автопублікацію #${importNotification.publication_id}? Розклад повернеться до попереднього стану.`
+      )
+    ) {
+      return;
+    }
+    setRevertingNotif(true);
+    try {
+      await api.publications.revert(importNotification.publication_id);
+      invalidateScheduleCache();
+      setToast("Автопублікацію успішно скасовано.", "success");
+      setImportNotification(null);
+    } catch (e: any) {
+      setToast(e instanceof Error ? e.message : "Помилка відкату публікації", "error");
+    } finally {
+      setRevertingNotif(false);
+    }
+  };
 
   useEffect(() => {
     if (authLoading) return;
@@ -381,7 +438,92 @@ function AdminContent() {
       
       <div className="flex-1 overflow-y-auto overflow-x-auto pb-safe relative bg-sys-bg">
         <div className={`mx-auto space-y-5 px-4 py-4 sm:px-6 sm:py-6 ${currentTab === "schedule" || currentTab === "permanent-schedule" ? "max-w-[1700px] w-full" : "max-w-[1440px] w-full"}`}>
-        
+
+        {/* Auto-import notification banner */}
+        {importNotification && (
+          <div
+            role="alert"
+            className={`rounded-2xl p-4 sm:p-5 border transition-all shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4 ${
+              importNotification.urgent
+                ? "bg-gradient-to-r from-amber-500/20 via-rose-500/15 to-amber-500/10 border-amber-500/50 text-amber-100 shadow-amber-950/30"
+                : "bg-gradient-to-r from-sys-accent/20 via-sky-500/15 to-sys-accent/10 border-sys-accent/40 text-sys-text-primary shadow-cyan-950/20"
+            }`}
+          >
+            <div className="flex items-start gap-3.5 min-w-0">
+              <div
+                className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-xl font-bold ${
+                  importNotification.urgent
+                    ? "bg-amber-500/25 border border-amber-500/40 text-amber-300 animate-bounce"
+                    : "bg-sys-accent/20 border border-sys-accent/40 text-sys-accent"
+                }`}
+              >
+                {importNotification.urgent ? "⚡" : "🤖"}
+              </div>
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-sm sm:text-base font-bold tracking-tight">
+                    Автоімпорт: застосовано {importNotification.changes_count} змін
+                  </h3>
+                  {importNotification.urgent && (
+                    <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/30 text-amber-200 border border-amber-500/50 uppercase tracking-wide">
+                      Терміново: розклад на сьогодні / завтра
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-sys-text-secondary mt-1 leading-relaxed">
+                  {importNotification.dates && importNotification.dates.length > 0 ? (
+                    <>
+                      Зміни зафіксовано на дати:{" "}
+                      <span className="font-mono font-medium text-sys-text-primary">
+                        {importNotification.dates.join(", ")}
+                      </span>
+                      . Постійний шаблон розкладу не змінено.
+                    </>
+                  ) : (
+                    "Оновлено разові заміни та скасування. Постійний шаблон розкладу не змінено."
+                  )}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 self-end md:self-center shrink-0 w-full sm:w-auto justify-end">
+              <button
+                type="button"
+                onClick={() => setSelectedNotifPubId(importNotification.publication_id)}
+                className="px-3.5 py-2 rounded-xl text-xs font-semibold border border-sys-border bg-white/10 hover:bg-white/15 text-sys-text-primary transition-all active:scale-95"
+              >
+                Показати зміни
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleRevertNotification()}
+                disabled={revertingNotif}
+                className="px-3.5 py-2 rounded-xl text-xs font-semibold border border-rose-500/40 bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 transition-all active:scale-95 disabled:opacity-50"
+              >
+                {revertingNotif ? "Відкат..." : "Відкотити"}
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleDismissNotification()}
+                className="px-2.5 py-2 rounded-xl text-xs font-medium text-sys-text-muted hover:text-sys-text-primary hover:bg-white/5 transition-colors"
+                title="Приховати сповіщення"
+              >
+                Зрозуміло ✕
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Changes Modal for Notification */}
+        <PublicationChangesModal
+          publicationId={selectedNotifPubId}
+          onClose={() => setSelectedNotifPubId(null)}
+          onReverted={() => {
+            setImportNotification(null);
+            invalidateScheduleCache();
+          }}
+        />
+
         <AnimatePresence mode="wait">
           <motion.div
             key={currentTab}

@@ -537,7 +537,19 @@ export interface ImporterResponse {
     status: string;
     groups_processed: number;
     report: ImporterReport;
-    meta?: { draft_created?: number | null; unchanged?: boolean; reason?: string };
+    meta?: {
+        draft_created?: number | null;
+        unchanged?: boolean;
+        reason?: string;
+        auto_published?: boolean;
+        published_id?: number | null;
+        anomaly_detected?: boolean;
+        is_anomaly?: boolean;
+        anomaly_reasons?: string[];
+        skipped_reverted?: number;
+        skipped_manual?: number;
+        out_of_version?: number;
+    };
 }
 export interface AliasMutation {
     entity_type: string;
@@ -739,13 +751,83 @@ export const apiConstraints = {
   }
 };
 
+export interface ImportStatusResponse {
+  settings: {
+    auto_publish: boolean;
+    anomaly_group_threshold: number;
+    anomaly_total_threshold: number;
+  };
+  last_publication: {
+    id: number;
+    timestamp: string;
+    source: string;
+    changes_count: number;
+    is_reverted: boolean;
+  } | null;
+  pending_anomaly_draft: {
+    id: number;
+    name: string;
+    changes_count: number;
+    anomaly_reasons: string[];
+    created_at: string | null;
+  } | null;
+  anomaly_drafts_count: number;
+  active_notification: {
+    id: string;
+    publication_id: number;
+    source: string;
+    created_at: string;
+    changes_count: number;
+    urgent: boolean;
+    dismissed: boolean;
+    dates?: string[];
+  } | null;
+}
+
+export interface PublicationChangeItem {
+  group_id: number;
+  group_name: string;
+  date: string;
+  lesson_number: number;
+  kind: string;
+  before: string;
+  after: string;
+}
+
+export interface ImportSettingsUpdate {
+  auto_publish?: boolean;
+  anomaly_group_threshold?: number;
+  anomaly_total_threshold?: number;
+}
+
 export const apiImporter = {
-  importData: async (token: string): Promise<ImporterResponse> => {
+  importData: async (token?: string): Promise<ImporterResponse> => {
     return request<ImporterResponse>("/api/admin/import", {
       method: "POST"
     }, true, true, token);
   },
-  bulkCreateAliases: async (aliases: AliasMutation[], token: string): Promise<{status: string, inserted: number}> => {
+  getStatus: async (token?: string): Promise<ImportStatusResponse> => {
+    return request<ImportStatusResponse>("/api/admin/import/status", {
+      method: "GET"
+    }, true, true, token);
+  },
+  getSettings: async (token?: string): Promise<ImportStatusResponse["settings"]> => {
+    return request<ImportStatusResponse["settings"]>("/api/admin/import/settings", {
+      method: "GET"
+    }, true, true, token);
+  },
+  updateSettings: async (settings: ImportSettingsUpdate, token?: string): Promise<ImportStatusResponse["settings"]> => {
+    return request<ImportStatusResponse["settings"]>("/api/admin/import/settings", {
+      method: "PUT",
+      body: JSON.stringify(settings)
+    }, true, true, token);
+  },
+  dismissNotification: async (token?: string): Promise<{ status: string }> => {
+    return request<{ status: string }>("/api/admin/import/notification/dismiss", {
+      method: "POST"
+    }, true, true, token);
+  },
+  bulkCreateAliases: async (aliases: AliasMutation[], token?: string): Promise<{status: string, inserted: number}> => {
     return request<{status: string, inserted: number}>("/api/aliases/bulk", {
       method: "POST",
       body: JSON.stringify(aliases)
@@ -770,14 +852,13 @@ export interface NoteRevision {
   event: string;
   snapshot: { note: string; subject_name: string; note_date: string; lesson_number: number; archived: boolean; actor_name?: string | null };
   created_at: string;
-
 }
 
 export const api = {
-
   publications: {
     list: () => request<any[]>("/api/schedule-versions/publications", { method: "GET" }, true, true),
     revert: (id: number) => request<void>(`/api/schedule-versions/publications/${id}/revert`, { method: "POST" }, true, true),
+    changes: (id: number) => request<PublicationChangeItem[]>(`/api/schedule-versions/publications/${id}/changes`, { method: "GET" }, true, true),
   },
   notes: {
     save: (groupId: number, date: string, lessonNumber: number, subjectId: number, note: string, expectedRevision: number) =>

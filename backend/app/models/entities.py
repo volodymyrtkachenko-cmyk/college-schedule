@@ -362,6 +362,26 @@ class SchedulePublication(Base):
     source_fingerprint: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     is_reverted: Mapped[bool] = mapped_column(Boolean, default=False)
 
+    @property
+    def source(self) -> str:
+        if self.scope_manifest:
+            try:
+                import json
+                return json.loads(self.scope_manifest).get("source", "manual")
+            except Exception:
+                pass
+        return "manual"
+
+    @property
+    def changes_count(self) -> int:
+        if self.scope_manifest:
+            try:
+                import json
+                return json.loads(self.scope_manifest).get("changes_count", 0)
+            except Exception:
+                pass
+        return 0
+
 class SchedulePublicationSnapshot(Base):
     __tablename__ = "schedule_publication_snapshots"
     id: Mapped[int] = mapped_column(primary_key=True)

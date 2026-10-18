@@ -8,7 +8,7 @@ import logging
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Query, Security, Header, BackgroundTasks
 from fastapi.security.api_key import APIKeyHeader
-from sqlalchemy import text, delete, select, func
+from sqlalchemy import text, delete, select, func, update
 from sqlalchemy.orm import joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
 from types import SimpleNamespace
@@ -24,7 +24,23 @@ from app.services.importer.differ import ScheduleDiffer
 from app.routers.drafts import publish_draft
 from app.analytics import set_active_jobs, record_successful_import
 from app.services.import_slot_safety import normalize_base_slots, version_for_import
-from app.models import ScheduleDraft, ScheduleSlot, Curriculum, Schedule, ImportedScheduleChange, Group
+from app.models import (
+    ScheduleDraft,
+    ScheduleSlot,
+    Curriculum,
+    Schedule,
+    ImportedScheduleChange,
+    Group,
+    Subject,
+    Teacher,
+    ScheduleOverride,
+    ScheduleVersion,
+    Setting,
+)
+from app.models.entities import SchedulePublication, SchedulePublicationSnapshot
+from app.services.settings import settings_service
+from app.services.week import get_week_type
+import uuid
 import traceback
 from collections.abc import AsyncIterator
 
@@ -32,7 +48,32 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin", tags=["admin"])
 IMPORT_PAGE_RETRIES = 3
 
+ANOMALY_GROUP_THRESHOLD_DEFAULT = 0.30
+ANOMALY_TOTAL_THRESHOLD_DEFAULT = 0.20
 
+
+async def get_import_settings(db: AsyncSession) -> dict:
+    auto_pub_val = await settings_service.get(db, "import_auto_publish", default="true")
+    auto_publish = auto_pub_val.strip().lower() == "true" if auto_pub_val else True
+    group_thresh = float(
+        await settings_service.get(
+            db,
+            "import_anomaly_group_threshold",
+            default=str(ANOMALY_GROUP_THRESHOLD_DEFAULT),
+        )
+    )
+    total_thresh = float(
+        await settings_service.get(
+            db,
+            "import_anomaly_total_threshold",
+            default=str(ANOMALY_TOTAL_THRESHOLD_DEFAULT),
+        )
+    )
+    return {
+        "auto_publish": auto_publish,
+        "anomaly_group_threshold": group_thresh,
+        "anomaly_total_threshold": total_thresh,
+    }
 
 
 def hash_payload(payload: dict) -> str:
@@ -306,6 +347,7 @@ async def matches_published_schedule(db: AsyncSession, payload: dict, weeks: int
         {"changes": published_changes}
     )
 
+
 @router.post("/import")
 async def trigger_import(
     request: Request,
@@ -314,16 +356,145 @@ async def trigger_import(
     user=Depends(require_roles("admin"))
 ):
     logger.info("Manual import accepted: actor=%s weeks=%s", user.id, weeks)
-    return await execute_import_logic(db, weeks)
+    return await execute_import_logic(db, weeks, actor_id=user.id)
 
-async def execute_import_logic(db: AsyncSession, weeks: int = 2):
+
+@router.get("/import/status")
+async def get_import_status_endpoint(
+    db: AsyncSession = Depends(get_db),
+    user=Depends(require_roles("admin", "editor")),
+):
+    import_settings = await get_import_settings(db)
+
+    # Last publication info
+    last_pub = await db.scalar(
+        select(SchedulePublication)
+        .order_by(SchedulePublication.id.desc())
+        .limit(1)
+    )
+    last_pub_info = None
+    if last_pub:
+        scope = {}
+        try:
+            scope = json.loads(last_pub.scope_manifest or "{}")
+        except Exception:
+            pass
+        source = scope.get("source") or ("auto" if last_pub.actor_id is None else "manual")
+        changes_count = scope.get("changes_count", 0)
+        last_pub_info = {
+            "id": last_pub.id,
+            "version_id": last_pub.version_id,
+            "source": "Авто" if source == "auto" else "Вручну",
+            "source_raw": source,
+            "timestamp": last_pub.timestamp.isoformat(),
+            "changes_count": changes_count,
+            "is_reverted": last_pub.is_reverted,
+        }
+
+    # Pending anomaly drafts (for sidebar badge and banner)
+    anomaly_drafts = (await db.scalars(
+        select(ScheduleDraft)
+        .where(
+            ScheduleDraft.draft_type == "import",
+            ScheduleDraft.status == "pending",
+        )
+        .order_by(ScheduleDraft.id.desc())
+    )).all()
+    
+    anomaly_info = None
+    anomaly_count = 0
+    for ad in anomaly_drafts:
+        data = ad.data or {}
+        if data.get("is_anomaly"):
+            anomaly_count += 1
+            if anomaly_info is None:
+                anomaly_info = {
+                    "id": ad.id,
+                    "name": ad.name,
+                    "changes_count": data.get("changes_count", 0),
+                    "anomaly_reasons": data.get("anomaly_reasons", []),
+                    "created_at": ad.created_at.isoformat() if ad.created_at else None,
+                }
+
+    # Active notification for admin banner
+    notif_raw = await settings_service.get(db, "import_latest_notification")
+    active_notif = None
+    if notif_raw:
+        try:
+            parsed = json.loads(notif_raw)
+            if not parsed.get("dismissed"):
+                pub_id = parsed.get("publication_id")
+                pub = await db.get(SchedulePublication, pub_id) if pub_id else None
+                if pub and not pub.is_reverted:
+                    active_notif = parsed
+        except Exception:
+            pass
+
+    return {
+        "settings": import_settings,
+        "last_publication": last_pub_info,
+        "pending_anomaly_draft": anomaly_info,
+        "anomaly_drafts_count": anomaly_count,
+        "active_notification": active_notif,
+    }
+
+
+@router.get("/import/settings")
+async def get_settings_endpoint(
+    db: AsyncSession = Depends(get_db),
+    user=Depends(require_roles("admin")),
+):
+    return await get_import_settings(db)
+
+
+@router.put("/import/settings")
+async def update_settings_endpoint(
+    payload: dict,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(require_roles("admin")),
+):
+    if "auto_publish" in payload:
+        await settings_service.set(
+            db,
+            "import_auto_publish",
+            "true" if payload["auto_publish"] else "false",
+        )
+    if "anomaly_group_threshold" in payload:
+        val = float(payload["anomaly_group_threshold"])
+        if not 0.05 <= val <= 1.0:
+            raise HTTPException(422, "anomaly_group_threshold must be between 0.05 and 1.0")
+        await settings_service.set(db, "import_anomaly_group_threshold", str(val))
+    if "anomaly_total_threshold" in payload:
+        val = float(payload["anomaly_total_threshold"])
+        if not 0.05 <= val <= 1.0:
+            raise HTTPException(422, "anomaly_total_threshold must be between 0.05 and 1.0")
+        await settings_service.set(db, "import_anomaly_total_threshold", str(val))
+    return await get_import_settings(db)
+
+
+@router.post("/import/notification/dismiss")
+async def dismiss_notification_endpoint(
+    db: AsyncSession = Depends(get_db),
+    user=Depends(require_roles("admin", "editor")),
+):
+    notif_raw = await settings_service.get(db, "import_latest_notification")
+    if notif_raw:
+        try:
+            parsed = json.loads(notif_raw)
+            parsed["dismissed"] = True
+            await settings_service.set(db, "import_latest_notification", json.dumps(parsed))
+        except Exception:
+            pass
+    return {"status": "dismissed"}
+
+
+async def execute_import_logic(db: AsyncSession, weeks: int = 2, actor_id: int | None = None):
     if not 1 <= weeks <= 4:
         raise HTTPException(422, "Weeks must be between 1 and 4")
-    import uuid
     error_id = str(uuid.uuid4())
     try:
         async with import_mutex(engine, error_id):
-            return await _do_import(db, weeks, error_id)
+            return await _do_import(db, weeks, error_id, actor_id=actor_id)
     except HTTPException:
         raise
     except asyncio.CancelledError:
@@ -335,8 +506,8 @@ async def execute_import_logic(db: AsyncSession, weeks: int = 2):
             "error_id": error_id,
         })
 
-async def _do_import(db: AsyncSession, weeks: int, error_id: str):
-    
+
+async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int | None = None):
     fetcher = ScheduleFetcher()
     parser = KREParser()
     try:
@@ -346,8 +517,10 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str):
 
         group_ids = await fetcher.get_all_group_ids()
         if not group_ids:
-            raise HTTPException(502, detail={"code":"empty_import_group_list", "msg":"Джерело не повернуло групи. Імпорт зупинено."})
-        
+            raise HTTPException(502, detail={"code": "empty_import_group_list", "msg": "Джерело не повернуло групи. Імпорт зупинено."})
+
+        total_db_groups = await db.scalar(select(func.count(Group.id)).where(Group.is_active.is_(True))) or 0
+
         aggregated_unresolved = {}
         aggregated_unresolved_subs = []
         aggregated_substitutions = []
@@ -360,17 +533,18 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str):
         page_snapshots: list[dict] = []
         seen_page_urls: set[str] = set()
         seen_page_hashes: set[str] = set()
+        group_page_hashes: dict[str, list[str]] = {}
         raw_lessons = 0
-        
+
         semaphore = asyncio.Semaphore(5)
-        
+
         async def fetch_and_parse(client, g_id):
             async with semaphore:
                 parsed_results = []
                 url = f"{fetcher.base_url}?group={g_id}"
                 visited_urls: set[str] = set()
                 visited_hashes: set[str] = set()
-                
+
                 for _ in range(weeks):
                     try:
                         if url in visited_urls:
@@ -396,7 +570,7 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str):
                         visited_hashes.add(page_hash)
                         parsed = parser.parse(html)
                         parsed_results.append((parsed, url, page_hash))
-                        
+
                         # Find next week link
                         from selectolax.parser import HTMLParser
                         tree = HTMLParser(html)
@@ -415,22 +589,23 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str):
                         logger.error(f"Error parsing group {g_id} at {url}: {e}")
                         errors.append({"group": g_id, "url": url, "error": str(e)})
                         break
-                        
+
                 return parsed_results
 
         scraped_weeks: dict[int, set[str]] = {}
         async with httpx.AsyncClient(timeout=20.0) as client:
             tasks = [fetch_and_parse(client, g_id) for g_id in group_ids]
             parsed_weeks = await asyncio.gather(*tasks, return_exceptions=True)
-            
+
             for g_idx, parsed_week_list in enumerate(parsed_weeks):
                 if isinstance(parsed_week_list, Exception):
                     errors.append({"group": group_ids[g_idx], "error": str(parsed_week_list)})
                     continue
                 for parsed_week in parsed_week_list:
                     parsed_week_obj, source_url, page_hash = parsed_week
+                    gid = group_ids[g_idx]
                     page_snapshots.append({
-                        "group_id": group_ids[g_idx],
+                        "group_id": gid,
                         "url": source_url,
                         "html_hash": page_hash,
                         "dates": sorted({lesson.date.isoformat() for lesson in parsed_week_obj.lessons}),
@@ -438,6 +613,7 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str):
                     })
                     seen_page_urls.add(source_url)
                     seen_page_hashes.add(page_hash)
+                    group_page_hashes.setdefault(str(gid), []).append(page_hash)
                     raw_lessons += len(parsed_week_obj.lessons)
                     imported_dates.update(lesson.date.isoformat() for lesson in parsed_week_obj.lessons)
                     diff_report = await differ.diff(parsed_week_obj)
@@ -448,6 +624,7 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str):
                     }
                     for page_group_id in page_group_ids:
                         scraped_weeks.setdefault(page_group_id, set()).add(parsed_week_obj.week_type)
+                        group_page_hashes.setdefault(str(page_group_id), []).append(page_hash)
                     for item in diff_report["unresolved"]:
                         key = f"{item['type']}_{item['raw']}"
                         aggregated_unresolved[key] = item
@@ -466,6 +643,7 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str):
                         item["group_id"] for item in diff_report["cancelled"]
                     )
 
+        # Safety Guard 1 (B3.2): Dubious Parsing
         if errors and not imported_group_ids:
             failed_groups = sorted({
                 str(error["group"])
@@ -475,8 +653,27 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str):
             raise HTTPException(
                 status_code=502,
                 detail={
-                    "message": "Сайт kre.dp.ua тимчасово недоступний: не вдалося завантажити жодної групи.",
+                    "code": "dubious_parsing",
+                    "message": "Сайт kre.dp.ua тимчасово недоступний: не вдалося завантажити жодної групи. Імпорт зупинено, розклад не змінено.",
                     "failed_groups": failed_groups,
+                    "errors": errors,
+                },
+            )
+        elif raw_lessons == 0:
+            raise HTTPException(
+                status_code=502,
+                detail={
+                    "code": "dubious_parsing",
+                    "message": "Парсинг повернув 0 пар. Імпорт зупинено, наявний розклад не змінено.",
+                    "errors": errors,
+                },
+            )
+        elif total_db_groups >= 4 and len(imported_group_ids) < total_db_groups * 0.5:
+            raise HTTPException(
+                status_code=502,
+                detail={
+                    "code": "dubious_parsing_steep_drop",
+                    "message": f"Різке падіння кількості груп ({len(imported_group_ids)} з {total_db_groups}). Імпорт зупинено, наявний розклад не змінено.",
                     "errors": errors,
                 },
             )
@@ -486,127 +683,217 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str):
                 len(errors),
                 len(imported_group_ids),
             )
-                
+
         raw_base_slots = len(aggregated_base_slots)
         raw_substitutions = len(aggregated_substitutions)
         raw_cancelled = len(aggregated_cancelled)
 
-        # Scope every restoration to one unambiguous version for source dates.
+        # Scope dates and target version
         import_version_id = await version_for_import(db, imported_dates, now_local().date())
-        aggregated_base_slots = normalize_base_slots([{**slot, "room": _normalize_room(slot.get("room"))} for slot in aggregated_base_slots], prefer_incoming=True)
+        scope_dates_obj = {datetime.strptime(value, "%Y-%m-%d").date() for value in imported_dates}
 
+        # Dictionaries
+        all_groups = (await db.scalars(select(Group))).all()
+        groups_map = {g.id: g for g in all_groups}
+        all_subjects = (await db.scalars(select(Subject))).all()
+        subjects_map = {s.id: s for s in all_subjects}
+        all_teachers = (await db.scalars(select(Teacher))).all()
+        teachers_map = {t.id: t for t in all_teachers}
+
+        # Current permanent schedules (read-only for diffing & context, NOT overwritten)
         current_schedules = (await db.scalars(
             select(Schedule)
-            .where(Schedule.is_active.is_(True),
-                   Schedule.version_id == import_version_id if import_version_id is not None else Schedule.version_id.is_(None))
-            .options(joinedload(Schedule.subject), joinedload(Schedule.teacher), joinedload(Schedule.group))
+            .where(
+                Schedule.is_active.is_(True),
+                Schedule.version_id == import_version_id if import_version_id is not None else Schedule.version_id.is_(None)
+            )
+            .options(joinedload(Schedule.subject), joinedload(Schedule.teacher), joinedload(Schedule.second_teacher), joinedload(Schedule.group))
         )).all()
-        
-        scope_dates_obj = {datetime.strptime(value, "%Y-%m-%d").date() for value in imported_dates}
-        latest_changes = await _latest_published_changes(db, scope_dates_obj, imported_group_ids)
-        aggregated_substitutions = [
-            {**item, "is_new": not any(
-                c.date.isoformat() == item["date"] and
-                c.group_id == item["group_id"] and
-                c.lesson_number == item["lesson_number"] and
-                c.subject_id == item.get("subject_id") and
-                c.teacher_id == item.get("teacher_id")
-                for c in latest_changes
-            )}
-            for item in aggregated_substitutions
-        ]
-        aggregated_cancelled = [
-            {**item, "is_new": not any(
-                c.date.isoformat() == item["date"] and
-                c.group_id == item["group_id"] and
-                c.lesson_number == item["lesson_number"] and
-                c.kind == "cancelled"
-                for c in latest_changes
-            )}
-            for item in aggregated_cancelled
-            if _cancellation_matches_schedule(item, current_schedules)
-        ]
-        filtered_substitutions = raw_substitutions - len(aggregated_substitutions)
-        filtered_cancelled = raw_cancelled - len(aggregated_cancelled)
+
         aggregated_substitutions, aggregated_cancelled = _deduplicate_import_changes(
             aggregated_substitutions,
             aggregated_cancelled,
         )
 
-        # Імпорт не повинен повертати вручну додані пари.
-        # Покриття тижнів рахуємо окремо для кожної групи: порожній тиждень
-        # (канікули) у групи не повинен видаляти її розклад.
-        def coverage(group_id: int) -> tuple[bool, bool]:
-            weeks_seen = scraped_weeks.get(group_id, set())
-            both = "both" in weeks_seen
-            return both or "numerator" in weeks_seen, both or "denominator" in weeks_seen
-
-        def covers(imported_week: str, existing_week: str) -> bool:
-            return imported_week == "both" or imported_week == existing_week
-
-        for sch in current_schedules:
-            scraped_numerator, scraped_denominator = coverage(sch.group_id)
-            is_vyhovna = sch.day_of_week == 4 and sch.lesson_number == 4 and sch.subject and sch.subject.name.strip().casefold() == "виховна година"
-            
-            if sch.week_type == "numerator" and scraped_numerator and not is_vyhovna:
-                continue
-            if sch.week_type == "denominator" and scraped_denominator and not is_vyhovna:
-                continue
-            if sch.week_type == "both" and scraped_numerator and scraped_denominator and not is_vyhovna:
-                continue
-            matching_import = [
-                slot
-                for slot in aggregated_base_slots
-                if (
-                    slot["group_id"] == sch.group_id
-                    and slot["day_of_week"] == sch.day_of_week
-                    and slot["lesson_number"] == sch.lesson_number
-                    and covers(slot["week_type"], sch.week_type)
+        # Safety Guard 3: Manual edits protection (manually_edited == True or ScheduleOverride)
+        skipped_manual = []
+        clean_substitutions = []
+        for sub in aggregated_substitutions:
+            d_obj = datetime.strptime(sub["date"], "%Y-%m-%d").date()
+            has_manual = await db.scalar(
+                select(ImportedScheduleChange.id).where(
+                    ImportedScheduleChange.date == d_obj,
+                    ImportedScheduleChange.group_id == sub["group_id"],
+                    ImportedScheduleChange.lesson_number == sub["lesson_number"],
+                    ImportedScheduleChange.is_published.is_(True),
+                    ImportedScheduleChange.manually_edited.is_(True),
                 )
-            ]
-            if not matching_import:
-                preserved_week = sch.week_type
-                if sch.week_type == "both":
-                    imported_same_cell = [
-                        slot
-                        for slot in aggregated_base_slots
-                        if (
-                            slot["group_id"] == sch.group_id
-                            and slot["day_of_week"] == sch.day_of_week
-                            and slot["lesson_number"] == sch.lesson_number
-                        )
-                    ]
-                    if imported_same_cell and imported_same_cell[0]["week_type"] in {"numerator", "denominator"}:
-                        preserved_week = (
-                            "denominator"
-                            if imported_same_cell[0]["week_type"] == "numerator"
-                            else "numerator"
-                        )
-                    elif not imported_same_cell:
-                        if scraped_denominator and not scraped_numerator:
-                            preserved_week = "numerator"
-                        elif scraped_numerator and not scraped_denominator:
-                            preserved_week = "denominator"
-                teacher_id = sch.teacher_id
-                if is_vyhovna and not teacher_id and getattr(sch, "group", None) and sch.group.curator_id:
-                    teacher_id = sch.group.curator_id
-                aggregated_base_slots.append({
-                    "day_of_week": sch.day_of_week,
-                    "lesson_number": sch.lesson_number,
-                    "group_id": sch.group_id,
-                    "subject_id": sch.subject_id,
-                    "teacher_id": teacher_id,
-                    "second_teacher_id": sch.second_teacher_id,
-                    "room": sch.room_override,
-                    "week_type": preserved_week,
-                    "is_vyhovna": is_vyhovna,
+            )
+            has_override = await db.scalar(
+                select(ScheduleOverride.id).where(
+                    ScheduleOverride.group_id == sub["group_id"],
+                    ScheduleOverride.date == d_obj,
+                    ScheduleOverride.lesson_number == sub["lesson_number"],
+                )
+            )
+            if has_manual or has_override:
+                skipped_manual.append({
+                    "group_id": sub["group_id"],
+                    "group_name": groups_map.get(sub["group_id"]).name if groups_map.get(sub["group_id"]) else None,
+                    "date": sub["date"],
+                    "lesson_number": sub["lesson_number"],
+                    "kind": "substitution",
                 })
-        
-        # На сайті на місці заміни оригінальної пари немає. Відновлюємо її з поточного
-        # опублікованого розкладу, щоб у базовому розкладі не лишалось «дірок».
+            else:
+                clean_substitutions.append(sub)
+
+        clean_cancelled = []
+        for canc in aggregated_cancelled:
+            d_obj = datetime.strptime(canc["date"], "%Y-%m-%d").date()
+            has_manual = await db.scalar(
+                select(ImportedScheduleChange.id).where(
+                    ImportedScheduleChange.date == d_obj,
+                    ImportedScheduleChange.group_id == canc["group_id"],
+                    ImportedScheduleChange.lesson_number == canc["lesson_number"],
+                    ImportedScheduleChange.is_published.is_(True),
+                    ImportedScheduleChange.manually_edited.is_(True),
+                )
+            )
+            has_override = await db.scalar(
+                select(ScheduleOverride.id).where(
+                    ScheduleOverride.group_id == canc["group_id"],
+                    ScheduleOverride.date == d_obj,
+                    ScheduleOverride.lesson_number == canc["lesson_number"],
+                )
+            )
+            if has_manual or has_override:
+                skipped_manual.append({
+                    "group_id": canc["group_id"],
+                    "group_name": groups_map.get(canc["group_id"]).name if groups_map.get(canc["group_id"]) else None,
+                    "date": canc["date"],
+                    "lesson_number": canc["lesson_number"],
+                    "kind": "cancelled",
+                })
+            else:
+                clean_cancelled.append(canc)
+
+        # Rollback suppression: skip reverted changes until source page changes
+        skipped_reverted = []
+        reverted_pubs = (await db.scalars(
+            select(SchedulePublication).where(SchedulePublication.is_reverted.is_(True))
+        )).all()
+
+        suppressed_change_keys = set()
+        for rp in reverted_pubs:
+            if not rp.source_fingerprint:
+                continue
+            try:
+                fp_data = json.loads(rp.source_fingerprint)
+                prev_hashes = fp_data.get("page_hashes", {})
+            except Exception:
+                continue
+
+            rp_changes = (await db.scalars(
+                select(ImportedScheduleChange).where(ImportedScheduleChange.publication_id == rp.id)
+            )).all()
+            for rc in rp_changes:
+                gid_str = str(rc.group_id)
+                curr_h = group_page_hashes.get(gid_str, [])
+                prev_h = prev_hashes.get(gid_str, [])
+                if curr_h and prev_h and curr_h == prev_h:
+                    suppressed_change_keys.add((rc.group_id, rc.date.isoformat(), rc.lesson_number, rc.kind))
+
+        unsuppressed_substitutions = []
+        for sub in clean_substitutions:
+            key = (sub["group_id"], sub["date"], sub["lesson_number"], "substitution")
+            if key in suppressed_change_keys:
+                skipped_reverted.append(sub)
+            else:
+                unsuppressed_substitutions.append(sub)
+
+        unsuppressed_cancelled = []
+        for canc in clean_cancelled:
+            key = (canc["group_id"], canc["date"], canc["lesson_number"], "cancelled")
+            if key in suppressed_change_keys:
+                skipped_reverted.append(canc)
+            else:
+                unsuppressed_cancelled.append(canc)
+
+        aggregated_substitutions = unsuppressed_substitutions
+        aggregated_cancelled = unsuppressed_cancelled
+
+        # Safety Guard 6: Out of version dates
+        active_versions = (await db.scalars(
+            select(ScheduleVersion).where(ScheduleVersion.is_active.is_(True))
+        )).all()
+
+        def is_in_active_version(d_str: str) -> bool:
+            try:
+                d_val = datetime.strptime(d_str, "%Y-%m-%d").date()
+                return any(v.valid_from <= d_val <= v.valid_until for v in active_versions)
+            except Exception:
+                return True
+
+        out_of_version_items = [
+            item for item in [*aggregated_substitutions, *aggregated_cancelled]
+            if not is_in_active_version(item["date"])
+        ]
+
+        # Safety Guard 2: Anomaly limits (>30% in any group or >20% overall)
+        from collections import Counter
+        semester_start = await settings_service.get_semester_start(db)
+
+        group_lessons_count = Counter()
+        for sch in current_schedules:
+            for d in scope_dates_obj:
+                if d.isoweekday() == sch.day_of_week:
+                    w_type = get_week_type(d, semester_start)
+                    if _week_matches(w_type, sch.week_type):
+                        group_lessons_count[sch.group_id] += 1
+
+        total_scheduled_lessons = sum(group_lessons_count.values())
+
+        changes_per_group = Counter()
+        for sub in aggregated_substitutions:
+            changes_per_group[sub["group_id"]] += 1
+        for canc in aggregated_cancelled:
+            changes_per_group[canc["group_id"]] += 1
+
+        total_changes = len(aggregated_substitutions) + len(aggregated_cancelled)
+
+        import_settings = await get_import_settings(db)
+        anomaly_group_thresh = import_settings["anomaly_group_threshold"]
+        anomaly_total_thresh = import_settings["anomaly_total_threshold"]
+
+        is_anomaly = False
+        anomaly_reasons = []
+
+        for gid, chg_cnt in changes_per_group.items():
+            sched_cnt = group_lessons_count.get(gid, 0)
+            if sched_cnt >= 4 and (chg_cnt / sched_cnt) > anomaly_group_thresh:
+                pct = round((chg_cnt / sched_cnt) * 100)
+                grp_name = groups_map[gid].name if gid in groups_map else f"Група #{gid}"
+                is_anomaly = True
+                anomaly_reasons.append(f"У групі {grp_name} змінилося {pct}% пар ({chg_cnt} з {sched_cnt})")
+
+        if total_scheduled_lessons >= 15 and (total_changes / total_scheduled_lessons) > anomaly_total_thresh:
+            pct = round((total_changes / total_scheduled_lessons) * 100)
+            is_anomaly = True
+            anomaly_reasons.append(f"Загалом змінилося {pct}% пар ({total_changes} з {total_scheduled_lessons})")
+
+        # Safety Guard 4: No duplicates & no noise
+        latest_changes = await _latest_published_changes(db, scope_dates_obj, imported_group_ids)
+        incoming_changes_records = _canonical_change_records(aggregated_substitutions, aggregated_cancelled)
+        published_changes_records = [_change_payload(item) for item in latest_changes]
+        unchanged = (
+            import_changes_hash({"changes": incoming_changes_records})
+            == import_changes_hash({"changes": published_changes_records})
+        )
+
+        # Restore base slots under substitutions to prevent holes in draft schedule
         restored_base_slots = []
         for sub in aggregated_substitutions:
-            dow = datetime.strptime(sub["date"], "%Y-%m-%d").isoweekday()
+            dow = datetime.strptime(sub["date"], "%Y-%m-%d").date().isoweekday()
             sub_week = sub.get("week_type", "both")
             same_cell = [
                 s for s in aggregated_base_slots
@@ -631,19 +918,21 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str):
                     "teacher_id": sch.teacher_id,
                     "second_teacher_id": sch.second_teacher_id,
                     "room": sch.room_override,
-                    # Якщо в іншому тижні в цій клітинці вже є пара, відновлюємо лише для тижня заміни.
                     "week_type": sub_week if same_cell else sch.week_type,
                 }
                 aggregated_base_slots.append(slot)
                 restored_base_slots.append(slot)
                 same_cell = [*same_cell, slot]
 
-        before_final_normalization = len(aggregated_base_slots)
-        aggregated_base_slots = normalize_base_slots([{**slot, "room": _normalize_room(slot.get("room"))} for slot in aggregated_base_slots], prefer_incoming=True)
-        restored_base_slots = normalize_base_slots([{**slot, "room": _normalize_room(slot.get("room"))} for slot in restored_base_slots], prefer_incoming=True)
+        aggregated_base_slots = normalize_base_slots(
+            [{**slot, "room": _normalize_room(slot.get("room"))} for slot in aggregated_base_slots],
+            prefer_incoming=True,
+        )
+        restored_base_slots = normalize_base_slots(
+            [{**slot, "room": _normalize_room(slot.get("room"))} for slot in restored_base_slots],
+            prefer_incoming=True,
+        )
 
-        # Prepare payload for Draft Data
-        created_curriculum_ids: list[int] = []
         payload = {
             "base_version_id": import_version_id,
             "base_slots": aggregated_base_slots,
@@ -653,11 +942,14 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str):
                 "dates": sorted(imported_dates),
                 "group_ids": sorted(imported_group_ids),
             },
-            "created_curriculum_ids": created_curriculum_ids,
+            "created_curriculum_ids": [],
+            "is_anomaly": is_anomaly,
+            "anomaly_reasons": anomaly_reasons,
+            "changes_count": total_changes,
         }
         payload_hash = import_payload_hash(payload)
+
         debug_report = {
-            "base_slots_collapsed": before_final_normalization - len(aggregated_base_slots),
             "pages_fetched": len(page_snapshots),
             "unique_page_urls": len(seen_page_urls),
             "unique_page_hashes": len(seen_page_hashes),
@@ -665,19 +957,15 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str):
             "raw_base_slots": raw_base_slots,
             "raw_substitutions": raw_substitutions,
             "raw_cancelled": raw_cancelled,
-            "deduplicated_base_slots": len(aggregated_base_slots),
-            "deduplicated_substitutions": len(aggregated_substitutions),
-            "deduplicated_cancelled": len(aggregated_cancelled),
-            "filtered_substitutions": filtered_substitutions,
-            "filtered_cancelled": filtered_cancelled,
             "final_substitutions": len(aggregated_substitutions),
             "final_cancelled": len(aggregated_cancelled),
+            "skipped_manual_count": len(skipped_manual),
+            "skipped_reverted_count": len(skipped_reverted),
+            "out_of_version_count": len(out_of_version_items),
             "page_snapshots": page_snapshots,
         }
-        
-        # A pending import is only active until the next source snapshot is
-        # evaluated. Once the same snapshot is seen again, it is stale and
-        # must not reappear after reload as a new set of changes.
+
+        # Check existing pending draft and current matches
         pending_stmt = (
             select(ScheduleDraft)
             .where(
@@ -688,9 +976,6 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str):
             .limit(1)
         )
         pending_draft = await db.scalar(pending_stmt)
-
-        unchanged = False
-        is_auto_published = False
         pending_matches = (
             pending_draft
             and (
@@ -699,101 +984,282 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str):
         )
         current_matches = await matches_published_schedule(db, payload, weeks)
 
-        async def archive_pending_import() -> None:
-            if not pending_draft:
-                return
-            await db.execute(delete(ScheduleSlot).where(ScheduleSlot.draft_id == pending_draft.id))
-            created_ids = (pending_draft.data or {}).get("created_curriculum_ids", [])
-            if created_ids:
-                await db.execute(delete(Curriculum).where(Curriculum.id.in_(created_ids)))
-            pending_draft.status = "archived"
+        auto_published = False
+        publication_id = None
+        draft_id = None
+        unchanged = False
+        draft_reason = None
 
-        if pending_matches:
-            pending_draft.data = {**(pending_draft.data or {}), "import_scope": payload["import_scope"]}
-            pending_draft.revision += 1
-            await db.commit()
-            draft_id = pending_draft.id
-            unchanged = False
-        elif current_matches:
-            logger.info("Import payload identical to the latest import. Skipping creation.")
-            await db.commit()
-            draft_id = None
-            unchanged = True
-        else:
-            if pending_draft:
-                await archive_pending_import()
-            draft_name = f"Імпорт {now_local().strftime('%Y-%m-%d %H:%M')}"
-            draft = ScheduleDraft(name=draft_name, draft_type="import", status="pending", data=payload)
-            db.add(draft)
+        if import_settings["auto_publish"] and not is_anomaly:
+            if current_matches:
+                logger.info("Import payload identical to currently published schedule. Skipping publication.")
+                unchanged = True
+                await db.commit()
+            else:
+                # Auto-publish immediately: one-off changes layer only (permanent schedule is NOT touched)
+                auto_published = True
+            source_label = "manual" if actor_id is not None else "auto"
+
+            publication = SchedulePublication(
+                version_id=import_version_id,
+                actor_id=actor_id,
+                scope_manifest=json.dumps({
+                    "source": source_label,
+                    "group_ids": sorted(list(imported_group_ids)),
+                    "changes_count": total_changes,
+                    "dates": sorted(list(imported_dates)),
+                }),
+                source_fingerprint=json.dumps({
+                    "source_type": source_label,
+                    "page_hashes": group_page_hashes,
+                    "payload_hash": payload_hash,
+                }),
+            )
+            db.add(publication)
             await db.flush()
-            draft_id = draft.id
-            
-            # Save Base Slots
-            all_group_ids = {slot["group_id"] for slot in aggregated_base_slots}
-            groups_map = {}
-            if all_group_ids:
-                g_res = await db.scalars(select(Group).where(Group.id.in_(all_group_ids)))
-                groups_map = {g.id: g for g in g_res}
+            publication_id = publication.id
 
-            for slot in aggregated_base_slots:
-                tid = slot.get("teacher_id")
-                if not tid and slot.get("is_vyhovna"):
-                    grp = groups_map.get(slot["group_id"])
-                    if grp and grp.curator_id:
-                        tid = grp.curator_id
-                        slot["teacher_id"] = tid
-
-                if not tid:
-                    logger.warning("Skipping base slot without teacher_id for group %s, subject %s", slot["group_id"], slot["subject_id"])
-                    continue
-
-                stmt_c = select(Curriculum).where(
-                    Curriculum.group_id == slot["group_id"],
-                    Curriculum.subject_id == slot["subject_id"],
-                    Curriculum.teacher_id == tid,
-                )
-                if slot.get("second_teacher_id"):
-                    stmt_c = stmt_c.where(Curriculum.second_teacher_id == slot["second_teacher_id"])
-                
-                curr = await db.scalar(stmt_c)
-                if not curr:
-                    curr = Curriculum(
-                        group_id=slot["group_id"],
-                        subject_id=slot["subject_id"],
-                        teacher_id=tid,
-                        second_teacher_id=slot.get("second_teacher_id"),
-                        pairs_per_2_weeks=2,
-                        total_hours=0
+            # Retire older active changes in scope
+            if scope_dates_obj and imported_group_ids:
+                await db.execute(
+                    update(ImportedScheduleChange)
+                    .where(
+                        ImportedScheduleChange.is_published.is_(True),
+                        ImportedScheduleChange.date.in_(scope_dates_obj),
+                        ImportedScheduleChange.group_id.in_(imported_group_ids),
+                        ImportedScheduleChange.manually_edited.is_(False),
                     )
-                    db.add(curr)
-                    await db.flush()
-                    created_curriculum_ids.append(curr.id)
-                
-                db_slot = ScheduleSlot(
-                    draft_id=draft.id,
-                    curriculum_id=curr.id,
-                    day_of_week=slot["day_of_week"],
-                    lesson_number=slot["lesson_number"],
-                    room_override=slot["room"],
-                    week_type=slot.get("week_type", "both")
+                    .values(is_published=False)
                 )
-                db.add(db_slot)
-                
-            
-            draft.data = {**payload, "created_curriculum_ids": created_curriculum_ids}
-            draft.revision += 1
+
+            # Insert substitutions
+            for sub in aggregated_substitutions:
+                d_obj = datetime.strptime(sub["date"], "%Y-%m-%d").date()
+                latest = await db.scalar(
+                    select(func.max(ImportedScheduleChange.version)).where(
+                        ImportedScheduleChange.date == d_obj,
+                        ImportedScheduleChange.group_id == sub["group_id"],
+                        ImportedScheduleChange.lesson_number == sub["lesson_number"],
+                    )
+                )
+                db.add(ImportedScheduleChange(
+                    publication_id=publication.id,
+                    date=d_obj,
+                    kind="substitution",
+                    group_id=sub["group_id"],
+                    subject_id=sub.get("subject_id"),
+                    teacher_id=sub.get("teacher_id"),
+                    second_teacher_id=sub.get("second_teacher_id"),
+                    lesson_number=sub["lesson_number"],
+                    room_override=sub.get("room"),
+                    is_published=True,
+                    version=(latest or 0) + 1,
+                ))
+
+                dow = d_obj.isoweekday()
+                w_type = get_week_type(d_obj, semester_start)
+                base_p = next((
+                    s for s in current_schedules
+                    if s.group_id == sub["group_id"] and s.day_of_week == dow and s.lesson_number == sub["lesson_number"] and _week_matches(w_type, s.week_type)
+                ), None)
+                before_str = "Немає пари"
+                if base_p:
+                    subj_name = base_p.subject.name if base_p.subject else ""
+                    teach_name = base_p.teacher.name if base_p.teacher else ""
+                    room_str = f", ауд. {base_p.room_override}" if base_p.room_override else ""
+                    before_str = f"{subj_name} ({teach_name}{room_str})".strip()
+                new_subj = subjects_map.get(sub.get("subject_id"))
+                new_teach = teachers_map.get(sub.get("teacher_id"))
+                new_room = f", ауд. {sub.get('room')}" if sub.get("room") else ""
+                after_str = f"{new_subj.name if new_subj else ''} ({new_teach.name if new_teach else ''}{new_room})".strip()
+
+                db.add(SchedulePublicationSnapshot(
+                    publication_id=publication.id,
+                    group_id=sub["group_id"],
+                    date=d_obj,
+                    lesson_number=sub["lesson_number"],
+                    before_data=json.dumps({"summary": before_str}),
+                    after_data=json.dumps({"kind": "substitution", "summary": after_str}),
+                ))
+
+            # Insert cancellations
+            for canc in aggregated_cancelled:
+                d_obj = datetime.strptime(canc["date"], "%Y-%m-%d").date()
+                latest = await db.scalar(
+                    select(func.max(ImportedScheduleChange.version)).where(
+                        ImportedScheduleChange.date == d_obj,
+                        ImportedScheduleChange.group_id == canc["group_id"],
+                        ImportedScheduleChange.lesson_number == canc["lesson_number"],
+                    )
+                )
+                db.add(ImportedScheduleChange(
+                    publication_id=publication.id,
+                    date=d_obj,
+                    kind="cancelled",
+                    group_id=canc["group_id"],
+                    lesson_number=canc["lesson_number"],
+                    is_published=True,
+                    version=(latest or 0) + 1,
+                ))
+
+                dow = d_obj.isoweekday()
+                w_type = get_week_type(d_obj, semester_start)
+                base_p = next((
+                    s for s in current_schedules
+                    if s.group_id == canc["group_id"] and s.day_of_week == dow and s.lesson_number == canc["lesson_number"] and _week_matches(w_type, s.week_type)
+                ), None)
+                before_str = "Базовий розклад"
+                if base_p:
+                    subj_name = base_p.subject.name if base_p.subject else ""
+                    teach_name = base_p.teacher.name if base_p.teacher else ""
+                    before_str = f"{subj_name} ({teach_name})".strip()
+
+                db.add(SchedulePublicationSnapshot(
+                    publication_id=publication.id,
+                    group_id=canc["group_id"],
+                    date=d_obj,
+                    lesson_number=canc["lesson_number"],
+                    before_data=json.dumps({"summary": before_str}),
+                    after_data=json.dumps({"kind": "cancelled", "summary": "Скасовано"}),
+                ))
+
+            # Archive older non-anomaly pending import drafts
+            old_pending = (await db.scalars(
+                select(ScheduleDraft).where(
+                    ScheduleDraft.draft_type == "import",
+                    ScheduleDraft.status == "pending",
+                )
+            )).all()
+            for d in old_pending:
+                if not (d.data or {}).get("is_anomaly"):
+                    d.status = "archived"
+
+            # Create admin notification
+            today = now_local().date()
+            tomorrow = today + timedelta(days=1)
+            urgent = any(
+                datetime.strptime(item["date"], "%Y-%m-%d").date() in (today, tomorrow)
+                for item in [*aggregated_substitutions, *aggregated_cancelled]
+            )
+            notif_data = {
+                "id": str(uuid.uuid4()),
+                "publication_id": publication.id,
+                "source": source_label,
+                "created_at": now_local().isoformat(),
+                "changes_count": total_changes,
+                "urgent": urgent,
+                "dismissed": False,
+            }
+            await settings_service.set(db, "import_latest_notification", json.dumps(notif_data))
+
             await db.commit()
+            settings_service.invalidate_cache()
+        else:
+            # Either auto_publish is False or an anomaly was detected: use draft model
+            async def archive_pending_import() -> None:
+                if not pending_draft:
+                    return
+                await db.execute(delete(ScheduleSlot).where(ScheduleSlot.draft_id == pending_draft.id))
+                created_ids = (pending_draft.data or {}).get("created_curriculum_ids", [])
+                if created_ids:
+                    await db.execute(delete(Curriculum).where(Curriculum.id.in_(created_ids)))
+                pending_draft.status = "archived"
+
+            if pending_matches:
+                pending_draft.data = {**(pending_draft.data or {}), "import_scope": payload["import_scope"]}
+                pending_draft.revision += 1
+                await db.commit()
+                draft_id = pending_draft.id
+                unchanged = False
+                draft_reason = "same_pending_payload"
+            elif current_matches:
+                logger.info("Import payload identical to currently published schedule. Skipping creation.")
+                await db.commit()
+                draft_id = None
+                unchanged = True
+                draft_reason = "same_effective_schedule"
+            else:
+                if pending_draft:
+                    await archive_pending_import()
+                draft_name = (
+                    f"Аномальний імпорт {now_local().strftime('%Y-%m-%d %H:%M')}"
+                    if is_anomaly
+                    else f"Імпорт {now_local().strftime('%Y-%m-%d %H:%M')}"
+                )
+                draft = ScheduleDraft(
+                    name=draft_name,
+                    draft_type="import",
+                    status="pending",
+                    data=payload,
+                )
+                db.add(draft)
+                await db.flush()
+                draft_id = draft.id
+
+                created_curriculum_ids: list[int] = []
+                all_group_ids = {slot["group_id"] for slot in aggregated_base_slots}
+                d_groups_map = {}
+                if all_group_ids:
+                    g_res = await db.scalars(select(Group).where(Group.id.in_(all_group_ids)))
+                    d_groups_map = {g.id: g for g in g_res}
+
+                for slot in aggregated_base_slots:
+                    tid = slot.get("teacher_id")
+                    if not tid and slot.get("is_vyhovna"):
+                        grp = d_groups_map.get(slot["group_id"])
+                        if grp and grp.curator_id:
+                            tid = grp.curator_id
+                            slot["teacher_id"] = tid
+
+                    if not tid:
+                        logger.warning("Skipping base slot without teacher_id for group %s, subject %s", slot["group_id"], slot["subject_id"])
+                        continue
+                    stmt_c = select(Curriculum).where(
+                        Curriculum.group_id == slot["group_id"],
+                        Curriculum.subject_id == slot["subject_id"],
+                        Curriculum.teacher_id == tid,
+                    )
+                    if slot.get("second_teacher_id"):
+                        stmt_c = stmt_c.where(Curriculum.second_teacher_id == slot["second_teacher_id"])
+                    curr = await db.scalar(stmt_c)
+                    if not curr:
+                        curr = Curriculum(
+                            group_id=slot["group_id"],
+                            subject_id=slot["subject_id"],
+                            teacher_id=tid,
+                            second_teacher_id=slot.get("second_teacher_id"),
+                            pairs_per_2_weeks=2,
+                            total_hours=0,
+                        )
+                        db.add(curr)
+                        await db.flush()
+                        created_curriculum_ids.append(curr.id)
+
+                    db_slot = ScheduleSlot(
+                        draft_id=draft.id,
+                        curriculum_id=curr.id,
+                        day_of_week=slot["day_of_week"],
+                        lesson_number=slot["lesson_number"],
+                        room_override=slot["room"],
+                        week_type=slot.get("week_type", "both"),
+                    )
+                    db.add(db_slot)
+
+                draft.data = {**payload, "created_curriculum_ids": created_curriculum_ids}
+                draft.revision += 1
+                await db.commit()
+                draft_reason = "anomaly_detected" if is_anomaly else "draft_created"
 
         set_active_jobs(0)
         record_successful_import()
         return {
-            "status": "success", 
+            "status": "anomaly_draft" if is_anomaly else "success",
             "groups_processed": len(group_ids),
-            "groups_ok": len(group_ids) - len(set(e["group"] for e in errors)),
-            "groups_failed": len(set(e["group"] for e in errors)),
+            "groups_ok": len(imported_group_ids),
+            "groups_failed": len(set(e.get("group") for e in errors if e.get("group") is not None)),
             "substitutions_found": len(aggregated_substitutions) + len(aggregated_unresolved_subs),
             "substitutions_saved": len(aggregated_substitutions),
-            "substitutions_updated": 0, # Pending draft stores them
+            "substitutions_updated": 0,
             "substitutions_unresolved": len(aggregated_unresolved_subs),
             "substitutions_orphaned": 0,
             "errors": errors,
@@ -801,19 +1267,27 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str):
                 "unresolved": list(aggregated_unresolved.values()),
                 "unresolved_substitutions": aggregated_unresolved_subs,
                 "substitutions": aggregated_substitutions,
+                "cancelled": aggregated_cancelled,
                 "base_slots": aggregated_base_slots,
                 "skipped_base_slots": aggregated_skipped,
                 "restored_base_slots": restored_base_slots,
+                "skipped_manual": skipped_manual,
+                "skipped_reverted": skipped_reverted,
+                "out_of_version": out_of_version_items,
+                "anomaly_reasons": anomaly_reasons,
                 "debug": debug_report,
             },
-            
             "meta": {
                 "draft_created": draft_id,
+                "publication_id": publication_id,
                 "unchanged": unchanged,
-                "auto_published": is_auto_published,
-
-                "reason": "same_pending_payload" if pending_matches else (
-                    "same_effective_schedule" if unchanged else "draft_created"
+                "auto_published": auto_published,
+                "is_anomaly": is_anomaly,
+                "anomaly_reasons": anomaly_reasons,
+                "reason": (
+                    draft_reason if draft_reason
+                    else ("same_effective_schedule" if unchanged
+                    else ("auto_published" if auto_published else "draft_created"))
                 ),
             }
         }
@@ -823,7 +1297,6 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str):
         logger.error(f"Import error [{error_id}]: {e}", exc_info=True)
         set_active_jobs(0)
         raise HTTPException(status_code=500, detail={"msg": "Внутрішня помилка імпорту. Зверніться до підтримки.", "error_id": error_id})
-
 
 
 @router.post("/import/cron")
@@ -844,7 +1317,7 @@ async def import_data_cron(
         raise HTTPException(status_code=401, detail="Unauthorized cron")
         
     logger.info("Cron import accepted")
-    return await execute_import_logic(db, 2)
+    return await execute_import_logic(db, 2, actor_id=None)
 
 
 async def schedule_auto_import_loop() -> None:
@@ -856,32 +1329,14 @@ async def schedule_auto_import_loop() -> None:
         try:
             async with async_session_factory() as db:
                 logger.info("Auto-import: checking schedule and substitutions from college site...")
-                result = await execute_import_logic(db=db, weeks=2)
+                result = await execute_import_logic(db=db, weeks=2, actor_id=None)
                 meta = result.get("meta", {})
-                report = result.get("report", {})
-                draft_id = meta.get("draft_created")
-
                 if meta.get("unchanged"):
                     logger.info("Auto-import: schedule on college site is unchanged.")
-                elif draft_id:
-                    unresolved = report.get("unresolved", [])
-                    unresolved_subs = report.get("unresolved_substitutions", [])
-                    if len(unresolved) == 0 and len(unresolved_subs) == 0:
-                        draft = await db.get(ScheduleDraft, draft_id)
-                        if draft and draft.status == "pending":
-                            system_admin = SimpleNamespace(id=None, role="admin")
-                            await publish_draft(
-                                id=draft.id,
-                                expected_revision=draft.revision,
-                                db=db,
-                                current_user=system_admin,
-                            )
-                            logger.info("Auto-import: draft %s auto-published successfully.", draft_id)
-                    else:
-                        logger.info(
-                            "Auto-import: pending draft %s created (has unresolved entities, awaiting admin review).",
-                            draft_id,
-                        )
+                elif meta.get("auto_published"):
+                    logger.info("Auto-import: changes auto-published successfully.")
+                elif meta.get("is_anomaly"):
+                    logger.warning("Auto-import: anomaly detected, left as draft for admin review.")
         except asyncio.CancelledError:
             break
         except Exception as e:
