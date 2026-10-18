@@ -296,3 +296,24 @@ async def test_period_crud_and_invalid_dates(calendar_client):
     async with sessions() as session:
         assert await session.get(SchedulePeriod, period_id) is None
         assert (await session.scalars(select(SchedulePeriodSlot))).all() == []
+
+
+@pytest.mark.anyio
+async def test_create_session_period_without_slots(calendar_client):
+    client, headers, ids, _ = calendar_client
+    payload = {
+        "name": "Екзаменаційна сесія",
+        "period_type": "session",
+        "start_date": "2026-12-28",
+        "end_date": "2027-01-11",
+        "group_ids": [ids["group"]],
+        "slots": [],
+    }
+    response = await client.post("/api/calendar-periods/", json=payload, headers=headers)
+    assert response.status_code == 201, response.text
+    data = response.json()
+    assert data["name"] == "Екзаменаційна сесія"
+    assert data["period_type"] == "session"
+    assert data["slots"] == []
+    assert [g["id"] for g in data["groups"]] == [ids["group"]]
+

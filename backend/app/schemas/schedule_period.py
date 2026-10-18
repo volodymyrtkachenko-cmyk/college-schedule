@@ -38,9 +38,9 @@ class SchedulePeriodCreate(BaseModel):
             raise ValueError("Дата початку має бути не пізніше дати завершення")
         if len(set(self.group_ids)) != len(self.group_ids) or any(group_id <= 0 for group_id in self.group_ids):
             raise ValueError("Список груп містить недопустимі або повторні значення")
-        if self.period_type == "holiday":
+        if self.period_type != "practice":
             if self.slots:
-                raise ValueError("Для канікул не потрібно вказувати пари")
+                raise ValueError("Для цього типу періоду не потрібно вказувати пари")
             return self
 
         if not self.group_ids or not self.slots:

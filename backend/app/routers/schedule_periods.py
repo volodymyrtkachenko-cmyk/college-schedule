@@ -68,7 +68,7 @@ async def _validate_references(db: AsyncSession, payload: SchedulePeriodCreate) 
     ).all()
     if len(groups) != len(payload.group_ids):
         raise HTTPException(status_code=400, detail="Одна або кілька вибраних груп не існують або неактивні")
-    if payload.period_type == "holiday":
+    if payload.period_type != "practice":
         return list(groups)
 
     subject_ids = {slot.subject_id for slot in payload.slots}
