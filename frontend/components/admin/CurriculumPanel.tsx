@@ -318,22 +318,37 @@ export function CurriculumPanel() {
       </button>
 
       {editor && (
-        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 backdrop-blur-sm shadow-2xl">
-          <div className="flex max-h-[92dvh] w-full sm:max-w-2xl flex-col rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card shadow-2xl overflow-hidden">
-            <div className="bg-gradient-to-b from-white/5 to-transparent p-6 pb-4 border-b border-sys-border/50 sticky top-0 flex justify-between items-center z-10">
+        <div
+          className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 backdrop-blur-sm shadow-2xl"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setEditor(null);
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={editor.id ? "Редагування навантаження" : "Нове навантаження"}
+            className="flex max-h-[92dvh] w-full sm:max-w-2xl flex-col rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card shadow-2xl overflow-hidden pb-safe animate-in slide-in-from-bottom-6 sm:slide-in-from-bottom-2 duration-200"
+          >
+            <div className="bg-gradient-to-b from-white/5 to-transparent p-5 sm:p-6 pb-4 border-b border-sys-border/50 sticky top-0 flex justify-between items-center z-10 bg-sys-card">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sys-accent/20 text-sys-accent">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-sys-text-primary">
+                  <h3 className="text-base sm:text-lg font-bold text-sys-text-primary">
                     {editor.id ? "Редагування навантаження" : "Нове навантаження"}
                   </h3>
-                  <p className="text-sm text-sys-text-secondary">{editor.id ? "Змініть параметри плану для групи" : "Додайте план одразу для багатьох груп"}</p>
+                  <p className="text-xs text-sys-text-secondary mt-0.5">{editor.id ? "Змініть параметри плану для групи" : "Додайте план одразу для багатьох груп"}</p>
                 </div>
               </div>
-              <button onClick={() => setEditor(null)} className="rounded-full p-2 text-sys-text-secondary hover:bg-sys-bg hover:text-sys-text-primary transition-colors">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              <button
+                type="button"
+                onClick={() => setEditor(null)}
+                aria-label="Закрити"
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-sys-text-secondary hover:bg-white/5 hover:text-sys-text-primary transition-colors text-base"
+              >
+                ✕
               </button>
             </div>
             <div className="p-6 overflow-y-auto">
@@ -431,9 +446,9 @@ export function CurriculumPanel() {
                  </label>
                </div>
 
-               <div className="flex gap-4 items-center">
-                  <span className="text-sm font-medium text-sys-text-secondary w-32">Тип тижня:</span>
-                  <select value={editor.require_week || ""} onChange={e => setEditor({...editor, require_week: e.target.value || null})} className="flex-1 rounded-[6px] border border-sys-border bg-sys-input px-3 py-1.5 text-sm text-sys-text focus:border-sys-accent focus:outline-none focus:ring-1 focus:ring-sys-accent">
+               <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-1">
+                  <span className="text-sm font-medium text-sys-text-secondary w-auto sm:w-32 shrink-0">Тип тижня:</span>
+                  <select value={editor.require_week || ""} onChange={e => setEditor({...editor, require_week: e.target.value || null})} className="form-control text-sm flex-1">
                     <option value="">Без обмежень</option>
                     <option value="numerator">Тільки чисельник</option>
                     <option value="denominator">Тільки знаменник</option>
@@ -441,8 +456,8 @@ export function CurriculumPanel() {
                </div>
                
                {editor.is_fixed && (
-                     <div className="flex gap-4 mt-2 ml-8">
-                       <select value={editor.strict_day || ""} onChange={e => setEditor({...editor, strict_day: parseInt(e.target.value)})} className="rounded-[8px] border-[0.5px] border-sys-border bg-sys-input px-3 py-1.5 text-[14px] text-sys-text-primary outline-none">
+                     <div className="flex flex-col sm:flex-row gap-2.5 mt-2 ml-0 sm:ml-8">
+                       <select value={editor.strict_day || ""} onChange={e => setEditor({...editor, strict_day: parseInt(e.target.value)})} className="form-control text-sm flex-1">
                          <option value="" disabled>Оберіть день</option>
                          <option value="1">Понеділок</option>
                          <option value="2">Вівторок</option>
@@ -451,7 +466,7 @@ export function CurriculumPanel() {
                          <option value="5">П'ятниця</option>
                        </select>
                        {editor.allow_multiple_per_day ? (
-                         <select value={editor.strict_lesson || ""} onChange={e => setEditor({...editor, strict_lesson: e.target.value ? parseInt(e.target.value) : null})} className="rounded-[8px] border-[0.5px] border-sys-border bg-sys-input px-3 py-1.5 text-[14px] text-sys-text-primary outline-none">
+                         <select value={editor.strict_lesson || ""} onChange={e => setEditor({...editor, strict_lesson: e.target.value ? parseInt(e.target.value) : null})} className="form-control text-sm flex-1">
                            <option value="">Автоматичний підбір пар</option>
                            <option value="12">1 та 2 пари (2 пари)</option>
                            <option value="23">2 та 3 пари (2 пари)</option>
@@ -461,7 +476,7 @@ export function CurriculumPanel() {
                            <option value="1234">Усі 4 пари</option>
                          </select>
                        ) : (
-                         <select value={editor.strict_lesson || ""} onChange={e => setEditor({...editor, strict_lesson: e.target.value ? parseInt(e.target.value) : null})} className="rounded-[8px] border-[0.5px] border-sys-border bg-sys-input px-3 py-1.5 text-[14px] text-sys-text-primary outline-none">
+                         <select value={editor.strict_lesson || ""} onChange={e => setEditor({...editor, strict_lesson: e.target.value ? parseInt(e.target.value) : null})} className="form-control text-sm flex-1">
                            <option value="" disabled>Оберіть пару</option>
                            <option value="1">1 пара</option>
                            <option value="2">2 пара</option>
@@ -489,11 +504,19 @@ export function CurriculumPanel() {
               </form>
             </div>
             
-            <div className="bg-sys-bg/30 px-6 py-4 flex justify-end gap-3 border-t border-sys-border/50">
-               <button onClick={() => setEditor(null)} className="rounded-lg border border-sys-border px-4 py-2 text-sm font-medium text-sys-text-primary hover:bg-sys-bg transition-colors">
+            <div className="sticky bottom-0 z-10 bg-sys-bg/80 backdrop-blur-xs p-4 sm:px-6 sm:py-3.5 flex flex-col-reverse sm:flex-row justify-end gap-2.5 border-t border-sys-border/50">
+               <button
+                  type="button"
+                  onClick={() => setEditor(null)}
+                  className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-lg border border-sys-border bg-sys-card px-4 py-2 text-sm font-semibold text-sys-text-primary hover:bg-white/5 active:scale-[0.98] transition-all"
+               >
                   Скасувати
                </button>
-               <button type="submit" form="curr-form" className="flex items-center gap-2 rounded-lg bg-sys-accent px-5 py-2 text-sm font-medium text-[#0b1120] hover:opacity-90 transition-colors">
+               <button
+                  type="submit"
+                  form="curr-form"
+                  className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] flex items-center justify-center gap-2 rounded-lg bg-sys-accent px-6 py-2 text-sm font-bold text-[#0b1120] hover:opacity-90 active:scale-[0.98] transition-all shadow-sm"
+               >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
                   Зберегти
                </button>

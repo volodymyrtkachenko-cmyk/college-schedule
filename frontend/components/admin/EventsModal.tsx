@@ -191,24 +191,41 @@ export function EventsModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-sys-border bg-sys-card shadow-2xl">
-        <div className="flex items-center justify-between border-b border-sys-border px-6 py-4">
-          <div className="flex items-center gap-2">
-            <span className="text-xl">📅</span>
+    <div
+      className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/70 p-0 sm:p-4 backdrop-blur-sm"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={eventToEdit ? "Редагування події сесії" : "Розклад сесії та спеціальних подій"}
+        className="flex max-h-[92dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card shadow-2xl pb-safe animate-in slide-in-from-bottom-6 sm:slide-in-from-bottom-2 duration-200"
+      >
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-sys-border/50 bg-sys-card px-5 py-4">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sys-accent/15 text-sys-accent">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
+            </div>
             <div>
               <h3 className="text-base font-bold text-sys-text-primary">
                 {eventToEdit ? "Редагування події сесії" : "Розклад сесії та спеціальних подій"}
               </h3>
-              <p className="text-xs text-sys-text-secondary">Події автоматично відображаються у розкладі як звичайні пари</p>
+              <p className="text-xs text-sys-text-secondary mt-0.5">Події автоматично відображаються у розкладі як звичайні пари</p>
             </div>
           </div>
-          <button type="button" onClick={onClose} className="text-sm text-sys-text-secondary hover:text-white">
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Закрити"
+            className="w-9 h-9 flex items-center justify-center rounded-lg text-sys-text-secondary hover:bg-white/5 hover:text-white text-lg transition-colors"
+          >
             ✕
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+        <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4">
           {/* Група та тип події */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="space-y-1">
@@ -238,15 +255,15 @@ export function EventsModal({
           </div>
 
           {/* Номер пари у розкладі */}
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             <span className="text-xs font-medium text-sys-text-secondary">Номер пари у розкладі</span>
-            <div className="grid grid-cols-6 gap-2">
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
               {[1, 2, 3, 4, 5].map((num) => (
                 <button
                   key={num}
                   type="button"
                   onClick={() => handleLessonNumberChange(num)}
-                  className={`rounded-lg border px-2 py-1.5 text-xs font-bold transition-colors ${
+                  className={`min-h-[40px] flex items-center justify-center rounded-lg border px-2 py-1.5 text-xs font-bold transition-colors ${
                     lessonNumber === num
                       ? "border-sys-accent bg-sys-accent/20 text-sys-accent shadow-xs"
                       : "border-sys-border bg-sys-bg/60 text-sys-text-secondary hover:border-sys-border/80 hover:text-sys-text-primary"
@@ -258,7 +275,7 @@ export function EventsModal({
               <button
                 type="button"
                 onClick={() => handleLessonNumberChange(null)}
-                className={`rounded-lg border px-2 py-1.5 text-xs font-semibold transition-colors ${
+                className={`min-h-[40px] flex items-center justify-center rounded-lg border px-2 py-1.5 text-xs font-semibold transition-colors ${
                   lessonNumber === null
                     ? "border-sys-accent bg-sys-accent/20 text-sys-accent shadow-xs"
                     : "border-sys-border bg-sys-bg/60 text-sys-text-secondary hover:border-sys-border/80 hover:text-sys-text-primary"
@@ -326,7 +343,7 @@ export function EventsModal({
           </div>
 
           {/* Дата, Час, Аудиторія */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <label className="space-y-1">
               <span className="text-xs font-medium text-sys-text-secondary">Дата</span>
               <input
@@ -371,9 +388,9 @@ export function EventsModal({
             </label>
           </div>
 
-          <div className="flex items-center justify-between pt-3 border-t border-sys-border">
+          <div className="sticky bottom-0 z-10 pt-3 border-t border-sys-border/50 bg-sys-card/90 backdrop-blur-xs">
             {eventToEdit ? (
-              <>
+              <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
                 <button
                   type="button"
                   disabled={saving}
@@ -383,15 +400,15 @@ export function EventsModal({
                       onClose();
                     }
                   }}
-                  className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-3.5 py-2 text-xs font-bold text-rose-400 transition-colors hover:bg-rose-500/20 disabled:opacity-50"
+                  className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-lg border border-rose-500/40 bg-rose-500/10 px-4 py-2 text-xs sm:text-sm font-bold text-rose-400 transition-colors hover:bg-rose-500/20 active:scale-[0.98] disabled:opacity-50"
                 >
                   Видалити подію
                 </button>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-2.5">
                   <button
                     type="button"
                     onClick={onClose}
-                    className="rounded-lg border border-sys-border px-3.5 py-2 text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary"
+                    className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-lg border border-sys-border bg-sys-card px-4 py-2 text-xs sm:text-sm font-semibold text-sys-text-secondary hover:text-sys-text-primary active:scale-[0.98]"
                   >
                     Скасувати
                   </button>
@@ -399,19 +416,26 @@ export function EventsModal({
                     type="button"
                     disabled={saving || !groupId}
                     onClick={() => void handleSave()}
-                    className="rounded-lg bg-sys-accent px-4 py-2 text-xs font-bold text-[#0b1120] shadow-sm transition-all hover:opacity-90 disabled:opacity-50"
+                    className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-lg bg-sys-accent px-5 py-2 text-xs sm:text-sm font-bold text-[#0b1120] shadow-sm transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-50"
                   >
                     {saving ? "Зберігаємо..." : "Зберегти зміни"}
                   </button>
                 </div>
-              </>
+              </div>
             ) : (
-              <div className="flex w-full justify-end">
+              <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-lg border border-sys-border bg-sys-card px-4 py-2 text-xs sm:text-sm font-semibold text-sys-text-secondary hover:text-sys-text-primary active:scale-[0.98]"
+                >
+                  Скасувати
+                </button>
                 <button
                   type="button"
                   disabled={saving || !groupId}
                   onClick={() => void handleSave()}
-                  className="rounded-lg bg-sys-accent px-4 py-2 text-xs font-bold text-[#0b1120] shadow-sm transition-all hover:opacity-90 disabled:opacity-50"
+                  className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-lg bg-sys-accent px-5 py-2 text-xs sm:text-sm font-bold text-[#0b1120] shadow-sm transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-50"
                 >
                   {saving ? "Додаємо..." : "+ Додати подію у розклад"}
                 </button>
@@ -432,19 +456,19 @@ export function EventsModal({
                   {events.map((ev) => (
                     <div
                       key={ev.id}
-                      className="flex items-center justify-between rounded-xl border border-sys-border bg-sys-bg/50 px-3.5 py-2.5 text-xs transition-colors hover:border-sys-border/80"
+                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-xl border border-sys-border bg-sys-bg/50 px-3.5 py-2.5 text-xs transition-colors hover:border-sys-border/80"
                     >
-                      <div className="space-y-0.5">
-                        <div className="flex items-center gap-2">
+                      <div className="space-y-0.5 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
                           <span className="font-bold text-white">{ev.event_date}</span>
                           <span className="rounded bg-sys-bg px-1.5 py-0.5 font-mono text-[11px] text-sys-accent">
                             {ev.lesson_number ? `${ev.lesson_number} пара` : ""} {ev.start_time}
                           </span>
-                          <span className="font-semibold text-sys-accent">
+                          <span className="font-semibold text-sys-accent truncate">
                             {ev.custom_subject || ev.subject_name || ev.title}
                           </span>
                         </div>
-                        <div className="flex items-center gap-2 text-[11px] text-sys-text-secondary">
+                        <div className="flex flex-wrap items-center gap-2 text-[11px] text-sys-text-secondary">
                           {ev.title && ev.title !== ev.custom_subject && ev.title !== ev.subject_name && (
                             <span className="italic">{ev.title}</span>
                           )}
@@ -456,7 +480,7 @@ export function EventsModal({
                       <button
                         type="button"
                         onClick={() => void handleDelete(ev.id)}
-                        className="ml-3 rounded-md px-2 py-1 text-rose-400 transition-colors hover:bg-rose-500/10 hover:text-rose-300 font-semibold"
+                        className="self-end sm:self-center rounded-md px-3 py-1.5 text-rose-400 transition-colors hover:bg-rose-500/10 hover:text-rose-300 font-semibold min-h-[36px] flex items-center"
                       >
                         Видалити
                       </button>

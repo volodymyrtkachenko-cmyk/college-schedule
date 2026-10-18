@@ -82,7 +82,7 @@ export function SearchableTextInput({
               onMouseEnter={() => setActiveIndex(index)}
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => { onChange(o); setOpen(false); }} 
-              className="block w-full px-4 py-2 text-left text-sm hover:bg-sys-border/50 transition-colors text-sys-text-primary"
+              className="block w-full px-4 py-2.5 min-h-[40px] text-left text-sm hover:bg-sys-border/50 transition-colors text-sys-text-primary"
             >
               {o}
             </button>

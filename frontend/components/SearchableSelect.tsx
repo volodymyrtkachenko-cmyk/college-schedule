@@ -118,7 +118,7 @@ export function SearchableSelect({
             onMouseDown={(event) => event.preventDefault()}
             onMouseEnter={() => setActiveIndex(0)}
             onClick={() => select(null)}
-            className={`cursor-pointer px-4 py-2.5 text-sm text-sys-text-secondary transition-colors ${
+            className={`min-h-[40px] flex items-center cursor-pointer px-4 py-2.5 text-sm text-sys-text-secondary transition-colors ${
               activeIndex === 0 ? "bg-sys-accent/10 text-sys-text-primary" : "hover:bg-sys-accent/10 hover:text-sys-text-primary"
             }`}
           >
@@ -138,7 +138,7 @@ export function SearchableSelect({
                 onMouseEnter={() => !option.disabled && setActiveIndex(optionIndex + 1)}
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => !option.disabled && select(option.id)}
-                className={`px-4 py-2.5 text-sm transition-colors ${
+                className={`min-h-[40px] flex items-center px-4 py-2 text-sm transition-colors ${
                   option.id === value ? "bg-sys-accent/10 text-sys-accent" : "text-sys-text-primary"
                 } ${option.disabled ? "cursor-default text-sys-text-muted" : "cursor-pointer"} ${
                   isActive ? "bg-sys-accent/10" : "hover:bg-sys-accent/10"

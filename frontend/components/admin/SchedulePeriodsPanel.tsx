@@ -304,8 +304,8 @@ export function SchedulePeriodsPanel() {
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                  {courseGroups.map(g => (
-                   <label key={g.id} className={`flex items-center gap-2 cursor-pointer text-sm border px-3 py-1.5 rounded transition-colors ${draft?.group_ids.includes(g.id) ? "bg-sys-accent/10 border-sys-accent/30 text-sys-accent" : "bg-sys-card border-sys-border hover:bg-sys-card/80"}`}>
-                      <input type="checkbox" checked={draft?.group_ids.includes(g.id)} className="accent-sys-accent" onChange={(e) => {
+                   <label key={g.id} className={`flex items-center gap-2 cursor-pointer text-sm border px-3 py-2 min-h-[42px] rounded-lg transition-colors ${draft?.group_ids.includes(g.id) ? "bg-sys-accent/10 border-sys-accent/30 text-sys-accent" : "bg-sys-card border-sys-border hover:bg-sys-card/80"}`}>
+                      <input type="checkbox" checked={draft?.group_ids.includes(g.id)} className="accent-sys-accent shrink-0" onChange={(e) => {
                           if (!draft) return;
                           if (e.target.checked) setGroupsForDraft([...draft.group_ids, g.id]);
                           else setGroupsForDraft(draft.group_ids.filter(id => id !== g.id));
@@ -368,20 +368,39 @@ export function SchedulePeriodsPanel() {
       </div>
 
       {draft && (
-        <div className="fixed inset-0 z-[100] flex items-start justify-center bg-black/60 p-4 sm:p-6 backdrop-blur-sm overflow-y-auto">
-        <form onSubmit={savePeriod} className="w-full max-w-2xl rounded-2xl border border-sys-border bg-sys-card shadow-2xl overflow-hidden mt-0 my-auto sm:my-8 relative">
-          <div className="bg-gradient-to-b from-white/5 to-transparent p-6 pb-4">
+        <div
+          className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 backdrop-blur-sm overflow-y-auto"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setDraft(null);
+          }}
+        >
+        <form
+          onSubmit={savePeriod}
+          role="dialog"
+          aria-modal="true"
+          aria-label={draft.id ? "Редагувати період" : "Новий період"}
+          className="flex max-h-[92dvh] w-full max-w-2xl flex-col rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card shadow-2xl overflow-hidden pb-safe animate-in slide-in-from-bottom-6 sm:slide-in-from-bottom-2 duration-200"
+        >
+          <div className="sticky top-0 z-10 flex items-center justify-between border-b border-sys-border/50 bg-sys-card px-5 py-4">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sys-accent/20 text-sys-accent">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/></svg>
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sys-accent/20 text-sys-accent">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/></svg>
               </div>
               <div>
-                <h2 className="text-lg font-bold text-sys-text-primary">{draft.id ? "Редагувати період" : "Новий період"}</h2>
-                <p className="text-sm text-sys-text-secondary">Період охоплює обидві зазначені дати.</p>
+                <h2 className="text-base sm:text-lg font-bold text-sys-text-primary">{draft.id ? "Редагувати період" : "Новий період"}</h2>
+                <p className="text-xs text-sys-text-secondary mt-0.5">Період охоплює обидві зазначені дати.</p>
               </div>
             </div>
+            <button
+              type="button"
+              onClick={() => setDraft(null)}
+              aria-label="Закрити"
+              className="w-9 h-9 flex items-center justify-center rounded-lg text-sys-text-secondary hover:bg-white/5 hover:text-white text-lg transition-colors"
+            >
+              ✕
+            </button>
           </div>
-          <div className="px-6 space-y-5 pb-6">
+          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="space-y-1">
               <span className="form-label">Назва періоду</span>
@@ -521,11 +540,19 @@ export function SchedulePeriodsPanel() {
           )}
 
           </div>
-          <div className="mt-8 flex justify-end gap-3 border-t border-sys-border bg-sys-bg/30 px-6 py-4">
-            <button type="button" onClick={() => setDraft(null)} className="rounded-lg border border-sys-border px-4 py-2 text-sm font-medium text-sys-text-primary hover:bg-sys-bg transition-colors">
+          <div className="sticky bottom-0 z-10 flex flex-col-reverse sm:flex-row justify-end gap-2.5 border-t border-sys-border/50 bg-sys-bg/80 backdrop-blur-xs px-5 py-3.5">
+            <button
+              type="button"
+              onClick={() => setDraft(null)}
+              className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-lg border border-sys-border bg-sys-card px-4 py-2 text-sm font-semibold text-sys-text-primary hover:bg-white/5 active:scale-[0.98] transition-all"
+            >
               Скасувати
             </button>
-            <button type="submit" disabled={saving} className="flex items-center gap-2 rounded-lg bg-sys-accent px-5 py-2 text-sm font-medium text-[#0b1120] hover:opacity-90 disabled:opacity-50 transition-colors">
+            <button
+              type="submit"
+              disabled={saving}
+              className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] flex items-center justify-center gap-2 rounded-lg bg-sys-accent px-6 py-2 text-sm font-bold text-[#0b1120] hover:opacity-90 active:scale-[0.98] disabled:opacity-50 transition-all shadow-sm"
+            >
               {saving ? (
                 <>
                   <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>

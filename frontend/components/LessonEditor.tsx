@@ -157,8 +157,8 @@ export function LessonEditor({ lesson, date, scheduleMode, defaultGroupId, defau
   const sortedSubjects = useMemo(() => {
     if (!form.teacher_id || !teacherSubjects[form.teacher_id]) return subjects;
     const knownSubjectIds = new Set(teacherSubjects[form.teacher_id]);
-    const known: import("../lib/api").DirectoryItem[] = [];
-    const others: import("../lib/api").DirectoryItem[] = [];
+    const known: DirectoryItem[] = [];
+    const others: DirectoryItem[] = [];
     for (const sub of subjects) {
        if (knownSubjectIds.has(sub.id)) {
            known.push(sub);
@@ -218,106 +218,191 @@ export function LessonEditor({ lesson, date, scheduleMode, defaultGroupId, defau
     finally { setBusy(false); }
   }
   return (
-    <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={lesson ? "Редагувати заняття" : "Додати заняття"} className="fixed inset-x-0 bottom-0 z-40 max-h-[90vh] overflow-y-auto rounded-t-2xl border border-sys-border bg-sys-card p-5 shadow-2xl md:static md:mt-3 md:rounded-xl md:border-sys-border">
-      <div className="mx-auto max-w-2xl">
-        <div className="mb-4 flex items-center justify-between">
-          <div><h3 className="font-semibold">{lesson ? "Редагування заняття" : "Нове заняття"}</h3><p className="text-xs text-sys-text-secondary">Час визначається номером заняття.</p></div>
-          <button type="button" onClick={onClose} aria-label="Закрити" className="text-xl text-sys-text-secondary">×</button>
-        </div>
-        <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2">
-          {scheduleMode === "teacher" && (
-            <label className="form-label sm:col-span-2">Група
-              <SearchableSelect
-                options={groups}
-                value={form.group_id || null}
-                onChange={(id) => update("group_id", id ?? 0)}
-                placeholder="Знайти групу"
-              />
-            </label>
-          )}
-          <label className="form-label">Викладач
-            <SearchableSelect
-              options={teachers}
-              value={form.teacher_id}
-              onChange={(id) => update("teacher_id", id)}
-              disabled={loadingDirectories}
-              placeholder="Знайти викладача"
-            />
-          </label>
-          <label className="form-label">Другий викладач (опційно)
-            <SearchableSelect
-              options={teachers}
-              value={form.second_teacher_id}
-              onChange={(id) => update("second_teacher_id", id)}
-              disabled={loadingDirectories}
-              placeholder="Оберіть другого викладача"
-            />
-          </label>
-          <label className="form-label sm:col-span-2">Предмет
-            <SearchableSelect
-              options={sortedSubjects}
-              value={form.subject_id ?? null}
-              onChange={(id) => {
-                update("subject_id", id ?? undefined);
-                if (id && !form.teacher_id) {
-                  const matchingTeachers = Object.entries(teacherSubjects)
-                    .filter(([, subjIds]) => subjIds.includes(id))
-                    .map(([tId]) => Number(tId));
-                  if (matchingTeachers.length === 1) {
-                    update("teacher_id", matchingTeachers[0]);
-                  }
-                }
-              }}
-              disabled={loadingDirectories}
-              placeholder={loadingDirectories ? "Завантаження…" : "Знайти предмет"}
-            />
-          </label>
-          <label className="form-label">День
-            <select className="form-control" value={form.day_of_week ?? dayFromDate(date)} onChange={(e) => update("day_of_week", Number(e.target.value))}>
-              {DAY_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-            </select>
-          </label>
-          <label className="form-label">№ пари
-            <select className="form-control" required value={form.lesson_number} onChange={(e) => update("lesson_number", Number(e.target.value))}>
-              {Object.entries(LESSON_TIME_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
-              ))}
-            </select>
-          </label>
-          <label className="form-label sm:col-span-2">Тип тижня<select className="form-control" value={form.week_type} onChange={(e) => update("week_type", e.target.value as WeekType)}><option value="both">Щотижня</option><option value="numerator">Чисельник</option><option value="denominator">Знаменник</option></select></label>
-          
-          <label className="form-label sm:col-span-2">Аудиторія
-            <SearchableTextInput
-              options={uniqueRooms}
-              value={form.room ?? ""}
-              onChange={(val) => update("room", val.replace(/\s*\(⚠️.*?\)\s*$/, ""))}
-              placeholder={teacherRoom ? `За замовчуванням: ${teacherRoom}` : "Введіть аудиторію"}
-            />
-            <p className="mt-1 text-xs text-sys-text-secondary">Якщо поле порожнє, використовується аудиторія викладача.</p>
-            {roomConflictInfo && (
-              <p className="mt-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs text-amber-300">
-                ⚠️ У цей час аудиторія зайнята: <strong>{roomConflictInfo}</strong>
-              </p>
-            )}
-          </label>
-{scheduleMode === "student" && (
-            <label className="sm:col-span-2 flex items-center gap-2 cursor-pointer mt-1 !flex-row w-fit">
-              <input
-                type="checkbox"
-                className="w-4 h-4 rounded border-sys-border bg-sys-input text-sys-accent focus:ring-sys-accent cursor-pointer"
-                checked={form.is_replacement ?? false}
-                onChange={(e) => update("is_replacement", e.target.checked)}
-              />
-              <span className="font-medium text-[15px] select-none text-sys-accent">Заміна</span>
-            </label>
-          )}
-          {error && <p role="alert" className="sm:col-span-2 text-sm text-rose-300">{error}</p>}
-          <div className="flex gap-2 sm:col-span-2">
-            <button disabled={busy || loadingDirectories} className="rounded-lg bg-sys-accent px-4 py-2 font-semibold text-slate-950">{busy ? "Збереження…" : "Зберегти"}</button>
-            {lesson && onDelete && <button type="button" disabled={busy} onClick={remove} className="rounded-lg border border-rose-400/50 px-4 py-2 text-rose-300">Видалити</button>}
-            <button type="button" onClick={onClose} className="ml-auto rounded-lg border border-sys-border px-4 py-2 text-sys-text-primary">Скасувати</button>
+    <div
+      className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-xs p-0 sm:p-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={lesson ? "Редагувати заняття" : "Додати заняття"}
+        className="flex max-h-[92dvh] w-full max-w-2xl flex-col rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card shadow-2xl overflow-hidden pb-safe animate-in slide-in-from-bottom-6 sm:slide-in-from-bottom-2 duration-200"
+      >
+        {/* Sticky Header */}
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-sys-border/50 bg-sys-card px-5 py-4">
+          <div>
+            <h3 className="text-base sm:text-lg font-bold text-sys-text-primary">
+              {lesson ? "Редагування заняття" : "Нове заняття"}
+            </h3>
+            <p className="text-xs text-sys-text-secondary mt-0.5">Час визначається номером заняття.</p>
           </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Закрити"
+            className="w-9 h-9 flex items-center justify-center rounded-lg text-sys-text-secondary hover:bg-white/5 hover:text-sys-text-primary text-xl transition-colors"
+          >
+            ×
+          </button>
+        </div>
+
+        {/* Scrollable Form Body */}
+        <form id="lesson-editor-form" onSubmit={submit} className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+          <div className="grid gap-3.5 sm:grid-cols-2">
+            {scheduleMode === "teacher" && (
+              <label className="form-label sm:col-span-2">
+                <span>Група</span>
+                <SearchableSelect
+                  options={groups}
+                  value={form.group_id || null}
+                  onChange={(id) => update("group_id", id ?? 0)}
+                  placeholder="Знайти групу"
+                />
+              </label>
+            )}
+            <label className="form-label">
+              <span>Викладач</span>
+              <SearchableSelect
+                options={teachers}
+                value={form.teacher_id}
+                onChange={(id) => update("teacher_id", id)}
+                disabled={loadingDirectories}
+                placeholder="Знайти викладача"
+              />
+            </label>
+            <label className="form-label">
+              <span>Другий викладач (опційно)</span>
+              <SearchableSelect
+                options={teachers}
+                value={form.second_teacher_id}
+                onChange={(id) => update("second_teacher_id", id)}
+                disabled={loadingDirectories}
+                placeholder="Оберіть другого викладача"
+              />
+            </label>
+            <label className="form-label sm:col-span-2">
+              <span>Предмет</span>
+              <SearchableSelect
+                options={sortedSubjects}
+                value={form.subject_id ?? null}
+                onChange={(id) => {
+                  update("subject_id", id ?? undefined);
+                  if (id && !form.teacher_id) {
+                    const matchingTeachers = Object.entries(teacherSubjects)
+                      .filter(([, subjIds]) => subjIds.includes(id))
+                      .map(([tId]) => Number(tId));
+                    if (matchingTeachers.length === 1) {
+                      update("teacher_id", matchingTeachers[0]);
+                    }
+                  }
+                }}
+                disabled={loadingDirectories}
+                placeholder={loadingDirectories ? "Завантаження…" : "Знайти предмет"}
+              />
+            </label>
+            <label className="form-label">
+              <span>День</span>
+              <select
+                className="form-control"
+                value={form.day_of_week ?? dayFromDate(date)}
+                onChange={(e) => update("day_of_week", Number(e.target.value))}
+              >
+                {DAY_OPTIONS.map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="form-label">
+              <span>№ пари</span>
+              <select
+                className="form-control"
+                required
+                value={form.lesson_number}
+                onChange={(e) => update("lesson_number", Number(e.target.value))}
+              >
+                {Object.entries(LESSON_TIME_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="form-label sm:col-span-2">
+              <span>Тип тижня</span>
+              <select
+                className="form-control"
+                value={form.week_type}
+                onChange={(e) => update("week_type", e.target.value as WeekType)}
+              >
+                <option value="both">Щотижня</option>
+                <option value="numerator">Чисельник</option>
+                <option value="denominator">Знаменник</option>
+              </select>
+            </label>
+            
+            <label className="form-label sm:col-span-2">
+              <span>Аудиторія</span>
+              <SearchableTextInput
+                options={uniqueRooms}
+                value={form.room ?? ""}
+                onChange={(val) => update("room", val.replace(/\s*\(⚠️.*?\)\s*$/, ""))}
+                placeholder={teacherRoom ? `За замовчуванням: ${teacherRoom}` : "Введіть аудиторію"}
+              />
+              <p className="mt-1 text-xs text-sys-text-secondary">Якщо поле порожнє, використовується аудиторія викладача.</p>
+              {roomConflictInfo && (
+                <p className="mt-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs text-amber-300">
+                  ⚠️ У цей час аудиторія зайнята: <strong>{roomConflictInfo}</strong>
+                </p>
+              )}
+            </label>
+            {scheduleMode === "student" && (
+              <label className="sm:col-span-2 flex items-center gap-2 cursor-pointer mt-1 !flex-row w-fit">
+                <input
+                  type="checkbox"
+                  className="w-4 h-4 rounded border-sys-border bg-sys-input text-sys-accent focus:ring-sys-accent cursor-pointer"
+                  checked={form.is_replacement ?? false}
+                  onChange={(e) => update("is_replacement", e.target.checked)}
+                />
+                <span className="font-medium text-sm select-none text-sys-accent">Заміна</span>
+              </label>
+            )}
+          </div>
+          {error && <p role="alert" className="text-sm text-rose-300 rounded-lg border border-rose-500/30 bg-rose-500/10 p-3">{error}</p>}
         </form>
+
+        {/* Sticky Footer */}
+        <div className="sticky bottom-0 z-10 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2.5 border-t border-sys-border/50 bg-sys-bg/80 backdrop-blur-xs px-5 py-3.5">
+          <div>
+            {lesson && onDelete ? (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={remove}
+                className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-lg border border-rose-500/40 bg-rose-500/10 px-4 py-2 text-sm font-semibold text-rose-300 hover:bg-rose-500/20 active:scale-[0.98] transition-all disabled:opacity-50"
+              >
+                Видалити
+              </button>
+            ) : null}
+          </div>
+          <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-2.5">
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-lg border border-sys-border bg-sys-card px-4 py-2 text-sm font-semibold text-sys-text-primary hover:bg-white/5 active:scale-[0.98] transition-all"
+            >
+              Скасувати
+            </button>
+            <button
+              type="submit"
+              form="lesson-editor-form"
+              disabled={busy || loadingDirectories}
+              className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-lg bg-sys-accent px-6 py-2 text-sm font-bold text-[#0b1120] hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50 shadow-sm"
+            >
+              {busy ? "Збереження…" : "Зберегти"}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

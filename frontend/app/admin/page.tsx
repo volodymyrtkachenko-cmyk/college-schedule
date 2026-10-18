@@ -499,16 +499,16 @@ function AdminContent() {
 
             {bulkError && <p className="text-xs text-rose-400">{bulkError}</p>}
 
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
               <span className="text-xs text-sys-text-secondary">
                 Виявлено рядків: <strong>{parsedLines.length}</strong>
               </span>
-              <div className="flex gap-2">
+              <div className="flex flex-col-reverse sm:flex-row gap-2">
                 <button
                   type="button"
                   onClick={() => setBulkOpen(false)}
                   disabled={bulkSaving}
-                  className="rounded-md border border-sys-border px-3 py-1.5 text-xs text-sys-text-secondary hover:text-sys-text-primary"
+                  className="min-h-[44px] sm:min-h-[36px] flex items-center justify-center rounded-lg border border-sys-border px-4 py-2 text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary active:scale-[0.98]"
                 >
                   Скасувати
                 </button>
@@ -516,7 +516,7 @@ function AdminContent() {
                   type="button"
                   onClick={saveBulk}
                   disabled={bulkSaving || parsedLines.length === 0}
-                  className="rounded-md bg-sys-accent px-4 py-1.5 text-xs font-semibold text-[#0b1120] hover:opacity-90 disabled:opacity-50"
+                  className="min-h-[44px] sm:min-h-[36px] flex items-center justify-center rounded-lg bg-sys-accent px-5 py-2 text-xs font-bold text-[#0b1120] hover:opacity-90 active:scale-[0.98] disabled:opacity-50 shadow-sm"
                 >
                   {bulkSaving ? "Збереження…" : `Імпортувати (${parsedLines.length})`}
                 </button>
@@ -569,30 +569,50 @@ function AdminContent() {
         )}
 
         {rosterGroup && (
-          <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-            <div className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-sys-border bg-sys-card shadow-2xl">
-              <div className="flex items-center justify-between border-b border-sys-border px-5 py-4">
-                <div>
-                  <h3 className="flex items-center gap-2 text-base font-bold text-white">
-                    <span>👥 Студенти групи {rosterGroup.name}</span>
-                    {rosterData?.students && rosterData.students.length > 0 && (
-                      <span className="rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-xs font-semibold text-emerald-400">
-                        {rosterData.students.length} осіб
-                      </span>
+          <div
+            className="fixed inset-0 z-[130] flex items-end sm:items-center justify-center bg-black/70 p-0 sm:p-4 backdrop-blur-sm"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setRosterGroup(null);
+            }}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label={`Студенти групи ${rosterGroup.name}`}
+              className="flex max-h-[92dvh] sm:max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card shadow-2xl pb-safe animate-in slide-in-from-bottom-6 sm:slide-in-from-bottom-2 duration-200"
+            >
+              <div className="flex flex-col gap-3 border-b border-sys-border px-5 py-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="flex items-center gap-2 text-base font-bold text-white">
+                      <span>👥 Студенти групи {rosterGroup.name}</span>
+                      {rosterData?.students && rosterData.students.length > 0 && (
+                        <span className="rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-xs font-semibold text-emerald-400">
+                          {rosterData.students.length} осіб
+                        </span>
+                      )}
+                    </h3>
+                    {rosterData?.course_name && (
+                      <p className="text-xs text-emerald-400 mt-0.5">
+                        Курс Classroom: {rosterData.course_name}
+                      </p>
                     )}
-                  </h3>
-                  {rosterData?.course_name && (
-                    <p className="text-xs text-emerald-400">
-                      Курс Classroom: {rosterData.course_name}
-                    </p>
-                  )}
-                  {rosterData?.last_synced_at && (
-                    <p className="text-[11px] text-sys-text-muted">
-                      Синхронізовано: {new Date(rosterData.last_synced_at).toLocaleString("uk-UA")}
-                    </p>
-                  )}
+                    {rosterData?.last_synced_at && (
+                      <p className="text-[11px] text-sys-text-muted">
+                        Синхронізовано: {new Date(rosterData.last_synced_at).toLocaleString("uk-UA")}
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setRosterGroup(null)}
+                    aria-label="Закрити"
+                    className="w-8 h-8 flex items-center justify-center rounded-lg text-sys-text-secondary hover:text-white"
+                  >
+                    ✕
+                  </button>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <ClassroomSyncButton
                     currentGroupId={rosterGroup.id}
                     onSynced={() => openGroupRoster(rosterGroup)}
@@ -611,7 +631,7 @@ function AdminContent() {
                         void navigator.clipboard.writeText(text);
                         setToast(`Скопійовано список (${sorted.length} студентів)`, "success");
                       }}
-                      className="rounded-lg border border-sky-500/40 bg-sky-500/10 px-2.5 py-1 text-xs font-semibold text-sky-300 hover:bg-sky-500/20 transition-colors"
+                      className="min-h-[36px] flex items-center rounded-lg border border-sky-500/40 bg-sky-500/10 px-2.5 py-1 text-xs font-semibold text-sky-300 hover:bg-sky-500/20 transition-colors"
                       title="Скопіювати нумерований список групи у буфер обміну"
                     >
                       📄 Копіювати список
@@ -620,16 +640,9 @@ function AdminContent() {
                   <button
                     type="button"
                     onClick={() => setBulkStudentOpen(!bulkStudentOpen)}
-                    className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/20 transition-colors"
+                    className="min-h-[36px] flex items-center rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/20 transition-colors"
                   >
                     {bulkStudentOpen ? "← До списку" : "📋 Вставити список"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRosterGroup(null)}
-                    className="p-1 text-sm text-sys-text-secondary hover:text-white"
-                  >
-                    ✕
                   </button>
                 </div>
               </div>
@@ -648,7 +661,7 @@ function AdminContent() {
                       className="w-full rounded-xl border border-sys-border bg-sys-bg/60 p-3 text-xs font-mono text-sys-text-primary placeholder:text-sys-text-muted focus:border-emerald-500 focus:outline-none"
                     />
                   </div>
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
                     <label className="flex items-center gap-2 text-xs text-sys-text-secondary cursor-pointer">
                       <input
                         type="checkbox"
@@ -658,11 +671,11 @@ function AdminContent() {
                       />
                       <span>Замінити весь існуючий список</span>
                     </label>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col-reverse sm:flex-row gap-2">
                       <button
                         type="button"
                         onClick={() => setBulkStudentOpen(false)}
-                        className="rounded-lg border border-sys-border px-3 py-1.5 text-xs text-sys-text-secondary hover:text-white"
+                        className="min-h-[44px] sm:min-h-[36px] flex items-center justify-center rounded-lg border border-sys-border px-3.5 py-1.5 text-xs text-sys-text-secondary hover:text-white"
                       >
                         Скасувати
                       </button>
@@ -670,7 +683,7 @@ function AdminContent() {
                         type="button"
                         disabled={bulkStudentSaving || !bulkStudentText.trim()}
                         onClick={handleBulkStudentImport}
-                        className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+                        className="min-h-[44px] sm:min-h-[36px] flex items-center justify-center rounded-lg bg-emerald-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-50 shadow-sm"
                       >
                         {bulkStudentSaving ? "Збереження..." : "💾 Зберегти список"}
                       </button>
@@ -680,34 +693,36 @@ function AdminContent() {
               ) : (
                 <>
                   {rosterData && rosterData.students.length > 0 && (
-                    <div className="flex items-center gap-2 border-b border-sys-border/60 bg-sys-bg/30 px-5 py-2.5">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 border-b border-sys-border/60 bg-sys-bg/30 px-5 py-2.5">
                       <input
                         type="text"
                         value={studentSearch}
                         onChange={(e) => setStudentSearch(e.target.value)}
                         placeholder="Пошук студента за прізвищем, ім'ям чи email..."
-                        className="flex-1 rounded-lg border border-sys-border bg-sys-bg/60 px-3 py-1.5 text-xs text-sys-text-primary placeholder:text-sys-text-muted focus:border-emerald-500 focus:outline-none"
+                        className="flex-1 rounded-lg border border-sys-border bg-sys-bg/60 px-3 py-1.5 text-xs text-sys-text-primary placeholder:text-sys-text-muted focus:border-emerald-500 focus:outline-none min-h-[38px]"
                       />
-                      <button
-                        type="button"
-                        onClick={() => setStudentSortBy((prev) => (prev === "surname" ? "name" : "surname"))}
-                        className={`rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap ${
-                          studentSortBy === "surname"
-                            ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-400"
-                            : "border-sys-border bg-sys-card text-sys-text-secondary hover:text-white"
-                        }`}
-                        title="Перемкнути: сортування за прізвищем чи за повним ім'ям"
-                      >
-                        {studentSortBy === "surname" ? "👤 По прізвищу" : "📝 По імені"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setStudentSortOrder((prev) => (prev === "asc" ? "desc" : "asc"))}
-                        className="flex items-center gap-1 rounded-lg border border-sys-border/80 bg-sys-card px-2 py-1.5 text-xs font-semibold text-sys-text-secondary hover:border-emerald-500/50 hover:text-white transition-colors whitespace-nowrap"
-                        title="Змінити напрямок сортування (А-Я / Я-А)"
-                      >
-                        <span>{studentSortOrder === "asc" ? "🔤 А → Я" : "🔤 Я → А"}</span>
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setStudentSortBy((prev) => (prev === "surname" ? "name" : "surname"))}
+                          className={`flex-1 sm:flex-none min-h-[38px] flex items-center justify-center rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap ${
+                            studentSortBy === "surname"
+                              ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-400"
+                              : "border-sys-border bg-sys-card text-sys-text-secondary hover:text-white"
+                          }`}
+                          title="Перемкнути: сортування за прізвищем чи за повним ім'ям"
+                        >
+                          {studentSortBy === "surname" ? "👤 По прізвищу" : "📝 По імені"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setStudentSortOrder((prev) => (prev === "asc" ? "desc" : "asc"))}
+                          className="flex-1 sm:flex-none min-h-[38px] flex items-center justify-center gap-1 rounded-lg border border-sys-border/80 bg-sys-card px-2 py-1.5 text-xs font-semibold text-sys-text-secondary hover:border-emerald-500/50 hover:text-white transition-colors whitespace-nowrap"
+                          title="Змінити напрямок сортування (А-Я / Я-А)"
+                        >
+                          <span>{studentSortOrder === "asc" ? "🔤 А → Я" : "🔤 Я → А"}</span>
+                        </button>
+                      </div>
                     </div>
                   )}
 

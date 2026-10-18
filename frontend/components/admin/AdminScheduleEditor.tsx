@@ -801,18 +801,38 @@ export function AdminScheduleEditor() {
         />
       )}
       {curatorModalOpen && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl border border-sys-border bg-sys-card p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-sys-text-primary">🎓 Масова виховна година</h3>
-              <button type="button" onClick={() => setCuratorModalOpen(false)} className="text-sm text-sys-text-secondary hover:text-white">✕</button>
+        <div
+          className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 backdrop-blur-sm"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setCuratorModalOpen(false);
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Масова виховна година"
+            className="w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card p-5 sm:p-6 shadow-2xl space-y-4 max-h-[92dvh] overflow-y-auto pb-safe animate-in slide-in-from-bottom-6 sm:slide-in-from-bottom-2 duration-200"
+          >
+            <div className="flex items-center justify-between border-b border-sys-border/50 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🎓</span>
+                <h3 className="text-base sm:text-lg font-bold text-sys-text-primary">Масова виховна година</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCuratorModalOpen(false)}
+                aria-label="Закрити"
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-sys-text-secondary hover:bg-white/5 hover:text-white text-base"
+              >
+                ✕
+              </button>
             </div>
-            <p className="text-xs text-sys-text-secondary">
+            <p className="text-xs text-sys-text-secondary leading-relaxed">
               Автоматично призначає предмет «Виховна година» всім активним групам, у яких вказаний куратор і немає накладки у цей час.
             </p>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <label className="space-y-1">
-                <span className="text-xs text-sys-text-secondary">День</span>
+                <span className="text-xs font-medium text-sys-text-secondary">День</span>
                 <select value={curatorDay} onChange={(e) => setCuratorDay(Number(e.target.value))} className="form-control w-full text-sm">
                   <option value={1}>Понеділок</option>
                   <option value={2}>Вівторок</option>
@@ -822,7 +842,7 @@ export function AdminScheduleEditor() {
                 </select>
               </label>
               <label className="space-y-1">
-                <span className="text-xs text-sys-text-secondary">Пара</span>
+                <span className="text-xs font-medium text-sys-text-secondary">Пара</span>
                 <select value={curatorLesson} onChange={(e) => setCuratorLesson(Number(e.target.value))} className="form-control w-full text-sm">
                   {[1, 2, 3, 4].map((n) => (
                     <option key={n} value={n}>{n}-та пара</option>
@@ -830,7 +850,7 @@ export function AdminScheduleEditor() {
                 </select>
               </label>
               <label className="space-y-1">
-                <span className="text-xs text-sys-text-secondary">Тиждень</span>
+                <span className="text-xs font-medium text-sys-text-secondary">Тиждень</span>
                 <select value={curatorWeek} onChange={(e) => setCuratorWeek(e.target.value as any)} className="form-control w-full text-sm">
                   <option value="both">Обидва</option>
                   <option value="numerator">Чисельник</option>
@@ -838,12 +858,12 @@ export function AdminScheduleEditor() {
                 </select>
               </label>
             </div>
-            <div className="flex justify-between gap-2 pt-2">
+            <div className="flex flex-col-reverse sm:flex-row justify-between gap-2.5 pt-3 border-t border-sys-border/50">
               <button
                 type="button"
                 disabled={curatorLoading}
                 onClick={() => void runBulkCurator("delete")}
-                className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-300 hover:bg-rose-500/20 disabled:opacity-50"
+                className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-2 text-xs sm:text-sm font-semibold text-rose-300 hover:bg-rose-500/20 active:scale-[0.98] transition-all disabled:opacity-50"
               >
                 Очистити слот
               </button>
@@ -851,7 +871,7 @@ export function AdminScheduleEditor() {
                 type="button"
                 disabled={curatorLoading}
                 onClick={() => void runBulkCurator("create")}
-                className="rounded-lg bg-sys-accent px-4 py-2 text-xs font-bold text-[#0b1120] hover:opacity-90 disabled:opacity-50"
+                className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-lg bg-sys-accent px-5 py-2 text-xs sm:text-sm font-bold text-[#0b1120] hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50 shadow-sm"
               >
                 {curatorLoading ? "Виконуємо..." : "Проставити всім групам"}
               </button>
@@ -909,8 +929,13 @@ export function AdminScheduleEditor() {
 
       {/* Mobile Actions Bottom Sheet */}
       {mobileActionsOpen && (
-        <div className="fixed inset-0 z-50 flex items-end bg-black/60 backdrop-blur-xs sm:hidden">
-          <div className="w-full rounded-t-2xl border-t border-sys-border bg-sys-card p-5 space-y-4 shadow-xl">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setMobileActionsOpen(false);
+          }}
+          className="fixed inset-0 z-50 flex items-end bg-black/60 backdrop-blur-xs sm:hidden"
+        >
+          <div className="w-full rounded-t-2xl border-t border-sys-border bg-sys-card p-5 space-y-4 shadow-xl pb-safe">
             <div className="flex items-center justify-between">
               <span className="text-sm font-semibold text-sys-text-primary">Швидкі дії</span>
               <button

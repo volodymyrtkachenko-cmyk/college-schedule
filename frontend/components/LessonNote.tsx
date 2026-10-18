@@ -235,7 +235,7 @@ export function LessonNoteModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between gap-2 border-t border-sys-border/50 bg-sys-bg/50 px-5 py-3">
+        <div className="sticky bottom-0 z-10 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2.5 border-t border-sys-border/50 bg-sys-bg/80 backdrop-blur-xs p-4 sm:px-5 sm:py-3.5">
           {mode === "edit" ? (
             <>
               {note ? (
@@ -247,18 +247,18 @@ export function LessonNoteModal({
                       void saveNote(true);
                     }
                   }}
-                  className="px-3 py-2 text-xs font-semibold text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
+                  className="w-full sm:w-auto min-h-[44px] sm:min-h-[38px] px-3.5 py-2 text-xs sm:text-sm font-semibold text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors border border-rose-500/20 active:scale-[0.98]"
                 >
                   Видалити
                 </button>
               ) : (
                 <div />
               )}
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-2.5">
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-3.5 py-2 text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary rounded-lg transition-colors"
+                  className="w-full sm:w-auto min-h-[44px] sm:min-h-[38px] px-4 py-2 text-xs sm:text-sm font-semibold text-sys-text-secondary hover:text-sys-text-primary rounded-lg border border-sys-border bg-sys-card transition-colors active:scale-[0.98]"
                 >
                   Скасувати
                 </button>
@@ -266,7 +266,7 @@ export function LessonNoteModal({
                   type="submit"
                   form="lesson-note-form"
                   disabled={busy || !online}
-                  className="px-4 py-2 text-xs font-semibold text-[#0b1120] bg-sys-accent hover:opacity-90 active:scale-95 rounded-lg transition-all disabled:opacity-50"
+                  className="w-full sm:w-auto min-h-[44px] sm:min-h-[38px] px-5 py-2 text-xs sm:text-sm font-bold text-[#0b1120] bg-sys-accent hover:opacity-90 active:scale-[0.98] rounded-lg transition-all disabled:opacity-50 shadow-sm"
                 >
                   {busy ? "Збереження…" : "Зберегти"}
                 </button>
@@ -276,7 +276,7 @@ export function LessonNoteModal({
             <button
               type="button"
               onClick={onClose}
-              className="ml-auto px-4 py-2 text-xs font-semibold text-sys-text-primary bg-sys-card border border-sys-border rounded-lg hover:bg-white/5"
+              className="w-full sm:w-auto ml-auto min-h-[44px] sm:min-h-[38px] px-5 py-2 text-xs sm:text-sm font-semibold text-sys-text-primary bg-sys-card border border-sys-border rounded-lg hover:bg-white/5 active:scale-[0.98]"
             >
               Закрити
             </button>

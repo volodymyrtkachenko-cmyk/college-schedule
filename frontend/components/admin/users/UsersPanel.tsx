@@ -90,12 +90,31 @@ export function UsersPanel() {
     }
 
     const editorModal = editor ? (
-        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-[rgba(5,8,16,0.76)] p-0 sm:p-6 backdrop-blur-sm overflow-y-auto">
-            <form onSubmit={save} className="surface-panel w-full sm:max-w-2xl max-h-[92dvh] rounded-t-2xl sm:rounded-2xl space-y-5 p-5 sm:p-7 relative shadow-2xl overflow-y-auto">
+        <div
+            onClick={(e) => {
+                if (e.target === e.currentTarget && !saving) {
+                    setEditor(null);
+                    setError(null);
+                }
+            }}
+            className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-[rgba(5,8,16,0.76)] p-0 sm:p-6 backdrop-blur-sm overflow-y-auto"
+        >
+            <form onSubmit={save} className="surface-panel w-full sm:max-w-2xl max-h-[92dvh] rounded-t-2xl sm:rounded-2xl space-y-5 p-5 sm:p-7 relative shadow-2xl overflow-y-auto pb-safe">
                 {error && <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-200">{error}</div>}
-                <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sys-accent">Доступ</p>
-                    <h3 className="mt-1 text-xl font-bold">{editor.id ? "Редагування користувача" : "Новий користувач"}</h3>
+                <div className="flex items-center justify-between">
+                    <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sys-accent">Доступ</p>
+                        <h3 className="mt-1 text-xl font-bold">{editor.id ? "Редагування користувача" : "Новий користувач"}</h3>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => { setEditor(null); setError(null); }}
+                        disabled={saving}
+                        className="w-8 h-8 rounded-lg flex items-center justify-center text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/5 transition-colors"
+                        aria-label="Закрити"
+                    >
+                        ✕
+                    </button>
                 </div>
                 <div className="space-y-4">
                     <label className="block">
@@ -137,9 +156,9 @@ export function UsersPanel() {
                         </div>
                     )}
                 </div>
-                <div className="mt-6 flex gap-3">
-                    <button type="submit" disabled={saving} className="rounded-lg bg-sys-accent px-4 py-2.5 font-bold text-slate-950 transition-opacity hover:opacity-90 disabled:opacity-50">{saving ? "Зберігаємо…" : "Зберегти"}</button>
-                    <button type="button" onClick={() => { setEditor(null); setError(null); }} disabled={saving} className="rounded-lg border border-sys-border px-4 py-2.5 text-sys-text-secondary transition-colors hover:bg-white/5 hover:text-white">Скасувати</button>
+                <div className="mt-6 flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5">
+                    <button type="button" onClick={() => { setEditor(null); setError(null); }} disabled={saving} className="min-h-[44px] w-full sm:w-auto rounded-xl border border-sys-border px-5 py-2.5 text-sys-text-secondary transition-colors hover:bg-white/5 hover:text-white">Скасувати</button>
+                    <button type="submit" disabled={saving} className="min-h-[44px] w-full sm:w-auto rounded-xl bg-sys-accent px-5 py-2.5 font-bold text-slate-950 transition-opacity hover:opacity-90 disabled:opacity-50">{saving ? "Зберігаємо…" : "Зберегти"}</button>
                 </div>
             </form>
         </div>

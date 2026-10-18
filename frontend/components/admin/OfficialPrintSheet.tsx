@@ -522,38 +522,49 @@ export function OfficialPrintModal({
       `}</style>
 
       {/* Панель керування (ховається під час друку) */}
-      <div className="print-hide flex flex-wrap items-center justify-between gap-4 border-b border-sys-border bg-sys-card px-6 py-4">
-        <div className="flex items-center gap-3">
-          <h2 className="text-lg font-bold text-white">🖨️ Офіційний розклад (формат адміністрації)</h2>
+      <div className="print-hide flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 border-b border-sys-border bg-sys-card p-4 sm:px-6">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2 min-w-0">
+            <span className="shrink-0">🖨️</span>
+            <span className="truncate">Офіційний розклад (формат адміністрації)</span>
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Закрити"
+            className="md:hidden w-8 h-8 shrink-0 flex items-center justify-center rounded-lg text-sys-text-secondary hover:text-white text-base"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
           <input
             type="date"
             value={targetDate}
             onChange={(e) => setTargetDate(e.target.value)}
-            className="form-control py-1.5 text-sm"
+            className="form-control text-sm w-full sm:w-auto"
           />
           <button
             type="button"
             onClick={() => void loadDayForAllGroups(targetDate)}
             disabled={loading}
-            className="rounded-lg bg-sys-accent px-4 py-1.5 text-sm font-semibold text-[#0b1120] disabled:opacity-50"
+            className="min-h-[44px] sm:min-h-[40px] rounded-lg bg-sys-accent px-4 py-2 text-sm font-semibold text-[#0b1120] disabled:opacity-50 transition-opacity"
           >
             {loading ? "Формуємо..." : "Сформувати відомість"}
           </button>
-        </div>
-        <div className="flex items-center gap-2">
           {loadedDate && (
             <button
               type="button"
               onClick={handlePrint}
-              className="rounded-lg bg-emerald-500 px-4 py-1.5 text-sm font-bold text-slate-950 hover:bg-emerald-400"
+              className="min-h-[44px] sm:min-h-[40px] rounded-lg bg-emerald-500 px-4 py-2 text-sm font-bold text-slate-950 hover:bg-emerald-400 transition-colors"
             >
-              Роздрукувати / Зберегти PDF
+              Роздрукувати / PDF
             </button>
           )}
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-sys-border px-3 py-1.5 text-sm text-sys-text-secondary hover:text-white"
+            className="hidden md:inline-flex min-h-[40px] items-center rounded-lg border border-sys-border px-3.5 py-1.5 text-sm text-sys-text-secondary hover:text-white transition-colors"
           >
             Закрити
           </button>
@@ -561,7 +572,7 @@ export function OfficialPrintModal({
       </div>
 
       {/* Аркуш для попереднього перегляду та друку */}
-      <div className="flex-1 overflow-auto bg-white p-6 text-black print:overflow-visible print:p-0">
+      <div className="flex-1 overflow-auto bg-white p-3 sm:p-6 text-black print:overflow-visible print:p-0">
         {!loadedDate ? (
           <div className="py-20 text-center text-slate-500 print-hide">
             {loading

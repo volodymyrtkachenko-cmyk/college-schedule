@@ -67,7 +67,7 @@ export function SearchableMultiSelect({
           return (
             <label
               key={option.id}
-              className={`flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
+              className={`flex min-h-[42px] cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${
                 checked ? "bg-sys-accent/10 text-sys-accent" : "text-sys-text-primary hover:bg-white/5"
               }`}
             >
@@ -75,7 +75,7 @@ export function SearchableMultiSelect({
                 type="checkbox"
                 checked={checked}
                 onChange={() => toggle(option.id)}
-                className="h-4 w-4 accent-sys-accent"
+                className="h-5 w-5 rounded border-sys-border accent-sys-accent"
               />
               <span>{option.name}</span>
             </label>
