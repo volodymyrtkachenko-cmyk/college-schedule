@@ -1,7 +1,7 @@
 "use client";
-
 import { FormEvent, useEffect, useState } from "react";
 import { api } from "../../lib/api";
+import { PageHeader } from "./PageHeader";
 
 export function SemesterSettingsPanel() {
   const [semesterStart, setSemesterStart] = useState("");
@@ -58,13 +58,12 @@ export function SemesterSettingsPanel() {
   }
 
   return (
-    <section className="max-w-2xl space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold">Налаштування семестру</h1>
-        <p className="mt-2 text-sm text-sys-text-secondary">
-          Вкажіть дати поточного семестру. Вони застосовуються до всіх груп і викладачів.
-        </p>
-      </div>
+    <section className="max-w-[520px] space-y-5">
+      <PageHeader
+        eyebrow="НАЛАШТУВАННЯ"
+        title="Налаштування семестру"
+        description="Вкажіть дати поточного семестру. Вони застосовуються для розрахунку чисельника/знаменника та доступності розкладу."
+      />
 
       {loading ? (
         <p className="text-sm text-sys-text-secondary">Завантаження налаштувань…</p>

@@ -6,6 +6,7 @@ import { ConfirmModal } from "./ConfirmModal";
 import { SearchableSelect } from "../SearchableSelect";
 import { SearchableMultiSelect } from "../SearchableMultiSelect";
 import { useToast } from "../ToastProvider";
+import { PageHeader } from "./PageHeader";
 
 function formatGroupCount(count: number) {
   const remainder10 = count % 10;
@@ -140,26 +141,37 @@ export function CurriculumPanel() {
 
   return (
     <>
-      <div className="flex flex-wrap items-center justify-between gap-4 mt-2">
-         <div className="relative w-full max-w-[320px]">
-           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sys-text-muted">
-             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /><path d="M21 21l-6 -6" /></svg>
-           </span>
-           <input 
-             type="search"
-             aria-label="Пошук навчального навантаження"
-             placeholder="Знайти групу, предмет або викладача"
-             value={searchTerm}
-             onChange={(e) => setSearchTerm(e.target.value)}
-             className="form-control w-full py-2 pl-9 pr-4"
-           />
-         </div>
-         <button onClick={() => {
-           setSelectedGroupIds([]);
-           setEditor({ is_fixed: false, is_stream: false, pairs_per_2_weeks: 2, total_hours: 40 });
-         }} className="shrink-0 rounded-lg bg-sys-accent px-4 py-2.5 text-sm font-semibold text-[#0b1120] transition-opacity hover:opacity-90">
+      <PageHeader
+        eyebrow="ПЛАНУВАННЯ"
+        title="Навчальне навантаження"
+        description="Розподіл предметів, аудиторних годин та викладачів між групами для розкладу"
+        actions={
+          <button
+            onClick={() => {
+              setSelectedGroupIds([]);
+              setEditor({ is_fixed: false, is_stream: false, pairs_per_2_weeks: 2, total_hours: 40 });
+            }}
+            className="hidden sm:inline-flex items-center gap-1.5 rounded-lg bg-sys-accent px-4 py-2 text-sm font-semibold text-[#0b1120] hover:opacity-90 transition-opacity"
+          >
             + Додати навантаження
-         </button>
+          </button>
+        }
+      />
+
+      <div className="flex flex-wrap items-center justify-between gap-4 mt-2">
+        <div className="relative w-full sm:max-w-xs">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sys-text-muted pointer-events-none">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /><path d="M21 21l-6 -6" /></svg>
+          </span>
+          <input 
+            type="search"
+            aria-label="Пошук навчального навантаження"
+            placeholder="Знайти групу, предмет чи викладача..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="form-control w-full py-2 pl-9 pr-4 text-sm"
+          />
+        </div>
       </div>
 
       {loading ? (
@@ -167,58 +179,147 @@ export function CurriculumPanel() {
       ) : error ? (
         <div className="mt-8 text-center text-rose-500">{error}</div>
       ) : (
-        <div className="surface-panel mt-6 overflow-x-auto">
-          <table className="w-full text-left text-sm border-collapse">
-            <thead className="bg-[#111827] sticky top-0 z-10">
-              <tr>
-                <th className="px-5 py-4 font-semibold text-sys-text-secondary whitespace-nowrap border-b border-sys-border text-xs uppercase tracking-wider">Група</th>
-                <th className="px-5 py-4 font-semibold text-sys-text-secondary border-b border-sys-border text-xs uppercase tracking-wider min-w-[200px]">Предмет</th>
-                <th className="px-5 py-4 font-semibold text-sys-text-secondary border-b border-sys-border text-xs uppercase tracking-wider min-w-[150px]">Викладач</th>
-                <th className="px-5 py-4 font-semibold text-sys-text-secondary border-b border-sys-border text-xs uppercase tracking-wider">Другий викладач</th>
-                <th className="px-5 py-4 font-semibold text-sys-text-secondary border-b border-sys-border text-xs uppercase tracking-wider text-center">Занять за 2 тижні</th>
-                <th className="px-5 py-4 font-semibold text-sys-text-secondary border-b border-sys-border text-xs uppercase tracking-wider text-center">Годин</th>
-                <th className="px-5 py-4 font-semibold text-sys-text-secondary border-b border-sys-border text-xs uppercase tracking-wider">Позначки</th>
-                <th className="px-5 py-4 font-semibold text-sys-text-secondary border-b border-sys-border text-right min-w-[100px]">Дії</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-sys-border/50">
-              {sortedItems.map(item => (
-                <tr key={item.id} className="hover:bg-white/[0.02] transition-colors group">
-                  <td className="px-5 py-3 whitespace-nowrap">
-                    <span className="font-semibold text-sys-text-primary px-2 py-0.5 bg-sys-accent/10 text-sys-accent rounded">{item.group.name}</span>
-                  </td>
-                  <td className="px-5 py-3 text-sys-text-primary font-medium">{item.subject.name}</td>
-                  <td className="px-5 py-3 text-sys-text-secondary">{item.teacher.name}</td>
-                  <td className="px-5 py-3 text-sys-text-secondary text-[13px]">{item.second_teacher?.name || <span className="text-sys-text-muted">—</span>}</td>
-                  <td className="px-5 py-3 text-center text-emerald-400 font-black text-lg">{item.pairs_per_2_weeks}</td>
-                  <td className="px-5 py-3 text-center text-sys-text-secondary font-medium">{item.total_hours}</td>
-                  <td className="px-5 py-3 flex gap-2">
-                    {item.is_fixed && <span title="Заняття закріплено за конкретним часом" className="rounded bg-sys-input px-2 py-1 text-xs text-sys-text-secondary">Закріплено</span>}
-                    {item.is_stream && <span title="Заняття проводиться для спільного потоку" className="rounded bg-sys-accent/10 px-2 py-1 text-xs text-sys-accent">Потік</span>}
-                  </td>
-                  <td className="px-5 py-3 text-right">
-                    <button onClick={() => setEditor(item)} className="p-2 text-sys-text-muted hover:text-sys-accent rounded-full hover:bg-sys-accent/10 transition-colors" title="Редагувати" aria-label={`Редагувати навантаження з предмета ${item.subject.name} для групи ${item.group.name}`}>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>
-                    </button>
-                    <button onClick={() => setItemToDelete(item)} className="p-2 text-sys-text-muted hover:text-rose-400 rounded-full hover:bg-rose-500/10 transition-colors" title="Видалити">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {sortedItems.length === 0 && (
+        <>
+          {/* Desktop Table View (>=768px) */}
+          <div className="surface-panel mt-4 overflow-x-auto hidden md:block">
+            <table className="w-full text-left text-sm border-collapse">
+              <thead className="bg-[#111827] sticky top-0 z-10">
                 <tr>
-                   <td colSpan={8} className="px-5 py-8 text-center text-sys-text-secondary">Нічого не знайдено за вашим запитом.</td>
+                  <th className="px-5 py-3.5 font-semibold text-sys-text-secondary whitespace-nowrap border-b border-sys-border text-xs uppercase tracking-wider">Група</th>
+                  <th className="px-5 py-3.5 font-semibold text-sys-text-secondary border-b border-sys-border text-xs uppercase tracking-wider min-w-[200px]">Предмет</th>
+                  <th className="px-5 py-3.5 font-semibold text-sys-text-secondary border-b border-sys-border text-xs uppercase tracking-wider min-w-[150px]">Викладач</th>
+                  <th className="px-5 py-3.5 font-semibold text-sys-text-secondary border-b border-sys-border text-xs uppercase tracking-wider">Другий викладач</th>
+                  <th className="px-5 py-3.5 font-semibold text-sys-text-secondary border-b border-sys-border text-xs uppercase tracking-wider text-center">Пари / 2 тижні</th>
+                  <th className="px-5 py-3.5 font-semibold text-sys-text-secondary border-b border-sys-border text-xs uppercase tracking-wider text-center">Годин</th>
+                  <th className="px-5 py-3.5 font-semibold text-sys-text-secondary border-b border-sys-border text-xs uppercase tracking-wider">Позначки</th>
+                  <th className="px-5 py-3.5 font-semibold text-sys-text-secondary border-b border-sys-border text-right min-w-[100px]">Дії</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-sys-border/50">
+                {sortedItems.map(item => (
+                  <tr key={item.id} className="hover:bg-white/[0.02] transition-colors group">
+                    <td className="px-5 py-3 whitespace-nowrap">
+                      <span className="font-semibold text-sys-text-primary px-2 py-0.5 bg-sys-accent/10 text-sys-accent rounded text-xs">{item.group.name}</span>
+                    </td>
+                    <td className="px-5 py-3 text-sys-text-primary font-medium">{item.subject.name}</td>
+                    <td className="px-5 py-3 text-sys-text-secondary">{item.teacher.name}</td>
+                    <td className="px-5 py-3 text-sys-text-secondary text-[13px]">{item.second_teacher?.name || <span className="text-sys-text-muted">—</span>}</td>
+                    <td className="px-5 py-3 text-center text-emerald-400 font-black text-lg">{item.pairs_per_2_weeks}</td>
+                    <td className="px-5 py-3 text-center text-sys-text-secondary font-medium">{item.total_hours}</td>
+                    <td className="px-5 py-3 flex gap-2">
+                      {item.is_fixed && <span title="Заняття закріплено за конкретним часом" className="inline-flex items-center rounded bg-sys-input px-2 py-0.5 text-xs text-sys-text-secondary border border-sys-border/60">Закріплено</span>}
+                      {item.is_stream && <span title="Заняття проводиться для спільного потоку" className="inline-flex items-center rounded bg-sys-accent/15 px-2 py-0.5 text-xs text-sys-accent border border-sys-accent/30 font-medium">Потік</span>}
+                    </td>
+                    <td className="px-5 py-3 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => setEditor(item)}
+                          className="h-9 w-9 flex items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-accent hover:bg-sys-accent/10 transition-colors"
+                          title="Редагувати"
+                          aria-label={`Редагувати навантаження з предмета ${item.subject.name} для групи ${item.group.name}`}
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>
+                        </button>
+                        <button
+                          onClick={() => setItemToDelete(item)}
+                          className="h-9 w-9 flex items-center justify-center rounded-lg text-sys-text-secondary hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                          title="Видалити"
+                          aria-label={`Видалити навантаження`}
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {sortedItems.length === 0 && (
+                  <tr>
+                     <td colSpan={8} className="px-5 py-8 text-center text-sys-text-secondary">Нічого не знайдено за вашим запитом.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile Card List View (<768px) */}
+          <div className="md:hidden space-y-3 mt-4">
+            {sortedItems.map(item => (
+              <div key={item.id} className="rounded-xl border border-sys-border bg-sys-card p-4 space-y-2.5 shadow-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-semibold text-sys-accent px-2 py-0.5 bg-sys-accent/10 rounded text-xs">
+                    {item.group.name}
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {item.is_fixed && (
+                      <span className="rounded bg-sys-input px-2 py-0.5 text-xs text-sys-text-secondary border border-sys-border/60">
+                        Закріплено
+                      </span>
+                    )}
+                    {item.is_stream && (
+                      <span className="rounded bg-sys-accent/15 px-2 py-0.5 text-xs text-sys-accent border border-sys-accent/30 font-medium">
+                        Потік
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <h4 className="text-sm font-semibold text-sys-text-primary">{item.subject.name}</h4>
+                  <p className="text-xs text-sys-text-secondary mt-0.5">
+                    {item.teacher.name}
+                    {item.second_teacher && ` • ${item.second_teacher.name}`}
+                  </p>
+                </div>
+                <div className="flex items-center justify-between pt-1 border-t border-sys-border/50 text-xs text-sys-text-muted">
+                  <div>
+                    <span className="text-emerald-400 font-bold">{item.pairs_per_2_weeks}</span> пар/2 тиж. •{" "}
+                    <span className="text-sys-text-secondary">{item.total_hours} год.</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setEditor(item)}
+                      className="h-9 w-9 flex items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-accent hover:bg-sys-accent/10 active:scale-95 transition-all"
+                      title="Редагувати"
+                      aria-label={`Редагувати ${item.subject.name}`}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                    </button>
+                    <button
+                      onClick={() => setItemToDelete(item)}
+                      className="h-9 w-9 flex items-center justify-center rounded-lg text-sys-text-secondary hover:text-rose-400 hover:bg-rose-500/10 active:scale-95 transition-all"
+                      title="Видалити"
+                      aria-label={`Видалити ${item.subject.name}`}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {sortedItems.length === 0 && (
+              <div className="rounded-xl border border-dashed border-sys-border p-8 text-center text-sys-text-secondary text-sm">
+                Нічого не знайдено за вашим запитом.
+              </div>
+            )}
+          </div>
+        </>
       )}
 
+      {/* Mobile FAB button */}
+      <button
+        type="button"
+        onClick={() => {
+          setSelectedGroupIds([]);
+          setEditor({ is_fixed: false, is_stream: false, pairs_per_2_weeks: 2, total_hours: 40 });
+        }}
+        aria-label="Додати навантаження"
+        className="sm:hidden fixed z-40 right-4 bottom-6 w-14 h-14 rounded-full bg-sys-accent text-[#0b1120] shadow-xl flex items-center justify-center font-bold text-2xl hover:scale-105 active:scale-95 transition-transform focus:outline-none focus:ring-2 focus:ring-sys-accent/40"
+      >
+        +
+      </button>
+
       {editor && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm shadow-2xl">
-          <div className="flex max-h-[92dvh] w-full max-w-2xl flex-col rounded-2xl border border-sys-border bg-sys-card shadow-2xl overflow-hidden">
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 backdrop-blur-sm shadow-2xl">
+          <div className="flex max-h-[92dvh] w-full sm:max-w-2xl flex-col rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card shadow-2xl overflow-hidden">
             <div className="bg-gradient-to-b from-white/5 to-transparent p-6 pb-4 border-b border-sys-border/50 sticky top-0 flex justify-between items-center z-10">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sys-accent/20 text-sys-accent">

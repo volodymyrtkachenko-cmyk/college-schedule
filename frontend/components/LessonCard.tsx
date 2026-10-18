@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { LessonNote } from "./LessonNote";
+import { LessonNote, LessonNoteModal } from "./LessonNote";
 import { EditIcon, MoveIcon } from "./LessonIcons";
 import { Lesson } from "../lib/api";
 import { formatRoom } from "../lib/format";
@@ -298,6 +298,7 @@ export function LessonCard({
   mode,
   scheduleMode,
   canEdit,
+  hideTimeColumn = false,
   onEdit,
   movingLesson,
   onMoveSelect,
@@ -311,6 +312,7 @@ export function LessonCard({
   mode: "today" | "week" | "day";
   scheduleMode: "student" | "teacher" | "admin";
   canEdit: boolean;
+  hideTimeColumn?: boolean;
   onEdit?: (lesson: Lesson) => void;
   movingLesson?: Lesson | null;
   onMoveSelect?: (lesson: Lesson | null) => void;
@@ -327,6 +329,8 @@ export function LessonCard({
   const [startT, endT] = lesson.time.split("-");
 
   const [isHwOpen, setIsHwOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [noteModalMode, setNoteModalMode] = useState<"edit" | "history" | null>(null);
 
   const toggleHw = (e: React.MouseEvent | React.KeyboardEvent) => {
     e.stopPropagation();
@@ -477,20 +481,22 @@ export function LessonCard({
     >
       <div className="flex items-start gap-2.5 sm:gap-3">
         {/* Left: narrow fixed column (number + start time) */}
-        <div className="flex w-11 sm:w-12 shrink-0 flex-col text-left">
-          <span className={`text-lg sm:text-xl font-bold leading-none ${isLive ? "text-sys-accent" : "text-sys-neon"}`}>
-            {lesson.lesson_number}
-          </span>
-          <span className="text-[11px] sm:text-xs font-semibold text-sys-text-secondary mt-1">
-            {startT}
-          </span>
-          {isLive && (
-            <span className="mt-1 flex items-center gap-1 text-[10px] font-semibold text-sys-accent">
-              <span className="h-1.5 w-1.5 animate-ping rounded-full bg-sys-accent" />
-              <span>{remainingMin}хв</span>
+        {!hideTimeColumn && (
+          <div className="flex w-11 sm:w-12 shrink-0 flex-col text-left">
+            <span className={`text-lg sm:text-xl font-bold leading-none ${isLive ? "text-sys-accent" : "text-sys-neon"}`}>
+              {lesson.lesson_number}
             </span>
-          )}
-        </div>
+            <span className="text-[11px] sm:text-xs font-semibold text-sys-text-secondary mt-1">
+              {startT}
+            </span>
+            {isLive && (
+              <span className="mt-1 flex items-center gap-1 text-[10px] font-semibold text-sys-accent">
+                <span className="h-1.5 w-1.5 animate-ping rounded-full bg-sys-accent" />
+                <span>{remainingMin}хв</span>
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Right: full remaining width column */}
         <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -752,6 +758,150 @@ export function LessonCard({
                 ⚡ Заміна
               </span>
             ) : null}
+
+            {/* Actions for canEdit in Row 3 (aligned to right: margin-left: auto) */}
+            {canEdit && (
+              <div className="ml-auto flex items-center gap-1 shrink-0 relative">
+                {lesson.is_cancelled ? (
+                  onRestoreDated && lesson.group_id && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onRestoreDated(lesson, targetDate);
+                      }}
+                      title={`Відновити пару на ${targetDate}`}
+                      className="inline-flex items-center gap-1 rounded-md border border-emerald-500/50 bg-emerald-500/15 px-2 py-0.5 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/25 active:scale-[0.98] transition-colors"
+                    >
+                      Відновити
+                    </button>
+                  )
+                ) : (
+                  <>
+                    {canEditTemplate && (
+                      <button
+                        type="button"
+                        title={isEvent ? "Редагувати подію сесії" : "Редагувати пару"}
+                        aria-label={`Редагувати ${lesson.subject_name}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onEdit?.(lesson);
+                        }}
+                        className="w-7 h-7 flex items-center justify-center rounded-md border border-sys-border/60 bg-sys-card text-sys-text-secondary hover:border-sys-accent/60 hover:bg-sys-accent/15 hover:text-sys-accent active:scale-[0.98] transition-colors"
+                      >
+                        <EditIcon />
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      title="Більше дій"
+                      aria-label="Більше дій для пари"
+                      aria-expanded={moreOpen}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setMoreOpen(!moreOpen);
+                      }}
+                      className="w-7 h-7 flex items-center justify-center rounded-md border border-sys-border/60 bg-sys-card text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/5 active:scale-[0.98] transition-colors font-bold text-sm tracking-widest leading-none"
+                    >
+                      ⋯
+                    </button>
+
+                    {moreOpen && (
+                      <>
+                        <div
+                          className="fixed inset-0 z-40"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setMoreOpen(false);
+                          }}
+                        />
+                        <div
+                          onClick={(e) => e.stopPropagation()}
+                          className="absolute right-0 bottom-full mb-1 z-50 min-w-[170px] rounded-xl border border-sys-border bg-sys-card shadow-2xl p-1 text-xs space-y-0.5 animate-in fade-in zoom-in-95 duration-150"
+                        >
+                          {canMove && !movingLesson && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setMoreOpen(false);
+                                onMoveSelect?.(lesson);
+                              }}
+                              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-sys-text-primary hover:bg-emerald-500/10 hover:text-emerald-400 transition-colors"
+                            >
+                              <MoveIcon />
+                              <span>Перемістити</span>
+                            </button>
+                          )}
+
+                          {onCopySelect && !movingLesson && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setMoreOpen(false);
+                                onCopySelect(lesson);
+                              }}
+                              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-sys-text-primary hover:bg-sky-500/10 hover:text-sky-400 transition-colors"
+                            >
+                              <CopyIcon />
+                              <span>Копіювати</span>
+                            </button>
+                          )}
+
+                          {onCancelDated && lesson.group_id && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setMoreOpen(false);
+                                if (
+                                  typeof window !== "undefined" &&
+                                  window.confirm(`Скасувати пару «${lesson.subject_name}» на ${targetDate}?`)
+                                ) {
+                                  onCancelDated(lesson, targetDate);
+                                }
+                              }}
+                              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-rose-400 hover:bg-rose-500/10 transition-colors"
+                            >
+                              <CalendarOffIcon />
+                              <span>Приховати на дату</span>
+                            </button>
+                          )}
+
+                          {lesson.group_id && (
+                            <>
+                              <div className="border-t border-sys-border/40 my-1" />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setMoreOpen(false);
+                                  setNoteModalMode("edit");
+                                }}
+                                className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-sys-text-secondary hover:text-sys-accent hover:bg-sys-accent/10 transition-colors"
+                              >
+                                <span>💬</span>
+                                <span>{visibleNoteText ? "Редагувати примітку" : "+ Примітка"}</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setMoreOpen(false);
+                                  setNoteModalMode("history");
+                                }}
+                                className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/5 transition-colors"
+                              >
+                                <span>📜</span>
+                                <span>Історія примітки</span>
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Smooth HW expansion container using CSS grid (0fr -> 1fr + opacity 0 -> 1) */}
@@ -806,104 +956,20 @@ export function LessonCard({
             </div>
           )}
 
-          {/* Admin edit controls */}
-          {canEdit && (
-            <div className="mt-1 flex flex-wrap items-center gap-1 border-t border-sys-border/30 pt-1.5">
-              {lesson.is_cancelled ? (
-                onRestoreDated && lesson.group_id && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onRestoreDated(lesson, targetDate);
-                    }}
-                    title={`Відновити пару на ${targetDate}`}
-                    aria-label="Відновити пару на цю дату"
-                    className="inline-flex items-center gap-1 rounded-md border border-emerald-500/50 bg-emerald-500/15 px-2.5 py-1 text-xs font-semibold text-emerald-400 shadow-xs transition-colors hover:border-emerald-500 hover:bg-emerald-500/25 active:scale-[0.98]"
-                  >
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                      <path d="M3 3v5h5" />
-                    </svg>
-                    <span>Відновити пару</span>
-                  </button>
-                )
-              ) : (
-                <>
-                  {canEditTemplate && (
-                    <>
-                      <button
-                        type="button"
-                        title={isEvent ? "Редагувати подію сесії" : "Редагувати шаблон пари"}
-                        aria-label={`Редагувати ${lesson.subject_name}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onEdit?.(lesson);
-                        }}
-                        className={`${ICON_BUTTON} hover:border-sys-accent/60 hover:bg-sys-accent/15 hover:text-sys-accent active:scale-[0.98]`}
-                      >
-                        <EditIcon />
-                      </button>
-                      {canMove && !movingLesson && (
-                        <button
-                          type="button"
-                          title={isEvent ? "Перемістити подію" : "Перемістити пару"}
-                          aria-label="Перемістити пару"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            onMoveSelect?.(lesson);
-                          }}
-                          className={`${ICON_BUTTON} hover:border-emerald-500/60 hover:bg-emerald-500/15 hover:text-emerald-400 active:scale-[0.98]`}
-                        >
-                          <MoveIcon />
-                        </button>
-                      )}
-                      {onCopySelect && !movingLesson && (
-                        <button
-                          type="button"
-                          title={isEvent ? "Дублювати подію в інший слот" : "Дублювати пару в інший слот"}
-                          aria-label="Дублювати пару"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            onCopySelect(lesson);
-                          }}
-                          className={`${ICON_BUTTON} hover:border-sky-500/60 hover:bg-sky-500/15 hover:text-sky-400 active:scale-[0.98]`}
-                        >
-                          <CopyIcon />
-                        </button>
-                      )}
-                    </>
-                  )}
-                  {onCancelDated && lesson.group_id && (
-                    <button
-                      type="button"
-                      title={`Скасувати лише на ${targetDate}`}
-                      aria-label="Скасувати лише на цю дату"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        if (
-                          typeof window !== "undefined" &&
-                          !window.confirm(`Ви впевнені, що хочете скасувати пару "${lesson.subject_name}" на ${targetDate}?`)
-                        ) {
-                          return;
-                        }
-                        onCancelDated(lesson, targetDate);
-                      }}
-                      className={`${ICON_BUTTON} hover:border-rose-500/60 hover:bg-rose-500/15 hover:text-rose-400 active:scale-[0.98]`}
-                    >
-                      <CalendarOffIcon />
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
+          {/* User note (compact text under badges) */}
+          {visibleNoteText && (
+            <p className="mt-1 text-xs text-sys-text-secondary/90 [overflow-wrap:anywhere] italic border-t border-sys-border/20 pt-1">
+              💬 {visibleNoteText}
+            </p>
           )}
 
-          {/* User note */}
-          {!lesson.is_cancelled && (canEdit || visibleNoteText.length > 0) && (
-            <div onClick={(e) => e.stopPropagation()}>
-              <LessonNote key={`${lesson.group_id}:${targetDate}:${lesson.lesson_number}:${lesson.subject_id}`} lesson={lesson} date={targetDate} />
-            </div>
+          {noteModalMode && (
+            <LessonNoteModal
+              lesson={lesson}
+              date={targetDate}
+              initialMode={noteModalMode}
+              onClose={() => setNoteModalMode(null)}
+            />
           )}
         </div>
       </div>

@@ -1,14 +1,17 @@
+"use client";
+
 import { useState, useEffect, useRef } from "react";
-import { api, ImportCancellation, ImportSubstitution, ImporterResponse, ReferenceRecord } from "../../lib/api";
+import { api, ImportCancellation, ImportSubstitution, ImporterResponse, ReferenceRecord, ScheduleVersion } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 import { SearchableSelect } from "../SearchableSelect";
 import { PublicationHistory } from "./PublicationHistory";
+import { PageHeader } from "./PageHeader";
 
 export function ImportPanel() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [versions, setVersions] = useState<import("../../lib/api").ScheduleVersion[]>([]);
+  const [versions, setVersions] = useState<ScheduleVersion[]>([]);
   const [targetVersionId, setTargetVersionId] = useState<number | null>(null);
   const [status, setStatus] = useState<"idle" | "importing" | "mapping" | "ready" | "unchanged" | "success">("idle");
   const [report, setReport] = useState<ImporterResponse["report"] | null>(null);
@@ -261,9 +264,16 @@ export function ImportPanel() {
 
 
   return (
-    <div className="bg-sys-card rounded-xl p-6 border border-sys-border">
-      <div>
-        <h2 className="text-xl font-bold mb-4">Імпорт з kre.dp.ua</h2>
+    <div className="space-y-6">
+      <PageHeader
+        eyebrow="СИНХРОНІЗАЦІЯ"
+        title="Імпорт розкладу"
+        description="Автоматичний парсинг розкладу та замін з офіційного сайту kre.dp.ua та історія публікацій"
+      />
+
+      <div className="bg-sys-card rounded-xl p-6 border border-sys-border">
+        <div>
+          <h2 className="text-lg font-bold mb-4 text-sys-text-primary">Парсинг з kre.dp.ua</h2>
         
         {error && (
             <div className="mb-4 bg-red-500/10 border border-red-500/30 text-rose-300 p-3 rounded-lg text-sm">
@@ -542,6 +552,7 @@ export function ImportPanel() {
                 </button>
             </div>
         )}
+        </div>
       </div>
 
       {status !== "importing" && status !== "mapping" && (

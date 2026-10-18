@@ -4,11 +4,21 @@ import { ReferenceRecord, ReferenceResource } from "../../lib/api";
 import { referenceLabels } from "./AdminNav";
 
 function EditIcon() {
-  return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" /><path d="M13.5 6.5l4 4" /></svg>;
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
+  );
 }
 
 function TrashIcon() {
-  return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h16" /><path d="M10 11v6" /><path d="M14 11v6" /><path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12" /><path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3" /></svg>;
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+    </svg>
+  );
 }
 
 export function ReferenceTable({
@@ -32,75 +42,214 @@ export function ReferenceTable({
   onDelete: (item: ReferenceRecord) => void;
   onOpenRoster?: (group: { id: number; name: string }) => void;
 }) {
-  if (loading) return <div className="rounded-[8px] border-[0.5px] border-sys-border bg-sys-card p-10 text-center text-sys-text-secondary">Завантаження…</div>;
-  if (error) return <div role="alert" className="rounded-[8px] border-[0.5px] border-sys-destructive/30 bg-sys-card p-6 text-sys-destructive">{error}</div>;
-  const facultyNames = new Map(faculties.map((faculty) => [faculty.id, faculty.name]));
-  const teacherNames = new Map(teachers.map((teacher) => [teacher.id, teacher.name]));
+  if (loading) {
+    return (
+      <div className="rounded-xl border border-sys-border bg-sys-card p-12 text-center text-sys-text-secondary">
+        Завантаження записів…
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div role="alert" className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-6 text-rose-400">
+        {error}
+      </div>
+    );
+  }
+
+  const facultyNames = new Map(faculties.map((f) => [f.id, f.name]));
+  const teacherNames = new Map(teachers.map((t) => [t.id, t.name]));
+
   return (
-    <div className="overflow-x-auto rounded-[8px] border-[0.5px] border-sys-border bg-sys-bg">
-      <table className="w-full text-left text-sm">
-        <caption className="sr-only">{referenceLabels[resource]}</caption>
-        <thead className="bg-[#0b1120] text-sys-text-muted text-[12px]">
-          <tr>
-            <th className="px-5 py-3 font-medium">Назва</th>
-            {resource === "groups" && (
-              <>
-                <th className="px-5 py-3 font-medium">Спеціальність</th>
-                <th className="px-5 py-3 font-medium">Куратор</th>
-              </>
-            )}
-            {resource === "teachers" && <th className="px-5 py-3 font-medium">Аудиторія</th>}
-            <th className="px-5 py-3 text-right font-medium">Дії</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-sys-border">
-          {items.map((item) => (
-            <tr key={item.id} className="hover:bg-sys-card/50 transition-colors">
-              <td className="px-5 py-3 text-sys-text-subject">
-                <div>{item.name}</div>
-                {resource === "teachers" && item.full_name && (
-                  <span className="block text-xs text-emerald-400">
-                    Повне ім&apos;я: {item.full_name} {item.email ? `(${item.email})` : ""}
-                  </span>
-                )}
-              </td>
+    <div className="w-full">
+      {/* Desktop & Tablet Table (>= 640px) */}
+      <div className="hidden sm:block overflow-x-auto rounded-xl border border-sys-border bg-sys-card/50">
+        <table className="w-full text-left text-sm border-collapse">
+          <caption className="sr-only">{referenceLabels[resource]}</caption>
+          <thead className="bg-[#111827] sticky top-0 z-10 border-b border-sys-border text-xs uppercase tracking-wider text-sys-text-secondary">
+            <tr>
+              <th scope="col" className="px-5 py-3.5 font-semibold">Назва</th>
               {resource === "groups" && (
                 <>
-                  <td className="px-5 py-3 text-sys-text-secondary">
-                    {item.faculty_id ? facultyNames.get(item.faculty_id) ?? "Невідома спеціальність" : "Без спеціальності"}
-                  </td>
-                  <td className="px-5 py-3 text-sys-text-secondary">
-                    {item.curator_id ? teacherNames.get(item.curator_id) ?? "Невідомий куратор" : "—"}
-                  </td>
+                  <th scope="col" className="px-5 py-3.5 font-semibold">Спеціальність</th>
+                  <th scope="col" className="px-5 py-3.5 font-semibold">Куратор</th>
                 </>
               )}
-              {resource === "teachers" && (
-                <td className="px-5 py-3 text-sys-text-secondary">
-                  {item.room || "—"}
+              {resource === "teachers" && <th scope="col" className="px-5 py-3.5 font-semibold">Аудиторія</th>}
+              <th scope="col" className="px-5 py-3.5 text-right font-semibold min-w-[120px]">Дії</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-sys-border/50">
+            {items.map((item) => (
+              <tr key={item.id} className="hover:bg-white/[0.02] transition-colors">
+                <td className="px-5 py-3.5 font-medium text-sys-text-primary">
+                  {resource === "groups" ? (
+                    <span className="inline-block px-2.5 py-0.5 rounded-md bg-white/5 border border-sys-border/60 text-sys-text-primary font-semibold">
+                      {item.name}
+                    </span>
+                  ) : (
+                    <span>{item.name}</span>
+                  )}
+                  {resource === "teachers" && item.full_name && (
+                    <span className="block text-xs text-sys-text-secondary mt-0.5">
+                      {item.full_name} {item.email ? `(${item.email})` : ""}
+                    </span>
+                  )}
                 </td>
-              )}
-              <td className="px-5 py-3 text-right space-x-3">
-                {resource === "groups" && onOpenRoster && (
+
+                {resource === "groups" && (
+                  <>
+                    <td className="px-5 py-3.5 text-sys-text-secondary">
+                      {item.faculty_id ? facultyNames.get(item.faculty_id) ?? "Невідома спеціальність" : "—"}
+                    </td>
+                    <td className="px-5 py-3.5 text-sys-text-secondary">
+                      {item.curator_id ? teacherNames.get(item.curator_id) ?? "Невідомий куратор" : "—"}
+                    </td>
+                  </>
+                )}
+
+                {resource === "teachers" && (
+                  <td className="px-5 py-3.5 text-sys-text-secondary">
+                    {item.room ? (
+                      <span className="inline-block px-2 py-0.5 rounded bg-sys-input border border-sys-border/40 text-xs">
+                        {item.room}
+                      </span>
+                    ) : "—"}
+                  </td>
+                )}
+
+                <td className="px-5 py-3.5 text-right">
+                  <div className="flex items-center justify-end gap-1.5">
+                    {resource === "groups" && onOpenRoster && (
+                      <button
+                        type="button"
+                        onClick={() => onOpenRoster({ id: item.id, name: item.name })}
+                        className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-2.5 py-1 text-xs font-semibold text-sky-300 hover:bg-sky-500/20 mr-1"
+                      >
+                        👥 Студенти
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      aria-label={`Редагувати ${item.name}`}
+                      title="Редагувати"
+                      onClick={() => onEdit(item)}
+                      className="w-10 h-10 flex items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-accent hover:bg-sys-accent/10 transition-colors"
+                    >
+                      <EditIcon />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`Видалити ${item.name}`}
+                      title="Видалити"
+                      onClick={() => onDelete(item)}
+                      className="w-10 h-10 flex items-center justify-center rounded-lg text-sys-text-secondary hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                    >
+                      <TrashIcon />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {!items.length && (
+              <tr>
+                <td colSpan={resource === "groups" ? 4 : 3} className="px-5 py-10 text-center text-sys-text-secondary">
+                  Записів не знайдено.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Mobile Card List (< 640px) */}
+      <div className="sm:hidden space-y-3 pb-20">
+        {items.map((item) => (
+          <article
+            key={item.id}
+            className="rounded-xl border border-sys-border bg-sys-card p-4 shadow-xs space-y-2.5"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                {resource === "groups" ? (
+                  <span className="inline-block px-2.5 py-1 rounded-md bg-white/5 border border-sys-border/60 text-sys-text-primary font-bold text-base">
+                    {item.name}
+                  </span>
+                ) : (
+                  <h3 className="text-base font-bold text-sys-text-primary break-words">
+                    {item.name}
+                  </h3>
+                )}
+                {resource === "teachers" && item.full_name && (
+                  <p className="text-xs text-sys-text-secondary mt-1">
+                    {item.full_name} {item.email ? `(${item.email})` : ""}
+                  </p>
+                )}
+              </div>
+
+              {/* Horizontal actions 44x44 */}
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  type="button"
+                  aria-label={`Редагувати ${item.name}`}
+                  onClick={() => onEdit(item)}
+                  className="w-11 h-11 flex items-center justify-center rounded-lg border border-sys-border bg-sys-card text-sys-text-secondary hover:text-sys-accent active:bg-sys-accent/15"
+                >
+                  <EditIcon />
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Видалити ${item.name}`}
+                  onClick={() => onDelete(item)}
+                  className="w-11 h-11 flex items-center justify-center rounded-lg border border-rose-500/30 bg-rose-500/10 text-rose-400 active:bg-rose-500/20"
+                >
+                  <TrashIcon />
+                </button>
+              </div>
+            </div>
+
+            {resource === "groups" && (
+              <div className="flex flex-col gap-1 text-xs text-sys-text-secondary pt-1 border-t border-sys-border/40">
+                <div>
+                  <span className="text-sys-text-muted">Спеціальність: </span>
+                  <span className="text-sys-text-primary font-medium">
+                    {item.faculty_id ? facultyNames.get(item.faculty_id) ?? "—" : "—"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-sys-text-muted">Куратор: </span>
+                  <span className="text-sys-text-primary font-medium">
+                    {item.curator_id ? teacherNames.get(item.curator_id) ?? "—" : "—"}
+                  </span>
+                </div>
+                {onOpenRoster && (
                   <button
                     type="button"
                     onClick={() => onOpenRoster({ id: item.id, name: item.name })}
-                    className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-2.5 py-1 text-xs font-semibold text-sky-300 hover:bg-sky-500/20 inline-flex align-middle"
+                    className="mt-2 w-full flex items-center justify-center gap-2 rounded-lg border border-sky-500/30 bg-sky-500/10 py-2.5 text-xs font-semibold text-sky-300 active:bg-sky-500/20"
                   >
-                    👥 Студенти
+                    👥 Студенти групи
                   </button>
                 )}
-                <button aria-label={`Редагувати ${item.name}`} onClick={() => onEdit(item)} className="text-sys-text-muted hover:text-sys-text-primary transition-colors inline-flex align-middle">
-                  <EditIcon />
-                </button>
-                <button aria-label={`Видалити ${item.name}`} onClick={() => onDelete(item)} className="text-sys-destructive hover:opacity-80 transition-opacity inline-flex align-middle">
-                  <TrashIcon />
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {!items.length && <p className="p-8 text-center text-sys-text-secondary">Записів не знайдено.</p>}
+              </div>
+            )}
+
+            {resource === "teachers" && item.room && (
+              <div className="text-xs pt-1 border-t border-sys-border/40">
+                <span className="text-sys-text-muted">Аудиторія: </span>
+                <span className="font-semibold text-sys-text-primary">{item.room}</span>
+              </div>
+            )}
+          </article>
+        ))}
+
+        {!items.length && (
+          <div className="rounded-xl border border-dashed border-sys-border p-8 text-center text-sys-text-secondary text-sm">
+            Записів не знайдено.
+          </div>
+        )}
+      </div>
     </div>
   );
 }

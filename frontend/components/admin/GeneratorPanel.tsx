@@ -6,6 +6,7 @@ import { ConfirmModal } from "./ConfirmModal";
 import { SearchableSelect } from "../SearchableSelect";
 import { formatLessonCount, formatTeacherName } from "../../lib/format";
 import { useToast } from "../ToastProvider";
+import { PageHeader } from "./PageHeader";
 
 const draftStatusLabels: Record<string, string> = {
   DRAFT: "Чернетка",
@@ -425,23 +426,25 @@ export function GeneratorPanel() {
 
   return (
     <>
-      <div className="mt-2 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-         <div>
-           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sys-accent">Підготовка розкладу</p>
-           <h1 className="mt-1 text-xl font-bold">Генератор розкладу</h1>
-           <p className="mt-2 max-w-xl text-sm text-sys-text-secondary">
-             Створює чернетку з навчального навантаження, доступності викладачів і практик. Після перевірки її можна опублікувати — тоді вона замінить поточний розклад.
-           </p>
-         </div>
-         <button onClick={handleGenerate} disabled={generating} className="shrink-0 rounded-[6px] bg-emerald-500 px-4 py-2 text-sm font-semibold text-[#0b1120] hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-wait flex items-center gap-2">
+      <PageHeader
+        eyebrow="АВТОМАТИЗАЦІЯ"
+        title="Генерація розкладу"
+        description="Створює чернетку з навчального навантаження, доступності викладачів і практик. Після перевірки її можна опублікувати як розклад."
+        actions={
+          <button
+            onClick={handleGenerate}
+            disabled={generating}
+            className="shrink-0 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-[#0b1120] hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-wait flex items-center gap-2"
+          >
             {generating ? (
               <>
                 <svg className="animate-spin h-4 w-4 text-[#0b1120]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
                 Створюємо розклад…
               </>
             ) : "Створити розклад"}
-         </button>
-      </div>
+          </button>
+        }
+      />
 
       {loading ? (
         <div className="mt-8 text-center text-sys-text-secondary">Завантаження…</div>

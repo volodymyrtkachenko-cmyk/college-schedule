@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { ScheduleWeekGrid } from "../ScheduleWeekGrid";
 import { WeekTypeBadge } from "../WeekTypeBadge";
 import { LessonEditor } from "../LessonEditor";
@@ -13,6 +13,40 @@ import { QuickJumpTarget, findGroupIdByName, findTeacherIdByName } from "../../l
 import { OfficialPrintModal } from "./OfficialPrintSheet";
 import { EventsModal } from "./EventsModal";
 import { DEFAULT_LESSON_TIMES } from "../../lib/constants/lessons";
+import { PageHeader } from "./PageHeader";
+import { MobileWeekBar } from "../MobileWeekBar";
+import { MobileWeekDaysStrip } from "../MobileWeekDaysStrip";
+import { LessonCard } from "../LessonCard";
+
+function GraduationIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
+      <path d="M6 12v5c3 3 9 3 12 0v-5" />
+    </svg>
+  );
+}
+
+function CalendarEventIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
+      <line x1="16" x2="16" y1="2" y2="6" />
+      <line x1="8" x2="8" y1="2" y2="6" />
+      <line x1="3" x2="21" y1="10" y2="10" />
+    </svg>
+  );
+}
+
+function PrinterIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="6 9 6 2 18 2 18 9" />
+      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+      <rect width="12" height="8" x="6" y="14" />
+    </svg>
+  );
+}
 
 export function AdminScheduleEditor() {
   const [weekAnchorDate, setWeekAnchorDate] = useState(() => {
@@ -384,11 +418,98 @@ export function AdminScheduleEditor() {
     }
   };
 
+  const [selectedDayIndex, setSelectedDayIndex] = useState(() => {
+    const d = new Date().getDay();
+    return d >= 1 && d <= 5 ? d - 1 : 0;
+  });
+  const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
+
+  const todayIso = useMemo(() => {
+    return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(new Date());
+  }, []);
+
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (touchStartX.current === null || touchStartY.current === null) return;
+    const diffX = touchStartX.current - e.touches[0].clientX;
+    const diffY = touchStartY.current - e.touches[0].clientY;
+
+    if (Math.abs(diffX) > 40 && Math.abs(diffX) > Math.abs(diffY) * 1.5) {
+      if (diffX > 0) {
+        if (selectedDayIndex < 4) {
+          setSelectedDayIndex((prev) => prev + 1);
+        } else {
+          const next = new Date(weekAnchorDate);
+          next.setDate(next.getDate() + 7);
+          setWeekAnchorDate(next);
+          setSelectedDayIndex(0);
+        }
+      } else {
+        if (selectedDayIndex > 0) {
+          setSelectedDayIndex((prev) => prev - 1);
+        } else {
+          const prev = new Date(weekAnchorDate);
+          prev.setDate(prev.getDate() - 7);
+          setWeekAnchorDate(prev);
+          setSelectedDayIndex(4);
+        }
+      }
+      touchStartX.current = null;
+      touchStartY.current = null;
+    }
+  };
+
+  const handleTouchEnd = () => {
+    touchStartX.current = null;
+    touchStartY.current = null;
+  };
+
+  const handleEditLesson = (lesson: Lesson, fallbackDate?: string) => {
+    if (lesson.event_type || lesson.event_id) {
+      const evId = lesson.event_id ?? (lesson.id < 0 ? -lesson.id : lesson.id);
+      const targetDate = week?.find((day) => day.lessons.some((item) => item.id === lesson.id))?.date ?? fallbackDate ?? (today?.date || week?.[0]?.date) ?? "";
+      const cleanSubject = lesson.custom_subject || lesson.subject_name;
+      setEditingEvent({
+        id: evId,
+        group_id: lesson.group_id ?? groupId ?? 0,
+        group_name: lesson.group_name ?? null,
+        subject_id: lesson.subject_id ?? null,
+        subject_name: lesson.subject_name ?? null,
+        custom_subject: lesson.custom_subject ?? null,
+        teacher_id: lesson.teacher_id ?? null,
+        teacher_name: lesson.teacher_name ?? null,
+        title: lesson.event_title || cleanSubject || "",
+        event_type: (lesson.event_type as AcademicEventType) || "exam",
+        event_date: targetDate,
+        lesson_number: lesson.lesson_number,
+        start_time: (lesson.time && lesson.time.split(/[-–]/)[0]?.trim()) || "09:00",
+        room: lesson.room || lesson.room_override || null,
+        note: lesson.note || null,
+      });
+      return;
+    }
+    const date = week?.find((day) => day.lessons.some((item) => item.id === lesson.id))?.date ?? fallbackDate ?? (today?.date || week?.[0]?.date);
+    setEditor({ lesson, date });
+  };
+
   return (
-    <div className="w-full">
-      <div className="mb-4 flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-between gap-4">
+    <div className="w-full space-y-4">
+      <PageHeader
+        eyebrow="КЕРУВАННЯ"
+        title="Розклад занять"
+        description="Перегляд, планування та редагування тижневого розкладу пар"
+      />
+
+      <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-between gap-3">
         {/* Filters Panel */}
-        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 w-full lg:w-auto">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2.5 w-full lg:w-auto">
           {teachers.length > 0 && (
           <div role="tablist" aria-label="Режим перегляду" className="flex w-full sm:w-auto rounded-lg border border-sys-border bg-sys-card p-1 text-sm relative">
             <div className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-sys-accent rounded-md shadow-sm transition-all duration-300 ease-out z-0" style={{ left: mode === 'student' ? '4px' : '50%' }}></div>
@@ -500,69 +621,162 @@ export function AdminScheduleEditor() {
             <button
               type="button"
               onClick={() => setCuratorModalOpen(true)}
-              className="rounded-lg border border-sys-border bg-sys-card px-3 py-1.5 text-xs font-semibold text-sys-text-primary hover:bg-white/5"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-sys-border bg-sys-card px-3 py-1.5 text-xs font-semibold text-sys-text-primary hover:bg-white/5"
             >
-              🎓 Виховна година
+              <GraduationIcon />
+              <span>Виховна година</span>
             </button>
             <button
               type="button"
               onClick={() => setEventsModalOpen(true)}
-              className="rounded-lg border border-sys-border bg-sys-card px-3 py-1.5 text-xs font-semibold text-sys-text-primary hover:bg-white/5"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-sys-border bg-sys-card px-3 py-1.5 text-xs font-semibold text-sys-text-primary hover:bg-white/5"
             >
-              📅 Сесія / Події
+              <CalendarEventIcon />
+              <span>Сесія / Події</span>
             </button>
             <button
               type="button"
               onClick={() => setPrintModalOpen(true)}
-              className="rounded-lg border border-sys-border bg-sys-card px-3 py-1.5 text-xs font-semibold text-sys-text-primary hover:bg-white/5"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-sys-border bg-sys-card px-3 py-1.5 text-xs font-semibold text-sys-text-primary hover:bg-white/5"
             >
-              🖨️ Друк
+              <PrinterIcon />
+              <span>Друк</span>
             </button>
           </div>
           </div>
-          <ScheduleWeekGrid
-            week={week}
-            availabilityWeek={availabilityWeek}
-            availabilityError={availabilityError}
-            scheduleMode={mode}
-            canEdit={true}
-            movingLesson={movingLesson}
-            isCopyMode={isCopyMode}
-            onMoveSelect={handleMoveSelect}
-            onCopySelect={handleCopySelect}
-            onCancelDated={cancelOnDate}
-            onRestoreDated={restoreOnDate}
-            onQuickJump={handleQuickJump}
-            onMove={(lesson, date, lessonNumber) => void moveLesson(lesson, date, lessonNumber)}
-            onEdit={(lesson) => {
-              if (lesson.event_type || lesson.event_id) {
-                const evId = lesson.event_id ?? (lesson.id < 0 ? -lesson.id : lesson.id);
-                const targetDate = week.find((day) => day.lessons.some((item) => item.id === lesson.id))?.date ?? (today?.date || week?.[0]?.date) ?? "";
-                const cleanSubject = lesson.custom_subject || lesson.subject_name;
-                setEditingEvent({
-                  id: evId,
-                  group_id: lesson.group_id ?? groupId ?? 0,
-                  group_name: lesson.group_name ?? null,
-                  subject_id: lesson.subject_id ?? null,
-                  subject_name: lesson.subject_name ?? null,
-                  custom_subject: lesson.custom_subject ?? null,
-                  teacher_id: lesson.teacher_id ?? null,
-                  teacher_name: lesson.teacher_name ?? null,
-                  title: lesson.event_title || cleanSubject || "",
-                  event_type: (lesson.event_type as AcademicEventType) || "exam",
-                  event_date: targetDate,
-                  lesson_number: lesson.lesson_number,
-                  start_time: (lesson.time && lesson.time.split(/[-–]/)[0]?.trim()) || "09:00",
-                  room: lesson.room || lesson.room_override || null,
-                  note: lesson.note || null,
-                });
-                return;
-              }
-              const date = week.find((day) => day.lessons.some((item) => item.id === lesson.id))?.date ?? (today?.date || week?.[0]?.date);
-              setEditor({ lesson, date });
-            }}
-            onCreate={(date) => setEditor({ date })}
-          />
+
+          {/* Desktop Schedule Grid (hidden on mobile <640px) */}
+          <div className="hidden sm:block">
+            <ScheduleWeekGrid
+              week={week}
+              availabilityWeek={availabilityWeek}
+              availabilityError={availabilityError}
+              scheduleMode={mode}
+              canEdit={true}
+              movingLesson={movingLesson}
+              isCopyMode={isCopyMode}
+              onMoveSelect={handleMoveSelect}
+              onCopySelect={handleCopySelect}
+              onCancelDated={cancelOnDate}
+              onRestoreDated={restoreOnDate}
+              onQuickJump={handleQuickJump}
+              onMove={(lesson, date, lessonNumber) => void moveLesson(lesson, date, lessonNumber)}
+              onEdit={(lesson) => handleEditLesson(lesson)}
+              onCreate={(date) => setEditor({ date })}
+            />
+          </div>
+
+          {/* Mobile Schedule Day View (<640px) */}
+          <div className="sm:hidden -mx-4 -mt-2 space-y-2">
+            <MobileWeekBar
+              weekRange={weekRange}
+              weekType={weekType}
+              isCurrentWeek={isCurrentWeek}
+              onPrevWeek={() => {
+                const prev = new Date(weekAnchorDate);
+                prev.setDate(prev.getDate() - 7);
+                setWeekAnchorDate(prev);
+              }}
+              onNextWeek={() => {
+                const next = new Date(weekAnchorDate);
+                next.setDate(next.getDate() + 7);
+                setWeekAnchorDate(next);
+              }}
+              onResetWeek={resetWeek}
+            />
+            <MobileWeekDaysStrip
+              weekAnchorDate={weekAnchorDate}
+              selectedDayIndex={selectedDayIndex}
+              onSelectDay={(idx) => setSelectedDayIndex(idx)}
+              isCurrentWeek={isCurrentWeek}
+              todayIso={todayIso}
+            />
+
+            {/* Mobile day content with touch gestures */}
+            <div
+              className="px-4 py-2 space-y-3 touch-pan-y min-h-[300px]"
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+            >
+              {(() => {
+                const currentDay = week[selectedDayIndex];
+                if (!currentDay) {
+                  return (
+                    <div className="p-8 text-center text-sys-text-secondary text-sm">
+                      Немає даних для цього дня
+                    </div>
+                  );
+                }
+
+                const dayLabel = new Intl.DateTimeFormat("uk-UA", {
+                  weekday: "long",
+                  day: "numeric",
+                  month: "short",
+                }).format(new Date(`${currentDay.date}T12:00:00`));
+
+                return (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm font-semibold capitalize text-sys-text-primary">
+                        {dayLabel}
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setMobileActionsOpen(true)}
+                          className="h-9 px-2.5 rounded-lg border border-sys-border bg-sys-card text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary"
+                        >
+                          ⋯ Дії
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditor({ date: currentDay.date })}
+                          className="h-9 px-3 rounded-lg bg-sys-accent text-xs font-bold text-[#0b1120] hover:opacity-90 active:scale-95 transition-all"
+                        >
+                          + Додати
+                        </button>
+                      </div>
+                    </div>
+
+                    {currentDay.lessons.length === 0 ? (
+                      <div className="rounded-xl border border-dashed border-sys-border p-8 text-center text-sys-text-secondary">
+                        <div className="text-sm mb-2">Пар немає</div>
+                        <button
+                          type="button"
+                          onClick={() => setEditor({ date: currentDay.date })}
+                          className="text-xs text-sys-accent hover:underline font-medium"
+                        >
+                          + Додати пару на цей день
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {currentDay.lessons.map((lesson) => (
+                          <div key={lesson.id} className="relative">
+                            <LessonCard
+                              lesson={lesson}
+                              targetDate={currentDay.date}
+                              mode="day"
+                              scheduleMode={mode}
+                              canEdit={true}
+                              onEdit={(l) => handleEditLesson(l, currentDay.date)}
+                              onMoveSelect={handleMoveSelect}
+                              onCopySelect={handleCopySelect}
+                              onCancelDated={cancelOnDate}
+                              onRestoreDated={restoreOnDate}
+                              onQuickJump={handleQuickJump}
+                              hideTimeColumn={false}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
         </div>
       ) : null}
 
@@ -691,6 +905,59 @@ export function AdminScheduleEditor() {
             setWeek(refreshed);
           }}
         />
+      )}
+
+      {/* Mobile Actions Bottom Sheet */}
+      {mobileActionsOpen && (
+        <div className="fixed inset-0 z-50 flex items-end bg-black/60 backdrop-blur-xs sm:hidden">
+          <div className="w-full rounded-t-2xl border-t border-sys-border bg-sys-card p-5 space-y-4 shadow-xl">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-sys-text-primary">Швидкі дії</span>
+              <button
+                type="button"
+                onClick={() => setMobileActionsOpen(false)}
+                className="h-8 w-8 rounded-lg flex items-center justify-center text-sys-text-secondary hover:text-sys-text-primary"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="grid grid-cols-1 gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileActionsOpen(false);
+                  setCuratorModalOpen(true);
+                }}
+                className="flex items-center gap-3 w-full rounded-xl border border-sys-border bg-sys-bg/60 p-3 text-left text-sm font-medium text-sys-text-primary hover:bg-sys-bg"
+              >
+                <GraduationIcon />
+                <span>Виховна година (кураторська)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileActionsOpen(false);
+                  setEventsModalOpen(true);
+                }}
+                className="flex items-center gap-3 w-full rounded-xl border border-sys-border bg-sys-bg/60 p-3 text-left text-sm font-medium text-sys-text-primary hover:bg-sys-bg"
+              >
+                <CalendarEventIcon />
+                <span>Сесія / Академічні події</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileActionsOpen(false);
+                  setPrintModalOpen(true);
+                }}
+                className="flex items-center gap-3 w-full rounded-xl border border-sys-border bg-sys-bg/60 p-3 text-left text-sm font-medium text-sys-text-primary hover:bg-sys-bg"
+              >
+                <PrinterIcon />
+                <span>Друк розкладу</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

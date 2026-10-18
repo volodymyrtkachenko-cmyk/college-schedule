@@ -13,6 +13,7 @@ import { invalidateScheduleCache } from "../../lib/hooks";
 import { SearchableSelect } from "../SearchableSelect";
 import { ConfirmModal } from "./ConfirmModal";
 import { useToast } from "../ToastProvider";
+import { PageHeader } from "./PageHeader";
 
 type SlotDraft = SchedulePeriodSlotMutation & { key: string };
 type PeriodDraft = {
@@ -322,24 +323,22 @@ export function SchedulePeriodsPanel() {
 
   return (
     <section className="space-y-5">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sys-accent">Календар</p>
-          <h1 className="mt-1 text-xl font-bold">Графік освітнього процесу</h1>
-          <p className="mt-1 max-w-2xl text-sm text-sys-text-secondary">
-            Управління періодами навчання, сесіями, практиками та канікулами. Нетеоретичні періоди автоматично приховують звичайний розклад.
-          </p>
-        </div>
-        {!draft && (
-          <button
-            type="button"
-            onClick={() => setDraft(blankPeriod())}
-            className="rounded-lg bg-sys-accent px-4 py-2.5 text-sm font-semibold text-[#0b1120] transition-opacity hover:opacity-90"
-          >
-            + Додати період
-          </button>
-        )}
-      </header>
+      <PageHeader
+        eyebrow="КАЛЕНДАР"
+        title="Періоди (Практики/Канікули)"
+        description="Управління навчальними періодами, сесіями, практиками та канікулами. Нетеоретичні періоди автоматично приховують звичайний розклад."
+        actions={
+          !draft ? (
+            <button
+              type="button"
+              onClick={() => setDraft(blankPeriod())}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-sys-accent px-4 py-2 text-sm font-semibold text-[#0b1120] transition-opacity hover:opacity-90"
+            >
+              + Додати період
+            </button>
+          ) : undefined
+        }
+      />
 
       <div className="flex flex-wrap items-center gap-4 bg-[#111827]/40 p-4 rounded-xl border border-sys-border/50">
         <div className="flex items-center gap-2">
@@ -575,25 +574,56 @@ export function SchedulePeriodsPanel() {
                     {formatDate(period.start_date)} — {formatDate(period.end_date)}
                   </p>
                   
-                  <div className="mt-2 text-xs text-sys-text-muted flex items-center gap-1.5 flex-wrap">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-70"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-                    <span className="truncate max-w-[200px] sm:max-w-[300px]" title={period.groups.length ? period.groups.map(g => g.name).join(", ") : "Усі групи"}>
-                        {period.groups.length ? period.groups.map(g => g.name).join(", ") : "Усі групи"}
+                  <div className="mt-2.5 flex items-center gap-1.5 flex-wrap">
+                    <span className="text-xs text-sys-text-muted flex items-center gap-1 mr-1">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-70"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                      Групи:
                     </span>
+                    {period.groups.length === 0 ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded bg-sys-input text-[11px] text-sys-text-secondary border border-sys-border/50">
+                        Усі групи
+                      </span>
+                    ) : (
+                      <>
+                        {period.groups.slice(0, 8).map((g) => (
+                          <span
+                            key={g.id}
+                            className="inline-flex items-center px-2 py-0.5 rounded bg-sys-accent/10 text-sys-accent text-[11px] font-medium border border-sys-accent/20"
+                          >
+                            {g.name}
+                          </span>
+                        ))}
+                        {period.groups.length > 8 && (
+                          <span
+                            className="inline-flex items-center px-2 py-0.5 rounded bg-sys-card border border-sys-border text-[11px] text-sys-text-muted font-medium"
+                            title={period.groups.slice(8).map((g) => g.name).join(", ")}
+                          >
+                            +{period.groups.length - 8}
+                          </span>
+                        )}
+                      </>
+                    )}
                     {period.period_type === "practice" && (
-                        <>
-                           <span className="opacity-50">•</span>
-                           <span>{formatPairCount(period.slots.length)}</span>
-                        </>
+                      <span className="text-xs text-sys-text-muted ml-1">
+                        • {formatPairCount(period.slots.length)}
+                      </span>
                     )}
                   </div>
                 </div>
                 
-                <div className="flex sm:flex-col gap-2 shrink-0">
-                  <button type="button" onClick={() => editPeriod(period)} className="flex-1 rounded-lg border border-sys-border bg-sys-bg/50 px-3 py-1.5 text-xs font-semibold text-sys-text-primary hover:border-sys-accent hover:text-sys-accent transition-colors">
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => editPeriod(period)}
+                    className="rounded-lg border border-sys-border bg-sys-card px-3.5 py-1.5 text-xs font-semibold text-sys-text-primary hover:border-sys-accent hover:text-sys-accent transition-colors"
+                  >
                     Відкрити
                   </button>
-                  <button type="button" onClick={() => setPeriodToDelete(period)} className="flex-1 rounded-lg border border-rose-500/20 bg-rose-500/5 px-3 py-1.5 text-xs font-semibold text-rose-300 hover:bg-rose-500/20 transition-colors">
+                  <button
+                    type="button"
+                    onClick={() => setPeriodToDelete(period)}
+                    className="rounded-lg border border-rose-500/20 bg-rose-500/5 px-3.5 py-1.5 text-xs font-semibold text-rose-300 hover:bg-rose-500/20 transition-colors"
+                  >
                     Видалити
                   </button>
                 </div>

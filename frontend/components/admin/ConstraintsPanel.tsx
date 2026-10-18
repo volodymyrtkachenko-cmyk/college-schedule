@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { api, TeacherConstraintRecord } from "../../lib/api";
 import { SearchableSelect } from "../SearchableSelect";
 import { useToast } from "../ToastProvider";
+import { PageHeader } from "./PageHeader";
 
 export function ConstraintsPanel() {
   const [items, setItems] = useState<TeacherConstraintRecord[]>([]);
@@ -63,15 +64,14 @@ export function ConstraintsPanel() {
 
   return (
     <>
-      <div className="flex items-center justify-between mt-2">
-         <div>
-           <h1 className="text-xl font-bold">Доступність викладачів</h1>
-           <p className="text-sm text-sys-text-secondary mt-1">Позначте дні та пари, коли викладач не може проводити заняття. Генератор врахує ці обмеження.</p>
-         </div>
-      </div>
+      <PageHeader
+        eyebrow="АВТОМАТИЗАЦІЯ"
+        title="Доступність викладачів"
+        description="Позначте дні та пари, коли викладач не може проводити заняття. Генератор врахує ці обмеження."
+      />
 
-      <div className="surface-panel mt-6 flex flex-wrap items-end gap-4 p-4 sm:p-5">
-         <div>
+      <div className="surface-panel mt-4 flex flex-wrap items-end gap-3 p-4 sm:p-5">
+         <div className="w-full sm:w-auto sm:min-w-[220px]">
            <label className="block text-xs font-semibold uppercase tracking-wider text-sys-text-secondary mb-1">Викладач</label>
            <SearchableSelect
              options={teachers}
@@ -82,56 +82,84 @@ export function ConstraintsPanel() {
              ariaLabel="Викладач"
            />
          </div>
-         <div>
+         <div className="flex-1 sm:flex-initial">
            <label className="block text-xs font-semibold uppercase tracking-wider text-sys-text-secondary mb-1">День тижня</label>
-           <select value={day} onChange={e => setDay(Number(e.target.value))} className="form-control min-w-[150px]">
+           <select value={day} onChange={e => setDay(Number(e.target.value))} className="form-control w-full min-w-[140px] text-sm">
              {Object.entries(daysDict).map(([k,v]) => <option key={k} value={k}>{v}</option>)}
            </select>
          </div>
-         <div>
+         <div className="flex-1 sm:flex-initial">
            <label className="block text-xs font-semibold uppercase tracking-wider text-sys-text-secondary mb-1">Пара</label>
-           <select value={lesson} onChange={e => setLesson(Number(e.target.value))} className="form-control min-w-[120px]">
+           <select value={lesson} onChange={e => setLesson(Number(e.target.value))} className="form-control w-full min-w-[110px] text-sm">
              <option value={1}>1 пара</option><option value={2}>2 пара</option>
              <option value={3}>3 пара</option><option value={4}>4 пара</option>
            </select>
          </div>
-         <button onClick={handleAdd} className="h-[42px] rounded-lg bg-rose-600/90 px-4 py-2 text-sm font-semibold tracking-wide text-white transition-colors hover:bg-rose-600">
-            Додати обмеження
+         <button onClick={handleAdd} className="w-full sm:w-auto h-[38px] rounded-lg bg-rose-600/90 px-4 text-sm font-semibold text-white transition-colors hover:bg-rose-600 active:scale-95">
+            + Додати обмеження
          </button>
       </div>
 
       {loading ? (
         <div className="mt-8 text-center text-sys-text-secondary">Завантаження…</div>
       ) : (
-        <div className="mt-6 rounded-[12px] border-[0.5px] border-sys-border bg-sys-card overflow-hidden shadow-sm">
-          <table className="w-full text-left text-sm border-collapse">
-            <thead className="bg-sys-bg">
-              <tr>
-                <th className="px-5 py-4 font-semibold text-sys-text-secondary text-xs uppercase tracking-wider">Викладач</th>
-                <th className="px-5 py-4 font-semibold text-sys-text-secondary text-xs uppercase tracking-wider">День</th>
-                <th className="px-5 py-4 font-semibold text-sys-text-secondary text-xs uppercase tracking-wider">Пара</th>
-                <th className="px-5 py-4 font-semibold text-sys-text-secondary text-right min-w-[100px]">Дії</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-sys-border/50">
-              {items.map(i => (
-                <tr key={i.id} className="hover:bg-white/[0.02] transition-colors">
-                  <td className="px-5 py-3 font-semibold text-sys-text-primary">{i.teacher.name}</td>
-                  <td className="px-5 py-3 text-rose-400 font-medium">{daysDict[i.day_of_week as keyof typeof daysDict] || i.day_of_week}</td>
-                  <td className="px-5 py-3 font-bold text-sys-text-muted">{i.lesson_number} пара</td>
-                  <td className="px-5 py-3 text-right">
-                    <button onClick={() => handleDelete(i.id)} className="px-3 py-1 text-xs font-semibold rounded bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition">Видалити</button>
-                  </td>
-                </tr>
-              ))}
-              {items.length === 0 && (
+        <>
+          {/* Desktop Table (>=640px) */}
+          <div className="hidden sm:block mt-6 rounded-xl border border-sys-border bg-sys-card overflow-hidden shadow-sm">
+            <table className="w-full text-left text-sm border-collapse">
+              <thead className="bg-[#111827] sticky top-0 z-10 border-b border-sys-border">
                 <tr>
-                   <td colSpan={4} className="px-5 py-8 text-center text-sys-text-secondary">Обмежень немає. Викладачі доступні в усі дні та пари.</td>
+                  <th className="px-5 py-3.5 font-semibold text-sys-text-secondary text-xs uppercase tracking-wider">Викладач</th>
+                  <th className="px-5 py-3.5 font-semibold text-sys-text-secondary text-xs uppercase tracking-wider">День</th>
+                  <th className="px-5 py-3.5 font-semibold text-sys-text-secondary text-xs uppercase tracking-wider">Пара</th>
+                  <th className="px-5 py-3.5 font-semibold text-sys-text-secondary text-right min-w-[100px]">Дії</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-sys-border/50">
+                {items.map(i => (
+                  <tr key={i.id} className="hover:bg-white/[0.02] transition-colors">
+                    <td className="px-5 py-3 font-semibold text-sys-text-primary">{i.teacher.name}</td>
+                    <td className="px-5 py-3 text-rose-400 font-medium">{daysDict[i.day_of_week as keyof typeof daysDict] || i.day_of_week}</td>
+                    <td className="px-5 py-3 font-bold text-sys-text-muted">{i.lesson_number} пара</td>
+                    <td className="px-5 py-3 text-right">
+                      <button onClick={() => handleDelete(i.id)} className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition-colors">Видалити</button>
+                    </td>
+                  </tr>
+                ))}
+                {items.length === 0 && (
+                  <tr>
+                     <td colSpan={4} className="px-5 py-8 text-center text-sys-text-secondary">Обмежень немає. Викладачі доступні в усі дні та пари.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile Card View (<640px) */}
+          <div className="sm:hidden space-y-2.5 mt-4">
+            {items.map(i => (
+              <div key={i.id} className="rounded-xl border border-sys-border bg-sys-card p-3.5 flex items-center justify-between gap-3 shadow-sm">
+                <div>
+                  <h4 className="font-semibold text-sm text-sys-text-primary">{i.teacher.name}</h4>
+                  <p className="text-xs text-rose-400 font-medium mt-0.5">
+                    {daysDict[i.day_of_week as keyof typeof daysDict] || i.day_of_week} • {i.lesson_number} пара
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleDelete(i.id)}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 active:scale-95 transition-colors"
+                >
+                  Видалити
+                </button>
+              </div>
+            ))}
+            {items.length === 0 && (
+              <div className="rounded-xl border border-dashed border-sys-border p-8 text-center text-sm text-sys-text-secondary">
+                Обмежень немає. Викладачі доступні в усі дні та пари.
+              </div>
+            )}
+          </div>
+        </>
       )}
 
       

@@ -6,71 +6,7 @@ import { invalidateScheduleCache, useOnlineStatus } from "../lib/hooks";
 import { getVisibleUserNote } from "./LessonCard";
 
 export function LessonNote({ lesson, date }: { lesson: Lesson; date: string }) {
-  const { user } = useAuth();
-  const online = useOnlineStatus();
-  const labelId = useId();
-  const mounted = useRef(true);
-  const [note, setNote] = useState(lesson.note ?? "");
-  const [revision, setRevision] = useState(lesson.note_revision ?? 0);
-  const [draft, setDraft] = useState(note);
-  const [editing, setEditing] = useState(false);
-  const [editRevision, setEditRevision] = useState(revision);
-  const pending = useRef(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [history, setHistory] = useState<NoteRevision[] | null>(null);
-  const groupId = lesson.group_id;
-  const canManage = !!groupId && (user?.role === "admin" ||
-    (user?.role === "editor" && !!user.allowed_groups?.includes(groupId)));
-
-  useEffect(() => { setHistory(null); setEditing(false); setDraft(note); }, [user?.id, user?.role, JSON.stringify(user?.allowed_groups)]);
-  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
-  useEffect(() => {
-    setNote(lesson.note ?? "");
-    setRevision(lesson.note_revision ?? 0);
-    // Never replace the user's unsaved text after a background refresh.
-  }, [lesson.note, lesson.note_revision]);
-
-  async function mutate(remove: boolean) {
-    if (!groupId || !canManage || pending.current) return;
-    if (!online) { setError("Немає мережі. Текст залишився у формі; збережіть після підключення."); return; }
-    const generation = api.auth.generation();
-    pending.current = true;
-    setBusy(true); setError(null);
-    try {
-      if (remove) {
-        await api.notes.remove(groupId, date, lesson.lesson_number, lesson.subject_id, editRevision);
-        if (!mounted.current || generation !== api.auth.generation()) return;
-        setNote(""); setRevision(0); setDraft("");
-      } else {
-        const saved = await api.notes.save(groupId, date, lesson.lesson_number, lesson.subject_id, draft, editRevision);
-        if (!mounted.current || generation !== api.auth.generation()) return;
-        setNote(saved.note); setRevision(saved.revision); setDraft(saved.note);
-      }
-      setEditing(false); setHistory(null);
-      // A denied browser storage operation must not turn a committed save into a failure.
-      try { invalidateScheduleCache(); } catch { window.dispatchEvent(new Event("schedule:refresh")); }
-    } catch (e) {
-      if (mounted.current && generation === api.auth.generation()) {
-        setError(e instanceof Error ? e.message : "Не вдалося зберегти примітку.");
-      }
-    } finally { pending.current = false; if (mounted.current) setBusy(false); }
-  }
-
-  async function showHistory() {
-    if (!groupId || pending.current) return;
-    const generation = api.auth.generation();
-    pending.current = true;
-    setBusy(true); setError(null);
-    try {
-      const rows = await api.notes.history(groupId, date, lesson.lesson_number);
-      if (mounted.current && generation === api.auth.generation()) setHistory(rows);
-    } catch (e) {
-      if (mounted.current && generation === api.auth.generation()) setError(e instanceof Error ? e.message : "Не вдалося завантажити історію.");
-    } finally { pending.current = false; if (mounted.current) setBusy(false); }
-  }
-
-  const cleanDisplayNote = (note || "")
+  const cleanDisplayNote = (lesson.note || "")
     .split("\n")
     .filter((line) => !line.trim().startsWith("[TASK]"))
     .join("\n")
@@ -78,40 +14,275 @@ export function LessonNote({ lesson, date }: { lesson: Lesson; date: string }) {
 
   const visibleNote = getVisibleUserNote(cleanDisplayNote);
 
-  if (!canManage && !visibleNote) {
+  if (!visibleNote) {
     return null;
   }
 
-  return <section aria-label="Примітка до конкретної пари" className="mt-3 border-t border-sys-border pt-2 text-sm"
-    onClick={e => e.stopPropagation()} onDragStart={e => { e.preventDefault(); e.stopPropagation(); }}>
-    {visibleNote && <p className="whitespace-pre-wrap break-words text-sys-text-secondary">{visibleNote}</p>}
-    {canManage && !editing && <div className="mt-1 flex flex-wrap gap-3">
-      <button type="button" disabled={busy} onClick={() => { setDraft(visibleNote); setEditRevision(revision); setEditing(true); setError(null); }}
-        className="text-sys-accent disabled:opacity-50">{visibleNote ? "Редагувати примітку" : "+ Примітка"}</button>
-      <button type="button" disabled={busy || !online} onClick={showHistory} className="text-sys-text-secondary">Історія</button>
-    </div>}
-    {canManage && editing && <form onSubmit={e => { e.preventDefault(); void mutate(false); }} className="space-y-2">
-      <label htmlFor={labelId} className="block text-sys-text-secondary">Примітка на {date}, {lesson.lesson_number}-ту пару</label>
-      <textarea id={labelId} value={draft} onChange={e => setDraft(e.target.value)} maxLength={10000} rows={3}
-        disabled={busy} required className="w-full rounded-lg border border-sys-border bg-sys-bg p-2 text-sys-text-primary" />
-      <div className="flex flex-wrap gap-3">
-        <button type="submit" disabled={busy || !online || !draft.trim()} className="text-sys-accent disabled:opacity-50">{busy ? "Зберігаємо…" : "Зберегти"}</button>
-        <button type="button" disabled={busy} onClick={() => setEditing(false)}>Скасувати</button>
-        {note && <button type="button" disabled={busy || !online} onClick={() => {
-          if (window.confirm("Архівувати примітку? Текст залишиться в історії.")) void mutate(true);
-        }} className="text-rose-300">Архівувати</button>}
+  return (
+    <p className="mt-1 text-xs text-sys-text-secondary/90 [overflow-wrap:anywhere] italic border-t border-sys-border/20 pt-1">
+      💬 {visibleNote}
+    </p>
+  );
+}
+
+export function LessonNoteModal({
+  lesson,
+  date,
+  initialMode = "edit",
+  onClose,
+}: {
+  lesson: Lesson;
+  date: string;
+  initialMode?: "edit" | "history";
+  onClose: () => void;
+}) {
+  const { user } = useAuth();
+  const online = useOnlineStatus();
+  const labelId = useId();
+  const mounted = useRef(true);
+  const [note, setNote] = useState(lesson.note ?? "");
+  const [revision, setRevision] = useState(lesson.note_revision ?? 0);
+  const [draft, setDraft] = useState(
+    getVisibleUserNote(
+      (lesson.note || "")
+        .split("\n")
+        .filter((l) => !l.trim().startsWith("[TASK]"))
+        .join("\n")
+        .trim()
+    )
+  );
+  const [mode, setMode] = useState<"edit" | "history">(initialMode);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [history, setHistory] = useState<NoteRevision[] | null>(null);
+  const groupId = lesson.group_id;
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (mode === "history" && !history) {
+      void fetchHistory();
+    }
+  }, [mode]);
+
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [onClose]);
+
+  async function fetchHistory() {
+    if (!groupId) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const rows = await api.notes.history(groupId, date, lesson.lesson_number);
+      if (mounted.current) setHistory(rows);
+    } catch (e) {
+      if (mounted.current) setError(e instanceof Error ? e.message : "Не вдалося завантажити історію.");
+    } finally {
+      if (mounted.current) setBusy(false);
+    }
+  }
+
+  async function saveNote(remove: boolean = false) {
+    if (!groupId) return;
+    if (!online) {
+      setError("Немає зв'язку з мережею.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      if (remove) {
+        await api.notes.remove(groupId, date, lesson.lesson_number, lesson.subject_id, revision);
+        setNote("");
+        setDraft("");
+      } else {
+        const saved = await api.notes.save(groupId, date, lesson.lesson_number, lesson.subject_id, draft, revision);
+        setNote(saved.note);
+        setDraft(saved.note);
+      }
+      try {
+        invalidateScheduleCache();
+      } catch {
+        window.dispatchEvent(new Event("schedule:refresh"));
+      }
+      onClose();
+    } catch (e) {
+      if (mounted.current) setError(e instanceof Error ? e.message : "Не вдалося зберегти примітку.");
+    } finally {
+      if (mounted.current) setBusy(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-xs p-0 sm:p-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        className="flex max-h-[92dvh] w-full max-w-md flex-col rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card shadow-2xl overflow-hidden pb-safe animate-in slide-in-from-bottom-6 sm:slide-in-from-bottom-2 duration-200"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-sys-border/50 px-5 py-4">
+          <div>
+            <h3 className="text-base font-bold text-sys-text-primary">
+              {mode === "edit" ? "Примітка до пари" : "Історія змін примітки"}
+            </h3>
+            <p className="text-xs text-sys-text-secondary mt-0.5">
+              {date}, {lesson.lesson_number}-та пара · {lesson.subject_name}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Закрити"
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-sys-text-secondary hover:bg-white/5 hover:text-sys-text-primary"
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Tab switch between Edit and History */}
+        <div className="flex border-b border-sys-border/40 px-5 pt-2 gap-4 text-xs font-semibold">
+          <button
+            type="button"
+            onClick={() => setMode("edit")}
+            className={`pb-2 border-b-2 transition-colors ${
+              mode === "edit"
+                ? "border-sys-accent text-sys-accent"
+                : "border-transparent text-sys-text-secondary hover:text-sys-text-primary"
+            }`}
+          >
+            Редагування
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("history")}
+            className={`pb-2 border-b-2 transition-colors ${
+              mode === "history"
+                ? "border-sys-accent text-sys-accent"
+                : "border-transparent text-sys-text-secondary hover:text-sys-text-primary"
+            }`}
+          >
+            Історія
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+          {mode === "edit" ? (
+            <form
+              id="lesson-note-form"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void saveNote(false);
+              }}
+              className="space-y-4"
+            >
+              <label htmlFor={labelId} className="block text-xs font-medium text-sys-text-secondary">
+                Текст примітки (видимий студентам та викладачам)
+              </label>
+              <textarea
+                id={labelId}
+                rows={4}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                placeholder="Введіть важливу інформацію щодо пари…"
+                disabled={busy}
+                className="form-control w-full p-3 text-sm text-sys-text-primary"
+              />
+              {error && (
+                <div role="alert" className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-2.5 text-xs text-rose-400">
+                  {error}
+                </div>
+              )}
+            </form>
+          ) : (
+            <div className="space-y-3">
+              {busy ? (
+                <p className="text-center text-xs text-sys-text-secondary py-4">Завантаження історії…</p>
+              ) : history && history.length > 0 ? (
+                history.map((row) => (
+                  <div key={`${row.note_id}:${row.revision}`} className="rounded-lg border border-sys-border/60 bg-sys-bg/40 p-3 text-xs space-y-1">
+                    <div className="flex items-center justify-between text-sys-text-muted">
+                      <span>{row.snapshot.actor_name ?? "Система"}</span>
+                      <span>{row.snapshot.note_date}</span>
+                    </div>
+                    <p className="text-sys-text-primary whitespace-pre-wrap">{row.snapshot.note}</p>
+                    {row.snapshot.archived && (
+                      <span className="inline-block text-[10px] text-rose-400 uppercase font-semibold">Архівовано</span>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <p className="text-center text-xs text-sys-text-muted py-6">Історія змін порожня.</p>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between gap-2 border-t border-sys-border/50 bg-sys-bg/50 px-5 py-3">
+          {mode === "edit" ? (
+            <>
+              {note ? (
+                <button
+                  type="button"
+                  disabled={busy || !online}
+                  onClick={() => {
+                    if (confirm("Архівувати примітку? Текст залишиться в історії.")) {
+                      void saveNote(true);
+                    }
+                  }}
+                  className="px-3 py-2 text-xs font-semibold text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
+                >
+                  Видалити
+                </button>
+              ) : (
+                <div />
+              )}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-3.5 py-2 text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary rounded-lg transition-colors"
+                >
+                  Скасувати
+                </button>
+                <button
+                  type="submit"
+                  form="lesson-note-form"
+                  disabled={busy || !online}
+                  className="px-4 py-2 text-xs font-semibold text-[#0b1120] bg-sys-accent hover:opacity-90 active:scale-95 rounded-lg transition-all disabled:opacity-50"
+                >
+                  {busy ? "Збереження…" : "Зберегти"}
+                </button>
+              </div>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={onClose}
+              className="ml-auto px-4 py-2 text-xs font-semibold text-sys-text-primary bg-sys-card border border-sys-border rounded-lg hover:bg-white/5"
+            >
+              Закрити
+            </button>
+          )}
+        </div>
       </div>
-      {!online && <p role="status">Без мережі збереження недоступне.</p>}
-    </form>}
-    {error && <p role="alert" className="mt-2 text-rose-300">{error}</p>}
-    {canManage && history && <div className="mt-2 space-y-2">
-      <button type="button" onClick={() => setHistory(null)} className="text-sys-text-secondary">Закрити історію</button>
-      <p className="text-xs text-sys-text-muted">Останні 100 змін. Повна історія зберігається в базі.</p>
-      {history.length === 0 && <p>Історія порожня.</p>}
-      {history.map(row => <div key={`${row.note_id}:${row.revision}`} className="rounded border border-sys-border p-2">
-        <p className="text-xs text-sys-text-muted">{row.snapshot.subject_name} · {row.snapshot.actor_name ?? "Система"} · {row.snapshot.note_date} · ревізія {row.revision}{row.snapshot.archived ? " · архів" : ""}</p>
-        <p className="whitespace-pre-wrap break-words">{row.snapshot.note}</p>
-      </div>)}
-    </div>}
-  </section>;
+    </div>
+  );
 }

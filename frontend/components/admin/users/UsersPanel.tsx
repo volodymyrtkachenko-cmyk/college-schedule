@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { api, UserResource, ReferenceRecord } from "../../../lib/api";
 import { useAuth } from "../../../lib/auth";
 import { SearchableMultiSelect } from "../../SearchableMultiSelect";
+import { PageHeader } from "../PageHeader";
 
 export function UsersPanel() {
     const { user: currentUser } = useAuth();
@@ -89,8 +90,8 @@ export function UsersPanel() {
     }
 
     const editorModal = editor ? (
-        <div className="fixed inset-0 z-[100] flex items-start sm:items-center justify-center bg-[rgba(5,8,16,0.76)] p-4 sm:p-6 backdrop-blur-sm overflow-y-auto">
-            <form onSubmit={save} className="surface-panel w-full max-w-2xl space-y-5 p-5 sm:p-7 relative mt-10 sm:mt-0 shadow-2xl">
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-[rgba(5,8,16,0.76)] p-0 sm:p-6 backdrop-blur-sm overflow-y-auto">
+            <form onSubmit={save} className="surface-panel w-full sm:max-w-2xl max-h-[92dvh] rounded-t-2xl sm:rounded-2xl space-y-5 p-5 sm:p-7 relative shadow-2xl overflow-y-auto">
                 {error && <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-200">{error}</div>}
                 <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sys-accent">Доступ</p>
@@ -159,41 +160,51 @@ export function UsersPanel() {
     return (
         <div className="space-y-5">
             {editorModal}
-            <div className="surface-panel p-5 sm:p-6">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-                <h3 className="text-xl font-bold">Користувачі системи</h3>
-                <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
-                    <input 
-                        type="search"
-                        aria-label="Пошук користувачів"
-                        placeholder="Знайти за ім’ям або ім’ям користувача"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="form-control w-full sm:w-[250px]"
-                    />
-                    <button onClick={() => setEditor({ role: "editor", allowed_groups: [] })} className="w-full sm:w-auto shrink-0 bg-sys-accent text-slate-950 font-bold px-4 py-2 rounded-lg text-sm whitespace-nowrap">+ Додати користувача</button>
-                </div>
+            <PageHeader
+                eyebrow="АДМІНІСТРУВАННЯ"
+                title="Користувачі системи"
+                description="Керування обліковими записами адміністраторів та редакторів розкладу"
+                actions={
+                    <button
+                        onClick={() => setEditor({ role: "editor", allowed_groups: [] })}
+                        className="hidden sm:inline-flex items-center gap-1.5 bg-sys-accent text-slate-950 font-bold px-4 py-2 rounded-lg text-sm hover:opacity-90 transition-opacity"
+                    >
+                        + Додати користувача
+                    </button>
+                }
+            />
+
+            <div className="flex items-center justify-between gap-4 mt-2">
+                <input 
+                    type="search"
+                    aria-label="Пошук користувачів"
+                    placeholder="Знайти за ім’ям або логіном..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="form-control w-full sm:max-w-xs text-sm"
+                />
             </div>
             
-            <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                    <thead>
-                        <tr className="border-b border-sys-border text-sys-text-secondary text-sm">
-                            <th className="py-3 px-4 font-medium min-w-[200px]">Користувач</th>
-                            <th className="py-3 px-4 font-medium min-w-[150px]">Роль</th>
-                            <th className="py-3 px-4 font-medium">Доступ до груп</th>
-                            <th className="py-3 px-4 font-medium text-right w-[100px]">Дії</th>
+            {/* Desktop Table (>=640px) */}
+            <div className="hidden sm:block surface-panel overflow-x-auto rounded-xl border border-sys-border">
+                <table className="w-full text-left border-collapse text-sm">
+                    <thead className="bg-[#111827] sticky top-0 z-10 border-b border-sys-border text-xs uppercase tracking-wider text-sys-text-secondary">
+                        <tr>
+                            <th className="py-3.5 px-4 font-semibold min-w-[200px]">Користувач</th>
+                            <th className="py-3.5 px-4 font-semibold min-w-[150px]">Роль</th>
+                            <th className="py-3.5 px-4 font-semibold">Доступ до груп</th>
+                            <th className="py-3.5 px-4 font-semibold text-right w-[100px]">Дії</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y divide-sys-border/50">
                         {filteredUsers.map(u => (
-                            <tr key={u.id} className="border-b border-sys-border/50 hover:bg-white/5 transition-colors">
+                            <tr key={u.id} className="hover:bg-white/[0.02] transition-colors">
                                 <td className="py-3 px-4">
-                                    <div className="font-medium">{u.name}</div>
+                                    <div className="font-medium text-sys-text-primary">{u.name}</div>
                                     <div className="text-xs text-sys-text-secondary font-mono mt-0.5">@{u.username}</div>
                                 </td>
                                 <td className="py-3 px-4">
-                                    <span className={`px-2.5 py-1 rounded-md text-xs font-semibold ${u.role === 'admin' ? 'bg-rose-500/10 text-rose-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
+                                    <span className={`px-2.5 py-1 rounded-md text-xs font-semibold ${u.role === 'admin' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>
                                         {u.role === 'admin' ? 'Адміністратор' : 'Редактор'}
                                     </span>
                                 </td>
@@ -214,8 +225,8 @@ export function UsersPanel() {
                                     )}
                                 </td>
                                 <td className="py-3 px-4 text-right space-x-2">
-                                    <button onClick={() => setEditor(u)} className="text-sys-accent hover:underline text-sm p-1">Редагувати</button>
-                                    <button onClick={() => remove(u.id)} disabled={u.id === currentUser?.id || u.id === 1} className="text-rose-400 hover:underline text-sm p-1 disabled:opacity-30 disabled:hover:no-underline">Видалити</button>
+                                    <button onClick={() => setEditor(u)} className="text-sys-accent hover:underline text-xs font-semibold p-1">Редагувати</button>
+                                    <button onClick={() => remove(u.id)} disabled={u.id === currentUser?.id || u.id === 1} className="text-rose-400 hover:underline text-xs font-semibold p-1 disabled:opacity-30 disabled:hover:no-underline">Видалити</button>
                                 </td>
                             </tr>
                         ))}
@@ -227,7 +238,58 @@ export function UsersPanel() {
                     </tbody>
                 </table>
             </div>
-        </div>
+
+            {/* Mobile Card View (<640px) */}
+            <div className="sm:hidden space-y-2.5">
+                {filteredUsers.map(u => (
+                    <div key={u.id} className="rounded-xl border border-sys-border bg-sys-card p-4 space-y-2.5 shadow-sm">
+                        <div className="flex items-center justify-between gap-2">
+                            <div>
+                                <h4 className="font-semibold text-sm text-sys-text-primary">{u.name}</h4>
+                                <span className="text-xs text-sys-text-muted font-mono">@{u.username}</span>
+                            </div>
+                            <span className={`px-2 py-0.5 rounded text-xs font-semibold ${u.role === 'admin' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>
+                                {u.role === 'admin' ? 'Адміністратор' : 'Редактор'}
+                            </span>
+                        </div>
+                        <div className="text-xs text-sys-text-secondary pt-1 border-t border-sys-border/40">
+                            {u.role === 'admin' ? (
+                                <span>Усі групи (повний доступ)</span>
+                            ) : (
+                                <div>
+                                    <span className="text-sys-text-muted mr-1">Доступ до:</span>
+                                    {u.allowed_groups.length === 0 ? (
+                                        <span className="text-rose-400">Немає доступу</span>
+                                    ) : (
+                                        <span>{u.allowed_groups.map(gid => groups.find(g => g.id === gid)?.name).filter(Boolean).join(", ")}</span>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                        <div className="flex items-center justify-end gap-3 pt-2 border-t border-sys-border/40 text-xs font-semibold">
+                            <button onClick={() => setEditor(u)} className="text-sys-accent hover:underline">Редагувати</button>
+                            {u.id !== currentUser?.id && u.id !== 1 && (
+                                <button onClick={() => remove(u.id)} className="text-rose-400 hover:underline">Видалити</button>
+                            )}
+                        </div>
+                    </div>
+                ))}
+                {filteredUsers.length === 0 && (
+                    <div className="rounded-xl border border-dashed border-sys-border p-8 text-center text-sm text-sys-text-secondary">
+                        Користувачів не знайдено.
+                    </div>
+                )}
+            </div>
+
+            {/* Mobile FAB button */}
+            <button
+                type="button"
+                onClick={() => setEditor({ role: "editor", allowed_groups: [] })}
+                aria-label="Додати користувача"
+                className="sm:hidden fixed z-40 right-4 bottom-6 w-14 h-14 rounded-full bg-sys-accent text-[#0b1120] shadow-xl flex items-center justify-center font-bold text-2xl hover:scale-105 active:scale-95 transition-transform focus:outline-none focus:ring-2 focus:ring-sys-accent/40"
+            >
+                +
+            </button>
         </div>
     );
 }

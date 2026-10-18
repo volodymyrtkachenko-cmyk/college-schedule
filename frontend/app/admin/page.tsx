@@ -23,6 +23,7 @@ const ImportPanel = dynamic(() => import("../../components/admin/ImportPanel").t
 import { ApiError } from "../../lib/api";
 import { useToast } from "../../components/ToastProvider";
 import { ClassroomSyncButton } from "../../components/ClassroomSyncButton";
+import { PageHeader } from "../../components/admin/PageHeader";
 
 function extractSurname(fullName: string): string {
   const parts = fullName.trim().split(/\s+/).filter(Boolean);
@@ -369,11 +370,11 @@ function AdminContent() {
     .sort((a, b) => a.name.localeCompare(b.name, "uk")) : [];
 
   return (
-    <main className="flex flex-col sm:flex-row h-[100dvh] bg-sys-bg text-sys-text-primary overflow-hidden">
+    <main className="flex flex-col lg:flex-row h-[100dvh] bg-sys-bg text-sys-text-primary overflow-hidden">
       <AdminNav active={currentTab} />
       
-      <div className="flex-1 overflow-y-auto overflow-x-auto pb-20 relative">
-        <div className={`mx-auto space-y-5 px-3 py-4 sm:px-6 sm:py-6 ${currentTab === "schedule" ? "max-w-[1700px] w-full" : "max-w-6xl"}`}>
+      <div className="flex-1 overflow-y-auto overflow-x-auto pb-safe relative bg-sys-bg">
+        <div className={`mx-auto space-y-5 px-4 py-4 sm:px-6 sm:py-6 ${currentTab === "schedule" ? "max-w-[1700px] w-full" : "max-w-[1440px] w-full"}`}>
         
         {currentTab === "schedule" ? (
           <AdminScheduleEditor />
@@ -404,32 +405,49 @@ function AdminContent() {
           </div>
         ) : (
           <>
-            <div className="flex flex-wrap items-center justify-between gap-4 mt-2">
-           <div className="relative w-full max-w-[320px]">
-             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sys-text-muted"><SearchIcon /></span>
-             <input 
-               type="search"
-               aria-label={`Пошук у розділі ${referenceLabels[activeResource]}`}
-               placeholder="Знайти запис"
-               value={searchTerm}
-               onChange={(e) => setSearchTerm(e.target.value)}
-               className="form-control w-full py-2 pl-9 pr-4"
-             />
-           </div>
-           
-           <div className="flex gap-2">
-             <button
-               type="button"
-               onClick={() => { setBulkOpen(!bulkOpen); setBulkError(null); }}
-               className="shrink-0 rounded-[6px] border border-sys-border bg-sys-card px-4 py-2 text-sm font-semibold text-sys-text-primary hover:bg-sys-card/80 transition-colors"
-             >
-               📋 Додати списком
-             </button>
-             <button onClick={() => setEditor(null)} className="shrink-0 rounded-[6px] bg-sys-accent px-4 py-2 text-sm font-semibold text-[#0b1120] hover:opacity-90 transition-opacity">
-                + Додати {resourceConfig[activeResource].addLabel}
-             </button>
-           </div>
-        </div>
+            <PageHeader
+              eyebrow="ДОВІДНИК"
+              title={referenceLabels[activeResource]}
+              description={`Керування списком записів: редагування, додавання та пошук у довіднику «${referenceLabels[activeResource]}».`}
+              actions={
+                <div className="hidden sm:flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setBulkOpen(!bulkOpen); setBulkError(null); }}
+                    className="shrink-0 rounded-lg border border-sys-border bg-sys-card px-4 py-2 text-sm font-semibold text-sys-text-primary hover:bg-white/5 transition-colors"
+                  >
+                    📋 Додати списком
+                  </button>
+                  <button
+                    onClick={() => setEditor(null)}
+                    className="shrink-0 rounded-lg bg-sys-accent px-4 py-2 text-sm font-semibold text-[#0b1120] hover:opacity-90 active:scale-95 transition-all"
+                  >
+                    + Додати {resourceConfig[activeResource].addLabel}
+                  </button>
+                </div>
+              }
+            />
+
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              <div className="relative w-full sm:max-w-md">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sys-text-muted"><SearchIcon /></span>
+                <input 
+                  type="search"
+                  aria-label={`Пошук у розділі ${referenceLabels[activeResource]}`}
+                  placeholder={`Пошук серед ${referenceLabels[activeResource].toLowerCase()}…`}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="form-control w-full py-2.5 pl-10 pr-4 min-h-[44px] text-sm"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => { setBulkOpen(!bulkOpen); setBulkError(null); }}
+                className="sm:hidden w-full flex items-center justify-center gap-2 rounded-lg border border-sys-border bg-sys-card py-2.5 text-xs font-semibold text-sys-text-primary"
+              >
+                📋 Додати списком
+              </button>
+            </div>
 
         {bulkOpen && (
           <div className="surface-panel p-4 rounded-xl border border-sys-border bg-sys-card space-y-3">
@@ -529,6 +547,16 @@ function AdminContent() {
           onDelete={setItemToDelete}
           onOpenRoster={openGroupRoster}
         />
+
+        {/* Mobile FAB for adding new records */}
+        <button
+          type="button"
+          onClick={() => setEditor(null)}
+          aria-label={`Додати ${resourceConfig[activeResource].addLabel}`}
+          className="sm:hidden fixed z-40 right-4 bottom-6 w-14 h-14 rounded-full bg-sys-accent text-[#0b1120] shadow-xl flex items-center justify-center font-bold text-2xl hover:scale-105 active:scale-95 transition-transform focus:outline-none focus:ring-2 focus:ring-sys-accent/40"
+        >
+          +
+        </button>
         
         
         {itemToDelete && (

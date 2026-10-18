@@ -1,6 +1,9 @@
+"use client";
+
 import { FormEvent, useEffect, useState } from "react";
 import { api, ScheduleVersion } from "../../lib/api";
 import { ConfirmModal } from "./ConfirmModal";
+import { PageHeader } from "./PageHeader";
 
 type VersionDraft = Partial<ScheduleVersion> & { key: string };
 
@@ -97,24 +100,19 @@ export function ScheduleVersionsPanel() {
 
   return (
     <section className="space-y-6">
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-sys-border pb-5">
-        <div>
-          <h2 className="text-xl font-bold flex items-center gap-2">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-sys-accent"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/></svg>
-            Версії розкладу
-          </h2>
-          <p className="mt-1.5 text-sm text-sys-text-secondary">
-            Керуйте періодами дії різних шаблонів розкладу та копіюйте розклад між ними.
-          </p>
-        </div>
-        <button
-          onClick={() => setDraft({ key: Date.now().toString(), name: "", valid_from: "", valid_until: "" })}
-          className="shrink-0 flex items-center gap-2 rounded-lg bg-sys-accent px-4 py-2.5 text-sm font-semibold text-[#0b1120] hover:opacity-90 active:scale-95 transition-all"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-          Додати версію
-        </button>
-      </header>
+      <PageHeader
+        eyebrow="РОЗКЛАД"
+        title="Версії розкладу"
+        description="Керуйте періодами дії різних шаблонів розкладу та копіюйте розклад між ними."
+        actions={
+          <button
+            onClick={() => setDraft({ key: Date.now().toString(), name: "", valid_from: "", valid_until: "" })}
+            className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-sys-accent px-4 py-2 text-sm font-semibold text-[#0b1120] hover:opacity-90 active:scale-95 transition-all"
+          >
+            + Додати версію
+          </button>
+        }
+      />
 
       {versions.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-sys-border bg-sys-card/50 p-12 text-center">
