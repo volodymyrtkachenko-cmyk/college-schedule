@@ -236,9 +236,10 @@ export function DayPager({
 
   return (
     <div
+      id="day-pager-content"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
-      className="w-full min-w-0 touch-pan-y"
+      className="w-full min-w-0 touch-pan-y flex flex-col flex-1 min-h-[calc(100dvh-13.5rem)]"
     >
       {/* Top context banners: weekend or tomorrow */}
       {isWeekend && (
@@ -336,7 +337,7 @@ export function DayPager({
             duration: shouldReduceMotion ? 0 : 0.18,
             ease: [0.2, 0, 0, 1],
           }}
-          className="flex flex-col gap-2.5 will-change-transform"
+          className="flex flex-col flex-1 gap-2.5 will-change-transform"
         >
           {orderedLessons.length > 0 ? (
             orderedLessons.map((lesson, idx) => {
@@ -381,7 +382,7 @@ export function DayPager({
               );
             })
           ) : (
-            <div className="rounded-2xl border border-dashed border-sys-border bg-sys-card/30 px-6 py-12 text-center text-sys-text-muted">
+            <div className="flex flex-1 min-h-[300px] flex-col items-center justify-center rounded-2xl border border-dashed border-sys-border bg-sys-card/30 px-6 py-12 text-center text-sys-text-muted my-auto">
               <span className="text-2xl block mb-2" aria-hidden="true">🎉</span>
               <p className="text-base font-semibold text-sys-text-primary">Пар немає</p>
               <p className="text-xs text-sys-text-secondary mt-1">Розклад на цей день вільний</p>

@@ -9,6 +9,7 @@ import { ScheduleDay } from "../components/ScheduleDay";
 import { ScheduleWeekGrid } from "../components/ScheduleWeekGrid";
 import { DayPager } from "../components/DayPager";
 import { MobileWeekBar } from "../components/MobileWeekBar";
+import { MobileWeekDaysStrip } from "../components/MobileWeekDaysStrip";
 import { WeekTypeBadge } from "../components/WeekTypeBadge";
 import { ScheduleResponse } from "../lib/api";
 import { useSchedule, useIsStandalonePwa, downloadForOffline } from "../lib/hooks";
@@ -109,21 +110,6 @@ export default function HomePage() {
       }
     } catch {}
   }, []);
-
-  const handleViewChange = (nextView: "today" | "week") => {
-    setView(nextView);
-    try {
-      localStorage.setItem("schedule:view", nextView);
-    } catch {}
-    if (nextView === "today") {
-      const todayAnchor = getMondayOf(new Date());
-      setWeekAnchorDate(todayAnchor);
-      const targetDate = displayDaySchedule?.date || today?.date || new Intl.DateTimeFormat("en-CA").format(new Date());
-      setDaySlideDir(0);
-      setActiveDayDate(targetDate);
-    }
-    resetScroll();
-  };
 
   // Автоскрол до поточної пари
   useEffect(() => {
@@ -271,19 +257,34 @@ export default function HomePage() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [mobileMenuOpen]);
 
-  const [activeDayDate, setActiveDayDate] = useState<string>(() => {
-    return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(new Date());
-  });
-
-  useEffect(() => {
-    if (displayDaySchedule?.date) {
-      setActiveDayDate(displayDaySchedule.date);
-    } else if (today?.date) {
-      setActiveDayDate(today.date);
-    } else if (week.length > 0) {
-      setActiveDayDate(week[0].date);
+  const getInitialDayIndex = (): number => {
+    const now = new Date();
+    const dow = now.getDay();
+    if (dow === 0 || dow === 6) return 0;
+    const kyivHour = Number(
+      new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Kyiv", hour: "2-digit", hour12: false }).format(now)
+    );
+    const kyivMin = Number(
+      new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Kyiv", minute: "2-digit" }).format(now)
+    );
+    const totalMins = kyivHour * 60 + kyivMin;
+    if (dow >= 1 && dow <= 4 && totalMins >= 15 * 60 + 25) {
+      return dow;
     }
-  }, [displayDaySchedule?.date, today?.date, week]);
+    return dow - 1;
+  };
+
+  const [selectedDayIndex, setSelectedDayIndex] = useState<number>(getInitialDayIndex);
+
+  const activeDayDate = useMemo(() => {
+    const d = new Date(weekAnchorDate);
+    d.setDate(weekAnchorDate.getDate() + selectedDayIndex);
+    return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(d);
+  }, [weekAnchorDate, selectedDayIndex]);
+
+  const todayActualIso = useMemo(() => {
+    return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(new Date());
+  }, []);
 
   const resetScroll = () => {
     if (typeof window !== "undefined") {
@@ -291,65 +292,47 @@ export default function HomePage() {
     }
   };
 
-  const handleSelectDay = (date: string) => {
-    if (date === activeDayDate) return;
-    const currentIdx = week.findIndex((d) => d.date === activeDayDate);
-    const nextIdx = week.findIndex((d) => d.date === date);
-    setDaySlideDir(nextIdx >= currentIdx ? 1 : -1);
-    setActiveDayDate(date);
+  const handleSelectDayIndex = (idx: number) => {
+    if (idx === selectedDayIndex) return;
+    setDaySlideDir(idx > selectedDayIndex ? 1 : -1);
+    setSelectedDayIndex(idx);
     resetScroll();
   };
 
   const goToPrevDay = () => {
-    if (!week.length) return;
-    const studyDays = week.filter((d) => {
-      const dow = new Date(`${d.date}T12:00:00`).getDay();
-      return dow >= 1 && dow <= 5;
-    });
-    const currentIdx = studyDays.findIndex((d) => d.date === activeDayDate);
-
-    if (currentIdx > 0) {
+    if (selectedDayIndex > 0) {
       setDaySlideDir(-1);
-      setActiveDayDate(studyDays[currentIdx - 1].date);
+      setSelectedDayIndex((prev) => prev - 1);
       resetScroll();
     } else {
+      // Crossing week boundary: Monday -> prev week's Friday
       setWeekShiftDir(-1);
       setDaySlideDir(-1);
       setWeekAnchorDate((prev) => {
         const prevAnchor = new Date(prev);
         prevAnchor.setDate(prevAnchor.getDate() - 7);
-        const friday = new Date(prevAnchor);
-        friday.setDate(prevAnchor.getDate() + 4);
-        const fridayStr = new Intl.DateTimeFormat("en-CA").format(friday);
-        setActiveDayDate(fridayStr);
         return prevAnchor;
       });
+      setSelectedDayIndex(4);
       resetScroll();
     }
   };
 
   const goToNextDay = () => {
-    if (!week.length) return;
-    const studyDays = week.filter((d) => {
-      const dow = new Date(`${d.date}T12:00:00`).getDay();
-      return dow >= 1 && dow <= 5;
-    });
-    const currentIdx = studyDays.findIndex((d) => d.date === activeDayDate);
-
-    if (currentIdx !== -1 && currentIdx < studyDays.length - 1) {
+    if (selectedDayIndex < 4) {
       setDaySlideDir(1);
-      setActiveDayDate(studyDays[currentIdx + 1].date);
+      setSelectedDayIndex((prev) => prev + 1);
       resetScroll();
     } else {
+      // Crossing week boundary: Friday -> next week's Monday
       setWeekShiftDir(1);
       setDaySlideDir(1);
       setWeekAnchorDate((prev) => {
         const nextAnchor = new Date(prev);
         nextAnchor.setDate(nextAnchor.getDate() + 7);
-        const mondayStr = new Intl.DateTimeFormat("en-CA").format(nextAnchor);
-        setActiveDayDate(mondayStr);
         return nextAnchor;
       });
+      setSelectedDayIndex(0);
       resetScroll();
     }
   };
@@ -357,17 +340,9 @@ export default function HomePage() {
   const shiftWeekPreservingDay = (offset: number) => {
     setWeekShiftDir(offset);
     setDaySlideDir(offset > 0 ? 1 : -1);
-    const curDate = activeDayDate ? new Date(`${activeDayDate}T12:00:00`) : new Date();
-    const dayOfWeek = isNaN(curDate.getTime()) ? new Date().getDay() : curDate.getDay();
-    const clampedDow = dayOfWeek >= 1 && dayOfWeek <= 5 ? dayOfWeek : 1;
-
     setWeekAnchorDate((prev) => {
       const nextAnchor = new Date(prev);
       nextAnchor.setDate(nextAnchor.getDate() + offset * 7);
-      const targetDate = new Date(nextAnchor);
-      targetDate.setDate(nextAnchor.getDate() + (clampedDow - 1));
-      const targetIso = new Intl.DateTimeFormat("en-CA").format(targetDate);
-      setActiveDayDate(targetIso);
       return nextAnchor;
     });
     resetScroll();
@@ -376,14 +351,6 @@ export default function HomePage() {
   const resetWeekPreservingDay = () => {
     const todayAnchor = getMondayOf(new Date());
     setWeekShiftDir(0);
-    const curDate = activeDayDate ? new Date(`${activeDayDate}T12:00:00`) : new Date();
-    const dayOfWeek = isNaN(curDate.getTime()) ? new Date().getDay() : curDate.getDay();
-    const clampedDow = dayOfWeek >= 1 && dayOfWeek <= 5 ? dayOfWeek : 1;
-
-    const targetDate = new Date(todayAnchor);
-    targetDate.setDate(todayAnchor.getDate() + (clampedDow - 1));
-    const targetIso = new Intl.DateTimeFormat("en-CA").format(targetDate);
-    setActiveDayDate(targetIso);
     setWeekAnchorDate(todayAnchor);
     resetScroll();
   };
@@ -391,35 +358,41 @@ export default function HomePage() {
   const handleJumpToToday = () => {
     const todayAnchor = getMondayOf(new Date());
     setWeekAnchorDate(todayAnchor);
-    const targetDate = displayDaySchedule?.date || today?.date || new Intl.DateTimeFormat("en-CA").format(new Date());
+    setSelectedDayIndex(getInitialDayIndex());
     setDaySlideDir(0);
-    setActiveDayDate(targetDate);
+    resetScroll();
+  };
+
+  const handleViewChange = (nextView: "today" | "week") => {
+    setView(nextView);
+    try {
+      localStorage.setItem("schedule:view", nextView);
+    } catch {}
+    if (nextView === "today") {
+      handleJumpToToday();
+    }
     resetScroll();
   };
 
   const isWeekend = [0, 6].includes(new Date().getDay());
 
   const selectedDaySchedule: ScheduleResponse = useMemo(() => {
-    if (week && week.length > 0 && activeDayDate) {
+    if (week && week.length > 0) {
       const found = week.find((d) => d.date === activeDayDate);
       if (found) return found;
     }
-    if (view === "today" && (displayDaySchedule || today)) {
-      return (displayDaySchedule || today)!;
+    if (displayDaySchedule && displayDaySchedule.date === activeDayDate) {
+      return displayDaySchedule;
     }
-    const fallbackDate =
-      activeDayDate ||
-      displayDaySchedule?.date ||
-      today?.date ||
-      (week?.[0]?.date) ||
-      new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(new Date());
-
+    if (today && today.date === activeDayDate) {
+      return today;
+    }
     return {
-      date: fallbackDate,
+      date: activeDayDate,
       week_type: weekType,
       lessons: [],
     };
-  }, [week, activeDayDate, displayDaySchedule, today, view, weekType]);
+  }, [week, activeDayDate, weekType, displayDaySchedule, today]);
 
   const weekRange = useMemo(() => {
     const end = new Date(weekAnchorDate);
@@ -862,6 +835,13 @@ export default function HomePage() {
               onResetWeek={resetWeekPreservingDay}
               shouldReduceMotion={shouldReduceMotion ?? false}
             />
+            <MobileWeekDaysStrip
+              weekAnchorDate={weekAnchorDate}
+              selectedDayIndex={selectedDayIndex}
+              onSelectDay={handleSelectDayIndex}
+              isCurrentWeek={isCurrentWeek}
+              todayIso={todayActualIso}
+            />
           </div>
         </div>
 
@@ -906,7 +886,7 @@ export default function HomePage() {
           ) : (
             <DayPager
               schedule={selectedDaySchedule}
-              todayDate={today?.date}
+              todayDate={todayActualIso}
               scheduleMode={mode}
               canEdit={false}
               onQuickJump={handleQuickJump}
