@@ -271,7 +271,7 @@ export function ImportPanel() {
         description="Автоматичний парсинг розкладу та замін з офіційного сайту kre.dp.ua та історія публікацій"
       />
 
-      <div className="bg-sys-card rounded-xl p-6 border border-sys-border">
+      <div className="bg-sys-card rounded-xl p-4 sm:p-6 border border-sys-border">
         <div>
           <h2 className="text-lg font-bold mb-4 text-sys-text-primary">Парсинг з kre.dp.ua</h2>
         
@@ -472,47 +472,59 @@ export function ImportPanel() {
                   </div>
                 )}
                 
-                <div className="flex items-center gap-3">
-                    <button onClick={handlePrimaryAction} disabled={loading} className="bg-sys-accent text-[#0b1120] font-bold py-2.5 px-6 rounded-lg disabled:opacity-50">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                    <button onClick={handlePrimaryAction} disabled={loading} className="w-full sm:w-auto bg-sys-accent text-[#0b1120] font-bold py-2.5 px-6 rounded-lg disabled:opacity-50">
                         {loading ? "Зберігаємо…" : report.unresolved.length > 0 ? "Зберегти відповідності та продовжити" : "Зберегти зміни"}
                     </button>
-                    <button onClick={() => void cancelImport()} className="py-2.5 px-4 text-sys-text-secondary hover:text-white" disabled={loading}>Скасувати імпорт</button>
+                    <button onClick={() => void cancelImport()} className="w-full sm:w-auto py-2.5 px-4 text-center rounded-lg border border-sys-border sm:border-0 bg-white/5 sm:bg-transparent text-sys-text-secondary hover:text-white" disabled={loading}>Скасувати імпорт</button>
                 </div>
             </div>
         )}
         
-                        {status === "ready" && (
-            <div className="animate-in fade-in text-center py-10 bg-amber-500/5 border border-amber-500/20 rounded-2xl">
-                <h3 className="text-2xl font-bold text-amber-200 mb-2">Імпорт готовий до публікації</h3>
-                <p className="text-sys-text-secondary max-w-md mx-auto mb-6">Перевірте зміни імпорту, а потім опублікуйте чернетку окремою дією.</p>
-                <div className="flex flex-wrap justify-center gap-4 mb-6 text-sm">
-                  <div className="rounded-xl border border-sys-border bg-sys-card px-4 py-2.5 text-center">
-                    <div className="text-xs text-sys-text-secondary">Базові слоти</div>
-                    <div className="text-lg font-bold text-sys-text-primary">{report?.base_slots?.length || 0}</div>
+        {status === "ready" && (
+            <div className="animate-in fade-in text-center p-4 sm:py-10 bg-amber-500/5 border border-amber-500/20 rounded-2xl">
+                <h3 className="text-xl sm:text-2xl font-bold text-amber-200 mb-2">Імпорт готовий до публікації</h3>
+                <p className="text-sys-text-secondary max-w-md mx-auto mb-6 text-xs sm:text-sm">Перевірте зміни імпорту, а потім опублікуйте чернетку окремою дією.</p>
+                <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:justify-center sm:gap-4 mb-6 text-sm max-w-sm sm:max-w-none mx-auto">
+                  <div className="rounded-xl border border-sys-border bg-sys-card p-2 sm:px-4 sm:py-2.5 text-center flex flex-col justify-center">
+                    <div className="text-[11px] sm:text-xs text-sys-text-secondary truncate">Базові слоти</div>
+                    <div className="text-base sm:text-lg font-bold text-sys-text-primary mt-0.5">{report?.base_slots?.length || 0}</div>
                   </div>
-                  <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-2.5 text-center">
-                    <div className="text-xs text-amber-300">Заміни</div>
-                    <div className="text-lg font-bold text-amber-200">{substitutions.length}</div>
+                  <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-2 sm:px-4 sm:py-2.5 text-center flex flex-col justify-center">
+                    <div className="text-[11px] sm:text-xs text-amber-300 truncate">Заміни</div>
+                    <div className="text-base sm:text-lg font-bold text-amber-200 mt-0.5">{substitutions.length}</div>
                   </div>
-                  <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-2.5 text-center">
-                    <div className="text-xs text-rose-300">Скасування</div>
-                    <div className="text-lg font-bold text-rose-200">{cancelled.length}</div>
+                  <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-2 sm:px-4 sm:py-2.5 text-center flex flex-col justify-center">
+                    <div className="text-[11px] sm:text-xs text-rose-300 truncate">Скасування</div>
+                    <div className="text-base sm:text-lg font-bold text-rose-200 mt-0.5">{cancelled.length}</div>
                   </div>
                 </div>
                 {versions.length > 0 && (
-                  <div className="flex justify-center items-center gap-3 mb-6">
-                    <span className="text-sm font-medium text-sys-text-secondary">Публікувати у версію:</span>
-                    <select className="form-control text-sm w-64" value={targetVersionId || ""} onChange={e => setTargetVersionId(e.target.value ? Number(e.target.value) : null)}>
+                  <div className="flex flex-col sm:flex-row justify-center items-center gap-2 sm:gap-3 mb-6 max-w-sm mx-auto">
+                    <span className="text-xs sm:text-sm font-medium text-sys-text-secondary shrink-0">Публікувати у версію:</span>
+                    <select className="form-control text-sm w-full sm:w-64" value={targetVersionId || ""} onChange={e => setTargetVersionId(e.target.value ? Number(e.target.value) : null)}>
                       <option value="">Поточна активна версія</option>
                       {versions.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
                     </select>
                   </div>
                 )}
-                <div className="flex justify-center gap-3">
-                  <button onClick={publishImport} disabled={loading || !draftId} className="bg-sys-accent text-[#0b1120] font-bold py-2.5 px-6 rounded-lg disabled:opacity-50">
+                <div className="flex flex-col sm:flex-row justify-center items-stretch sm:items-center gap-2.5 max-w-xs sm:max-w-none mx-auto">
+                  <button
+                    type="button"
+                    onClick={publishImport}
+                    disabled={loading || !draftId}
+                    className="w-full sm:w-auto bg-sys-accent text-[#0b1120] font-bold py-2.5 px-6 rounded-lg disabled:opacity-50 shadow-sm hover:opacity-90 active:scale-98 transition-all"
+                  >
                     {loading ? "Публікуємо…" : "Опублікувати імпорт"}
                   </button>
-                  <button onClick={() => void cancelImport()} disabled={loading} className="py-2.5 px-4 text-sys-text-secondary hover:text-white">Скасувати імпорт</button>
+                  <button
+                    type="button"
+                    onClick={() => void cancelImport()}
+                    disabled={loading}
+                    className="w-full sm:w-auto py-2.5 px-5 rounded-lg border border-sys-border bg-white/5 text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/10 active:scale-98 transition-all"
+                  >
+                    Скасувати імпорт
+                  </button>
                 </div>
             </div>
         )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import dynamic from "next/dynamic";
 import { ScheduleWeekGrid } from "../ScheduleWeekGrid";
@@ -160,6 +160,23 @@ export function AdminScheduleEditor() {
   const [printModalOpen, setPrintModalOpen] = useState(false);
   const [eventsModalOpen, setEventsModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<AcademicEvent | null>(null);
+
+  const mobileScheduleRef = useRef<HTMLDivElement>(null);
+  const scrollToMobileSchedule = useCallback(() => {
+    if (typeof window !== "undefined" && window.innerWidth < 640 && mobileScheduleRef.current) {
+      mobileScheduleRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, []);
+
+  // Auto-scroll down on mobile when schedule is loaded with a selected group or teacher
+  const hasAutoScrolled = useRef(false);
+  useEffect(() => {
+    if (!loading && week && (groupId || teacherId) && !hasAutoScrolled.current) {
+      hasAutoScrolled.current = true;
+      const timer = setTimeout(scrollToMobileSchedule, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [loading, week, groupId, teacherId, scrollToMobileSchedule]);
 
   // Close swap when mode/group changes, but preserve buffer across weeks!
   useEffect(() => {
@@ -751,7 +768,10 @@ export function AdminScheduleEditor() {
             <div className="w-full sm:w-64 text-sys-text-primary">
               <SearchableSelect
                  value={groupId ?? null}
-                 onChange={(val) => startTransition(() => setGroupId(val ? Number(val) : null))}
+                 onChange={(val) => {
+                   startTransition(() => setGroupId(val ? Number(val) : null));
+                   if (val) setTimeout(scrollToMobileSchedule, 100);
+                 }}
                  options={groups}
                  placeholder="Оберіть групу"
                  disabled={isPending}
@@ -763,7 +783,10 @@ export function AdminScheduleEditor() {
             <div className="w-full sm:w-64 text-sys-text-primary">
               <SearchableSelect
                  value={teacherId ?? null}
-                 onChange={(val) => startTransition(() => setTeacherId(val ? Number(val) : null))}
+                 onChange={(val) => {
+                   startTransition(() => setTeacherId(val ? Number(val) : null));
+                   if (val) setTimeout(scrollToMobileSchedule, 100);
+                 }}
                  options={teachers}
                  placeholder="Оберіть викладача"
                  disabled={isPending}
@@ -800,7 +823,52 @@ export function AdminScheduleEditor() {
         <div className="rounded-2xl border border-rose-400/20 bg-rose-400/5 p-8 text-center text-rose-200">{error}</div>
       ) : week ? (
         <div className="w-full min-w-0">
-          <div className="mb-4 mt-2 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-sys-card/50 p-3 border border-sys-border">
+          {/* Mobile Quick Actions (<640px) */}
+          <div className="sm:hidden grid grid-cols-2 gap-2 my-2.5">
+            <a
+              href={`/admin?resource=permanent-schedule${activeVersion ? `&version_id=${activeVersion.id}` : ""}`}
+              className="flex items-center justify-center gap-1.5 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-2.5 py-2 text-xs font-semibold text-indigo-300 hover:bg-indigo-500/20 transition-colors"
+              title="Редагувати постійний розклад версії"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
+              <span className="whitespace-nowrap">Постійний розклад</span>
+            </a>
+
+            <button
+              type="button"
+              onClick={() => setCuratorModalOpen(true)}
+              className="flex items-center justify-center gap-1.5 rounded-lg border border-sys-border bg-sys-card px-2.5 py-2 text-xs font-semibold text-sys-text-primary hover:bg-white/5 transition-colors"
+            >
+              <GraduationIcon />
+              <span className="whitespace-nowrap">Виховна година</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setEventsModalOpen(true)}
+              className="flex items-center justify-center gap-1.5 rounded-lg border border-sys-border bg-sys-card px-2.5 py-2 text-xs font-semibold text-sys-text-primary hover:bg-white/5 transition-colors"
+            >
+              <CalendarEventIcon />
+              <span className="whitespace-nowrap">Сесія / Події</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setPrintModalOpen(true)}
+              className="flex items-center justify-center gap-1.5 rounded-lg border border-sys-border bg-sys-card px-2.5 py-2 text-xs font-semibold text-sys-text-primary hover:bg-white/5 transition-colors"
+            >
+              <PrinterIcon />
+              <span className="whitespace-nowrap">Друк</span>
+            </button>
+          </div>
+
+          {/* Desktop Week Navigation & Actions (>= 640px) */}
+          <div className="hidden sm:flex mb-4 mt-2 flex-wrap items-center justify-between gap-3 rounded-xl bg-sys-card/50 p-3 border border-sys-border">
             <div className="text-[13px] font-medium text-sys-text-primary flex shrink-0 items-center gap-2 whitespace-nowrap">
               <svg width="1.2em" height="1.2em" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-sys-accent shrink-0"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
               <span className="shrink-0 whitespace-nowrap font-semibold">{weekRange}</span>
@@ -990,7 +1058,7 @@ export function AdminScheduleEditor() {
           </div>
 
           {/* Mobile Schedule Day View (<640px) */}
-          <div className="sm:hidden -mx-4 -mt-2 space-y-2">
+          <div ref={mobileScheduleRef} id="admin-mobile-schedule" className="sm:hidden -mx-4 -mt-2 space-y-2">
             <MobileWeekBar
               weekRange={weekRange}
               weekType={weekType}
@@ -998,14 +1066,17 @@ export function AdminScheduleEditor() {
               onPrevWeek={() => {
                 setDaySlideDir(-1);
                 handlePrevWeek();
+                scrollToMobileSchedule();
               }}
               onNextWeek={() => {
                 setDaySlideDir(1);
                 handleNextWeek();
+                scrollToMobileSchedule();
               }}
               onResetWeek={() => {
                 setDaySlideDir(0);
                 resetWeek();
+                scrollToMobileSchedule();
               }}
             />
             <MobileWeekDaysStrip
@@ -1014,6 +1085,7 @@ export function AdminScheduleEditor() {
               onSelectDay={(idx) => {
                 setDaySlideDir(idx > selectedDayIndex ? 1 : -1);
                 setSelectedDayIndex(idx);
+                scrollToMobileSchedule();
               }}
               isCurrentWeek={isCurrentWeek}
               todayIso={todayIso}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { useSearchParams } from "next/navigation";
 import { api, DirectoryItem, Lesson, LessonMutation, ReferenceRecord, ScheduleVersion, TemplateScheduleResponse } from "../../lib/api";
@@ -58,7 +58,15 @@ export function PermanentScheduleEditor() {
   // Template data
   const [templateData, setTemplateData] = useState<TemplateScheduleResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isFetching, setIsFetching] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const mobileScheduleRef = useRef<HTMLDivElement>(null);
+  const scrollToMobileSchedule = useCallback(() => {
+    if (typeof window !== "undefined" && window.innerWidth < 640 && mobileScheduleRef.current) {
+      mobileScheduleRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, []);
 
   // Affected overrides notice
   const [affectedNotice, setAffectedNotice] = useState<string[] | null>(null);
@@ -135,7 +143,11 @@ export function PermanentScheduleEditor() {
     if (mode === "student" && !groupId) return;
     if (mode === "teacher" && !teacherId) return;
 
-    setLoading(true);
+    if (!templateData) {
+      setLoading(true);
+    } else {
+      setIsFetching(true);
+    }
     setError(null);
     try {
       const data = await api.template.get({
@@ -149,6 +161,7 @@ export function PermanentScheduleEditor() {
       setError(e instanceof Error ? e.message : "Помилка завантаження постійного розкладу.");
     } finally {
       setLoading(false);
+      setIsFetching(false);
     }
   };
 
@@ -157,6 +170,16 @@ export function PermanentScheduleEditor() {
       void loadTemplate();
     }
   }, [selectedVersionId, weekType, mode, groupId, teacherId]);
+
+  // Auto-scroll down on mobile when template is loaded with a selected group or teacher
+  const hasAutoScrolled = useRef(false);
+  useEffect(() => {
+    if (!loading && templateData && (groupId || teacherId) && !hasAutoScrolled.current) {
+      hasAutoScrolled.current = true;
+      const timer = setTimeout(scrollToMobileSchedule, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [loading, templateData, groupId, teacherId, scrollToMobileSchedule]);
 
   // Handle URL highlight
   useEffect(() => {
@@ -479,7 +502,10 @@ export function PermanentScheduleEditor() {
               <SearchableSelect
                 options={groups}
                 value={groupId}
-                onChange={(id) => setGroupId(id)}
+                onChange={(id) => {
+                  setGroupId(id);
+                  if (id) setTimeout(scrollToMobileSchedule, 100);
+                }}
                 placeholder="Оберіть групу"
                 disabled={isPending}
                 ariaLabel="Оберіть групу"
@@ -490,7 +516,10 @@ export function PermanentScheduleEditor() {
               <SearchableSelect
                 options={teachers}
                 value={teacherId}
-                onChange={(id) => setTeacherId(id)}
+                onChange={(id) => {
+                  setTeacherId(id);
+                  if (id) setTimeout(scrollToMobileSchedule, 100);
+                }}
                 placeholder="Оберіть викладача"
                 disabled={isPending}
                 ariaLabel="Оберіть викладача"
@@ -500,14 +529,20 @@ export function PermanentScheduleEditor() {
         </div>
 
         {/* Segmented Switch: Чисельник | Знаменник */}
-        <div className="flex items-center rounded-xl border border-sys-border bg-sys-card p-1 shadow-sm">
+        <div className="relative flex items-center rounded-xl border border-sys-border bg-sys-card p-1 shadow-sm">
+          <div
+            className={`absolute top-1 bottom-1 w-[calc(50%-4px)] rounded-lg shadow-sm transition-all duration-200 ease-out z-0 ${
+              weekType === "numerator" ? "bg-indigo-600" : "bg-emerald-600"
+            }`}
+            style={{ left: weekType === "numerator" ? "4px" : "50%" }}
+          />
           <button
             type="button"
             onClick={() => setWeekType("numerator")}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+            className={`relative z-10 flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-colors ${
               weekType === "numerator"
-                ? "bg-indigo-600 text-white shadow-sm"
-                : "text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/5"
+                ? "text-white"
+                : "text-sys-text-secondary hover:text-sys-text-primary"
             }`}
           >
             <span>Чисельник</span>
@@ -515,10 +550,10 @@ export function PermanentScheduleEditor() {
           <button
             type="button"
             onClick={() => setWeekType("denominator")}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+            className={`relative z-10 flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-colors ${
               weekType === "denominator"
-                ? "bg-emerald-600 text-white shadow-sm"
-                : "text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/5"
+                ? "text-white"
+                : "text-sys-text-secondary hover:text-sys-text-primary"
             }`}
           >
             <span>Знаменник</span>
@@ -635,7 +670,7 @@ export function PermanentScheduleEditor() {
       </AnimatePresence>
 
       {/* Main Grid: Desktop 5 columns without dates */}
-      {loading ? (
+      {loading && !templateData ? (
         <div className="rounded-2xl border border-sys-border bg-sys-card/50 p-12 text-center text-sys-text-secondary">
           Завантаження постійного розкладу…
         </div>
@@ -644,7 +679,7 @@ export function PermanentScheduleEditor() {
           {error}
         </div>
       ) : templateData ? (
-        <div className="w-full min-w-0">
+        <div className={`w-full min-w-0 transition-opacity duration-200 ${isFetching ? "opacity-60 pointer-events-none" : "opacity-100"}`}>
           {/* Desktop Grid (>= 640px) */}
           <div className="hidden sm:grid sm:grid-cols-5 gap-3 items-start pb-4">
             {DAYS.map(({ day, name }) => {
@@ -764,26 +799,56 @@ export function PermanentScheduleEditor() {
           </div>
 
           {/* Mobile View (<640px) */}
-          <div className="sm:hidden -mx-4 -mt-2 space-y-2">
-            {/* Days strip without dates */}
-            <div className="flex border-b border-sys-border/60 bg-sys-card px-2 py-1.5 gap-1 overflow-x-auto">
-              {DAYS.map(({ day, short }, idx) => (
-                <button
-                  key={day}
-                  type="button"
-                  onClick={() => {
-                    setDaySlideDir(idx > selectedMobileDayIndex ? 1 : -1);
-                    setSelectedMobileDayIndex(idx);
-                  }}
-                  className={`flex-1 min-w-[50px] min-h-[40px] py-1.5 px-2 rounded-lg text-xs font-bold text-center transition-all ${
-                    selectedMobileDayIndex === idx
-                      ? "bg-indigo-600 text-white shadow-xs"
-                      : "text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/5"
-                  }`}
-                >
-                  {short}
-                </button>
-              ))}
+          <div ref={mobileScheduleRef} id="perm-mobile-schedule" className="sm:hidden -mx-4 -mt-2 space-y-2">
+            {/* Unified Mobile Days Strip */}
+            <div
+              role="tablist"
+              aria-label="Дні тижня"
+              className="relative flex h-11 w-full border-b border-sys-border/60 bg-sys-card/95 backdrop-blur-xs select-none"
+            >
+              {/* Sliding indicator line at bottom */}
+              <div
+                aria-hidden="true"
+                className="absolute bottom-0 left-0 h-[2.5px] bg-indigo-500 transition-transform duration-180 ease-smooth motion-reduce:transition-none"
+                style={{
+                  width: "20%",
+                  transform: `translateX(${selectedMobileDayIndex * 100}%)`,
+                }}
+              />
+
+              {DAYS.map(({ day, short }, idx) => {
+                const isSelected = selectedMobileDayIndex === idx;
+                const dayLessons = templateData.days.find((d) => d.day_of_week === day)?.lessons || [];
+                const count = dayLessons.length;
+                return (
+                  <button
+                    key={day}
+                    type="button"
+                    role="tab"
+                    aria-selected={isSelected}
+                    tabIndex={isSelected ? 0 : -1}
+                    onClick={() => {
+                      setDaySlideDir(idx > selectedMobileDayIndex ? 1 : -1);
+                      setSelectedMobileDayIndex(idx);
+                      scrollToMobileSchedule();
+                    }}
+                    className={`relative flex h-full w-1/5 flex-col items-center justify-center py-1 transition-colors duration-150 active:scale-[0.96] motion-reduce:transition-none focus:outline-none ${
+                      isSelected
+                        ? "text-indigo-400 font-bold"
+                        : "text-sys-text-secondary hover:text-sys-text-primary"
+                    }`}
+                  >
+                    <span className="text-[12px] font-semibold leading-tight">
+                      {short}
+                    </span>
+                    <div className="flex items-center gap-0.5 mt-0.5">
+                      <span className={`text-[11px] leading-tight ${isSelected ? "font-bold text-indigo-400" : "text-sys-text-muted font-medium"}`}>
+                        {count > 0 ? `${count} ${count === 1 ? "пара" : count < 5 ? "пари" : "пар"}` : "—"}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
 
             {/* Mobile Day Content */}
@@ -793,18 +858,18 @@ export function PermanentScheduleEditor() {
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
             >
-              <AnimatePresence initial={false} custom={daySlideDir} mode="wait">
+              <AnimatePresence initial={false} custom={daySlideDir} mode="popLayout">
                 {(() => {
                   const currentDayDef = DAYS[selectedMobileDayIndex];
                   const dayLessons = templateData.days.find((d) => d.day_of_week === currentDayDef.day)?.lessons || [];
 
                   return (
                     <motion.div
-                      key={currentDayDef.day}
+                      key={`${currentDayDef.day}-${weekType}`}
                       custom={daySlideDir}
                       variants={{
                         enter: (dir: number) => ({
-                          x: dir > 0 ? 12 : dir < 0 ? -12 : 0,
+                          x: dir > 0 ? 8 : dir < 0 ? -8 : 0,
                           opacity: 0,
                         }),
                         center: {
@@ -812,7 +877,7 @@ export function PermanentScheduleEditor() {
                           opacity: 1,
                         },
                         exit: (dir: number) => ({
-                          x: dir > 0 ? -12 : dir < 0 ? 12 : 0,
+                          x: dir > 0 ? -8 : dir < 0 ? 8 : 0,
                           opacity: 0,
                         }),
                       }}
@@ -820,8 +885,8 @@ export function PermanentScheduleEditor() {
                       animate="center"
                       exit="exit"
                       transition={{
-                        duration: shouldReduceMotion ? 0 : 0.18,
-                        ease: [0.2, 0, 0, 1],
+                        duration: shouldReduceMotion ? 0 : 0.15,
+                        ease: "easeOut",
                       }}
                       className="space-y-3 will-change-transform"
                     >
