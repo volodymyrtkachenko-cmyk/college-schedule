@@ -23,12 +23,27 @@ export function ScheduleWeekGrid({
   onRestoreDated,
   onMove,
   onQuickJump,
+  // New props
+  isSelectMode,
+  selectedLessonIds,
+  onToggleSelectLesson,
+  onSelectMultipleLessons,
+  swapSourceLesson,
+  swapSourceDate,
+  onSwapSelectLesson,
+  hasBufferContent,
+  onPasteToSlot,
+  onCopyDay,
+  onMoveDay,
+  onSelectDayLessons,
+  onPasteDay,
+  canPasteDay,
 }: {
   week: ScheduleResponse[];
   scheduleMode?: "student" | "teacher";
   canEdit?: boolean;
   onEdit?: (lesson: Lesson) => void;
-  onCreate?: (date: string) => void;
+  onCreate?: (date: string, lessonNumber?: number) => void;
   availabilityWeek?: ScheduleResponse[] | null;
   availabilityError?: string | null;
   movingLesson?: Lesson | null;
@@ -39,6 +54,23 @@ export function ScheduleWeekGrid({
   onRestoreDated?: (lesson: Lesson, date: string) => void;
   onMove?: (lesson: Lesson, date: string, lessonNumber: number) => void;
   onQuickJump?: (target: QuickJumpTarget) => void;
+  // Selection & swap
+  isSelectMode?: boolean;
+  selectedLessonIds?: Set<number>;
+  onToggleSelectLesson?: (lesson: Lesson) => void;
+  onSelectMultipleLessons?: (lesson: Lesson) => void;
+  swapSourceLesson?: Lesson | null;
+  swapSourceDate?: string | null;
+  onSwapSelectLesson?: (lesson: Lesson, date: string) => void;
+  // Buffer slot paste
+  hasBufferContent?: boolean;
+  onPasteToSlot?: (date: string, lessonNumber: number) => void;
+  // Day actions
+  onCopyDay?: (date: string) => void;
+  onMoveDay?: (date: string) => void;
+  onSelectDayLessons?: (date: string) => void;
+  onPasteDay?: (targetDate: string) => void;
+  canPasteDay?: boolean;
 }) {
   const canMoveTo = (lesson: Lesson, date: string, lessonNumber: number) =>
     canMoveLesson(lesson, date, lessonNumber, week, availabilityWeek);
@@ -65,8 +97,34 @@ export function ScheduleWeekGrid({
             Не вдалося перевірити вільні місця: {availabilityError} Вільні місця не підсвічено, але під час збереження система ще раз перевірить розклад.
           </p>
         )}
-        <ScheduleEditGrid week={week} scheduleMode={scheduleMode} onEdit={onEdit} onCreate={onCreate}
-          movingLesson={movingLesson} onMoveSelect={onMoveSelect} onCopySelect={onCopySelect} onCancelDated={onCancelDated} onRestoreDated={onRestoreDated} onQuickJump={onQuickJump} onMove={onMove} canMoveTo={canMoveTo} />
+        <ScheduleEditGrid
+          week={week}
+          scheduleMode={scheduleMode}
+          onEdit={onEdit}
+          onCreate={onCreate}
+          movingLesson={movingLesson}
+          onMoveSelect={onMoveSelect}
+          onCopySelect={onCopySelect}
+          onCancelDated={onCancelDated}
+          onRestoreDated={onRestoreDated}
+          onQuickJump={onQuickJump}
+          onMove={onMove}
+          canMoveTo={canMoveTo}
+          isSelectMode={isSelectMode}
+          selectedLessonIds={selectedLessonIds}
+          onToggleSelectLesson={onToggleSelectLesson}
+          onSelectMultipleLessons={onSelectMultipleLessons}
+          swapSourceLesson={swapSourceLesson}
+          swapSourceDate={swapSourceDate}
+          onSwapSelectLesson={onSwapSelectLesson}
+          hasBufferContent={hasBufferContent}
+          onPasteToSlot={onPasteToSlot}
+          onCopyDay={onCopyDay}
+          onMoveDay={onMoveDay}
+          onSelectDayLessons={onSelectDayLessons}
+          onPasteDay={onPasteDay}
+          canPasteDay={canPasteDay}
+        />
       </div>
     );
   }

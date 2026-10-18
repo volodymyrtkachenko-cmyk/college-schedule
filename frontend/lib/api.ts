@@ -951,6 +951,51 @@ export const api = {
                 method: "POST",
                 body: JSON.stringify(payload),
             }),
+        copy: (payload: {
+            source_group_id: number;
+            source_date: string;
+            source_lesson_number: number;
+            target_group_id: number;
+            target_date: string;
+            target_lesson_number: number;
+        }) =>
+            authenticatedRequest<{ status: string }>("/api/schedule/dated/copy", {
+                method: "POST",
+                body: JSON.stringify(payload),
+            }),
+        swap: (payload: {
+            first_group_id: number;
+            first_date: string;
+            first_lesson_number: number;
+            second_group_id: number;
+            second_date: string;
+            second_lesson_number: number;
+        }) =>
+            authenticatedRequest<{ status: string }>("/api/schedule/dated/swap", {
+                method: "POST",
+                body: JSON.stringify(payload),
+            }),
+        batch: (payload: {
+            action: "copy" | "move";
+            items: Array<{
+                source_group_id: number;
+                source_date: string;
+                source_lesson_number: number;
+                target_group_id: number;
+                target_date: string;
+                target_lesson_number: number;
+            }>;
+            skip_conflicts?: boolean;
+        }) =>
+            authenticatedRequest<{
+                status: string;
+                action: string;
+                total: number;
+                succeeded: number;
+            }>("/api/schedule/dated/batch", {
+                method: "POST",
+                body: JSON.stringify(payload),
+            }),
     },
     events: {
         list: (params: { group_id?: number; teacher_id?: number; from_date?: string }) => {

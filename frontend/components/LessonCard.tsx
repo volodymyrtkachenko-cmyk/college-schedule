@@ -31,6 +31,24 @@ function CalendarOffIcon() {
   );
 }
 
+function SwapIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m7 15 5 5 5-5" />
+      <path d="m7 9 5-5 5 5" />
+    </svg>
+  );
+}
+
+function CheckSquareIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="9 11 12 14 22 4" />
+      <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+    </svg>
+  );
+}
+
 function parseMinutes(timeStr?: string): number | null {
   if (!timeStr) return null;
   const [h, m] = timeStr.trim().split(":").map(Number);
@@ -306,6 +324,12 @@ export function LessonCard({
   onCancelDated,
   onRestoreDated,
   onQuickJump,
+  isSelectMode = false,
+  isSelected = false,
+  onToggleSelect,
+  onSwapSelect,
+  onSelectMultiple,
+  isSwapSource = false,
 }: {
   lesson: Lesson;
   targetDate: string;
@@ -320,6 +344,12 @@ export function LessonCard({
   onCancelDated?: (lesson: Lesson, date: string) => void;
   onRestoreDated?: (lesson: Lesson, date: string) => void;
   onQuickJump?: (target: QuickJumpTarget) => void;
+  isSelectMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: (lesson: Lesson) => void;
+  onSwapSelect?: (lesson: Lesson) => void;
+  onSelectMultiple?: (lesson: Lesson) => void;
+  isSwapSource?: boolean;
 }) {
   const isSelectedForMove = movingLesson?.id === lesson.id;
   const isDay = mode !== "week";
@@ -444,24 +474,34 @@ export function LessonCard({
     [lesson.event_type, lesson.event_title]
   );
 
-  const stateClass = lesson.is_cancelled
-    ? "border-rose-500/40 border-dashed bg-rose-500/[0.04] opacity-80"
-    : isLive
-      ? "border-sys-accent/60 ring-1 ring-sys-accent/50 bg-gradient-to-r from-sys-accent/[0.08] via-sys-card to-sys-card shadow-[0_0_20px_rgba(56,189,248,0.12)]"
-      : eventBadge
-        ? eventBadge.cardClass
-        : lesson.is_replacement
-          ? "border-sys-warning/40 ring-1 ring-sys-warning/60 bg-sys-warning/[0.03]"
-          : isSelectedForMove
-            ? "border-emerald-400 ring-1 ring-emerald-400/70"
-            : "border-sys-border";
+  const stateClass = isSwapSource
+    ? "border-amber-400 ring-2 ring-amber-400/80 bg-amber-400/10 shadow-[0_0_15px_rgba(251,191,36,0.2)]"
+    : isSelected
+      ? "border-sys-accent ring-2 ring-sys-accent/60 bg-sys-accent/10"
+      : lesson.is_cancelled
+        ? "border-rose-500/40 border-dashed bg-rose-500/[0.04] opacity-80"
+        : isLive
+          ? "border-sys-accent/60 ring-1 ring-sys-accent/50 bg-gradient-to-r from-sys-accent/[0.08] via-sys-card to-sys-card shadow-[0_0_20px_rgba(56,189,248,0.12)]"
+          : eventBadge
+            ? eventBadge.cardClass
+            : lesson.is_replacement
+              ? "border-sys-warning/40 ring-1 ring-sys-warning/60 bg-sys-warning/[0.03]"
+              : isSelectedForMove
+                ? "border-emerald-400 ring-1 ring-emerald-400/70"
+                : "border-sys-border";
 
   return (
     <article
       data-live={isLive ? "true" : undefined}
-      draggable={canMove}
+      draggable={canMove && !isSelectMode}
+      onClick={(e) => {
+        if (isSelectMode) {
+          e.stopPropagation();
+          onToggleSelect?.(lesson);
+        }
+      }}
       onDragStart={(event) => {
-        if (!canMove) {
+        if (!canMove || isSelectMode) {
           event.preventDefault();
           return;
         }
@@ -477,9 +517,28 @@ export function LessonCard({
         isDay ? "p-3 xl:p-3.5" : "p-2.5"
       } ${stateClass} ${
         !lesson.is_relevant_this_week ? "opacity-60" : isPast ? "opacity-55 hover:opacity-100" : ""
-      } ${canMove ? "cursor-grab active:cursor-grabbing" : ""}`}
+      } ${isSelectMode ? "cursor-pointer" : canMove ? "cursor-grab active:cursor-grabbing" : ""}`}
     >
-      <div className="flex items-start gap-2.5 sm:gap-3">
+      {/* Multi-select checkbox */}
+      {isSelectMode && (
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleSelect?.(lesson);
+          }}
+          className="absolute left-2 top-2 z-20 flex h-7 w-7 items-center justify-center cursor-pointer"
+        >
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={() => onToggleSelect?.(lesson)}
+            aria-label={`Вибрати пару ${lesson.subject_name}`}
+            className="h-4 w-4 rounded border-sys-border accent-sys-accent cursor-pointer"
+          />
+        </div>
+      )}
+
+      <div className={`flex items-start gap-2.5 sm:gap-3 ${isSelectMode ? "pl-7" : ""}`}>
         {/* Left: narrow fixed column (number + start time) */}
         {!hideTimeColumn && (
           <div className="flex w-11 sm:w-12 shrink-0 flex-col text-left">
@@ -678,90 +737,92 @@ export function LessonCard({
             </div>
           ) : null}
 
-          {/* Row 3: Badges in flex-wrap with gap */}
-          <div className="mt-0.5 flex flex-wrap items-center gap-1.5 pt-0.5">
-            {/* If single teacher and pair has NO meeting, show room badge */}
-            {!isDualTeachers && !hasMeeting && rooms.length > 0 && (
-              rooms.map((rm, idx) => {
-                const meta = getRoomBadgeMeta(rm);
-                return (
-                  <span
-                    key={`${rm}-${idx}`}
-                    title={formatRoom(rm)}
-                    className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium ${meta.tone}`}
-                  >
-                    <span aria-hidden="true" className="text-[11px]">{meta.icon}</span>
-                    <span>{formatRoom(rm)}</span>
+          {/* Row 3: Badges in flex-wrap on left, actions pinned on right */}
+          <div className="mt-1 flex items-end justify-between gap-1.5 pt-0.5">
+            <div className="flex flex-wrap items-center gap-1.5 min-w-0 flex-1">
+              {/* If single teacher and pair has NO meeting, show room badge */}
+              {!isDualTeachers && !hasMeeting && rooms.length > 0 && (
+                rooms.map((rm, idx) => {
+                  const meta = getRoomBadgeMeta(rm);
+                  return (
+                    <span
+                      key={`${rm}-${idx}`}
+                      title={formatRoom(rm)}
+                      className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium ${meta.tone}`}
+                    >
+                      <span aria-hidden="true" className="text-[11px]">{meta.icon}</span>
+                      <span>{formatRoom(rm)}</span>
+                    </span>
+                  );
+                })
+              )}
+
+              {/* Online meetings (for single teacher or teacher view) */}
+              {!isDualTeachers && row3Meetings.map((m, idx) => (
+                <a
+                  key={`${m.url}-${idx}`}
+                  href={m.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    vibrateTap(12);
+                  }}
+                  className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-bold transition-transform active:scale-[0.98] ${
+                    m.platform === "meet"
+                      ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
+                      : m.platform === "zoom"
+                      ? "border-sky-500/40 bg-sky-500/15 text-sky-300 hover:bg-sky-500/25"
+                      : "border-indigo-500/40 bg-indigo-500/15 text-indigo-300 hover:bg-indigo-500/25"
+                  }`}
+                >
+                  <span>
+                    {m.platform === "meet"
+                      ? "🎥 Meet"
+                      : m.platform === "zoom"
+                      ? "📹 Zoom"
+                      : m.platform === "teams"
+                      ? "💻 Teams"
+                      : "🔗 Посилання"}
                   </span>
-                );
-              })
-            )}
+                  <span>↗</span>
+                </a>
+              ))}
 
-            {/* Online meetings (for single teacher or teacher view) */}
-            {!isDualTeachers && row3Meetings.map((m, idx) => (
-              <a
-                key={`${m.url}-${idx}`}
-                href={m.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  vibrateTap(12);
-                }}
-                className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-bold transition-transform active:scale-[0.98] ${
-                  m.platform === "meet"
-                    ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
-                    : m.platform === "zoom"
-                    ? "border-sky-500/40 bg-sky-500/15 text-sky-300 hover:bg-sky-500/25"
-                    : "border-indigo-500/40 bg-indigo-500/15 text-indigo-300 hover:bg-indigo-500/25"
-                }`}
-              >
-                <span>
-                  {m.platform === "meet"
-                    ? "🎥 Meet"
-                    : m.platform === "zoom"
-                    ? "📹 Zoom"
-                    : m.platform === "teams"
-                    ? "💻 Teams"
-                    : "🔗 Посилання"}
+              {tasks.length > 0 && (
+                <button
+                  type="button"
+                  onClick={toggleHw}
+                  aria-expanded={isHwOpen}
+                  aria-controls={`hw-list-${lesson.id}-${lesson.lesson_number}`}
+                  title={isHwOpen ? "Згорнути завдання" : `${tasks.length} ДЗ — натисніть для перегляду`}
+                  className="inline-flex shrink-0 items-center gap-1 rounded-md border border-purple-500/35 bg-purple-500/10 px-2 py-0.5 text-xs font-semibold text-purple-200 hover:bg-purple-500/20 active:scale-[0.98] transition-all duration-100 ease-out focus:outline-none focus:ring-1 focus:ring-purple-400"
+                >
+                  <span>📌 {tasks.length} ДЗ</span>
+                  <span className={`text-[10px] transition-transform duration-150 motion-reduce:transition-none ${isHwOpen ? "rotate-180" : ""}`}>
+                    ▾
+                  </span>
+                </button>
+              )}
+
+              {lesson.is_cancelled ? (
+                <span className="inline-flex shrink-0 items-center gap-1 rounded border border-rose-500/40 bg-rose-500/15 px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-rose-400">
+                  ❌ Скасовано
                 </span>
-                <span>↗</span>
-              </a>
-            ))}
-
-            {tasks.length > 0 && (
-              <button
-                type="button"
-                onClick={toggleHw}
-                aria-expanded={isHwOpen}
-                aria-controls={`hw-list-${lesson.id}-${lesson.lesson_number}`}
-                title={isHwOpen ? "Згорнути завдання" : `${tasks.length} ДЗ — натисніть для перегляду`}
-                className="inline-flex shrink-0 items-center gap-1 rounded-md border border-purple-500/35 bg-purple-500/10 px-2 py-0.5 text-xs font-semibold text-purple-200 hover:bg-purple-500/20 active:scale-[0.98] transition-all duration-100 ease-out focus:outline-none focus:ring-1 focus:ring-purple-400"
-              >
-                <span>📌 {tasks.length} ДЗ</span>
-                <span className={`text-[10px] transition-transform duration-150 motion-reduce:transition-none ${isHwOpen ? "rotate-180" : ""}`}>
-                  ▾
+              ) : eventBadge ? (
+                <span className={`inline-flex shrink-0 items-center gap-1 rounded border px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wider ${eventBadge.badgeClass}`}>
+                  {eventBadge.label}
                 </span>
-              </button>
-            )}
+              ) : lesson.is_replacement ? (
+                <span className="inline-flex shrink-0 items-center gap-1 rounded bg-sys-warning px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-sys-warningText">
+                  ⚡ Заміна
+                </span>
+              ) : null}
+            </div>
 
-            {lesson.is_cancelled ? (
-              <span className="inline-flex shrink-0 items-center gap-1 rounded border border-rose-500/40 bg-rose-500/15 px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-rose-400">
-                ❌ Скасовано
-              </span>
-            ) : eventBadge ? (
-              <span className={`inline-flex shrink-0 items-center gap-1 rounded border px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wider ${eventBadge.badgeClass}`}>
-                {eventBadge.label}
-              </span>
-            ) : lesson.is_replacement ? (
-              <span className="inline-flex shrink-0 items-center gap-1 rounded bg-sys-warning px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-sys-warningText">
-                ⚡ Заміна
-              </span>
-            ) : null}
-
-            {/* Actions for canEdit in Row 3 (aligned to right: margin-left: auto) */}
+            {/* Actions for canEdit pinned to bottom-right */}
             {canEdit && (
-              <div className="ml-auto flex items-center gap-1 shrink-0 relative">
+              <div className="flex items-center gap-1 shrink-0 whitespace-nowrap relative">
                 {lesson.is_cancelled ? (
                   onRestoreDated && lesson.group_id && (
                     <button
@@ -845,6 +906,34 @@ export function LessonCard({
                             >
                               <CopyIcon />
                               <span>Копіювати</span>
+                            </button>
+                          )}
+
+                          {onSwapSelect && !movingLesson && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setMoreOpen(false);
+                                onSwapSelect(lesson);
+                              }}
+                              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-sys-text-primary hover:bg-amber-500/10 hover:text-amber-400 transition-colors"
+                            >
+                              <SwapIcon />
+                              <span>Поміняти місцями</span>
+                            </button>
+                          )}
+
+                          {onSelectMultiple && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setMoreOpen(false);
+                                onSelectMultiple(lesson);
+                              }}
+                              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-sys-text-primary hover:bg-sys-accent/10 hover:text-sys-accent transition-colors"
+                            >
+                              <CheckSquareIcon />
+                              <span>Вибрати кілька</span>
                             </button>
                           )}
 

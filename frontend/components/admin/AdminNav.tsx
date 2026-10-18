@@ -195,9 +195,8 @@ export function AdminNav({ active }: { active: string }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const touchStartX = useRef<number | null>(null);
 
-  // Rail state for medium desktop (1024px – 1279px)
-  const [isRailManuallyExpanded, setIsRailManuallyExpanded] = useState(false);
-  const [savedRailCollapse, setSavedRailCollapse] = useState<boolean>(false);
+  // Desktop sidebar collapse state (≥ 1024px)
+  const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(false);
 
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState("");
@@ -206,23 +205,37 @@ export function AdminNav({ active }: { active: string }) {
   useEffect(() => {
     try {
       const saved = localStorage.getItem("admin_sidebar_collapsed");
-      if (saved !== null) {
-        setSavedRailCollapse(saved === "true");
+      if (saved === "true") {
+        setIsDesktopCollapsed(true);
       }
     } catch {
       // ignore
     }
   }, []);
 
-  const toggleRailCollapse = () => {
-    const next = !savedRailCollapse;
-    setSavedRailCollapse(next);
-    try {
-      localStorage.setItem("admin_sidebar_collapsed", String(next));
-    } catch {
-      // ignore
-    }
+  const toggleDesktopCollapse = () => {
+    setIsDesktopCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("admin_sidebar_collapsed", String(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
   };
+
+  // Keyboard shortcut Ctrl+B or Cmd+B to toggle sidebar collapse
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b") {
+        e.preventDefault();
+        toggleDesktopCollapse();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const handleLogout = async () => {
     if (logoutInFlight.current) return;
@@ -293,15 +306,15 @@ export function AdminNav({ active }: { active: string }) {
     touchStartX.current = null;
   };
 
-  const linkClass = (isActive: boolean, isRail: boolean = false) =>
-    `flex items-center ${isRail ? "justify-center p-2.5" : "gap-2.5 px-3 py-2"} rounded-lg text-sm font-medium transition-all ${
+  const linkClass = (isActive: boolean) =>
+    `flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
       isActive
         ? "border border-sys-accent/30 bg-sys-accent/15 text-sys-accent font-semibold"
         : "border border-transparent text-sys-text-secondary hover:bg-white/5 hover:text-sys-text-primary"
     }`;
 
-  // Inner navigation content used in both Sidebar, Rail, and Drawer
-  const renderNavContent = (isRailMode: boolean = false) => {
+  // Inner navigation content used in both Desktop Sidebar and Mobile Drawer
+  const renderNavContent = () => {
     return (
       <div className="flex flex-col h-full justify-between">
         <div className="overflow-y-auto px-3 py-4 space-y-5">
@@ -309,19 +322,29 @@ export function AdminNav({ active }: { active: string }) {
           <div className="flex items-center justify-between pb-1">
             <Link
               href="/"
-              className={`flex items-center gap-2 hover:opacity-85 transition-opacity ${isRailMode ? "justify-center w-full" : ""}`}
+              className="flex items-center gap-2 hover:opacity-85 transition-opacity"
               title="Повернутися на сайт розкладу"
             >
               <span className="text-[13px] font-black tracking-widest text-[#0b1120] bg-sys-accent px-1.5 py-0.5 rounded shadow-xs shrink-0">
                 ДФКР
               </span>
-              {!isRailMode && (
-                <span className="font-bold text-[14px] text-sys-text-primary tracking-tight whitespace-nowrap truncate">
-                  Керування
-                </span>
-              )}
+              <span className="font-bold text-[14px] text-sys-text-primary tracking-tight whitespace-nowrap truncate">
+                Керування
+              </span>
             </Link>
-            {!isRailMode && (
+
+            <div className="flex items-center gap-1">
+              {/* Desktop collapse button ‹ */}
+              <button
+                type="button"
+                aria-label="Згорнути меню"
+                title="Згорнути меню (Ctrl+B)"
+                onClick={toggleDesktopCollapse}
+                className="hidden lg:flex items-center justify-center w-7 h-7 rounded-lg text-sys-text-secondary hover:bg-white/5 hover:text-sys-text-primary transition-colors text-base font-bold"
+              >
+                ‹
+              </button>
+              {/* Mobile close button */}
               <button
                 type="button"
                 aria-label="Закрити меню"
@@ -332,26 +355,23 @@ export function AdminNav({ active }: { active: string }) {
                   <path d="m18 6-12 12M6 6l12 12" />
                 </svg>
               </button>
-            )}
+            </div>
           </div>
 
           {/* Group 1: Основне */}
           <div>
-            {!isRailMode && (
-              <div className="px-2 mb-1.5 text-[10px] font-bold uppercase tracking-wider text-sys-text-muted">
-                Основне
-              </div>
-            )}
+            <div className="px-2 mb-1.5 text-[10px] font-bold uppercase tracking-wider text-sys-text-muted">
+              Основне
+            </div>
             <div className="space-y-1">
               <Link
                 href="/admin?resource=schedule"
                 onClick={() => setDrawerOpen(false)}
                 aria-current={active === "schedule" ? "page" : undefined}
-                className={linkClass(active === "schedule", isRailMode)}
-                title={isRailMode ? "Розклад" : undefined}
+                className={linkClass(active === "schedule")}
               >
                 <ScheduleIcon className="w-4 h-4 shrink-0 text-current" />
-                {!isRailMode && <span className="truncate">Розклад</span>}
+                <span className="truncate">Розклад</span>
               </Link>
 
               {user?.role === "admin" && (
@@ -360,131 +380,102 @@ export function AdminNav({ active }: { active: string }) {
                     href="/admin?resource=import"
                     onClick={() => setDrawerOpen(false)}
                     aria-current={active === "import" ? "page" : undefined}
-                    className={linkClass(active === "import", isRailMode)}
-                    title={isRailMode ? "Імпорт з КРЕ" : undefined}
+                    className={linkClass(active === "import")}
                   >
                     <ImportIcon className="w-4 h-4 shrink-0 text-current" />
-                    {!isRailMode && <span className="truncate">Імпорт з КРЕ</span>}
+                    <span className="truncate">Імпорт з КРЕ</span>
                   </Link>
 
                   <Link
                     href="/admin?resource=periods"
                     onClick={() => setDrawerOpen(false)}
                     aria-current={active === "periods" ? "page" : undefined}
-                    className={linkClass(active === "periods", isRailMode)}
+                    className={linkClass(active === "periods")}
                     title="Графік процесу (Практики, канікули, сесії)"
                   >
                     <CalendarRangeIcon className="w-4 h-4 shrink-0 text-current" />
-                    {!isRailMode && <span className="truncate">Графік процесу</span>}
+                    <span className="truncate">Графік процесу</span>
                   </Link>
 
                   <Link
                     href="/admin?resource=versions"
                     onClick={() => setDrawerOpen(false)}
                     aria-current={active === "versions" ? "page" : undefined}
-                    className={linkClass(active === "versions", isRailMode)}
-                    title={isRailMode ? "Версії" : undefined}
+                    className={linkClass(active === "versions")}
                   >
                     <VersionsIcon className="w-4 h-4 shrink-0 text-current" />
-                    {!isRailMode && <span className="truncate">Версії</span>}
+                    <span className="truncate">Версії</span>
                   </Link>
 
                   <Link
                     href="/admin?resource=semester"
                     onClick={() => setDrawerOpen(false)}
                     aria-current={active === "semester" ? "page" : undefined}
-                    className={linkClass(active === "semester", isRailMode)}
-                    title={isRailMode ? "Семестр" : undefined}
+                    className={linkClass(active === "semester")}
                   >
                     <SemesterIcon className="w-4 h-4 shrink-0 text-current" />
-                    {!isRailMode && <span className="truncate">Семестр</span>}
+                    <span className="truncate">Семестр</span>
                   </Link>
 
-                  {/* Accordion: Автогенератор (Додатково) */}
-                  {!isRailMode ? (
-                    <div className="pt-1">
-                      <button
-                        type="button"
-                        onClick={() => setGeneratorExpanded(!generatorExpanded)}
-                        className="flex w-full items-center justify-between px-3 py-1.5 rounded-lg text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/[0.03] transition-colors"
-                        aria-expanded={generatorExpanded}
-                      >
-                        <div className="flex items-center gap-2 truncate">
-                          <GeneratorWandIcon className="w-3.5 h-3.5 shrink-0 text-sys-text-muted" />
-                          <span className="truncate">Автогенератор</span>
-                          <span className="text-[10px] uppercase font-bold text-sys-text-muted/80 bg-white/5 border border-sys-border/40 px-1 py-0.2 rounded">
-                            додатково
-                          </span>
-                        </div>
-                        <span className={`text-[10px] text-sys-text-muted transition-transform duration-200 ${generatorExpanded ? "rotate-180" : ""}`}>
-                          ▼
+                  {/* Accordion: Автогенератор */}
+                  <div className="pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setGeneratorExpanded(!generatorExpanded)}
+                      className="flex w-full items-center justify-between px-3 py-1.5 rounded-lg text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/[0.03] transition-colors"
+                      aria-expanded={generatorExpanded}
+                    >
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <GeneratorWandIcon className="w-3.5 h-3.5 shrink-0 text-sys-text-muted" />
+                        <span className="truncate">Автогенератор</span>
+                        <span className="text-[9px] uppercase font-bold text-sys-text-muted/80 bg-white/5 border border-sys-border/40 px-1 py-0.5 rounded leading-none shrink-0">
+                          додатково
                         </span>
-                      </button>
+                      </div>
+                      <span className={`text-[10px] text-sys-text-muted transition-transform duration-200 ${generatorExpanded ? "rotate-180" : ""}`}>
+                        ▼
+                      </span>
+                    </button>
 
-                      <div
-                        className="grid transition-all duration-200 ease-out"
-                        style={{ gridTemplateRows: generatorExpanded ? "1fr" : "0fr" }}
-                      >
-                        <div className="overflow-hidden">
-                          <div className="ml-3 pl-2 mt-1 space-y-1 border-l border-sys-border/40">
-                            <Link
-                              href="/admin?resource=curriculum"
-                              onClick={() => setDrawerOpen(false)}
-                              aria-current={active === "curriculum" ? "page" : undefined}
-                              className={linkClass(active === "curriculum")}
-                            >
-                              <CurriculumIcon className="w-3.5 h-3.5 shrink-0" />
-                              <span className="truncate">Навантаження</span>
-                            </Link>
+                    <div
+                      className="grid transition-all duration-200 ease-out"
+                      style={{ gridTemplateRows: generatorExpanded ? "1fr" : "0fr" }}
+                    >
+                      <div className="overflow-hidden">
+                        <div className="ml-3 pl-2 mt-1 space-y-1 border-l border-sys-border/40">
+                          <Link
+                            href="/admin?resource=curriculum"
+                            onClick={() => setDrawerOpen(false)}
+                            aria-current={active === "curriculum" ? "page" : undefined}
+                            className={linkClass(active === "curriculum")}
+                          >
+                            <CurriculumIcon className="w-3.5 h-3.5 shrink-0" />
+                            <span className="truncate">Навантаження</span>
+                          </Link>
 
-                            <Link
-                              href="/admin?resource=constraints"
-                              onClick={() => setDrawerOpen(false)}
-                              aria-current={active === "constraints" ? "page" : undefined}
-                              className={linkClass(active === "constraints")}
-                            >
-                              <ConstraintsIcon className="w-3.5 h-3.5 shrink-0" />
-                              <span className="truncate">Обмеження</span>
-                            </Link>
+                          <Link
+                            href="/admin?resource=constraints"
+                            onClick={() => setDrawerOpen(false)}
+                            aria-current={active === "constraints" ? "page" : undefined}
+                            className={linkClass(active === "constraints")}
+                          >
+                            <ConstraintsIcon className="w-3.5 h-3.5 shrink-0" />
+                            <span className="truncate">Обмеження</span>
+                          </Link>
 
-                            <Link
-                              href="/admin?resource=generator"
-                              onClick={() => setDrawerOpen(false)}
-                              aria-current={active === "generator" ? "page" : undefined}
-                              className={linkClass(active === "generator")}
-                            >
-                              <PlayGeneratorIcon className="w-3.5 h-3.5 shrink-0" />
-                              <span className="truncate">Генерація розкладу</span>
-                            </Link>
-                          </div>
+                          <Link
+                            href="/admin?resource=generator"
+                            onClick={() => setDrawerOpen(false)}
+                            aria-current={active === "generator" ? "page" : undefined}
+                            className={linkClass(active === "generator")}
+                          >
+                            <PlayGeneratorIcon className="w-3.5 h-3.5 shrink-0" />
+                            <span className="truncate">Генерація розкладу</span>
+                          </Link>
                         </div>
                       </div>
                     </div>
-                  ) : (
-                    <div className="pt-1 border-t border-sys-border/30">
-                      <Link
-                        href="/admin?resource=curriculum"
-                        className={linkClass(active === "curriculum", true)}
-                        title="Навантаження"
-                      >
-                        <CurriculumIcon className="w-4 h-4 shrink-0" />
-                      </Link>
-                      <Link
-                        href="/admin?resource=constraints"
-                        className={linkClass(active === "constraints", true)}
-                        title="Обмеження"
-                      >
-                        <ConstraintsIcon className="w-4 h-4 shrink-0" />
-                      </Link>
-                      <Link
-                        href="/admin?resource=generator"
-                        className={linkClass(active === "generator", true)}
-                        title="Генерація розкладу"
-                      >
-                        <PlayGeneratorIcon className="w-4 h-4 shrink-0" />
-                      </Link>
-                    </div>
-                  )}
+                  </div>
                 </>
               )}
             </div>
@@ -493,151 +484,127 @@ export function AdminNav({ active }: { active: string }) {
           {/* Group 2: Довідники */}
           {user?.role === "admin" && (
             <div>
-              {!isRailMode && (
-                <div className="px-2 mb-1.5 text-[10px] font-bold uppercase tracking-wider text-sys-text-muted">
-                  Довідники
-                </div>
-              )}
+              <div className="px-2 mb-1.5 text-[10px] font-bold uppercase tracking-wider text-sys-text-muted">
+                Довідники
+              </div>
               <div className="space-y-1">
                 <Link
                   href="/admin?resource=groups"
                   onClick={() => setDrawerOpen(false)}
                   aria-current={active === "groups" ? "page" : undefined}
-                  className={linkClass(active === "groups", isRailMode)}
-                  title={isRailMode ? "Групи" : undefined}
+                  className={linkClass(active === "groups")}
                 >
                   <GroupsIcon className="w-4 h-4 shrink-0" />
-                  {!isRailMode && <span className="truncate">Групи</span>}
+                  <span className="truncate">Групи</span>
                 </Link>
 
                 <Link
                   href="/admin?resource=teachers"
                   onClick={() => setDrawerOpen(false)}
                   aria-current={active === "teachers" ? "page" : undefined}
-                  className={linkClass(active === "teachers", isRailMode)}
-                  title={isRailMode ? "Викладачі" : undefined}
+                  className={linkClass(active === "teachers")}
                 >
                   <TeachersIcon className="w-4 h-4 shrink-0" />
-                  {!isRailMode && <span className="truncate">Викладачі</span>}
+                  <span className="truncate">Викладачі</span>
                 </Link>
 
                 <Link
                   href="/admin?resource=subjects"
                   onClick={() => setDrawerOpen(false)}
                   aria-current={active === "subjects" ? "page" : undefined}
-                  className={linkClass(active === "subjects", isRailMode)}
-                  title={isRailMode ? "Предмети" : undefined}
+                  className={linkClass(active === "subjects")}
                 >
                   <SubjectsIcon className="w-4 h-4 shrink-0" />
-                  {!isRailMode && <span className="truncate">Предмети</span>}
+                  <span className="truncate">Предмети</span>
                 </Link>
 
                 <Link
                   href="/admin?resource=faculties"
                   onClick={() => setDrawerOpen(false)}
                   aria-current={active === "faculties" ? "page" : undefined}
-                  className={linkClass(active === "faculties", isRailMode)}
-                  title={isRailMode ? "Спеціальності" : undefined}
+                  className={linkClass(active === "faculties")}
                 >
                   <FacultiesIcon className="w-4 h-4 shrink-0" />
-                  {!isRailMode && <span className="truncate">Спеціальності</span>}
+                  <span className="truncate">Спеціальності</span>
                 </Link>
 
                 <Link
                   href="/admin?resource=users"
                   onClick={() => setDrawerOpen(false)}
                   aria-current={active === "users" ? "page" : undefined}
-                  className={linkClass(active === "users", isRailMode)}
-                  title={isRailMode ? "Користувачі" : undefined}
+                  className={linkClass(active === "users")}
                 >
                   <UsersIcon className="w-4 h-4 shrink-0" />
-                  {!isRailMode && <span className="truncate">Користувачі</span>}
+                  <span className="truncate">Користувачі</span>
                 </Link>
               </div>
             </div>
           )}
         </div>
 
-        {/* Bottom Area: Online widget + Rail toggle + Logout */}
+        {/* Bottom Area: Online widget + Logout */}
         <div className="p-3 border-t border-sys-border bg-sys-bg/30 space-y-2">
-          {/* Online now widget */}
-          {isRailMode ? (
+          {/* Compact Online widget */}
+          <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-2 transition-colors">
             <button
               type="button"
-              onClick={() => setIsRailManuallyExpanded(true)}
-              className="w-full flex flex-col items-center justify-center p-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 transition-colors"
-              title={`${online ?? 0} онлайн (натисніть, щоб розгорнути деталі)`}
+              onClick={() => setOnlineExpanded(!onlineExpanded)}
+              className="flex items-center justify-between w-full text-left"
+              aria-expanded={onlineExpanded}
             >
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-              </span>
-              <span className="text-[11px] font-bold text-emerald-400 mt-1">
-                {online ?? "…"}
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-2 w-2 shrink-0">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                </span>
+                <span className="text-xs font-semibold text-emerald-400">
+                  {online !== null ? `${online} онлайн` : "Підключення…"}
+                </span>
+              </div>
+              <span className={`text-[10px] text-emerald-400/80 transition-transform duration-200 ${onlineExpanded ? "rotate-180" : ""}`}>
+                ▼
               </span>
             </button>
-          ) : (
-            <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-2.5 transition-colors">
-              <button
-                type="button"
-                onClick={() => setOnlineExpanded(!onlineExpanded)}
-                className="flex items-center justify-between w-full text-left"
-                aria-expanded={onlineExpanded}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="relative flex h-2 w-2 shrink-0">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-                  </span>
-                  <span className="text-xs font-semibold text-emerald-400">
-                    {online !== null ? `${online} онлайн` : "Підключення…"}
-                  </span>
-                </div>
-                <span className={`text-[10px] text-emerald-400/80 transition-transform duration-200 ${onlineExpanded ? "rotate-180" : ""}`}>
-                  ▼
-                </span>
-              </button>
 
-              <div
-                className="grid transition-all duration-200 ease-out"
-                style={{ gridTemplateRows: onlineExpanded ? "1fr" : "0fr" }}
-              >
-                <div className="overflow-hidden">
-                  <div className="pt-2 mt-2 border-t border-emerald-500/15 space-y-2 text-[11px] text-sys-text-secondary">
-                    {metrics?.online_details && (
-                      <div className="flex flex-wrap gap-1">
-                        {metrics.online_details.guests > 0 && (
-                          <span className="inline-flex items-center gap-1 rounded bg-sys-card px-1.5 py-0.5 border border-sys-border/40">
-                            <span>{metrics.online_details.guests} студ.</span>
-                          </span>
-                        )}
-                        {metrics.online_details.admins > 0 && (
-                          <span className="inline-flex items-center gap-1 rounded bg-amber-500/10 px-1.5 py-0.5 text-amber-400 border border-amber-500/20">
-                            <span>{metrics.online_details.admins} адмін.</span>
-                          </span>
-                        )}
-                        {metrics.online_details.editors > 0 && (
-                          <span className="inline-flex items-center gap-1 rounded bg-blue-500/10 px-1.5 py-0.5 text-blue-400 border border-blue-500/20">
-                            <span>{metrics.online_details.editors} ред.</span>
-                          </span>
-                        )}
-                      </div>
-                    )}
-                    {metrics?.online_details?.staff?.length > 0 && (
-                      <div className="flex flex-col gap-1 max-h-24 overflow-y-auto pr-1">
-                        {metrics.online_details.staff.map((s: any, idx: number) => (
-                          <div key={idx} className="flex items-center justify-between text-[10px]">
-                            <span className="font-medium truncate text-sys-text-primary">{s.name || s.username}</span>
-                            <span className="text-emerald-400 text-[9px] shrink-0">{s.role}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+            <div
+              className="grid transition-all duration-200 ease-out"
+              style={{ gridTemplateRows: onlineExpanded ? "1fr" : "0fr" }}
+            >
+              <div className="overflow-hidden">
+                <div className="pt-2 mt-2 border-t border-emerald-500/15 space-y-2 text-[11px] text-sys-text-secondary">
+                  {metrics?.online_details && (
+                    <div className="flex flex-wrap gap-1">
+                      {metrics.online_details.guests > 0 && (
+                        <span className="inline-flex items-center gap-1 rounded bg-sys-card px-1.5 py-0.5 border border-sys-border/40">
+                          <span>{metrics.online_details.guests} студ.</span>
+                        </span>
+                      )}
+                      {metrics.online_details.admins > 0 && (
+                        <span className="inline-flex items-center gap-1 rounded bg-amber-500/10 px-1.5 py-0.5 text-amber-400 border border-amber-500/20">
+                          <span>{metrics.online_details.admins} адмін.</span>
+                        </span>
+                      )}
+                      {metrics.online_details.editors > 0 && (
+                        <span className="inline-flex items-center gap-1 rounded bg-blue-500/10 px-1.5 py-0.5 text-blue-400 border border-blue-500/20">
+                          <span>{metrics.online_details.editors} ред.</span>
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {metrics?.online_details?.staff?.length > 0 && (
+                    <div className="flex flex-col gap-1 max-h-24 overflow-y-auto pr-1">
+                      {metrics.online_details.staff.map((s: any, idx: number) => (
+                        <div key={idx} className="flex items-center justify-between text-[10px]">
+                          <span className="font-medium truncate text-sys-text-primary">{s.name || s.username}</span>
+                          <span className="text-emerald-400 text-[9px] shrink-0">{s.role}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
-          )}
+          </div>
 
           {/* Logout button */}
           <button
@@ -656,9 +623,9 @@ export function AdminNav({ active }: { active: string }) {
               <polyline points="16 17 21 12 16 7" />
               <line x1="21" y1="12" x2="9" y2="12" />
             </svg>
-            {!isRailMode && <span>{isLoggingOut ? "Вихід…" : "Вийти"}</span>}
+            <span>{isLoggingOut ? "Вихід…" : "Вийти"}</span>
           </button>
-          {logoutError && !isRailMode && (
+          {logoutError && (
             <div role="alert" className="text-rose-400 text-[10px] text-center font-medium">
               {logoutError}
             </div>
@@ -724,67 +691,36 @@ export function AdminNav({ active }: { active: string }) {
           drawerOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        {renderNavContent(false)}
+        {renderNavContent()}
       </aside>
 
-      {/* 3. Medium screens (1024px – 1279px): Collapsed Rail 64px or manually expanded overlay */}
+      {/* 3. Floating desktop toggle button when collapsed */}
+      {isDesktopCollapsed && (
+        <button
+          type="button"
+          onClick={toggleDesktopCollapse}
+          className="hidden lg:flex fixed top-3.5 left-3.5 z-40 items-center justify-center w-9 h-9 rounded-lg border border-sys-border bg-sys-card text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/5 shadow-lg transition-all active:scale-95"
+          title="Розгорнути бічне меню (Ctrl+B)"
+          aria-label="Розгорнути бічне меню"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="4" y1="12" x2="20" y2="12" />
+            <line x1="4" y1="6" x2="20" y2="6" />
+            <line x1="4" y1="18" x2="20" y2="18" />
+          </svg>
+        </button>
+      )}
+
+      {/* 4. Desktop Sidebar (≥ 1024px): 232px when expanded, 0px when collapsed */}
       <aside
         aria-label="Навігація адмінпанелі"
-        className="hidden lg:flex xl:hidden shrink-0 relative z-30"
+        className={`hidden lg:flex shrink-0 h-screen sticky top-0 border-r border-sys-border bg-sys-card flex-col z-30 transition-[width] duration-200 ease-in-out ${
+          isDesktopCollapsed ? "w-0 overflow-hidden border-none" : "w-[232px]"
+        }`}
       >
-        {/* Rail 64px */}
-        <div className="w-16 h-screen sticky top-0 border-r border-sys-border bg-sys-card flex flex-col justify-between">
-          {renderNavContent(true)}
-          {/* Expand button at bottom corner */}
-          <div className="p-2 border-t border-sys-border/40 flex justify-center">
-            <button
-              type="button"
-              onClick={() => setIsRailManuallyExpanded(true)}
-              className="p-2 rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/5 transition-colors"
-              title="Розгорнути сайдбар"
-              aria-label="Розгорнути меню"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect width="18" height="18" x="3" y="3" rx="2" />
-                <path d="M9 3v18" />
-                <path d="m14 9 3 3-3 3" />
-              </svg>
-            </button>
-          </div>
+        <div className="w-[232px] h-full flex flex-col justify-between overflow-hidden">
+          {renderNavContent()}
         </div>
-
-        {/* Overlay expansion when user clicked expand in rail */}
-        {isRailManuallyExpanded && (
-          <>
-            <div
-              className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-xs"
-              onClick={() => setIsRailManuallyExpanded(false)}
-            />
-            <div className="fixed top-0 left-0 bottom-0 z-[65] w-[232px] bg-sys-card border-r border-sys-border shadow-2xl animate-in slide-in-from-left duration-200 flex flex-col">
-              <div className="p-2 flex justify-end border-b border-sys-border/30">
-                <button
-                  type="button"
-                  onClick={() => setIsRailManuallyExpanded(false)}
-                  className="p-1 rounded text-sys-text-secondary hover:text-sys-text-primary"
-                  title="Згорнути в рейку"
-                >
-                  ✕
-                </button>
-              </div>
-              <div className="flex-1 overflow-hidden">
-                {renderNavContent(false)}
-              </div>
-            </div>
-          </>
-        )}
-      </aside>
-
-      {/* 4. Large screens (≥ 1280px): Expanded Sidebar 232px */}
-      <aside
-        aria-label="Навігація адмінпанелі"
-        className="hidden xl:flex shrink-0 w-[232px] h-screen sticky top-0 border-r border-sys-border bg-sys-card flex-col z-30"
-      >
-        {renderNavContent(false)}
       </aside>
     </>
   );

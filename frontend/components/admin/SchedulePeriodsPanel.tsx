@@ -113,6 +113,7 @@ export function SchedulePeriodsPanel() {
   // Filters
   const [filterType, setFilterType] = useState<string>("");
   const [filterState, setFilterState] = useState<string>("");
+  const [expandedGroups, setExpandedGroups] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     async function load() {
@@ -612,21 +613,33 @@ export function SchedulePeriodsPanel() {
                       </span>
                     ) : (
                       <>
-                        {period.groups.slice(0, 8).map((g) => (
+                        {(expandedGroups[period.id] ? period.groups : period.groups.slice(0, 8)).map((g) => (
                           <span
                             key={g.id}
-                            className="inline-flex items-center px-2 py-0.5 rounded bg-sys-accent/10 text-sys-accent text-[11px] font-medium border border-sys-accent/20"
+                            className="inline-flex items-center px-2 py-0.5 rounded bg-sys-accent/10 text-sys-accent text-[11px] font-medium border border-sys-accent/20 truncate max-w-[140px]"
+                            title={g.name}
                           >
                             {g.name}
                           </span>
                         ))}
-                        {period.groups.length > 8 && (
-                          <span
-                            className="inline-flex items-center px-2 py-0.5 rounded bg-sys-card border border-sys-border text-[11px] text-sys-text-muted font-medium"
+                        {period.groups.length > 8 && !expandedGroups[period.id] && (
+                          <button
+                            type="button"
+                            onClick={() => setExpandedGroups(prev => ({ ...prev, [period.id]: true }))}
+                            className="inline-flex items-center px-2 py-0.5 rounded bg-sys-card border border-sys-border text-[11px] text-sys-text-muted font-medium hover:text-sys-text-primary hover:border-sys-accent transition-colors"
                             title={period.groups.slice(8).map((g) => g.name).join(", ")}
                           >
-                            +{period.groups.length - 8}
-                          </span>
+                            +{period.groups.length - 8} ще
+                          </button>
+                        )}
+                        {expandedGroups[period.id] && period.groups.length > 8 && (
+                          <button
+                            type="button"
+                            onClick={() => setExpandedGroups(prev => ({ ...prev, [period.id]: false }))}
+                            className="inline-flex items-center px-2 py-0.5 rounded bg-sys-card border border-sys-border text-[11px] text-sys-text-muted font-medium hover:text-sys-text-primary transition-colors"
+                          >
+                            Згорнути
+                          </button>
                         )}
                       </>
                     )}
