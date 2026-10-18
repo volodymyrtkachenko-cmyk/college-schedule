@@ -173,7 +173,7 @@ export function extractOnlineMeetingInfo(note?: string | null, room?: string | n
 
 export interface MeetingInfo {
   url: string;
-  platform: "meet" | "zoom";
+  platform: "meet" | "zoom" | "teams" | "link";
   passcode: string | null;
   label?: string;
 }
@@ -199,8 +199,10 @@ export function extractOnlineMeetings(
   const seenUrls = new Set<string>();
 
   for (const line of lines) {
+    if (line.trim().startsWith("[TASK]")) continue;
+
     const urlMatches = Array.from(
-      line.matchAll(/https?:\/\/(?:meet\.google\.com|[a-z0-9.-]*zoom\.us)\/[^\s<>"')|]+/gi)
+      line.matchAll(/https?:\/\/(?:meet\.google\.com|[a-z0-9.-]*zoom\.us|teams\.microsoft\.com|teams\.live\.com)\/[^\s<>"')|]+/gi)
     );
 
     for (const match of urlMatches) {
@@ -208,7 +210,10 @@ export function extractOnlineMeetings(
       if (seenUrls.has(url.toLowerCase())) continue;
       seenUrls.add(url.toLowerCase());
 
-      const isMeet = url.toLowerCase().includes("meet.google.com");
+      const lowerUrl = url.toLowerCase();
+      const isMeet = lowerUrl.includes("meet.google.com");
+      const isZoom = lowerUrl.includes("zoom.us");
+      const isTeams = lowerUrl.includes("teams.microsoft.com") || lowerUrl.includes("teams.live.com");
       const hasPwdInUrl = /[?&]pwd=[^&\s]+/i.test(url);
 
       const passMatch = line.match(
@@ -221,7 +226,7 @@ export function extractOnlineMeetings(
       }
 
       // Якщо це Zoom і в URL ще немає ?pwd=, вшиваємо код прямо в посилання!
-      if (!isMeet && !hasPwdInUrl && rawPass) {
+      if (isZoom && !hasPwdInUrl && rawPass) {
         const sep = url.includes("?") ? "&" : "?";
         url = `${url}${sep}pwd=${encodeURIComponent(rawPass)}`;
       }
@@ -248,10 +253,17 @@ export function extractOnlineMeetings(
         label = isMeet ? "Токарєва" : "Хочинська";
       }
 
-      // Оскільки пароль або вже був у ?pwd=, або щойно вшитий у URL, окремий бейдж 🔑 не потрібен
+      const platform: MeetingInfo["platform"] = isMeet
+        ? "meet"
+        : isZoom
+        ? "zoom"
+        : isTeams
+        ? "teams"
+        : "link";
+
       results.push({
         url,
-        platform: isMeet ? "meet" : "zoom",
+        platform,
         passcode: null,
         label,
       });
@@ -356,7 +368,10 @@ export function LessonCard({
     isLive && endMin !== null && nowState ? Math.max(1, endMin - nowState.minutes) : 0;
 
   const isTeacherView = scheduleMode === "teacher";
-  const tasks = useMemo(() => extractClassroomTasks(lesson.note), [lesson.note]);
+  const tasks = useMemo(
+    () => (isTeacherView ? [] : extractClassroomTasks(lesson.note)),
+    [isTeacherView, lesson.note]
+  );
   const meetings = useMemo(
     () => extractOnlineMeetings(lesson.note, lesson.room, lesson.teacher_name, lesson.subject_name),
     [lesson.note, lesson.room, lesson.teacher_name, lesson.subject_name]
@@ -530,10 +545,20 @@ export function LessonCard({
                       className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-bold transition-transform active:scale-[0.98] ${
                         teacherMeetings[0].platform === "meet"
                           ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
-                          : "border-sky-500/40 bg-sky-500/15 text-sky-300 hover:bg-sky-500/25"
+                          : teacherMeetings[0].platform === "zoom"
+                          ? "border-sky-500/40 bg-sky-500/15 text-sky-300 hover:bg-sky-500/25"
+                          : "border-indigo-500/40 bg-indigo-500/15 text-indigo-300 hover:bg-indigo-500/25"
                       }`}
                     >
-                      <span>{teacherMeetings[0].platform === "meet" ? "🎥 Meet" : "📹 Zoom"}</span>
+                      <span>
+                        {teacherMeetings[0].platform === "meet"
+                          ? "🎥 Meet"
+                          : teacherMeetings[0].platform === "zoom"
+                          ? "📹 Zoom"
+                          : teacherMeetings[0].platform === "teams"
+                          ? "💻 Teams"
+                          : "🔗 Посилання"}
+                      </span>
                       <span>↗</span>
                     </a>
                   ) : rooms[0] ? (
@@ -585,10 +610,20 @@ export function LessonCard({
                       className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-bold transition-transform active:scale-[0.98] ${
                         teacherMeetings[1].platform === "meet"
                           ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
-                          : "border-sky-500/40 bg-sky-500/15 text-sky-300 hover:bg-sky-500/25"
+                          : teacherMeetings[1].platform === "zoom"
+                          ? "border-sky-500/40 bg-sky-500/15 text-sky-300 hover:bg-sky-500/25"
+                          : "border-indigo-500/40 bg-indigo-500/15 text-indigo-300 hover:bg-indigo-500/25"
                       }`}
                     >
-                      <span>{teacherMeetings[1].platform === "meet" ? "🎥 Meet" : "📹 Zoom"}</span>
+                      <span>
+                        {teacherMeetings[1].platform === "meet"
+                          ? "🎥 Meet"
+                          : teacherMeetings[1].platform === "zoom"
+                          ? "📹 Zoom"
+                          : teacherMeetings[1].platform === "teams"
+                          ? "💻 Teams"
+                          : "🔗 Посилання"}
+                      </span>
                       <span>↗</span>
                     </a>
                   ) : rooms[1] ? (
@@ -670,10 +705,20 @@ export function LessonCard({
                 className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-bold transition-transform active:scale-[0.98] ${
                   m.platform === "meet"
                     ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
-                    : "border-sky-500/40 bg-sky-500/15 text-sky-300 hover:bg-sky-500/25"
+                    : m.platform === "zoom"
+                    ? "border-sky-500/40 bg-sky-500/15 text-sky-300 hover:bg-sky-500/25"
+                    : "border-indigo-500/40 bg-indigo-500/15 text-indigo-300 hover:bg-indigo-500/25"
                 }`}
               >
-                <span>{m.platform === "meet" ? "🎥 Meet" : "📹 Zoom"}</span>
+                <span>
+                  {m.platform === "meet"
+                    ? "🎥 Meet"
+                    : m.platform === "zoom"
+                    ? "📹 Zoom"
+                    : m.platform === "teams"
+                    ? "💻 Teams"
+                    : "🔗 Посилання"}
+                </span>
                 <span>↗</span>
               </a>
             ))}
