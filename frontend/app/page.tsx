@@ -271,7 +271,9 @@ export default function HomePage() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [mobileMenuOpen]);
 
-  const [activeDayDate, setActiveDayDate] = useState<string>("");
+  const [activeDayDate, setActiveDayDate] = useState<string>(() => {
+    return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(new Date());
+  });
 
   useEffect(() => {
     if (displayDaySchedule?.date) {
@@ -355,8 +357,8 @@ export default function HomePage() {
   const shiftWeekPreservingDay = (offset: number) => {
     setWeekShiftDir(offset);
     setDaySlideDir(offset > 0 ? 1 : -1);
-    const curDate = new Date(`${activeDayDate}T12:00:00`);
-    const dayOfWeek = isNaN(curDate.getTime()) ? 1 : curDate.getDay();
+    const curDate = activeDayDate ? new Date(`${activeDayDate}T12:00:00`) : new Date();
+    const dayOfWeek = isNaN(curDate.getTime()) ? new Date().getDay() : curDate.getDay();
     const clampedDow = dayOfWeek >= 1 && dayOfWeek <= 5 ? dayOfWeek : 1;
 
     setWeekAnchorDate((prev) => {
@@ -374,8 +376,8 @@ export default function HomePage() {
   const resetWeekPreservingDay = () => {
     const todayAnchor = getMondayOf(new Date());
     setWeekShiftDir(0);
-    const curDate = new Date(`${activeDayDate}T12:00:00`);
-    const dayOfWeek = isNaN(curDate.getTime()) ? 1 : curDate.getDay();
+    const curDate = activeDayDate ? new Date(`${activeDayDate}T12:00:00`) : new Date();
+    const dayOfWeek = isNaN(curDate.getTime()) ? new Date().getDay() : curDate.getDay();
     const clampedDow = dayOfWeek >= 1 && dayOfWeek <= 5 ? dayOfWeek : 1;
 
     const targetDate = new Date(todayAnchor);
@@ -398,15 +400,22 @@ export default function HomePage() {
   const isWeekend = [0, 6].includes(new Date().getDay());
 
   const selectedDaySchedule: ScheduleResponse = useMemo(() => {
-    if (week && week.length > 0) {
+    if (week && week.length > 0 && activeDayDate) {
       const found = week.find((d) => d.date === activeDayDate);
       if (found) return found;
     }
     if (view === "today" && (displayDaySchedule || today)) {
       return (displayDaySchedule || today)!;
     }
+    const fallbackDate =
+      activeDayDate ||
+      displayDaySchedule?.date ||
+      today?.date ||
+      (week?.[0]?.date) ||
+      new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(new Date());
+
     return {
-      date: activeDayDate || today?.date || "",
+      date: fallbackDate,
       week_type: weekType,
       lessons: [],
     };

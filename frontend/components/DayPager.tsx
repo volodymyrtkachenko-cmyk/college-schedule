@@ -24,7 +24,9 @@ const SHARE_DATE_FMT = new Intl.DateTimeFormat("uk-UA", {
 });
 
 function buildTelegramShareText(schedule: ScheduleResponse, scheduleMode: "student" | "teacher" | "admin"): string {
-  const dateFormatted = SHARE_DATE_FMT.format(new Date(`${schedule.date}T12:00:00`));
+  const d = schedule.date ? new Date(`${schedule.date}T12:00:00`) : new Date();
+  const validDate = isNaN(d.getTime()) ? new Date() : d;
+  const dateFormatted = SHARE_DATE_FMT.format(validDate);
   const weekLabel =
     schedule.week_type === "numerator" ? "Чисельник" : schedule.week_type === "denominator" ? "Знаменник" : "";
 
@@ -71,8 +73,10 @@ function parseMin(t?: string): number | null {
   return Number.isNaN(h) || Number.isNaN(m) ? null : h * 60 + m;
 }
 
-function formatDayHeader(dateStr: string): string {
+function formatDayHeader(dateStr?: string): string {
+  if (!dateStr) return "";
   const d = new Date(`${dateStr}T12:00:00`);
+  if (isNaN(d.getTime())) return "";
   const weekday = new Intl.DateTimeFormat("uk-UA", { weekday: "long" }).format(d);
   const capitalWeekday = weekday.charAt(0).toUpperCase() + weekday.slice(1);
   const dayMonth = new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "short" }).format(d);
