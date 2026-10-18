@@ -375,7 +375,50 @@ export function LessonCard({
       .filter(Boolean);
   }, [lesson.room]);
 
-  const hasTwoTeachersWithRooms = !isTeacherView && secondaryItems.length === 2 && rooms.length >= 2;
+  const isDualTeachers = !isTeacherView && secondaryItems.length === 2;
+
+  const teacherMeetings = useMemo(() => {
+    if (!isDualTeachers || meetings.length === 0) return [null, null];
+    const s0 = secondaryItems[0].name.split(/[\s.]+/)[0].toLowerCase();
+    const s1 = secondaryItems[1].name.split(/[\s.]+/)[0].toLowerCase();
+    const m0 = meetings.find((m) => m.label && (m.label.toLowerCase().includes(s0) || s0.includes(m.label.toLowerCase())));
+    const m1 = meetings.find((m) => m.label && (m.label.toLowerCase().includes(s1) || s1.includes(m.label.toLowerCase())));
+    return [m0 || null, m1 || null];
+  }, [isDualTeachers, secondaryItems, meetings]);
+
+  const row3Meetings = useMemo(() => {
+    if (!isDualTeachers) return meetings;
+    return meetings.filter((m) => m !== teacherMeetings[0] && m !== teacherMeetings[1]);
+  }, [isDualTeachers, meetings, teacherMeetings]);
+
+  const groupedTasks = useMemo(() => {
+    if (!isDualTeachers || tasks.length === 0) {
+      return [{ teacher: null, items: tasks }];
+    }
+    const s0 = secondaryItems[0].name.split(/[\s.]+/)[0].toLowerCase();
+    const s1 = secondaryItems[1].name.split(/[\s.]+/)[0].toLowerCase();
+
+    const g0: typeof tasks = [];
+    const g1: typeof tasks = [];
+    const others: typeof tasks = [];
+
+    for (const t of tasks) {
+      const teacherStr = (t.teacher || "").toLowerCase();
+      if (teacherStr.includes(s0) || s0.includes(teacherStr)) {
+        g0.push(t);
+      } else if (teacherStr.includes(s1) || s1.includes(teacherStr)) {
+        g1.push(t);
+      } else {
+        others.push(t);
+      }
+    }
+
+    const res: { teacher: string | null; items: typeof tasks }[] = [];
+    if (g0.length > 0) res.push({ teacher: secondaryItems[0].displayName, items: g0 });
+    if (g1.length > 0) res.push({ teacher: secondaryItems[1].displayName, items: g1 });
+    if (others.length > 0) res.push({ teacher: res.length > 0 ? "Інші завдання" : null, items: others });
+    return res.length > 0 ? res : [{ teacher: null, items: tasks }];
+  }, [isDualTeachers, secondaryItems, tasks]);
 
   const eventBadge = useMemo(
     () => getEventBadge(lesson.event_type, lesson.event_title),
@@ -453,8 +496,9 @@ export function LessonCard({
           </div>
 
           {/* Row 2: Teacher(s) - completely visible without trimming, overflow-wrap anywhere */}
-          {hasTwoTeachersWithRooms ? (
+          {isDualTeachers ? (
             <div className="flex flex-col gap-0.5 text-xs text-sys-text-secondary [overflow-wrap:anywhere]">
+              {/* Teacher 0 */}
               <div className="inline-flex items-center whitespace-nowrap">
                 {onQuickJump ? (
                   <button
@@ -470,9 +514,34 @@ export function LessonCard({
                 ) : (
                   <span>{secondaryItems[0].displayName}</span>
                 )}
-                <span className="text-sys-text-muted"> · </span>
-                <span className="font-medium text-sys-text-primary">{formatRoom(rooms[0])}</span>
+                {teacherMeetings[0] ? (
+                  <a
+                    href={teacherMeetings[0].url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      vibrateTap(12);
+                    }}
+                    className={`ml-1.5 inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-[11px] font-bold transition-transform active:scale-[0.98] ${
+                      teacherMeetings[0].platform === "meet"
+                        ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
+                        : "border-sky-500/40 bg-sky-500/15 text-sky-300 hover:bg-sky-500/25"
+                    }`}
+                  >
+                    <span>{teacherMeetings[0].platform === "meet" ? "Meet" : "Zoom"}</span>
+                    <span className="text-[10px] opacity-80">({secondaryItems[0].displayName.split(" ")[0]})</span>
+                    <span>↗</span>
+                  </a>
+                ) : rooms[0] ? (
+                  <>
+                    <span className="text-sys-text-muted"> · </span>
+                    <span className="font-medium text-sys-text-primary">{formatRoom(rooms[0])}</span>
+                  </>
+                ) : null}
               </div>
+
+              {/* Teacher 1 */}
               <div className="inline-flex items-center whitespace-nowrap">
                 {onQuickJump ? (
                   <button
@@ -488,8 +557,31 @@ export function LessonCard({
                 ) : (
                   <span>{secondaryItems[1].displayName}</span>
                 )}
-                <span className="text-sys-text-muted"> · </span>
-                <span className="font-medium text-sys-text-primary">{formatRoom(rooms[1])}</span>
+                {teacherMeetings[1] ? (
+                  <a
+                    href={teacherMeetings[1].url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      vibrateTap(12);
+                    }}
+                    className={`ml-1.5 inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-[11px] font-bold transition-transform active:scale-[0.98] ${
+                      teacherMeetings[1].platform === "meet"
+                        ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
+                        : "border-sky-500/40 bg-sky-500/15 text-sky-300 hover:bg-sky-500/25"
+                    }`}
+                  >
+                    <span>{teacherMeetings[1].platform === "meet" ? "Meet" : "Zoom"}</span>
+                    <span className="text-[10px] opacity-80">({secondaryItems[1].displayName.split(" ")[0]})</span>
+                    <span>↗</span>
+                  </a>
+                ) : rooms[1] ? (
+                  <>
+                    <span className="text-sys-text-muted"> · </span>
+                    <span className="font-medium text-sys-text-primary">{formatRoom(rooms[1])}</span>
+                  </>
+                ) : null}
               </div>
             </div>
           ) : secondaryItems.length > 0 ? (
@@ -521,9 +613,10 @@ export function LessonCard({
             </div>
           ) : null}
 
-          {/* Row 3: Badges in flex-wrap with gap (room, special venue, online meeting, HW badge, replacement, cancellation) */}
+          {/* Row 3: Badges in flex-wrap with gap */}
           <div className="mt-0.5 flex flex-wrap items-center gap-1.5 pt-0.5">
-            {!hasTwoTeachersWithRooms && rooms.length > 0 && (
+            {/* If single teacher and pair has meeting, room badge is suppressed! */}
+            {!isDualTeachers && !hasMeeting && rooms.length > 0 && (
               rooms.map((rm, idx) => {
                 const meta = getRoomBadgeMeta(rm);
                 return (
@@ -539,7 +632,8 @@ export function LessonCard({
               })
             )}
 
-            {hasMeeting && meetings.map((m, idx) => (
+            {/* Online meetings (for single teacher, or dual teacher meetings not bound inline) */}
+            {row3Meetings.map((m, idx) => (
               <a
                 key={`${m.url}-${idx}`}
                 href={m.url}
@@ -610,32 +704,41 @@ export function LessonCard({
               <div className={`overflow-hidden transition-opacity duration-200 ease-smooth motion-reduce:transition-none ${
                 isHwOpen ? "opacity-100" : "opacity-0"
               }`}>
-                <div className="flex flex-col gap-1.5 pt-1 border-t border-purple-500/20">
-                  {tasks.map((task, idx) => (
-                    <a
-                      key={idx}
-                      href={task.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        vibrateTap(10);
-                      }}
-                      title={`${task.teacher ? `[${task.teacher}] ` : ""}📌 ${task.label} — Відкрити в Classroom`}
-                      className="group flex flex-wrap items-center justify-between gap-x-2 gap-y-1 rounded-lg border border-purple-500/35 bg-purple-500/10 px-2.5 py-1.5 text-xs font-medium text-purple-200 transition-colors hover:bg-purple-500/20 active:scale-[0.98]"
-                    >
-                      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                        {task.teacher && (
-                          <span className="shrink-0 rounded bg-purple-500/30 px-1.5 py-0.5 text-[10px] font-bold text-purple-100">
-                            {task.teacher}
+                <div className="flex flex-col gap-2 pt-1 border-t border-purple-500/20">
+                  {groupedTasks.map((group, gIdx) => (
+                    <div key={gIdx} className="flex flex-col gap-1.5">
+                      {group.teacher && (
+                        <span className="text-[11px] font-bold text-purple-200/90 pt-0.5">
+                          {group.teacher}:
+                        </span>
+                      )}
+                      {group.items.map((task, idx) => (
+                        <a
+                          key={idx}
+                          href={task.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            vibrateTap(10);
+                          }}
+                          title={`${task.teacher ? `[${task.teacher}] ` : ""}📌 ${task.label} — Відкрити в Classroom`}
+                          className="group flex flex-wrap items-center justify-between gap-x-2 gap-y-1 rounded-lg border border-purple-500/35 bg-purple-500/10 px-2.5 py-1.5 text-xs font-medium text-purple-200 transition-colors hover:bg-purple-500/20 active:scale-[0.98]"
+                        >
+                          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                            {task.teacher && !group.teacher && (
+                              <span className="shrink-0 rounded bg-purple-500/30 px-1.5 py-0.5 text-[10px] font-bold text-purple-100">
+                                {task.teacher}
+                              </span>
+                            )}
+                            <span className="font-semibold text-purple-100">📌 {task.label}</span>
+                          </div>
+                          <span className="ml-auto shrink-0 text-[11px] font-bold text-purple-300 transition-transform group-hover:translate-x-0.5">
+                            Classroom ↗
                           </span>
-                        )}
-                        <span className="font-semibold text-purple-100">📌 {task.label}</span>
-                      </div>
-                      <span className="ml-auto shrink-0 text-[11px] font-bold text-purple-300 transition-transform group-hover:translate-x-0.5">
-                        Classroom ↗
-                      </span>
-                    </a>
+                        </a>
+                      ))}
+                    </div>
                   ))}
                 </div>
               </div>

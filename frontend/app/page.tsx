@@ -7,7 +7,10 @@ import { OfflineIndicator } from "../components/OfflineIndicator";
 import { InstallPrompt } from "../components/InstallPrompt";
 import { ScheduleDay } from "../components/ScheduleDay";
 import { ScheduleWeekGrid } from "../components/ScheduleWeekGrid";
+import { DayPager } from "../components/DayPager";
+import { MobileWeekBar } from "../components/MobileWeekBar";
 import { WeekTypeBadge } from "../components/WeekTypeBadge";
+import { ScheduleResponse } from "../lib/api";
 import { useSchedule, useIsStandalonePwa, downloadForOffline } from "../lib/hooks";
 import { useAuth, canAccessAdmin } from "../lib/auth";
 import { getMondayOf } from "../lib/date";
@@ -112,6 +115,13 @@ export default function HomePage() {
     try {
       localStorage.setItem("schedule:view", nextView);
     } catch {}
+    if (nextView === "today") {
+      const todayAnchor = getMondayOf(new Date());
+      setWeekAnchorDate(todayAnchor);
+      const targetDate = displayDaySchedule?.date || today?.date || new Intl.DateTimeFormat("en-CA").format(new Date());
+      setDaySlideDir(0);
+      setActiveDayDate(targetDate);
+    }
     resetScroll();
   };
 
@@ -229,6 +239,38 @@ export default function HomePage() {
   }, [today, week]);
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setMobileMenuOpen(false);
+        menuButtonRef.current?.focus();
+        return;
+      }
+      if (e.key === "Tab" && menuRef.current) {
+        const focusable = menuRef.current.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [mobileMenuOpen]);
+
   const [activeDayDate, setActiveDayDate] = useState<string>("");
 
   useEffect(() => {
@@ -258,129 +300,117 @@ export default function HomePage() {
 
   const goToPrevDay = () => {
     if (!week.length) return;
-    const currentIdx = week.findIndex((d) => d.date === activeDayDate);
+    const studyDays = week.filter((d) => {
+      const dow = new Date(`${d.date}T12:00:00`).getDay();
+      return dow >= 1 && dow <= 5;
+    });
+    const currentIdx = studyDays.findIndex((d) => d.date === activeDayDate);
+
     if (currentIdx > 0) {
       setDaySlideDir(-1);
-      setActiveDayDate(week[currentIdx - 1].date);
+      setActiveDayDate(studyDays[currentIdx - 1].date);
       resetScroll();
     } else {
       setWeekShiftDir(-1);
       setDaySlideDir(-1);
-      shiftWeek(-1);
+      setWeekAnchorDate((prev) => {
+        const prevAnchor = new Date(prev);
+        prevAnchor.setDate(prevAnchor.getDate() - 7);
+        const friday = new Date(prevAnchor);
+        friday.setDate(prevAnchor.getDate() + 4);
+        const fridayStr = new Intl.DateTimeFormat("en-CA").format(friday);
+        setActiveDayDate(fridayStr);
+        return prevAnchor;
+      });
       resetScroll();
     }
   };
 
   const goToNextDay = () => {
     if (!week.length) return;
-    const currentIdx = week.findIndex((d) => d.date === activeDayDate);
-    if (currentIdx !== -1 && currentIdx < week.length - 1) {
+    const studyDays = week.filter((d) => {
+      const dow = new Date(`${d.date}T12:00:00`).getDay();
+      return dow >= 1 && dow <= 5;
+    });
+    const currentIdx = studyDays.findIndex((d) => d.date === activeDayDate);
+
+    if (currentIdx !== -1 && currentIdx < studyDays.length - 1) {
       setDaySlideDir(1);
-      setActiveDayDate(week[currentIdx + 1].date);
+      setActiveDayDate(studyDays[currentIdx + 1].date);
       resetScroll();
     } else {
       setWeekShiftDir(1);
       setDaySlideDir(1);
-      shiftWeek(1);
+      setWeekAnchorDate((prev) => {
+        const nextAnchor = new Date(prev);
+        nextAnchor.setDate(nextAnchor.getDate() + 7);
+        const mondayStr = new Intl.DateTimeFormat("en-CA").format(nextAnchor);
+        setActiveDayDate(mondayStr);
+        return nextAnchor;
+      });
       resetScroll();
     }
   };
 
-  const tabsContainerRef = useRef<HTMLDivElement>(null);
-  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const shiftWeekPreservingDay = (offset: number) => {
+    setWeekShiftDir(offset);
+    setDaySlideDir(offset > 0 ? 1 : -1);
+    const curDate = new Date(`${activeDayDate}T12:00:00`);
+    const dayOfWeek = isNaN(curDate.getTime()) ? 1 : curDate.getDay();
+    const clampedDow = dayOfWeek >= 1 && dayOfWeek <= 5 ? dayOfWeek : 1;
 
-  useEffect(() => {
-    if (!week.length || !activeDayDate) return;
-    const idx = week.findIndex((d) => d.date === activeDayDate);
-    if (idx !== -1 && tabRefs.current[idx]) {
-      tabRefs.current[idx]?.scrollIntoView({
-        behavior: "smooth",
-        inline: "center",
-        block: "nearest",
-      });
-    }
-  }, [activeDayDate, week]);
-
-  const handleTabClick = (date: string, idx: number) => {
-    if (view === "today") {
-      handleSelectDay(date);
-    } else {
-      setActiveDayDate(date);
-      const targetEl = document.getElementById(`day-section-${date}`);
-      if (targetEl) {
-        const stickyHeader = document.getElementById("mobile-sticky-tabs");
-        const offset = (stickyHeader?.offsetHeight ?? 52) + 8;
-        const bodyRect = document.body.getBoundingClientRect().top;
-        const elementRect = targetEl.getBoundingClientRect().top;
-        const elementPosition = elementRect - bodyRect;
-        const offsetPosition = elementPosition - offset;
-        window.scrollTo({
-          top: offsetPosition,
-          behavior: "smooth",
-        });
-      }
-    }
+    setWeekAnchorDate((prev) => {
+      const nextAnchor = new Date(prev);
+      nextAnchor.setDate(nextAnchor.getDate() + offset * 7);
+      const targetDate = new Date(nextAnchor);
+      targetDate.setDate(nextAnchor.getDate() + (clampedDow - 1));
+      const targetIso = new Intl.DateTimeFormat("en-CA").format(targetDate);
+      setActiveDayDate(targetIso);
+      return nextAnchor;
+    });
+    resetScroll();
   };
 
-  // Synchronize active tab as user scrolls through week days on mobile
-  useEffect(() => {
-    if (view !== "week" || typeof window === "undefined" || window.innerWidth >= 640) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            const date = entry.target.getAttribute("data-day-date");
-            if (date) {
-              setActiveDayDate(date);
-            }
-          }
-        }
-      },
-      {
-        rootMargin: "-25% 0px -65% 0px",
-        threshold: 0,
-      }
-    );
+  const resetWeekPreservingDay = () => {
+    const todayAnchor = getMondayOf(new Date());
+    setWeekShiftDir(0);
+    const curDate = new Date(`${activeDayDate}T12:00:00`);
+    const dayOfWeek = isNaN(curDate.getTime()) ? 1 : curDate.getDay();
+    const clampedDow = dayOfWeek >= 1 && dayOfWeek <= 5 ? dayOfWeek : 1;
 
-    const sections = document.querySelectorAll("[data-day-section]");
-    sections.forEach((sec) => observer.observe(sec));
-    return () => observer.disconnect();
-  }, [view, week]);
-
-  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (e.touches.length === 1) {
-      touchStartRef.current = {
-        x: e.touches[0].clientX,
-        y: e.touches[0].clientY,
-        time: Date.now(),
-      };
-    }
+    const targetDate = new Date(todayAnchor);
+    targetDate.setDate(todayAnchor.getDate() + (clampedDow - 1));
+    const targetIso = new Intl.DateTimeFormat("en-CA").format(targetDate);
+    setActiveDayDate(targetIso);
+    setWeekAnchorDate(todayAnchor);
+    resetScroll();
   };
 
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (!touchStartRef.current || e.changedTouches.length === 0) return;
-    const start = touchStartRef.current;
-    const touch = e.changedTouches[0];
-    const diffX = touch.clientX - start.x;
-    const diffY = touch.clientY - start.y;
-    touchStartRef.current = null;
-
-    if (Math.abs(diffX) > Math.abs(diffY) * 1.5 && Math.abs(diffX) > 45) {
-      if (diffX < 0) {
-        goToNextDay();
-      } else {
-        goToPrevDay();
-      }
-    }
+  const handleJumpToToday = () => {
+    const todayAnchor = getMondayOf(new Date());
+    setWeekAnchorDate(todayAnchor);
+    const targetDate = displayDaySchedule?.date || today?.date || new Intl.DateTimeFormat("en-CA").format(new Date());
+    setDaySlideDir(0);
+    setActiveDayDate(targetDate);
+    resetScroll();
   };
 
   const isWeekend = [0, 6].includes(new Date().getDay());
 
-  const selectedDaySchedule = useMemo(() => {
-    return (week && week.find((d) => d.date === activeDayDate)) || displayDaySchedule || today;
-  }, [week, activeDayDate, displayDaySchedule, today]);
+  const selectedDaySchedule: ScheduleResponse = useMemo(() => {
+    if (week && week.length > 0) {
+      const found = week.find((d) => d.date === activeDayDate);
+      if (found) return found;
+    }
+    if (view === "today" && (displayDaySchedule || today)) {
+      return (displayDaySchedule || today)!;
+    }
+    return {
+      date: activeDayDate || today?.date || "",
+      week_type: weekType,
+      lessons: [],
+    };
+  }, [week, activeDayDate, displayDaySchedule, today, view, weekType]);
 
   const weekRange = useMemo(() => {
     const end = new Date(weekAnchorDate);
@@ -427,10 +457,16 @@ export default function HomePage() {
       <OfflineIndicator />
       <InstallPrompt />
       {/* Mobile Compact Header (<640px) - Single Row (Title/Group/Star/⋯) */}
-      <header className="sm:hidden border-b border-sys-border bg-sys-card px-3 py-2">
+      <header className="relative border-b border-sys-border bg-sys-card px-3 py-2 sm:hidden">
         <div className="flex items-center justify-between gap-2">
           {/* Brand */}
-          <a href="https://kre.dp.ua/" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 shrink-0 hover:opacity-85" title="ДФКР">
+          <a
+            href="https://kre.dp.ua/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 shrink-0 hover:opacity-85"
+            title="ДФКР"
+          >
             <span className="rounded bg-sys-accent/15 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-sys-accent">
               ДФКР
             </span>
@@ -474,201 +510,195 @@ export default function HomePage() {
             )}
 
             <button
+              ref={menuButtonRef}
               type="button"
               onClick={() => setMobileMenuOpen((prev) => !prev)}
-              aria-label="Додаткове меню"
+              aria-label={mobileMenuOpen ? "Закрити додаткове меню" : "Додаткове меню"}
               aria-expanded={mobileMenuOpen}
-              className="flex h-9 w-9 items-center justify-center rounded-lg border border-sys-border bg-sys-bg/60 text-base font-bold text-sys-text-secondary hover:text-sys-text-primary active:scale-95 transition-transform"
+              aria-haspopup="menu"
+              aria-controls="mobile-dropdown-menu"
+              className="relative flex h-9 w-9 items-center justify-center rounded-lg border border-sys-border bg-sys-bg/60 text-sys-text-secondary hover:text-sys-text-primary active:scale-[0.94] transition-all duration-100 ease-out focus:outline-none focus:ring-1 focus:ring-sys-accent"
             >
-              ⋯
+              <span className="relative flex h-5 w-5 items-center justify-center">
+                <motion.span
+                  key={mobileMenuOpen ? "close" : "dots"}
+                  initial={{ opacity: 0, rotate: mobileMenuOpen ? -90 : 90, scale: 0.8 }}
+                  animate={{ opacity: 1, rotate: 0, scale: 1 }}
+                  exit={{ opacity: 0, rotate: mobileMenuOpen ? 90 : -90, scale: 0.8 }}
+                  transition={{
+                    duration: shouldReduceMotion ? 0 : 0.15,
+                    ease: [0.2, 0, 0, 1],
+                  }}
+                  className="absolute text-base font-bold leading-none select-none"
+                >
+                  {mobileMenuOpen ? "✕" : "⋯"}
+                </motion.span>
+              </span>
             </button>
           </div>
         </div>
       </header>
 
-      {/* Mobile Sticky Day Tabs (<640px) */}
-      <div id="mobile-sticky-tabs" className="sticky top-0 z-20 border-b border-sys-border bg-sys-bg/95 backdrop-blur px-2.5 py-1.5 sm:hidden">
-        <div
-          ref={tabsContainerRef}
-          role="group"
-          aria-label="Оберіть день тижня"
-          className="relative flex items-center justify-between w-full gap-1 overflow-x-auto scrollbar-none"
-        >
-          {week.map((day, idx) => {
-            const dateObj = new Date(`${day.date}T12:00:00`);
-            const dayLetter = UK_SHORT_WEEKDAY_FMT.format(dateObj).charAt(0).toUpperCase();
-            const isSelected = activeDayDate === day.date;
-            const isTodayDate = day.date === (today?.date);
-            const hasLessons = day.lessons.length > 0;
-            const isWeekendDay = [0, 6].includes(dateObj.getDay());
-
-            return (
-              <button
-                key={`mobile-tab-${day.date}`}
-                ref={(el) => {
-                  tabRefs.current[idx] = el;
-                }}
-                type="button"
-                onClick={() => handleTabClick(day.date, idx)}
-                aria-pressed={isSelected}
-                className={`relative flex flex-1 flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-colors duration-150 active:scale-[0.98] motion-reduce:transition-none focus:outline-none ${
-                  isSelected
-                    ? "text-white"
-                    : isTodayDate
-                    ? "text-sys-accent border border-sys-accent/40 bg-sys-accent/10"
-                    : "text-sys-text-secondary hover:bg-sys-card"
-                }`}
-              >
-                {isSelected && (
-                  <motion.div
-                    layoutId="mobileActiveDayTabIndicator"
-                    className="absolute inset-0 rounded-xl bg-sys-accent shadow-sm"
-                    transition={{
-                      type: "tween",
-                      duration: shouldReduceMotion ? 0 : 0.2,
-                      ease: [0.2, 0, 0, 1],
-                    }}
-                  />
-                )}
-                <span className={`relative z-10 text-[11px] font-semibold leading-tight ${isSelected ? "text-white" : isTodayDate ? "text-sys-accent" : "text-sys-text-secondary"}`}>
-                  {dayLetter}
-                </span>
-                <span className={`relative z-10 text-[14px] font-bold leading-tight ${isSelected ? "text-white" : isTodayDate ? "text-sys-accent" : "text-sys-text-primary"}`}>
-                  {dateObj.getDate()}
-                </span>
-                <span
-                  className={`relative z-10 mt-0.5 h-1 w-1 rounded-full ${
-                    isSelected
-                      ? "bg-white"
-                      : hasLessons
-                      ? "bg-sys-accent"
-                      : isWeekendDay
-                      ? "bg-slate-500"
-                      : "bg-transparent"
-                  }`}
-                />
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Mobile Drawer / Sheet for secondary actions ("⋯" Menu) */}
-      {mobileMenuOpen && (
-        <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/60 backdrop-blur-xs sm:hidden" onClick={() => setMobileMenuOpen(false)}>
-          <div
-            className="w-full rounded-t-2xl border-t border-sys-border bg-sys-card p-4 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-sys-border" />
-            <div className="flex items-center justify-between pb-3 border-b border-sys-border/50">
-              <span className="text-sm font-bold text-sys-text-primary">Меню розкладу</span>
-              <button
-                type="button"
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-lg border border-sys-border text-xs text-sys-text-secondary hover:text-sys-text-primary"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Mode switch */}
-            {teachers.length > 0 && (
-              <div className="mt-3">
-                <span className="mb-1.5 block text-xs font-semibold text-sys-text-secondary">Режим перегляду</span>
-                <div role="group" aria-label="Тип розкладу" className="flex rounded-lg border border-sys-border bg-sys-bg p-1 relative w-full">
-                  <button
-                    type="button"
-                    aria-pressed={mode === "student"}
-                    onClick={() => {
-                      toggleMode("student");
-                      setMobileMenuOpen(false);
-                    }}
-                    className={`flex-1 rounded-md px-3 py-2 text-xs font-semibold transition-colors ${
-                      mode === "student" ? "bg-sys-accent text-white shadow-xs" : "text-sys-text-secondary hover:text-sys-text-primary"
-                    }`}
-                  >
-                    Для групи
-                  </button>
-                  <button
-                    type="button"
-                    aria-pressed={mode === "teacher"}
-                    onClick={() => {
-                      toggleMode("teacher");
-                      setMobileMenuOpen(false);
-                    }}
-                    className={`flex-1 rounded-md px-3 py-2 text-xs font-semibold transition-colors ${
-                      mode === "teacher" ? "bg-sys-accent text-white shadow-xs" : "text-sys-text-secondary hover:text-sys-text-primary"
-                    }`}
-                  >
-                    Для викладача
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Pinned shortcuts */}
-            {pins.length > 0 && (
-              <div className="mt-3">
-                <span className="mb-1.5 block text-xs font-semibold text-sys-text-secondary">Закріплені</span>
-                <div className="flex flex-wrap gap-1.5">
-                  {pins.map((pin) => (
-                    <button
-                      key={`menu-pin-${pin.mode}-${pin.id}`}
-                      type="button"
-                      onClick={() => {
-                        toggleMode(pin.mode);
-                        if (pin.mode === "student") setGroupId(pin.id);
-                        else setTeacherId(pin.id);
-                        setMobileMenuOpen(false);
-                      }}
-                      className="rounded-full border border-sys-border bg-sys-bg px-3 py-1 text-xs font-medium text-sys-text-secondary hover:text-sys-text-primary"
-                    >
-                      ★ {pin.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Secondary Links & Controls */}
-            <div className="mt-4 flex flex-col gap-2 border-t border-sys-border/50 pt-3">
-              <a
-                href="/statistics"
-                className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 px-3.5 py-2.5 text-xs font-semibold text-sys-text-primary hover:border-sys-accent/40"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                <span>📊 Статистика</span>
-                <span className="text-sys-text-muted">↗</span>
-              </a>
-              <a
-                href="/educational-process"
-                className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 px-3.5 py-2.5 text-xs font-semibold text-sys-text-primary hover:border-sys-accent/40"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                <span>📅 Графік процесу</span>
-                <span className="text-sys-text-muted">↗</span>
-              </a>
-              {isStandalone && !isDownloaded && (
+      {/* Mobile Animated Dropdown Menu ("⋯") */}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <>
+            <motion.div
+              key="mobileMenuBackdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{
+                duration: shouldReduceMotion ? 0 : 0.16,
+                ease: [0.2, 0, 0, 1],
+              }}
+              className="fixed inset-0 z-40 bg-black/40 backdrop-blur-xs sm:hidden"
+              onClick={() => setMobileMenuOpen(false)}
+              aria-hidden="true"
+            />
+            <motion.div
+              key="mobileMenuDropdown"
+              id="mobile-dropdown-menu"
+              ref={menuRef}
+              role="menu"
+              aria-orientation="vertical"
+              initial={{ opacity: 0, scale: 0.96, y: -4 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{
+                opacity: 0,
+                scale: 0.96,
+                y: -4,
+                transition: {
+                  duration: shouldReduceMotion ? 0 : 0.12,
+                  ease: [0.2, 0, 0, 1],
+                },
+              }}
+              transition={{
+                duration: shouldReduceMotion ? 0 : 0.16,
+                ease: [0.2, 0, 0, 1],
+              }}
+              style={{ transformOrigin: "top right" }}
+              className="fixed top-12 right-2 z-50 w-72 max-w-[calc(100vw-1rem)] rounded-2xl border border-sys-border bg-sys-card p-3 shadow-2xl sm:hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between pb-2 border-b border-sys-border/50">
+                <span className="text-xs font-bold uppercase tracking-wider text-sys-text-muted">Меню розкладу</span>
                 <button
                   type="button"
                   onClick={() => {
                     setMobileMenuOpen(false);
-                    void handleDownloadOffline();
+                    menuButtonRef.current?.focus();
                   }}
-                  disabled={isDownloading}
-                  className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 px-3.5 py-2.5 text-xs font-semibold text-sys-text-primary disabled:opacity-50"
+                  className="flex h-6 w-6 items-center justify-center rounded-md border border-sys-border text-xs text-sys-text-secondary hover:text-sys-text-primary"
                 >
-                  <span>💾 {isDownloading ? "Зберігаємо…" : "Зберегти на пристрій"}</span>
+                  ✕
                 </button>
-              )}
-              <div className="pt-2">
-                <UserControls />
               </div>
-            </div>
-          </div>
-        </div>
-      )}
+
+              {/* Mode switch */}
+              {teachers.length > 0 && (
+                <div className="mt-2.5">
+                  <span className="mb-1 block text-[11px] font-semibold text-sys-text-secondary">Режим перегляду</span>
+                  <div role="group" aria-label="Тип розкладу" className="flex rounded-lg border border-sys-border bg-sys-bg p-1 relative w-full">
+                    <button
+                      type="button"
+                      role="menuitem"
+                      aria-pressed={mode === "student"}
+                      onClick={() => {
+                        toggleMode("student");
+                        setMobileMenuOpen(false);
+                      }}
+                      className={`flex-1 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                        mode === "student" ? "bg-sys-accent text-white shadow-xs" : "text-sys-text-secondary hover:text-sys-text-primary"
+                      }`}
+                    >
+                      Для групи
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      aria-pressed={mode === "teacher"}
+                      onClick={() => {
+                        toggleMode("teacher");
+                        setMobileMenuOpen(false);
+                      }}
+                      className={`flex-1 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                        mode === "teacher" ? "bg-sys-accent text-white shadow-xs" : "text-sys-text-secondary hover:text-sys-text-primary"
+                      }`}
+                    >
+                      Для викладача
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Pinned shortcuts */}
+              {pins.length > 0 && (
+                <div className="mt-2.5">
+                  <span className="mb-1 block text-[11px] font-semibold text-sys-text-secondary">Закріплені</span>
+                  <div className="flex flex-wrap gap-1">
+                    {pins.map((pin) => (
+                      <button
+                        key={`menu-pin-${pin.mode}-${pin.id}`}
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          toggleMode(pin.mode);
+                          if (pin.mode === "student") setGroupId(pin.id);
+                          else setTeacherId(pin.id);
+                          setMobileMenuOpen(false);
+                        }}
+                        className="rounded-full border border-sys-border bg-sys-bg px-2.5 py-0.5 text-xs font-medium text-sys-text-secondary hover:text-sys-text-primary"
+                      >
+                        ★ {pin.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Secondary Links & Controls */}
+              <div className="mt-3 flex flex-col gap-1.5 border-t border-sys-border/50 pt-2.5">
+                <a
+                  href="/statistics"
+                  role="menuitem"
+                  className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 px-3 py-2 text-xs font-semibold text-sys-text-primary hover:border-sys-accent/40"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <span>📊 Статистика</span>
+                  <span className="text-sys-text-muted">↗</span>
+                </a>
+                <a
+                  href="/educational-process"
+                  role="menuitem"
+                  className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 px-3 py-2 text-xs font-semibold text-sys-text-primary hover:border-sys-accent/40"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <span>📅 Графік процесу</span>
+                  <span className="text-sys-text-muted">↗</span>
+                </a>
+                {isStandalone && !isDownloaded && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      void handleDownloadOffline();
+                    }}
+                    disabled={isDownloading}
+                    className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 px-3 py-2 text-xs font-semibold text-sys-text-primary disabled:opacity-50"
+                  >
+                    <span>💾 {isDownloading ? "Зберігаємо…" : "Зберегти на пристрій"}</span>
+                  </button>
+                )}
+                <div className="pt-1.5">
+                  <UserControls />
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* Desktop Header (>= 640px) */}
       <header className="hidden sm:block border-b border-sys-border bg-sys-card">
@@ -801,7 +831,96 @@ export default function HomePage() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-[1800px] px-3 py-6 sm:px-5 lg:px-6 xl:px-8">
+      {/* Mobile Content (<640px) */}
+      <div className="sm:hidden">
+        {/* Smooth expanding/collapsing week bar in "week" mode */}
+        <div
+          className={`grid transition-[grid-template-rows] duration-200 ease-smooth motion-reduce:transition-none ${
+            view === "week" ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+          }`}
+        >
+          <div
+            className={`overflow-hidden transition-opacity duration-200 ease-smooth motion-reduce:transition-none ${
+              view === "week" ? "opacity-100" : "opacity-0 pointer-events-none"
+            }`}
+          >
+            <MobileWeekBar
+              weekRange={weekRange}
+              weekType={weekType}
+              isCurrentWeek={isCurrentWeek}
+              onPrevWeek={() => shiftWeekPreservingDay(-1)}
+              onNextWeek={() => shiftWeekPreservingDay(1)}
+              onResetWeek={resetWeekPreservingDay}
+              shouldReduceMotion={shouldReduceMotion ?? false}
+            />
+          </div>
+        </div>
+
+        {returnTarget && (
+          <div className="m-3 flex items-center justify-between rounded-xl border border-sys-accent/30 bg-sys-accent/10 px-3 py-2 text-xs">
+            <span className="text-sys-text-secondary truncate mr-2">
+              Розклад: <strong className="text-sys-text-primary">{mode === "student" ? groups.find((g) => g.id === groupId)?.name : teachers.find((t) => t.id === teacherId)?.name}</strong>
+            </span>
+            <button
+              type="button"
+              onClick={handleReturnBack}
+              className="shrink-0 rounded-lg bg-sys-accent px-2.5 py-1 text-[11px] font-semibold text-[#0b1120] active:scale-[0.98]"
+            >
+              ← До {returnTarget.label}
+            </button>
+          </div>
+        )}
+
+        <div className="px-3 py-3">
+          {loading ? (
+            <div className="space-y-3" aria-busy="true" aria-label="Завантаження розкладу">
+              {[1, 2, 3].map((num) => (
+                <div
+                  key={num}
+                  className="flex items-start gap-4 rounded-xl border border-sys-border/60 bg-sys-card/70 p-4 animate-pulse"
+                >
+                  <div className="flex w-12 shrink-0 flex-col gap-1.5">
+                    <div className="h-5 w-6 rounded bg-slate-700/70" />
+                    <div className="h-3 w-10 rounded bg-slate-800" />
+                  </div>
+                  <div className="flex flex-1 flex-col gap-2.5">
+                    <div className="h-4 w-3/5 rounded bg-slate-700/70" />
+                    <div className="h-3.5 w-2/5 rounded bg-slate-800" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : error ? (
+            <div className="rounded-2xl border border-rose-400/20 bg-rose-400/5 p-6 text-center text-sm text-rose-200">
+              {error}
+            </div>
+          ) : (
+            <DayPager
+              schedule={selectedDaySchedule}
+              todayDate={today?.date}
+              scheduleMode={mode}
+              canEdit={false}
+              onQuickJump={handleQuickJump}
+              onNextDay={goToNextDay}
+              onPrevDay={goToPrevDay}
+              onJumpToToday={handleJumpToToday}
+              daySlideDir={daySlideDir}
+              shouldReduceMotion={shouldReduceMotion ?? false}
+              isWeekend={isWeekend && view === "today"}
+              isShowingTomorrow={isShowingTomorrow && !isWeekend && view === "today"}
+            />
+          )}
+
+          {!loading && !error && ((mode === "student" && !groups.length) || (mode === "teacher" && !teachers.length)) && (
+            <div className="mt-4 rounded-2xl border border-dashed border-sys-border p-8 text-center text-xs text-sys-text-secondary">
+              {mode === "student" ? "Список груп поки порожній." : "Список викладачів поки порожній."}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Desktop Content (>= 640px) */}
+      <div className="hidden sm:block mx-auto max-w-[1800px] px-3 py-6 sm:px-5 lg:px-6 xl:px-8">
         <div className="mb-6 hidden items-center justify-between sm:flex">
           <div>
             <p className="text-sm text-sys-text-secondary">{view === "today" ? "Поточний день" : "Навчальний тиждень"}</p>
@@ -898,7 +1017,7 @@ export default function HomePage() {
               }}
             >
               {view === "today" ? (
-                <div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} className="min-w-0 touch-pan-y overflow-hidden">
+                <div className="min-w-0 overflow-hidden">
                   {isWeekend && (
                     <div className="mb-2.5 flex h-9 max-h-10 items-center justify-between rounded-lg border border-slate-700/50 bg-slate-800/50 px-3 text-xs text-sys-text-secondary">
                       <div className="flex items-center gap-1.5 min-w-0">
