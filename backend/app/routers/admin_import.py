@@ -11,7 +11,8 @@ from fastapi.security.api_key import APIKeyHeader
 from sqlalchemy import text, delete, select, func
 from sqlalchemy.orm import joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.database import get_db, engine
+from types import SimpleNamespace
+from app.database import get_db, engine, async_session_factory
 from app.services.import_lock import import_mutex
 from app.routers.auth import limiter
 from app.core.security import require_roles
@@ -783,7 +784,6 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str):
             draft.revision += 1
             await db.commit()
 
-            
         set_active_jobs(0)
         record_successful_import()
         return {
@@ -845,3 +845,47 @@ async def import_data_cron(
         
     logger.info("Cron import accepted")
     return await execute_import_logic(db, 2)
+
+
+async def schedule_auto_import_loop() -> None:
+    """Фоновий цикл: періодично перевіряє сайт коледжу та автоматично імпортує заміни/розклад."""
+    await asyncio.sleep(45)  # Чекаємо 45 секунд після старту сервера
+    interval_seconds = max(300, getattr(settings, "auto_import_interval_minutes", 30) * 60)
+
+    while True:
+        try:
+            async with async_session_factory() as db:
+                logger.info("Auto-import: checking schedule and substitutions from college site...")
+                result = await execute_import_logic(db=db, weeks=2)
+                meta = result.get("meta", {})
+                report = result.get("report", {})
+                draft_id = meta.get("draft_created")
+
+                if meta.get("unchanged"):
+                    logger.info("Auto-import: schedule on college site is unchanged.")
+                elif draft_id:
+                    unresolved = report.get("unresolved", [])
+                    unresolved_subs = report.get("unresolved_substitutions", [])
+                    if len(unresolved) == 0 and len(unresolved_subs) == 0:
+                        draft = await db.get(ScheduleDraft, draft_id)
+                        if draft and draft.status == "pending":
+                            system_admin = SimpleNamespace(id=None, role="admin")
+                            await publish_draft(
+                                id=draft.id,
+                                expected_revision=draft.revision,
+                                db=db,
+                                current_user=system_admin,
+                            )
+                            logger.info("Auto-import: draft %s auto-published successfully.", draft_id)
+                    else:
+                        logger.info(
+                            "Auto-import: pending draft %s created (has unresolved entities, awaiting admin review).",
+                            draft_id,
+                        )
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.warning(f"Auto-import cycle error: {e}")
+
+        await asyncio.sleep(interval_seconds)
+

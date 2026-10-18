@@ -23,10 +23,14 @@ from app.routers.events import router as events_router
 from app.routers.schedule_now import router as schedule_now_router
 
 from app.routers.classroom import classroom_auto_sync_loop
+from app.routers.admin_import import schedule_auto_import_loop
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     classroom_sync_task = asyncio.create_task(classroom_auto_sync_loop())
+    auto_import_task = None
+    if getattr(settings, "auto_import_enabled", True):
+        auto_import_task = asyncio.create_task(schedule_auto_import_loop())
     async with engine.begin() as conn:
         await conn.run_sync(AcademicEvent.__table__.create, checkfirst=True)
         await conn.run_sync(GroupStudent.__table__.create, checkfirst=True)
@@ -59,6 +63,8 @@ async def lifespan(_: FastAPI):
         yield
     finally:
         classroom_sync_task.cancel()
+        if auto_import_task:
+            auto_import_task.cancel()
         await engine.dispose()
 
 

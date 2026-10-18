@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     auth_cookie_name: str = "college_schedule_refresh"
     google_client_id: str = "1079868158360-ok75uv5l93pcql2iktfcple97sdu180b.apps.googleusercontent.com"
     google_client_secret: str = ""
+    auto_import_enabled: bool = True
+    auto_import_interval_minutes: int = 30
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=False, extra="ignore")
 
