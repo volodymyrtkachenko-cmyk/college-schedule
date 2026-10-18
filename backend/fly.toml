@@ -8,6 +8,9 @@ primary_region = 'fra'
 [deploy]
   release_command = "release"
 
+[env]
+  GOOGLE_CLIENT_ID = "1079868158360-ok75uv5l93pcql2iktfcple97sdu180b.apps.googleusercontent.com"
+
 [http_service]
   internal_port = 8000
   force_https = true

@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     refresh_token_expire_days: int = 30
     auth_cookie_secure: bool = False
     auth_cookie_name: str = "college_schedule_refresh"
-    google_client_id: str = ""
+    google_client_id: str = "1079868158360-ok75uv5l93pcql2iktfcple97sdu180b.apps.googleusercontent.com"
     google_client_secret: str = ""
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=False, extra="ignore")
