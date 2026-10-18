@@ -81,7 +81,8 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     GZipMiddleware,
-    minimum_size=500
+    minimum_size=1000,
+    compresslevel=5,
 )
 
 app.add_middleware(
@@ -90,6 +91,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS", "PUT"],
     allow_headers=["Content-Type", "Authorization", "Accept", "Origin"],
+    max_age=86400,
 )
 
 @app.middleware("http")

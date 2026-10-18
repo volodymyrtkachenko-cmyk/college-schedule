@@ -256,16 +256,22 @@ async def build_projection(
     # Several base lessons may legitimately share one group/slot (subgroups, streams),
     # so cells are keyed by a unique source id and grouped by slot for overrides.
     cells: Dict[Tuple[int, int, str], EffectiveLesson] = {}
+    slot_map: Dict[Tuple[int, int], List[str]] = defaultdict(list)
+
+    def put_cell(g, n, uid, lesson):
+        cells[(g, n, uid)] = lesson
+        slot_map[(g, n)].append(uid)
 
     def slot_keys(g, n):
-        return [k for k in cells if k[0] == g and k[1] == n]
+        return [(g, n, u) for u in slot_map.get((g, n), [])]
 
     def replace_slot(g, n, lesson, uid):
-        had_template = any(getattr(cells[k], "has_template", False) for k in slot_keys(g, n))
-        for k in slot_keys(g, n):
-            del cells[k]
+        uids = slot_map.pop((g, n), [])
+        had_template = any(getattr(cells.get((g, n, u)), "has_template", False) for u in uids)
+        for u in uids:
+            cells.pop((g, n, u), None)
         lesson.has_template = had_template
-        cells[(g, n, uid)] = lesson
+        put_cell(g, n, uid, lesson)
 
     # A0. Add practice slots
     for p in periods:
@@ -278,7 +284,7 @@ async def build_projection(
                     # Let's just create the EffectiveLesson.
                     slot_room = resolve_effective_room(slot.room_override, slot.teacher, slot.second_teacher)
                     slot_teacher_name = resolve_teacher_names(slot.teacher, slot.second_teacher)
-                    cells[(slot.group_id, slot.lesson_number, f"p{slot.id}")] = EffectiveLesson(
+                    put_cell(slot.group_id, slot.lesson_number, f"p{slot.id}", EffectiveLesson(
                         group_id=slot.group_id, date=target_date, lesson_number=slot.lesson_number,
                         subject_id=slot.subject_id, teacher_id=slot.teacher_id, second_teacher_id=slot.second_teacher_id,
                         room=slot_room, stream_id=None,
@@ -287,7 +293,7 @@ async def build_projection(
                         subject_name=slot.subject.name if slot.subject else None, 
                         teacher_name=slot_teacher_name,
                         is_replacement=True
-                    )
+                    ))
 
     # A. Fill with base
     for b in base_lessons:
@@ -299,7 +305,7 @@ async def build_projection(
 
         b_room = resolve_effective_room(b.room_override, b.teacher, b.second_teacher)
         b_teacher_name = resolve_teacher_names(b.teacher, b.second_teacher)
-        cells[(b.group_id, b.lesson_number, f"b{b.id}")] = EffectiveLesson(
+        put_cell(b.group_id, b.lesson_number, f"b{b.id}", EffectiveLesson(
             group_id=b.group_id, date=target_date, lesson_number=b.lesson_number,
             subject_id=b.subject_id, teacher_id=b.teacher_id, second_teacher_id=b.second_teacher_id,
             room=b_room, stream_id=b.stream_id,
@@ -309,7 +315,7 @@ async def build_projection(
             teacher_name=b_teacher_name,
             is_replacement=b.is_replacement,
             has_template=True,
-        )
+        ))
 
     # B. Apply Imported Changes
     for imp in imported_changes:
@@ -353,7 +359,7 @@ async def build_projection(
             if not found:
                 ovr_room = resolve_effective_room(ovr.room, ovr.teacher, ovr.second_teacher)
                 ovr_teacher_name = resolve_teacher_names(ovr.teacher, ovr.second_teacher)
-                cells[(ovr.group_id, ovr.lesson_number, f"o{ovr.id}")] = EffectiveLesson(
+                put_cell(ovr.group_id, ovr.lesson_number, f"o{ovr.id}", EffectiveLesson(
                     group_id=ovr.group_id, date=target_date, lesson_number=ovr.lesson_number,
                     subject_id=ovr.subject_id, teacher_id=ovr.teacher_id, second_teacher_id=ovr.second_teacher_id,
                     room=ovr_room, stream_id=ovr.stream_id,
@@ -365,7 +371,7 @@ async def build_projection(
                     is_replacement=True,
                     moved_to_date=getattr(ovr, "moved_to_date", None),
                     moved_to_lesson=getattr(ovr, "moved_to_lesson", None),
-                )
+                ))
         else:
             # Add or replace
             ovr_room = resolve_effective_room(ovr.room, ovr.teacher, ovr.second_teacher)
@@ -499,6 +505,13 @@ async def build_week_projection(
         Schedule.is_active.is_(True),
         Schedule.week_type.in_(("both", week_type)),
     ]
+    version_ids = [v.id for v in versions]
+    if version_ids:
+        base_conds.append(or_(Schedule.version_id.in_(version_ids), Schedule.version_id.is_(None)))
+    else:
+        base_conds.append(Schedule.version_id.is_(None))
+    base_conds.append(or_(Schedule.effective_from.is_(None), Schedule.effective_from <= end_date))
+    base_conds.append(or_(Schedule.effective_until.is_(None), Schedule.effective_until >= start_date))
     if group_id is not None:
         base_conds.append(Schedule.group_id == group_id)
 
@@ -610,16 +623,22 @@ async def build_week_projection(
                     practice_groups.add(g.id)
 
         cells: Dict[Tuple[int, int, str], EffectiveLesson] = {}
+        slot_map: Dict[Tuple[int, int], List[str]] = defaultdict(list)
+
+        def put_cell(g, n, uid, lesson):
+            cells[(g, n, uid)] = lesson
+            slot_map[(g, n)].append(uid)
 
         def slot_keys(g, n):
-            return [k for k in cells if k[0] == g and k[1] == n]
+            return [(g, n, u) for u in slot_map.get((g, n), [])]
 
         def replace_slot(g, n, lesson, uid):
-            had_template = any(getattr(cells[k], "has_template", False) for k in slot_keys(g, n))
-            for k in slot_keys(g, n):
-                del cells[k]
+            uids = slot_map.pop((g, n), [])
+            had_template = any(getattr(cells.get((g, n, u)), "has_template", False) for u in uids)
+            for u in uids:
+                cells.pop((g, n, u), None)
             lesson.has_template = had_template
-            cells[(g, n, uid)] = lesson
+            put_cell(g, n, uid, lesson)
 
         for p in day_periods:
             if p.period_type == "practice":
@@ -627,21 +646,26 @@ async def build_week_projection(
                     if slot.day_of_week == weekday and (group_id is None or slot.group_id == group_id):
                         slot_room = resolve_effective_room(slot.room_override, slot.teacher, slot.second_teacher)
                         slot_teacher_name = resolve_teacher_names(slot.teacher, slot.second_teacher)
-                        cells[(slot.group_id, slot.lesson_number, f"p{slot.id}")] = EffectiveLesson(
-                            group_id=slot.group_id,
-                            date=target_date,
-                            lesson_number=slot.lesson_number,
-                            subject_id=slot.subject_id,
-                            teacher_id=slot.teacher_id,
-                            second_teacher_id=slot.second_teacher_id,
-                            room=slot_room,
-                            stream_id=None,
-                            source_kind="practice",
-                            source_ref_id=slot.id,
-                            group_name=slot.group.name if getattr(slot, "group", None) else None,
-                            subject_name=slot.subject.name if slot.subject else None,
-                            teacher_name=slot_teacher_name,
-                            is_replacement=True,
+                        put_cell(
+                            slot.group_id,
+                            slot.lesson_number,
+                            f"p{slot.id}",
+                            EffectiveLesson(
+                                group_id=slot.group_id,
+                                date=target_date,
+                                lesson_number=slot.lesson_number,
+                                subject_id=slot.subject_id,
+                                teacher_id=slot.teacher_id,
+                                second_teacher_id=slot.second_teacher_id,
+                                room=slot_room,
+                                stream_id=None,
+                                source_kind="practice",
+                                source_ref_id=slot.id,
+                                group_name=slot.group.name if getattr(slot, "group", None) else None,
+                                subject_name=slot.subject.name if slot.subject else None,
+                                teacher_name=slot_teacher_name,
+                                is_replacement=True,
+                            ),
                         )
 
         expected_version_id = active_version.id if active_version else None
@@ -656,22 +680,27 @@ async def build_week_projection(
                 continue
             b_room = resolve_effective_room(b.room_override, b.teacher, b.second_teacher)
             b_teacher_name = resolve_teacher_names(b.teacher, b.second_teacher)
-            cells[(b.group_id, b.lesson_number, f"b{b.id}")] = EffectiveLesson(
-                group_id=b.group_id,
-                date=target_date,
-                lesson_number=b.lesson_number,
-                subject_id=b.subject_id,
-                teacher_id=b.teacher_id,
-                second_teacher_id=b.second_teacher_id,
-                room=b_room,
-                stream_id=b.stream_id,
-                source_kind="base",
-                source_ref_id=b.id,
-                group_name=b.group.name if b.group else None,
-                subject_name=b.subject.name if b.subject else None,
-                teacher_name=b_teacher_name,
-                is_replacement=b.is_replacement,
-                has_template=True,
+            put_cell(
+                b.group_id,
+                b.lesson_number,
+                f"b{b.id}",
+                EffectiveLesson(
+                    group_id=b.group_id,
+                    date=target_date,
+                    lesson_number=b.lesson_number,
+                    subject_id=b.subject_id,
+                    teacher_id=b.teacher_id,
+                    second_teacher_id=b.second_teacher_id,
+                    room=b_room,
+                    stream_id=b.stream_id,
+                    source_kind="base",
+                    source_ref_id=b.id,
+                    group_name=b.group.name if b.group else None,
+                    subject_name=b.subject.name if b.subject else None,
+                    teacher_name=b_teacher_name,
+                    is_replacement=b.is_replacement,
+                    has_template=True,
+                ),
             )
 
         for imp in all_imported:
@@ -724,24 +753,29 @@ async def build_week_projection(
                 if not found:
                     ovr_room = resolve_effective_room(ovr.room, ovr.teacher, ovr.second_teacher)
                     ovr_teacher_name = resolve_teacher_names(ovr.teacher, ovr.second_teacher)
-                    cells[(ovr.group_id, ovr.lesson_number, f"o{ovr.id}")] = EffectiveLesson(
-                        group_id=ovr.group_id,
-                        date=target_date,
-                        lesson_number=ovr.lesson_number,
-                        subject_id=ovr.subject_id,
-                        teacher_id=ovr.teacher_id,
-                        second_teacher_id=ovr.second_teacher_id,
-                        room=ovr_room,
-                        stream_id=ovr.stream_id,
-                        source_kind="manual",
-                        source_ref_id=ovr.id,
-                        is_cancelled=True,
-                        group_name=ovr.group.name if getattr(ovr, "group", None) else None,
-                        subject_name=ovr.subject.name if ovr.subject else "Скасована пара",
-                        teacher_name=ovr_teacher_name,
-                        is_replacement=True,
-                        moved_to_date=getattr(ovr, "moved_to_date", None),
-                        moved_to_lesson=getattr(ovr, "moved_to_lesson", None),
+                    put_cell(
+                        ovr.group_id,
+                        ovr.lesson_number,
+                        f"o{ovr.id}",
+                        EffectiveLesson(
+                            group_id=ovr.group_id,
+                            date=target_date,
+                            lesson_number=ovr.lesson_number,
+                            subject_id=ovr.subject_id,
+                            teacher_id=ovr.teacher_id,
+                            second_teacher_id=ovr.second_teacher_id,
+                            room=ovr_room,
+                            stream_id=ovr.stream_id,
+                            source_kind="manual",
+                            source_ref_id=ovr.id,
+                            is_cancelled=True,
+                            group_name=ovr.group.name if getattr(ovr, "group", None) else None,
+                            subject_name=ovr.subject.name if ovr.subject else "Скасована пара",
+                            teacher_name=ovr_teacher_name,
+                            is_replacement=True,
+                            moved_to_date=getattr(ovr, "moved_to_date", None),
+                            moved_to_lesson=getattr(ovr, "moved_to_lesson", None),
+                        ),
                     )
             else:
                 ovr_room = resolve_effective_room(ovr.room, ovr.teacher, ovr.second_teacher)

@@ -2,17 +2,18 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import dynamic from "next/dynamic";
 import { ScheduleWeekGrid } from "../ScheduleWeekGrid";
 import { WeekTypeBadge } from "../WeekTypeBadge";
-import { LessonEditor } from "../LessonEditor";
+const LessonEditor = dynamic(() => import("../LessonEditor").then((m) => m.LessonEditor), { ssr: false });
 import { Lesson, LessonMutation, AcademicEvent, AcademicEventType, api } from "../../lib/api";
 import { invalidateScheduleCache, useSchedule } from "../../lib/hooks";
 import { getMondayOf } from "../../lib/date";
 import { SearchableSelect } from "../SearchableSelect";
 import { useToast } from "../ToastProvider";
 import { QuickJumpTarget, findGroupIdByName, findTeacherIdByName } from "../../lib/quickJump";
-import { OfficialPrintModal } from "./OfficialPrintSheet";
-import { EventsModal } from "./EventsModal";
+const OfficialPrintModal = dynamic(() => import("./OfficialPrintSheet").then((m) => m.OfficialPrintModal), { ssr: false });
+const EventsModal = dynamic(() => import("./EventsModal").then((m) => m.EventsModal), { ssr: false });
 import { DEFAULT_LESSON_TIMES } from "../../lib/constants/lessons";
 import { PageHeader } from "./PageHeader";
 import { MobileWeekBar } from "../MobileWeekBar";

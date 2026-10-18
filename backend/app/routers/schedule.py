@@ -194,9 +194,23 @@ async def today(
     include_cancelled: bool = Query(False),
     db: AsyncSession = Depends(get_db)
 ):
-    if group_id:
-        from app.routers.classroom import run_background_sync_task
+    from app.routers.classroom import run_background_sync_task, should_trigger_background_sync
+    if should_trigger_background_sync(group_id):
         background_tasks.add_task(run_background_sync_task, group_id)
+
+    target = today_local()
+    if target.isoweekday() > 5:
+        target = target + timedelta(days=8 - target.isoweekday())
+
+    from app.services import cache_rev
+    variant = f"today:{target.isoformat()}:{int(include_cancelled)}"
+    etag = cache_rev.schedule_etag(group_id=group_id, teacher_id=teacher_id, variant=variant)
+    response.headers["ETag"] = etag
+    response.headers["Cache-Control"] = "public, max-age=0, s-maxage=15, stale-while-revalidate=300"
+    response.headers["Vary"] = "Date, Origin, Accept-Encoding"
+
+    if cache_rev.etag_matches(request.headers.get("if-none-match"), etag):
+        return Response(status_code=304, headers=dict(response.headers))
 
     if group_id:
         scope = await db.get(Group, group_id)
@@ -218,18 +232,13 @@ async def today(
                 from email.utils import parsedate_to_datetime
                 client_time = parsedate_to_datetime(if_modified_since)
                 if last_modified <= client_time:
-                    return Response(status_code=304)
+                    return Response(status_code=304, headers=dict(response.headers))
             except Exception:
                 pass
         
         from email.utils import format_datetime
         response.headers["Last-Modified"] = format_datetime(last_modified, usegmt=True)
 
-    response.headers["Cache-Control"] = "no-cache"
-    response.headers["Vary"] = "Date, Origin, Accept-Encoding"
-    target = today_local()
-    if target.isoweekday() > 5:
-        target = target + timedelta(days=8 - target.isoweekday())
     return await schedule(group_id=group_id, teacher_id=teacher_id, target_date=target, day_of_week=target.isoweekday(), include_cancelled=include_cancelled, db=db)
 
 @router.get("/schedule/week")
@@ -243,9 +252,22 @@ async def week(
     include_cancelled: bool = Query(False),
     db: AsyncSession = Depends(get_db)
 ):
-    if group_id:
-        from app.routers.classroom import run_background_sync_task
+    from app.routers.classroom import run_background_sync_task, should_trigger_background_sync
+    if should_trigger_background_sync(group_id):
         background_tasks.add_task(run_background_sync_task, group_id)
+
+    requested = target_date or today_local()
+    start = requested - timedelta(days=requested.isoweekday() - 1)
+
+    from app.services import cache_rev
+    variant = f"week:{start.isoformat()}:{int(include_cancelled)}"
+    etag = cache_rev.schedule_etag(group_id=group_id, teacher_id=teacher_id, variant=variant)
+    response.headers["ETag"] = etag
+    response.headers["Cache-Control"] = "public, max-age=0, s-maxage=15, stale-while-revalidate=300"
+    response.headers["Vary"] = "Date, Origin, Accept-Encoding"
+
+    if cache_rev.etag_matches(request.headers.get("if-none-match"), etag):
+        return Response(status_code=304, headers=dict(response.headers))
 
     # T11: PWA Offline caching via Last-Modified
     if group_id:
@@ -268,17 +290,13 @@ async def week(
                 from email.utils import parsedate_to_datetime
                 client_time = parsedate_to_datetime(if_modified_since)
                 if last_modified <= client_time:
-                    return Response(status_code=304)
+                    return Response(status_code=304, headers=dict(response.headers))
             except Exception:
                 pass
         
         from email.utils import format_datetime
         response.headers["Last-Modified"] = format_datetime(last_modified, usegmt=True)
 
-    response.headers["Cache-Control"] = "no-cache"
-    response.headers["Vary"] = "Date, Origin, Accept-Encoding"
-    requested = target_date or today_local()
-    start = requested - timedelta(days=requested.isoweekday() - 1)
     week_type, lessons_by_day = await fetch_week_schedule(db, start, group_id, teacher_id, include_cancelled=include_cancelled)
     bell_t = await get_bell_times(db)
     from app.services.lesson_notes import attach_week_notes

@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { LessonNote, LessonNoteModal } from "./LessonNote";
+import dynamic from "next/dynamic";
+import { LessonNote } from "./LessonNote";
+const LessonNoteModal = dynamic(() => import("./LessonNote").then((m) => m.LessonNoteModal), { ssr: false });
 import { EditIcon, MoveIcon } from "./LessonIcons";
 import { Lesson } from "../lib/api";
 import { formatRoom } from "../lib/format";

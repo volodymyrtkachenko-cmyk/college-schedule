@@ -317,12 +317,16 @@ async function rawRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
     // and `{...headersInstance}` does NOT copy its entries (Headers doesn't
     // expose them as own enumerable properties) — that previously silently
     // dropped the Authorization header on every authenticated call.
+    const method = (init.method ?? "GET").toUpperCase();
     const headers = new Headers(init.headers);
-    if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+    if (method !== "GET" && !headers.has("Content-Type")) {
+        headers.set("Content-Type", "application/json");
+    }
     try {
+        const cacheMode = init.cache ?? (method === "GET" ? "no-cache" : "no-store");
         response = await fetch(`${API_URL}${path}`, {
             ...init,
-            cache: "no-store", // Next.js fetch cache
+            cache: cacheMode,
             next: { revalidate: 0 }, // Disable Vercel Data Cache completely
             credentials: "include",
             headers,

@@ -9,7 +9,8 @@ import { DEFAULT_LESSON_TIMES } from "../../lib/constants/lessons";
 import { useToast } from "../ToastProvider";
 import { SearchableSelect } from "../SearchableSelect";
 import { LessonCard, QuickJumpTarget } from "../LessonCard";
-import { LessonEditor } from "../LessonEditor";
+import dynamic from "next/dynamic";
+const LessonEditor = dynamic(() => import("../LessonEditor").then((m) => m.LessonEditor), { ssr: false });
 import { PageHeader } from "./PageHeader";
 
 const DAYS: Array<{ day: number; name: string; short: string }> = [

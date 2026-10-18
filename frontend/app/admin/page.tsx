@@ -11,7 +11,10 @@ import { ReferenceTable } from "../../components/admin/ReferenceTable";
 import { api, invalidateDirectoryCache, ReferenceMutation, ReferenceRecord, ReferenceResource } from "../../lib/api";
 import { useAuth, canAccessAdmin } from "../../lib/auth";
 import { ConfirmModal } from "../../components/admin/ConfirmModal";
-import { AdminScheduleEditor } from "../../components/admin/AdminScheduleEditor";
+const AdminScheduleEditor = dynamic(() => import("../../components/admin/AdminScheduleEditor").then((module) => module.AdminScheduleEditor), {
+  ssr: false,
+  loading: () => <div className="h-96 animate-pulse rounded-2xl bg-sys-card/40" />
+});
 const PermanentScheduleEditor = dynamic(() => import("../../components/admin/PermanentScheduleEditor").then((module) => module.PermanentScheduleEditor), { ssr: false });
 const UsersPanel = dynamic(() => import("../../components/admin/users/UsersPanel").then((module) => module.UsersPanel), { ssr: false });
 const CurriculumPanel = dynamic(() => import("../../components/admin/CurriculumPanel").then((module) => module.CurriculumPanel), { ssr: false });

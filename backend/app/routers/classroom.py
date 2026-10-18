@@ -1391,6 +1391,24 @@ import time as _time
 _sync_backoff_state: dict[int, tuple[int, float]] = {}
 _SYNC_LOCK_GROUPS: set[int] = set()
 
+# In-memory throttle for request-triggered syncs: avoids opening a DB session
+# (and a second pooled connection) on every public schedule GET.
+_REQUEST_TRIGGER_INTERVAL = 900.0
+_last_request_trigger: dict[int, float] = {}
+
+
+def should_trigger_background_sync(group_id: Optional[int]) -> bool:
+    """Cheap, DB-free check whether a public request may schedule a Classroom sync."""
+    if not group_id or group_id in _SYNC_LOCK_GROUPS:
+        return False
+    now_mono = _time.monotonic()
+    if now_mono < _sync_backoff_state.get(group_id, (0, 0.0))[1]:
+        return False
+    if now_mono - _last_request_trigger.get(group_id, -_REQUEST_TRIGGER_INTERVAL) < _REQUEST_TRIGGER_INTERVAL:
+        return False
+    _last_request_trigger[group_id] = now_mono
+    return True
+
 
 async def trigger_background_sync_if_needed(db: AsyncSession, group_id: Optional[int]) -> None:
     if not group_id or group_id in _SYNC_LOCK_GROUPS:
