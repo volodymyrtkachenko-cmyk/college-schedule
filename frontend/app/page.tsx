@@ -464,6 +464,59 @@ export default function HomePage() {
     return days;
   }, [weekAnchorDate]);
 
+  const handleShareWeek = async () => {
+    if (!week || week.length === 0) return;
+    const groupOrTeacher =
+      mode === "student"
+        ? groups.find((g) => g.id === groupId)?.name
+          ? `Група ${groups.find((g) => g.id === groupId)?.name}`
+          : "Розклад"
+        : teachers.find((t) => t.id === teacherId)?.name
+          ? `Викладач ${teachers.find((t) => t.id === teacherId)?.name}`
+          : "Розклад";
+
+    const header = `📅 ${groupOrTeacher}\n🗓 ${weekRange}${currentWeekNumber ? ` (${currentWeekNumber} тиждень` : ""}${
+      weekType === "numerator"
+        ? ", чисельник"
+        : weekType === "denominator"
+        ? ", знаменник"
+        : ""
+    }${currentWeekNumber ? ")" : ""}\n`;
+
+    const dayBlocks = week
+      .map((d) => {
+        const dayName = new Intl.DateTimeFormat("uk-UA", { weekday: "long" }).format(
+          new Date(`${d.date}T12:00:00`)
+        );
+        const dayDate = new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "short" }).format(
+          new Date(`${d.date}T12:00:00`)
+        );
+        if (!d.lessons || d.lessons.length === 0) {
+          return `▫️ ${dayName.toUpperCase()} (${dayDate}): пар немає`;
+        }
+        const lessons = [...d.lessons]
+          .sort((a, b) => a.lesson_number - b.lesson_number)
+          .map((l) => {
+            const room = l.room ? ` [${l.room}]` : "";
+            const teacher = mode === "student" && l.teacher_name ? ` (${l.teacher_name})` : "";
+            return `  ${l.lesson_number}. ${l.time} ${l.subject_name}${room}${teacher}`;
+          })
+          .join("\n");
+        return `▫️ ${dayName.toUpperCase()} (${dayDate}):\n${lessons}`;
+      })
+      .join("\n\n");
+
+    const text = `${header}\n${dayBlocks}`;
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        setToast("Розклад усього тижня скопійовано для Telegram!", "success");
+      }
+    } catch {
+      setToast("Не вдалося скопіювати розклад", "error");
+    }
+  };
+
   const dayTasks = useMemo(() => {
     if (!selectedDaySchedule?.lessons) return [];
     const tasks: { title: string; subject: string; teacher?: string | null; label: string; url: string }[] = [];
@@ -1214,12 +1267,43 @@ export default function HomePage() {
               ) : (
                 /* Desktop Week Mode: Full Grid (ScheduleWeekGrid) */
                 <div className="w-full min-w-0">
-                  <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl bg-sys-card p-3.5 border border-sys-border">
-                    <div className="text-[13px] font-medium text-sys-text-primary flex items-center gap-2 overflow-hidden">
+                  <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl bg-sys-card p-3 sm:px-4 sm:py-3 border border-sys-border shadow-xs">
+                    <div className="text-[13px] sm:text-sm font-medium text-sys-text-primary flex flex-wrap items-center gap-2">
                       <svg width="1.2em" height="1.2em" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-sys-accent shrink-0"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                      <span className="font-semibold text-sys-text-primary">{weekRange}</span>
+                      <span className="font-bold text-sys-text-primary">{weekRange}</span>
+                      {currentWeekNumber && (
+                        <>
+                          <span className="text-sys-text-muted">•</span>
+                          <span className="text-sys-text-secondary font-medium">{currentWeekNumber} тиждень</span>
+                        </>
+                      )}
                     </div>
-                    <div className="shrink-0"><WeekTypeBadge weekType={weekType} /></div>
+                    <div className="flex items-center gap-2.5 shrink-0">
+                      <div
+                        title={
+                          weekType === "numerator"
+                            ? "Чисельник — непарний тиждень навчального графіка"
+                            : weekType === "denominator"
+                            ? "Знаменник — парний тиждень навчального графіка"
+                            : "Постійний розклад"
+                        }
+                      >
+                        <WeekTypeBadge weekType={weekType} />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleShareWeek}
+                        title="Скопіювати розклад усього тижня для Telegram"
+                        className="inline-flex h-8 items-center gap-1.5 rounded-xl border border-sys-border bg-sys-bg px-3 text-xs font-semibold text-sys-text-secondary hover:text-sys-accent hover:border-sys-accent/40 hover:bg-sys-accent/5 active:scale-95 transition-all"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+                          <polyline points="16 6 12 2 8 6" />
+                          <line x1="12" y1="2" x2="12" y2="15" />
+                        </svg>
+                        <span>Поділитися тижнем</span>
+                      </button>
+                    </div>
                   </div>
                   <motion.div
                     key={weekAnchorDate.toISOString()}

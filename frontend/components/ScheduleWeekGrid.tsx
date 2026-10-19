@@ -1,11 +1,27 @@
+import { useMemo } from "react";
 import { Lesson, ScheduleResponse } from "../lib/api";
 import { canMoveLesson } from "../lib/scheduleMove";
 import { ScheduleDay } from "./ScheduleDay";
 import { ScheduleEditGrid } from "./ScheduleEditGrid";
-import { QuickJumpTarget } from "./LessonCard";
+import { LessonCard, QuickJumpTarget } from "./LessonCard";
 
-const localDateString = (date = new Date()) =>
-  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+const KYIV_DATE_FMT = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" });
+
+function longWeekday(dateStr: string): string {
+  try {
+    return new Intl.DateTimeFormat("uk-UA", { weekday: "long" }).format(new Date(`${dateStr}T12:00:00`));
+  } catch {
+    return "";
+  }
+}
+
+function shortDateUk(dateStr: string): string {
+  try {
+    return new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "short" }).format(new Date(`${dateStr}T12:00:00`));
+  } catch {
+    return "";
+  }
+}
 
 export function ScheduleWeekGrid({
   week,
@@ -135,27 +151,172 @@ export function ScheduleWeekGrid({
     );
   }
 
+  const kyivTodayIso = useMemo(() => {
+    return KYIV_DATE_FMT.format(new Date());
+  }, []);
+
+  const allLessonNumbers = useMemo(() => {
+    let max = 4;
+    for (const d of week) {
+      for (const l of d.lessons) {
+        if (l.lesson_number > max) max = l.lesson_number;
+      }
+    }
+    const res: number[] = [];
+    for (let i = 1; i <= max; i++) res.push(i);
+    return res;
+  }, [week]);
+
   return (
     <div className="w-full pb-4">
-      {/* Desktop (>= 1024px): 5 колонок, картки у згорнутому стані з вирівняною висотою */}
-      <div className="hidden lg:grid lg:grid-cols-5 items-start gap-3 xl:gap-4 pb-4">
-        {week.map((day) => (
-          <div key={`desktop-${day.date}`} className="min-w-0 flex-1">
-            <ScheduleDay schedule={day} mode="week" scheduleMode={scheduleMode} onQuickJump={onQuickJump} />
-          </div>
-        ))}
+      {/* Desktop (>= 1024px): 5-column synchronized CSS Grid by lesson numbers */}
+      <div className="hidden lg:grid lg:grid-cols-5 gap-3 xl:gap-3.5 pb-4">
+        {/* Row 0: Column Headers */}
+        {week.map((day) => {
+          const isToday = day.date === kyivTodayIso;
+          const isPast = day.date < kyivTodayIso;
+          return (
+            <div
+              key={`desktop-header-${day.date}`}
+              className={`flex flex-col justify-center min-h-[64px] px-3.5 py-2.5 rounded-2xl border transition-all ${
+                isToday
+                  ? "bg-sys-accent/15 border-sys-accent shadow-[0_0_15px_rgba(59,130,246,0.12)] ring-1 ring-sys-accent/40"
+                  : isPast
+                  ? "bg-sys-card/60 border-sys-border/50 opacity-75 hover:opacity-100"
+                  : "bg-sys-card border-sys-border"
+              }`}
+            >
+              <div className="flex items-center justify-between gap-1.5">
+                <span className={`text-[17px] xl:text-[18px] font-bold capitalize tracking-tight truncate ${
+                  isToday ? "text-sys-accent" : "text-sys-text-primary"
+                }`}>
+                  {longWeekday(day.date)}
+                </span>
+                {isToday && (
+                  <span className="shrink-0 px-2 py-0.5 rounded-full bg-sys-accent text-[11px] font-extrabold text-[#0b1120] uppercase tracking-wider shadow-xs">
+                    Сьогодні
+                  </span>
+                )}
+              </div>
+              <span className={`text-xs xl:text-[13px] font-medium mt-0.5 ${
+                isToday ? "text-sys-text-primary font-semibold" : "text-sys-text-secondary"
+              }`}>
+                {shortDateUk(day.date)}
+              </span>
+            </div>
+          );
+        })}
+
+        {/* Rows 1..N: Lesson Slots (1 row per lesson number, synchronized across all 5 days) */}
+        {allLessonNumbers.map((num) =>
+          week.map((day) => {
+            const isToday = day.date === kyivTodayIso;
+            const isPast = day.date < kyivTodayIso;
+            const lessonsForSlot = day.lessons.filter((l) => l.lesson_number === num);
+
+            return (
+              <div
+                key={`desktop-slot-${num}-${day.date}`}
+                className={`flex flex-col min-h-[92px] transition-opacity ${
+                  isPast && !isToday ? "opacity-80 hover:opacity-100" : ""
+                }`}
+              >
+                {lessonsForSlot.length > 0 ? (
+                  <div className="flex flex-col gap-2 h-full">
+                    {lessonsForSlot.map((lesson) => (
+                      <LessonCard
+                        key={`${lesson.id}-${lesson.lesson_number}`}
+                        lesson={lesson}
+                        targetDate={day.date}
+                        scheduleMode={scheduleMode}
+                        canEdit={canEdit}
+                        onQuickJump={onQuickJump}
+                        mode="week"
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div
+                    title={`Немає ${num}-ї пари`}
+                    className="flex h-full min-h-[92px] items-center justify-center rounded-2xl border border-dashed border-sys-border/40 bg-sys-card/[0.02] p-2 text-center text-xs text-sys-text-muted/40 transition-colors hover:border-sys-border/60 hover:text-sys-text-muted select-none"
+                  >
+                    <span className="text-xs">—</span>
+                  </div>
+                )}
+              </div>
+            );
+          })
+        )}
       </div>
 
-      {/* Tablet (640px – 1023px): горизонтальний скрол зі snap-прокруткою */}
+      {/* Tablet (640px – 1023px): horizontal scroll with snap-start */}
       <div className="hidden sm:flex lg:hidden items-start gap-3 overflow-x-auto snap-x snap-mandatory pb-4" style={{ scrollbarWidth: "thin" }}>
-        {week.map((day) => (
-          <div key={`tablet-${day.date}`} className="snap-start min-w-[280px] sm:min-w-[320px] flex-1 shrink-0">
-            <ScheduleDay schedule={day} mode="week" scheduleMode={scheduleMode} onQuickJump={onQuickJump} />
-          </div>
-        ))}
+        {week.map((day) => {
+          const isToday = day.date === kyivTodayIso;
+          const isPast = day.date < kyivTodayIso;
+          return (
+            <div
+              key={`tablet-${day.date}`}
+              className={`snap-start min-w-[280px] sm:min-w-[300px] flex-1 shrink-0 flex flex-col gap-2.5 ${
+                isPast && !isToday ? "opacity-80" : ""
+              }`}
+            >
+              <div
+                className={`flex flex-col justify-center min-h-[60px] px-3.5 py-2 rounded-2xl border ${
+                  isToday
+                    ? "bg-sys-accent/15 border-sys-accent/60 shadow-sm"
+                    : "bg-sys-card border-sys-border"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-1">
+                  <span className={`text-base font-bold capitalize truncate ${isToday ? "text-sys-accent" : "text-sys-text-primary"}`}>
+                    {longWeekday(day.date)}
+                  </span>
+                  {isToday && (
+                    <span className="shrink-0 px-2 py-0.5 rounded-full bg-sys-accent text-[10px] font-extrabold text-[#0b1120] uppercase">
+                      Сьогодні
+                    </span>
+                  )}
+                </div>
+                <span className="text-xs text-sys-text-secondary mt-0.5">
+                  {shortDateUk(day.date)}
+                </span>
+              </div>
+
+              {allLessonNumbers.map((num) => {
+                const lessonsForSlot = day.lessons.filter((l) => l.lesson_number === num);
+                if (lessonsForSlot.length > 0) {
+                  return (
+                    <div key={`tablet-slot-${num}-${day.date}`} className="flex flex-col gap-2">
+                      {lessonsForSlot.map((lesson) => (
+                        <LessonCard
+                          key={`${lesson.id}-${lesson.lesson_number}`}
+                          lesson={lesson}
+                          targetDate={day.date}
+                          scheduleMode={scheduleMode}
+                          canEdit={canEdit}
+                          onQuickJump={onQuickJump}
+                          mode="week"
+                        />
+                      ))}
+                    </div>
+                  );
+                }
+                return (
+                  <div
+                    key={`tablet-slot-${num}-${day.date}`}
+                    className="flex min-h-[68px] items-center justify-center rounded-2xl border border-dashed border-sys-border/30 bg-sys-card/[0.02] text-xs text-sys-text-muted/40 select-none"
+                  >
+                    <span>—</span>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })}
       </div>
 
-      {/* Mobile (< 640px): усі 5 днів підряд, кожен із заголовком-розділювачем (день + дата) */}
+      {/* Mobile (< 640px): Day list with day headers */}
       <div className="flex w-full flex-col gap-6 sm:hidden">
         {week.map((day) => (
           <div
@@ -170,7 +331,7 @@ export function ScheduleWeekGrid({
               mode="day"
               scheduleMode={scheduleMode}
               onQuickJump={onQuickJump}
-              isToday={day.date === localDateString()}
+              isToday={day.date === kyivTodayIso}
             />
           </div>
         ))}

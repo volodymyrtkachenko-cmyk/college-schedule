@@ -580,14 +580,14 @@ export function LessonCard({
           {/* Zone 1: Timeline (100px - 110px) */}
           {!hideTimeColumn && (
             <div className="w-24 sm:w-28 shrink-0 flex flex-col items-start justify-center pr-4 border-r border-sys-border/50 text-left">
-              <span className={`text-2xl sm:text-[26px] font-black leading-none ${isLive ? "text-sys-accent" : "text-sys-accent"}`}>
+              <span className={`text-2xl sm:text-[26px] font-black leading-none ${isLive ? "text-sys-accent" : "text-slate-400"}`}>
                 {lesson.lesson_number}
               </span>
               <div className="mt-1.5 flex flex-col leading-tight">
                 <span className="text-sm sm:text-[15px] font-bold text-sys-text-primary">
                   {startT}
                 </span>
-                <span className="text-xs text-sys-text-muted mt-0.5">
+                <span className="text-xs text-sys-text-secondary mt-0.5">
                   {endT || DEFAULT_LESSON_TIMES[lesson.lesson_number]?.split("-")[1] || ""}
                 </span>
               </div>
@@ -617,7 +617,10 @@ export function LessonCard({
               {isDualTeachers ? (
                 <div className="flex items-center gap-3">
                   {secondaryItems.map((item, idx) => (
-                    <span key={idx}>
+                    <span key={idx} className="inline-flex items-center gap-1.5">
+                      <span className="shrink-0 rounded bg-sys-border/60 border border-sys-border px-1.5 py-0.5 text-[10px] font-bold text-sys-text-muted">
+                        {idx + 1} підгр.
+                      </span>
                       {onQuickJump ? (
                         <button
                           type="button"
@@ -752,7 +755,7 @@ export function LessonCard({
         {/* Left: narrow fixed column (number + start time) */}
         {!hideTimeColumn && (
           <div className="flex w-11 sm:w-12 shrink-0 flex-col text-left">
-            <span className={`text-lg sm:text-xl font-bold leading-none ${isLive ? "text-sys-accent" : "text-sys-accent"}`}>
+            <span className={`text-lg sm:text-xl font-bold leading-none ${isLive ? "text-sys-accent" : "text-slate-400"}`}>
               {lesson.lesson_number}
             </span>
             <span className="text-[11px] sm:text-xs font-semibold text-sys-text-secondary mt-1">
@@ -769,10 +772,13 @@ export function LessonCard({
 
         {/* Right: full remaining width column */}
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          {/* Row 1: Subject name (full width, NO line-clamp, NO text-overflow: ellipsis) */}
+          {/* Row 1: Subject name */}
           <div className="min-w-0">
             <h3
-              className={`break-words font-semibold leading-snug text-sm sm:text-[15px] ${
+              title={lesson.subject_name}
+              className={`font-semibold leading-snug text-sm sm:text-[15px] ${
+                !isDay ? "line-clamp-2" : "break-words"
+              } ${
                 lesson.is_cancelled ? "line-through text-sys-text-muted" : "text-sys-text-subject"
               }`}
             >
@@ -790,7 +796,10 @@ export function LessonCard({
             <div className="flex flex-col gap-2 text-xs text-sys-text-secondary [overflow-wrap:anywhere]">
               {/* Teacher 0 */}
               <div className="flex flex-col items-start gap-1 min-w-0">
-                <div className="font-medium text-sys-text-secondary [overflow-wrap:anywhere]">
+                <div className="flex items-center gap-1.5 font-medium text-sys-text-secondary [overflow-wrap:anywhere]">
+                  <span className="shrink-0 rounded bg-sys-border/60 border border-sys-border px-1.5 py-0.5 text-[10px] font-bold text-sys-text-muted">
+                    1 підгр.
+                  </span>
                   {onQuickJump ? (
                     <button
                       type="button"
@@ -855,7 +864,10 @@ export function LessonCard({
 
               {/* Teacher 1 */}
               <div className="flex flex-col items-start gap-1 min-w-0">
-                <div className="font-medium text-sys-text-secondary [overflow-wrap:anywhere]">
+                <div className="flex items-center gap-1.5 font-medium text-sys-text-secondary [overflow-wrap:anywhere]">
+                  <span className="shrink-0 rounded bg-sys-border/60 border border-sys-border px-1.5 py-0.5 text-[10px] font-bold text-sys-text-muted">
+                    2 підгр.
+                  </span>
                   {onQuickJump ? (
                     <button
                       type="button"
