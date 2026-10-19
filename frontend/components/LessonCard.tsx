@@ -568,17 +568,17 @@ export function LessonCard({
           onMoveSelect?.(lesson);
         }
       }}
-      className={`relative flex min-w-0 flex-col rounded-xl border bg-sys-card shadow-sm transition-colors duration-200 ${
+      className={`group relative flex min-w-0 flex-col rounded-xl border bg-sys-card shadow-sm transition-colors duration-200 ${
         isDay ? "p-3 xl:p-3.5" : "p-2.5"
       } ${stateClass} ${
-        !lesson.is_relevant_this_week ? "opacity-60" : isPast ? "opacity-55 hover:opacity-100" : ""
+        !lesson.is_relevant_this_week ? "opacity-60" : isPast ? "opacity-50 hover:opacity-100" : ""
       } ${canMove ? "cursor-grab active:cursor-grabbing" : ""}`}
     >
       <div className="flex items-start gap-2.5 sm:gap-3">
         {/* Left: narrow fixed column (number + start time) */}
         {!hideTimeColumn && (
           <div className="flex w-11 sm:w-12 shrink-0 flex-col text-left">
-            <span className={`text-lg sm:text-xl font-bold leading-none ${isLive ? "text-sys-accent" : "text-sys-neon"}`}>
+            <span className={`text-lg sm:text-xl font-bold leading-none ${isLive ? "text-sys-accent" : "text-sys-accent"}`}>
               {lesson.lesson_number}
             </span>
             <span className="text-[11px] sm:text-xs font-semibold text-sys-text-secondary mt-1">
@@ -894,10 +894,10 @@ export function LessonCard({
               ) : null}
             </div>
 
-            {/* Actions for canEdit pinned to bottom-right (wraps to next line when narrow) */}
+            {/* Actions for canEdit pinned to bottom-right (on desktop visible on hover, on mobile always visible) */}
             {canEdit && (
               <div
-                className="relative flex items-center gap-1 shrink-0 whitespace-nowrap ml-auto"
+                className="relative flex items-center gap-1 shrink-0 whitespace-nowrap ml-auto lg:opacity-0 lg:group-hover:opacity-100 focus-within:opacity-100 transition-opacity"
                 style={{
                   flex: "0 0 auto",
                   marginLeft: "auto",

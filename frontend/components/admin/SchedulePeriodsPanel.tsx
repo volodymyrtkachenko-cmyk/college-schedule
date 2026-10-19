@@ -274,7 +274,7 @@ export function SchedulePeriodsPanel() {
     <div className="max-w-2xl space-y-4 mt-4 bg-[#111827]/40 p-4 rounded-xl border border-sys-border/50">
       <div className="flex items-center justify-between">
          <label className="form-label mb-0">{title}</label>
-         <button type="button" onClick={() => setGroupsForDraft([])} className="text-[10px] uppercase font-bold px-2 py-1 text-rose-400 border border-rose-400/20 rounded hover:bg-rose-500/10 transition-colors">Очистити все</button>
+         <button type="button" onClick={() => setGroupsForDraft([])} className="text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary hover:underline transition-colors">Очистити все</button>
       </div>
       <div className="space-y-4">
       {[1, 2, 3, 4].map(courseNum => {
@@ -341,19 +341,19 @@ export function SchedulePeriodsPanel() {
         }
       />
 
-      <div className="flex flex-wrap items-center gap-4 bg-[#111827]/40 p-4 rounded-xl border border-sys-border/50">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-sys-text-secondary">Статус:</span>
-          <select className="form-control text-sm py-1.5" value={filterState} onChange={e => setFilterState(e.target.value)}>
+      <div className="flex flex-wrap items-end gap-4 rounded-xl border border-sys-border bg-sys-card p-4">
+        <label className="flex flex-col gap-1.5 text-xs font-medium text-sys-text-secondary min-w-[180px]">
+          <span>Статус</span>
+          <select className="form-control text-sm w-full bg-sys-bg" value={filterState} onChange={e => setFilterState(e.target.value)}>
             <option value="">Всі статуси</option>
             <option value="Триває">Триває</option>
             <option value="Заплановано">Заплановано</option>
             <option value="Завершено">Завершено</option>
           </select>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-sys-text-secondary">Тип періоду:</span>
-          <select className="form-control text-sm py-1.5" value={filterType} onChange={e => setFilterType(e.target.value)}>
+        </label>
+        <label className="flex flex-col gap-1.5 text-xs font-medium text-sys-text-secondary min-w-[200px]">
+          <span>Тип періоду</span>
+          <select className="form-control text-sm w-full bg-sys-bg" value={filterType} onChange={e => setFilterType(e.target.value)}>
             <option value="">Всі типи</option>
             <option value="holiday">Канікули</option>
             <option value="session">Екзаменаційна сесія</option>
@@ -362,9 +362,15 @@ export function SchedulePeriodsPanel() {
             <option value="attestation">Атестація</option>
             <option value="theory">Теоретичне навчання</option>
           </select>
-        </div>
+        </label>
         {(filterType || filterState) && (
-           <button onClick={() => { setFilterType(""); setFilterState(""); }} className="text-sm text-sys-accent hover:underline">Скинути фільтри</button>
+          <button
+            type="button"
+            onClick={() => { setFilterType(""); setFilterState(""); }}
+            className="text-xs font-semibold text-sys-accent hover:underline pb-2.5"
+          >
+            Скинути фільтри
+          </button>
         )}
       </div>
 
@@ -577,8 +583,8 @@ export function SchedulePeriodsPanel() {
           {filteredPeriods.map((period) => {
             const state = periodState(period, today);
             return (
-              <article key={period.id} className="surface-panel flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 border-l-4" style={{borderLeftColor: period.period_type === "practice" ? "#fb923c" : period.period_type === "theory" ? "#3b82f6" : period.period_type === "holiday" ? "#22c55e" : "#a855f7"}}>
-                <div className="min-w-0 flex-1">
+              <article key={period.id} className="surface-panel relative flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 border-l-4" style={{borderLeftColor: period.period_type === "practice" ? "#fb923c" : period.period_type === "theory" ? "#3b82f6" : period.period_type === "holiday" ? "#22c55e" : "#a855f7"}}>
+                <div className="min-w-0 flex-1 pr-10 sm:pr-0">
                   <div className="flex flex-wrap items-center gap-2 mb-1.5">
                     <span className={`rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wider font-bold ${
                       period.period_type === "practice" ? "bg-orange-500/10 text-orange-400" :
@@ -650,21 +656,34 @@ export function SchedulePeriodsPanel() {
                     )}
                   </div>
                 </div>
+
+                {/* Mobile top-right delete action */}
+                <button
+                  type="button"
+                  onClick={() => setPeriodToDelete(period)}
+                  title="Видалити період"
+                  aria-label={`Видалити період ${period.name}`}
+                  className="sm:hidden absolute top-3 right-3 w-9 h-9 flex items-center justify-center rounded-lg text-sys-text-secondary hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                </button>
                 
                 <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-0 border-sys-border/30">
                   <button
                     type="button"
                     onClick={() => editPeriod(period)}
-                    className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0 rounded-lg border border-sys-border bg-sys-card px-3.5 py-1.5 text-xs font-semibold text-sys-text-primary hover:border-sys-accent hover:text-sys-accent transition-colors flex items-center justify-center"
+                    className="w-full sm:w-auto min-h-[44px] sm:min-h-[38px] rounded-lg border border-sys-border bg-sys-card px-4 py-1.5 text-xs font-semibold text-sys-text-primary hover:border-sys-accent hover:text-sys-accent active:scale-[0.98] transition-all flex items-center justify-center"
                   >
                     Відкрити
                   </button>
                   <button
                     type="button"
                     onClick={() => setPeriodToDelete(period)}
-                    className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0 rounded-lg border border-rose-500/20 bg-rose-500/5 px-3.5 py-1.5 text-xs font-semibold text-rose-300 hover:bg-rose-500/20 transition-colors flex items-center justify-center"
+                    title="Видалити період"
+                    aria-label={`Видалити період ${period.name}`}
+                    className="hidden sm:flex w-9 h-9 items-center justify-center rounded-lg text-sys-text-secondary hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
                   >
-                    Видалити
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                   </button>
                 </div>
               </article>

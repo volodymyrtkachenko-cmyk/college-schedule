@@ -99,7 +99,7 @@ export function UsersPanel() {
             }}
             className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-[rgba(5,8,16,0.76)] p-0 sm:p-6 backdrop-blur-sm overflow-y-auto"
         >
-            <form onSubmit={save} className="surface-panel w-full sm:max-w-2xl max-h-[92dvh] rounded-t-2xl sm:rounded-2xl space-y-5 p-5 sm:p-7 relative shadow-2xl overflow-y-auto pb-safe">
+            <form onSubmit={save} className="surface-panel w-full sm:max-w-md max-h-[92dvh] rounded-t-2xl sm:rounded-2xl space-y-5 p-5 sm:p-7 relative shadow-2xl overflow-y-auto pb-safe">
                 {error && <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-200">{error}</div>}
                 <div className="flex items-center justify-between">
                     <div>
@@ -186,7 +186,7 @@ export function UsersPanel() {
                 actions={
                     <button
                         onClick={() => setEditor({ role: "editor", allowed_groups: [] })}
-                        className="hidden sm:inline-flex items-center gap-1.5 bg-sys-accent text-slate-950 font-bold px-4 py-2 rounded-lg text-sm hover:opacity-90 transition-opacity"
+                        className="inline-flex items-center gap-1.5 bg-sys-accent text-slate-950 font-bold px-4 py-2 rounded-lg text-sm hover:opacity-90 transition-opacity"
                     >
                         + Додати користувача
                     </button>
@@ -299,16 +299,6 @@ export function UsersPanel() {
                     </div>
                 )}
             </div>
-
-            {/* Mobile FAB button */}
-            <button
-                type="button"
-                onClick={() => setEditor({ role: "editor", allowed_groups: [] })}
-                aria-label="Додати користувача"
-                className="sm:hidden fixed z-40 right-4 bottom-6 w-14 h-14 rounded-full bg-sys-accent text-[#0b1120] shadow-xl flex items-center justify-center font-bold text-2xl hover:scale-105 active:scale-95 transition-transform focus:outline-none focus:ring-2 focus:ring-sys-accent/40"
-            >
-                +
-            </button>
         </div>
     );
 }

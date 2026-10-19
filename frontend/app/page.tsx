@@ -18,6 +18,7 @@ import dynamic from "next/dynamic";
 const WelcomeScreen = dynamic(() => import("../components/WelcomeScreen").then((m) => m.WelcomeScreen), { ssr: false });
 import { SearchableSelect } from "../components/SearchableSelect";
 import { ClassroomSyncButton } from "../components/ClassroomSyncButton";
+import { extractClassroomTasks } from "../components/LessonCard";
 import { useToast } from "../components/ToastProvider";
 import { QuickJumpTarget, findGroupIdByName, findTeacherIdByName } from "../lib/quickJump";
 
@@ -75,7 +76,7 @@ export default function HomePage() {
     });
   };
 
-  const { isSetupComplete, completeSetup, mode, toggleMode, teachers, teacherId, setTeacherId, groups, groupId, setGroupId, today, week, loading, error } = useSchedule(weekAnchorDate);
+  const { isSetupComplete, completeSetup, mode, toggleMode, teachers, teacherId, setTeacherId, groups, groupId, setGroupId, today, week, semesterStart, loading, error } = useSchedule(weekAnchorDate);
   const { user, loading: authLoading, logout } = useAuth();
   
   const isStandalone = useIsStandalonePwa();
@@ -115,6 +116,27 @@ export default function HomePage() {
       }
     } catch {}
   }, []);
+
+  // Context search modal state
+  const [contextModalOpen, setContextModalOpen] = useState(false);
+  const [modalTab, setModalTab] = useState<"student" | "teacher">(mode);
+  const [modalSearch, setModalSearch] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (contextModalOpen) {
+      setModalTab(mode);
+      setModalSearch("");
+      setTimeout(() => searchInputRef.current?.focus(), 50);
+    }
+  }, [contextModalOpen, mode]);
+
+  const filteredModalOptions = useMemo(() => {
+    const list = modalTab === "student" ? groups : teachers;
+    if (!modalSearch.trim()) return list;
+    const q = modalSearch.toLowerCase();
+    return list.filter((item) => item.name.toLowerCase().includes(q));
+  }, [modalTab, groups, teachers, modalSearch]);
 
   // Автоскрол до поточної пари
   useEffect(() => {
@@ -310,7 +332,6 @@ export default function HomePage() {
       setSelectedDayIndex((prev) => prev - 1);
       resetScroll();
     } else {
-      // Crossing week boundary: Monday -> prev week's Friday
       setWeekShiftDir(-1);
       setDaySlideDir(-1);
       setWeekAnchorDate((prev) => {
@@ -329,7 +350,6 @@ export default function HomePage() {
       setSelectedDayIndex((prev) => prev + 1);
       resetScroll();
     } else {
-      // Crossing week boundary: Friday -> next week's Monday
       setWeekShiftDir(1);
       setDaySlideDir(1);
       setWeekAnchorDate((prev) => {
@@ -407,21 +427,63 @@ export default function HomePage() {
 
   const resetWeek = () => setWeekAnchorDate(getInitialAnchor());
 
+  const currentWeekNumber = useMemo(() => {
+    if (!semesterStart) return null;
+    const start = new Date(semesterStart);
+    const diffTime = weekAnchorDate.getTime() - getMondayOf(start).getTime();
+    const diffWeeks = Math.floor(diffTime / (7 * 24 * 60 * 60 * 1000)) + 1;
+    return diffWeeks > 0 ? diffWeeks : null;
+  }, [semesterStart, weekAnchorDate]);
+
+  const weekDaysMini = useMemo(() => {
+    const days: { index: number; name: string; dateStr: string; iso: string }[] = [];
+    const dayNames = ["Пн", "Вт", "Ср", "Чт", "Пт"];
+    for (let i = 0; i < 5; i++) {
+      const d = new Date(weekAnchorDate);
+      d.setDate(weekAnchorDate.getDate() + i);
+      const iso = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(d);
+      days.push({
+        index: i,
+        name: dayNames[i],
+        dateStr: `${d.getDate()}`,
+        iso,
+      });
+    }
+    return days;
+  }, [weekAnchorDate]);
+
+  const dayTasks = useMemo(() => {
+    if (!selectedDaySchedule?.lessons) return [];
+    const tasks: { subject: string; teacher?: string | null; label: string; url: string }[] = [];
+    for (const l of selectedDaySchedule.lessons) {
+      const extracted = extractClassroomTasks(l.note);
+      for (const t of extracted) {
+        tasks.push({
+          subject: l.subject,
+          teacher: t.teacher || l.teacher,
+          label: t.label,
+          url: t.url,
+        });
+      }
+    }
+    return tasks;
+  }, [selectedDaySchedule]);
+
   const UserControls = () => (
     <div className="flex items-center gap-2">
       {user ? (
         <>
           {canAccessAdmin(user) && (
-            <a href="/admin" className="rounded-lg bg-sys-accent px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white whitespace-nowrap shadow-sm hover:bg-[#238636] transition-colors">
+            <a href="/admin" className="rounded-lg bg-sys-accent px-3 py-1.5 text-xs font-medium text-white whitespace-nowrap shadow-sm hover:opacity-90 transition-opacity">
               Для працівників
             </a>
           )}
-          <button onClick={logout} className="rounded-lg bg-transparent border border-sys-border px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-sys-text-secondary whitespace-nowrap hover:text-white hover:bg-sys-bg transition-colors">
+          <button onClick={logout} className="rounded-lg bg-transparent border border-sys-border px-3 py-1.5 text-xs font-medium text-sys-text-secondary whitespace-nowrap hover:text-white hover:bg-sys-bg transition-colors">
             Вийти
           </button>
         </>
       ) : (
-        <a href="/login" className="text-[13px] font-medium text-sys-text-secondary hover:text-white transition-colors underline-offset-4 hover:underline whitespace-nowrap">
+        <a href="/login" className="text-xs font-medium text-sys-text-secondary hover:text-white transition-colors underline-offset-4 hover:underline whitespace-nowrap">
           Для працівників
         </a>
       )}
@@ -441,101 +503,251 @@ export default function HomePage() {
     <main className="min-h-screen bg-sys-bg pb-6 text-sys-text-primary md:pb-8">
       <OfflineIndicator />
       <InstallPrompt />
-      {/* Mobile Compact Header (<640px) - Single Row (Title/Group/Star/⋯) */}
-      <header className="relative border-b border-sys-border bg-sys-card px-3 py-2 sm:hidden">
-        <div className="flex items-center justify-between gap-2">
-          {/* Brand */}
-          <a
-            href="https://kre.dp.ua/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 shrink-0 hover:opacity-85"
-            title="ДФКР"
-          >
-            <span className="rounded bg-sys-accent/15 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-sys-accent">
-              ДФКР
-            </span>
-            <span className="text-sm font-bold tracking-tight text-sys-text-primary">
-              Розклад
-            </span>
-          </a>
 
-          {/* Group / Teacher Selector */}
-          <div className="min-w-0 flex-1 max-w-[210px]">
-            <SearchableSelect
-              options={mode === "student" ? groups : teachers}
-              value={mode === "student" ? groupId : teacherId}
-              onChange={(id) => {
-                if (id === null) return;
-                if (mode === "student") setGroupId(id);
-                else setTeacherId(id);
-              }}
-              ariaLabel={mode === "student" ? "Обрати групу" : "Обрати викладача"}
-              placeholder={mode === "student" ? "Оберіть групу" : "Оберіть викладача"}
-              emptyLabel="Очистити вибір"
-            />
+      {/* Unified 56px (h-14) App-bar across all devices */}
+      <header className="sticky top-0 z-40 h-14 border-b border-sys-border bg-sys-card/95 backdrop-blur-md">
+        <div className="mx-auto flex h-full max-w-[1800px] items-center justify-between px-3 sm:px-5 lg:px-6">
+          {/* Left Zone: Brand + Context Selector */}
+          <div className="flex items-center gap-2 sm:gap-3.5 min-w-0">
+            <a
+              href="https://kre.dp.ua/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 shrink-0 hover:opacity-85 transition-opacity"
+              title="Дніпровський фаховий коледж радіоелектроніки"
+            >
+              <span className="rounded bg-sys-accent/15 px-2 py-0.5 text-xs font-black uppercase tracking-wider text-sys-accent border border-sys-accent/20">
+                ДФКР
+              </span>
+              <span className="hidden sm:inline text-sm font-bold tracking-tight text-sys-text-primary">
+                Розклад
+              </span>
+            </a>
+
+            {/* Context Selector Trigger Button */}
+            <button
+              type="button"
+              onClick={() => setContextModalOpen(true)}
+              aria-label="Обрати групу або викладача"
+              className="flex h-10 items-center gap-2 rounded-xl border border-sys-border bg-sys-bg/80 px-3 text-xs sm:text-sm font-medium text-sys-text-primary hover:border-sys-accent/60 hover:bg-sys-bg transition-all truncate max-w-[180px] sm:max-w-[260px] focus:outline-none focus:ring-2 focus:ring-sys-accent"
+            >
+              <span className="text-sys-text-muted shrink-0">
+                {mode === "student" ? "Група:" : "Викладач:"}
+              </span>
+              <span className="truncate font-semibold text-sys-text-primary">
+                {currentName || (mode === "student" ? "Оберіть групу" : "Оберіть викладача")}
+              </span>
+              <span className="text-sys-text-muted text-[10px] ml-auto shrink-0">▼</span>
+            </button>
           </div>
 
-          {/* Star pin button + "⋯" Menu button */}
-          <div className="flex items-center gap-1 shrink-0">
+          {/* Center Zone: Date Navigator + View Mode (Desktop >= 1024px) */}
+          <div className="hidden lg:flex items-center gap-3">
+            {/* Date Navigator: < [Сьогодні] > */}
+            <div className="flex items-center rounded-xl border border-sys-border bg-sys-bg p-1 text-xs">
+              <button
+                type="button"
+                onClick={view === "today" ? goToPrevDay : () => shiftWeek(-1)}
+                aria-label="Попередній період"
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-sys-text-secondary hover:bg-sys-card hover:text-white transition-colors"
+              >
+                ‹
+              </button>
+              <button
+                type="button"
+                onClick={view === "today" ? handleJumpToToday : resetWeek}
+                className={`px-3 h-8 rounded-lg font-medium transition-colors ${
+                  (view === "today" && selectedDaySchedule?.date === todayActualIso) || (view === "week" && isCurrentWeek)
+                    ? "text-sys-accent bg-sys-accent/10"
+                    : "text-sys-text-secondary hover:text-white hover:bg-sys-card"
+                }`}
+              >
+                Сьогодні
+              </button>
+              <button
+                type="button"
+                onClick={view === "today" ? goToNextDay : () => shiftWeek(1)}
+                aria-label="Наступний період"
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-sys-text-secondary hover:bg-sys-card hover:text-white transition-colors"
+              >
+                ›
+              </button>
+            </div>
+
+            {/* Segmented Switcher: [ День | Тиждень ] */}
+            <div role="group" aria-label="Режим відображення" className="flex rounded-xl border border-sys-border bg-sys-bg p-1 text-xs">
+              <button
+                type="button"
+                onClick={() => handleViewChange("today")}
+                className={`h-8 px-3.5 rounded-lg font-semibold transition-all ${
+                  view === "today"
+                    ? "bg-sys-accent text-white shadow-xs"
+                    : "text-sys-text-secondary hover:text-white"
+                }`}
+              >
+                День
+              </button>
+              <button
+                type="button"
+                onClick={() => handleViewChange("week")}
+                className={`h-8 px-3.5 rounded-lg font-semibold transition-all ${
+                  view === "week"
+                    ? "bg-sys-accent text-white shadow-xs"
+                    : "text-sys-text-secondary hover:text-white"
+                }`}
+              >
+                Тиждень
+              </button>
+            </div>
+          </div>
+
+          {/* Right Zone: Favorites, Classroom, Action menu */}
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* Classroom button (desktop) */}
             {mode === "student" && groupId && (
-              <ClassroomSyncButton
-                currentGroupId={groupId}
-                weekStart={weekStartStr}
-                onSynced={(detectedId) => {
-                  if (detectedId && detectedId !== groupId) {
-                    setGroupId(detectedId);
-                  }
-                }}
-              />
+              <div className="hidden sm:block">
+                <ClassroomSyncButton
+                  currentGroupId={groupId}
+                  weekStart={weekStartStr}
+                  onSynced={(detectedId) => {
+                    if (detectedId && detectedId !== groupId) {
+                      setGroupId(detectedId);
+                    }
+                  }}
+                />
+              </div>
             )}
+
+            {/* Star Pin */}
             {currentId && (
               <button
                 type="button"
                 onClick={togglePinCurrent}
-                title={isCurrentPinned ? "Прибрати із закріплених" : "Закріпити для швидкого доступу"}
+                title={isCurrentPinned ? "Прибрати із закріплених" : "Закріпити розклад"}
                 aria-label={isCurrentPinned ? "Відкріпити" : "Закріпити"}
-                className={`flex h-9 w-9 items-center justify-center rounded-lg border text-base transition-colors ${
+                className={`flex h-10 w-10 items-center justify-center rounded-xl border text-base transition-colors ${
                   isCurrentPinned
                     ? "border-amber-400/40 bg-amber-400/10 text-amber-300"
-                    : "border-sys-border bg-sys-bg/60 text-sys-text-muted hover:text-sys-text-primary"
+                    : "border-sys-border bg-sys-bg text-sys-text-muted hover:text-sys-text-primary hover:border-sys-border-elevated"
                 }`}
               >
                 {isCurrentPinned ? "★" : "☆"}
               </button>
             )}
 
+            {/* Action Menu Trigger ⋯ */}
             <button
               ref={menuButtonRef}
               type="button"
               onClick={() => setMobileMenuOpen((prev) => !prev)}
-              aria-label={mobileMenuOpen ? "Закрити додаткове меню" : "Додаткове меню"}
+              aria-label="Меню дій"
               aria-expanded={mobileMenuOpen}
-              aria-haspopup="menu"
-              aria-controls="mobile-dropdown-menu"
-              className="relative flex h-9 w-9 items-center justify-center rounded-lg border border-sys-border bg-sys-bg/60 text-sys-text-secondary hover:text-sys-text-primary active:scale-[0.94] transition-all duration-100 ease-out focus:outline-none focus:ring-1 focus:ring-sys-accent"
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-white hover:border-sys-border-elevated transition-colors focus:outline-none focus:ring-2 focus:ring-sys-accent"
             >
-              <span className="relative flex h-5 w-5 items-center justify-center">
-                <motion.span
-                  key={mobileMenuOpen ? "close" : "dots"}
-                  initial={{ opacity: 0, rotate: mobileMenuOpen ? -90 : 90, scale: 0.8 }}
-                  animate={{ opacity: 1, rotate: 0, scale: 1 }}
-                  exit={{ opacity: 0, rotate: mobileMenuOpen ? 90 : -90, scale: 0.8 }}
-                  transition={{
-                    duration: shouldReduceMotion ? 0 : 0.15,
-                    ease: [0.2, 0, 0, 1],
-                  }}
-                  className="absolute text-base font-bold leading-none select-none"
-                >
-                  {mobileMenuOpen ? "✕" : "⋯"}
-                </motion.span>
-              </span>
+              ⋯
             </button>
           </div>
         </div>
       </header>
 
-      {/* Mobile Animated Dropdown Menu ("⋯") */}
+      {/* Context Selection Modal */}
+      <AnimatePresence>
+        {contextModalOpen && (
+          <motion.div
+            key="contextModalBackdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4"
+            onClick={() => setContextModalOpen(false)}
+          >
+            <motion.div
+              key="contextModalBox"
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ duration: 0.15 }}
+              className="w-full max-w-md rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header with tabs */}
+              <div className="flex items-center justify-between gap-2 pb-3 border-b border-sys-border/60">
+                <div className="flex rounded-xl border border-sys-border bg-sys-bg p-1 flex-1">
+                  <button
+                    type="button"
+                    onClick={() => { setModalTab("student"); setModalSearch(""); }}
+                    className={`flex-1 h-9 rounded-lg text-xs font-semibold transition-all ${
+                      modalTab === "student" ? "bg-sys-accent text-white shadow-xs" : "text-sys-text-secondary hover:text-white"
+                    }`}
+                  >
+                    Групи ({groups.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setModalTab("teacher"); setModalSearch(""); }}
+                    className={`flex-1 h-9 rounded-lg text-xs font-semibold transition-all ${
+                      modalTab === "teacher" ? "bg-sys-accent text-white shadow-xs" : "text-sys-text-secondary hover:text-white"
+                    }`}
+                  >
+                    Викладачі ({teachers.length})
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setContextModalOpen(false)}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-sys-border text-sys-text-secondary hover:text-white hover:bg-sys-bg transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Search Input */}
+              <div className="mt-3 relative">
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={modalSearch}
+                  onChange={(e) => setModalSearch(e.target.value)}
+                  placeholder={modalTab === "student" ? "Пошук групи (наприклад 85)..." : "Пошук викладача..."}
+                  className="w-full h-10 rounded-xl border border-sys-border bg-sys-bg px-3.5 text-sm text-sys-text-primary placeholder:text-sys-text-muted focus:border-sys-accent focus:ring-2 focus:ring-sys-accent focus:outline-none"
+                />
+              </div>
+
+              {/* List of items */}
+              <div className="mt-3 max-h-72 overflow-y-auto space-y-1 pr-1">
+                {filteredModalOptions.map((opt) => {
+                  const isSelected = modalTab === "student" ? opt.id === groupId : opt.id === teacherId;
+                  return (
+                    <button
+                      key={`${modalTab}-${opt.id}`}
+                      type="button"
+                      onClick={() => {
+                        toggleMode(modalTab);
+                        if (modalTab === "student") setGroupId(opt.id);
+                        else setTeacherId(opt.id);
+                        setContextModalOpen(false);
+                      }}
+                      className={`w-full text-left px-3.5 py-2.5 rounded-xl text-sm transition-colors flex items-center justify-between ${
+                        isSelected
+                          ? "bg-sys-accent/15 text-sys-accent font-semibold border border-sys-accent/30"
+                          : "text-sys-text-primary hover:bg-sys-bg"
+                      }`}
+                    >
+                      <span>{opt.name}</span>
+                      {isSelected && <span className="text-xs">✓</span>}
+                    </button>
+                  );
+                })}
+                {filteredModalOptions.length === 0 && (
+                  <p className="text-center py-6 text-xs text-sys-text-muted">Нічого не знайдено</p>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Action Menu (⋯ Dropdown / Drawer) */}
       <AnimatePresence>
         {mobileMenuOpen && (
           <>
@@ -544,11 +756,8 @@ export default function HomePage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{
-                duration: shouldReduceMotion ? 0 : 0.16,
-                ease: [0.2, 0, 0, 1],
-              }}
-              className="fixed inset-0 z-40 bg-black/40 backdrop-blur-xs sm:hidden"
+              transition={{ duration: shouldReduceMotion ? 0 : 0.15 }}
+              className="fixed inset-0 z-40 bg-black/50 backdrop-blur-xs"
               onClick={() => setMobileMenuOpen(false)}
               aria-hidden="true"
             />
@@ -557,35 +766,19 @@ export default function HomePage() {
               id="mobile-dropdown-menu"
               ref={menuRef}
               role="menu"
-              aria-orientation="vertical"
-              initial={{ opacity: 0, scale: 0.96, y: -4 }}
+              initial={{ opacity: 0, scale: 0.95, y: -6 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{
-                opacity: 0,
-                scale: 0.96,
-                y: -4,
-                transition: {
-                  duration: shouldReduceMotion ? 0 : 0.12,
-                  ease: [0.2, 0, 0, 1],
-                },
-              }}
-              transition={{
-                duration: shouldReduceMotion ? 0 : 0.16,
-                ease: [0.2, 0, 0, 1],
-              }}
-              style={{ transformOrigin: "top right" }}
-              className="fixed top-12 right-2 z-50 w-72 max-w-[calc(100vw-1rem)] rounded-2xl border border-sys-border bg-sys-card p-3 shadow-2xl sm:hidden"
+              exit={{ opacity: 0, scale: 0.95, y: -6 }}
+              transition={{ duration: shouldReduceMotion ? 0 : 0.15 }}
+              className="fixed top-14 right-3 z-50 w-72 max-w-[calc(100vw-1.5rem)] rounded-2xl border border-sys-border bg-sys-card p-3 shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between pb-2 border-b border-sys-border/50">
                 <span className="text-xs font-bold uppercase tracking-wider text-sys-text-muted">Меню розкладу</span>
                 <button
                   type="button"
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    menuButtonRef.current?.focus();
-                  }}
-                  className="flex h-6 w-6 items-center justify-center rounded-md border border-sys-border text-xs text-sys-text-secondary hover:text-sys-text-primary"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex h-6 w-6 items-center justify-center rounded-md border border-sys-border text-xs text-sys-text-secondary hover:text-white"
                 >
                   ✕
                 </button>
@@ -605,7 +798,7 @@ export default function HomePage() {
                         setMobileMenuOpen(false);
                       }}
                       className={`flex-1 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${
-                        mode === "student" ? "bg-sys-accent text-white shadow-xs" : "text-sys-text-secondary hover:text-sys-text-primary"
+                        mode === "student" ? "bg-sys-accent text-white shadow-xs" : "text-sys-text-secondary hover:text-white"
                       }`}
                     >
                       Для групи
@@ -619,7 +812,7 @@ export default function HomePage() {
                         setMobileMenuOpen(false);
                       }}
                       className={`flex-1 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${
-                        mode === "teacher" ? "bg-sys-accent text-white shadow-xs" : "text-sys-text-secondary hover:text-sys-text-primary"
+                        mode === "teacher" ? "bg-sys-accent text-white shadow-xs" : "text-sys-text-secondary hover:text-white"
                       }`}
                     >
                       Для викладача
@@ -644,7 +837,7 @@ export default function HomePage() {
                           else setTeacherId(pin.id);
                           setMobileMenuOpen(false);
                         }}
-                        className="rounded-full border border-sys-border bg-sys-bg px-2.5 py-0.5 text-xs font-medium text-sys-text-secondary hover:text-sys-text-primary"
+                        className="rounded-full border border-sys-border bg-sys-bg px-2.5 py-0.5 text-xs font-medium text-sys-text-secondary hover:text-white"
                       >
                         ★ {pin.name}
                       </button>
@@ -656,7 +849,7 @@ export default function HomePage() {
               {/* Secondary Links & Controls */}
               <div className="mt-3 flex flex-col gap-1.5 border-t border-sys-border/50 pt-2.5">
                 {mode === "student" && groupId && (
-                  <div className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 px-3 py-2">
+                  <div className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 px-3 py-2 sm:hidden">
                     <span className="text-xs font-semibold text-sys-text-primary">Google Classroom</span>
                     <ClassroomSyncButton
                       currentGroupId={groupId}
@@ -711,151 +904,8 @@ export default function HomePage() {
         )}
       </AnimatePresence>
 
-      {/* Desktop Header (>= 640px) */}
-      <header className="hidden sm:block border-b border-sys-border bg-sys-card">
-        <div className="mx-auto flex max-w-[1800px] flex-col md:flex-row md:items-center justify-between gap-4 px-3 py-5 sm:px-5 lg:px-6 xl:px-8">
-          <div className="flex items-start justify-between w-full md:w-auto">
-            <div>
-              <a href="https://kre.dp.ua/" target="_blank" rel="noopener noreferrer" className="inline-block hover:opacity-80 transition-opacity" title="Головна сторінка закладу">
-                <p className="text-xs font-bold uppercase tracking-[0.2em] text-sys-text-secondary">ДФКР</p>
-              </a>
-              <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl text-sys-text-primary">Розклад занять</h1>
-              <div className="flex gap-4">
-                <a href="/statistics" className="mt-1 inline-block text-sm font-medium text-sys-accent transition-colors hover:text-sys-text-primary">
-                  Статистика
-                </a>
-                <a href="/educational-process" className="mt-1 inline-block text-sm font-medium text-sys-accent transition-colors hover:text-sys-text-primary">
-                  Графік процесу
-                </a>
-              </div>
-            </div>
-            <div className="md:hidden mt-1">
-              <UserControls />
-            </div>
-          </div>
-          <div className="flex flex-col sm:flex-row sm:items-center gap-4 w-full md:w-auto">
-            {isStandalone && !isDownloaded && (
-              <button 
-                type="button" 
-                onClick={handleDownloadOffline} 
-                disabled={isDownloading} 
-                className="flex items-center gap-2 bg-transparent border border-sys-border text-sys-text-secondary px-4 py-2 rounded-xl text-[13px] font-medium transition-colors hover:text-white hover:bg-sys-bg disabled:opacity-50 h-[38px] sm:h-auto"
-              >
-                {isDownloading ? (
-                  <span className="flex items-center gap-2"><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25"></circle><path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" className="opacity-75"></path></svg> Зберігаємо…</span>
-                ) : "Зберегти на пристрій"}
-              </button>
-            )}
-            
-            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-              {teachers.length > 0 && (
-                <div role="group" aria-label="Тип розкладу" className="flex rounded-lg border border-sys-border bg-sys-card p-1 relative w-full sm:w-auto">
-                  <div className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-sys-accent/10 rounded-md transition-all duration-300 ease-out z-0" style={{ left: mode === 'student' ? '4px' : 'calc(50% + 2px)' }}></div>
-                  <button
-                    type="button"
-                    aria-pressed={mode === "student"}
-                    onClick={() => toggleMode("student")}
-                    className={`flex-1 relative z-10 rounded-md px-3 py-2 text-xs font-medium transition-colors ${mode === "student" ? "text-sys-accent" : "text-sys-text-secondary hover:text-sys-text-primary"}`}
-                  >
-                    Для групи
-                  </button>
-                  <button
-                    type="button"
-                    aria-pressed={mode === "teacher"}
-                    onClick={() => toggleMode("teacher")}
-                    className={`flex-1 relative z-10 rounded-md px-3 py-2 text-xs font-medium transition-colors ${mode === "teacher" ? "text-sys-accent" : "text-sys-text-secondary hover:text-sys-text-primary"}`}
-                  >
-                    Для викладача
-                  </button>
-                </div>
-              )}
-              <div className="flex flex-col gap-1.5">
-                <div className="flex items-center gap-1.5">
-                  <label className="min-w-0 flex-1 rounded-xl border border-sys-border bg-sys-card px-3 py-2 sm:w-56">
-                    <span className="mb-1 block text-[11px] font-medium text-sys-text-muted">
-                      {mode === "student" ? "Група" : "Викладач"}
-                    </span>
-                    <SearchableSelect
-                      options={mode === "student" ? groups : teachers}
-                      value={mode === "student" ? groupId : teacherId}
-                      onChange={(id) => {
-                        if (id === null) return;
-                        if (mode === "student") setGroupId(id);
-                        else setTeacherId(id);
-                      }}
-                      ariaLabel={mode === "student" ? "Обрати групу" : "Обрати викладача"}
-                      placeholder={mode === "student" ? "Оберіть групу" : "Оберіть викладача"}
-                      emptyLabel="Очистити вибір"
-                    />
-                  </label>
-                  {mode === "student" && groupId && (
-                    <ClassroomSyncButton
-                      currentGroupId={groupId}
-                      weekStart={weekStartStr}
-                      onSynced={(detectedId) => {
-                        if (detectedId && detectedId !== groupId) {
-                          setGroupId(detectedId);
-                        }
-                      }}
-                    />
-                  )}
-                  {currentId && (
-                    <button
-                      type="button"
-                      onClick={togglePinCurrent}
-                      title={
-                        isCurrentPinned
-                          ? "Прибрати із закріплених"
-                          : "Закріпити для швидкого доступу (до 3-х)"
-                      }
-                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition-colors ${
-                        isCurrentPinned
-                          ? "border-amber-400/40 bg-amber-400/10 text-amber-300"
-                          : "border-sys-border bg-sys-card text-sys-text-muted hover:text-sys-text-primary"
-                      }`}
-                    >
-                      {isCurrentPinned ? "★" : "☆"}
-                    </button>
-                  )}
-                </div>
-
-                {pins.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {pins.map((pin) => {
-                      const active = pin.mode === mode && pin.id === currentId;
-                      return (
-                        <button
-                          key={`${pin.mode}-${pin.id}`}
-                          type="button"
-                          onClick={() => {
-                            toggleMode(pin.mode);
-                            if (pin.mode === "student") setGroupId(pin.id);
-                            else setTeacherId(pin.id);
-                          }}
-                          className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-colors ${
-                            active
-                              ? "border-sys-accent/50 bg-sys-accent/15 text-sys-accent"
-                              : "border-sys-border/70 bg-sys-card/60 text-sys-text-secondary hover:text-sys-text-primary"
-                          }`}
-                        >
-                          <span className="truncate max-w-[110px]">{pin.name}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="hidden md:block ml-2">
-              <UserControls />
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Mobile Content (<640px) */}
-      <div className="sm:hidden">
-        {/* Mobile Week Bar & Days Strip (Always visible on mobile) */}
+      {/* Mobile Day Strip & View (<1024px) */}
+      <div className="lg:hidden">
         <MobileWeekBar
           weekRange={weekRange}
           weekType={weekType}
@@ -936,47 +986,8 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Desktop Content (>= 640px) */}
-      <div className="hidden sm:block mx-auto max-w-[1800px] px-3 py-6 sm:px-5 lg:px-6 xl:px-8">
-        <div className="mb-6 hidden items-center justify-between sm:flex">
-          <div>
-            <p className="text-sm text-sys-text-secondary">{view === "today" ? "Поточний день" : "Навчальний тиждень"}</p>
-            <h2 className="text-xl font-semibold">{view === "today" ? "Розклад на сьогодні" : "Розклад на тиждень"}</h2>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            <div role="group" aria-label="Режим перегляду розкладу" className="relative flex rounded-lg border border-sys-border bg-sys-card p-1 text-sm">
-              <div
-                className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-sys-accent/10 border border-sys-accent/20 rounded-md shadow-sm transition-transform duration-200 ease-smooth motion-reduce:transition-none z-0"
-                style={{
-                  left: "4px",
-                  transform: view === "today" ? "translateX(0%)" : "translateX(100%)",
-                }}
-              />
-              <button
-                type="button"
-                aria-pressed={view === "today"}
-                onClick={() => handleViewChange("today")}
-                className={`w-24 relative z-10 rounded-md px-4 py-2 text-sm font-medium transition-colors active:scale-[0.98] duration-100 ${
-                  view === "today" ? "text-sys-accent font-semibold" : "text-sys-text-secondary hover:text-sys-text-primary"
-                }`}
-              >
-                Сьогодні
-              </button>
-              <button
-                type="button"
-                aria-pressed={view === "week"}
-                onClick={() => handleViewChange("week")}
-                className={`w-24 relative z-10 rounded-md px-4 py-2 text-sm font-medium transition-colors active:scale-[0.98] duration-100 ${
-                  view === "week" ? "text-sys-accent font-semibold" : "text-sys-text-secondary hover:text-sys-text-primary"
-                }`}
-              >
-                Тиждень
-              </button>
-            </div>
-          </div>
-        </div>
-
+      {/* Desktop Main Content (>= 1024px) */}
+      <div className="hidden lg:block mx-auto max-w-[1800px] px-4 py-6 sm:px-6 lg:px-8">
         {returnTarget && (
           <div className="mb-4 flex items-center justify-between rounded-xl border border-sys-accent/30 bg-sys-accent/10 px-4 py-2.5 text-sm">
             <span className="text-sys-text-secondary">
@@ -1007,129 +1018,205 @@ export default function HomePage() {
                 <div className="flex w-12 shrink-0 flex-col gap-1.5">
                   <div className="h-5 w-6 rounded bg-slate-700/70" />
                   <div className="h-3 w-10 rounded bg-slate-800" />
-                  <div className="h-3 w-10 rounded bg-slate-800" />
                 </div>
                 <div className="flex flex-1 flex-col gap-2.5">
                   <div className="h-4 w-3/5 rounded bg-slate-700/70" />
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="h-3.5 w-2/5 rounded bg-slate-800" />
-                    <div className="h-5 w-14 rounded-md bg-slate-800" />
-                  </div>
+                  <div className="h-3.5 w-2/5 rounded bg-slate-800" />
                 </div>
               </div>
             ))}
           </div>
         ) : error ? (
           <div className="rounded-2xl border border-rose-400/20 bg-rose-400/5 p-8 text-center text-rose-200">{error}</div>
-        ) : today ? (
+        ) : (
           <AnimatePresence mode="wait">
             <motion.div
               key={view}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{
-                duration: shouldReduceMotion ? 0 : 0.15,
-                ease: [0.2, 0, 0, 1],
-              }}
+              transition={{ duration: shouldReduceMotion ? 0 : 0.15 }}
             >
               {view === "today" ? (
-                <div className="min-w-0 overflow-hidden">
-                  {isWeekend && (
-                    <div className="mb-3 flex min-h-[52px] items-center justify-between rounded-xl border border-slate-700/50 bg-slate-800/50 px-4 py-2 text-xs">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <span aria-hidden="true" className="text-xl shrink-0">🛋️</span>
-                        <div className="flex flex-col min-w-0">
-                          <span className="font-semibold text-sys-text-primary leading-tight">Сьогодні вихідний</span>
-                          <span className="text-sys-text-secondary text-[11px] leading-tight mt-0.5">Показано найближчий навчальний день</span>
+                /* Desktop Day Mode: 2-column Dashboard (max-w-[1140px]) */
+                <div className="mx-auto max-w-[1140px]">
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                    {/* Left Column: Timeline (65% / 8 cols) */}
+                    <div className="lg:col-span-8 min-w-0">
+                      {isWeekend && (
+                        <div className="mb-4 flex items-center justify-between rounded-2xl border border-slate-700/50 bg-slate-800/40 px-4 py-3 text-xs">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span aria-hidden="true" className="text-xl shrink-0">🛋️</span>
+                            <div className="flex flex-col min-w-0">
+                              <span className="font-semibold text-sys-text-primary">Сьогодні вихідний</span>
+                              <span className="text-sys-text-secondary text-[11px]">Показано найближчий навчальний день</span>
+                            </div>
+                          </div>
+                          <div className="shrink-0">
+                            <WeekTypeBadge weekType={today?.week_type ?? "both"} />
+                          </div>
                         </div>
-                      </div>
-                      <div className="shrink-0 ml-3">
-                        <WeekTypeBadge weekType={today.week_type} />
-                      </div>
-                    </div>
-                  )}
-                  {!isWeekend && (
-                    <div className="mb-3 hidden sm:flex justify-end">
-                      <WeekTypeBadge weekType={today.week_type} />
-                    </div>
-                  )}
-                  {isShowingTomorrow && !isWeekend && (
-                    <div className="mb-2.5 flex items-center justify-between rounded-xl border border-sys-accent/30 bg-sys-accent/10 px-3.5 py-2 text-xs text-sys-text-primary">
-                      <span>🌙 Пари на сьогодні завершено — показано <strong>розклад на завтра</strong></span>
-                    </div>
-                  )}
-                  <AnimatePresence initial={false} custom={daySlideDir} mode="wait">
-                    <motion.div
-                      key={selectedDaySchedule?.date || activeDayDate}
-                      custom={daySlideDir}
-                      variants={{
-                        enter: (dir: number) => ({
-                          x: dir > 0 ? 10 : dir < 0 ? -10 : 0,
-                          opacity: 0,
-                        }),
-                        center: {
-                          x: 0,
-                          opacity: 1,
-                        },
-                        exit: (dir: number) => ({
-                          x: dir > 0 ? -10 : dir < 0 ? 10 : 0,
-                          opacity: 0,
-                        }),
-                      }}
-                      initial="enter"
-                      animate="center"
-                      exit="exit"
-                      transition={{
-                        duration: shouldReduceMotion ? 0 : 0.18,
-                        ease: [0.2, 0, 0, 1],
-                      }}
-                    >
+                      )}
+
+                      {isShowingTomorrow && !isWeekend && (
+                        <div className="mb-4 flex items-center justify-between rounded-2xl border border-sys-accent/30 bg-sys-accent/10 px-4 py-2.5 text-xs text-sys-text-primary">
+                          <span>🌙 Пари на сьогодні завершено — показано <strong>розклад на завтра</strong></span>
+                        </div>
+                      )}
+
                       <ScheduleDay
-                        schedule={selectedDaySchedule ?? today}
+                        schedule={selectedDaySchedule ?? today!}
                         isToday={selectedDaySchedule?.date === today?.date && !isWeekend && !isShowingTomorrow}
                         scheduleMode={mode}
                         onQuickJump={handleQuickJump}
-                        hideHeaderOnMobile={true}
+                        hideHeaderOnMobile={false}
                       />
-                    </motion.div>
-                  </AnimatePresence>
+                    </div>
+
+                    {/* Right Column: Week Info & Classroom Widget (35% / 4 cols) */}
+                    <div className="lg:col-span-4 min-w-0 flex flex-col gap-5 sticky top-20">
+                      {/* Week & Navigator Card */}
+                      <div className="rounded-2xl border border-sys-border bg-sys-card p-4 shadow-sm">
+                        <div className="flex items-center justify-between pb-3 border-b border-sys-border/50">
+                          <div>
+                            <span className="text-[11px] font-bold uppercase tracking-wider text-sys-text-muted">
+                              {currentWeekNumber ? `${currentWeekNumber} тиждень` : "Розклад"}
+                            </span>
+                            <h3 className="text-sm font-semibold text-sys-text-primary mt-0.5 truncate">
+                              {weekRange}
+                            </h3>
+                          </div>
+                          <WeekTypeBadge weekType={weekType} />
+                        </div>
+
+                        {/* 5-Day Quick Switcher */}
+                        <div className="mt-3">
+                          <span className="block text-[11px] font-medium text-sys-text-muted mb-1.5">
+                            Дні тижня
+                          </span>
+                          <div className="grid grid-cols-5 gap-1.5">
+                            {weekDaysMini.map((d) => {
+                              const isActive = d.index === selectedDayIndex;
+                              const isToday = d.iso === todayActualIso;
+                              return (
+                                <button
+                                  key={d.iso}
+                                  type="button"
+                                  onClick={() => handleSelectDayIndex(d.index)}
+                                  className={`flex flex-col items-center justify-center py-2 rounded-xl text-xs transition-all ${
+                                    isActive
+                                      ? "bg-sys-accent text-white font-bold shadow-sm"
+                                      : isToday
+                                      ? "border border-sys-accent/50 text-sys-accent hover:bg-sys-bg"
+                                      : "border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-white hover:border-sys-border-elevated"
+                                  }`}
+                                >
+                                  <span className="text-[10px] uppercase">{d.name}</span>
+                                  <span className="text-sm font-semibold mt-0.5">{d.dateStr}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Google Classroom Deadlines Widget */}
+                      <div className="rounded-2xl border border-sys-border bg-sys-card p-4 shadow-sm">
+                        <div className="flex items-center justify-between pb-3 border-b border-sys-border/50">
+                          <div className="flex items-center gap-2">
+                            <span className="text-base">📌</span>
+                            <span className="text-xs font-bold uppercase tracking-wider text-sys-text-primary">
+                              Завдання Classroom
+                            </span>
+                          </div>
+                          <span className="rounded-full bg-purple-500/15 border border-purple-500/30 px-2 py-0.5 text-[11px] font-semibold text-purple-300">
+                            {dayTasks.length} {dayTasks.length === 1 ? "ДЗ" : "ДЗ"}
+                          </span>
+                        </div>
+
+                        <div className="mt-3 space-y-2.5">
+                          {dayTasks.length > 0 ? (
+                            dayTasks.map((t, idx) => (
+                              <div
+                                key={idx}
+                                className="rounded-xl border border-sys-border bg-sys-bg p-3 transition-colors hover:border-sys-accent/40"
+                              >
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-semibold text-sys-text-primary leading-tight">
+                                      {t.subject}
+                                    </p>
+                                    {t.teacher && (
+                                      <p className="text-[11px] text-sys-text-muted mt-0.5">
+                                        {t.teacher}
+                                      </p>
+                                    )}
+                                  </div>
+                                  <span className="shrink-0 rounded-md bg-purple-500/15 border border-purple-500/30 px-1.5 py-0.5 text-[10px] font-medium text-purple-300">
+                                    {t.label}
+                                  </span>
+                                </div>
+                                <div className="mt-2 flex justify-end">
+                                  <a
+                                    href={t.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-sys-accent hover:underline"
+                                  >
+                                    <span>Відкрити завдання</span>
+                                    <span>↗</span>
+                                  </a>
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="py-4 text-center">
+                              <p className="text-xs text-sys-text-muted">
+                                На цей день немає активних завдань
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               ) : (
+                /* Desktop Week Mode: Full Grid (ScheduleWeekGrid) */
                 <div className="w-full min-w-0">
-                  <div className="mb-4 mt-2 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center rounded-xl bg-sys-card p-3 border border-sys-border/50">
+                  <div className="mb-4 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center rounded-2xl bg-sys-card p-3.5 border border-sys-border">
                     <div className="text-[13px] font-medium text-sys-text-primary flex items-center gap-2 w-full sm:w-auto overflow-hidden">
                       <svg width="1.2em" height="1.2em" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-sys-accent shrink-0"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                      <span className="truncate">{weekRange}</span>
+                      <span className="font-semibold text-sys-text-primary">{weekRange}</span>
                       <div className="ml-2 hidden sm:block shrink-0"><WeekTypeBadge weekType={weekType} /></div>
                     </div>
                     <div className="flex w-full sm:w-auto items-center justify-between gap-3">
                       <div className="sm:hidden shrink-0"><WeekTypeBadge weekType={weekType} /></div>
-                      <div role="group" aria-label="Навігація тижнями" className="flex w-full items-center justify-between gap-1 rounded-lg border border-sys-border bg-sys-card p-1 text-sm sm:w-auto">
+                      <div role="group" aria-label="Навігація тижнями" className="flex w-full items-center justify-between gap-1 rounded-xl border border-sys-border bg-sys-bg p-1 text-sm sm:w-auto">
                         <button
                           type="button"
                           onClick={() => shiftWeek(-1)}
                           aria-label="Попередній тиждень"
-                          className="flex items-center justify-center rounded-md min-h-[38px] min-w-[38px] text-sys-text-secondary transition-colors hover:bg-sys-bg hover:text-sys-text-primary active:scale-[0.98] focus:ring-2 focus:ring-sys-accent focus:outline-none"
+                          className="flex items-center justify-center rounded-lg h-9 w-9 text-sys-text-secondary transition-colors hover:bg-sys-card hover:text-sys-text-primary active:scale-[0.98] focus:ring-2 focus:ring-sys-accent focus:outline-none"
                         >
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                          ‹
                         </button>
                         <button
                           type="button"
                           onClick={resetWeek}
                           disabled={isCurrentWeek}
                           aria-pressed={isCurrentWeek}
-                          className="min-w-28 flex-1 rounded-md px-3 min-h-[38px] text-center text-[13px] font-medium text-sys-text-primary transition-colors hover:bg-sys-bg disabled:cursor-default disabled:text-sys-accent disabled:bg-sys-accent/10 active:scale-[0.98] sm:flex-none"
+                          className="min-w-28 flex-1 rounded-lg px-3 h-9 text-center text-xs font-semibold text-sys-text-primary transition-colors hover:bg-sys-card disabled:cursor-default disabled:text-sys-accent disabled:bg-sys-accent/10 active:scale-[0.98] sm:flex-none"
                         >
-                          {isCurrentWeek ? "Сьогодні" : "Поточний"}
+                          {isCurrentWeek ? "Поточний" : "Повернутися"}
                         </button>
                         <button
                           type="button"
                           onClick={() => shiftWeek(1)}
                           aria-label="Наступний тиждень"
-                          className="flex items-center justify-center rounded-md min-h-[38px] min-w-[38px] text-sys-text-secondary transition-colors hover:bg-sys-bg hover:text-sys-text-primary active:scale-[0.98] focus:ring-2 focus:ring-sys-accent focus:outline-none"
+                          className="flex items-center justify-center rounded-lg h-9 w-9 text-sys-text-secondary transition-colors hover:bg-sys-card hover:text-sys-text-primary active:scale-[0.98] focus:ring-2 focus:ring-sys-accent focus:outline-none"
                         >
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                          ›
                         </button>
                       </div>
                     </div>
@@ -1154,14 +1241,7 @@ export default function HomePage() {
               )}
             </motion.div>
           </AnimatePresence>
-        ) : null}
-        
-        {!loading && !error && ((mode === "student" && !groups.length) || (mode === "teacher" && !teachers.length)) && (
-          <div className="rounded-2xl border border-dashed border-sys-border p-12 text-center text-sys-text-secondary">
-            {mode === "student" ? "Список груп поки порожній." : "Список викладачів поки порожній."}
-          </div>
         )}
-        
       </div>
     </main>
   );

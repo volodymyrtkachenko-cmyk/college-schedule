@@ -136,16 +136,27 @@ export function GeneratorPanel() {
     }
   }
 
-  async function handlePublish(id: number) {
-    if (!confirm("Опублікувати цей розклад? Він замінить поточний опублікований розклад для вибраної версії.")) return;
+  const [draftToPublish, setDraftToPublish] = useState<DraftRecord | null>(null);
+  const [publishTargetVersionId, setPublishTargetVersionId] = useState<number | null>(null);
+
+  async function handleConfirmPublish() {
+    if (!draftToPublish) return;
     try {
+      setPublishingId(draftToPublish.id);
       const session = await api.auth.ensureAuthenticated();
-      const targetDraft = drafts.find(d => d.id === id);
-      await api.generator.publish(id, session.access_token, targetVersionId || undefined, targetDraft?.revision || 1);
+      await api.generator.publish(
+        draftToPublish.id,
+        session.access_token,
+        publishTargetVersionId || undefined,
+        draftToPublish.revision || 1
+      );
       setToast("Розклад опубліковано.", "success");
+      setDraftToPublish(null);
       await loadDrafts();
     } catch(err: any) {
       setToast(err.message, "error");
+    } finally {
+      setPublishingId(null);
     }
   }
 
@@ -452,15 +463,6 @@ export function GeneratorPanel() {
         <div className="mt-8 text-center text-rose-500">{error}</div>
       ) : (
         <div className="surface-panel mt-6">
-          {drafts.length > 0 && versions.length > 0 && (
-            <div className="flex justify-end p-4 border-b border-sys-border/50 items-center gap-3">
-               <span className="text-sm font-medium text-sys-text-secondary">Публікувати у версію:</span>
-               <select className="form-control text-sm w-64" value={targetVersionId || ""} onChange={e => setTargetVersionId(e.target.value ? Number(e.target.value) : null)}>
-                 <option value="">Поточна активна версія</option>
-                 {versions.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
-               </select>
-            </div>
-          )}
           {/* Desktop Table (>=640px) */}
           <div className="hidden sm:block overflow-x-auto">
             <table className="w-full min-w-[700px] border-collapse text-left text-sm">
@@ -480,14 +482,18 @@ export function GeneratorPanel() {
                     <td className="px-5 py-3">
                       <span className={`px-2 py-0.5 rounded text-xs font-bold tracking-wider ${d.status === 'published' ? 'bg-emerald-500/10 text-emerald-400' : (d.status === 'DRAFT' || d.status === 'pending') ? 'bg-amber-500/10 text-amber-400' : 'bg-gray-500/10 text-gray-400'}`}>{draftStatusLabels[d.status] ?? "Невідомий статус"}</span>
                     </td>
-                    <td className="px-5 py-3 text-right flex justify-end gap-2">
-                      <button onClick={() => loadSlots(d)} className="px-3 py-1.5 text-xs font-semibold rounded bg-sys-accent/10 text-sys-accent hover:bg-sys-accent/20 transition">Переглянути</button>
-                      {d.status === 'DRAFT' && (
-                         <button onClick={() => handlePublish(d.id)} disabled={publishingId === d.id} className="px-3 py-1.5 text-xs font-semibold rounded bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition disabled:opacity-50">{publishingId === d.id ? "Публікація..." : "Опублікувати"}</button>
-                      )}
-                      {d.status !== 'published' && (
-                        <button onClick={() => setDraftToDelete(d)} className="px-3 py-1.5 text-xs font-semibold rounded bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition">Видалити</button>
-                      )}
+                    <td className="px-5 py-3 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button onClick={() => loadSlots(d)} className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-sys-accent/10 text-sys-accent hover:bg-sys-accent/20 transition">Переглянути</button>
+                        {d.status === 'DRAFT' && (
+                           <button onClick={() => { setDraftToPublish(d); setPublishTargetVersionId(targetVersionId); }} className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 transition">Опублікувати</button>
+                        )}
+                        {d.status !== 'published' && (
+                          <button onClick={() => setDraftToDelete(d)} title="Видалити" aria-label="Видалити чернетку" className="p-1.5 rounded-lg text-sys-text-secondary hover:text-rose-400 hover:bg-rose-500/10 transition">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -505,36 +511,39 @@ export function GeneratorPanel() {
             {drafts.map((d) => (
               <div key={d.id} className="rounded-xl border border-sys-border bg-sys-card p-4 space-y-3 shadow-xs">
                 <div className="flex items-start justify-between gap-2">
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <span className="text-[11px] font-mono text-sys-text-muted">#{d.id}</span>
                     <h4 className="font-semibold text-sm text-sys-text-primary leading-tight mt-0.5">{d.name}</h4>
                   </div>
-                  <span className={`px-2 py-0.5 rounded text-[11px] font-bold tracking-wider shrink-0 ${d.status === 'published' ? 'bg-emerald-500/10 text-emerald-400' : (d.status === 'DRAFT' || d.status === 'pending') ? 'bg-amber-500/10 text-amber-400' : 'bg-gray-500/10 text-gray-400'}`}>
-                    {draftStatusLabels[d.status] ?? "Невідомий статус"}
-                  </span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className={`px-2 py-0.5 rounded text-[11px] font-bold tracking-wider ${d.status === 'published' ? 'bg-emerald-500/10 text-emerald-400' : (d.status === 'DRAFT' || d.status === 'pending') ? 'bg-amber-500/10 text-amber-400' : 'bg-gray-500/10 text-gray-400'}`}>
+                      {draftStatusLabels[d.status] ?? "Невідомий статус"}
+                    </span>
+                    {d.status !== 'published' && (
+                      <button
+                        onClick={() => setDraftToDelete(d)}
+                        title="Видалити"
+                        aria-label="Видалити чернетку"
+                        className="w-8 h-8 flex items-center justify-center rounded-lg text-sys-text-secondary hover:text-rose-400 hover:bg-rose-500/10 transition"
+                      >
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-sys-border/40">
                   <button
                     onClick={() => loadSlots(d)}
-                    className="flex-1 min-h-[40px] px-3 py-1.5 text-xs font-semibold rounded-lg bg-sys-accent/10 text-sys-accent hover:bg-sys-accent/20 transition flex items-center justify-center"
+                    className="flex-1 min-h-[44px] px-3 py-2 text-xs font-semibold rounded-lg bg-sys-accent/10 text-sys-accent hover:bg-sys-accent/20 transition flex items-center justify-center"
                   >
                     Переглянути
                   </button>
                   {d.status === 'DRAFT' && (
                     <button
-                      onClick={() => handlePublish(d.id)}
-                      disabled={publishingId === d.id}
-                      className="flex-1 min-h-[40px] px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition disabled:opacity-50 flex items-center justify-center"
+                      onClick={() => { setDraftToPublish(d); setPublishTargetVersionId(targetVersionId); }}
+                      className="flex-1 min-h-[44px] px-3 py-2 text-xs font-semibold rounded-lg bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 transition flex items-center justify-center"
                     >
-                      {publishingId === d.id ? "Публікація..." : "Опублікувати"}
-                    </button>
-                  )}
-                  {d.status !== 'published' && (
-                    <button
-                      onClick={() => setDraftToDelete(d)}
-                      className="min-h-[40px] px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition flex items-center justify-center"
-                    >
-                      Видалити
+                      Опублікувати
                     </button>
                   )}
                 </div>
@@ -549,7 +558,84 @@ export function GeneratorPanel() {
         </div>
       )}
 
-      
+      {/* Publish Modal with Target Version Choice */}
+      {draftToPublish && (
+        <div
+          className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 backdrop-blur-sm"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setDraftToPublish(null);
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Опублікувати розклад"
+            className="flex max-h-[92dvh] w-full max-w-md flex-col rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card shadow-2xl overflow-hidden pb-safe animate-in slide-in-from-bottom-4 duration-200"
+          >
+            <div className="flex items-center justify-between border-b border-sys-border/50 bg-sys-card px-5 py-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-400">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-sys-text-primary">Опублікувати розклад</h3>
+                  <p className="text-xs text-sys-text-secondary mt-0.5">Чернетка «{draftToPublish.name}»</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDraftToPublish(null)}
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-sys-text-secondary hover:bg-white/5 hover:text-white text-base transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 overflow-y-auto">
+              <p className="text-sm text-sys-text-secondary">
+                Цей розклад буде записано як діючий для обраної версії. Всі поточні заняття у вибраній версії буде оновлено.
+              </p>
+
+              <div>
+                <label className="form-label text-sys-text-secondary mb-1">
+                  Цільова версія розкладу:
+                </label>
+                <select
+                  value={publishTargetVersionId || ""}
+                  onChange={(e) => setPublishTargetVersionId(e.target.value ? Number(e.target.value) : null)}
+                  className="form-control w-full bg-sys-bg text-sm"
+                >
+                  <option value="">Поточна активна версія</option>
+                  {versions.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.name} {v.is_active ? "(діє зараз)" : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-2.5 border-t border-sys-border/50 bg-sys-bg/80 px-5 py-3.5">
+              <button
+                type="button"
+                onClick={() => setDraftToPublish(null)}
+                className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-lg border border-sys-border bg-sys-card px-4 py-2 text-sm font-semibold text-sys-text-primary hover:bg-white/5 transition-all"
+              >
+                Скасувати
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmPublish}
+                disabled={publishingId === draftToPublish.id}
+                className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] flex items-center justify-center gap-2 rounded-lg bg-emerald-500 px-6 py-2 text-sm font-bold text-[#0b1120] hover:opacity-90 disabled:opacity-50 transition-all shadow-sm"
+              >
+                {publishingId === draftToPublish.id ? "Публікація..." : "Опублікувати розклад"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <ConfirmModal
         isOpen={draftToDelete !== null}
         title="Видалити розклад?"

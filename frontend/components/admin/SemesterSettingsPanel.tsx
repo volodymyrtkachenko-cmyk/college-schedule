@@ -57,12 +57,45 @@ export function SemesterSettingsPanel() {
     }
   }
 
+  const preview = (() => {
+    if (!semesterStart) return null;
+    const start = new Date(`${semesterStart}T00:00:00`);
+    if (isNaN(start.getTime())) return null;
+
+    const todayStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(new Date());
+    const today = new Date(`${todayStr}T00:00:00`);
+
+    const startDay = (start.getDay() + 6) % 7;
+    const startMonday = new Date(start);
+    startMonday.setDate(start.getDate() - startDay);
+
+    const todayDay = (today.getDay() + 6) % 7;
+    const todayMonday = new Date(today);
+    todayMonday.setDate(today.getDate() - todayDay);
+
+    const diffDays = Math.round((todayMonday.getTime() - startMonday.getTime()) / (1000 * 60 * 60 * 24));
+    const weekDiff = Math.floor(diffDays / 7);
+    const weekNumber = weekDiff + 1;
+    const weekType: "numerator" | "denominator" = (weekDiff % 2 === 0 || (weekDiff < 0 && Math.abs(weekDiff) % 2 === 0)) ? "numerator" : "denominator";
+
+    const isBefore = semesterStart > todayStr;
+    const isAfter = semesterEnd && semesterEnd < todayStr;
+
+    return {
+      todayStr,
+      weekNumber,
+      weekType,
+      isBefore,
+      isAfter,
+    };
+  })();
+
   return (
     <section className="max-w-[520px] space-y-5">
       <PageHeader
         eyebrow="НАЛАШТУВАННЯ"
         title="Налаштування семестру"
-        description="Вкажіть дати поточного семестру. Вони застосовуються для розрахунку чисельника/знаменника та доступності розкладу."
+        description="Вкажіть базові дати семестру для автоматичного розрахунку номера тижня та чисельника/знаменника."
       />
 
       {loading ? (
@@ -71,9 +104,9 @@ export function SemesterSettingsPanel() {
         <form onSubmit={save} className="w-full max-w-md rounded-2xl border border-sys-border bg-sys-card shadow-lg overflow-hidden">
           <div className="bg-gradient-to-b from-white/5 to-transparent p-6 pb-4 border-b border-sys-border/50">
             <h3 className="text-lg font-bold text-sys-text-primary">Параметри семестру</h3>
-            <p className="mt-1 text-sm text-sys-text-secondary">Вкажіть базові дати для коректного розрахунку чисельника/знаменника.</p>
+            <p className="mt-1 text-xs text-sys-text-secondary">Дати для визначення чергування чисельника та знаменника</p>
           </div>
-          <div className="px-6 py-5 space-y-5">
+          <div className="px-6 py-5 space-y-4">
             <label className="block">
               <span className="form-label text-sys-text-secondary">Початок семестру</span>
               <input
@@ -95,6 +128,33 @@ export function SemesterSettingsPanel() {
                 className="form-control mt-1 shadow-sm bg-sys-bg w-full"
               />
             </label>
+
+            {preview && (
+              <div className="rounded-xl border border-sys-border/80 bg-sys-bg/60 p-4 space-y-2">
+                <div className="flex items-center justify-between text-xs font-semibold text-sys-text-muted uppercase tracking-wider">
+                  <span>Розрахунок на сьогодні</span>
+                  <span className="font-mono text-sys-text-secondary">{preview.todayStr}</span>
+                </div>
+                <div className="flex items-center justify-between gap-2 pt-1">
+                  <div className="text-sm font-medium text-sys-text-primary">
+                    {preview.isBefore ? (
+                      <span className="text-amber-400">Семестр ще не розпочався</span>
+                    ) : preview.isAfter ? (
+                      <span className="text-sys-text-muted">Семестр вже завершився</span>
+                    ) : (
+                      <span>{preview.weekNumber}-й тиждень семестру</span>
+                    )}
+                  </div>
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                    preview.weekType === "numerator"
+                      ? "bg-amber-400/15 text-amber-300 border border-amber-400/20"
+                      : "bg-emerald-400/15 text-emerald-300 border border-emerald-400/20"
+                  }`}>
+                    {preview.weekType === "numerator" ? "Чисельник" : "Знаменник"}
+                  </span>
+                </div>
+              </div>
+            )}
 
             {error && (
               <div className="flex items-start gap-2 rounded-lg border border-rose-500/20 bg-rose-500/10 p-3 text-sm text-rose-400">

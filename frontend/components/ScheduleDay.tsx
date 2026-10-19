@@ -174,14 +174,14 @@ export function ScheduleDay({
   );
 
   return (
-    <section className={`min-w-0 ${isToday ? "rounded-3xl border border-sys-accent/30 bg-sys-accent/[0.03] p-1.5 shadow-[0_0_20px_rgba(88,166,255,0.08)]" : ""}`}>
+    <section className={`min-w-0 ${isToday ? "rounded-2xl border-t-2 border-t-sys-accent border border-sys-border/60 bg-sys-accent/[0.02] p-2 shadow-[0_0_15px_rgba(59,130,246,0.08)]" : ""}`}>
       <header className={`mb-3 flex ${mode === "week" ? "items-center justify-between px-1" : "items-center justify-between gap-2 px-2 sm:px-3 pt-1"} ${hideHeaderOnMobile ? "hidden sm:flex" : ""}`}>
         <div className="flex items-center gap-2">
-          {isToday && <span className="flex h-2 w-2 animate-pulse rounded-full bg-sys-accent shadow-[0_0_8px_rgba(88,166,255,0.8)]" />}
-          <h2 className="text-[17px] font-bold capitalize tracking-tight text-sys-text-primary">{fmt(schedule.date, { weekday: "long" })}</h2>
+          {isToday && <span className="flex h-2 w-2 animate-pulse rounded-full bg-sys-accent shadow-[0_0_8px_rgba(59,130,246,0.8)]" />}
+          <h2 className={`text-[16px] font-bold capitalize tracking-tight ${isToday ? "text-sys-accent" : "text-sys-text-primary"}`}>{fmt(schedule.date, { weekday: "long" })}</h2>
         </div>
         <div className="flex items-center gap-2">
-          <span className={`text-[13px] font-medium ${isToday ? "text-sys-accent" : "text-sys-text-muted"}`}>
+          <span className={`text-[12px] font-semibold ${isToday ? "text-sys-accent bg-sys-accent/15 px-2 py-0.5 rounded-md" : "text-sys-text-muted"}`}>
             {fmt(schedule.date, { day: "numeric", month: "short" })}
           </span>
           {orderedLessons.length > 0 && (

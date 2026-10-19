@@ -4,8 +4,8 @@
 
 :root {
   color-scheme: dark;
-  --page-bg: #0D1117;
-  --accent: #5ecbe8;
+  --page-bg: #000000;
+  --accent: #3B82F6;
 }
 
 @layer base {
@@ -25,13 +25,13 @@
     min-height: 100vh;
     margin: 0;
     background: var(--page-bg);
-    color: #e7ecf5;
+    color: #F4F4F5;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
   }
 
   :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
-    color: #e7ecf5;
+    color: #F4F4F5;
   }
 
   :is(input, select, textarea, button, a):focus-visible {
@@ -40,21 +40,25 @@
   }
 
   ::selection {
-    color: #0D1117;
+    color: #000000;
     background: var(--accent);
   }
 }
 
 @layer components {
   .form-control {
-    @apply rounded-lg border border-sys-border bg-sys-input px-3 py-2.5 min-h-[44px] text-[16px] sm:text-sm text-sys-text-primary outline-none transition-colors placeholder:text-sys-text-muted focus:border-sys-accent focus:ring-2 focus:ring-sys-accent/20 disabled:cursor-not-allowed disabled:opacity-60;
+    @apply rounded-lg border border-sys-border bg-sys-input px-3 py-2 min-h-[44px] sm:min-h-[40px] text-sm text-sys-text-primary outline-none transition-colors placeholder:text-sys-text-muted focus:border-sys-accent focus:ring-2 focus:ring-sys-accent/40 disabled:cursor-not-allowed disabled:opacity-60;
   }
 
   .form-label {
-    @apply grid gap-1.5 text-sm font-medium text-sys-text-secondary;
+    @apply grid gap-1.5 text-xs font-semibold uppercase tracking-wider text-sys-text-secondary;
   }
 
   .surface-panel {
     @apply rounded-2xl border border-sys-border bg-sys-card shadow-sm;
+  }
+
+  .elevated-panel {
+    @apply rounded-2xl border border-sys-elevatedBorder bg-sys-elevated shadow-xl;
   }
 }

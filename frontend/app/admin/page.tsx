@@ -569,17 +569,17 @@ function AdminContent() {
               title={referenceLabels[activeResource]}
               description={`Керування списком записів: редагування, додавання та пошук у довіднику «${referenceLabels[activeResource]}».`}
               actions={
-                <div className="hidden sm:flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <button
                     type="button"
                     onClick={() => { setBulkOpen(!bulkOpen); setBulkError(null); }}
-                    className="shrink-0 rounded-lg border border-sys-border bg-sys-card px-4 py-2 text-sm font-semibold text-sys-text-primary hover:bg-white/5 transition-colors"
+                    className="shrink-0 min-h-[44px] sm:min-h-[40px] rounded-lg border border-sys-border bg-sys-card px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold text-sys-text-primary hover:bg-white/5 transition-colors"
                   >
-                    📋 Додати списком
+                    📋 Списком
                   </button>
                   <button
                     onClick={() => setEditor(null)}
-                    className="shrink-0 rounded-lg bg-sys-accent px-4 py-2 text-sm font-semibold text-[#0b1120] hover:opacity-90 active:scale-95 transition-all"
+                    className="shrink-0 min-h-[44px] sm:min-h-[40px] rounded-lg bg-sys-accent px-3.5 sm:px-4 py-2 text-xs sm:text-sm font-bold text-[#0b1120] hover:opacity-90 active:scale-95 transition-all"
                   >
                     + Додати {resourceConfig[activeResource].addLabel}
                   </button>
@@ -587,7 +587,7 @@ function AdminContent() {
               }
             />
 
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 max-w-[960px]">
               <div className="relative w-full sm:max-w-md">
                 <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sys-text-muted"><SearchIcon /></span>
                 <input 
@@ -599,13 +599,6 @@ function AdminContent() {
                   className="form-control w-full py-2.5 pl-10 pr-4 min-h-[44px] text-sm"
                 />
               </div>
-              <button
-                type="button"
-                onClick={() => { setBulkOpen(!bulkOpen); setBulkError(null); }}
-                className="sm:hidden w-full flex items-center justify-center gap-2 rounded-lg border border-sys-border bg-sys-card py-2.5 text-xs font-semibold text-sys-text-primary"
-              >
-                📋 Додати списком
-              </button>
             </div>
 
         {bulkOpen && (
@@ -708,16 +701,6 @@ function AdminContent() {
           onDelete={setItemToDelete}
           onOpenRoster={openGroupRoster}
         />
-
-        {/* Mobile FAB for adding new records */}
-        <button
-          type="button"
-          onClick={() => setEditor(null)}
-          aria-label={`Додати ${resourceConfig[activeResource].addLabel}`}
-          className="sm:hidden fixed z-40 right-4 bottom-6 w-14 h-14 rounded-full bg-sys-accent text-[#0b1120] shadow-xl flex items-center justify-center font-bold text-2xl hover:scale-105 active:scale-95 transition-transform focus:outline-none focus:ring-2 focus:ring-sys-accent/40"
-        >
-          +
-        </button>
         
         
         {itemToDelete && (

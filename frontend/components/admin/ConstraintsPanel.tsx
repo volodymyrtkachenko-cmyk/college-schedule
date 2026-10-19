@@ -1,19 +1,37 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { api, TeacherConstraintRecord } from "../../lib/api";
 import { SearchableSelect } from "../SearchableSelect";
 import { useToast } from "../ToastProvider";
 import { PageHeader } from "./PageHeader";
 
+const DAYS: { id: number; name: string; short: string }[] = [
+  { id: 1, name: "Понеділок", short: "Пн" },
+  { id: 2, name: "Вівторок", short: "Вт" },
+  { id: 3, name: "Середа", short: "Ср" },
+  { id: 4, name: "Четвер", short: "Чт" },
+  { id: 5, name: "П’ятниця", short: "Пт" },
+];
+
+const LESSON_NUMBERS = [1, 2, 3, 4, 5, 6];
+
+const LESSON_TIMES: Record<number, string> = {
+  1: "08:00–09:20",
+  2: "09:30–10:50",
+  3: "11:00–12:20",
+  4: "12:50–14:10",
+  5: "14:20–15:40",
+  6: "15:50–17:10",
+};
+
 export function ConstraintsPanel() {
   const [items, setItems] = useState<TeacherConstraintRecord[]>([]);
-  const [teachers, setTeachers] = useState<{id:number, name:string}[]>([]);
+  const [teachers, setTeachers] = useState<{ id: number; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
-  
+  const [togglingCell, setTogglingCell] = useState<string | null>(null);
+
   const [teacherId, setTeacherId] = useState<number | "">("");
-  const [day, setDay] = useState<number>(1);
-  const [lesson, setLesson] = useState<number>(1);
   const { showToast: setToast } = useToast();
 
   useEffect(() => {
@@ -24,145 +42,264 @@ export function ConstraintsPanel() {
     try {
       setLoading(true);
       const session = await api.auth.ensureAuthenticated();
-      
       const t = await api.directory.teachers();
       setTeachers(t);
-      
+      if (t.length > 0 && teacherId === "") {
+        setTeacherId(t[0].id);
+      }
       const res = await api.constraints.list(session.access_token);
       setItems(res);
-    } catch(err: any) {
-      setToast(err.message, "error");
+    } catch (err: any) {
+      setToast(err.message || "Помилка завантаження даних", "error");
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleAdd() {
-    if (!teacherId) return setToast("Оберіть викладача.", "error");
+  // Constraints map for the selected teacher: `${day}_${lesson}` -> TeacherConstraintRecord
+  const teacherConstraintsMap = useMemo(() => {
+    const map = new Map<string, TeacherConstraintRecord>();
+    if (!teacherId) return map;
+    for (const c of items) {
+      if (c.teacher.id === Number(teacherId)) {
+        map.set(`${c.day_of_week}_${c.lesson_number}`, c);
+      }
+    }
+    return map;
+  }, [items, teacherId]);
+
+  const selectedTeacherName = useMemo(() => {
+    return teachers.find((t) => t.id === teacherId)?.name || "";
+  }, [teachers, teacherId]);
+
+  async function toggleCell(day: number, lesson: number) {
+    if (!teacherId) {
+      setToast("Оберіть викладача", "error");
+      return;
+    }
+    const key = `${day}_${lesson}`;
+    const existing = teacherConstraintsMap.get(key);
+    setTogglingCell(key);
+
     try {
       const session = await api.auth.ensureAuthenticated();
-      const res = await api.constraints.create(Number(teacherId), day, lesson, session.access_token);
-      setItems([res, ...items]);
-      setToast("Обмеження додано.", "success");
-    } catch(err: any) {
-      setToast(err.message, "error");
+      if (existing) {
+        await api.constraints.remove(existing.id, session.access_token);
+        setItems((prev) => prev.filter((i) => i.id !== existing.id));
+        setToast(`Пару розблоковано: ${DAYS.find((d) => d.id === day)?.name}, ${lesson} пара`, "success");
+      } else {
+        const created = await api.constraints.create(Number(teacherId), day, lesson, session.access_token);
+        setItems((prev) => [created, ...prev]);
+        setToast(`Обмеження додано: ${DAYS.find((d) => d.id === day)?.name}, ${lesson} пара`, "success");
+      }
+    } catch (err: any) {
+      setToast(err.message || "Помилка оновлення обмеження", "error");
+    } finally {
+      setTogglingCell(null);
     }
   }
 
-  async function handleDelete(id: number) {
+  async function toggleWholeDay(day: number) {
+    if (!teacherId) {
+      setToast("Оберіть викладача", "error");
+      return;
+    }
+
+    // Check if all lessons are currently constrained
+    const allConstrained = LESSON_NUMBERS.every((l) => teacherConstraintsMap.has(`${day}_${l}`));
+
     try {
       const session = await api.auth.ensureAuthenticated();
-      await api.constraints.remove(id, session.access_token);
-      setItems(items.filter(i => i.id !== id));
-      setToast("Обмеження видалено.", "success");
-    } catch(err: any) {
-      setToast(err.message, "error");
+      if (allConstrained) {
+        // Remove all constraints for this day
+        const toRemove = LESSON_NUMBERS.map((l) => teacherConstraintsMap.get(`${day}_${l}`))
+          .filter(Boolean) as TeacherConstraintRecord[];
+        await Promise.all(toRemove.map((c) => api.constraints.remove(c.id, session.access_token)));
+        const removedIds = new Set(toRemove.map((c) => c.id));
+        setItems((prev) => prev.filter((i) => !removedIds.has(i.id)));
+        setToast(`День розблоковано: ${DAYS.find((d) => d.id === day)?.name}`, "success");
+      } else {
+        // Add constraints for all free lessons in this day
+        const toAdd = LESSON_NUMBERS.filter((l) => !teacherConstraintsMap.has(`${day}_${l}`));
+        const newRecords = await Promise.all(
+          toAdd.map((l) => api.constraints.create(Number(teacherId), day, l, session.access_token))
+        );
+        setItems((prev) => [...newRecords, ...prev]);
+        setToast(`Методичний день: заблоковано весь ${DAYS.find((d) => d.id === day)?.name}`, "success");
+      }
+    } catch (err: any) {
+      setToast(err.message || "Помилка оновлення дня", "error");
     }
   }
 
-  const daysDict = {1: "Понеділок", 2: "Вівторок", 3: "Середа", 4: "Четвер", 5: "П’ятниця"};
+  async function clearAllTeacherConstraints() {
+    if (!teacherId) return;
+    const currentConstraints = items.filter((i) => i.teacher.id === Number(teacherId));
+    if (currentConstraints.length === 0) return;
+    if (!window.confirm(`Зняти всі обмеження для викладача ${selectedTeacherName}?`)) return;
+
+    try {
+      const session = await api.auth.ensureAuthenticated();
+      await Promise.all(currentConstraints.map((c) => api.constraints.remove(c.id, session.access_token)));
+      const removedIds = new Set(currentConstraints.map((c) => c.id));
+      setItems((prev) => prev.filter((i) => !removedIds.has(i.id)));
+      setToast(`Всі обмеження для ${selectedTeacherName} знято`, "success");
+    } catch (err: any) {
+      setToast(err.message || "Помилка очищення обмежень", "error");
+    }
+  }
+
+  const blockedCount = teacherConstraintsMap.size;
 
   return (
     <>
       <PageHeader
         eyebrow="АВТОМАТИЗАЦІЯ"
         title="Доступність викладачів"
-        description="Позначте дні та пари, коли викладач не може проводити заняття. Генератор врахує ці обмеження."
+        description="Інтерактивна матриця щотижневої зайнятості. Клікніть по комірці, щоб позначити пару недоступною. Клікніть по заголовку дня тижня, щоб заблокувати весь день (методичний день)."
       />
 
-      <div className="surface-panel mt-4 flex flex-wrap items-end gap-3 p-4 sm:p-5">
-         <div className="w-full sm:w-auto sm:min-w-[220px]">
-           <label className="block text-xs font-semibold uppercase tracking-wider text-sys-text-secondary mb-1">Викладач</label>
-           <SearchableSelect
-             options={teachers}
-             value={teacherId === "" ? null : teacherId}
-             onChange={(id) => setTeacherId(id ?? "")}
-             placeholder="Знайти викладача"
-             disabled={loading}
-             ariaLabel="Викладач"
-           />
-         </div>
-         <div className="flex-1 sm:flex-initial">
-           <label className="block text-xs font-semibold uppercase tracking-wider text-sys-text-secondary mb-1">День тижня</label>
-           <select value={day} onChange={e => setDay(Number(e.target.value))} className="form-control w-full min-w-[140px] text-sm">
-             {Object.entries(daysDict).map(([k,v]) => <option key={k} value={k}>{v}</option>)}
-           </select>
-         </div>
-         <div className="flex-1 sm:flex-initial">
-           <label className="block text-xs font-semibold uppercase tracking-wider text-sys-text-secondary mb-1">Пара</label>
-           <select value={lesson} onChange={e => setLesson(Number(e.target.value))} className="form-control w-full min-w-[110px] text-sm">
-             <option value={1}>1 пара</option><option value={2}>2 пара</option>
-             <option value={3}>3 пара</option><option value={4}>4 пара</option>
-           </select>
-         </div>
-         <button onClick={handleAdd} className="w-full sm:w-auto h-[38px] rounded-lg bg-rose-600/90 px-4 text-sm font-semibold text-white transition-colors hover:bg-rose-600 active:scale-95">
-            + Додати обмеження
-         </button>
+      {/* Top Bar: Teacher Picker & Quick Status */}
+      <div className="surface-panel mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-5">
+        <div className="w-full sm:w-80">
+          <label className="block text-xs font-semibold uppercase tracking-wider text-sys-text-secondary mb-1.5">
+            Викладач для налаштування
+          </label>
+          <SearchableSelect
+            options={teachers}
+            value={teacherId === "" ? null : teacherId}
+            onChange={(id) => setTeacherId(id ?? "")}
+            placeholder="Знайти викладача"
+            disabled={loading}
+            ariaLabel="Викладач"
+          />
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 rounded-xl border border-sys-border bg-sys-card px-3.5 py-2 text-xs">
+            <span className="text-sys-text-secondary">Заблоковано пар:</span>
+            <span
+              className={`font-bold px-2 py-0.5 rounded-full ${
+                blockedCount > 0
+                  ? "bg-rose-500/15 text-rose-300 border border-rose-500/30"
+                  : "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+              }`}
+            >
+              {blockedCount} з {DAYS.length * LESSON_NUMBERS.length}
+            </span>
+          </div>
+
+          {blockedCount > 0 && (
+            <button
+              type="button"
+              onClick={clearAllTeacherConstraints}
+              className="h-10 px-3.5 rounded-xl border border-sys-border bg-sys-card text-xs font-semibold text-sys-text-secondary hover:border-rose-500/40 hover:bg-rose-500/10 hover:text-rose-400 active:scale-95 transition-all"
+            >
+              Очистити все
+            </button>
+          )}
+        </div>
       </div>
 
       {loading ? (
-        <div className="mt-8 text-center text-sys-text-secondary">Завантаження…</div>
+        <div className="mt-8 text-center text-sys-text-secondary py-12">Завантаження доступності…</div>
+      ) : teacherId === "" ? (
+        <div className="mt-6 rounded-2xl border border-dashed border-sys-border p-12 text-center text-sys-text-secondary text-sm">
+          Оберіть викладача в селекторі вище для перегляду та редагування матриці зайнятості.
+        </div>
       ) : (
-        <>
-          {/* Desktop Table (>=640px) */}
-          <div className="hidden sm:block mt-6 rounded-xl border border-sys-border bg-sys-card overflow-hidden shadow-sm">
-            <table className="w-full text-left text-sm border-collapse">
-              <thead className="bg-[#111827] sticky top-0 z-10 border-b border-sys-border">
-                <tr>
-                  <th className="px-5 py-3.5 font-semibold text-sys-text-secondary text-xs uppercase tracking-wider">Викладач</th>
-                  <th className="px-5 py-3.5 font-semibold text-sys-text-secondary text-xs uppercase tracking-wider">День</th>
-                  <th className="px-5 py-3.5 font-semibold text-sys-text-secondary text-xs uppercase tracking-wider">Пара</th>
-                  <th className="px-5 py-3.5 font-semibold text-sys-text-secondary text-right min-w-[100px]">Дії</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-sys-border/50">
-                {items.map(i => (
-                  <tr key={i.id} className="hover:bg-white/[0.02] transition-colors">
-                    <td className="px-5 py-3 font-semibold text-sys-text-primary">{i.teacher.name}</td>
-                    <td className="px-5 py-3 text-rose-400 font-medium">{daysDict[i.day_of_week as keyof typeof daysDict] || i.day_of_week}</td>
-                    <td className="px-5 py-3 font-bold text-sys-text-muted">{i.lesson_number} пара</td>
-                    <td className="px-5 py-3 text-right">
-                      <button onClick={() => handleDelete(i.id)} className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition-colors">Видалити</button>
-                    </td>
-                  </tr>
-                ))}
-                {items.length === 0 && (
-                  <tr>
-                     <td colSpan={4} className="px-5 py-8 text-center text-sys-text-secondary">Обмежень немає. Викладачі доступні в усі дні та пари.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Mobile Card View (<640px) */}
-          <div className="sm:hidden space-y-2.5 mt-4">
-            {items.map(i => (
-              <div key={i.id} className="rounded-xl border border-sys-border bg-sys-card p-3.5 flex items-center justify-between gap-3 shadow-sm">
-                <div>
-                  <h4 className="font-semibold text-sm text-sys-text-primary">{i.teacher.name}</h4>
-                  <p className="text-xs text-rose-400 font-medium mt-0.5">
-                    {daysDict[i.day_of_week as keyof typeof daysDict] || i.day_of_week} • {i.lesson_number} пара
-                  </p>
+        <div className="mt-6 space-y-6">
+          {/* Interactive 5x6 Chessboard Matrix */}
+          <div className="rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-6 shadow-xl overflow-x-auto">
+            <div className="min-w-[640px]">
+              {/* Matrix Header: Days */}
+              <div className="grid grid-cols-6 gap-2.5 pb-3 border-b border-sys-border/60">
+                <div className="flex items-center justify-center p-2 text-xs font-bold uppercase tracking-wider text-sys-text-muted">
+                  Пара \ День
                 </div>
-                <button
-                  onClick={() => handleDelete(i.id)}
-                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 active:scale-95 transition-colors"
-                >
-                  Видалити
-                </button>
+                {DAYS.map((d) => {
+                  const dayBlocked = LESSON_NUMBERS.every((l) => teacherConstraintsMap.has(`${d.id}_${l}`));
+                  return (
+                    <button
+                      key={d.id}
+                      type="button"
+                      onClick={() => void toggleWholeDay(d.id)}
+                      title={`Клікніть, щоб ${dayBlocked ? "розблокувати" : "заблокувати"} весь ${d.name}`}
+                      className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl border text-xs transition-all active:scale-98 ${
+                        dayBlocked
+                          ? "border-rose-500/40 bg-rose-500/15 text-rose-300 font-bold"
+                          : "border-sys-border bg-sys-bg text-sys-text-primary hover:border-sys-accent/50 hover:bg-sys-bg/80"
+                      }`}
+                    >
+                      <span className="font-bold text-sm">{d.short}</span>
+                      <span className="text-[10px] text-sys-text-muted">{d.name}</span>
+                    </button>
+                  );
+                })}
               </div>
-            ))}
-            {items.length === 0 && (
-              <div className="rounded-xl border border-dashed border-sys-border p-8 text-center text-sm text-sys-text-secondary">
-                Обмежень немає. Викладачі доступні в усі дні та пари.
-              </div>
-            )}
-          </div>
-        </>
-      )}
 
-      
+              {/* Matrix Rows: 6 pairs */}
+              <div className="mt-3 space-y-2.5">
+                {LESSON_NUMBERS.map((lesson) => (
+                  <div key={lesson} className="grid grid-cols-6 gap-2.5 items-center">
+                    {/* Lesson Label */}
+                    <div className="flex flex-col items-center justify-center py-2 px-2 rounded-xl bg-sys-bg border border-sys-border/60 text-center">
+                      <span className="text-xs font-bold text-sys-text-primary">{lesson} пара</span>
+                      <span className="text-[10px] text-sys-text-muted font-mono">{LESSON_TIMES[lesson]}</span>
+                    </div>
+
+                    {/* 5 Day Cells */}
+                    {DAYS.map((d) => {
+                      const key = `${d.id}_${lesson}`;
+                      const isBlocked = teacherConstraintsMap.has(key);
+                      const isToggling = togglingCell === key;
+
+                      return (
+                        <button
+                          key={d.id}
+                          type="button"
+                          disabled={isToggling}
+                          onClick={() => void toggleCell(d.id, lesson)}
+                          className={`relative flex flex-col items-center justify-center h-16 rounded-xl border p-2 transition-all active:scale-[0.97] focus:outline-none focus:ring-2 focus:ring-sys-accent ${
+                            isBlocked
+                              ? "border-rose-500/50 bg-rose-500/10 text-rose-300 shadow-inner hover:bg-rose-500/20"
+                              : "border-sys-border bg-sys-bg/60 text-sys-text-muted hover:border-sys-accent/60 hover:bg-sys-bg hover:text-sys-text-primary"
+                          }`}
+                        >
+                          {isToggling ? (
+                            <span className="text-xs text-sys-text-muted animate-pulse">…</span>
+                          ) : isBlocked ? (
+                            <>
+                              <span className="text-sm">⛔</span>
+                              <span className="text-[11px] font-bold text-rose-400 mt-0.5">Недоступний</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="text-xs text-sys-text-muted font-medium">Вільний</span>
+                            </>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Helper Legend */}
+          <div className="flex items-center gap-6 px-2 text-xs text-sys-text-secondary">
+            <div className="flex items-center gap-2">
+              <span className="flex h-3.5 w-3.5 rounded-md border border-sys-border bg-sys-bg/60" />
+              <span>Вільний для призначення</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="flex h-3.5 w-3.5 rounded-md border border-rose-500/50 bg-rose-500/15" />
+              <span>Недоступний (генератор не призначить пару)</span>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

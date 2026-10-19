@@ -386,10 +386,10 @@ export function AdminNav({ active }: { active: string }) {
             </div>
           </div>
 
-          {/* Group 1: Основне */}
+          {/* Group 1: РОЗКЛАД */}
           <div>
             <div className="px-2 mb-1.5 text-[10px] font-bold uppercase tracking-wider text-sys-text-muted">
-              Основне
+              Розклад
             </div>
             <div className="space-y-1">
               <Link
@@ -399,125 +399,91 @@ export function AdminNav({ active }: { active: string }) {
                 className={linkClass(active === "schedule")}
               >
                 <ScheduleIcon className="w-4 h-4 shrink-0 text-current" />
-                <span className="truncate">Розклад</span>
+                <span className="truncate">Сітка розкладу</span>
               </Link>
 
-              {user?.role === "admin" && (
-                <>
-                  <Link
-                    href="/admin?resource=import"
-                    onClick={() => setDrawerOpen(false)}
-                    aria-current={active === "import" ? "page" : undefined}
-                    className={linkClass(active === "import")}
-                  >
-                    <ImportIcon className="w-4 h-4 shrink-0 text-current" />
-                    <span className="truncate">Імпорт з КРЕ</span>
-                    {anomalyDraftsCount > 0 && (
-                      <span
-                        className="ml-auto inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-bold leading-none text-white bg-rose-500 rounded-full shadow-xs shrink-0 animate-pulse"
-                        title={`Необхідна перевірка: ${anomalyDraftsCount} аномальних чернеток`}
-                      >
-                        {anomalyDraftsCount}
-                      </span>
-                    )}
-                  </Link>
+              <Link
+                href="/admin?resource=versions"
+                onClick={() => setDrawerOpen(false)}
+                aria-current={active === "versions" || active === "semester" ? "page" : undefined}
+                className={linkClass(active === "versions" || active === "semester")}
+              >
+                <VersionsIcon className="w-4 h-4 shrink-0 text-current" />
+                <span className="truncate">Версії та семестри</span>
+              </Link>
 
-                  <Link
-                    href="/admin?resource=periods"
-                    onClick={() => setDrawerOpen(false)}
-                    aria-current={active === "periods" ? "page" : undefined}
-                    className={linkClass(active === "periods")}
-                    title="Графік процесу (Практики, канікули, сесії)"
-                  >
-                    <CalendarRangeIcon className="w-4 h-4 shrink-0 text-current" />
-                    <span className="truncate">Графік процесу</span>
-                  </Link>
-
-                  <Link
-                    href="/admin?resource=versions"
-                    onClick={() => setDrawerOpen(false)}
-                    aria-current={active === "versions" ? "page" : undefined}
-                    className={linkClass(active === "versions")}
-                  >
-                    <VersionsIcon className="w-4 h-4 shrink-0 text-current" />
-                    <span className="truncate">Версії</span>
-                  </Link>
-
-                  <Link
-                    href="/admin?resource=semester"
-                    onClick={() => setDrawerOpen(false)}
-                    aria-current={active === "semester" ? "page" : undefined}
-                    className={linkClass(active === "semester")}
-                  >
-                    <SemesterIcon className="w-4 h-4 shrink-0 text-current" />
-                    <span className="truncate">Семестр</span>
-                  </Link>
-
-                  {/* Accordion: Автогенератор */}
-                  <div className="pt-1">
-                    <button
-                      type="button"
-                      onClick={() => setGeneratorExpanded(!generatorExpanded)}
-                      className="flex w-full items-center justify-between px-3 py-1.5 rounded-lg text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/[0.03] transition-colors"
-                      aria-expanded={generatorExpanded}
-                    >
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <GeneratorWandIcon className="w-3.5 h-3.5 shrink-0 text-sys-text-muted" />
-                        <span className="truncate">Автогенератор</span>
-                        <span className="text-[9px] uppercase font-bold text-sys-text-muted/80 bg-white/5 border border-sys-border/40 px-1 py-0.5 rounded leading-none shrink-0">
-                          додатково
-                        </span>
-                      </div>
-                      <span className={`text-[10px] text-sys-text-muted transition-transform duration-200 ${generatorExpanded ? "rotate-180" : ""}`}>
-                        ▼
-                      </span>
-                    </button>
-
-                    <div
-                      className="grid transition-all duration-200 ease-out"
-                      style={{ gridTemplateRows: generatorExpanded ? "1fr" : "0fr" }}
-                    >
-                      <div className="overflow-hidden">
-                        <div className="ml-3 pl-2 mt-1 space-y-1 border-l border-sys-border/40">
-                          <Link
-                            href="/admin?resource=curriculum"
-                            onClick={() => setDrawerOpen(false)}
-                            aria-current={active === "curriculum" ? "page" : undefined}
-                            className={linkClass(active === "curriculum")}
-                          >
-                            <CurriculumIcon className="w-3.5 h-3.5 shrink-0" />
-                            <span className="truncate">Навантаження</span>
-                          </Link>
-
-                          <Link
-                            href="/admin?resource=constraints"
-                            onClick={() => setDrawerOpen(false)}
-                            aria-current={active === "constraints" ? "page" : undefined}
-                            className={linkClass(active === "constraints")}
-                          >
-                            <ConstraintsIcon className="w-3.5 h-3.5 shrink-0" />
-                            <span className="truncate">Обмеження</span>
-                          </Link>
-
-                          <Link
-                            href="/admin?resource=generator"
-                            onClick={() => setDrawerOpen(false)}
-                            aria-current={active === "generator" ? "page" : undefined}
-                            className={linkClass(active === "generator")}
-                          >
-                            <PlayGeneratorIcon className="w-3.5 h-3.5 shrink-0" />
-                            <span className="truncate">Генерація розкладу</span>
-                          </Link>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </>
-              )}
+              <Link
+                href="/admin?resource=periods"
+                onClick={() => setDrawerOpen(false)}
+                aria-current={active === "periods" ? "page" : undefined}
+                className={linkClass(active === "periods")}
+                title="Графік процесу (Практики, канікули, сесії)"
+              >
+                <CalendarRangeIcon className="w-4 h-4 shrink-0 text-current" />
+                <span className="truncate">Графік процесу</span>
+              </Link>
             </div>
           </div>
 
-          {/* Group 2: Довідники */}
+          {/* Group 2: АВТОМАТИЗАЦІЯ */}
+          {user?.role === "admin" && (
+            <div>
+              <div className="px-2 mb-1.5 text-[10px] font-bold uppercase tracking-wider text-sys-text-muted">
+                Автоматизація
+              </div>
+              <div className="space-y-1">
+                <Link
+                  href="/admin?resource=curriculum"
+                  onClick={() => setDrawerOpen(false)}
+                  aria-current={active === "curriculum" ? "page" : undefined}
+                  className={linkClass(active === "curriculum")}
+                >
+                  <CurriculumIcon className="w-4 h-4 shrink-0 text-current" />
+                  <span className="truncate">Навчальне навантаження</span>
+                </Link>
+
+                <Link
+                  href="/admin?resource=constraints"
+                  onClick={() => setDrawerOpen(false)}
+                  aria-current={active === "constraints" ? "page" : undefined}
+                  className={linkClass(active === "constraints")}
+                >
+                  <ConstraintsIcon className="w-4 h-4 shrink-0 text-current" />
+                  <span className="truncate">Обмеження викладачів</span>
+                </Link>
+
+                <Link
+                  href="/admin?resource=generator"
+                  onClick={() => setDrawerOpen(false)}
+                  aria-current={active === "generator" ? "page" : undefined}
+                  className={linkClass(active === "generator")}
+                >
+                  <PlayGeneratorIcon className="w-4 h-4 shrink-0 text-current" />
+                  <span className="truncate">Генерація розкладу</span>
+                </Link>
+
+                <Link
+                  href="/admin?resource=import"
+                  onClick={() => setDrawerOpen(false)}
+                  aria-current={active === "import" ? "page" : undefined}
+                  className={linkClass(active === "import")}
+                >
+                  <ImportIcon className="w-4 h-4 shrink-0 text-current" />
+                  <span className="truncate">Імпорт з КРЕ</span>
+                  {anomalyDraftsCount > 0 && (
+                    <span
+                      className="ml-auto inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-bold leading-none text-white bg-rose-500 rounded-full shadow-xs shrink-0 animate-pulse"
+                      title={`Необхідна перевірка: ${anomalyDraftsCount} аномальних чернеток`}
+                    >
+                      {anomalyDraftsCount}
+                    </span>
+                  )}
+                </Link>
+              </div>
+            </div>
+          )}
+
+          {/* Group 3: ДОВІДНИКИ */}
           {user?.role === "admin" && (
             <div>
               <div className="px-2 mb-1.5 text-[10px] font-bold uppercase tracking-wider text-sys-text-muted">
@@ -530,7 +496,7 @@ export function AdminNav({ active }: { active: string }) {
                   aria-current={active === "groups" ? "page" : undefined}
                   className={linkClass(active === "groups")}
                 >
-                  <GroupsIcon className="w-4 h-4 shrink-0" />
+                  <GroupsIcon className="w-4 h-4 shrink-0 text-current" />
                   <span className="truncate">Групи</span>
                 </Link>
 
@@ -540,7 +506,7 @@ export function AdminNav({ active }: { active: string }) {
                   aria-current={active === "teachers" ? "page" : undefined}
                   className={linkClass(active === "teachers")}
                 >
-                  <TeachersIcon className="w-4 h-4 shrink-0" />
+                  <TeachersIcon className="w-4 h-4 shrink-0 text-current" />
                   <span className="truncate">Викладачі</span>
                 </Link>
 
@@ -550,7 +516,7 @@ export function AdminNav({ active }: { active: string }) {
                   aria-current={active === "subjects" ? "page" : undefined}
                   className={linkClass(active === "subjects")}
                 >
-                  <SubjectsIcon className="w-4 h-4 shrink-0" />
+                  <SubjectsIcon className="w-4 h-4 shrink-0 text-current" />
                   <span className="truncate">Предмети</span>
                 </Link>
 
@@ -560,7 +526,7 @@ export function AdminNav({ active }: { active: string }) {
                   aria-current={active === "faculties" ? "page" : undefined}
                   className={linkClass(active === "faculties")}
                 >
-                  <FacultiesIcon className="w-4 h-4 shrink-0" />
+                  <FacultiesIcon className="w-4 h-4 shrink-0 text-current" />
                   <span className="truncate">Спеціальності</span>
                 </Link>
 
@@ -570,7 +536,7 @@ export function AdminNav({ active }: { active: string }) {
                   aria-current={active === "users" ? "page" : undefined}
                   className={linkClass(active === "users")}
                 >
-                  <UsersIcon className="w-4 h-4 shrink-0" />
+                  <UsersIcon className="w-4 h-4 shrink-0 text-current" />
                   <span className="truncate">Користувачі</span>
                 </Link>
               </div>
@@ -578,91 +544,46 @@ export function AdminNav({ active }: { active: string }) {
           )}
         </div>
 
-        {/* Bottom Area: Online widget + Logout */}
-        <div className="p-3 border-t border-sys-border bg-sys-bg/30 space-y-2">
-          {/* Compact Online widget */}
-          <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-2 transition-colors">
-            <button
-              type="button"
-              onClick={() => setOnlineExpanded(!onlineExpanded)}
-              className="flex items-center justify-between w-full text-left"
-              aria-expanded={onlineExpanded}
-            >
-              <div className="flex items-center gap-2">
-                <span className="relative flex h-2 w-2 shrink-0">
+        {/* Bottom Area: Compact User card + online status + Logout icon */}
+        <div className="p-3 border-t border-sys-border bg-sys-bg/40">
+          <div className="flex items-center justify-between gap-2 rounded-xl border border-sys-border bg-sys-card p-2.5">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sys-accent/15 border border-sys-accent/30 text-xs font-bold text-sys-accent uppercase">
+                {user?.username ? user.username.slice(0, 2).toUpperCase() : "AD"}
+                <span className="absolute -bottom-0.5 -right-0.5 flex h-2.5 w-2.5">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-                </span>
-                <span className="text-xs font-semibold text-emerald-400">
-                  {online !== null ? `${online} онлайн` : "Підключення…"}
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500 border-2 border-sys-card" />
                 </span>
               </div>
-              <span className={`text-[10px] text-emerald-400/80 transition-transform duration-200 ${onlineExpanded ? "rotate-180" : ""}`}>
-                ▼
-              </span>
-            </button>
-
-            <div
-              className="grid transition-all duration-200 ease-out"
-              style={{ gridTemplateRows: onlineExpanded ? "1fr" : "0fr" }}
-            >
-              <div className="overflow-hidden">
-                <div className="pt-2 mt-2 border-t border-emerald-500/15 space-y-2 text-[11px] text-sys-text-secondary">
-                  {metrics?.online_details && (
-                    <div className="flex flex-wrap gap-1">
-                      {metrics.online_details.guests > 0 && (
-                        <span className="inline-flex items-center gap-1 rounded bg-sys-card px-1.5 py-0.5 border border-sys-border/40">
-                          <span>{metrics.online_details.guests} студ.</span>
-                        </span>
-                      )}
-                      {metrics.online_details.admins > 0 && (
-                        <span className="inline-flex items-center gap-1 rounded bg-amber-500/10 px-1.5 py-0.5 text-amber-400 border border-amber-500/20">
-                          <span>{metrics.online_details.admins} адмін.</span>
-                        </span>
-                      )}
-                      {metrics.online_details.editors > 0 && (
-                        <span className="inline-flex items-center gap-1 rounded bg-blue-500/10 px-1.5 py-0.5 text-blue-400 border border-blue-500/20">
-                          <span>{metrics.online_details.editors} ред.</span>
-                        </span>
-                      )}
-                    </div>
-                  )}
-                  {metrics?.online_details?.staff?.length > 0 && (
-                    <div className="flex flex-col gap-1 max-h-24 overflow-y-auto pr-1">
-                      {metrics.online_details.staff.map((s: any, idx: number) => (
-                        <div key={idx} className="flex items-center justify-between text-[10px]">
-                          <span className="font-medium truncate text-sys-text-primary">{s.name || s.username}</span>
-                          <span className="text-emerald-400 text-[9px] shrink-0">{s.role}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold text-sys-text-primary truncate leading-tight">
+                  {user?.name || user?.username || "Диспетчер"}
+                </p>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="text-[10px] text-emerald-400 font-medium">
+                    {online !== null ? `${online} онлайн` : "В мережі"}
+                  </span>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Logout button */}
-          <button
-            type="button"
-            disabled={isLoggingOut}
-            onClick={() => void handleLogout()}
-            className={`w-full flex items-center justify-center gap-2 rounded-lg py-2 px-2.5 text-xs font-semibold transition-all ${
-              isLoggingOut
-                ? "opacity-50 cursor-not-allowed text-rose-300 bg-rose-500/10"
-                : "text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 active:scale-[0.98]"
-            }`}
-            title="Вийти з системи"
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-              <polyline points="16 17 21 12 16 7" />
-              <line x1="21" y1="12" x2="9" y2="12" />
-            </svg>
-            <span>{isLoggingOut ? "Вихід…" : "Вийти"}</span>
-          </button>
+            <button
+              type="button"
+              disabled={isLoggingOut}
+              onClick={() => void handleLogout()}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-sys-border text-sys-text-secondary hover:border-rose-500/40 hover:bg-rose-500/10 hover:text-rose-400 transition-colors disabled:opacity-50"
+              title="Вийти з системи"
+              aria-label="Вийти з системи"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
+            </button>
+          </div>
           {logoutError && (
-            <div role="alert" className="text-rose-400 text-[10px] text-center font-medium">
+            <div role="alert" className="text-rose-400 text-[10px] text-center font-medium mt-1">
               {logoutError}
             </div>
           )}
@@ -763,14 +684,14 @@ export function AdminNav({ active }: { active: string }) {
         </button>
       )}
 
-      {/* 4. Desktop Sidebar (≥ 1024px): 232px when expanded, 0px when collapsed */}
+      {/* 4. Desktop Sidebar (≥ 1024px): 240px when expanded, 0px when collapsed */}
       <aside
         aria-label="Навігація адмінпанелі"
         className={`hidden lg:flex shrink-0 h-screen sticky top-0 border-r border-sys-border bg-sys-card flex-col z-30 transition-[width] duration-200 ease-in-out ${
-          isDesktopCollapsed ? "w-0 overflow-hidden border-none" : "w-[232px]"
+          isDesktopCollapsed ? "w-0 overflow-hidden border-none" : "w-[240px]"
         }`}
       >
-        <div className="w-[232px] h-full flex flex-col justify-between overflow-hidden">
+        <div className="w-[240px] h-full flex flex-col justify-between overflow-hidden">
           {renderNavContent()}
         </div>
       </aside>

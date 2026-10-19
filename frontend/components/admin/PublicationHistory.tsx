@@ -207,12 +207,18 @@ export const PublicationHistory: React.FC = () => {
               const isAuto = p.source === "auto" || p.source === "Авто";
 
               return (
-                <div key={p.id} className="rounded-xl border border-sys-border bg-sys-card p-3.5 space-y-2.5 shadow-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="font-semibold text-sys-text-primary text-xs">
-                      #{p.id} • {p.version_id ? `Версія #${p.version_id}` : "Базова"}
-                    </span>
-                    <div className="flex items-center gap-1.5">
+                <div key={p.id} className="relative rounded-xl border border-sys-border bg-sys-card p-3.5 space-y-2.5 shadow-sm">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <span className="font-semibold text-sys-text-primary text-xs">
+                        #{p.id} • {p.version_id ? `Версія #${p.version_id}` : "Базова"}
+                      </span>
+                      <div className="text-[11px] text-sys-text-muted mt-0.5">
+                        {new Date(p.timestamp).toLocaleString("uk-UA")} • {p.changes_count || 0} змін
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
                       {isAuto ? (
                         <span className="inline-flex items-center rounded-md bg-blue-500/15 px-1.5 py-0.5 text-[11px] font-semibold text-blue-400">
                           Авто
@@ -236,28 +242,28 @@ export const PublicationHistory: React.FC = () => {
                           В історії
                         </span>
                       )}
+                      {isLatestActive && (
+                        <button
+                          type="button"
+                          onClick={() => void handleRevert(p.id)}
+                          disabled={revertingId === p.id}
+                          title="Відкотити публікацію"
+                          aria-label="Відкотити публікацію"
+                          className="w-9 h-9 flex items-center justify-center rounded-lg text-rose-400 hover:bg-rose-500/15 active:bg-rose-500/25 transition-colors disabled:opacity-50"
+                        >
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                        </button>
+                      )}
                     </div>
                   </div>
-                  <div className="text-xs text-sys-text-secondary flex items-center justify-between">
-                    <span>{new Date(p.timestamp).toLocaleString("uk-UA")}</span>
-                    <span>{p.changes_count || 0} змін</span>
-                  </div>
-                  <div className="pt-2 border-t border-sys-border/50 flex items-center gap-2">
+
+                  <div className="pt-2 border-t border-sys-border/50">
                     <button
                       onClick={() => void handleViewChanges(p.id)}
-                      className="flex-1 min-h-[40px] flex items-center justify-center rounded-lg border border-sys-border bg-white/5 px-3 py-2 text-xs font-medium text-sys-text-primary transition-colors hover:bg-white/10"
+                      className="w-full min-h-[44px] flex items-center justify-center rounded-lg border border-sys-border bg-white/5 px-4 py-2 text-xs font-semibold text-sys-text-primary transition-colors hover:bg-white/10 active:scale-[0.98]"
                     >
                       Показати зміни
                     </button>
-                    {isLatestActive && (
-                      <button
-                        onClick={() => void handleRevert(p.id)}
-                        disabled={revertingId === p.id}
-                        className="flex-1 min-h-[40px] flex items-center justify-center rounded-lg border border-rose-500/30 bg-rose-500/15 px-3 py-2 text-xs font-semibold text-rose-300 transition-colors hover:bg-rose-500/25 disabled:opacity-50"
-                      >
-                        {revertingId === p.id ? "Скасування..." : "Відкотити"}
-                      </button>
-                    )}
                   </div>
                 </div>
               );

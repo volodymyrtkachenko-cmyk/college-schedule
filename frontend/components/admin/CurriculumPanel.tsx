@@ -58,7 +58,13 @@ export function CurriculumPanel() {
     load();
   }, []);
 
+  const [filterGroupId, setFilterGroupId] = useState<number | null>(null);
+  const [filterTeacherId, setFilterTeacherId] = useState<number | null>(null);
+
   const filteredItems = items.filter(i => {
+    if (filterGroupId !== null && i.group.id !== filterGroupId) return false;
+    if (filterTeacherId !== null && i.teacher.id !== filterTeacherId && i.second_teacher?.id !== filterTeacherId) return false;
+    if (!searchTerm) return true;
     const q = searchTerm.toLowerCase();
     return i.group.name.toLowerCase().includes(q) || 
            i.teacher.name.toLowerCase().includes(q) || 
@@ -69,6 +75,9 @@ export function CurriculumPanel() {
     a.group.name.localeCompare(b.group.name, "uk", { numeric: true, sensitivity: "base" }) ||
     a.subject.name.localeCompare(b.subject.name, "uk", { sensitivity: "base" }),
   );
+
+  const pairsPerWeekSum = filteredItems.reduce((acc, curr) => acc + (curr.pairs_per_2_weeks || 0), 0) / 2;
+  const totalHoursSum = filteredItems.reduce((acc, curr) => acc + (curr.total_hours || 0), 0);
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -151,26 +160,82 @@ export function CurriculumPanel() {
               setSelectedGroupIds([]);
               setEditor({ is_fixed: false, is_stream: false, pairs_per_2_weeks: 2, total_hours: 40 });
             }}
-            className="hidden sm:inline-flex items-center gap-1.5 rounded-lg bg-sys-accent px-4 py-2 text-sm font-semibold text-[#0b1120] hover:opacity-90 transition-opacity"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-sys-accent px-4 py-2 text-sm font-semibold text-[#0b1120] hover:opacity-90 transition-opacity"
           >
             + Додати навантаження
           </button>
         }
       />
 
-      <div className="flex flex-wrap items-center justify-between gap-4 mt-2">
-        <div className="relative w-full sm:max-w-xs">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sys-text-muted pointer-events-none">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /><path d="M21 21l-6 -6" /></svg>
-          </span>
-          <input 
-            type="search"
-            aria-label="Пошук навчального навантаження"
-            placeholder="Знайти групу, предмет чи викладача..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="form-control w-full py-2 pl-9 pr-4 text-sm"
-          />
+      <div className="flex flex-col gap-3 mt-2">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative flex-1 min-w-[200px]">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sys-text-muted pointer-events-none">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /><path d="M21 21l-6 -6" /></svg>
+            </span>
+            <input 
+              type="search"
+              aria-label="Пошук навчального навантаження"
+              placeholder="Знайти предмет або викладача..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="form-control w-full py-2 pl-9 pr-4 text-sm"
+            />
+          </div>
+
+          <div className="w-full sm:w-52">
+            <SearchableSelect
+              options={[...groups].sort((a, b) => a.name.localeCompare(b.name, "uk"))}
+              value={filterGroupId}
+              onChange={setFilterGroupId}
+              placeholder="Фільтр за групою"
+              emptyLabel="Усі групи"
+              ariaLabel="Фільтр за групою"
+            />
+          </div>
+
+          <div className="w-full sm:w-56">
+            <SearchableSelect
+              options={[...teachers].sort((a, b) => a.name.localeCompare(b.name, "uk"))}
+              value={filterTeacherId}
+              onChange={setFilterTeacherId}
+              placeholder="Фільтр за викладачем"
+              emptyLabel="Усі викладачі"
+              ariaLabel="Фільтр за викладачем"
+            />
+          </div>
+
+          {(searchTerm || filterGroupId !== null || filterTeacherId !== null) && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchTerm("");
+                setFilterGroupId(null);
+                setFilterTeacherId(null);
+              }}
+              className="text-xs font-semibold text-sys-accent hover:underline py-1"
+            >
+              Скинути фільтри
+            </button>
+          )}
+        </div>
+
+        {/* Summary Bar */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-xl border border-sys-border bg-sys-card px-4 py-2.5 text-xs text-sys-text-secondary">
+          <div className="flex items-center gap-1.5 font-medium">
+            <span className="text-sys-text-muted">Знайдено записів:</span>
+            <span className="font-bold text-sys-text-primary">{filteredItems.length}</span>
+          </div>
+          <span className="text-sys-border hidden sm:inline">•</span>
+          <div className="flex items-center gap-1.5 font-medium">
+            <span className="text-sys-text-muted">Сума пар на тиждень:</span>
+            <span className="font-bold text-emerald-400">{pairsPerWeekSum % 1 === 0 ? pairsPerWeekSum : pairsPerWeekSum.toFixed(1)}</span>
+          </div>
+          <span className="text-sys-border hidden sm:inline">•</span>
+          <div className="flex items-center gap-1.5 font-medium">
+            <span className="text-sys-text-muted">Всього заплановано годин:</span>
+            <span className="font-bold text-sys-text-primary">{totalHoursSum} год</span>
+          </div>
         </div>
       </div>
 
@@ -303,19 +368,6 @@ export function CurriculumPanel() {
           </div>
         </>
       )}
-
-      {/* Mobile FAB button */}
-      <button
-        type="button"
-        onClick={() => {
-          setSelectedGroupIds([]);
-          setEditor({ is_fixed: false, is_stream: false, pairs_per_2_weeks: 2, total_hours: 40 });
-        }}
-        aria-label="Додати навантаження"
-        className="sm:hidden fixed z-40 right-4 bottom-6 w-14 h-14 rounded-full bg-sys-accent text-[#0b1120] shadow-xl flex items-center justify-center font-bold text-2xl hover:scale-105 active:scale-95 transition-transform focus:outline-none focus:ring-2 focus:ring-sys-accent/40"
-      >
-        +
-      </button>
 
       {editor && (
         <div
@@ -517,7 +569,6 @@ export function CurriculumPanel() {
                   form="curr-form"
                   className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] flex items-center justify-center gap-2 rounded-lg bg-sys-accent px-6 py-2 text-sm font-bold text-[#0b1120] hover:opacity-90 active:scale-[0.98] transition-all shadow-sm"
                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
                   Зберегти
                </button>
             </div>

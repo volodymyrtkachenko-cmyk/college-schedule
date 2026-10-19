@@ -110,7 +110,7 @@ export function ReferenceForm({
         animate={shouldReduceMotion ? { opacity: 1 } : { y: 0, opacity: 1 }}
         exit={shouldReduceMotion ? { opacity: 0 } : { y: "100%", opacity: 0 }}
         transition={{ duration: 0.22, ease: [0.2, 0, 0, 1] }}
-        className="flex max-h-[92dvh] w-full max-w-lg flex-col rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card shadow-2xl overflow-hidden pb-safe"
+        className="flex max-h-[92dvh] w-full max-w-[420px] flex-col rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card shadow-2xl overflow-hidden pb-safe"
       >
         {/* Sticky Header */}
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-sys-border/50 bg-sys-card px-5 py-4">

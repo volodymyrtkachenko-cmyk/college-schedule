@@ -99,6 +99,16 @@ export function ScheduleVersionsPanel() {
 
   const todayIso = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(new Date());
 
+  const [openMenuId, setOpenMenuId] = useState<number | null>(null);
+
+  const sortedVersions = [...versions].sort((a, b) => {
+    const aActive = a.is_active && a.valid_from <= todayIso && a.valid_until >= todayIso;
+    const bActive = b.is_active && b.valid_from <= todayIso && b.valid_until >= todayIso;
+    if (aActive && !bActive) return -1;
+    if (!aActive && bActive) return 1;
+    return b.valid_from.localeCompare(a.valid_from);
+  });
+
   return (
     <section className="space-y-6">
       <PageHeader
@@ -115,7 +125,7 @@ export function ScheduleVersionsPanel() {
         }
       />
 
-      {versions.length === 0 ? (
+      {sortedVersions.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-sys-border bg-sys-card/50 p-12 text-center">
           <div className="rounded-full bg-sys-bg p-4 mb-4">
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-sys-text-secondary opacity-50"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
@@ -125,7 +135,7 @@ export function ScheduleVersionsPanel() {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {versions.map((version) => {
+          {sortedVersions.map((version) => {
             const isActiveNow = version.is_active && version.valid_from <= todayIso && version.valid_until >= todayIso;
             return (
               <div key={version.id} className={`group flex flex-col justify-between rounded-2xl border p-5 transition-all duration-300 hover:shadow-lg ${isActiveNow ? 'border-sys-accent/40 bg-gradient-to-b from-white/5 to-sys-bg shadow-[0_0_15px_rgba(14,165,233,0.1)]' : 'border-sys-border/60 bg-sys-card hover:border-sys-border hover:bg-sys-card/80'}`}>
@@ -149,26 +159,57 @@ export function ScheduleVersionsPanel() {
                   </div>
                 </div>
                 
-                <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-2 border-t border-sys-border/40 pt-4">
+                <div className="mt-5 flex items-center gap-2 border-t border-sys-border/40 pt-4">
                   <Link
                     href={`/admin?resource=permanent-schedule&version_id=${version.id}`}
-                    className="flex min-h-[40px] items-center justify-center gap-1.5 rounded-lg py-2 px-2 text-xs font-semibold text-sys-accent bg-sys-accent/5 hover:bg-sys-accent/15 transition-colors border border-sys-accent/20"
+                    className="flex-1 min-h-[40px] flex items-center justify-center gap-2 rounded-lg bg-sys-accent px-4 py-2 text-xs font-bold text-[#0b1120] hover:opacity-90 active:scale-[0.98] transition-all shadow-sm"
                   >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/></svg>
-                    <span>Розклад</span>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/></svg>
+                    <span>Відкрити розклад</span>
                   </Link>
-                  <button onClick={() => setDraft({ ...version, key: version.id.toString() })} className="flex min-h-[40px] items-center justify-center gap-1.5 rounded-lg py-2 px-2 text-xs font-semibold text-sys-text-secondary bg-sys-bg/60 hover:bg-sys-bg hover:text-sys-text-primary transition-colors border border-sys-border/40">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-                    <span>Параметри</span>
-                  </button>
-                  <button onClick={() => setCloneTarget(version)} className="flex min-h-[40px] items-center justify-center gap-1.5 rounded-lg py-2 px-2 text-xs font-semibold text-sky-400 bg-sky-500/5 hover:bg-sky-500/15 hover:text-sky-300 transition-colors border border-sky-500/20">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
-                    <span>Клонувати</span>
-                  </button>
-                  <button onClick={() => setVersionToDelete(version)} className="flex min-h-[40px] items-center justify-center gap-1.5 rounded-lg py-2 px-2 text-xs font-semibold text-rose-400 bg-rose-500/5 hover:bg-rose-500/15 hover:text-rose-300 transition-colors border border-rose-500/20">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
-                    <span>Видалити</span>
-                  </button>
+
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setOpenMenuId(openMenuId === version.id ? null : version.id)}
+                      aria-label="Додаткові дії"
+                      className="w-10 h-10 flex items-center justify-center rounded-lg border border-sys-border bg-sys-card text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-border/80 transition-colors"
+                    >
+                      <span className="text-lg leading-none font-bold">⋯</span>
+                    </button>
+                    {openMenuId === version.id && (
+                      <>
+                        <div className="fixed inset-0 z-30" onClick={() => setOpenMenuId(null)} />
+                        <div className="absolute right-0 bottom-full mb-2 z-40 w-44 rounded-xl border border-sys-border bg-sys-elevated shadow-2xl p-1 animate-in fade-in zoom-in-95 duration-100">
+                          <button
+                            type="button"
+                            onClick={() => { setOpenMenuId(null); setDraft({ ...version, key: version.id.toString() }); }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg text-sys-text-primary hover:bg-white/5 transition-colors"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                            Параметри
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { setOpenMenuId(null); setCloneTarget(version); }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg text-sky-300 hover:bg-sky-500/10 transition-colors"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                            Клонувати
+                          </button>
+                          <div className="my-1 border-t border-sys-border/40" />
+                          <button
+                            type="button"
+                            onClick={() => { setOpenMenuId(null); setVersionToDelete(version); }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg text-rose-400 hover:bg-rose-500/15 transition-colors"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                            Видалити
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             );

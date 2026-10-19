@@ -330,9 +330,9 @@ export function ImportPanel() {
             <div>
               <h2 className="text-lg font-bold text-sys-text-primary">Парсинг з kre.dp.ua</h2>
               {importStatus?.last_publication && (
-                <div className="mt-1 text-xs text-sys-text-secondary flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                  <span>
+                <div className="mt-1.5 text-xs text-sys-text-secondary flex items-start gap-2">
+                  <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]" />
+                  <span className="leading-relaxed">
                     Остання публікація: <strong className="text-sys-text-primary">{importStatus.last_publication.source}</strong>,{" "}
                     {new Date(importStatus.last_publication.timestamp).toLocaleString("uk-UA")},{" "}
                     <strong className="text-sys-text-primary">{importStatus.last_publication.changes_count} змін</strong>

@@ -755,8 +755,51 @@ export function AdminScheduleEditor() {
       />
 
       <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-between gap-3">
-        {/* Filters Panel */}
-        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2.5 w-full lg:w-auto">
+        {/* Mobile Filter Row (<640px): 1 single horizontal row h-11 */}
+        <div className="sm:hidden flex items-center gap-2 w-full">
+          {teachers.length > 0 && (
+            <button
+              type="button"
+              onClick={() => startTransition(() => toggleMode(mode === "student" ? "teacher" : "student"))}
+              className="h-11 px-3 rounded-xl border border-sys-border bg-sys-card text-xs font-semibold text-sys-text-primary shrink-0 flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-sys-accent"
+              aria-label="Перемкнути режим Група / Викладач"
+            >
+              <span>{mode === "student" ? "Група" : "Викладач"}</span>
+              <span className="text-[10px] text-sys-text-muted">⇅</span>
+            </button>
+          )}
+          <div className="flex-1 min-w-0">
+            {mode === 'student' && groups.length > 0 && (
+              <SearchableSelect
+                value={groupId ?? null}
+                onChange={(val) => {
+                  startTransition(() => setGroupId(val ? Number(val) : null));
+                  if (val) setTimeout(scrollToMobileSchedule, 100);
+                }}
+                options={groups}
+                placeholder="Оберіть групу"
+                disabled={isPending}
+                ariaLabel="Оберіть групу для перегляду розкладу"
+              />
+            )}
+            {mode === 'teacher' && teachers.length > 0 && (
+              <SearchableSelect
+                value={teacherId ?? null}
+                onChange={(val) => {
+                  startTransition(() => setTeacherId(val ? Number(val) : null));
+                  if (val) setTimeout(scrollToMobileSchedule, 100);
+                }}
+                options={teachers}
+                placeholder="Оберіть викладача"
+                disabled={isPending}
+                ariaLabel="Оберіть викладача для перегляду розкладу"
+              />
+            )}
+          </div>
+        </div>
+
+        {/* Desktop Filter Panel (>=640px) */}
+        <div className="hidden sm:flex flex-row flex-wrap items-center gap-2.5 w-full lg:w-auto">
           {teachers.length > 0 && (
           <div role="tablist" aria-label="Режим перегляду" className="flex w-full sm:w-auto rounded-lg border border-sys-border bg-sys-card p-1 text-sm relative">
             <div className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-sys-accent rounded-md shadow-sm transition-all duration-300 ease-out z-0" style={{ left: mode === 'student' ? '4px' : '50%' }}></div>
@@ -823,49 +866,6 @@ export function AdminScheduleEditor() {
         <div className="rounded-2xl border border-rose-400/20 bg-rose-400/5 p-8 text-center text-rose-200">{error}</div>
       ) : week ? (
         <div className="w-full min-w-0">
-          {/* Mobile Quick Actions (<640px) */}
-          <div className="sm:hidden grid grid-cols-2 gap-2 my-2.5">
-            <a
-              href={`/admin?resource=permanent-schedule${activeVersion ? `&version_id=${activeVersion.id}` : ""}`}
-              className="flex items-center justify-center gap-1.5 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-2.5 py-2 text-xs font-semibold text-indigo-300 hover:bg-indigo-500/20 transition-colors"
-              title="Редагувати постійний розклад версії"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
-                <line x1="16" y1="2" x2="16" y2="6" />
-                <line x1="8" y1="2" x2="8" y2="6" />
-                <line x1="3" y1="10" x2="21" y2="10" />
-              </svg>
-              <span className="whitespace-nowrap">Постійний розклад</span>
-            </a>
-
-            <button
-              type="button"
-              onClick={() => setCuratorModalOpen(true)}
-              className="flex items-center justify-center gap-1.5 rounded-lg border border-sys-border bg-sys-card px-2.5 py-2 text-xs font-semibold text-sys-text-primary hover:bg-white/5 transition-colors"
-            >
-              <GraduationIcon />
-              <span className="whitespace-nowrap">Виховна година</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setEventsModalOpen(true)}
-              className="flex items-center justify-center gap-1.5 rounded-lg border border-sys-border bg-sys-card px-2.5 py-2 text-xs font-semibold text-sys-text-primary hover:bg-white/5 transition-colors"
-            >
-              <CalendarEventIcon />
-              <span className="whitespace-nowrap">Сесія / Події</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setPrintModalOpen(true)}
-              className="flex items-center justify-center gap-1.5 rounded-lg border border-sys-border bg-sys-card px-2.5 py-2 text-xs font-semibold text-sys-text-primary hover:bg-white/5 transition-colors"
-            >
-              <PrinterIcon />
-              <span className="whitespace-nowrap">Друк</span>
-            </button>
-          </div>
 
           {/* Desktop Week Navigation & Actions (>= 640px) */}
           <div className="hidden sm:flex mb-4 mt-2 flex-wrap items-center justify-between gap-3 rounded-xl bg-sys-card/50 p-3 border border-sys-border">
@@ -1180,8 +1180,8 @@ export function AdminScheduleEditor() {
                         const isPast = isSlotInPast(currentDay.date, slotNum);
 
                         return (
-                          <div key={slotNum} className="rounded-xl border border-sys-border bg-sys-card/70 p-3 shadow-xs">
-                            <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-sys-border/30 text-xs">
+                          <div key={slotNum} className="rounded-xl border border-sys-border bg-sys-card/40 overflow-hidden">
+                            <div className="flex items-center justify-between px-3 py-1.5 border-b border-sys-border/40 bg-sys-bg/30 text-xs">
                               <span className="font-bold text-sys-text-primary">
                                 {slotNum}-та пара
                               </span>
@@ -1191,7 +1191,7 @@ export function AdminScheduleEditor() {
                             </div>
 
                             {hasSlotContent ? (
-                              <div className="space-y-2">
+                              <div className="p-1.5 space-y-1.5">
                                 {slotLessons.map((lesson) => (
                                   <LessonCard
                                     key={lesson.id}
@@ -1217,7 +1217,7 @@ export function AdminScheduleEditor() {
                                 ))}
                               </div>
                             ) : (
-                              <div className="flex flex-col sm:flex-row items-center justify-between gap-2 py-1">
+                              <div className="flex flex-col sm:flex-row items-center justify-between gap-2 p-2.5">
                                 <span className="text-xs text-sys-text-muted/60">Пари немає</span>
                                 <div className="flex items-center gap-2 w-full sm:w-auto">
                                   {isPast ? (

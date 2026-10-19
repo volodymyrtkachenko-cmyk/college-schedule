@@ -62,7 +62,7 @@ export function ReferenceTable({
   const teacherNames = new Map(teachers.map((t) => [t.id, t.name]));
 
   return (
-    <div className="w-full">
+    <div className="w-full max-w-[960px]">
       {/* Desktop & Tablet Table (>= 640px) */}
       <div className="hidden sm:block overflow-x-auto rounded-xl border border-sys-border bg-sys-card/50">
         <table className="w-full text-left text-sm border-collapse">
