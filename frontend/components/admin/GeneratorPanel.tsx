@@ -35,9 +35,11 @@ export function GeneratorPanel() {
   const [filterTeacherId, setFilterTeacherId] = useState<number | null>(null);
   const [activeWeek, setActiveWeek] = useState<"numerator" | "denominator">("numerator");
   const [selectedSlotId, setSelectedSlotId] = useState<number | null>(null);
-    const [draftToDelete, setDraftToDelete] = useState<DraftRecord | null>(null);
+  const [draftToDelete, setDraftToDelete] = useState<DraftRecord | null>(null);
   const [publishingId, setPublishingId] = useState<number | null>(null);
   const [moving, setMoving] = useState(false);
+  const [draftToPublish, setDraftToPublish] = useState<DraftRecord | null>(null);
+  const [publishTargetVersionId, setPublishTargetVersionId] = useState<number | null>(null);
   
   const { showToast: setToast } = useToast();
 
@@ -135,9 +137,6 @@ export function GeneratorPanel() {
       setDraftToDelete(null);
     }
   }
-
-  const [draftToPublish, setDraftToPublish] = useState<DraftRecord | null>(null);
-  const [publishTargetVersionId, setPublishTargetVersionId] = useState<number | null>(null);
 
   async function handleConfirmPublish() {
     if (!draftToPublish) return;

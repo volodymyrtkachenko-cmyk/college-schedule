@@ -16,6 +16,7 @@ export function ScheduleVersionsPanel() {
   const [cloneSourceId, setCloneSourceId] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [openMenuId, setOpenMenuId] = useState<number | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -98,8 +99,6 @@ export function ScheduleVersionsPanel() {
   };
 
   const todayIso = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(new Date());
-
-  const [openMenuId, setOpenMenuId] = useState<number | null>(null);
 
   const sortedVersions = [...versions].sort((a, b) => {
     const aActive = a.is_active && a.valid_from <= todayIso && a.valid_until >= todayIso;
