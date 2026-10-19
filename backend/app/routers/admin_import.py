@@ -5,7 +5,7 @@ import asyncio
 import hashlib
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, date, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Query, Security, Header, BackgroundTasks
 from fastapi.security.api_key import APIKeyHeader
 from sqlalchemy import text, delete, select, func, update
