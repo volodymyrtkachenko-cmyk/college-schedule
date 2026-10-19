@@ -505,21 +505,23 @@ export function PermanentScheduleEditor() {
       {/* Version selector & Filters bar */}
       <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-between gap-3">
         <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2.5 w-full lg:w-auto">
-          {/* Version Switcher */}
-          <div className="w-full sm:w-auto">
-            <select
-              className="form-control text-sm py-1.5 w-full sm:w-60 font-semibold"
-              value={selectedVersionId ?? ""}
-              onChange={(e) => setSelectedVersionId(Number(e.target.value))}
-              aria-label="Вибір версії розкладу"
-            >
-              {versions.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.name} {v.is_active ? "(активна)" : ""}
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Version Switcher (hidden when warning banner above already provides a version switcher) */}
+          {(!selectedVersion || isSelectedVersionCurrentlyValid) && (
+            <div className="w-full sm:w-auto">
+              <select
+                className="form-control text-sm py-1.5 w-full sm:w-60 font-semibold"
+                value={selectedVersionId ?? ""}
+                onChange={(e) => setSelectedVersionId(Number(e.target.value))}
+                aria-label="Вибір версії розкладу"
+              >
+                {versions.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.name} {v.is_active ? "(активна)" : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Group / Teacher Toggle */}
           <div role="tablist" aria-label="Режим перегляду" className="flex w-full sm:w-auto rounded-lg border border-sys-border bg-sys-card p-1 text-sm relative">
@@ -813,6 +815,7 @@ export function PermanentScheduleEditor() {
                                   scheduleMode={mode}
                                   canEdit={true}
                                   isTemplateMode={true}
+                                  hideTimeColumn={true}
                                   onEdit={() => setEditor({ lesson, day_of_week: day, lesson_number: slotNum })}
                                   onDeleteTemplate={handleDelete}
                                   onCopySelect={() => handleCopySelect(lesson)}
@@ -994,6 +997,7 @@ export function PermanentScheduleEditor() {
                                     scheduleMode={mode}
                                     canEdit={true}
                                     isTemplateMode={true}
+                                    hideTimeColumn={true}
                                     onEdit={() => setEditor({ lesson, day_of_week: currentDayDef.day, lesson_number: slotNum })}
                                     onDeleteTemplate={handleDelete}
                                     onCopySelect={() => handleCopySelect(lesson)}

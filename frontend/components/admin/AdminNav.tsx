@@ -439,7 +439,7 @@ export function AdminNav({ active }: { active: string }) {
                   className={linkClass(active === "curriculum")}
                 >
                   <CurriculumIcon className="w-4 h-4 shrink-0 text-current" />
-                  <span className="truncate">Навчальне навантаження</span>
+                  <span className="truncate">Навантаження</span>
                 </Link>
 
                 <Link

@@ -8,6 +8,7 @@ import { EditIcon, MoveIcon } from "./LessonIcons";
 import { Lesson } from "../lib/api";
 import { formatRoom } from "../lib/format";
 import { QuickJumpTarget, parseLessonTeachers, parseLessonGroups } from "../lib/quickJump";
+import { DEFAULT_LESSON_TIMES } from "../lib/constants/lessons";
 
 export type { QuickJumpTarget };
 
@@ -181,6 +182,7 @@ function getEventBadge(eventType?: string | null, eventTitle?: string | null) {
 }
 
 export interface ClassroomTaskItem {
+  title?: string;
   teacher?: string | null;
   label: string;
   url: string;
@@ -207,8 +209,9 @@ export function extractClassroomTasks(note?: string | null): ClassroomTaskItem[]
       // Приводимо до стандарту "до DD.MM" або "ДЗ"
       const dueMatch = rest.match(/\(до\s+\d{2}\.\d{2}\)/i);
       const label = dueMatch ? dueMatch[0].replace(/[()]/g, "").trim() : "ДЗ";
+      const title = rest.replace(/\(до\s+\d{2}\.\d{2}\)/i, "").trim() || "Завдання";
 
-      tasks.push({ teacher, label, url: urlPart });
+      tasks.push({ title, teacher, label, url: urlPart });
     }
   }
   return tasks;
@@ -568,13 +571,187 @@ export function LessonCard({
           onMoveSelect?.(lesson);
         }
       }}
-      className={`group relative flex min-w-0 flex-col rounded-xl border bg-sys-card shadow-sm transition-colors duration-200 ${
-        isDay ? "p-3 xl:p-3.5" : "p-2.5"
+      className={`group relative flex min-w-0 flex-col rounded-2xl border bg-sys-card shadow-sm transition-all duration-200 ${
+        isDay ? "p-4 sm:p-5 lg:px-6 lg:py-5 sm:min-h-[108px]" : "p-2.5 rounded-xl"
       } ${stateClass} ${
         !lesson.is_relevant_this_week ? "opacity-60" : isPast ? "opacity-50 hover:opacity-100" : ""
       } ${canMove ? "cursor-grab active:cursor-grabbing" : ""}`}
     >
-      <div className="flex items-start gap-2.5 sm:gap-3">
+      {/* Desktop/Tablet 3-Zone Horizontal Layout (for Day mode on screens >= sm) */}
+      {isDay && (
+        <div className="hidden sm:flex sm:items-center sm:justify-between gap-4 w-full">
+          {/* Zone 1: Timeline (100px - 110px) */}
+          {!hideTimeColumn && (
+            <div className="w-24 sm:w-28 shrink-0 flex flex-col items-start justify-center pr-4 border-r border-sys-border/50 text-left">
+              <span className={`text-2xl sm:text-[26px] font-black leading-none ${isLive ? "text-sys-accent" : "text-sys-accent"}`}>
+                {lesson.lesson_number}
+              </span>
+              <div className="mt-1.5 flex flex-col leading-tight">
+                <span className="text-sm sm:text-[15px] font-bold text-sys-text-primary">
+                  {startT}
+                </span>
+                <span className="text-xs text-sys-text-muted mt-0.5">
+                  {endT || DEFAULT_LESSON_TIMES[lesson.lesson_number]?.split("-")[1] || ""}
+                </span>
+              </div>
+              {isLive && (
+                <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-sys-accent/15 px-2 py-0.5 text-[11px] font-bold text-sys-accent">
+                  <span className="h-1.5 w-1.5 animate-ping rounded-full bg-sys-accent" />
+                  <span>{remainingMin} хв</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Zone 2: Main Content */}
+          <div className="flex-1 min-w-0 flex flex-col justify-center gap-1 px-2 sm:px-3">
+            <h3 className={`font-bold leading-snug text-base sm:text-[18px] lg:text-[19px] break-words ${lesson.is_cancelled ? "line-through text-sys-text-muted" : "text-sys-text-subject"}`}>
+              {lesson.subject_name}
+            </h3>
+            {lesson.event_title && lesson.event_title !== lesson.subject_name && (
+              <span className="text-xs sm:text-sm font-semibold text-sys-text-secondary">
+                {lesson.event_title}
+              </span>
+            )}
+
+            {/* Teacher / Group info */}
+            <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm text-sys-text-secondary mt-0.5">
+              <span className="text-sys-text-muted">👤</span>
+              {isDualTeachers ? (
+                <div className="flex items-center gap-3">
+                  {secondaryItems.map((item, idx) => (
+                    <span key={idx}>
+                      {onQuickJump ? (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); onQuickJump(item.target); }}
+                          className="hover:text-sys-accent hover:underline focus:outline-none"
+                        >
+                          {item.displayName}
+                        </button>
+                      ) : (
+                        <span>{item.displayName}</span>
+                      )}
+                    </span>
+                  ))}
+                </div>
+              ) : secondaryItems.length > 0 ? (
+                secondaryItems.map((item, idx) => (
+                  <span key={idx}>
+                    {onQuickJump ? (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); onQuickJump(item.target); }}
+                        className="hover:text-sys-accent hover:underline focus:outline-none"
+                      >
+                        {item.displayName}
+                      </button>
+                    ) : (
+                      <span>{item.displayName}</span>
+                    )}
+                  </span>
+                ))
+              ) : null}
+            </div>
+
+            {/* Expanded Homework Banner */}
+            {tasks.length > 0 && (
+              <div className="mt-1.5 flex flex-wrap items-center gap-2 rounded-xl bg-purple-500/10 border border-purple-500/25 px-3 py-1.5 text-xs text-purple-200">
+                <span className="text-sm">📌</span>
+                <span className="font-bold">{tasks.length} {tasks.length === 1 ? "завдання" : "завдання"}</span>
+                {tasks[0]?.title && (
+                  <>
+                    <span className="text-purple-400/50">•</span>
+                    <span className="font-medium text-purple-100 truncate max-w-[260px] lg:max-w-[340px]">{tasks[0].title}</span>
+                  </>
+                )}
+                {tasks[0]?.label && tasks[0].label !== "ДЗ" && (
+                  <span className="rounded bg-purple-500/20 px-1.5 py-0.5 text-[10px] font-bold text-purple-300">
+                    {tasks[0].label}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={toggleHw}
+                  className="ml-auto text-xs font-semibold text-purple-300 hover:text-white underline underline-offset-2"
+                >
+                  {isHwOpen ? "Згорнути" : "Деталі"}
+                </button>
+              </div>
+            )}
+
+            {visibleNoteText && (
+              <p className="mt-0.5 text-xs text-sys-text-secondary/80 italic">
+                💬 {visibleNoteText}
+              </p>
+            )}
+          </div>
+
+          {/* Zone 3: Location & Actions */}
+          <div className="shrink-0 flex flex-col items-end justify-center pl-2 sm:pl-4 gap-2">
+            {hasMeeting ? (
+              <a
+                href={meetings[0].url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
+                className="inline-flex h-10 px-4 items-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/15 text-emerald-300 font-bold text-sm shadow-xs hover:bg-emerald-500/25 active:scale-95 transition-all whitespace-nowrap"
+              >
+                <span>{meetings[0].platform === "zoom" ? "📹 Zoom" : "🎥 Приєднатися в Meet"}</span>
+                <span className="text-xs">↗</span>
+              </a>
+            ) : rooms.length > 0 ? (
+              <div className="inline-flex h-10 px-4 items-center gap-2 rounded-xl border border-sys-border bg-sys-bg text-sys-text-primary font-bold text-sm shadow-xs whitespace-nowrap">
+                <span className="text-base">🚪</span>
+                <span>{rooms.map(formatRoom).join(", ")}</span>
+              </div>
+            ) : null}
+
+            {/* Statuses and Actions */}
+            <div className="flex flex-wrap items-center justify-end gap-1.5">
+              {lesson.is_cancelled ? (
+                <span className="inline-flex items-center gap-1 rounded-md border border-rose-500/40 bg-rose-500/15 px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-rose-400">
+                  ❌ Скасовано
+                </span>
+              ) : eventBadge ? (
+                <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-bold uppercase tracking-wider ${eventBadge.badgeClass}`}>
+                  {eventBadge.label}
+                </span>
+              ) : lesson.is_replacement ? (
+                <span className="inline-flex items-center gap-1 rounded-md bg-sys-warning px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-sys-warningText">
+                  ⚡ Заміна
+                </span>
+              ) : null}
+
+              {canEdit && (
+                <div className="flex items-center gap-1 ml-1">
+                  {canEditAction && (
+                    <button
+                      type="button"
+                      title="Редагувати пару"
+                      onClick={(e) => { e.stopPropagation(); onEdit?.(lesson); }}
+                      className="w-8 h-8 flex items-center justify-center rounded-lg border border-sys-border/60 bg-sys-card text-sys-text-secondary hover:text-sys-accent hover:border-sys-accent/60"
+                    >
+                      <EditIcon />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    title="Більше дій"
+                    onClick={(e) => { e.stopPropagation(); setMoreOpen(!moreOpen); }}
+                    className="w-8 h-8 flex items-center justify-center rounded-lg border border-sys-border/60 bg-sys-card text-sys-text-secondary hover:text-sys-text-primary"
+                  >
+                    ⋯
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile (< sm) and Week Mode Layout */}
+      <div className={`${isDay ? "sm:hidden" : ""} flex items-start gap-2.5 sm:gap-3`}>
         {/* Left: narrow fixed column (number + start time) */}
         {!hideTimeColumn && (
           <div className="flex w-11 sm:w-12 shrink-0 flex-col text-left">
@@ -668,10 +845,10 @@ export function LessonCard({
                       return (
                         <span
                           title={formatRoom(rooms[0])}
-                          className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium ${meta.tone}`}
+                          className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium whitespace-nowrap ${meta.tone}`}
                         >
                           <span aria-hidden="true" className="text-[11px]">{meta.icon}</span>
-                          <span>{formatRoom(rooms[0])}</span>
+                          <span className="break-normal whitespace-nowrap sm:whitespace-normal">{formatRoom(rooms[0])}</span>
                         </span>
                       );
                     })()
@@ -733,10 +910,10 @@ export function LessonCard({
                       return (
                         <span
                           title={formatRoom(rooms[1])}
-                          className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium ${meta.tone}`}
+                          className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium whitespace-nowrap ${meta.tone}`}
                         >
                           <span aria-hidden="true" className="text-[11px]">{meta.icon}</span>
-                          <span>{formatRoom(rooms[1])}</span>
+                          <span className="break-normal whitespace-nowrap sm:whitespace-normal">{formatRoom(rooms[1])}</span>
                         </span>
                       );
                     })()
@@ -801,11 +978,11 @@ export function LessonCard({
                     <span
                       key={`${rm}-${idx}`}
                       title={formatRoom(rm)}
-                      className={`inline-flex max-w-full [white-space:normal] [overflow-wrap:anywhere] items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium ${meta.tone}`}
-                      style={{ maxWidth: "100%", whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "break-word" }}
+                      className={`inline-flex max-w-full items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium whitespace-nowrap ${meta.tone}`}
+                      style={{ maxWidth: "100%", wordBreak: "normal" }}
                     >
                       <span aria-hidden="true" className="shrink-0 text-[11px]">{meta.icon}</span>
-                      <span className="[overflow-wrap:anywhere]">{formatRoom(rm)}</span>
+                      <span className="break-normal whitespace-nowrap sm:whitespace-normal">{formatRoom(rm)}</span>
                     </span>
                   );
                 })

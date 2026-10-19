@@ -174,44 +174,52 @@ export function ScheduleDay({
   );
 
   return (
-    <section className={`min-w-0 ${isToday ? "rounded-2xl border-t-2 border-t-sys-accent border border-sys-border/60 bg-sys-accent/[0.02] p-2 shadow-[0_0_15px_rgba(59,130,246,0.08)]" : ""}`}>
-      <header className={`mb-3 flex ${mode === "week" ? "items-center justify-between px-1" : "items-center justify-between gap-2 px-2 sm:px-3 pt-1"} ${hideHeaderOnMobile ? "hidden sm:flex" : ""}`}>
-        <div className="flex items-center gap-2">
-          {isToday && <span className="flex h-2 w-2 animate-pulse rounded-full bg-sys-accent shadow-[0_0_8px_rgba(59,130,246,0.8)]" />}
-          <h2 className={`text-[16px] font-bold capitalize tracking-tight ${isToday ? "text-sys-accent" : "text-sys-text-primary"}`}>{fmt(schedule.date, { weekday: "long" })}</h2>
+    <section className={`min-w-0 ${isToday ? "rounded-2xl border-t-2 border-t-sys-accent border border-sys-border/60 bg-sys-accent/[0.02] p-2 sm:p-3 shadow-[0_0_15px_rgba(59,130,246,0.08)]" : ""}`}>
+      <header className={`mb-4 flex items-center justify-between gap-3 ${mode === "week" ? "px-1" : "px-1 sm:px-2 pt-1"} ${hideHeaderOnMobile ? "hidden sm:flex" : ""}`}>
+        <div className="flex flex-wrap items-baseline gap-2">
+          <div className="flex items-center gap-2.5">
+            {isToday && <span className="flex h-2.5 w-2.5 animate-pulse rounded-full bg-sys-accent shadow-[0_0_10px_rgba(59,130,246,0.9)]" />}
+            <h2 className={`text-xl sm:text-2xl lg:text-[26px] font-bold capitalize tracking-tight ${isToday ? "text-sys-accent" : "text-sys-text-primary"}`}>
+              {fmt(schedule.date, { weekday: "long" })}
+            </h2>
+          </div>
+          <span className="text-sm sm:text-base lg:text-lg font-medium text-sys-text-secondary">
+            {mode === "day"
+              ? `, ${fmt(schedule.date, { day: "numeric", month: "long" })}`
+              : fmt(schedule.date, { day: "numeric", month: "short" })}
+          </span>
         </div>
         <div className="flex items-center gap-2">
-          <span className={`text-[12px] font-semibold ${isToday ? "text-sys-accent bg-sys-accent/15 px-2 py-0.5 rounded-md" : "text-sys-text-muted"}`}>
-            {fmt(schedule.date, { day: "numeric", month: "short" })}
-          </span>
           {orderedLessons.length > 0 && (
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => void handleShareImage()}
                 disabled={sharingImage}
                 title="Скопіювати або зберегти розклад як PNG-картинку"
                 aria-label="Поділитися картинкою розкладу"
-                className="flex h-7 w-7 items-center justify-center rounded-lg border border-sys-border/60 bg-sys-bg/40 text-sys-text-secondary transition-colors hover:border-sys-accent/40 hover:text-sys-accent disabled:opacity-50"
+                className={`${mode === "day" ? "h-9 px-3 gap-1.5" : "h-7 w-7"} flex items-center justify-center rounded-xl border border-sys-border bg-sys-card text-xs font-semibold text-sys-text-secondary transition-all hover:border-sys-accent/40 hover:text-sys-accent hover:bg-sys-accent/5 active:scale-95 disabled:opacity-50`}
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
                   <circle cx="9" cy="9" r="2" />
                   <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
                 </svg>
+                {mode === "day" && <span className="hidden sm:inline">Зберегти картинку</span>}
               </button>
               <button
                 type="button"
                 onClick={handleShareDay}
                 title="Скопіювати розклад для Telegram"
                 aria-label="Скопіювати розклад дня"
-                className="flex h-7 w-7 items-center justify-center rounded-lg border border-sys-border/60 bg-sys-bg/40 text-sys-text-secondary transition-colors hover:border-sys-accent/40 hover:text-sys-accent"
+                className={`${mode === "day" ? "h-9 px-3 gap-1.5" : "h-7 w-7"} flex items-center justify-center rounded-xl border border-sys-border bg-sys-card text-xs font-semibold text-sys-text-secondary transition-all hover:border-sys-accent/40 hover:text-sys-accent hover:bg-sys-accent/5 active:scale-95`}
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
                   <polyline points="16 6 12 2 8 6" />
                   <line x1="12" y1="2" x2="12" y2="15" />
                 </svg>
+                {mode === "day" && <span className="hidden sm:inline">Поділитися</span>}
               </button>
             </div>
           )}

@@ -454,13 +454,14 @@ export default function HomePage() {
 
   const dayTasks = useMemo(() => {
     if (!selectedDaySchedule?.lessons) return [];
-    const tasks: { subject: string; teacher?: string | null; label: string; url: string }[] = [];
+    const tasks: { title: string; subject: string; teacher?: string | null; label: string; url: string }[] = [];
     for (const l of selectedDaySchedule.lessons) {
       const extracted = extractClassroomTasks(l.note);
       for (const t of extracted) {
         tasks.push({
-          subject: l.subject,
-          teacher: t.teacher || l.teacher,
+          title: t.title || "Домашнє завдання",
+          subject: l.subject_name || l.subject,
+          teacher: t.teacher || l.teacher_name || l.teacher,
           label: t.label,
           url: t.url,
         });
@@ -1038,29 +1039,42 @@ export default function HomePage() {
               transition={{ duration: shouldReduceMotion ? 0 : 0.15 }}
             >
               {view === "today" ? (
-                /* Desktop Day Mode: 2-column Dashboard (max-w-[1140px]) */
-                <div className="mx-auto max-w-[1140px]">
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                    {/* Left Column: Timeline (65% / 8 cols) */}
-                    <div className="lg:col-span-8 min-w-0">
+                /* Desktop Day Mode: 2-column Dashboard (max-w-[1320px], 62% / 38% split, 32px gap) */
+                <div className="mx-auto max-w-[1320px] w-full">
+                  <div className="flex flex-col lg:flex-row gap-8 items-start w-full">
+                    {/* Left Column: Schedule (62%) */}
+                    <div className="w-full lg:w-[62%] shrink-0 min-w-0">
                       {isWeekend && (
-                        <div className="mb-4 flex items-center justify-between rounded-2xl border border-slate-700/50 bg-slate-800/40 px-4 py-3 text-xs">
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <span aria-hidden="true" className="text-xl shrink-0">🛋️</span>
+                        <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-slate-700/60 bg-slate-800/50 px-5 py-4 text-[15px] shadow-sm">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <span aria-hidden="true" className="text-2xl shrink-0">🛋️</span>
                             <div className="flex flex-col min-w-0">
-                              <span className="font-semibold text-sys-text-primary">Сьогодні вихідний</span>
-                              <span className="text-sys-text-secondary text-[11px]">Показано найближчий навчальний день</span>
+                              <span className="font-semibold text-sys-text-primary text-base">Сьогодні вихідний</span>
+                              <span className="text-sys-text-secondary text-xs sm:text-[13px]">Показано найближчий навчальний день</span>
                             </div>
                           </div>
-                          <div className="shrink-0">
+                          <div className="flex items-center gap-3 shrink-0">
                             <WeekTypeBadge weekType={today?.week_type ?? "both"} />
                           </div>
                         </div>
                       )}
 
                       {isShowingTomorrow && !isWeekend && (
-                        <div className="mb-4 flex items-center justify-between rounded-2xl border border-sys-accent/30 bg-sys-accent/10 px-4 py-2.5 text-xs text-sys-text-primary">
-                          <span>🌙 Пари на сьогодні завершено — показано <strong>розклад на завтра</strong></span>
+                        <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-sys-accent/40 bg-sys-accent/15 px-5 py-4 text-sm sm:text-[15px] text-sys-text-primary shadow-sm">
+                          <div className="flex items-center gap-2.5">
+                            <span className="text-xl shrink-0">🌙</span>
+                            <span>Пари на сьогодні завершено — показано <strong>розклад на завтра</strong></span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const todayIdx = weekDaysMini.findIndex((d) => d.iso === todayActualIso);
+                              if (todayIdx >= 0) handleSelectDayIndex(todayIdx);
+                            }}
+                            className="shrink-0 rounded-xl bg-sys-accent/20 border border-sys-accent/40 px-3.5 py-1.5 text-xs font-bold text-sys-accent hover:bg-sys-accent/30 transition-colors"
+                          >
+                            Повернутися на сьогодні
+                          </button>
                         </div>
                       )}
 
@@ -1073,16 +1087,16 @@ export default function HomePage() {
                       />
                     </div>
 
-                    {/* Right Column: Week Info & Classroom Widget (35% / 4 cols) */}
-                    <div className="lg:col-span-4 min-w-0 flex flex-col gap-5 sticky top-20">
+                    {/* Right Column: Week Info & Classroom Widget (38%) */}
+                    <div className="w-full lg:w-[calc(38%-32px)] lg:flex-1 min-w-0 flex flex-col gap-6 sticky top-20">
                       {/* Week & Navigator Card */}
-                      <div className="rounded-2xl border border-sys-border bg-sys-card p-4 shadow-sm">
-                        <div className="flex items-center justify-between pb-3 border-b border-sys-border/50">
+                      <div className="rounded-2xl border border-sys-border bg-sys-card p-5 shadow-sm">
+                        <div className="flex items-center justify-between pb-3.5 border-b border-sys-border/50">
                           <div>
-                            <span className="text-[11px] font-bold uppercase tracking-wider text-sys-text-muted">
+                            <span className="text-xs font-bold uppercase tracking-wider text-sys-text-muted">
                               {currentWeekNumber ? `${currentWeekNumber} тиждень` : "Розклад"}
                             </span>
-                            <h3 className="text-sm font-semibold text-sys-text-primary mt-0.5 truncate">
+                            <h3 className="text-base sm:text-lg font-semibold text-sys-text-primary mt-0.5 truncate">
                               {weekRange}
                             </h3>
                           </div>
@@ -1090,11 +1104,11 @@ export default function HomePage() {
                         </div>
 
                         {/* 5-Day Quick Switcher */}
-                        <div className="mt-3">
-                          <span className="block text-[11px] font-medium text-sys-text-muted mb-1.5">
+                        <div className="mt-4">
+                          <span className="block text-xs font-medium text-sys-text-muted mb-2">
                             Дні тижня
                           </span>
-                          <div className="grid grid-cols-5 gap-1.5">
+                          <div className="grid grid-cols-5 gap-2">
                             {weekDaysMini.map((d) => {
                               const isActive = d.index === selectedDayIndex;
                               const isToday = d.iso === todayActualIso;
@@ -1103,16 +1117,16 @@ export default function HomePage() {
                                   key={d.iso}
                                   type="button"
                                   onClick={() => handleSelectDayIndex(d.index)}
-                                  className={`flex flex-col items-center justify-center py-2 rounded-xl text-xs transition-all ${
+                                  className={`flex flex-col items-center justify-center h-16 rounded-xl transition-all ${
                                     isActive
-                                      ? "bg-sys-accent text-white font-bold shadow-sm"
+                                      ? "bg-sys-accent text-[#0b1120] font-black shadow-md ring-2 ring-sys-accent/50 scale-[1.02]"
                                       : isToday
-                                      ? "border border-sys-accent/50 text-sys-accent hover:bg-sys-bg"
-                                      : "border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-white hover:border-sys-border-elevated"
+                                      ? "border-2 border-sys-accent text-sys-accent bg-sys-accent/10 hover:bg-sys-accent/20 font-bold"
+                                      : "border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-white hover:border-sys-border-elevated font-medium"
                                   }`}
                                 >
-                                  <span className="text-[10px] uppercase">{d.name}</span>
-                                  <span className="text-sm font-semibold mt-0.5">{d.dateStr}</span>
+                                  <span className={`text-xs uppercase font-semibold ${isActive ? "text-[#0b1120]/80" : ""}`}>{d.name}</span>
+                                  <span className="text-xl font-bold mt-0.5">{d.dateStr}</span>
                                 </button>
                               );
                             })}
@@ -1121,57 +1135,61 @@ export default function HomePage() {
                       </div>
 
                       {/* Google Classroom Deadlines Widget */}
-                      <div className="rounded-2xl border border-sys-border bg-sys-card p-4 shadow-sm">
-                        <div className="flex items-center justify-between pb-3 border-b border-sys-border/50">
+                      <div className="rounded-2xl border border-sys-border bg-sys-card p-5 shadow-sm">
+                        <div className="flex items-center justify-between pb-3.5 border-b border-sys-border/50">
                           <div className="flex items-center gap-2">
-                            <span className="text-base">📌</span>
-                            <span className="text-xs font-bold uppercase tracking-wider text-sys-text-primary">
+                            <span className="text-lg">📌</span>
+                            <span className="text-sm font-bold uppercase tracking-wider text-sys-text-primary">
                               Завдання Classroom
                             </span>
                           </div>
-                          <span className="rounded-full bg-purple-500/15 border border-purple-500/30 px-2 py-0.5 text-[11px] font-semibold text-purple-300">
+                          <span className="rounded-full bg-purple-500/15 border border-purple-500/30 px-2.5 py-0.5 text-xs font-bold text-purple-300">
                             {dayTasks.length} {dayTasks.length === 1 ? "ДЗ" : "ДЗ"}
                           </span>
                         </div>
 
-                        <div className="mt-3 space-y-2.5">
+                        <div className="mt-4 space-y-3">
                           {dayTasks.length > 0 ? (
                             dayTasks.map((t, idx) => (
                               <div
                                 key={idx}
-                                className="rounded-xl border border-sys-border bg-sys-bg p-3 transition-colors hover:border-sys-accent/40"
+                                className="rounded-xl border border-sys-border bg-sys-bg p-3.5 transition-colors hover:border-sys-accent/40 flex flex-col gap-2"
                               >
+                                {/* Row 1: Task Title & Deadline */}
                                 <div className="flex items-start justify-between gap-2">
-                                  <div className="min-w-0">
-                                    <p className="text-xs font-semibold text-sys-text-primary leading-tight">
-                                      {t.subject}
-                                    </p>
-                                    {t.teacher && (
-                                      <p className="text-[11px] text-sys-text-muted mt-0.5">
-                                        {t.teacher}
-                                      </p>
-                                    )}
-                                  </div>
-                                  <span className="shrink-0 rounded-md bg-purple-500/15 border border-purple-500/30 px-1.5 py-0.5 text-[10px] font-medium text-purple-300">
+                                  <h4 className="text-[15px] font-bold text-sys-text-primary leading-snug">
+                                    {t.title}
+                                  </h4>
+                                  <span className="shrink-0 rounded-md bg-purple-500/20 border border-purple-500/40 px-2 py-0.5 text-xs font-bold text-purple-200">
                                     {t.label}
                                   </span>
                                 </div>
-                                <div className="mt-2 flex justify-end">
+
+                                {/* Row 2: Subject & Teacher */}
+                                <div className="text-xs text-sys-text-secondary">
+                                  <span className="font-medium text-sys-text-primary/90">{t.subject}</span>
+                                  {t.teacher && (
+                                    <span className="text-sys-text-muted"> • 👤 {t.teacher}</span>
+                                  )}
+                                </div>
+
+                                {/* Row 3: Action link / button */}
+                                <div className="pt-1 flex justify-end">
                                   <a
                                     href={t.url}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-sys-accent hover:underline"
+                                    className="inline-flex h-8 px-3 items-center gap-1.5 rounded-lg border border-sys-accent/30 bg-sys-accent/10 text-xs font-semibold text-sys-accent hover:bg-sys-accent/20 transition-colors"
                                   >
-                                    <span>Відкрити завдання</span>
+                                    <span>Відкрити у Classroom</span>
                                     <span>↗</span>
                                   </a>
                                 </div>
                               </div>
                             ))
                           ) : (
-                            <div className="py-4 text-center">
-                              <p className="text-xs text-sys-text-muted">
+                            <div className="py-6 text-center">
+                              <p className="text-sm text-sys-text-muted">
                                 На цей день немає активних завдань
                               </p>
                             </div>
@@ -1184,42 +1202,12 @@ export default function HomePage() {
               ) : (
                 /* Desktop Week Mode: Full Grid (ScheduleWeekGrid) */
                 <div className="w-full min-w-0">
-                  <div className="mb-4 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center rounded-2xl bg-sys-card p-3.5 border border-sys-border">
-                    <div className="text-[13px] font-medium text-sys-text-primary flex items-center gap-2 w-full sm:w-auto overflow-hidden">
+                  <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl bg-sys-card p-3.5 border border-sys-border">
+                    <div className="text-[13px] font-medium text-sys-text-primary flex items-center gap-2 overflow-hidden">
                       <svg width="1.2em" height="1.2em" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-sys-accent shrink-0"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
                       <span className="font-semibold text-sys-text-primary">{weekRange}</span>
-                      <div className="ml-2 hidden sm:block shrink-0"><WeekTypeBadge weekType={weekType} /></div>
                     </div>
-                    <div className="flex w-full sm:w-auto items-center justify-between gap-3">
-                      <div className="sm:hidden shrink-0"><WeekTypeBadge weekType={weekType} /></div>
-                      <div role="group" aria-label="Навігація тижнями" className="flex w-full items-center justify-between gap-1 rounded-xl border border-sys-border bg-sys-bg p-1 text-sm sm:w-auto">
-                        <button
-                          type="button"
-                          onClick={() => shiftWeek(-1)}
-                          aria-label="Попередній тиждень"
-                          className="flex items-center justify-center rounded-lg h-9 w-9 text-sys-text-secondary transition-colors hover:bg-sys-card hover:text-sys-text-primary active:scale-[0.98] focus:ring-2 focus:ring-sys-accent focus:outline-none"
-                        >
-                          ‹
-                        </button>
-                        <button
-                          type="button"
-                          onClick={resetWeek}
-                          disabled={isCurrentWeek}
-                          aria-pressed={isCurrentWeek}
-                          className="min-w-28 flex-1 rounded-lg px-3 h-9 text-center text-xs font-semibold text-sys-text-primary transition-colors hover:bg-sys-card disabled:cursor-default disabled:text-sys-accent disabled:bg-sys-accent/10 active:scale-[0.98] sm:flex-none"
-                        >
-                          {isCurrentWeek ? "Поточний" : "Повернутися"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => shiftWeek(1)}
-                          aria-label="Наступний тиждень"
-                          className="flex items-center justify-center rounded-lg h-9 w-9 text-sys-text-secondary transition-colors hover:bg-sys-card hover:text-sys-text-primary active:scale-[0.98] focus:ring-2 focus:ring-sys-accent focus:outline-none"
-                        >
-                          ›
-                        </button>
-                      </div>
-                    </div>
+                    <div className="shrink-0"><WeekTypeBadge weekType={weekType} /></div>
                   </div>
                   <motion.div
                     key={weekAnchorDate.toISOString()}
