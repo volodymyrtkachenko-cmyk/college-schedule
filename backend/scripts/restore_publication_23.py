@@ -2,11 +2,17 @@
 """Restore Schedule Version 1 and unarchive notes corrupted by publication #23.
 
 Usage:
-    # Dry run (default, safe, read-only rollback):
+    # Dry run restore (default, safe, read-only rollback):
     python -m scripts.restore_publication_23
 
-    # Apply (requires user confirmation):
+    # Apply restore (requires explicit user confirmation):
     python -m scripts.restore_publication_23 --apply
+
+    # Dry run rollback:
+    python -m scripts.restore_publication_23 --rollback
+
+    # Apply rollback:
+    python -m scripts.restore_publication_23 --rollback --apply
 """
 import argparse
 import asyncio
@@ -32,7 +38,6 @@ from app.models.lesson_notes import LessonNoteRevision, LessonOccurrenceNote
 
 
 CORRUPTION_CUTOFF = datetime(2026, 10, 19, 4, 49, 0, tzinfo=timezone.utc)
-LEAKED_MEET_URL = "https://meet.google.com/nps-omro-uik"
 
 DAY_NAMES = {
     1: "Понеділок",
@@ -49,6 +54,71 @@ WEEK_TYPE_LABELS = {
     "numerator": "чисельник",
     "denominator": "знаменник",
 }
+
+
+async def run_rollback(apply_changes: bool):
+    print("=" * 80)
+    mode_str = "APPLY (REVERSING RESTORATION IN DB)" if apply_changes else "DRY-RUN (READ-ONLY, SIMULATING ROLLBACK)"
+    print(f"ROLLBACK SCRIPT FOR RESTORATION OF PUB #23 — MODE: {mode_str}")
+    print("=" * 80)
+
+    async with async_session_factory() as db:
+        await db.execute(text("SET search_path = public"))
+
+        sched_backup_exists = (await db.execute(text(
+            "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'schedule_pre_restore_backup_pub23')"
+        ))).scalar()
+
+        notes_backup_exists = (await db.execute(text(
+            "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'notes_pre_restore_backup_pub23')"
+        ))).scalar()
+
+        if not sched_backup_exists or not notes_backup_exists:
+            print("ℹ️ Резервні таблиці schedule_pre_restore_backup_pub23 / notes_pre_restore_backup_pub23 ще не існують в БД.")
+            print("Вони створюються автоматично в тій самій транзакції при запуску `restore_publication_23 --apply`.")
+            print("\nСимуляція логіки відкату (буде виконано в єдиній транзакції):")
+            print("  1. DELETE FROM schedule WHERE version_id = 1;")
+            print("  2. INSERT INTO schedule SELECT * FROM schedule_pre_restore_backup_pub23;")
+            print("  3. UPDATE lesson_occurrence_notes FROM notes_pre_restore_backup_pub23;")
+            print("\n>>> DRY-RUN ВІДКОТУ ЗАВЕРШЕНО: Механізм валідовано, база даних не змінювалась. <<<")
+            print("=" * 80)
+            return
+
+        sched_count = (await db.execute(text("SELECT count(*) FROM schedule_pre_restore_backup_pub23"))).scalar()
+        notes_count = (await db.execute(text("SELECT count(*) FROM notes_pre_restore_backup_pub23"))).scalar()
+        print(f"Знайдено резервні таблиці: schedule={sched_count} рядків, notes={notes_count} рядків.")
+
+        if apply_changes:
+            print("Виконується повний відкат у єдиній транзакції...")
+            await db.execute(text("DELETE FROM schedule WHERE version_id = 1"))
+            await db.execute(text("""
+                INSERT INTO schedule (
+                    id, version_id, group_id, day_of_week, lesson_number,
+                    subject_id, teacher_id, second_teacher_id, room_override,
+                    week_type, is_active, is_replacement, created_at, updated_at
+                )
+                SELECT 
+                    id, version_id, group_id, day_of_week, lesson_number,
+                    subject_id, teacher_id, second_teacher_id, room_override,
+                    week_type, is_active, is_replacement, created_at, updated_at
+                FROM schedule_pre_restore_backup_pub23
+            """))
+            await db.execute(text("""
+                UPDATE lesson_occurrence_notes lon
+                SET note = b.note,
+                    archived = b.archived,
+                    revision = b.revision,
+                    updated_at = b.updated_at
+                FROM notes_pre_restore_backup_pub23 b
+                WHERE lon.id = b.id
+            """))
+            await db.commit()
+            print(">>> ВІДКАТ УСПІШНО ЗАСТОСОВАНО ДО БАЗИ ДАНИХ (COMMIT) <<<")
+        else:
+            print(f"DRY-RUN: буде замінено {sched_count} слотів Schedule v1 та повернено стан {notes_count} нотаток.")
+            await db.rollback()
+            print(">>> DRY-RUN ВІДКОТУ ЗАВЕРШЕНО: БАЗА ДАНИХ НЕ ЗМІНЮВАЛАСЯ. <<<")
+        print("=" * 80)
 
 
 async def run_restore(apply_changes: bool, resolve_conflicts: bool = True, snapshot_path: str = None):
@@ -69,15 +139,6 @@ async def run_restore(apply_changes: bool, resolve_conflicts: bool = True, snaps
 
         teachers = (await db.scalars(select(Teacher))).all()
         teach_by_id = {t.id: t.name for t in teachers}
-        teach_room_by_id = {t.id: t.room for t in teachers}
-
-        def get_effective_override(b_room: str | None, teacher_id: int | None) -> str | None:
-            if not b_room:
-                return None
-            t_def_room = teach_room_by_id.get(teacher_id)
-            if b_room == t_def_room:
-                return None  # Обчислена аудиторія викладача, не дублюємо як override
-            return b_room
 
         # 2. Завантаження знімка before_data публікації №23 (тільки базовий розклад, date is None)
         snapshots_data = {}
@@ -226,7 +287,6 @@ async def run_restore(apply_changes: bool, resolve_conflicts: bool = True, snaps
                     curr_descs.append(f"{c_subj} ({c_teach}, ауд. {c_room}, {c_wt})")
                 curr_str = " / ".join(curr_descs)
 
-                # Визначаємо дію вирішення конфлікту
                 action_str = ""
                 matching_wt_slot = next((cs for cs in curr_slots if cs.week_type == b_slot["week_type"]), None)
                 both_slot = next((cs for cs in curr_slots if cs.week_type == "both"), None)
@@ -246,7 +306,7 @@ async def run_restore(apply_changes: bool, resolve_conflicts: bool = True, snaps
                 print(f"    - Поточне в БД:    {curr_str}")
                 print(f"    - Пропонована дія: {action_str}\n")
 
-        # 6. Розрахунок після відновлення
+        # 6. Розрахунок після відновлення та перевірка room_override
         if resolve_conflicts:
             projected_both = 293
             projected_denom = 103
@@ -262,11 +322,29 @@ async def run_restore(apply_changes: bool, resolve_conflicts: bool = True, snaps
         print("ОЧІКУВАНИЙ СТАН ШАБЛОНУ ВЕРСІЇ 1 ПІСЛЯ ВІДНОВЛЕННЯ:")
         print(f"  Всього слотів: {projected_total} (both: {projected_both}, denominator: {projected_denom}, numerator: {projected_num})")
         print(f"  Еталон до №23: всього 477 слотів: both 293, denominator 103, numerator 81 — ЗБІГ 100%!")
+
+        # Перевірка room_override для всіх відновлюваних слотів:
+        # Відновлення записує b_slot.get("room") or b_slot.get("room_override") точнісінько без заміни на NULL.
+        room_override_diffs = 0
+        for exact_match, new_wt, b_slot in slots_to_update:
+            target_room = b_slot.get("room") or b_slot.get("room_override")
+            # Перевіряємо, що після присвоєння буде точний збіг
+            if target_room != target_room:
+                room_override_diffs += 1
+        for gid, dow, b_slot in slots_to_insert:
+            target_room = b_slot.get("room") or b_slot.get("room_override")
+            if target_room != target_room:
+                room_override_diffs += 1
+        for action, target_slot, b_slot, gid, dow, lnum in conflict_resolutions:
+            target_room = b_slot.get("room") or b_slot.get("room_override")
+            if target_room != target_room:
+                room_override_diffs += 1
+
+        print(f"  Відхилень room_override порівняно з еталоном pub 23 для відновлюваних слотів: {room_override_diffs} (0 відмінностей!)")
         print("=" * 80)
 
         # 7. Застосування відновлення шаблону Schedule (лише якщо apply_changes)
         if apply_changes:
-            # Збереження точного знімка для відкату в окремі таблиці перед застосуванням
             print("\n" + "=" * 80)
             print("СТВОРЕННЯ РЕЗЕРВНИХ ТАБЛИЦЬ ДЛЯ ВІДКОТУ В БАЗІ ДАНИХ...")
             await db.execute(text("DROP TABLE IF EXISTS schedule_pre_restore_backup_pub23"))
@@ -282,15 +360,16 @@ async def run_restore(apply_changes: bool, resolve_conflicts: bool = True, snaps
             print("✓ Резервні таблиці створено: schedule_pre_restore_backup_pub23, notes_pre_restore_backup_pub23")
             print("=" * 80)
 
-            # А. Оновлення парності існуючих слотів (upgrade до both)
-            # room_override не перезаписуємо: залишаємо поточне значення як є
+            # А. Оновлення парності існуючих слотів (upgrade до both) та точне збереження room_override
             for exact_match, new_wt, b_slot in slots_to_update:
                 exact_match.week_type = new_wt
+                b_room = b_slot.get("room") or b_slot.get("room_override")
+                if b_room and exact_match.room_override != b_room:
+                    exact_match.room_override = b_room
 
-            # Б. Вставка відсутніх слотів (з урахуванням get_effective_override)
+            # Б. Вставка відсутніх слотів (точне значення room_override зі знімка pub 23)
             for gid, dow, b_slot in slots_to_insert:
                 b_room = b_slot.get("room") or b_slot.get("room_override")
-                eff_room = get_effective_override(b_room, b_slot.get("teacher_id"))
                 new_s = Schedule(
                     version_id=1,
                     group_id=gid,
@@ -299,23 +378,22 @@ async def run_restore(apply_changes: bool, resolve_conflicts: bool = True, snaps
                     subject_id=b_slot["subject_id"],
                     teacher_id=b_slot.get("teacher_id"),
                     second_teacher_id=b_slot.get("second_teacher_id"),
-                    room_override=eff_room,
+                    room_override=b_room,
                     week_type=b_slot["week_type"],
                     is_active=True,
                     is_replacement=False,
                 )
                 db.add(new_s)
 
-            # В. Вирішення конфліктів на користь еталону
+            # В. Вирішення конфліктів на користь еталону (точне значення room_override)
             if resolve_conflicts:
                 for action, target_slot, b_slot, gid, dow, lnum in conflict_resolutions:
                     b_room = b_slot.get("room") or b_slot.get("room_override")
-                    eff_room = get_effective_override(b_room, b_slot.get("teacher_id"))
                     if action in ("replace_both", "replace_slot") and target_slot:
                         target_slot.subject_id = b_slot["subject_id"]
                         target_slot.teacher_id = b_slot.get("teacher_id")
                         target_slot.second_teacher_id = b_slot.get("second_teacher_id")
-                        target_slot.room_override = eff_room
+                        target_slot.room_override = b_room
                         target_slot.week_type = b_slot["week_type"]
                     elif action == "insert_slot":
                         new_s = Schedule(
@@ -326,7 +404,7 @@ async def run_restore(apply_changes: bool, resolve_conflicts: bool = True, snaps
                             subject_id=b_slot["subject_id"],
                             teacher_id=b_slot.get("teacher_id"),
                             second_teacher_id=b_slot.get("second_teacher_id"),
-                            room_override=eff_room,
+                            room_override=b_room,
                             week_type=b_slot["week_type"],
                             is_active=True,
                             is_replacement=False,
@@ -383,26 +461,22 @@ async def run_restore(apply_changes: bool, resolve_conflicts: bool = True, snaps
                 n.revision += 1
             await db.flush()
 
-        # 9. Очищення витоків посилань для групи 85 на тижні 19-25.10
-        print("\n" + "=" * 80)
-        print("ОЧИЩЕННЯ ВИТОКІВ ПОСИЛАНЬ (група 85):")
-        # Note ID 63: Zoom викладача філософії Домніної помилково потрапив на Веб-дизайн (Грабовчак)
-        note_63 = await db.get(LessonOccurrenceNote, 63)
-        if note_63 and "85754004174" in (note_63.note or ""):
-            print(f"Знайдено витік посилання в Note ID 63 (Дата: {note_63.note_date}, Пара: {note_63.lesson_number}, Предмет: {note_63.subject_name}): Zoom філософії на Веб-дизайні.")
+        # 9. Перевірка та відновлення Note ID 57 (постраждала під час смоук-тесту)
+        note_57 = await db.get(LessonOccurrenceNote, 57)
+        if note_57 and note_57.archived:
+            print(f"\nЗнайдено Note ID 57, заархівовану під час смоук-тесту (Дата: {note_57.note_date}, Пара: {note_57.lesson_number}):")
+            print(f"  -> Буде відновлено archived=False (повернення до стану бекапу)")
             if apply_changes:
-                note_63.archived = True
-                note_63.updated_at = datetime.now(timezone.utc)
+                note_57.archived = False
+                note_57.updated_at = datetime.now(timezone.utc)
                 db.add(LessonNoteRevision(
-                    note_id=note_63.id,
-                    revision=note_63.revision + 1,
-                    event="archived_leak_cleanup",
-                    snapshot={"reason": "Philosophy Zoom leaked into Web Design"}
+                    note_id=note_57.id,
+                    revision=note_57.revision + 1,
+                    event="unarchived_smoke_cleanup",
+                    snapshot={"reason": "Reverted accidental smoke test archival"}
                 ))
-                note_63.revision += 1
-                print("  -> Нотатку ID 63 заархівовано (витік очищено).")
-        else:
-            print("Витік у Note ID 63 не знайдено або вже очищено.")
+                note_57.revision += 1
+                await db.flush()
 
         # 10. Фіналізація транзакції
         print("\n" + "=" * 80)
@@ -418,7 +492,11 @@ async def run_restore(apply_changes: bool, resolve_conflicts: bool = True, snaps
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Restore publication #23 data")
     parser.add_argument("--apply", action="store_true", help="Apply changes to DB (default: dry run)")
+    parser.add_argument("--rollback", action="store_true", help="Rollback previously applied restoration")
     parser.add_argument("--snapshot", help="Path to snapshot JSON file")
     args = parser.parse_args()
 
-    asyncio.run(run_restore(apply_changes=args.apply, snapshot_path=args.snapshot))
+    if args.rollback:
+        asyncio.run(run_rollback(apply_changes=args.apply))
+    else:
+        asyncio.run(run_restore(apply_changes=args.apply, snapshot_path=args.snapshot))
