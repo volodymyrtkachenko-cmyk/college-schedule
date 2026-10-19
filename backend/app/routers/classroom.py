@@ -252,6 +252,7 @@ def _parse_announcement(text: str, created_dt: datetime, materials: Optional[lis
 
     text_norm = _norm(text)
     target_date: Optional[date] = None
+    has_explicit_date = False
 
     for dm in DATE_RE.finditer(text):
         day_s, month_s, year_s = dm.groups()
@@ -262,6 +263,7 @@ def _parse_announcement(text: str, created_dt: datetime, materials: Optional[lis
                 year += 2000
             try:
                 target_date = date(year, m_i, d_i)
+                has_explicit_date = True
                 break
             except ValueError:
                 continue
@@ -274,6 +276,7 @@ def _parse_announcement(text: str, created_dt: datetime, materials: Optional[lis
             if m_i:
                 try:
                     target_date = date(created_dt.year, m_i, int(day_s))
+                    has_explicit_date = True
                 except ValueError:
                     pass
 
@@ -284,6 +287,7 @@ def _parse_announcement(text: str, created_dt: datetime, materials: Optional[lis
             if 1 <= d_i <= 31 and 1 <= m_i <= 12 and abs(m_i - created_dt.month) <= 1:
                 try:
                     target_date = date(created_dt.year, m_i, d_i)
+                    has_explicit_date = True
                     break
                 except ValueError:
                     continue
@@ -291,12 +295,21 @@ def _parse_announcement(text: str, created_dt: datetime, materials: Optional[lis
     if target_date is None:
         if "завтра" in text_norm:
             target_date = created_dt.date() + timedelta(days=1)
+            has_explicit_date = True
         elif "сьогодні" in text_norm:
             target_date = created_dt.date()
+            has_explicit_date = True
+        elif created_dt.weekday() in (5, 6):  # Оголошення на вихідних (субота або неділя)
+            # Призначається на найближчий робочий понеділок
+            days_to_monday = 7 - created_dt.weekday()
+            target_date = created_dt.date() + timedelta(days=days_to_monday)
+            has_explicit_date = False
         elif created_dt.hour >= 16:
             target_date = created_dt.date() + timedelta(days=1)
+            has_explicit_date = False
         else:
             target_date = created_dt.date()
+            has_explicit_date = False
 
     lesson_number: Optional[int] = None
 
@@ -335,10 +348,12 @@ def _parse_announcement(text: str, created_dt: datetime, materials: Optional[lis
     return {
         "url": url,
         "target_date": target_date,
+        "has_explicit_date": has_explicit_date,
         "lesson_number": lesson_number,
         "created_dt": created_dt,
         "text_norm": text_norm,
     }
+
 
 
 def _matches_lesson(
@@ -458,6 +473,10 @@ async def _save_link_to_slot(
     ).first()
 
     if active_row:
+        raw_lines = [l.strip() for l in active_row.note.split("\n") if l.strip()]
+        if url_line.strip() in raw_lines:
+            return
+
         kept_lines = []
         for line in active_row.note.split("\n"):
             l_str = line.strip()
@@ -907,7 +926,12 @@ async def perform_course_sync(
                     params={"pageSize": 50},
                     headers=headers,
                 )
-                return course, await asyncio.gather(t_task, a_task, cw_task, top_task, return_exceptions=True)
+                mat_task = client.get(
+                    f"https://classroom.googleapis.com/v1/courses/{c_id}/courseWorkMaterials",
+                    params={"pageSize": 25},
+                    headers=headers,
+                )
+                return course, await asyncio.gather(t_task, a_task, cw_task, top_task, mat_task, return_exceptions=True)
 
         bundles = await asyncio.gather(*(fetch_course_bundle(c) for c in relevant_courses[:10]))
 
@@ -916,7 +940,7 @@ async def perform_course_sync(
         missing_creators: set[tuple[str, str]] = set()
 
         # Прохід 1: Парсимо вже отриманих викладачів/теми та збираємо невідомі creatorUserId
-        for course, (t_resp, ann_resp, cw_resp, top_resp) in bundles:
+        for course, (t_resp, ann_resp, cw_resp, top_resp, mat_resp) in bundles:
             course_id = course["id"]
             course_teachers_tokens[course_id] = []
             topics_by_id: dict[str, str] = {}
@@ -966,6 +990,12 @@ async def perform_course_sync(
                     if cid and cid not in teacher_tokens_by_uid:
                         missing_creators.add((course_id, cid))
 
+            if not isinstance(mat_resp, Exception) and mat_resp.status_code == 200:
+                for mat in mat_resp.json().get("courseWorkMaterial", []):
+                    cid = mat.get("creatorUserId", "")
+                    if cid and cid not in teacher_tokens_by_uid:
+                        missing_creators.add((course_id, cid))
+
         # Оптимізація 1.1: Завантажуємо всі відсутні профілі викладачів ОДНИМ паралельним пакетом
         if missing_creators:
             async def _fetch_missing_creator(c_id: str, u_id: str):
@@ -989,12 +1019,23 @@ async def perform_course_sync(
                 if toks or u_id not in teacher_tokens_by_uid:
                     teacher_tokens_by_uid[u_id] = toks
 
-        # Прохід 2: Миттєва обробка оголошень та ДЗ у пам'яті без жодного HTTP-запиту
-        for course, (_, ann_resp, cw_resp, _) in bundles:
+        # Прохід 2: Миттєва обробка оголошень, матеріалів та ДЗ у пам'яті без жодного HTTP-запиту
+        for course, (_, ann_resp, cw_resp, _, mat_resp) in bundles:
             course_id = course["id"]
             course_title = f"{course.get('name', '')} {course.get('section', '')}".strip()
             course_title_norm = _norm(course_title)
             topics_by_id = topics_by_course.get(course_id, {})
+
+            # 2.0. Посилання з заголовку/опису/кімнати курсу
+            course_header_text = f"{course.get('descriptionHeading', '')} {course.get('description', '')} {course.get('room', '')}".strip()
+            if ONLINE_HINT_RE.search(course_header_text) or URL_RE.search(course_header_text):
+                parsed = _parse_announcement(course_header_text, now_kyiv, None)
+                if parsed:
+                    parsed["has_explicit_date"] = False
+                    parsed["is_course_level"] = True
+                    parsed["course_title_norm"] = course_title_norm
+                    parsed["author_tokens"] = list(set(course_teachers_tokens.get(course_id, [])))
+                    parsed_announcements.append(parsed)
 
             if not isinstance(ann_resp, Exception) and ann_resp.status_code == 200:
                 for ann in ann_resp.json().get("announcements", []):
@@ -1019,6 +1060,31 @@ async def perform_course_sync(
                     parsed["course_title_norm"] = course_title_norm
                     parsed["author_tokens"] = list(set(ann_author_tokens))
                     parsed_announcements.append(parsed)
+
+            if not isinstance(mat_resp, Exception) and mat_resp.status_code == 200:
+                for mat in mat_resp.json().get("courseWorkMaterial", []):
+                    text = f"{mat.get('title', '')}\n{mat.get('description', '')}".strip()
+                    if not text and not mat.get("materials"):
+                        continue
+                    created_raw = mat.get("creationTime") or mat.get("updateTime")
+                    created_dt = (
+                        datetime.fromisoformat(created_raw.replace("Z", "+00:00")).astimezone(KYIV_TZ)
+                        if created_raw
+                        else now_kyiv
+                    )
+                    parsed = _parse_announcement(text, created_dt, mat.get("materials"))
+                    if not parsed:
+                        continue
+
+                    creator_id = mat.get("creatorUserId", "")
+                    mat_author_tokens = list(teacher_tokens_by_uid.get(creator_id, []))
+                    if len(course_teachers_tokens.get(course_id, [])) <= 2:
+                        mat_author_tokens.extend(course_teachers_tokens[course_id])
+
+                    parsed["course_title_norm"] = course_title_norm
+                    parsed["author_tokens"] = list(set(mat_author_tokens))
+                    parsed_announcements.append(parsed)
+
 
             if not isinstance(cw_resp, Exception) and cw_resp.status_code == 200:
                 for cw in cw_resp.json().get("courseWork", []):
@@ -1179,47 +1245,62 @@ async def perform_course_sync(
     parsed_announcements.sort(key=lambda x: x["created_dt"])
     for pa in parsed_announcements:
         target_date: date = pa["target_date"]
-        if not (week_monday <= target_date <= week_friday):
-            continue
+        has_explicit_date: bool = pa.get("has_explicit_date", False)
+        is_course_level: bool = pa.get("is_course_level", False)
 
-        day_lessons = week_days_lessons.get(target_date, [])
-        if not day_lessons:
-            continue
+        if has_explicit_date:
+            candidate_dates = [target_date] if (week_monday <= target_date <= week_friday) else []
+        elif is_course_level:
+            candidate_dates = [d for d in sorted(week_days_lessons.keys()) if week_monday <= d <= week_friday]
+        else:
+            target_matches = [
+                l for l in week_days_lessons.get(target_date, [])
+                if _matches_lesson(l, pa.get("course_title_norm", ""), pa["text_norm"], pa.get("author_tokens", []))
+            ]
+            if target_matches and (week_monday <= target_date <= week_friday):
+                candidate_dates = [target_date]
+            else:
+                candidate_dates = [d for d in sorted(week_days_lessons.keys()) if week_monday <= d <= week_friday]
 
-        candidates = [
-            l for l in day_lessons
-            if _matches_lesson(l, pa.get("course_title_norm", ""), pa["text_norm"], pa.get("author_tokens", []))
-        ]
-        matched_lesson = None
+        for c_date in candidate_dates:
+            day_lessons = week_days_lessons.get(c_date, [])
+            if not day_lessons:
+                continue
 
-        if pa["lesson_number"] is not None:
-            matched_lesson = next(
-                (l for l in candidates if l.lesson_number == pa["lesson_number"]),
-                None,
-            )
-            if not matched_lesson and not candidates:
-                matched_lesson = next(
-                    (l for l in day_lessons if l.lesson_number == pa["lesson_number"]),
-                    None,
+            candidates = [
+                l for l in day_lessons
+                if _matches_lesson(l, pa.get("course_title_norm", ""), pa["text_norm"], pa.get("author_tokens", []))
+            ]
+            matched_lessons = []
+
+            if pa["lesson_number"] is not None:
+                matched_lessons = [l for l in candidates if l.lesson_number == pa["lesson_number"]]
+                if not matched_lessons and not candidates and has_explicit_date and c_date == target_date:
+                    fallback_l = next(
+                        (l for l in day_lessons if l.lesson_number == pa["lesson_number"]),
+                        None,
+                    )
+                    if fallback_l:
+                        matched_lessons = [fallback_l]
+            elif candidates:
+                matched_lessons = candidates
+
+            if not matched_lessons:
+                continue
+
+            for matched_lesson in matched_lessons:
+                url_line = pa["url"]
+                combined_ann = f"{pa.get('course_title_norm', '')} {pa['text_norm']}".strip()
+                matched_prefix = _resolve_matched_teacher_surname(
+                    matched_lesson, pa.get("author_tokens", []), combined_ann
                 )
-        elif len(candidates) == 1:
-            matched_lesson = candidates[0]
+                if matched_prefix:
+                    url_line = f"{matched_prefix}: {url_line}"
 
-        if not matched_lesson:
-            continue
-
-        url_line = pa["url"]
-        combined_ann = f"{pa.get('course_title_norm', '')} {pa['text_norm']}".strip()
-        matched_prefix = _resolve_matched_teacher_surname(
-            matched_lesson, pa.get("author_tokens", []), combined_ann
-        )
-        if matched_prefix:
-            url_line = f"{matched_prefix}: {url_line}"
-
-        await _save_link_to_slot(
-            db, target_date, group.id, matched_lesson, url_line, matched_prefix
-        )
-        synced_links += 1
+                await _save_link_to_slot(
+                    db, c_date, group.id, matched_lesson, url_line, matched_prefix
+                )
+                synced_links += 1
 
     return {
         "synced_links": synced_links,

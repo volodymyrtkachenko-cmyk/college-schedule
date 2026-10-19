@@ -17,6 +17,7 @@ import { getMondayOf } from "../lib/date";
 import dynamic from "next/dynamic";
 const WelcomeScreen = dynamic(() => import("../components/WelcomeScreen").then((m) => m.WelcomeScreen), { ssr: false });
 import { SearchableSelect } from "../components/SearchableSelect";
+import { ClassroomSyncButton } from "../components/ClassroomSyncButton";
 import { useToast } from "../components/ToastProvider";
 import { QuickJumpTarget, findGroupIdByName, findTeacherIdByName } from "../lib/quickJump";
 
@@ -59,6 +60,10 @@ export default function HomePage() {
   const isCurrentWeek = useMemo(() => {
     const currentAnchor = getInitialAnchor();
     return Math.abs(weekAnchorDate.getTime() - currentAnchor.getTime()) < 1000 * 60 * 60 * 24;
+  }, [weekAnchorDate]);
+
+  const weekStartStr = useMemo(() => {
+    return `${weekAnchorDate.getFullYear()}-${String(weekAnchorDate.getMonth() + 1).padStart(2, "0")}-${String(weekAnchorDate.getDate()).padStart(2, "0")}`;
   }, [weekAnchorDate]);
 
   const shiftWeek = (offset: number) => {
@@ -473,6 +478,17 @@ export default function HomePage() {
 
           {/* Star pin button + "⋯" Menu button */}
           <div className="flex items-center gap-1 shrink-0">
+            {mode === "student" && groupId && (
+              <ClassroomSyncButton
+                currentGroupId={groupId}
+                weekStart={weekStartStr}
+                onSynced={(detectedId) => {
+                  if (detectedId && detectedId !== groupId) {
+                    setGroupId(detectedId);
+                  }
+                }}
+              />
+            )}
             {currentId && (
               <button
                 type="button"
@@ -639,6 +655,21 @@ export default function HomePage() {
 
               {/* Secondary Links & Controls */}
               <div className="mt-3 flex flex-col gap-1.5 border-t border-sys-border/50 pt-2.5">
+                {mode === "student" && groupId && (
+                  <div className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 px-3 py-2">
+                    <span className="text-xs font-semibold text-sys-text-primary">Google Classroom</span>
+                    <ClassroomSyncButton
+                      currentGroupId={groupId}
+                      weekStart={weekStartStr}
+                      onSynced={(detectedId) => {
+                        if (detectedId && detectedId !== groupId) {
+                          setGroupId(detectedId);
+                        }
+                        setMobileMenuOpen(false);
+                      }}
+                    />
+                  </div>
+                )}
                 <a
                   href="/statistics"
                   role="menuitem"
@@ -757,6 +788,17 @@ export default function HomePage() {
                       emptyLabel="Очистити вибір"
                     />
                   </label>
+                  {mode === "student" && groupId && (
+                    <ClassroomSyncButton
+                      currentGroupId={groupId}
+                      weekStart={weekStartStr}
+                      onSynced={(detectedId) => {
+                        if (detectedId && detectedId !== groupId) {
+                          setGroupId(detectedId);
+                        }
+                      }}
+                    />
+                  )}
                   {currentId && (
                     <button
                       type="button"
