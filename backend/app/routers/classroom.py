@@ -1041,7 +1041,12 @@ async def perform_course_sync(
                     teacher_tokens_by_uid[u_id] = toks
 
         # Прохід 2: Миттєва обробка оголошень, матеріалів та ДЗ у пам'яті без жодного HTTP-запиту
-        for course, (_, ann_resp, cw_resp, _, mat_resp) in bundles:
+        for course, bundle_items in bundles:
+            if len(bundle_items) < 5:
+                continue
+            ann_resp = bundle_items[1]
+            cw_resp = bundle_items[2]
+            mat_resp = bundle_items[4]
             course_id = course["id"]
             course_title = f"{course.get('name', '')} {course.get('section', '')}".strip()
             course_title_norm = _norm(course_title)

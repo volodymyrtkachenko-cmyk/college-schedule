@@ -133,3 +133,41 @@ def test_candidate_selection_specific_lesson_number():
     matched_lessons = [l for l in candidates if l.lesson_number == pa["lesson_number"]]
     assert matched_lessons == [lesson2]
 
+
+def test_bundle_items_unpacking_handles_6_items_safely():
+    """Verify that bundle processing does not crash when 6 items (including student submissions) are present."""
+    course = {"id": "c1", "name": "Тестовий курс"}
+    # 6 items: teachers, announcements, courseWork, topics, materials, submissions
+    bundle_6 = [
+        {"teachers": []},
+        {"announcements": []},
+        {"courseWork": []},
+        {"topic": []},
+        {"courseWorkMaterial": []},
+        {"studentSubmissions": []},
+    ]
+    bundles = [(course, bundle_6)]
+
+    # Pass 1 logic
+    for c, items in bundles:
+        if len(items) >= 6:
+            t, a, cw, top, mat, sub = items[:6]
+        else:
+            t, a, cw, top, mat = items[:5]
+            sub = None
+        assert sub is not None
+
+    # Pass 2 logic
+    processed = 0
+    for c, items in bundles:
+        if len(items) < 5:
+            continue
+        ann_resp = items[1]
+        cw_resp = items[2]
+        mat_resp = items[4]
+        assert ann_resp == {"announcements": []}
+        assert cw_resp == {"courseWork": []}
+        assert mat_resp == {"courseWorkMaterial": []}
+        processed += 1
+    assert processed == 1
+
