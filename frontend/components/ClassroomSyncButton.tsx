@@ -90,8 +90,11 @@ export function ClassroomSyncButton({
       ? `Перемкнуто на вашу групу ${res.group_name}`
       : `Група ${res.group_name}`;
     const autoNote = usedCode ? " (фонове автооновлення активне)" : "";
+    const unmappedNote = res.unmapped_tasks && res.unmapped_tasks.length > 0
+      ? ` (${res.unmapped_tasks.length} завдань пропущено через відсутність пар у розкладі)`
+      : "";
     showToast(
-      `${prefix}: ${parts.join(", ")}${autoNote}!`,
+      `${prefix}: ${parts.join(", ")}${autoNote}${unmappedNote}!`,
       "success"
     );
   };

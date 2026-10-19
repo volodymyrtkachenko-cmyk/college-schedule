@@ -328,6 +328,7 @@ async def publish_draft(
     id: int,
     target_version_id: int | None = None,
     expected_revision: int = Query(...),
+    force: bool = Query(False),
     db: AsyncSession = Depends(get_db),
     current_user=Depends(require_roles("admin", "editor"))
 ):
@@ -344,67 +345,52 @@ async def publish_draft(
 
     if draft.status not in {"DRAFT", "draft", "pending"}:
         raise HTTPException(status_code=400, detail="Цей розклад ще не готовий або не був успішно створений, тому його не можна опублікувати.")
-    slot_count = await db.scalar(select(func.count()).select_from(ScheduleSlot).where(ScheduleSlot.draft_id == id))
-    if not slot_count and draft.draft_type != "import":
-        raise HTTPException(
-            status_code=400,
-            detail="У цьому розкладі немає жодного заняття. Публікація стерла б поточний розклад, тому її заблоковано.",
-        )
-
-    # Replace only the groups represented by this draft.  Publishing a partial
-    # draft must never erase unrelated groups or their date overrides.
-    slots = (await db.scalars(
-        select(ScheduleSlot)
-        .where(ScheduleSlot.draft_id == id)
-        .options(selectinload(ScheduleSlot.curriculum))
-    )).all()
-    proposed_slots = [{
-        "group_id":s.curriculum.group_id, "subject_id":s.curriculum.subject_id,
-        "teacher_id":s.curriculum.teacher_id, "second_teacher_id":s.curriculum.second_teacher_id,
-        "stream_id":s.curriculum.stream_id if s.curriculum.is_stream else None,
-        "day_of_week":s.day_of_week,"lesson_number":s.lesson_number,"week_type":s.week_type,
-        "room":s.room_override,
-    } for s in slots]
-    checked_slots = normalize_base_slots(proposed_slots)
-    if len(checked_slots) != len(proposed_slots):
-        raise HTTPException(409,detail={"code":"draft_duplicate_slots", "msg":"Чернетка містить повтори або надлишкове перекриття тижнів. Перегенеруйте її; поточні дані не змінено."})
-    group_ids = {s.curriculum.group_id for s in slots}
 
     from app.core.time import today_local
-    from app.models.entities import SchedulePublication, SchedulePublicationSnapshot, ScheduleVersion
+    from app.models.entities import SchedulePublication, SchedulePublicationSnapshot, ScheduleVersion, ImportedScheduleChange
     import json
-    anchored_import = draft.draft_type == "import" and "base_version_id" in (draft.data or {})
-    if anchored_import:
-        anchor = draft.data["base_version_id"]
-        if target_version_id is not None and target_version_id != anchor:
-            raise HTTPException(409,detail={"code":"import_target_version_mismatch", "msg":"Цільова версія не відповідає джерелу імпорту."})
-        current_anchor = await version_for_import(db,(draft.data.get("import_scope") or {}).get("dates",[]),today_local())
-        if current_anchor != anchor:
-            raise HTTPException(409,detail={"code":"import_version_changed", "msg":"Версії змінилися після імпорту. Повторіть імпорт."})
-        target_version_id = anchor
-        if anchor is not None and await db.get(ScheduleVersion,anchor) is None:
-            raise HTTPException(404,"Версію джерела не знайдено")
-    elif target_version_id is None:
-        today = today_local()
-        target_version = await db.scalar(
-            select(ScheduleVersion).where(
-                ScheduleVersion.valid_from <= today,
-                ScheduleVersion.valid_until >= today,
-                ScheduleVersion.is_active.is_(True)
-            ).order_by(ScheduleVersion.valid_from.desc()).limit(1)
-        )
-        target_version_id = target_version.id if target_version else None
-    else:
-        # User specified a version explicitly
-        version = await db.get(ScheduleVersion, target_version_id)
-        if not version:
-            raise HTTPException(status_code=404, detail="Вказану цільову версію розкладу не знайдено.")
+    from datetime import datetime
 
-
-
-    # Mark old published as archived
-    await db.execute(update(ScheduleDraft).where(ScheduleDraft.status == "published").values(status="archived"))
+    # 1. SPECIAL PATH: IMPORT DRAFTS NEVER TOUCH PERMANENT SCHEDULE (Schedule table)
     if draft.draft_type == "import":
+        # Check anomaly guard: an anomaly draft cannot be published without force=True
+        is_anomaly = (draft.data or {}).get("is_anomaly", False)
+        if is_anomaly and not force:
+            reasons = (draft.data or {}).get("anomaly_reasons", [])
+            detail_msg = (
+                f"Чернетку позначено як аномальну: {'; '.join(reasons)}. "
+                "Публікацію зупинено. Для примусової публікації додайте force=true."
+                if reasons else "Аномальна чернетка імпорту. Для публікації потрібне підтвердження (force=true)."
+            )
+            raise HTTPException(
+                status_code=400,
+                detail={"code": "anomaly_detected", "msg": detail_msg, "reasons": reasons}
+            )
+
+        anchored_import = "base_version_id" in (draft.data or {})
+        if anchored_import:
+            anchor = draft.data["base_version_id"]
+            if target_version_id is not None and target_version_id != anchor:
+                raise HTTPException(409, detail={"code": "import_target_version_mismatch", "msg": "Цільова версія не відповідає джерелу імпорту."})
+            current_anchor = await version_for_import(db, (draft.data.get("import_scope") or {}).get("dates", []), today_local())
+            if current_anchor != anchor:
+                raise HTTPException(409, detail={"code": "import_version_changed", "msg": "Версії змінилися після імпорту. Повторіть імпорт."})
+            target_version_id = anchor
+            if anchor is not None and await db.get(ScheduleVersion, anchor) is None:
+                raise HTTPException(404, "Версію джерела не знайдено")
+        elif target_version_id is None:
+            today = today_local()
+            target_version = await db.scalar(
+                select(ScheduleVersion).where(
+                    ScheduleVersion.valid_from <= today,
+                    ScheduleVersion.valid_until >= today,
+                    ScheduleVersion.is_active.is_(True)
+                ).order_by(ScheduleVersion.valid_from.desc()).limit(1)
+            )
+            target_version_id = target_version.id if target_version else None
+
+        # Archive other pending import drafts
+        await db.execute(update(ScheduleDraft).where(ScheduleDraft.status == "published").values(status="archived"))
         await db.execute(
             update(ScheduleDraft)
             .where(
@@ -415,8 +401,229 @@ async def publish_draft(
             .values(status="archived")
         )
 
+        substitutions = (draft.data or {}).get("substitutions", [])
+        cancelled_lessons = (draft.data or {}).get("cancelled", [])
+        import_scope = (draft.data or {}).get("import_scope") or {}
+        scope_dates = {
+            datetime.strptime(value, "%Y-%m-%d").date()
+            for value in import_scope.get("dates", [])
+            if value
+        }
+        scope_group_ids = {
+            int(value) for value in import_scope.get("group_ids", [])
+            if value is not None
+        }
+        if not scope_dates:
+            scope_dates = {
+                datetime.strptime(item["date"], "%Y-%m-%d").date()
+                for item in [*substitutions, *cancelled_lessons]
+                if item.get("date")
+            }
+        if not scope_group_ids:
+            scope_group_ids = {
+                int(item["group_id"])
+                for item in [*substitutions, *cancelled_lessons]
+                if item.get("group_id") is not None
+            }
 
-    # Fetch existing slots for snapshot before we delete them
+        total_changes = len(substitutions) + len(cancelled_lessons)
+        publication = SchedulePublication(
+            version_id=target_version_id,
+            actor_id=current_user.id,
+            scope_manifest=json.dumps({
+                "source": "manual",
+                "group_ids": sorted(list(scope_group_ids)),
+                "changes_count": total_changes,
+                "dates": sorted([d.isoformat() for d in scope_dates]),
+            }),
+            source_fingerprint=json.dumps((draft.data or {}).get("import_scope", {})),
+        )
+        db.add(publication)
+        await db.flush()
+
+        # Retire older active changes in scope
+        if scope_dates and scope_group_ids:
+            await db.execute(
+                update(ImportedScheduleChange)
+                .where(
+                    ImportedScheduleChange.is_published.is_(True),
+                    ImportedScheduleChange.date.in_(scope_dates),
+                    ImportedScheduleChange.group_id.in_(scope_group_ids),
+                    ImportedScheduleChange.manually_edited.is_(False),
+                )
+                .values(is_published=False)
+            )
+
+        # Pre-fetch maps for snapshot summaries
+        all_subjs = {s.id: s.name for s in (await db.scalars(select(Subject))).all()}
+        all_teachers = {t.id: t.name for t in (await db.scalars(select(Teacher))).all()}
+        semester_start = await settings_service.get_semester_start(db)
+
+        # Insert substitutions
+        for sub in substitutions:
+            d_str = sub["date"]
+            d_obj = datetime.strptime(d_str, "%Y-%m-%d").date() if isinstance(d_str, str) else d_str
+            has_manual = await db.scalar(
+                select(ImportedScheduleChange.id).where(
+                    ImportedScheduleChange.date == d_obj,
+                    ImportedScheduleChange.group_id == sub["group_id"],
+                    ImportedScheduleChange.lesson_number == sub["lesson_number"],
+                    ImportedScheduleChange.is_published.is_(True),
+                    ImportedScheduleChange.manually_edited.is_(True),
+                )
+            )
+            has_override = await db.scalar(
+                select(ScheduleOverride.id).where(
+                    ScheduleOverride.group_id == sub["group_id"],
+                    ScheduleOverride.date == d_obj,
+                    ScheduleOverride.lesson_number == sub["lesson_number"],
+                )
+            )
+            if has_manual or has_override:
+                continue
+
+            latest = await db.scalar(
+                select(func.max(ImportedScheduleChange.version)).where(
+                    ImportedScheduleChange.date == d_obj,
+                    ImportedScheduleChange.group_id == sub["group_id"],
+                    ImportedScheduleChange.lesson_number == sub["lesson_number"],
+                )
+            )
+            db.add(ImportedScheduleChange(
+                draft_id=draft.id,
+                publication_id=publication.id,
+                date=d_obj,
+                kind="substitution",
+                group_id=sub["group_id"],
+                subject_id=sub["subject_id"],
+                teacher_id=sub["teacher_id"],
+                second_teacher_id=sub.get("second_teacher_id"),
+                lesson_number=sub["lesson_number"],
+                room_override=sub.get("room"),
+                is_published=True,
+                version=(latest or 0) + 1,
+            ))
+
+            subj_n = all_subjs.get(sub["subject_id"], "")
+            teach_n = all_teachers.get(sub["teacher_id"], "")
+            room_n = f", ауд. {sub.get('room')}" if sub.get("room") else ""
+            db.add(SchedulePublicationSnapshot(
+                publication_id=publication.id,
+                group_id=sub["group_id"],
+                date=d_obj,
+                lesson_number=sub["lesson_number"],
+                before_data=json.dumps({"summary": "Базовий розклад"}),
+                after_data=json.dumps({"kind": "substitution", "summary": f"{subj_n} ({teach_n}{room_n})".strip()}),
+            ))
+
+        # Insert cancellations
+        for canc in cancelled_lessons:
+            d_str = canc["date"]
+            d_obj = datetime.strptime(d_str, "%Y-%m-%d").date() if isinstance(d_str, str) else d_str
+            has_manual = await db.scalar(
+                select(ImportedScheduleChange.id).where(
+                    ImportedScheduleChange.date == d_obj,
+                    ImportedScheduleChange.group_id == canc["group_id"],
+                    ImportedScheduleChange.lesson_number == canc["lesson_number"],
+                    ImportedScheduleChange.is_published.is_(True),
+                    ImportedScheduleChange.manually_edited.is_(True),
+                )
+            )
+            has_override = await db.scalar(
+                select(ScheduleOverride.id).where(
+                    ScheduleOverride.group_id == canc["group_id"],
+                    ScheduleOverride.date == d_obj,
+                    ScheduleOverride.lesson_number == canc["lesson_number"],
+                )
+            )
+            if has_manual or has_override:
+                continue
+
+            latest = await db.scalar(
+                select(func.max(ImportedScheduleChange.version)).where(
+                    ImportedScheduleChange.date == d_obj,
+                    ImportedScheduleChange.group_id == canc["group_id"],
+                    ImportedScheduleChange.lesson_number == canc["lesson_number"],
+                )
+            )
+            db.add(ImportedScheduleChange(
+                draft_id=draft.id,
+                publication_id=publication.id,
+                date=d_obj,
+                kind="cancelled",
+                group_id=canc["group_id"],
+                lesson_number=canc["lesson_number"],
+                is_published=True,
+                version=(latest or 0) + 1,
+            ))
+            db.add(SchedulePublicationSnapshot(
+                publication_id=publication.id,
+                group_id=canc["group_id"],
+                date=d_obj,
+                lesson_number=canc["lesson_number"],
+                before_data=json.dumps({"summary": "Базовий розклад"}),
+                after_data=json.dumps({"kind": "cancelled", "summary": "Скасовано"}),
+            ))
+
+        # Clean up temporary draft slots/curriculums if any were attached
+        await db.execute(delete(ScheduleSlot).where(ScheduleSlot.draft_id == id))
+        created_curriculum_ids = (draft.data or {}).get("created_curriculum_ids", [])
+        if created_curriculum_ids:
+            await db.execute(delete(Curriculum).where(Curriculum.id.in_(created_curriculum_ids)))
+
+        draft.status = "published"
+        draft.updated_at = datetime.utcnow()
+        await db.flush()
+
+        if scope_group_ids:
+            await reconcile_notes_after_publish(db, list(scope_group_ids), current_user.id)
+            await db.flush()
+
+        await db.commit()
+        return {"status": "published", "publication_id": publication.id}
+
+    # 2. PATH FOR TEMPLATE / GENERATOR DRAFTS (replaces base template for represented groups)
+    slot_count = await db.scalar(select(func.count()).select_from(ScheduleSlot).where(ScheduleSlot.draft_id == id))
+    if not slot_count:
+        raise HTTPException(
+            status_code=400,
+            detail="У цьому розкладі немає жодного заняття. Публікація стерла б поточний розклад, тому її заблоковано.",
+        )
+
+    slots = (await db.scalars(
+        select(ScheduleSlot)
+        .where(ScheduleSlot.draft_id == id)
+        .options(selectinload(ScheduleSlot.curriculum))
+    )).all()
+    proposed_slots = [{
+        "group_id": s.curriculum.group_id, "subject_id": s.curriculum.subject_id,
+        "teacher_id": s.curriculum.teacher_id, "second_teacher_id": s.curriculum.second_teacher_id,
+        "stream_id": s.curriculum.stream_id if s.curriculum.is_stream else None,
+        "day_of_week": s.day_of_week, "lesson_number": s.lesson_number, "week_type": s.week_type,
+        "room": s.room_override,
+    } for s in slots]
+    checked_slots = normalize_base_slots(proposed_slots)
+    if len(checked_slots) != len(proposed_slots):
+        raise HTTPException(409, detail={"code": "draft_duplicate_slots", "msg": "Чернетка містить повтори або надлишкове перекриття тижнів. Перегенеруйте її; поточні дані не змінено."})
+    group_ids = {s.curriculum.group_id for s in slots}
+
+    if target_version_id is None:
+        today = today_local()
+        target_version = await db.scalar(
+            select(ScheduleVersion).where(
+                ScheduleVersion.valid_from <= today,
+                ScheduleVersion.valid_until >= today,
+                ScheduleVersion.is_active.is_(True)
+            ).order_by(ScheduleVersion.valid_from.desc()).limit(1)
+        )
+        target_version_id = target_version.id if target_version else None
+    else:
+        version = await db.get(ScheduleVersion, target_version_id)
+        if not version:
+            raise HTTPException(status_code=404, detail="Вказану цільову версію розкладу не знайдено.")
+
+    await db.execute(update(ScheduleDraft).where(ScheduleDraft.status == "published").values(status="archived"))
+
     before_by_group = {gid: [] for gid in group_ids}
     if group_ids:
         from sqlalchemy.orm import joinedload
@@ -517,178 +724,12 @@ async def publish_draft(
         )
         db.add(snap)
 
-    
-    # Reconcile notes to archive those where the subject changed or lesson was deleted
     if group_ids:
-        await reconcile_notes_after_publish(db, group_ids, current_user.id)
-
+        await reconcile_notes_after_publish(db, list(group_ids), current_user.id)
         await db.flush()
 
-    if draft.draft_type == "import":
-        created_curriculum_ids = (draft.data or {}).get("created_curriculum_ids", [])
-        if created_curriculum_ids:
-            await db.execute(delete(ScheduleSlot).where(ScheduleSlot.draft_id == id))
-            await db.execute(
-                delete(Curriculum).where(Curriculum.id.in_(created_curriculum_ids))
-            )
-        
-    # Process substitutions if draft.data exists
-    if draft.data:
-        from app.models.entities import ImportedScheduleChange
-        from datetime import datetime
-        substitutions = draft.data.get("substitutions", [])
-        cancelled_lessons = draft.data.get("cancelled", [])
-        import_scope = draft.data.get("import_scope") or {}
-        scope_dates = {
-            datetime.strptime(value, "%Y-%m-%d").date()
-            for value in import_scope.get("dates", [])
-        }
-        scope_group_ids = {
-            int(value) for value in import_scope.get("group_ids", [])
-        }
-        if not scope_dates:
-            scope_dates = {
-                datetime.strptime(item["date"], "%Y-%m-%d").date()
-                for item in [*substitutions, *cancelled_lessons]
-                if item.get("date")
-            }
-        if not scope_group_ids:
-            scope_group_ids = {
-                int(item["group_id"])
-                for item in [*substitutions, *cancelled_lessons]
-                if item.get("group_id") is not None
-            }
-
-        # An import is a snapshot for its scope, not an append-only list of
-        # overrides. Retire older published states first so removed changes
-        # disappear from the runtime projection on the next request.
-        if scope_dates and scope_group_ids:
-            await db.execute(
-                update(ImportedScheduleChange)
-                .where(
-                    ImportedScheduleChange.is_published.is_(True),
-                    ImportedScheduleChange.date.in_(scope_dates),
-                    ImportedScheduleChange.group_id.in_(scope_group_ids),
-                    ImportedScheduleChange.manually_edited.is_(False),
-                )
-                .values(is_published=False)
-            )
-        
-        # Imported changes have their own storage and never become calendar periods.
-        # 1. Process substitutions
-        for sub in substitutions:
-            d_str = sub["date"]
-            d_obj = datetime.strptime(d_str, "%Y-%m-%d").date() if isinstance(d_str, str) else d_str
-            # Do not overwrite if manually edited or overridden
-            has_manual = await db.scalar(
-                select(ImportedScheduleChange.id).where(
-                    ImportedScheduleChange.date == d_obj,
-                    ImportedScheduleChange.group_id == sub["group_id"],
-                    ImportedScheduleChange.lesson_number == sub["lesson_number"],
-                    ImportedScheduleChange.is_published.is_(True),
-                    ImportedScheduleChange.manually_edited.is_(True),
-                )
-            )
-            has_override = await db.scalar(
-                select(ScheduleOverride.id).where(
-                    ScheduleOverride.group_id == sub["group_id"],
-                    ScheduleOverride.date == d_obj,
-                    ScheduleOverride.lesson_number == sub["lesson_number"],
-                )
-            )
-            if has_manual or has_override:
-                continue
-
-            latest = await db.scalar(
-                select(func.max(ImportedScheduleChange.version)).where(
-                    ImportedScheduleChange.date == d_obj,
-                    ImportedScheduleChange.group_id == sub["group_id"],
-                    ImportedScheduleChange.lesson_number == sub["lesson_number"],
-                )
-            )
-            db.add(ImportedScheduleChange(
-                draft_id=draft.id,
-                publication_id=publication.id,
-                date=d_obj,
-                kind="substitution",
-                group_id=sub["group_id"],
-                subject_id=sub["subject_id"],
-                teacher_id=sub["teacher_id"],
-                second_teacher_id=sub.get("second_teacher_id"),
-                lesson_number=sub["lesson_number"],
-                room_override=sub.get("room"),
-                is_published=True,
-                version=(latest or 0) + 1,
-            ))
-            if draft.draft_type == "import":
-                subj_obj = await db.get(Subject, sub["subject_id"])
-                teach_obj = await db.get(Teacher, sub["teacher_id"])
-                room_str = f", ауд. {sub.get('room')}" if sub.get("room") else ""
-                subj_title = subj_obj.name if subj_obj else ""
-                teach_title = teach_obj.name if teach_obj else ""
-                db.add(SchedulePublicationSnapshot(
-                    publication_id=publication.id,
-                    group_id=sub["group_id"],
-                    date=d_obj,
-                    lesson_number=sub["lesson_number"],
-                    before_data=json.dumps({"summary": "Базовий розклад"}),
-                    after_data=json.dumps({
-                        "kind": "substitution",
-                        "summary": f"{subj_title} ({teach_title}{room_str})".strip()
-                    }),
-                ))
-                    
-        # 2. Process Cancelled lessons
-        for canc in cancelled_lessons:
-            d_str = canc["date"]
-            d_obj = datetime.strptime(d_str, "%Y-%m-%d").date() if isinstance(d_str, str) else d_str
-            has_manual = await db.scalar(
-                select(ImportedScheduleChange.id).where(
-                    ImportedScheduleChange.date == d_obj,
-                    ImportedScheduleChange.group_id == canc["group_id"],
-                    ImportedScheduleChange.lesson_number == canc["lesson_number"],
-                    ImportedScheduleChange.is_published.is_(True),
-                    ImportedScheduleChange.manually_edited.is_(True),
-                )
-            )
-            has_override = await db.scalar(
-                select(ScheduleOverride.id).where(
-                    ScheduleOverride.group_id == canc["group_id"],
-                    ScheduleOverride.date == d_obj,
-                    ScheduleOverride.lesson_number == canc["lesson_number"],
-                )
-            )
-            if has_manual or has_override:
-                continue
-
-            latest = await db.scalar(
-                select(func.max(ImportedScheduleChange.version)).where(
-                    ImportedScheduleChange.date == d_obj,
-                    ImportedScheduleChange.group_id == canc["group_id"],
-                    ImportedScheduleChange.lesson_number == canc["lesson_number"],
-                )
-            )
-            db.add(ImportedScheduleChange(
-                draft_id=draft.id,
-                publication_id=publication.id,
-                date=d_obj,
-                kind="cancelled",
-                group_id=canc["group_id"],
-                lesson_number=canc["lesson_number"],
-                is_published=True,
-                version=(latest or 0) + 1,
-            ))
-            if draft.draft_type == "import":
-                db.add(SchedulePublicationSnapshot(
-                    publication_id=publication.id,
-                    group_id=canc["group_id"],
-                    date=d_obj,
-                    lesson_number=canc["lesson_number"],
-                    before_data=json.dumps({"summary": "Базовий розклад"}),
-                    after_data=json.dumps({"kind": "cancelled", "summary": "Скасовано"}),
-                ))
-        
     draft.status = "published"
     await db.commit()
     
-    return {"message": "Розклад успішно опубліковано"}
+    return {"status": "published", "publication_id": publication.id}
+

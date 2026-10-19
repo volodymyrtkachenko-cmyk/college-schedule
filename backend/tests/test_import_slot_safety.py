@@ -77,7 +77,7 @@ async def test_new_draft_then_same_pending_runs_full_import_body(context,monkeyp
     assert first['meta']['draft_created']==second['meta']['draft_created']
     assert second['meta']['auto_published'] is False
     assert await db.scalar(select(func.count()).select_from(ScheduleDraft))==1
-    assert await db.scalar(select(func.count()).select_from(ScheduleSlot))==1
+    assert await db.scalar(select(func.count()).select_from(ScheduleSlot))==0
 
 @pytest.mark.anyio
 async def test_unchanged_runs_full_import_body(context,monkeypatch):
@@ -121,7 +121,7 @@ async def test_twenty_restored_rows_produce_one_draft_slot(context,monkeypatch):
     monkeypatch.setattr(admin_import,'matches_published_schedule',AsyncMock(return_value=False))
     result=await admin_import._do_import(db,2,'twenty-rows-test')
     assert len(result['report']['base_slots'])==1
-    assert await db.scalar(select(func.count()).select_from(ScheduleSlot))==1
+    assert await db.scalar(select(func.count()).select_from(ScheduleSlot))==0
     assert await db.scalar(select(func.count()).select_from(Schedule))==20  # No automatic cleanup.
 
 @pytest.mark.anyio
@@ -157,14 +157,19 @@ async def test_import_crossing_versions_rejected(context):
 
 @pytest.mark.anyio
 async def test_farther_denominators_have_one_pair_after_safe_explicit_publish(context,monkeypatch):
-    db,ids=context;setup_source(monkeypatch,ids)
+    db,ids=context;setup_source(monkeypatch,ids,substitution=True)
     monkeypatch.setattr(admin_import,'matches_published_schedule',AsyncMock(return_value=False))
     result=await admin_import._do_import(db,2,'calendar-test')
     draft = await db.get(ScheduleDraft, result['meta']['draft_created'])
     await drafts.publish_draft(result['meta']['draft_created'],expected_revision=draft.revision,db=db,current_user=SimpleNamespace(id=None, role="admin"))
-    for target in (date(2026,10,20),date(2026,11,3),date(2026,11,17)):
+    # Imported date 2026-10-20 has the dated change published
+    wt,lessons=await fetch_schedule(db,date(2026,10,20),group_id=ids['group_id'],semester_start=date(2026,10,12),periods=[])
+    assert wt=='denominator'
+    assert len(lessons)==1
+    # Future dates not in the import source are unchanged
+    for target in (date(2026,11,3),date(2026,11,17)):
         wt,lessons=await fetch_schedule(db,target,group_id=ids['group_id'],semester_start=date(2026,10,12),periods=[])
         assert wt=='denominator'
-        assert len(lessons)==1
+        assert len(lessons)==0
     _,numerator=await fetch_schedule(db,date(2026,10,27),group_id=ids['group_id'],semester_start=date(2026,10,12),periods=[])
     assert numerator==[]

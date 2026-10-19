@@ -369,6 +369,16 @@ export function ImportPanel() {
                   <div className="font-bold text-sm text-amber-300">
                     Автоімпорт знайшов багато змін ({importStatus.pending_anomaly_draft.changes_count}). Перевірте й опублікуйте
                   </div>
+                  {importStatus.pending_anomaly_draft.auto_publish_skipped_reason && (
+                    <div className="text-xs font-medium text-amber-300/90 mt-0.5">
+                      Причина пропуску автопублікації:{" "}
+                      {importStatus.pending_anomaly_draft.auto_publish_skipped_reason === "anomaly"
+                        ? "виявлено аномалію (потребує ручної перевірки)"
+                        : importStatus.pending_anomaly_draft.auto_publish_skipped_reason === "disabled"
+                        ? "автопублікацію вимкнено в налаштуваннях"
+                        : importStatus.pending_anomaly_draft.auto_publish_skipped_reason}
+                    </div>
+                  )}
                   {importStatus.pending_anomaly_draft.anomaly_reasons?.length > 0 && (
                     <p className="text-xs text-amber-200/80 mt-1">
                       {importStatus.pending_anomaly_draft.anomaly_reasons.join(" • ")}

@@ -769,6 +769,16 @@ export interface ImportStatusResponse {
     name: string;
     changes_count: number;
     anomaly_reasons: string[];
+    auto_publish_skipped_reason?: string | null;
+    created_at: string | null;
+  } | null;
+  latest_pending_draft?: {
+    id: number;
+    name: string;
+    changes_count: number;
+    is_anomaly: boolean;
+    anomaly_reasons: string[];
+    auto_publish_skipped_reason?: string | null;
     created_at: string | null;
   } | null;
   anomaly_drafts_count: number;
@@ -1217,6 +1227,7 @@ export const api = {
                 last_synced_at: string | null;
                 has_refresh_token?: boolean;
                 has_client_secret?: boolean;
+                unmapped_tasks?: Array<{ title: string; due_date: string | null; reason: string }>;
             }>(`/api/classroom/groups/${groupId}/status`),
         sync: (
             tokenOrPayload: string | { code?: string; access_token?: string; group_id?: number; week_start?: string },
@@ -1232,6 +1243,7 @@ export const api = {
                 synced_links: number;
                 synced_tasks: number;
                 synced_students: number;
+                unmapped_tasks?: Array<{ title: string; due_date: string | null; reason: string }>;
             }>("/api/classroom/sync", {
                 method: "POST",
                 body: JSON.stringify(body),
@@ -1267,6 +1279,7 @@ export interface ClassroomSyncResult {
     synced_links: number;
     synced_tasks: number;
     synced_students: number;
+    unmapped_tasks?: Array<{ title: string; due_date: string | null; reason: string }>;
 }
 export interface UserResource {
     id: number;

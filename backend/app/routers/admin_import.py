@@ -85,7 +85,7 @@ def import_payload_hash(payload: dict) -> str:
     comparable = {
         key: value
         for key, value in payload.items()
-        if key not in {"created_curriculum_ids", "import_scope"}
+        if key not in {"created_curriculum_ids", "import_scope", "auto_publish_skipped_reason"}
     }
     for key in ("base_slots", "substitutions", "cancelled"):
         values = comparable.get(key)
@@ -403,16 +403,36 @@ async def get_import_status_endpoint(
     
     anomaly_info = None
     anomaly_count = 0
+    latest_pending = None
     for ad in anomaly_drafts:
         data = ad.data or {}
+        skip_reason = data.get("auto_publish_skipped_reason")
+        if not skip_reason:
+            if data.get("is_anomaly"):
+                skip_reason = "anomaly"
+            elif not import_settings.get("auto_publish", True):
+                skip_reason = "disabled"
+
+        if latest_pending is None:
+            latest_pending = {
+                "id": ad.id,
+                "name": ad.name,
+                "changes_count": data.get("changes_count", len(data.get("substitutions", [])) + len(data.get("cancelled", []))),
+                "is_anomaly": bool(data.get("is_anomaly")),
+                "anomaly_reasons": data.get("anomaly_reasons", []),
+                "auto_publish_skipped_reason": skip_reason,
+                "created_at": ad.created_at.isoformat() if ad.created_at else None,
+            }
+
         if data.get("is_anomaly"):
             anomaly_count += 1
             if anomaly_info is None:
                 anomaly_info = {
                     "id": ad.id,
                     "name": ad.name,
-                    "changes_count": data.get("changes_count", 0),
+                    "changes_count": data.get("changes_count", len(data.get("substitutions", [])) + len(data.get("cancelled", []))),
                     "anomaly_reasons": data.get("anomaly_reasons", []),
+                    "auto_publish_skipped_reason": skip_reason or "anomaly",
                     "created_at": ad.created_at.isoformat() if ad.created_at else None,
                 }
 
@@ -434,6 +454,7 @@ async def get_import_status_endpoint(
         "settings": import_settings,
         "last_publication": last_pub_info,
         "pending_anomaly_draft": anomaly_info,
+        "latest_pending_draft": latest_pending,
         "anomaly_drafts_count": anomaly_count,
         "active_notification": active_notif,
     }
@@ -868,6 +889,10 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
         is_anomaly = False
         anomaly_reasons = []
 
+        if total_changes >= 50:
+            is_anomaly = True
+            anomaly_reasons.append(f"Аномально велика кількість змін ({total_changes})")
+
         for gid, chg_cnt in changes_per_group.items():
             sched_cnt = group_lessons_count.get(gid, 0)
             if sched_cnt >= 4 and (chg_cnt / sched_cnt) > anomaly_group_thresh:
@@ -989,6 +1014,14 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
         draft_id = None
         unchanged = False
         draft_reason = None
+        auto_publish_skipped_reason = None
+
+        if not import_settings.get("auto_publish", True):
+            auto_publish_skipped_reason = "disabled"
+        elif is_anomaly:
+            auto_publish_skipped_reason = "anomaly"
+        elif current_matches:
+            auto_publish_skipped_reason = "unchanged"
 
         if import_settings["auto_publish"] and not is_anomaly:
             if current_matches:
@@ -998,162 +1031,162 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
             else:
                 # Auto-publish immediately: one-off changes layer only (permanent schedule is NOT touched)
                 auto_published = True
-            source_label = "manual" if actor_id is not None else "auto"
+                source_label = "manual" if actor_id is not None else "auto"
 
-            publication = SchedulePublication(
-                version_id=import_version_id,
-                actor_id=actor_id,
-                scope_manifest=json.dumps({
+                publication = SchedulePublication(
+                    version_id=import_version_id,
+                    actor_id=actor_id,
+                    scope_manifest=json.dumps({
+                        "source": source_label,
+                        "group_ids": sorted(list(imported_group_ids)),
+                        "changes_count": total_changes,
+                        "dates": sorted(list(imported_dates)),
+                    }),
+                    source_fingerprint=json.dumps({
+                        "source_type": source_label,
+                        "page_hashes": group_page_hashes,
+                        "payload_hash": payload_hash,
+                    }),
+                )
+                db.add(publication)
+                await db.flush()
+                publication_id = publication.id
+
+                # Retire older active changes in scope
+                if scope_dates_obj and imported_group_ids:
+                    await db.execute(
+                        update(ImportedScheduleChange)
+                        .where(
+                            ImportedScheduleChange.is_published.is_(True),
+                            ImportedScheduleChange.date.in_(scope_dates_obj),
+                            ImportedScheduleChange.group_id.in_(imported_group_ids),
+                            ImportedScheduleChange.manually_edited.is_(False),
+                        )
+                        .values(is_published=False)
+                    )
+
+                # Insert substitutions
+                for sub in aggregated_substitutions:
+                    d_obj = datetime.strptime(sub["date"], "%Y-%m-%d").date()
+                    latest = await db.scalar(
+                        select(func.max(ImportedScheduleChange.version)).where(
+                            ImportedScheduleChange.date == d_obj,
+                            ImportedScheduleChange.group_id == sub["group_id"],
+                            ImportedScheduleChange.lesson_number == sub["lesson_number"],
+                        )
+                    )
+                    db.add(ImportedScheduleChange(
+                        publication_id=publication.id,
+                        date=d_obj,
+                        kind="substitution",
+                        group_id=sub["group_id"],
+                        subject_id=sub.get("subject_id"),
+                        teacher_id=sub.get("teacher_id"),
+                        second_teacher_id=sub.get("second_teacher_id"),
+                        lesson_number=sub["lesson_number"],
+                        room_override=sub.get("room"),
+                        is_published=True,
+                        version=(latest or 0) + 1,
+                    ))
+
+                    dow = d_obj.isoweekday()
+                    w_type = get_week_type(d_obj, semester_start)
+                    base_p = next((
+                        s for s in current_schedules
+                        if s.group_id == sub["group_id"] and s.day_of_week == dow and s.lesson_number == sub["lesson_number"] and _week_matches(w_type, s.week_type)
+                    ), None)
+                    before_str = "Немає пари"
+                    if base_p:
+                        subj_name = base_p.subject.name if base_p.subject else ""
+                        teach_name = base_p.teacher.name if base_p.teacher else ""
+                        room_str = f", ауд. {base_p.room_override}" if base_p.room_override else ""
+                        before_str = f"{subj_name} ({teach_name}{room_str})".strip()
+                    new_subj = subjects_map.get(sub.get("subject_id"))
+                    new_teach = teachers_map.get(sub.get("teacher_id"))
+                    new_room = f", ауд. {sub.get('room')}" if sub.get("room") else ""
+                    after_str = f"{new_subj.name if new_subj else ''} ({new_teach.name if new_teach else ''}{new_room})".strip()
+
+                    db.add(SchedulePublicationSnapshot(
+                        publication_id=publication.id,
+                        group_id=sub["group_id"],
+                        date=d_obj,
+                        lesson_number=sub["lesson_number"],
+                        before_data=json.dumps({"summary": before_str}),
+                        after_data=json.dumps({"kind": "substitution", "summary": after_str}),
+                    ))
+
+                # Insert cancellations
+                for canc in aggregated_cancelled:
+                    d_obj = datetime.strptime(canc["date"], "%Y-%m-%d").date()
+                    latest = await db.scalar(
+                        select(func.max(ImportedScheduleChange.version)).where(
+                            ImportedScheduleChange.date == d_obj,
+                            ImportedScheduleChange.group_id == canc["group_id"],
+                            ImportedScheduleChange.lesson_number == canc["lesson_number"],
+                        )
+                    )
+                    db.add(ImportedScheduleChange(
+                        publication_id=publication.id,
+                        date=d_obj,
+                        kind="cancelled",
+                        group_id=canc["group_id"],
+                        lesson_number=canc["lesson_number"],
+                        is_published=True,
+                        version=(latest or 0) + 1,
+                    ))
+
+                    dow = d_obj.isoweekday()
+                    w_type = get_week_type(d_obj, semester_start)
+                    base_p = next((
+                        s for s in current_schedules
+                        if s.group_id == canc["group_id"] and s.day_of_week == dow and s.lesson_number == canc["lesson_number"] and _week_matches(w_type, s.week_type)
+                    ), None)
+                    before_str = "Базовий розклад"
+                    if base_p:
+                        subj_name = base_p.subject.name if base_p.subject else ""
+                        teach_name = base_p.teacher.name if base_p.teacher else ""
+                        before_str = f"{subj_name} ({teach_name})".strip()
+
+                    db.add(SchedulePublicationSnapshot(
+                        publication_id=publication.id,
+                        group_id=canc["group_id"],
+                        date=d_obj,
+                        lesson_number=canc["lesson_number"],
+                        before_data=json.dumps({"summary": before_str}),
+                        after_data=json.dumps({"kind": "cancelled", "summary": "Скасовано"}),
+                    ))
+
+                # Archive older non-anomaly pending import drafts
+                old_pending = (await db.scalars(
+                    select(ScheduleDraft).where(
+                        ScheduleDraft.draft_type == "import",
+                        ScheduleDraft.status == "pending",
+                    )
+                )).all()
+                for d in old_pending:
+                    if not (d.data or {}).get("is_anomaly"):
+                        d.status = "archived"
+
+                # Create admin notification
+                today = now_local().date()
+                tomorrow = today + timedelta(days=1)
+                urgent = any(
+                    datetime.strptime(item["date"], "%Y-%m-%d").date() in (today, tomorrow)
+                    for item in [*aggregated_substitutions, *aggregated_cancelled]
+                )
+                notif_data = {
+                    "id": str(uuid.uuid4()),
+                    "publication_id": publication.id,
                     "source": source_label,
-                    "group_ids": sorted(list(imported_group_ids)),
+                    "created_at": now_local().isoformat(),
                     "changes_count": total_changes,
-                    "dates": sorted(list(imported_dates)),
-                }),
-                source_fingerprint=json.dumps({
-                    "source_type": source_label,
-                    "page_hashes": group_page_hashes,
-                    "payload_hash": payload_hash,
-                }),
-            )
-            db.add(publication)
-            await db.flush()
-            publication_id = publication.id
+                    "urgent": urgent,
+                    "dismissed": False,
+                }
+                await settings_service.set(db, "import_latest_notification", json.dumps(notif_data))
 
-            # Retire older active changes in scope
-            if scope_dates_obj and imported_group_ids:
-                await db.execute(
-                    update(ImportedScheduleChange)
-                    .where(
-                        ImportedScheduleChange.is_published.is_(True),
-                        ImportedScheduleChange.date.in_(scope_dates_obj),
-                        ImportedScheduleChange.group_id.in_(imported_group_ids),
-                        ImportedScheduleChange.manually_edited.is_(False),
-                    )
-                    .values(is_published=False)
-                )
-
-            # Insert substitutions
-            for sub in aggregated_substitutions:
-                d_obj = datetime.strptime(sub["date"], "%Y-%m-%d").date()
-                latest = await db.scalar(
-                    select(func.max(ImportedScheduleChange.version)).where(
-                        ImportedScheduleChange.date == d_obj,
-                        ImportedScheduleChange.group_id == sub["group_id"],
-                        ImportedScheduleChange.lesson_number == sub["lesson_number"],
-                    )
-                )
-                db.add(ImportedScheduleChange(
-                    publication_id=publication.id,
-                    date=d_obj,
-                    kind="substitution",
-                    group_id=sub["group_id"],
-                    subject_id=sub.get("subject_id"),
-                    teacher_id=sub.get("teacher_id"),
-                    second_teacher_id=sub.get("second_teacher_id"),
-                    lesson_number=sub["lesson_number"],
-                    room_override=sub.get("room"),
-                    is_published=True,
-                    version=(latest or 0) + 1,
-                ))
-
-                dow = d_obj.isoweekday()
-                w_type = get_week_type(d_obj, semester_start)
-                base_p = next((
-                    s for s in current_schedules
-                    if s.group_id == sub["group_id"] and s.day_of_week == dow and s.lesson_number == sub["lesson_number"] and _week_matches(w_type, s.week_type)
-                ), None)
-                before_str = "Немає пари"
-                if base_p:
-                    subj_name = base_p.subject.name if base_p.subject else ""
-                    teach_name = base_p.teacher.name if base_p.teacher else ""
-                    room_str = f", ауд. {base_p.room_override}" if base_p.room_override else ""
-                    before_str = f"{subj_name} ({teach_name}{room_str})".strip()
-                new_subj = subjects_map.get(sub.get("subject_id"))
-                new_teach = teachers_map.get(sub.get("teacher_id"))
-                new_room = f", ауд. {sub.get('room')}" if sub.get("room") else ""
-                after_str = f"{new_subj.name if new_subj else ''} ({new_teach.name if new_teach else ''}{new_room})".strip()
-
-                db.add(SchedulePublicationSnapshot(
-                    publication_id=publication.id,
-                    group_id=sub["group_id"],
-                    date=d_obj,
-                    lesson_number=sub["lesson_number"],
-                    before_data=json.dumps({"summary": before_str}),
-                    after_data=json.dumps({"kind": "substitution", "summary": after_str}),
-                ))
-
-            # Insert cancellations
-            for canc in aggregated_cancelled:
-                d_obj = datetime.strptime(canc["date"], "%Y-%m-%d").date()
-                latest = await db.scalar(
-                    select(func.max(ImportedScheduleChange.version)).where(
-                        ImportedScheduleChange.date == d_obj,
-                        ImportedScheduleChange.group_id == canc["group_id"],
-                        ImportedScheduleChange.lesson_number == canc["lesson_number"],
-                    )
-                )
-                db.add(ImportedScheduleChange(
-                    publication_id=publication.id,
-                    date=d_obj,
-                    kind="cancelled",
-                    group_id=canc["group_id"],
-                    lesson_number=canc["lesson_number"],
-                    is_published=True,
-                    version=(latest or 0) + 1,
-                ))
-
-                dow = d_obj.isoweekday()
-                w_type = get_week_type(d_obj, semester_start)
-                base_p = next((
-                    s for s in current_schedules
-                    if s.group_id == canc["group_id"] and s.day_of_week == dow and s.lesson_number == canc["lesson_number"] and _week_matches(w_type, s.week_type)
-                ), None)
-                before_str = "Базовий розклад"
-                if base_p:
-                    subj_name = base_p.subject.name if base_p.subject else ""
-                    teach_name = base_p.teacher.name if base_p.teacher else ""
-                    before_str = f"{subj_name} ({teach_name})".strip()
-
-                db.add(SchedulePublicationSnapshot(
-                    publication_id=publication.id,
-                    group_id=canc["group_id"],
-                    date=d_obj,
-                    lesson_number=canc["lesson_number"],
-                    before_data=json.dumps({"summary": before_str}),
-                    after_data=json.dumps({"kind": "cancelled", "summary": "Скасовано"}),
-                ))
-
-            # Archive older non-anomaly pending import drafts
-            old_pending = (await db.scalars(
-                select(ScheduleDraft).where(
-                    ScheduleDraft.draft_type == "import",
-                    ScheduleDraft.status == "pending",
-                )
-            )).all()
-            for d in old_pending:
-                if not (d.data or {}).get("is_anomaly"):
-                    d.status = "archived"
-
-            # Create admin notification
-            today = now_local().date()
-            tomorrow = today + timedelta(days=1)
-            urgent = any(
-                datetime.strptime(item["date"], "%Y-%m-%d").date() in (today, tomorrow)
-                for item in [*aggregated_substitutions, *aggregated_cancelled]
-            )
-            notif_data = {
-                "id": str(uuid.uuid4()),
-                "publication_id": publication.id,
-                "source": source_label,
-                "created_at": now_local().isoformat(),
-                "changes_count": total_changes,
-                "urgent": urgent,
-                "dismissed": False,
-            }
-            await settings_service.set(db, "import_latest_notification", json.dumps(notif_data))
-
-            await db.commit()
-            settings_service.invalidate_cache()
+                await db.commit()
+                settings_service.invalidate_cache()
         else:
             # Either auto_publish is False or an anomaly was detected: use draft model
             async def archive_pending_import() -> None:
@@ -1166,7 +1199,12 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
                 pending_draft.status = "archived"
 
             if pending_matches:
-                pending_draft.data = {**(pending_draft.data or {}), "import_scope": payload["import_scope"]}
+                pending_draft.data = {
+                    **(pending_draft.data or {}),
+                    "import_scope": payload["import_scope"],
+                    "auto_publish_skipped_reason": auto_publish_skipped_reason,
+                    "anomaly_reasons": anomaly_reasons,
+                }
                 pending_draft.revision += 1
                 await db.commit()
                 draft_id = pending_draft.id
@@ -1186,6 +1224,8 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
                     if is_anomaly
                     else f"Імпорт {now_local().strftime('%Y-%m-%d %H:%M')}"
                 )
+                payload["auto_publish_skipped_reason"] = auto_publish_skipped_reason
+                payload["anomaly_reasons"] = anomaly_reasons
                 draft = ScheduleDraft(
                     name=draft_name,
                     draft_type="import",
@@ -1195,57 +1235,6 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
                 db.add(draft)
                 await db.flush()
                 draft_id = draft.id
-
-                created_curriculum_ids: list[int] = []
-                all_group_ids = {slot["group_id"] for slot in aggregated_base_slots}
-                d_groups_map = {}
-                if all_group_ids:
-                    g_res = await db.scalars(select(Group).where(Group.id.in_(all_group_ids)))
-                    d_groups_map = {g.id: g for g in g_res}
-
-                for slot in aggregated_base_slots:
-                    tid = slot.get("teacher_id")
-                    if not tid and slot.get("is_vyhovna"):
-                        grp = d_groups_map.get(slot["group_id"])
-                        if grp and grp.curator_id:
-                            tid = grp.curator_id
-                            slot["teacher_id"] = tid
-
-                    if not tid:
-                        logger.warning("Skipping base slot without teacher_id for group %s, subject %s", slot["group_id"], slot["subject_id"])
-                        continue
-                    stmt_c = select(Curriculum).where(
-                        Curriculum.group_id == slot["group_id"],
-                        Curriculum.subject_id == slot["subject_id"],
-                        Curriculum.teacher_id == tid,
-                    )
-                    if slot.get("second_teacher_id"):
-                        stmt_c = stmt_c.where(Curriculum.second_teacher_id == slot["second_teacher_id"])
-                    curr = await db.scalar(stmt_c)
-                    if not curr:
-                        curr = Curriculum(
-                            group_id=slot["group_id"],
-                            subject_id=slot["subject_id"],
-                            teacher_id=tid,
-                            second_teacher_id=slot.get("second_teacher_id"),
-                            pairs_per_2_weeks=2,
-                            total_hours=0,
-                        )
-                        db.add(curr)
-                        await db.flush()
-                        created_curriculum_ids.append(curr.id)
-
-                    db_slot = ScheduleSlot(
-                        draft_id=draft.id,
-                        curriculum_id=curr.id,
-                        day_of_week=slot["day_of_week"],
-                        lesson_number=slot["lesson_number"],
-                        room_override=slot["room"],
-                        week_type=slot.get("week_type", "both"),
-                    )
-                    db.add(db_slot)
-
-                draft.data = {**payload, "created_curriculum_ids": created_curriculum_ids}
                 draft.revision += 1
                 await db.commit()
                 draft_reason = "anomaly_detected" if is_anomaly else "draft_created"
@@ -1284,6 +1273,7 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
                 "auto_published": auto_published,
                 "is_anomaly": is_anomaly,
                 "anomaly_reasons": anomaly_reasons,
+                "auto_publish_skipped_reason": auto_publish_skipped_reason,
                 "reason": (
                     draft_reason if draft_reason
                     else ("same_effective_schedule" if unchanged

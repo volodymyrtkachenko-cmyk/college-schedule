@@ -96,9 +96,27 @@ export function PermanentScheduleEditor() {
   const touchStartY = useRef<number | null>(null);
 
   const selectedVersion = useMemo(
-    () => versions.find((v) => v.id === selectedVersionId) || versions.find((v) => v.is_active) || versions[0] || null,
+    () => {
+      if (selectedVersionId) {
+        const found = versions.find((v) => v.id === selectedVersionId);
+        if (found) return found;
+      }
+      const todayStr = new Date().toISOString().slice(0, 10);
+      return (
+        versions.find((v) => v.is_active && v.valid_from <= todayStr && v.valid_until >= todayStr) ||
+        versions.find((v) => v.is_active) ||
+        versions[0] ||
+        null
+      );
+    },
     [versions, selectedVersionId]
   );
+
+  const isSelectedVersionCurrentlyValid = useMemo(() => {
+    if (!selectedVersion) return true;
+    const todayStr = new Date().toISOString().slice(0, 10);
+    return selectedVersion.valid_from <= todayStr && selectedVersion.valid_until >= todayStr;
+  }, [selectedVersion]);
 
   const currentMonday = useMemo(() => getMondayOf(new Date()), []);
   const mondayStr = useMemo(() => {
@@ -119,7 +137,11 @@ export function PermanentScheduleEditor() {
         setGroups(gList);
         setTeachers(tList);
         if (!selectedVersionId && vList.length > 0) {
-          const activeV = vList.find((v) => v.is_active) || vList[0];
+          const todayStr = new Date().toISOString().slice(0, 10);
+          const currentValidV = vList.find(
+            (v) => v.is_active && v.valid_from <= todayStr && v.valid_until >= todayStr
+          );
+          const activeV = currentValidV || vList.find((v) => v.is_active) || vList[0];
           setSelectedVersionId(activeV.id);
         }
         if (!groupId && gList.length > 0 && initialMode === "student") {
@@ -434,8 +456,8 @@ export function PermanentScheduleEditor() {
     <div className="w-full space-y-4">
       <PageHeader
         eyebrow="ПОСТІЙНИЙ РОЗКЛАД"
-        title="Шаблон розкладу версії"
-        description="Керування базовим тижневим розкладом (Чисельник та Знаменник) без прив'язки до конкретних дат."
+        title={`Шаблон розкладу: ${selectedVersion?.name || "Постійний розклад"}`}
+        description={`Базовий тижневий розклад версії (${selectedVersion ? `${selectedVersion.valid_from} — ${selectedVersion.valid_until}` : "без прив'язки до дат"}).`}
         actions={
           <div className="flex items-center gap-2">
             <a
@@ -447,6 +469,38 @@ export function PermanentScheduleEditor() {
           </div>
         }
       />
+
+      {/* Prominent warning if editing a version not valid today */}
+      {selectedVersion && !isSelectedVersionCurrentlyValid && (
+        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">⚠️</span>
+            <div>
+              <p className="font-bold text-sm text-amber-100">
+                Ви редагуєте версію, яка зараз не діє!
+              </p>
+              <p className="text-xs text-amber-300/90 mt-0.5">
+                Версія «{selectedVersion.name}» діє з {selectedVersion.valid_from} до {selectedVersion.valid_until}. Сьогодні розклад за цією версією не використовується.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-xs text-amber-300 font-medium">Перемкнути версію:</span>
+            <select
+              className="form-control text-xs py-1.5 px-3 bg-black/60 border-amber-500/50 text-amber-100 rounded-lg font-semibold"
+              value={selectedVersionId ?? ""}
+              onChange={(e) => setSelectedVersionId(Number(e.target.value))}
+              aria-label="Швидкий вибір версії"
+            >
+              {versions.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.name} ({v.valid_from} — {v.valid_until})
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
 
       {/* Version selector & Filters bar */}
       <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-between gap-3">

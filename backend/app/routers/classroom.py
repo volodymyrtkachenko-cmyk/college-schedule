@@ -304,9 +304,6 @@ def _parse_announcement(text: str, created_dt: datetime, materials: Optional[lis
             days_to_monday = 7 - created_dt.weekday()
             target_date = created_dt.date() + timedelta(days=days_to_monday)
             has_explicit_date = False
-        elif created_dt.hour >= 16:
-            target_date = created_dt.date() + timedelta(days=1)
-            has_explicit_date = False
         else:
             target_date = created_dt.date()
             has_explicit_date = False
@@ -661,9 +658,13 @@ async def perform_course_sync(
     week_monday = today_kyiv - timedelta(days=today_kyiv.weekday())
     week_friday = week_monday + timedelta(days=4)
 
-    # Вікно збереження ДЗ: виключно ПОТОЧНИЙ і НАСТУПНИЙ тиждень (з минулих тижнів все очищається у Кроці 1)
+    # Вікно збереження ДЗ: поточний і наступний тиждень + lookback до 7 днів назад для завдань,
+    # чия найближча пара припадає на горизонт поточного/наступного тижня
+    TASKS_LOOKBACK_DAYS = 7
     tasks_window_start = min(current_monday, week_monday)
+    tasks_lookback_start = tasks_window_start - timedelta(days=TASKS_LOOKBACK_DAYS)
     tasks_window_end = max(current_monday, week_monday) + timedelta(days=11)  # п'ятниця наступного тижня
+    unmapped_tasks: list[dict] = []
 
     db_teachers = (await db.scalars(select(Teacher))).all()
 
@@ -1107,11 +1108,29 @@ async def perform_course_sync(
                         except ValueError:
                             due_date = None
 
+                    title_raw = (cw.get("title") or "").strip() or "Без назви"
                     if due_date is not None:
-                        if due_date < tasks_window_start or due_date > tasks_window_end:
+                        if due_date < tasks_lookback_start:
+                            unmapped_tasks.append({
+                                "title": title_raw,
+                                "due_date": due_date.isoformat(),
+                                "reason": f"Дедлайн минув більше ніж {TASKS_LOOKBACK_DAYS} дн. тому ({due_date.strftime('%d.%m')})",
+                            })
+                            continue
+                        if due_date > tasks_window_end:
+                            unmapped_tasks.append({
+                                "title": title_raw,
+                                "due_date": due_date.isoformat(),
+                                "reason": f"Дедлайн за межами горизонту розкладу ({due_date.strftime('%d.%m')})",
+                            })
                             continue
                     else:
                         if (today_real - created_dt.date()).days > 7:
+                            unmapped_tasks.append({
+                                "title": title_raw,
+                                "due_date": None,
+                                "reason": "Створено більше 7 днів тому без дедлайну",
+                            })
                             continue
 
                     creator_id = cw.get("creatorUserId", "")
@@ -1128,13 +1147,14 @@ async def perform_course_sync(
                             if clean_t_surname not in task_author_tokens:
                                 task_author_tokens.append(clean_t_surname)
 
-                    title_norm = _norm(cw.get("title") or "")
+                    title_norm = _norm(title_raw)
                     combined_cw_text = f"{topic_norm} {title_norm} {course_title_norm}".strip()
 
                     raw_coursework_items.append({
                         "due_date": due_date,
                         "created_dt": created_dt,
                         "alt_link": alt_link,
+                        "title_raw": title_raw,
                         "title_norm": title_norm,
                         "topic_norm": topic_norm,
                         "course_title_norm": course_title_norm,
@@ -1215,6 +1235,11 @@ async def perform_course_sync(
                     break
 
         if not target_lesson or not target_date_for_task:
+            unmapped_tasks.append({
+                "title": cw_item.get("title_raw", "Без назви"),
+                "due_date": due_date.isoformat() if due_date else None,
+                "reason": "Не знайдено відповідної пари в розкладі (предмет або викладач не збіглися)",
+            })
             continue
 
         teacher_badge = _resolve_matched_teacher_surname(target_lesson, author_tokens, combined_cw_text)
@@ -1253,14 +1278,9 @@ async def perform_course_sync(
         elif is_course_level:
             candidate_dates = [d for d in sorted(week_days_lessons.keys()) if week_monday <= d <= week_friday]
         else:
-            target_matches = [
-                l for l in week_days_lessons.get(target_date, [])
-                if _matches_lesson(l, pa.get("course_title_norm", ""), pa["text_norm"], pa.get("author_tokens", []))
-            ]
-            if target_matches and (week_monday <= target_date <= week_friday):
-                candidate_dates = [target_date]
-            else:
-                candidate_dates = [d for d in sorted(week_days_lessons.keys()) if week_monday <= d <= week_friday]
+            # Оголошення без явної дати прив'язується ВИКЛЮЧНО до своєї цільової дати
+            # Публікації з інших тижнів КАТЕГОРИЧНО не прив'язуються до поточного
+            candidate_dates = [target_date] if (week_monday <= target_date <= week_friday) else []
 
         for c_date in candidate_dates:
             day_lessons = week_days_lessons.get(c_date, [])
@@ -1302,10 +1322,12 @@ async def perform_course_sync(
                 )
                 synced_links += 1
 
+    _latest_unmapped_tasks[group.id] = unmapped_tasks
     return {
         "synced_links": synced_links,
         "synced_tasks": synced_tasks,
         "synced_students": synced_students,
+        "unmapped_tasks": unmapped_tasks,
     }
 
 
@@ -1470,6 +1492,7 @@ import time as _time
 
 # (group_id -> (consecutive_failures, next_allowed_monotonic_ts))
 _sync_backoff_state: dict[int, tuple[int, float]] = {}
+_latest_unmapped_tasks: dict[int, list[dict]] = {}
 _SYNC_LOCK_GROUPS: set[int] = set()
 
 # In-memory throttle for request-triggered syncs: avoids opening a DB session
@@ -1786,6 +1809,7 @@ async def get_classroom_group_status(
         "last_synced_at": binding.last_synced_at.isoformat() if (binding and binding.last_synced_at) else None,
         "has_refresh_token": bool(binding and binding.refresh_token),
         "has_client_secret": bool(settings.google_client_secret),
+        "unmapped_tasks": _latest_unmapped_tasks.get(group_id, []),
     }
 
 

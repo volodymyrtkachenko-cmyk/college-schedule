@@ -48,12 +48,12 @@ def test_parse_announcement_today_and_tomorrow_keywords():
     assert p_tomorrow["has_explicit_date"] is True
 
 
-def test_parse_announcement_evening_weekday_maps_to_next_day():
+def test_parse_announcement_evening_weekday_maps_to_creation_date():
     monday_evening = datetime(2026, 10, 19, 17, 30, tzinfo=KYIV_TZ)
     text = "Посилання на лекцію: https://meet.google.com/eve-123"
 
     parsed = _parse_announcement(text, monday_evening)
-    assert parsed["target_date"] == date(2026, 10, 20)
+    assert parsed["target_date"] == date(2026, 10, 19)
     assert parsed["has_explicit_date"] is False
 
 
