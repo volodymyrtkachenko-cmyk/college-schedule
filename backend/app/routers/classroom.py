@@ -932,19 +932,39 @@ async def perform_course_sync(
                     params={"pageSize": 25},
                     headers=headers,
                 )
-                return course, await asyncio.gather(t_task, a_task, cw_task, top_task, mat_task, return_exceptions=True)
+                sub_task = client.get(
+                    f"https://classroom.googleapis.com/v1/courses/{c_id}/courseWork/-/studentSubmissions",
+                    params={"userId": "me"},
+                    headers=headers,
+                )
+                return course, await asyncio.gather(t_task, a_task, cw_task, top_task, mat_task, sub_task, return_exceptions=True)
 
         bundles = await asyncio.gather(*(fetch_course_bundle(c) for c in relevant_courses[:10]))
 
         course_teachers_tokens: dict[str, list[str]] = {}
         topics_by_course: dict[str, dict[str, str]] = {}
         missing_creators: set[tuple[str, str]] = set()
+        turned_in_cw_ids: set[str] = set()
 
         # Прохід 1: Парсимо вже отриманих викладачів/теми та збираємо невідомі creatorUserId
-        for course, (t_resp, ann_resp, cw_resp, top_resp, mat_resp) in bundles:
+        for course, bundle_items in bundles:
+            if len(bundle_items) >= 6:
+                t_resp, ann_resp, cw_resp, top_resp, mat_resp, sub_resp = bundle_items[:6]
+            else:
+                t_resp, ann_resp, cw_resp, top_resp, mat_resp = bundle_items[:5]
+                sub_resp = None
+
             course_id = course["id"]
             course_teachers_tokens[course_id] = []
             topics_by_id: dict[str, str] = {}
+
+            if sub_resp is not None and not isinstance(sub_resp, Exception) and getattr(sub_resp, "status_code", None) == 200:
+                for sub in sub_resp.json().get("studentSubmissions", []):
+                    # TURNED_IN = здано студентом, RETURNED = повернуто викладачем (оцінено)
+                    if sub.get("state") in ("TURNED_IN", "RETURNED"):
+                        cw_id = sub.get("courseWorkId")
+                        if cw_id:
+                            turned_in_cw_ids.add(cw_id)
 
             if not isinstance(top_resp, Exception) and top_resp.status_code == 200:
                 for top in top_resp.json().get("topic", []):
@@ -1089,6 +1109,9 @@ async def perform_course_sync(
 
             if not isinstance(cw_resp, Exception) and cw_resp.status_code == 200:
                 for cw in cw_resp.json().get("courseWork", []):
+                    cw_id = cw.get("id")
+                    if cw_id and cw_id in turned_in_cw_ids:
+                        continue  # Завдання вже здане або перевірене (TURNED_IN/RETURNED)
                     alt_link = (cw.get("alternateLink") or "").strip()
                     if not alt_link:
                         continue
@@ -1194,6 +1217,9 @@ async def perform_course_sync(
             if target_lesson is None:
                 for d_candidate in sorted_horizon_dates:
                     if d_candidate <= due_date:
+                        continue
+                    # Не переносимо завдання, дедлайн якого минув більше ніж 3 дні тому
+                    if (d_candidate - due_date).days > 3:
                         continue
                     next_candidates = [
                         l for l in horizon_lessons_by_date[d_candidate]

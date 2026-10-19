@@ -207,12 +207,10 @@ export function ClassroomSyncButton({
       </svg>
       <span className="hidden sm:inline">{syncing ? "Синхронізація..." : "Classroom"}</span>
       {syncFreshness && !syncing && (
-        <span className="inline-flex items-center gap-1">
-          <span className={`h-2 w-2 rounded-full ${syncFreshness.dot}`} />
-          {syncFreshness.dot === "bg-emerald-400" && (
-            <span className="hidden xl:inline text-[11px] font-normal text-emerald-400/90">Підключено</span>
-          )}
-        </span>
+        <span
+          title={`Google Classroom: ${syncFreshness.text}`}
+          className={`h-2 w-2 rounded-full shrink-0 ${syncFreshness.dot}`}
+        />
       )}
     </button>
   );

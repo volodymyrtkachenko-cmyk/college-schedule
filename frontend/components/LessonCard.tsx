@@ -173,7 +173,7 @@ function getEventBadge(eventType?: string | null, eventTitle?: string | null) {
       };
     default:
       return {
-        label: "📌 Подія",
+        label: "Подія",
         title: eventTitle || "Подія",
         badgeClass: "border-sky-500/40 bg-sky-500/15 text-sky-300",
         cardClass: "border-sky-500/40 ring-1 ring-sky-500/40 bg-gradient-to-br from-sky-950/20 via-sys-card to-sys-card",
@@ -601,6 +601,45 @@ export function LessonCard({
     return () => clearInterval(timer);
   }, []);
 
+  const [selectedSubgroup, setSelectedSubgroup] = useState<number | null>(null);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("schedule_selected_subgroup");
+      if (saved) {
+        const val = parseInt(saved, 10);
+        if (val === 1 || val === 2) setSelectedSubgroup(val);
+      }
+    } catch {}
+
+    const onStorage = () => {
+      try {
+        const saved = localStorage.getItem("schedule_selected_subgroup");
+        if (saved) {
+          const val = parseInt(saved, 10);
+          setSelectedSubgroup(val === 1 || val === 2 ? val : null);
+        } else {
+          setSelectedSubgroup(null);
+        }
+      } catch {}
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
+  const handleSubgroupToggle = (subIdx: number) => {
+    const nextVal = selectedSubgroup === subIdx ? null : subIdx;
+    setSelectedSubgroup(nextVal);
+    try {
+      if (nextVal === null) {
+        localStorage.removeItem("schedule_selected_subgroup");
+      } else {
+        localStorage.setItem("schedule_selected_subgroup", String(nextVal));
+      }
+      window.dispatchEvent(new Event("storage"));
+    } catch {}
+  };
+
   const startMin = parseMinutes(startT);
   const endMin = parseMinutes(endT);
   const isTodayTarget = nowState?.dateIso === targetDate;
@@ -746,7 +785,7 @@ export function LessonCard({
     >
       {/* Desktop/Tablet 3-Zone Horizontal Layout (for Day mode on screens >= sm) */}
       {isDay && (
-        <div className="hidden sm:flex sm:items-start sm:justify-between gap-4 w-full">
+        <div className="hidden sm:flex sm:items-stretch gap-4 w-full">
           {/* Zone 1: Timeline (100px - 110px) */}
           {!hideTimeColumn && (
             <div className="w-24 sm:w-28 shrink-0 flex flex-col items-start justify-center pr-4 border-r border-sys-border/50 text-left pt-0.5">
@@ -770,154 +809,334 @@ export function LessonCard({
             </div>
           )}
 
-          {/* Zone 2: Main Content */}
-          <div className="flex-1 min-w-0 flex flex-col justify-center gap-1 px-2 sm:px-3">
-            <h3 className={`font-bold leading-snug text-base sm:text-[18px] lg:text-[19px] break-words ${lesson.is_cancelled ? "line-through text-sys-text-muted" : "text-sys-text-subject"}`}>
-              {lesson.subject_name}
-            </h3>
-            {lesson.event_title && lesson.event_title !== lesson.subject_name && (
-              <span className="text-xs sm:text-sm font-semibold text-sys-text-secondary">
-                {lesson.event_title}
-              </span>
-            )}
+          {/* Right Column: Zone 2 & Zone 3 on top, full-width HW strip below */}
+          <div className="flex-1 min-w-0 flex flex-col justify-between gap-2.5 pl-1 sm:pl-2">
+            <div className="flex items-start justify-between gap-4 w-full">
+              {/* Zone 2: Main Content */}
+              <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
+                <h3 className={`font-bold leading-snug text-base sm:text-[18px] lg:text-[19px] break-words ${lesson.is_cancelled ? "line-through text-sys-text-muted" : "text-sys-text-subject"}`}>
+                  {lesson.subject_name}
+                </h3>
+                {lesson.event_title && lesson.event_title !== lesson.subject_name && (
+                  <span className="text-xs sm:text-sm font-semibold text-sys-text-secondary">
+                    {lesson.event_title}
+                  </span>
+                )}
 
-            {/* Teacher / Group info */}
-            <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm text-sys-text-secondary mt-0.5">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-sys-text-muted shrink-0">
-                <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
-                <circle cx="12" cy="7" r="4" />
-              </svg>
-              {isDualTeachers ? (
-                <div className="flex items-center gap-3">
-                  {secondaryItems.map((item, idx) => (
-                    <span key={idx} className="inline-flex items-center gap-1.5">
-                      <span className="shrink-0 rounded bg-sys-border/60 border border-sys-border px-1.5 py-0.5 text-[10px] font-bold text-sys-text-muted">
-                        {idx + 1} підгр.
+                {/* Teacher / Group info */}
+                <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm text-sys-text-secondary mt-0.5">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-sys-text-muted shrink-0">
+                    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                    <circle cx="12" cy="7" r="4" />
+                  </svg>
+                  {isDualTeachers ? (
+                    <div className="flex items-center gap-3">
+                      {secondaryItems.map((item, idx) => {
+                        const subNum = idx + 1;
+                        const isFaded = selectedSubgroup !== null && selectedSubgroup !== subNum;
+                        return (
+                          <span key={idx} className={`inline-flex items-center gap-1.5 transition-opacity ${isFaded ? "opacity-50 hover:opacity-80" : "opacity-100"}`}>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); handleSubgroupToggle(subNum); }}
+                              title={selectedSubgroup === subNum ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${subNum} підгрупу`}
+                              className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold transition-colors ${
+                                selectedSubgroup === subNum
+                                  ? "bg-sys-accent/20 text-sys-accent font-bold border border-sys-accent/40"
+                                  : "bg-sys-border/60 border border-sys-border text-slate-300 hover:text-white"
+                              }`}
+                            >
+                              {subNum} підгр.
+                            </button>
+                            {onQuickJump ? (
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); onQuickJump(item.target); }}
+                                className="hover:text-sys-accent hover:underline focus:outline-none"
+                              >
+                                {item.displayName}
+                              </button>
+                            ) : (
+                              <span>{item.displayName}</span>
+                            )}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  ) : secondaryItems.length > 0 ? (
+                    secondaryItems.map((item, idx) => (
+                      <span key={idx}>
+                        {onQuickJump ? (
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); onQuickJump(item.target); }}
+                            className="hover:text-sys-accent hover:underline focus:outline-none"
+                          >
+                            {item.displayName}
+                          </button>
+                        ) : (
+                          <span>{item.displayName}</span>
+                        )}
                       </span>
-                      {onQuickJump ? (
+                    ))
+                  ) : null}
+                </div>
+              </div>
+
+              {/* Zone 3: Location & Actions */}
+              <div className="shrink-0 flex flex-col items-end justify-start gap-2 pt-0.5">
+                {hasMeeting ? (
+                  <a
+                    href={meetings[0].url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
+                    className={`inline-flex h-8 px-3 items-center gap-1.5 rounded-lg font-bold text-xs shadow-xs active:scale-95 transition-all whitespace-nowrap ${
+                      isMeetingLiveOrSoon
+                        ? meetings[0].platform === "zoom"
+                          ? "bg-sky-600 text-white border border-sky-500 shadow-[0_0_12px_rgba(14,165,233,0.35)] hover:bg-sky-500 animate-pulse"
+                          : "bg-emerald-600 text-white border border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.35)] hover:bg-emerald-500 animate-pulse"
+                        : meetings[0].platform === "zoom"
+                        ? "border border-sys-border bg-sys-card text-sys-text-primary hover:border-sky-500/50 hover:text-sky-300 hover:bg-sky-500/5"
+                        : "border border-sys-border bg-sys-card text-sys-text-primary hover:border-emerald-500/50 hover:text-emerald-300 hover:bg-emerald-500/5"
+                    }`}
+                  >
+                    {meetings[0].platform === "zoom" ? (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                        <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.934a.5.5 0 0 0-.777-.416L16 11" />
+                        <rect x="2" y="6" width="14" height="12" rx="2" />
+                      </svg>
+                    ) : (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                        <polygon points="23 7 16 12 23 17 23 7" />
+                        <rect x="1" y="5" width="15" height="14" rx="2" />
+                      </svg>
+                    )}
+                    <span>{meetings[0].platform === "zoom" ? "Zoom" : "Meet"}</span>
+                    <span className="text-[11px] opacity-75">↗</span>
+                  </a>
+                ) : rooms.length > 0 ? (
+                  <div className="inline-flex h-8 px-3 items-center gap-1.5 rounded-lg border border-sys-border bg-sys-bg text-sys-text-secondary font-medium text-xs shadow-xs whitespace-nowrap">
+                    <span>ауд. {rooms.map(formatRoom).join(", ")}</span>
+                  </div>
+                ) : null}
+
+                {/* Statuses and Actions */}
+                <div className="flex flex-wrap items-center justify-end gap-1.5">
+                  {lesson.is_cancelled ? (
+                    <span className="inline-flex items-center gap-1 rounded-md border border-rose-500/40 bg-rose-500/15 px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-rose-400">
+                      ❌ Скасовано
+                    </span>
+                  ) : eventBadge ? (
+                    <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-bold uppercase tracking-wider ${eventBadge.badgeClass}`}>
+                      {eventBadge.label}
+                    </span>
+                  ) : lesson.is_replacement ? (
+                    <span className="inline-flex items-center gap-1 rounded-md bg-sys-warning px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-sys-warningText">
+                      ⚡ Заміна
+                    </span>
+                  ) : null}
+
+                  {canEdit && (
+                    <div className="flex items-center gap-1 ml-1">
+                      {canEditAction && (
                         <button
                           type="button"
-                          onClick={(e) => { e.stopPropagation(); onQuickJump(item.target); }}
-                          className="hover:text-sys-accent hover:underline focus:outline-none"
+                          title="Редагувати пару"
+                          onClick={(e) => { e.stopPropagation(); onEdit?.(lesson); }}
+                          className="w-8 h-8 flex items-center justify-center rounded-lg border border-sys-border/60 bg-sys-card text-sys-text-secondary hover:text-sys-accent hover:border-sys-accent/60"
                         >
-                          {item.displayName}
+                          <EditIcon />
                         </button>
-                      ) : (
-                        <span>{item.displayName}</span>
                       )}
-                    </span>
-                  ))}
-                </div>
-              ) : secondaryItems.length > 0 ? (
-                secondaryItems.map((item, idx) => (
-                  <span key={idx}>
-                    {onQuickJump ? (
                       <button
                         type="button"
-                        onClick={(e) => { e.stopPropagation(); onQuickJump(item.target); }}
-                        className="hover:text-sys-accent hover:underline focus:outline-none"
+                        title="Більше дій"
+                        onClick={(e) => { e.stopPropagation(); setMoreOpen(!moreOpen); }}
+                        className="w-8 h-8 flex items-center justify-center rounded-lg border border-sys-border/60 bg-sys-card text-sys-text-secondary hover:text-sys-text-primary"
                       >
-                        {item.displayName}
+                        ⋯
                       </button>
-                    ) : (
-                      <span>{item.displayName}</span>
-                    )}
-                  </span>
-                ))
-              ) : null}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
 
-            {/* Integrated Homework Accordion Container */}
-            {tasks.length > 0 && (
-              <div className={`mt-2 w-full rounded-xl border transition-all duration-150 overflow-hidden ${
-                tasks[0].deadline.badgeTone === "overdue"
-                  ? "border-rose-500/35 bg-rose-500/10"
-                  : tasks[0].deadline.badgeTone === "urgent"
-                  ? "border-amber-500/35 bg-amber-500/10"
-                  : "border-purple-500/30 bg-purple-500/10"
-              }`}>
-                {/* Accordion Trigger Row: full 100% width, flex between */}
+            {/* 1 Task: Entire strip is a direct link with ↗ (no accordion) */}
+            {tasks.length === 1 && (
+              <a
+                href={tasks[0].url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  vibrateTap(10);
+                }}
+                className="group flex w-full items-center justify-between rounded-xl bg-[#16161a] border border-[#27272a] px-3.5 py-2.5 text-xs text-sys-text-secondary hover:border-slate-600 hover:bg-[#1a1a20] transition-all shadow-xs cursor-pointer"
+                style={{
+                  boxShadow:
+                    tasks[0].deadline.badgeTone === "overdue"
+                      ? "inset 3px 0 0 #ef4444"
+                      : tasks[0].deadline.badgeTone === "urgent"
+                      ? "inset 3px 0 0 #f59e0b"
+                      : "inset 3px 0 0 #8b5cf6",
+                }}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-slate-400 group-hover:text-sys-accent transition-colors">
+                    <path d="M16 4h2a2 2 0 0 1 2 2v14l-8-4-8 4V6a2 2 0 0 1 2-2h2" />
+                    <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+                  </svg>
+                  <span className="font-semibold text-sys-text-primary group-hover:text-sys-accent transition-colors truncate">
+                    {tasks[0].title && tasks[0].title !== "Домашнє завдання" && tasks[0].title !== "Завдання"
+                      ? tasks[0].title
+                      : `${lesson.subject_name}${tasks[0].teacher ? ` · ${tasks[0].teacher}` : ""}`}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0 ml-3">
+                  <span
+                    className="inline-flex items-center gap-1.5 font-medium"
+                    style={{
+                      color:
+                        tasks[0].deadline.badgeTone === "overdue"
+                          ? "#f87171"
+                          : tasks[0].deadline.badgeTone === "urgent"
+                          ? "#fbbf24"
+                          : "#c084fc",
+                    }}
+                  >
+                    <span
+                      className="h-1.5 w-1.5 rounded-full shrink-0"
+                      style={{
+                        backgroundColor:
+                          tasks[0].deadline.badgeTone === "overdue"
+                            ? "#ef4444"
+                            : tasks[0].deadline.badgeTone === "urgent"
+                            ? "#f59e0b"
+                            : "#8b5cf6",
+                      }}
+                    />
+                    <span>{tasks[0].deadline.statusText}</span>
+                  </span>
+                  <span className="text-slate-400 group-hover:text-white transition-colors text-xs ml-1">↗</span>
+                </div>
+              </a>
+            )}
+
+            {/* 2+ Tasks: Accordion container with rotating chevron */}
+            {tasks.length > 1 && (
+              <div
+                className="w-full rounded-xl bg-[#16161a] border border-[#27272a] transition-all duration-150 overflow-hidden shadow-xs"
+                style={{
+                  boxShadow:
+                    tasks[0].deadline.badgeTone === "overdue"
+                      ? "inset 3px 0 0 #ef4444"
+                      : tasks[0].deadline.badgeTone === "urgent"
+                      ? "inset 3px 0 0 #f59e0b"
+                      : "inset 3px 0 0 #8b5cf6",
+                }}
+              >
                 <div
                   onClick={toggleHw}
                   role="button"
                   tabIndex={0}
                   onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") toggleHw(e); }}
-                  className="flex w-full items-center justify-between px-3 py-2 cursor-pointer select-none gap-2 hover:bg-white/5 transition-colors"
+                  className="flex w-full items-center justify-between px-3.5 py-2.5 cursor-pointer select-none gap-2 hover:bg-white/5 transition-colors"
                 >
                   <div className="flex items-center gap-2 min-w-0">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={`shrink-0 ${
-                      tasks[0].deadline.badgeTone === "overdue" ? "text-rose-400" : tasks[0].deadline.badgeTone === "urgent" ? "text-amber-400" : "text-purple-300"
-                    }`}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-slate-400">
                       <path d="M16 4h2a2 2 0 0 1 2 2v14l-8-4-8 4V6a2 2 0 0 1 2-2h2" />
                       <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
                     </svg>
-                    <span className={`text-xs font-bold truncate ${
-                      tasks[0].deadline.badgeTone === "overdue" ? "text-rose-200" : tasks[0].deadline.badgeTone === "urgent" ? "text-amber-200" : "text-purple-200"
-                    }`}>
-                      {tasks.length === 1
-                        ? (tasks[0].title && tasks[0].title !== "Домашнє завдання" && tasks[0].title !== "Завдання" ? tasks[0].title : "Завдання Classroom")
-                        : `${tasks.length} завдання`}
+                    <span className="text-xs font-bold text-sys-text-primary">
+                      {tasks.length} завдання
                     </span>
-                    <span className="text-sys-text-muted/60 text-xs shrink-0">•</span>
-                    <span className={`text-xs font-medium truncate ${
-                      tasks[0].deadline.badgeTone === "overdue" ? "text-rose-300 font-semibold" : tasks[0].deadline.badgeTone === "urgent" ? "text-amber-300 font-semibold" : "text-purple-200/90"
-                    }`}>
-                      {tasks.length === 1 ? tasks[0].deadline.statusText : `найближче ${tasks[0].deadline.statusText}`}
+                    <span className="text-slate-600 text-xs shrink-0">•</span>
+                    <span className="text-xs font-normal text-slate-400 truncate">
+                      найближче {tasks[0].deadline.formattedDate || tasks[0].label}
                     </span>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0 ml-2">
-                    <span className={`text-xs font-bold transition-transform duration-200 ${
-                      isHwOpen ? "rotate-180" : ""
-                    } ${
-                      tasks[0].deadline.badgeTone === "overdue" ? "text-rose-300" : tasks[0].deadline.badgeTone === "urgent" ? "text-amber-300" : "text-purple-300"
-                    }`}>
-                      ▾
+                  <div className="flex items-center gap-2 shrink-0 ml-3">
+                    <span
+                      className="inline-flex items-center gap-1.5 font-medium text-xs"
+                      style={{
+                        color:
+                          tasks[0].deadline.badgeTone === "overdue"
+                            ? "#f87171"
+                            : tasks[0].deadline.badgeTone === "urgent"
+                            ? "#fbbf24"
+                            : "#c084fc",
+                      }}
+                    >
+                      <span
+                        className="h-1.5 w-1.5 rounded-full shrink-0"
+                        style={{
+                          backgroundColor:
+                            tasks[0].deadline.badgeTone === "overdue"
+                              ? "#ef4444"
+                              : tasks[0].deadline.badgeTone === "urgent"
+                              ? "#f59e0b"
+                              : "#8b5cf6",
+                        }}
+                      />
+                      <span>{tasks[0].deadline.statusText}</span>
                     </span>
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className={`text-slate-400 transition-transform duration-200 shrink-0 ${isHwOpen ? "rotate-180" : ""}`}
+                    >
+                      <path d="m6 9 6 6 6-6" />
+                    </svg>
                   </div>
                 </div>
 
-                {/* Expanded Tasks List inside the same accordion container */}
                 {isHwOpen && (
-                  <div className="flex flex-col gap-2 p-3 border-t border-sys-border/30 bg-black/20 animate-in fade-in duration-150">
-                    {groupedTasks.map((group, gIdx) => (
-                      <div key={gIdx} className="flex flex-col gap-1.5">
-                        {group.teacher && (
-                          <span className="text-[11px] font-bold text-sys-text-secondary">
-                            {group.teacher}:
+                  <div className="flex flex-col gap-1.5 p-3 border-t border-[#27272a] bg-[#121216] animate-in fade-in duration-150">
+                    {tasks.map((task, idx) => (
+                      <a
+                        key={idx}
+                        href={task.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          vibrateTap(10);
+                        }}
+                        className="group flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-xs hover:bg-[#1c1c24] transition-colors"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="font-semibold text-sys-text-primary group-hover:text-sys-accent transition-colors truncate">
+                            {task.title || "Завдання"}
                           </span>
-                        )}
-                        {group.items.map((task, idx) => (
-                          <a
-                            key={idx}
-                            href={task.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              vibrateTap(10);
-                            }}
-                            className="group flex flex-wrap items-center justify-between gap-2 rounded-lg border border-sys-border/50 bg-sys-card/60 px-3 py-2 text-xs font-medium text-sys-text-primary transition-colors hover:border-sys-accent/60 hover:bg-sys-card"
-                          >
-                            <div className="flex min-w-0 flex-wrap items-center gap-2">
-                              <span className="font-semibold text-white group-hover:text-sys-accent transition-colors">
-                                {task.title || "Завдання"}
-                              </span>
-                              <span className={`rounded px-1.5 py-0.5 text-[11px] font-bold border ${
+                          {task.teacher && (
+                            <span className="text-slate-500 text-[11px] truncate">({task.teacher})</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span
+                            className="text-[11px] font-medium"
+                            style={{
+                              color:
                                 task.deadline.badgeTone === "overdue"
-                                  ? "bg-rose-500/20 border-rose-500/40 text-rose-300"
+                                  ? "#f87171"
                                   : task.deadline.badgeTone === "urgent"
-                                  ? "bg-amber-500/20 border-amber-500/40 text-amber-300"
-                                  : "bg-purple-500/20 border-purple-500/40 text-purple-200"
-                              }`}>
-                                {task.deadline.statusText}
-                              </span>
-                            </div>
-                            <span className="text-xs text-sys-text-secondary group-hover:text-white transition-colors">
-                              Відкрити у Classroom ↗
-                            </span>
-                          </a>
-                        ))}
-                      </div>
+                                  ? "#fbbf24"
+                                  : "#c084fc",
+                            }}
+                          >
+                            {task.deadline.statusText}
+                          </span>
+                          <span className="text-slate-400 group-hover:text-white transition-colors text-xs">↗</span>
+                        </div>
+                      </a>
                     ))}
                   </div>
                 )}
@@ -925,97 +1144,13 @@ export function LessonCard({
             )}
 
             {visibleNoteText && (
-              <p className="mt-1 flex items-center gap-1.5 text-xs text-sys-text-secondary/80 italic">
+              <p className="flex items-center gap-1.5 text-xs text-sys-text-secondary/80 italic">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-text-muted">
                   <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                 </svg>
                 <span>{visibleNoteText}</span>
               </p>
             )}
-          </div>
-
-          {/* Zone 3: Location & Actions */}
-          <div className="shrink-0 flex flex-col items-end justify-start pl-2 sm:pl-4 gap-2 pt-0.5">
-            {hasMeeting ? (
-              <a
-                href={meetings[0].url}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
-                className={`inline-flex h-8 px-3 items-center gap-1.5 rounded-lg font-bold text-xs shadow-xs active:scale-95 transition-all whitespace-nowrap ${
-                  isMeetingLiveOrSoon
-                    ? meetings[0].platform === "zoom"
-                      ? "bg-sky-600 text-white border border-sky-500 shadow-[0_0_12px_rgba(14,165,233,0.35)] hover:bg-sky-500 animate-pulse"
-                      : "bg-emerald-600 text-white border border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.35)] hover:bg-emerald-500 animate-pulse"
-                    : meetings[0].platform === "zoom"
-                    ? "border border-sys-border bg-sys-card text-sys-text-primary hover:border-sky-500/50 hover:text-sky-300 hover:bg-sky-500/5"
-                    : "border border-sys-border bg-sys-card text-sys-text-primary hover:border-emerald-500/50 hover:text-emerald-300 hover:bg-emerald-500/5"
-                }`}
-              >
-                {meetings[0].platform === "zoom" ? (
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                    <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.934a.5.5 0 0 0-.777-.416L16 11" />
-                    <rect x="2" y="6" width="14" height="12" rx="2" />
-                  </svg>
-                ) : (
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                    <polygon points="23 7 16 12 23 17 23 7" />
-                    <rect x="1" y="5" width="15" height="14" rx="2" />
-                  </svg>
-                )}
-                <span>{meetings[0].platform === "zoom" ? "Zoom" : "Meet"}</span>
-                <span className="text-[11px] opacity-75">↗</span>
-              </a>
-            ) : rooms.length > 0 ? (
-              <div className="inline-flex h-8 px-3 items-center gap-1.5 rounded-lg border border-sys-border bg-sys-bg text-sys-text-secondary font-medium text-xs shadow-xs whitespace-nowrap">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-text-muted">
-                  <path d="M18 20V6a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v14" />
-                  <path d="M2 20h20" />
-                  <path d="M14 12v.01" />
-                </svg>
-                <span>ауд. {rooms.map(formatRoom).join(", ")}</span>
-              </div>
-            ) : null}
-
-            {/* Statuses and Actions */}
-            <div className="flex flex-wrap items-center justify-end gap-1.5">
-              {lesson.is_cancelled ? (
-                <span className="inline-flex items-center gap-1 rounded-md border border-rose-500/40 bg-rose-500/15 px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-rose-400">
-                  ❌ Скасовано
-                </span>
-              ) : eventBadge ? (
-                <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-bold uppercase tracking-wider ${eventBadge.badgeClass}`}>
-                  {eventBadge.label}
-                </span>
-              ) : lesson.is_replacement ? (
-                <span className="inline-flex items-center gap-1 rounded-md bg-sys-warning px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-sys-warningText">
-                  ⚡ Заміна
-                </span>
-              ) : null}
-
-              {canEdit && (
-                <div className="flex items-center gap-1 ml-1">
-                  {canEditAction && (
-                    <button
-                      type="button"
-                      title="Редагувати пару"
-                      onClick={(e) => { e.stopPropagation(); onEdit?.(lesson); }}
-                      className="w-8 h-8 flex items-center justify-center rounded-lg border border-sys-border/60 bg-sys-card text-sys-text-secondary hover:text-sys-accent hover:border-sys-accent/60"
-                    >
-                      <EditIcon />
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    title="Більше дій"
-                    onClick={(e) => { e.stopPropagation(); setMoreOpen(!moreOpen); }}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg border border-sys-border/60 bg-sys-card text-sys-text-secondary hover:text-sys-text-primary"
-                  >
-                    ⋯
-                  </button>
-                </div>
-              )}
-            </div>
           </div>
         </div>
       )}
@@ -1064,20 +1199,27 @@ export function LessonCard({
           {/* Row 2: Teacher(s) - compressed into single lines for week view */}
           {isDualTeachers ? (
             <div className="flex flex-col gap-1 text-[11px] xl:text-xs text-sys-text-secondary [overflow-wrap:anywhere] mt-0.5">
-              <div className="flex items-center gap-1.5 min-w-0">
-                <span className="shrink-0 rounded bg-sys-border/60 border border-sys-border px-1 py-0.2 text-[9px] font-bold text-sys-text-muted">
+              <div className={`flex items-center gap-1.5 min-w-0 transition-opacity ${selectedSubgroup === 2 ? "opacity-50 hover:opacity-80" : "opacity-100"}`}>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); handleSubgroupToggle(1); }}
+                  title={selectedSubgroup === 1 ? "Ваша підгрупа (натисніть для скидання)" : "Обрати 1 підгрупу"}
+                  className={`shrink-0 text-[10px] font-semibold transition-colors ${
+                    selectedSubgroup === 1 ? "text-sys-accent font-bold" : "text-slate-400 hover:text-slate-200"
+                  }`}
+                >
                   1 підгр.
-                </span>
+                </button>
                 {onQuickJump ? (
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); onQuickJump(secondaryItems[0].target); }}
-                    className="truncate hover:text-sys-accent hover:underline focus:outline-none text-left font-medium"
+                    className="truncate hover:text-sys-accent hover:underline focus:outline-none text-left font-medium text-slate-200"
                   >
                     {secondaryItems[0]?.displayName}
                   </button>
                 ) : (
-                  <span className="truncate font-medium">{secondaryItems[0]?.displayName}</span>
+                  <span className="truncate font-medium text-slate-200">{secondaryItems[0]?.displayName}</span>
                 )}
                 <span className="text-sys-text-muted shrink-0">•</span>
                 {teacherMeetings[0] ? (
@@ -1094,20 +1236,27 @@ export function LessonCard({
                   <span className="shrink-0 text-sys-text-muted font-medium">{formatRoom(rooms[0])}</span>
                 ) : null}
               </div>
-              <div className="flex items-center gap-1.5 min-w-0">
-                <span className="shrink-0 rounded bg-sys-border/60 border border-sys-border px-1 py-0.2 text-[9px] font-bold text-sys-text-muted">
+              <div className={`flex items-center gap-1.5 min-w-0 transition-opacity ${selectedSubgroup === 1 ? "opacity-50 hover:opacity-80" : "opacity-100"}`}>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); handleSubgroupToggle(2); }}
+                  title={selectedSubgroup === 2 ? "Ваша підгрупа (натисніть для скидання)" : "Обрати 2 підгрупу"}
+                  className={`shrink-0 text-[10px] font-semibold transition-colors ${
+                    selectedSubgroup === 2 ? "text-sys-accent font-bold" : "text-slate-400 hover:text-slate-200"
+                  }`}
+                >
                   2 підгр.
-                </span>
+                </button>
                 {onQuickJump ? (
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); onQuickJump(secondaryItems[1].target); }}
-                    className="truncate hover:text-sys-accent hover:underline focus:outline-none text-left font-medium"
+                    className="truncate hover:text-sys-accent hover:underline focus:outline-none text-left font-medium text-slate-200"
                   >
                     {secondaryItems[1]?.displayName}
                   </button>
                 ) : (
-                  <span className="truncate font-medium">{secondaryItems[1]?.displayName}</span>
+                  <span className="truncate font-medium text-slate-200">{secondaryItems[1]?.displayName}</span>
                 )}
                 <span className="text-sys-text-muted shrink-0">•</span>
                 {teacherMeetings[1] ? (
@@ -1154,9 +1303,9 @@ export function LessonCard({
             </div>
           ) : null}
 
-          {/* Row 3: Badges on left, actions on right; wraps naturally without overlap */}
+          {/* Row 3: Badges on left, actions on right; pinned to bottom with mt-auto */}
           <div
-            className="mt-1 flex flex-wrap items-end gap-x-2 gap-y-1.5 pt-0.5 w-full"
+            className="mt-auto flex flex-wrap items-end gap-x-2 gap-y-1.5 pt-2 w-full"
             style={{
               display: "flex",
               flexWrap: "wrap",
@@ -1176,23 +1325,18 @@ export function LessonCard({
             >
               {/* If single teacher and pair has NO meeting, show room badge */}
               {!isDualTeachers && !hasMeeting && rooms.length > 0 && (
-                rooms.map((rm, idx) => {
-                  const meta = getRoomBadgeMeta(rm);
-                  return (
-                    <span
-                      key={`${rm}-${idx}`}
-                      title={formatRoom(rm)}
-                      className={`inline-flex max-w-full items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium whitespace-nowrap ${meta.tone}`}
-                      style={{ maxWidth: "100%", wordBreak: "normal" }}
-                    >
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-text-muted"><path d="M18 20V6a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v14"/><path d="M2 20h20"/><path d="M14 12v.01"/></svg>
-                      <span className="break-normal whitespace-nowrap sm:whitespace-normal">{formatRoom(rm)}</span>
-                    </span>
-                  );
-                })
+                rooms.map((rm, idx) => (
+                  <span
+                    key={`${rm}-${idx}`}
+                    title={formatRoom(rm)}
+                    className="inline-flex max-w-full items-center rounded-md border border-sys-border bg-sys-tabActive px-2 py-0.5 text-xs font-medium text-sys-text-primary whitespace-nowrap"
+                  >
+                    <span>{formatRoom(rm)}</span>
+                  </span>
+                ))
               )}
 
-              {/* Online meetings (for single teacher or teacher view) */}
+              {/* Online meetings (outline style to match day view) */}
               {!isDualTeachers && row3Meetings.map((m, idx) => (
                 <a
                   key={`${m.url}-${idx}`}
@@ -1203,25 +1347,12 @@ export function LessonCard({
                     e.stopPropagation();
                     vibrateTap(12);
                   }}
-                  className={`inline-flex max-w-full [white-space:normal] [overflow-wrap:anywhere] items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-bold transition-transform active:scale-[0.98] ${
-                    m.platform === "meet"
-                      ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
-                      : m.platform === "zoom"
-                      ? "border-sky-500/40 bg-sky-500/15 text-sky-300 hover:bg-sky-500/25"
-                      : "border-indigo-500/40 bg-indigo-500/15 text-indigo-300 hover:bg-indigo-500/25"
-                  }`}
-                  style={{ maxWidth: "100%", whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "break-word" }}
+                  className="inline-flex h-6 min-h-[24px] items-center gap-1 rounded-md border border-sys-border/70 bg-sys-card px-2 py-0.5 text-xs font-semibold text-sys-text-secondary hover:border-sys-accent/50 hover:text-sys-accent active:scale-95 transition-all"
                 >
                   <span>
-                    {m.platform === "meet"
-                      ? "Meet"
-                      : m.platform === "zoom"
-                      ? "Zoom"
-                      : m.platform === "teams"
-                      ? "Teams"
-                      : "Посилання"}
+                    {m.platform === "zoom" ? "Zoom" : m.platform === "meet" ? "Meet" : "Онлайн"}
                   </span>
-                  <span className="shrink-0">↗</span>
+                  <span className="text-[10px] text-slate-400">↗</span>
                 </a>
               ))}
 
@@ -1231,18 +1362,24 @@ export function LessonCard({
                   onClick={toggleHw}
                   aria-expanded={isHwOpen}
                   aria-controls={`hw-list-${lesson.id}-${lesson.lesson_number}`}
-                  title={isHwOpen ? "Згорнути завдання" : `${tasks.length} ДЗ (${tasks[0].deadline.statusText}) — натисніть для перегляду`}
-                  className={`inline-flex max-w-full [white-space:normal] [overflow-wrap:anywhere] items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-semibold transition-all duration-100 ease-out focus:outline-none focus:ring-1 ${
+                  title={isHwOpen ? "Згорнути завдання" : `${tasks.length} ДЗ (${tasks[0].deadline.statusText})`}
+                  className={`inline-flex h-6 min-h-[24px] items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-semibold transition-all active:scale-95 ${
                     tasks[0].deadline.badgeTone === "overdue"
-                      ? "border-rose-500/40 bg-rose-500/15 text-rose-300 hover:bg-rose-500/25 focus:ring-rose-400"
+                      ? "border-rose-500/40 bg-sys-card text-rose-300 hover:border-rose-500/60"
                       : tasks[0].deadline.badgeTone === "urgent"
-                      ? "border-amber-500/40 bg-amber-500/15 text-amber-300 hover:bg-amber-500/25 focus:ring-amber-400"
-                      : "border-purple-500/35 bg-purple-500/10 text-purple-200 hover:bg-purple-500/20 focus:ring-purple-400"
+                      ? "border-amber-500/40 bg-sys-card text-amber-300 hover:border-amber-500/60"
+                      : "border-sys-border bg-sys-card text-purple-200 hover:border-purple-500/50"
                   }`}
-                  style={{ maxWidth: "100%", whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "break-word" }}
                 >
-                  <span className="shrink-0">{tasks.length} ДЗ</span>
-                  <span className={`shrink-0 text-[10px] transition-transform duration-150 motion-reduce:transition-none ${isHwOpen ? "rotate-180" : ""}`}>
+                  {tasks[0].deadline.badgeTone === "overdue" ? (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-rose-400 shrink-0">
+                      <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+                      <line x1="12" y1="9" x2="12" y2="13" />
+                      <line x1="12" y1="17" x2="12.01" y2="17" />
+                    </svg>
+                  ) : null}
+                  <span>{tasks.length} ДЗ</span>
+                  <span className={`text-[10px] text-slate-400 transition-transform duration-150 ${isHwOpen ? "rotate-180" : ""}`}>
                     ▾
                   </span>
                 </button>
@@ -1547,11 +1684,11 @@ export function LessonCard({
               <div className={`overflow-hidden transition-opacity duration-200 ease-smooth motion-reduce:transition-none ${
                 isHwOpen ? "opacity-100" : "opacity-0"
               }`}>
-                <div className="flex flex-col gap-2 pt-1 border-t border-purple-500/20">
+                <div className="flex flex-col gap-2 pt-1 border-t border-[#27272a]">
                   {groupedTasks.map((group, gIdx) => (
                     <div key={gIdx} className="flex flex-col gap-1.5">
                       {group.teacher && (
-                        <span className="text-[11px] font-bold text-purple-200/90 pt-0.5">
+                        <span className="text-[11px] font-bold text-slate-300 pt-0.5">
                           {group.teacher}:
                         </span>
                       )}
@@ -1565,18 +1702,21 @@ export function LessonCard({
                             e.stopPropagation();
                             vibrateTap(10);
                           }}
-                          title={`${task.teacher ? `[${task.teacher}] ` : ""}📌 ${task.label} — Відкрити в Classroom`}
-                          className="group flex flex-wrap items-center justify-between gap-x-2 gap-y-1 rounded-lg border border-purple-500/35 bg-purple-500/10 px-2.5 py-1.5 text-xs font-medium text-purple-200 transition-colors hover:bg-purple-500/20 active:scale-[0.98]"
+                          title={`${task.teacher ? `[${task.teacher}] ` : ""}${task.title || "Завдання"} — Відкрити в Classroom`}
+                          className="group flex flex-wrap items-center justify-between gap-x-2 gap-y-1 rounded-lg border border-[#27272a] bg-[#16161a] px-2.5 py-1.5 text-xs font-medium text-sys-text-primary transition-colors hover:border-slate-600 hover:bg-[#1a1a20] active:scale-[0.98]"
                         >
                           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                             {task.teacher && !group.teacher && (
-                              <span className="shrink-0 rounded bg-purple-500/30 px-1.5 py-0.5 text-[10px] font-bold text-purple-100">
+                              <span className="shrink-0 rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-bold text-slate-300">
                                 {task.teacher}
                               </span>
                             )}
-                            <span className="font-semibold text-purple-100">📌 {task.label}</span>
+                            <span className="font-semibold text-sys-text-primary">{task.title || "Завдання"}</span>
+                            <span className="text-[11px]" style={{ color: task.deadline.badgeTone === "overdue" ? "#f87171" : task.deadline.badgeTone === "urgent" ? "#fbbf24" : "#c084fc" }}>
+                              ({task.deadline.statusText})
+                            </span>
                           </div>
-                          <span className="ml-auto shrink-0 text-[11px] font-bold text-purple-300 transition-transform group-hover:translate-x-0.5">
+                          <span className="ml-auto shrink-0 text-[11px] font-bold text-slate-400 group-hover:text-white transition-transform group-hover:translate-x-0.5">
                             Classroom ↗
                           </span>
                         </a>
@@ -1590,8 +1730,11 @@ export function LessonCard({
 
           {/* User note (compact text under badges) */}
           {visibleNoteText && (
-            <p className="mt-1 text-xs text-sys-text-secondary/90 [overflow-wrap:anywhere] italic border-t border-sys-border/20 pt-1">
-              💬 {visibleNoteText}
+            <p className="mt-1 flex items-center gap-1.5 text-xs text-sys-text-secondary/90 [overflow-wrap:anywhere] italic border-t border-sys-border/20 pt-1">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-text-muted">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+              <span>{visibleNoteText}</span>
             </p>
           )}
 

@@ -585,9 +585,9 @@ export default function HomePage() {
 
       {/* Unified 56px (h-14) App-bar across all devices */}
       <header className="sticky top-0 z-40 h-14 border-b border-sys-border bg-sys-card/95 backdrop-blur-md">
-        <div className="mx-auto flex h-full max-w-[1800px] items-center justify-between px-3 sm:px-5 lg:px-6">
+        <div className="mx-auto flex lg:grid lg:grid-cols-[1fr_auto_1fr] h-full max-w-[1800px] items-center justify-between px-3 sm:px-5 lg:px-6">
           {/* Left Zone: Brand + Context Selector */}
-          <div className="flex items-center gap-2 sm:gap-3.5 min-w-0">
+          <div className="flex items-center gap-2 sm:gap-3.5 min-w-0 lg:justify-self-start">
             <a
               href="https://kre.dp.ua/"
               target="_blank"
@@ -621,22 +621,24 @@ export default function HomePage() {
           </div>
 
           {/* Center Zone: Date Navigator + View Mode (Desktop >= 1024px) */}
-          <div className="hidden lg:flex items-center gap-3">
+          <div className="hidden lg:flex items-center gap-3 lg:justify-self-center">
             {/* Date Navigator: < [Сьогодні] > */}
-            <div className="flex items-center rounded-xl border border-sys-border bg-sys-bg p-1 text-xs">
+            <div className="flex items-center rounded-xl border border-sys-border bg-sys-bg p-0.5 text-xs">
               <button
                 type="button"
                 onClick={view === "today" ? goToPrevDay : () => shiftWeek(-1)}
                 aria-label="Попередній період"
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-sys-text-secondary hover:bg-sys-card hover:text-white transition-colors"
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-sys-text-secondary hover:bg-sys-card hover:text-white transition-colors"
               >
-                ‹
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="m15 18-6-6 6-6" />
+                </svg>
               </button>
               <button
                 type="button"
                 onClick={view === "today" ? handleJumpToToday : resetWeek}
                 disabled={view === "today" && selectedDaySchedule?.date === todayActualIso}
-                className={`px-3 h-8 rounded-lg font-medium transition-colors ${
+                className={`px-3.5 h-9 rounded-lg font-medium transition-colors ${
                   (view === "today" && selectedDaySchedule?.date === todayActualIso)
                     ? "text-sys-text-muted cursor-default"
                     : (view === "week" && isCurrentWeek)
@@ -650,9 +652,11 @@ export default function HomePage() {
                 type="button"
                 onClick={view === "today" ? goToNextDay : () => shiftWeek(1)}
                 aria-label="Наступний період"
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-sys-text-secondary hover:bg-sys-card hover:text-white transition-colors"
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-sys-text-secondary hover:bg-sys-card hover:text-white transition-colors"
               >
-                ›
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="m9 18 6-6-6-6" />
+                </svg>
               </button>
             </div>
 
@@ -684,7 +688,7 @@ export default function HomePage() {
           </div>
 
           {/* Right Zone: Favorites, Classroom, Action menu */}
-          <div className="flex items-center gap-1.5 sm:gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 lg:justify-self-end">
             {/* Classroom button (desktop) */}
             {mode === "student" && groupId && (
               <div className="hidden sm:block">
@@ -713,7 +717,19 @@ export default function HomePage() {
                     : "border-sys-border bg-sys-bg text-sys-text-muted hover:text-sys-text-primary hover:border-sys-border-elevated"
                 }`}
               >
-                {isCurrentPinned ? "★" : "☆"}
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill={isCurrentPinned ? "currentColor" : "none"}
+                  stroke="currentColor"
+                  strokeWidth="1.75"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className={isCurrentPinned ? "text-amber-400" : "text-slate-400 hover:text-amber-300"}
+                >
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                </svg>
               </button>
             )}
 
@@ -1178,16 +1194,28 @@ export default function HomePage() {
                     <div className="w-full lg:w-[360px] xl:w-[380px] shrink-0 min-w-0 flex flex-col gap-6 sticky top-20">
                       {/* Week & Navigator Card */}
                       <div className="rounded-2xl border border-sys-border bg-sys-card p-5 shadow-sm">
-                        <div className="flex items-center justify-between pb-3.5 border-b border-sys-border/50">
-                          <div>
-                            <span className="text-xs font-bold uppercase tracking-wider text-sys-text-muted">
-                              {currentWeekNumber ? `${currentWeekNumber} тиждень` : "Розклад"}
-                            </span>
-                            <h3 className="text-base sm:text-lg font-semibold text-sys-text-primary mt-0.5 truncate">
-                              {weekRange}
-                            </h3>
+                        <div className="pb-3.5 border-b border-sys-border/50">
+                          <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-sys-text-muted">
+                            <span>{currentWeekNumber ? `${currentWeekNumber} ТИЖДЕНЬ` : "РОЗКЛАД"}</span>
+                            {weekType !== "both" && (
+                              <>
+                                <span>•</span>
+                                <span
+                                  title={
+                                    weekType === "numerator"
+                                      ? "Чисельник — непарний тиждень навчального графіка"
+                                      : "Знаменник — парний тиждень навчального графіка"
+                                  }
+                                  className="lowercase font-medium text-sys-text-secondary cursor-help underline decoration-dotted underline-offset-2"
+                                >
+                                  {weekType === "numerator" ? "чисельник" : "знаменник"}
+                                </span>
+                              </>
+                            )}
                           </div>
-                          <WeekTypeBadge weekType={weekType} />
+                          <h3 className="text-base sm:text-lg font-semibold text-sys-text-primary mt-1 truncate">
+                            {weekRange}
+                          </h3>
                         </div>
 
                         {/* 5-Day Quick Switcher */}
@@ -1203,7 +1231,7 @@ export default function HomePage() {
                                   onClick={() => handleSelectDayIndex(d.index)}
                                   className={`flex flex-col items-center justify-center h-16 rounded-xl transition-all relative ${
                                     isActive
-                                      ? "bg-sys-accent text-[#0b1120] font-black shadow-md ring-1 ring-sys-accent/50 scale-[1.02]"
+                                      ? "bg-sys-accent text-[#0b1120] font-black shadow-md ring-2 ring-sys-accent/60"
                                       : "border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-white hover:border-sys-border-elevated font-medium"
                                   }`}
                                 >
@@ -1242,50 +1270,56 @@ export default function HomePage() {
                         <div className="mt-4 space-y-2.5">
                           {dayTasks.length > 0 ? (
                             <>
-                              {(showAllDayTasks ? dayTasks : dayTasks.slice(0, 3)).map((t, idx) => {
+                              {(dayTasks.length >= 5 && !showAllDayTasks ? dayTasks.slice(0, 4) : dayTasks).map((t, idx) => {
                                 const isGenericTitle = !t.title || t.title === "Домашнє завдання" || t.title === "Завдання";
+                                const titleLine = isGenericTitle ? t.subject : t.title;
+                                const teacherLine = isGenericTitle ? (t.teacher || null) : `${t.subject}${t.teacher ? ` · ${t.teacher}` : ""}`;
+                                const isOverdue = t.deadline.badgeTone === "overdue";
+                                const isUrgent = t.deadline.badgeTone === "urgent";
+
                                 return (
                                   <a
                                     key={idx}
                                     href={t.url}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="group block rounded-xl border border-sys-border bg-sys-bg p-3 transition-all hover:border-sys-accent/60 hover:bg-sys-card/60"
+                                    className="group block rounded-xl bg-[#16161a] border border-[#27272a] p-3 transition-all hover:border-slate-600 hover:bg-[#1a1a20] cursor-pointer shadow-xs text-left"
+                                    style={{
+                                      boxShadow: isOverdue ? "inset 3px 0 0 #ef4444" : isUrgent ? "inset 3px 0 0 #f59e0b" : undefined
+                                    }}
                                   >
-                                    <div className="flex items-start justify-between gap-2.5">
-                                      <div className="min-w-0 flex-1">
-                                        <h4 className="text-sm font-semibold text-sys-text-primary leading-snug line-clamp-1 group-hover:text-sys-accent transition-colors">
-                                          {isGenericTitle ? t.subject : t.title}
-                                        </h4>
-                                        <p className="text-xs text-sys-text-muted mt-0.5 truncate">
-                                          {isGenericTitle
-                                            ? (t.teacher || "Завдання Classroom")
-                                            : `${t.subject}${t.teacher ? ` • ${t.teacher}` : ""}`}
-                                        </p>
-                                      </div>
+                                    <div className="flex items-start justify-between gap-2">
+                                      <h4 className="text-sm font-semibold text-sys-text-primary leading-snug line-clamp-2 group-hover:text-sys-accent transition-colors flex-1">
+                                        {titleLine}
+                                      </h4>
+                                      <span className="text-slate-400 group-hover:text-white transition-colors text-xs shrink-0 mt-0.5">↗</span>
+                                    </div>
+                                    {teacherLine && (
+                                      <p className="text-xs text-sys-text-muted mt-1 truncate">
+                                        {teacherLine}
+                                      </p>
+                                    )}
+                                    <div
+                                      className="mt-2 flex items-center gap-1.5 text-xs font-medium"
+                                      style={{ color: isOverdue ? "#f87171" : isUrgent ? "#fbbf24" : "#c084fc" }}
+                                    >
                                       <span
-                                        className={`shrink-0 rounded-md px-2 py-0.5 text-[11px] font-bold border whitespace-nowrap ${
-                                          t.deadline.badgeTone === "overdue"
-                                            ? "bg-rose-500/15 border-rose-500/35 text-rose-300"
-                                            : t.deadline.badgeTone === "urgent"
-                                            ? "bg-amber-500/15 border-amber-500/35 text-amber-300"
-                                            : "bg-purple-500/15 border-purple-500/35 text-purple-200"
-                                        }`}
-                                      >
-                                        {t.deadline.statusText}
-                                      </span>
+                                        className="h-1.5 w-1.5 rounded-full shrink-0"
+                                        style={{ backgroundColor: isOverdue ? "#ef4444" : isUrgent ? "#f59e0b" : "#8b5cf6" }}
+                                      />
+                                      <span>{t.deadline.statusText}</span>
                                     </div>
                                   </a>
                                 );
                               })}
 
-                              {dayTasks.length > 3 && (
+                              {dayTasks.length >= 5 && (
                                 <button
                                   type="button"
                                   onClick={() => setShowAllDayTasks((prev) => !prev)}
                                   className="w-full py-1.5 text-center text-xs font-semibold text-sys-accent hover:text-white transition-colors rounded-lg border border-sys-border/50 bg-sys-bg/60 hover:bg-sys-bg"
                                 >
-                                  {showAllDayTasks ? "Згорнути" : `Ще ${dayTasks.length - 3} ${dayTasks.length - 3 === 1 ? "завдання" : "завдань"}`}
+                                  {showAllDayTasks ? "Згорнути" : `Ще ${dayTasks.length - 4} ${dayTasks.length - 4 === 1 ? "завдання" : "завдань"}`}
                                 </button>
                               )}
                             </>
