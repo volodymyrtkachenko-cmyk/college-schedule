@@ -1059,7 +1059,7 @@ export default function HomePage() {
                         </div>
                       )}
 
-                      {isShowingTomorrow && !isWeekend && (
+                      {isShowingTomorrow && selectedDaySchedule?.date !== todayActualIso && !isWeekend && (
                         <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-sys-accent/40 bg-sys-accent/15 px-5 py-4 text-sm sm:text-[15px] text-sys-text-primary shadow-sm">
                           <div className="flex items-center gap-2.5">
                             <span className="text-xl shrink-0">🌙</span>
@@ -1080,7 +1080,7 @@ export default function HomePage() {
 
                       <ScheduleDay
                         schedule={selectedDaySchedule ?? today!}
-                        isToday={selectedDaySchedule?.date === today?.date && !isWeekend && !isShowingTomorrow}
+                        isToday={selectedDaySchedule?.date === todayActualIso && !isWeekend}
                         scheduleMode={mode}
                         onQuickJump={handleQuickJump}
                         hideHeaderOnMobile={false}

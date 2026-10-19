@@ -453,9 +453,6 @@ export function LessonCard({
       nowState.minutes < endMin
   );
 
-  const isPast = Boolean(
-    isTodayTarget && endMin !== null && nowState && nowState.minutes >= endMin && !canEdit
-  );
 
   const progressPercent =
     isLive && startMin !== null && endMin !== null && nowState
@@ -574,7 +571,7 @@ export function LessonCard({
       className={`group relative flex min-w-0 flex-col rounded-2xl border bg-sys-card shadow-sm transition-all duration-200 ${
         isDay ? "p-4 sm:p-5 lg:px-6 lg:py-5 sm:min-h-[108px]" : "p-2.5 rounded-xl"
       } ${stateClass} ${
-        !lesson.is_relevant_this_week ? "opacity-60" : isPast ? "opacity-50 hover:opacity-100" : ""
+        !lesson.is_relevant_this_week ? "opacity-60" : ""
       } ${canMove ? "cursor-grab active:cursor-grabbing" : ""}`}
     >
       {/* Desktop/Tablet 3-Zone Horizontal Layout (for Day mode on screens >= sm) */}

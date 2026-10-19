@@ -180,12 +180,12 @@ export function ScheduleDay({
           <div className="flex items-center gap-2.5">
             {isToday && <span className="flex h-2.5 w-2.5 animate-pulse rounded-full bg-sys-accent shadow-[0_0_10px_rgba(59,130,246,0.9)]" />}
             <h2 className={`text-xl sm:text-2xl lg:text-[26px] font-bold capitalize tracking-tight ${isToday ? "text-sys-accent" : "text-sys-text-primary"}`}>
-              {fmt(schedule.date, { weekday: "long" })}
+              {fmt(schedule.date, { weekday: "long" })}<span className="font-normal text-sys-text-secondary">,</span>
             </h2>
           </div>
           <span className="text-sm sm:text-base lg:text-lg font-medium text-sys-text-secondary">
             {mode === "day"
-              ? `, ${fmt(schedule.date, { day: "numeric", month: "long" })}`
+              ? fmt(schedule.date, { day: "numeric", month: "long" })
               : fmt(schedule.date, { day: "numeric", month: "short" })}
           </span>
         </div>
