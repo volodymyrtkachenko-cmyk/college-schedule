@@ -333,7 +333,7 @@ export default function StatisticsPage() {
                               ? `${entry.completed_hours} / ${totalHours} год.`
                               : `${entry.completed_hours} акад. год.`}
                           </p>
-                          {mode === "student" && Boolean(entry.replaced_count || entry.cancelled_count || entry.notes_count) && (
+                          {mode === "student" && Boolean(entry.replaced_count || entry.cancelled_count) && (
                             <div className="mt-1.5 flex flex-wrap gap-1.5 text-[11px]">
                               {Boolean(entry.replaced_count) && (
                                 <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-amber-300">
@@ -343,11 +343,6 @@ export default function StatisticsPage() {
                               {Boolean(entry.cancelled_count) && (
                                 <span className="rounded bg-rose-500/10 px-1.5 py-0.5 text-rose-300">
                                   Скасовано: {entry.cancelled_count}
-                                </span>
-                              )}
-                              {Boolean(entry.notes_count) && (
-                                <span className="rounded bg-sky-500/10 px-1.5 py-0.5 text-sky-300">
-                                  Нотаток: {entry.notes_count}
                                 </span>
                               )}
                             </div>
