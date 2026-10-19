@@ -453,6 +453,14 @@ export function LessonCard({
       nowState.minutes < endMin
   );
 
+  const isUpcomingSoon = Boolean(
+    isTodayTarget &&
+      startMin !== null &&
+      nowState &&
+      nowState.minutes >= startMin - 15 &&
+      nowState.minutes < startMin
+  );
+  const isMeetingLiveOrSoon = isLive || isUpcomingSoon;
 
   const progressPercent =
     isLive && startMin !== null && endMin !== null && nowState
@@ -576,10 +584,10 @@ export function LessonCard({
     >
       {/* Desktop/Tablet 3-Zone Horizontal Layout (for Day mode on screens >= sm) */}
       {isDay && (
-        <div className="hidden sm:flex sm:items-center sm:justify-between gap-4 w-full">
+        <div className="hidden sm:flex sm:items-start sm:justify-between gap-4 w-full">
           {/* Zone 1: Timeline (100px - 110px) */}
           {!hideTimeColumn && (
-            <div className="w-24 sm:w-28 shrink-0 flex flex-col items-start justify-center pr-4 border-r border-sys-border/50 text-left">
+            <div className="w-24 sm:w-28 shrink-0 flex flex-col items-start justify-center pr-4 border-r border-sys-border/50 text-left pt-0.5">
               <span className={`text-2xl sm:text-[26px] font-black leading-none ${isLive ? "text-sys-accent" : "text-slate-400"}`}>
                 {lesson.lesson_number}
               </span>
@@ -680,6 +688,46 @@ export function LessonCard({
               </div>
             )}
 
+            {/* Expanded Homework Tasks List on Desktop */}
+            {tasks.length > 0 && isHwOpen && (
+              <div className="mt-2.5 flex flex-col gap-2 pt-2 border-t border-purple-500/20 w-full animate-in fade-in duration-150">
+                {groupedTasks.map((group, gIdx) => (
+                  <div key={gIdx} className="flex flex-col gap-1.5">
+                    {group.teacher && (
+                      <span className="text-[11px] font-bold text-purple-200/90">
+                        {group.teacher}:
+                      </span>
+                    )}
+                    {group.items.map((task, idx) => (
+                      <a
+                        key={idx}
+                        href={task.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          vibrateTap(10);
+                        }}
+                        className="group flex flex-wrap items-center justify-between gap-2 rounded-xl border border-purple-500/35 bg-purple-500/10 px-3 py-2 text-xs font-medium text-purple-200 transition-colors hover:bg-purple-500/20"
+                      >
+                        <div className="flex min-w-0 flex-wrap items-center gap-2">
+                          <span className="font-semibold text-white">{task.title || "Завдання"}</span>
+                          {task.label && (
+                            <span className="rounded-md bg-purple-500/25 px-2 py-0.5 text-[11px] font-bold text-purple-200">
+                              {task.label}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-xs text-purple-300 group-hover:text-white transition-colors">
+                          Відкрити в Classroom ↗
+                        </span>
+                      </a>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
+
             {visibleNoteText && (
               <p className="mt-0.5 text-xs text-sys-text-secondary/80 italic">
                 💬 {visibleNoteText}
@@ -688,22 +736,25 @@ export function LessonCard({
           </div>
 
           {/* Zone 3: Location & Actions */}
-          <div className="shrink-0 flex flex-col items-end justify-center pl-2 sm:pl-4 gap-2">
+          <div className="shrink-0 flex flex-col items-end justify-start pl-2 sm:pl-4 gap-2 pt-0.5">
             {hasMeeting ? (
               <a
                 href={meetings[0].url}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
-                className="inline-flex h-10 px-4 items-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/15 text-emerald-300 font-bold text-sm shadow-xs hover:bg-emerald-500/25 active:scale-95 transition-all whitespace-nowrap"
+                className={`inline-flex h-8 px-3 items-center gap-1.5 rounded-lg font-bold text-xs shadow-xs active:scale-95 transition-all whitespace-nowrap ${
+                  isMeetingLiveOrSoon
+                    ? "bg-emerald-600 text-white border border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.35)] hover:bg-emerald-500"
+                    : "border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"
+                }`}
               >
                 <span>{meetings[0].platform === "zoom" ? "📹 Zoom" : "🎥 Приєднатися в Meet"}</span>
-                <span className="text-xs">↗</span>
+                <span className="text-[11px]">↗</span>
               </a>
             ) : rooms.length > 0 ? (
-              <div className="inline-flex h-10 px-4 items-center gap-2 rounded-xl border border-sys-border bg-sys-bg text-sys-text-primary font-bold text-sm shadow-xs whitespace-nowrap">
-                <span className="text-base">🚪</span>
-                <span>{rooms.map(formatRoom).join(", ")}</span>
+              <div className="inline-flex h-8 px-3 items-center gap-1.5 rounded-lg border border-sys-border bg-sys-bg text-sys-text-secondary font-medium text-xs shadow-xs whitespace-nowrap">
+                <span>ауд. {rooms.map(formatRoom).join(", ")}</span>
               </div>
             ) : null}
 

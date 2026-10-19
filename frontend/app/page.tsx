@@ -32,6 +32,17 @@ interface PinnedTarget {
 
 const MAX_PINS = 3;
 
+function isTaskUrgent(label: string): boolean {
+  const m = label.match(/(\d{2})\.(\d{2})/);
+  if (!m) return false;
+  const day = Number(m[1]);
+  const month = Number(m[2]) - 1;
+  const now = new Date();
+  const deadlineDate = new Date(now.getFullYear(), month, day, 23, 59, 59);
+  const diffHours = (deadlineDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+  return diffHours <= 24;
+}
+
 export default function HomePage() {
   const getInitialAnchor = () => {
     const date = new Date();
@@ -1125,9 +1136,9 @@ export default function HomePage() {
                       )}
 
                       {isShowingTomorrow && selectedDaySchedule?.date !== todayActualIso && !isWeekend && (
-                        <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-sys-accent/40 bg-sys-accent/15 px-5 py-4 text-sm sm:text-[15px] text-sys-text-primary shadow-sm">
-                          <div className="flex items-center gap-2.5">
-                            <span className="text-xl shrink-0">🌙</span>
+                        <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 rounded-xl border border-sys-accent/30 bg-sys-accent/10 px-4 py-2 text-xs sm:text-[13px] text-sys-text-primary shadow-xs">
+                          <div className="flex items-center gap-2">
+                            <span className="text-base shrink-0">🌙</span>
                             <span>Пари на сьогодні завершено — показано <strong>розклад на завтра</strong></span>
                           </div>
                           <button
@@ -1136,7 +1147,7 @@ export default function HomePage() {
                               const todayIdx = weekDaysMini.findIndex((d) => d.iso === todayActualIso);
                               if (todayIdx >= 0) handleSelectDayIndex(todayIdx);
                             }}
-                            className="shrink-0 rounded-xl bg-sys-accent/20 border border-sys-accent/40 px-3.5 py-1.5 text-xs font-bold text-sys-accent hover:bg-sys-accent/30 transition-colors"
+                            className="shrink-0 rounded-lg bg-[#1e293b] border border-sys-accent/40 px-3 py-1 text-xs font-semibold text-[#93c5fd] hover:bg-[#334155] transition-colors"
                           >
                             Повернутися на сьогодні
                           </button>
@@ -1170,9 +1181,6 @@ export default function HomePage() {
 
                         {/* 5-Day Quick Switcher */}
                         <div className="mt-4">
-                          <span className="block text-xs font-medium text-sys-text-muted mb-2">
-                            Дні тижня
-                          </span>
                           <div className="grid grid-cols-5 gap-2">
                             {weekDaysMini.map((d) => {
                               const isActive = d.index === selectedDayIndex;
@@ -1182,16 +1190,20 @@ export default function HomePage() {
                                   key={d.iso}
                                   type="button"
                                   onClick={() => handleSelectDayIndex(d.index)}
-                                  className={`flex flex-col items-center justify-center h-16 rounded-xl transition-all ${
+                                  className={`flex flex-col items-center justify-center h-16 rounded-xl transition-all relative ${
                                     isActive
-                                      ? "bg-sys-accent text-[#0b1120] font-black shadow-md ring-2 ring-sys-accent/50 scale-[1.02]"
-                                      : isToday
-                                      ? "border-2 border-sys-accent text-sys-accent bg-sys-accent/10 hover:bg-sys-accent/20 font-bold"
+                                      ? "bg-sys-accent text-[#0b1120] font-black shadow-md ring-1 ring-sys-accent/50 scale-[1.02]"
                                       : "border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-white hover:border-sys-border-elevated font-medium"
                                   }`}
                                 >
                                   <span className={`text-xs uppercase font-semibold ${isActive ? "text-[#0b1120]/80" : ""}`}>{d.name}</span>
-                                  <span className="text-xl font-bold mt-0.5">{d.dateStr}</span>
+                                  <span className="text-xl font-bold mt-0.5 leading-none">{d.dateStr}</span>
+                                  {isToday && (
+                                    <span
+                                      title="Сьогодні"
+                                      className={`h-1.5 w-1.5 rounded-full mt-1 ${isActive ? "bg-[#0b1120]" : "bg-sys-accent"}`}
+                                    />
+                                  )}
                                 </button>
                               );
                             })}
@@ -1203,55 +1215,73 @@ export default function HomePage() {
                       <div className="rounded-2xl border border-sys-border bg-sys-card p-5 shadow-sm">
                         <div className="flex items-center justify-between pb-3.5 border-b border-sys-border/50">
                           <div className="flex items-center gap-2">
-                            <span className="text-lg">📌</span>
+                            <span className="text-base text-purple-400">📌</span>
                             <span className="text-sm font-bold uppercase tracking-wider text-sys-text-primary">
                               Завдання Classroom
                             </span>
                           </div>
-                          <span className="rounded-full bg-purple-500/15 border border-purple-500/30 px-2.5 py-0.5 text-xs font-bold text-purple-300">
-                            {dayTasks.length} {dayTasks.length === 1 ? "ДЗ" : "ДЗ"}
+                          <span className="rounded-full bg-purple-500/15 border border-purple-500/30 px-2.5 py-0.5 text-xs font-bold text-purple-200">
+                            {dayTasks.length} {dayTasks.length === 1 ? "завдання" : dayTasks.length < 5 ? "завдання" : "завдань"}
                           </span>
                         </div>
 
                         <div className="mt-4 space-y-3">
                           {dayTasks.length > 0 ? (
-                            dayTasks.map((t, idx) => (
-                              <div
-                                key={idx}
-                                className="rounded-xl border border-sys-border bg-sys-bg p-3.5 transition-colors hover:border-sys-accent/40 flex flex-col gap-2"
-                              >
-                                {/* Row 1: Task Title & Deadline */}
-                                <div className="flex items-start justify-between gap-2">
-                                  <h4 className="text-[15px] font-bold text-sys-text-primary leading-snug">
-                                    {t.title}
-                                  </h4>
-                                  <span className="shrink-0 rounded-md bg-purple-500/20 border border-purple-500/40 px-2 py-0.5 text-xs font-bold text-purple-200">
-                                    {t.label}
-                                  </span>
-                                </div>
+                            dayTasks.map((t, idx) => {
+                              const isUrgent = isTaskUrgent(t.label);
+                              const isGenericTitle = !t.title || t.title === "Домашнє завдання" || t.title === "Завдання";
+                              return (
+                                <div
+                                  key={idx}
+                                  className="rounded-xl border border-sys-border bg-sys-bg p-3.5 transition-colors hover:border-sys-accent/40 flex flex-col gap-2"
+                                >
+                                  {/* Row 1: Headline & Deadline Badge */}
+                                  <div className="flex items-start justify-between gap-2">
+                                    <h4 className="text-[15px] font-bold text-sys-text-primary leading-snug">
+                                      {isGenericTitle ? t.subject : t.title}
+                                    </h4>
+                                    <span
+                                      className={`shrink-0 rounded-md px-2 py-0.5 text-xs font-bold border ${
+                                        isUrgent
+                                          ? "bg-rose-500/20 border-rose-500/40 text-rose-300"
+                                          : "bg-purple-500/20 border-purple-500/40 text-purple-200"
+                                      }`}
+                                    >
+                                      {t.label}
+                                    </span>
+                                  </div>
 
-                                {/* Row 2: Subject & Teacher */}
-                                <div className="text-xs text-sys-text-secondary">
-                                  <span className="font-medium text-sys-text-primary/90">{t.subject}</span>
-                                  {t.teacher && (
-                                    <span className="text-sys-text-muted"> • 👤 {t.teacher}</span>
-                                  )}
-                                </div>
+                                  {/* Row 2: Secondary Context */}
+                                  <div className="text-xs text-sys-text-secondary flex flex-wrap items-center gap-1.5">
+                                    {!isGenericTitle && (
+                                      <>
+                                        <span className="font-semibold text-sys-text-primary/90">{t.subject}</span>
+                                        {t.teacher && <span className="text-sys-text-muted">•</span>}
+                                      </>
+                                    )}
+                                    {t.teacher && (
+                                      <span className="text-sys-text-muted flex items-center gap-1">
+                                        <span>👤</span>
+                                        <span>{t.teacher}</span>
+                                      </span>
+                                    )}
+                                  </div>
 
-                                {/* Row 3: Action link / button */}
-                                <div className="pt-1 flex justify-end">
-                                  <a
-                                    href={t.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex h-8 px-3 items-center gap-1.5 rounded-lg border border-sys-accent/30 bg-sys-accent/10 text-xs font-semibold text-sys-accent hover:bg-sys-accent/20 transition-colors"
-                                  >
-                                    <span>Відкрити у Classroom</span>
-                                    <span>↗</span>
-                                  </a>
+                                  {/* Row 3: Action link */}
+                                  <div className="pt-1 flex justify-end">
+                                    <a
+                                      href={t.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex h-8 px-3 items-center gap-1.5 rounded-lg border border-sys-accent/30 bg-sys-accent/10 text-xs font-semibold text-sys-accent hover:bg-sys-accent/20 transition-colors"
+                                    >
+                                      <span>Відкрити у Classroom</span>
+                                      <span>↗</span>
+                                    </a>
+                                  </div>
                                 </div>
-                              </div>
-                            ))
+                              );
+                            })
                           ) : (
                             <div className="py-6 text-center">
                               <p className="text-sm text-sys-text-muted">
