@@ -136,6 +136,9 @@ export default function HomePage() {
     max_points?: number | null;
   }>>([]);
   const [classroomLastSyncedAt, setClassroomLastSyncedAt] = useState<string | null>(null);
+  const [sidebarOverdueOpen, setSidebarOverdueOpen] = useState(true);
+  const [sidebarActiveOpen, setSidebarActiveOpen] = useState(true);
+  const [sidebarNoDateOpen, setSidebarNoDateOpen] = useState(true);
   const [sidebarTurnedInOpen, setSidebarTurnedInOpen] = useState(false);
   const { linkedEmail, isLinked, submissions, unlink: unlinkClassroom } = useClassroomSubmissions();
 
@@ -1772,45 +1775,81 @@ export default function HomePage() {
                               {/* Group 1: Overdue */}
                               {overdueTasks.length > 0 && (
                                 <section>
-                                  <div className="mb-2 flex items-center gap-2">
-                                    <span className="h-2 w-2 rounded-full bg-rose-500 shadow-xs" />
-                                    <h4 className="text-xs font-bold uppercase tracking-wider text-rose-400">
-                                      Прострочено ({overdueTasks.length})
-                                    </h4>
-                                  </div>
-                                  <div className="space-y-2">
-                                    {overdueTasks.map((t, idx) => renderTaskCard(t, `sb-overdue-${idx}`))}
-                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => setSidebarOverdueOpen(!sidebarOverdueOpen)}
+                                    className="mb-2 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                                    aria-expanded={sidebarOverdueOpen}
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <span className="h-2 w-2 rounded-full bg-rose-500 shadow-xs" />
+                                      <h4 className="text-xs font-bold uppercase tracking-wider text-rose-400">
+                                        Прострочено ({overdueTasks.length})
+                                      </h4>
+                                    </div>
+                                    <span className="text-xs text-sys-text-muted">
+                                      {sidebarOverdueOpen ? "Згорнути ▴" : "Показати ▾"}
+                                    </span>
+                                  </button>
+                                  {sidebarOverdueOpen && (
+                                    <div className="space-y-2 animate-in fade-in duration-150">
+                                      {overdueTasks.map((t, idx) => renderTaskCard(t, `sb-overdue-${idx}`))}
+                                    </div>
+                                  )}
                                 </section>
                               )}
 
                               {/* Group 2: Active */}
                               {activeTasks.length > 0 && (
                                 <section>
-                                  <div className="mb-2 flex items-center gap-2">
-                                    <span className="h-2 w-2 rounded-full bg-sys-accent shadow-xs" />
-                                    <h4 className="text-xs font-bold uppercase tracking-wider text-sys-text-secondary">
-                                      Активні ({activeTasks.length})
-                                    </h4>
-                                  </div>
-                                  <div className="space-y-2">
-                                    {activeTasks.map((t, idx) => renderTaskCard(t, `sb-active-${idx}`))}
-                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => setSidebarActiveOpen(!sidebarActiveOpen)}
+                                    className="mb-2 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                                    aria-expanded={sidebarActiveOpen}
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <span className="h-2 w-2 rounded-full bg-sys-accent shadow-xs" />
+                                      <h4 className="text-xs font-bold uppercase tracking-wider text-sys-text-secondary">
+                                        Активні ({activeTasks.length})
+                                      </h4>
+                                    </div>
+                                    <span className="text-xs text-sys-text-muted">
+                                      {sidebarActiveOpen ? "Згорнути ▴" : "Показати ▾"}
+                                    </span>
+                                  </button>
+                                  {sidebarActiveOpen && (
+                                    <div className="space-y-2 animate-in fade-in duration-150">
+                                      {activeTasks.map((t, idx) => renderTaskCard(t, `sb-active-${idx}`))}
+                                    </div>
+                                  )}
                                 </section>
                               )}
 
                               {/* Group 3: No due date */}
                               {noDateTasks.length > 0 && (
                                 <section>
-                                  <div className="mb-2 flex items-center gap-2">
-                                    <span className="h-2 w-2 rounded-full bg-slate-400 shadow-xs" />
-                                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300">
-                                      Без терміну ({noDateTasks.length})
-                                    </h4>
-                                  </div>
-                                  <div className="space-y-2">
-                                    {noDateTasks.map((t, idx) => renderTaskCard(t, `sb-nodate-${idx}`))}
-                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => setSidebarNoDateOpen(!sidebarNoDateOpen)}
+                                    className="mb-2 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                                    aria-expanded={sidebarNoDateOpen}
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <span className="h-2 w-2 rounded-full bg-slate-400 shadow-xs" />
+                                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                                        Без терміну ({noDateTasks.length})
+                                      </h4>
+                                    </div>
+                                    <span className="text-xs text-sys-text-muted">
+                                      {sidebarNoDateOpen ? "Згорнути ▴" : "Показати ▾"}
+                                    </span>
+                                  </button>
+                                  {sidebarNoDateOpen && (
+                                    <div className="space-y-2 animate-in fade-in duration-150">
+                                      {noDateTasks.map((t, idx) => renderTaskCard(t, `sb-nodate-${idx}`))}
+                                    </div>
+                                  )}
                                 </section>
                               )}
 

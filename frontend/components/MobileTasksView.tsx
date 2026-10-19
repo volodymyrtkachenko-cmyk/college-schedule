@@ -32,6 +32,9 @@ export function MobileTasksView({
   onSynced?: (detectedId: number) => void;
 }) {
   const [search, setSearch] = useState("");
+  const [overdueOpen, setOverdueOpen] = useState(true);
+  const [activeOpen, setActiveOpen] = useState(true);
+  const [noDateOpen, setNoDateOpen] = useState(true);
   const [turnedInOpen, setTurnedInOpen] = useState(false);
   const { linkedEmail, isLinked, unlink } = useClassroomSubmissions();
 
@@ -190,45 +193,81 @@ export function MobileTasksView({
           {/* Group 1: Overdue */}
           {overdueTasks.length > 0 && (
             <section>
-              <div className="mb-2.5 flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-rose-500 shadow-xs" />
-                <h3 className="text-xs font-bold uppercase tracking-wider text-rose-400">
-                  Прострочено ({overdueTasks.length})
-                </h3>
-              </div>
-              <div className="space-y-2">
-                {overdueTasks.map((t, idx) => renderTaskCard(t, `overdue-${idx}`))}
-              </div>
+              <button
+                type="button"
+                onClick={() => setOverdueOpen(!overdueOpen)}
+                className="mb-2.5 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                aria-expanded={overdueOpen}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-rose-500 shadow-xs" />
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-rose-400">
+                    Прострочено ({overdueTasks.length})
+                  </h3>
+                </div>
+                <span className="text-xs text-sys-text-muted">
+                  {overdueOpen ? "Згорнути ▴" : "Показати ▾"}
+                </span>
+              </button>
+              {overdueOpen && (
+                <div className="space-y-2 animate-in fade-in duration-150">
+                  {overdueTasks.map((t, idx) => renderTaskCard(t, `overdue-${idx}`))}
+                </div>
+              )}
             </section>
           )}
 
           {/* Group 2: Active / Upcoming with date */}
           {activeTasks.length > 0 && (
             <section>
-              <div className="mb-2.5 flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-sys-accent shadow-xs" />
-                <h3 className="text-xs font-bold uppercase tracking-wider text-sys-text-secondary">
-                  Активні ({activeTasks.length})
-                </h3>
-              </div>
-              <div className="space-y-2">
-                {activeTasks.map((t, idx) => renderTaskCard(t, `active-${idx}`))}
-              </div>
+              <button
+                type="button"
+                onClick={() => setActiveOpen(!activeOpen)}
+                className="mb-2.5 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                aria-expanded={activeOpen}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-sys-accent shadow-xs" />
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-sys-text-secondary">
+                    Активні ({activeTasks.length})
+                  </h3>
+                </div>
+                <span className="text-xs text-sys-text-muted">
+                  {activeOpen ? "Згорнути ▴" : "Показати ▾"}
+                </span>
+              </button>
+              {activeOpen && (
+                <div className="space-y-2 animate-in fade-in duration-150">
+                  {activeTasks.map((t, idx) => renderTaskCard(t, `active-${idx}`))}
+                </div>
+              )}
             </section>
           )}
 
           {/* Group 3: No due date */}
           {noDateTasks.length > 0 && (
             <section>
-              <div className="mb-2.5 flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-slate-400 shadow-xs" />
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">
-                  Без терміну ({noDateTasks.length})
-                </h3>
-              </div>
-              <div className="space-y-2">
-                {noDateTasks.map((t, idx) => renderTaskCard(t, `nodate-${idx}`))}
-              </div>
+              <button
+                type="button"
+                onClick={() => setNoDateOpen(!noDateOpen)}
+                className="mb-2.5 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                aria-expanded={noDateOpen}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-slate-400 shadow-xs" />
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                    Без терміну ({noDateTasks.length})
+                  </h3>
+                </div>
+                <span className="text-xs text-sys-text-muted">
+                  {noDateOpen ? "Згорнути ▴" : "Показати ▾"}
+                </span>
+              </button>
+              {noDateOpen && (
+                <div className="space-y-2 animate-in fade-in duration-150">
+                  {noDateTasks.map((t, idx) => renderTaskCard(t, `nodate-${idx}`))}
+                </div>
+              )}
             </section>
           )}
 
