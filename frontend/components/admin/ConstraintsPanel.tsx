@@ -14,15 +14,13 @@ const DAYS: { id: number; name: string; short: string }[] = [
   { id: 5, name: "П’ятниця", short: "Пт" },
 ];
 
-const LESSON_NUMBERS = [1, 2, 3, 4, 5, 6];
+const LESSON_NUMBERS = [1, 2, 3, 4];
 
 const LESSON_TIMES: Record<number, string> = {
-  1: "08:00–09:20",
-  2: "09:30–10:50",
-  3: "11:00–12:20",
-  4: "12:50–14:10",
-  5: "14:20–15:40",
-  6: "15:50–17:10",
+  1: "09:00–10:20",
+  2: "10:40–12:00",
+  3: "12:30–13:50",
+  4: "14:00–15:20",
 };
 
 export function ConstraintsPanel() {

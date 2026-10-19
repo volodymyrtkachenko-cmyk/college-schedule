@@ -100,7 +100,6 @@ async def get_bell_times(db):
             2: ("10:40", "12:00"),
             3: ("12:30", "13:50"),
             4: ("14:00", "15:20"),
-            5: ("15:30", "16:50"),
         }
     )
     if result:
@@ -127,7 +126,7 @@ def to_item(item, week_type, target_date, bell_times=None, *, item_id=None, is_r
     room_name = getattr(item, 'room_override', None) or (" / ".join(t_rooms) if t_rooms else None)
     return ScheduleItem(id=item.id if item_id is None else item_id, group_id=item.group_id, subject_id=item.subject_id, teacher_id=item.teacher_id, second_teacher_id=item.second_teacher_id,
         day_of_week=item.day_of_week, lesson_number=item.lesson_number,
-        time=f"{b[0]}-{b[1]}" if (b := (bell_times or {}).get(item.lesson_number)) else "Невідомо",
+        time=f"{b[0]}-{b[1]}" if (b := (bell_times or {}).get(item.lesson_number)) else "",
         subject=item.subject.name, teacher=teacher_name, room=room_name, room_override=getattr(item, 'room_override', None),
         subject_name=item.subject.name, teacher_name=teacher_name,
         stream_id=getattr(item, "stream_id", None),

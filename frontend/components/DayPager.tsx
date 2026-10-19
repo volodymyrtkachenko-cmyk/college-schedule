@@ -354,8 +354,8 @@ export function DayPager({
             orderedLessons.map((lesson, idx) => {
               const lessonKey = `${lesson.id}-${lesson.lesson_number}`;
               const prev = idx > 0 ? orderedLessons[idx - 1] : null;
-              const prevEnd = prev ? parseMin(prev.time.split("-")[1]) : null;
-              const currStart = parseMin(lesson.time.split("-")[0]);
+              const prevEnd = prev ? parseMin(prev.time.split(/[-–—]/)[1]) : null;
+              const currStart = parseMin(lesson.time.split(/[-–—]/)[0]);
               const isBreakNow = Boolean(
                 kyivNow &&
                 kyivNow.dateIso === schedule.date &&
@@ -364,13 +364,14 @@ export function DayPager({
                 kyivNow.minutes >= prevEnd &&
                 kyivNow.minutes < currStart
               );
+              const breakDuration = prevEnd !== null && currStart !== null ? currStart - prevEnd : 0;
               const breakLeft = isBreakNow && currStart !== null && kyivNow ? currStart - kyivNow.minutes : 0;
 
               return (
                 <div key={lessonKey} className="flex flex-col gap-2.5">
                   {isBreakNow && (
                     <div className="flex items-center justify-center gap-2 rounded-xl border border-amber-400/30 bg-amber-400/[0.07] px-3 py-1.5 text-xs font-semibold text-amber-300 shadow-sm">
-                      <span>☕ Перерва</span>
+                      <span>☕ Перерва{breakDuration > 0 ? ` ${breakDuration} хв` : ""}</span>
                       <span>•</span>
                       <span>до {lesson.lesson_number}-ї пари залишилось {breakLeft} хв</span>
                     </div>

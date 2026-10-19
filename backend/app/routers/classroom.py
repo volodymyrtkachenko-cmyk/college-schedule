@@ -566,8 +566,12 @@ async def _upsert_task_line(
     ).first()
 
     if existing:
-        if unique_link not in existing.note:
-            existing.note = f"{existing.note}\n{task_line}".strip()[:500]
+        clean_note = "\n".join(
+            line for line in existing.note.split("\n")
+            if line.strip() and not line.strip().startswith("[TASKS_COMPLETED]")
+        )
+        if unique_link not in clean_note:
+            existing.note = f"{clean_note}\n{task_line}".strip()[:500]
             existing.subject_id = lesson.subject_id
             existing.subject_name = (lesson.subject_name or existing.subject_name)[:255]
             existing.revision += 1
@@ -616,6 +620,58 @@ async def _upsert_task_line(
             )
             await db.flush()
             return True
+
+
+async def _upsert_tasks_completed_note(
+    db: AsyncSession,
+    target_date: date,
+    group_id: int,
+    lesson,
+) -> bool:
+    if not lesson or not getattr(lesson, "subject_id", None):
+        return False
+    if not (1 <= getattr(lesson, "lesson_number", 0) <= 4):
+        return False
+
+    existing = (
+        await db.scalars(
+            select(LessonOccurrenceNote)
+            .where(
+                LessonOccurrenceNote.note_date == target_date,
+                LessonOccurrenceNote.group_id == group_id,
+                LessonOccurrenceNote.lesson_number == lesson.lesson_number,
+                LessonOccurrenceNote.archived.is_(False),
+            )
+            .order_by(LessonOccurrenceNote.id.desc())
+            .limit(1)
+        )
+    ).first()
+
+    if existing:
+        if "[TASK]" not in existing.note and "[TASKS_COMPLETED]" not in existing.note:
+            existing.note = f"{existing.note}\n[TASKS_COMPLETED]".strip()[:500]
+            existing.revision += 1
+            existing.updated_at = datetime.now(timezone.utc)
+            await db.flush()
+            return True
+        return False
+    else:
+        db.add(
+            LessonOccurrenceNote(
+                note_date=target_date,
+                group_id=group_id,
+                lesson_number=lesson.lesson_number,
+                subject_id=lesson.subject_id,
+                subject_name=(lesson.subject_name or "")[:255],
+                note="[TASKS_COMPLETED]",
+                revision=1,
+                archived=False,
+                origin_kind="classroom",
+                origin_id=0,
+            )
+        )
+        await db.flush()
+        return True
 
 
 async def _refresh_google_token(refresh_token: str) -> Optional[str]:
@@ -683,7 +739,7 @@ async def perform_course_sync(
             line.strip()
             for line in gn.note.split("\n")
             if line.strip()
-            and not line.strip().startswith("[TASK]")
+            and not line.strip().startswith("[TASK")
             and not URL_RE.search(line)
             and not re.search(r"(?:Код|ID|Passcode|Пароль)\s*:", line, re.IGNORECASE)
         ]
@@ -708,7 +764,7 @@ async def perform_course_sync(
             select(LessonOccurrenceNote).where(
                 LessonOccurrenceNote.group_id.not_in(active_binding_group_ids),
                 LessonOccurrenceNote.archived.is_(False),
-                (LessonOccurrenceNote.note.like("%[TASK]%") | LessonOccurrenceNote.note.like("%meet.google.com%") | LessonOccurrenceNote.note.like("%zoom.us%"))
+                (LessonOccurrenceNote.note.like("%[TASK%") | LessonOccurrenceNote.note.like("%meet.google.com%") | LessonOccurrenceNote.note.like("%zoom.us%"))
             )
         )
     ).all()
@@ -717,7 +773,7 @@ async def perform_course_sync(
             l.strip()
             for l in on.note.split("\n")
             if l.strip()
-            and not l.strip().startswith("[TASK]")
+            and not l.strip().startswith("[TASK")
             and not URL_RE.search(l)
             and not re.search(r"(?:Код|ID|Passcode|Пароль)\s*:", l, re.IGNORECASE)
         ]
@@ -752,9 +808,23 @@ async def perform_course_sync(
 
     parsed_announcements: list[dict] = []
     raw_coursework_items: list[dict] = []
+    all_classroom_tasks: list[dict] = []
+    course_cw_total: dict[str, int] = {}
+    course_cw_active: dict[str, int] = {}
     teacher_tokens_by_uid: dict[str, list[str]] = {}
 
     async with httpx.AsyncClient(timeout=15.0) as client:
+        user_email: Optional[str] = None
+        try:
+            me_resp = await client.get(
+                "https://classroom.googleapis.com/v1/userProfiles/me",
+                headers=headers,
+            )
+            if me_resp.status_code == 200:
+                user_email = me_resp.json().get("emailAddress")
+        except Exception as e:
+            logger.warning(f"Could not fetch user profile: {e}")
+
         all_active_groups = (await db.scalars(select(Group).where(Group.is_active.is_(True)))).all()
         target_group_courses = []
         relevant_courses = []
@@ -945,6 +1015,8 @@ async def perform_course_sync(
         topics_by_course: dict[str, dict[str, str]] = {}
         missing_creators: set[tuple[str, str]] = set()
         turned_in_cw_ids: set[str] = set()
+        submissions_by_cw_id: dict[str, dict] = {}
+        has_submission_scope_error = False
 
         # Прохід 1: Парсимо вже отриманих викладачів/теми та збираємо невідомі creatorUserId
         for course, bundle_items in bundles:
@@ -958,12 +1030,22 @@ async def perform_course_sync(
             course_teachers_tokens[course_id] = []
             topics_by_id: dict[str, str] = {}
 
-            if sub_resp is not None and not isinstance(sub_resp, Exception) and getattr(sub_resp, "status_code", None) == 200:
+            if getattr(sub_resp, "status_code", None) == 403:
+                has_submission_scope_error = True
+            elif sub_resp is not None and not isinstance(sub_resp, Exception) and getattr(sub_resp, "status_code", None) == 200:
                 for sub in sub_resp.json().get("studentSubmissions", []):
-                    # TURNED_IN = здано студентом, RETURNED = повернуто викладачем (оцінено)
-                    if sub.get("state") in ("TURNED_IN", "RETURNED"):
-                        cw_id = sub.get("courseWorkId")
-                        if cw_id:
+                    cw_id = sub.get("courseWorkId")
+                    if cw_id:
+                        sub_st = sub.get("state") or "NEW"
+                        assigned_grade = sub.get("assignedGrade")
+                        draft_grade = sub.get("draftGrade")
+                        grade_val = assigned_grade if assigned_grade is not None else draft_grade
+                        submissions_by_cw_id[cw_id] = {
+                            "state": sub_st,
+                            "grade": grade_val,
+                        }
+                        # TURNED_IN = здано студентом, RETURNED = повернуто викладачем (оцінено)
+                        if sub_st in ("TURNED_IN", "RETURNED"):
                             turned_in_cw_ids.add(cw_id)
 
             if not isinstance(top_resp, Exception) and top_resp.status_code == 200:
@@ -1115,10 +1197,8 @@ async def perform_course_sync(
             if not isinstance(cw_resp, Exception) and cw_resp.status_code == 200:
                 for cw in cw_resp.json().get("courseWork", []):
                     cw_id = cw.get("id")
-                    if cw_id and cw_id in turned_in_cw_ids:
-                        continue  # Завдання вже здане або перевірене (TURNED_IN/RETURNED)
                     alt_link = (cw.get("alternateLink") or "").strip()
-                    if not alt_link:
+                    if not alt_link or not cw_id:
                         continue
 
                     created_raw = cw.get("creationTime") or cw.get("updateTime")
@@ -1137,6 +1217,58 @@ async def perform_course_sync(
                             due_date = None
 
                     title_raw = (cw.get("title") or "").strip() or "Без назви"
+                    max_points = cw.get("maxPoints")
+
+                    sub_data = submissions_by_cw_id.get(cw_id)
+                    if sub_data:
+                        cw_state = sub_data.get("state") or "NEW"
+                        assigned_grade = sub_data.get("grade")
+                    else:
+                        cw_state = "UNKNOWN" if has_submission_scope_error else "NEW"
+                        assigned_grade = None
+
+                    course_cw_total[course_id] = course_cw_total.get(course_id, 0) + 1
+                    is_turned_in = cw_id in turned_in_cw_ids or cw_state in ("TURNED_IN", "RETURNED")
+                    if not is_turned_in:
+                        course_cw_active[course_id] = course_cw_active.get(course_id, 0) + 1
+
+                    creator_id = cw.get("creatorUserId", "")
+                    topic_name = topics_by_id.get(cw.get("topicId"), "")
+                    topic_norm = _norm(topic_name)
+
+                    task_author_tokens = list(teacher_tokens_by_uid.get(creator_id, []))
+                    if len(course_teachers_tokens.get(course_id, [])) <= 2:
+                        task_author_tokens.extend(course_teachers_tokens[course_id])
+
+                    matched_teacher_name = None
+                    for dbt in db_teachers:
+                        clean_t_surname = _norm(dbt.name.split()[0])
+                        if len(clean_t_surname) >= 3 and clean_t_surname in topic_norm:
+                            if clean_t_surname not in task_author_tokens:
+                                task_author_tokens.append(clean_t_surname)
+                            if not matched_teacher_name:
+                                matched_teacher_name = dbt.name
+
+                    title_norm = _norm(title_raw)
+                    combined_cw_text = f"{topic_norm} {title_norm} {course_title_norm}".strip()
+
+                    all_classroom_tasks.append({
+                        "id": cw_id,
+                        "course_id": course_id,
+                        "course_name": course_title,
+                        "title": title_raw,
+                        "subject": course.get("name", "") or course_title,
+                        "teacher": matched_teacher_name or (task_author_tokens[0] if task_author_tokens else None),
+                        "due_date": due_date.isoformat() if due_date else None,
+                        "created_at": created_dt.isoformat(),
+                        "url": alt_link,
+                        "state": cw_state,
+                        "grade": assigned_grade,
+                        "max_points": max_points,
+                    })
+                    # 13.3: Усі опубліковані завдання записуються в загальну базу розкладу групи,
+                    # щоб не прив'язані користувачі бачили все з наявними правилами розкладу.
+
                     if due_date is not None:
                         if due_date < tasks_lookback_start:
                             unmapped_tasks.append({
@@ -1161,23 +1293,6 @@ async def perform_course_sync(
                             })
                             continue
 
-                    creator_id = cw.get("creatorUserId", "")
-                    topic_name = topics_by_id.get(cw.get("topicId"), "")
-                    topic_norm = _norm(topic_name)
-
-                    task_author_tokens = list(teacher_tokens_by_uid.get(creator_id, []))
-                    if len(course_teachers_tokens.get(course_id, [])) <= 2:
-                        task_author_tokens.extend(course_teachers_tokens[course_id])
-
-                    for dbt in db_teachers:
-                        clean_t_surname = _norm(dbt.name.split()[0])
-                        if len(clean_t_surname) >= 3 and clean_t_surname in topic_norm:
-                            if clean_t_surname not in task_author_tokens:
-                                task_author_tokens.append(clean_t_surname)
-
-                    title_norm = _norm(title_raw)
-                    combined_cw_text = f"{topic_norm} {title_norm} {course_title_norm}".strip()
-
                     raw_coursework_items.append({
                         "due_date": due_date,
                         "created_dt": created_dt,
@@ -1190,10 +1305,19 @@ async def perform_course_sync(
                         "author_tokens": list(set(task_author_tokens)),
                     })
 
-    # КРОК 4: Прикріплюємо ДЗ (лише на поточний та наступний тиждень!)
+    # КРОК 4: Прикріплюємо ДЗ (за правилами 13.1, 13.2 та 13.3)
     sorted_horizon_dates = sorted(
         d for d in horizon_lessons_by_date.keys()
         if tasks_window_start <= d <= tasks_window_end
+    )
+
+    # 13.3: Сортування завдань перед прив'язкою: спочатку з датою (за зростанням дедлайну), потім без дати (за датою публікації)
+    raw_coursework_items.sort(
+        key=lambda x: (
+            0 if x["due_date"] is not None else 1,
+            x["due_date"] or date.min,
+            x["created_dt"],
+        )
     )
 
     for cw_item in raw_coursework_items:
@@ -1205,47 +1329,51 @@ async def perform_course_sync(
 
         target_date_for_task: Optional[date] = None
         target_lesson = None
-        is_shifted_deadline = False
 
         if due_date is not None:
-            # 1) Якщо є дата здачі: шукаємо пару прямо в день дедлайну
-            if due_date in horizon_lessons_by_date:
-                exact_candidates = [
-                    l for l in horizon_lessons_by_date[due_date]
+            # 13.1 Завдання з датою здачі:
+            # • Завдання прив'язується до пари того самого предмета і викладача в тижні, який містить дату здачі.
+            due_monday = due_date - timedelta(days=due_date.weekday())
+            due_friday = due_monday + timedelta(days=4)
+
+            week_candidates = [
+                (d, l)
+                for d in sorted_horizon_dates
+                if due_monday <= d <= due_friday and d in horizon_lessons_by_date
+                for l in horizon_lessons_by_date[d]
+                if _matches_lesson(l, combined_cw_text, "", author_tokens)
+            ]
+
+            if week_candidates:
+                # • Якщо в цьому тижні кілька пар предмета, береться найближча пара в день здачі або після нього;
+                after_or_on_due = [c for c in week_candidates if c[0] >= due_date]
+                if after_or_on_due:
+                    target_date_for_task, target_lesson = after_or_on_due[0]
+                else:
+                    # якщо таких немає, то остання пара до дати здачі.
+                    target_date_for_task, target_lesson = week_candidates[-1]
+            else:
+                # • Якщо в тижні дати здачі пари предмета немає, завдання прив'язується до першої наступної пари цього предмета після дати здачі.
+                next_candidates = [
+                    (d, l)
+                    for d in sorted_horizon_dates
+                    if d > due_friday and d in horizon_lessons_by_date
+                    for l in horizon_lessons_by_date[d]
                     if _matches_lesson(l, combined_cw_text, "", author_tokens)
                 ]
-                if exact_candidates:
-                    target_lesson = exact_candidates[0]
-                    target_date_for_task = due_date
-
-            # 2) Якщо на дату дедлайну пари немає — шукаємо НАСТУПНУ НАЙБЛИЖЧУ пару
-            if target_lesson is None:
-                for d_candidate in sorted_horizon_dates:
-                    if d_candidate <= due_date:
-                        continue
-                    # Не переносимо завдання, дедлайн якого минув більше ніж 3 дні тому
-                    if (d_candidate - due_date).days > 3:
-                        continue
-                    next_candidates = [
-                        l for l in horizon_lessons_by_date[d_candidate]
-                        if _matches_lesson(l, combined_cw_text, "", author_tokens)
-                    ]
-                    if next_candidates:
-                        target_lesson = next_candidates[0]
-                        target_date_for_task = d_candidate
-                        is_shifted_deadline = True
-                        break
+                if next_candidates:
+                    target_date_for_task, target_lesson = next_candidates[0]
         else:
-            # 3) Якщо завдання БЕЗ дати здачі — кріпимо ТІЛЬКИ на одну наступну найближчу пару після публікації (в межах 7 днів)
+            # 13.2 Завдання без дати здачі:
+            # • Прив'язується до першої пари предмета після дати публікації завдання (creationTime з Classroom).
             created_date = created_dt.date()
             created_mins = created_dt.hour * 60 + created_dt.minute
-            max_no_due_date = min(tasks_window_end, created_date + timedelta(days=7))
 
             for d_candidate in sorted_horizon_dates:
-                if d_candidate < created_date or d_candidate > max_no_due_date:
+                if d_candidate < created_date:
                     continue
                 day_matches = [
-                    l for l in horizon_lessons_by_date[d_candidate]
+                    l for l in horizon_lessons_by_date.get(d_candidate, [])
                     if _matches_lesson(l, combined_cw_text, "", author_tokens)
                 ]
                 if not day_matches:
@@ -1276,6 +1404,7 @@ async def perform_course_sync(
         teacher_badge = _resolve_matched_teacher_surname(target_lesson, author_tokens, combined_cw_text)
 
         task_title = (cw_item.get("title_raw") or "").strip() or "Домашнє завдання"
+        # 13.2: Для завдань без дати здачі не показується жодна дата. Лише назва, предмет, викладач і посилання.
         label_text = (
             f"{task_title} (до {due_date.strftime('%d.%m')})"
             if due_date is not None
@@ -1297,6 +1426,15 @@ async def perform_course_sync(
         )
         if added:
             synced_tasks += 1
+
+    # Очищуємо застарілі примітки [TASKS_COMPLETED], оскільки стан здачі є персональним
+    # лише для студента, який прив'язав свою пошту в браузері
+    await db.execute(
+        delete(LessonOccurrenceNote).where(
+            LessonOccurrenceNote.group_id == group.id,
+            LessonOccurrenceNote.note.like("%[TASKS_COMPLETED]%"),
+        )
+    )
 
     # КРОК 5: Ставимо розпізнані посилання Meet / Zoom СТРОГО на відповідні пари поточного тижня
     parsed_announcements.sort(key=lambda x: x["created_dt"])
@@ -1355,11 +1493,19 @@ async def perform_course_sync(
                 synced_links += 1
 
     _latest_unmapped_tasks[group.id] = unmapped_tasks
+    _latest_group_tasks[group.id] = [
+        {**t, "state": "NEW", "grade": None}
+        for t in all_classroom_tasks
+    ]
+    _latest_scope_missing[group.id] = has_submission_scope_error
     return {
+        "user_email": user_email,
         "synced_links": synced_links,
         "synced_tasks": synced_tasks,
         "synced_students": synced_students,
         "unmapped_tasks": unmapped_tasks,
+        "tasks": all_classroom_tasks,
+        "needs_reconnect": has_submission_scope_error,
     }
 
 
@@ -1525,6 +1671,8 @@ import time as _time
 # (group_id -> (consecutive_failures, next_allowed_monotonic_ts))
 _sync_backoff_state: dict[int, tuple[int, float]] = {}
 _latest_unmapped_tasks: dict[int, list[dict]] = {}
+_latest_group_tasks: dict[int, list[dict]] = {}
+_latest_scope_missing: dict[int, bool] = {}
 _SYNC_LOCK_GROUPS: set[int] = set()
 
 # In-memory throttle for request-triggered syncs: avoids opening a DB session
@@ -1842,6 +1990,8 @@ async def get_classroom_group_status(
         "has_refresh_token": bool(binding and binding.refresh_token),
         "has_client_secret": bool(settings.google_client_secret),
         "unmapped_tasks": _latest_unmapped_tasks.get(group_id, []),
+        "tasks": _latest_group_tasks.get(group_id, []),
+        "needs_reconnect": _latest_scope_missing.get(group_id, False),
     }
 
 

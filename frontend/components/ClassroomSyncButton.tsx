@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { invalidateScheduleCache } from "../lib/hooks";
 import { useToast } from "./ToastProvider";
+import { saveClassroomSyncData, useClassroomSubmissions } from "../lib/useClassroomSubmissions";
 
 const GOOGLE_CLIENT_ID =
   process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
@@ -13,6 +14,7 @@ const SCOPES = [
   "https://www.googleapis.com/auth/classroom.announcements.readonly",
   "https://www.googleapis.com/auth/classroom.rosters.readonly",
   "https://www.googleapis.com/auth/classroom.coursework.me.readonly",
+  "https://www.googleapis.com/auth/classroom.student-submissions.me.readonly",
   "https://www.googleapis.com/auth/classroom.coursework.students.readonly",
   "https://www.googleapis.com/auth/classroom.courseworkmaterials.readonly",
   "https://www.googleapis.com/auth/directory.readonly",
@@ -29,7 +31,9 @@ export function ClassroomSyncButton({
 }) {
   const [syncing, setSyncing] = useState(false);
   const [hasClientSecret, setHasClientSecret] = useState<boolean>(false);
+  const [needsReconnect, setNeedsReconnect] = useState<boolean>(false);
   const { showToast } = useToast();
+  const { linkedEmail } = useClassroomSubmissions();
 
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
 
@@ -47,6 +51,7 @@ export function ClassroomSyncButton({
   useEffect(() => {
     if (!currentGroupId) {
       setLastSyncedAt(null);
+      setNeedsReconnect(false);
       return;
     }
     api.classroom
@@ -55,6 +60,9 @@ export function ClassroomSyncButton({
         if (data?.last_synced_at) setLastSyncedAt(data.last_synced_at);
         if (data && typeof data.has_client_secret === "boolean") {
           setHasClientSecret(data.has_client_secret);
+        }
+        if (data && typeof data.needs_reconnect === "boolean") {
+          setNeedsReconnect(data.needs_reconnect);
         }
       })
       .catch(() => {});
@@ -81,6 +89,7 @@ export function ClassroomSyncButton({
 
   const handleSyncSuccess = (res: any, usedCode: boolean) => {
     invalidateScheduleCache();
+    saveClassroomSyncData(res.user_email, res.tasks);
     const switchedGroup = currentGroupId !== null && currentGroupId !== res.group_id;
     onSynced(res.group_id);
     const parts = [`підтягнуто ${res.synced_links} онлайн-пар`];
@@ -93,6 +102,9 @@ export function ClassroomSyncButton({
     const unmappedNote = res.unmapped_tasks && res.unmapped_tasks.length > 0
       ? ` (${res.unmapped_tasks.length} завдань пропущено через відсутність пар у розкладі)`
       : "";
+    if (typeof res?.needs_reconnect === "boolean") {
+      setNeedsReconnect(res.needs_reconnect);
+    }
     showToast(
       `${prefix}: ${parts.join(", ")}${autoNote}${unmappedNote}!`,
       "success"
@@ -195,22 +207,42 @@ export function ClassroomSyncButton({
       disabled={syncing}
       aria-label="Синхронізація з Google Classroom"
       title={
-        syncFreshness
-          ? `${syncFreshness.text} — натисніть для синхронізації з Google Classroom`
-          : "Підтягнути групу та посилання на пари з Google Classroom"
+        needsReconnect
+          ? "Потрібно надати доступ до завдань — натисніть, щоб перепідключити Classroom"
+          : linkedEmail
+            ? `Classroom (прив'язано ${linkedEmail}) — натисніть для синхронізації`
+            : syncFreshness
+              ? `${syncFreshness.text} — натисніть для синхронізації з Google Classroom`
+              : "Прив'язати Google Classroom для відстеження зданих робіт"
       }
-      className="inline-flex h-8 sm:h-9 items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 sm:px-3 text-xs font-semibold text-emerald-300 transition-colors hover:bg-emerald-500/20 disabled:opacity-50"
+      className={
+        needsReconnect
+          ? "inline-flex h-8 sm:h-9 items-center gap-1.5 rounded-lg border border-amber-500/50 bg-amber-500/15 px-2.5 sm:px-3 text-xs font-semibold text-amber-300 transition-colors hover:bg-amber-500/25 disabled:opacity-50"
+          : "inline-flex h-8 sm:h-9 items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 sm:px-3 text-xs font-semibold text-emerald-300 transition-colors hover:bg-emerald-500/20 disabled:opacity-50"
+      }
     >
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
         <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
         <path d="M6 12v5c3 3 9 3 12 0v-5" />
       </svg>
-      <span className="hidden sm:inline">{syncing ? "Синхронізація..." : "Classroom"}</span>
-      {syncFreshness && !syncing && (
-        <span
-          title={`Google Classroom: ${syncFreshness.text}`}
-          className={`h-2 w-2 rounded-full shrink-0 ${syncFreshness.dot}`}
-        />
+      <span className="hidden sm:inline">
+        {syncing
+          ? "Синхронізація..."
+          : needsReconnect
+            ? "Перепідключити Classroom"
+            : linkedEmail
+              ? "Classroom"
+              : "Прив'язати Classroom"}
+      </span>
+      {needsReconnect && !syncing ? (
+        <span className="h-2 w-2 rounded-full shrink-0 bg-amber-400 animate-pulse" />
+      ) : (
+        syncFreshness && !syncing && (
+          <span
+            title={`Google Classroom: ${syncFreshness.text}`}
+            className={`h-2 w-2 rounded-full shrink-0 ${syncFreshness.dot}`}
+          />
+        )
       )}
     </button>
   );

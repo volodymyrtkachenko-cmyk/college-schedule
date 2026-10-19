@@ -1245,6 +1245,19 @@ export const api = {
                 has_refresh_token?: boolean;
                 has_client_secret?: boolean;
                 unmapped_tasks?: Array<{ title: string; due_date: string | null; reason: string }>;
+                tasks?: Array<{
+                    id: string;
+                    title: string;
+                    alternate_link: string;
+                    due_date: string | null;
+                    due_time: string | null;
+                    creation_time: string | null;
+                    course_name: string;
+                    state: string;
+                    assigned_grade?: number | null;
+                    max_points?: number | null;
+                }>;
+                needs_reconnect?: boolean;
             }>(`/api/classroom/groups/${groupId}/status`),
         sync: (
             tokenOrPayload: string | { code?: string; access_token?: string; group_id?: number; week_start?: string },
@@ -1257,10 +1270,24 @@ export const api = {
                 group_id: number;
                 group_name: string;
                 course_name?: string;
+                user_email?: string | null;
                 synced_links: number;
                 synced_tasks: number;
                 synced_students: number;
                 unmapped_tasks?: Array<{ title: string; due_date: string | null; reason: string }>;
+                tasks?: Array<{
+                    id: string;
+                    title: string;
+                    alternate_link: string;
+                    due_date: string | null;
+                    due_time: string | null;
+                    creation_time: string | null;
+                    course_name: string;
+                    state: string;
+                    assigned_grade?: number | null;
+                    max_points?: number | null;
+                }>;
+                needs_reconnect?: boolean;
             }>("/api/classroom/sync", {
                 method: "POST",
                 body: JSON.stringify(body),

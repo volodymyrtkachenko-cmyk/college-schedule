@@ -173,7 +173,7 @@ export function ScheduleDay({
     (left, right) => left.lesson_number - right.lesson_number || left.id - right.id,
   );
 
-  const firstStart = orderedLessons.length > 0 ? parseMin(orderedLessons[0].time.split("-")[0]) : null;
+  const firstStart = orderedLessons.length > 0 ? parseMin(orderedLessons[0].time.split(/[-–—]/)[0]) : null;
   const isBeforeDayStart = Boolean(
     kyivNow &&
     kyivNow.dateIso === schedule.date &&
@@ -260,7 +260,7 @@ export function ScheduleDay({
           </div>
           <div className="flex items-center gap-1.5 text-sys-text-primary font-medium">
             <span>
-              1-а пара о {orderedLessons[0].time.split("-")[0]} (через {timeToStart >= 60 ? `${Math.floor(timeToStart / 60)} год${timeToStart % 60 > 0 ? ` ${timeToStart % 60} хв` : ""}` : `${timeToStart} хв`})
+              {orderedLessons[0].lesson_number}-а пара о {orderedLessons[0].time.split(/[-–—]/)[0]} (через {timeToStart >= 60 ? `${Math.floor(timeToStart / 60)} год${timeToStart % 60 > 0 ? ` ${timeToStart % 60} хв` : ""}` : `${timeToStart} хв`})
             </span>
           </div>
         </div>
@@ -279,8 +279,8 @@ export function ScheduleDay({
           {orderedLessons.map((lesson, idx) => {
             const lessonKey = `${lesson.id}-${lesson.lesson_number}`;
             const prev = idx > 0 ? orderedLessons[idx - 1] : null;
-            const prevEnd = prev ? parseMin(prev.time.split("-")[1]) : null;
-            const currStart = parseMin(lesson.time.split("-")[0]);
+            const prevEnd = prev ? parseMin(prev.time.split(/[-–—]/)[1]) : null;
+            const currStart = parseMin(lesson.time.split(/[-–—]/)[0]);
             const isBreakNow = Boolean(
               kyivNow &&
               kyivNow.dateIso === schedule.date &&

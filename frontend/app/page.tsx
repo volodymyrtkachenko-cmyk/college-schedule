@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { OfflineIndicator } from "../components/OfflineIndicator";
 import { InstallPrompt } from "../components/InstallPrompt";
@@ -10,19 +10,20 @@ import { DayPager } from "../components/DayPager";
 import { MobileWeekBar } from "../components/MobileWeekBar";
 import { MobileWeekDaysStrip } from "../components/MobileWeekDaysStrip";
 import { WeekTypeBadge } from "../components/WeekTypeBadge";
-import { ScheduleResponse } from "../lib/api";
-import { useSchedule, useIsStandalonePwa, downloadForOffline } from "../lib/hooks";
+import { ScheduleResponse, api } from "../lib/api";
+import { useSchedule, useIsStandalonePwa, downloadForOffline, invalidateScheduleCache } from "../lib/hooks";
 import { useAuth, canAccessAdmin } from "../lib/auth";
 import { getMondayOf } from "../lib/date";
 import dynamic from "next/dynamic";
 const WelcomeScreen = dynamic(() => import("../components/WelcomeScreen").then((m) => m.WelcomeScreen), { ssr: false });
 import { BottomNav, MobileTab } from "../components/BottomNav";
-import { MobileTasksView, FullTaskItem } from "../components/MobileTasksView";
+import { MobileTasksView, FullTaskItem, renderTaskCard } from "../components/MobileTasksView";
 import { SearchableSelect } from "../components/SearchableSelect";
 import { ClassroomSyncButton } from "../components/ClassroomSyncButton";
-import { extractClassroomTasks, sortTasksByDeadline, TaskDeadline } from "../components/LessonCard";
+import { extractClassroomTasks, sortTasksByDeadline, TaskDeadline, UKR_MONTHS_SHORT, pluralDays } from "../components/LessonCard";
 import { useToast } from "../components/ToastProvider";
 import { QuickJumpTarget, findGroupIdByName, findTeacherIdByName } from "../lib/quickJump";
+import { useClassroomSubmissions } from "../lib/useClassroomSubmissions";
 
 const UK_SHORT_WEEKDAY_FMT = new Intl.DateTimeFormat("uk-UA", { weekday: "short" });
 
@@ -122,6 +123,57 @@ export default function HomePage() {
   const [view, setView] = useState<"today" | "week">("today");
   const [mobileTab, setMobileTab] = useState<MobileTab>("schedule");
   const [weekTypeSheetOpen, setWeekTypeSheetOpen] = useState(false);
+  const [classroomTasks, setClassroomTasks] = useState<Array<{
+    id: string;
+    title: string;
+    alternate_link: string;
+    due_date: string | null;
+    due_time: string | null;
+    creation_time: string | null;
+    course_name: string;
+    state: string;
+    assigned_grade?: number | null;
+    max_points?: number | null;
+  }>>([]);
+  const [classroomLastSyncedAt, setClassroomLastSyncedAt] = useState<string | null>(null);
+  const [sidebarTurnedInOpen, setSidebarTurnedInOpen] = useState(false);
+  const { linkedEmail, isLinked, submissions, unlink: unlinkClassroom } = useClassroomSubmissions();
+
+  const fetchClassroomTasks = useCallback(async (gid: number) => {
+    try {
+      const res = await api.classroom.groupStatus(gid);
+      if (res?.tasks) {
+        setClassroomTasks(res.tasks);
+      }
+      if (res?.last_synced_at) {
+        setClassroomLastSyncedAt(res.last_synced_at);
+      }
+    } catch {
+      // Ignore background fetch error
+    }
+  }, []);
+
+  useEffect(() => {
+    if (groupId) {
+      void fetchClassroomTasks(groupId);
+    } else {
+      setClassroomTasks([]);
+      setClassroomLastSyncedAt(null);
+    }
+  }, [groupId, fetchClassroomTasks]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        if (groupId) {
+          void fetchClassroomTasks(groupId);
+        }
+        invalidateScheduleCache();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [groupId, fetchClassroomTasks]);
 
   useEffect(() => {
     try {
@@ -552,7 +604,143 @@ export default function HomePage() {
     return sortTasksByDeadline(tasks);
   }, [selectedDaySchedule]);
 
-  const allWeekTasks = useMemo(() => {
+  const allWeekTasks = useMemo<FullTaskItem[]>(() => {
+    if (classroomTasks.length > 0) {
+      return classroomTasks.map((t) => {
+        const taskUrl = t.alternate_link || (t as any).url;
+        const personalSub = isLinked ? submissions[taskUrl] : null;
+        const effectiveState = personalSub ? personalSub.state : (isLinked ? (t.state || "NEW") : "NEW");
+        const effectiveGrade = personalSub ? (personalSub.grade ?? null) : (isLinked ? (t.assigned_grade ?? null) : null);
+        const effectiveMaxPoints = personalSub ? (personalSub.maxPoints ?? null) : (isLinked ? (t.max_points ?? null) : null);
+
+        const isDone = isLinked && (effectiveState === "TURNED_IN" || effectiveState === "RETURNED");
+        const isUnknown = isLinked && effectiveState === "UNKNOWN";
+
+        let deadline: TaskDeadline;
+        if (t.due_date) {
+          const parts = t.due_date.split("-").map(Number);
+          const dYear = parts[0];
+          const dMonth = parts[1];
+          const dDay = parts[2];
+          const targetDate = new Date(dYear, dMonth - 1, dDay);
+          const now = new Date();
+          const kyivNowStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(now);
+          const [nowYear, nowMonth, nowDay] = kyivNowStr.split("-").map(Number);
+          const todayDate = new Date(nowYear, nowMonth - 1, nowDay);
+          const diffMs = targetDate.getTime() - todayDate.getTime();
+          const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+          const monthName = UKR_MONTHS_SHORT[dMonth - 1] || "";
+          const formattedDate = `${dDay} ${monthName}`;
+
+          if (isDone) {
+            deadline = {
+              day: dDay,
+              month: dMonth,
+              year: dYear,
+              date: targetDate,
+              formattedDate,
+              isOverdue: false,
+              overdueDays: 0,
+              isUrgent: false,
+              statusText: effectiveState === "RETURNED" && effectiveGrade != null ? `Оцінка: ${effectiveGrade}/${effectiveMaxPoints || 100}` : "Здано",
+              badgeTone: "normal",
+            };
+          } else if (isUnknown) {
+            deadline = {
+              day: dDay,
+              month: dMonth,
+              year: dYear,
+              date: targetDate,
+              formattedDate,
+              isOverdue: false,
+              overdueDays: 0,
+              isUrgent: false,
+              statusText: "статус невідомий",
+              badgeTone: "normal",
+            };
+          } else if (diffDays < 0) {
+            const overdueDays = Math.abs(diffDays);
+            deadline = {
+              day: dDay,
+              month: dMonth,
+              year: dYear,
+              date: targetDate,
+              formattedDate,
+              isOverdue: true,
+              overdueDays,
+              isUrgent: false,
+              statusText: `${formattedDate} · прострочено ${overdueDays} ${pluralDays(overdueDays)}`,
+              badgeTone: "overdue",
+            };
+          } else if (diffDays === 0) {
+            deadline = {
+              day: dDay,
+              month: dMonth,
+              year: dYear,
+              date: targetDate,
+              formattedDate,
+              isOverdue: false,
+              overdueDays: 0,
+              isUrgent: true,
+              statusText: `Сьогодні (до ${formattedDate})`,
+              badgeTone: "urgent",
+            };
+          } else if (diffDays === 1) {
+            deadline = {
+              day: dDay,
+              month: dMonth,
+              year: dYear,
+              date: targetDate,
+              formattedDate,
+              isOverdue: false,
+              overdueDays: 0,
+              isUrgent: true,
+              statusText: `Завтра (до ${formattedDate})`,
+              badgeTone: "urgent",
+            };
+          } else {
+            deadline = {
+              day: dDay,
+              month: dMonth,
+              year: dYear,
+              date: targetDate,
+              formattedDate,
+              isOverdue: false,
+              overdueDays: 0,
+              isUrgent: false,
+              statusText: `до ${formattedDate}`,
+              badgeTone: "normal",
+            };
+          }
+        } else {
+          deadline = {
+            day: null,
+            month: null,
+            year: null,
+            date: null,
+            formattedDate: "",
+            isOverdue: false,
+            overdueDays: 0,
+            isUrgent: false,
+            statusText: isDone ? (effectiveState === "RETURNED" && effectiveGrade != null ? `Оцінка: ${effectiveGrade}/${effectiveMaxPoints || 100}` : "Здано") : isUnknown ? "статус невідомий" : "",
+            badgeTone: "normal",
+          };
+        }
+
+        return {
+          id: t.id,
+          title: t.title || "Завдання",
+          subject: t.course_name,
+          label: t.due_date ? `до ${t.due_date}` : "",
+          url: taskUrl,
+          deadline,
+          state: effectiveState,
+          assignedGrade: effectiveGrade,
+          maxPoints: effectiveMaxPoints,
+        };
+      });
+    }
+
     if (!week || week.length === 0) return [];
     const tasks: FullTaskItem[] = [];
     const seenKeys = new Set<string>();
@@ -566,22 +754,64 @@ export default function HomePage() {
           if (!seenKeys.has(key)) {
             seenKeys.add(key);
             tasks.push({
-              title: t.title || "Домашнє завдання",
+              title: t.title || "Завдання",
               subject: l.subject_name || l.subject,
               teacher: t.teacher || l.teacher_name || l.teacher,
               label: t.label,
               url: t.url,
               deadline: t.deadline,
+              state: "NEW",
             });
           }
         }
       }
     }
     return sortTasksByDeadline(tasks);
-  }, [week]);
+  }, [classroomTasks, week, isLinked, submissions]);
 
   const overdueCount = useMemo(() => {
-    return allWeekTasks.filter((t) => t.deadline.badgeTone === "overdue").length;
+    return allWeekTasks.filter(
+      (t) =>
+        t.deadline.isOverdue &&
+        t.state !== "TURNED_IN" &&
+        t.state !== "RETURNED" &&
+        t.state !== "UNKNOWN"
+    ).length;
+  }, [allWeekTasks]);
+
+  const overdueTasks = useMemo(() => {
+    return allWeekTasks.filter(
+      (t) =>
+        t.deadline.isOverdue &&
+        t.state !== "TURNED_IN" &&
+        t.state !== "RETURNED" &&
+        t.state !== "UNKNOWN"
+    );
+  }, [allWeekTasks]);
+
+  const activeTasks = useMemo(() => {
+    return allWeekTasks.filter(
+      (t) =>
+        !t.deadline.isOverdue &&
+        Boolean(t.deadline.date) &&
+        t.state !== "TURNED_IN" &&
+        t.state !== "RETURNED"
+    );
+  }, [allWeekTasks]);
+
+  const noDateTasks = useMemo(() => {
+    return allWeekTasks.filter(
+      (t) =>
+        !t.deadline.date &&
+        t.state !== "TURNED_IN" &&
+        t.state !== "RETURNED"
+    );
+  }, [allWeekTasks]);
+
+  const turnedInTasks = useMemo(() => {
+    return allWeekTasks.filter(
+      (t) => t.state === "TURNED_IN" || t.state === "RETURNED"
+    );
   }, [allWeekTasks]);
 
   const UserControls = () => (
@@ -808,59 +1038,65 @@ export default function HomePage() {
           </button>
 
           {/* Center: Week Navigator & week type info */}
-          <div className="flex flex-col items-center justify-center flex-1 min-w-0">
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => shiftWeekPreservingDay(-1)}
-                aria-label="Попередній тиждень"
-                className="flex h-9 w-9 items-center justify-center rounded-lg text-sys-text-secondary hover:text-white active:scale-90 transition-transform"
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="m15 18-6-6 6-6" />
-                </svg>
-              </button>
+          {mobileTab === "tasks" ? (
+            <div className="flex flex-col items-center justify-center flex-1 min-w-0">
+              <span className="text-sm font-bold text-sys-text-primary">Завдання</span>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center flex-1 min-w-0">
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => shiftWeekPreservingDay(-1)}
+                  aria-label="Попередній тиждень"
+                  className="flex h-9 w-9 items-center justify-center rounded-lg text-sys-text-secondary hover:text-white active:scale-90 transition-transform"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m15 18-6-6 6-6" />
+                  </svg>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={resetWeekPreservingDay}
+                  title={isCurrentWeek ? "Поточний тиждень" : "Повернутися на поточний тиждень"}
+                  className="px-1 text-center truncate max-w-[150px] sm:max-w-[200px]"
+                >
+                  <span className="text-xs sm:text-[13px] font-bold text-sys-text-primary block truncate leading-tight">
+                    {weekRange.split("–")[0]?.trim()} – {weekRange.split("–")[1]?.trim()?.split(" ")?.slice(0, 2)?.join(" ") || ""}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => shiftWeekPreservingDay(1)}
+                  aria-label="Наступний тиждень"
+                  className="flex h-9 w-9 items-center justify-center rounded-lg text-sys-text-secondary hover:text-white active:scale-90 transition-transform"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m9 18 6-6-6-6" />
+                  </svg>
+                </button>
+              </div>
 
               <button
                 type="button"
-                onClick={resetWeekPreservingDay}
-                title={isCurrentWeek ? "Поточний тиждень" : "Повернутися на поточний тиждень"}
-                className="px-1 text-center truncate max-w-[150px] sm:max-w-[200px]"
+                onClick={() => setWeekTypeSheetOpen(true)}
+                className="flex items-center gap-1 text-[11px] text-sys-text-muted hover:text-sys-text-secondary -mt-0.5 leading-none py-0.5"
               >
-                <span className="text-xs sm:text-[13px] font-bold text-sys-text-primary block truncate leading-tight">
-                  {weekRange.split("–")[0]?.trim()} – {weekRange.split("–")[1]?.trim()?.split(" ")?.slice(0, 2)?.join(" ") || ""}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => shiftWeekPreservingDay(1)}
-                aria-label="Наступний тиждень"
-                className="flex h-9 w-9 items-center justify-center rounded-lg text-sys-text-secondary hover:text-white active:scale-90 transition-transform"
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="m9 18 6-6-6-6" />
-                </svg>
+                <span>{currentWeekNumber ? `${currentWeekNumber} тиждень` : ""}</span>
+                {weekType !== "both" && (
+                  <>
+                    <span>·</span>
+                    <span className="underline decoration-dotted underline-offset-2">
+                      {weekType === "numerator" ? "чисельник" : "знаменник"}
+                    </span>
+                    <span className="text-[10px]">ⓘ</span>
+                  </>
+                )}
               </button>
             </div>
-
-            <button
-              type="button"
-              onClick={() => setWeekTypeSheetOpen(true)}
-              className="flex items-center gap-1 text-[11px] text-sys-text-muted hover:text-sys-text-secondary -mt-0.5 leading-none py-0.5"
-            >
-              <span>{currentWeekNumber ? `${currentWeekNumber} тиждень` : ""}</span>
-              {weekType !== "both" && (
-                <>
-                  <span>·</span>
-                  <span className="underline decoration-dotted underline-offset-2">
-                    {weekType === "numerator" ? "чисельник" : "знаменник"}
-                  </span>
-                  <span className="text-[10px]">ⓘ</span>
-                </>
-              )}
-            </button>
-          </div>
+          )}
 
           {/* Right: Action menu trigger ⋯ */}
           <button
@@ -1262,6 +1498,7 @@ export default function HomePage() {
             tasks={allWeekTasks}
             groupId={groupId}
             weekStart={weekStartStr}
+            lastSyncedAt={classroomLastSyncedAt}
             onSynced={(detectedId) => {
               if (detectedId && detectedId !== groupId) setGroupId(detectedId);
             }}
@@ -1377,9 +1614,9 @@ export default function HomePage() {
               {view === "today" ? (
                 /* Desktop Day Mode: 2-column Dashboard */
                 <div className="w-full min-w-0">
-                  <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,860px)_360px] gap-8 items-start w-full">
-                    {/* Left Column: Schedule (minmax(0, 860px)) */}
-                    <div className="w-full min-w-0 max-w-[860px]">
+                  <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-8 items-start w-full">
+                    {/* Left Column: Schedule (minmax(0, 1fr)) */}
+                    <div className="w-full min-w-0">
                       {isWeekend && (
                         <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-slate-700/60 bg-slate-800/50 px-5 py-4 text-[15px] shadow-sm">
                           <div className="flex items-center gap-3 min-w-0">
@@ -1497,74 +1734,110 @@ export default function HomePage() {
                               <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
                             </svg>
                             <span className="text-sm font-bold uppercase tracking-wider text-sys-text-primary">
-                              {overdueCount > 0 ? `ЗАВДАННЯ · Прострочено (${overdueCount})` : `ЗАВДАННЯ (${allWeekTasks.length})`}
+                              {overdueCount > 0 ? `Прострочено · ${overdueCount}` : `Завдання · ${activeTasks.length + noDateTasks.length}`}
                             </span>
                           </div>
                           {overdueCount > 0 ? (
                             <span className="rounded-full bg-rose-500/15 border border-rose-500/30 px-2.5 py-0.5 text-xs font-bold text-rose-300">
-                              {overdueCount} {overdueCount === 1 ? "горить" : "горять"}
+                              горять
                             </span>
                           ) : (
                             <span className="rounded-full bg-purple-500/15 border border-purple-500/30 px-2.5 py-0.5 text-xs font-bold text-purple-200">
-                              {allWeekTasks.length} {allWeekTasks.length === 1 ? "завдання" : allWeekTasks.length < 5 ? "завдання" : "завдань"}
+                              активні
                             </span>
                           )}
                         </div>
 
-                        <div className="mt-4 space-y-2.5">
+                        {/* Linked Email Status for Desktop Widget */}
+                        {isLinked && linkedEmail ? (
+                          <div className="mt-2.5 flex items-center justify-between text-xs text-sys-text-secondary bg-sys-bg/60 border border-sys-border/50 px-3 py-1.5 rounded-xl">
+                            <span className="truncate">✓ Прив'язано: <strong className="text-sys-text-primary">{linkedEmail}</strong></span>
+                            <button
+                              type="button"
+                              onClick={unlinkClassroom}
+                              className="text-rose-400 hover:text-rose-300 font-medium ml-2 shrink-0 underline decoration-dotted text-[11px]"
+                            >
+                              від'єднати
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="mt-2 text-xs text-sys-text-muted">
+                            Всі завдання групи (пошта не прив'язана)
+                          </div>
+                        )}
+
+                        <div className="mt-4 space-y-4">
                           {allWeekTasks.length > 0 ? (
                             <>
-                              {(allWeekTasks.length >= 5 && !showAllDayTasks ? allWeekTasks.slice(0, 4) : allWeekTasks).map((t, idx) => {
-                                const isGenericTitle = !t.title || t.title === "Домашнє завдання" || t.title === "Завдання";
-                                const titleLine = isGenericTitle ? t.subject : t.title;
-                                const teacherLine = isGenericTitle ? (t.teacher || null) : `${t.subject}${t.teacher ? ` · ${t.teacher}` : ""}`;
-                                const isOverdue = t.deadline.badgeTone === "overdue";
-                                const isUrgent = t.deadline.badgeTone === "urgent";
+                              {/* Group 1: Overdue */}
+                              {overdueTasks.length > 0 && (
+                                <section>
+                                  <div className="mb-2 flex items-center gap-2">
+                                    <span className="h-2 w-2 rounded-full bg-rose-500 shadow-xs" />
+                                    <h4 className="text-xs font-bold uppercase tracking-wider text-rose-400">
+                                      Прострочено ({overdueTasks.length})
+                                    </h4>
+                                  </div>
+                                  <div className="space-y-2">
+                                    {overdueTasks.map((t, idx) => renderTaskCard(t, `sb-overdue-${idx}`))}
+                                  </div>
+                                </section>
+                              )}
 
-                                return (
-                                  <a
-                                    key={idx}
-                                    href={t.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="group block rounded-xl bg-[#16161a] border border-[#27272a] p-3 transition-all hover:border-slate-600 hover:bg-[#1a1a20] cursor-pointer shadow-xs text-left"
-                                    style={{
-                                      boxShadow: isOverdue ? "inset 3px 0 0 #f87171" : isUrgent ? "inset 3px 0 0 #fbbf24" : undefined
-                                    }}
+                              {/* Group 2: Active */}
+                              {activeTasks.length > 0 && (
+                                <section>
+                                  <div className="mb-2 flex items-center gap-2">
+                                    <span className="h-2 w-2 rounded-full bg-sys-accent shadow-xs" />
+                                    <h4 className="text-xs font-bold uppercase tracking-wider text-sys-text-secondary">
+                                      Активні ({activeTasks.length})
+                                    </h4>
+                                  </div>
+                                  <div className="space-y-2">
+                                    {activeTasks.map((t, idx) => renderTaskCard(t, `sb-active-${idx}`))}
+                                  </div>
+                                </section>
+                              )}
+
+                              {/* Group 3: No due date */}
+                              {noDateTasks.length > 0 && (
+                                <section>
+                                  <div className="mb-2 flex items-center gap-2">
+                                    <span className="h-2 w-2 rounded-full bg-slate-400 shadow-xs" />
+                                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                                      Без терміну ({noDateTasks.length})
+                                    </h4>
+                                  </div>
+                                  <div className="space-y-2">
+                                    {noDateTasks.map((t, idx) => renderTaskCard(t, `sb-nodate-${idx}`))}
+                                  </div>
+                                </section>
+                              )}
+
+                              {/* Group 4: Turned In / Returned */}
+                              {turnedInTasks.length > 0 && (
+                                <section className="pt-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => setSidebarTurnedInOpen(!sidebarTurnedInOpen)}
+                                    className="mb-2 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors"
                                   >
-                                    <div className="flex items-start justify-between gap-2">
-                                      <h4 className="text-sm font-semibold text-sys-text-primary leading-snug line-clamp-2 group-hover:text-sys-accent transition-colors flex-1">
-                                        {titleLine}
+                                    <div className="flex items-center gap-2">
+                                      <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-xs" />
+                                      <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-400">
+                                        Здано ({turnedInTasks.length})
                                       </h4>
-                                      <span className="text-slate-400 group-hover:text-white transition-colors text-xs shrink-0 mt-0.5">↗</span>
                                     </div>
-                                    {teacherLine && (
-                                      <p className="text-xs text-sys-text-muted mt-1 truncate">
-                                        {teacherLine}
-                                      </p>
-                                    )}
-                                    <div
-                                      className="mt-2 flex items-center gap-1.5 text-xs font-medium"
-                                      style={{ color: isOverdue ? "#f87171" : isUrgent ? "#fbbf24" : "#a1a1aa" }}
-                                    >
-                                      <span
-                                        className="h-1.5 w-1.5 rounded-full shrink-0"
-                                        style={{ backgroundColor: isOverdue ? "#f87171" : isUrgent ? "#fbbf24" : "#71717a" }}
-                                      />
-                                      <span>{t.deadline.statusText}</span>
+                                    <span className="text-xs text-sys-text-muted">
+                                      {sidebarTurnedInOpen ? "Згорнути ▴" : "Показати ▾"}
+                                    </span>
+                                  </button>
+                                  {sidebarTurnedInOpen && (
+                                    <div className="space-y-2 animate-in fade-in duration-150">
+                                      {turnedInTasks.map((t, idx) => renderTaskCard(t, `sb-done-${idx}`))}
                                     </div>
-                                  </a>
-                                );
-                              })}
-
-                              {allWeekTasks.length >= 5 && (
-                                <button
-                                  type="button"
-                                  onClick={() => setShowAllDayTasks((prev) => !prev)}
-                                  className="w-full py-1.5 text-center text-xs font-semibold text-sys-accent hover:text-white transition-colors rounded-lg border border-sys-border/50 bg-sys-bg/60 hover:bg-sys-bg"
-                                >
-                                  {showAllDayTasks ? "Згорнути" : `Ще ${allWeekTasks.length - 4} ${allWeekTasks.length - 4 === 1 ? "завдання" : "завдань"}`}
-                                </button>
+                                  )}
+                                </section>
                               )}
                             </>
                           ) : (
@@ -1650,11 +1923,12 @@ export default function HomePage() {
 
       {/* Mobile Bottom Navigation */}
       <BottomNav
-        activeTab={mobileTab}
+        activeTab={mobileMenuOpen ? "more" : mobileTab}
         onTabChange={(tab) => {
           if (tab === "more") {
             setMobileMenuOpen(true);
           } else {
+            setMobileMenuOpen(false);
             setMobileTab(tab);
           }
         }}
