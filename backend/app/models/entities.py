@@ -359,7 +359,7 @@ class SchedulePublication(Base):
     actor_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
     timestamp: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
     scope_manifest: Mapped[str] = mapped_column(Text)
-    source_fingerprint: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    source_fingerprint: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     is_reverted: Mapped[bool] = mapped_column(Boolean, default=False)
 
     @property

@@ -19,7 +19,8 @@ from app.schemas.draft import ScheduleDraftResponse, ScheduleSlotResponse, SlotM
 from app.core.security import require_roles
 from app.services.settings import settings_service
 from app.services.week import get_week_type
-from datetime import datetime as _dt
+from datetime import datetime, date, timezone
+_dt = datetime
 
 from app.services.notes_reconciliation import reconcile_notes_after_publish
 from app.services.import_slot_safety import normalize_base_slots, version_for_import

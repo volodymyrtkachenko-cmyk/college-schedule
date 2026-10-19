@@ -2,6 +2,7 @@ from datetime import date, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 from zoneinfo import ZoneInfo
+import json
 import pytest
 from fastapi import HTTPException
 from sqlalchemy import event, func, select
@@ -19,6 +20,7 @@ from app.models import (
     Teacher,
     User,
 )
+from app.models.entities import SchedulePublication, SchedulePublicationSnapshot
 from app.models.lesson_notes import LessonNoteRevision, LessonOccurrenceNote
 from app.routers import admin_import, drafts
 from app.routers.classroom import (
@@ -624,3 +626,51 @@ async def test_selective_publish_modes_anomaly(ctx):
     assert len(snapshots) == 1
     after_data = json.loads(snapshots[0].after_data)
     assert "[🏷️ Заміна]" in after_data["summary"]
+
+
+@pytest.mark.anyio
+async def test_publication_large_fingerprint_scope(ctx):
+    """Перевіряє, що публікація не падає на великому import_scope (>255 символів)."""
+    db, ids = ctx
+
+    large_scope = {
+        "dates": [f"2026-10-{d:02d}" for d in range(1, 25)],
+        "group_ids": list(range(1, 40)),
+    }
+    scope_json = json.dumps(large_scope)
+    assert len(scope_json) > 255
+
+    draft = ScheduleDraft(
+        name="Чернетка з великим скоупом",
+        draft_type="import",
+        status="pending",
+        revision=1,
+        data={
+            "import_scope": large_scope,
+            "substitutions": [{
+                "date": "2026-10-19",
+                "group_id": ids["group_id"],
+                "lesson_number": 1,
+                "subject_id": ids["subject_id"],
+                "teacher_id": ids["teacher_id"],
+                "is_explicit_substitution": True,
+                "is_equal_to_base": False,
+            }],
+            "cancelled": [],
+        },
+    )
+    db.add(draft)
+    await db.commit()
+
+    res = await drafts.publish_draft(
+        draft.id,
+        expected_revision=1,
+        mode="substitutions_only",
+        db=db,
+        current_user=SimpleNamespace(id=ids["admin_user_id"], role="admin"),
+    )
+    assert res["status"] == "published"
+    pub = await db.get(SchedulePublication, res["publication_id"])
+    assert pub is not None
+    assert len(pub.source_fingerprint) > 255
+
