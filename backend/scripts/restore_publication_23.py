@@ -69,6 +69,15 @@ async def run_restore(apply_changes: bool, resolve_conflicts: bool = True, snaps
 
         teachers = (await db.scalars(select(Teacher))).all()
         teach_by_id = {t.id: t.name for t in teachers}
+        teach_room_by_id = {t.id: t.room for t in teachers}
+
+        def get_effective_override(b_room: str | None, teacher_id: int | None) -> str | None:
+            if not b_room:
+                return None
+            t_def_room = teach_room_by_id.get(teacher_id)
+            if b_room == t_def_room:
+                return None  # Обчислена аудиторія викладача, не дублюємо як override
+            return b_room
 
         # 2. Завантаження знімка before_data публікації №23 (тільки базовий розклад, date is None)
         snapshots_data = {}
@@ -257,16 +266,31 @@ async def run_restore(apply_changes: bool, resolve_conflicts: bool = True, snaps
 
         # 7. Застосування відновлення шаблону Schedule (лише якщо apply_changes)
         if apply_changes:
+            # Збереження точного знімка для відкату в окремі таблиці перед застосуванням
+            print("\n" + "=" * 80)
+            print("СТВОРЕННЯ РЕЗЕРВНИХ ТАБЛИЦЬ ДЛЯ ВІДКОТУ В БАЗІ ДАНИХ...")
+            await db.execute(text("DROP TABLE IF EXISTS schedule_pre_restore_backup_pub23"))
+            await db.execute(text("""
+                CREATE TABLE schedule_pre_restore_backup_pub23 AS
+                SELECT * FROM schedule WHERE version_id = 1
+            """))
+            await db.execute(text("DROP TABLE IF EXISTS notes_pre_restore_backup_pub23"))
+            await db.execute(text("""
+                CREATE TABLE notes_pre_restore_backup_pub23 AS
+                SELECT * FROM lesson_occurrence_notes WHERE group_id = 15
+            """))
+            print("✓ Резервні таблиці створено: schedule_pre_restore_backup_pub23, notes_pre_restore_backup_pub23")
+            print("=" * 80)
+
             # А. Оновлення парності існуючих слотів (upgrade до both)
+            # room_override не перезаписуємо: залишаємо поточне значення як є
             for exact_match, new_wt, b_slot in slots_to_update:
                 exact_match.week_type = new_wt
-                b_room = b_slot.get("room") or b_slot.get("room_override")
-                if b_room and not exact_match.room_override:
-                    exact_match.room_override = b_room
 
-            # Б. Вставка відсутніх слотів
+            # Б. Вставка відсутніх слотів (з урахуванням get_effective_override)
             for gid, dow, b_slot in slots_to_insert:
                 b_room = b_slot.get("room") or b_slot.get("room_override")
+                eff_room = get_effective_override(b_room, b_slot.get("teacher_id"))
                 new_s = Schedule(
                     version_id=1,
                     group_id=gid,
@@ -275,7 +299,7 @@ async def run_restore(apply_changes: bool, resolve_conflicts: bool = True, snaps
                     subject_id=b_slot["subject_id"],
                     teacher_id=b_slot.get("teacher_id"),
                     second_teacher_id=b_slot.get("second_teacher_id"),
-                    room_override=b_room,
+                    room_override=eff_room,
                     week_type=b_slot["week_type"],
                     is_active=True,
                     is_replacement=False,
@@ -286,11 +310,12 @@ async def run_restore(apply_changes: bool, resolve_conflicts: bool = True, snaps
             if resolve_conflicts:
                 for action, target_slot, b_slot, gid, dow, lnum in conflict_resolutions:
                     b_room = b_slot.get("room") or b_slot.get("room_override")
+                    eff_room = get_effective_override(b_room, b_slot.get("teacher_id"))
                     if action in ("replace_both", "replace_slot") and target_slot:
                         target_slot.subject_id = b_slot["subject_id"]
                         target_slot.teacher_id = b_slot.get("teacher_id")
                         target_slot.second_teacher_id = b_slot.get("second_teacher_id")
-                        target_slot.room_override = b_room
+                        target_slot.room_override = eff_room
                         target_slot.week_type = b_slot["week_type"]
                     elif action == "insert_slot":
                         new_s = Schedule(
@@ -301,7 +326,7 @@ async def run_restore(apply_changes: bool, resolve_conflicts: bool = True, snaps
                             subject_id=b_slot["subject_id"],
                             teacher_id=b_slot.get("teacher_id"),
                             second_teacher_id=b_slot.get("second_teacher_id"),
-                            room_override=b_room,
+                            room_override=eff_room,
                             week_type=b_slot["week_type"],
                             is_active=True,
                             is_replacement=False,
@@ -349,30 +374,35 @@ async def run_restore(apply_changes: bool, resolve_conflicts: bool = True, snaps
             for n, _, _ in unarchive_candidates:
                 n.archived = False
                 n.updated_at = datetime.now(timezone.utc)
+                db.add(LessonNoteRevision(
+                    note_id=n.id,
+                    revision=n.revision + 1,
+                    event="unarchived_restore_pub23",
+                    snapshot={"restored_by": "restore_publication_23"}
+                ))
+                n.revision += 1
             await db.flush()
 
-        # 9. Очищення розмазаного посилання оголошення для групи 85 на тижні 19-25.10
+        # 9. Очищення витоків посилань для групи 85 на тижні 19-25.10
         print("\n" + "=" * 80)
-        print("ОЧИЩЕННЯ РОЗМАЗАНОГО ПОСИЛАННЯ (оголошення від 15.10 на парах 21.10 та 23.10):")
-        leaked_notes = (
-            await db.scalars(
-                select(LessonOccurrenceNote).where(
-                    LessonOccurrenceNote.group_id == 15,
-                    LessonOccurrenceNote.note.like(f"%{LEAKED_MEET_URL}%"),
-                )
-            )
-        ).all()
-        print(f"Знайдено {len(leaked_notes)} нотаток із розмазаним посиланням {LEAKED_MEET_URL}:")
-        for ln in leaked_notes:
-            print(f"  - Note ID {ln.id} на дату {ln.note_date} пара #{ln.lesson_number}")
+        print("ОЧИЩЕННЯ ВИТОКІВ ПОСИЛАНЬ (група 85):")
+        # Note ID 63: Zoom викладача філософії Домніної помилково потрапив на Веб-дизайн (Грабовчак)
+        note_63 = await db.get(LessonOccurrenceNote, 63)
+        if note_63 and "85754004174" in (note_63.note or ""):
+            print(f"Знайдено витік посилання в Note ID 63 (Дата: {note_63.note_date}, Пара: {note_63.lesson_number}, Предмет: {note_63.subject_name}): Zoom філософії на Веб-дизайні.")
             if apply_changes:
-                lines = [line.strip() for line in ln.note.split("\n") if LEAKED_MEET_URL not in line]
-                ln.note = "\n".join(lines).strip()
-                if not ln.note:
-                    ln.archived = True
-                ln.updated_at = datetime.now(timezone.utc)
-        if apply_changes:
-            await db.flush()
+                note_63.archived = True
+                note_63.updated_at = datetime.now(timezone.utc)
+                db.add(LessonNoteRevision(
+                    note_id=note_63.id,
+                    revision=note_63.revision + 1,
+                    event="archived_leak_cleanup",
+                    snapshot={"reason": "Philosophy Zoom leaked into Web Design"}
+                ))
+                note_63.revision += 1
+                print("  -> Нотатку ID 63 заархівовано (витік очищено).")
+        else:
+            print("Витік у Note ID 63 не знайдено або вже очищено.")
 
         # 10. Фіналізація транзакції
         print("\n" + "=" * 80)
