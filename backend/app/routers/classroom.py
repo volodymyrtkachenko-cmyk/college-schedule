@@ -1244,10 +1244,11 @@ async def perform_course_sync(
 
         teacher_badge = _resolve_matched_teacher_surname(target_lesson, author_tokens, combined_cw_text)
 
+        task_title = (cw_item.get("title_raw") or "").strip() or "Домашнє завдання"
         label_text = (
-            f"Домашнє завдання (до {due_date.strftime('%d.%m')})"
-            if (due_date is not None and is_shifted_deadline)
-            else "Домашнє завдання"
+            f"{task_title} (до {due_date.strftime('%d.%m')})"
+            if due_date is not None
+            else task_title
         )
 
         if teacher_badge:

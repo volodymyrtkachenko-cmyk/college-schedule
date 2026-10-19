@@ -213,6 +213,9 @@ export function ScheduleWeekGrid({
             const isToday = day.date === kyivTodayIso;
             const isPast = day.date < kyivTodayIso;
             const lessonsForSlot = day.lessons.filter((l) => l.lesson_number === num);
+            const lastLessonNum = day.lessons.length > 0 ? Math.max(...day.lessons.map((l) => l.lesson_number)) : 0;
+            const firstLessonNum = day.lessons.length > 0 ? Math.min(...day.lessons.map((l) => l.lesson_number)) : 99;
+            const isWindow = num > firstLessonNum && num < lastLessonNum && lessonsForSlot.length === 0;
 
             return (
               <div
@@ -235,13 +238,15 @@ export function ScheduleWeekGrid({
                       />
                     ))}
                   </div>
-                ) : (
+                ) : isWindow ? (
                   <div
-                    title={`Немає ${num}-ї пари`}
-                    className="flex h-full min-h-[92px] items-center justify-center rounded-2xl border border-dashed border-sys-border/40 bg-sys-card/[0.02] p-2 text-center text-xs text-sys-text-muted/40 transition-colors hover:border-sys-border/60 hover:text-sys-text-muted select-none"
+                    title={`Вікно на ${num}-й парі`}
+                    className="flex h-full min-h-[72px] items-center justify-center rounded-2xl border border-dashed border-sys-border/50 bg-sys-card/[0.02] p-2 text-center text-xs text-sys-text-muted/60 transition-colors select-none"
                   >
                     <span className="text-xs">—</span>
                   </div>
+                ) : (
+                  <div className="h-full min-h-[16px] pointer-events-none" />
                 )}
               </div>
             );
@@ -285,6 +290,10 @@ export function ScheduleWeekGrid({
 
               {allLessonNumbers.map((num) => {
                 const lessonsForSlot = day.lessons.filter((l) => l.lesson_number === num);
+                const lastLessonNum = day.lessons.length > 0 ? Math.max(...day.lessons.map((l) => l.lesson_number)) : 0;
+                const firstLessonNum = day.lessons.length > 0 ? Math.min(...day.lessons.map((l) => l.lesson_number)) : 99;
+                const isWindow = num > firstLessonNum && num < lastLessonNum && lessonsForSlot.length === 0;
+
                 if (lessonsForSlot.length > 0) {
                   return (
                     <div key={`tablet-slot-${num}-${day.date}`} className="flex flex-col gap-2">
@@ -302,14 +311,18 @@ export function ScheduleWeekGrid({
                     </div>
                   );
                 }
-                return (
-                  <div
-                    key={`tablet-slot-${num}-${day.date}`}
-                    className="flex min-h-[68px] items-center justify-center rounded-2xl border border-dashed border-sys-border/30 bg-sys-card/[0.02] text-xs text-sys-text-muted/40 select-none"
-                  >
-                    <span>—</span>
-                  </div>
-                );
+                if (isWindow) {
+                  return (
+                    <div
+                      key={`tablet-slot-${num}-${day.date}`}
+                      title={`Вікно на ${num}-й парі`}
+                      className="flex min-h-[56px] items-center justify-center rounded-2xl border border-dashed border-sys-border/40 bg-sys-card/[0.02] text-xs text-sys-text-muted/50 select-none"
+                    >
+                      <span>—</span>
+                    </div>
+                  );
+                }
+                return null;
               })}
             </div>
           );

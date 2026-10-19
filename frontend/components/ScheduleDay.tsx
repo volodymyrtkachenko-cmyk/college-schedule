@@ -173,9 +173,19 @@ export function ScheduleDay({
     (left, right) => left.lesson_number - right.lesson_number || left.id - right.id,
   );
 
+  const firstStart = orderedLessons.length > 0 ? parseMin(orderedLessons[0].time.split("-")[0]) : null;
+  const isBeforeDayStart = Boolean(
+    kyivNow &&
+    kyivNow.dateIso === schedule.date &&
+    firstStart !== null &&
+    kyivNow.minutes < firstStart &&
+    kyivNow.minutes >= firstStart - 120
+  );
+  const timeToStart = isBeforeDayStart && firstStart !== null && kyivNow ? firstStart - kyivNow.minutes : 0;
+
   return (
-    <section className={`min-w-0 ${isToday ? "rounded-2xl border-t-2 border-t-sys-accent border border-sys-border/60 bg-sys-accent/[0.02] p-2 sm:p-3 shadow-[0_0_15px_rgba(59,130,246,0.08)]" : ""}`}>
-      <header className={`mb-3.5 flex items-center justify-between gap-2 ${mode === "week" ? "px-1 min-h-[56px]" : "px-1 sm:px-2 pt-1"} ${hideHeaderOnMobile ? "hidden sm:flex" : ""}`}>
+    <section className="min-w-0">
+      <header className={`mb-3.5 flex items-center justify-between gap-2 px-0 ${mode === "week" ? "min-h-[56px]" : "pt-1"} ${hideHeaderOnMobile ? "hidden sm:flex" : ""}`}>
         {mode === "day" ? (
           <div className="flex flex-wrap items-baseline gap-2">
             <div className="flex items-center gap-2.5">
@@ -241,6 +251,19 @@ export function ScheduleDay({
         )}
       </header>
 
+      {/* Morning pre-lesson indicator */}
+      {isBeforeDayStart && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-sky-400/35 bg-sky-400/10 px-4 py-2.5 text-xs font-semibold text-sky-200 shadow-xs mb-3">
+          <div className="flex items-center gap-2">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sky-300"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span>До початку занять</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-sky-100">
+            <span>1-а пара о {orderedLessons[0].time.split("-")[0]} (через {timeToStart} хв)</span>
+          </div>
+        </div>
+      )}
+
       {orderedLessons.length ? (
         <motion.div
           initial="hidden"
@@ -249,7 +272,7 @@ export function ScheduleDay({
             hidden: {},
             visible: { transition: { staggerChildren: 0.02 } },
           }}
-          className="flex flex-col gap-2.5"
+          className="flex flex-col gap-3"
         >
           {orderedLessons.map((lesson, idx) => {
             const lessonKey = `${lesson.id}-${lesson.lesson_number}`;
@@ -259,11 +282,14 @@ export function ScheduleDay({
             const isBreakNow = Boolean(
               kyivNow &&
               kyivNow.dateIso === schedule.date &&
+              prev &&
+              prev.lesson_number !== lesson.lesson_number &&
               prevEnd !== null &&
               currStart !== null &&
               kyivNow.minutes >= prevEnd &&
               kyivNow.minutes < currStart
             );
+            const breakDuration = prevEnd !== null && currStart !== null ? currStart - prevEnd : 0;
             const breakLeft = isBreakNow && currStart !== null && kyivNow ? currStart - kyivNow.minutes : 0;
 
             return (
@@ -276,10 +302,15 @@ export function ScheduleDay({
                 className="flex flex-col gap-2.5"
               >
                 {isBreakNow && (
-                  <div className="flex items-center justify-center gap-2 rounded-xl border border-amber-400/30 bg-amber-400/[0.07] px-3 py-1.5 text-xs font-semibold text-amber-300 shadow-sm">
-                    <span>☕ Перерва</span>
-                    <span>•</span>
-                    <span>до {lesson.lesson_number}-ї пари залишилось {breakLeft} хв</span>
+                  <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-400/35 bg-gradient-to-r from-amber-400/10 via-amber-400/5 to-transparent px-4 py-2.5 text-xs font-semibold text-amber-300 shadow-xs">
+                    <div className="flex items-center gap-2">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-amber-400"><path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><line x1="6" x2="6" y1="2" y2="4"/><line x1="10" x2="10" y1="2" y2="4"/><line x1="14" x2="14" y1="2" y2="4"/></svg>
+                      <span>Перерва {breakDuration} хв</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-amber-200">
+                      <span>Наступна пара ({lesson.lesson_number}-а) через</span>
+                      <span className="font-bold text-amber-300 underline underline-offset-2">{breakLeft} хв</span>
+                    </div>
                   </div>
                 )}
                 <LessonCard

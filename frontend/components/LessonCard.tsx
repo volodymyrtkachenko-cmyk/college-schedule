@@ -181,11 +181,171 @@ function getEventBadge(eventType?: string | null, eventTitle?: string | null) {
   }
 }
 
+const UKR_MONTHS_SHORT = [
+  "січ.", "лют.", "бер.", "квіт.", "трав.", "черв.",
+  "лип.", "серп.", "вер.", "жовт.", "лист.", "груд."
+];
+
+function pluralDays(n: number): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod100 >= 11 && mod100 <= 14) return "днів";
+  if (mod10 === 1) return "день";
+  if (mod10 >= 2 && mod10 <= 4) return "дні";
+  return "днів";
+}
+
+export interface TaskDeadline {
+  day: number | null;
+  month: number | null;
+  year: number | null;
+  date: Date | null;
+  formattedDate: string; // e.g. "15 жовт."
+  isOverdue: boolean;
+  overdueDays: number;
+  isUrgent: boolean; // within 48h
+  statusText: string; // e.g. "15 жовт. · прострочено 4 дні" or "до 15 жовт."
+  badgeTone: "overdue" | "urgent" | "normal";
+}
+
 export interface ClassroomTaskItem {
   title?: string;
   teacher?: string | null;
   label: string;
   url: string;
+  deadline: TaskDeadline;
+}
+
+export function parseTaskDeadline(labelOrText: string): TaskDeadline {
+  const match = labelOrText.match(/до\s+(\d{1,2})\.(\d{1,2})/i);
+  if (!match) {
+    return {
+      day: null,
+      month: null,
+      year: null,
+      date: null,
+      formattedDate: "",
+      isOverdue: false,
+      overdueDays: 0,
+      isUrgent: false,
+      statusText: "ДЗ",
+      badgeTone: "normal",
+    };
+  }
+
+  const day = parseInt(match[1], 10);
+  const month = parseInt(match[2], 10);
+
+  const now = new Date();
+  const kyivNowStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(now);
+  const [nowYear, nowMonth, nowDay] = kyivNowStr.split("-").map(Number);
+
+  let year = nowYear;
+  if (nowMonth === 12 && month === 1) year += 1;
+  else if (nowMonth === 1 && month === 12) year -= 1;
+
+  const targetDate = new Date(year, month - 1, day);
+  const todayDate = new Date(nowYear, nowMonth - 1, nowDay);
+
+  const diffMs = targetDate.getTime() - todayDate.getTime();
+  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+
+  const monthName = UKR_MONTHS_SHORT[month - 1] || "";
+  const formattedDate = `${day} ${monthName}`;
+
+  if (diffDays < 0) {
+    const overdueDays = Math.abs(diffDays);
+    return {
+      day,
+      month,
+      year,
+      date: targetDate,
+      formattedDate,
+      isOverdue: true,
+      overdueDays,
+      isUrgent: false,
+      statusText: `${formattedDate} · прострочено ${overdueDays} ${pluralDays(overdueDays)}`,
+      badgeTone: "overdue",
+    };
+  }
+
+  if (diffDays === 0) {
+    return {
+      day,
+      month,
+      year,
+      date: targetDate,
+      formattedDate,
+      isOverdue: false,
+      overdueDays: 0,
+      isUrgent: true,
+      statusText: `Сьогодні (до ${formattedDate})`,
+      badgeTone: "urgent",
+    };
+  }
+
+  if (diffDays === 1) {
+    return {
+      day,
+      month,
+      year,
+      date: targetDate,
+      formattedDate,
+      isOverdue: false,
+      overdueDays: 0,
+      isUrgent: true,
+      statusText: `Завтра (до ${formattedDate})`,
+      badgeTone: "urgent",
+    };
+  }
+
+  if (diffDays === 2) {
+    return {
+      day,
+      month,
+      year,
+      date: targetDate,
+      formattedDate,
+      isOverdue: false,
+      overdueDays: 0,
+      isUrgent: true,
+      statusText: `до ${formattedDate}`,
+      badgeTone: "urgent",
+    };
+  }
+
+  return {
+    day,
+    month,
+    year,
+    date: targetDate,
+    formattedDate,
+    isOverdue: false,
+    overdueDays: 0,
+    isUrgent: false,
+    statusText: `до ${formattedDate}`,
+    badgeTone: "normal",
+  };
+}
+
+export function sortTasksByDeadline<T extends { deadline: TaskDeadline }>(taskList: T[]): T[] {
+  return [...taskList].sort((a, b) => {
+    // If one is overdue and another is not, overdue first
+    if (a.deadline.isOverdue && !b.deadline.isOverdue) return -1;
+    if (!a.deadline.isOverdue && b.deadline.isOverdue) return 1;
+
+    // Both overdue: most overdue (earliest date) first
+    if (a.deadline.isOverdue && b.deadline.isOverdue) {
+      const timeA = a.deadline.date ? a.deadline.date.getTime() : 0;
+      const timeB = b.deadline.date ? b.deadline.date.getTime() : 0;
+      return timeA - timeB;
+    }
+
+    // Both upcoming or without date: nearest upcoming first
+    const timeA = a.deadline.date ? a.deadline.date.getTime() : Infinity;
+    const timeB = b.deadline.date ? b.deadline.date.getTime() : Infinity;
+    return timeA - timeB;
+  });
 }
 
 export function extractClassroomTasks(note?: string | null): ClassroomTaskItem[] {
@@ -207,11 +367,12 @@ export function extractClassroomTasks(note?: string | null): ClassroomTaskItem[]
       }
 
       // Приводимо до стандарту "до DD.MM" або "ДЗ"
-      const dueMatch = rest.match(/\(до\s+\d{2}\.\d{2}\)/i);
+      const dueMatch = rest.match(/\(до\s+\d{1,2}\.\d{1,2}\)/i);
       const label = dueMatch ? dueMatch[0].replace(/[()]/g, "").trim() : "ДЗ";
-      const title = rest.replace(/\(до\s+\d{2}\.\d{2}\)/i, "").trim() || "Завдання";
+      const title = rest.replace(/\(до\s+\d{1,2}\.\d{1,2}\)/i, "").trim() || "Завдання";
+      const deadline = parseTaskDeadline(label);
 
-      tasks.push({ title, teacher, label, url: urlPart });
+      tasks.push({ title, teacher, label, url: urlPart, deadline });
     }
   }
   return tasks;
@@ -471,10 +632,11 @@ export function LessonCard({
     isLive && endMin !== null && nowState ? Math.max(1, endMin - nowState.minutes) : 0;
 
   const isTeacherView = scheduleMode === "teacher";
-  const tasks = useMemo(
+  const rawTasks = useMemo(
     () => (isTeacherView ? [] : extractClassroomTasks(lesson.note)),
     [isTeacherView, lesson.note]
   );
+  const tasks = useMemo(() => sortTasksByDeadline(rawTasks), [rawTasks]);
   const meetings = useMemo(
     () => extractOnlineMeetings(lesson.note, lesson.room, lesson.teacher_name, lesson.subject_name),
     [lesson.note, lesson.room, lesson.teacher_name, lesson.subject_name]
@@ -577,7 +739,7 @@ export function LessonCard({
         }
       }}
       className={`group relative flex min-w-0 flex-col rounded-2xl border bg-sys-card shadow-sm transition-all duration-200 ${
-        isDay ? "p-4 sm:p-5 lg:px-6 lg:py-5 sm:min-h-[108px]" : "p-2.5 rounded-xl"
+        isDay ? "p-4 sm:p-5 lg:px-6 lg:py-5 sm:min-h-[108px]" : "p-2.5 rounded-xl h-full flex flex-col justify-between"
       } ${stateClass} ${
         !lesson.is_relevant_this_week ? "opacity-60" : ""
       } ${canMove ? "cursor-grab active:cursor-grabbing" : ""}`}
@@ -600,9 +762,9 @@ export function LessonCard({
                 </span>
               </div>
               {isLive && (
-                <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-sys-accent/15 px-2 py-0.5 text-[11px] font-bold text-sys-accent">
-                  <span className="h-1.5 w-1.5 animate-ping rounded-full bg-sys-accent" />
-                  <span>{remainingMin} хв</span>
+                <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-sys-accent/15 border border-sys-accent/30 px-2 py-0.5 text-[11px] font-bold text-sys-accent">
+                  <span className="h-1.5 w-1.5 animate-ping rounded-full bg-sys-accent shrink-0" />
+                  <span>Іде зараз · ще {remainingMin} хв</span>
                 </div>
               )}
             </div>
@@ -621,7 +783,10 @@ export function LessonCard({
 
             {/* Teacher / Group info */}
             <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm text-sys-text-secondary mt-0.5">
-              <span className="text-sys-text-muted">👤</span>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-sys-text-muted shrink-0">
+                <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
+              </svg>
               {isDualTeachers ? (
                 <div className="flex items-center gap-3">
                   {secondaryItems.map((item, idx) => (
@@ -662,75 +827,109 @@ export function LessonCard({
               ) : null}
             </div>
 
-            {/* Expanded Homework Banner */}
+            {/* Integrated Homework Accordion Container */}
             {tasks.length > 0 && (
-              <div className="mt-1.5 flex flex-wrap items-center gap-2 rounded-xl bg-purple-500/10 border border-purple-500/25 px-3 py-1.5 text-xs text-purple-200">
-                <span className="text-sm">📌</span>
-                <span className="font-bold">{tasks.length} {tasks.length === 1 ? "завдання" : "завдання"}</span>
-                {tasks[0]?.title && (
-                  <>
-                    <span className="text-purple-400/50">•</span>
-                    <span className="font-medium text-purple-100 truncate max-w-[260px] lg:max-w-[340px]">{tasks[0].title}</span>
-                  </>
-                )}
-                {tasks[0]?.label && tasks[0].label !== "ДЗ" && (
-                  <span className="rounded bg-purple-500/20 px-1.5 py-0.5 text-[10px] font-bold text-purple-300">
-                    {tasks[0].label}
-                  </span>
-                )}
-                <button
-                  type="button"
+              <div className={`mt-2 w-full rounded-xl border transition-all duration-150 overflow-hidden ${
+                tasks[0].deadline.badgeTone === "overdue"
+                  ? "border-rose-500/35 bg-rose-500/10"
+                  : tasks[0].deadline.badgeTone === "urgent"
+                  ? "border-amber-500/35 bg-amber-500/10"
+                  : "border-purple-500/30 bg-purple-500/10"
+              }`}>
+                {/* Accordion Trigger Row: full 100% width, flex between */}
+                <div
                   onClick={toggleHw}
-                  className="ml-auto text-xs font-semibold text-purple-300 hover:text-white underline underline-offset-2"
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") toggleHw(e); }}
+                  className="flex w-full items-center justify-between px-3 py-2 cursor-pointer select-none gap-2 hover:bg-white/5 transition-colors"
                 >
-                  {isHwOpen ? "Згорнути" : "Деталі"}
-                </button>
-              </div>
-            )}
+                  <div className="flex items-center gap-2 min-w-0">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={`shrink-0 ${
+                      tasks[0].deadline.badgeTone === "overdue" ? "text-rose-400" : tasks[0].deadline.badgeTone === "urgent" ? "text-amber-400" : "text-purple-300"
+                    }`}>
+                      <path d="M16 4h2a2 2 0 0 1 2 2v14l-8-4-8 4V6a2 2 0 0 1 2-2h2" />
+                      <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+                    </svg>
+                    <span className={`text-xs font-bold truncate ${
+                      tasks[0].deadline.badgeTone === "overdue" ? "text-rose-200" : tasks[0].deadline.badgeTone === "urgent" ? "text-amber-200" : "text-purple-200"
+                    }`}>
+                      {tasks.length === 1
+                        ? (tasks[0].title && tasks[0].title !== "Домашнє завдання" && tasks[0].title !== "Завдання" ? tasks[0].title : "Завдання Classroom")
+                        : `${tasks.length} завдання`}
+                    </span>
+                    <span className="text-sys-text-muted/60 text-xs shrink-0">•</span>
+                    <span className={`text-xs font-medium truncate ${
+                      tasks[0].deadline.badgeTone === "overdue" ? "text-rose-300 font-semibold" : tasks[0].deadline.badgeTone === "urgent" ? "text-amber-300 font-semibold" : "text-purple-200/90"
+                    }`}>
+                      {tasks.length === 1 ? tasks[0].deadline.statusText : `найближче ${tasks[0].deadline.statusText}`}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0 ml-2">
+                    <span className={`text-xs font-bold transition-transform duration-200 ${
+                      isHwOpen ? "rotate-180" : ""
+                    } ${
+                      tasks[0].deadline.badgeTone === "overdue" ? "text-rose-300" : tasks[0].deadline.badgeTone === "urgent" ? "text-amber-300" : "text-purple-300"
+                    }`}>
+                      ▾
+                    </span>
+                  </div>
+                </div>
 
-            {/* Expanded Homework Tasks List on Desktop */}
-            {tasks.length > 0 && isHwOpen && (
-              <div className="mt-2.5 flex flex-col gap-2 pt-2 border-t border-purple-500/20 w-full animate-in fade-in duration-150">
-                {groupedTasks.map((group, gIdx) => (
-                  <div key={gIdx} className="flex flex-col gap-1.5">
-                    {group.teacher && (
-                      <span className="text-[11px] font-bold text-purple-200/90">
-                        {group.teacher}:
-                      </span>
-                    )}
-                    {group.items.map((task, idx) => (
-                      <a
-                        key={idx}
-                        href={task.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          vibrateTap(10);
-                        }}
-                        className="group flex flex-wrap items-center justify-between gap-2 rounded-xl border border-purple-500/35 bg-purple-500/10 px-3 py-2 text-xs font-medium text-purple-200 transition-colors hover:bg-purple-500/20"
-                      >
-                        <div className="flex min-w-0 flex-wrap items-center gap-2">
-                          <span className="font-semibold text-white">{task.title || "Завдання"}</span>
-                          {task.label && (
-                            <span className="rounded-md bg-purple-500/25 px-2 py-0.5 text-[11px] font-bold text-purple-200">
-                              {task.label}
+                {/* Expanded Tasks List inside the same accordion container */}
+                {isHwOpen && (
+                  <div className="flex flex-col gap-2 p-3 border-t border-sys-border/30 bg-black/20 animate-in fade-in duration-150">
+                    {groupedTasks.map((group, gIdx) => (
+                      <div key={gIdx} className="flex flex-col gap-1.5">
+                        {group.teacher && (
+                          <span className="text-[11px] font-bold text-sys-text-secondary">
+                            {group.teacher}:
+                          </span>
+                        )}
+                        {group.items.map((task, idx) => (
+                          <a
+                            key={idx}
+                            href={task.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              vibrateTap(10);
+                            }}
+                            className="group flex flex-wrap items-center justify-between gap-2 rounded-lg border border-sys-border/50 bg-sys-card/60 px-3 py-2 text-xs font-medium text-sys-text-primary transition-colors hover:border-sys-accent/60 hover:bg-sys-card"
+                          >
+                            <div className="flex min-w-0 flex-wrap items-center gap-2">
+                              <span className="font-semibold text-white group-hover:text-sys-accent transition-colors">
+                                {task.title || "Завдання"}
+                              </span>
+                              <span className={`rounded px-1.5 py-0.5 text-[11px] font-bold border ${
+                                task.deadline.badgeTone === "overdue"
+                                  ? "bg-rose-500/20 border-rose-500/40 text-rose-300"
+                                  : task.deadline.badgeTone === "urgent"
+                                  ? "bg-amber-500/20 border-amber-500/40 text-amber-300"
+                                  : "bg-purple-500/20 border-purple-500/40 text-purple-200"
+                              }`}>
+                                {task.deadline.statusText}
+                              </span>
+                            </div>
+                            <span className="text-xs text-sys-text-secondary group-hover:text-white transition-colors">
+                              Відкрити у Classroom ↗
                             </span>
-                          )}
-                        </div>
-                        <span className="text-xs text-purple-300 group-hover:text-white transition-colors">
-                          Відкрити в Classroom ↗
-                        </span>
-                      </a>
+                          </a>
+                        ))}
+                      </div>
                     ))}
                   </div>
-                ))}
+                )}
               </div>
             )}
 
             {visibleNoteText && (
-              <p className="mt-0.5 text-xs text-sys-text-secondary/80 italic">
-                💬 {visibleNoteText}
+              <p className="mt-1 flex items-center gap-1.5 text-xs text-sys-text-secondary/80 italic">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-text-muted">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+                <span>{visibleNoteText}</span>
               </p>
             )}
           </div>
@@ -745,15 +944,35 @@ export function LessonCard({
                 onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
                 className={`inline-flex h-8 px-3 items-center gap-1.5 rounded-lg font-bold text-xs shadow-xs active:scale-95 transition-all whitespace-nowrap ${
                   isMeetingLiveOrSoon
-                    ? "bg-emerald-600 text-white border border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.35)] hover:bg-emerald-500"
-                    : "border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"
+                    ? meetings[0].platform === "zoom"
+                      ? "bg-sky-600 text-white border border-sky-500 shadow-[0_0_12px_rgba(14,165,233,0.35)] hover:bg-sky-500 animate-pulse"
+                      : "bg-emerald-600 text-white border border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.35)] hover:bg-emerald-500 animate-pulse"
+                    : meetings[0].platform === "zoom"
+                    ? "border border-sys-border bg-sys-card text-sys-text-primary hover:border-sky-500/50 hover:text-sky-300 hover:bg-sky-500/5"
+                    : "border border-sys-border bg-sys-card text-sys-text-primary hover:border-emerald-500/50 hover:text-emerald-300 hover:bg-emerald-500/5"
                 }`}
               >
-                <span>{meetings[0].platform === "zoom" ? "📹 Zoom" : "🎥 Приєднатися в Meet"}</span>
-                <span className="text-[11px]">↗</span>
+                {meetings[0].platform === "zoom" ? (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                    <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.934a.5.5 0 0 0-.777-.416L16 11" />
+                    <rect x="2" y="6" width="14" height="12" rx="2" />
+                  </svg>
+                ) : (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                    <polygon points="23 7 16 12 23 17 23 7" />
+                    <rect x="1" y="5" width="15" height="14" rx="2" />
+                  </svg>
+                )}
+                <span>{meetings[0].platform === "zoom" ? "Zoom" : "Meet"}</span>
+                <span className="text-[11px] opacity-75">↗</span>
               </a>
             ) : rooms.length > 0 ? (
               <div className="inline-flex h-8 px-3 items-center gap-1.5 rounded-lg border border-sys-border bg-sys-bg text-sys-text-secondary font-medium text-xs shadow-xs whitespace-nowrap">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-text-muted">
+                  <path d="M18 20V6a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v14" />
+                  <path d="M2 20h20" />
+                  <path d="M14 12v.01" />
+                </svg>
                 <span>ауд. {rooms.map(formatRoom).join(", ")}</span>
               </div>
             ) : null}
@@ -828,7 +1047,7 @@ export function LessonCard({
             <h3
               title={lesson.subject_name}
               className={`font-semibold leading-snug text-sm sm:text-[15px] ${
-                !isDay ? "line-clamp-2" : "break-words"
+                !isDay ? "line-clamp-3" : "break-words"
               } ${
                 lesson.is_cancelled ? "line-through text-sys-text-muted" : "text-sys-text-subject"
               }`}
@@ -842,143 +1061,68 @@ export function LessonCard({
             )}
           </div>
 
-          {/* Row 2: Teacher(s) - completely visible without trimming, overflow-wrap anywhere */}
+          {/* Row 2: Teacher(s) - compressed into single lines for week view */}
           {isDualTeachers ? (
-            <div className="flex flex-col gap-2 text-xs text-sys-text-secondary [overflow-wrap:anywhere]">
-              {/* Teacher 0 */}
-              <div className="flex flex-col items-start gap-1 min-w-0">
-                <div className="flex items-center gap-1.5 font-medium text-sys-text-secondary [overflow-wrap:anywhere]">
-                  <span className="shrink-0 rounded bg-sys-border/60 border border-sys-border px-1.5 py-0.5 text-[10px] font-bold text-sys-text-muted">
-                    1 підгр.
-                  </span>
-                  {onQuickJump ? (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onQuickJump(secondaryItems[0].target);
-                      }}
-                      className="text-left font-medium text-sys-text-secondary no-underline underline-offset-2 hover:text-sys-accent hover:underline focus:outline-none"
-                    >
-                      {secondaryItems[0].displayName}
-                    </button>
-                  ) : (
-                    <span>{secondaryItems[0].displayName}</span>
-                  )}
-                </div>
-                {/* Teacher 0 badge: online link or room */}
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {teacherMeetings[0] ? (
-                    <a
-                      href={teacherMeetings[0].url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        vibrateTap(12);
-                      }}
-                      className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-bold transition-transform active:scale-[0.98] ${
-                        teacherMeetings[0].platform === "meet"
-                          ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
-                          : teacherMeetings[0].platform === "zoom"
-                          ? "border-sky-500/40 bg-sky-500/15 text-sky-300 hover:bg-sky-500/25"
-                          : "border-indigo-500/40 bg-indigo-500/15 text-indigo-300 hover:bg-indigo-500/25"
-                      }`}
-                    >
-                      <span>
-                        {teacherMeetings[0].platform === "meet"
-                          ? "🎥 Meet"
-                          : teacherMeetings[0].platform === "zoom"
-                          ? "📹 Zoom"
-                          : teacherMeetings[0].platform === "teams"
-                          ? "💻 Teams"
-                          : "🔗 Посилання"}
-                      </span>
-                      <span>↗</span>
-                    </a>
-                  ) : rooms[0] ? (
-                    (() => {
-                      const meta = getRoomBadgeMeta(rooms[0]);
-                      return (
-                        <span
-                          title={formatRoom(rooms[0])}
-                          className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium whitespace-nowrap ${meta.tone}`}
-                        >
-                          <span aria-hidden="true" className="text-[11px]">{meta.icon}</span>
-                          <span className="break-normal whitespace-nowrap sm:whitespace-normal">{formatRoom(rooms[0])}</span>
-                        </span>
-                      );
-                    })()
-                  ) : null}
-                </div>
+            <div className="flex flex-col gap-1 text-[11px] xl:text-xs text-sys-text-secondary [overflow-wrap:anywhere] mt-0.5">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="shrink-0 rounded bg-sys-border/60 border border-sys-border px-1 py-0.2 text-[9px] font-bold text-sys-text-muted">
+                  1 підгр.
+                </span>
+                {onQuickJump ? (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onQuickJump(secondaryItems[0].target); }}
+                    className="truncate hover:text-sys-accent hover:underline focus:outline-none text-left font-medium"
+                  >
+                    {secondaryItems[0]?.displayName}
+                  </button>
+                ) : (
+                  <span className="truncate font-medium">{secondaryItems[0]?.displayName}</span>
+                )}
+                <span className="text-sys-text-muted shrink-0">•</span>
+                {teacherMeetings[0] ? (
+                  <a
+                    href={teacherMeetings[0].url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
+                    className="text-emerald-400 font-bold hover:underline shrink-0"
+                  >
+                    Meet ↗
+                  </a>
+                ) : rooms[0] ? (
+                  <span className="shrink-0 text-sys-text-muted font-medium">{formatRoom(rooms[0])}</span>
+                ) : null}
               </div>
-
-              {/* Teacher 1 */}
-              <div className="flex flex-col items-start gap-1 min-w-0">
-                <div className="flex items-center gap-1.5 font-medium text-sys-text-secondary [overflow-wrap:anywhere]">
-                  <span className="shrink-0 rounded bg-sys-border/60 border border-sys-border px-1.5 py-0.5 text-[10px] font-bold text-sys-text-muted">
-                    2 підгр.
-                  </span>
-                  {onQuickJump ? (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onQuickJump(secondaryItems[1].target);
-                      }}
-                      className="text-left font-medium text-sys-text-secondary no-underline underline-offset-2 hover:text-sys-accent hover:underline focus:outline-none"
-                    >
-                      {secondaryItems[1].displayName}
-                    </button>
-                  ) : (
-                    <span>{secondaryItems[1].displayName}</span>
-                  )}
-                </div>
-                {/* Teacher 1 badge: online link or room */}
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {teacherMeetings[1] ? (
-                    <a
-                      href={teacherMeetings[1].url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        vibrateTap(12);
-                      }}
-                      className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-bold transition-transform active:scale-[0.98] ${
-                        teacherMeetings[1].platform === "meet"
-                          ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
-                          : teacherMeetings[1].platform === "zoom"
-                          ? "border-sky-500/40 bg-sky-500/15 text-sky-300 hover:bg-sky-500/25"
-                          : "border-indigo-500/40 bg-indigo-500/15 text-indigo-300 hover:bg-indigo-500/25"
-                      }`}
-                    >
-                      <span>
-                        {teacherMeetings[1].platform === "meet"
-                          ? "🎥 Meet"
-                          : teacherMeetings[1].platform === "zoom"
-                          ? "📹 Zoom"
-                          : teacherMeetings[1].platform === "teams"
-                          ? "💻 Teams"
-                          : "🔗 Посилання"}
-                      </span>
-                      <span>↗</span>
-                    </a>
-                  ) : rooms[1] ? (
-                    (() => {
-                      const meta = getRoomBadgeMeta(rooms[1]);
-                      return (
-                        <span
-                          title={formatRoom(rooms[1])}
-                          className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium whitespace-nowrap ${meta.tone}`}
-                        >
-                          <span aria-hidden="true" className="text-[11px]">{meta.icon}</span>
-                          <span className="break-normal whitespace-nowrap sm:whitespace-normal">{formatRoom(rooms[1])}</span>
-                        </span>
-                      );
-                    })()
-                  ) : null}
-                </div>
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="shrink-0 rounded bg-sys-border/60 border border-sys-border px-1 py-0.2 text-[9px] font-bold text-sys-text-muted">
+                  2 підгр.
+                </span>
+                {onQuickJump ? (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onQuickJump(secondaryItems[1].target); }}
+                    className="truncate hover:text-sys-accent hover:underline focus:outline-none text-left font-medium"
+                  >
+                    {secondaryItems[1]?.displayName}
+                  </button>
+                ) : (
+                  <span className="truncate font-medium">{secondaryItems[1]?.displayName}</span>
+                )}
+                <span className="text-sys-text-muted shrink-0">•</span>
+                {teacherMeetings[1] ? (
+                  <a
+                    href={teacherMeetings[1].url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
+                    className="text-emerald-400 font-bold hover:underline shrink-0"
+                  >
+                    Meet ↗
+                  </a>
+                ) : rooms[1] ? (
+                  <span className="shrink-0 text-sys-text-muted font-medium">{formatRoom(rooms[1])}</span>
+                ) : null}
               </div>
             </div>
           ) : secondaryItems.length > 0 ? (
@@ -1041,7 +1185,7 @@ export function LessonCard({
                       className={`inline-flex max-w-full items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium whitespace-nowrap ${meta.tone}`}
                       style={{ maxWidth: "100%", wordBreak: "normal" }}
                     >
-                      <span aria-hidden="true" className="shrink-0 text-[11px]">{meta.icon}</span>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-text-muted"><path d="M18 20V6a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v14"/><path d="M2 20h20"/><path d="M14 12v.01"/></svg>
                       <span className="break-normal whitespace-nowrap sm:whitespace-normal">{formatRoom(rm)}</span>
                     </span>
                   );
@@ -1070,12 +1214,12 @@ export function LessonCard({
                 >
                   <span>
                     {m.platform === "meet"
-                      ? "🎥 Meet"
+                      ? "Meet"
                       : m.platform === "zoom"
-                      ? "📹 Zoom"
+                      ? "Zoom"
                       : m.platform === "teams"
-                      ? "💻 Teams"
-                      : "🔗 Посилання"}
+                      ? "Teams"
+                      : "Посилання"}
                   </span>
                   <span className="shrink-0">↗</span>
                 </a>
@@ -1087,11 +1231,17 @@ export function LessonCard({
                   onClick={toggleHw}
                   aria-expanded={isHwOpen}
                   aria-controls={`hw-list-${lesson.id}-${lesson.lesson_number}`}
-                  title={isHwOpen ? "Згорнути завдання" : `${tasks.length} ДЗ — натисніть для перегляду`}
-                  className="inline-flex max-w-full [white-space:normal] [overflow-wrap:anywhere] items-center gap-1 rounded-md border border-purple-500/35 bg-purple-500/10 px-2 py-0.5 text-xs font-semibold text-purple-200 hover:bg-purple-500/20 active:scale-[0.98] transition-all duration-100 ease-out focus:outline-none focus:ring-1 focus:ring-purple-400"
+                  title={isHwOpen ? "Згорнути завдання" : `${tasks.length} ДЗ (${tasks[0].deadline.statusText}) — натисніть для перегляду`}
+                  className={`inline-flex max-w-full [white-space:normal] [overflow-wrap:anywhere] items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-semibold transition-all duration-100 ease-out focus:outline-none focus:ring-1 ${
+                    tasks[0].deadline.badgeTone === "overdue"
+                      ? "border-rose-500/40 bg-rose-500/15 text-rose-300 hover:bg-rose-500/25 focus:ring-rose-400"
+                      : tasks[0].deadline.badgeTone === "urgent"
+                      ? "border-amber-500/40 bg-amber-500/15 text-amber-300 hover:bg-amber-500/25 focus:ring-amber-400"
+                      : "border-purple-500/35 bg-purple-500/10 text-purple-200 hover:bg-purple-500/20 focus:ring-purple-400"
+                  }`}
                   style={{ maxWidth: "100%", whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "break-word" }}
                 >
-                  <span className="shrink-0">📌 {tasks.length} ДЗ</span>
+                  <span className="shrink-0">{tasks.length} ДЗ</span>
                   <span className={`shrink-0 text-[10px] transition-transform duration-150 motion-reduce:transition-none ${isHwOpen ? "rotate-180" : ""}`}>
                     ▾
                   </span>

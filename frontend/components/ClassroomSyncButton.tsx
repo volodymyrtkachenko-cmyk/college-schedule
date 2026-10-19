@@ -193,6 +193,7 @@ export function ClassroomSyncButton({
       type="button"
       onClick={() => void handleSync()}
       disabled={syncing}
+      aria-label="Синхронізація з Google Classroom"
       title={
         syncFreshness
           ? `${syncFreshness.text} — натисніть для синхронізації з Google Classroom`
@@ -200,10 +201,18 @@ export function ClassroomSyncButton({
       }
       className="inline-flex h-8 sm:h-9 items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 sm:px-3 text-xs font-semibold text-emerald-300 transition-colors hover:bg-emerald-500/20 disabled:opacity-50"
     >
-      <span>🎓</span>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+        <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
+        <path d="M6 12v5c3 3 9 3 12 0v-5" />
+      </svg>
       <span className="hidden sm:inline">{syncing ? "Синхронізація..." : "Classroom"}</span>
       {syncFreshness && !syncing && (
-        <span className={`h-2 w-2 rounded-full ${syncFreshness.dot}`} />
+        <span className="inline-flex items-center gap-1">
+          <span className={`h-2 w-2 rounded-full ${syncFreshness.dot}`} />
+          {syncFreshness.dot === "bg-emerald-400" && (
+            <span className="hidden xl:inline text-[11px] font-normal text-emerald-400/90">Підключено</span>
+          )}
+        </span>
       )}
     </button>
   );
