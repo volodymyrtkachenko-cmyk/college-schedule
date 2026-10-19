@@ -110,9 +110,17 @@ export default function HomePage() {
 
   useEffect(() => {
     try {
-      const saved = localStorage.getItem("schedule:view");
-      if (saved === "today" || saved === "week") {
-        setView(saved);
+      const sessionSaved = sessionStorage.getItem("schedule:view");
+      if (sessionSaved === "today" || sessionSaved === "week") {
+        setView(sessionSaved);
+        return;
+      }
+      const localSaved = localStorage.getItem("schedule:view");
+      if (localSaved === "today") {
+        setView("today");
+      } else {
+        setView("today");
+        localStorage.setItem("schedule:view", "today");
       }
     } catch {}
   }, []);
@@ -390,6 +398,10 @@ export default function HomePage() {
 
   const handleViewChange = (nextView: "today" | "week") => {
     setView(nextView);
+    try {
+      sessionStorage.setItem("schedule:view", nextView);
+      localStorage.setItem("schedule:view", nextView);
+    } catch {}
     if (nextView === "today") {
       handleJumpToToday();
     }
