@@ -241,15 +241,16 @@ export function ImportPanel() {
     }
   };
 
-  const publishImport = async () => {
+  const publishImportMode = async (mode: "substitutions_only" | "explicit_only" | "all", force: boolean = false) => {
     if (!draftId) return;
     setLoading(true);
     setError(null);
     try {
       const session = await api.auth.ensureAuthenticated();
       const draft = await api.generator.getDraft(draftId, session.access_token);
-      await api.generator.publish(draftId, session.access_token, targetVersionId || undefined, draft.revision);
+      await api.generator.publish(draftId, session.access_token, undefined, draft.revision, force, mode);
       setStatus("success");
+      await loadStatus();
     } catch (err: any) {
       setError(err?.message || "Не вдалося опублікувати імпорт.");
     } finally {
@@ -479,7 +480,31 @@ export function ImportPanel() {
                       <div key={`${item.date}-${item.group_id}-${item.lesson_number}-${index}`} className="min-w-0 overflow-hidden rounded-2xl border border-sys-accent/20 bg-sys-accent/[0.04] p-4 shadow-sm">
                         <div className="mb-4 flex items-start justify-between gap-3">
                           <div>
-                            <div className="text-sm font-semibold text-sys-text-primary">Заміна заняття</div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-sm font-semibold text-sys-text-primary">
+                                {item.is_swap ? "Перестановка пар" : item.is_move ? "Перенесення пари" : "Заміна заняття"}
+                              </span>
+                              {item.is_swap && item.swap_with_lesson && (
+                                <span className="rounded-full bg-purple-500/15 border border-purple-500/30 px-2 py-0.5 text-[11px] font-semibold text-purple-300 flex items-center gap-1">
+                                  🔀 Пара {item.lesson_number} ↔ Пара {item.swap_with_lesson}
+                                </span>
+                              )}
+                              {item.is_move && item.moved_from_lesson && (
+                                <span className="rounded-full bg-blue-500/15 border border-blue-500/30 px-2 py-0.5 text-[11px] font-semibold text-blue-300 flex items-center gap-1">
+                                  ➡️ Перенесено з {item.moved_from_lesson}-ї пари
+                                </span>
+                              )}
+                              {item.is_explicit_substitution && (
+                                <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-[11px] font-semibold text-emerald-300">
+                                  🏷️ Позначка заміни
+                                </span>
+                              )}
+                              {item.is_equal_to_base && (
+                                <span className="rounded-full bg-gray-500/15 border border-gray-500/30 px-2 py-0.5 text-[11px] font-semibold text-gray-400">
+                                  ⚠️ Відповідає основному розкладу
+                                </span>
+                              )}
+                            </div>
                             <div className="mt-1 text-xs text-sys-text-muted">Зміна на {formatChangeDate(item.date)}, {item.lesson_number}-та пара</div>
                           </div>
                           <button type="button" onClick={() => setSubstitutions(current => current.filter((value) => value !== item))} className="rounded-lg border border-rose-400/20 px-2.5 py-1.5 text-xs font-medium text-rose-300 transition hover:bg-rose-500/10" aria-label={`Видалити заміну ${index + 1}`}>
@@ -605,46 +630,83 @@ export function ImportPanel() {
         )}
         
         {status === "ready" && (
-            <div className="animate-in fade-in text-center p-4 sm:py-10 bg-amber-500/5 border border-amber-500/20 rounded-2xl">
+            <div className="animate-in fade-in text-center p-4 sm:py-8 bg-amber-500/5 border border-amber-500/20 rounded-2xl">
                 <h3 className="text-xl sm:text-2xl font-bold text-amber-200 mb-2">Імпорт готовий до публікації</h3>
-                <p className="text-sys-text-secondary max-w-md mx-auto mb-6 text-xs sm:text-sm">Перевірте зміни імпорту, а потім опублікуйте чернетку окремою дією.</p>
-                <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:justify-center sm:gap-4 mb-6 text-sm max-w-sm sm:max-w-none mx-auto">
-                  <div className="rounded-xl border border-sys-border bg-sys-card p-2 sm:px-4 sm:py-2.5 text-center flex flex-col justify-center">
-                    <div className="text-[11px] sm:text-xs text-sys-text-secondary truncate">Базові слоти</div>
-                    <div className="text-base sm:text-lg font-bold text-sys-text-primary mt-0.5">{report?.base_slots?.length || 0}</div>
+                <p className="text-sys-text-secondary max-w-lg mx-auto mb-6 text-xs sm:text-sm">
+                  Оберіть режим публікації: опублікувати тільки зміни без скасувань, тільки пари з позначкою заміни або повний імпорт.
+                </p>
+
+                {/* Counters */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6 max-w-2xl mx-auto text-sm">
+                  <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-center flex flex-col justify-center">
+                    <div className="text-[11px] sm:text-xs text-amber-300 truncate">Заміни та перестановки</div>
+                    <div className="text-base sm:text-lg font-bold text-amber-200 mt-0.5">
+                      {substitutions.filter(s => !s.is_equal_to_base).length}
+                    </div>
+                    {substitutions.filter(s => s.is_swap).length > 0 && (
+                      <div className="text-[10px] text-purple-300 font-medium mt-0.5">
+                        {substitutions.filter(s => s.is_swap).length} перестановок
+                      </div>
+                    )}
                   </div>
-                  <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-2 sm:px-4 sm:py-2.5 text-center flex flex-col justify-center">
-                    <div className="text-[11px] sm:text-xs text-amber-300 truncate">Заміни</div>
-                    <div className="text-base sm:text-lg font-bold text-amber-200 mt-0.5">{substitutions.length}</div>
+
+                  <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-center flex flex-col justify-center">
+                    <div className="text-[11px] sm:text-xs text-emerald-300 truncate">З позначкою заміни</div>
+                    <div className="text-base sm:text-lg font-bold text-emerald-200 mt-0.5">
+                      {substitutions.filter(s => s.is_explicit_substitution && !s.is_equal_to_base).length}
+                    </div>
                   </div>
-                  <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-2 sm:px-4 sm:py-2.5 text-center flex flex-col justify-center">
+
+                  <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-3 text-center flex flex-col justify-center">
                     <div className="text-[11px] sm:text-xs text-rose-300 truncate">Скасування</div>
                     <div className="text-base sm:text-lg font-bold text-rose-200 mt-0.5">{cancelled.length}</div>
                   </div>
-                </div>
-                {versions.length > 0 && (
-                  <div className="flex flex-col sm:flex-row justify-center items-center gap-2 sm:gap-3 mb-6 max-w-sm mx-auto">
-                    <span className="text-xs sm:text-sm font-medium text-sys-text-secondary shrink-0">Публікувати у версію:</span>
-                    <select className="form-control text-sm w-full sm:w-64" value={targetVersionId || ""} onChange={e => setTargetVersionId(e.target.value ? Number(e.target.value) : null)}>
-                      <option value="">Поточна активна версія</option>
-                      {versions.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
-                    </select>
+
+                  <div className="rounded-xl border border-sys-border bg-sys-card p-3 text-center flex flex-col justify-center">
+                    <div className="text-[11px] sm:text-xs text-sys-text-secondary truncate">Збігаються з базою</div>
+                    <div className="text-base sm:text-lg font-bold text-sys-text-muted mt-0.5">
+                      {substitutions.filter(s => s.is_equal_to_base).length}
+                    </div>
+                    <div className="text-[10px] text-sys-text-muted/80 mt-0.5">пропускаються</div>
                   </div>
-                )}
-                <div className="flex flex-col sm:flex-row justify-center items-stretch sm:items-center gap-2.5 max-w-xs sm:max-w-none mx-auto">
+                </div>
+
+                {/* Publish Action Buttons */}
+                <div className="flex flex-col sm:flex-row flex-wrap justify-center items-stretch sm:items-center gap-3 max-w-2xl mx-auto">
                   <button
                     type="button"
-                    onClick={publishImport}
+                    onClick={() => void publishImportMode("substitutions_only")}
                     disabled={loading || !draftId}
-                    className="w-full sm:w-auto bg-sys-accent text-[#0b1120] font-bold py-2.5 px-6 rounded-lg disabled:opacity-50 shadow-sm hover:opacity-90 active:scale-98 transition-all"
+                    className="flex-1 bg-sys-accent text-[#0b1120] font-bold py-2.5 px-4 rounded-xl disabled:opacity-50 shadow-sm hover:opacity-90 active:scale-98 transition-all flex flex-col items-center justify-center text-xs sm:text-sm"
                   >
-                    {loading ? "Публікуємо…" : "Опублікувати імпорт"}
+                    <span>Опублікувати тільки зміни</span>
+                    <span className="text-[10px] font-normal opacity-85">(без скасувань та дублів)</span>
                   </button>
+
+                  <button
+                    type="button"
+                    onClick={() => void publishImportMode("explicit_only")}
+                    disabled={loading || !draftId}
+                    className="flex-1 bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-bold py-2.5 px-4 rounded-xl disabled:opacity-50 hover:bg-emerald-500/25 active:scale-98 transition-all flex flex-col items-center justify-center text-xs sm:text-sm"
+                  >
+                    <span>Тільки з позначкою заміни</span>
+                    <span className="text-[10px] font-normal opacity-85">(із сайту kre.dp.ua)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => void publishImportMode("all", true)}
+                    disabled={loading || !draftId}
+                    className="w-full sm:w-auto py-2.5 px-4 rounded-xl border border-sys-border bg-white/5 text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/10 active:scale-98 transition-all text-xs sm:text-sm"
+                  >
+                    Опублікувати все (зі скасуваннями)
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => void cancelImport()}
                     disabled={loading}
-                    className="w-full sm:w-auto py-2.5 px-5 rounded-lg border border-sys-border bg-white/5 text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/10 active:scale-98 transition-all"
+                    className="w-full sm:w-auto py-2.5 px-4 rounded-xl border border-rose-500/20 bg-rose-500/5 text-rose-300 hover:bg-rose-500/10 active:scale-98 transition-all text-xs sm:text-sm"
                   >
                     Скасувати імпорт
                   </button>

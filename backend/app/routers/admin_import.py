@@ -261,6 +261,160 @@ def _deduplicate_import_changes(
     )
 
 
+def annotate_substitutions_and_swaps(
+    substitutions: list[dict],
+    base_slots: list[dict],
+    current_schedules: list[Schedule],
+    semester_start: date | None,
+) -> tuple[list[dict], list[dict]]:
+    """
+    1. Compares incoming lessons with current_schedules:
+       - Identifies if a lesson is identical to base schedule (is_equal_to_base = True).
+       - Identifies if lessons on the same day swapped slots (change_type = 'swap', is_swap = True, swap_with_lesson = m).
+       - Identifies if a lesson was moved from another slot on the same day (change_type = 'move', is_move = True, moved_from_lesson = m).
+       - Identifies regular substitutions (change_type = 'substitution').
+    2. Discovers implicit swaps/changes from base_slots that do not match base schedule.
+    3. Returns (annotated_substitutions, cleaned_base_slots).
+    """
+    def _matches_slot(inc: dict, base: Schedule | None) -> bool:
+        if base is None:
+            return False
+        if inc.get("subject_id") != base.subject_id:
+            return False
+        if inc.get("teacher_id") != base.teacher_id:
+            return False
+        if inc.get("second_teacher_id") != base.second_teacher_id:
+            return False
+        inc_room = _normalize_room(inc.get("room"))
+        base_room = _normalize_room(_schedule_room(base))
+        if inc_room != base_room:
+            return False
+        return True
+
+    schedules_by_group_dow: dict[tuple[int, int], list[Schedule]] = {}
+    for sch in current_schedules:
+        schedules_by_group_dow.setdefault((sch.group_id, sch.day_of_week), []).append(sch)
+
+    items_by_group_date: dict[tuple[int, str], dict[int, dict]] = {}
+    existing_sub_keys = set()
+
+    for sub in substitutions:
+        key = (sub["group_id"], sub["date"])
+        sub.setdefault("is_explicit_substitution", True)
+        items_by_group_date.setdefault(key, {})[sub["lesson_number"]] = sub
+        existing_sub_keys.add((sub["group_id"], sub["date"], sub["lesson_number"]))
+
+    implicit_substitutions = []
+    clean_base_slots = []
+    for slot in base_slots:
+        d_str = slot.get("date")
+        if not d_str:
+            clean_base_slots.append(slot)
+            continue
+
+        gid = slot["group_id"]
+        ln = slot["lesson_number"]
+        if (gid, d_str, ln) in existing_sub_keys:
+            continue
+
+        try:
+            d_obj = datetime.strptime(d_str, "%Y-%m-%d").date()
+        except Exception:
+            clean_base_slots.append(slot)
+            continue
+
+        dow = d_obj.isoweekday()
+        w_type = get_week_type(d_obj, semester_start)
+        day_schedules = schedules_by_group_dow.get((gid, dow), [])
+        base_at_ln = next(
+            (s for s in day_schedules if s.lesson_number == ln and _week_matches(w_type, s.week_type)),
+            None
+        )
+
+        if _matches_slot(slot, base_at_ln):
+            clean_base_slots.append(slot)
+        else:
+            implicit_item = {
+                "date": d_str,
+                "lesson_number": ln,
+                "group_id": gid,
+                "subject_id": slot["subject_id"],
+                "teacher_id": slot.get("teacher_id"),
+                "second_teacher_id": slot.get("second_teacher_id"),
+                "room": slot.get("room"),
+                "week_type": slot.get("week_type", "both"),
+                "is_explicit_substitution": False,
+            }
+            items_by_group_date.setdefault((gid, d_str), {})[ln] = implicit_item
+            implicit_substitutions.append(implicit_item)
+
+    all_substitutions = [*substitutions, *implicit_substitutions]
+
+    for (gid, d_str), lessons_map in items_by_group_date.items():
+        try:
+            d_obj = datetime.strptime(d_str, "%Y-%m-%d").date()
+        except Exception:
+            continue
+
+        dow = d_obj.isoweekday()
+        w_type = get_week_type(d_obj, semester_start)
+        day_schedules = schedules_by_group_dow.get((gid, dow), [])
+        base_slots_for_day = {
+            s.lesson_number: s
+            for s in day_schedules
+            if _week_matches(w_type, s.week_type)
+        }
+
+        for ln, inc in lessons_map.items():
+            base_at_ln = base_slots_for_day.get(ln)
+            if _matches_slot(inc, base_at_ln):
+                inc["is_equal_to_base"] = True
+                inc["change_type"] = "none"
+                inc["is_swap"] = False
+                inc["swap_with_lesson"] = None
+                inc["is_move"] = False
+                inc["moved_from_lesson"] = None
+                inc["note"] = "Відповідає базовому розкладу"
+                continue
+
+            inc["is_equal_to_base"] = False
+            subj_id = inc.get("subject_id")
+            teach_id = inc.get("teacher_id")
+            candidates = [
+                m for m, b in base_slots_for_day.items()
+                if m != ln and b.subject_id == subj_id and (teach_id is None or b.teacher_id == teach_id)
+            ]
+
+            if candidates:
+                m = candidates[0]
+                base_at_m = base_slots_for_day.get(m)
+                inc_at_m = lessons_map.get(m)
+
+                if base_at_ln and inc_at_m and _matches_slot(inc_at_m, base_at_ln):
+                    inc["change_type"] = "swap"
+                    inc["is_swap"] = True
+                    inc["swap_with_lesson"] = m
+                    inc["is_move"] = False
+                    inc["moved_from_lesson"] = None
+                    inc["note"] = f"Перестановка пар: {ln} ↔ {m}"
+                else:
+                    inc["change_type"] = "move"
+                    inc["is_swap"] = False
+                    inc["swap_with_lesson"] = None
+                    inc["is_move"] = True
+                    inc["moved_from_lesson"] = m
+                    inc["note"] = f"Перенесено з {m}-ї пари"
+            else:
+                inc["change_type"] = "substitution"
+                inc["is_swap"] = False
+                inc["swap_with_lesson"] = None
+                inc["is_move"] = False
+                inc["moved_from_lesson"] = None
+                inc["note"] = "Заміна пари"
+
+    return all_substitutions, clean_base_slots
+
+
 async def _latest_published_changes(
     db: AsyncSession,
     scope_dates: set,
@@ -736,6 +890,15 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
             aggregated_cancelled,
         )
 
+        semester_start = await settings_service.get_semester_start(db)
+
+        aggregated_substitutions, aggregated_base_slots = annotate_substitutions_and_swaps(
+            aggregated_substitutions,
+            aggregated_base_slots,
+            current_schedules,
+            semester_start,
+        )
+
         # Safety Guard 3: Manual edits protection (manually_edited == True or ScheduleOverride)
         skipped_manual = []
         clean_substitutions = []
@@ -862,7 +1025,6 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
 
         # Safety Guard 2: Anomaly limits (>30% in any group or >20% overall)
         from collections import Counter
-        semester_start = await settings_service.get_semester_start(db)
 
         group_lessons_count = Counter()
         for sch in current_schedules:
@@ -876,11 +1038,12 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
 
         changes_per_group = Counter()
         for sub in aggregated_substitutions:
-            changes_per_group[sub["group_id"]] += 1
+            if not sub.get("is_equal_to_base"):
+                changes_per_group[sub["group_id"]] += 1
         for canc in aggregated_cancelled:
             changes_per_group[canc["group_id"]] += 1
 
-        total_changes = len(aggregated_substitutions) + len(aggregated_cancelled)
+        total_changes = sum(changes_per_group.values())
 
         import_settings = await get_import_settings(db)
         anomaly_group_thresh = import_settings["anomaly_group_threshold"]
@@ -1067,6 +1230,8 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
 
                 # Insert substitutions
                 for sub in aggregated_substitutions:
+                    if sub.get("is_equal_to_base"):
+                        continue
                     d_obj = datetime.strptime(sub["date"], "%Y-%m-%d").date()
                     latest = await db.scalar(
                         select(func.max(ImportedScheduleChange.version)).where(
@@ -1104,7 +1269,13 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
                     new_subj = subjects_map.get(sub.get("subject_id"))
                     new_teach = teachers_map.get(sub.get("teacher_id"))
                     new_room = f", ауд. {sub.get('room')}" if sub.get("room") else ""
-                    after_str = f"{new_subj.name if new_subj else ''} ({new_teach.name if new_teach else ''}{new_room})".strip()
+                    summary_str = f"{new_subj.name if new_subj else ''} ({new_teach.name if new_teach else ''}{new_room})".strip()
+                    if sub.get("is_swap") and sub.get("swap_with_lesson"):
+                        summary_str += f" [🔀 Перестановка: пара {sub['lesson_number']} ↔ пара {sub['swap_with_lesson']}]"
+                    elif sub.get("is_move") and sub.get("moved_from_lesson"):
+                        summary_str += f" [➡️ Перенесено з {sub['moved_from_lesson']}-ї пари]"
+                    elif sub.get("is_explicit_substitution"):
+                        summary_str += " [🏷️ Заміна]"
 
                     db.add(SchedulePublicationSnapshot(
                         publication_id=publication.id,
@@ -1112,7 +1283,15 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
                         date=d_obj,
                         lesson_number=sub["lesson_number"],
                         before_data=json.dumps({"summary": before_str}),
-                        after_data=json.dumps({"kind": "substitution", "summary": after_str}),
+                        after_data=json.dumps({
+                            "kind": "substitution",
+                            "change_type": sub.get("change_type", "substitution"),
+                            "summary": summary_str,
+                            "is_swap": sub.get("is_swap", False),
+                            "swap_with_lesson": sub.get("swap_with_lesson"),
+                            "is_move": sub.get("is_move", False),
+                            "moved_from_lesson": sub.get("moved_from_lesson"),
+                        }),
                     ))
 
                 # Insert cancellations

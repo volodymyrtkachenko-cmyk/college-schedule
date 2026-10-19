@@ -92,6 +92,7 @@ class ScheduleDiffer:
                         "room": lesson.room,
                         "group_id": group_id,
                         "week_type": parsed_week.week_type,
+                        "is_explicit_substitution": True,
                     })
                 else:
                     unresolved_substitutions.append({
@@ -104,6 +105,7 @@ class ScheduleDiffer:
             else:
                 if subject_id and group_id and not teacher_unresolved:
                     base_schedule_slots.append({
+                        "date": lesson.date.isoformat(),
                         "day_of_week": lesson.date.isoweekday(),
                         "lesson_number": lesson.lesson_number,
                         "group_id": group_id,
@@ -111,7 +113,8 @@ class ScheduleDiffer:
                         "teacher_id": teacher_id,
                         "second_teacher_id": second_teacher_id,
                         "room": lesson.room,
-                        "week_type": parsed_week.week_type
+                        "week_type": parsed_week.week_type,
+                        "is_explicit_substitution": False,
                     })
                 elif subject_id and group_id and teacher_unresolved:
                     skipped_base_slots.append({

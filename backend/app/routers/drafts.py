@@ -222,6 +222,14 @@ async def list_draft_substitutions(
             "room": item.get("room"),
             "teacher_id": item.get("teacher_id"),
             "second_teacher_id": item.get("second_teacher_id"),
+            "is_explicit_substitution": item.get("is_explicit_substitution", True),
+            "is_equal_to_base": item.get("is_equal_to_base", False),
+            "change_type": item.get("change_type", "substitution"),
+            "is_swap": item.get("is_swap", False),
+            "swap_with_lesson": item.get("swap_with_lesson"),
+            "is_move": item.get("is_move", False),
+            "moved_from_lesson": item.get("moved_from_lesson"),
+            "note": item.get("note"),
         })
     for item in cancelled:
         d = to_date(item["date"])
@@ -329,6 +337,7 @@ async def publish_draft(
     target_version_id: int | None = None,
     expected_revision: int = Query(...),
     force: bool = Query(False),
+    mode: str = Query("all", pattern="^(all|substitutions_only|explicit_only)$"),
     db: AsyncSession = Depends(get_db),
     current_user=Depends(require_roles("admin", "editor"))
 ):
@@ -351,15 +360,20 @@ async def publish_draft(
     import json
     from datetime import datetime
 
+    force_bool = force if isinstance(force, bool) else getattr(force, "default", False)
+    mode_str = mode if isinstance(mode, str) else getattr(mode, "default", "all")
+    if not isinstance(mode_str, str):
+        mode_str = "all"
+
     # 1. SPECIAL PATH: IMPORT DRAFTS NEVER TOUCH PERMANENT SCHEDULE (Schedule table)
     if draft.draft_type == "import":
-        # Check anomaly guard: an anomaly draft cannot be published without force=True
+        # Check anomaly guard: an anomaly draft cannot be published in 'all' mode without force=True
         is_anomaly = (draft.data or {}).get("is_anomaly", False)
-        if is_anomaly and not force:
+        if is_anomaly and not force_bool and mode_str == "all":
             reasons = (draft.data or {}).get("anomaly_reasons", [])
             detail_msg = (
                 f"Чернетку позначено як аномальну: {'; '.join(reasons)}. "
-                "Публікацію зупинено. Для примусової публікації додайте force=true."
+                "Публікацію зупинено. Для примусової повної публікації додайте force=true або виберіть публікацію тільки замін."
                 if reasons else "Аномальна чернетка імпорту. Для публікації потрібне підтвердження (force=true)."
             )
             raise HTTPException(
@@ -403,6 +417,26 @@ async def publish_draft(
 
         substitutions = (draft.data or {}).get("substitutions", [])
         cancelled_lessons = (draft.data or {}).get("cancelled", [])
+
+        # Filter according to mode:
+        if mode_str == "explicit_only":
+            substitutions = [
+                s for s in substitutions
+                if (s.get("is_explicit_substitution") or s.get("is_substitution")) and not s.get("is_equal_to_base")
+            ]
+            cancelled_lessons = []
+        elif mode_str == "substitutions_only":
+            substitutions = [
+                s for s in substitutions
+                if not s.get("is_equal_to_base")
+            ]
+            cancelled_lessons = []
+        else:  # "all"
+            substitutions = [
+                s for s in substitutions
+                if not s.get("is_equal_to_base")
+            ]
+
         import_scope = (draft.data or {}).get("import_scope") or {}
         scope_dates = {
             datetime.strptime(value, "%Y-%m-%d").date()
@@ -427,11 +461,23 @@ async def publish_draft(
             }
 
         total_changes = len(substitutions) + len(cancelled_lessons)
+        if total_changes == 0 and mode_str in ("substitutions_only", "explicit_only"):
+            draft.status = "published"
+            draft.updated_at = datetime.utcnow()
+            await db.commit()
+            return {
+                "status": "published",
+                "publication_id": None,
+                "changes_count": 0,
+                "message": "Змін не виявлено (усі заняття відповідають основному розкладу або не мають позначки заміни). Розклад залишено без змін."
+            }
+
         publication = SchedulePublication(
             version_id=target_version_id,
             actor_id=current_user.id,
             scope_manifest=json.dumps({
                 "source": "manual",
+                "mode": mode_str,
                 "group_ids": sorted(list(scope_group_ids)),
                 "changes_count": total_changes,
                 "dates": sorted([d.isoformat() for d in scope_dates]),
@@ -507,13 +553,29 @@ async def publish_draft(
             subj_n = all_subjs.get(sub["subject_id"], "")
             teach_n = all_teachers.get(sub["teacher_id"], "")
             room_n = f", ауд. {sub.get('room')}" if sub.get("room") else ""
+            summary_str = f"{subj_n} ({teach_n}{room_n})".strip()
+            if sub.get("is_swap") and sub.get("swap_with_lesson"):
+                summary_str += f" [🔀 Перестановка: пара {sub['lesson_number']} ↔ пара {sub['swap_with_lesson']}]"
+            elif sub.get("is_move") and sub.get("moved_from_lesson"):
+                summary_str += f" [➡️ Перенесено з {sub['moved_from_lesson']}-ї пари]"
+            elif sub.get("is_explicit_substitution"):
+                summary_str += " [🏷️ Заміна]"
+
             db.add(SchedulePublicationSnapshot(
                 publication_id=publication.id,
                 group_id=sub["group_id"],
                 date=d_obj,
                 lesson_number=sub["lesson_number"],
                 before_data=json.dumps({"summary": "Базовий розклад"}),
-                after_data=json.dumps({"kind": "substitution", "summary": f"{subj_n} ({teach_n}{room_n})".strip()}),
+                after_data=json.dumps({
+                    "kind": "substitution",
+                    "change_type": sub.get("change_type", "substitution"),
+                    "summary": summary_str,
+                    "is_swap": sub.get("is_swap", False),
+                    "swap_with_lesson": sub.get("swap_with_lesson"),
+                    "is_move": sub.get("is_move", False),
+                    "moved_from_lesson": sub.get("moved_from_lesson"),
+                }),
             ))
 
         # Insert cancellations

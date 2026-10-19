@@ -404,3 +404,223 @@ async def test_active_version_resolution_for_target_date(ctx):
     sorted_by_valid_from_desc = sorted(all_versions, key=lambda v: v.valid_from, reverse=True)
     assert sorted_by_valid_from_desc[0].name == "Майбутній семестр (2027)"
     assert active_for_today.id != sorted_by_valid_from_desc[0].id
+
+
+# -----------------------------------------------------------------------------
+# ТЕСТ 6: Розпізнавання перестановок пар (swap) та перенесень (move)
+# -----------------------------------------------------------------------------
+@pytest.mark.anyio
+async def test_swap_and_move_recognition(ctx):
+    db, ids = ctx
+    from app.routers.admin_import import annotate_substitutions_and_swaps
+
+    # Створюємо базовий розклад: Вівторок, пара 1 - Math, пара 2 - Physics
+    base1 = Schedule(
+        group_id=ids["group_id"],
+        subject_id=ids["subject_id"],  # Math
+        teacher_id=ids["teacher_id"],
+        day_of_week=2,  # Tuesday
+        lesson_number=1,
+        week_type="both",
+        is_active=True,
+        version_id=ids["version_id"],
+    )
+    base2 = Schedule(
+        group_id=ids["group_id"],
+        subject_id=ids["subject2_id"],  # Physics
+        teacher_id=ids["teacher_id"],
+        day_of_week=2,
+        lesson_number=2,
+        week_type="both",
+        is_active=True,
+        version_id=ids["version_id"],
+    )
+    current_schedules = [base1, base2]
+    semester_start = date(2026, 9, 1)
+    target_date = "2026-10-20"  # Tuesday
+
+    # Випадок 1: Взаємна перестановка (Пара 1 <-> Пара 2)
+    incoming_subs = [
+        {
+            "group_id": ids["group_id"],
+            "date": target_date,
+            "lesson_number": 1,
+            "subject_id": ids["subject2_id"],  # Physics at lesson 1
+            "teacher_id": ids["teacher_id"],
+            "second_teacher_id": None,
+            "room": None,
+            "is_explicit_substitution": True,
+        },
+        {
+            "group_id": ids["group_id"],
+            "date": target_date,
+            "lesson_number": 2,
+            "subject_id": ids["subject_id"],  # Math at lesson 2
+            "teacher_id": ids["teacher_id"],
+            "second_teacher_id": None,
+            "room": None,
+            "is_explicit_substitution": True,
+        },
+    ]
+
+    annotated, _ = annotate_substitutions_and_swaps(incoming_subs, [], current_schedules, semester_start)
+    sub1 = next(s for s in annotated if s["lesson_number"] == 1)
+    sub2 = next(s for s in annotated if s["lesson_number"] == 2)
+
+    assert sub1["is_swap"] is True
+    assert sub1["change_type"] == "swap"
+    assert sub1["swap_with_lesson"] == 2
+    assert "Перестановка пар: 1 ↔ 2" in sub1["note"]
+    assert sub1["is_equal_to_base"] is False
+
+    assert sub2["is_swap"] is True
+    assert sub2["change_type"] == "swap"
+    assert sub2["swap_with_lesson"] == 1
+    assert "Перестановка пар: 2 ↔ 1" in sub2["note"]
+    assert sub2["is_equal_to_base"] is False
+
+    # Випадок 2: Перенесення (Move) однієї пари (Physics перенесено на пару 3)
+    incoming_move = [
+        {
+            "group_id": ids["group_id"],
+            "date": target_date,
+            "lesson_number": 3,
+            "subject_id": ids["subject2_id"],  # Physics moved to lesson 3
+            "teacher_id": ids["teacher_id"],
+            "second_teacher_id": None,
+            "room": None,
+            "is_explicit_substitution": True,
+        }
+    ]
+    annotated_move, _ = annotate_substitutions_and_swaps(incoming_move, [], current_schedules, semester_start)
+    assert len(annotated_move) == 1
+    assert annotated_move[0]["is_move"] is True
+    assert annotated_move[0]["change_type"] == "move"
+    assert annotated_move[0]["moved_from_lesson"] == 2
+    assert "Перенесено з 2-ї пари" in annotated_move[0]["note"]
+
+    # Випадок 3: Відповідає базовому розкладу (is_equal_to_base = True)
+    incoming_same = [
+        {
+            "group_id": ids["group_id"],
+            "date": target_date,
+            "lesson_number": 1,
+            "subject_id": ids["subject_id"],  # Math at lesson 1 (same as base)
+            "teacher_id": ids["teacher_id"],
+            "second_teacher_id": None,
+            "room": None,
+            "is_explicit_substitution": False,
+        }
+    ]
+    annotated_same, _ = annotate_substitutions_and_swaps(incoming_same, [], current_schedules, semester_start)
+    assert annotated_same[0]["is_equal_to_base"] is True
+    assert annotated_same[0]["change_type"] == "none"
+
+
+# -----------------------------------------------------------------------------
+# ТЕСТ 7: Селективна публікація аномального імпорту (mode='substitutions_only' / 'explicit_only')
+# -----------------------------------------------------------------------------
+@pytest.mark.anyio
+async def test_selective_publish_modes_anomaly(ctx):
+    db, ids = ctx
+    from app.routers import drafts
+    from app.models.entities import SchedulePublicationSnapshot
+    from app.models import ImportedScheduleChange
+    import json
+
+    # Створюємо чернетку з аномалією
+    draft_data = {
+        "is_anomaly": True,
+        "anomaly_reasons": ["Тестова аномалія: >30% змін"],
+        "base_version_id": ids["version_id"],
+        "import_scope": {
+            "dates": ["2026-10-20"],
+            "group_ids": [ids["group_id"]],
+        },
+        "substitutions": [
+            {
+                "group_id": ids["group_id"],
+                "date": "2026-10-20",
+                "lesson_number": 1,
+                "subject_id": ids["subject_id"],
+                "teacher_id": ids["teacher_id"],
+                "is_explicit_substitution": True,
+                "is_equal_to_base": False,
+                "change_type": "substitution",
+            },
+            {
+                "group_id": ids["group_id"],
+                "date": "2026-10-20",
+                "lesson_number": 2,
+                "subject_id": ids["subject2_id"],
+                "teacher_id": ids["teacher_id"],
+                "is_explicit_substitution": False,
+                "is_equal_to_base": False,
+                "change_type": "swap",
+                "is_swap": True,
+                "swap_with_lesson": 1,
+            },
+            {
+                "group_id": ids["group_id"],
+                "date": "2026-10-20",
+                "lesson_number": 3,
+                "subject_id": ids["subject_id"],
+                "teacher_id": ids["teacher_id"],
+                "is_explicit_substitution": True,
+                "is_equal_to_base": True,  # Ідентична базі - має бути відфільтрована!
+                "change_type": "none",
+            },
+        ],
+        "cancelled": [
+            {
+                "group_id": ids["group_id"],
+                "date": "2026-10-20",
+                "lesson_number": 4,
+            }
+        ],
+    }
+
+    test_draft = ScheduleDraft(
+        name="Аномальна чернетка",
+        draft_type="import",
+        status="pending",
+        revision=1,
+        data=draft_data,
+    )
+    db.add(test_draft)
+    await db.commit()
+
+    # 1. Публікація в режимі explicit_only:
+    # Тільки пара 1 має is_explicit_substitution=True і is_equal_to_base=False
+    # Пара 2 має is_explicit_substitution=False -> пропускається
+    # Пара 3 має is_equal_to_base=True -> пропускається
+    # Скасування 4 -> пропускається
+    res_explicit = await drafts.publish_draft(
+        test_draft.id,
+        expected_revision=1,
+        mode="explicit_only",
+        db=db,
+        current_user=SimpleNamespace(id=ids["admin_user_id"], role="admin"),
+    )
+    assert res_explicit["status"] == "published"
+    pub_id = res_explicit["publication_id"]
+    assert pub_id is not None
+
+    changes = (await db.scalars(
+        select(ImportedScheduleChange).where(ImportedScheduleChange.publication_id == pub_id)
+    )).all()
+    # Тільки 1 зміна (пара 1)
+    assert len(changes) == 1
+    assert changes[0].lesson_number == 1
+    assert changes[0].kind == "substitution"
+
+    # Жодного скасування не опубліковано
+    assert not any(c.kind == "cancelled" for c in changes)
+
+    # Перевіряємо знімок
+    snapshots = (await db.scalars(
+        select(SchedulePublicationSnapshot).where(SchedulePublicationSnapshot.publication_id == pub_id)
+    )).all()
+    assert len(snapshots) == 1
+    after_data = json.loads(snapshots[0].after_data)
+    assert "[🏷️ Заміна]" in after_data["summary"]

@@ -527,6 +527,14 @@ export interface ImportSubstitution {
     teacher_id: number;
     second_teacher_id?: number | null;
     room?: string | null;
+    is_explicit_substitution?: boolean;
+    is_equal_to_base?: boolean;
+    change_type?: "substitution" | "swap" | "move" | "none";
+    is_swap?: boolean;
+    swap_with_lesson?: number | null;
+    is_move?: boolean;
+    moved_from_lesson?: number | null;
+    note?: string | null;
 }
 export interface ImportCancellation {
     date: string;
@@ -710,11 +718,20 @@ export const apiGenerator = {
       body: JSON.stringify({ day_of_week: day, lesson_number: lesson, week_type: week })
     }, true, true, token);
   },
-  publish: async (id: number, token: string, targetVersionId?: number, expectedRevision?: number): Promise<{message: string}> => {
+  publish: async (
+    id: number,
+    token: string,
+    targetVersionId?: number,
+    expectedRevision?: number,
+    force?: boolean,
+    mode?: "all" | "substitutions_only" | "explicit_only"
+  ): Promise<{ status?: string; publication_id?: number | null; message?: string }> => {
     let url = `/api/drafts/${id}/publish?`;
     if (targetVersionId) url += `target_version_id=${targetVersionId}&`;
-    if (expectedRevision) url += `expected_revision=${expectedRevision}`;
-    return request<{message: string}>(url, { method: "POST" }, true, true, token);
+    if (expectedRevision !== undefined) url += `expected_revision=${expectedRevision}&`;
+    if (force) url += `force=true&`;
+    if (mode) url += `mode=${mode}&`;
+    return request<{ status?: string; publication_id?: number | null; message?: string }>(url, { method: "POST" }, true, true, token);
   },
   updateImportChanges: async (id: number, data: Pick<ImporterReport, "substitutions" | "cancelled">, token: string): Promise<void> => {
     return request<void>(`/api/drafts/${id}/import-changes`, {
