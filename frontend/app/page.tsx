@@ -16,6 +16,8 @@ import { useAuth, canAccessAdmin } from "../lib/auth";
 import { getMondayOf } from "../lib/date";
 import dynamic from "next/dynamic";
 const WelcomeScreen = dynamic(() => import("../components/WelcomeScreen").then((m) => m.WelcomeScreen), { ssr: false });
+import { BottomNav, MobileTab } from "../components/BottomNav";
+import { MobileTasksView, FullTaskItem } from "../components/MobileTasksView";
 import { SearchableSelect } from "../components/SearchableSelect";
 import { ClassroomSyncButton } from "../components/ClassroomSyncButton";
 import { extractClassroomTasks, sortTasksByDeadline, TaskDeadline } from "../components/LessonCard";
@@ -118,6 +120,8 @@ export default function HomePage() {
   };
 
   const [view, setView] = useState<"today" | "week">("today");
+  const [mobileTab, setMobileTab] = useState<MobileTab>("schedule");
+  const [weekTypeSheetOpen, setWeekTypeSheetOpen] = useState(false);
 
   useEffect(() => {
     try {
@@ -548,6 +552,38 @@ export default function HomePage() {
     return sortTasksByDeadline(tasks);
   }, [selectedDaySchedule]);
 
+  const allWeekTasks = useMemo(() => {
+    if (!week || week.length === 0) return [];
+    const tasks: FullTaskItem[] = [];
+    const seenKeys = new Set<string>();
+
+    for (const d of week) {
+      if (!d.lessons) continue;
+      for (const l of d.lessons) {
+        const extracted = extractClassroomTasks(l.note);
+        for (const t of extracted) {
+          const key = `${t.url || t.title}-${t.deadline?.formattedDate || ""}-${t.label || ""}`;
+          if (!seenKeys.has(key)) {
+            seenKeys.add(key);
+            tasks.push({
+              title: t.title || "Домашнє завдання",
+              subject: l.subject_name || l.subject,
+              teacher: t.teacher || l.teacher_name || l.teacher,
+              label: t.label,
+              url: t.url,
+              deadline: t.deadline,
+            });
+          }
+        }
+      }
+    }
+    return sortTasksByDeadline(tasks);
+  }, [week]);
+
+  const overdueCount = useMemo(() => {
+    return allWeekTasks.filter((t) => t.deadline.badgeTone === "overdue").length;
+  }, [allWeekTasks]);
+
   const UserControls = () => (
     <div className="flex items-center gap-2">
       {user ? (
@@ -583,11 +619,11 @@ export default function HomePage() {
       <OfflineIndicator />
       <InstallPrompt />
 
-      {/* Unified 56px (h-14) App-bar across all devices */}
-      <header className="sticky top-0 z-40 h-14 border-b border-sys-border bg-sys-card/95 backdrop-blur-md">
-        <div className="mx-auto flex lg:grid lg:grid-cols-[1fr_auto_1fr] h-full max-w-[1800px] items-center justify-between px-3 sm:px-5 lg:px-6">
+      {/* Desktop Toolbar (>= 1024px) */}
+      <header className="sticky top-0 z-40 hidden lg:block h-14 border-b border-sys-border bg-sys-card/95 backdrop-blur-md">
+        <div className="mx-auto grid grid-cols-[1fr_auto_1fr] h-full max-w-[1800px] items-center px-6">
           {/* Left Zone: Brand + Context Selector */}
-          <div className="flex items-center gap-2 sm:gap-3.5 min-w-0 lg:justify-self-start">
+          <div className="flex items-center gap-3 min-w-0 justify-self-start">
             <a
               href="https://kre.dp.ua/"
               target="_blank"
@@ -598,7 +634,7 @@ export default function HomePage() {
               <span className="rounded bg-sys-accent/15 px-2 py-0.5 text-xs font-black uppercase tracking-wider text-sys-accent border border-sys-accent/20">
                 ДФКР
               </span>
-              <span className="hidden sm:inline text-sm font-bold tracking-tight text-sys-text-primary">
+              <span className="text-sm font-bold tracking-tight text-sys-text-primary">
                 Розклад
               </span>
             </a>
@@ -608,7 +644,7 @@ export default function HomePage() {
               type="button"
               onClick={() => setContextModalOpen(true)}
               aria-label="Обрати групу або викладача"
-              className="flex h-10 items-center gap-2 rounded-xl border border-sys-border bg-sys-bg/80 px-3 text-xs sm:text-sm font-medium text-sys-text-primary hover:border-sys-accent/60 hover:bg-sys-bg transition-all truncate max-w-[180px] sm:max-w-[260px] focus:outline-none focus:ring-2 focus:ring-sys-accent"
+              className="flex h-10 items-center gap-2 rounded-xl border border-sys-border bg-sys-bg/80 px-3 text-sm font-medium text-sys-text-primary hover:border-sys-accent/60 hover:bg-sys-bg transition-all truncate max-w-[260px] focus:outline-none focus:ring-2 focus:ring-sys-accent"
             >
               <span className="text-sys-text-muted shrink-0">
                 {mode === "student" ? "Група:" : "Викладач:"}
@@ -620,15 +656,16 @@ export default function HomePage() {
             </button>
           </div>
 
-          {/* Center Zone: Date Navigator + View Mode (Desktop >= 1024px) */}
-          <div className="hidden lg:flex items-center gap-3 lg:justify-self-center">
+          {/* Center Zone: Date Navigator + View Mode */}
+          <div className="flex items-center gap-3 justify-self-center">
             {/* Date Navigator: < [Сьогодні] > */}
             <div className="flex items-center rounded-xl border border-sys-border bg-sys-bg p-0.5 text-xs">
               <button
                 type="button"
                 onClick={view === "today" ? goToPrevDay : () => shiftWeek(-1)}
                 aria-label="Попередній період"
-                className="flex h-9 w-9 items-center justify-center rounded-lg text-sys-text-secondary hover:bg-sys-card hover:text-white transition-colors"
+                title="Попередній період"
+                className="flex h-10 w-10 items-center justify-center rounded-lg text-sys-text-secondary hover:bg-sys-card hover:text-white transition-colors"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="m15 18-6-6 6-6" />
@@ -637,13 +674,17 @@ export default function HomePage() {
               <button
                 type="button"
                 onClick={view === "today" ? handleJumpToToday : resetWeek}
-                disabled={view === "today" && selectedDaySchedule?.date === todayActualIso}
-                className={`px-3.5 h-9 rounded-lg font-medium transition-colors ${
-                  (view === "today" && selectedDaySchedule?.date === todayActualIso)
-                    ? "text-sys-text-muted cursor-default"
-                    : (view === "week" && isCurrentWeek)
-                    ? "text-sys-accent bg-sys-accent/10"
-                    : "text-sys-text-secondary hover:text-white hover:bg-sys-card"
+                disabled={
+                  (view === "today" && selectedDaySchedule?.date === todayActualIso) ||
+                  (view === "week" && isCurrentWeek)
+                }
+                aria-label="Перейти на сьогодні"
+                title="Перейти на сьогодні"
+                className={`px-3.5 h-10 rounded-lg font-medium transition-colors ${
+                  (view === "today" && selectedDaySchedule?.date === todayActualIso) ||
+                  (view === "week" && isCurrentWeek)
+                    ? "text-sys-text-muted cursor-default bg-transparent opacity-50"
+                    : "text-sys-text-secondary hover:text-white hover:bg-sys-card active:scale-95"
                 }`}
               >
                 Сьогодні
@@ -652,7 +693,8 @@ export default function HomePage() {
                 type="button"
                 onClick={view === "today" ? goToNextDay : () => shiftWeek(1)}
                 aria-label="Наступний період"
-                className="flex h-9 w-9 items-center justify-center rounded-lg text-sys-text-secondary hover:bg-sys-card hover:text-white transition-colors"
+                title="Наступний період"
+                className="flex h-10 w-10 items-center justify-center rounded-lg text-sys-text-secondary hover:bg-sys-card hover:text-white transition-colors"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="m9 18 6-6-6-6" />
@@ -688,20 +730,18 @@ export default function HomePage() {
           </div>
 
           {/* Right Zone: Favorites, Classroom, Action menu */}
-          <div className="flex items-center gap-1.5 sm:gap-2 lg:justify-self-end">
-            {/* Classroom button (desktop) */}
+          <div className="flex items-center gap-2 justify-self-end">
+            {/* Classroom button */}
             {mode === "student" && groupId && (
-              <div className="hidden sm:block">
-                <ClassroomSyncButton
-                  currentGroupId={groupId}
-                  weekStart={weekStartStr}
-                  onSynced={(detectedId) => {
-                    if (detectedId && detectedId !== groupId) {
-                      setGroupId(detectedId);
-                    }
-                  }}
-                />
-              </div>
+              <ClassroomSyncButton
+                currentGroupId={groupId}
+                weekStart={weekStartStr}
+                onSynced={(detectedId) => {
+                  if (detectedId && detectedId !== groupId) {
+                    setGroupId(detectedId);
+                  }
+                }}
+              />
             )}
 
             {/* Star Pin */}
@@ -711,6 +751,7 @@ export default function HomePage() {
                 onClick={togglePinCurrent}
                 title={isCurrentPinned ? "Прибрати із закріплених" : "Закріпити розклад"}
                 aria-label={isCurrentPinned ? "Відкріпити розклад" : "Закріпити розклад"}
+                aria-pressed={isCurrentPinned}
                 className={`flex h-10 w-10 items-center justify-center rounded-xl border text-base transition-colors ${
                   isCurrentPinned
                     ? "border-amber-400/40 bg-amber-400/10 text-amber-300"
@@ -747,6 +788,104 @@ export default function HomePage() {
             </button>
           </div>
         </div>
+      </header>
+
+      {/* Mobile 2-Tier Header (< 1024px) */}
+      <header className="sticky top-0 z-40 border-b border-sys-border bg-sys-card/95 backdrop-blur-md pt-[env(safe-area-inset-top)] lg:hidden">
+        {/* Tier 1 (h-14): [85 ▾]   ‹ 19–25 жовт. ›   [⋯] */}
+        <div className="flex h-14 items-center justify-between px-3 gap-2">
+          {/* Left: Context Selector */}
+          <button
+            type="button"
+            onClick={() => setContextModalOpen(true)}
+            aria-label="Обрати групу або викладача"
+            className="flex h-10 items-center gap-1.5 rounded-xl border border-sys-border bg-sys-bg/90 px-3 text-xs font-semibold text-sys-text-primary hover:border-sys-accent/60 active:scale-95 transition-all truncate max-w-[130px] sm:max-w-[160px]"
+          >
+            <span className="truncate">
+              {currentName || (mode === "student" ? "Група" : "Викладач")}
+            </span>
+            <span className="text-sys-text-muted text-[10px] shrink-0">▼</span>
+          </button>
+
+          {/* Center: Week Navigator & week type info */}
+          <div className="flex flex-col items-center justify-center flex-1 min-w-0">
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => shiftWeekPreservingDay(-1)}
+                aria-label="Попередній тиждень"
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-sys-text-secondary hover:text-white active:scale-90 transition-transform"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="m15 18-6-6 6-6" />
+                </svg>
+              </button>
+
+              <button
+                type="button"
+                onClick={resetWeekPreservingDay}
+                title={isCurrentWeek ? "Поточний тиждень" : "Повернутися на поточний тиждень"}
+                className="px-1 text-center truncate max-w-[150px] sm:max-w-[200px]"
+              >
+                <span className="text-xs sm:text-[13px] font-bold text-sys-text-primary block truncate leading-tight">
+                  {weekRange.split("–")[0]?.trim()} – {weekRange.split("–")[1]?.trim()?.split(" ")?.slice(0, 2)?.join(" ") || ""}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => shiftWeekPreservingDay(1)}
+                aria-label="Наступний тиждень"
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-sys-text-secondary hover:text-white active:scale-90 transition-transform"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="m9 18 6-6-6-6" />
+                </svg>
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setWeekTypeSheetOpen(true)}
+              className="flex items-center gap-1 text-[11px] text-sys-text-muted hover:text-sys-text-secondary -mt-0.5 leading-none py-0.5"
+            >
+              <span>{currentWeekNumber ? `${currentWeekNumber} тиждень` : ""}</span>
+              {weekType !== "both" && (
+                <>
+                  <span>·</span>
+                  <span className="underline decoration-dotted underline-offset-2">
+                    {weekType === "numerator" ? "чисельник" : "знаменник"}
+                  </span>
+                  <span className="text-[10px]">ⓘ</span>
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Right: Action menu trigger ⋯ */}
+          <button
+            ref={menuButtonRef}
+            type="button"
+            onClick={() => setMobileMenuOpen((prev) => !prev)}
+            aria-label="Меню налаштувань та швидких дій"
+            title="Меню дій"
+            aria-expanded={mobileMenuOpen}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-white active:scale-95 transition-all"
+          >
+            ⋯
+          </button>
+        </div>
+
+        {/* Tier 2 (h-11): Sticky Day tabs Пн• Вт Ср Чт Пт */}
+        {mobileTab === "schedule" && view === "today" && (
+          <MobileWeekDaysStrip
+            weekAnchorDate={weekAnchorDate}
+            selectedDayIndex={selectedDayIndex}
+            onSelectDay={handleSelectDayIndex}
+            isCurrentWeek={isCurrentWeek}
+            todayIso={todayActualIso}
+          />
+        )}
       </header>
 
       {/* Context Selection Modal */}
@@ -947,6 +1086,95 @@ export default function HomePage() {
 
               {/* Secondary Links & Controls */}
               <div className="mt-3 flex flex-col gap-1.5 border-t border-sys-border/50 pt-2.5">
+                {/* View format switcher (Day / Week) on mobile */}
+                <div className="mb-1 lg:hidden">
+                  <span className="mb-1 block text-[11px] font-semibold text-sys-text-secondary">Формат розкладу</span>
+                  <div role="group" aria-label="Формат розкладу" className="flex rounded-lg border border-sys-border bg-sys-bg p-1 relative w-full">
+                    <button
+                      type="button"
+                      role="menuitem"
+                      aria-pressed={view === "today"}
+                      onClick={() => {
+                        handleViewChange("today");
+                        setMobileTab("schedule");
+                        setMobileMenuOpen(false);
+                      }}
+                      className={`flex-1 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                        view === "today" ? "bg-sys-accent text-white shadow-xs" : "text-sys-text-secondary hover:text-white"
+                      }`}
+                    >
+                      День
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      aria-pressed={view === "week"}
+                      onClick={() => {
+                        handleViewChange("week");
+                        setMobileTab("schedule");
+                        setMobileMenuOpen(false);
+                      }}
+                      className={`flex-1 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                        view === "week" ? "bg-sys-accent text-white shadow-xs" : "text-sys-text-secondary hover:text-white"
+                      }`}
+                    >
+                      Тиждень
+                    </button>
+                  </div>
+                </div>
+
+                {/* Save group in favorites */}
+                {currentId && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      togglePinCurrent();
+                      setMobileMenuOpen(false);
+                    }}
+                    className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 px-3 py-2 text-xs font-semibold text-sys-text-primary hover:border-sys-accent/40"
+                  >
+                    <span className="flex items-center gap-2">
+                      <svg
+                        width="15"
+                        height="15"
+                        viewBox="0 0 24 24"
+                        fill={isCurrentPinned ? "currentColor" : "none"}
+                        stroke="currentColor"
+                        strokeWidth="1.75"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className={isCurrentPinned ? "text-amber-400" : "text-slate-400"}
+                      >
+                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                      </svg>
+                      <span>{isCurrentPinned ? "Відкріпити розклад" : "Зберегти розклад у обрані"}</span>
+                    </span>
+                    {isCurrentPinned && <span className="text-[10px] text-amber-400 font-bold">Збережено</span>}
+                  </button>
+                )}
+
+                {/* Share week */}
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    void handleShareWeek();
+                  }}
+                  className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 px-3 py-2 text-xs font-semibold text-sys-text-primary hover:border-sys-accent/40"
+                >
+                  <span className="flex items-center gap-2">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400">
+                      <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+                      <polyline points="16 6 12 2 8 6" />
+                      <line x1="12" y1="2" x2="12" y2="15" />
+                    </svg>
+                    <span>Поділитися розкладом тижня</span>
+                  </span>
+                  <span className="text-sys-text-muted">↗</span>
+                </button>
+
                 {mode === "student" && groupId && (
                   <div className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 px-3 py-2 sm:hidden">
                     <span className="text-xs font-semibold text-sys-text-primary">Google Classroom</span>
@@ -968,7 +1196,10 @@ export default function HomePage() {
                   className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 px-3 py-2 text-xs font-semibold text-sys-text-primary hover:border-sys-accent/40"
                   onClick={() => setMobileMenuOpen(false)}
                 >
-                  <span>📊 Статистика</span>
+                  <span className="flex items-center gap-2">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                    <span>Статистика</span>
+                  </span>
                   <span className="text-sys-text-muted">↗</span>
                 </a>
                 <a
@@ -977,7 +1208,10 @@ export default function HomePage() {
                   className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 px-3 py-2 text-xs font-semibold text-sys-text-primary hover:border-sys-accent/40"
                   onClick={() => setMobileMenuOpen(false)}
                 >
-                  <span>📅 Графік процесу</span>
+                  <span className="flex items-center gap-2">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    <span>Графік процесу</span>
+                  </span>
                   <span className="text-sys-text-muted">↗</span>
                 </a>
                 {isStandalone && !isDownloaded && (
@@ -991,7 +1225,10 @@ export default function HomePage() {
                     disabled={isDownloading}
                     className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 px-3 py-2 text-xs font-semibold text-sys-text-primary disabled:opacity-50"
                   >
-                    <span>💾 {isDownloading ? "Зберігаємо…" : "Зберегти на пристрій"}</span>
+                    <span className="flex items-center gap-2">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                      <span>{isDownloading ? "Зберігаємо…" : "Зберегти на пристрій"}</span>
+                    </span>
                   </button>
                 )}
                 <div className="pt-1.5">
@@ -1003,25 +1240,8 @@ export default function HomePage() {
         )}
       </AnimatePresence>
 
-      {/* Mobile Day Strip & View (<1024px) */}
-      <div className="lg:hidden">
-        <MobileWeekBar
-          weekRange={weekRange}
-          weekType={weekType}
-          isCurrentWeek={isCurrentWeek}
-          onPrevWeek={() => shiftWeekPreservingDay(-1)}
-          onNextWeek={() => shiftWeekPreservingDay(1)}
-          onResetWeek={resetWeekPreservingDay}
-          shouldReduceMotion={shouldReduceMotion ?? false}
-        />
-        <MobileWeekDaysStrip
-          weekAnchorDate={weekAnchorDate}
-          selectedDayIndex={selectedDayIndex}
-          onSelectDay={handleSelectDayIndex}
-          isCurrentWeek={isCurrentWeek}
-          todayIso={todayActualIso}
-        />
-
+      {/* Mobile Main Content (<1024px) */}
+      <div className="lg:hidden pb-24">
         {returnTarget && (
           <div className="m-3 flex items-center justify-between rounded-xl border border-sys-accent/30 bg-sys-accent/10 px-3 py-2 text-xs">
             <span className="text-sys-text-secondary truncate mr-2">
@@ -1037,56 +1257,74 @@ export default function HomePage() {
           </div>
         )}
 
-        <div className="px-3 py-3">
-          {loading ? (
-            <div className="space-y-3" aria-busy="true" aria-label="Завантаження розкладу">
-              {[1, 2, 3].map((num) => (
-                <div
-                  key={num}
-                  className="flex items-start gap-4 rounded-xl border border-sys-border/60 bg-sys-card/70 p-4 animate-pulse"
-                >
-                  <div className="flex w-12 shrink-0 flex-col gap-1.5">
-                    <div className="h-5 w-6 rounded bg-slate-700/70" />
-                    <div className="h-3 w-10 rounded bg-slate-800" />
+        {mobileTab === "tasks" ? (
+          <MobileTasksView
+            tasks={allWeekTasks}
+            groupId={groupId}
+            weekStart={weekStartStr}
+            onSynced={(detectedId) => {
+              if (detectedId && detectedId !== groupId) setGroupId(detectedId);
+            }}
+          />
+        ) : (
+          <div className="px-3 py-3">
+            {loading ? (
+              <div className="space-y-3" aria-busy="true" aria-label="Завантаження розкладу">
+                {[1, 2, 3].map((num) => (
+                  <div
+                    key={num}
+                    className="flex items-start gap-4 rounded-xl border border-sys-border/60 bg-sys-card/70 p-4 animate-pulse"
+                  >
+                    <div className="flex w-12 shrink-0 flex-col gap-1.5">
+                      <div className="h-5 w-6 rounded bg-slate-700/70" />
+                      <div className="h-3 w-10 rounded bg-slate-800" />
+                    </div>
+                    <div className="flex flex-1 flex-col gap-2.5">
+                      <div className="h-4 w-3/5 rounded bg-slate-700/70" />
+                      <div className="h-3.5 w-2/5 rounded bg-slate-800" />
+                    </div>
                   </div>
-                  <div className="flex flex-1 flex-col gap-2.5">
-                    <div className="h-4 w-3/5 rounded bg-slate-700/70" />
-                    <div className="h-3.5 w-2/5 rounded bg-slate-800" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : error ? (
-            <div className="rounded-2xl border border-rose-400/20 bg-rose-400/5 p-6 text-center text-sm text-rose-200">
-              {error}
-            </div>
-          ) : (
-            <DayPager
-              schedule={selectedDaySchedule}
-              todayDate={todayActualIso}
-              scheduleMode={mode}
-              canEdit={false}
-              onQuickJump={handleQuickJump}
-              onNextDay={goToNextDay}
-              onPrevDay={goToPrevDay}
-              onJumpToToday={handleJumpToToday}
-              daySlideDir={daySlideDir}
-              shouldReduceMotion={shouldReduceMotion ?? false}
-              isWeekend={isAutoSelectedWeekendDay}
-              isShowingTomorrow={isShowingTomorrow && !isWeekend}
-            />
-          )}
+                ))}
+              </div>
+            ) : error ? (
+              <div className="rounded-2xl border border-rose-400/20 bg-rose-400/5 p-6 text-center text-sm text-rose-200">
+                {error}
+              </div>
+            ) : view === "today" ? (
+              <DayPager
+                schedule={selectedDaySchedule}
+                todayDate={todayActualIso}
+                scheduleMode={mode}
+                canEdit={false}
+                onQuickJump={handleQuickJump}
+                onNextDay={goToNextDay}
+                onPrevDay={goToPrevDay}
+                onJumpToToday={handleJumpToToday}
+                daySlideDir={daySlideDir}
+                shouldReduceMotion={shouldReduceMotion ?? false}
+                isWeekend={isAutoSelectedWeekendDay}
+                isShowingTomorrow={isShowingTomorrow && !isWeekend}
+              />
+            ) : (
+              <ScheduleWeekGrid
+                week={week}
+                scheduleMode={mode}
+                canEdit={false}
+                onQuickJump={handleQuickJump}
+              />
+            )}
 
-          {!loading && !error && ((mode === "student" && !groups.length) || (mode === "teacher" && !teachers.length)) && (
-            <div className="mt-4 rounded-2xl border border-dashed border-sys-border p-8 text-center text-xs text-sys-text-secondary">
-              {mode === "student" ? "Список груп поки порожній." : "Список викладачів поки порожній."}
-            </div>
-          )}
-        </div>
+            {!loading && !error && ((mode === "student" && !groups.length) || (mode === "teacher" && !teachers.length)) && (
+              <div className="mt-4 rounded-2xl border border-dashed border-sys-border p-8 text-center text-xs text-sys-text-secondary">
+                {mode === "student" ? "Список груп поки порожній." : "Список викладачів поки порожній."}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Desktop Main Content (>= 1024px) */}
-      <div className="hidden lg:block mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">
+      <div className="hidden lg:block mx-auto max-w-[1600px] px-[27px] py-6">
         {returnTarget && (
           <div className="mb-4 flex items-center justify-between rounded-xl border border-sys-accent/30 bg-sys-accent/10 px-4 py-2.5 text-sm">
             <span className="text-sys-text-secondary">
@@ -1139,9 +1377,9 @@ export default function HomePage() {
               {view === "today" ? (
                 /* Desktop Day Mode: 2-column Dashboard */
                 <div className="w-full min-w-0">
-                  <div className="flex flex-col lg:flex-row gap-8 items-start w-full">
-                    {/* Left Column: Schedule (flex-1) */}
-                    <div className="w-full lg:flex-1 min-w-0">
+                  <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,860px)_360px] gap-8 items-start w-full">
+                    {/* Left Column: Schedule (minmax(0, 860px)) */}
+                    <div className="w-full min-w-0 max-w-[860px]">
                       {isWeekend && (
                         <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-slate-700/60 bg-slate-800/50 px-5 py-4 text-[15px] shadow-sm">
                           <div className="flex items-center gap-3 min-w-0">
@@ -1190,8 +1428,8 @@ export default function HomePage() {
                       />
                     </div>
 
-                    {/* Right Column: Week Info & Classroom Widget (360px - 380px) */}
-                    <div className="w-full lg:w-[360px] xl:w-[380px] shrink-0 min-w-0 flex flex-col gap-6 sticky top-20">
+                    {/* Right Column: Week Info & Classroom Widget (360px) */}
+                    <div className="w-full lg:w-[360px] shrink-0 min-w-0 flex flex-col gap-6 sticky top-[72px]">
                       {/* Week & Navigator Card */}
                       <div className="rounded-2xl border border-sys-border bg-sys-card p-5 shadow-sm">
                         <div className="pb-3.5 border-b border-sys-border/50">
@@ -1259,18 +1497,24 @@ export default function HomePage() {
                               <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
                             </svg>
                             <span className="text-sm font-bold uppercase tracking-wider text-sys-text-primary">
-                              Завдання Classroom
+                              {overdueCount > 0 ? `ЗАВДАННЯ · Прострочено (${overdueCount})` : `ЗАВДАННЯ (${allWeekTasks.length})`}
                             </span>
                           </div>
-                          <span className="rounded-full bg-purple-500/15 border border-purple-500/30 px-2.5 py-0.5 text-xs font-bold text-purple-200">
-                            {dayTasks.length} {dayTasks.length === 1 ? "завдання" : dayTasks.length < 5 ? "завдання" : "завдань"}
-                          </span>
+                          {overdueCount > 0 ? (
+                            <span className="rounded-full bg-rose-500/15 border border-rose-500/30 px-2.5 py-0.5 text-xs font-bold text-rose-300">
+                              {overdueCount} {overdueCount === 1 ? "горить" : "горять"}
+                            </span>
+                          ) : (
+                            <span className="rounded-full bg-purple-500/15 border border-purple-500/30 px-2.5 py-0.5 text-xs font-bold text-purple-200">
+                              {allWeekTasks.length} {allWeekTasks.length === 1 ? "завдання" : allWeekTasks.length < 5 ? "завдання" : "завдань"}
+                            </span>
+                          )}
                         </div>
 
                         <div className="mt-4 space-y-2.5">
-                          {dayTasks.length > 0 ? (
+                          {allWeekTasks.length > 0 ? (
                             <>
-                              {(dayTasks.length >= 5 && !showAllDayTasks ? dayTasks.slice(0, 4) : dayTasks).map((t, idx) => {
+                              {(allWeekTasks.length >= 5 && !showAllDayTasks ? allWeekTasks.slice(0, 4) : allWeekTasks).map((t, idx) => {
                                 const isGenericTitle = !t.title || t.title === "Домашнє завдання" || t.title === "Завдання";
                                 const titleLine = isGenericTitle ? t.subject : t.title;
                                 const teacherLine = isGenericTitle ? (t.teacher || null) : `${t.subject}${t.teacher ? ` · ${t.teacher}` : ""}`;
@@ -1285,7 +1529,7 @@ export default function HomePage() {
                                     rel="noopener noreferrer"
                                     className="group block rounded-xl bg-[#16161a] border border-[#27272a] p-3 transition-all hover:border-slate-600 hover:bg-[#1a1a20] cursor-pointer shadow-xs text-left"
                                     style={{
-                                      boxShadow: isOverdue ? "inset 3px 0 0 #ef4444" : isUrgent ? "inset 3px 0 0 #f59e0b" : undefined
+                                      boxShadow: isOverdue ? "inset 3px 0 0 #f87171" : isUrgent ? "inset 3px 0 0 #fbbf24" : undefined
                                     }}
                                   >
                                     <div className="flex items-start justify-between gap-2">
@@ -1301,11 +1545,11 @@ export default function HomePage() {
                                     )}
                                     <div
                                       className="mt-2 flex items-center gap-1.5 text-xs font-medium"
-                                      style={{ color: isOverdue ? "#f87171" : isUrgent ? "#fbbf24" : "#c084fc" }}
+                                      style={{ color: isOverdue ? "#f87171" : isUrgent ? "#fbbf24" : "#a1a1aa" }}
                                     >
                                       <span
                                         className="h-1.5 w-1.5 rounded-full shrink-0"
-                                        style={{ backgroundColor: isOverdue ? "#ef4444" : isUrgent ? "#f59e0b" : "#8b5cf6" }}
+                                        style={{ backgroundColor: isOverdue ? "#f87171" : isUrgent ? "#fbbf24" : "#71717a" }}
                                       />
                                       <span>{t.deadline.statusText}</span>
                                     </div>
@@ -1313,20 +1557,20 @@ export default function HomePage() {
                                 );
                               })}
 
-                              {dayTasks.length >= 5 && (
+                              {allWeekTasks.length >= 5 && (
                                 <button
                                   type="button"
                                   onClick={() => setShowAllDayTasks((prev) => !prev)}
                                   className="w-full py-1.5 text-center text-xs font-semibold text-sys-accent hover:text-white transition-colors rounded-lg border border-sys-border/50 bg-sys-bg/60 hover:bg-sys-bg"
                                 >
-                                  {showAllDayTasks ? "Згорнути" : `Ще ${dayTasks.length - 4} ${dayTasks.length - 4 === 1 ? "завдання" : "завдань"}`}
+                                  {showAllDayTasks ? "Згорнути" : `Ще ${allWeekTasks.length - 4} ${allWeekTasks.length - 4 === 1 ? "завдання" : "завдань"}`}
                                 </button>
                               )}
                             </>
                           ) : (
                             <div className="py-6 text-center">
                               <p className="text-sm text-sys-text-muted">
-                                На цей день немає активних завдань
+                                Немає активних завдань ✓
                               </p>
                             </div>
                           )}
@@ -1403,6 +1647,73 @@ export default function HomePage() {
           </AnimatePresence>
         )}
       </div>
+
+      {/* Mobile Bottom Navigation */}
+      <BottomNav
+        activeTab={mobileTab}
+        onTabChange={(tab) => {
+          if (tab === "more") {
+            setMobileMenuOpen(true);
+          } else {
+            setMobileTab(tab);
+          }
+        }}
+        overdueCount={overdueCount}
+      />
+
+      {/* Week Type Bottom Sheet (Чисельник / Знаменник) */}
+      <AnimatePresence>
+        {weekTypeSheetOpen && (
+          <motion.div
+            key="weekTypeBackdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
+            onClick={() => setWeekTypeSheetOpen(false)}
+          >
+            <motion.div
+              key="weekTypeContent"
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 26, stiffness: 300 }}
+              className="w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl border border-sys-border bg-sys-card p-5 sm:p-6 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-sys-border/60">
+                <h3 className="text-base font-bold text-sys-text-primary">
+                  Тип тижня за графіком
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setWeekTypeSheetOpen(false)}
+                  className="flex h-8 w-8 items-center justify-center rounded-xl border border-sys-border text-sys-text-secondary hover:text-white"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="mt-4 space-y-3 text-sm text-sys-text-secondary leading-relaxed">
+                <div className="rounded-xl border border-sys-border/60 bg-sys-bg/60 p-3.5">
+                  <span className="font-bold text-sys-text-primary block mb-1">
+                    {weekType === "numerator" ? "📘 Чисельник (непарний)" : "📙 Знаменник (парний)"}
+                  </span>
+                  <p className="text-xs text-sys-text-secondary">
+                    {weekType === "numerator"
+                      ? "Чисельник — це непарні тижні навчального семестру (1, 3, 5, 7…). Заняття чергуються за графіком коледжу."
+                      : "Знаменник — це парні тижні навчального семестру (2, 4, 6, 8…). Заняття чергуються за графіком коледжу."}
+                  </p>
+                </div>
+                {currentWeekNumber && (
+                  <p className="text-xs text-sys-text-muted">
+                    Поточний навчальний тиждень: <strong>{currentWeekNumber}-й тиждень</strong>.
+                  </p>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </main>
   );
 }

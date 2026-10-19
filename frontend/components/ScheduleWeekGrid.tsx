@@ -252,6 +252,34 @@ export function ScheduleWeekGrid({
             );
           })
         )}
+
+        {/* Row N+1: Column Summary Footer */}
+        {week.map((day) => {
+          const isToday = day.date === kyivTodayIso;
+          const isPast = day.date < kyivTodayIso;
+          const count = day.lessons.length;
+          let latestEnd: string | null = null;
+          if (count > 0) {
+            const sorted = [...day.lessons].sort((a, b) => b.lesson_number - a.lesson_number);
+            const last = sorted[0];
+            const parts = last.time?.split("-");
+            if (parts && parts[1]) latestEnd = parts[1].trim();
+          }
+          const summaryText = count > 0
+            ? `${count} ${count === 1 ? "пара" : count < 5 ? "пари" : "пар"}${latestEnd ? ` · до ${latestEnd}` : ""}`
+            : "пар немає";
+
+          return (
+            <div
+              key={`desktop-footer-${day.date}`}
+              className={`py-2 px-3 text-center text-xs text-sys-text-muted border-t border-sys-border/40 mt-1 transition-opacity ${
+                isPast && !isToday ? "opacity-60" : ""
+              }`}
+            >
+              <span>{summaryText}</span>
+            </div>
+          );
+        })}
       </div>
 
       {/* Tablet (640px – 1023px): horizontal scroll with snap-start */}
@@ -262,8 +290,8 @@ export function ScheduleWeekGrid({
           return (
             <div
               key={`tablet-${day.date}`}
-              className={`snap-start min-w-[280px] sm:min-w-[300px] flex-1 shrink-0 flex flex-col gap-2.5 ${
-                isPast && !isToday ? "opacity-80" : ""
+              className={`snap-start min-w-[240px] md:min-w-[260px] flex-1 shrink-0 flex flex-col gap-2.5 ${
+                isPast && !isToday ? "opacity-60" : ""
               }`}
             >
               <div

@@ -82,7 +82,7 @@ export function MobileWeekDaysStrip({
             <span className="text-[11px] font-semibold leading-tight">
               {day.weekday}
             </span>
-            <div className="flex items-center gap-0.5 mt-0.5">
+            <div className="relative flex flex-col items-center justify-center mt-0.5">
               <span className={`text-[13px] leading-tight ${isSelected ? "font-bold text-sys-accent" : "font-medium"}`}>
                 {day.dayNum}
               </span>
@@ -90,7 +90,7 @@ export function MobileWeekDaysStrip({
                 <span
                   aria-label="Сьогодні"
                   title="Сьогодні"
-                  className="h-1 w-1 rounded-full bg-sys-accent inline-block"
+                  className="absolute -bottom-1 left-1/2 -translate-x-1/2 h-1 w-1 rounded-full bg-sys-accent"
                 />
               )}
             </div>

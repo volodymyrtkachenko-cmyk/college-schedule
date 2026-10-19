@@ -249,7 +249,12 @@ export function formatTeachers(value: string): string {
 const ROOM_PREFIXES = ["ауд", "каб", "спорт", "дист", "акт", "ск"];
 
 export function formatRoom(room: string): string {
-  const clean = room.split(",").map((part) => part.trim()).filter(Boolean).join(" / ");
+  const clean = room
+    .split(",")
+    .map((part) => part.replace(/^ауд\.?\s*/i, "").trim())
+    .filter(Boolean)
+    .join(" / ");
   const lower = clean.toLowerCase();
   return ROOM_PREFIXES.some((prefix) => lower.startsWith(prefix)) ? clean : `ауд. ${clean}`;
 }
+

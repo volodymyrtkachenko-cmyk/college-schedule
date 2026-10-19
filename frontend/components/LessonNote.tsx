@@ -19,8 +19,11 @@ export function LessonNote({ lesson, date }: { lesson: Lesson; date: string }) {
   }
 
   return (
-    <p className="mt-1 text-xs text-sys-text-secondary/90 [overflow-wrap:anywhere] italic border-t border-sys-border/20 pt-1">
-      💬 {visibleNote}
+    <p className="mt-1 flex items-center gap-1.5 text-xs text-sys-text-secondary/90 [overflow-wrap:anywhere] italic border-t border-sys-border/20 pt-1">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-text-muted">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+      </svg>
+      <span>{visibleNote}</span>
     </p>
   );
 }

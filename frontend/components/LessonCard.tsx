@@ -788,15 +788,15 @@ export function LessonCard({
         <div className="hidden sm:flex sm:items-stretch gap-4 w-full">
           {/* Zone 1: Timeline (100px - 110px) */}
           {!hideTimeColumn && (
-            <div className="w-24 sm:w-28 shrink-0 flex flex-col items-start justify-center pr-4 border-r border-sys-border/50 text-left pt-0.5">
-              <span className={`text-2xl sm:text-[26px] font-black leading-none ${isLive ? "text-sys-accent" : "text-slate-400"}`}>
+            <div className="w-24 sm:w-28 shrink-0 self-start flex flex-col items-start pr-4 border-r border-sys-border/50 text-left pt-1">
+              <span className={`text-2xl sm:text-[26px] font-black leading-none ${isLive ? "text-sys-accent" : "text-[#94a3b8]"}`}>
                 {lesson.lesson_number}
               </span>
               <div className="mt-1.5 flex flex-col leading-tight">
                 <span className="text-sm sm:text-[15px] font-bold text-sys-text-primary">
                   {startT}
                 </span>
-                <span className="text-xs text-sys-text-secondary mt-0.5">
+                <span className="text-xs text-[#9ca3af] mt-0.5">
                   {endT || DEFAULT_LESSON_TIMES[lesson.lesson_number]?.split("-")[1] || ""}
                 </span>
               </div>
@@ -893,12 +893,8 @@ export function LessonCard({
                     onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
                     className={`inline-flex h-8 px-3 items-center gap-1.5 rounded-lg font-bold text-xs shadow-xs active:scale-95 transition-all whitespace-nowrap ${
                       isMeetingLiveOrSoon
-                        ? meetings[0].platform === "zoom"
-                          ? "bg-sky-600 text-white border border-sky-500 shadow-[0_0_12px_rgba(14,165,233,0.35)] hover:bg-sky-500 animate-pulse"
-                          : "bg-emerald-600 text-white border border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.35)] hover:bg-emerald-500 animate-pulse"
-                        : meetings[0].platform === "zoom"
-                        ? "border border-sys-border bg-sys-card text-sys-text-primary hover:border-sky-500/50 hover:text-sky-300 hover:bg-sky-500/5"
-                        : "border border-sys-border bg-sys-card text-sys-text-primary hover:border-emerald-500/50 hover:text-emerald-300 hover:bg-emerald-500/5"
+                        ? "bg-emerald-600 text-white border border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.35)] hover:bg-emerald-500 animate-pulse"
+                        : "border border-sys-border bg-sys-card text-sys-text-primary hover:border-sys-accent/50 hover:text-sys-accent"
                     }`}
                   >
                     {meetings[0].platform === "zoom" ? (
@@ -917,7 +913,7 @@ export function LessonCard({
                   </a>
                 ) : rooms.length > 0 ? (
                   <div className="inline-flex h-8 px-3 items-center gap-1.5 rounded-lg border border-sys-border bg-sys-bg text-sys-text-secondary font-medium text-xs shadow-xs whitespace-nowrap">
-                    <span>ауд. {rooms.map(formatRoom).join(", ")}</span>
+                    <span>{rooms.map(formatRoom).join(", ")}</span>
                   </div>
                 ) : null}
 
@@ -925,7 +921,11 @@ export function LessonCard({
                 <div className="flex flex-wrap items-center justify-end gap-1.5">
                   {lesson.is_cancelled ? (
                     <span className="inline-flex items-center gap-1 rounded-md border border-rose-500/40 bg-rose-500/15 px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-rose-400">
-                      ❌ Скасовано
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                      <span>Скасовано</span>
                     </span>
                   ) : eventBadge ? (
                     <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-bold uppercase tracking-wider ${eventBadge.badgeClass}`}>
@@ -933,7 +933,10 @@ export function LessonCard({
                     </span>
                   ) : lesson.is_replacement ? (
                     <span className="inline-flex items-center gap-1 rounded-md bg-sys-warning px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-sys-warningText">
-                      ⚡ Заміна
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-warningText">
+                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                      </svg>
+                      <span>Заміна</span>
                     </span>
                   ) : null}
 
@@ -1155,8 +1158,285 @@ export function LessonCard({
         </div>
       )}
 
-      {/* Mobile (< sm) and Week Mode Layout */}
-      <div className={`${isDay ? "sm:hidden" : ""} flex items-start gap-2.5 sm:gap-3`}>
+      {/* Mobile Day Mode (< sm) */}
+      {isDay && (
+        <div className="flex sm:hidden flex-col gap-2 w-full">
+          {/* Row 1: Number + Time on left, JoinButton 44px or Room on right */}
+          <div className="flex items-center justify-between gap-2 w-full min-h-[44px]">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className={`text-base font-black leading-none ${isLive ? "text-sys-accent" : "text-[#94a3b8]"}`}>
+                {lesson.lesson_number}
+              </span>
+              <span className="text-slate-500 font-bold text-xs">·</span>
+              <span className="text-xs font-semibold text-sys-text-secondary tracking-tight">
+                {startT}–{endT || DEFAULT_LESSON_TIMES[lesson.lesson_number]?.split("-")[1] || ""}
+              </span>
+              {isLive && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-sys-accent/15 border border-sys-accent/30 px-2 py-0.5 text-[10px] font-bold text-sys-accent">
+                  <span className="h-1.5 w-1.5 animate-ping rounded-full bg-sys-accent shrink-0" />
+                  <span>ще {remainingMin} хв</span>
+                </span>
+              )}
+            </div>
+
+            <div className="shrink-0 flex items-center">
+              {hasMeeting ? (
+                <a
+                  href={meetings[0].url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
+                  className={`inline-flex h-11 min-h-[44px] px-3.5 items-center gap-1.5 rounded-xl font-bold text-xs shadow-xs active:scale-95 transition-all whitespace-nowrap ${
+                    isMeetingLiveOrSoon
+                      ? "bg-emerald-600 text-white border border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.35)] hover:bg-emerald-500 animate-pulse"
+                      : "border border-sys-border bg-sys-card text-sys-text-primary hover:border-sys-accent/50 hover:text-sys-accent"
+                  }`}
+                >
+                  {meetings[0].platform === "zoom" ? (
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                      <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.934a.5.5 0 0 0-.777-.416L16 11" />
+                      <rect x="2" y="6" width="14" height="12" rx="2" />
+                    </svg>
+                  ) : (
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                      <polygon points="23 7 16 12 23 17 23 7" />
+                      <rect x="1" y="5" width="15" height="14" rx="2" />
+                    </svg>
+                  )}
+                  <span>{meetings[0].platform === "zoom" ? "Zoom" : "Meet"}</span>
+                  <span className="text-[10px] opacity-75">↗</span>
+                </a>
+              ) : rooms.length > 0 ? (
+                <div className="inline-flex h-8 px-2.5 items-center gap-1 rounded-lg border border-[#3f3f46] bg-sys-bg text-sys-text-secondary font-medium text-xs shadow-xs whitespace-nowrap">
+                  <span>{rooms.map(formatRoom).join(", ")}</span>
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          {/* Row 2: Subject Title (16px/600) */}
+          <div>
+            <h3 className={`font-semibold leading-snug text-base break-words ${lesson.is_cancelled ? "line-through text-sys-text-muted" : "text-sys-text-subject"}`}>
+              {lesson.subject_name}
+            </h3>
+            {lesson.event_title && lesson.event_title !== lesson.subject_name && (
+              <span className="text-xs font-medium text-sys-text-secondary mt-0.5 block">
+                {lesson.event_title}
+              </span>
+            )}
+          </div>
+
+          {/* Row 3: Teacher / Subgroups */}
+          <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm text-sys-text-secondary">
+            {isDualTeachers ? (
+              <div className="flex flex-col gap-1 w-full">
+                {secondaryItems.map((item, idx) => {
+                  const subNum = idx + 1;
+                  const isFaded = selectedSubgroup !== null && selectedSubgroup !== subNum;
+                  const subRoom = rooms[idx] ? rooms[idx].replace(/^ауд\.?\s*/i, "") : null;
+                  return (
+                    <div key={idx} className={`flex items-center gap-2 text-xs transition-opacity ${isFaded ? "opacity-50" : "opacity-100"}`}>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); handleSubgroupToggle(subNum); }}
+                        className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-semibold transition-colors ${
+                          selectedSubgroup === subNum
+                            ? "bg-sys-accent/20 text-sys-accent font-bold border border-sys-accent/40"
+                            : "bg-sys-border/60 border border-sys-border text-slate-300"
+                        }`}
+                      >
+                        {subNum} підгр.
+                      </button>
+                      <span className="font-medium text-slate-200 truncate">{item.displayName}</span>
+                      {subRoom && <span className="text-sys-text-muted">· {subRoom}</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : secondaryItems.length > 0 ? (
+              <div className="text-xs text-sys-text-secondary">
+                {secondaryItems.map((item) => item.displayName).join(" / ")}
+              </div>
+            ) : null}
+          </div>
+
+          {/* Row 4: Full-width HW strip (44px min-height) */}
+          {tasks.length === 1 && (
+            <a
+              href={tasks[0].url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => {
+                e.stopPropagation();
+                vibrateTap(10);
+              }}
+              className="group flex min-h-[44px] w-full items-center justify-between rounded-xl bg-[#16161a] border border-[#27272a] px-3.5 py-2.5 text-xs text-sys-text-secondary hover:border-slate-600 hover:bg-[#1a1a20] transition-all shadow-xs cursor-pointer mt-1"
+              style={{
+                boxShadow:
+                  tasks[0].deadline.badgeTone === "overdue"
+                    ? "inset 3px 0 0 #ef4444"
+                    : tasks[0].deadline.badgeTone === "urgent"
+                    ? "inset 3px 0 0 #f59e0b"
+                    : "inset 3px 0 0 #8b5cf6",
+              }}
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-slate-400 group-hover:text-sys-accent transition-colors">
+                  <path d="M16 4h2a2 2 0 0 1 2 2v14l-8-4-8 4V6a2 2 0 0 1 2-2h2" />
+                  <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+                </svg>
+                <span className="font-semibold text-sys-text-primary group-hover:text-sys-accent transition-colors truncate">
+                  {tasks[0].title && tasks[0].title !== "Домашнє завдання" && tasks[0].title !== "Завдання"
+                    ? tasks[0].title
+                    : `${lesson.subject_name}${tasks[0].teacher ? ` · ${tasks[0].teacher}` : ""}`}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 shrink-0 ml-3">
+                <span
+                  className="inline-flex items-center gap-1.5 font-medium"
+                  style={{
+                    color:
+                      tasks[0].deadline.badgeTone === "overdue"
+                        ? "#f87171"
+                        : tasks[0].deadline.badgeTone === "urgent"
+                        ? "#fbbf24"
+                        : "#a1a1aa",
+                  }}
+                >
+                  <span
+                    className="h-1.5 w-1.5 rounded-full shrink-0"
+                    style={{
+                      backgroundColor:
+                        tasks[0].deadline.badgeTone === "overdue"
+                          ? "#ef4444"
+                          : tasks[0].deadline.badgeTone === "urgent"
+                          ? "#f59e0b"
+                          : "#71717a",
+                    }}
+                  />
+                  <span>{tasks[0].deadline.statusText}</span>
+                </span>
+                <span className="text-slate-400 group-hover:text-white transition-colors text-xs ml-1">↗</span>
+              </div>
+            </a>
+          )}
+
+          {tasks.length > 1 && (
+            <div
+              className="w-full rounded-xl bg-[#16161a] border border-[#27272a] transition-all duration-150 overflow-hidden shadow-xs mt-1"
+              style={{
+                boxShadow:
+                  tasks[0].deadline.badgeTone === "overdue"
+                    ? "inset 3px 0 0 #ef4444"
+                    : tasks[0].deadline.badgeTone === "urgent"
+                    ? "inset 3px 0 0 #f59e0b"
+                    : "inset 3px 0 0 #8b5cf6",
+              }}
+            >
+              <div
+                onClick={toggleHw}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") toggleHw(e); }}
+                className="flex min-h-[44px] w-full items-center justify-between px-3.5 py-2.5 cursor-pointer select-none gap-2 hover:bg-white/5 transition-colors"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  {tasks[0].deadline.badgeTone === "overdue" ? (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-rose-400 shrink-0">
+                      <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+                      <line x1="12" y1="9" x2="12" y2="13" />
+                      <line x1="12" y1="17" x2="12.01" y2="17" />
+                    </svg>
+                  ) : (
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-slate-400">
+                      <path d="M16 4h2a2 2 0 0 1 2 2v14l-8-4-8 4V6a2 2 0 0 1 2-2h2" />
+                      <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+                    </svg>
+                  )}
+                  <span className="text-xs font-bold text-sys-text-primary">
+                    {tasks.length} ДЗ
+                  </span>
+                  <span className="text-slate-600 text-xs shrink-0">•</span>
+                  <span className="text-xs font-normal text-slate-400 truncate">
+                    найближче {tasks[0].deadline.formattedDate || tasks[0].label}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0 ml-3">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className={`text-slate-400 transition-transform duration-200 shrink-0 ${isHwOpen ? "rotate-180" : ""}`}
+                  >
+                    <path d="m6 9 6 6 6-6" />
+                  </svg>
+                </div>
+              </div>
+
+              {isHwOpen && (
+                <div className="flex flex-col gap-1.5 p-3 border-t border-[#27272a] bg-[#121216] animate-in fade-in duration-150">
+                  {tasks.map((task, idx) => (
+                    <a
+                      key={idx}
+                      href={task.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        vibrateTap(10);
+                      }}
+                      className="group flex min-h-[44px] items-center justify-between gap-3 rounded-lg px-3 py-2 text-xs hover:bg-[#1c1c24] transition-colors"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="font-semibold text-sys-text-primary group-hover:text-sys-accent transition-colors truncate">
+                          {task.title || "Завдання"}
+                        </span>
+                        {task.teacher && (
+                          <span className="text-slate-500 text-[11px] truncate">({task.teacher})</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span
+                          className="text-[11px] font-medium"
+                          style={{
+                            color:
+                              task.deadline.badgeTone === "overdue"
+                                ? "#f87171"
+                                : task.deadline.badgeTone === "urgent"
+                                ? "#fbbf24"
+                                : "#a1a1aa",
+                          }}
+                        >
+                          {task.deadline.statusText}
+                        </span>
+                        <span className="text-slate-400 group-hover:text-white transition-colors text-xs">↗</span>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {visibleNoteText && (
+            <p className="flex items-center gap-1.5 text-xs text-sys-text-secondary/80 italic mt-1">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-text-muted">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+              <span>{visibleNoteText}</span>
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Week Mode Layout */}
+      {!isDay && (
+        <div className="flex items-start gap-2.5 sm:gap-3 h-full">
         {/* Left: narrow fixed column (number + start time) */}
         {!hideTimeColumn && (
           <div className="flex w-11 sm:w-12 shrink-0 flex-col text-left">
@@ -1233,7 +1513,7 @@ export function LessonCard({
                     Meet ↗
                   </a>
                 ) : rooms[0] ? (
-                  <span className="shrink-0 text-sys-text-muted font-medium">{formatRoom(rooms[0])}</span>
+                  <span className="shrink-0 text-sys-text-muted font-medium">{rooms[0].replace(/^ауд\.?\s*/i, "")}</span>
                 ) : null}
               </div>
               <div className={`flex items-center gap-1.5 min-w-0 transition-opacity ${selectedSubgroup === 1 ? "opacity-50 hover:opacity-80" : "opacity-100"}`}>
@@ -1270,7 +1550,7 @@ export function LessonCard({
                     Meet ↗
                   </a>
                 ) : rooms[1] ? (
-                  <span className="shrink-0 text-sys-text-muted font-medium">{formatRoom(rooms[1])}</span>
+                  <span className="shrink-0 text-sys-text-muted font-medium">{rooms[1].replace(/^ауд\.?\s*/i, "")}</span>
                 ) : null}
               </div>
             </div>
@@ -1398,7 +1678,11 @@ export function LessonCard({
                     className="inline-flex max-w-full [white-space:normal] [overflow-wrap:anywhere] items-center gap-1 rounded border border-rose-500/40 bg-rose-500/15 px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-rose-400"
                     style={{ maxWidth: "100%", whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "break-word" }}
                   >
-                    ❌ Скасовано
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                    <span>Скасовано</span>
                   </span>
                 )
               ) : eventBadge ? (
@@ -1413,7 +1697,10 @@ export function LessonCard({
                   className="inline-flex max-w-full [white-space:normal] [overflow-wrap:anywhere] items-center gap-1 rounded bg-sys-warning px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-sys-warningText"
                   style={{ maxWidth: "100%", whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "break-word" }}
                 >
-                  ⚡ Заміна
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-warningText">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                  </svg>
+                  <span>Заміна</span>
                 </span>
               ) : null}
             </div>
@@ -1748,6 +2035,7 @@ export function LessonCard({
           )}
         </div>
       </div>
+    )}
 
       {/* Progress bar at the bottom for live lesson */}
       {isLive && (

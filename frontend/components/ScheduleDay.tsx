@@ -55,7 +55,7 @@ function buildTelegramShareText(schedule: ScheduleResponse, scheduleMode: "stude
     }
     const rep = evTag || (l.is_replacement ? " ⚡ЗАМІНА" : "");
     const hasMeeting = Boolean(l.note && /(meet\.google\.com|zoom\.us)/i.test(l.note));
-    const room = (!hasMeeting && l.room) ? ` • 🚪 ${formatRoom(l.room)}` : "";
+    const room = (!hasMeeting && l.room) ? ` • ${formatRoom(l.room)}` : "";
     const who =
       scheduleMode === "teacher" && l.group_name
         ? `👥 ${l.group_name}`
@@ -253,13 +253,15 @@ export function ScheduleDay({
 
       {/* Morning pre-lesson indicator */}
       {isBeforeDayStart && (
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-sky-400/35 bg-sky-400/10 px-4 py-2.5 text-xs font-semibold text-sky-200 shadow-xs mb-3">
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-sys-border bg-sys-card px-4 py-2.5 text-xs text-sys-text-secondary shadow-xs mb-3">
           <div className="flex items-center gap-2">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sky-300"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-accent"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             <span>До початку занять</span>
           </div>
-          <div className="flex items-center gap-1.5 text-sky-100">
-            <span>1-а пара о {orderedLessons[0].time.split("-")[0]} (через {timeToStart} хв)</span>
+          <div className="flex items-center gap-1.5 text-sys-text-primary font-medium">
+            <span>
+              1-а пара о {orderedLessons[0].time.split("-")[0]} (через {timeToStart >= 60 ? `${Math.floor(timeToStart / 60)} год${timeToStart % 60 > 0 ? ` ${timeToStart % 60} хв` : ""}` : `${timeToStart} хв`})
+            </span>
           </div>
         </div>
       )}
@@ -302,14 +304,14 @@ export function ScheduleDay({
                 className="flex flex-col gap-2.5"
               >
                 {isBreakNow && (
-                  <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-400/35 bg-gradient-to-r from-amber-400/10 via-amber-400/5 to-transparent px-4 py-2.5 text-xs font-semibold text-amber-300 shadow-xs">
+                  <div className="flex items-center justify-between gap-3 rounded-xl border border-sys-border bg-sys-card/60 px-4 py-2 text-xs text-sys-text-secondary">
                     <div className="flex items-center gap-2">
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-amber-400"><path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><line x1="6" x2="6" y1="2" y2="4"/><line x1="10" x2="10" y1="2" y2="4"/><line x1="14" x2="14" y1="2" y2="4"/></svg>
-                      <span>Перерва {breakDuration} хв</span>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-text-muted"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                      <span>перерва {breakDuration} хв</span>
                     </div>
-                    <div className="flex items-center gap-1.5 text-amber-200">
-                      <span>Наступна пара ({lesson.lesson_number}-а) через</span>
-                      <span className="font-bold text-amber-300 underline underline-offset-2">{breakLeft} хв</span>
+                    <div className="flex items-center gap-1.5 text-sys-text-muted text-[11px]">
+                      <span>наступна ({lesson.lesson_number}-а) через</span>
+                      <span className="font-semibold text-sys-text-primary">{breakLeft} хв</span>
                     </div>
                   </div>
                 )}
