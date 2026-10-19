@@ -119,3 +119,4 @@ python3 scripts/db_backup.py --dir /data/backups
 - [Керівництво адміністратора (ADMIN_GUIDE.md)](docs/ADMIN_GUIDE.md)
 - [Чекліст готовності та критерії приймання (ACCEPTANCE.md)](docs/ACCEPTANCE.md)
 - [Архітектура нотаток та ревізій (group2B-notes-foundation.md)](docs/group2B-notes-foundation.md)
+- [Технічне завдання на редизайн UI/UX (REDESIGN_SPEC.md)](docs/REDESIGN_SPEC.md)
