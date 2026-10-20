@@ -402,6 +402,13 @@ export default function HomePage() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [mobileMenuOpen]);
 
+  const getActualTodayIndex = (): number => {
+    const now = new Date();
+    const dow = now.getDay();
+    if (dow >= 1 && dow <= 5) return dow - 1;
+    return 0;
+  };
+
   const getInitialDayIndex = (): number => {
     const now = new Date();
     const dow = now.getDay();
@@ -413,7 +420,7 @@ export default function HomePage() {
       new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Kyiv", minute: "2-digit" }).format(now)
     );
     const totalMins = kyivHour * 60 + kyivMin;
-    if (dow >= 1 && dow <= 4 && totalMins >= 15 * 60 + 25) {
+    if (dow >= 1 && dow <= 4 && totalMins >= 15 * 60 + 20) {
       return dow;
     }
     return dow - 1;
@@ -421,6 +428,8 @@ export default function HomePage() {
 
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(getInitialDayIndex);
   const [showAllDayTasks, setShowAllDayTasks] = useState(false);
+  const [dismissTomorrowBanner, setDismissTomorrowBanner] = useState(false);
+  const [dismissTodayBanner, setDismissTodayBanner] = useState(false);
 
   const activeDayDate = useMemo(() => {
     const d = new Date(weekAnchorDate);
@@ -430,6 +439,26 @@ export default function HomePage() {
 
   const todayActualIso = useMemo(() => {
     return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(new Date());
+  }, []);
+
+  const tomorrowActualIso = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(d);
+  }, []);
+
+  const isEveningAfterLessons = useMemo(() => {
+    const now = new Date();
+    const dow = now.getDay();
+    if (dow < 1 || dow > 4) return false;
+    const kyivHour = Number(
+      new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Kyiv", hour: "2-digit", hour12: false }).format(now)
+    );
+    const kyivMin = Number(
+      new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Kyiv", minute: "2-digit" }).format(now)
+    );
+    const totalMins = kyivHour * 60 + kyivMin;
+    return totalMins >= 15 * 60 + 20;
   }, []);
 
   const resetScroll = () => {
@@ -502,7 +531,19 @@ export default function HomePage() {
   const handleJumpToToday = () => {
     const currentAnchor = getInitialAnchor();
     setWeekAnchorDate(currentAnchor);
-    setSelectedDayIndex(getInitialDayIndex());
+    setSelectedDayIndex(getActualTodayIndex());
+    setDaySlideDir(0);
+    resetScroll();
+  };
+
+  const handleJumpToTomorrow = () => {
+    const currentAnchor = getInitialAnchor();
+    setWeekAnchorDate(currentAnchor);
+    const now = new Date();
+    const dow = now.getDay();
+    if (dow >= 1 && dow <= 4) {
+      setSelectedDayIndex(dow);
+    }
     setDaySlideDir(0);
     resetScroll();
   };
@@ -539,6 +580,9 @@ export default function HomePage() {
       lessons: [],
     };
   }, [week, activeDayDate, weekType, displayDaySchedule, today]);
+
+  const isViewingTomorrow = isCurrentWeek && selectedDaySchedule?.date === tomorrowActualIso;
+  const isViewingToday = isCurrentWeek && selectedDaySchedule?.date === todayActualIso;
 
   const weekRange = useMemo(() => {
     const end = new Date(weekAnchorDate);
@@ -872,13 +916,13 @@ export default function HomePage() {
                 type="button"
                 onClick={view === "today" ? handleJumpToToday : resetWeek}
                 disabled={
-                  (view === "today" && selectedDaySchedule?.date === todayActualIso) ||
+                  (view === "today" && isCurrentWeek && (selectedDaySchedule?.date === todayActualIso || (isWeekend && selectedDayIndex === 0))) ||
                   (view === "week" && isCurrentWeek)
                 }
                 aria-label="Перейти на сьогодні"
                 title="Перейти на сьогодні"
                 className={`px-3.5 h-10 rounded-lg font-medium transition-colors ${
-                  (view === "today" && selectedDaySchedule?.date === todayActualIso) ||
+                  (view === "today" && isCurrentWeek && (selectedDaySchedule?.date === todayActualIso || (isWeekend && selectedDayIndex === 0))) ||
                   (view === "week" && isCurrentWeek)
                     ? "text-sys-text-muted cursor-default bg-transparent opacity-50"
                     : "text-sys-text-secondary hover:text-white hover:bg-sys-card active:scale-95"
@@ -1525,16 +1569,18 @@ export default function HomePage() {
               <DayPager
                 schedule={selectedDaySchedule}
                 todayDate={todayActualIso}
+                tomorrowDate={tomorrowActualIso}
                 scheduleMode={mode}
                 canEdit={false}
                 onQuickJump={handleQuickJump}
                 onNextDay={goToNextDay}
                 onPrevDay={goToPrevDay}
                 onJumpToToday={handleJumpToToday}
+                onJumpToTomorrow={handleJumpToTomorrow}
                 daySlideDir={daySlideDir}
                 shouldReduceMotion={shouldReduceMotion ?? false}
                 isWeekend={isAutoSelectedWeekendDay}
-                isShowingTomorrow={isShowingTomorrow && !isWeekend}
+                isShowingTomorrow={isEveningAfterLessons && isCurrentWeek}
                 weekNumber={currentWeekNumber}
               />
             ) : (
@@ -1631,24 +1677,70 @@ export default function HomePage() {
                         </div>
                       )}
 
-                      {isShowingTomorrow && selectedDaySchedule?.date !== todayActualIso && !isWeekend && (
-                        <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 rounded-xl border border-sys-accent/30 bg-sys-accent/10 px-4 py-2 text-xs sm:text-[13px] text-sys-text-primary shadow-xs">
-                          <div className="flex items-center gap-2">
+                      {/* Banner on Tomorrow when lessons for today are completed */}
+                      {isEveningAfterLessons && isViewingTomorrow && !isWeekend && !dismissTomorrowBanner && (
+                        <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 rounded-xl border border-sys-accent/30 bg-sys-accent/10 px-4 py-2.5 text-xs sm:text-[13px] text-sys-text-primary shadow-xs">
+                          <div className="flex items-center gap-2 min-w-0">
                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-accent">
                               <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
                             </svg>
                             <span>Пари на сьогодні завершено — показано <strong>розклад на завтра</strong></span>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const todayIdx = weekDaysMini.findIndex((d) => d.iso === todayActualIso);
-                              if (todayIdx >= 0) handleSelectDayIndex(todayIdx);
-                            }}
-                            className="shrink-0 rounded-lg bg-[#1e293b] border border-sys-accent/40 px-3 py-1 text-xs font-semibold text-[#93c5fd] hover:bg-[#334155] transition-colors"
-                          >
-                            Повернутися на сьогодні
-                          </button>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              type="button"
+                              onClick={handleJumpToToday}
+                              className="shrink-0 rounded-lg bg-sys-accent/15 border border-sys-accent/30 px-3 py-1.5 text-xs font-semibold text-sys-accent hover:bg-sys-accent/25 transition-colors"
+                            >
+                              Повернутися на сьогодні
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDismissTomorrowBanner(true)}
+                              aria-label="Закрити"
+                              title="Закрити"
+                              className="p-1 rounded-md text-sys-text-muted hover:text-white hover:bg-white/10 transition-colors"
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="18" y1="6" x2="6" y2="18" />
+                                <line x1="6" y1="6" x2="18" y2="18" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Banner on Today when lessons for today are completed */}
+                      {isEveningAfterLessons && isViewingToday && !isWeekend && !dismissTodayBanner && (
+                        <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 rounded-xl border border-sys-border bg-sys-card px-4 py-2.5 text-xs sm:text-[13px] text-sys-text-primary shadow-xs">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-amber-400">
+                              <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+                            </svg>
+                            <span className="text-sys-text-secondary">Пари на сьогодні завершено</span>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              type="button"
+                              onClick={handleJumpToTomorrow}
+                              className="shrink-0 rounded-lg bg-sys-accent/15 border border-sys-accent/30 px-3 py-1.5 text-xs font-semibold text-sys-accent hover:bg-sys-accent/25 transition-colors flex items-center gap-1"
+                            >
+                              <span>Розклад на завтра</span>
+                              <span>→</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDismissTodayBanner(true)}
+                              aria-label="Закрити"
+                              title="Закрити"
+                              className="p-1 rounded-md text-sys-text-muted hover:text-white hover:bg-white/10 transition-colors"
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="18" y1="6" x2="6" y2="18" />
+                                <line x1="6" y1="6" x2="18" y2="18" />
+                              </svg>
+                            </button>
+                          </div>
                         </div>
                       )}
 

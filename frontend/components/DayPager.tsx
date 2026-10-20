@@ -51,10 +51,13 @@ export function DayPager({
   shouldReduceMotion = false,
   isWeekend = false,
   isShowingTomorrow = false,
+  tomorrowDate,
+  onJumpToTomorrow,
   weekNumber,
 }: {
   schedule: ScheduleResponse;
   todayDate?: string;
+  tomorrowDate?: string;
   scheduleMode?: "student" | "teacher" | "admin";
   canEdit?: boolean;
   onEdit?: (lesson: Lesson) => void;
@@ -67,6 +70,7 @@ export function DayPager({
   onNextDay?: () => void;
   onPrevDay?: () => void;
   onJumpToToday?: () => void;
+  onJumpToTomorrow?: () => void;
   daySlideDir?: number;
   shouldReduceMotion?: boolean;
   isWeekend?: boolean;
@@ -183,6 +187,7 @@ export function DayPager({
   }, [schedule.lessons]);
 
   const isToday = schedule.date === todayDate;
+  const isTomorrow = Boolean(tomorrowDate && schedule.date === tomorrowDate);
   const showTodayChip = !isToday && !!onJumpToToday;
 
   return (
@@ -221,7 +226,8 @@ export function DayPager({
         )}
       </AnimatePresence>
 
-      {isShowingTomorrow && !isWeekend && !isToday && (
+      {/* When evening after lessons and viewing tomorrow: show tomorrow banner */}
+      {isShowingTomorrow && !isWeekend && isTomorrow && (
         <div
           onClick={onJumpToToday}
           role="button"
@@ -233,15 +239,38 @@ export function DayPager({
         >
           <div className="flex items-center gap-2 min-w-0">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-accent">
-              <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+              <path d="M12 3a6 6 0 0 0 9 9 9 0 1 1-9-9Z" />
             </svg>
-            <span>Пари на сьогодні завершено · показано <strong>розклад на завтра</strong></span>
+            <span className="truncate">Пари на сьогодні завершено · показано <strong>розклад на завтра</strong></span>
           </div>
           {onJumpToToday && (
-            <span className="shrink-0 font-semibold text-sys-accent hover:underline flex items-center gap-1">
+            <span className="shrink-0 font-semibold text-sys-accent hover:underline flex items-center gap-1 text-[11px]">
               Сьогодні →
             </span>
           )}
+        </div>
+      )}
+
+      {/* When evening after lessons and viewing today: show today completed banner */}
+      {isShowingTomorrow && !isWeekend && isToday && onJumpToTomorrow && (
+        <div
+          onClick={onJumpToTomorrow}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") onJumpToTomorrow?.();
+          }}
+          className="mb-2.5 flex items-center justify-between gap-2 rounded-xl border border-sys-border bg-sys-card px-3.5 py-2.5 text-xs text-sys-text-primary cursor-pointer hover:bg-sys-card/80 transition-colors [text-wrap:balance]"
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-amber-400">
+              <path d="M12 3a6 6 0 0 0 9 9 9 0 1 1-9-9Z" />
+            </svg>
+            <span className="text-sys-text-secondary truncate">Пари на сьогодні завершено</span>
+          </div>
+          <span className="shrink-0 font-semibold text-sys-accent hover:underline flex items-center gap-1 text-[11px]">
+            На завтра →
+          </span>
         </div>
       )}
 
