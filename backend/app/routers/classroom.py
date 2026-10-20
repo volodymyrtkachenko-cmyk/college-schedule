@@ -714,9 +714,9 @@ async def perform_course_sync(
     week_monday = today_kyiv - timedelta(days=today_kyiv.weekday())
     week_friday = week_monday + timedelta(days=4)
 
-    # Вікно збереження ДЗ: поточний і наступний тиждень + lookback до 7 днів назад для завдань,
-    # чия найближча пара припадає на горизонт поточного/наступного тижня
-    TASKS_LOOKBACK_DAYS = 7
+    # Вікно збереження ДЗ: попередні 2 тижні (lookback 14 днів) + поточний + наступний тиждень,
+    # щоб завдання минулих тижнів прив'язувалися до пар свого тижня, а не виштовхувалися вперед
+    TASKS_LOOKBACK_DAYS = 14
     tasks_window_start = min(current_monday, week_monday)
     tasks_lookback_start = tasks_window_start - timedelta(days=TASKS_LOOKBACK_DAYS)
     tasks_window_end = max(current_monday, week_monday) + timedelta(days=11)  # п'ятниця наступного тижня
@@ -786,9 +786,9 @@ async def perform_course_sync(
 
     await db.flush()
 
-    # КРОК 2: Завантажуємо розклад на 2 тижні (поточний + наступний тиждень)
+    # КРОК 2: Завантажуємо розклад на розширений горизонт (2 тижні назад + поточний + наступний тиждень)
     horizon_lessons_by_date: dict[date, list] = {}
-    for w_offset in (0, 1):
+    for w_offset in (-2, -1, 0, 1):
         w_mon = tasks_window_start + timedelta(days=w_offset * 7)
         _, w_by_day = await build_week_projection(db, w_mon, group_id=group.id)
         for weekday in range(1, 6):
@@ -1287,11 +1287,11 @@ async def perform_course_sync(
                             })
                             continue
                     else:
-                        if (today_real - created_dt.date()).days > 7:
+                        if (today_real - created_dt.date()).days > TASKS_LOOKBACK_DAYS:
                             unmapped_tasks.append({
                                 "title": title_raw,
                                 "due_date": None,
-                                "reason": "Створено більше 7 днів тому без дедлайну",
+                                "reason": f"Створено більше {TASKS_LOOKBACK_DAYS} днів тому без дедлайну",
                             })
                             continue
 
@@ -1310,7 +1310,7 @@ async def perform_course_sync(
     # КРОК 4: Прикріплюємо ДЗ (за правилами 13.1, 13.2 та 13.3)
     sorted_horizon_dates = sorted(
         d for d in horizon_lessons_by_date.keys()
-        if tasks_window_start <= d <= tasks_window_end
+        if tasks_lookback_start <= d <= tasks_window_end
     )
 
     # 13.3: Сортування завдань перед прив'язкою: спочатку з датою (за зростанням дедлайну), потім без дати (за датою публікації)

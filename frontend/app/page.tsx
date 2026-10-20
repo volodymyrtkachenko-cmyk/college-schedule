@@ -305,7 +305,26 @@ export default function HomePage() {
     });
   };
 
-  const weekType = view === "week" ? ((week?.[0]?.week_type) ?? "both") : (today?.week_type ?? "both");
+  const currentWeekNumber = useMemo(() => {
+    if (!semesterStart) return null;
+    const start = new Date(semesterStart);
+    const diffTime = weekAnchorDate.getTime() - getMondayOf(start).getTime();
+    const diffWeeks = Math.floor(diffTime / (7 * 24 * 60 * 60 * 1000)) + 1;
+    return diffWeeks > 0 ? diffWeeks : null;
+  }, [semesterStart, weekAnchorDate]);
+
+  const weekType = useMemo(() => {
+    if (week && week.length > 0 && week[0]?.week_type && week[0].week_type !== "both") {
+      return week[0].week_type;
+    }
+    if (currentWeekNumber) {
+      return currentWeekNumber % 2 === 1 ? "numerator" : "denominator";
+    }
+    if (isCurrentWeek && today?.week_type && today.week_type !== "both") {
+      return today.week_type;
+    }
+    return today?.week_type ?? "both";
+  }, [week, currentWeekNumber, isCurrentWeek, today?.week_type]);
 
   const { displayDaySchedule, isShowingTomorrow } = useMemo(() => {
     if (!today) return { displayDaySchedule: null, isShowingTomorrow: false };
@@ -511,14 +530,6 @@ export default function HomePage() {
   }, [weekAnchorDate]);
 
   const resetWeek = () => setWeekAnchorDate(getInitialAnchor());
-
-  const currentWeekNumber = useMemo(() => {
-    if (!semesterStart) return null;
-    const start = new Date(semesterStart);
-    const diffTime = weekAnchorDate.getTime() - getMondayOf(start).getTime();
-    const diffWeeks = Math.floor(diffTime / (7 * 24 * 60 * 60 * 1000)) + 1;
-    return diffWeeks > 0 ? diffWeeks : null;
-  }, [semesterStart, weekAnchorDate]);
 
   const weekDaysMini = useMemo(() => {
     const days: { index: number; name: string; dateStr: string; iso: string }[] = [];
@@ -1982,6 +1993,31 @@ export default function HomePage() {
                     Поточний навчальний тиждень: <strong>{currentWeekNumber}-й тиждень</strong>.
                   </p>
                 )}
+                <div className="pt-2 border-t border-sys-border/40 space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      shiftWeekPreservingDay(1);
+                      setWeekTypeSheetOpen(false);
+                    }}
+                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-sys-tabActive border border-sys-border px-4 py-2.5 text-xs font-semibold text-sys-text-primary hover:border-sys-accent hover:text-sys-accent active:scale-[0.98] transition-all"
+                  >
+                    <span>Перейти на {weekType === "numerator" ? "знаменник (наступний тиждень)" : "чисельник (наступний тиждень)"}</span>
+                    <span>→</span>
+                  </button>
+                  {!isCurrentWeek && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        resetWeekPreservingDay();
+                        setWeekTypeSheetOpen(false);
+                      }}
+                      className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-transparent py-1.5 text-xs font-medium text-sys-accent hover:underline active:scale-[0.98]"
+                    >
+                      Повернутися до поточного тижня
+                    </button>
+                  )}
+                </div>
               </div>
             </motion.div>
           </motion.div>

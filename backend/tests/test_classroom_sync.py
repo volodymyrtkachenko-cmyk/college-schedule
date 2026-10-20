@@ -171,3 +171,76 @@ def test_bundle_items_unpacking_handles_6_items_safely():
         processed += 1
     assert processed == 1
 
+
+def test_due_date_binds_to_due_week_lesson_not_pushed_forward():
+    """Rule 13.1: Task due 15-16 Oct must bind to lesson in that week (15-16 Oct), NOT 22 Oct."""
+    lesson_last_week = DummyLesson("Основи філософських знань", "Домніна Г.С.", 2)
+    lesson_this_week = DummyLesson("Основи філософських знань", "Домніна Г.С.", 2)
+
+    horizon_lessons_by_date = {
+        date(2026, 10, 15): [lesson_last_week],
+        date(2026, 10, 22): [lesson_this_week],
+    }
+    sorted_horizon_dates = sorted(horizon_lessons_by_date.keys())
+
+    # Task due Thursday 15 Oct 2026
+    due_date = date(2026, 10, 15)
+    due_monday = due_date - (due_date.weekday() * date.resolution)
+    due_friday = due_monday + (4 * date.resolution)
+
+    combined_cw_text = "філософія тестування - німецька класична"
+    author_tokens = ["домніна"]
+
+    week_candidates = [
+        (d, l)
+        for d in sorted_horizon_dates
+        if due_monday <= d <= due_friday and d in horizon_lessons_by_date
+        for l in horizon_lessons_by_date[d]
+        if _matches_lesson(l, combined_cw_text, "", author_tokens)
+    ]
+
+    assert len(week_candidates) == 1
+    target_date, target_lesson = week_candidates[0]
+    assert target_date == date(2026, 10, 15)
+    assert target_lesson == lesson_last_week
+
+
+def test_due_date_falls_back_to_next_week_only_when_due_week_has_no_pair():
+    """Rule 13.1 clause 3: If no pair exists in the due week, binds to first next pair."""
+    lesson_this_week = DummyLesson("Основи філософських знань", "Домніна Г.С.", 2)
+
+    # Due week (12-16 Oct) has NO philosophy lessons
+    horizon_lessons_by_date = {
+        date(2026, 10, 22): [lesson_this_week],
+    }
+    sorted_horizon_dates = sorted(horizon_lessons_by_date.keys())
+
+    due_date = date(2026, 10, 15)
+    due_monday = due_date - (due_date.weekday() * date.resolution)
+    due_friday = due_monday + (4 * date.resolution)
+
+    combined_cw_text = "філософія"
+    author_tokens = ["домніна"]
+
+    week_candidates = [
+        (d, l)
+        for d in sorted_horizon_dates
+        if due_monday <= d <= due_friday and d in horizon_lessons_by_date
+        for l in horizon_lessons_by_date[d]
+        if _matches_lesson(l, combined_cw_text, "", author_tokens)
+    ]
+    assert len(week_candidates) == 0
+
+    next_candidates = [
+        (d, l)
+        for d in sorted_horizon_dates
+        if d > due_friday and d in horizon_lessons_by_date
+        for l in horizon_lessons_by_date[d]
+        if _matches_lesson(l, combined_cw_text, "", author_tokens)
+    ]
+    assert len(next_candidates) == 1
+    target_date, target_lesson = next_candidates[0]
+    assert target_date == date(2026, 10, 22)
+    assert target_lesson == lesson_this_week
+
+
