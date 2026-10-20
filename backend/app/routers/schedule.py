@@ -17,6 +17,7 @@ from app.services.schedule import fetch_schedule, fetch_week_schedule, conflicti
 from app.routers.schedule_versions import lock_versions
 
 from app.services.lesson_notes import attach_notes
+from app.services.learning_mode import resolve_group_learning_mode
 
 logger = logging.getLogger(__name__)
 
@@ -181,6 +182,7 @@ async def schedule(group_id: int | None = None, teacher_id: int | None = None,
         date=target_date,
         week_type=week_type,
         lessons=await attach_notes(db, target_date, serialize_schedule_items(lessons, week_type, target_date, bell_t)),
+        learning_mode=await resolve_group_learning_mode(db, group_id, target_date),
     )
 
 @router.get("/schedule/today", response_model=ScheduleResponse)
@@ -313,7 +315,12 @@ async def week(
     ]
     await attach_week_notes(db, days_serialized)
     return [
-        ScheduleResponse(date=day_date, week_type=week_type, lessons=day_lessons)
+        ScheduleResponse(
+            date=day_date,
+            week_type=week_type,
+            lessons=day_lessons,
+            learning_mode=await resolve_group_learning_mode(db, group_id, day_date),
+        )
         for day_date, day_lessons in days_serialized
     ]
 

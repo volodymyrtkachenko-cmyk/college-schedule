@@ -53,6 +53,22 @@ export interface SemesterDatesUpdate {
     semester_end: string;
 }
 
+export type LearningMode = "offline" | "online";
+
+export interface LearningModeOverride {
+    start: string;
+    end: string;
+    mode: LearningMode;
+    courses: number[];
+}
+
+export interface LearningModeConfig {
+    cycle_start: string | null;
+    weeks_per_phase: number;
+    first_phase_offline_courses: number[];
+    overrides: LearningModeOverride[];
+}
+
 export interface DirectoryItem {
     id: number;
     name: string;
@@ -117,6 +133,7 @@ export interface ScheduleResponse {
     date: string;
     week_type: WeekType;
     lessons: Lesson[];
+    learning_mode?: LearningMode | null;
 }
 
 export interface TemplateDaySchedule {
@@ -1000,6 +1017,12 @@ export const api = {
         request<T>(`/api/educational-process?academic_year_start=${year}`),
     settings: {
         semesterStart: () => request<SemesterStartSetting>("/api/settings/semester-start"),
+        learningMode: () => request<LearningModeConfig>("/api/settings/learning-mode"),
+        updateLearningMode: (payload: LearningModeConfig, token: string) =>
+            request<LearningModeConfig>("/api/settings/learning-mode", {
+                method: "PUT",
+                body: JSON.stringify(payload),
+            }, true, true, token),
         semesterDates: () => request<SemesterDatesSetting>("/api/settings/semester-dates"),
         updateSemesterDates: (payload: SemesterDatesUpdate, token: string) =>
             request<SemesterDatesSetting>("/api/settings/semester-dates", {

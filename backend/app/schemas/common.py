@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date, time
 from datetime import date as DateType
+from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 class DirectoryItem(BaseModel):
@@ -133,6 +134,36 @@ class ScheduleResponse(BaseModel):
     date: date
     week_type: str
     lessons: list[ScheduleItem]
+    learning_mode: str | None = None
+
+
+class LearningModeOverride(BaseModel):
+    start: date
+    end: date
+    mode: Literal["offline", "online"]
+    courses: list[int] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validate_range(self):
+        if self.end < self.start:
+            raise ValueError("end must not precede start")
+        if any(not 1 <= course <= 5 for course in self.courses):
+            raise ValueError("courses must be between 1 and 5")
+        return self
+
+
+class LearningModeConfig(BaseModel):
+    cycle_start: date | None = None
+    weeks_per_phase: int = Field(default=2, ge=1, le=8)
+    first_phase_offline_courses: list[int] = Field(default_factory=lambda: [1, 3])
+    overrides: list[LearningModeOverride] = Field(default_factory=list)
+
+    @field_validator("first_phase_offline_courses")
+    @classmethod
+    def valid_courses(cls, value):
+        if any(not 1 <= course <= 5 for course in value):
+            raise ValueError("courses must be between 1 and 5")
+        return value
 
 
 class SemesterStartSetting(BaseModel):

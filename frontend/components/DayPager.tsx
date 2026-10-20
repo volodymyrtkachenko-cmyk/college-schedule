@@ -190,6 +190,17 @@ export function DayPager({
   const isTomorrow = Boolean(tomorrowDate && schedule.date === tomorrowDate);
   const showTodayChip = !isToday && !!onJumpToToday;
   const dayParts = formatDayParts(schedule.date);
+  const learningModeBadge = schedule.learning_mode ? (
+    <span
+      className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-bold ${
+        schedule.learning_mode === "offline"
+          ? "border-sys-accent/30 bg-sys-accent/10 text-sys-accent"
+          : "border-sys-warning/30 bg-sys-warning/10 text-sys-warning"
+      }`}
+    >
+      {schedule.learning_mode === "offline" ? "Очно" : "Дистанційно"}
+    </span>
+  ) : null;
 
   const firstStart = orderedLessons.length > 0 ? parseMin(orderedLessons[0].time.split(/[-–—]/)[0]) : null;
   const isBeforeDayStart = Boolean(
@@ -297,6 +308,7 @@ export function DayPager({
             </h2>
           </div>
           <span className="text-sm font-medium text-sys-text-secondary">{dayParts.dayMonth}</span>
+          {learningModeBadge}
         </div>
 
         {orderedLessons.length > 0 && (

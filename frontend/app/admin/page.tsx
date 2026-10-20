@@ -23,6 +23,7 @@ const ConstraintsPanel = dynamic(() => import("../../components/admin/Constraint
 const SchedulePeriodsPanel = dynamic(() => import("../../components/admin/SchedulePeriodsPanel").then((module) => module.SchedulePeriodsPanel), { ssr: false });
 const ScheduleVersionsPanel = dynamic(() => import("../../components/admin/ScheduleVersionsPanel").then((module) => module.ScheduleVersionsPanel), { ssr: false });
 const SemesterSettingsPanel = dynamic(() => import("../../components/admin/SemesterSettingsPanel").then((module) => module.SemesterSettingsPanel), { ssr: false });
+const LearningModePanel = dynamic(() => import("../../components/admin/LearningModePanel").then((module) => module.LearningModePanel), { ssr: false });
 const ImportPanel = dynamic(() => import("../../components/admin/ImportPanel").then((module) => module.ImportPanel), { ssr: false });
 
 import { ApiError } from "../../lib/api";
@@ -271,7 +272,7 @@ function AdminContent() {
 
   useEffect(() => {
     if (authLoading) return;
-    if (currentTab === "semester" || !activeResource) return;
+    if (currentTab === "semester" || currentTab === "learning-mode" || !activeResource) return;
     if (user?.role !== "admin" && !isSchedule) return;
     let cancelled = false;
     setLoading(true);
@@ -549,6 +550,8 @@ function AdminContent() {
           <ScheduleVersionsPanel />
         ) : currentTab === "semester" && user?.role === "admin" ? (
           <SemesterSettingsPanel />
+        ) : currentTab === "learning-mode" && user?.role === "admin" ? (
+          <LearningModePanel />
         ) : currentTab === "import" && user?.role === "admin" ? (
           <ImportPanel />
 

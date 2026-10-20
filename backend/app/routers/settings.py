@@ -3,7 +3,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import require_roles
 from app.database import get_db
-from app.schemas import SemesterDatesSetting, SemesterDatesUpdate, SemesterStartSetting
+from app.schemas import LearningModeConfig, SemesterDatesSetting, SemesterDatesUpdate, SemesterStartSetting
+from app.services.learning_mode import get_learning_mode_config, save_learning_mode_config
 from app.services.settings import SEMESTER_START_KEY, settings_service
 
 router = APIRouter(prefix="/settings", tags=["settings"])
@@ -33,6 +34,21 @@ async def update_semester_start(
     value = payload.value
     await settings_service.set(db, SEMESTER_START_KEY, value.isoformat())
     return SemesterStartSetting(value=value)
+
+
+@router.get("/learning-mode", response_model=LearningModeConfig)
+async def get_learning_mode(db: AsyncSession = Depends(get_db)):
+    return await get_learning_mode_config(db)
+
+
+@router.put("/learning-mode", response_model=LearningModeConfig)
+async def update_learning_mode(
+    payload: LearningModeConfig,
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_roles("admin")),
+):
+    await save_learning_mode_config(db, payload)
+    return payload
 
 
 @router.get("/semester-dates", response_model=SemesterDatesSetting)

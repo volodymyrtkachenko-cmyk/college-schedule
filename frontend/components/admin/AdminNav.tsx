@@ -20,6 +20,7 @@ export const pageTitles: Record<string, string> = {
   periods: "Графік процесу",
   versions: "Версії",
   semester: "Семестр",
+  "learning-mode": "Режим навчання",
   curriculum: "Навантаження",
   constraints: "Обмеження",
   generator: "Генерація розкладу",
@@ -410,6 +411,16 @@ export function AdminNav({ active }: { active: string }) {
               >
                 <VersionsIcon className="w-4 h-4 shrink-0 text-current" />
                 <span className="truncate">Версії та семестри</span>
+              </Link>
+
+              <Link
+                href="/admin?resource=learning-mode"
+                onClick={() => setDrawerOpen(false)}
+                aria-current={active === "learning-mode" ? "page" : undefined}
+                className={linkClass(active === "learning-mode")}
+              >
+                <CalendarRangeIcon className="w-4 h-4 shrink-0 text-current" />
+                <span className="truncate">Режим навчання</span>
               </Link>
 
               <Link
