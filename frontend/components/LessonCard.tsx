@@ -1239,7 +1239,7 @@ export function LessonCard({
                   const subNum = idx + 1;
                   const isFaded = selectedSubgroup !== null && selectedSubgroup !== subNum;
                   const ownMeeting = teacherMeetings[idx];
-                  const ownRoom = idx === 0 ? lesson.teacher_room : lesson.second_teacher_room;
+                  const ownRoom = (idx === 0 ? lesson.teacher_room : lesson.second_teacher_room) || rooms[idx] || null;
                   return (
                     <div key={idx} className={`flex items-center gap-2 text-xs transition-opacity ${isFaded ? "opacity-50" : "opacity-100"}`}>
                       <button
@@ -1634,7 +1634,7 @@ export function LessonCard({
                     {teacherMeetings[0].platform === "zoom" ? "Zoom" : teacherMeetings[0].platform === "meet" ? "Meet" : "Онлайн"} ↗
                   </a>
                 ) : (
-                  <span className="ml-auto shrink-0 rounded-md border border-sys-border bg-sys-bg px-1.5 py-0.5 text-[11px] font-semibold leading-none text-sys-text-secondary">{lesson.teacher_room ? `ауд. ${lesson.teacher_room.replace(/^ауд\.?\s*/i, "")}` : "ауд. —"}</span>
+                  <span className="ml-auto shrink-0 rounded-md border border-sys-border bg-sys-bg px-1.5 py-0.5 text-[11px] font-semibold leading-none text-sys-text-secondary">{(lesson.teacher_room || rooms[0]) ? `ауд. ${(lesson.teacher_room || rooms[0]).replace(/^ауд\.?\s*/i, "")}` : "ауд. —"}</span>
                 )}
               </div>
               <div className={`flex items-center gap-1.5 min-w-0 transition-opacity ${selectedSubgroup === 1 ? "opacity-50 hover:opacity-80" : "opacity-100"}`}>
@@ -1671,7 +1671,7 @@ export function LessonCard({
                     {teacherMeetings[1].platform === "zoom" ? "Zoom" : teacherMeetings[1].platform === "meet" ? "Meet" : "Онлайн"} ↗
                   </a>
                 ) : (
-                  <span className="ml-auto shrink-0 rounded-md border border-sys-border bg-sys-bg px-1.5 py-0.5 text-[11px] font-semibold leading-none text-sys-text-secondary">{lesson.second_teacher_room ? `ауд. ${lesson.second_teacher_room.replace(/^ауд\.?\s*/i, "")}` : "ауд. —"}</span>
+                  <span className="ml-auto shrink-0 rounded-md border border-sys-border bg-sys-bg px-1.5 py-0.5 text-[11px] font-semibold leading-none text-sys-text-secondary">{(lesson.second_teacher_room || rooms[1]) ? `ауд. ${(lesson.second_teacher_room || rooms[1]).replace(/^ауд\.?\s*/i, "")}` : "ауд. —"}</span>
                 )}
               </div>
             </div>

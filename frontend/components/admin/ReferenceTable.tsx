@@ -96,6 +96,11 @@ export function ReferenceTable({
                       {item.full_name} {item.email ? `(${item.email})` : ""}
                     </span>
                   )}
+                  {resource === "teachers" && item.room && (
+                    <span className="mt-1 inline-block rounded-md border border-sys-border bg-sys-bg px-1.5 py-0.5 text-[11px] font-semibold text-sys-text-secondary">
+                      ауд. {item.room.replace(/^ауд(иторія)?\.?\s*/i, "")}
+                    </span>
+                  )}
                 </td>
 
                 {resource === "groups" && (
@@ -185,6 +190,11 @@ export function ReferenceTable({
                   <p className="text-xs text-sys-text-secondary mt-1">
                     {item.full_name} {item.email ? `(${item.email})` : ""}
                   </p>
+                )}
+                {resource === "teachers" && item.room && (
+                  <span className="mt-1 inline-block rounded-md border border-sys-border bg-sys-bg px-1.5 py-0.5 text-[11px] font-semibold text-sys-text-secondary">
+                    ауд. {item.room.replace(/^ауд(иторія)?\.?\s*/i, "")}
+                  </span>
                 )}
               </div>
 
