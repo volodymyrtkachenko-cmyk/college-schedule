@@ -1969,9 +1969,9 @@ export default function HomePage() {
                                 <section>
                                   <button
                                     type="button"
-                                    onClick={() => setSidebarPastWeekOpen(!sidebarPastWeekOpen)}
+                                    onClick={() => setSidebarPastWeekOpen(!(sidebarPastWeekOpen || sidebarTaskFilters.status === "overdue"))}
                                     className="mb-2 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
-                                    aria-expanded={sidebarPastWeekOpen}
+                                    aria-expanded={sidebarPastWeekOpen || sidebarTaskFilters.status === "overdue"}
                                   >
                                     <div className="flex items-center gap-2">
                                       <span className={`h-2 w-2 rounded-full shadow-xs ${isLinked ? "bg-rose-500" : "bg-slate-500"}`} />
@@ -1980,10 +1980,10 @@ export default function HomePage() {
                                       </h4>
                                     </div>
                                     <span className="text-xs text-sys-text-muted">
-                                      {sidebarPastWeekOpen ? "Згорнути ▴" : "Показати ▾"}
+                                      {sidebarPastWeekOpen || sidebarTaskFilters.status === "overdue" ? "Згорнути ▴" : "Показати ▾"}
                                     </span>
                                   </button>
-                                  {sidebarPastWeekOpen && (
+                                  {(sidebarPastWeekOpen || sidebarTaskFilters.status === "overdue") && (
                                     <div className="space-y-2 animate-in fade-in duration-150">
                                       {sidebarTaskGroups.pastWeekTasks.map((t, idx) => renderTaskCard(t, `sb-past-${idx}`, isLinked))}
                                     </div>
@@ -2083,7 +2083,7 @@ export default function HomePage() {
                               )}
 
                               {/* Empty state when only turned-in tasks exist (Section 22.2) */}
-                              {sidebarTaskGroups.isOnlyTurnedIn && (
+                              {sidebarTaskGroups.isOnlyTurnedIn && sidebarTaskFilters.status !== "done" && (
                                 <div className="flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-950/20 px-3.5 py-2.5 text-xs text-emerald-400 font-medium select-none shadow-xs">
                                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-emerald-400">
                                     <polyline points="20 6 9 17 4 12" />
@@ -2097,9 +2097,9 @@ export default function HomePage() {
                                 <section className="pt-1">
                                   <button
                                     type="button"
-                                    onClick={() => setSidebarTurnedInOpen(!sidebarTurnedInOpen)}
+                                    onClick={() => setSidebarTurnedInOpen(!(sidebarTurnedInOpen || sidebarTaskFilters.status === "done"))}
                                     className="mb-2 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
-                                    aria-expanded={sidebarTurnedInOpen}
+                                    aria-expanded={sidebarTurnedInOpen || sidebarTaskFilters.status === "done"}
                                   >
                                     <div className="flex items-center gap-2">
                                       <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-xs" />
@@ -2108,10 +2108,10 @@ export default function HomePage() {
                                       </h4>
                                     </div>
                                     <span className="text-xs text-sys-text-muted">
-                                      {sidebarTurnedInOpen ? "Згорнути ▴" : "Показати ▾"}
+                                      {sidebarTurnedInOpen || sidebarTaskFilters.status === "done" ? "Згорнути ▴" : "Показати ▾"}
                                     </span>
                                   </button>
-                                  {sidebarTurnedInOpen && (
+                                  {(sidebarTurnedInOpen || sidebarTaskFilters.status === "done") && (
                                     <div className="space-y-2 animate-in fade-in duration-150">
                                       {sidebarTaskGroups.turnedInTasks.map((t, idx) => renderTaskCard(t, `sb-done-${idx}`, isLinked))}
                                     </div>

@@ -62,8 +62,8 @@ export function useTaskGroups(
       const isDone = isLinked && (t.state === "TURNED_IN" || t.state === "RETURNED");
       if (filters.status === "done") return isDone;
       if (isDone) return false;
-      if (filters.status === "overdue") return Boolean(t.deadline.isOverdue);
-      return true;
+      const isOverdue = Boolean(t.deadline.isOverdue);
+      return filters.status === "overdue" ? isOverdue : !isOverdue;
     });
   }, [tasks, filters.status, filters.subject, isLinked]);
 

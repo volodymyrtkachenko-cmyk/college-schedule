@@ -36,7 +36,7 @@ export function TaskFilters({
         className={selectClass}
       >
         <option value="all">Усі статуси</option>
-        <option value="pending">{isLinked ? "Не здано" : "Не завершені"}</option>
+        <option value="pending">Активні</option>
         <option value="overdue">{isLinked ? "Прострочені" : "Термін минув"}</option>
         {isLinked && <option value="done">Здані</option>}
       </select>

@@ -228,8 +228,15 @@ export function MobileTasksView({
             </svg>
           </div>
           <p className="text-sm font-semibold text-sys-text-primary">
-            {scope === "week" ? "На цьому тижні завдань немає" : "Завдань немає"}
+            {filters.status !== "all" || filters.subject
+              ? "Нічого не знайдено за вибраними фільтрами"
+              : scope === "week"
+                ? "На цьому тижні завдань немає"
+                : "Завдань немає"}
           </p>
+          {scope === "week" && (filters.status !== "all" || filters.subject) && tasks.length > 0 && (
+            <p className="mt-1 text-xs">Спробуйте «Переглянути всі» або скиньте фільтри</p>
+          )}
           {scope === "week" && (
             <button
               type="button"
@@ -247,9 +254,9 @@ export function MobileTasksView({
             <section>
               <button
                 type="button"
-                onClick={() => setPastWeekOpen(!pastWeekOpen)}
+                onClick={() => setPastWeekOpen(!(pastWeekOpen || filters.status === "overdue"))}
                 className="mb-2.5 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
-                aria-expanded={pastWeekOpen}
+                aria-expanded={pastWeekOpen || filters.status === "overdue"}
               >
                 <div className="flex items-center gap-2">
                   <span className={`h-2 w-2 rounded-full shadow-xs ${isLinked ? "bg-rose-500" : "bg-slate-500"}`} />
@@ -258,10 +265,10 @@ export function MobileTasksView({
                   </h3>
                 </div>
                 <span className="text-xs text-sys-text-muted">
-                  {pastWeekOpen ? "Згорнути ▴" : "Показати ▾"}
+                  {pastWeekOpen || filters.status === "overdue" ? "Згорнути ▴" : "Показати ▾"}
                 </span>
               </button>
-              {pastWeekOpen && (
+              {(pastWeekOpen || filters.status === "overdue") && (
                 <div className="space-y-2 animate-in fade-in duration-150">
                   {pastWeekTasks.map((t, idx) => renderTaskCard(t, `past-${idx}`, isLinked))}
                 </div>
@@ -361,7 +368,7 @@ export function MobileTasksView({
           )}
 
           {/* Empty state when only turned-in tasks exist (Section 22.2) */}
-          {isOnlyTurnedIn && (
+          {isOnlyTurnedIn && filters.status !== "done" && (
             <div className="flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-950/20 px-3.5 py-2.5 text-xs text-emerald-400 font-medium select-none shadow-xs">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-emerald-400">
                 <polyline points="20 6 9 17 4 12" />
@@ -375,9 +382,9 @@ export function MobileTasksView({
             <section className="pt-1">
               <button
                 type="button"
-                onClick={() => setTurnedInOpen(!turnedInOpen)}
+                onClick={() => setTurnedInOpen(!(turnedInOpen || filters.status === "done"))}
                 className="mb-2.5 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
-                aria-expanded={turnedInOpen}
+                aria-expanded={turnedInOpen || filters.status === "done"}
               >
                 <div className="flex items-center gap-2">
                   <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-xs" />
@@ -386,10 +393,10 @@ export function MobileTasksView({
                   </h3>
                 </div>
                 <span className="text-xs text-sys-text-muted">
-                  {turnedInOpen ? "Згорнути ▴" : "Показати ▾"}
+                  {turnedInOpen || filters.status === "done" ? "Згорнути ▴" : "Показати ▾"}
                 </span>
               </button>
-              {turnedInOpen && (
+              {(turnedInOpen || filters.status === "done") && (
                 <div className="space-y-2 animate-in fade-in duration-150">
                   {turnedInTasks.map((t, idx) => renderTaskCard(t, `done-${idx}`, isLinked))}
                 </div>
