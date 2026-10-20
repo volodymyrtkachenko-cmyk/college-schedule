@@ -724,7 +724,11 @@ async def perform_course_sync(
 
     db_teachers = (await db.scalars(select(Teacher))).all()
 
-    # КРОК 1: Глобальне м'яке очищення старих авто-посилань та старих [TASK] на всіх тижнях групи
+    current_sync_course_ids = {str(c.get("id")) for c in courses if c.get("id")}
+
+    # КРОК 1: Розумне очищення старих авто-посилань та старих [TASK]
+    # Завдання інших підгруп/курсів (наприклад, іншої підгрупи англійської мови),
+    # яких немає у поточному списку курсів користувача, дбайливо ЗБЕРІГАЮТЬСЯ (Smart Merge)!
     all_group_notes = (
         await db.scalars(
             select(LessonOccurrenceNote).where(
@@ -735,14 +739,24 @@ async def perform_course_sync(
     ).all()
 
     for gn in all_group_notes:
-        manual_lines = [
-            line.strip()
-            for line in gn.note.split("\n")
-            if line.strip()
-            and not line.strip().startswith("[TASK")
-            and not URL_RE.search(line)
-            and not re.search(r"(?:Код|ID|Passcode|Пароль)\s*:", line, re.IGNORECASE)
-        ]
+        manual_lines = []
+        for line in gn.note.split("\n"):
+            l_str = line.strip()
+            if not l_str:
+                continue
+            if l_str.startswith("[TASK"):
+                # Якщо завдання з іншого курсу (іншої підгрупи), якого немає в поточному синку — зберігаємо його
+                c_match = re.search(r"/c/([0-9]+)", l_str)
+                task_c_id = c_match.group(1) if c_match else None
+                if task_c_id and current_sync_course_ids and task_c_id not in current_sync_course_ids:
+                    manual_lines.append(l_str)
+                continue
+            if URL_RE.search(l_str):
+                continue
+            if re.search(r"(?:Код|ID|Passcode|Пароль)\s*:", l_str, re.IGNORECASE):
+                continue
+            manual_lines.append(l_str)
+
         if manual_lines:
             new_text = "\n".join(manual_lines)
             if gn.note != new_text:
@@ -1499,10 +1513,19 @@ async def perform_course_sync(
                 synced_links += 1
 
     _latest_unmapped_tasks[group.id] = unmapped_tasks
-    _latest_group_tasks[group.id] = [
+
+    # Smart Merge: зберігаємо завдання курсів інших підгруп, яких не було в цьому синку
+    existing_tasks = _latest_group_tasks.get(group.id, [])
+    preserved_tasks = [
+        t for t in existing_tasks
+        if str(t.get("course_id")) not in current_sync_course_ids
+    ]
+    new_group_tasks = [
         {**t, "state": "NEW", "grade": None}
         for t in all_classroom_tasks
     ]
+    combined_tasks = preserved_tasks + new_group_tasks
+    _latest_group_tasks[group.id] = combined_tasks
     _latest_scope_missing[group.id] = has_submission_scope_error
     return {
         "user_email": user_email,
@@ -1510,7 +1533,7 @@ async def perform_course_sync(
         "synced_tasks": synced_tasks,
         "synced_students": synced_students,
         "unmapped_tasks": unmapped_tasks,
-        "tasks": all_classroom_tasks,
+        "tasks": combined_tasks,
         "needs_reconnect": has_submission_scope_error,
     }
 
