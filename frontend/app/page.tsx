@@ -1891,13 +1891,13 @@ export default function HomePage() {
 
                           {/* Week Switcher & Scope Segment (Section 22.1) */}
                           <div className="mt-3 flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-sys-border/30">
-                            {tasksScope === "week" ? (
-                            <div className="inline-flex items-center gap-0.5 rounded-xl border border-sys-border bg-sys-bg px-1 py-0.5 text-xs shadow-xs">
+                            <div className={`inline-flex items-center gap-0.5 rounded-xl border border-sys-border bg-sys-bg px-1 py-0.5 text-xs shadow-xs transition-opacity ${tasksScope === "week" ? "" : "opacity-50"}`}>
                               <button
                                 type="button"
+                                disabled={tasksScope !== "week"}
                                 onClick={() => shiftWeekPreservingDay(-1)}
                                 aria-label="Попередній тиждень"
-                                className="flex h-6 w-6 items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-white/5 active:scale-95 transition-all cursor-pointer font-bold"
+                                className="flex h-6 w-6 items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-white/5 active:scale-95 transition-all cursor-pointer disabled:cursor-default disabled:hover:bg-transparent font-bold"
                               >
                                 ‹
                               </button>
@@ -1906,14 +1906,14 @@ export default function HomePage() {
                               </span>
                               <button
                                 type="button"
+                                disabled={tasksScope !== "week"}
                                 onClick={() => shiftWeekPreservingDay(1)}
                                 aria-label="Наступний тиждень"
-                                className="flex h-6 w-6 items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-white/5 active:scale-95 transition-all cursor-pointer font-bold"
+                                className="flex h-6 w-6 items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-white/5 active:scale-95 transition-all cursor-pointer disabled:cursor-default disabled:hover:bg-transparent font-bold"
                               >
                                 ›
                               </button>
                             </div>
-                            ) : <span />}
 
                             <div className="inline-flex items-center rounded-xl border border-sys-border bg-sys-bg p-0.5 text-xs shadow-xs">
                               <button

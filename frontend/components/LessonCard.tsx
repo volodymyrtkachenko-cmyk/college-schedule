@@ -738,7 +738,7 @@ export function LessonCard({
         }
       }}
       className={`group relative flex min-w-0 flex-col rounded-2xl border bg-sys-card shadow-sm transition-all duration-200 ${
-        isDay ? "p-4 sm:p-5 lg:px-6 lg:py-5 sm:min-h-[108px]" : "p-2.5 rounded-xl h-full flex flex-col justify-between"
+        isDay ? "p-4 sm:p-6 lg:px-7 lg:py-7 sm:min-h-[140px]" : "p-2.5 rounded-xl h-full flex flex-col justify-between"
       } ${stateClass} ${
         !lesson.is_relevant_this_week ? "opacity-60" : ""
       } ${canMove ? "cursor-grab active:cursor-grabbing" : ""}`}
@@ -861,7 +861,7 @@ export function LessonCard({
                       className={`inline-flex h-8 items-center gap-1.5 rounded-lg font-bold text-xs active:scale-95 transition-all whitespace-nowrap ${
                         isMeetingLiveOrSoon
                           ? "px-3 shadow-xs bg-emerald-600 text-white border border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.35)] hover:bg-emerald-500 animate-pulse"
-                          : "px-1 text-sys-text-secondary hover:text-sys-accent hover:underline"
+                          : "px-3 border border-sys-border bg-sys-card text-sys-text-primary hover:border-sys-accent/50 hover:text-sys-accent"
                       }`}
                     >
                       {meetings[0].platform === "zoom" ? (
