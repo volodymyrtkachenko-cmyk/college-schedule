@@ -78,7 +78,7 @@ export function ScheduleDay({
     try {
       if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(text);
-        showToast("Розклад скопійовано для Telegram!", "success");
+        showToast("Розклад скопійовано!", "success");
       } else if (typeof navigator !== "undefined" && navigator.share) {
         await navigator.share({ text });
       }
@@ -109,7 +109,7 @@ export function ScheduleDay({
 
       const result = await shareScheduleAsImage(schedule, scheduleMode, ownerLabel, weekNumber);
       if (result === "copied") {
-        showToast("Картинку скопійовано! Натисніть Ctrl+V у Telegram", "success");
+        showToast("Картинку скопійовано!", "success");
       } else if (result === "downloaded") {
         showToast("Картинку розкладу завантажено", "success");
       }
@@ -192,7 +192,7 @@ export function ScheduleDay({
             <button
               type="button"
               onClick={handleShareDay}
-              title="Скопіювати розклад для Telegram"
+              title="Скопіювати розклад"
               aria-label="Скопіювати розклад дня"
               className="h-9 px-3 gap-1.5 flex items-center justify-center rounded-xl border border-sys-border bg-sys-card text-xs font-semibold text-sys-text-secondary transition-all hover:border-sys-accent/40 hover:text-sys-accent hover:bg-sys-accent/5 active:scale-95"
             >
