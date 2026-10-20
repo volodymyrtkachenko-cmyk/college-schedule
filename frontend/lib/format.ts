@@ -258,6 +258,18 @@ export function formatRoom(room: string): string {
   return ROOM_PREFIXES.some((prefix) => lower.startsWith(prefix)) ? clean : `ауд. ${clean}`;
 }
 
+export function formatRoomsList(rooms: string[]): string {
+  if (rooms.length === 0) return "";
+  const parts = rooms
+    .flatMap((r) => r.split(","))
+    .map((part) => part.replace(/^ауд\.?\s*/i, "").trim())
+    .filter(Boolean);
+  if (parts.length > 1) {
+    return parts.join(" · ");
+  }
+  return formatRoom(rooms[0]);
+}
+
 export interface MeetingInfo {
   url: string;
   platform: "meet" | "zoom" | "teams" | "link";
@@ -538,5 +550,34 @@ export function buildTelegramShareText(
 
   return `${header}\n\n${lines.join("\n\n")}`;
 }
+
+const UKR_MONTHS_SHORT_DECL = [
+  "січ.", "лют.", "берез.", "квіт.", "трав.", "черв.",
+  "лип.", "серп.", "верес.", "жовт.", "листоп.", "груд."
+];
+
+export function formatShortWeekRange(monday: Date, weekNumber?: number | null): string {
+  const mon = getMondayOf(monday);
+  const sun = new Date(mon);
+  sun.setDate(mon.getDate() + 6);
+
+  const monDay = mon.getDate();
+  const sunDay = sun.getDate();
+  const monMonth = mon.getMonth();
+  const sunMonth = sun.getMonth();
+
+  let dateRange = "";
+  if (monMonth === sunMonth) {
+    dateRange = `${monDay}–${sunDay} ${UKR_MONTHS_SHORT_DECL[monMonth]}`;
+  } else {
+    dateRange = `${monDay} ${UKR_MONTHS_SHORT_DECL[monMonth]} – ${sunDay} ${UKR_MONTHS_SHORT_DECL[sunMonth]}`;
+  }
+
+  if (weekNumber) {
+    return `${dateRange} · ${weekNumber} тиждень`;
+  }
+  return dateRange;
+}
+
 
 

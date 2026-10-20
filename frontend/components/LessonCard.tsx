@@ -6,7 +6,7 @@ import { LessonNote } from "./LessonNote";
 const LessonNoteModal = dynamic(() => import("./LessonNote").then((m) => m.LessonNoteModal), { ssr: false });
 import { EditIcon, MoveIcon } from "./LessonIcons";
 import { Lesson } from "../lib/api";
-import { formatRoom, extractOnlineMeetings, MeetingInfo } from "../lib/format";
+import { formatRoom, formatRoomsList, extractOnlineMeetings, MeetingInfo } from "../lib/format";
 import { useClassroomSubmissions } from "../lib/useClassroomSubmissions";
 import { QuickJumpTarget, parseLessonTeachers, parseLessonGroups } from "../lib/quickJump";
 import { DEFAULT_LESSON_TIMES } from "../lib/constants/lessons";
@@ -663,6 +663,9 @@ export function LessonCard({
     return meetings.filter((m) => m !== teacherMeetings[0] && m !== teacherMeetings[1]);
   }, [isDualTeachers, meetings, teacherMeetings]);
 
+  const roomsLabel = useMemo(() => formatRoomsList(rooms), [rooms]);
+  const hasBothRoomAndMeet = rooms.length > 0 && hasMeeting;
+
   const groupedTasks = useMemo(() => {
     if (!isDualTeachers || tasks.length === 0) {
       return [{ teacher: null, items: tasks }];
@@ -754,9 +757,9 @@ export function LessonCard({
                 </span>
               </div>
               {isLive && (
-                <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-sys-accent/15 border border-sys-accent/30 px-2 py-0.5 text-[11px] font-bold text-sys-accent">
+                <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-sys-accent/15 border border-sys-accent/30 px-2.5 py-0.5 text-[11px] font-bold text-sys-accent whitespace-nowrap">
                   <span className="h-1.5 w-1.5 animate-ping rounded-full bg-sys-accent shrink-0" />
-                  <span>Іде зараз · ще {remainingMin} хв</span>
+                  <span>ще {remainingMin} хв</span>
                 </div>
               )}
             </div>
@@ -841,7 +844,7 @@ export function LessonCard({
                 <div className="flex flex-wrap items-center justify-end gap-2">
                   {rooms.length > 0 && (
                     <div className="inline-flex h-8 px-3 items-center gap-1.5 rounded-lg border border-sys-border bg-sys-bg text-sys-text-secondary font-medium text-xs shadow-xs whitespace-nowrap">
-                      <span>{rooms.map(formatRoom).join(", ")}</span>
+                      <span>{formatRoomsList(rooms)}</span>
                     </div>
                   )}
                   {hasMeeting && (
@@ -922,13 +925,13 @@ export function LessonCard({
               </div>
             </div>
 
-            {/* If all tasks completed for this course: muted green ✓ Усе здано */}
+            {/* If all tasks completed for this course: muted green Усе здано (ghost outline without fill) */}
             {hasCompletedTasks && tasks.length === 0 && (
-              <div className="flex w-full items-center gap-2 rounded-xl bg-emerald-950/20 border border-emerald-500/20 px-3.5 py-2.5 text-xs text-emerald-400/80 shadow-xs select-none">
+              <div className="flex w-full items-center gap-2 rounded-xl bg-transparent border border-emerald-500/30 px-3.5 py-2 text-xs text-emerald-400/90 shadow-xs select-none">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-emerald-400">
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
-                <span className="font-medium">✓ Усе здано</span>
+                <span className="font-medium">Усе здано</span>
               </div>
             )}
 
@@ -942,7 +945,7 @@ export function LessonCard({
                   e.stopPropagation();
                   vibrateTap(10);
                 }}
-                className="group flex w-full items-center justify-between rounded-xl bg-[#16161a] border border-[#27272a] px-3.5 py-2.5 text-xs text-sys-text-secondary hover:border-slate-600 hover:bg-[#1a1a20] transition-all shadow-xs cursor-pointer"
+                className="group flex w-full items-center justify-between rounded-xl bg-[#16161a] border border-[#27272a] px-3.5 py-2.5 text-xs text-sys-text-secondary hover:border-slate-600 hover:bg-[#1a1a20] transition-all shadow-xs cursor-pointer overflow-hidden"
                 style={{
                   boxShadow:
                     isLinked && tasks[0].deadline.badgeTone === "overdue"
@@ -1151,58 +1154,62 @@ export function LessonCard({
       {/* Mobile Day Mode (< sm) */}
       {isDay && (
         <div className="flex sm:hidden flex-col gap-2 w-full">
-          {/* Row 1: Number + Time on left, JoinButton 44px or Room on right */}
-          <div className="flex items-center justify-between gap-2 w-full min-h-[44px]">
-            <div className="flex items-center gap-2 min-w-0">
+          {/* Row 1: Number + Time on left, Live pill or Room/Meet on right */}
+          <div className="flex items-center justify-between gap-2 w-full min-h-[36px]">
+            <div className="flex items-center gap-2 whitespace-nowrap min-w-0">
               <span className={`text-base font-black leading-none ${isLive ? "text-sys-accent" : "text-[#94a3b8]"}`}>
                 {lesson.lesson_number}
               </span>
               <span className="text-slate-500 font-bold text-xs">·</span>
-              <span className="text-xs font-semibold text-sys-text-secondary tracking-tight">
+              <span className="text-xs font-semibold text-sys-text-secondary tracking-tight whitespace-nowrap">
                 {startT}–{endT || DEFAULT_LESSON_TIMES[lesson.lesson_number]?.split("-")[1] || ""}
               </span>
-              {isLive && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-sys-accent/15 border border-sys-accent/30 px-2 py-0.5 text-[10px] font-bold text-sys-accent">
-                  <span className="h-1.5 w-1.5 animate-ping rounded-full bg-sys-accent shrink-0" />
-                  <span>ще {remainingMin} хв</span>
-                </span>
-              )}
             </div>
 
-            <div className="shrink-0 flex items-center gap-2">
-              {rooms.length > 0 && (
-                <div className="inline-flex h-8 px-2.5 items-center gap-1 rounded-lg border border-[#3f3f46] bg-sys-bg text-sys-text-secondary font-medium text-xs shadow-xs whitespace-nowrap">
-                  <span>{rooms.map(formatRoom).join(", ")}</span>
-                </div>
-              )}
-              {hasMeeting && (
-                <a
-                  href={meetings[0].url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
-                  className={`inline-flex h-8 min-h-[32px] px-2.5 items-center gap-1.5 rounded-lg font-bold text-xs shadow-xs active:scale-95 transition-all whitespace-nowrap ${
-                    isMeetingLiveOrSoon
-                      ? "bg-emerald-600 text-white border border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.35)] hover:bg-emerald-500 animate-pulse"
-                      : "border border-sys-border bg-sys-card text-sys-text-primary hover:border-sys-accent/50 hover:text-sys-accent"
-                  }`}
-                >
-                  {meetings[0].platform === "zoom" ? (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                      <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.934a.5.5 0 0 0-.777-.416L16 11" />
-                      <rect x="2" y="6" width="14" height="12" rx="2" />
-                    </svg>
-                  ) : (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                      <polygon points="23 7 16 12 23 17 23 7" />
-                      <rect x="1" y="5" width="15" height="14" rx="2" />
-                    </svg>
-                  )}
-                  <span>{meetings[0].platform === "zoom" ? "Zoom" : "Meet"}</span>
-                  <span className="text-[10px] opacity-75">↗</span>
-                </a>
-              )}
-            </div>
+            {isLive ? (
+              <div className="shrink-0 flex items-center gap-1.5 rounded-full bg-sys-accent/15 border border-sys-accent/30 px-2.5 py-0.5 text-[11px] font-bold text-sys-accent whitespace-nowrap">
+                <span className="h-1.5 w-1.5 animate-ping rounded-full bg-sys-accent shrink-0" />
+                <span>ще {remainingMin} хв</span>
+              </div>
+            ) : !hasBothRoomAndMeet ? (
+              <div className="shrink-0 flex items-center gap-2">
+                {rooms.length > 0 && (
+                  <div
+                    title={roomsLabel}
+                    className="inline-flex h-8 px-2.5 items-center gap-1 rounded-lg border border-[#3f3f46] bg-sys-bg text-sys-text-secondary font-medium text-xs shadow-xs max-w-[160px] truncate whitespace-nowrap"
+                  >
+                    <span className="truncate">{roomsLabel}</span>
+                  </div>
+                )}
+                {hasMeeting && (
+                  <a
+                    href={meetings[0].url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
+                    className={`inline-flex h-8 min-h-[32px] px-2.5 items-center gap-1.5 rounded-lg font-bold text-xs shadow-xs active:scale-95 transition-all whitespace-nowrap ${
+                      isMeetingLiveOrSoon
+                        ? "bg-emerald-600 text-white border border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.35)] hover:bg-emerald-500 animate-pulse"
+                        : "border border-sys-border bg-sys-card text-sys-text-primary hover:border-sys-accent/50 hover:text-sys-accent"
+                    }`}
+                  >
+                    {meetings[0].platform === "zoom" ? (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                        <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.934a.5.5 0 0 0-.777-.416L16 11" />
+                        <rect x="2" y="6" width="14" height="12" rx="2" />
+                      </svg>
+                    ) : (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                        <polygon points="23 7 16 12 23 17 23 7" />
+                        <rect x="1" y="5" width="15" height="14" rx="2" />
+                      </svg>
+                    )}
+                    <span>{meetings[0].platform === "zoom" ? "Zoom" : "Meet"}</span>
+                    <span className="text-[10px] opacity-75">↗</span>
+                  </a>
+                )}
+              </div>
+            ) : null}
           </div>
 
           {/* Row 2: Subject Title (16px/600) */}
@@ -1251,13 +1258,54 @@ export function LessonCard({
             ) : null}
           </div>
 
-          {/* If all tasks completed for this course: muted green ✓ Усе здано (ghost outline without fill) */}
+          {/* Dedicated Row for Room & Meet: on live lessons OR when both exist */}
+          {((isLive && (rooms.length > 0 || hasMeeting)) || hasBothRoomAndMeet) && (
+            <div className="flex items-center gap-2 w-full mt-0.5">
+              {rooms.length > 0 && (
+                <div
+                  title={roomsLabel}
+                  className="inline-flex min-h-[38px] px-3 items-center rounded-xl border border-[#3f3f46] bg-sys-bg text-sys-text-secondary font-medium text-xs shadow-xs max-w-[55%] truncate"
+                >
+                  <span className="truncate">{roomsLabel}</span>
+                </div>
+              )}
+              {hasMeeting && (
+                <a
+                  href={meetings[0].url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
+                  className={`inline-flex min-h-[44px] h-11 px-3.5 items-center gap-2 rounded-xl font-bold text-xs shadow-xs active:scale-95 transition-all whitespace-nowrap ${
+                    isMeetingLiveOrSoon
+                      ? "bg-emerald-600 text-white border border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.35)] hover:bg-emerald-500 animate-pulse"
+                      : "border border-sys-border bg-sys-card text-sys-text-primary hover:border-sys-accent/50 hover:text-sys-accent"
+                  }`}
+                >
+                  {meetings[0].platform === "zoom" ? (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                      <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.934a.5.5 0 0 0-.777-.416L16 11" />
+                      <rect x="2" y="6" width="14" height="12" rx="2" />
+                    </svg>
+                  ) : (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                      <polygon points="23 7 16 12 23 17 23 7" />
+                      <rect x="1" y="5" width="15" height="14" rx="2" />
+                    </svg>
+                  )}
+                  <span>{meetings[0].platform === "zoom" ? "Zoom" : "Meet"}</span>
+                  <span className="text-[10px] opacity-75">↗</span>
+                </a>
+              )}
+            </div>
+          )}
+
+          {/* If all tasks completed for this course: muted green Усе здано (ghost outline without fill) */}
           {hasCompletedTasks && tasks.length === 0 && (
             <div className="flex min-h-[36px] w-full items-center gap-2 rounded-xl bg-transparent border border-emerald-500/30 px-3.5 py-1.5 text-xs text-emerald-400/90 shadow-xs select-none mt-1">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-emerald-400">
                 <polyline points="20 6 9 17 4 12" />
               </svg>
-              <span className="font-medium">✓ Усе здано</span>
+              <span className="font-medium">Усе здано</span>
             </div>
           )}
 
@@ -1271,7 +1319,7 @@ export function LessonCard({
                 e.stopPropagation();
                 vibrateTap(10);
               }}
-              className="group flex min-h-[44px] w-full items-center justify-between rounded-xl bg-[#16161a] border border-[#27272a] px-3.5 py-2.5 text-xs text-sys-text-secondary hover:border-slate-600 hover:bg-[#1a1a20] transition-all shadow-xs cursor-pointer mt-1"
+              className="group flex min-h-[44px] w-full items-start justify-between rounded-xl bg-[#16161a] border border-[#27272a] px-3.5 py-2.5 text-xs text-sys-text-secondary hover:border-slate-600 hover:bg-[#1a1a20] transition-all shadow-xs cursor-pointer mt-1 overflow-hidden"
               style={{
                 boxShadow:
                   isLinked && tasks[0].deadline.badgeTone === "overdue"
@@ -1283,45 +1331,48 @@ export function LessonCard({
                     : undefined,
               }}
             >
-              <div className="flex items-center gap-2 min-w-0">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-slate-400 group-hover:text-sys-accent transition-colors">
+              <div className="flex items-start gap-2 min-w-0 flex-1">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 mt-0.5 text-slate-400 group-hover:text-sys-accent transition-colors">
                   <path d="M16 4h2a2 2 0 0 1 2 2v14l-8-4-8 4V6a2 2 0 0 1 2-2h2" />
                   <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
                 </svg>
-                <span className="font-semibold text-sys-text-primary group-hover:text-sys-accent transition-colors truncate">
-                  {tasks[0].title && tasks[0].title !== "Домашнє завдання" && tasks[0].title !== "Завдання"
-                    ? tasks[0].title
-                    : `${lesson.subject_name}${tasks[0].teacher ? ` · ${tasks[0].teacher}` : ""}`}
-                </span>
-              </div>
-              <div className="flex items-center gap-2 shrink-0 ml-3">
-                {tasks[0].deadline.statusText ? (
-                  <span
-                    className="inline-flex items-center gap-1.5 font-medium"
-                    style={{
-                      color:
-                        tasks[0].deadline.badgeTone === "overdue"
-                          ? isLinked ? "#f87171" : "#a1a1aa"
-                          : tasks[0].deadline.badgeTone === "urgent"
-                          ? "#fbbf24"
-                          : "#a1a1aa",
-                    }}
-                  >
-                    <span
-                      className="h-1.5 w-1.5 rounded-full shrink-0"
-                      style={{
-                        backgroundColor:
-                          tasks[0].deadline.badgeTone === "overdue"
-                            ? isLinked ? "#ef4444" : "#71717a"
-                            : tasks[0].deadline.badgeTone === "urgent"
-                            ? "#f59e0b"
-                            : "#71717a",
-                      }}
-                    />
-                    <span>{getTaskStatusText(tasks[0].deadline, isLinked)}</span>
+                <div className="flex flex-col min-w-0 flex-1 pr-1">
+                  <span className="font-semibold text-sys-text-primary group-hover:text-sys-accent transition-colors line-clamp-2 break-words leading-tight">
+                    {tasks[0].title && tasks[0].title !== "Домашнє завдання" && tasks[0].title !== "Завдання"
+                      ? tasks[0].title
+                      : `${lesson.subject_name}${tasks[0].teacher ? ` · ${tasks[0].teacher}` : ""}`}
                   </span>
-                ) : null}
-                <span className="text-slate-400 group-hover:text-white transition-colors text-xs ml-1">↗</span>
+                  {tasks[0].deadline.statusText ? (
+                    <div className="flex items-center gap-1.5 mt-1 text-[11px] font-medium">
+                      <span
+                        className="h-1.5 w-1.5 rounded-full shrink-0"
+                        style={{
+                          backgroundColor:
+                            tasks[0].deadline.badgeTone === "overdue"
+                              ? isLinked ? "#ef4444" : "#71717a"
+                              : tasks[0].deadline.badgeTone === "urgent"
+                              ? "#f59e0b"
+                              : "#71717a",
+                        }}
+                      />
+                      <span
+                        style={{
+                          color:
+                            tasks[0].deadline.badgeTone === "overdue"
+                              ? isLinked ? "#f87171" : "#a1a1aa"
+                              : tasks[0].deadline.badgeTone === "urgent"
+                              ? "#fbbf24"
+                              : "#a1a1aa",
+                        }}
+                      >
+                        {getTaskStatusText(tasks[0].deadline, isLinked)}
+                      </span>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+              <div className="shrink-0 ml-1.5 mt-0.5">
+                <span className="text-slate-400 group-hover:text-white transition-colors text-xs">↗</span>
               </div>
             </a>
           )}
@@ -1678,9 +1729,11 @@ export function LessonCard({
               {hasCompletedTasks && tasks.length === 0 && (
                 <span
                   title="Усі завдання здано"
-                  className="inline-flex h-6 min-h-[24px] items-center gap-1 rounded-md border border-emerald-500/30 bg-transparent px-2 py-0.5 text-[11px] font-medium text-emerald-400/90 select-none"
+                  className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-emerald-500/30 bg-transparent text-emerald-400 select-none"
                 >
-                  <span>✓ Усе здано</span>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
                 </span>
               )}
 
@@ -2107,11 +2160,11 @@ export function LessonCard({
       </div>
     )}
 
-      {/* Progress bar at the bottom for live lesson */}
+      {/* Progress bar inside card padding for live lesson */}
       {isLive && (
-        <div className="absolute bottom-0 left-0 right-0 h-[3px] overflow-hidden bg-sys-border/40">
+        <div className="absolute left-4 right-4 bottom-2.5 h-[3px] rounded-xs overflow-hidden bg-sky-500/20">
           <div
-            className="h-full bg-sys-accent shadow-[0_0_8px_rgba(56,189,248,0.8)] transition-all duration-500 ease-out"
+            className="h-full rounded-xs bg-sys-accent shadow-[0_0_8px_rgba(56,189,248,0.8)] transition-all duration-500 ease-out"
             style={{ width: `${progressPercent}%` }}
           />
         </div>

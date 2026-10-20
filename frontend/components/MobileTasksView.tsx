@@ -1,9 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ClassroomTaskItem, sortTasksByDeadline, getTaskStatusText } from "./LessonCard";
+import { ClassroomTaskItem, getTaskStatusText } from "./LessonCard";
 import { ClassroomSyncButton } from "./ClassroomSyncButton";
 import { useClassroomSubmissions } from "../lib/useClassroomSubmissions";
+import { useTaskGroups, formatTaskWord } from "../lib/useTaskGroups";
 
 export interface FullTaskItem {
   id?: string;
@@ -16,82 +17,61 @@ export interface FullTaskItem {
   state?: string;
   assignedGrade?: number | null;
   maxPoints?: number | null;
+  dueDateIso?: string | null;
+  isBoundToWeek?: boolean;
 }
 
 export function MobileTasksView({
   tasks,
   groupId,
   weekStart,
+  weekAnchorDate,
+  weekNumber,
+  onPrevWeek,
+  onNextWeek,
+  tasksScope,
+  onTasksScopeChange,
   lastSyncedAt,
   onSynced,
 }: {
   tasks: FullTaskItem[];
   groupId: number | null;
   weekStart?: string;
+  weekAnchorDate?: Date;
+  weekNumber?: number | null;
+  onPrevWeek?: () => void;
+  onNextWeek?: () => void;
+  tasksScope?: "week" | "all";
+  onTasksScopeChange?: (scope: "week" | "all") => void;
   lastSyncedAt?: string | null;
   onSynced?: (detectedId: number) => void;
 }) {
   const [search, setSearch] = useState("");
   const { isLinked } = useClassroomSubmissions();
+
+  const [internalScope, setInternalScope] = useState<"week" | "all">("week");
+  const scope = tasksScope ?? internalScope;
+  const setScope = onTasksScopeChange ?? setInternalScope;
+
+  const [pastWeekOpen, setPastWeekOpen] = useState(true);
   const [userToggledOverdue, setUserToggledOverdue] = useState<boolean | null>(null);
   const overdueOpen = userToggledOverdue !== null ? userToggledOverdue : isLinked;
   const [activeOpen, setActiveOpen] = useState(true);
   const [noDateOpen, setNoDateOpen] = useState(true);
   const [turnedInOpen, setTurnedInOpen] = useState(false);
 
-  const sortedTasks = useMemo(() => {
-    return sortTasksByDeadline(tasks);
-  }, [tasks]);
+  const anchor = weekAnchorDate ?? new Date();
 
-  const filteredTasks = useMemo(() => {
-    if (!search.trim()) return sortedTasks;
-    const q = search.toLowerCase();
-    return sortedTasks.filter(
-      (t) =>
-        t.title.toLowerCase().includes(q) ||
-        t.subject.toLowerCase().includes(q) ||
-        (t.teacher && t.teacher.toLowerCase().includes(q))
-    );
-  }, [sortedTasks, search]);
-
-  // Group 1: Overdue (unsubmitted)
-  const overdueTasks = useMemo(() => {
-    return filteredTasks.filter(
-      (t) =>
-        t.deadline.isOverdue &&
-        t.state !== "TURNED_IN" &&
-        t.state !== "RETURNED" &&
-        t.state !== "UNKNOWN"
-    );
-  }, [filteredTasks]);
-
-  // Group 2: Active / Upcoming with due date
-  const activeTasks = useMemo(() => {
-    return filteredTasks.filter(
-      (t) =>
-        !t.deadline.isOverdue &&
-        Boolean(t.deadline.date) &&
-        t.state !== "TURNED_IN" &&
-        t.state !== "RETURNED"
-    );
-  }, [filteredTasks]);
-
-  // Group 3: No due date (unsubmitted)
-  const noDateTasks = useMemo(() => {
-    return filteredTasks.filter(
-      (t) =>
-        !t.deadline.date &&
-        t.state !== "TURNED_IN" &&
-        t.state !== "RETURNED"
-    );
-  }, [filteredTasks]);
-
-  // Group 4: Turned In / Returned
-  const turnedInTasks = useMemo(() => {
-    return filteredTasks.filter(
-      (t) => t.state === "TURNED_IN" || t.state === "RETURNED"
-    );
-  }, [filteredTasks]);
+  const {
+    pastWeekTasks,
+    overdueTasks,
+    activeTasks,
+    noDateTasks,
+    turnedInTasks,
+    totalCount,
+    isOnlyTurnedIn,
+    weekLabel,
+  } = useTaskGroups(tasks, scope, anchor, weekNumber, isLinked, search);
 
   const formattedSyncTime = useMemo(() => {
     if (!lastSyncedAt) return null;
@@ -108,17 +88,21 @@ export function MobileTasksView({
     }
   }, [lastSyncedAt]);
 
+  const countNoun = formatTaskWord(totalCount);
+
   return (
     <div className="w-full min-w-0 pb-20 px-4 pt-3">
       {/* Header */}
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-3 flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold tracking-tight text-sys-text-primary">
             Завдання Classroom
           </h2>
           <div className="flex items-center gap-2 mt-0.5">
             <p className="text-xs text-sys-text-secondary">
-              {tasks.length} {tasks.length === 1 ? "завдання" : tasks.length < 5 ? "завдання" : "завдань"} загалом
+              {scope === "week"
+                ? `${totalCount} ${countNoun} на цьому тижні`
+                : `${totalCount} ${countNoun} загалом`}
             </p>
             {formattedSyncTime && (
               <>
@@ -140,6 +124,62 @@ export function MobileTasksView({
             />
           </div>
         )}
+      </div>
+
+      {/* Week Switcher & Scope Segment (Section 22.1) */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        {/* Week Switcher ‹ 19–25 жовт. · 8 тиждень › */}
+        <div className="inline-flex items-center gap-1 rounded-xl border border-sys-border bg-sys-card px-1.5 py-1 text-xs shadow-xs">
+          {onPrevWeek && (
+            <button
+              type="button"
+              onClick={onPrevWeek}
+              aria-label="Попередній тиждень"
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-white/5 active:scale-95 transition-all cursor-pointer font-bold"
+            >
+              ‹
+            </button>
+          )}
+          <span className="px-1.5 font-semibold text-sys-text-primary whitespace-nowrap text-xs">
+            {weekLabel}
+          </span>
+          {onNextWeek && (
+            <button
+              type="button"
+              onClick={onNextWeek}
+              aria-label="Наступний тиждень"
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-white/5 active:scale-95 transition-all cursor-pointer font-bold"
+            >
+              ›
+            </button>
+          )}
+        </div>
+
+        {/* Scope Segment [Цей тиждень | Усі] */}
+        <div className="inline-flex items-center rounded-xl border border-sys-border bg-sys-card p-0.5 text-xs shadow-xs">
+          <button
+            type="button"
+            onClick={() => setScope("week")}
+            className={`rounded-lg px-2.5 py-1 font-semibold transition-all cursor-pointer ${
+              scope === "week"
+                ? "bg-sys-accent text-[#0b1120] shadow-xs"
+                : "text-sys-text-secondary hover:text-white"
+            }`}
+          >
+            Цей тиждень
+          </button>
+          <button
+            type="button"
+            onClick={() => setScope("all")}
+            className={`rounded-lg px-2.5 py-1 font-semibold transition-all cursor-pointer ${
+              scope === "all"
+                ? "bg-sys-accent text-[#0b1120] shadow-xs"
+                : "text-sys-text-secondary hover:text-white"
+            }`}
+          >
+            Усі
+          </button>
+        </div>
       </div>
 
       {/* Unlinked Prompt Banner (Section 17.2) */}
@@ -181,19 +221,59 @@ export function MobileTasksView({
         </div>
       )}
 
-      {tasks.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-sys-border bg-sys-card/30 p-8 text-center text-sys-text-muted">
-          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-sys-card border border-sys-border text-emerald-400 shadow-xs">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-              <polyline points="22 4 12 14.01 9 11.01" />
+      {/* Empty State (Section 22.2) */}
+      {totalCount === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-sys-border bg-sys-card/30 p-8 text-center text-sys-text-muted mt-2">
+          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-sys-card border border-sys-border text-slate-400 shadow-xs">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
+              <line x1="16" x2="16" y1="2" y2="6" />
+              <line x1="8" x2="8" y1="2" y2="6" />
+              <line x1="3" x2="21" y1="10" y2="10" />
             </svg>
           </div>
-          <p className="text-sm font-semibold text-sys-text-primary">Немає активних завдань ✓</p>
-          <p className="text-xs text-sys-text-secondary mt-1">Всі завдання виконано або дедлайни відсутні</p>
+          <p className="text-sm font-semibold text-sys-text-primary">
+            {scope === "week" ? "На цьому тижні завдань немає" : "Завдань немає"}
+          </p>
+          {scope === "week" && (
+            <button
+              type="button"
+              onClick={() => setScope("all")}
+              className="mt-3.5 inline-flex items-center gap-1.5 rounded-lg bg-sys-accent/15 border border-sys-accent/30 px-3.5 py-1.5 text-xs font-semibold text-sys-accent hover:bg-sys-accent/25 transition-colors cursor-pointer"
+            >
+              Переглянути всі
+            </button>
+          )}
         </div>
       ) : (
         <div className="space-y-5">
+          {/* Group 0: Past weeks uncompleted overdue tasks (Section 22.1) */}
+          {scope === "week" && pastWeekTasks.length > 0 && (
+            <section>
+              <button
+                type="button"
+                onClick={() => setPastWeekOpen(!pastWeekOpen)}
+                className="mb-2.5 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                aria-expanded={pastWeekOpen}
+              >
+                <div className="flex items-center gap-2">
+                  <span className={`h-2 w-2 rounded-full shadow-xs ${isLinked ? "bg-rose-500" : "bg-slate-500"}`} />
+                  <h3 className={`text-xs font-bold uppercase tracking-wider ${isLinked ? "text-rose-400" : "text-slate-400"}`}>
+                    З минулих тижнів ({pastWeekTasks.length})
+                  </h3>
+                </div>
+                <span className="text-xs text-sys-text-muted">
+                  {pastWeekOpen ? "Згорнути ▴" : "Показати ▾"}
+                </span>
+              </button>
+              {pastWeekOpen && (
+                <div className="space-y-2 animate-in fade-in duration-150">
+                  {pastWeekTasks.map((t, idx) => renderTaskCard(t, `past-${idx}`, isLinked))}
+                </div>
+              )}
+            </section>
+          )}
+
           {/* Group 1: Overdue or Past due */}
           {overdueTasks.length > 0 && (
             <section>
@@ -285,6 +365,16 @@ export function MobileTasksView({
             </section>
           )}
 
+          {/* Empty state when only turned-in tasks exist (Section 22.2) */}
+          {isOnlyTurnedIn && (
+            <div className="flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-950/20 px-3.5 py-2.5 text-xs text-emerald-400 font-medium select-none shadow-xs">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-emerald-400">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              <span>Нічого не горить</span>
+            </div>
+          )}
+
           {/* Group 4: Turned In / Returned */}
           {turnedInTasks.length > 0 && (
             <section className="pt-1">
@@ -335,11 +425,11 @@ export function renderTaskCard(t: FullTaskItem, key: string, isLinked: boolean =
   let dotColor = "#71717a";
 
   if (isReturned) {
-    statusText = t.assignedGrade != null ? `✓ Оцінка: ${t.assignedGrade}/${t.maxPoints || 100}` : "✓ Перевірено";
+    statusText = t.assignedGrade != null ? `Оцінка: ${t.assignedGrade}/${t.maxPoints || 100}` : "Перевірено";
     statusColor = "#34d399";
     dotColor = "#10b981";
   } else if (isTurnedIn) {
-    statusText = "✓ Здано";
+    statusText = "Здано";
     statusColor = "#34d399";
     dotColor = "#10b981";
   } else if (isUnknown) {
@@ -365,7 +455,7 @@ export function renderTaskCard(t: FullTaskItem, key: string, isLinked: boolean =
       href={t.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="group block min-h-[76px] rounded-xl bg-[#16161a] border border-[#27272a] p-3.5 transition-all hover:border-slate-600 hover:bg-[#1a1a20] cursor-pointer shadow-xs text-left active:scale-[0.99]"
+      className="group block min-h-[76px] rounded-xl bg-[#16161a] border border-[#27272a] p-3.5 transition-all hover:border-slate-600 hover:bg-[#1a1a20] cursor-pointer shadow-xs text-left active:scale-[0.99] overflow-hidden"
       style={{
         boxShadow: isDone
           ? "inset 3px 0 0 #10b981"

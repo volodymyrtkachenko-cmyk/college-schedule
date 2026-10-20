@@ -1271,29 +1271,33 @@ async def perform_course_sync(
                     # 13.3: Усі опубліковані завдання записуються в загальну базу розкладу групи,
                     # щоб не прив'язані користувачі бачили все з наявними правилами розкладу.
 
-                    if due_date is not None:
-                        if due_date < tasks_lookback_start:
-                            unmapped_tasks.append({
-                                "title": title_raw,
-                                "due_date": due_date.isoformat(),
-                                "reason": f"Дедлайн минув більше ніж {TASKS_LOOKBACK_DAYS} дн. тому ({due_date.strftime('%d.%m')})",
-                            })
-                            continue
-                        if due_date > tasks_window_end:
-                            unmapped_tasks.append({
-                                "title": title_raw,
-                                "due_date": due_date.isoformat(),
-                                "reason": f"Дедлайн за межами горизонту розкладу ({due_date.strftime('%d.%m')})",
-                            })
-                            continue
-                    else:
-                        if (today_real - created_dt.date()).days > TASKS_LOOKBACK_DAYS:
-                            unmapped_tasks.append({
-                                "title": title_raw,
-                                "due_date": None,
-                                "reason": f"Створено більше {TASKS_LOOKBACK_DAYS} днів тому без дедлайну",
-                            })
-                            continue
+                    # 22.3: Якщо діє обмеження за часом (наприклад, лише останні N днів), воно застосовується лише до зданих завдань.
+                    # Нездане завдання ніколи не зникає зі списку, поки його не здано.
+                    is_turned_in = cw_id in turned_in_cw_ids
+                    if is_turned_in:
+                        if due_date is not None:
+                            if due_date < tasks_lookback_start:
+                                unmapped_tasks.append({
+                                    "title": title_raw,
+                                    "due_date": due_date.isoformat(),
+                                    "reason": f"Дедлайн минув більше ніж {TASKS_LOOKBACK_DAYS} дн. тому ({due_date.strftime('%d.%m')})",
+                                })
+                                continue
+                            if due_date > tasks_window_end:
+                                unmapped_tasks.append({
+                                    "title": title_raw,
+                                    "due_date": due_date.isoformat(),
+                                    "reason": f"Дедлайн за межами горизонту розкладу ({due_date.strftime('%d.%m')})",
+                                })
+                                continue
+                        else:
+                            if (today_real - created_dt.date()).days > TASKS_LOOKBACK_DAYS:
+                                unmapped_tasks.append({
+                                    "title": title_raw,
+                                    "due_date": None,
+                                    "reason": f"Створено більше {TASKS_LOOKBACK_DAYS} днів тому без дедлайну",
+                                })
+                                continue
 
                     raw_coursework_items.append({
                         "due_date": due_date,
