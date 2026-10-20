@@ -22,14 +22,14 @@ function parseMin(t?: string): number | null {
   return Number.isNaN(h) || Number.isNaN(m) ? null : h * 60 + m;
 }
 
-function formatDayHeader(dateStr?: string): string {
-  if (!dateStr) return "";
+function formatDayParts(dateStr?: string): { weekday: string; dayMonth: string } {
+  if (!dateStr) return { weekday: "", dayMonth: "" };
   const d = new Date(`${dateStr}T12:00:00`);
-  if (isNaN(d.getTime())) return "";
-  const weekday = new Intl.DateTimeFormat("uk-UA", { weekday: "long" }).format(d);
-  const capitalWeekday = weekday.charAt(0).toUpperCase() + weekday.slice(1);
-  const dayMonth = new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "short" }).format(d);
-  return `${capitalWeekday} · ${dayMonth}`;
+  if (isNaN(d.getTime())) return { weekday: "", dayMonth: "" };
+  return {
+    weekday: new Intl.DateTimeFormat("uk-UA", { weekday: "long" }).format(d),
+    dayMonth: new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "long" }).format(d),
+  };
 }
 
 export function DayPager({
@@ -189,6 +189,17 @@ export function DayPager({
   const isToday = schedule.date === todayDate;
   const isTomorrow = Boolean(tomorrowDate && schedule.date === tomorrowDate);
   const showTodayChip = !isToday && !!onJumpToToday;
+  const dayParts = formatDayParts(schedule.date);
+
+  const firstStart = orderedLessons.length > 0 ? parseMin(orderedLessons[0].time.split(/[-–—]/)[0]) : null;
+  const isBeforeDayStart = Boolean(
+    kyivNow &&
+    kyivNow.dateIso === schedule.date &&
+    firstStart !== null &&
+    kyivNow.minutes < firstStart &&
+    kyivNow.minutes >= firstStart - 120
+  );
+  const timeToStart = isBeforeDayStart && firstStart !== null && kyivNow ? firstStart - kyivNow.minutes : 0;
 
   return (
     <div
@@ -210,8 +221,8 @@ export function DayPager({
             }}
             className="overflow-hidden"
           >
-            <div className="flex min-h-[48px] max-h-[64px] items-center gap-3 rounded-xl border border-slate-700/50 bg-slate-800/50 px-3.5 py-2 text-xs">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-amber-300">
+            <div className="flex min-h-[48px] max-h-[64px] items-center gap-3 rounded-xl border border-sys-border bg-sys-card px-3.5 py-2 text-xs">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-warning">
                 <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
                 <line x1="16" y1="2" x2="16" y2="6" />
                 <line x1="8" y1="2" x2="8" y2="6" />
@@ -263,7 +274,7 @@ export function DayPager({
           className="mb-2.5 flex items-center justify-between gap-2 rounded-xl border border-sys-border bg-sys-card px-3.5 py-2.5 text-xs text-sys-text-primary cursor-pointer hover:bg-sys-card/80 transition-colors [text-wrap:balance]"
         >
           <div className="flex items-center gap-2 min-w-0">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-amber-400">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-warning">
               <path d="M12 3a6 6 0 0 0 9 9 9 0 1 1-9-9Z" />
             </svg>
             <span className="text-sys-text-secondary truncate">Пари на сьогодні завершено</span>
@@ -274,33 +285,67 @@ export function DayPager({
         </div>
       )}
 
-      {/* Day header: «Назва дня · дата» + 1 Share button (44x44px) */}
-      <header className="mb-3 flex items-center justify-between gap-2 px-1 pt-0.5 min-h-[44px]">
-        <div className="flex items-center gap-2 min-w-0">
-          {isToday && (
-            <span className="h-2 w-2 rounded-full bg-sys-accent shadow-[0_0_8px_rgba(59,130,246,0.8)] shrink-0" />
-          )}
-          <h2 className={`text-[17px] font-bold tracking-tight truncate ${isToday ? "text-sys-accent" : "text-sys-text-primary"}`}>
-            {formatDayHeader(schedule.date)}
-          </h2>
+      {/* Day header: як на ПК — «Понеділок, 20 жовтня» + кнопки поділитися (44x44px) */}
+      <header className="mb-3.5 flex items-center justify-between gap-2 px-0 pt-1">
+        <div className="flex flex-wrap items-baseline gap-2 min-w-0">
+          <div className="flex items-center gap-2.5 min-w-0">
+            {isToday && (
+              <span className="flex h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-sys-accent shadow-[0_0_10px_rgba(59,130,246,0.9)]" />
+            )}
+            <h2 className={`text-xl font-bold capitalize tracking-tight truncate ${isToday ? "text-sys-accent" : "text-sys-text-primary"}`}>
+              {dayParts.weekday}<span className="font-normal text-sys-text-secondary">,</span>
+            </h2>
+          </div>
+          <span className="text-sm font-medium text-sys-text-secondary">{dayParts.dayMonth}</span>
         </div>
 
         {orderedLessons.length > 0 && (
-          <button
-            type="button"
-            onClick={handleShareDay}
-            title="Поділитися розкладом на день"
-            aria-label="Поділитися розкладом на день"
-            className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-sys-border bg-sys-card text-sys-text-secondary hover:text-sys-accent hover:border-sys-accent/40 active:scale-95 transition-all focus:outline-none focus:ring-2 focus:ring-sys-accent"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
-              <polyline points="16 6 12 2 8 6" />
-              <line x1="12" y1="2" x2="12" y2="15" />
-            </svg>
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => void handleShareImage()}
+              disabled={sharingImage}
+              title="Скопіювати або зберегти розклад як PNG-картинку"
+              aria-label="Поділитися картинкою розкладу"
+              className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-sys-border bg-sys-card text-sys-text-secondary transition-all hover:border-sys-accent/40 hover:text-sys-accent active:scale-95 disabled:opacity-50"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+                <circle cx="9" cy="9" r="2" />
+                <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={handleShareDay}
+              title="Скопіювати розклад для Telegram"
+              aria-label="Скопіювати розклад дня"
+              className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-sys-border bg-sys-card text-sys-text-secondary transition-all hover:border-sys-accent/40 hover:text-sys-accent active:scale-95"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+                <polyline points="16 6 12 2 8 6" />
+                <line x1="12" y1="2" x2="12" y2="15" />
+              </svg>
+            </button>
+          </div>
         )}
       </header>
+
+      {/* Morning pre-lesson indicator (як на ПК) */}
+      {isBeforeDayStart && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-sys-border bg-sys-card px-4 py-2.5 text-xs text-sys-text-secondary shadow-xs mb-3">
+          <div className="flex items-center gap-2">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-accent"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span>До початку занять</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-sys-text-primary font-medium">
+            <span>
+              {orderedLessons[0].lesson_number}-а пара о {orderedLessons[0].time.split(/[-–—]/)[0]} (через {timeToStart >= 60 ? `${Math.floor(timeToStart / 60)} год${timeToStart % 60 > 0 ? ` ${timeToStart % 60} хв` : ""}` : `${timeToStart} хв`})
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Animated Day Schedule List */}
       <AnimatePresence initial={false} custom={daySlideDir} mode="wait">
@@ -328,7 +373,7 @@ export function DayPager({
             duration: shouldReduceMotion ? 0 : 0.18,
             ease: [0.2, 0, 0, 1],
           }}
-          className="flex flex-col flex-1 gap-2.5 will-change-transform"
+          className="flex flex-col flex-1 gap-3 will-change-transform"
         >
           {orderedLessons.length > 0 ? (
             orderedLessons.map((lesson, idx) => {
@@ -350,7 +395,7 @@ export function DayPager({
               return (
                 <div key={lessonKey} className="flex flex-col gap-2.5">
                   {isBreakNow && (
-                    <div className="flex items-center justify-center gap-2 rounded-xl border border-amber-400/30 bg-amber-400/[0.07] px-3 py-1.5 text-xs font-semibold text-amber-300 shadow-sm">
+                    <div className="flex items-center justify-center gap-2 rounded-xl border border-sys-border bg-sys-card/60 px-3 py-1.5 text-xs font-semibold text-sys-text-secondary">
                       <span>☕ Перерва{breakDuration > 0 ? ` ${breakDuration} хв` : ""}</span>
                       <span>•</span>
                       <span>до {lesson.lesson_number}-ї пари залишилось {breakLeft} хв</span>

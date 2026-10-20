@@ -257,15 +257,10 @@ export function ScheduleDay({
                 className="flex flex-col gap-2.5"
               >
                 {isBreakNow && (
-                  <div className="flex items-center justify-between gap-3 rounded-xl border border-sys-border bg-sys-card/60 px-4 py-2 text-xs text-sys-text-secondary">
-                    <div className="flex items-center gap-2">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-text-muted"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                      <span>перерва {breakDuration} хв</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-sys-text-muted text-xs">
-                      <span>наступна ({lesson.lesson_number}-а) через</span>
-                      <span className="font-semibold text-sys-text-primary">{breakLeft} хв</span>
-                    </div>
+                  <div className="flex items-center justify-center gap-2 rounded-xl border border-sys-border bg-sys-card/60 px-3 py-1.5 text-xs font-semibold text-sys-text-secondary">
+                    <span>☕ Перерва{breakDuration > 0 ? ` ${breakDuration} хв` : ""}</span>
+                    <span>•</span>
+                    <span>до {lesson.lesson_number}-ї пари залишилось {breakLeft} хв</span>
                   </div>
                 )}
                 <LessonCard
@@ -287,8 +282,15 @@ export function ScheduleDay({
           })}
         </motion.div>
       ) : (
-        <div className="rounded-xl border border-dashed border-sys-border bg-sys-card/30 px-4 py-8 text-center text-sm text-sys-text-muted">
-          На цей день занять немає.
+        <div className="flex min-h-[200px] flex-col items-center justify-center rounded-2xl border border-dashed border-sys-border bg-sys-card/30 px-6 py-12 text-center text-sys-text-muted">
+          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-sys-bg border border-sys-border text-sys-accent shadow-xs">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" />
+              <path d="m9 16 2 2 4-4" />
+            </svg>
+          </div>
+          <p className="text-base font-semibold text-sys-text-primary">Пар немає</p>
+          <p className="text-xs text-sys-text-secondary mt-1">Розклад на цей день вільний</p>
         </div>
       )}
     </section>
