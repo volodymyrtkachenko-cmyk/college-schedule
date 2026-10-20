@@ -282,6 +282,7 @@ export function ScheduleDay({
                   lesson={lesson}
                   targetDate={schedule.date}
                   mode={mode}
+                  learningMode={mode === "day" ? (schedule.learning_mode ?? null) : null}
                   scheduleMode={scheduleMode}
                   canEdit={canEdit}
                   onEdit={onEdit}

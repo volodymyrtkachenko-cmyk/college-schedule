@@ -263,7 +263,7 @@ export function DayPager({
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-accent">
               <path d="M12 3a6 6 0 0 0 9 9 9 0 1 1-9-9Z" />
             </svg>
-            <span className="truncate">Пари на сьогодні завершено · показано <strong>розклад на завтра</strong></span>
+            <span className="leading-snug">Пари на сьогодні завершено · показано <strong>розклад на завтра</strong></span>
           </div>
           {onJumpToToday && (
             <span className="shrink-0 font-semibold text-sys-accent hover:underline flex items-center gap-1 text-xs">
@@ -417,6 +417,7 @@ export function DayPager({
                     lesson={lesson}
                     targetDate={schedule.date}
                     mode="day"
+                    learningMode={schedule.learning_mode ?? null}
                     scheduleMode={scheduleMode}
                     canEdit={canEdit}
                     onEdit={onEdit}

@@ -485,8 +485,10 @@ export function LessonCard({
   isTemplateMode = false,
   onDeleteTemplate,
   onRemoveReplacement,
+  learningMode = null,
 }: {
   lesson: Lesson;
+  learningMode?: "offline" | "online" | null;
   targetDate: string;
   mode: "today" | "week" | "day";
   scheduleMode: "student" | "teacher" | "admin";
@@ -642,11 +644,12 @@ export function LessonCard({
 
   const rooms = useMemo(() => {
     if (!lesson.room) return [];
+    if (learningMode === "online" && meetings.length > 0) return [];
     return lesson.room
       .split(/\s*[,/;]\s*/)
       .map((r) => r.trim())
       .filter(Boolean);
-  }, [lesson.room]);
+  }, [lesson.room, learningMode, meetings.length]);
 
   const isDualTeachers = !isTeacherView && secondaryItems.length === 2;
 
