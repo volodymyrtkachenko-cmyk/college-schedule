@@ -998,12 +998,12 @@ async def perform_course_sync(
                 )
                 a_task = client.get(
                     f"https://classroom.googleapis.com/v1/courses/{c_id}/announcements",
-                    params={"pageSize": 25},
+                    params={"pageSize": 100},
                     headers=headers,
                 )
                 cw_task = client.get(
                     f"https://classroom.googleapis.com/v1/courses/{c_id}/courseWork",
-                    params={"pageSize": 25},
+                    params={"pageSize": 100},
                     headers=headers,
                 )
                 top_task = client.get(
@@ -1013,17 +1013,17 @@ async def perform_course_sync(
                 )
                 mat_task = client.get(
                     f"https://classroom.googleapis.com/v1/courses/{c_id}/courseWorkMaterials",
-                    params={"pageSize": 25},
+                    params={"pageSize": 100},
                     headers=headers,
                 )
                 sub_task = client.get(
                     f"https://classroom.googleapis.com/v1/courses/{c_id}/courseWork/-/studentSubmissions",
-                    params={"userId": "me"},
+                    params={"userId": "me", "pageSize": 100},
                     headers=headers,
                 )
                 return course, await asyncio.gather(t_task, a_task, cw_task, top_task, mat_task, sub_task, return_exceptions=True)
 
-        bundles = await asyncio.gather(*(fetch_course_bundle(c) for c in relevant_courses[:10]))
+        bundles = await asyncio.gather(*(fetch_course_bundle(c) for c in relevant_courses[:30]))
 
         course_teachers_tokens: dict[str, list[str]] = {}
         topics_by_course: dict[str, dict[str, str]] = {}
@@ -1589,7 +1589,7 @@ async def sync_from_classroom(
         async with httpx.AsyncClient(timeout=15.0) as client:
             courses_resp = await client.get(
                 "https://classroom.googleapis.com/v1/courses",
-                params={"courseStates": "ACTIVE", "pageSize": 30},
+                params={"courseStates": "ACTIVE", "pageSize": 100},
                 headers=headers,
             )
             if courses_resp.status_code != 200:
@@ -1773,7 +1773,7 @@ async def trigger_background_sync_if_needed(db: AsyncSession, group_id: Optional
         async with httpx.AsyncClient(timeout=15.0) as client:
             courses_resp = await client.get(
                 "https://classroom.googleapis.com/v1/courses",
-                params={"courseStates": "ACTIVE", "pageSize": 25},
+                params={"courseStates": "ACTIVE", "pageSize": 100},
                 headers=headers,
             )
             if courses_resp.status_code in (401, 403, 429):
