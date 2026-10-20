@@ -1264,9 +1264,9 @@ export function LessonCard({
                         >
                           {ownMeeting.platform === "zoom" ? "Zoom" : ownMeeting.platform === "meet" ? "Meet" : "Онлайн"} ↗
                         </a>
-                      ) : ownRoom ? (
-                        <span className="ml-auto shrink-0 rounded-md border border-sys-border bg-sys-bg px-1.5 py-0.5 text-[11px] font-semibold leading-none text-sys-text-secondary">ауд. {ownRoom.replace(/^ауд\.?\s*/i, "")}</span>
-                      ) : null}
+                      ) : (
+                        <span className="ml-auto shrink-0 rounded-md border border-sys-border bg-sys-bg px-1.5 py-0.5 text-[11px] font-semibold leading-none text-sys-text-secondary">{ownRoom ? `ауд. ${ownRoom.replace(/^ауд\.?\s*/i, "")}` : "ауд. —"}</span>
+                      )}
                     </div>
                   );
                 })}
@@ -1629,13 +1629,13 @@ export function LessonCard({
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
-                    className="text-emerald-400 font-bold hover:underline shrink-0"
+                    className="ml-auto text-emerald-400 font-bold hover:underline shrink-0"
                   >
                     {teacherMeetings[0].platform === "zoom" ? "Zoom" : teacherMeetings[0].platform === "meet" ? "Meet" : "Онлайн"} ↗
                   </a>
-                ) : lesson.teacher_room ? (
-                  <span className="shrink-0 rounded-md border border-sys-border bg-sys-bg px-1.5 py-0.5 text-[11px] font-semibold leading-none text-sys-text-secondary">ауд. {lesson.teacher_room.replace(/^ауд\.?\s*/i, "")}</span>
-                ) : null}
+                ) : (
+                  <span className="ml-auto shrink-0 rounded-md border border-sys-border bg-sys-bg px-1.5 py-0.5 text-[11px] font-semibold leading-none text-sys-text-secondary">{lesson.teacher_room ? `ауд. ${lesson.teacher_room.replace(/^ауд\.?\s*/i, "")}` : "ауд. —"}</span>
+                )}
               </div>
               <div className={`flex items-center gap-1.5 min-w-0 transition-opacity ${selectedSubgroup === 1 ? "opacity-50 hover:opacity-80" : "opacity-100"}`}>
                 <button
@@ -1666,13 +1666,13 @@ export function LessonCard({
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
-                    className="text-emerald-400 font-bold hover:underline shrink-0"
+                    className="ml-auto text-emerald-400 font-bold hover:underline shrink-0"
                   >
                     {teacherMeetings[1].platform === "zoom" ? "Zoom" : teacherMeetings[1].platform === "meet" ? "Meet" : "Онлайн"} ↗
                   </a>
-                ) : lesson.second_teacher_room ? (
-                  <span className="shrink-0 rounded-md border border-sys-border bg-sys-bg px-1.5 py-0.5 text-[11px] font-semibold leading-none text-sys-text-secondary">ауд. {lesson.second_teacher_room.replace(/^ауд\.?\s*/i, "")}</span>
-                ) : null}
+                ) : (
+                  <span className="ml-auto shrink-0 rounded-md border border-sys-border bg-sys-bg px-1.5 py-0.5 text-[11px] font-semibold leading-none text-sys-text-secondary">{lesson.second_teacher_room ? `ауд. ${lesson.second_teacher_room.replace(/^ауд\.?\s*/i, "")}` : "ауд. —"}</span>
+                )}
               </div>
             </div>
           ) : secondaryItems.length > 0 ? (
