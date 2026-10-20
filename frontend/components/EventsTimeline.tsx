@@ -144,13 +144,13 @@ export function EventsTimeline({
               >
                 <div className="flex items-start justify-between gap-2">
                   <span
-                    className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider ${meta.badgeClass}`}
+                    className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-bold uppercase tracking-wider ${meta.badgeClass}`}
                   >
                     <span>{meta.icon}</span>
                     <span>{meta.label}</span>
                   </span>
                   <span
-                    className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                    className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
                       diffDays === 0
                         ? "bg-rose-500/20 text-rose-300"
                         : diffDays === 1

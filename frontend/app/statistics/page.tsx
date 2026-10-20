@@ -334,7 +334,7 @@ export default function StatisticsPage() {
                               : `${entry.completed_hours} акад. год.`}
                           </p>
                           {mode === "student" && Boolean(entry.replaced_count || entry.cancelled_count) && (
-                            <div className="mt-1.5 flex flex-wrap gap-1.5 text-[11px]">
+                            <div className="mt-1.5 flex flex-wrap gap-1.5 text-xs">
                               {Boolean(entry.replaced_count) && (
                                 <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-amber-300">
                                   Замін: {entry.replaced_count}

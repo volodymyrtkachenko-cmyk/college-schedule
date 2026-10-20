@@ -226,7 +226,7 @@ export function LessonNoteModal({
                     </div>
                     <p className="text-sys-text-primary whitespace-pre-wrap">{row.snapshot.note}</p>
                     {row.snapshot.archived && (
-                      <span className="inline-block text-[10px] text-rose-400 uppercase font-semibold">Архівовано</span>
+                      <span className="inline-block text-xs text-rose-400 uppercase font-semibold">Архівовано</span>
                     )}
                   </div>
                 ))

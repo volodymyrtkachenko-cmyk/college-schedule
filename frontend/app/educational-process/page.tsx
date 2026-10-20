@@ -193,7 +193,7 @@ export default function EducationalProcessPage() {
             className="flex items-center gap-1.5 shrink-0 hover:opacity-85"
             title="Головна сторінка розкладу"
           >
-            <span className="rounded bg-sys-accent/15 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-sys-accent">
+            <span className="rounded bg-sys-accent/15 px-1.5 py-0.5 text-xs font-extrabold uppercase tracking-wider text-sys-accent">
               ДФКР
             </span>
             <span className="text-sm font-bold tracking-tight text-sys-text-primary">
@@ -351,7 +351,7 @@ export default function EducationalProcessPage() {
                                 {/* Date Range Column */}
                                 <div className="w-24 sm:w-28 shrink-0 py-3 px-2 flex flex-col justify-center items-center text-xs font-semibold text-sys-text-secondary border-r border-sys-border/40 bg-sys-bg/30">
                                   <span>{formatDate(m.start_date)}</span>
-                                  <span className="text-[10px] text-sys-text-muted my-0.5">до</span>
+                                  <span className="text-xs text-sys-text-muted my-0.5">до</span>
                                   <span>{formatDate(m.end_date)}</span>
                                 </div>
 

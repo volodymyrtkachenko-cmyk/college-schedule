@@ -158,7 +158,7 @@ export function ScheduleDay({
                 {fmt(schedule.date, { weekday: "long" })}
               </h2>
               {isToday && (
-                <span className="shrink-0 px-1.5 py-0.5 rounded-full bg-sys-accent text-[10px] font-extrabold text-[#0b1120] uppercase">
+                <span className="shrink-0 px-1.5 py-0.5 rounded-full bg-sys-accent text-xs font-extrabold text-[#0b1120] uppercase">
                   Сьогодні
                 </span>
               )}
@@ -262,7 +262,7 @@ export function ScheduleDay({
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-text-muted"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                       <span>перерва {breakDuration} хв</span>
                     </div>
-                    <div className="flex items-center gap-1.5 text-sys-text-muted text-[11px]">
+                    <div className="flex items-center gap-1.5 text-sys-text-muted text-xs">
                       <span>наступна ({lesson.lesson_number}-а) через</span>
                       <span className="font-semibold text-sys-text-primary">{breakLeft} хв</span>
                     </div>

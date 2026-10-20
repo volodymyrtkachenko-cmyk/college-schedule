@@ -195,7 +195,7 @@ export function ScheduleWeekGrid({
                   {longWeekday(day.date)}
                 </span>
                 {isToday && (
-                  <span className="shrink-0 px-2 py-0.5 rounded-full bg-sys-accent text-[11px] font-extrabold text-[#0b1120] uppercase tracking-wider shadow-xs">
+                  <span className="shrink-0 px-2 py-0.5 rounded-full bg-sys-accent text-xs font-extrabold text-[#0b1120] uppercase tracking-wider shadow-xs">
                     Сьогодні
                   </span>
                 )}
@@ -307,7 +307,7 @@ export function ScheduleWeekGrid({
                     {longWeekday(day.date)}
                   </span>
                   {isToday && (
-                    <span className="shrink-0 px-2 py-0.5 rounded-full bg-sys-accent text-[10px] font-extrabold text-[#0b1120] uppercase">
+                    <span className="shrink-0 px-2 py-0.5 rounded-full bg-sys-accent text-xs font-extrabold text-[#0b1120] uppercase">
                       Сьогодні
                     </span>
                   )}

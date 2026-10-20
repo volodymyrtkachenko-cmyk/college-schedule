@@ -108,7 +108,7 @@ export function MobileTasksView({
             {formattedSyncTime && (
               <>
                 <span className="text-slate-600 text-xs">•</span>
-                <span className="text-[11px] text-sys-text-muted">
+                <span className="text-xs text-sys-text-muted">
                   дані від {formattedSyncTime}
                 </span>
               </>
@@ -203,7 +203,7 @@ export function MobileTasksView({
               Прив&apos;язати
             </button>
           </div>
-          <p className="text-[11px] text-slate-400 mt-1.5 pl-5">
+          <p className="text-xs text-slate-400 mt-1.5 pl-5">
             Лише читання, ми нічого не змінюємо в Classroom.
           </p>
         </div>

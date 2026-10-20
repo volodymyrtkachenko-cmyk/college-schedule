@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { FullTaskItem } from "./MobileTasksView";
 import { TaskFilterState, DEFAULT_TASK_FILTERS } from "../lib/useTaskGroups";
 
@@ -23,6 +23,10 @@ export function TaskFilters({
     for (const t of tasks) if (t.subject) set.add(t.subject);
     return Array.from(set).sort((a, b) => a.localeCompare(b, "uk"));
   }, [tasks]);
+
+  useEffect(() => {
+    if (!isLinked && value.status === "done") onChange({ ...value, status: "all" });
+  }, [isLinked, value, onChange]);
 
   const subjectValue = subjects.includes(value.subject) ? value.subject : "";
   const isActive = value.status !== "all" || subjectValue !== "";

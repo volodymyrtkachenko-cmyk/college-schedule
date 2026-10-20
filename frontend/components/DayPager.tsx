@@ -219,7 +219,7 @@ export function DayPager({
               </svg>
               <div className="flex flex-col min-w-0">
                 <span className="font-semibold text-sys-text-primary leading-tight">Сьогодні вихідний</span>
-                <span className="text-sys-text-secondary text-[11px] leading-tight mt-0.5">Показано найближчий навчальний день</span>
+                <span className="text-sys-text-secondary text-xs leading-tight mt-0.5">Показано найближчий навчальний день</span>
               </div>
             </div>
           </motion.div>
@@ -244,7 +244,7 @@ export function DayPager({
             <span className="truncate">Пари на сьогодні завершено · показано <strong>розклад на завтра</strong></span>
           </div>
           {onJumpToToday && (
-            <span className="shrink-0 font-semibold text-sys-accent hover:underline flex items-center gap-1 text-[11px]">
+            <span className="shrink-0 font-semibold text-sys-accent hover:underline flex items-center gap-1 text-xs">
               Сьогодні →
             </span>
           )}
@@ -268,7 +268,7 @@ export function DayPager({
             </svg>
             <span className="text-sys-text-secondary truncate">Пари на сьогодні завершено</span>
           </div>
-          <span className="shrink-0 font-semibold text-sys-accent hover:underline flex items-center gap-1 text-[11px]">
+          <span className="shrink-0 font-semibold text-sys-accent hover:underline flex items-center gap-1 text-xs">
             На завтра →
           </span>
         </div>

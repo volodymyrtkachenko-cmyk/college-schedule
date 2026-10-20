@@ -55,7 +55,7 @@ export function BottomNav({
             <line x1="8" y1="2" x2="8" y2="6" />
             <line x1="3" y1="10" x2="21" y2="10" />
           </svg>
-          <span className="text-[11px] leading-tight tracking-tight">Розклад</span>
+          <span className="text-xs leading-tight tracking-tight">Розклад</span>
         </button>
 
         {/* Tab 2: Tasks (ДЗ) */}
@@ -94,13 +94,13 @@ export function BottomNav({
             {overdueCount > 0 && (
               <span
                 aria-label={`Прострочено: ${overdueCount}`}
-                className="absolute -top-1.5 -right-2.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-black text-white shadow-xs"
+                className="absolute -top-1.5 -right-2.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 px-1 text-xs font-black text-white shadow-xs"
               >
                 {overdueCount}
               </span>
             )}
           </div>
-          <span className="text-[11px] leading-tight tracking-tight">Завдання</span>
+          <span className="text-xs leading-tight tracking-tight">Завдання</span>
         </button>
 
         {/* Tab 3: More / Settings */}
@@ -131,7 +131,7 @@ export function BottomNav({
             <circle cx="12" cy="12" r="3" />
             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
           </svg>
-          <span className="text-[11px] leading-tight tracking-tight">Ще</span>
+          <span className="text-xs leading-tight tracking-tight">Ще</span>
         </button>
       </div>
     </nav>

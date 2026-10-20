@@ -758,7 +758,7 @@ export function LessonCard({
                 </span>
               </div>
               {isLive && (
-                <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-sys-accent/15 border border-sys-accent/30 px-2.5 py-0.5 text-[11px] font-bold text-sys-accent whitespace-nowrap">
+                <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-sys-accent/15 border border-sys-accent/30 px-2.5 py-0.5 text-xs font-bold text-sys-accent whitespace-nowrap">
                   <span className="h-1.5 w-1.5 animate-ping rounded-full bg-sys-accent shrink-0" />
                   <span>ще {remainingMin} хв</span>
                 </div>
@@ -797,7 +797,8 @@ export function LessonCard({
                               type="button"
                               onClick={(e) => { e.stopPropagation(); handleSubgroupToggle(subNum); }}
                               title={selectedSubgroup === subNum ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${subNum} підгрупу`}
-                              className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold transition-colors ${
+                              aria-label={selectedSubgroup === subNum ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${subNum} підгрупу`}
+                              className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold transition-colors ${
                                 selectedSubgroup === subNum
                                   ? "bg-sys-accent/20 text-sys-accent font-bold border border-sys-accent/40"
                                   : "bg-sys-border/60 border border-sys-border text-slate-300 hover:text-white"
@@ -872,7 +873,7 @@ export function LessonCard({
                         </svg>
                       )}
                       <span>{meetings[0].platform === "zoom" ? "Zoom" : "Meet"}</span>
-                      <span className="text-[11px] opacity-75">↗</span>
+                      <span className="text-xs opacity-75">↗</span>
                     </a>
                   )}
                 </div>
@@ -906,6 +907,7 @@ export function LessonCard({
                         <button
                           type="button"
                           title="Редагувати пару"
+                          aria-label="Редагувати пару"
                           onClick={(e) => { e.stopPropagation(); onEdit?.(lesson); }}
                           className="w-8 h-8 flex items-center justify-center rounded-lg border border-sys-border/60 bg-sys-card text-sys-text-secondary hover:text-sys-accent hover:border-sys-accent/60"
                         >
@@ -915,6 +917,7 @@ export function LessonCard({
                       <button
                         type="button"
                         title="Більше дій"
+                        aria-label="Більше дій"
                         onClick={(e) => { e.stopPropagation(); setMoreOpen(!moreOpen); }}
                         className="w-8 h-8 flex items-center justify-center rounded-lg border border-sys-border/60 bg-sys-card text-sys-text-secondary hover:text-sys-text-primary"
                       >
@@ -1112,13 +1115,13 @@ export function LessonCard({
                             {task.title || "Завдання"}
                           </span>
                           {task.teacher && (
-                            <span className="text-slate-500 text-[11px] truncate">({task.teacher})</span>
+                            <span className="text-slate-500 text-xs truncate">({task.teacher})</span>
                           )}
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           {task.deadline.statusText ? (
                             <span
-                              className="text-[11px] font-medium"
+                              className="text-xs font-medium"
                               style={{
                                 color:
                                   task.deadline.badgeTone === "overdue"
@@ -1168,7 +1171,7 @@ export function LessonCard({
             </div>
 
             {isLive ? (
-              <div className="shrink-0 flex items-center gap-1.5 rounded-full bg-sys-accent/15 border border-sys-accent/30 px-2.5 py-0.5 text-[11px] font-bold text-sys-accent whitespace-nowrap">
+              <div className="shrink-0 flex items-center gap-1.5 rounded-full bg-sys-accent/15 border border-sys-accent/30 px-2.5 py-0.5 text-xs font-bold text-sys-accent whitespace-nowrap">
                 <span className="h-1.5 w-1.5 animate-ping rounded-full bg-sys-accent shrink-0" />
                 <span>ще {remainingMin} хв</span>
               </div>
@@ -1206,7 +1209,7 @@ export function LessonCard({
                       </svg>
                     )}
                     <span>{meetings[0].platform === "zoom" ? "Zoom" : "Meet"}</span>
-                    <span className="text-[10px] opacity-75">↗</span>
+                    <span className="text-xs opacity-75">↗</span>
                   </a>
                 )}
               </div>
@@ -1238,7 +1241,7 @@ export function LessonCard({
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); handleSubgroupToggle(subNum); }}
-                        className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-semibold transition-colors ${
+                        className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold transition-colors ${
                           selectedSubgroup === subNum
                             ? "bg-sys-accent/20 text-sys-accent font-bold border border-sys-accent/40"
                             : "bg-sys-border/60 border border-sys-border text-slate-300"
@@ -1294,7 +1297,7 @@ export function LessonCard({
                     </svg>
                   )}
                   <span>{meetings[0].platform === "zoom" ? "Zoom" : "Meet"}</span>
-                  <span className="text-[10px] opacity-75">↗</span>
+                  <span className="text-xs opacity-75">↗</span>
                 </a>
               )}
             </div>
@@ -1344,7 +1347,7 @@ export function LessonCard({
                       : `${lesson.subject_name}${tasks[0].teacher ? ` · ${tasks[0].teacher}` : ""}`}
                   </span>
                   {tasks[0].deadline.statusText ? (
-                    <div className="flex items-center gap-1.5 mt-1 text-[11px] font-medium">
+                    <div className="flex items-center gap-1.5 mt-1 text-xs font-medium">
                       <span
                         className="h-1.5 w-1.5 rounded-full shrink-0"
                         style={{
@@ -1486,13 +1489,13 @@ export function LessonCard({
                           {task.title || "Завдання"}
                         </span>
                         {task.teacher && (
-                          <span className="text-slate-500 text-[11px] truncate">({task.teacher})</span>
+                          <span className="text-slate-500 text-xs truncate">({task.teacher})</span>
                         )}
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         {task.deadline.statusText ? (
                           <span
-                            className="text-[11px] font-medium"
+                            className="text-xs font-medium"
                             style={{
                               color:
                                 task.deadline.badgeTone === "overdue"
@@ -1534,11 +1537,11 @@ export function LessonCard({
             <span className={`text-lg sm:text-xl font-bold leading-none ${isLive ? "text-sys-accent" : "text-slate-400"}`}>
               {lesson.lesson_number}
             </span>
-            <span className="text-[11px] sm:text-xs font-semibold text-sys-text-secondary mt-1">
+            <span className="text-xs sm:text-xs font-semibold text-sys-text-secondary mt-1">
               {startT}
             </span>
             {isLive && (
-              <span className="mt-1 flex items-center gap-1 text-[10px] font-semibold text-sys-accent">
+              <span className="mt-1 flex items-center gap-1 text-xs font-semibold text-sys-accent">
                 <span className="h-1.5 w-1.5 animate-ping rounded-full bg-sys-accent" />
                 <span>{remainingMin}хв</span>
               </span>
@@ -1569,13 +1572,14 @@ export function LessonCard({
 
           {/* Row 2: Teacher(s) - compressed into single lines for week view */}
           {isDualTeachers ? (
-            <div className="flex flex-col gap-1 text-[11px] xl:text-xs text-sys-text-secondary [overflow-wrap:anywhere] mt-0.5">
+            <div className="flex flex-col gap-1 text-xs xl:text-xs text-sys-text-secondary [overflow-wrap:anywhere] mt-0.5">
               <div className={`flex items-center gap-1.5 min-w-0 transition-opacity ${selectedSubgroup === 2 ? "opacity-50 hover:opacity-80" : "opacity-100"}`}>
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); handleSubgroupToggle(1); }}
                   title={selectedSubgroup === 1 ? "Ваша підгрупа (натисніть для скидання)" : "Обрати 1 підгрупу"}
-                  className={`shrink-0 text-[10px] font-semibold transition-colors ${
+                  aria-label={selectedSubgroup === 1 ? "Ваша підгрупа (натисніть для скидання)" : "Обрати 1 підгрупу"}
+                  className={`shrink-0 text-xs font-semibold transition-colors ${
                     selectedSubgroup === 1 ? "text-sys-accent font-bold" : "text-slate-400 hover:text-slate-200"
                   }`}
                 >
@@ -1612,7 +1616,8 @@ export function LessonCard({
                   type="button"
                   onClick={(e) => { e.stopPropagation(); handleSubgroupToggle(2); }}
                   title={selectedSubgroup === 2 ? "Ваша підгрупа (натисніть для скидання)" : "Обрати 2 підгрупу"}
-                  className={`shrink-0 text-[10px] font-semibold transition-colors ${
+                  aria-label={selectedSubgroup === 2 ? "Ваша підгрупа (натисніть для скидання)" : "Обрати 2 підгрупу"}
+                  className={`shrink-0 text-xs font-semibold transition-colors ${
                     selectedSubgroup === 2 ? "text-sys-accent font-bold" : "text-slate-400 hover:text-slate-200"
                   }`}
                 >
@@ -1723,7 +1728,7 @@ export function LessonCard({
                   <span>
                     {m.platform === "zoom" ? "Zoom" : m.platform === "meet" ? "Meet" : "Онлайн"}
                   </span>
-                  <span className="text-[10px] text-slate-400">↗</span>
+                  <span className="text-xs text-slate-400">↗</span>
                 </a>
               ))}
 
@@ -1745,6 +1750,7 @@ export function LessonCard({
                   aria-expanded={isHwOpen}
                   aria-controls={`hw-list-${lesson.id}-${lesson.lesson_number}`}
                   title={isHwOpen ? "Згорнути завдання" : `${tasks.length} ДЗ (${getTaskStatusText(tasks[0].deadline, isLinked) || "без терміну"})`}
+                  aria-label={isHwOpen ? "Згорнути завдання" : `${tasks.length} ДЗ (${getTaskStatusText(tasks[0].deadline, isLinked) || "без терміну"})`}
                   className={`inline-flex h-6 min-h-[24px] items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-semibold transition-all active:scale-95 ${
                     tasks[0].deadline.badgeTone === "overdue" && isLinked
                       ? "border-rose-500/40 bg-sys-card text-rose-300 hover:border-rose-500/60"
@@ -1761,7 +1767,7 @@ export function LessonCard({
                     </svg>
                   ) : null}
                   <span>{tasks.length} ДЗ</span>
-                  <span className={`text-[10px] text-slate-400 transition-transform duration-150 ${isHwOpen ? "rotate-180" : ""}`}>
+                  <span className={`text-xs text-slate-400 transition-transform duration-150 ${isHwOpen ? "rotate-180" : ""}`}>
                     ▾
                   </span>
                 </button>
@@ -1770,14 +1776,14 @@ export function LessonCard({
               {lesson.is_cancelled ? (
                 lesson.moved_to_date ? (
                   <span
-                    className="inline-flex max-w-full [white-space:normal] [overflow-wrap:anywhere] items-center gap-1 rounded border border-amber-500/40 bg-amber-500/15 px-1.5 py-0.5 text-[11px] font-bold tracking-wide text-amber-300"
+                    className="inline-flex max-w-full [white-space:normal] [overflow-wrap:anywhere] items-center gap-1 rounded border border-amber-500/40 bg-amber-500/15 px-1.5 py-0.5 text-xs font-bold tracking-wide text-amber-300"
                     style={{ maxWidth: "100%", whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "break-word" }}
                   >
                     ↪ {formatMovedTo(lesson.moved_to_date, lesson.moved_to_lesson)}
                   </span>
                 ) : (
                   <span
-                    className="inline-flex max-w-full [white-space:normal] [overflow-wrap:anywhere] items-center gap-1 rounded border border-rose-500/40 bg-rose-500/15 px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-rose-400"
+                    className="inline-flex max-w-full [white-space:normal] [overflow-wrap:anywhere] items-center gap-1 rounded border border-rose-500/40 bg-rose-500/15 px-1.5 py-0.5 text-xs font-bold uppercase tracking-wider text-rose-400"
                     style={{ maxWidth: "100%", whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "break-word" }}
                   >
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
@@ -1789,14 +1795,14 @@ export function LessonCard({
                 )
               ) : eventBadge ? (
                 <span
-                  className={`inline-flex max-w-full [white-space:normal] [overflow-wrap:anywhere] items-center gap-1 rounded border px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wider ${eventBadge.badgeClass}`}
+                  className={`inline-flex max-w-full [white-space:normal] [overflow-wrap:anywhere] items-center gap-1 rounded border px-1.5 py-0.5 text-xs font-bold uppercase tracking-wider ${eventBadge.badgeClass}`}
                   style={{ maxWidth: "100%", whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "break-word" }}
                 >
                   {eventBadge.label}
                 </span>
               ) : lesson.is_replacement ? (
                 <span
-                  className="inline-flex max-w-full [white-space:normal] [overflow-wrap:anywhere] items-center gap-1 rounded bg-sys-warning px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-sys-warningText"
+                  className="inline-flex max-w-full [white-space:normal] [overflow-wrap:anywhere] items-center gap-1 rounded bg-sys-warning px-1.5 py-0.5 text-xs font-bold uppercase tracking-wider text-sys-warningText"
                   style={{ maxWidth: "100%", whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "break-word" }}
                 >
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-warningText">
@@ -1826,6 +1832,7 @@ export function LessonCard({
                         onRestoreDated(lesson, targetDate);
                       }}
                       title={lesson.moved_to_date ? "Скасувати перенесення та відновити пару" : `Відновити пару на ${targetDate}`}
+                      aria-label={lesson.moved_to_date ? "Скасувати перенесення та відновити пару" : `Відновити пару на ${targetDate}`}
                       className="inline-flex min-h-[44px] min-w-[44px] sm:min-h-[32px] items-center justify-center rounded-md border border-emerald-500/50 bg-emerald-500/15 px-2.5 py-1 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/25 active:scale-[0.98] transition-colors whitespace-nowrap"
                       style={{ whiteSpace: "nowrap" }}
                     >
@@ -2069,11 +2076,11 @@ export function LessonCard({
               onClick={(e) => e.stopPropagation()}
               className="absolute left-0 right-0 top-full z-40 mt-1 max-h-60 overflow-y-auto rounded-xl border border-sys-border bg-[#16161a] p-2.5 shadow-2xl animate-in fade-in duration-150"
             >
-              <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-[#27272a] text-[11px] font-semibold text-slate-300">
+              <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-[#27272a] text-xs font-semibold text-slate-300">
                 <span className="flex items-center gap-1.5 truncate">
                   <span className="font-bold text-white">{formatTaskCount(tasks.length)}</span>
                   {nearestDated && (
-                    <span className="text-[10px] text-slate-400 truncate">
+                    <span className="text-xs text-slate-400 truncate">
                       (найближче {nearestDated.deadline.statusText.startsWith("до") ? nearestDated.deadline.statusText : `до ${nearestDated.deadline.formattedDate}`})
                     </span>
                   )}
@@ -2091,7 +2098,7 @@ export function LessonCard({
                 {groupedTasks.map((group, gIdx) => (
                   <div key={gIdx} className="flex flex-col gap-1">
                     {group.teacher && (
-                      <span className="text-[10px] font-bold text-slate-400 pt-0.5">
+                      <span className="text-xs font-bold text-slate-400 pt-0.5">
                         {group.teacher}:
                       </span>
                     )}
@@ -2109,12 +2116,12 @@ export function LessonCard({
                         className="group flex items-center justify-between gap-2 rounded-lg border border-[#27272a] bg-[#1a1a22] px-2.5 py-1.5 text-xs text-sys-text-primary hover:border-slate-500 hover:bg-[#22222c] transition-colors"
                       >
                         <div className="flex min-w-0 flex-col">
-                          <span className="font-semibold text-sys-text-primary truncate text-[11px]">
+                          <span className="font-semibold text-sys-text-primary truncate text-xs">
                             {task.title || "Завдання"}
                           </span>
                           {task.deadline.statusText ? (
                             <span
-                              className="text-[10px]"
+                              className="text-xs"
                               style={{
                                 color:
                                   task.deadline.badgeTone === "overdue"
@@ -2128,7 +2135,7 @@ export function LessonCard({
                             </span>
                           ) : null}
                         </div>
-                        <span className="shrink-0 text-[10px] text-slate-400 group-hover:text-white ml-1">
+                        <span className="shrink-0 text-xs text-slate-400 group-hover:text-white ml-1">
                           ↗
                         </span>
                       </a>

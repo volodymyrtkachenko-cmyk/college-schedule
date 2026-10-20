@@ -915,7 +915,7 @@ export default function HomePage() {
               <span className="truncate font-semibold text-sys-text-primary">
                 {currentName || (mode === "student" ? "Оберіть групу" : "Оберіть викладача")}
               </span>
-              <span className="text-sys-text-muted text-[10px] ml-auto shrink-0">▼</span>
+              <span className="text-sys-text-muted text-xs ml-auto shrink-0">▼</span>
             </button>
           </div>
 
@@ -1073,7 +1073,7 @@ export default function HomePage() {
             <span className="truncate">
               {currentName || (mode === "student" ? "Група" : "Викладач")}
             </span>
-            <span className="text-sys-text-muted text-[10px] shrink-0">▼</span>
+            <span className="text-sys-text-muted text-xs shrink-0">▼</span>
           </button>
 
           {/* Center: Week Navigator & week type info */}
@@ -1121,7 +1121,7 @@ export default function HomePage() {
               <button
                 type="button"
                 onClick={() => setWeekTypeSheetOpen(true)}
-                className="flex items-center gap-1 text-[11px] text-sys-text-muted hover:text-sys-text-secondary -mt-0.5 leading-none py-0.5"
+                className="flex items-center gap-1 text-xs text-sys-text-muted hover:text-sys-text-secondary -mt-0.5 leading-none py-0.5"
               >
                 <span>{currentWeekNumber ? `${currentWeekNumber} тиждень` : ""}</span>
                 {weekType !== "both" && (
@@ -1130,7 +1130,7 @@ export default function HomePage() {
                     <span className="underline decoration-dotted underline-offset-2">
                       {weekType === "numerator" ? "чисельник" : "знаменник"}
                     </span>
-                    <span className="text-[10px]">ⓘ</span>
+                    <span className="text-xs">ⓘ</span>
                   </>
                 )}
               </button>
@@ -1300,7 +1300,7 @@ export default function HomePage() {
               {/* Mode switch */}
               {teachers.length > 0 && (
                 <div className="mt-2.5">
-                  <span className="mb-1 block text-[11px] font-semibold text-sys-text-secondary">Режим перегляду</span>
+                  <span className="mb-1 block text-xs font-semibold text-sys-text-secondary">Режим перегляду</span>
                   <div role="group" aria-label="Тип розкладу" className="flex rounded-lg border border-sys-border bg-sys-bg p-1 relative w-full">
                     <button
                       type="button"
@@ -1337,7 +1337,7 @@ export default function HomePage() {
               {/* Pinned shortcuts */}
               {pins.length > 0 && (
                 <div className="mt-2.5">
-                  <span className="mb-1 block text-[11px] font-semibold text-sys-text-secondary">Закріплені</span>
+                  <span className="mb-1 block text-xs font-semibold text-sys-text-secondary">Закріплені</span>
                   <div className="flex flex-wrap gap-1">
                     {pins.map((pin) => (
                       <button
@@ -1363,7 +1363,7 @@ export default function HomePage() {
               <div className="mt-3 flex flex-col gap-1.5 border-t border-sys-border/50 pt-2.5">
                 {/* View format switcher (Day / Week) on mobile */}
                 <div className="mb-1 lg:hidden">
-                  <span className="mb-1 block text-[11px] font-semibold text-sys-text-secondary">Формат розкладу</span>
+                  <span className="mb-1 block text-xs font-semibold text-sys-text-secondary">Формат розкладу</span>
                   <div role="group" aria-label="Формат розкладу" className="flex rounded-lg border border-sys-border bg-sys-bg p-1 relative w-full">
                     <button
                       type="button"
@@ -1425,7 +1425,7 @@ export default function HomePage() {
                       </svg>
                       <span>{isCurrentPinned ? "Відкріпити розклад" : "Зберегти розклад у обрані"}</span>
                     </span>
-                    {isCurrentPinned && <span className="text-[10px] text-amber-400 font-bold">Збережено</span>}
+                    {isCurrentPinned && <span className="text-xs text-amber-400 font-bold">Збережено</span>}
                   </button>
                 )}
 
@@ -1453,7 +1453,7 @@ export default function HomePage() {
                 {/* Google Account / Classroom Status & Unlink (Section 17.3) */}
                 <div className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 px-3 py-2 text-xs">
                   <div className="flex flex-col min-w-0 pr-2">
-                    <span className="text-[11px] font-semibold text-sys-text-secondary">Google-акаунт</span>
+                    <span className="text-xs font-semibold text-sys-text-secondary">Google-акаунт</span>
                     {isLinked && linkedEmail ? (
                       <span className="font-medium text-sys-text-primary truncate">{linkedEmail}</span>
                     ) : (
@@ -1546,7 +1546,7 @@ export default function HomePage() {
             <button
               type="button"
               onClick={handleReturnBack}
-              className="shrink-0 rounded-lg bg-sys-accent px-2.5 py-1 text-[11px] font-semibold text-[#0b1120] active:scale-[0.98]"
+              className="shrink-0 rounded-lg bg-sys-accent px-2.5 py-1 text-xs font-semibold text-[#0b1120] active:scale-[0.98]"
             >
               ← До {returnTarget.label}
             </button>
@@ -1866,7 +1866,7 @@ export default function HomePage() {
                             {formattedSyncTime && (
                               <>
                                 <span className="text-slate-600 text-xs">•</span>
-                                <span className="text-[11px] text-sys-text-muted">
+                                <span className="text-xs text-sys-text-muted">
                                   дані від {formattedSyncTime}
                                 </span>
                               </>
@@ -1944,7 +1944,7 @@ export default function HomePage() {
                                 Прив&apos;язати
                               </button>
                             </div>
-                            <p className="text-[11px] text-slate-400 mt-1 pl-4">
+                            <p className="text-xs text-slate-400 mt-1 pl-4">
                               Лише читання, ми нічого не змінюємо в Classroom.
                             </p>
                           </div>

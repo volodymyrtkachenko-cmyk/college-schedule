@@ -79,7 +79,7 @@ export function MobileWeekDaysStrip({
                 : "text-sys-text-secondary hover:text-sys-text-primary"
             }`}
           >
-            <span className="text-[11px] font-semibold leading-tight">
+            <span className="text-xs font-semibold leading-tight">
               {day.weekday}
             </span>
             <div className="relative flex flex-col items-center justify-center mt-0.5">

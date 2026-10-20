@@ -62,7 +62,7 @@ export function MobileWeekBar({
             </span>
             {weekTypeLabel && (
               <>
-                <span className="text-sys-text-muted text-[10px]">·</span>
+                <span className="text-sys-text-muted text-xs">·</span>
                 <span className="shrink-0 text-xs font-medium text-sys-accent">
                   {weekTypeLabel}
                 </span>
@@ -83,14 +83,14 @@ export function MobileWeekBar({
               </span>
               {weekTypeLabel && (
                 <>
-                  <span className="text-sys-text-muted text-[10px]">·</span>
+                  <span className="text-sys-text-muted text-xs">·</span>
                   <span className="shrink-0 text-xs font-medium text-sys-accent">
                     {weekTypeLabel}
                   </span>
                 </>
               )}
             </div>
-            <span className="text-[10px] font-medium text-sys-text-muted leading-tight mt-0.5">
+            <span className="text-xs font-medium text-sys-text-muted leading-tight mt-0.5">
               не поточний · натисніть для повернення
             </span>
           </button>
