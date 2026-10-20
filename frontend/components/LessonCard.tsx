@@ -1608,7 +1608,7 @@ export function LessonCard({
                     onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
                     className="text-emerald-400 font-bold hover:underline shrink-0"
                   >
-                    Meet ↗
+                    {teacherMeetings[0].platform === "zoom" ? "Zoom" : teacherMeetings[0].platform === "meet" ? "Meet" : "Онлайн"} ↗
                   </a>
                 ) : rooms[0] ? (
                   <span className="shrink-0 text-sys-text-muted font-medium">{rooms[0].replace(/^ауд\.?\s*/i, "")}</span>
@@ -1646,7 +1646,7 @@ export function LessonCard({
                     onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
                     className="text-emerald-400 font-bold hover:underline shrink-0"
                   >
-                    Meet ↗
+                    {teacherMeetings[1].platform === "zoom" ? "Zoom" : teacherMeetings[1].platform === "meet" ? "Meet" : "Онлайн"} ↗
                   </a>
                 ) : rooms[1] ? (
                   <span className="shrink-0 text-sys-text-muted font-medium">{rooms[1].replace(/^ауд\.?\s*/i, "")}</span>
