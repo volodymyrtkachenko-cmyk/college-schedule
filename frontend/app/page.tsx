@@ -18,7 +18,8 @@ import dynamic from "next/dynamic";
 const WelcomeScreen = dynamic(() => import("../components/WelcomeScreen").then((m) => m.WelcomeScreen), { ssr: false });
 import { BottomNav, MobileTab } from "../components/BottomNav";
 import { MobileTasksView, FullTaskItem, renderTaskCard } from "../components/MobileTasksView";
-import { useTaskGroups, formatTaskWord } from "../lib/useTaskGroups";
+import { useTaskGroups, formatTaskWord, TaskFilterState, DEFAULT_TASK_FILTERS } from "../lib/useTaskGroups";
+import { TaskFilters } from "../components/TaskFilters";
 import { SearchableSelect } from "../components/SearchableSelect";
 import { ClassroomSyncButton } from "../components/ClassroomSyncButton";
 import { extractClassroomTasks, parseTaskDeadline, sortTasksByDeadline, TaskDeadline, UKR_MONTHS_SHORT, pluralDays } from "../components/LessonCard";
@@ -124,6 +125,7 @@ export default function HomePage() {
   const [view, setView] = useState<"today" | "week">("today");
   const [mobileTab, setMobileTab] = useState<MobileTab>("schedule");
   const [weekTypeSheetOpen, setWeekTypeSheetOpen] = useState(false);
+  const [sidebarTaskFilters, setSidebarTaskFilters] = useState<TaskFilterState>(DEFAULT_TASK_FILTERS);
   const [classroomTasks, setClassroomTasks] = useState<Array<{
     id: string;
     title: string;
@@ -832,7 +834,8 @@ export default function HomePage() {
     tasksScope,
     weekAnchorDate,
     currentWeekNumber,
-    isLinked
+    isLinked,
+    sidebarTaskFilters
   );
 
   const overdueCount = useMemo(() => {
@@ -1944,6 +1947,17 @@ export default function HomePage() {
                             <p className="text-[11px] text-slate-400 mt-1 pl-4">
                               Лише читання, ми нічого не змінюємо в Classroom.
                             </p>
+                          </div>
+                        )}
+
+                        {allTasks.length > 0 && (
+                          <div className="mt-3">
+                            <TaskFilters
+                              tasks={allTasks}
+                              value={sidebarTaskFilters}
+                              onChange={setSidebarTaskFilters}
+                              isLinked={isLinked}
+                            />
                           </div>
                         )}
 

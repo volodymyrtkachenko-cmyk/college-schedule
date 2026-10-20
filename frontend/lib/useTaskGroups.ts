@@ -14,6 +14,13 @@ export interface TaskGroupsResult {
   weekLabel: string;
 }
 
+export interface TaskFilterState {
+  status: "all" | "pending" | "overdue" | "done";
+  subject: string;
+}
+
+export const DEFAULT_TASK_FILTERS: TaskFilterState = { status: "all", subject: "" };
+
 export function formatTaskWord(count: number): string {
   const mod10 = count % 10;
   const mod100 = count % 100;
@@ -28,7 +35,7 @@ export function useTaskGroups(
   weekAnchorDate: Date,
   weekNumber: number | null | undefined,
   isLinked: boolean,
-  searchQuery = ""
+  filters: TaskFilterState = DEFAULT_TASK_FILTERS
 ): TaskGroupsResult {
   const currentWeekMonday = useMemo(() => {
     return getMondayOf(weekAnchorDate || new Date());
@@ -49,15 +56,16 @@ export function useTaskGroups(
   }, [currentWeekMonday, weekNumber]);
 
   const filteredTasks = useMemo(() => {
-    if (!searchQuery.trim()) return tasks;
-    const q = searchQuery.toLowerCase();
-    return tasks.filter(
-      (t) =>
-        t.title.toLowerCase().includes(q) ||
-        t.subject.toLowerCase().includes(q) ||
-        (t.teacher && t.teacher.toLowerCase().includes(q))
-    );
-  }, [tasks, searchQuery]);
+    return tasks.filter((t) => {
+      if (filters.subject && t.subject !== filters.subject) return false;
+      if (filters.status === "all") return true;
+      const isDone = isLinked && (t.state === "TURNED_IN" || t.state === "RETURNED");
+      if (filters.status === "done") return isDone;
+      if (isDone) return false;
+      if (filters.status === "overdue") return Boolean(t.deadline.isOverdue);
+      return true;
+    });
+  }, [tasks, filters.status, filters.subject, isLinked]);
 
   return useMemo(() => {
     const pastWeekTasks: FullTaskItem[] = [];

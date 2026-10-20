@@ -4,7 +4,8 @@ import { useMemo, useState } from "react";
 import { ClassroomTaskItem, getTaskStatusText } from "./LessonCard";
 import { ClassroomSyncButton } from "./ClassroomSyncButton";
 import { useClassroomSubmissions } from "../lib/useClassroomSubmissions";
-import { useTaskGroups, formatTaskWord } from "../lib/useTaskGroups";
+import { useTaskGroups, formatTaskWord, TaskFilterState, DEFAULT_TASK_FILTERS } from "../lib/useTaskGroups";
+import { TaskFilters } from "./TaskFilters";
 
 export interface FullTaskItem {
   id?: string;
@@ -46,7 +47,7 @@ export function MobileTasksView({
   lastSyncedAt?: string | null;
   onSynced?: (detectedId: number) => void;
 }) {
-  const [search, setSearch] = useState("");
+  const [filters, setFilters] = useState<TaskFilterState>(DEFAULT_TASK_FILTERS);
   const { isLinked } = useClassroomSubmissions();
 
   const [internalScope, setInternalScope] = useState<"week" | "all">("week");
@@ -71,7 +72,7 @@ export function MobileTasksView({
     totalCount,
     isOnlyTurnedIn,
     weekLabel,
-  } = useTaskGroups(tasks, scope, anchor, weekNumber, isLinked, search);
+  } = useTaskGroups(tasks, scope, anchor, weekNumber, isLinked, filters);
 
   const formattedSyncTime = useMemo(() => {
     if (!lastSyncedAt) return null;
@@ -208,16 +209,10 @@ export function MobileTasksView({
         </div>
       )}
 
-      {/* Search Filter */}
-      {tasks.length > 3 && (
-        <div className="mb-4 relative">
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Пошук завдань або викладачів..."
-            className="w-full h-10 rounded-xl border border-sys-border bg-sys-card px-3.5 text-sm text-sys-text-primary placeholder:text-sys-text-muted focus:border-sys-accent focus:outline-none focus:ring-1 focus:ring-sys-accent"
-          />
+      {/* Filters */}
+      {tasks.length > 0 && (
+        <div className="mb-4">
+          <TaskFilters tasks={tasks} value={filters} onChange={setFilters} isLinked={isLinked} />
         </div>
       )}
 
