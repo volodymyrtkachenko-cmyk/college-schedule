@@ -168,8 +168,11 @@ export default function HomePage() {
   const fetchClassroomTasks = useCallback(async (gid: number) => {
     try {
       const res = await api.classroom.groupStatus(gid);
-      if (res?.tasks) {
+      if (res?.tasks && res.tasks.length > 0) {
         setClassroomTasks(res.tasks);
+        try {
+          localStorage.setItem(`schedule:classroom_tasks:${gid}`, JSON.stringify(res.tasks));
+        } catch {}
       }
       if (res?.last_synced_at) {
         setClassroomLastSyncedAt(res.last_synced_at);
@@ -181,6 +184,13 @@ export default function HomePage() {
 
   useEffect(() => {
     if (groupId) {
+      try {
+        const cached = localStorage.getItem(`schedule:classroom_tasks:${groupId}`);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed)) setClassroomTasks(parsed);
+        }
+      } catch {}
       void fetchClassroomTasks(groupId);
     } else {
       setClassroomTasks([]);
@@ -205,8 +215,12 @@ export default function HomePage() {
     const handleClassroomSynced = (e: Event) => {
       const customEvent = e as CustomEvent;
       const detail = customEvent?.detail;
-      if (detail?.tasks && Array.isArray(detail.tasks)) {
+      if (detail?.tasks && Array.isArray(detail.tasks) && detail.tasks.length > 0) {
         setClassroomTasks(detail.tasks);
+        try {
+          const gid = detail.group_id ?? groupId;
+          if (gid) localStorage.setItem(`schedule:classroom_tasks:${gid}`, JSON.stringify(detail.tasks));
+        } catch {}
       }
       if (detail?.last_synced_at) {
         setClassroomLastSyncedAt(detail.last_synced_at);

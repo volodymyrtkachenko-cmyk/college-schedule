@@ -212,6 +212,8 @@ export function ClassroomSyncButton({
       const tokenClient = (window as any).google.accounts.oauth2.initTokenClient({
         client_id: GOOGLE_CLIENT_ID,
         scope: SCOPES,
+        ...(linkedEmail && linkedEmail.includes("@") ? { hint: linkedEmail } : {}),
+        error_callback: () => {},
         callback: async (resp: any) => {
           if (resp?.error || !resp?.access_token) {
             return;
@@ -228,8 +230,8 @@ export function ClassroomSyncButton({
           }
         },
       });
-      // prompt: "" silently renews token for user who previously authorized Google account
-      tokenClient.requestAccessToken({ prompt: "" });
+      // prompt: "none" — лише тихе оновлення токена, без вікна вибору пошти
+      tokenClient.requestAccessToken({ prompt: "none" });
     } catch {
       // Silently ignore
     }
