@@ -248,15 +248,28 @@ export function AdminScheduleEditor() {
   const edit = async (lesson: Lesson, date: string, payload: LessonMutation) => {
     try {
       const gid = payload.group_id ?? lesson.group_id ?? (groupId ?? 0);
-      await api.dated.replace({
-        group_id: gid,
-        date,
-        lesson_number: payload.lesson_number,
-        subject_id: payload.subject_id ?? null,
-        teacher_id: payload.teacher_id ?? null,
-        second_teacher_id: payload.second_teacher_id ?? null,
-        room: payload.room ?? null,
-      });
+      const isPermanentEdit = payload.is_replacement === false && !lesson.is_replacement && lesson.id > 0;
+      if (isPermanentEdit) {
+        await api.template.updateLesson(lesson.id, {
+          subject_id: payload.subject_id,
+          teacher_id: payload.teacher_id,
+          second_teacher_id: payload.second_teacher_id,
+          day_of_week: lesson.day_of_week,
+          lesson_number: payload.lesson_number,
+          week_type: lesson.week_type,
+          room: payload.room || "",
+        });
+      } else {
+        await api.dated.replace({
+          group_id: gid,
+          date,
+          lesson_number: payload.lesson_number,
+          subject_id: payload.subject_id ?? null,
+          teacher_id: payload.teacher_id ?? null,
+          second_teacher_id: payload.second_teacher_id ?? null,
+          room: payload.room ?? null,
+        });
+      }
       invalidateScheduleCache();
       const refreshed = await api.week(
         mode === "student" ? (groupId ?? undefined) : undefined,
@@ -264,7 +277,7 @@ export function AdminScheduleEditor() {
         weekAnchorDate
       );
       setWeek(refreshed);
-      setToast("Разову зміну збережено.", "success");
+      setToast(payload.is_replacement === false && !lesson.is_replacement && lesson.id > 0 ? "Постійний розклад оновлено." : "Разову зміну збережено.", "success");
     } catch (e: any) {
       setToast(e?.message || "Не вдалося зберегти зміну.", "error");
       throw e;
