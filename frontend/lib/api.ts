@@ -1273,6 +1273,7 @@ export const api = {
                 group_name: string;
                 course_name?: string;
                 user_email?: string | null;
+                last_synced_at?: string;
                 synced_links: number;
                 synced_tasks: number;
                 synced_students: number;

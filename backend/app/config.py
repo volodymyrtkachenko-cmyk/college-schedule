@@ -28,7 +28,11 @@ class Settings(BaseSettings):
     auto_import_enabled: bool = True
     auto_import_interval_minutes: int = 30
 
-    model_config = SettingsConfigDict(env_file=".env", case_sensitive=False, extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=(".env", "../.env"),
+        case_sensitive=False,
+        extra="ignore",
+    )
 
 
     @model_validator(mode="after")

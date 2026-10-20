@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { api } from "../lib/api";
 import { invalidateScheduleCache } from "../lib/hooks";
 import { useToast } from "./ToastProvider";
@@ -27,7 +27,7 @@ export function ClassroomSyncButton({
 }: {
   currentGroupId: number | null;
   weekStart?: string;
-  onSynced: (detectedGroupId: number) => void;
+  onSynced: (detectedGroupId: number, tasks?: any[], lastSyncedAt?: string | null) => void;
 }) {
   const [syncing, setSyncing] = useState(false);
   const [hasClientSecret, setHasClientSecret] = useState<boolean>(false);
@@ -87,28 +87,35 @@ export function ClassroomSyncButton({
       document.body.appendChild(script);
     });
 
-  const handleSyncSuccess = (res: any, usedCode: boolean) => {
+  const handleSyncSuccess = (res: any, usedCode: boolean, isSilent = false) => {
     invalidateScheduleCache();
     saveClassroomSyncData(res.user_email, res.tasks);
     const switchedGroup = currentGroupId !== null && currentGroupId !== res.group_id;
-    onSynced(res.group_id);
-    const parts = [`підтягнуто ${res.synced_links} онлайн-пар`];
-    if (res.synced_tasks > 0) parts.push(`${res.synced_tasks} завдань`);
-    if (res.synced_students > 0) parts.push(`${res.synced_students} студентів`);
-    const prefix = switchedGroup
-      ? `Перемкнуто на вашу групу ${res.group_name}`
-      : `Група ${res.group_name}`;
-    const autoNote = usedCode ? " (фонове автооновлення активне)" : "";
-    const unmappedNote = res.unmapped_tasks && res.unmapped_tasks.length > 0
-      ? ` (${res.unmapped_tasks.length} завдань пропущено через відсутність пар у розкладі)`
-      : "";
+    if (res?.last_synced_at) {
+      setLastSyncedAt(res.last_synced_at);
+    }
+    onSynced(res.group_id, res.tasks, res.last_synced_at);
+    window.dispatchEvent(new CustomEvent("classroom-synced", { detail: res }));
+
     if (typeof res?.needs_reconnect === "boolean") {
       setNeedsReconnect(res.needs_reconnect);
     }
-    showToast(
-      `${prefix}: ${parts.join(", ")}${autoNote}${unmappedNote}!`,
-      "success"
-    );
+    if (!isSilent) {
+      const parts = [`підтягнуто ${res.synced_links} онлайн-пар`];
+      if (res.synced_tasks > 0) parts.push(`${res.synced_tasks} завдань`);
+      if (res.synced_students > 0) parts.push(`${res.synced_students} студентів`);
+      const prefix = switchedGroup
+        ? `Перемкнуто на вашу групу ${res.group_name}`
+        : `Група ${res.group_name}`;
+      const autoNote = usedCode ? " (фонове автооновлення активне)" : "";
+      const unmappedNote = res.unmapped_tasks && res.unmapped_tasks.length > 0
+        ? ` (${res.unmapped_tasks.length} завдань пропущено через відсутність пар у розкладі)`
+        : "";
+      showToast(
+        `${prefix}: ${parts.join(", ")}${autoNote}${unmappedNote}!`,
+        "success"
+      );
+    }
   };
 
   const syncWithToken = () => {
@@ -127,7 +134,7 @@ export function ClassroomSyncButton({
               group_id: currentGroupId ?? undefined,
               week_start: weekStart,
             });
-            handleSyncSuccess(res, false);
+            handleSyncSuccess(res, false, false);
           } catch (err) {
             showToast(err instanceof Error ? err.message : "Помилка синхронізації", "error");
           } finally {
@@ -159,7 +166,7 @@ export function ClassroomSyncButton({
               group_id: currentGroupId ?? undefined,
               week_start: weekStart,
             });
-            handleSyncSuccess(res, true);
+            handleSyncSuccess(res, true, false);
           } catch (err: any) {
             const errMsg = err instanceof Error ? err.message : String(err || "");
             if (errMsg.includes("GOOGLE_CLIENT_SECRET")) {
@@ -180,6 +187,85 @@ export function ClassroomSyncButton({
       showToast("Не вдалося відкрити вікно авторизації Google", "error");
     }
   };
+
+  const performSilentSync = useCallback(async () => {
+    if (!GOOGLE_CLIENT_ID || !currentGroupId || syncing) return;
+    if (!linkedEmail) return;
+
+    const throttleKey = `schedule:last_silent_sync:${currentGroupId}`;
+    const now = Date.now();
+    try {
+      const lastAttempt = sessionStorage.getItem(throttleKey);
+      if (lastAttempt && now - Number(lastAttempt) < 15 * 60 * 1000) {
+        return;
+      }
+    } catch {}
+
+    try {
+      sessionStorage.setItem(throttleKey, String(now));
+    } catch {}
+
+    try {
+      await loadGsiScript();
+      if (!(window as any).google?.accounts?.oauth2?.initTokenClient) return;
+
+      const tokenClient = (window as any).google.accounts.oauth2.initTokenClient({
+        client_id: GOOGLE_CLIENT_ID,
+        scope: SCOPES,
+        callback: async (resp: any) => {
+          if (resp?.error || !resp?.access_token) {
+            return;
+          }
+          try {
+            const res = await api.classroom.sync({
+              access_token: resp.access_token,
+              group_id: currentGroupId ?? undefined,
+              week_start: weekStart,
+            });
+            handleSyncSuccess(res, false, true);
+          } catch {
+            // Silently ignore background network errors
+          }
+        },
+      });
+      // prompt: "" silently renews token for user who previously authorized Google account
+      tokenClient.requestAccessToken({ prompt: "" });
+    } catch {
+      // Silently ignore
+    }
+  }, [currentGroupId, weekStart, syncing, linkedEmail]);
+
+  // 1. Silent sync on initial load / group switch if account was previously linked
+  useEffect(() => {
+    if (!currentGroupId || !linkedEmail) return;
+    const timer = setTimeout(() => {
+      void performSilentSync();
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [currentGroupId, linkedEmail, performSilentSync]);
+
+  // 2. Silent sync on tab visibility change (e.g. user returns to app after checking Classroom)
+  useEffect(() => {
+    if (!currentGroupId || !linkedEmail) return;
+    const handleVis = () => {
+      if (document.visibilityState === "visible") {
+        void performSilentSync();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVis);
+    return () => document.removeEventListener("visibilitychange", handleVis);
+  }, [currentGroupId, linkedEmail, performSilentSync]);
+
+  // 3. Periodic silent sync every 15 minutes while app is open
+  useEffect(() => {
+    if (!currentGroupId || !linkedEmail) return;
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        void performSilentSync();
+      }
+    }, 15 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [currentGroupId, linkedEmail, performSilentSync]);
 
   const handleSync = async () => {
     if (!GOOGLE_CLIENT_ID) {

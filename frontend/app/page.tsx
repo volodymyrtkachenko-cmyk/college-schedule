@@ -200,6 +200,23 @@ export default function HomePage() {
   }, [groupId, fetchClassroomTasks]);
 
   useEffect(() => {
+    const handleClassroomSynced = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const detail = customEvent?.detail;
+      if (detail?.tasks && Array.isArray(detail.tasks)) {
+        setClassroomTasks(detail.tasks);
+      }
+      if (detail?.last_synced_at) {
+        setClassroomLastSyncedAt(detail.last_synced_at);
+      } else if (groupId) {
+        void fetchClassroomTasks(groupId);
+      }
+    };
+    window.addEventListener("classroom-synced", handleClassroomSynced);
+    return () => window.removeEventListener("classroom-synced", handleClassroomSynced);
+  }, [groupId, fetchClassroomTasks]);
+
+  useEffect(() => {
     try {
       const sessionSaved = sessionStorage.getItem("schedule:view");
       if (sessionSaved === "today" || sessionSaved === "week") {
@@ -977,9 +994,15 @@ export default function HomePage() {
               <ClassroomSyncButton
                 currentGroupId={groupId}
                 weekStart={weekStartStr}
-                onSynced={(detectedId) => {
+                onSynced={(detectedId, tasks, lastSynced) => {
                   if (detectedId && detectedId !== groupId) {
                     setGroupId(detectedId);
+                  }
+                  if (tasks && Array.isArray(tasks)) {
+                    setClassroomTasks(tasks);
+                  }
+                  if (lastSynced) {
+                    setClassroomLastSyncedAt(lastSynced);
                   }
                 }}
               />

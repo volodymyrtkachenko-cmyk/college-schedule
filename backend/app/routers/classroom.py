@@ -1653,6 +1653,7 @@ async def sync_from_classroom(
             "group_id": detected_group.id,
             "group_name": detected_group.name,
             "course_name": binding.course_name,
+            "last_synced_at": binding.last_synced_at.isoformat() if binding.last_synced_at else datetime.now(timezone.utc).isoformat(),
             **stats,
         }
     except HTTPException:
@@ -1990,13 +1991,78 @@ async def get_classroom_group_status(
             ClassroomGroupBinding.is_active.is_(True),
         )
     )
+    tasks = _latest_group_tasks.get(group_id)
+    if tasks is None and binding:
+        notes = (
+            await db.scalars(
+                select(LessonOccurrenceNote).where(
+                    LessonOccurrenceNote.group_id == group_id,
+                    LessonOccurrenceNote.archived.is_(False),
+                    LessonOccurrenceNote.note.like("%[TASK]%"),
+                )
+            )
+        ).all()
+        reconstructed = []
+        seen_urls = set()
+        for n in notes:
+            lesson = await db.get(Lesson, n.lesson_id)
+            subj = lesson.subject_name if lesson else (binding.course_name or "Дисципліна")
+            for line in n.note.split("\n"):
+                line = line.strip()
+                if not line.startswith("[TASK"):
+                    continue
+                raw = line.replace("[TASK]", "").strip()
+                parts = raw.split("|")
+                if len(parts) < 2:
+                    continue
+                left_part = parts[0].strip()
+                url_part = parts[1].strip()
+                if not url_part.startswith("http") or url_part in seen_urls:
+                    continue
+                seen_urls.add(url_part)
+
+                teacher = None
+                rest = left_part
+                badge_m = re.match(r"^\[([^\]]+)\]\s*(.*)$", left_part)
+                if badge_m:
+                    teacher = badge_m.group(1).strip()
+                    rest = badge_m.group(2).strip()
+
+                due_match = re.search(r"\(до\s+(\d{1,2})\.(\d{1,2})\)", rest, re.IGNORECASE)
+                due_date_iso = None
+                if due_match:
+                    d_day = int(due_match.group(1))
+                    d_month = int(due_match.group(2))
+                    cur_year = n.target_date.year if n.target_date else datetime.now(timezone.utc).year
+                    due_date_iso = f"{cur_year}-{d_month:02d}-{d_day:02d}"
+                    title_clean = re.sub(r"\(до\s+\d{1,2}\.\d{1,2}\)", "", rest, flags=re.IGNORECASE).strip()
+                else:
+                    title_clean = rest
+
+                reconstructed.append({
+                    "id": url_part,
+                    "course_id": binding.course_id,
+                    "course_name": binding.course_name,
+                    "title": title_clean or "Завдання",
+                    "subject": subj,
+                    "teacher": teacher,
+                    "due_date": due_date_iso,
+                    "url": url_part,
+                    "alternate_link": url_part,
+                    "state": "NEW",
+                    "grade": None,
+                    "max_points": None,
+                })
+        _latest_group_tasks[group_id] = reconstructed
+        tasks = reconstructed
+
     return {
         "connected": bool(binding),
         "last_synced_at": binding.last_synced_at.isoformat() if (binding and binding.last_synced_at) else None,
         "has_refresh_token": bool(binding and binding.refresh_token),
         "has_client_secret": bool(settings.google_client_secret),
         "unmapped_tasks": _latest_unmapped_tasks.get(group_id, []),
-        "tasks": _latest_group_tasks.get(group_id, []),
+        "tasks": tasks if tasks is not None else [],
         "needs_reconnect": _latest_scope_missing.get(group_id, False),
     }
 
