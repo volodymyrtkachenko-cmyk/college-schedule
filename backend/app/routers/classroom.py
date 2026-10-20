@@ -1534,6 +1534,7 @@ async def perform_course_sync(
         "synced_students": synced_students,
         "unmapped_tasks": unmapped_tasks,
         "tasks": combined_tasks,
+        "personal_tasks": all_classroom_tasks,
         "needs_reconnect": has_submission_scope_error,
     }
 

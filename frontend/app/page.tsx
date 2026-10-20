@@ -24,7 +24,7 @@ import { ClassroomSyncButton } from "../components/ClassroomSyncButton";
 import { extractClassroomTasks, parseTaskDeadline, sortTasksByDeadline, TaskDeadline, UKR_MONTHS_SHORT, pluralDays } from "../components/LessonCard";
 import { useToast } from "../components/ToastProvider";
 import { QuickJumpTarget, findGroupIdByName, findTeacherIdByName } from "../lib/quickJump";
-import { useClassroomSubmissions } from "../lib/useClassroomSubmissions";
+import { isOwnTask, useClassroomSubmissions } from "../lib/useClassroomSubmissions";
 
 const UK_SHORT_WEEKDAY_FMT = new Intl.DateTimeFormat("uk-UA", { weekday: "short" });
 
@@ -725,6 +725,7 @@ export default function HomePage() {
           const extracted = extractClassroomTasks(l.note);
           for (const t of extracted) {
             if (!t.url) continue;
+            if (!isOwnTask(isLinked, submissions, t.url)) continue;
             if (!seenUrls.has(t.url)) {
               seenUrls.add(t.url);
 
@@ -772,6 +773,7 @@ export default function HomePage() {
       for (const ct of classroomTasks) {
         const url = ct.alternate_link || (ct as any).url;
         if (!url || seenUrls.has(url)) continue;
+        if (!isOwnTask(isLinked, submissions, url)) continue;
         seenUrls.add(url);
 
         const personalSub = isLinked ? submissions[url] : null;

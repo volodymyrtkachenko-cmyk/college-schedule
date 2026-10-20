@@ -89,7 +89,7 @@ export function ClassroomSyncButton({
 
   const handleSyncSuccess = (res: any, usedCode: boolean, isSilent = false) => {
     invalidateScheduleCache();
-    saveClassroomSyncData(res.user_email, res.tasks);
+    saveClassroomSyncData(res.user_email, res.personal_tasks ?? res.tasks);
     const switchedGroup = currentGroupId !== null && currentGroupId !== res.group_id;
     if (res?.last_synced_at) {
       setLastSyncedAt(res.last_synced_at);

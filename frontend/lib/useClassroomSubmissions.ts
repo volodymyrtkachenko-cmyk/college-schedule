@@ -31,6 +31,18 @@ export function getPersonalSubmissions(): Record<string, PersonalSubmission> {
   }
 }
 
+// Прив'язаний користувач бачить лише свої завдання (ті, що є в його submissions).
+// Якщо особистих даних немає (напр., бракує scope) — показуємо всі, як для неприв'язаного.
+export function isOwnTask(
+  isLinked: boolean,
+  submissions: Record<string, PersonalSubmission>,
+  url: string | null | undefined
+): boolean {
+  if (!isLinked) return true;
+  if (Object.keys(submissions).length === 0) return true;
+  return Boolean(url && submissions[url]);
+}
+
 export function unlinkClassroomEmail(): void {
   if (typeof window === "undefined") return;
   try {
@@ -57,7 +69,7 @@ export function saveClassroomSyncData(
       for (const t of tasks) {
         const url = t.url || t.alternate_link;
         const state = t.state;
-        if (url && (state === "TURNED_IN" || state === "RETURNED")) {
+        if (url && state && state !== "UNKNOWN") {
           submittedMap[url] = {
             state,
             grade: t.grade ?? t.assigned_grade ?? t.assignedGrade ?? null,
