@@ -2162,9 +2162,9 @@ export function LessonCard({
 
       {/* Progress bar inside card padding for live lesson */}
       {isLive && (
-        <div className="absolute left-4 right-4 bottom-2.5 h-[3px] rounded-xs overflow-hidden bg-sky-500/20">
+        <div className="absolute left-4 right-4 bottom-2.5 h-[3px] rounded-full overflow-hidden bg-blue-500/20">
           <div
-            className="h-full rounded-xs bg-sys-accent shadow-[0_0_8px_rgba(56,189,248,0.8)] transition-all duration-500 ease-out"
+            className="h-full rounded-full bg-sys-accent transition-all duration-500 ease-out"
             style={{ width: `${progressPercent}%` }}
           />
         </div>

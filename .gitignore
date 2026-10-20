@@ -62,5 +62,5 @@ frontend/public/fallback-*.js
 important_files.txt
 important_files_part*.txt
 frontend_components.txt
-
-
+classroom_code.txt
+classroom_complete_bundle.txt
