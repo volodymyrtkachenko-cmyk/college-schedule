@@ -854,10 +854,10 @@ export function LessonCard({
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
-                      className={`inline-flex h-8 px-3 items-center gap-1.5 rounded-lg font-bold text-xs shadow-xs active:scale-95 transition-all whitespace-nowrap ${
+                      className={`inline-flex h-8 items-center gap-1.5 rounded-lg font-bold text-xs active:scale-95 transition-all whitespace-nowrap ${
                         isMeetingLiveOrSoon
-                          ? "bg-emerald-600 text-white border border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.35)] hover:bg-emerald-500 animate-pulse"
-                          : "border border-sys-border bg-sys-card text-sys-text-primary hover:border-sys-accent/50 hover:text-sys-accent"
+                          ? "px-3 shadow-xs bg-emerald-600 text-white border border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.35)] hover:bg-emerald-500 animate-pulse"
+                          : "px-1 text-sys-text-secondary hover:text-sys-accent hover:underline"
                       }`}
                     >
                       {meetings[0].platform === "zoom" ? (
@@ -1141,11 +1141,11 @@ export function LessonCard({
             )}
 
             {visibleNoteText && (
-              <p className="flex items-center gap-1.5 text-xs text-sys-text-secondary/80 italic">
+              <p title={visibleNoteText} className="flex items-center gap-1.5 text-xs text-sys-text-secondary/60 italic min-w-0">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-text-muted">
                   <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                 </svg>
-                <span>{visibleNoteText}</span>
+                <span className="truncate">{visibleNoteText}</span>
               </p>
             )}
           </div>
