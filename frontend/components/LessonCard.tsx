@@ -1178,7 +1178,7 @@ export function LessonCard({
                 <span className="h-1.5 w-1.5 animate-ping rounded-full bg-sys-accent shrink-0" />
                 <span>ще {remainingMin} хв</span>
               </div>
-            ) : !hasBothRoomAndMeet ? (
+            ) : !hasBothRoomAndMeet && !isDualTeachers ? (
               <div className="shrink-0 flex items-center gap-2">
                 {rooms.length > 0 && (
                   <div
@@ -1238,7 +1238,8 @@ export function LessonCard({
                 {secondaryItems.map((item, idx) => {
                   const subNum = idx + 1;
                   const isFaded = selectedSubgroup !== null && selectedSubgroup !== subNum;
-                  const subRoom = rooms[idx] ? rooms[idx].replace(/^ауд\.?\s*/i, "") : null;
+                  const ownMeeting = teacherMeetings[idx];
+                  const ownRoom = idx === 0 ? lesson.teacher_room : lesson.second_teacher_room;
                   return (
                     <div key={idx} className={`flex items-center gap-2 text-xs transition-opacity ${isFaded ? "opacity-50" : "opacity-100"}`}>
                       <button
@@ -1253,10 +1254,33 @@ export function LessonCard({
                         {subNum} підгр.
                       </button>
                       <span className="font-medium text-slate-200 min-w-0 break-words">{item.displayName}</span>
-                      {subRoom && <span className="text-sys-text-muted">· {subRoom}</span>}
+                      {ownMeeting ? (
+                        <a
+                          href={ownMeeting.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
+                          className="ml-auto shrink-0 text-emerald-400 font-bold hover:underline"
+                        >
+                          {ownMeeting.platform === "zoom" ? "Zoom" : ownMeeting.platform === "meet" ? "Meet" : "Онлайн"} ↗
+                        </a>
+                      ) : ownRoom ? (
+                        <span className="ml-auto shrink-0 rounded-md border border-sys-border bg-sys-bg px-1.5 py-0.5 text-[11px] font-semibold leading-none text-sys-text-secondary">ауд. {ownRoom.replace(/^ауд\.?\s*/i, "")}</span>
+                      ) : null}
                     </div>
                   );
                 })}
+                {row3Meetings[0] && (
+                  <a
+                    href={row3Meetings[0].url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
+                    className="self-end text-emerald-400 font-bold hover:underline text-xs"
+                  >
+                    {row3Meetings[0].platform === "zoom" ? "Zoom" : row3Meetings[0].platform === "meet" ? "Meet" : "Онлайн"} ↗
+                  </a>
+                )}
               </div>
             ) : secondaryItems.length > 0 ? (
               <div className="text-xs text-sys-text-secondary">
@@ -1266,7 +1290,7 @@ export function LessonCard({
           </div>
 
           {/* Dedicated Row for Room & Meet: on live lessons OR when both exist */}
-          {((isLive && (rooms.length > 0 || hasMeeting)) || hasBothRoomAndMeet) && (
+          {!isDualTeachers && ((isLive && (rooms.length > 0 || hasMeeting)) || hasBothRoomAndMeet) && (
             <div className="flex items-center gap-2 w-full mt-0.5">
               {rooms.length > 0 && (
                 <div
