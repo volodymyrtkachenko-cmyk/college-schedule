@@ -1599,7 +1599,6 @@ export function LessonCard({
                 ) : (
                   <span className="min-w-0 break-words font-medium text-slate-200">{secondaryItems[0]?.displayName}</span>
                 )}
-                <span className="text-sys-text-muted shrink-0">•</span>
                 {teacherMeetings[0] ? (
                   <a
                     href={teacherMeetings[0].url}
@@ -1611,7 +1610,7 @@ export function LessonCard({
                     {teacherMeetings[0].platform === "zoom" ? "Zoom" : teacherMeetings[0].platform === "meet" ? "Meet" : "Онлайн"} ↗
                   </a>
                 ) : lesson.teacher_room ? (
-                  <span className="shrink-0 text-sys-text-muted font-medium">{lesson.teacher_room.replace(/^ауд\.?\s*/i, "")}</span>
+                  <span className="shrink-0 rounded-md border border-sys-border bg-sys-bg px-1.5 py-0.5 text-[11px] font-semibold leading-none text-sys-text-secondary">ауд. {lesson.teacher_room.replace(/^ауд\.?\s*/i, "")}</span>
                 ) : null}
               </div>
               <div className={`flex items-center gap-1.5 min-w-0 transition-opacity ${selectedSubgroup === 1 ? "opacity-50 hover:opacity-80" : "opacity-100"}`}>
@@ -1637,7 +1636,6 @@ export function LessonCard({
                 ) : (
                   <span className="min-w-0 break-words font-medium text-slate-200">{secondaryItems[1]?.displayName}</span>
                 )}
-                <span className="text-sys-text-muted shrink-0">•</span>
                 {teacherMeetings[1] ? (
                   <a
                     href={teacherMeetings[1].url}
@@ -1649,7 +1647,7 @@ export function LessonCard({
                     {teacherMeetings[1].platform === "zoom" ? "Zoom" : teacherMeetings[1].platform === "meet" ? "Meet" : "Онлайн"} ↗
                   </a>
                 ) : lesson.second_teacher_room ? (
-                  <span className="shrink-0 text-sys-text-muted font-medium">{lesson.second_teacher_room.replace(/^ауд\.?\s*/i, "")}</span>
+                  <span className="shrink-0 rounded-md border border-sys-border bg-sys-bg px-1.5 py-0.5 text-[11px] font-semibold leading-none text-sys-text-secondary">ауд. {lesson.second_teacher_room.replace(/^ауд\.?\s*/i, "")}</span>
                 ) : null}
               </div>
             </div>
