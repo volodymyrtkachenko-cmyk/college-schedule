@@ -1246,7 +1246,7 @@ export function LessonCard({
                       >
                         {subNum} підгр.
                       </button>
-                      <span className="font-medium text-slate-200 truncate">{item.displayName}</span>
+                      <span className="font-medium text-slate-200 min-w-0 break-words">{item.displayName}</span>
                       {subRoom && <span className="text-sys-text-muted">· {subRoom}</span>}
                     </div>
                   );
@@ -1553,7 +1553,7 @@ export function LessonCard({
             <h3
               title={lesson.subject_name}
               className={`font-semibold leading-snug text-sm sm:text-[15px] ${
-                !isDay ? "line-clamp-3" : "break-words"
+                "break-words"
               } ${
                 lesson.is_cancelled ? "line-through text-sys-text-muted" : "text-sys-text-subject"
               }`}
@@ -1585,12 +1585,12 @@ export function LessonCard({
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); onQuickJump(secondaryItems[0].target); }}
-                    className="truncate hover:text-sys-accent hover:underline focus:outline-none text-left font-medium text-slate-200"
+                    className="min-w-0 break-words hover:text-sys-accent hover:underline focus:outline-none text-left font-medium text-slate-200"
                   >
                     {secondaryItems[0]?.displayName}
                   </button>
                 ) : (
-                  <span className="truncate font-medium text-slate-200">{secondaryItems[0]?.displayName}</span>
+                  <span className="min-w-0 break-words font-medium text-slate-200">{secondaryItems[0]?.displayName}</span>
                 )}
                 <span className="text-sys-text-muted shrink-0">•</span>
                 {teacherMeetings[0] ? (
@@ -1622,12 +1622,12 @@ export function LessonCard({
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); onQuickJump(secondaryItems[1].target); }}
-                    className="truncate hover:text-sys-accent hover:underline focus:outline-none text-left font-medium text-slate-200"
+                    className="min-w-0 break-words hover:text-sys-accent hover:underline focus:outline-none text-left font-medium text-slate-200"
                   >
                     {secondaryItems[1]?.displayName}
                   </button>
                 ) : (
-                  <span className="truncate font-medium text-slate-200">{secondaryItems[1]?.displayName}</span>
+                  <span className="min-w-0 break-words font-medium text-slate-200">{secondaryItems[1]?.displayName}</span>
                 )}
                 <span className="text-sys-text-muted shrink-0">•</span>
                 {teacherMeetings[1] ? (
