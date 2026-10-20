@@ -200,25 +200,35 @@ export function ClassroomSyncButton({
     }
   };
 
+  useEffect(() => {
+    const handleTrigger = () => {
+      void handleSync();
+    };
+    window.addEventListener("trigger-classroom-sync", handleTrigger);
+    return () => window.removeEventListener("trigger-classroom-sync", handleTrigger);
+  }, [hasClientSecret, currentGroupId, weekStart]);
+
+  const isLinked = Boolean(linkedEmail);
+
   return (
     <button
       type="button"
       onClick={() => void handleSync()}
       disabled={syncing}
-      aria-label="Синхронізація з Google Classroom"
+      aria-label={isLinked ? "Classroom прив'язано" : "Прив'язати Classroom"}
       title={
         needsReconnect
           ? "Потрібно надати доступ до завдань — натисніть, щоб перепідключити Classroom"
-          : linkedEmail
+          : isLinked
             ? `Classroom (прив'язано ${linkedEmail}) — натисніть для синхронізації`
-            : syncFreshness
-              ? `${syncFreshness.text} — натисніть для синхронізації з Google Classroom`
-              : "Прив'язати Google Classroom для відстеження зданих робіт"
+            : "Прив'язати Google Classroom для відстеження зданих робіт"
       }
       className={
         needsReconnect
           ? "inline-flex h-8 sm:h-9 items-center gap-1.5 rounded-lg border border-amber-500/50 bg-amber-500/15 px-2.5 sm:px-3 text-xs font-semibold text-amber-300 transition-colors hover:bg-amber-500/25 disabled:opacity-50"
-          : "inline-flex h-8 sm:h-9 items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 sm:px-3 text-xs font-semibold text-emerald-300 transition-colors hover:bg-emerald-500/20 disabled:opacity-50"
+          : isLinked
+          ? "inline-flex h-8 sm:h-9 items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 sm:px-3 text-xs font-semibold text-emerald-300 transition-colors hover:bg-emerald-500/20 disabled:opacity-50"
+          : "inline-flex h-8 sm:h-9 items-center gap-1.5 rounded-lg border border-sky-500/30 bg-sky-500/10 px-2.5 sm:px-3 text-xs font-semibold text-sky-300 transition-colors hover:bg-sky-500/20 disabled:opacity-50"
       }
     >
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
@@ -230,20 +240,18 @@ export function ClassroomSyncButton({
           ? "Синхронізація..."
           : needsReconnect
             ? "Перепідключити Classroom"
-            : linkedEmail
+            : isLinked
               ? "Classroom"
               : "Прив'язати Classroom"}
       </span>
       {needsReconnect && !syncing ? (
         <span className="h-2 w-2 rounded-full shrink-0 bg-amber-400 animate-pulse" />
-      ) : (
-        syncFreshness && !syncing && (
-          <span
-            title={`Google Classroom: ${syncFreshness.text}`}
-            className={`h-2 w-2 rounded-full shrink-0 ${syncFreshness.dot}`}
-          />
-        )
-      )}
+      ) : isLinked && !syncing ? (
+        <span
+          title={`Classroom прив'язано (${linkedEmail})`}
+          className="h-2 w-2 rounded-full shrink-0 bg-emerald-400"
+        />
+      ) : null}
     </button>
   );
 }

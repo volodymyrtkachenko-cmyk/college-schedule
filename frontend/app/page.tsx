@@ -138,11 +138,12 @@ export default function HomePage() {
     max_points?: number | null;
   }>>([]);
   const [classroomLastSyncedAt, setClassroomLastSyncedAt] = useState<string | null>(null);
-  const [sidebarOverdueOpen, setSidebarOverdueOpen] = useState(true);
+  const { linkedEmail, isLinked, submissions, unlink: unlinkClassroom } = useClassroomSubmissions();
+  const [sidebarUserToggledOverdue, setSidebarUserToggledOverdue] = useState<boolean | null>(null);
+  const sidebarOverdueOpen = sidebarUserToggledOverdue !== null ? sidebarUserToggledOverdue : isLinked;
   const [sidebarActiveOpen, setSidebarActiveOpen] = useState(true);
   const [sidebarNoDateOpen, setSidebarNoDateOpen] = useState(true);
   const [sidebarTurnedInOpen, setSidebarTurnedInOpen] = useState(false);
-  const { linkedEmail, isLinked, submissions, unlink: unlinkClassroom } = useClassroomSubmissions();
 
   const fetchClassroomTasks = useCallback(async (gid: number) => {
     try {
@@ -1385,21 +1386,42 @@ export default function HomePage() {
                   <span className="text-sys-text-muted">↗</span>
                 </button>
 
-                {mode === "student" && groupId && (
-                  <div className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 px-3 py-2 sm:hidden">
-                    <span className="text-xs font-semibold text-sys-text-primary">Google Classroom</span>
-                    <ClassroomSyncButton
-                      currentGroupId={groupId}
-                      weekStart={weekStartStr}
-                      onSynced={(detectedId) => {
-                        if (detectedId && detectedId !== groupId) {
-                          setGroupId(detectedId);
-                        }
+                {/* Google Account / Classroom Status & Unlink (Section 17.3) */}
+                <div className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 px-3 py-2 text-xs">
+                  <div className="flex flex-col min-w-0 pr-2">
+                    <span className="text-[11px] font-semibold text-sys-text-secondary">Google-акаунт</span>
+                    {isLinked && linkedEmail ? (
+                      <span className="font-medium text-sys-text-primary truncate">{linkedEmail}</span>
+                    ) : (
+                      <span className="text-slate-400 text-xs">Не прив&apos;язано</span>
+                    )}
+                  </div>
+                  {isLinked ? (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        unlinkClassroom();
                         setMobileMenuOpen(false);
                       }}
-                    />
-                  </div>
-                )}
+                      className="shrink-0 rounded-lg bg-white/5 hover:bg-white/10 px-2.5 py-1 text-xs font-medium text-rose-300 hover:text-rose-200 transition-colors cursor-pointer"
+                    >
+                      Від&apos;єднати
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        window.dispatchEvent(new CustomEvent("trigger-classroom-sync"));
+                      }}
+                      className="shrink-0 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 border border-sky-500/40 px-2.5 py-1 text-xs font-semibold text-sky-300 transition-colors cursor-pointer"
+                    >
+                      Прив&apos;язати
+                    </button>
+                  )}
+                </div>
                 <a
                   href="/statistics"
                   role="menuitem"
@@ -1515,6 +1537,7 @@ export default function HomePage() {
                 shouldReduceMotion={shouldReduceMotion ?? false}
                 isWeekend={isAutoSelectedWeekendDay}
                 isShowingTomorrow={isShowingTomorrow && !isWeekend}
+                weekNumber={currentWeekNumber}
               />
             ) : (
               <ScheduleWeekGrid
@@ -1522,6 +1545,7 @@ export default function HomePage() {
                 scheduleMode={mode}
                 canEdit={false}
                 onQuickJump={handleQuickJump}
+                weekNumber={currentWeekNumber}
               />
             )}
 
@@ -1636,6 +1660,7 @@ export default function HomePage() {
                         scheduleMode={mode}
                         onQuickJump={handleQuickJump}
                         hideHeaderOnMobile={false}
+                        weekNumber={currentWeekNumber}
                       />
                     </div>
 
@@ -1708,54 +1733,63 @@ export default function HomePage() {
                               <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
                             </svg>
                             <span className="text-sm font-bold uppercase tracking-wider text-sys-text-primary">
-                              {overdueCount > 0 ? `Прострочено · ${overdueCount}` : `Завдання · ${activeTasks.length + noDateTasks.length}`}
+                              Завдання Classroom
                             </span>
                           </div>
-                          {overdueCount > 0 ? (
-                            <span className="rounded-full bg-rose-500/15 border border-rose-500/30 px-2.5 py-0.5 text-xs font-bold text-rose-300">
-                              горять
-                            </span>
-                          ) : (
-                            <span className="rounded-full bg-purple-500/15 border border-purple-500/30 px-2.5 py-0.5 text-xs font-bold text-purple-200">
-                              активні
-                            </span>
-                          )}
                         </div>
 
-                        {/* Linked Email Status for Desktop Widget */}
-                        {isLinked && linkedEmail ? (
-                          <div className="mt-2.5 flex items-center justify-between text-xs text-sys-text-secondary bg-sys-bg/60 border border-sys-border/50 px-3 py-1.5 rounded-xl">
-                            <span className="truncate">✓ Прив'язано: <strong className="text-sys-text-primary">{linkedEmail}</strong></span>
-                            <button
-                              type="button"
-                              onClick={unlinkClassroom}
-                              className="text-rose-400 hover:text-rose-300 font-medium ml-2 shrink-0 underline decoration-dotted text-[11px]"
-                            >
-                              від'єднати
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="mt-2 text-xs text-sys-text-muted">
-                            Всі завдання групи (пошта не прив'язана)
+                        {/* Unlinked Prompt Banner (Section 17.2) */}
+                        {!isLinked && (
+                          <div className="mt-3 rounded-xl border border-sky-500/30 bg-sky-500/10 p-3 text-xs text-sys-text-secondary">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-start gap-1.5 min-w-0">
+                                <span className="text-sky-400 font-bold shrink-0">ⓘ</span>
+                                <span className="leading-snug text-slate-200">
+                                  Це завдання всієї групи. Прив&apos;яжи пошту, щоб бачити, що ти вже здав.
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  window.dispatchEvent(new CustomEvent("trigger-classroom-sync"));
+                                }}
+                                className="shrink-0 rounded-lg bg-sky-500/25 hover:bg-sky-500/35 border border-sky-500/40 px-2.5 py-1 text-xs font-semibold text-sky-200 transition-colors cursor-pointer"
+                              >
+                                Прив&apos;язати
+                              </button>
+                            </div>
+                            <p className="text-[11px] text-slate-400 mt-1 pl-4">
+                              Лише читання, ми нічого не змінюємо в Classroom.
+                            </p>
                           </div>
                         )}
 
                         <div className="mt-4 space-y-4">
                           {allWeekTasks.length > 0 ? (
                             <>
-                              {/* Group 1: Overdue */}
+                              {/* Group 1: Overdue or Past due */}
                               {overdueTasks.length > 0 && (
                                 <section>
                                   <button
                                     type="button"
-                                    onClick={() => setSidebarOverdueOpen(!sidebarOverdueOpen)}
+                                    onClick={() => setSidebarUserToggledOverdue(!sidebarOverdueOpen)}
                                     className="mb-2 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
                                     aria-expanded={sidebarOverdueOpen}
                                   >
                                     <div className="flex items-center gap-2">
-                                      <span className="h-2 w-2 rounded-full bg-rose-500 shadow-xs" />
-                                      <h4 className="text-xs font-bold uppercase tracking-wider text-rose-400">
-                                        Прострочено ({overdueTasks.length})
+                                      <span
+                                        className={`h-2 w-2 rounded-full shadow-xs ${
+                                          isLinked ? "bg-rose-500" : "bg-slate-500"
+                                        }`}
+                                      />
+                                      <h4
+                                        className={`text-xs font-bold uppercase tracking-wider ${
+                                          isLinked ? "text-rose-400" : "text-slate-400"
+                                        }`}
+                                      >
+                                        {isLinked
+                                          ? `Прострочено (${overdueTasks.length})`
+                                          : `Термін минув (${overdueTasks.length})`}
                                       </h4>
                                     </div>
                                     <span className="text-xs text-sys-text-muted">
@@ -1764,7 +1798,7 @@ export default function HomePage() {
                                   </button>
                                   {sidebarOverdueOpen && (
                                     <div className="space-y-2 animate-in fade-in duration-150">
-                                      {overdueTasks.map((t, idx) => renderTaskCard(t, `sb-overdue-${idx}`))}
+                                      {overdueTasks.map((t, idx) => renderTaskCard(t, `sb-overdue-${idx}`, isLinked))}
                                     </div>
                                   )}
                                 </section>
@@ -1791,7 +1825,7 @@ export default function HomePage() {
                                   </button>
                                   {sidebarActiveOpen && (
                                     <div className="space-y-2 animate-in fade-in duration-150">
-                                      {activeTasks.map((t, idx) => renderTaskCard(t, `sb-active-${idx}`))}
+                                      {activeTasks.map((t, idx) => renderTaskCard(t, `sb-active-${idx}`, isLinked))}
                                     </div>
                                   )}
                                 </section>
@@ -1818,7 +1852,7 @@ export default function HomePage() {
                                   </button>
                                   {sidebarNoDateOpen && (
                                     <div className="space-y-2 animate-in fade-in duration-150">
-                                      {noDateTasks.map((t, idx) => renderTaskCard(t, `sb-nodate-${idx}`))}
+                                      {noDateTasks.map((t, idx) => renderTaskCard(t, `sb-nodate-${idx}`, isLinked))}
                                     </div>
                                   )}
                                 </section>
@@ -1830,7 +1864,8 @@ export default function HomePage() {
                                   <button
                                     type="button"
                                     onClick={() => setSidebarTurnedInOpen(!sidebarTurnedInOpen)}
-                                    className="mb-2 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors"
+                                    className="mb-2 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                                    aria-expanded={sidebarTurnedInOpen}
                                   >
                                     <div className="flex items-center gap-2">
                                       <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-xs" />
@@ -1844,7 +1879,7 @@ export default function HomePage() {
                                   </button>
                                   {sidebarTurnedInOpen && (
                                     <div className="space-y-2 animate-in fade-in duration-150">
-                                      {turnedInTasks.map((t, idx) => renderTaskCard(t, `sb-done-${idx}`))}
+                                      {turnedInTasks.map((t, idx) => renderTaskCard(t, `sb-done-${idx}`, isLinked))}
                                     </div>
                                   )}
                                 </section>
@@ -1942,7 +1977,7 @@ export default function HomePage() {
             setMobileTab(tab);
           }
         }}
-        overdueCount={overdueCount}
+        overdueCount={isLinked ? overdueCount : 0}
       />
 
       {/* Week Type Bottom Sheet (Чисельник / Знаменник) */}

@@ -56,6 +56,7 @@ export function ScheduleWeekGrid({
   onPasteDay,
   canPasteDay,
   onOpenPermanentSchedule,
+  weekNumber,
 }: {
   week: ScheduleResponse[];
   scheduleMode?: "student" | "teacher";
@@ -91,6 +92,7 @@ export function ScheduleWeekGrid({
   onPasteDay?: (targetDate: string) => void;
   canPasteDay?: boolean;
   onOpenPermanentSchedule?: (lesson: Lesson) => void;
+  weekNumber?: number | null;
 }) {
   const canMoveTo = (lesson: Lesson, date: string, lessonNumber: number) =>
     canMoveLesson(lesson, date, lessonNumber, week, availabilityWeek);
@@ -272,9 +274,8 @@ export function ScheduleWeekGrid({
           return (
             <div
               key={`desktop-footer-${day.date}`}
-              className={`py-2 px-3 text-center text-xs text-sys-text-muted border-t border-sys-border/40 mt-1 transition-opacity ${
-                isPast && !isToday ? "opacity-60" : ""
-              }`}
+              className="py-2 px-3 text-center text-xs font-medium border-t border-sys-border/40 mt-1"
+              style={{ color: "#a1a1aa" }}
             >
               <span>{summaryText}</span>
             </div>
@@ -373,6 +374,7 @@ export function ScheduleWeekGrid({
               scheduleMode={scheduleMode}
               onQuickJump={onQuickJump}
               isToday={day.date === kyivTodayIso}
+              weekNumber={weekNumber}
             />
           </div>
         ))}

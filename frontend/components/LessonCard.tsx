@@ -6,12 +6,13 @@ import { LessonNote } from "./LessonNote";
 const LessonNoteModal = dynamic(() => import("./LessonNote").then((m) => m.LessonNoteModal), { ssr: false });
 import { EditIcon, MoveIcon } from "./LessonIcons";
 import { Lesson } from "../lib/api";
-import { formatRoom } from "../lib/format";
+import { formatRoom, extractOnlineMeetings, MeetingInfo } from "../lib/format";
 import { useClassroomSubmissions } from "../lib/useClassroomSubmissions";
 import { QuickJumpTarget, parseLessonTeachers, parseLessonGroups } from "../lib/quickJump";
 import { DEFAULT_LESSON_TIMES } from "../lib/constants/lessons";
 
-export type { QuickJumpTarget };
+export type { QuickJumpTarget, MeetingInfo };
+export { extractOnlineMeetings };
 
 const ICON_BUTTON =
   "flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-sys-border/50 bg-sys-card/70 text-sys-text-secondary shadow-xs transition-colors";
@@ -196,6 +197,24 @@ export function pluralDays(n: number): string {
   return "днів";
 }
 
+export function getTaskStatusText(
+  deadline: TaskDeadline,
+  isLinked: boolean
+): string {
+  if (deadline.isOverdue) {
+    const daysStr = `${deadline.overdueDays} ${pluralDays(deadline.overdueDays)}`;
+    if (isLinked) {
+      return deadline.formattedDate
+        ? `${deadline.formattedDate} · прострочено ${daysStr}`
+        : `прострочено ${daysStr}`;
+    }
+    return deadline.formattedDate
+      ? `${deadline.formattedDate} · термін минув ${daysStr} тому`
+      : `термін минув ${daysStr} тому`;
+  }
+  return deadline.statusText;
+}
+
 export interface TaskDeadline {
   day: number | null;
   month: number | null;
@@ -280,7 +299,7 @@ export function parseTaskDeadline(labelOrText: string): TaskDeadline {
       isOverdue: false,
       overdueDays: 0,
       isUrgent: true,
-      statusText: `Сьогодні (до ${formattedDate})`,
+      statusText: "Сьогодні",
       badgeTone: "urgent",
     };
   }
@@ -295,7 +314,7 @@ export function parseTaskDeadline(labelOrText: string): TaskDeadline {
       isOverdue: false,
       overdueDays: 0,
       isUrgent: true,
-      statusText: `Завтра (до ${formattedDate})`,
+      statusText: "Завтра",
       badgeTone: "urgent",
     };
   }
@@ -434,121 +453,6 @@ export function getVisibleUserNote(note?: string | null): string {
 export function extractOnlineMeetingInfo(note?: string | null, room?: string | null) {
   const meetings = extractOnlineMeetings(note, room);
   return meetings[0] ?? null;
-}
-
-export interface MeetingInfo {
-  url: string;
-  platform: "meet" | "zoom" | "teams" | "link";
-  passcode: string | null;
-  label?: string;
-}
-
-export function extractOnlineMeetings(
-  note?: string | null,
-  room?: string | null,
-  teacherName?: string | null,
-  subjectName?: string | null
-): MeetingInfo[] {
-  const isForeignLang = Boolean(
-    (subjectName && /іноземн|англ/i.test(subjectName)) ||
-    (teacherName && /токарєв|хочинськ/i.test(teacherName))
-  );
-
-  const isElectronics = Boolean(
-    (subjectName && /електронік/i.test(subjectName)) ||
-    (teacherName && /філімончук/i.test(teacherName))
-  );
-
-  const lines = `${room || ""}\n${note || ""}`.split("\n");
-  const results: MeetingInfo[] = [];
-  const seenUrls = new Set<string>();
-
-  for (const line of lines) {
-    if (line.trim().startsWith("[TASK]")) continue;
-
-    const urlMatches = Array.from(
-      line.matchAll(/https?:\/\/(?:meet\.google\.com|[a-z0-9.-]*zoom\.us|teams\.microsoft\.com|teams\.live\.com)\/[^\s<>"')|]+/gi)
-    );
-
-    for (const match of urlMatches) {
-      let url = match[0];
-      if (seenUrls.has(url.toLowerCase())) continue;
-      seenUrls.add(url.toLowerCase());
-
-      const lowerUrl = url.toLowerCase();
-      const isMeet = lowerUrl.includes("meet.google.com");
-      const isZoom = lowerUrl.includes("zoom.us");
-      const isTeams = lowerUrl.includes("teams.microsoft.com") || lowerUrl.includes("teams.live.com");
-      const hasPwdInUrl = /[?&]pwd=[^&\s]+/i.test(url);
-
-      const passMatch = line.match(
-        /(?:Код(?:\s+доступ[уа])?|Passcode|Пароль)\s*[:\-]?\s*([A-Za-z0-9_.\-]+)/i
-      );
-      let rawPass = passMatch ? passMatch[1] : null;
-
-      if (isElectronics && !isMeet && !hasPwdInUrl && !rawPass) {
-        rawPass = "dfkr";
-      }
-
-      // Якщо це Zoom і в URL ще немає ?pwd=, вшиваємо код прямо в посилання!
-      if (isZoom && !hasPwdInUrl && rawPass) {
-        const sep = url.includes("?") ? "&" : "?";
-        url = `${url}${sep}pwd=${encodeURIComponent(rawPass)}`;
-      }
-
-      let label: string | undefined;
-      const lowerLine = line.toLowerCase();
-      if (lowerLine.includes("токарєв") || lowerLine.includes("токарев")) {
-        label = "Токарєва";
-      } else if (lowerLine.includes("хочинськ") || lowerLine.includes("хочинск")) {
-        label = "Хочинська";
-      } else {
-        const prefixMatch = line.match(
-          /^([А-Яа-яІіЇїЄєҐґa-zA-Z\s.'—–\-]+|\d+\s*підгрупа|підгрупа\s*\d+)\s*[:\-–]\s*https?/i
-        );
-        if (prefixMatch) {
-          const raw = prefixMatch[1].trim();
-          if (raw.length >= 3 && raw.length <= 25) {
-            label = raw;
-          }
-        }
-      }
-
-      if (!label && isForeignLang) {
-        label = isMeet ? "Токарєва" : "Хочинська";
-      }
-
-      const platform: MeetingInfo["platform"] = isMeet
-        ? "meet"
-        : isZoom
-        ? "zoom"
-        : isTeams
-        ? "teams"
-        : "link";
-
-      results.push({
-        url,
-        platform,
-        passcode: null,
-        label,
-      });
-    }
-  }
-
-  if (isForeignLang && results.length > 0) {
-    for (const r of results) {
-      if (!r.label) {
-        r.label = r.platform === "meet" ? "Токарєва" : "Хочинська";
-      }
-    }
-    results.sort((a, b) => {
-      if (a.label === "Токарєва") return -1;
-      if (b.label === "Токарєва") return 1;
-      return 0;
-    });
-  }
-
-  return results;
 }
 
 function vibrateTap(ms = 10) {
@@ -934,37 +838,40 @@ export function LessonCard({
 
               {/* Zone 3: Location & Actions */}
               <div className="shrink-0 flex flex-col items-end justify-start gap-2 pt-0.5">
-                {hasMeeting ? (
-                  <a
-                    href={meetings[0].url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
-                    className={`inline-flex h-8 px-3 items-center gap-1.5 rounded-lg font-bold text-xs shadow-xs active:scale-95 transition-all whitespace-nowrap ${
-                      isMeetingLiveOrSoon
-                        ? "bg-emerald-600 text-white border border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.35)] hover:bg-emerald-500 animate-pulse"
-                        : "border border-sys-border bg-sys-card text-sys-text-primary hover:border-sys-accent/50 hover:text-sys-accent"
-                    }`}
-                  >
-                    {meetings[0].platform === "zoom" ? (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                        <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.934a.5.5 0 0 0-.777-.416L16 11" />
-                        <rect x="2" y="6" width="14" height="12" rx="2" />
-                      </svg>
-                    ) : (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                        <polygon points="23 7 16 12 23 17 23 7" />
-                        <rect x="1" y="5" width="15" height="14" rx="2" />
-                      </svg>
-                    )}
-                    <span>{meetings[0].platform === "zoom" ? "Zoom" : "Meet"}</span>
-                    <span className="text-[11px] opacity-75">↗</span>
-                  </a>
-                ) : rooms.length > 0 ? (
-                  <div className="inline-flex h-8 px-3 items-center gap-1.5 rounded-lg border border-sys-border bg-sys-bg text-sys-text-secondary font-medium text-xs shadow-xs whitespace-nowrap">
-                    <span>{rooms.map(formatRoom).join(", ")}</span>
-                  </div>
-                ) : null}
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  {rooms.length > 0 && (
+                    <div className="inline-flex h-8 px-3 items-center gap-1.5 rounded-lg border border-sys-border bg-sys-bg text-sys-text-secondary font-medium text-xs shadow-xs whitespace-nowrap">
+                      <span>{rooms.map(formatRoom).join(", ")}</span>
+                    </div>
+                  )}
+                  {hasMeeting && (
+                    <a
+                      href={meetings[0].url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
+                      className={`inline-flex h-8 px-3 items-center gap-1.5 rounded-lg font-bold text-xs shadow-xs active:scale-95 transition-all whitespace-nowrap ${
+                        isMeetingLiveOrSoon
+                          ? "bg-emerald-600 text-white border border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.35)] hover:bg-emerald-500 animate-pulse"
+                          : "border border-sys-border bg-sys-card text-sys-text-primary hover:border-sys-accent/50 hover:text-sys-accent"
+                      }`}
+                    >
+                      {meetings[0].platform === "zoom" ? (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                          <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.934a.5.5 0 0 0-.777-.416L16 11" />
+                          <rect x="2" y="6" width="14" height="12" rx="2" />
+                        </svg>
+                      ) : (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                          <polygon points="23 7 16 12 23 17 23 7" />
+                          <rect x="1" y="5" width="15" height="14" rx="2" />
+                        </svg>
+                      )}
+                      <span>{meetings[0].platform === "zoom" ? "Zoom" : "Meet"}</span>
+                      <span className="text-[11px] opacity-75">↗</span>
+                    </a>
+                  )}
+                </div>
 
                 {/* Statuses and Actions */}
                 <div className="flex flex-wrap items-center justify-end gap-1.5">
@@ -1038,7 +945,7 @@ export function LessonCard({
                 className="group flex w-full items-center justify-between rounded-xl bg-[#16161a] border border-[#27272a] px-3.5 py-2.5 text-xs text-sys-text-secondary hover:border-slate-600 hover:bg-[#1a1a20] transition-all shadow-xs cursor-pointer"
                 style={{
                   boxShadow:
-                    tasks[0].deadline.badgeTone === "overdue"
+                    isLinked && tasks[0].deadline.badgeTone === "overdue"
                       ? "inset 3px 0 0 #ef4444"
                       : tasks[0].deadline.badgeTone === "urgent"
                       ? "inset 3px 0 0 #f59e0b"
@@ -1065,7 +972,7 @@ export function LessonCard({
                       style={{
                         color:
                           tasks[0].deadline.badgeTone === "overdue"
-                            ? "#f87171"
+                            ? isLinked ? "#f87171" : "#a1a1aa"
                             : tasks[0].deadline.badgeTone === "urgent"
                             ? "#fbbf24"
                             : "#c084fc",
@@ -1076,13 +983,13 @@ export function LessonCard({
                         style={{
                           backgroundColor:
                             tasks[0].deadline.badgeTone === "overdue"
-                              ? "#ef4444"
+                              ? isLinked ? "#ef4444" : "#71717a"
                               : tasks[0].deadline.badgeTone === "urgent"
                               ? "#f59e0b"
                               : "#8b5cf6",
                         }}
                       />
-                      <span>{tasks[0].deadline.statusText}</span>
+                      <span>{getTaskStatusText(tasks[0].deadline, isLinked)}</span>
                     </span>
                   ) : null}
                   <span className="text-slate-400 group-hover:text-white transition-colors text-xs ml-1">↗</span>
@@ -1096,7 +1003,7 @@ export function LessonCard({
                 className="w-full rounded-xl bg-[#16161a] border border-[#27272a] transition-all duration-150 overflow-hidden shadow-xs"
                 style={{
                   boxShadow:
-                    tasks[0].deadline.badgeTone === "overdue"
+                    isLinked && tasks[0].deadline.badgeTone === "overdue"
                       ? "inset 3px 0 0 #ef4444"
                       : tasks[0].deadline.badgeTone === "urgent"
                       ? "inset 3px 0 0 #f59e0b"
@@ -1123,8 +1030,18 @@ export function LessonCard({
                     {nearestDated && (
                       <>
                         <span className="text-slate-600 text-xs shrink-0">•</span>
-                        <span className="text-xs font-normal text-slate-400 truncate">
-                          найближче {nearestDated.deadline.statusText.startsWith("до") ? nearestDated.deadline.statusText : `до ${nearestDated.deadline.formattedDate}`}
+                        <span
+                          className="text-xs font-normal truncate"
+                          style={{
+                            color:
+                              nearestDated.deadline.badgeTone === "overdue"
+                                ? isLinked ? "#f87171" : "#a1a1aa"
+                                : nearestDated.deadline.badgeTone === "urgent"
+                                ? "#fbbf24"
+                                : "#a1a1aa",
+                          }}
+                        >
+                          найближче {getTaskStatusText(nearestDated.deadline, isLinked)}
                         </span>
                       </>
                     )}
@@ -1136,7 +1053,7 @@ export function LessonCard({
                         style={{
                           color:
                             tasks[0].deadline.badgeTone === "overdue"
-                              ? "#f87171"
+                              ? isLinked ? "#f87171" : "#a1a1aa"
                               : tasks[0].deadline.badgeTone === "urgent"
                               ? "#fbbf24"
                               : "#c084fc",
@@ -1147,13 +1064,13 @@ export function LessonCard({
                           style={{
                             backgroundColor:
                               tasks[0].deadline.badgeTone === "overdue"
-                                ? "#ef4444"
+                                ? isLinked ? "#ef4444" : "#71717a"
                                 : tasks[0].deadline.badgeTone === "urgent"
                                 ? "#f59e0b"
                                 : "#8b5cf6",
                           }}
                         />
-                        <span>{tasks[0].deadline.statusText}</span>
+                        <span>{getTaskStatusText(tasks[0].deadline, isLinked)}</span>
                       </span>
                     ) : null}
                     <svg
@@ -1201,13 +1118,13 @@ export function LessonCard({
                               style={{
                                 color:
                                   task.deadline.badgeTone === "overdue"
-                                    ? "#f87171"
+                                    ? isLinked ? "#f87171" : "#a1a1aa"
                                     : task.deadline.badgeTone === "urgent"
                                     ? "#fbbf24"
                                     : "#c084fc",
                               }}
                             >
-                              {task.deadline.statusText}
+                              {getTaskStatusText(task.deadline, isLinked)}
                             </span>
                           ) : null}
                           <span className="text-slate-400 group-hover:text-white transition-colors text-xs">↗</span>
@@ -1252,26 +1169,31 @@ export function LessonCard({
               )}
             </div>
 
-            <div className="shrink-0 flex items-center">
-              {hasMeeting ? (
+            <div className="shrink-0 flex items-center gap-2">
+              {rooms.length > 0 && (
+                <div className="inline-flex h-8 px-2.5 items-center gap-1 rounded-lg border border-[#3f3f46] bg-sys-bg text-sys-text-secondary font-medium text-xs shadow-xs whitespace-nowrap">
+                  <span>{rooms.map(formatRoom).join(", ")}</span>
+                </div>
+              )}
+              {hasMeeting && (
                 <a
                   href={meetings[0].url}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
-                  className={`inline-flex h-11 min-h-[44px] px-3.5 items-center gap-1.5 rounded-xl font-bold text-xs shadow-xs active:scale-95 transition-all whitespace-nowrap ${
+                  className={`inline-flex h-8 min-h-[32px] px-2.5 items-center gap-1.5 rounded-lg font-bold text-xs shadow-xs active:scale-95 transition-all whitespace-nowrap ${
                     isMeetingLiveOrSoon
                       ? "bg-emerald-600 text-white border border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.35)] hover:bg-emerald-500 animate-pulse"
                       : "border border-sys-border bg-sys-card text-sys-text-primary hover:border-sys-accent/50 hover:text-sys-accent"
                   }`}
                 >
                   {meetings[0].platform === "zoom" ? (
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
                       <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.934a.5.5 0 0 0-.777-.416L16 11" />
                       <rect x="2" y="6" width="14" height="12" rx="2" />
                     </svg>
                   ) : (
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
                       <polygon points="23 7 16 12 23 17 23 7" />
                       <rect x="1" y="5" width="15" height="14" rx="2" />
                     </svg>
@@ -1279,11 +1201,7 @@ export function LessonCard({
                   <span>{meetings[0].platform === "zoom" ? "Zoom" : "Meet"}</span>
                   <span className="text-[10px] opacity-75">↗</span>
                 </a>
-              ) : rooms.length > 0 ? (
-                <div className="inline-flex h-8 px-2.5 items-center gap-1 rounded-lg border border-[#3f3f46] bg-sys-bg text-sys-text-secondary font-medium text-xs shadow-xs whitespace-nowrap">
-                  <span>{rooms.map(formatRoom).join(", ")}</span>
-                </div>
-              ) : null}
+              )}
             </div>
           </div>
 
@@ -1333,10 +1251,10 @@ export function LessonCard({
             ) : null}
           </div>
 
-          {/* If all tasks completed for this course: muted green ✓ Усе здано */}
+          {/* If all tasks completed for this course: muted green ✓ Усе здано (ghost outline without fill) */}
           {hasCompletedTasks && tasks.length === 0 && (
-            <div className="flex min-h-[40px] w-full items-center gap-2 rounded-xl bg-emerald-950/20 border border-emerald-500/20 px-3.5 py-2 text-xs text-emerald-400/80 shadow-xs select-none mt-1">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-emerald-400">
+            <div className="flex min-h-[36px] w-full items-center gap-2 rounded-xl bg-transparent border border-emerald-500/30 px-3.5 py-1.5 text-xs text-emerald-400/90 shadow-xs select-none mt-1">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-emerald-400">
                 <polyline points="20 6 9 17 4 12" />
               </svg>
               <span className="font-medium">✓ Усе здано</span>
@@ -1356,7 +1274,7 @@ export function LessonCard({
               className="group flex min-h-[44px] w-full items-center justify-between rounded-xl bg-[#16161a] border border-[#27272a] px-3.5 py-2.5 text-xs text-sys-text-secondary hover:border-slate-600 hover:bg-[#1a1a20] transition-all shadow-xs cursor-pointer mt-1"
               style={{
                 boxShadow:
-                  tasks[0].deadline.badgeTone === "overdue"
+                  isLinked && tasks[0].deadline.badgeTone === "overdue"
                     ? "inset 3px 0 0 #ef4444"
                     : tasks[0].deadline.badgeTone === "urgent"
                     ? "inset 3px 0 0 #f59e0b"
@@ -1383,7 +1301,7 @@ export function LessonCard({
                     style={{
                       color:
                         tasks[0].deadline.badgeTone === "overdue"
-                          ? "#f87171"
+                          ? isLinked ? "#f87171" : "#a1a1aa"
                           : tasks[0].deadline.badgeTone === "urgent"
                           ? "#fbbf24"
                           : "#a1a1aa",
@@ -1394,13 +1312,13 @@ export function LessonCard({
                       style={{
                         backgroundColor:
                           tasks[0].deadline.badgeTone === "overdue"
-                            ? "#ef4444"
+                            ? isLinked ? "#ef4444" : "#71717a"
                             : tasks[0].deadline.badgeTone === "urgent"
                             ? "#f59e0b"
                             : "#71717a",
                       }}
                     />
-                    <span>{tasks[0].deadline.statusText}</span>
+                    <span>{getTaskStatusText(tasks[0].deadline, isLinked)}</span>
                   </span>
                 ) : null}
                 <span className="text-slate-400 group-hover:text-white transition-colors text-xs ml-1">↗</span>
@@ -1413,7 +1331,7 @@ export function LessonCard({
               className="w-full rounded-xl bg-[#16161a] border border-[#27272a] transition-all duration-150 overflow-hidden shadow-xs mt-1"
               style={{
                 boxShadow:
-                  tasks[0].deadline.badgeTone === "overdue"
+                  isLinked && tasks[0].deadline.badgeTone === "overdue"
                     ? "inset 3px 0 0 #ef4444"
                     : tasks[0].deadline.badgeTone === "urgent"
                     ? "inset 3px 0 0 #f59e0b"
@@ -1430,7 +1348,7 @@ export function LessonCard({
                 className="flex min-h-[44px] w-full items-center justify-between px-3.5 py-2.5 cursor-pointer select-none gap-2 hover:bg-white/5 transition-colors"
               >
                 <div className="flex items-center gap-2 min-w-0">
-                  {tasks[0].deadline.badgeTone === "overdue" ? (
+                  {tasks[0].deadline.badgeTone === "overdue" && isLinked ? (
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-rose-400 shrink-0">
                       <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
                       <line x1="12" y1="9" x2="12" y2="13" />
@@ -1449,7 +1367,7 @@ export function LessonCard({
                     <>
                       <span className="text-slate-600 text-xs shrink-0">•</span>
                       <span className="text-xs font-normal text-slate-400 truncate">
-                        найближче {nearestDated.deadline.statusText.startsWith("до") ? nearestDated.deadline.statusText : `до ${nearestDated.deadline.formattedDate}`}
+                        найближче {getTaskStatusText(nearestDated.deadline, isLinked)}
                       </span>
                     </>
                   )}
@@ -1461,7 +1379,7 @@ export function LessonCard({
                       style={{
                         color:
                           tasks[0].deadline.badgeTone === "overdue"
-                            ? "#f87171"
+                            ? isLinked ? "#f87171" : "#a1a1aa"
                             : tasks[0].deadline.badgeTone === "urgent"
                             ? "#fbbf24"
                             : "#c084fc",
@@ -1472,13 +1390,13 @@ export function LessonCard({
                         style={{
                           backgroundColor:
                             tasks[0].deadline.badgeTone === "overdue"
-                              ? "#ef4444"
+                              ? isLinked ? "#ef4444" : "#71717a"
                               : tasks[0].deadline.badgeTone === "urgent"
                               ? "#f59e0b"
                               : "#8b5cf6",
                         }}
                       />
-                      <span>{tasks[0].deadline.statusText}</span>
+                      <span>{getTaskStatusText(tasks[0].deadline, isLinked)}</span>
                     </span>
                   ) : null}
                   <svg
@@ -1526,13 +1444,13 @@ export function LessonCard({
                             style={{
                               color:
                                 task.deadline.badgeTone === "overdue"
-                                  ? "#f87171"
+                                  ? isLinked ? "#f87171" : "#a1a1aa"
                                   : task.deadline.badgeTone === "urgent"
                                   ? "#fbbf24"
                                   : "#a1a1aa",
                             }}
                           >
-                            {task.deadline.statusText}
+                            {getTaskStatusText(task.deadline, isLinked)}
                           </span>
                         ) : null}
                         <span className="text-slate-400 group-hover:text-white transition-colors text-xs">↗</span>
@@ -1724,8 +1642,8 @@ export function LessonCard({
                 minWidth: 0,
               }}
             >
-              {/* If single teacher and pair has NO meeting, show room badge */}
-              {!isDualTeachers && !hasMeeting && rooms.length > 0 && (
+              {/* Show room badge if rooms exist (independent of online meetings) */}
+              {!isDualTeachers && rooms.length > 0 && (
                 rooms.map((rm, idx) => (
                   <span
                     key={`${rm}-${idx}`}
@@ -1737,7 +1655,7 @@ export function LessonCard({
                 ))
               )}
 
-              {/* Online meetings (outline style to match day view) */}
+              {/* Online meetings */}
               {!isDualTeachers && row3Meetings.map((m, idx) => (
                 <a
                   key={`${m.url}-${idx}`}
@@ -1760,7 +1678,7 @@ export function LessonCard({
               {hasCompletedTasks && tasks.length === 0 && (
                 <span
                   title="Усі завдання здано"
-                  className="inline-flex h-6 min-h-[24px] items-center gap-1 rounded-md border border-emerald-500/30 bg-emerald-950/20 px-2 py-0.5 text-[11px] font-medium text-emerald-300 select-none"
+                  className="inline-flex h-6 min-h-[24px] items-center gap-1 rounded-md border border-emerald-500/30 bg-transparent px-2 py-0.5 text-[11px] font-medium text-emerald-400/90 select-none"
                 >
                   <span>✓ Усе здано</span>
                 </span>
@@ -1772,16 +1690,16 @@ export function LessonCard({
                   onClick={toggleHw}
                   aria-expanded={isHwOpen}
                   aria-controls={`hw-list-${lesson.id}-${lesson.lesson_number}`}
-                  title={isHwOpen ? "Згорнути завдання" : `${tasks.length} ДЗ (${tasks[0].deadline.statusText || "без терміну"})`}
+                  title={isHwOpen ? "Згорнути завдання" : `${tasks.length} ДЗ (${getTaskStatusText(tasks[0].deadline, isLinked) || "без терміну"})`}
                   className={`inline-flex h-6 min-h-[24px] items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-semibold transition-all active:scale-95 ${
-                    tasks[0].deadline.badgeTone === "overdue"
+                    tasks[0].deadline.badgeTone === "overdue" && isLinked
                       ? "border-rose-500/40 bg-sys-card text-rose-300 hover:border-rose-500/60"
                       : tasks[0].deadline.badgeTone === "urgent"
                       ? "border-amber-500/40 bg-sys-card text-amber-300 hover:border-amber-500/60"
                       : "border-sys-border bg-sys-card text-purple-200 hover:border-purple-500/50"
                   }`}
                 >
-                  {tasks[0].deadline.badgeTone === "overdue" ? (
+                  {tasks[0].deadline.badgeTone === "overdue" && isLinked ? (
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-rose-400 shrink-0">
                       <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
                       <line x1="12" y1="9" x2="12" y2="13" />
@@ -2146,13 +2064,13 @@ export function LessonCard({
                               style={{
                                 color:
                                   task.deadline.badgeTone === "overdue"
-                                    ? "#f87171"
+                                    ? isLinked ? "#f87171" : "#a1a1aa"
                                     : task.deadline.badgeTone === "urgent"
                                     ? "#fbbf24"
                                     : "#a1a1aa",
                               }}
                             >
-                              {task.deadline.statusText}
+                              {getTaskStatusText(task.deadline, isLinked)}
                             </span>
                           ) : null}
                         </div>

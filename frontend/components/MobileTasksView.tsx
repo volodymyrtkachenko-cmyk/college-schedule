@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ClassroomTaskItem, sortTasksByDeadline } from "./LessonCard";
+import { ClassroomTaskItem, sortTasksByDeadline, getTaskStatusText } from "./LessonCard";
 import { ClassroomSyncButton } from "./ClassroomSyncButton";
 import { useClassroomSubmissions } from "../lib/useClassroomSubmissions";
 
@@ -32,11 +32,12 @@ export function MobileTasksView({
   onSynced?: (detectedId: number) => void;
 }) {
   const [search, setSearch] = useState("");
-  const [overdueOpen, setOverdueOpen] = useState(true);
+  const { isLinked } = useClassroomSubmissions();
+  const [userToggledOverdue, setUserToggledOverdue] = useState<boolean | null>(null);
+  const overdueOpen = userToggledOverdue !== null ? userToggledOverdue : isLinked;
   const [activeOpen, setActiveOpen] = useState(true);
   const [noDateOpen, setNoDateOpen] = useState(true);
   const [turnedInOpen, setTurnedInOpen] = useState(false);
-  const { linkedEmail, isLinked, unlink } = useClassroomSubmissions();
 
   const sortedTasks = useMemo(() => {
     return sortTasksByDeadline(tasks);
@@ -141,26 +142,29 @@ export function MobileTasksView({
         )}
       </div>
 
-      {/* Linked Email Status / Unlink Banner */}
-      {isLinked && linkedEmail ? (
-        <div className="mb-4 flex items-center justify-between rounded-xl border border-sys-border bg-sys-card px-3.5 py-2.5 text-xs">
-          <div className="flex items-center gap-2 truncate">
-            <span className="flex h-2 w-2 rounded-full bg-emerald-400 shrink-0" />
-            <span className="text-sys-text-secondary truncate">
-              Прив'язано: <strong className="text-sys-text-primary">{linkedEmail}</strong>
-            </span>
+      {/* Unlinked Prompt Banner (Section 17.2) */}
+      {!isLinked && (
+        <div className="mb-4 rounded-xl border border-sky-500/30 bg-sky-500/10 p-3 text-xs text-sys-text-secondary">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-start gap-2 min-w-0">
+              <span className="text-sky-400 font-bold shrink-0">ⓘ</span>
+              <span className="leading-snug text-slate-200">
+                Це завдання всієї групи. Прив&apos;яжи пошту, щоб бачити, що ти вже здав.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                window.dispatchEvent(new CustomEvent("trigger-classroom-sync"));
+              }}
+              className="shrink-0 rounded-lg bg-sky-500/25 hover:bg-sky-500/35 border border-sky-500/40 px-2.5 py-1 text-xs font-semibold text-sky-200 transition-colors cursor-pointer"
+            >
+              Прив&apos;язати
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={unlink}
-            className="shrink-0 ml-2 rounded-lg bg-white/5 hover:bg-white/10 px-2 py-1 text-[11px] font-medium text-rose-300 hover:text-rose-200 transition-colors"
-          >
-            Від'єднати
-          </button>
-        </div>
-      ) : (
-        <div className="mb-4 rounded-xl border border-sys-border/50 bg-sys-card/40 px-3.5 py-2.5 text-xs text-sys-text-muted">
-          💡 Прив'яжіть пошту через кнопку вище, щоб відстежувати свої здані завдання. Для всіх інших розклад показує всі завдання.
+          <p className="text-[11px] text-slate-400 mt-1.5 pl-5">
+            Лише читання, ми нічого не змінюємо в Classroom.
+          </p>
         </div>
       )}
 
@@ -190,19 +194,29 @@ export function MobileTasksView({
         </div>
       ) : (
         <div className="space-y-5">
-          {/* Group 1: Overdue */}
+          {/* Group 1: Overdue or Past due */}
           {overdueTasks.length > 0 && (
             <section>
               <button
                 type="button"
-                onClick={() => setOverdueOpen(!overdueOpen)}
+                onClick={() => setUserToggledOverdue(!overdueOpen)}
                 className="mb-2.5 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
                 aria-expanded={overdueOpen}
               >
                 <div className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-rose-500 shadow-xs" />
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-rose-400">
-                    Прострочено ({overdueTasks.length})
+                  <span
+                    className={`h-2 w-2 rounded-full shadow-xs ${
+                      isLinked ? "bg-rose-500" : "bg-slate-500"
+                    }`}
+                  />
+                  <h3
+                    className={`text-xs font-bold uppercase tracking-wider ${
+                      isLinked ? "text-rose-400" : "text-slate-400"
+                    }`}
+                  >
+                    {isLinked
+                      ? `Прострочено (${overdueTasks.length})`
+                      : `Термін минув (${overdueTasks.length})`}
                   </h3>
                 </div>
                 <span className="text-xs text-sys-text-muted">
@@ -211,7 +225,7 @@ export function MobileTasksView({
               </button>
               {overdueOpen && (
                 <div className="space-y-2 animate-in fade-in duration-150">
-                  {overdueTasks.map((t, idx) => renderTaskCard(t, `overdue-${idx}`))}
+                  {overdueTasks.map((t, idx) => renderTaskCard(t, `overdue-${idx}`, isLinked))}
                 </div>
               )}
             </section>
@@ -238,7 +252,7 @@ export function MobileTasksView({
               </button>
               {activeOpen && (
                 <div className="space-y-2 animate-in fade-in duration-150">
-                  {activeTasks.map((t, idx) => renderTaskCard(t, `active-${idx}`))}
+                  {activeTasks.map((t, idx) => renderTaskCard(t, `active-${idx}`, isLinked))}
                 </div>
               )}
             </section>
@@ -265,7 +279,7 @@ export function MobileTasksView({
               </button>
               {noDateOpen && (
                 <div className="space-y-2 animate-in fade-in duration-150">
-                  {noDateTasks.map((t, idx) => renderTaskCard(t, `nodate-${idx}`))}
+                  {noDateTasks.map((t, idx) => renderTaskCard(t, `nodate-${idx}`, isLinked))}
                 </div>
               )}
             </section>
@@ -277,7 +291,8 @@ export function MobileTasksView({
               <button
                 type="button"
                 onClick={() => setTurnedInOpen(!turnedInOpen)}
-                className="mb-2.5 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors"
+                className="mb-2.5 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                aria-expanded={turnedInOpen}
               >
                 <div className="flex items-center gap-2">
                   <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-xs" />
@@ -291,7 +306,7 @@ export function MobileTasksView({
               </button>
               {turnedInOpen && (
                 <div className="space-y-2 animate-in fade-in duration-150">
-                  {turnedInTasks.map((t, idx) => renderTaskCard(t, `done-${idx}`))}
+                  {turnedInTasks.map((t, idx) => renderTaskCard(t, `done-${idx}`, isLinked))}
                 </div>
               )}
             </section>
@@ -302,7 +317,7 @@ export function MobileTasksView({
   );
 }
 
-export function renderTaskCard(t: FullTaskItem, key: string) {
+export function renderTaskCard(t: FullTaskItem, key: string, isLinked: boolean = false) {
   const isGenericTitle = !t.title || t.title === "Домашнє завдання" || t.title === "Завдання";
   const titleLine = isGenericTitle ? t.subject : t.title;
   const teacherLine = isGenericTitle ? (t.teacher || null) : `${t.subject}${t.teacher ? ` · ${t.teacher}` : ""}`;
@@ -315,7 +330,7 @@ export function renderTaskCard(t: FullTaskItem, key: string) {
   const isOverdue = !isDone && !isUnknown && t.deadline.badgeTone === "overdue";
   const isUrgent = !isDone && !isUnknown && t.deadline.badgeTone === "urgent";
 
-  let statusText = t.deadline.statusText;
+  let statusText = getTaskStatusText(t.deadline, isLinked);
   let statusColor = "#a1a1aa";
   let dotColor = "#71717a";
 
@@ -332,8 +347,13 @@ export function renderTaskCard(t: FullTaskItem, key: string) {
     statusColor = "#94a3b8";
     dotColor = "#64748b";
   } else if (isOverdue) {
-    statusColor = "#f87171";
-    dotColor = "#ef4444";
+    if (isLinked) {
+      statusColor = "#f87171";
+      dotColor = "#ef4444";
+    } else {
+      statusColor = "#a1a1aa";
+      dotColor = "#71717a";
+    }
   } else if (isUrgent) {
     statusColor = "#fbbf24";
     dotColor = "#f59e0b";
@@ -349,7 +369,7 @@ export function renderTaskCard(t: FullTaskItem, key: string) {
       style={{
         boxShadow: isDone
           ? "inset 3px 0 0 #10b981"
-          : isOverdue
+          : isOverdue && isLinked
           ? "inset 3px 0 0 #ef4444"
           : isUrgent
           ? "inset 3px 0 0 #f59e0b"
@@ -357,7 +377,7 @@ export function renderTaskCard(t: FullTaskItem, key: string) {
       }}
     >
       <div className="flex items-start justify-between gap-2">
-        <h4 className="text-sm font-semibold text-sys-text-primary leading-snug line-clamp-2 group-hover:text-sys-accent transition-colors flex-1">
+        <h4 className="text-sm font-semibold text-sys-text-primary leading-snug line-clamp-2 break-words group-hover:text-sys-accent transition-colors flex-1">
           {titleLine}
         </h4>
         <span className="text-slate-400 group-hover:text-white transition-colors text-xs shrink-0 mt-0.5">
@@ -366,7 +386,7 @@ export function renderTaskCard(t: FullTaskItem, key: string) {
       </div>
 
       {teacherLine && (
-        <p className="text-xs text-sys-text-muted mt-1 truncate">
+        <p className="text-xs text-sys-text-muted mt-1 break-words line-clamp-2">
           {teacherLine}
         </p>
       )}

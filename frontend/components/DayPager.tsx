@@ -3,12 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ScheduleResponse, Lesson } from "../lib/api";
-import { formatRoom, formatTeachers } from "../lib/format";
+import { buildTelegramShareText } from "../lib/format";
 import { useToast } from "./ToastProvider";
 import { LessonCard, QuickJumpTarget } from "./LessonCard";
 import { shareScheduleAsImage } from "../lib/shareImage";
-
-const NUM_EMOJI: Record<number, string> = { 1: "1️⃣", 2: "2️⃣", 3: "3️⃣", 4: "4️⃣", 5: "5️⃣" };
 
 const KYIV_DATE_FMT = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" });
 const KYIV_TIME_FMT = new Intl.DateTimeFormat("en-GB", {
@@ -17,55 +15,6 @@ const KYIV_TIME_FMT = new Intl.DateTimeFormat("en-GB", {
   minute: "2-digit",
   hour12: false,
 });
-const SHARE_DATE_FMT = new Intl.DateTimeFormat("uk-UA", {
-  weekday: "long",
-  day: "numeric",
-  month: "long",
-});
-
-function buildTelegramShareText(schedule: ScheduleResponse, scheduleMode: "student" | "teacher" | "admin"): string {
-  const d = schedule.date ? new Date(`${schedule.date}T12:00:00`) : new Date();
-  const validDate = isNaN(d.getTime()) ? new Date() : d;
-  const dateFormatted = SHARE_DATE_FMT.format(validDate);
-  const weekLabel =
-    schedule.week_type === "numerator" ? "Чисельник" : schedule.week_type === "denominator" ? "Знаменник" : "";
-
-  const header = `📅 ${dateFormatted.charAt(0).toUpperCase() + dateFormatted.slice(1)}${weekLabel ? ` (${weekLabel})` : ""}`;
-  if (!schedule.lessons.length) {
-    return `${header}\n\n🎉 Пар немає!`;
-  }
-
-  const sortedLessons = [...schedule.lessons].sort(
-    (left, right) => left.lesson_number - right.lesson_number || left.id - right.id,
-  );
-
-  const lines = sortedLessons.map((l) => {
-    const num = NUM_EMOJI[l.lesson_number] ?? `${l.lesson_number}.`;
-    let evTag = "";
-    if (l.event_type) {
-      if (l.event_type === "exam") evTag = " [📝 ЕКЗАМЕН]";
-      else if (l.event_type === "consultation") evTag = " [💬 КОНСУЛЬТАЦІЯ]";
-      else if (l.event_type === "credit") evTag = " [✅ ЗАЛІК]";
-      else if (l.event_type === "defense") evTag = " [🎓 ЗАХИСТ]";
-      else evTag = " [📌 ПОДІЯ]";
-      if (l.event_title && l.event_title !== l.subject_name) {
-        evTag += ` (${l.event_title})`;
-      }
-    }
-    const rep = evTag || (l.is_replacement ? " ⚡ЗАМІНА" : "");
-    const hasMeeting = Boolean(l.note && /(meet\.google\.com|zoom\.us)/i.test(l.note));
-    const room = (!hasMeeting && l.room) ? ` • 🚪 ${formatRoom(l.room)}` : "";
-    const who =
-      scheduleMode === "teacher" && l.group_name
-        ? `👥 ${l.group_name}`
-        : l.teacher_name
-          ? `👤 ${formatTeachers(l.teacher_name)}`
-          : "";
-    return `${num} ${l.time} — ${l.subject_name}${rep}\n   ${[who, room.replace(" • ", "")].filter(Boolean).join(" • ")}`;
-  });
-
-  return `${header}\n\n${lines.join("\n\n")}`;
-}
 
 function parseMin(t?: string): number | null {
   if (!t) return null;
@@ -102,6 +51,7 @@ export function DayPager({
   shouldReduceMotion = false,
   isWeekend = false,
   isShowingTomorrow = false,
+  weekNumber,
 }: {
   schedule: ScheduleResponse;
   todayDate?: string;
@@ -121,6 +71,7 @@ export function DayPager({
   shouldReduceMotion?: boolean;
   isWeekend?: boolean;
   isShowingTomorrow?: boolean;
+  weekNumber?: number | null;
 }) {
   const { showToast } = useToast();
   const [kyivNow, setKyivNow] = useState<{ dateIso: string; minutes: number } | null>(null);
@@ -140,7 +91,7 @@ export function DayPager({
   }, []);
 
   const handleShareDay = async () => {
-    const text = buildTelegramShareText(schedule, scheduleMode);
+    const text = buildTelegramShareText(schedule, scheduleMode, weekNumber);
     try {
       if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(text);
@@ -169,7 +120,7 @@ export function DayPager({
             ? `Група ${firstLesson.group_name}`
             : "Розклад занять";
 
-      const result = await shareScheduleAsImage(schedule, scheduleMode, ownerLabel);
+      const result = await shareScheduleAsImage(schedule, scheduleMode, ownerLabel, weekNumber);
       if (result === "copied") {
         showToast("Картинку скопійовано! Натисніть Ctrl+V у Telegram", "success");
       } else if (result === "downloaded") {

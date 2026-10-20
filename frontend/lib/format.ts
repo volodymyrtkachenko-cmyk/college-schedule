@@ -208,7 +208,7 @@ export function getScheduleInsightMessage(
   };
 }
 import { getRandomPhrase, motivationPhrases } from "./constants/phrases";
-import type { Lesson } from "./api";
+import type { Lesson, ScheduleResponse } from "./api";
 
 function getStablePhrase(phrases: string[], key: string): string {
   if (phrases.length === 0) return "";
@@ -257,4 +257,286 @@ export function formatRoom(room: string): string {
   const lower = clean.toLowerCase();
   return ROOM_PREFIXES.some((prefix) => lower.startsWith(prefix)) ? clean : `ауд. ${clean}`;
 }
+
+export interface MeetingInfo {
+  url: string;
+  platform: "meet" | "zoom" | "teams" | "link";
+  passcode: string | null;
+  label?: string;
+}
+
+export function extractOnlineMeetings(
+  note?: string | null,
+  room?: string | null,
+  teacherName?: string | null,
+  subjectName?: string | null
+): MeetingInfo[] {
+  const isForeignLang = Boolean(
+    (subjectName && /іноземн|англ/i.test(subjectName)) ||
+    (teacherName && /токарєв|хочинськ/i.test(teacherName))
+  );
+
+  const isElectronics = Boolean(
+    (subjectName && /електронік/i.test(subjectName)) ||
+    (teacherName && /філімончук/i.test(teacherName))
+  );
+
+  const lines = `${room || ""}\n${note || ""}`.split("\n");
+  const results: MeetingInfo[] = [];
+  const seenUrls = new Set<string>();
+
+  for (const line of lines) {
+    if (line.trim().startsWith("[TASK]")) continue;
+
+    const urlMatches = Array.from(
+      line.matchAll(/https?:\/\/(?:meet\.google\.com|[a-z0-9.-]*zoom\.us|teams\.microsoft\.com|teams\.live\.com)\/[^\s<>"')|]+/gi)
+    );
+
+    for (const match of urlMatches) {
+      let url = match[0];
+      if (seenUrls.has(url.toLowerCase())) continue;
+      seenUrls.add(url.toLowerCase());
+
+      const lowerUrl = url.toLowerCase();
+      const isMeet = lowerUrl.includes("meet.google.com");
+      const isZoom = lowerUrl.includes("zoom.us");
+      const isTeams = lowerUrl.includes("teams.microsoft.com") || lowerUrl.includes("teams.live.com");
+      const hasPwdInUrl = /[?&]pwd=[^&\s]+/i.test(url);
+
+      const passMatch = line.match(
+        /(?:Код(?:\s+доступ[уа])?|Passcode|Пароль)\s*[:\-]?\s*([A-Za-z0-9_.\-]+)/i
+      );
+      let rawPass = passMatch ? passMatch[1] : null;
+
+      if (isElectronics && !isMeet && !hasPwdInUrl && !rawPass) {
+        rawPass = "dfkr";
+      }
+
+      if (isZoom && !hasPwdInUrl && rawPass) {
+        const sep = url.includes("?") ? "&" : "?";
+        url = `${url}${sep}pwd=${encodeURIComponent(rawPass)}`;
+      }
+
+      let label: string | undefined;
+      const lowerLine = line.toLowerCase();
+      if (lowerLine.includes("токарєв") || lowerLine.includes("токарев")) {
+        label = "Токарєва";
+      } else if (lowerLine.includes("хочинськ") || lowerLine.includes("хочинск")) {
+        label = "Хочинська";
+      } else {
+        const prefixMatch = line.match(
+          /^([А-Яа-яІіЇїЄєҐґa-zA-Z\s.'—–\-]+|\d+\s*підгрупа|підгрупа\s*\d+)\s*[:\-–]\s*https?/i
+        );
+        if (prefixMatch) {
+          const raw = prefixMatch[1].trim();
+          if (raw.length >= 3 && raw.length <= 25) {
+            label = raw;
+          }
+        }
+      }
+
+      if (!label && isForeignLang) {
+        label = isMeet ? "Токарєва" : "Хочинська";
+      }
+
+      const platform: MeetingInfo["platform"] = isMeet
+        ? "meet"
+        : isZoom
+        ? "zoom"
+        : isTeams
+        ? "teams"
+        : "link";
+
+      results.push({
+        url,
+        platform,
+        passcode: null,
+        label,
+      });
+    }
+  }
+
+  if (isForeignLang && results.length > 0) {
+    for (const r of results) {
+      if (!r.label) {
+        r.label = r.platform === "meet" ? "Токарєва" : "Хочинська";
+      }
+    }
+    results.sort((a, b) => {
+      if (a.label === "Токарєва") return -1;
+      if (b.label === "Токарєва") return 1;
+      return 0;
+    });
+  }
+
+  return results;
+}
+
+export interface FormattedLessonItem {
+  lessonNumber: number;
+  time: string;
+  startTime: string;
+  endTime: string;
+  subjectName: string;
+  secondary: string;
+  rooms: string[];
+  roomText: string | null;
+  meetings: MeetingInfo[];
+  eventBadge: { label: string; bg?: string; text?: string } | null;
+  isReplacement: boolean;
+}
+
+export function formatLessonDetails(
+  lesson: Lesson,
+  scheduleMode: "student" | "teacher" | "admin" = "student"
+): FormattedLessonItem {
+  const [startT = "", endT = ""] = (lesson.time || "").split("-").map((s) => s.trim());
+  const subjectDisplay = lesson.event_title && lesson.event_title !== lesson.subject_name
+    ? `${lesson.subject_name} (${lesson.event_title})`
+    : lesson.subject_name;
+
+  const secondary =
+    scheduleMode === "teacher" && lesson.group_name
+      ? `Група ${lesson.group_name}`
+      : lesson.teacher_name
+        ? formatTeachers(lesson.teacher_name)
+        : "";
+
+  const rawRooms = lesson.room
+    ? lesson.room
+        .split(/\s*[,/;]\s*/)
+        .map((r) => r.trim())
+        .filter(Boolean)
+    : [];
+
+  const roomText = rawRooms.length > 0 ? rawRooms.map(formatRoom).join(", ") : null;
+
+  const meetings = extractOnlineMeetings(
+    lesson.note,
+    lesson.room,
+    lesson.teacher_name,
+    lesson.subject_name
+  );
+
+  let eventBadge: FormattedLessonItem["eventBadge"] = null;
+  if (lesson.event_type) {
+    let label = "📌 ПОДІЯ";
+    let bg = "#0284c7";
+    if (lesson.event_type === "exam") { label = "📝 ЕКЗАМЕН"; bg = "#e11d48"; }
+    else if (lesson.event_type === "consultation") { label = "💬 КОНСУЛЬТАЦІЯ"; bg = "#d97706"; }
+    else if (lesson.event_type === "credit") { label = "✅ ЗАЛІК"; bg = "#059669"; }
+    else if (lesson.event_type === "defense") { label = "🎓 ЗАХИСТ"; bg = "#7c3aed"; }
+    eventBadge = { label, bg, text: "#ffffff" };
+  }
+
+  return {
+    lessonNumber: lesson.lesson_number,
+    time: lesson.time || "",
+    startTime: startT,
+    endTime: endT,
+    subjectName: subjectDisplay,
+    secondary,
+    rooms: rawRooms,
+    roomText,
+    meetings,
+    eventBadge,
+    isReplacement: Boolean(lesson.is_replacement),
+  };
+}
+
+const NUM_EMOJI: Record<number, string> = {
+  1: "1️⃣",
+  2: "2️⃣",
+  3: "3️⃣",
+  4: "4️⃣",
+  5: "5️⃣",
+  6: "6️⃣",
+  7: "7️⃣",
+  8: "8️⃣",
+};
+
+export function getMondayOf(date: Date): Date {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  d.setDate(diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+export function calculateWeekNumber(anchorDate: Date, semesterStart?: string | null): number | null {
+  if (!semesterStart) return null;
+  const start = new Date(semesterStart);
+  const diffTime = anchorDate.getTime() - getMondayOf(start).getTime();
+  const diffWeeks = Math.floor(diffTime / (7 * 24 * 60 * 60 * 1000)) + 1;
+  return diffWeeks > 0 ? diffWeeks : null;
+}
+
+export function buildTelegramShareText(
+  schedule: ScheduleResponse,
+  scheduleMode: "student" | "teacher" | "admin" = "student",
+  weekNumber?: number | null
+): string {
+  const dateObj = new Date(`${schedule.date}T12:00:00`);
+  const dateFormatted = new Intl.DateTimeFormat("uk-UA", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  }).format(dateObj);
+
+  const capitalizedDate = dateFormatted.charAt(0).toUpperCase() + dateFormatted.slice(1);
+  const weekTypeUk =
+    schedule.week_type === "numerator"
+      ? "чисельник"
+      : schedule.week_type === "denominator"
+      ? "знаменник"
+      : "";
+
+  let weekInfo = "";
+  if (weekNumber && weekTypeUk) {
+    weekInfo = ` · ${weekNumber} тиждень (${weekTypeUk})`;
+  } else if (weekNumber) {
+    weekInfo = ` · ${weekNumber} тиждень`;
+  } else if (weekTypeUk) {
+    weekInfo = ` (${weekTypeUk})`;
+  }
+
+  const header = `📅 ${capitalizedDate}${weekInfo}`;
+  if (!schedule.lessons || schedule.lessons.length === 0) {
+    return `${header}\n\n🎉 Пар немає!`;
+  }
+
+  const sortedLessons = [...schedule.lessons].sort(
+    (left, right) => left.lesson_number - right.lesson_number || left.id - right.id
+  );
+
+  const lines = sortedLessons.map((l) => {
+    const item = formatLessonDetails(l, scheduleMode);
+    const num = NUM_EMOJI[item.lessonNumber] ?? `${item.lessonNumber}.`;
+    const rep = item.eventBadge
+      ? ` [${item.eventBadge.label}]`
+      : item.isReplacement
+      ? " ⚡ЗАМІНА"
+      : "";
+
+    const parts: string[] = [];
+    if (item.secondary) {
+      parts.push(scheduleMode === "teacher" ? `👥 ${item.secondary}` : `👤 ${item.secondary}`);
+    }
+    if (item.roomText) {
+      parts.push(item.roomText);
+    }
+    if (item.meetings.length > 0) {
+      const m = item.meetings[0];
+      const name = m.platform === "zoom" ? "Zoom" : "Meet";
+      parts.push(`💻 ${name}: ${m.url}`);
+    }
+
+    const detailsLine = parts.length > 0 ? `\n   ${parts.join(" • ")}` : "";
+    return `${num} ${item.time} — ${item.subjectName}${rep}${detailsLine}`;
+  });
+
+  return `${header}\n\n${lines.join("\n\n")}`;
+}
+
 

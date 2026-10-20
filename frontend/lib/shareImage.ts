@@ -1,5 +1,5 @@
 import { ScheduleResponse } from "./api";
-import { formatRoom, formatTeachers } from "./format";
+import { formatLessonDetails } from "./format";
 
 function drawRoundedRect(
   ctx: CanvasRenderingContext2D,
@@ -43,18 +43,19 @@ function wrapText(
 export async function generateScheduleCardBlob(
   schedule: ScheduleResponse,
   scheduleMode: "student" | "teacher" | "admin",
-  ownerLabel?: string
+  ownerLabel?: string,
+  weekNumber?: number | null
 ): Promise<Blob> {
   const scale = 2; // Retina 2x (1080px ширина)
   const width = 540;
-  const padding = 28;
-  const cardGap = 12;
-  const cardHeight = 92;
+  const padding = 24;
+  const cardGap = 10;
+  const cardHeight = 78;
 
   const lessons = schedule.lessons;
   const contentHeight =
     lessons.length > 0 ? lessons.length * cardHeight + (lessons.length - 1) * cardGap : 80;
-  const height = 132 + contentHeight + 48;
+  const height = 120 + contentHeight + 44;
 
   const canvas = document.createElement("canvas");
   canvas.width = width * scale;
@@ -64,18 +65,11 @@ export async function generateScheduleCardBlob(
   if (!ctx) throw new Error("Canvas 2D context unavailable");
   ctx.scale(scale, scale);
 
-  // 1. Фон полотна
-  ctx.fillStyle = "#0b1120";
+  // 1. Фон полотна (палітра як у застосунку --bg #09090b, без синього градієнта)
+  ctx.fillStyle = "#09090b";
   ctx.fillRect(0, 0, width, height);
 
-  // Делікатне неонове світіння зверху
-  const glow = ctx.createRadialGradient(width * 0.8, 0, 10, width * 0.8, 0, 260);
-  glow.addColorStop(0, "rgba(56, 189, 248, 0.16)");
-  glow.addColorStop(1, "rgba(56, 189, 248, 0)");
-  ctx.fillStyle = glow;
-  ctx.fillRect(0, 0, width, height);
-
-  // 2. Шапка картки (Дата + Група/Викладач + Чисельник/Знаменник)
+  // 2. Шапка картки (Дата + Група/Викладач + Тиждень/Знаменник)
   const dateObj = new Date(`${schedule.date}T12:00:00`);
   const dateFormatted = new Intl.DateTimeFormat("uk-UA", {
     weekday: "long",
@@ -86,164 +80,175 @@ export async function generateScheduleCardBlob(
 
   ctx.fillStyle = "#38bdf8";
   ctx.font = "700 12px Inter, system-ui, -apple-system, sans-serif";
-  ctx.fillText((ownerLabel || "РОЗКЛАД ЗАНЯТЬ").toUpperCase(), padding, 38);
+  ctx.fillText((ownerLabel || "РОЗКЛАД ЗАНЯТЬ").toUpperCase(), padding, 34);
 
   ctx.fillStyle = "#f8fafc";
-  ctx.font = "800 24px Inter, system-ui, -apple-system, sans-serif";
-  ctx.fillText(titleDate, padding, 68);
+  ctx.font = "800 22px Inter, system-ui, -apple-system, sans-serif";
+  ctx.fillText(titleDate, padding, 64);
 
-  const weekLabel =
+  const weekTypeUk =
     schedule.week_type === "numerator"
-      ? "Чисельник"
+      ? "чисельник"
       : schedule.week_type === "denominator"
-        ? "Знаменник"
-        : "";
+      ? "знаменник"
+      : "";
 
-  if (weekLabel) {
+  let fullWeekBadge = "";
+  if (weekNumber && weekTypeUk) {
+    fullWeekBadge = `${weekNumber} тиждень · ${weekTypeUk}`;
+  } else if (weekNumber) {
+    fullWeekBadge = `${weekNumber} тиждень`;
+  } else if (weekTypeUk) {
+    fullWeekBadge = weekTypeUk.charAt(0).toUpperCase() + weekTypeUk.slice(1);
+  }
+
+  if (fullWeekBadge) {
     ctx.font = "600 12px Inter, system-ui, -apple-system, sans-serif";
-    const badgeW = ctx.measureText(weekLabel).width + 24;
+    const badgeW = ctx.measureText(fullWeekBadge).width + 20;
     const badgeX = width - padding - badgeW;
-    drawRoundedRect(ctx, badgeX, 46, badgeW, 28, 14);
-    ctx.fillStyle = "rgba(56, 189, 248, 0.12)";
+    drawRoundedRect(ctx, badgeX, 44, badgeW, 26, 13);
+    ctx.fillStyle = "#16161a";
     ctx.fill();
-    ctx.strokeStyle = "rgba(56, 189, 248, 0.35)";
+    ctx.strokeStyle = "#27272a";
     ctx.lineWidth = 1;
     ctx.stroke();
 
     ctx.fillStyle = "#38bdf8";
-    ctx.fillText(weekLabel, badgeX + 12, 64);
+    ctx.fillText(fullWeekBadge, badgeX + 10, 61);
   }
 
   // Розділювач шапки
-  ctx.strokeStyle = "rgba(148, 163, 184, 0.15)";
+  ctx.strokeStyle = "#27272a";
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(padding, 92);
-  ctx.lineTo(width - padding, 92);
+  ctx.moveTo(padding, 86);
+  ctx.lineTo(width - padding, 86);
   ctx.stroke();
 
   // 3. Список пар
-  let currentY = 110;
+  let currentY = 100;
 
   if (lessons.length === 0) {
-    drawRoundedRect(ctx, padding, currentY, width - padding * 2, 70, 14);
-    ctx.fillStyle = "rgba(30, 41, 59, 0.5)";
+    drawRoundedRect(ctx, padding, currentY, width - padding * 2, 64, 12);
+    ctx.fillStyle = "#16161a";
     ctx.fill();
+    ctx.strokeStyle = "#27272a";
+    ctx.stroke();
     ctx.fillStyle = "#94a3b8";
-    ctx.font = "600 15px Inter, system-ui, sans-serif";
-    ctx.fillText("🎉 На цей день пар немає", padding + 20, currentY + 40);
+    ctx.font = "600 14px Inter, system-ui, sans-serif";
+    ctx.fillText("🎉 На цей день пар немає", padding + 18, currentY + 36);
   } else {
     for (const lesson of lessons) {
       const cardW = width - padding * 2;
-      drawRoundedRect(ctx, padding, currentY, cardW, cardHeight, 14);
-      ctx.fillStyle = lesson.event_type
-        ? (lesson.event_type === "exam" ? "rgba(225, 29, 72, 0.09)" : "rgba(14, 165, 233, 0.09)")
-        : lesson.is_replacement
-          ? "rgba(245, 158, 11, 0.07)"
-          : "rgba(30, 41, 59, 0.65)";
+      const item = formatLessonDetails(lesson, scheduleMode);
+
+      drawRoundedRect(ctx, padding, currentY, cardW, cardHeight, 12);
+      ctx.fillStyle = item.eventBadge
+        ? (item.eventBadge.bg === "#e11d48" ? "rgba(225, 29, 72, 0.09)" : "rgba(14, 165, 233, 0.09)")
+        : item.isReplacement
+        ? "rgba(245, 158, 11, 0.07)"
+        : "#16161a";
       ctx.fill();
 
-      ctx.strokeStyle = lesson.event_type
-        ? (lesson.event_type === "exam" ? "rgba(225, 29, 72, 0.45)" : "rgba(14, 165, 233, 0.45)")
-        : lesson.is_replacement
-          ? "rgba(245, 158, 11, 0.45)"
-          : "rgba(148, 163, 184, 0.16)";
+      ctx.strokeStyle = item.eventBadge
+        ? (item.eventBadge.bg === "#e11d48" ? "rgba(225, 29, 72, 0.45)" : "rgba(14, 165, 233, 0.45)")
+        : item.isReplacement
+        ? "rgba(245, 158, 11, 0.45)"
+        : "#27272a";
       ctx.lineWidth = 1;
       ctx.stroke();
 
       // Ліва колонка: номер пари + час
-      const [startT, endT] = lesson.time.split("-");
-      ctx.fillStyle = lesson.event_type
-        ? (lesson.event_type === "exam" ? "#fb7185" : "#38bdf8")
-        : lesson.is_replacement
-          ? "#fbbf24"
-          : "#38bdf8";
-      ctx.font = "800 22px Inter, system-ui, sans-serif";
-      ctx.fillText(String(lesson.lesson_number), padding + 18, currentY + 34);
+      ctx.fillStyle = item.eventBadge
+        ? (item.eventBadge.bg === "#e11d48" ? "#fb7185" : "#38bdf8")
+        : item.isReplacement
+        ? "#fbbf24"
+        : "#38bdf8";
+      ctx.font = "800 20px Inter, system-ui, sans-serif";
+      ctx.fillText(String(item.lessonNumber), padding + 16, currentY + 30);
 
-      ctx.fillStyle = "#94a3b8";
+      ctx.fillStyle = "#a1a1aa";
       ctx.font = "500 11px Inter, system-ui, sans-serif";
-      ctx.fillText(startT || "", padding + 18, currentY + 54);
-      ctx.fillText(endT || "", padding + 18, currentY + 69);
+      ctx.fillText(item.startTime || "", padding + 16, currentY + 48);
+      ctx.fillText(item.endTime || "", padding + 16, currentY + 62);
 
       // Вертикальна лінія після часу
-      ctx.strokeStyle = "rgba(148, 163, 184, 0.12)";
+      ctx.strokeStyle = "#27272a";
       ctx.beginPath();
-      ctx.moveTo(padding + 68, currentY + 14);
-      ctx.lineTo(padding + 68, currentY + cardHeight - 14);
+      ctx.moveTo(padding + 64, currentY + 10);
+      ctx.lineTo(padding + 64, currentY + cardHeight - 10);
       ctx.stroke();
 
       // Права частина: Предмет, викладач, кабінет
-      const textX = padding + 82;
-      const maxSubjectWidth = cardW - 175;
+      const textX = padding + 76;
+      const maxSubjectWidth = cardW - 170;
 
       ctx.fillStyle = "#f8fafc";
-      ctx.font = "700 15px Inter, system-ui, sans-serif";
-      const subjectDisplay = lesson.event_title && lesson.event_title !== lesson.subject_name
-        ? `${lesson.subject_name} (${lesson.event_title})`
-        : lesson.subject_name;
-      const subjectLines = wrapText(ctx, subjectDisplay, maxSubjectWidth);
+      ctx.font = "700 14px Inter, system-ui, sans-serif";
+      const subjectLines = wrapText(ctx, item.subjectName, maxSubjectWidth);
       subjectLines.forEach((line, i) => {
-        ctx.fillText(line, textX, currentY + 28 + i * 18);
+        ctx.fillText(line, textX, currentY + 24 + i * 16);
       });
 
-      const secondary =
-        scheduleMode === "teacher" && lesson.group_name
-          ? `Група ${lesson.group_name}`
-          : lesson.teacher_name
-            ? formatTeachers(lesson.teacher_name)
-            : "";
-
-      if (secondary) {
-        ctx.fillStyle = "#94a3b8";
-        ctx.font = "500 12px Inter, system-ui, sans-serif";
-        ctx.fillText(secondary, textX, currentY + 72);
+      if (item.secondary) {
+        ctx.fillStyle = "#a1a1aa";
+        ctx.font = "500 11px Inter, system-ui, sans-serif";
+        ctx.fillText(item.secondary, textX, currentY + cardHeight - 14);
       }
 
-      // Бейдж події / заміни
-      if (lesson.event_type) {
-        let evLabel = "📌 ПОДІЯ";
-        let evBg = "#0284c7";
-        if (lesson.event_type === "exam") { evLabel = "📝 ЕКЗАМЕН"; evBg = "#e11d48"; }
-        else if (lesson.event_type === "consultation") { evLabel = "💬 КОНСУЛЬТАЦІЯ"; evBg = "#d97706"; }
-        else if (lesson.event_type === "credit") { evLabel = "✅ ЗАЛІК"; evBg = "#059669"; }
-        else if (lesson.event_type === "defense") { evLabel = "🎓 ЗАХИСТ"; evBg = "#7c3aed"; }
+      // Бейдж події / заміни зверху справа
+      if (item.eventBadge) {
         ctx.font = "700 10px Inter, system-ui, sans-serif";
-        const evW = ctx.measureText(evLabel).width + 14;
-        const evX = width - padding - 14 - evW;
-        drawRoundedRect(ctx, evX, currentY + 14, evW, 20, 6);
-        ctx.fillStyle = evBg;
+        const evW = ctx.measureText(item.eventBadge.label).width + 12;
+        const evX = width - padding - 12 - evW;
+        drawRoundedRect(ctx, evX, currentY + 12, evW, 20, 6);
+        ctx.fillStyle = item.eventBadge.bg || "#0284c7";
         ctx.fill();
-        ctx.fillStyle = "#ffffff";
-        ctx.fillText(evLabel, evX + 7, currentY + 27);
-      } else if (lesson.is_replacement) {
+        ctx.fillStyle = item.eventBadge.text || "#ffffff";
+        ctx.fillText(item.eventBadge.label, evX + 6, currentY + 25);
+      } else if (item.isReplacement) {
         const repText = "⚡ ЗАМІНА";
         ctx.font = "700 10px Inter, system-ui, sans-serif";
-        const repW = ctx.measureText(repText).width + 14;
-        const repX = width - padding - 14 - repW;
-        drawRoundedRect(ctx, repX, currentY + 14, repW, 20, 6);
+        const repW = ctx.measureText(repText).width + 12;
+        const repX = width - padding - 12 - repW;
+        drawRoundedRect(ctx, repX, currentY + 12, repW, 20, 6);
         ctx.fillStyle = "#f59e0b";
         ctx.fill();
-        ctx.fillStyle = "#0b1120";
-        ctx.fillText(repText, repX + 7, currentY + 27);
+        ctx.fillStyle = "#09090b";
+        ctx.fillText(repText, repX + 6, currentY + 25);
       }
 
-      // Бейдж кабінету
-      if (lesson.room) {
-        const roomStr = `🚪 ${formatRoom(lesson.room)}`;
-        ctx.font = "600 12px Inter, system-ui, sans-serif";
-        const roomW = ctx.measureText(roomStr).width + 18;
-        const roomX = width - padding - 14 - roomW;
-        const roomY = currentY + cardHeight - 34;
+      // Аудиторія і Meet знизу справа (незалежно, поруч)
+      let rightX = width - padding - 12;
+      const bottomY = currentY + cardHeight - 30;
 
-        drawRoundedRect(ctx, roomX, roomY, roomW, 22, 6);
-        ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
+      if (item.meetings.length > 0) {
+        const meetLabel = item.meetings[0].platform === "zoom" ? "Zoom ↗" : "Meet ↗";
+        ctx.font = "600 11px Inter, system-ui, sans-serif";
+        const meetW = ctx.measureText(meetLabel).width + 14;
+        const meetX = rightX - meetW;
+        drawRoundedRect(ctx, meetX, bottomY, meetW, 20, 6);
+        ctx.fillStyle = "rgba(14, 165, 233, 0.12)";
         ctx.fill();
-        ctx.strokeStyle = "rgba(148, 163, 184, 0.25)";
+        ctx.strokeStyle = "rgba(14, 165, 233, 0.4)";
         ctx.stroke();
+        ctx.fillStyle = "#38bdf8";
+        ctx.fillText(meetLabel, meetX + 7, bottomY + 14);
+        rightX = meetX - 6;
+      }
 
-        ctx.fillStyle = "#e2e8f0";
-        ctx.fillText(roomStr, roomX + 9, roomY + 15);
+      if (item.roomText) {
+        const roomStr = item.roomText;
+        ctx.font = "600 11px Inter, system-ui, sans-serif";
+        const roomW = ctx.measureText(roomStr).width + 14;
+        const roomX = rightX - roomW;
+        drawRoundedRect(ctx, roomX, bottomY, roomW, 20, 6);
+        ctx.fillStyle = "#1e1e24";
+        ctx.fill();
+        ctx.strokeStyle = "#27272a";
+        ctx.stroke();
+        ctx.fillStyle = "#e4e4e7";
+        ctx.fillText(roomStr, roomX + 7, bottomY + 14);
       }
 
       currentY += cardHeight + cardGap;
@@ -257,9 +262,9 @@ export async function generateScheduleCardBlob(
     minute: "2-digit",
   }).format(new Date());
 
-  ctx.fillStyle = "#64748b";
+  ctx.fillStyle = "#71717a";
   ctx.font = "500 11px Inter, system-ui, sans-serif";
-  ctx.fillText(`Станом на ${nowHm}`, padding, height - 18);
+  ctx.fillText(`Станом на ${nowHm}`, padding, height - 16);
 
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((blob) => {
@@ -272,9 +277,10 @@ export async function generateScheduleCardBlob(
 export async function shareScheduleAsImage(
   schedule: ScheduleResponse,
   scheduleMode: "student" | "teacher" | "admin",
-  ownerLabel?: string
+  ownerLabel?: string,
+  weekNumber?: number | null
 ): Promise<"copied" | "shared" | "downloaded"> {
-  const blob = await generateScheduleCardBlob(schedule, scheduleMode, ownerLabel);
+  const blob = await generateScheduleCardBlob(schedule, scheduleMode, ownerLabel, weekNumber);
   const fileName = `schedule-${schedule.date}.png`;
   const file = new File([blob], fileName, { type: "image/png" });
 
@@ -314,3 +320,4 @@ export async function shareScheduleAsImage(
   URL.revokeObjectURL(url);
   return "downloaded";
 }
+
