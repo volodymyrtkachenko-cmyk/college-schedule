@@ -1610,8 +1610,8 @@ export function LessonCard({
                   >
                     {teacherMeetings[0].platform === "zoom" ? "Zoom" : teacherMeetings[0].platform === "meet" ? "Meet" : "Онлайн"} ↗
                   </a>
-                ) : rooms[0] ? (
-                  <span className="shrink-0 text-sys-text-muted font-medium">{rooms[0].replace(/^ауд\.?\s*/i, "")}</span>
+                ) : lesson.teacher_room ? (
+                  <span className="shrink-0 text-sys-text-muted font-medium">{lesson.teacher_room.replace(/^ауд\.?\s*/i, "")}</span>
                 ) : null}
               </div>
               <div className={`flex items-center gap-1.5 min-w-0 transition-opacity ${selectedSubgroup === 1 ? "opacity-50 hover:opacity-80" : "opacity-100"}`}>
@@ -1648,8 +1648,8 @@ export function LessonCard({
                   >
                     {teacherMeetings[1].platform === "zoom" ? "Zoom" : teacherMeetings[1].platform === "meet" ? "Meet" : "Онлайн"} ↗
                   </a>
-                ) : rooms[1] ? (
-                  <span className="shrink-0 text-sys-text-muted font-medium">{rooms[1].replace(/^ауд\.?\s*/i, "")}</span>
+                ) : lesson.second_teacher_room ? (
+                  <span className="shrink-0 text-sys-text-muted font-medium">{lesson.second_teacher_room.replace(/^ауд\.?\s*/i, "")}</span>
                 ) : null}
               </div>
             </div>

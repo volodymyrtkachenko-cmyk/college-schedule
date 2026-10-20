@@ -106,6 +106,8 @@ export interface Lesson {
     teacher: string | null;
     room: string | null;
     room_override?: string | null;
+    teacher_room?: string | null;
+    second_teacher_room?: string | null;
     subject_name: string;
     teacher_name: string | null;
     week_type: WeekType;

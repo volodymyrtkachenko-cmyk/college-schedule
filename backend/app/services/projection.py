@@ -60,6 +60,8 @@ class EffectiveLesson:
         moved_to_date: Optional[date] = None,
         moved_to_lesson: Optional[int] = None,
         has_template: bool = False,
+        teacher_room: Optional[str] = None,
+        second_teacher_room: Optional[str] = None,
     ):
         self.group_id = group_id
         self.date = date
@@ -84,6 +86,8 @@ class EffectiveLesson:
         self.moved_to_date = moved_to_date
         self.moved_to_lesson = moved_to_lesson
         self.has_template = has_template
+        self.teacher_room = teacher_room
+        self.second_teacher_room = second_teacher_room
 
         self.note_id: Optional[int] = None
         self.note_revision: int = 0
@@ -112,6 +116,12 @@ def resolve_effective_room(
     if second_teacher and getattr(second_teacher, "room", None) and second_teacher.room.strip():
         rooms.append(second_teacher.room.strip())
     return " / ".join(rooms) if rooms else None
+
+def resolve_own_room(teacher: Optional[Any] = None) -> Optional[str]:
+    room = getattr(teacher, "room", None) if teacher else None
+    if not room or not room.strip():
+        return None
+    return room.strip()
 
 def resolve_teacher_names(
     teacher: Optional[Any] = None,
@@ -288,6 +298,7 @@ async def build_projection(
                         group_id=slot.group_id, date=target_date, lesson_number=slot.lesson_number,
                         subject_id=slot.subject_id, teacher_id=slot.teacher_id, second_teacher_id=slot.second_teacher_id,
                         room=slot_room, stream_id=None,
+                        teacher_room=resolve_own_room(slot.teacher), second_teacher_room=resolve_own_room(slot.second_teacher),
                         source_kind="practice", source_ref_id=slot.id,
                         group_name=slot.group.name if getattr(slot, "group", None) else None, 
                         subject_name=slot.subject.name if slot.subject else None, 
@@ -309,6 +320,7 @@ async def build_projection(
             group_id=b.group_id, date=target_date, lesson_number=b.lesson_number,
             subject_id=b.subject_id, teacher_id=b.teacher_id, second_teacher_id=b.second_teacher_id,
             room=b_room, stream_id=b.stream_id,
+            teacher_room=resolve_own_room(b.teacher), second_teacher_room=resolve_own_room(b.second_teacher),
             source_kind="base", source_ref_id=b.id,
             group_name=b.group.name if b.group else None,
             subject_name=b.subject.name if b.subject else None,
@@ -335,6 +347,7 @@ async def build_projection(
                 group_id=imp.group_id, date=target_date, lesson_number=imp.lesson_number,
                 subject_id=imp.subject_id, teacher_id=imp.teacher_id, second_teacher_id=imp.second_teacher_id,
                 room=imp_room, stream_id=None,
+                teacher_room=resolve_own_room(imp.teacher), second_teacher_room=resolve_own_room(imp.second_teacher),
                 source_kind="import", source_ref_id=imp.id,
                 group_name=imp.group.name if imp.group else None,
                 subject_name=imp.subject.name if imp.subject else None,
@@ -363,6 +376,7 @@ async def build_projection(
                     group_id=ovr.group_id, date=target_date, lesson_number=ovr.lesson_number,
                     subject_id=ovr.subject_id, teacher_id=ovr.teacher_id, second_teacher_id=ovr.second_teacher_id,
                     room=ovr_room, stream_id=ovr.stream_id,
+                    teacher_room=resolve_own_room(ovr.teacher), second_teacher_room=resolve_own_room(ovr.second_teacher),
                     source_kind="manual", source_ref_id=ovr.id,
                     is_cancelled=True,
                     group_name=ovr.group.name if getattr(ovr, "group", None) else None,
@@ -380,6 +394,7 @@ async def build_projection(
                 group_id=ovr.group_id, date=target_date, lesson_number=ovr.lesson_number,
                 subject_id=ovr.subject_id, teacher_id=ovr.teacher_id, second_teacher_id=ovr.second_teacher_id,
                 room=ovr_room, stream_id=ovr.stream_id,
+                teacher_room=resolve_own_room(ovr.teacher), second_teacher_room=resolve_own_room(ovr.second_teacher),
                 source_kind="manual", source_ref_id=ovr.id,
                 group_name=ovr.group.name if getattr(ovr, "group", None) else None,
                 subject_name=ovr.subject.name if ovr.subject else None,
