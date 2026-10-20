@@ -26,6 +26,7 @@ import { extractClassroomTasks, parseTaskDeadline, sortTasksByDeadline, TaskDead
 import { useToast } from "../components/ToastProvider";
 import { QuickJumpTarget, findGroupIdByName, findTeacherIdByName } from "../lib/quickJump";
 import { isOwnTask, useClassroomSubmissions } from "../lib/useClassroomSubmissions";
+import { shareWeekAsImage } from "../lib/shareImage";
 
 const UK_SHORT_WEEKDAY_FMT = new Intl.DateTimeFormat("uk-UA", { weekday: "short" });
 
@@ -703,6 +704,28 @@ export default function HomePage() {
     }
   };
 
+  const [sharingWeekImage, setSharingWeekImage] = useState(false);
+
+  const handleShareWeekImage = async () => {
+    if (!week || week.length === 0 || sharingWeekImage) return;
+    setSharingWeekImage(true);
+    try {
+      const ownerLabel = currentName ? `${mode === "student" ? "Група" : "Викладач"} ${currentName}` : "Розклад занять";
+      const result = await shareWeekAsImage(week, ownerLabel, currentWeekNumber);
+      if (result === "copied") setToast("Картинку тижня скопійовано! Натисніть Ctrl+V у Telegram", "success");
+      else if (result === "downloaded") setToast("Картинку тижня завантажено", "success");
+    } catch (err) {
+      if (err instanceof Error && err.name !== "AbortError") setToast("Не вдалося створити картинку тижня", "error");
+    } finally {
+      setSharingWeekImage(false);
+    }
+  };
+
+  const headerLearningMode =
+    view === "week"
+      ? (week?.find((d) => d.learning_mode)?.learning_mode ?? null)
+      : (selectedDaySchedule?.learning_mode ?? null);
+
   const dayTasks = useMemo(() => {
     if (!selectedDaySchedule?.lessons) return [];
     const tasks: { title: string; subject: string; teacher?: string | null; label: string; url: string; deadline: TaskDeadline }[] = [];
@@ -1040,10 +1063,42 @@ export default function HomePage() {
                 Тиждень
               </button>
             </div>
+            {headerLearningMode && (
+              <span className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-bold ${
+                headerLearningMode === "offline"
+                  ? "border-sys-accent/30 bg-sys-accent/10 text-sys-accent"
+                  : "border-sys-warning/30 bg-sys-warning/10 text-sys-warning"
+              }`}>
+                {headerLearningMode === "offline" ? "Очно" : "Дистанційно"}
+              </span>
+            )}
           </div>
 
           {/* Right Zone: Favorites, Classroom, Action menu */}
           <div className="flex items-center gap-2 justify-self-end">
+            {view === "week" && week && week.length > 0 && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => void handleShareWeek()}
+                  title="Скопіювати розклад тижня для Telegram"
+                  aria-label="Скопіювати текст тижня"
+                  className="h-9 px-3 flex items-center gap-1.5 rounded-xl border border-sys-border bg-sys-card text-xs font-semibold text-sys-text-secondary hover:border-sys-accent/40 hover:text-sys-accent active:scale-95 transition-all"
+                >
+                  Текст
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleShareWeekImage()}
+                  disabled={sharingWeekImage}
+                  title="Скопіювати або зберегти розклад тижня як PNG-картинку"
+                  aria-label="Поділитися картинкою тижня"
+                  className="h-9 px-3 flex items-center gap-1.5 rounded-xl border border-sys-border bg-sys-card text-xs font-semibold text-sys-text-secondary hover:border-sys-accent/40 hover:text-sys-accent active:scale-95 transition-all disabled:opacity-50"
+                >
+                  Картинка
+                </button>
+              </>
+            )}
             {/* Classroom button */}
             {mode === "student" && groupId && (
               <ClassroomSyncButton

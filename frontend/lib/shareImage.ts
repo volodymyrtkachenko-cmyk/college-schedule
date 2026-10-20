@@ -274,6 +274,91 @@ export async function generateScheduleCardBlob(
   });
 }
 
+export async function generateWeekImageBlob(
+  week: ScheduleResponse[],
+  ownerLabel?: string,
+  weekNumber?: number | null
+): Promise<Blob> {
+  const scale = 2;
+  const width = 540;
+  const padding = 24;
+  const rowHeight = 26;
+  const dayHeaderHeight = 36;
+  const dayGap = 14;
+
+  const contentHeight = week.reduce((sum, day) => {
+    const rows = Math.max(day.lessons.length, 1);
+    return sum + dayHeaderHeight + rows * rowHeight + dayGap;
+  }, 0);
+  const height = 100 + contentHeight + 40;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width * scale;
+  canvas.height = height * scale;
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas 2D context unavailable");
+  ctx.scale(scale, scale);
+
+  ctx.fillStyle = "#09090b";
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.fillStyle = "#38bdf8";
+  ctx.font = "700 12px Inter, system-ui, -apple-system, sans-serif";
+  ctx.fillText((ownerLabel || "РОЗКЛАД ЗАНЯТЬ").toUpperCase(), padding, 34);
+
+  ctx.fillStyle = "#f8fafc";
+  ctx.font = "800 22px Inter, system-ui, -apple-system, sans-serif";
+  ctx.fillText(weekNumber ? `${weekNumber} тиждень` : "Розклад на тиждень", padding, 64);
+
+  let y = 100;
+  for (const day of week) {
+    const dateObj = new Date(`${day.date}T12:00:00`);
+    const label = new Intl.DateTimeFormat("uk-UA", { weekday: "long", day: "numeric", month: "long" }).format(dateObj);
+    ctx.fillStyle = "#f8fafc";
+    ctx.font = "700 14px Inter, system-ui, sans-serif";
+    ctx.fillText(label.charAt(0).toUpperCase() + label.slice(1), padding, y + 16);
+    y += dayHeaderHeight;
+
+    if (day.lessons.length === 0) {
+      ctx.fillStyle = "#71717a";
+      ctx.font = "500 12px Inter, system-ui, sans-serif";
+      ctx.fillText("Пар немає", padding + 12, y + 14);
+      y += rowHeight;
+    }
+
+    const ordered = [...day.lessons].sort((a, b) => a.lesson_number - b.lesson_number);
+    for (const lesson of ordered) {
+      ctx.fillStyle = "#71717a";
+      ctx.font = "600 12px Inter, system-ui, sans-serif";
+      ctx.fillText(`${lesson.lesson_number}.`, padding + 12, y + 14);
+
+      ctx.fillStyle = "#e4e4e7";
+      ctx.font = "500 12px Inter, system-ui, sans-serif";
+      const room = lesson.room ? `  ${lesson.room}` : "";
+      ctx.fillText(`${lesson.time}  ${lesson.subject_name}${room}`.slice(0, 80), padding + 36, y + 14);
+      y += rowHeight;
+    }
+    y += dayGap;
+  }
+
+  const nowHm = new Intl.DateTimeFormat("uk-UA", {
+    timeZone: "Europe/Kyiv",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date());
+  ctx.fillStyle = "#71717a";
+  ctx.font = "500 11px Inter, system-ui, sans-serif";
+  ctx.fillText(`Станом на ${nowHm}`, padding, height - 16);
+
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error("Не вдалося згенерувати зображення"));
+    }, "image/png");
+  });
+}
+
 export async function shareScheduleAsImage(
   schedule: ScheduleResponse,
   scheduleMode: "student" | "teacher" | "admin",
@@ -281,7 +366,24 @@ export async function shareScheduleAsImage(
   weekNumber?: number | null
 ): Promise<"copied" | "shared" | "downloaded"> {
   const blob = await generateScheduleCardBlob(schedule, scheduleMode, ownerLabel, weekNumber);
-  const fileName = `schedule-${schedule.date}.png`;
+  return deliverImageBlob(blob, `schedule-${schedule.date}.png`, ownerLabel);
+}
+
+export async function shareWeekAsImage(
+  week: ScheduleResponse[],
+  ownerLabel?: string,
+  weekNumber?: number | null
+): Promise<"copied" | "shared" | "downloaded"> {
+  const blob = await generateWeekImageBlob(week, ownerLabel, weekNumber);
+  const first = week[0]?.date ?? "week";
+  return deliverImageBlob(blob, `week-${first}.png`, ownerLabel);
+}
+
+async function deliverImageBlob(
+  blob: Blob,
+  fileName: string,
+  ownerLabel?: string
+): Promise<"copied" | "shared" | "downloaded"> {
   const file = new File([blob], fileName, { type: "image/png" });
 
   // 1. На мобільних пристроях відкриваємо нативний Share Sheet з готовою картинкою

@@ -122,17 +122,6 @@ export function ScheduleDay({
     }
   };
 
-  const learningModeBadge = mode === "day" && schedule.learning_mode ? (
-    <span
-      className={`shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-bold ${
-        schedule.learning_mode === "offline"
-          ? "border-sys-accent/30 bg-sys-accent/10 text-sys-accent"
-          : "border-sys-warning/30 bg-sys-warning/10 text-sys-warning"
-      }`}
-    >
-      {schedule.learning_mode === "offline" ? "Очно" : "Дистанційно"}
-    </span>
-  ) : null;
 
   const orderedLessons = [...schedule.lessons].sort(
     (left, right) => left.lesson_number - right.lesson_number || left.id - right.id,
@@ -164,7 +153,6 @@ export function ScheduleDay({
                 {fmt(schedule.date, { day: "numeric", month: "long" })}
               </span>
             </div>
-            {learningModeBadge}
           </div>
         ) : (
           <div className="flex flex-col justify-center min-h-[56px] min-w-0 flex-1">
