@@ -126,6 +126,8 @@ export default function HomePage() {
   const [mobileTab, setMobileTab] = useState<MobileTab>("schedule");
   const [weekTypeSheetOpen, setWeekTypeSheetOpen] = useState(false);
   const [sidebarTaskFilters, setSidebarTaskFilters] = useState<TaskFilterState>(DEFAULT_TASK_FILTERS);
+  const [sidebarFiltersOpen, setSidebarFiltersOpen] = useState(false);
+  const sidebarFiltersActive = sidebarTaskFilters.status !== "all" || sidebarTaskFilters.subject !== "";
   const [classroomTasks, setClassroomTasks] = useState<Array<{
     id: string;
     title: string;
@@ -168,8 +170,11 @@ export default function HomePage() {
   const fetchClassroomTasks = useCallback(async (gid: number) => {
     try {
       const res = await api.classroom.groupStatus(gid);
-      if (res?.tasks) {
+      if (res?.tasks && res.tasks.length > 0) {
         setClassroomTasks(res.tasks);
+        try {
+          localStorage.setItem(`schedule:classroom_tasks:${gid}`, JSON.stringify(res.tasks));
+        } catch {}
       }
       if (res?.last_synced_at) {
         setClassroomLastSyncedAt(res.last_synced_at);
@@ -181,6 +186,13 @@ export default function HomePage() {
 
   useEffect(() => {
     if (groupId) {
+      try {
+        const cached = localStorage.getItem(`schedule:classroom_tasks:${groupId}`);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed)) setClassroomTasks(parsed);
+        }
+      } catch {}
       void fetchClassroomTasks(groupId);
     } else {
       setClassroomTasks([]);
@@ -205,8 +217,12 @@ export default function HomePage() {
     const handleClassroomSynced = (e: Event) => {
       const customEvent = e as CustomEvent;
       const detail = customEvent?.detail;
-      if (detail?.tasks && Array.isArray(detail.tasks)) {
+      if (detail?.tasks && Array.isArray(detail.tasks) && detail.tasks.length > 0) {
         setClassroomTasks(detail.tasks);
+        try {
+          const gid = detail.group_id ?? groupId;
+          if (gid) localStorage.setItem(`schedule:classroom_tasks:${gid}`, JSON.stringify(detail.tasks));
+        } catch {}
       }
       if (detail?.last_synced_at) {
         setClassroomLastSyncedAt(detail.last_synced_at);
@@ -1875,6 +1891,7 @@ export default function HomePage() {
 
                           {/* Week Switcher & Scope Segment (Section 22.1) */}
                           <div className="mt-3 flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-sys-border/30">
+                            {tasksScope === "week" ? (
                             <div className="inline-flex items-center gap-0.5 rounded-xl border border-sys-border bg-sys-bg px-1 py-0.5 text-xs shadow-xs">
                               <button
                                 type="button"
@@ -1896,6 +1913,7 @@ export default function HomePage() {
                                 ›
                               </button>
                             </div>
+                            ) : <span />}
 
                             <div className="inline-flex items-center rounded-xl border border-sys-border bg-sys-bg p-0.5 text-xs shadow-xs">
                               <button
@@ -1952,12 +1970,26 @@ export default function HomePage() {
 
                         {allTasks.length > 0 && (
                           <div className="mt-3">
-                            <TaskFilters
-                              tasks={allTasks}
-                              value={sidebarTaskFilters}
-                              onChange={setSidebarTaskFilters}
-                              isLinked={isLinked}
-                            />
+                            <button
+                              type="button"
+                              onClick={() => setSidebarFiltersOpen((v) => !v)}
+                              aria-expanded={sidebarFiltersOpen || sidebarFiltersActive}
+                              className="flex items-center gap-1.5 text-xs font-semibold text-sys-text-secondary hover:text-white cursor-pointer"
+                            >
+                              Фільтри
+                              {sidebarFiltersActive && <span className="h-1.5 w-1.5 rounded-full bg-sys-accent" />}
+                              <span>{sidebarFiltersOpen || sidebarFiltersActive ? "▴" : "▾"}</span>
+                            </button>
+                            {(sidebarFiltersOpen || sidebarFiltersActive) && (
+                              <div className="mt-2">
+                                <TaskFilters
+                                  tasks={allTasks}
+                                  value={sidebarTaskFilters}
+                                  onChange={setSidebarTaskFilters}
+                                  isLinked={isLinked}
+                                />
+                              </div>
+                            )}
                           </div>
                         )}
 
