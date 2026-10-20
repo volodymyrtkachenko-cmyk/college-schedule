@@ -237,8 +237,12 @@ export default function HomePage() {
   useEffect(() => {
     try {
       const sessionSaved = sessionStorage.getItem("schedule:view");
-      if (sessionSaved === "today" || sessionSaved === "week") {
-        setView(sessionSaved);
+      if (sessionSaved === "week" && window.innerWidth >= 1024) {
+        setView("week");
+        return;
+      }
+      if (sessionSaved === "today") {
+        setView("today");
         return;
       }
       const localSaved = localStorage.getItem("schedule:view");
@@ -933,6 +937,36 @@ export default function HomePage() {
               </span>
               <span className="text-sys-text-muted text-xs ml-auto shrink-0">▼</span>
             </button>
+
+            {/* Star Pin */}
+            {currentId && (
+              <button
+                type="button"
+                onClick={togglePinCurrent}
+                title={isCurrentPinned ? "Прибрати із закріплених" : "Закріпити розклад"}
+                aria-label={isCurrentPinned ? "Відкріпити розклад" : "Закріпити розклад"}
+                aria-pressed={isCurrentPinned}
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border text-base transition-colors ${
+                  isCurrentPinned
+                    ? "border-amber-400/40 bg-amber-400/10 text-amber-300"
+                    : "border-sys-border bg-sys-bg text-sys-text-muted hover:text-sys-text-primary hover:border-sys-border-elevated"
+                }`}
+              >
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill={isCurrentPinned ? "currentColor" : "none"}
+                  stroke="currentColor"
+                  strokeWidth="1.75"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className={isCurrentPinned ? "text-amber-400" : "text-slate-400 hover:text-amber-300"}
+                >
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                </svg>
+              </button>
+            )}
           </div>
 
           {/* Center Zone: Date Navigator + View Mode */}
@@ -1029,35 +1063,6 @@ export default function HomePage() {
               />
             )}
 
-            {/* Star Pin */}
-            {currentId && (
-              <button
-                type="button"
-                onClick={togglePinCurrent}
-                title={isCurrentPinned ? "Прибрати із закріплених" : "Закріпити розклад"}
-                aria-label={isCurrentPinned ? "Відкріпити розклад" : "Закріпити розклад"}
-                aria-pressed={isCurrentPinned}
-                className={`flex h-10 w-10 items-center justify-center rounded-xl border text-base transition-colors ${
-                  isCurrentPinned
-                    ? "border-amber-400/40 bg-amber-400/10 text-amber-300"
-                    : "border-sys-border bg-sys-bg text-sys-text-muted hover:text-sys-text-primary hover:border-sys-border-elevated"
-                }`}
-              >
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill={isCurrentPinned ? "currentColor" : "none"}
-                  stroke="currentColor"
-                  strokeWidth="1.75"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className={isCurrentPinned ? "text-amber-400" : "text-slate-400 hover:text-amber-300"}
-                >
-                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                </svg>
-              </button>
-            )}
 
             {/* Action Menu Trigger ⋯ */}
             <button
@@ -1395,21 +1400,6 @@ export default function HomePage() {
                       }`}
                     >
                       День
-                    </button>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      aria-pressed={view === "week"}
-                      onClick={() => {
-                        handleViewChange("week");
-                        setMobileTab("schedule");
-                        setMobileMenuOpen(false);
-                      }}
-                      className={`flex-1 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${
-                        view === "week" ? "bg-sys-accent text-white shadow-xs" : "text-sys-text-secondary hover:text-white"
-                      }`}
-                    >
-                      Тиждень
                     </button>
                   </div>
                 </div>
