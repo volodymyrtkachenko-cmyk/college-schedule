@@ -875,7 +875,7 @@ export function LessonCard({
                           <rect x="1" y="5" width="15" height="14" rx="2" />
                         </svg>
                       )}
-                      <span>{meetings[0].platform === "zoom" ? "Zoom" : "Meet"}</span>
+                      <span>{meetings[0].platform === "zoom" ? "Zoom" : meetings[0].platform === "meet" ? "Meet" : "Онлайн"}</span>
                       <span className="text-xs opacity-75">↗</span>
                     </a>
                   )}
@@ -1211,7 +1211,7 @@ export function LessonCard({
                         <rect x="1" y="5" width="15" height="14" rx="2" />
                       </svg>
                     )}
-                    <span>{meetings[0].platform === "zoom" ? "Zoom" : "Meet"}</span>
+                    <span>{meetings[0].platform === "zoom" ? "Zoom" : meetings[0].platform === "meet" ? "Meet" : "Онлайн"}</span>
                     <span className="text-xs opacity-75">↗</span>
                   </a>
                 )}
@@ -1299,7 +1299,7 @@ export function LessonCard({
                       <rect x="1" y="5" width="15" height="14" rx="2" />
                     </svg>
                   )}
-                  <span>{meetings[0].platform === "zoom" ? "Zoom" : "Meet"}</span>
+                  <span>{meetings[0].platform === "zoom" ? "Zoom" : meetings[0].platform === "meet" ? "Meet" : "Онлайн"}</span>
                   <span className="text-xs opacity-75">↗</span>
                 </a>
               )}

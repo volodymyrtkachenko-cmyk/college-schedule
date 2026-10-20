@@ -99,7 +99,7 @@ export function DayPager({
     try {
       if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(text);
-        showToast("Розклад скопійовано для Telegram!", "success");
+        showToast("Розклад скопійовано!", "success");
       } else if (typeof navigator !== "undefined" && navigator.share) {
         await navigator.share({ text });
       }
@@ -126,7 +126,7 @@ export function DayPager({
 
       const result = await shareScheduleAsImage(schedule, scheduleMode, ownerLabel, weekNumber);
       if (result === "copied") {
-        showToast("Картинку скопійовано! Натисніть Ctrl+V у Telegram", "success");
+        showToast("Картинку скопійовано!", "success");
       } else if (result === "downloaded") {
         showToast("Картинку розкладу завантажено", "success");
       }
@@ -283,7 +283,7 @@ export function DayPager({
             <button
               type="button"
               onClick={handleShareDay}
-              title="Скопіювати розклад для Telegram"
+              title="Скопіювати розклад дня"
               aria-label="Скопіювати розклад дня"
               className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-sys-border bg-sys-card text-sys-text-secondary transition-all hover:border-sys-accent/40 hover:text-sys-accent active:scale-95"
             >

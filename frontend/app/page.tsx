@@ -26,7 +26,6 @@ import { extractClassroomTasks, parseTaskDeadline, sortTasksByDeadline, TaskDead
 import { useToast } from "../components/ToastProvider";
 import { QuickJumpTarget, findGroupIdByName, findTeacherIdByName } from "../lib/quickJump";
 import { isOwnTask, useClassroomSubmissions } from "../lib/useClassroomSubmissions";
-import { shareWeekAsImage } from "../lib/shareImage";
 
 const UK_SHORT_WEEKDAY_FMT = new Intl.DateTimeFormat("uk-UA", { weekday: "short" });
 
@@ -697,29 +696,13 @@ export default function HomePage() {
     try {
       if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(text);
-        setToast("Розклад усього тижня скопійовано для Telegram!", "success");
+        setToast("Розклад усього тижня скопійовано!", "success");
       }
     } catch {
       setToast("Не вдалося скопіювати розклад", "error");
     }
   };
 
-  const [sharingWeekImage, setSharingWeekImage] = useState(false);
-
-  const handleShareWeekImage = async () => {
-    if (!week || week.length === 0 || sharingWeekImage) return;
-    setSharingWeekImage(true);
-    try {
-      const ownerLabel = currentName ? `${mode === "student" ? "Група" : "Викладач"} ${currentName}` : "Розклад занять";
-      const result = await shareWeekAsImage(week, ownerLabel, currentWeekNumber);
-      if (result === "copied") setToast("Картинку тижня скопійовано! Натисніть Ctrl+V у Telegram", "success");
-      else if (result === "downloaded") setToast("Картинку тижня завантажено", "success");
-    } catch (err) {
-      if (err instanceof Error && err.name !== "AbortError") setToast("Не вдалося створити картинку тижня", "error");
-    } finally {
-      setSharingWeekImage(false);
-    }
-  };
 
   const headerLearningMode =
     view === "week"
@@ -1076,29 +1059,6 @@ export default function HomePage() {
 
           {/* Right Zone: Favorites, Classroom, Action menu */}
           <div className="flex items-center gap-2 justify-self-end">
-            {view === "week" && week && week.length > 0 && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => void handleShareWeek()}
-                  title="Скопіювати розклад тижня для Telegram"
-                  aria-label="Скопіювати текст тижня"
-                  className="h-9 px-3 flex items-center gap-1.5 rounded-xl border border-sys-border bg-sys-card text-xs font-semibold text-sys-text-secondary hover:border-sys-accent/40 hover:text-sys-accent active:scale-95 transition-all"
-                >
-                  Текст
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void handleShareWeekImage()}
-                  disabled={sharingWeekImage}
-                  title="Скопіювати або зберегти розклад тижня як PNG-картинку"
-                  aria-label="Поділитися картинкою тижня"
-                  className="h-9 px-3 flex items-center gap-1.5 rounded-xl border border-sys-border bg-sys-card text-xs font-semibold text-sys-text-secondary hover:border-sys-accent/40 hover:text-sys-accent active:scale-95 transition-all disabled:opacity-50"
-                >
-                  Картинка
-                </button>
-              </>
-            )}
             {/* Classroom button */}
             {mode === "student" && groupId && (
               <ClassroomSyncButton
@@ -2184,7 +2144,7 @@ export default function HomePage() {
                       <button
                         type="button"
                         onClick={handleShareWeek}
-                        title="Скопіювати розклад усього тижня для Telegram"
+                        title="Скопіювати розклад усього тижня"
                         aria-label="Поділитися розкладом на тиждень"
                         className="inline-flex h-8 items-center gap-1.5 rounded-xl border border-sys-border bg-sys-bg px-3 text-xs font-semibold text-sys-text-secondary hover:text-sys-accent hover:border-sys-accent/40 hover:bg-sys-accent/5 active:scale-95 transition-all"
                       >
