@@ -1248,10 +1248,12 @@ export const api = {
                 tasks?: Array<{
                     id: string;
                     title: string;
-                    alternate_link: string;
+                    alternate_link?: string;
+                    url?: string;
                     due_date: string | null;
-                    due_time: string | null;
-                    creation_time: string | null;
+                    due_time?: string | null;
+                    creation_time?: string | null;
+                    created_at?: string | null;
                     course_name: string;
                     state: string;
                     assigned_grade?: number | null;

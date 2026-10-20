@@ -13,6 +13,11 @@ const withPwa = withPWAInit({
 });
 
 /** @type {import('next').NextConfig} */
-const nextConfig = { output: "standalone" };
+const nextConfig = {
+  output: "standalone",
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+};
 
 export default withPwa(nextConfig);

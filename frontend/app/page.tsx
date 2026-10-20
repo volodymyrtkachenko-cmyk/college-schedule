@@ -20,7 +20,7 @@ import { BottomNav, MobileTab } from "../components/BottomNav";
 import { MobileTasksView, FullTaskItem, renderTaskCard } from "../components/MobileTasksView";
 import { SearchableSelect } from "../components/SearchableSelect";
 import { ClassroomSyncButton } from "../components/ClassroomSyncButton";
-import { extractClassroomTasks, sortTasksByDeadline, TaskDeadline, UKR_MONTHS_SHORT, pluralDays } from "../components/LessonCard";
+import { extractClassroomTasks, parseTaskDeadline, sortTasksByDeadline, TaskDeadline, UKR_MONTHS_SHORT, pluralDays } from "../components/LessonCard";
 import { useToast } from "../components/ToastProvider";
 import { QuickJumpTarget, findGroupIdByName, findTeacherIdByName } from "../lib/quickJump";
 import { useClassroomSubmissions } from "../lib/useClassroomSubmissions";
@@ -126,10 +126,12 @@ export default function HomePage() {
   const [classroomTasks, setClassroomTasks] = useState<Array<{
     id: string;
     title: string;
-    alternate_link: string;
+    alternate_link?: string;
+    url?: string;
     due_date: string | null;
-    due_time: string | null;
-    creation_time: string | null;
+    due_time?: string | null;
+    creation_time?: string | null;
+    created_at?: string | null;
     course_name: string;
     state: string;
     assigned_grade?: number | null;
@@ -608,169 +610,127 @@ export default function HomePage() {
   }, [selectedDaySchedule]);
 
   const allWeekTasks = useMemo<FullTaskItem[]>(() => {
-    if (classroomTasks.length > 0) {
-      return classroomTasks.map((t) => {
-        const taskUrl = t.alternate_link || (t as any).url;
-        const personalSub = isLinked ? submissions[taskUrl] : null;
-        const effectiveState = personalSub ? personalSub.state : (isLinked ? (t.state || "NEW") : "NEW");
-        const effectiveGrade = personalSub ? (personalSub.grade ?? null) : (isLinked ? (t.assigned_grade ?? null) : null);
-        const effectiveMaxPoints = personalSub ? (personalSub.maxPoints ?? null) : (isLinked ? (t.max_points ?? null) : null);
-
-        const isDone = isLinked && (effectiveState === "TURNED_IN" || effectiveState === "RETURNED");
-        const isUnknown = isLinked && effectiveState === "UNKNOWN";
-
-        let deadline: TaskDeadline;
-        if (t.due_date) {
-          const parts = t.due_date.split("-").map(Number);
-          const dYear = parts[0];
-          const dMonth = parts[1];
-          const dDay = parts[2];
-          const targetDate = new Date(dYear, dMonth - 1, dDay);
-          const now = new Date();
-          const kyivNowStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(now);
-          const [nowYear, nowMonth, nowDay] = kyivNowStr.split("-").map(Number);
-          const todayDate = new Date(nowYear, nowMonth - 1, nowDay);
-          const diffMs = targetDate.getTime() - todayDate.getTime();
-          const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
-          const monthName = UKR_MONTHS_SHORT[dMonth - 1] || "";
-          const formattedDate = `${dDay} ${monthName}`;
-
-          if (isDone) {
-            deadline = {
-              day: dDay,
-              month: dMonth,
-              year: dYear,
-              date: targetDate,
-              formattedDate,
-              isOverdue: false,
-              overdueDays: 0,
-              isUrgent: false,
-              statusText: effectiveState === "RETURNED" && effectiveGrade != null ? `Оцінка: ${effectiveGrade}/${effectiveMaxPoints || 100}` : "Здано",
-              badgeTone: "normal",
-            };
-          } else if (isUnknown) {
-            deadline = {
-              day: dDay,
-              month: dMonth,
-              year: dYear,
-              date: targetDate,
-              formattedDate,
-              isOverdue: false,
-              overdueDays: 0,
-              isUrgent: false,
-              statusText: "статус невідомий",
-              badgeTone: "normal",
-            };
-          } else if (diffDays < 0) {
-            const overdueDays = Math.abs(diffDays);
-            deadline = {
-              day: dDay,
-              month: dMonth,
-              year: dYear,
-              date: targetDate,
-              formattedDate,
-              isOverdue: true,
-              overdueDays,
-              isUrgent: false,
-              statusText: `${formattedDate} · прострочено ${overdueDays} ${pluralDays(overdueDays)}`,
-              badgeTone: "overdue",
-            };
-          } else if (diffDays === 0) {
-            deadline = {
-              day: dDay,
-              month: dMonth,
-              year: dYear,
-              date: targetDate,
-              formattedDate,
-              isOverdue: false,
-              overdueDays: 0,
-              isUrgent: true,
-              statusText: `Сьогодні (до ${formattedDate})`,
-              badgeTone: "urgent",
-            };
-          } else if (diffDays === 1) {
-            deadline = {
-              day: dDay,
-              month: dMonth,
-              year: dYear,
-              date: targetDate,
-              formattedDate,
-              isOverdue: false,
-              overdueDays: 0,
-              isUrgent: true,
-              statusText: `Завтра (до ${formattedDate})`,
-              badgeTone: "urgent",
-            };
-          } else {
-            deadline = {
-              day: dDay,
-              month: dMonth,
-              year: dYear,
-              date: targetDate,
-              formattedDate,
-              isOverdue: false,
-              overdueDays: 0,
-              isUrgent: false,
-              statusText: `до ${formattedDate}`,
-              badgeTone: "normal",
-            };
-          }
-        } else {
-          deadline = {
-            day: null,
-            month: null,
-            year: null,
-            date: null,
-            formattedDate: "",
-            isOverdue: false,
-            overdueDays: 0,
-            isUrgent: false,
-            statusText: isDone ? (effectiveState === "RETURNED" && effectiveGrade != null ? `Оцінка: ${effectiveGrade}/${effectiveMaxPoints || 100}` : "Здано") : isUnknown ? "статус невідомий" : "",
-            badgeTone: "normal",
-          };
-        }
-
-        return {
-          id: t.id,
-          title: t.title || "Завдання",
-          subject: t.course_name,
-          label: t.due_date ? `до ${t.due_date}` : "",
-          url: taskUrl,
-          deadline,
-          state: effectiveState,
-          assignedGrade: effectiveGrade,
-          maxPoints: effectiveMaxPoints,
-        };
-      });
-    }
-
     if (!week || week.length === 0) return [];
-    const tasks: FullTaskItem[] = [];
-    const seenKeys = new Set<string>();
 
+    // Межі тижня: понеділок — неділя поточного вибраного тижня
+    const currentWeekMonday = getMondayOf(weekAnchorDate);
+    const mondayIso = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(currentWeekMonday);
+    const sundayDate = new Date(currentWeekMonday);
+    sundayDate.setDate(sundayDate.getDate() + 6);
+    const sundayIso = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(sundayDate);
+
+    const tasks: FullTaskItem[] = [];
+    const seenUrls = new Set<string>();
+
+    // 1. Спочатку збираємо завдання, прив'язані до пар ЦЬОГО тижня (правила 13.1, 13.2, 13.3)
     for (const d of week) {
       if (!d.lessons) continue;
       for (const l of d.lessons) {
         const extracted = extractClassroomTasks(l.note);
         for (const t of extracted) {
-          const key = `${t.url || t.title}-${t.deadline?.formattedDate || ""}-${t.label || ""}`;
-          if (!seenKeys.has(key)) {
-            seenKeys.add(key);
+          if (!t.url) continue;
+          if (!seenUrls.has(t.url)) {
+            seenUrls.add(t.url);
+
+            const personalSub = isLinked ? submissions[t.url] : null;
+            const effectiveState = personalSub ? personalSub.state : "NEW";
+            const effectiveGrade = personalSub ? (personalSub.grade ?? null) : null;
+            const effectiveMaxPoints = personalSub ? (personalSub.maxPoints ?? null) : null;
+            const isDone = isLinked && (effectiveState === "TURNED_IN" || effectiveState === "RETURNED");
+
+            let deadline = t.deadline;
+            if (isDone) {
+              deadline = {
+                ...t.deadline,
+                isOverdue: false,
+                statusText: effectiveState === "RETURNED" && effectiveGrade != null ? `Оцінка: ${effectiveGrade}/${effectiveMaxPoints || 100}` : "Здано",
+                badgeTone: "normal",
+              };
+            }
+
             tasks.push({
               title: t.title || "Завдання",
               subject: l.subject_name || l.subject,
               teacher: t.teacher || l.teacher_name || l.teacher,
               label: t.label,
               url: t.url,
-              deadline: t.deadline,
-              state: "NEW",
+              deadline,
+              state: effectiveState,
+              assignedGrade: effectiveGrade,
+              maxPoints: effectiveMaxPoints,
             });
           }
         }
       }
     }
+
+    // 2. Додаємо завдання для ЦЬОГО тижня, для яких немає пар у розкладі (Правило 13.3: предмети без пар лишаються у списку)
+    if (classroomTasks && classroomTasks.length > 0) {
+      for (const ct of classroomTasks) {
+        const url = ct.alternate_link || (ct as any).url;
+        if (!url || seenUrls.has(url)) continue;
+
+        let belongsToThisWeek = false;
+        const rawCreatedAt = ct.created_at || ct.creation_time;
+        if (ct.due_date) {
+          // Завдання з датою здачі належить тижню, який містить дату здачі (Правило 13.1)
+          belongsToThisWeek = ct.due_date >= mondayIso && ct.due_date <= sundayIso;
+        } else if (rawCreatedAt) {
+          // Завдання без дати здачі прив'язується за датою публікації (Правило 13.2)
+          const createdIso = rawCreatedAt.slice(0, 10);
+          belongsToThisWeek = createdIso >= mondayIso && createdIso <= sundayIso;
+        }
+
+        if (belongsToThisWeek) {
+          seenUrls.add(url);
+          const personalSub = isLinked ? submissions[url] : null;
+          const effectiveState = personalSub ? personalSub.state : "NEW";
+          const effectiveGrade = personalSub ? (personalSub.grade ?? null) : null;
+          const effectiveMaxPoints = personalSub ? (personalSub.maxPoints ?? null) : null;
+          const isDone = isLinked && (effectiveState === "TURNED_IN" || effectiveState === "RETURNED");
+
+          let deadline: TaskDeadline;
+          if (ct.due_date) {
+            const parts = ct.due_date.split("-");
+            deadline = parseTaskDeadline(`до ${parts[2]}.${parts[1]}`);
+            if (isDone) {
+              deadline.isOverdue = false;
+              deadline.statusText = effectiveState === "RETURNED" && effectiveGrade != null ? `Оцінка: ${effectiveGrade}/${effectiveMaxPoints || 100}` : "Здано";
+              deadline.badgeTone = "normal";
+            }
+          } else {
+            // Правило 13.2: для завдань без дати не показується жодна дата, текст чи колір
+            deadline = {
+              day: null,
+              month: null,
+              year: null,
+              date: null,
+              formattedDate: "",
+              isOverdue: false,
+              overdueDays: 0,
+              isUrgent: false,
+              statusText: isDone ? (effectiveState === "RETURNED" && effectiveGrade != null ? `Оцінка: ${effectiveGrade}/${effectiveMaxPoints || 100}` : "Здано") : "",
+              badgeTone: "normal",
+            };
+          }
+
+          tasks.push({
+            id: ct.id,
+            title: ct.title || "Завдання",
+            subject: ct.course_name,
+            label: ct.due_date ? `до ${ct.due_date}` : "",
+            url,
+            deadline,
+            state: effectiveState,
+            assignedGrade: effectiveGrade,
+            maxPoints: effectiveMaxPoints,
+          });
+        }
+      }
+    }
+
     return sortTasksByDeadline(tasks);
-  }, [classroomTasks, week, isLinked, submissions]);
+  }, [week, weekAnchorDate, classroomTasks, isLinked, submissions]);
 
   const overdueCount = useMemo(() => {
     return allWeekTasks.filter(
