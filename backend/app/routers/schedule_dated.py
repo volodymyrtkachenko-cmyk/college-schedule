@@ -373,15 +373,20 @@ async def copy_dated_lesson(
 
     # Duplicate note if present
     source_note = await active_note(db, payload.source_group_id, payload.source_date, payload.source_lesson_number)
-    if source_note and source_note.note_text:
+    if source_note and source_note.note:
         copied_note = LessonOccurrenceNote(
             group_id=payload.target_group_id,
             note_date=payload.target_date,
             lesson_number=payload.target_lesson_number,
-            note_text=source_note.note_text,
+            subject_id=source_note.subject_id,
+            subject_name=source_note.subject_name,
+            note=source_note.note,
+            origin_kind=source_note.origin_kind,
+            origin_id=source_note.origin_id,
             created_by=actor.id,
             updated_by=actor.id,
-            revision=1
+            revision=1,
+            archived=False,
         )
         db.add(copied_note)
         await snapshot_revision(db, copied_note, "copied", actor.id)
@@ -473,15 +478,19 @@ async def swap_dated_lessons(
     note2 = await active_note(db, payload.second_group_id, payload.second_date, payload.second_lesson_number)
 
     if note1 and note2:
-        # Swap content
-        t1, r1 = note1.note_text, note1.revision
-        note1.note_text = note2.note_text
+        # Swap content and subject binding
+        t1, s1, sn1 = note1.note, note1.subject_id, note1.subject_name
+        note1.note = note2.note
+        note1.subject_id = note2.subject_id
+        note1.subject_name = note2.subject_name
         note1.revision += 1
         note1.updated_by = actor.id
         note1.updated_at = utcnow()
         await snapshot_revision(db, note1, "swapped", actor.id)
 
-        note2.note_text = t1
+        note2.note = t1
+        note2.subject_id = s1
+        note2.subject_name = sn1
         note2.revision += 1
         note2.updated_by = actor.id
         note2.updated_at = utcnow()
@@ -600,7 +609,7 @@ async def batch_dated_lessons(
 
         # Handle notes
         note = await active_note(db, item.source_group_id, item.source_date, item.source_lesson_number)
-        if note and note.note_text:
+        if note and note.note:
             if payload.action == "move":
                 note.group_id = item.target_group_id
                 note.note_date = item.target_date
@@ -614,10 +623,15 @@ async def batch_dated_lessons(
                     group_id=item.target_group_id,
                     note_date=item.target_date,
                     lesson_number=item.target_lesson_number,
-                    note_text=note.note_text,
+                    subject_id=note.subject_id,
+                    subject_name=note.subject_name,
+                    note=note.note,
+                    origin_kind=note.origin_kind,
+                    origin_id=note.origin_id,
                     created_by=actor.id,
                     updated_by=actor.id,
-                    revision=1
+                    revision=1,
+                    archived=False,
                 )
                 db.add(copied_note)
                 await snapshot_revision(db, copied_note, "copied", actor.id)

@@ -12,6 +12,7 @@ from app.core.security import require_roles
 from app.core.time import today_local
 from app.schemas.common import ScheduleItem, LessonMutation
 from app.services.schedule import conflicting_lesson
+from app.services.lesson_notes import authorize_group
 from app.routers.schedule import get_bell_times, to_item
 from app.routers.schedule_versions import lock_versions, ScheduleVersionResponse
 
@@ -167,6 +168,7 @@ async def create_template_lesson(
     if not payload.group_id or not payload.subject_id or not payload.day_of_week or not payload.lesson_number:
         raise HTTPException(422, "Не всі обов'язкові поля заповнені")
 
+    await authorize_group(db, current_user, payload.group_id)
     await lock_versions(db)
     current_monday = get_current_monday(payload.date)
 
@@ -181,6 +183,7 @@ async def create_template_lesson(
         second_teacher_id=payload.second_teacher_id,
         subject_id=payload.subject_id,
         version_id=payload.version_id,
+        effective_date=current_monday,
     )
     if conflict:
         d_name = DAY_NAMES.get(payload.day_of_week, str(payload.day_of_week))
@@ -225,8 +228,11 @@ async def update_template_lesson(
     if not item or not item.is_active:
         raise HTTPException(404, "Заняття не знайдено")
 
+    await authorize_group(db, current_user, item.group_id)
     current_monday = get_current_monday(payload.date)
     target_group_id = payload.group_id or item.group_id
+    if target_group_id != item.group_id:
+        await authorize_group(db, current_user, target_group_id)
     target_day = payload.day_of_week or item.day_of_week
     target_lesson_num = payload.lesson_number or item.lesson_number
     target_week_type = payload.week_type or item.week_type
@@ -247,6 +253,7 @@ async def update_template_lesson(
         subject_id=target_subject_id,
         version_id=item.version_id,
         exclude_id=item.id,
+        effective_date=current_monday,
     )
     if conflict:
         d_name = DAY_NAMES.get(target_day, str(target_day))
@@ -309,6 +316,7 @@ async def delete_template_lesson(
     if not item or not item.is_active:
         raise HTTPException(404, "Заняття не знайдено")
 
+    await authorize_group(db, current_user, item.group_id)
     current_monday = get_current_monday()
     group_id = item.group_id
 
@@ -333,6 +341,7 @@ async def copy_template_lesson(
     if not source or not source.is_active:
         raise HTTPException(404, "Вихідне заняття не знайдено")
 
+    await authorize_group(db, current_user, source.group_id)
     current_monday = get_current_monday()
 
     # Check conflicts
@@ -346,6 +355,7 @@ async def copy_template_lesson(
         second_teacher_id=source.second_teacher_id,
         subject_id=source.subject_id,
         version_id=payload.version_id,
+        effective_date=current_monday,
     )
     if conflict:
         d_name = DAY_NAMES.get(payload.target_day_of_week, str(payload.target_day_of_week))
@@ -389,6 +399,7 @@ async def move_template_lesson(
     if not source or not source.is_active:
         raise HTTPException(404, "Вихідне заняття не знайдено")
 
+    await authorize_group(db, current_user, source.group_id)
     current_monday = get_current_monday()
 
     conflict = await conflicting_lesson(
@@ -402,6 +413,7 @@ async def move_template_lesson(
         subject_id=source.subject_id,
         version_id=payload.version_id,
         exclude_id=source.id,
+        effective_date=current_monday,
     )
     if conflict:
         d_name = DAY_NAMES.get(payload.target_day_of_week, str(payload.target_day_of_week))
@@ -452,6 +464,9 @@ async def swap_template_lessons(
     if not l1 or not l2 or not l1.is_active or not l2.is_active:
         raise HTTPException(404, "Одне з занять для обміну не знайдено")
 
+    await authorize_group(db, current_user, l1.group_id)
+    if l2.group_id != l1.group_id:
+        await authorize_group(db, current_user, l2.group_id)
     current_monday = get_current_monday()
 
     # Swap slots
@@ -492,6 +507,7 @@ async def day_action_template(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_roles("admin", "editor")),
 ):
+    await authorize_group(db, current_user, payload.group_id)
     await lock_versions(db)
     current_monday = get_current_monday()
 
@@ -522,6 +538,7 @@ async def day_action_template(
             subject_id=l.subject_id,
             version_id=payload.version_id,
             exclude_id=l.id if payload.action == "move" else None,
+            effective_date=current_monday,
         )
         if conflict:
             d_name = DAY_NAMES.get(payload.target_day_of_week, str(payload.target_day_of_week))

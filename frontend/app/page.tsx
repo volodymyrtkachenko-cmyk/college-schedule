@@ -442,16 +442,33 @@ export default function HomePage() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [mobileMenuOpen]);
 
+  const getKyivWeekday = (d: Date): number => {
+    const short = new Intl.DateTimeFormat("en-US", {
+      timeZone: "Europe/Kyiv",
+      weekday: "short",
+    }).format(d);
+    const map: Record<string, number> = {
+      Sun: 0,
+      Mon: 1,
+      Tue: 2,
+      Wed: 3,
+      Thu: 4,
+      Fri: 5,
+      Sat: 6,
+    };
+    return map[short] ?? d.getDay();
+  };
+
   const getActualTodayIndex = (): number => {
     const now = new Date();
-    const dow = now.getDay();
+    const dow = getKyivWeekday(now);
     if (dow >= 1 && dow <= 5) return dow - 1;
     return 0;
   };
 
   const getInitialDayIndex = (): number => {
     const now = new Date();
-    const dow = now.getDay();
+    const dow = getKyivWeekday(now);
     if (dow === 0 || dow === 6) return 0;
     const kyivHour = Number(
       new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Kyiv", hour: "2-digit", hour12: false }).format(now)
@@ -489,7 +506,7 @@ export default function HomePage() {
 
   const isEveningAfterLessons = useMemo(() => {
     const now = new Date();
-    const dow = now.getDay();
+    const dow = getKyivWeekday(now);
     if (dow < 1 || dow > 4) return false;
     const kyivHour = Number(
       new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Kyiv", hour: "2-digit", hour12: false }).format(now)

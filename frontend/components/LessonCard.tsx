@@ -261,8 +261,8 @@ export function parseTaskDeadline(labelOrText: string): TaskDeadline {
   const [nowYear, nowMonth, nowDay] = kyivNowStr.split("-").map(Number);
 
   let year = nowYear;
-  if (nowMonth === 12 && month === 1) year += 1;
-  else if (nowMonth === 1 && month === 12) year -= 1;
+  if (month - nowMonth > 6) year -= 1;
+  else if (nowMonth - month > 6) year += 1;
 
   const targetDate = new Date(year, month - 1, day);
   const todayDate = new Date(nowYear, nowMonth - 1, nowDay);

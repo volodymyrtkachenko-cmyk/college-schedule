@@ -58,7 +58,7 @@ async def explain_schedule_slot(
     start_monday = semester_start - timedelta(days=semester_start.weekday())
     target_monday = target_date - timedelta(days=target_date.weekday())
     weeks_diff = (target_monday - start_monday).days // 7
-    week_type = "numerator" if weeks_diff % 2 == 0 else "denominator"
+    week_type = get_week_type(target_date, semester_start)
     week_type_ukr = "Чисельник" if week_type == "numerator" else "Знаменник"
 
     week_calc_explanation = (

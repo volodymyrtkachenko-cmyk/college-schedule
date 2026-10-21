@@ -51,6 +51,9 @@ class ScheduleDiffer:
         await self.db.flush()
 
         for lesson in parsed_week.lessons:
+            if lesson.lesson_number is None or not (1 <= lesson.lesson_number <= 4):
+                continue
+
             group_id = None
             if lesson.group_name:
                 group_id = self.normalizer.normalize_group(lesson.group_name)

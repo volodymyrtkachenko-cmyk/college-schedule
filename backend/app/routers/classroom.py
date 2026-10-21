@@ -1968,7 +1968,7 @@ async def clear_all_classroom_data(
     Очищає всі Classroom-прив'язки (classroom_group_bindings) та автоматичні нотатки/посилання/ДЗ.
     Ручні текстові нотатки студентів та викладачів залишаються недоторканими.
     """
-    if wipe_secret and wipe_secret != settings.wipe_secret:
+    if not settings.wipe_secret or wipe_secret != settings.wipe_secret:
         raise HTTPException(status_code=403, detail="Невірний секрет очищення")
 
     # 1. Видаляємо зв'язки
@@ -2051,8 +2051,7 @@ async def get_classroom_group_status(
         reconstructed = []
         seen_urls = set()
         for n in notes:
-            lesson = await db.get(Lesson, n.lesson_id)
-            subj = lesson.subject_name if lesson else (binding.course_name or "Дисципліна")
+            subj = n.subject_name or (binding.course_name if binding else "Дисципліна")
             for line in n.note.split("\n"):
                 line = line.strip()
                 if not line.startswith("[TASK"):
@@ -2079,7 +2078,7 @@ async def get_classroom_group_status(
                 if due_match:
                     d_day = int(due_match.group(1))
                     d_month = int(due_match.group(2))
-                    cur_year = n.target_date.year if n.target_date else datetime.now(timezone.utc).year
+                    cur_year = n.note_date.year if n.note_date else datetime.now(timezone.utc).year
                     due_date_iso = f"{cur_year}-{d_month:02d}-{d_day:02d}"
                     title_clean = re.sub(r"\(до\s+\d{1,2}\.\d{1,2}\)", "", rest, flags=re.IGNORECASE).strip()
                 else:

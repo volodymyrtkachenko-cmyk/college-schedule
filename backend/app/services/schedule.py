@@ -78,15 +78,19 @@ def week_types_overlap(left: str, right: str) -> bool:
 
 async def conflicting_lesson(db, *, group_id, day_of_week, lesson_number, week_type,
                               teacher_id=None, second_teacher_id=None, subject_id=None, stream_id=None,
-                              exclude_id=None, version_id=None):
+                              exclude_id=None, version_id=None, effective_date: date | None = None):
     """
     Returns a conflicting Schedule row for an overlapping slot in the same group
     or for either teacher, except when both groups share the same explicit stream.
     """
+    from app.core.time import today_local
+    ref_date = effective_date or today_local()
     query = select(Schedule).options(joinedload(Schedule.group)).where(
         Schedule.day_of_week == day_of_week,
         Schedule.lesson_number == lesson_number,
         Schedule.is_active.is_(True),
+        or_(Schedule.effective_from.is_(None), Schedule.effective_from <= ref_date),
+        or_(Schedule.effective_until.is_(None), Schedule.effective_until >= ref_date),
     )
     if version_id is not None:
         query = query.where(Schedule.version_id == version_id)

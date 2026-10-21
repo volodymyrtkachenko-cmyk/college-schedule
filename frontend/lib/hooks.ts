@@ -10,11 +10,13 @@ const CACHE_TTL = 1000 * 60;
 
 export function invalidateScheduleCache() {
   memoryCache.clear();
-  for (let index = 0; index < window.localStorage.length; index++) {
-    const key = window.localStorage.key(index);
-    if (key?.startsWith("schedule:today:") || key?.startsWith("schedule:week:")) {
-      window.localStorage.removeItem(key);
-      index--;
+  if (typeof navigator === "undefined" || navigator.onLine) {
+    for (let index = 0; index < window.localStorage.length; index++) {
+      const key = window.localStorage.key(index);
+      if (key?.startsWith("schedule:today:") || key?.startsWith("schedule:week:")) {
+        window.localStorage.removeItem(key);
+        index--;
+      }
     }
   }
   window.dispatchEvent(new Event("schedule:refresh"));

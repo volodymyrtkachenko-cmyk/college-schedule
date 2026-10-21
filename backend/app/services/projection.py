@@ -221,34 +221,33 @@ async def build_projection(
     )
     base_lessons = (await db.scalars(base_query)).all()
 
-    # 4. Imported Changes
-    previous_change = aliased(ImportedScheduleChange)
-    latest_import_version = (
-        select(previous_change.version)
-        .where(
-            previous_change.date == ImportedScheduleChange.date,
-            previous_change.group_id == ImportedScheduleChange.group_id,
-            previous_change.lesson_number == ImportedScheduleChange.lesson_number,
-            previous_change.is_published.is_(True)
-        )
-        .order_by(previous_change.version.desc())
-        .limit(1)
-        .scalar_subquery()
-    )
-
+    # 4. Imported Changes (ordered by version DESC so the first per cell is latest)
     import_conds = [
         ImportedScheduleChange.date == target_date,
         ImportedScheduleChange.is_published.is_(True),
-        ImportedScheduleChange.version == latest_import_version,
     ]
     if group_id is not None:
         import_conds.append(ImportedScheduleChange.group_id == group_id)
 
-    import_query = select(ImportedScheduleChange).where(*import_conds).options(
-        joinedload(ImportedScheduleChange.group), joinedload(ImportedScheduleChange.subject),
-        joinedload(ImportedScheduleChange.teacher), joinedload(ImportedScheduleChange.second_teacher)
+    import_query = (
+        select(ImportedScheduleChange)
+        .where(*import_conds)
+        .options(
+            joinedload(ImportedScheduleChange.group),
+            joinedload(ImportedScheduleChange.subject),
+            joinedload(ImportedScheduleChange.teacher),
+            joinedload(ImportedScheduleChange.second_teacher),
+        )
+        .order_by(ImportedScheduleChange.version.desc())
     )
-    imported_changes = (await db.scalars(import_query)).all()
+    raw_imported_changes = (await db.scalars(import_query)).all()
+    seen_imp_cells = set()
+    imported_changes = []
+    for imp in raw_imported_changes:
+        cell_key = (imp.date, imp.group_id, imp.lesson_number)
+        if cell_key not in seen_imp_cells:
+            seen_imp_cells.add(cell_key)
+            imported_changes.append(imp)
 
     # 5. Manual Overrides
     override_conds = [ScheduleOverride.date == target_date]
@@ -287,11 +286,7 @@ async def build_projection(
     for p in periods:
         if p.period_type == "practice":
             for slot in p.slots:
-                if slot.day_of_week == weekday:
-                    # We might not have joined subject/teacher for slot, so we need to fetch them
-                    # Or we just rely on slot.subject_id and let serialize do the rest, but serialize expects names.
-                    # Wait, in the old code, does fetch_schedule join practice slots?
-                    # Let's just create the EffectiveLesson.
+                if slot.day_of_week == weekday and (group_id is None or slot.group_id == group_id):
                     slot_room = resolve_effective_room(slot.room_override, slot.teacher, slot.second_teacher)
                     slot_teacher_name = resolve_teacher_names(slot.teacher, slot.second_teacher)
                     put_cell(slot.group_id, slot.lesson_number, f"p{slot.id}", EffectiveLesson(
@@ -521,7 +516,14 @@ async def build_week_projection(
         Schedule.week_type.in_(("both", week_type)),
     ]
     version_ids = [v.id for v in versions]
-    if version_ids:
+    weekdays_dates = [start_date + timedelta(days=w - 1) for w in range(1, 6)]
+    needs_unversioned = any(
+        not any(v.valid_from <= d <= v.valid_until for v in versions)
+        for d in weekdays_dates
+    )
+    if version_ids and not needs_unversioned:
+        base_conds.append(Schedule.version_id.in_(version_ids))
+    elif version_ids and needs_unversioned:
         base_conds.append(or_(Schedule.version_id.in_(version_ids), Schedule.version_id.is_(None)))
     else:
         base_conds.append(Schedule.version_id.is_(None))
@@ -543,28 +545,14 @@ async def build_week_projection(
         )
     ).all()
 
-    previous_change = aliased(ImportedScheduleChange)
-    latest_import_version = (
-        select(previous_change.version)
-        .where(
-            previous_change.date == ImportedScheduleChange.date,
-            previous_change.group_id == ImportedScheduleChange.group_id,
-            previous_change.lesson_number == ImportedScheduleChange.lesson_number,
-            previous_change.is_published.is_(True),
-        )
-        .order_by(previous_change.version.desc())
-        .limit(1)
-        .scalar_subquery()
-    )
     import_conds = [
         ImportedScheduleChange.date.between(start_date, end_date),
         ImportedScheduleChange.is_published.is_(True),
-        ImportedScheduleChange.version == latest_import_version,
     ]
     if group_id is not None:
         import_conds.append(ImportedScheduleChange.group_id == group_id)
 
-    all_imported = (
+    raw_all_imported = (
         await db.scalars(
             select(ImportedScheduleChange)
             .where(*import_conds)
@@ -574,8 +562,16 @@ async def build_week_projection(
                 joinedload(ImportedScheduleChange.teacher),
                 joinedload(ImportedScheduleChange.second_teacher),
             )
+            .order_by(ImportedScheduleChange.version.desc())
         )
     ).all()
+    seen_week_imp_cells = set()
+    all_imported = []
+    for imp in raw_all_imported:
+        cell_key = (imp.date, imp.group_id, imp.lesson_number)
+        if cell_key not in seen_week_imp_cells:
+            seen_week_imp_cells.add(cell_key)
+            all_imported.append(imp)
 
     override_conds = [ScheduleOverride.date.between(start_date, end_date)]
     if group_id is not None:

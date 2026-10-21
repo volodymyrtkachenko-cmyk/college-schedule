@@ -902,25 +902,56 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
         # Safety Guard 3: Manual edits protection (manually_edited == True or ScheduleOverride)
         skipped_manual = []
         clean_substitutions = []
+        clean_cancelled = []
+
+        all_target_dates = {
+            datetime.strptime(item["date"], "%Y-%m-%d").date()
+            for item in [*aggregated_substitutions, *aggregated_cancelled]
+            if item.get("date")
+        }
+        all_target_groups = {
+            item["group_id"]
+            for item in [*aggregated_substitutions, *aggregated_cancelled]
+            if item.get("group_id") is not None
+        }
+
+        manual_cells: set[tuple[int, date, int | None]] = set()
+        override_cells: set[tuple[int, date, int | None]] = set()
+        if all_target_dates and all_target_groups:
+            manual_rows = (
+                await db.execute(
+                    select(
+                        ImportedScheduleChange.group_id,
+                        ImportedScheduleChange.date,
+                        ImportedScheduleChange.lesson_number,
+                    ).where(
+                        ImportedScheduleChange.date.in_(all_target_dates),
+                        ImportedScheduleChange.group_id.in_(all_target_groups),
+                        ImportedScheduleChange.is_published.is_(True),
+                        ImportedScheduleChange.manually_edited.is_(True),
+                    )
+                )
+            ).all()
+            manual_cells = {(r[0], r[1], r[2]) for r in manual_rows}
+
+            override_rows = (
+                await db.execute(
+                    select(
+                        ScheduleOverride.group_id,
+                        ScheduleOverride.date,
+                        ScheduleOverride.lesson_number,
+                    ).where(
+                        ScheduleOverride.date.in_(all_target_dates),
+                        ScheduleOverride.group_id.in_(all_target_groups),
+                    )
+                )
+            ).all()
+            override_cells = {(r[0], r[1], r[2]) for r in override_rows}
+
         for sub in aggregated_substitutions:
             d_obj = datetime.strptime(sub["date"], "%Y-%m-%d").date()
-            has_manual = await db.scalar(
-                select(ImportedScheduleChange.id).where(
-                    ImportedScheduleChange.date == d_obj,
-                    ImportedScheduleChange.group_id == sub["group_id"],
-                    ImportedScheduleChange.lesson_number == sub["lesson_number"],
-                    ImportedScheduleChange.is_published.is_(True),
-                    ImportedScheduleChange.manually_edited.is_(True),
-                )
-            )
-            has_override = await db.scalar(
-                select(ScheduleOverride.id).where(
-                    ScheduleOverride.group_id == sub["group_id"],
-                    ScheduleOverride.date == d_obj,
-                    ScheduleOverride.lesson_number == sub["lesson_number"],
-                )
-            )
-            if has_manual or has_override:
+            cell_key = (sub["group_id"], d_obj, sub["lesson_number"])
+            if cell_key in manual_cells or cell_key in override_cells:
                 skipped_manual.append({
                     "group_id": sub["group_id"],
                     "group_name": groups_map.get(sub["group_id"]).name if groups_map.get(sub["group_id"]) else None,
@@ -931,26 +962,10 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
             else:
                 clean_substitutions.append(sub)
 
-        clean_cancelled = []
         for canc in aggregated_cancelled:
             d_obj = datetime.strptime(canc["date"], "%Y-%m-%d").date()
-            has_manual = await db.scalar(
-                select(ImportedScheduleChange.id).where(
-                    ImportedScheduleChange.date == d_obj,
-                    ImportedScheduleChange.group_id == canc["group_id"],
-                    ImportedScheduleChange.lesson_number == canc["lesson_number"],
-                    ImportedScheduleChange.is_published.is_(True),
-                    ImportedScheduleChange.manually_edited.is_(True),
-                )
-            )
-            has_override = await db.scalar(
-                select(ScheduleOverride.id).where(
-                    ScheduleOverride.group_id == canc["group_id"],
-                    ScheduleOverride.date == d_obj,
-                    ScheduleOverride.lesson_number == canc["lesson_number"],
-                )
-            )
-            if has_manual or has_override:
+            cell_key = (canc["group_id"], d_obj, canc["lesson_number"])
+            if cell_key in manual_cells or cell_key in override_cells:
                 skipped_manual.append({
                     "group_id": canc["group_id"],
                     "group_name": groups_map.get(canc["group_id"]).name if groups_map.get(canc["group_id"]) else None,

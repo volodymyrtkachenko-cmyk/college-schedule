@@ -56,11 +56,11 @@ class Group(Base):
     @property
     def course(self) -> Optional[int]:
         from app.services.learning_mode import infer_year_of_admission
+        from app.core.time import today_local
         year = self.year_of_admission or infer_year_of_admission(self.name)
         if not year:
             return None
-        from datetime import date
-        today = date.today()
+        today = today_local()
         # Якщо зараз вересень або пізніше, академічний рік почався в цьому році
         # Якщо до вересня, то академічний рік почався минулого року
         current_academic_start_year = today.year if today.month >= 8 else today.year - 1
@@ -171,13 +171,13 @@ class ScheduleOverride(Base):
     __tablename__ = "schedule_override"
     __table_args__ = (UniqueConstraint("group_id", "date", "lesson_number", name="uq_schedule_override_cell"),)
     id: Mapped[int] = mapped_column(primary_key=True)
-    schedule_id: Mapped[Optional[int]] = mapped_column(ForeignKey("schedule.id"), index=True)
-    group_id: Mapped[int] = mapped_column(ForeignKey("groups.id"), index=True)
+    schedule_id: Mapped[Optional[int]] = mapped_column(ForeignKey("schedule.id", ondelete="SET NULL"), index=True)
+    group_id: Mapped[int] = mapped_column(ForeignKey("groups.id", ondelete="CASCADE"), index=True)
     date: Mapped[date] = mapped_column(Date, index=True)
     lesson_number: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    teacher_id: Mapped[Optional[int]] = mapped_column(ForeignKey("teachers.id"))
-    second_teacher_id: Mapped[Optional[int]] = mapped_column(ForeignKey("teachers.id"), nullable=True)
-    subject_id: Mapped[Optional[int]] = mapped_column(ForeignKey("subjects.id"))
+    teacher_id: Mapped[Optional[int]] = mapped_column(ForeignKey("teachers.id", ondelete="SET NULL"))
+    second_teacher_id: Mapped[Optional[int]] = mapped_column(ForeignKey("teachers.id", ondelete="SET NULL"), nullable=True)
+    subject_id: Mapped[Optional[int]] = mapped_column(ForeignKey("subjects.id", ondelete="SET NULL"))
     stream_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     room: Mapped[Optional[str]] = mapped_column(String(100))
     cancelled: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -247,6 +247,7 @@ class ImportedScheduleChange(Base):
         UniqueConstraint("date", "group_id", "lesson_number", "version", name="uq_imported_schedule_change_cell_version"),
         CheckConstraint("kind IN ('substitution', 'cancelled')", name="ck_imported_schedule_change_kind"),
         CheckConstraint("lesson_number BETWEEN 1 AND 4", name="ck_imported_schedule_change_lesson"),
+        Index("ix_imported_change_group_date_pub", "group_id", "date", "is_published"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -420,6 +421,9 @@ class AcademicEvent(Base):
 
 class GroupStudent(Base):
     __tablename__ = "group_students"
+    __table_args__ = (
+        UniqueConstraint("group_id", "classroom_user_id", name="uq_group_student_uid"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     group_id: Mapped[int] = mapped_column(ForeignKey("groups.id", ondelete="CASCADE"), nullable=False, index=True)
