@@ -128,15 +128,25 @@ async def test_auto_import_applies_changes_without_admin_confirmation(ctx, monke
 async def test_manual_button_also_auto_publishes(ctx, monkeypatch):
     db, ids = ctx
     target_date = (date(2026, 10, 20)).isoformat()
-    canc = {
+    sub = {
         "group_id": ids["group_id"],
+        "subject_id": ids["subject_id"],
+        "teacher_id": ids["teacher_id"],
+        "second_teacher_id": None,
         "date": target_date,
         "lesson_number": 3,
         "week_type": "denominator",
+        "room": "103",
     }
-    setup_kre_mock(monkeypatch, ids, cancelled=[canc])
+    canc = {
+        "group_id": ids["group_id"],
+        "date": target_date,
+        "lesson_number": 4,
+        "week_type": "denominator",
+    }
+    setup_kre_mock(monkeypatch, ids, substitutions=[sub], cancelled=[canc])
 
-    # Manual import with user ID
+    # Manual import with user ID: auto-publishes substitution, never auto-cancels lesson 4
     result = await admin_import._do_import(db, 2, "manual-btn-test", actor_id=ids["admin_user_id"])
 
     assert result["status"] == "success"
@@ -144,6 +154,11 @@ async def test_manual_button_also_auto_publishes(ctx, monkeypatch):
     pub = await db.get(SchedulePublication, result["meta"]["publication_id"])
     assert pub.source == "manual"
     assert pub.actor_id == ids["admin_user_id"]
+    assert pub.changes_count == 1
+    changes = (await db.scalars(select(ImportedScheduleChange).where(ImportedScheduleChange.publication_id == pub.id))).all()
+    assert len(changes) == 1
+    assert changes[0].kind == "substitution"
+    assert changes[0].lesson_number == 3
 
 
 @pytest.mark.anyio

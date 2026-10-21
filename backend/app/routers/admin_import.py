@@ -604,9 +604,18 @@ async def get_import_status_endpoint(
         except Exception:
             pass
 
+    last_check_raw = await settings_service.get(db, "import_last_check_status")
+    last_check = None
+    if last_check_raw:
+        try:
+            last_check = json.loads(last_check_raw)
+        except Exception:
+            pass
+
     return {
         "settings": import_settings,
         "last_publication": last_pub_info,
+        "last_check": last_check,
         "pending_anomaly_draft": anomaly_info,
         "latest_pending_draft": latest_pending,
         "anomaly_drafts_count": anomaly_count,
@@ -977,9 +986,16 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
                 clean_cancelled.append(canc)
 
         # Rollback suppression: skip reverted changes until source page changes
+        # Only consider reverted publications newer than the latest active (non-reverted) publication
         skipped_reverted = []
+        latest_active_pub_id = await db.scalar(
+            select(func.max(SchedulePublication.id)).where(SchedulePublication.is_reverted.is_(False))
+        ) or 0
         reverted_pubs = (await db.scalars(
-            select(SchedulePublication).where(SchedulePublication.is_reverted.is_(True))
+            select(SchedulePublication).where(
+                SchedulePublication.is_reverted.is_(True),
+                SchedulePublication.id > latest_active_pub_id,
+            )
         )).all()
 
         suppressed_change_keys = set()
@@ -1038,8 +1054,18 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
             if not is_in_active_version(item["date"])
         ]
 
-        # Safety Guard 2: Anomaly limits (>30% in any group or >20% overall)
+        # Safety Guard 2: Anomaly limits (count only auto-publishable changes:
+        # explicit substitutions and same-day lesson swaps/moves; auto-import never cancels lessons)
         from collections import Counter
+
+        def _is_auto_publishable_sub(sub: dict) -> bool:
+            if sub.get("is_equal_to_base"):
+                return False
+            return bool(
+                sub.get("is_explicit_substitution", True)
+                or sub.get("is_swap")
+                or sub.get("is_move")
+            )
 
         group_lessons_count = Counter()
         for sch in current_schedules:
@@ -1052,13 +1078,17 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
         total_scheduled_lessons = sum(group_lessons_count.values())
 
         changes_per_group = Counter()
+        explicit_changes_per_group = Counter()
         for sub in aggregated_substitutions:
             if not sub.get("is_equal_to_base"):
                 changes_per_group[sub["group_id"]] += 1
+                if _is_auto_publishable_sub(sub):
+                    explicit_changes_per_group[sub["group_id"]] += 1
         for canc in aggregated_cancelled:
             changes_per_group[canc["group_id"]] += 1
 
         total_changes = sum(changes_per_group.values())
+        total_explicit_changes = sum(explicit_changes_per_group.values())
 
         import_settings = await get_import_settings(db)
         anomaly_group_thresh = import_settings["anomaly_group_threshold"]
@@ -1067,26 +1097,34 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
         is_anomaly = False
         anomaly_reasons = []
 
-        if total_changes >= 50:
+        if total_explicit_changes >= 50:
             is_anomaly = True
-            anomaly_reasons.append(f"Аномально велика кількість змін ({total_changes})")
+            anomaly_reasons.append(f"Аномально велика кількість замін ({total_explicit_changes})")
 
-        for gid, chg_cnt in changes_per_group.items():
+        for gid, chg_cnt in explicit_changes_per_group.items():
             sched_cnt = group_lessons_count.get(gid, 0)
             if sched_cnt >= 4 and (chg_cnt / sched_cnt) > anomaly_group_thresh:
                 pct = round((chg_cnt / sched_cnt) * 100)
                 grp_name = groups_map[gid].name if gid in groups_map else f"Група #{gid}"
                 is_anomaly = True
-                anomaly_reasons.append(f"У групі {grp_name} змінилося {pct}% пар ({chg_cnt} з {sched_cnt})")
+                anomaly_reasons.append(f"У групі {grp_name} замінено {pct}% пар ({chg_cnt} з {sched_cnt})")
 
-        if total_scheduled_lessons >= 15 and (total_changes / total_scheduled_lessons) > anomaly_total_thresh:
-            pct = round((total_changes / total_scheduled_lessons) * 100)
+        if total_scheduled_lessons >= 15 and (total_explicit_changes / total_scheduled_lessons) > anomaly_total_thresh:
+            pct = round((total_explicit_changes / total_scheduled_lessons) * 100)
             is_anomaly = True
-            anomaly_reasons.append(f"Загалом змінилося {pct}% пар ({total_changes} з {total_scheduled_lessons})")
+            anomaly_reasons.append(f"Загалом замінено {pct}% пар ({total_explicit_changes} з {total_scheduled_lessons})")
 
         # Safety Guard 4: No duplicates & no noise
-        latest_changes = await _latest_published_changes(db, scope_dates_obj, imported_group_ids)
-        incoming_changes_records = _canonical_change_records(aggregated_substitutions, aggregated_cancelled)
+        # Auto-import has permission to publish ONLY explicit substitutions and same-day swaps/moves (no cancellations)
+        auto_publish_substitutions = [
+            s for s in aggregated_substitutions
+            if _is_auto_publishable_sub(s)
+        ]
+        latest_changes = [
+            item for item in await _latest_published_changes(db, scope_dates_obj, imported_group_ids)
+            if item.kind == "substitution"
+        ]
+        incoming_changes_records = _canonical_change_records(auto_publish_substitutions, [])
         published_changes_records = [_change_payload(item) for item in latest_changes]
         unchanged = (
             import_changes_hash({"changes": incoming_changes_records})
@@ -1149,6 +1187,7 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
             "is_anomaly": is_anomaly,
             "anomaly_reasons": anomaly_reasons,
             "changes_count": total_changes,
+            "explicit_changes_count": total_explicit_changes,
         }
         payload_hash = import_payload_hash(payload)
 
@@ -1161,6 +1200,7 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
             "raw_substitutions": raw_substitutions,
             "raw_cancelled": raw_cancelled,
             "final_substitutions": len(aggregated_substitutions),
+            "final_explicit_substitutions": len(auto_publish_substitutions),
             "final_cancelled": len(aggregated_cancelled),
             "skipped_manual_count": len(skipped_manual),
             "skipped_reverted_count": len(skipped_reverted),
@@ -1186,11 +1226,11 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
             )
         )
         current_matches = await matches_published_schedule(db, payload, weeks)
+        auto_publish_unchanged = unchanged or current_matches
 
         auto_published = False
         publication_id = None
         draft_id = None
-        unchanged = False
         draft_reason = None
         auto_publish_skipped_reason = None
 
@@ -1198,18 +1238,32 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
             auto_publish_skipped_reason = "disabled"
         elif is_anomaly:
             auto_publish_skipped_reason = "anomaly"
-        elif current_matches:
+        elif auto_publish_unchanged:
             auto_publish_skipped_reason = "unchanged"
 
         if import_settings["auto_publish"] and not is_anomaly:
-            if current_matches:
+            if auto_publish_unchanged:
                 logger.info("Import payload identical to currently published schedule. Skipping publication.")
                 unchanged = True
+                if pending_draft:
+                    pending_draft.status = "archived"
+                await settings_service.set(
+                    db,
+                    "import_last_check_status",
+                    json.dumps({
+                        "checked_at": now_local().isoformat(),
+                        "source": "Вручну" if actor_id is not None else "Авто",
+                        "status": "unchanged",
+                        "changes_count": 0,
+                    }),
+                )
                 await db.commit()
             else:
-                # Auto-publish immediately: one-off changes layer only (permanent schedule is NOT touched)
+                # Auto-publish immediately: only explicit substitutions and same-day swaps/moves (no cancellations)
                 auto_published = True
+                unchanged = False
                 source_label = "manual" if actor_id is not None else "auto"
+                published_count = len(auto_publish_substitutions)
 
                 publication = SchedulePublication(
                     version_id=import_version_id,
@@ -1217,7 +1271,7 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
                     scope_manifest=json.dumps({
                         "source": source_label,
                         "group_ids": sorted(list(imported_group_ids)),
-                        "changes_count": total_changes,
+                        "changes_count": published_count,
                         "dates": sorted(list(imported_dates)),
                     }),
                     source_fingerprint=json.dumps({
@@ -1230,12 +1284,13 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
                 await db.flush()
                 publication_id = publication.id
 
-                # Retire older active changes in scope
+                # Retire older active substitution changes in scope (never touch manual edits or cancellations)
                 if scope_dates_obj and imported_group_ids:
                     await db.execute(
                         update(ImportedScheduleChange)
                         .where(
                             ImportedScheduleChange.is_published.is_(True),
+                            ImportedScheduleChange.kind == "substitution",
                             ImportedScheduleChange.date.in_(scope_dates_obj),
                             ImportedScheduleChange.group_id.in_(imported_group_ids),
                             ImportedScheduleChange.manually_edited.is_(False),
@@ -1243,10 +1298,8 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
                         .values(is_published=False)
                     )
 
-                # Insert substitutions
-                for sub in aggregated_substitutions:
-                    if sub.get("is_equal_to_base"):
-                        continue
+                # Insert explicit substitutions and swaps/moves only
+                for sub in auto_publish_substitutions:
                     d_obj = datetime.strptime(sub["date"], "%Y-%m-%d").date()
                     latest = await db.scalar(
                         select(func.max(ImportedScheduleChange.version)).where(
@@ -1309,48 +1362,7 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
                         }),
                     ))
 
-                # Insert cancellations
-                for canc in aggregated_cancelled:
-                    d_obj = datetime.strptime(canc["date"], "%Y-%m-%d").date()
-                    latest = await db.scalar(
-                        select(func.max(ImportedScheduleChange.version)).where(
-                            ImportedScheduleChange.date == d_obj,
-                            ImportedScheduleChange.group_id == canc["group_id"],
-                            ImportedScheduleChange.lesson_number == canc["lesson_number"],
-                        )
-                    )
-                    db.add(ImportedScheduleChange(
-                        publication_id=publication.id,
-                        date=d_obj,
-                        kind="cancelled",
-                        group_id=canc["group_id"],
-                        lesson_number=canc["lesson_number"],
-                        is_published=True,
-                        version=(latest or 0) + 1,
-                    ))
-
-                    dow = d_obj.isoweekday()
-                    w_type = get_week_type(d_obj, semester_start)
-                    base_p = next((
-                        s for s in current_schedules
-                        if s.group_id == canc["group_id"] and s.day_of_week == dow and s.lesson_number == canc["lesson_number"] and _week_matches(w_type, s.week_type)
-                    ), None)
-                    before_str = "Базовий розклад"
-                    if base_p:
-                        subj_name = base_p.subject.name if base_p.subject else ""
-                        teach_name = base_p.teacher.name if base_p.teacher else ""
-                        before_str = f"{subj_name} ({teach_name})".strip()
-
-                    db.add(SchedulePublicationSnapshot(
-                        publication_id=publication.id,
-                        group_id=canc["group_id"],
-                        date=d_obj,
-                        lesson_number=canc["lesson_number"],
-                        before_data=json.dumps({"summary": before_str}),
-                        after_data=json.dumps({"kind": "cancelled", "summary": "Скасовано"}),
-                    ))
-
-                # Archive older non-anomaly pending import drafts
+                # Archive older pending import drafts
                 old_pending = (await db.scalars(
                     select(ScheduleDraft).where(
                         ScheduleDraft.draft_type == "import",
@@ -1358,26 +1370,36 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
                     )
                 )).all()
                 for d in old_pending:
-                    if not (d.data or {}).get("is_anomaly"):
-                        d.status = "archived"
+                    d.status = "archived"
 
                 # Create admin notification
                 today = now_local().date()
                 tomorrow = today + timedelta(days=1)
                 urgent = any(
                     datetime.strptime(item["date"], "%Y-%m-%d").date() in (today, tomorrow)
-                    for item in [*aggregated_substitutions, *aggregated_cancelled]
+                    for item in auto_publish_substitutions
                 )
                 notif_data = {
                     "id": str(uuid.uuid4()),
                     "publication_id": publication.id,
                     "source": source_label,
                     "created_at": now_local().isoformat(),
-                    "changes_count": total_changes,
+                    "changes_count": published_count,
                     "urgent": urgent,
                     "dismissed": False,
                 }
                 await settings_service.set(db, "import_latest_notification", json.dumps(notif_data))
+                await settings_service.set(
+                    db,
+                    "import_last_check_status",
+                    json.dumps({
+                        "checked_at": now_local().isoformat(),
+                        "source": "Вручну" if actor_id is not None else "Авто",
+                        "status": "published",
+                        "changes_count": published_count,
+                        "publication_id": publication.id,
+                    }),
+                )
 
                 await db.commit()
                 settings_service.invalidate_cache()
@@ -1400,12 +1422,32 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
                     "anomaly_reasons": anomaly_reasons,
                 }
                 pending_draft.revision += 1
+                await settings_service.set(
+                    db,
+                    "import_last_check_status",
+                    json.dumps({
+                        "checked_at": now_local().isoformat(),
+                        "source": "Вручну" if actor_id is not None else "Авто",
+                        "status": "anomaly" if is_anomaly else "draft",
+                        "changes_count": total_explicit_changes if is_anomaly else total_changes,
+                    }),
+                )
                 await db.commit()
                 draft_id = pending_draft.id
                 unchanged = False
                 draft_reason = "same_pending_payload"
             elif current_matches:
                 logger.info("Import payload identical to currently published schedule. Skipping creation.")
+                await settings_service.set(
+                    db,
+                    "import_last_check_status",
+                    json.dumps({
+                        "checked_at": now_local().isoformat(),
+                        "source": "Вручну" if actor_id is not None else "Авто",
+                        "status": "unchanged",
+                        "changes_count": 0,
+                    }),
+                )
                 await db.commit()
                 draft_id = None
                 unchanged = True
@@ -1430,6 +1472,16 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
                 await db.flush()
                 draft_id = draft.id
                 draft.revision += 1
+                await settings_service.set(
+                    db,
+                    "import_last_check_status",
+                    json.dumps({
+                        "checked_at": now_local().isoformat(),
+                        "source": "Вручну" if actor_id is not None else "Авто",
+                        "status": "anomaly" if is_anomaly else "draft",
+                        "changes_count": total_explicit_changes if is_anomaly else total_changes,
+                    }),
+                )
                 await db.commit()
                 draft_reason = "anomaly_detected" if is_anomaly else "draft_created"
 
@@ -1506,7 +1558,7 @@ async def import_data_cron(
 
 async def schedule_auto_import_loop() -> None:
     """Фоновий цикл: періодично перевіряє сайт коледжу та автоматично імпортує заміни/розклад."""
-    await asyncio.sleep(45)  # Чекаємо 45 секунд після старту сервера
+    await asyncio.sleep(15)  # Чекаємо 15 секунд після старту сервера
     interval_seconds = max(300, getattr(settings, "auto_import_interval_minutes", 30) * 60)
 
     while True:

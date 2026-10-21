@@ -802,6 +802,13 @@ export interface ImportStatusResponse {
     changes_count: number;
     is_reverted: boolean;
   } | null;
+  last_check?: {
+    checked_at: string;
+    source: string;
+    status: "published" | "unchanged" | "anomaly" | "draft";
+    changes_count: number;
+    publication_id?: number | null;
+  } | null;
   pending_anomaly_draft: {
     id: number;
     name: string;

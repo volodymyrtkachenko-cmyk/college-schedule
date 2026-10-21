@@ -68,7 +68,6 @@ export function ImportPanel() {
         setDraftId(pending.id);
         if (!pending.data) {
           setReport({ unresolved: [], base_slots: [], substitutions: [], cancelled: [] });
-          setStatus("ready");
           return;
         }
         const nextSubstitutions = pending.data.substitutions ?? [];
@@ -81,10 +80,13 @@ export function ImportPanel() {
           substitutions: nextSubstitutions,
           cancelled: nextCancelled,
         });
-        const hasNewChanges =
-          nextSubstitutions.some((s) => (s as any).is_new !== false) ||
-          nextCancelled.some((c) => (c as any).is_new !== false);
-        setStatus(hasNewChanges ? "mapping" : "ready");
+        // Keep status as "idle" on initial mount if it's an anomaly draft (the anomaly banner has a button to review it)
+        if (!(pending.data as any).is_anomaly) {
+          const hasNewChanges =
+            nextSubstitutions.some((s) => (s as any).is_new !== false) ||
+            nextCancelled.some((c) => (c as any).is_new !== false);
+          setStatus(hasNewChanges ? "mapping" : "ready");
+        }
       } catch {
         // The import button remains available when no pending draft can be loaded.
       }
@@ -336,6 +338,24 @@ export function ImportPanel() {
                     Остання публікація: <strong className="text-sys-text-primary">{importStatus.last_publication.source}</strong>,{" "}
                     {new Date(importStatus.last_publication.timestamp).toLocaleString("uk-UA")},{" "}
                     <strong className="text-sys-text-primary">{importStatus.last_publication.changes_count} змін</strong>
+                  </span>
+                </div>
+              )}
+              {importStatus?.last_check && (
+                <div className="mt-1 text-xs text-sys-text-secondary flex items-start gap-2">
+                  <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.5)]" />
+                  <span className="leading-relaxed">
+                    Остання перевірка сайту: <strong className="text-sys-text-primary">{importStatus.last_check.source}</strong>,{" "}
+                    {new Date(importStatus.last_check.checked_at).toLocaleString("uk-UA")} —{" "}
+                    <strong className="text-sys-text-primary">
+                      {importStatus.last_check.status === "unchanged"
+                        ? "нових замін не виявлено"
+                        : importStatus.last_check.status === "published"
+                        ? `опубліковано (${importStatus.last_check.changes_count} змін)`
+                        : importStatus.last_check.status === "anomaly"
+                        ? `виявлено аномалію (${importStatus.last_check.changes_count} змін)`
+                        : `створено чернетку (${importStatus.last_check.changes_count} змін)`}
+                    </strong>
                   </span>
                 </div>
               )}
