@@ -99,13 +99,19 @@ export function ClassroomSyncButton({
     fallbackAccessToken?: string | null
   ) => {
     invalidateScheduleCache();
+    const personalTeachers = [
+      ...(res.synced_teacher_names || []),
+      ...(res.synced_teacher_tokens || []),
+    ];
     saveClassroomSyncData(
       res.user_email,
       res.personal_tasks ?? res.tasks,
       res.access_token ?? fallbackAccessToken ?? null,
       res.refresh_token ?? null,
       res.google_user_id ?? null,
-      res.group_id ?? currentGroupId ?? null
+      res.group_id ?? currentGroupId ?? null,
+      personalTeachers,
+      res.synced_subgroups ?? null
     );
     const switchedGroup = currentGroupId !== null && currentGroupId !== res.group_id;
     if (res?.last_synced_at) {

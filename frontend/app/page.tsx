@@ -144,7 +144,7 @@ export default function HomePage() {
     max_points?: number | null;
   }>>([]);
   const [classroomLastSyncedAt, setClassroomLastSyncedAt] = useState<string | null>(null);
-  const { linkedEmail, isLinked, submissions, unlink: unlinkClassroom } = useClassroomSubmissions();
+  const { linkedEmail, isLinked, submissions, personalTeachers, unlink: unlinkClassroom } = useClassroomSubmissions();
   const [tasksScope, setTasksScope] = useState<"week" | "all">("week");
   const [sidebarPastWeekOpen, setSidebarPastWeekOpen] = useState(true);
   const [sidebarUserToggledOverdue, setSidebarUserToggledOverdue] = useState<boolean | null>(null);
@@ -811,6 +811,9 @@ export default function HomePage() {
           const extracted = extractClassroomTasks(l.note);
           for (const t of extracted) {
             if (!t.url) continue;
+            if (isLinked && !isOwnTask(isLinked, submissions, t.url, t.teacher || l.teacher_name, personalTeachers)) {
+              continue;
+            }
             if (!seenUrls.has(t.url)) {
               seenUrls.add(t.url);
 
@@ -858,6 +861,9 @@ export default function HomePage() {
       for (const ct of classroomTasks) {
         const url = ct.alternate_link || (ct as any).url;
         if (!url || seenUrls.has(url)) continue;
+        if (isLinked && !isOwnTask(isLinked, submissions, url, (ct as any).teacher, personalTeachers)) {
+          continue;
+        }
         seenUrls.add(url);
 
         const personalSub = isLinked ? submissions[url] : null;

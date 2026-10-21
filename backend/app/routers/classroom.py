@@ -1154,9 +1154,19 @@ async def perform_course_sync(
         turned_in_cw_ids: set[str] = set()
         submissions_by_cw_id: dict[str, dict] = {}
         has_submission_scope_error = False
+        synced_teacher_names: set[str] = set()
+        synced_teacher_tokens: set[str] = set()
+        synced_subgroups: set[int] = set()
 
         # Прохід 1: Парсимо вже отриманих викладачів/теми та збираємо невідомі creatorUserId
         for course, bundle_items in bundles:
+            c_title = f"{course.get('name', '')} {course.get('section', '')}".strip()
+            c_low = c_title.lower()
+            if re.search(r"\b1\s*[-–—]?\s*(?:ша\s*)?підгр", c_low):
+                synced_subgroups.add(1)
+            if re.search(r"\b2\s*[-–—]?\s*(?:га\s*)?підгр", c_low):
+                synced_subgroups.add(2)
+
             if len(bundle_items) >= 6:
                 t_resp, ann_resp, cw_resp, top_resp, mat_resp, sub_resp = bundle_items[:6]
             else:
@@ -1203,8 +1213,10 @@ async def perform_course_sync(
                         if uid:
                             teacher_tokens_by_uid[uid] = t_toks
                         course_teachers_tokens[course_id].extend(t_toks)
+                        synced_teacher_tokens.update(t_toks)
 
                         parts = [p for p in fn.split() if len(p) > 2]
+                        matched_db_t = None
                         for part in parts:
                             part_low = part.lower()
                             matched_db_t = next(
@@ -1217,6 +1229,14 @@ async def perform_course_sync(
                                 if email and not matched_db_t.email:
                                     matched_db_t.email = email[:255]
                                 break
+                        if matched_db_t:
+                            synced_teacher_names.add(matched_db_t.name)
+                            synced_teacher_tokens.add(_norm(matched_db_t.name.split()[0]))
+                        elif fn:
+                            synced_teacher_names.add(fn)
+                            f_word = fn.split()[0]
+                            if len(f_word) >= 3:
+                                synced_teacher_tokens.add(_norm(f_word))
 
             if not isinstance(ann_resp, Exception) and ann_resp.status_code == 200:
                 for ann in ann_resp.json().get("announcements", []):
@@ -1692,10 +1712,20 @@ async def perform_course_sync(
 
     _latest_group_tasks[group.id] = combined_tasks
     _latest_scope_missing[group.id] = has_submission_scope_error
+
+    for tok in synced_teacher_tokens:
+        if "токар" in tok:
+            synced_subgroups.add(1)
+        elif "хочин" in tok:
+            synced_subgroups.add(2)
+
     return {
         "user_email": user_email,
         "google_user_id": google_user_id,
         "synced_course_ids": list(current_sync_course_ids),
+        "synced_teacher_names": sorted(list(synced_teacher_names)),
+        "synced_teacher_tokens": sorted(list(synced_teacher_tokens)),
+        "synced_subgroups": sorted(list(synced_subgroups)),
         "synced_links": synced_links,
         "synced_tasks": synced_tasks,
         "synced_students": synced_students,

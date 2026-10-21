@@ -13,6 +13,8 @@ const LINKED_EMAIL_KEY = "schedule:classroom_linked_email";
 const GOOGLE_USER_ID_KEY = "schedule:classroom_google_user_id";
 const LINKED_GROUP_ID_KEY = "schedule:classroom_linked_group_id";
 const SUBMITTED_TASKS_KEY = "schedule:classroom_submitted_tasks";
+const PERSONAL_TEACHERS_KEY = "schedule:classroom_personal_teachers";
+const PERSONAL_SUBGROUP_KEY = "schedule:classroom_personal_subgroup";
 const ACCESS_TOKEN_KEY = "schedule:classroom_access_token";
 const ACCESS_TOKEN_EXP_KEY = "schedule:classroom_access_token_exp";
 const REFRESH_TOKEN_KEY = "schedule:classroom_refresh_token";
@@ -34,6 +36,28 @@ export function getPersonalSubmissions(): Record<string, PersonalSubmission> {
     return raw ? JSON.parse(raw) : {};
   } catch {
     return {};
+  }
+}
+
+export function getPersonalTeachers(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(PERSONAL_TEACHERS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function getPersonalSubgroup(): number | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(PERSONAL_SUBGROUP_KEY);
+    if (!raw) return null;
+    const n = parseInt(raw, 10);
+    return n === 1 || n === 2 ? n : null;
+  } catch {
+    return null;
   }
 }
 
@@ -78,13 +102,42 @@ export function clearClassroomAccessToken(): void {
   } catch {}
 }
 
-// Завдання обох підгруп завжди доступні для всієї групи (ТЗ 25.1-25.2).
-// Персональний статус (Здано/оцінка) застосовується індивідуально для робіт, що є в submissions.
+// Користувач, який не залогінився (гість), бачить ВСІ посилання та ДЗ обох підгруп.
+// Користувач, який прив'язав Classroom (залогінений), бачить ТІЛЬКИ свою підгрупу та своє ДЗ.
 export function isOwnTask(
-  _isLinked: boolean,
-  _submissions: Record<string, PersonalSubmission>,
-  _url: string | null | undefined
+  isLinked: boolean,
+  submissions: Record<string, PersonalSubmission>,
+  url: string | null | undefined,
+  taskTeacher?: string | null,
+  personalTeachers?: string[]
 ): boolean {
+  if (!isLinked) return true;
+
+  const hasSubmissions = Object.keys(submissions).length > 0;
+  if (url && hasSubmissions) {
+    if (submissions[url]) return true;
+  }
+
+  if (taskTeacher && personalTeachers && personalTeachers.length > 0) {
+    const tLow = taskTeacher.toLowerCase();
+    const isTeacherOfUser = personalTeachers.some((pt) => {
+      const pLow = pt.toLowerCase();
+      return tLow.includes(pLow) || pLow.includes(tLow);
+    });
+    if (isTeacherOfUser) return true;
+
+    const isKnownOtherTeacher =
+      (tLow.includes("хочин") && personalTeachers.some((p) => p.toLowerCase().includes("токар"))) ||
+      (tLow.includes("токар") && personalTeachers.some((p) => p.toLowerCase().includes("хочин")));
+    if (isKnownOtherTeacher) {
+      return false;
+    }
+  }
+
+  if (url && hasSubmissions && !submissions[url]) {
+    return false;
+  }
+
   return true;
 }
 
@@ -112,10 +165,16 @@ export function unlinkClassroomEmail(): void {
     localStorage.removeItem(GOOGLE_USER_ID_KEY);
     localStorage.removeItem(LINKED_GROUP_ID_KEY);
     localStorage.removeItem(SUBMITTED_TASKS_KEY);
+    localStorage.removeItem(PERSONAL_TEACHERS_KEY);
+    localStorage.removeItem(PERSONAL_SUBGROUP_KEY);
     localStorage.removeItem(ACCESS_TOKEN_KEY);
     localStorage.removeItem(ACCESS_TOKEN_EXP_KEY);
     localStorage.removeItem(REFRESH_TOKEN_KEY);
+    try {
+      localStorage.removeItem("schedule_selected_subgroup");
+    } catch {}
     window.dispatchEvent(new Event(EVENT_NAME));
+    window.dispatchEvent(new Event("storage"));
   } catch {}
 }
 
@@ -125,7 +184,9 @@ export function saveClassroomSyncData(
   accessToken?: string | null,
   refreshToken?: string | null,
   googleUserId?: string | null,
-  groupId?: number | null
+  groupId?: number | null,
+  teachers?: string[] | null,
+  subgroups?: number[] | null
 ): void {
   if (typeof window === "undefined") return;
   try {
@@ -143,35 +204,75 @@ export function saveClassroomSyncData(
     saveClassroomTokens(accessToken, refreshToken);
 
     const submittedMap: Record<string, PersonalSubmission> = {};
+    const extractedTeachers = new Set<string>(teachers || []);
+
     if (tasks && Array.isArray(tasks)) {
       for (const t of tasks) {
         const url = t.url || t.alternate_link;
-        const state = t.state;
-        if (url && state && state !== "UNKNOWN") {
+        if (url) {
+          const state = t.state || "NEW";
           submittedMap[url] = {
             state,
             grade: t.grade ?? t.assigned_grade ?? t.assignedGrade ?? null,
             maxPoints: t.max_points ?? t.maxPoints ?? null,
           };
         }
+        if (t.teacher) {
+          extractedTeachers.add(t.teacher);
+          const firstWord = t.teacher.trim().split(/[\s.]+/)[0];
+          if (firstWord && firstWord.length >= 3) {
+            extractedTeachers.add(firstWord);
+          }
+        }
       }
     }
     localStorage.setItem(SUBMITTED_TASKS_KEY, JSON.stringify(submittedMap));
+
+    const teachersList = Array.from(extractedTeachers);
+    if (teachersList.length > 0) {
+      localStorage.setItem(PERSONAL_TEACHERS_KEY, JSON.stringify(teachersList));
+    }
+
+    let detectedSub: number | null = null;
+    if (subgroups && subgroups.length === 1 && (subgroups[0] === 1 || subgroups[0] === 2)) {
+      detectedSub = subgroups[0];
+    } else {
+      const allTeachersStr = teachersList.join(" ").toLowerCase();
+      if (allTeachersStr.includes("токар") && !allTeachersStr.includes("хочин")) {
+        detectedSub = 1;
+      } else if (allTeachersStr.includes("хочин") && !allTeachersStr.includes("токар")) {
+        detectedSub = 2;
+      }
+    }
+    if (detectedSub) {
+      localStorage.setItem(PERSONAL_SUBGROUP_KEY, String(detectedSub));
+      try {
+        localStorage.setItem("schedule_selected_subgroup", String(detectedSub));
+      } catch {}
+    }
+
     window.dispatchEvent(new Event(EVENT_NAME));
+    window.dispatchEvent(new Event("storage"));
   } catch {}
 }
 
 export function useClassroomSubmissions() {
   const [linkedEmail, setLinkedEmail] = useState<string | null>(null);
   const [submissions, setSubmissions] = useState<Record<string, PersonalSubmission>>({});
+  const [personalTeachers, setPersonalTeachers] = useState<string[]>([]);
+  const [personalSubgroup, setPersonalSubgroup] = useState<number | null>(null);
 
   const reload = useCallback(() => {
     const email = getLinkedEmail();
     setLinkedEmail(email);
     if (email) {
       setSubmissions(getPersonalSubmissions());
+      setPersonalTeachers(getPersonalTeachers());
+      setPersonalSubgroup(getPersonalSubgroup());
     } else {
       setSubmissions({});
+      setPersonalTeachers([]);
+      setPersonalSubgroup(null);
     }
   }, []);
 
@@ -185,6 +286,8 @@ export function useClassroomSubmissions() {
     linkedEmail,
     isLinked: Boolean(linkedEmail),
     submissions,
+    personalTeachers,
+    personalSubgroup,
     unlink: unlinkClassroomEmail,
     reload,
   };

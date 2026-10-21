@@ -670,8 +670,44 @@ export function LessonCard({
     return () => window.removeEventListener("storage", onStorage);
   }, []);
 
+  const { isLinked, submissions, personalTeachers, personalSubgroup } = useClassroomSubmissions();
+
+  const isTeacherView = scheduleMode === "teacher";
+  const secondaryItems = useMemo(() => {
+    return isTeacherView ? parseLessonGroups(lesson) : parseLessonTeachers(lesson);
+  }, [isTeacherView, lesson.group_id, lesson.group_name, lesson.teacher_id, lesson.second_teacher_id, lesson.teacher_name]);
+
+  const isDualTeachers = !isTeacherView && secondaryItems.length === 2;
+
+  const effectiveSubgroup = useMemo(() => {
+    if (selectedSubgroup === 1 || selectedSubgroup === 2) {
+      return selectedSubgroup;
+    }
+    if (!isLinked || !isDualTeachers) return null;
+    if (personalSubgroup === 1 || personalSubgroup === 2) return personalSubgroup;
+
+    const s0 = secondaryItems[0]?.name ? secondaryItems[0].name.split(/[\s.]+/)[0].toLowerCase() : "";
+    const s1 = secondaryItems[1]?.name ? secondaryItems[1].name.split(/[\s.]+/)[0].toLowerCase() : "";
+
+    const matches0 = s0 ? personalTeachers.some(
+      (pt) => pt.toLowerCase().includes(s0) || s0.includes(pt.toLowerCase())
+    ) : false;
+    const matches1 = s1 ? personalTeachers.some(
+      (pt) => pt.toLowerCase().includes(s1) || s1.includes(pt.toLowerCase())
+    ) : false;
+
+    if (matches0 && !matches1) return 1;
+    if (matches1 && !matches0) return 2;
+    return null;
+  }, [selectedSubgroup, isLinked, isDualTeachers, personalSubgroup, secondaryItems, personalTeachers]);
+
   const handleSubgroupToggle = (subIdx: number) => {
-    const nextVal = selectedSubgroup === subIdx ? null : subIdx;
+    let nextVal: number | null;
+    if (isLinked) {
+      nextVal = effectiveSubgroup === subIdx ? (subIdx === 1 ? 2 : 1) : subIdx;
+    } else {
+      nextVal = selectedSubgroup === subIdx ? null : subIdx;
+    }
     setSelectedSubgroup(nextVal);
     try {
       if (nextVal === null) {
@@ -713,22 +749,23 @@ export function LessonCard({
   const remainingMin =
     isLive && endMin !== null && nowState ? Math.max(1, endMin - nowState.minutes) : 0;
 
-  const { isLinked, submissions } = useClassroomSubmissions();
-
-  const isTeacherView = scheduleMode === "teacher";
   const rawTasks = useMemo(
     () => (isTeacherView ? [] : extractClassroomTasks(lesson.note)),
     [isTeacherView, lesson.note]
   );
-  // Завдання, які здано, не показуються ТІЛЬКИ у користувача, який прив'язав пошту.
+  // Завдання іншої підгрупи та завдання, які здано, не показуються ТІЛЬКИ у користувача, який прив'язав пошту.
+  // Гість (не залогінений) бачить ВСІ завдання обох підгруп.
   const tasks = useMemo(() => {
     const sorted = sortTasksByDeadline(rawTasks);
     if (!isLinked) return sorted;
     return sorted.filter((t) => {
+      if (!isOwnTask(isLinked, submissions, t.url, t.teacher, personalTeachers)) {
+        return false;
+      }
       const sub = submissions[t.url];
       return !(isLinked && sub && (sub.state === "TURNED_IN" || sub.state === "RETURNED"));
     });
-  }, [rawTasks, isLinked, submissions]);
+  }, [rawTasks, isLinked, submissions, personalTeachers]);
 
   const nearestDated = useMemo(() => {
     return tasks.find((t) => t.deadline.formattedDate || (t.deadline.day && t.deadline.month)) || null;
@@ -739,10 +776,6 @@ export function LessonCard({
   );
   const visibleNoteText = useMemo(() => getVisibleUserNote(lesson.note), [lesson.note]);
   const hasMeeting = meetings.length > 0;
-  const secondaryItems = useMemo(() => {
-    return isTeacherView ? parseLessonGroups(lesson) : parseLessonTeachers(lesson);
-  }, [isTeacherView, lesson.group_id, lesson.group_name, lesson.teacher_id, lesson.second_teacher_id, lesson.teacher_name]);
-
   const rooms = useMemo(() => {
     if (!lesson.room) return [];
     if (learningMode === "online" && meetings.length > 0) return [];
@@ -751,8 +784,6 @@ export function LessonCard({
       .map((r) => r.trim())
       .filter(Boolean);
   }, [lesson.room, learningMode, meetings.length]);
-
-  const isDualTeachers = !isTeacherView && secondaryItems.length === 2;
 
   const teacherMeetings = useMemo(() => {
     if (!isDualTeachers || meetings.length === 0) return [null, null];
@@ -802,6 +833,11 @@ export function LessonCard({
     if (!isDualTeachers || tasks.length === 0) {
       return [{ teacher: null, items: tasks }];
     }
+    if (isLinked && effectiveSubgroup !== null) {
+      const myIdx = effectiveSubgroup - 1;
+      const myTeacher = secondaryItems[myIdx]?.displayName || null;
+      return [{ teacher: myTeacher, items: tasks }];
+    }
     const s0 = secondaryItems[0].name.split(/[\s.]+/)[0].toLowerCase();
     const s1 = secondaryItems[1].name.split(/[\s.]+/)[0].toLowerCase();
 
@@ -825,7 +861,7 @@ export function LessonCard({
     if (g1.length > 0) res.push({ teacher: secondaryItems[1].displayName, items: g1 });
     if (others.length > 0) res.push({ teacher: res.length > 0 ? "Інші завдання" : null, items: others });
     return res.length > 0 ? res : [{ teacher: null, items: tasks }];
-  }, [isDualTeachers, secondaryItems, tasks]);
+  }, [isDualTeachers, secondaryItems, tasks, isLinked, effectiveSubgroup]);
 
   const eventBadge = useMemo(
     () => getEventBadge(lesson.event_type, lesson.event_title),
@@ -1179,7 +1215,10 @@ export function LessonCard({
                     <div className="flex flex-col gap-1.5 w-full max-w-[480px]">
                       {secondaryItems.map((item, idx) => {
                         const subNum = idx + 1;
-                        const isFaded = selectedSubgroup !== null && selectedSubgroup !== subNum;
+                        if (isLinked && effectiveSubgroup !== null && effectiveSubgroup !== subNum) {
+                          return null;
+                        }
+                        const isFaded = !isLinked && selectedSubgroup !== null && selectedSubgroup !== subNum;
                         const ownMeeting = teacherMeetings[idx];
                         const ownRoom = (idx === 0 ? lesson.teacher_room : lesson.second_teacher_room) || rooms[idx] || null;
                         return (
@@ -1187,10 +1226,10 @@ export function LessonCard({
                             <button
                               type="button"
                               onClick={(e) => { e.stopPropagation(); handleSubgroupToggle(subNum); }}
-                              title={selectedSubgroup === subNum ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${subNum} підгрупу`}
-                              aria-label={selectedSubgroup === subNum ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${subNum} підгрупу`}
+                              title={isLinked ? `Ваша підгрупа ${subNum} (натисніть, щоб перемкнути)` : (selectedSubgroup === subNum ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${subNum} підгрупу`)}
+                              aria-label={isLinked ? `Ваша підгрупа ${subNum} (натисніть, щоб перемкнути)` : (selectedSubgroup === subNum ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${subNum} підгрупу`)}
                               className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold transition-colors ${
-                                selectedSubgroup === subNum
+                                (isLinked ? effectiveSubgroup === subNum : selectedSubgroup === subNum)
                                   ? "bg-sys-accent/20 text-sys-accent font-bold border border-sys-accent/40"
                                   : "bg-sys-border/60 border border-sys-border text-slate-300 hover:text-white"
                               }`}
@@ -1739,7 +1778,10 @@ export function LessonCard({
               <div className="flex flex-col gap-1.5 w-full">
                 {secondaryItems.map((item, idx) => {
                   const subNum = idx + 1;
-                  const isFaded = selectedSubgroup !== null && selectedSubgroup !== subNum;
+                  if (isLinked && effectiveSubgroup !== null && effectiveSubgroup !== subNum) {
+                    return null;
+                  }
+                  const isFaded = !isLinked && selectedSubgroup !== null && selectedSubgroup !== subNum;
                   const ownMeeting = teacherMeetings[idx];
                   const ownRoom = (idx === 0 ? lesson.teacher_room : lesson.second_teacher_room) || rooms[idx] || null;
                   return (
@@ -1747,8 +1789,10 @@ export function LessonCard({
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); handleSubgroupToggle(subNum); }}
+                        title={isLinked ? `Ваша підгрупа ${subNum} (натисніть, щоб перемкнути)` : (selectedSubgroup === subNum ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${subNum} підгрупу`)}
+                        aria-label={isLinked ? `Ваша підгрупа ${subNum} (натисніть, щоб перемкнути)` : (selectedSubgroup === subNum ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${subNum} підгрупу`)}
                         className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold transition-colors ${
-                          selectedSubgroup === subNum
+                          (isLinked ? effectiveSubgroup === subNum : selectedSubgroup === subNum)
                             ? "bg-sys-accent/20 text-sys-accent font-bold border border-sys-accent/40"
                             : "bg-sys-border/60 border border-sys-border text-slate-300"
                         }`}
@@ -2092,80 +2136,84 @@ export function LessonCard({
           {/* Row 2: Teacher(s) - compressed into single lines for week view */}
           {isDualTeachers ? (
             <div className="flex flex-col gap-1 text-xs xl:text-xs text-sys-text-secondary [overflow-wrap:anywhere] mt-0.5">
-              <div className={`flex items-center gap-1.5 min-w-0 transition-opacity ${selectedSubgroup === 2 ? "opacity-50 hover:opacity-80" : "opacity-100"}`}>
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); handleSubgroupToggle(1); }}
-                  title={selectedSubgroup === 1 ? "Ваша підгрупа (натисніть для скидання)" : "Обрати 1 підгрупу"}
-                  aria-label={selectedSubgroup === 1 ? "Ваша підгрупа (натисніть для скидання)" : "Обрати 1 підгрупу"}
-                  className={`shrink-0 text-xs font-semibold transition-colors ${
-                    selectedSubgroup === 1 ? "text-sys-accent font-bold" : "text-slate-400 hover:text-slate-200"
-                  }`}
-                >
-                  1 підгр.
-                </button>
-                {onQuickJump ? (
+              {(!isLinked || effectiveSubgroup === null || effectiveSubgroup === 1) && (
+                <div className={`flex items-center gap-1.5 min-w-0 transition-opacity ${!isLinked && selectedSubgroup === 2 ? "opacity-50 hover:opacity-80" : "opacity-100"}`}>
                   <button
                     type="button"
-                    onClick={(e) => { e.stopPropagation(); onQuickJump(secondaryItems[0].target); }}
-                    className="flex-1 min-w-0 break-words hover:text-sys-accent hover:underline focus:outline-none text-left font-medium text-slate-200"
+                    onClick={(e) => { e.stopPropagation(); handleSubgroupToggle(1); }}
+                    title={isLinked ? "Ваша підгрупа 1 (натисніть, щоб перемкнути)" : (selectedSubgroup === 1 ? "Ваша підгрупа (натисніть для скидання)" : "Обрати 1 підгрупу")}
+                    aria-label={isLinked ? "Ваша підгрупа 1 (натисніть, щоб перемкнути)" : (selectedSubgroup === 1 ? "Ваша підгрупа (натисніть для скидання)" : "Обрати 1 підгрупу")}
+                    className={`shrink-0 text-xs font-semibold transition-colors ${
+                      (isLinked ? effectiveSubgroup === 1 : selectedSubgroup === 1) ? "text-sys-accent font-bold" : "text-slate-400 hover:text-slate-200"
+                    }`}
                   >
-                    {secondaryItems[0]?.displayName}
+                    1 підгр.
                   </button>
-                ) : (
-                  <span className="flex-1 min-w-0 break-words font-medium text-slate-200">{secondaryItems[0]?.displayName}</span>
-                )}
-                {teacherMeetings[0] ? (
-                  <a
-                    href={teacherMeetings[0].url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
-                    className="ml-auto text-emerald-400 font-bold hover:underline shrink-0 whitespace-nowrap"
-                  >
-                    {teacherMeetings[0].platform === "zoom" ? "Zoom" : teacherMeetings[0].platform === "meet" ? "Meet" : "Онлайн"} ↗
-                  </a>
-                ) : (
-                  <span className="ml-auto shrink-0 rounded-md border border-sys-border bg-sys-bg px-1.5 py-0.5 text-[11px] font-semibold leading-none text-sys-text-secondary whitespace-nowrap">{(lesson.teacher_room || rooms[0]) ? `ауд. ${(lesson.teacher_room || rooms[0]).replace(/^ауд\.?\s*/i, "")}` : "ауд. —"}</span>
-                )}
-              </div>
-              <div className={`flex items-center gap-1.5 min-w-0 transition-opacity ${selectedSubgroup === 1 ? "opacity-50 hover:opacity-80" : "opacity-100"}`}>
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); handleSubgroupToggle(2); }}
-                  title={selectedSubgroup === 2 ? "Ваша підгрупа (натисніть для скидання)" : "Обрати 2 підгрупу"}
-                  aria-label={selectedSubgroup === 2 ? "Ваша підгрупа (натисніть для скидання)" : "Обрати 2 підгрупу"}
-                  className={`shrink-0 text-xs font-semibold transition-colors ${
-                    selectedSubgroup === 2 ? "text-sys-accent font-bold" : "text-slate-400 hover:text-slate-200"
-                  }`}
-                >
-                  2 підгр.
-                </button>
-                {onQuickJump ? (
+                  {onQuickJump ? (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); onQuickJump(secondaryItems[0].target); }}
+                      className="flex-1 min-w-0 break-words hover:text-sys-accent hover:underline focus:outline-none text-left font-medium text-slate-200"
+                    >
+                      {secondaryItems[0]?.displayName}
+                    </button>
+                  ) : (
+                    <span className="flex-1 min-w-0 break-words font-medium text-slate-200">{secondaryItems[0]?.displayName}</span>
+                  )}
+                  {teacherMeetings[0] ? (
+                    <a
+                      href={teacherMeetings[0].url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
+                      className="ml-auto text-emerald-400 font-bold hover:underline shrink-0 whitespace-nowrap"
+                    >
+                      {teacherMeetings[0].platform === "zoom" ? "Zoom" : teacherMeetings[0].platform === "meet" ? "Meet" : "Онлайн"} ↗
+                    </a>
+                  ) : (
+                    <span className="ml-auto shrink-0 rounded-md border border-sys-border bg-sys-bg px-1.5 py-0.5 text-[11px] font-semibold leading-none text-sys-text-secondary whitespace-nowrap">{(lesson.teacher_room || rooms[0]) ? `ауд. ${(lesson.teacher_room || rooms[0]).replace(/^ауд\.?\s*/i, "")}` : "ауд. —"}</span>
+                  )}
+                </div>
+              )}
+              {(!isLinked || effectiveSubgroup === null || effectiveSubgroup === 2) && (
+                <div className={`flex items-center gap-1.5 min-w-0 transition-opacity ${!isLinked && selectedSubgroup === 1 ? "opacity-50 hover:opacity-80" : "opacity-100"}`}>
                   <button
                     type="button"
-                    onClick={(e) => { e.stopPropagation(); onQuickJump(secondaryItems[1].target); }}
-                    className="flex-1 min-w-0 break-words hover:text-sys-accent hover:underline focus:outline-none text-left font-medium text-slate-200"
+                    onClick={(e) => { e.stopPropagation(); handleSubgroupToggle(2); }}
+                    title={isLinked ? "Ваша підгрупа 2 (натисніть, щоб перемкнути)" : (selectedSubgroup === 2 ? "Ваша підгрупа (натисніть для скидання)" : "Обрати 2 підгрупу")}
+                    aria-label={isLinked ? "Ваша підгрупа 2 (натисніть, щоб перемкнути)" : (selectedSubgroup === 2 ? "Ваша підгрупа (натисніть для скидання)" : "Обрати 2 підгрупу")}
+                    className={`shrink-0 text-xs font-semibold transition-colors ${
+                      (isLinked ? effectiveSubgroup === 2 : selectedSubgroup === 2) ? "text-sys-accent font-bold" : "text-slate-400 hover:text-slate-200"
+                    }`}
                   >
-                    {secondaryItems[1]?.displayName}
+                    2 підгр.
                   </button>
-                ) : (
-                  <span className="flex-1 min-w-0 break-words font-medium text-slate-200">{secondaryItems[1]?.displayName}</span>
-                )}
-                {teacherMeetings[1] ? (
-                  <a
-                    href={teacherMeetings[1].url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
-                    className="ml-auto text-emerald-400 font-bold hover:underline shrink-0 whitespace-nowrap"
-                  >
-                    {teacherMeetings[1].platform === "zoom" ? "Zoom" : teacherMeetings[1].platform === "meet" ? "Meet" : "Онлайн"} ↗
-                  </a>
-                ) : (
-                  <span className="ml-auto shrink-0 rounded-md border border-sys-border bg-sys-bg px-1.5 py-0.5 text-[11px] font-semibold leading-none text-sys-text-secondary whitespace-nowrap">{(lesson.second_teacher_room || rooms[1]) ? `ауд. ${(lesson.second_teacher_room || rooms[1]).replace(/^ауд\.?\s*/i, "")}` : "ауд. —"}</span>
-                )}
-              </div>
+                  {onQuickJump ? (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); onQuickJump(secondaryItems[1].target); }}
+                      className="flex-1 min-w-0 break-words hover:text-sys-accent hover:underline focus:outline-none text-left font-medium text-slate-200"
+                    >
+                      {secondaryItems[1]?.displayName}
+                    </button>
+                  ) : (
+                    <span className="flex-1 min-w-0 break-words font-medium text-slate-200">{secondaryItems[1]?.displayName}</span>
+                  )}
+                  {teacherMeetings[1] ? (
+                    <a
+                      href={teacherMeetings[1].url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
+                      className="ml-auto text-emerald-400 font-bold hover:underline shrink-0 whitespace-nowrap"
+                    >
+                      {teacherMeetings[1].platform === "zoom" ? "Zoom" : teacherMeetings[1].platform === "meet" ? "Meet" : "Онлайн"} ↗
+                    </a>
+                  ) : (
+                    <span className="ml-auto shrink-0 rounded-md border border-sys-border bg-sys-bg px-1.5 py-0.5 text-[11px] font-semibold leading-none text-sys-text-secondary whitespace-nowrap">{(lesson.second_teacher_room || rooms[1]) ? `ауд. ${(lesson.second_teacher_room || rooms[1]).replace(/^ауд\.?\s*/i, "")}` : "ауд. —"}</span>
+                  )}
+                </div>
+              )}
             </div>
           ) : secondaryItems.length > 0 ? (
             <div className="text-xs text-sys-text-secondary [overflow-wrap:anywhere]">

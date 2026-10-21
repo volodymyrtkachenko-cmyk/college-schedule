@@ -700,6 +700,43 @@ async def test_background_sync_updates_both_subgroups_and_deduplicates_shared_co
 
 
 @pytest.mark.anyio
+async def test_perform_course_sync_returns_personal_teachers_and_subgroup(classroom_db):
+    """
+    Перевіряємо, що perform_course_sync повертає персональних викладачів та підгрупу студента
+    для коректного персонального відображення в застосунку.
+    """
+    _, state = classroom_db
+    courses = [
+        {"id": "101", "name": "Іноземна мова 85 ДФКР (1 підгр)"},
+    ]
+    transport = _make_fake_google_transport(
+        courses_by_token={"ya29.sub1": courses},
+        profiles_by_token={"ya29.sub1": {"id": "uid_sub1", "emailAddress": "s1@kre.dp.ua"}},
+        teachers_by_course={
+            "101": [{"userId": "t1", "profile": {"name": {"fullName": "Токарєва Тетяна Олександрівна"}}}],
+        },
+        announcements_by_course={},
+        coursework_by_course={},
+    )
+    real_async_client = httpx.AsyncClient
+
+    def mocked_client(*args, **kwargs):
+        kwargs["transport"] = transport
+        return real_async_client(*args, **kwargs)
+
+    with patch("app.routers.classroom.httpx.AsyncClient", side_effect=mocked_client):
+        async with state["sessions"]() as db:
+            from app.models.entities import Group
+            group = await db.get(Group, state["group_id"])
+            res = await classroom_router.perform_course_sync(
+                db, group, courses, "ya29.sub1"
+            )
+            assert 1 in res["synced_subgroups"]
+            assert any("токар" in t for t in res["synced_teacher_tokens"])
+            assert any("Токарєва" in name for name in res["synced_teacher_names"])
+
+
+@pytest.mark.anyio
 async def test_invalid_grant_deactivates_only_failing_account_and_429_sets_backoff(classroom_db):
     """
     25.9.3 & 25.5: Відмова одного токена (invalid_grant або 401/429) — інший акаунт
