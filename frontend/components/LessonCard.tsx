@@ -1283,13 +1283,13 @@ export function LessonCard({
                           <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); onQuickJump(secondaryItems[singleSubgroupIdx].target); }}
-                            className="text-left text-xs sm:text-sm font-medium text-sys-text-secondary hover:text-sys-accent hover:underline focus:outline-none break-words [overflow-wrap:anywhere]"
+                            className="text-left text-xs sm:text-sm font-medium text-sys-text-secondary hover:text-sys-accent hover:underline focus:outline-none break-words"
                             title={secondaryItems[singleSubgroupIdx].displayName}
                           >
                             {secondaryItems[singleSubgroupIdx].displayName}
                           </button>
                         ) : (
-                          <span className="text-xs sm:text-sm font-medium text-sys-text-secondary break-words [overflow-wrap:anywhere]" title={secondaryItems[singleSubgroupIdx].displayName}>
+                          <span className="text-xs sm:text-sm font-medium text-sys-text-secondary break-words" title={secondaryItems[singleSubgroupIdx].displayName}>
                             {secondaryItems[singleSubgroupIdx].displayName}
                           </span>
                         )}
@@ -1307,11 +1307,11 @@ export function LessonCard({
                           return (
                             <div
                               key={idx}
-                              className={`flex items-center justify-between gap-2 w-full transition-opacity ${
+                              className={`flex flex-wrap items-center justify-between gap-y-1.5 gap-x-2 w-full transition-opacity ${
                                 isFaded ? "opacity-50 hover:opacity-80" : "opacity-100"
                               }`}
                             >
-                              <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1 mr-2">
+                              <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
                                 <button
                                   type="button"
                                   onClick={(e) => { e.stopPropagation(); handleSubgroupToggle(subNum); }}
@@ -1344,13 +1344,13 @@ export function LessonCard({
                                   <button
                                     type="button"
                                     onClick={(e) => { e.stopPropagation(); onQuickJump(item.target); }}
-                                    className="text-left text-xs sm:text-sm font-medium text-sys-text-secondary hover:text-sys-accent hover:underline focus:outline-none break-words [overflow-wrap:anywhere]"
+                                    className="text-left text-xs sm:text-sm font-medium text-sys-text-secondary hover:text-sys-accent hover:underline focus:outline-none break-words"
                                     title={item.displayName}
                                   >
                                     {item.displayName}
                                   </button>
                                 ) : (
-                                  <span className="text-xs sm:text-sm font-medium text-sys-text-secondary break-words [overflow-wrap:anywhere]" title={item.displayName}>
+                                  <span className="text-xs sm:text-sm font-medium text-sys-text-secondary break-words" title={item.displayName}>
                                     {item.displayName}
                                   </span>
                                 )}
@@ -1930,13 +1930,13 @@ export function LessonCard({
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); onQuickJump(secondaryItems[singleSubgroupIdx].target); }}
-                      className="text-left text-xs sm:text-sm font-medium text-sys-text-secondary hover:text-sys-accent hover:underline focus:outline-none break-words [overflow-wrap:anywhere]"
+                      className="text-left text-xs sm:text-sm font-medium text-sys-text-secondary hover:text-sys-accent hover:underline focus:outline-none break-words"
                       title={secondaryItems[singleSubgroupIdx].displayName}
                     >
                       {secondaryItems[singleSubgroupIdx].displayName}
                     </button>
                   ) : (
-                    <span className="text-xs sm:text-sm font-medium text-sys-text-secondary break-words [overflow-wrap:anywhere]" title={secondaryItems[singleSubgroupIdx].displayName}>
+                    <span className="text-xs sm:text-sm font-medium text-sys-text-secondary break-words" title={secondaryItems[singleSubgroupIdx].displayName}>
                       {secondaryItems[singleSubgroupIdx].displayName}
                     </span>
                   )}
@@ -1954,11 +1954,11 @@ export function LessonCard({
                     return (
                       <div
                         key={idx}
-                        className={`flex items-center justify-between gap-2 w-full transition-opacity ${
+                        className={`flex flex-wrap items-center justify-between gap-y-1.5 gap-x-2 w-full transition-opacity ${
                           isFaded ? "opacity-50 hover:opacity-80" : "opacity-100"
                         }`}
                       >
-                        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1 mr-2">
+                        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
                           <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); handleSubgroupToggle(subNum); }}
@@ -1991,13 +1991,13 @@ export function LessonCard({
                             <button
                               type="button"
                               onClick={(e) => { e.stopPropagation(); onQuickJump(item.target); }}
-                              className="text-left text-xs sm:text-sm font-medium text-sys-text-secondary hover:text-sys-accent hover:underline focus:outline-none break-words [overflow-wrap:anywhere]"
+                              className="text-left text-xs sm:text-sm font-medium text-sys-text-secondary hover:text-sys-accent hover:underline focus:outline-none break-words"
                               title={item.displayName}
                             >
                               {item.displayName}
                             </button>
                           ) : (
-                            <span className="text-xs sm:text-sm font-medium text-sys-text-secondary break-words [overflow-wrap:anywhere]" title={item.displayName}>
+                            <span className="text-xs sm:text-sm font-medium text-sys-text-secondary break-words" title={item.displayName}>
                               {item.displayName}
                             </span>
                           )}
@@ -2410,19 +2410,19 @@ export function LessonCard({
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); onQuickJump(secondaryItems[singleSubgroupIdx].target); }}
-                    className="text-left text-xs font-medium text-sys-text-secondary hover:text-sys-accent hover:underline focus:outline-none break-words [overflow-wrap:anywhere]"
+                    className="text-left text-xs font-medium text-sys-text-secondary hover:text-sys-accent hover:underline focus:outline-none break-words"
                     title={secondaryItems[singleSubgroupIdx].displayName}
                   >
                     {secondaryItems[singleSubgroupIdx].displayName}
                   </button>
                 ) : (
-                  <span className="text-xs font-medium text-sys-text-secondary break-words [overflow-wrap:anywhere]" title={secondaryItems[singleSubgroupIdx].displayName}>
+                  <span className="text-xs font-medium text-sys-text-secondary break-words" title={secondaryItems[singleSubgroupIdx].displayName}>
                     {secondaryItems[singleSubgroupIdx].displayName}
                   </span>
                 )}
               </div>
             ) : (
-              <div className="flex flex-col gap-1.5 text-xs text-sys-text-secondary w-full mt-0.5">
+              <div className="flex flex-col gap-2 text-xs text-sys-text-secondary w-full mt-1">
                 {secondaryItems.map((item, idx) => {
                   const subNum = idx + 1;
                   if (isLinked && effectiveSubgroup !== null && effectiveSubgroup !== subNum) {
@@ -2434,11 +2434,11 @@ export function LessonCard({
                   return (
                     <div
                       key={idx}
-                      className={`flex items-center justify-between gap-2 w-full transition-opacity ${
+                      className={`flex flex-col gap-1 w-full transition-opacity ${
                         isFaded ? "opacity-50 hover:opacity-80" : "opacity-100"
                       }`}
                     >
-                      <div className="flex items-center gap-1.5 min-w-0 flex-1 mr-1.5">
+                      <div className="flex items-center gap-1.5 min-w-0 w-full">
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); handleSubgroupToggle(subNum); }}
@@ -2471,58 +2471,62 @@ export function LessonCard({
                           <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); onQuickJump(item.target); }}
-                            className="text-left text-xs font-medium text-sys-text-secondary hover:text-sys-accent hover:underline focus:outline-none break-words [overflow-wrap:anywhere]"
+                            className="text-left text-xs font-medium text-sys-text-secondary hover:text-sys-accent hover:underline focus:outline-none break-words leading-tight"
                             title={item.displayName}
                           >
                             {item.displayName}
                           </button>
                         ) : (
-                          <span className="text-xs font-medium text-sys-text-secondary break-words [overflow-wrap:anywhere]" title={item.displayName}>
+                          <span className="text-xs font-medium text-sys-text-secondary break-words leading-tight" title={item.displayName}>
                             {item.displayName}
                           </span>
                         )}
                       </div>
                       {ownMeeting ? (
-                        <a
-                          href={ownMeeting.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
-                          className={`inline-flex shrink-0 h-6 px-2 items-center gap-1 rounded-md border text-[11px] font-semibold whitespace-nowrap active:scale-95 transition-all ${
-                            isLive && isMeetingLiveOrSoon
-                              ? "bg-emerald-600/90 text-white border-emerald-500 shadow-xs hover:bg-emerald-500"
-                              : "border-sys-border bg-sys-card text-sys-text-primary hover:border-sys-accent/50 hover:text-sys-accent hover:bg-white/5"
-                          }`}
-                        >
-                          {ownMeeting.platform === "zoom" ? (
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                              <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.934a.5.5 0 0 0-.777-.416L16 11" />
-                              <rect x="2" y="6" width="14" height="12" rx="2" />
+                        <div className="flex items-center justify-end w-full pl-5">
+                          <a
+                            href={ownMeeting.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
+                            className={`inline-flex shrink-0 h-6 px-2 items-center gap-1 rounded-md border text-[11px] font-semibold whitespace-nowrap active:scale-95 transition-all ${
+                              isLive && isMeetingLiveOrSoon
+                                ? "bg-emerald-600/90 text-white border-emerald-500 shadow-xs hover:bg-emerald-500"
+                                : "border-sys-border bg-sys-card text-sys-text-primary hover:border-sys-accent/50 hover:text-sys-accent hover:bg-white/5"
+                            }`}
+                          >
+                            {ownMeeting.platform === "zoom" ? (
+                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                                <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.934a.5.5 0 0 0-.777-.416L16 11" />
+                                <rect x="2" y="6" width="14" height="12" rx="2" />
+                              </svg>
+                            ) : (
+                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                                <polygon points="23 7 16 12 23 17 23 7" />
+                                <rect x="1" y="5" width="15" height="14" rx="2" />
+                              </svg>
+                            )}
+                            <span>{ownMeeting.platform === "zoom" ? "Zoom" : ownMeeting.platform === "meet" ? "Meet" : "Онлайн"}</span>
+                            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 opacity-70">
+                              <path d="M7 17 17 7" />
+                              <path d="M7 7h10v10" />
                             </svg>
-                          ) : (
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                              <polygon points="23 7 16 12 23 17 23 7" />
-                              <rect x="1" y="5" width="15" height="14" rx="2" />
-                            </svg>
-                          )}
-                          <span>{ownMeeting.platform === "zoom" ? "Zoom" : ownMeeting.platform === "meet" ? "Meet" : "Онлайн"}</span>
-                          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 opacity-70">
-                            <path d="M7 17 17 7" />
-                            <path d="M7 7h10v10" />
-                          </svg>
-                        </a>
-                      ) : (
-                        <span className="shrink-0 rounded-md border border-sys-border bg-sys-bg px-1.5 py-0.5 text-[11px] font-semibold leading-none text-sys-text-secondary whitespace-nowrap">
-                          {ownRoom ? `ауд. ${ownRoom.replace(/^ауд\.?\s*/i, "")}` : "ауд. —"}
-                        </span>
-                      )}
+                          </a>
+                        </div>
+                      ) : ownRoom ? (
+                        <div className="flex items-center justify-end w-full pl-5">
+                          <span className="shrink-0 rounded-md border border-sys-border bg-sys-bg px-1.5 py-0.5 text-[11px] font-semibold leading-none text-sys-text-secondary whitespace-nowrap">
+                            {`ауд. ${ownRoom.replace(/^ауд\.?\s*/i, "")}`}
+                          </span>
+                        </div>
+                      ) : null}
                     </div>
                   );
                 })}
               </div>
             )
           ) : secondaryItems.length > 0 ? (
-            <div className="text-xs text-sys-text-secondary [overflow-wrap:anywhere]">
+            <div className="text-xs text-sys-text-secondary break-words">
               {isTeacherView && (
                 <span className="text-sys-text-muted">
                   {secondaryItems.length > 1 ? "Групи: " : "Група: "}
