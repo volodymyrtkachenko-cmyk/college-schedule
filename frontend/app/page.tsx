@@ -956,17 +956,34 @@ export default function HomePage() {
       {user ? (
         <>
           {canAccessAdmin(user) && (
-            <a href="/admin" className="rounded-lg bg-sys-accent px-3 py-1.5 text-xs font-medium text-white whitespace-nowrap shadow-sm hover:opacity-90 transition-opacity">
-              Для працівників
+            <a
+              href="/admin"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-sys-border bg-sys-surface/80 px-3 py-1.5 text-xs font-medium text-sys-text-primary whitespace-nowrap shadow-xs hover:border-sys-accent/40 hover:text-sys-accent hover:bg-sys-accent/5 transition-all"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-sys-accent shrink-0">
+                <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+              <span>Для працівників</span>
             </a>
           )}
-          <button onClick={logout} className="rounded-lg bg-transparent border border-sys-border px-3 py-1.5 text-xs font-medium text-sys-text-secondary whitespace-nowrap hover:text-white hover:bg-sys-bg transition-colors">
+          <button
+            onClick={logout}
+            className="rounded-lg bg-transparent border border-sys-border px-3 py-1.5 text-xs font-medium text-sys-text-secondary whitespace-nowrap hover:text-white hover:bg-sys-surface transition-colors"
+          >
             Вийти
           </button>
         </>
       ) : (
-        <a href="/login" className="text-xs font-medium text-sys-text-secondary hover:text-white transition-colors underline-offset-4 hover:underline whitespace-nowrap">
-          Для працівників
+        <a
+          href="/login"
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-sys-text-secondary hover:text-sys-text-primary transition-colors whitespace-nowrap py-1 px-1.5 rounded-md hover:bg-sys-surface"
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400 shrink-0">
+            <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+            <circle cx="12" cy="7" r="4" />
+          </svg>
+          <span>Для працівників</span>
         </a>
       )}
     </div>
@@ -1125,11 +1142,8 @@ export default function HomePage() {
               </button>
             </div>
             {headerLearningMode && (
-              <span className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-bold ${
-                headerLearningMode === "offline"
-                  ? "border-sys-accent/30 bg-sys-accent/10 text-sys-accent"
-                  : "border-sys-warning/30 bg-sys-warning/10 text-sys-warning"
-              }`}>
+              <span className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-sys-border bg-sys-surface/80 px-2.5 py-1 text-xs font-semibold text-sys-text-secondary">
+                <span className={`h-1.5 w-1.5 rounded-full ${headerLearningMode === "offline" ? "bg-sys-accent" : "bg-slate-400"}`} />
                 {headerLearningMode === "offline" ? "Очно" : "Дистанційно"}
               </span>
             )}
@@ -1250,11 +1264,7 @@ export default function HomePage() {
                 {headerLearningMode && (
                   <>
                     {(currentWeekNumber || weekType !== "both") && <span className="shrink-0">·</span>}
-                    <span
-                      className={`font-bold shrink-0 ${
-                        headerLearningMode === "offline" ? "text-sys-accent" : "text-sys-warning"
-                      }`}
-                    >
+                    <span className="font-semibold text-sys-text-secondary shrink-0">
                       {headerLearningMode === "offline" ? "Очно" : "Дистанційно"}
                     </span>
                   </>
@@ -1518,7 +1528,7 @@ export default function HomePage() {
                       togglePinCurrent();
                       setMobileMenuOpen(false);
                     }}
-                    className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 px-3 py-2 text-xs font-semibold text-sys-text-primary hover:border-sys-accent/40"
+                    className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-surface/60 px-3 py-2 text-xs font-semibold text-sys-text-primary hover:border-amber-400/40 hover:bg-amber-400/5 transition-colors"
                   >
                     <span className="flex items-center gap-2">
                       <svg
@@ -1530,7 +1540,7 @@ export default function HomePage() {
                         strokeWidth="1.75"
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        className={isCurrentPinned ? "text-amber-400" : "text-slate-400"}
+                        className={isCurrentPinned ? "text-amber-400 shrink-0" : "text-amber-400/80 shrink-0"}
                       >
                         <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
                       </svg>
@@ -1549,17 +1559,17 @@ export default function HomePage() {
                     setMobileMenuOpen(false);
                     void handleShareWeekImage();
                   }}
-                  className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 px-3 py-2 text-xs font-semibold text-sys-text-primary hover:border-sys-accent/40 disabled:opacity-50"
+                  className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-surface/60 px-3 py-2 text-xs font-semibold text-sys-text-primary hover:border-sky-500/40 hover:bg-sky-500/5 transition-colors disabled:opacity-50"
                 >
                   <span className="flex items-center gap-2">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="text-sky-400 shrink-0">
                       <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
                       <circle cx="9" cy="9" r="2" />
                       <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
                     </svg>
                     <span>Зберегти картинку тижня</span>
                   </span>
-                  <span className="text-sys-text-muted">PNG</span>
+                  <span className="text-xs font-semibold text-sky-400/90">PNG</span>
                 </button>
 
                 {/* Share week */}
@@ -1570,21 +1580,21 @@ export default function HomePage() {
                     setMobileMenuOpen(false);
                     void handleShareWeek();
                   }}
-                  className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 px-3 py-2 text-xs font-semibold text-sys-text-primary hover:border-sys-accent/40"
+                  className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-surface/60 px-3 py-2 text-xs font-semibold text-sys-text-primary hover:border-emerald-500/40 hover:bg-emerald-500/5 transition-colors"
                 >
                   <span className="flex items-center gap-2">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-400 shrink-0">
                       <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
                       <polyline points="16 6 12 2 8 6" />
                       <line x1="12" y1="2" x2="12" y2="15" />
                     </svg>
                     <span>Поділитися розкладом тижня</span>
                   </span>
-                  <span className="text-sys-text-muted">↗</span>
+                  <span className="text-emerald-400/90">↗</span>
                 </button>
 
                 {/* Google Account / Classroom Status & Unlink (Section 17.3) */}
-                <div className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 px-3 py-2 text-xs">
+                <div className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-surface/60 px-3 py-2 text-xs">
                   <div className="flex flex-col min-w-0 pr-2">
                     <span className="text-xs font-semibold text-sys-text-secondary">Google-акаунт</span>
                     {isLinked && linkedEmail ? (
@@ -1622,26 +1632,26 @@ export default function HomePage() {
                 <a
                   href="/statistics"
                   role="menuitem"
-                  className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 px-3 py-2 text-xs font-semibold text-sys-text-primary hover:border-sys-accent/40"
+                  className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-surface/60 px-3 py-2 text-xs font-semibold text-sys-text-primary hover:border-purple-500/40 hover:bg-purple-500/5 transition-colors"
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   <span className="flex items-center gap-2">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="text-purple-400 shrink-0"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
                     <span>Статистика</span>
                   </span>
-                  <span className="text-sys-text-muted">↗</span>
+                  <span className="text-purple-400/90">↗</span>
                 </a>
                 <a
                   href="/educational-process"
                   role="menuitem"
-                  className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 px-3 py-2 text-xs font-semibold text-sys-text-primary hover:border-sys-accent/40"
+                  className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-surface/60 px-3 py-2 text-xs font-semibold text-sys-text-primary hover:border-indigo-500/40 hover:bg-indigo-500/5 transition-colors"
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   <span className="flex items-center gap-2">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-400 shrink-0"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                     <span>Графік процесу</span>
                   </span>
-                  <span className="text-sys-text-muted">↗</span>
+                  <span className="text-indigo-400/90">↗</span>
                 </a>
                 {isStandalone && !isDownloaded && (
                   <button
@@ -1652,10 +1662,10 @@ export default function HomePage() {
                       void handleDownloadOffline();
                     }}
                     disabled={isDownloading}
-                    className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 px-3 py-2 text-xs font-semibold text-sys-text-primary disabled:opacity-50"
+                    className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-surface/60 px-3 py-2 text-xs font-semibold text-sys-text-primary hover:border-cyan-500/40 hover:bg-cyan-500/5 transition-colors disabled:opacity-50"
                   >
                     <span className="flex items-center gap-2">
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="text-cyan-400 shrink-0"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                       <span>{isDownloading ? "Зберігаємо…" : "Зберегти на пристрій"}</span>
                     </span>
                   </button>
@@ -2259,9 +2269,9 @@ export default function HomePage() {
                         disabled={sharingWeekImage}
                         title="Скопіювати або зберегти розклад тижня як PNG-картинку"
                         aria-label="Поділитися картинкою розкладу тижня"
-                        className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-sys-border bg-sys-bg px-3 text-xs font-semibold text-sys-text-secondary hover:text-sys-accent hover:border-sys-accent/40 hover:bg-sys-accent/5 active:scale-95 transition-all disabled:opacity-50"
+                        className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-sys-border bg-sys-card px-3 text-xs font-semibold text-sys-text-secondary hover:text-sky-300 hover:border-sky-500/40 hover:bg-sky-500/5 active:scale-95 transition-all disabled:opacity-50"
                       >
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-sky-400 shrink-0">
                           <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
                           <circle cx="9" cy="9" r="2" />
                           <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
@@ -2273,9 +2283,9 @@ export default function HomePage() {
                         onClick={handleShareWeek}
                         title="Скопіювати розклад усього тижня"
                         aria-label="Поділитися розкладом на тиждень"
-                        className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-sys-border bg-sys-bg px-3 text-xs font-semibold text-sys-text-secondary hover:text-sys-accent hover:border-sys-accent/40 hover:bg-sys-accent/5 active:scale-95 transition-all"
+                        className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-sys-border bg-sys-card px-3 text-xs font-semibold text-sys-text-secondary hover:text-emerald-300 hover:border-emerald-500/40 hover:bg-emerald-500/5 active:scale-95 transition-all"
                       >
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-400 shrink-0">
                           <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
                           <polyline points="16 6 12 2 8 6" />
                           <line x1="12" y1="2" x2="12" y2="15" />

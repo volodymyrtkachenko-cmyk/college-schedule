@@ -4,18 +4,18 @@
 
 :root {
   color-scheme: dark;
-  --bg: #09090b;
-  --surface: #16161a;
-  --border: #27272a;
-  --border-chip: #3f3f46;
+  --bg: #0a0d14;
+  --surface: #121722;
+  --border: #1e2638;
+  --border-chip: #28354d;
   --text: #fafafa;
-  --text-muted: #a1a1aa;
+  --text-muted: #94a3b8;
   --accent: #3b82f6;
   --danger: #f87171;
   --warn: #fbbf24;
   --ok: #34d399;
   --page-padding: 16px;
-  --page-bg: #09090b;
+  --page-bg: #0a0d14;
 }
 
 @media (min-width: 1024px) {

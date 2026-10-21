@@ -229,20 +229,19 @@ export function ScheduleWeekGrid({
               key={`desktop-header-${day.date}`}
               className={`flex flex-col justify-center min-h-[64px] px-3.5 py-2.5 rounded-2xl border transition-all ${
                 isToday
-                  ? "bg-sys-accent/15 border-sys-accent shadow-[0_0_15px_rgba(59,130,246,0.12)] ring-1 ring-sys-accent/40"
+                  ? "bg-sys-card border-sys-accent/45 shadow-[0_0_15px_rgba(59,130,246,0.08)] ring-1 ring-sys-accent/30"
                   : isPast
                   ? "bg-sys-card/60 border-sys-border/50 opacity-75 hover:opacity-100"
                   : "bg-sys-card border-sys-border"
               }`}
             >
               <div className="flex items-center justify-between gap-1.5">
-                <span className={`text-[17px] xl:text-[18px] font-bold capitalize tracking-tight truncate ${
-                  isToday ? "text-sys-accent" : "text-sys-text-primary"
-                }`}>
+                <span className="text-[17px] xl:text-[18px] font-bold capitalize tracking-tight truncate text-sys-text-primary">
                   {longWeekday(day.date)}
                 </span>
                 {isToday && (
-                  <span className="shrink-0 px-2 py-0.5 rounded-full bg-sys-accent text-xs font-extrabold text-[#0b1120] uppercase tracking-wider shadow-xs">
+                  <span className="shrink-0 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border border-sys-accent/35 bg-sys-accent/15 text-xs font-bold text-sys-accent tracking-wide shadow-xs">
+                    <span className="h-1.5 w-1.5 rounded-full bg-sys-accent animate-pulse" />
                     Сьогодні
                   </span>
                 )}

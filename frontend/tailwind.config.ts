@@ -10,14 +10,14 @@ const config: Config = {
     extend: {
       colors: {
         sys: {
-          bg: '#000000',
-          card: '#121214',
-          surface: '#121214',
-          elevated: '#18181B',
-          elevatedBorder: '#3F3F46',
-          border: '#27272A',
-          input: '#09090B',
-          tabActive: '#18181B',
+          bg: '#0a0d14',
+          card: '#121722',
+          surface: '#121722',
+          elevated: '#182030',
+          elevatedBorder: '#28354d',
+          border: '#1e2638',
+          input: '#0d121c',
+          tabActive: '#182030',
           destructive: '#EF4444',
           accent: '#3B82F6',
           success: '#10B981',
@@ -28,8 +28,8 @@ const config: Config = {
           text: {
             subject: '#FFFFFF',
             primary: '#F4F4F5',
-            secondary: '#A1A1AA',
-            muted: '#71717A',
+            secondary: '#94A3B8',
+            muted: '#64748B',
           }
         }
       },

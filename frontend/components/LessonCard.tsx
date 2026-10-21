@@ -566,6 +566,22 @@ function vibrateTap(ms = 10) {
   }
 }
 
+function getMeetingBtnStyle(platform?: string | null, isLiveOrSoon?: boolean, size: "normal" | "compact" | "tiny" = "normal") {
+  if (isLiveOrSoon) {
+    if (size === "compact" || size === "tiny") {
+      return "bg-emerald-600/90 text-white border-emerald-500 shadow-xs hover:bg-emerald-500";
+    }
+    return "bg-emerald-600 text-white border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.35)] hover:bg-emerald-500 animate-pulse";
+  }
+  if (platform === "zoom") {
+    return "border-sky-500/35 bg-sky-500/12 text-sky-400 hover:border-sky-500/50 hover:text-sky-300 hover:bg-sky-500/20";
+  }
+  if (platform === "meet") {
+    return "border-emerald-500/35 bg-emerald-500/12 text-emerald-400 hover:border-emerald-500/50 hover:text-emerald-300 hover:bg-emerald-500/20";
+  }
+  return "border-indigo-500/35 bg-indigo-500/12 text-indigo-400 hover:border-indigo-500/50 hover:text-indigo-300 hover:bg-indigo-500/20";
+}
+
 export function LessonCard({
   lesson,
   targetDate,
@@ -924,7 +940,9 @@ export function LessonCard({
               ? "border-sys-warning/40 ring-1 ring-sys-warning/60 bg-sys-warning/[0.03]"
               : isSelectedForMove
                 ? "border-emerald-400 ring-1 ring-emerald-400/70"
-                : "border-sys-border";
+                : (!isDay && isTodayTarget)
+                  ? "border-sys-accent/35 bg-sys-accent/[0.03] shadow-[0_0_12px_rgba(59,130,246,0.06)] hover:border-sys-accent/50"
+                  : "border-sys-border hover:border-sys-border/80";
 
   const renderStatusBadge = (compact = false) => {
     const baseCls = compact
@@ -1217,7 +1235,7 @@ export function LessonCard({
           {/* Zone 1: Timeline (100px - 110px) */}
           {!hideTimeColumn && (
             <div className="w-24 sm:w-28 shrink-0 self-start flex flex-col items-start pr-4 border-r border-sys-border/50 text-left pt-1">
-              <span className={`text-2xl sm:text-[26px] font-black leading-none ${isLive ? "text-sys-accent" : "text-[#94a3b8]"}`}>
+              <span className={`text-2xl sm:text-[26px] font-black leading-none transition-colors ${isLive ? "text-sys-accent" : "text-slate-200 group-hover:text-sys-accent"}`}>
                 {lesson.lesson_number}
               </span>
               <div className="mt-1.5 flex flex-col leading-tight whitespace-nowrap">
@@ -1261,7 +1279,11 @@ export function LessonCard({
                           onClick={(e) => { e.stopPropagation(); handleSubgroupToggle(singleSubgroupIdx + 1); }}
                           title={isLinked ? `Ваша підгрупа ${singleSubgroupIdx + 1} (натисніть, щоб перемкнути)` : (selectedSubgroup === singleSubgroupIdx + 1 ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${singleSubgroupIdx + 1} підгрупу`)}
                           aria-label={isLinked ? `Ваша підгрупа ${singleSubgroupIdx + 1} (натисніть, щоб перемкнути)` : (selectedSubgroup === singleSubgroupIdx + 1 ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${singleSubgroupIdx + 1} підгрупу`)}
-                          className="shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold bg-sys-accent/20 text-sys-accent font-bold border border-sys-accent/40"
+                          className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold border ${
+                            singleSubgroupIdx === 0
+                              ? "bg-sky-500/20 text-sky-400 font-bold border-sky-500/40"
+                              : "bg-indigo-500/20 text-indigo-400 font-bold border-indigo-500/40"
+                          }`}
                         >
                           {singleSubgroupIdx + 1} підгр.
                         </button>
@@ -1320,8 +1342,12 @@ export function LessonCard({
                                   aria-label={isLinked ? `Ваша підгрупа ${subNum} (натисніть, щоб перемкнути)` : (selectedSubgroup === subNum ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${subNum} підгрупу`)}
                                   className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold transition-colors ${
                                     (isLinked ? effectiveSubgroup === subNum : selectedSubgroup === subNum)
-                                      ? "bg-sys-accent/20 text-sys-accent font-bold border border-sys-accent/40"
-                                      : "bg-sys-border/60 border border-sys-border text-slate-300 hover:text-white"
+                                      ? subNum === 1
+                                        ? "bg-sky-500/20 text-sky-400 font-bold border border-sky-500/40"
+                                        : "bg-indigo-500/20 text-indigo-400 font-bold border border-indigo-500/40"
+                                      : subNum === 1
+                                        ? "bg-sys-card border border-sys-border text-slate-400 hover:text-slate-200 hover:border-sky-500/40"
+                                        : "bg-sys-card border border-sys-border text-slate-400 hover:text-slate-200 hover:border-indigo-500/40"
                                   }`}
                                 >
                                   {subNum} підгр.
@@ -1363,9 +1389,7 @@ export function LessonCard({
                                   rel="noopener noreferrer"
                                   onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
                                   className={`inline-flex shrink-0 h-7 px-2.5 items-center gap-1.5 rounded-lg border text-xs font-semibold whitespace-nowrap active:scale-95 transition-all ${
-                                    isLive && isMeetingLiveOrSoon
-                                      ? "bg-emerald-600/90 text-white border-emerald-500 shadow-xs hover:bg-emerald-500"
-                                      : "border-sys-border bg-sys-card text-sys-text-primary hover:border-sys-accent/50 hover:text-sys-accent hover:bg-white/5"
+                                    getMeetingBtnStyle(ownMeeting.platform, isLive && isMeetingLiveOrSoon, "compact")
                                   }`}
                                 >
                                   {ownMeeting.platform === "zoom" ? (
@@ -1436,10 +1460,8 @@ export function LessonCard({
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
-                      className={`inline-flex h-8 items-center gap-1.5 rounded-lg font-bold text-xs active:scale-95 transition-all whitespace-nowrap ${
-                        isMeetingLiveOrSoon
-                          ? "px-3 shadow-xs bg-emerald-600 text-white border border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.35)] hover:bg-emerald-500 animate-pulse"
-                          : "px-3 border border-sys-border bg-sys-card text-sys-text-primary hover:border-sys-accent/50 hover:text-sys-accent"
+                      className={`inline-flex h-8 px-3 items-center gap-1.5 rounded-lg font-bold text-xs active:scale-95 transition-all whitespace-nowrap border ${
+                        getMeetingBtnStyle(deskMeeting.platform, isMeetingLiveOrSoon, "normal")
                       }`}
                     >
                       {deskMeeting.platform === "zoom" ? (
@@ -1736,7 +1758,7 @@ export function LessonCard({
               <div className="flex flex-wrap items-center gap-1.5 min-w-0">
                 {!hideTimeColumn && (
                   <div className="flex items-center gap-2 whitespace-nowrap">
-                    <span className={`text-base font-black leading-none ${isLive ? "text-sys-accent" : "text-[#94a3b8]"}`}>
+                    <span className={`text-base font-black leading-none transition-colors ${isLive ? "text-sys-accent" : "text-slate-200 group-hover:text-sys-accent"}`}>
                       {lesson.lesson_number}
                     </span>
                     <span className="text-slate-500 font-bold text-xs">·</span>
@@ -1842,10 +1864,8 @@ export function LessonCard({
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
-                      className={`inline-flex h-8 min-h-[32px] px-2.5 items-center gap-1.5 rounded-lg font-bold text-xs shadow-xs active:scale-95 transition-all whitespace-nowrap ${
-                        isMeetingLiveOrSoon
-                          ? "bg-emerald-600 text-white border border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.35)] hover:bg-emerald-500 animate-pulse"
-                          : "border border-sys-border bg-sys-card text-sys-text-primary hover:border-sys-accent/50 hover:text-sys-accent"
+                      className={`inline-flex h-8 min-h-[32px] px-2.5 items-center gap-1.5 rounded-lg font-bold text-xs shadow-xs active:scale-95 transition-all whitespace-nowrap border ${
+                        getMeetingBtnStyle(mobileMeeting.platform, isMeetingLiveOrSoon, "normal")
                       }`}
                     >
                       {mobileMeeting.platform === "zoom" ? (
@@ -1890,7 +1910,11 @@ export function LessonCard({
                     onClick={(e) => { e.stopPropagation(); handleSubgroupToggle(singleSubgroupIdx + 1); }}
                     title={isLinked ? `Ваша підгрупа ${singleSubgroupIdx + 1} (натисніть, щоб перемкнути)` : (selectedSubgroup === singleSubgroupIdx + 1 ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${singleSubgroupIdx + 1} підгрупу`)}
                     aria-label={isLinked ? `Ваша підгрупа ${singleSubgroupIdx + 1} (натисніть, щоб перемкнути)` : (selectedSubgroup === singleSubgroupIdx + 1 ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${singleSubgroupIdx + 1} підгрупу`)}
-                    className="shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold bg-sys-accent/20 text-sys-accent font-bold border border-sys-accent/40"
+                    className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold border ${
+                      singleSubgroupIdx === 0
+                        ? "bg-sky-500/20 text-sky-400 font-bold border-sky-500/40"
+                        : "bg-indigo-500/20 text-indigo-400 font-bold border-indigo-500/40"
+                    }`}
                   >
                     {singleSubgroupIdx + 1} підгр.
                   </button>
@@ -1949,8 +1973,12 @@ export function LessonCard({
                             aria-label={isLinked ? `Ваша підгрупа ${subNum} (натисніть, щоб перемкнути)` : (selectedSubgroup === subNum ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${subNum} підгрупу`)}
                             className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold transition-colors ${
                               (isLinked ? effectiveSubgroup === subNum : selectedSubgroup === subNum)
-                                ? "bg-sys-accent/20 text-sys-accent font-bold border border-sys-accent/40"
-                                : "bg-sys-border/60 border border-sys-border text-slate-300 hover:text-white"
+                                ? subNum === 1
+                                  ? "bg-sky-500/20 text-sky-400 font-bold border border-sky-500/40"
+                                  : "bg-indigo-500/20 text-indigo-400 font-bold border border-indigo-500/40"
+                                : subNum === 1
+                                  ? "bg-sys-card border border-sys-border text-slate-400 hover:text-slate-200 hover:border-sky-500/40"
+                                  : "bg-sys-card border border-sys-border text-slate-400 hover:text-slate-200 hover:border-indigo-500/40"
                             }`}
                           >
                             {subNum} підгр.
@@ -1992,9 +2020,7 @@ export function LessonCard({
                             rel="noopener noreferrer"
                             onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
                             className={`inline-flex shrink-0 h-7 px-2.5 items-center gap-1.5 rounded-lg border text-xs font-semibold whitespace-nowrap active:scale-95 transition-all ${
-                              isLive && isMeetingLiveOrSoon
-                                ? "bg-emerald-600/90 text-white border-emerald-500 shadow-xs hover:bg-emerald-500"
-                                : "border-sys-border bg-sys-card text-sys-text-primary hover:border-sys-accent/50 hover:text-sys-accent hover:bg-white/5"
+                              getMeetingBtnStyle(ownMeeting.platform, isLive && isMeetingLiveOrSoon, "compact")
                             }`}
                           >
                             {ownMeeting.platform === "zoom" ? (
@@ -2030,9 +2056,7 @@ export function LessonCard({
                         rel="noopener noreferrer"
                         onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
                         className={`inline-flex shrink-0 h-7 px-2.5 items-center gap-1.5 rounded-lg border text-xs font-semibold whitespace-nowrap active:scale-95 transition-all ${
-                          isLive && isMeetingLiveOrSoon
-                            ? "bg-emerald-600/90 text-white border-emerald-500 shadow-xs hover:bg-emerald-500"
-                            : "border-sys-border bg-sys-card text-sys-text-primary hover:border-sys-accent/50 hover:text-sys-accent hover:bg-white/5"
+                          getMeetingBtnStyle(row3Meetings[0].platform, isLive && isMeetingLiveOrSoon, "compact")
                         }`}
                       >
                         {row3Meetings[0].platform === "zoom" ? (
@@ -2080,10 +2104,8 @@ export function LessonCard({
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
-                  className={`inline-flex min-h-[40px] h-10 px-3.5 items-center gap-2 rounded-xl font-bold text-xs shadow-xs active:scale-95 transition-all whitespace-nowrap ${
-                    isMeetingLiveOrSoon
-                      ? "bg-emerald-600 text-white border border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.35)] hover:bg-emerald-500 animate-pulse"
-                      : "border border-sys-border bg-sys-card text-sys-text-primary hover:border-sys-accent/50 hover:text-sys-accent"
+                  className={`inline-flex min-h-[40px] h-10 px-3.5 items-center gap-2 rounded-xl font-bold text-xs shadow-xs active:scale-95 transition-all whitespace-nowrap border ${
+                    getMeetingBtnStyle(mobileMeeting.platform, isMeetingLiveOrSoon, "normal")
                   }`}
                 >
                   {mobileMeeting.platform === "zoom" ? (
@@ -2317,7 +2339,7 @@ export function LessonCard({
         {/* Left: narrow fixed column (number + start time) */}
         {!hideTimeColumn && (
           <div className="flex w-11 sm:w-12 shrink-0 flex-col text-left">
-            <span className={`text-lg sm:text-xl font-bold leading-none ${isLive ? "text-sys-accent" : "text-slate-400"}`}>
+            <span className={`text-lg sm:text-xl font-bold leading-none transition-colors ${isLive ? "text-sys-accent" : "text-slate-300 group-hover:text-sys-accent"}`}>
               {lesson.lesson_number}
             </span>
             <span className="text-xs sm:text-xs font-semibold text-sys-text-secondary mt-1 whitespace-nowrap">
@@ -2362,7 +2384,11 @@ export function LessonCard({
                   onClick={(e) => { e.stopPropagation(); handleSubgroupToggle(singleSubgroupIdx + 1); }}
                   title={isLinked ? `Ваша підгрупа ${singleSubgroupIdx + 1} (натисніть, щоб перемкнути)` : (selectedSubgroup === singleSubgroupIdx + 1 ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${singleSubgroupIdx + 1} підгрупу`)}
                   aria-label={isLinked ? `Ваша підгрупа ${singleSubgroupIdx + 1} (натисніть, щоб перемкнути)` : (selectedSubgroup === singleSubgroupIdx + 1 ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${singleSubgroupIdx + 1} підгрупу`)}
-                  className="shrink-0 rounded px-1.5 py-0.5 text-[11px] font-bold bg-sys-accent/20 text-sys-accent border border-sys-accent/40"
+                  className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-bold border ${
+                    singleSubgroupIdx === 0
+                      ? "bg-sky-500/20 text-sky-400 border-sky-500/40"
+                      : "bg-indigo-500/20 text-indigo-400 border-indigo-500/40"
+                  }`}
                 >
                   {singleSubgroupIdx + 1} підгр.
                 </button>
@@ -2421,8 +2447,12 @@ export function LessonCard({
                           aria-label={isLinked ? `Ваша підгрупа ${subNum} (натисніть, щоб перемкнути)` : (selectedSubgroup === subNum ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${subNum} підгрупу`)}
                           className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-semibold transition-colors ${
                             (isLinked ? effectiveSubgroup === subNum : selectedSubgroup === subNum)
-                              ? "bg-sys-accent/20 text-sys-accent font-bold border border-sys-accent/40"
-                              : "bg-sys-border/60 border border-sys-border text-slate-300 hover:text-white"
+                              ? subNum === 1
+                                ? "bg-sky-500/20 text-sky-400 font-bold border border-sky-500/40"
+                                : "bg-indigo-500/20 text-indigo-400 font-bold border border-indigo-500/40"
+                              : subNum === 1
+                                ? "bg-sys-card border border-sys-border text-slate-400 hover:text-slate-200 hover:border-sky-500/40"
+                                : "bg-sys-card border border-sys-border text-slate-400 hover:text-slate-200 hover:border-indigo-500/40"
                           }`}
                         >
                           {subNum} підгр.
@@ -2465,9 +2495,7 @@ export function LessonCard({
                             rel="noopener noreferrer"
                             onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
                             className={`inline-flex shrink-0 h-6 px-2 items-center gap-1 rounded-md border text-[11px] font-semibold whitespace-nowrap active:scale-95 transition-all ${
-                              isLive && isMeetingLiveOrSoon
-                                ? "bg-emerald-600/90 text-white border-emerald-500 shadow-xs hover:bg-emerald-500"
-                                : "border-sys-border bg-sys-card text-sys-text-primary hover:border-sys-accent/50 hover:text-sys-accent hover:bg-white/5"
+                              getMeetingBtnStyle(ownMeeting.platform, isLive && isMeetingLiveOrSoon, "tiny")
                             }`}
                           >
                             {ownMeeting.platform === "zoom" ? (
@@ -2573,7 +2601,9 @@ export function LessonCard({
                     e.stopPropagation();
                     vibrateTap(12);
                   }}
-                  className="inline-flex h-6 min-h-[24px] items-center gap-1 rounded-md border border-sys-border/70 bg-sys-card px-2 py-0.5 text-xs font-semibold text-sys-text-secondary hover:border-sys-accent/50 hover:text-sys-accent active:scale-95 transition-all"
+                  className={`inline-flex h-6 min-h-[24px] items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-semibold active:scale-95 transition-all ${
+                    getMeetingBtnStyle(m.platform, isLive && isMeetingLiveOrSoon, "tiny")
+                  }`}
                 >
                   <span>
                     {m.platform === "zoom" ? "Zoom" : m.platform === "meet" ? "Meet" : "Онлайн"}

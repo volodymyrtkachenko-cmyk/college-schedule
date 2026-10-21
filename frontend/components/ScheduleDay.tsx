@@ -141,27 +141,30 @@ export function ScheduleDay({
     <section className="min-w-0">
       <header className={`mb-3.5 flex items-center justify-between gap-2 px-0 ${mode === "week" ? "min-h-[56px]" : "pt-1"} ${hideHeaderOnMobile ? "hidden sm:flex" : ""}`}>
         {mode === "day" ? (
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex flex-wrap items-baseline gap-2">
-              <div className="flex items-center gap-2.5">
-                {isToday && <span className="flex h-2.5 w-2.5 animate-pulse rounded-full bg-sys-accent shadow-[0_0_10px_rgba(59,130,246,0.9)]" />}
-                <h2 className={`text-xl sm:text-2xl lg:text-[26px] font-bold capitalize tracking-tight ${isToday ? "text-sys-accent" : "text-sys-text-primary"}`}>
-                  {fmt(schedule.date, { weekday: "long" })}<span className="font-normal text-sys-text-secondary">,</span>
-                </h2>
-              </div>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-xl sm:text-2xl lg:text-[26px] font-bold capitalize tracking-tight text-sys-text-primary">
+                {fmt(schedule.date, { weekday: "long" })}<span className="font-normal text-sys-text-secondary">,</span>
+              </h2>
               <span className="text-sm sm:text-base lg:text-lg font-medium text-sys-text-secondary">
                 {fmt(schedule.date, { day: "numeric", month: "long" })}
               </span>
+              {isToday && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-sys-accent/35 bg-sys-accent/15 text-xs font-bold text-sys-accent tracking-wide shadow-xs">
+                  <span className="h-1.5 w-1.5 rounded-full bg-sys-accent animate-pulse" />
+                  Сьогодні
+                </span>
+              )}
             </div>
           </div>
         ) : (
           <div className="flex flex-col justify-center min-h-[56px] min-w-0 flex-1">
             <div className="flex items-center justify-between gap-1">
-              <h2 className={`text-base sm:text-lg font-bold capitalize tracking-tight truncate ${isToday ? "text-sys-accent" : "text-sys-text-primary"}`}>
+              <h2 className="text-base sm:text-lg font-bold capitalize tracking-tight truncate text-sys-text-primary">
                 {fmt(schedule.date, { weekday: "long" })}
               </h2>
               {isToday && (
-                <span className="shrink-0 px-1.5 py-0.5 rounded-full bg-sys-accent text-xs font-extrabold text-[#0b1120] uppercase">
+                <span className="shrink-0 px-2 py-0.5 rounded-full border border-sys-accent/35 bg-sys-accent/15 text-xs font-extrabold text-sys-accent uppercase tracking-wider">
                   Сьогодні
                 </span>
               )}
@@ -182,9 +185,9 @@ export function ScheduleDay({
               disabled={sharingImage}
               title="Скопіювати або зберегти розклад як PNG-картинку"
               aria-label="Поділитися картинкою розкладу"
-              className="h-9 px-3 gap-1.5 flex items-center justify-center rounded-xl border border-sys-border bg-sys-card text-xs font-semibold text-sys-text-secondary transition-all hover:border-sys-accent/40 hover:text-sys-accent hover:bg-sys-accent/5 active:scale-95 disabled:opacity-50"
+              className="h-9 px-3 gap-1.5 flex items-center justify-center rounded-xl border border-sys-border bg-sys-card text-xs font-semibold text-sys-text-secondary transition-all hover:border-sky-500/40 hover:text-sky-300 hover:bg-sky-500/5 active:scale-95 disabled:opacity-50"
             >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-sky-400 shrink-0">
                 <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
                 <circle cx="9" cy="9" r="2" />
                 <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
@@ -196,9 +199,9 @@ export function ScheduleDay({
               onClick={handleShareDay}
               title="Скопіювати розклад"
               aria-label="Скопіювати розклад дня"
-              className="h-9 px-3 gap-1.5 flex items-center justify-center rounded-xl border border-sys-border bg-sys-card text-xs font-semibold text-sys-text-secondary transition-all hover:border-sys-accent/40 hover:text-sys-accent hover:bg-sys-accent/5 active:scale-95"
+              className="h-9 px-3 gap-1.5 flex items-center justify-center rounded-xl border border-sys-border bg-sys-card text-xs font-semibold text-sys-text-secondary transition-all hover:border-emerald-500/40 hover:text-emerald-300 hover:bg-emerald-500/5 active:scale-95"
             >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-400 shrink-0">
                 <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
                 <polyline points="16 6 12 2 8 6" />
                 <line x1="12" y1="2" x2="12" y2="15" />
