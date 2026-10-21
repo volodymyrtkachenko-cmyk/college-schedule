@@ -189,9 +189,8 @@ async def test_auto_publish_disabled_uses_draft_model(ctx, monkeypatch):
 
 
 @pytest.mark.anyio
-async def test_anomaly_threshold_exceeded_creates_pending_draft(ctx, monkeypatch):
+async def test_no_limit_on_substitutions_and_swaps_auto_publishes(ctx, monkeypatch):
     db, ids = ctx
-    # Add some base schedule lessons (e.g. 5 lessons for group 101)
     base_schedules = [
         Schedule(
             group_id=ids["group_id"],
@@ -208,38 +207,32 @@ async def test_anomaly_threshold_exceeded_creates_pending_draft(ctx, monkeypatch
     db.add_all(base_schedules)
     await db.commit()
 
-    # Create 3 substitutions for group 101 on a Tuesday -> 3 / 4 = 75% > 30% anomaly threshold!
-    target_date = (date(2026, 10, 20)).isoformat()  # Tuesday
+    # Even if 100% of a group's lessons or 60+ lessons across dates have substitutions/swaps, auto-import publishes them without blocking
+    base_date = date(2026, 10, 20)
     subs = [
         {
             "group_id": ids["group_id"],
             "subject_id": ids["subject_id"],
             "teacher_id": ids["teacher_id"],
             "second_teacher_id": None,
-            "date": target_date,
+            "date": (base_date + timedelta(days=day_offset)).isoformat(),
             "lesson_number": i,
             "week_type": "both",
             "room": "101",
+            "is_explicit_substitution": True,
         }
-        for i in range(1, 4)
+        for day_offset in range(15)
+        for i in range(1, 5)
     ]
     setup_kre_mock(monkeypatch, ids, substitutions=subs)
 
-    result = await admin_import._do_import(db, 2, "anomaly-test")
+    result = await admin_import._do_import(db, 2, "no-limit-test")
 
-    assert result["status"] == "anomaly_draft"
-    assert result["meta"]["is_anomaly"] is True
-    assert result["meta"]["auto_published"] is False
-    assert result["meta"]["draft_created"] is not None
-
-    draft = await db.get(ScheduleDraft, result["meta"]["draft_created"])
-    assert draft.data.get("is_anomaly") is True
-    assert len(result["meta"]["anomaly_reasons"]) > 0
-
-    # Status check confirms pending anomaly draft
-    status = await admin_import.get_import_status_endpoint(db=db, user=SimpleNamespace(id=1, role="admin"))
-    assert status["pending_anomaly_draft"] is not None
-    assert status["anomaly_drafts_count"] == 1
+    assert result["status"] == "success"
+    assert result["meta"]["is_anomaly"] is False
+    assert result["meta"]["auto_published"] is True
+    assert result["meta"]["draft_created"] is None
+    assert result["meta"]["publication_id"] is not None
 
 
 @pytest.mark.anyio

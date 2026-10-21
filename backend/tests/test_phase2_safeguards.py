@@ -201,7 +201,7 @@ async def test_anomaly_draft_requires_force_to_publish(ctx, monkeypatch):
     from app.services.settings import settings_service
     await settings_service.set(db, "import_auto_publish", "true")
 
-    # Створюємо 60 унікальних змін на різних датах (перевищує абсолютний поріг 50)
+    # 60 замін/перестановок публікуються автоматично без обмеження на кількість
     base_target = date(2026, 10, 19)
     massive_substitutions = []
     for day_offset in range(15):
@@ -239,22 +239,33 @@ async def test_anomaly_draft_requires_force_to_publish(ctx, monkeypatch):
     }))
     monkeypatch.setattr(admin_import, "matches_published_schedule", AsyncMock(return_value=False))
 
-    # Виконуємо імпорт
     result = await admin_import._do_import(db, 2, "anomaly-test", actor_id=None)
+    assert result["meta"]["auto_published"] is True
+    assert result["meta"]["is_anomaly"] is False
 
-    # Запобіжник спрацював: не опубліковано автоматично!
-    assert result["meta"]["auto_published"] is False
-    assert result["meta"]["is_anomaly"] is True
-    draft_id = result["meta"]["draft_created"]
-    assert draft_id is not None
+    # Якщо чернетка все ж позначена як is_anomaly=True, ручна публікація без force=True має викликати HTTP 400
+    draft_obj = ScheduleDraft(
+        name="Аномальний імпорт",
+        draft_type="import",
+        status="pending",
+        revision=1,
+        data={
+            "base_version_id": ids["version_id"],
+            "base_slots": [],
+            "substitutions": massive_substitutions[:1],
+            "cancelled": [],
+            "import_scope": {"dates": [base_target.isoformat()], "group_ids": [ids["group_id"]]},
+            "is_anomaly": True,
+            "anomaly_reasons": ["Тестова аномалія"],
+        },
+    )
+    db.add(draft_obj)
+    await db.commit()
+    await db.refresh(draft_obj)
 
-    draft_obj = await db.get(ScheduleDraft, draft_id)
-    assert draft_obj.data.get("is_anomaly") is True
-
-    # Спроба опублікувати без force=True має викликати HTTP 400
     with pytest.raises(HTTPException) as exc_info:
         await drafts.publish_draft(
-            draft_id,
+            draft_obj.id,
             expected_revision=draft_obj.revision,
             db=db,
             current_user=SimpleNamespace(id=ids["admin_user_id"], role="admin"),
@@ -265,7 +276,7 @@ async def test_anomaly_draft_requires_force_to_publish(ctx, monkeypatch):
 
     # З force=True публікація дозволена
     pub_result = await drafts.publish_draft(
-        draft_id,
+        draft_obj.id,
         expected_revision=draft_obj.revision,
         db=db,
         current_user=SimpleNamespace(id=ids["admin_user_id"], role="admin"),

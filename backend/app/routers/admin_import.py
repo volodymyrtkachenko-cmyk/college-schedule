@@ -1091,28 +1091,8 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
         total_explicit_changes = sum(explicit_changes_per_group.values())
 
         import_settings = await get_import_settings(db)
-        anomaly_group_thresh = import_settings["anomaly_group_threshold"]
-        anomaly_total_thresh = import_settings["anomaly_total_threshold"]
-
         is_anomaly = False
         anomaly_reasons = []
-
-        if total_explicit_changes >= 50:
-            is_anomaly = True
-            anomaly_reasons.append(f"Аномально велика кількість замін ({total_explicit_changes})")
-
-        for gid, chg_cnt in explicit_changes_per_group.items():
-            sched_cnt = group_lessons_count.get(gid, 0)
-            if sched_cnt >= 4 and (chg_cnt / sched_cnt) > anomaly_group_thresh:
-                pct = round((chg_cnt / sched_cnt) * 100)
-                grp_name = groups_map[gid].name if gid in groups_map else f"Група #{gid}"
-                is_anomaly = True
-                anomaly_reasons.append(f"У групі {grp_name} замінено {pct}% пар ({chg_cnt} з {sched_cnt})")
-
-        if total_scheduled_lessons >= 15 and (total_explicit_changes / total_scheduled_lessons) > anomaly_total_thresh:
-            pct = round((total_explicit_changes / total_scheduled_lessons) * 100)
-            is_anomaly = True
-            anomaly_reasons.append(f"Загалом замінено {pct}% пар ({total_explicit_changes} з {total_scheduled_lessons})")
 
         # Safety Guard 4: No duplicates & no noise
         # Auto-import has permission to publish ONLY explicit substitutions and same-day swaps/moves (no cancellations)
