@@ -559,6 +559,34 @@ def _link_line_belongs_to_sync(line: str, sync_teacher_tokens: set[str]) -> bool
     return any(p in tok or (len(tok) >= 4 and tok in p) for tok in folded_sync)
 
 
+def _task_line_belongs_to_sync(
+    line: str,
+    task_c_id: Optional[str],
+    current_sync_course_ids: set[str],
+    sync_teacher_tokens: set[str],
+) -> bool:
+    """Чи належить рядок [TASK] викладачу з курсів ПОТОЧНОГО синку.
+
+    Якщо рядок має бейдж викладача ([TASK] [Токарєва] ...), перевіряємо,
+    чи належить цей викладач до активних викладачів поточного синку студента.
+    Інакше це завдання іншої підгрупи (навіть зі спільного курсу!), і його треба зберегти.
+    """
+    badge_m = re.match(r"^\[TASK\]\s*\[([^\]]+)\]", (line or "").strip())
+    if badge_m:
+        badge_raw = badge_m.group(1).strip()
+        p = _fold(badge_raw)
+        if len(p) >= 3:
+            folded_sync = {_fold(tok) for tok in sync_teacher_tokens if tok}
+            if "1підгр" in p or "1group" in p or p.startswith("1"):
+                return any("токар" in tok for tok in folded_sync)
+            if "2підгр" in p or "2group" in p or p.startswith("2"):
+                return any("хочин" in tok for tok in folded_sync)
+            return any(p in tok or (len(tok) >= 4 and tok in p) for tok in folded_sync)
+    if task_c_id and task_c_id in current_sync_course_ids:
+        return True
+    return False
+
+
 async def _save_link_to_slot(
     db: AsyncSession,
     target_date: date,
@@ -855,12 +883,9 @@ async def perform_course_sync(
             if not l_str:
                 continue
             if l_str.startswith("[TASK"):
-                # Якщо завдання з іншого курсу (іншої підгрупи або вже синхронізованого в цьому циклі),
-                # якого немає в effective_courses — зберігаємо його
-                c_match = re.search(r"/(?:c|w)/([A-Za-z0-9_\-]+)", l_str)
-                task_c_id = c_match.group(1) if c_match else None
-                if task_c_id and task_c_id in current_sync_course_ids:
-                    continue
+                # Завдання [TASK] не видаляємо наосліп до завантаження авторів курсів:
+                # у КРОЦІ 1b прибираємо лише ті [TASK], що належать викладачам ПОТОЧНОГО синку.
+                # Завдання іншої підгрупи (навіть зі спільного курсу!) дбайливо зберігаються.
                 manual_lines.append(l_str)
                 continue
             if "classroom.google.com/" in l_str.lower():
@@ -1149,6 +1174,10 @@ async def perform_course_sync(
         bundles = await asyncio.gather(*(fetch_course_bundle(c) for c in relevant_courses[:30]))
 
         course_teachers_tokens: dict[str, list[str]] = {}
+        course_teacher_count: dict[str, int] = {}
+        course_teacher_uids: dict[str, list[str]] = {}
+        teacher_name_by_uid: dict[str, str] = {}
+        student_dominant_uid_by_course: dict[str, str] = {}
         topics_by_course: dict[str, dict[str, str]] = {}
         missing_creators: set[tuple[str, str]] = set()
         turned_in_cw_ids: set[str] = set()
@@ -1157,6 +1186,7 @@ async def perform_course_sync(
         synced_teacher_names: set[str] = set()
         synced_teacher_tokens: set[str] = set()
         synced_subgroups: set[int] = set()
+        personal_classroom_tasks: list[dict] = []
 
         # Прохід 1: Парсимо вже отриманих викладачів/теми та збираємо невідомі creatorUserId
         for course, bundle_items in bundles:
@@ -1175,6 +1205,8 @@ async def perform_course_sync(
 
             course_id = course["id"]
             course_teachers_tokens[course_id] = []
+            course_teacher_count[course_id] = 0
+            course_teacher_uids[course_id] = []
             topics_by_id: dict[str, str] = {}
 
             if getattr(sub_resp, "status_code", None) == 403:
@@ -1203,17 +1235,17 @@ async def perform_course_sync(
             topics_by_course[course_id] = topics_by_id
 
             if not isinstance(t_resp, Exception) and t_resp.status_code == 200:
-                for t_item in t_resp.json().get("teachers", []):
+                raw_teachers = t_resp.json().get("teachers", [])
+                course_teacher_count[course_id] = len(raw_teachers)
+                is_single_teacher_course = len(raw_teachers) <= 1
+
+                for t_item in raw_teachers:
                     uid = t_item.get("userId")
                     prof = t_item.get("profile", {})
                     fn = prof.get("name", {}).get("fullName", "").strip()
                     email = prof.get("emailAddress")
                     if fn:
                         t_toks = [w for w in _norm(fn).split() if len(w) >= 3]
-                        if uid:
-                            teacher_tokens_by_uid[uid] = t_toks
-                        course_teachers_tokens[course_id].extend(t_toks)
-                        synced_teacher_tokens.update(t_toks)
 
                         parts = [p for p in fn.split() if len(p) > 2]
                         matched_db_t = None
@@ -1229,14 +1261,31 @@ async def perform_course_sync(
                                 if email and not matched_db_t.email:
                                     matched_db_t.email = email[:255]
                                 break
+
                         if matched_db_t:
-                            synced_teacher_names.add(matched_db_t.name)
-                            synced_teacher_tokens.add(_norm(matched_db_t.name.split()[0]))
-                        elif fn:
-                            synced_teacher_names.add(fn)
-                            f_word = fn.split()[0]
-                            if len(f_word) >= 3:
-                                synced_teacher_tokens.add(_norm(f_word))
+                            db_first = _norm(matched_db_t.name.split()[0])
+                            if db_first and db_first not in t_toks:
+                                t_toks.append(db_first)
+                            t_display_name = matched_db_t.name
+                        else:
+                            t_display_name = fn
+
+                        if uid:
+                            teacher_tokens_by_uid[uid] = t_toks
+                            if t_display_name:
+                                teacher_name_by_uid[uid] = t_display_name
+                            course_teacher_uids[course_id].append(uid)
+
+                        course_teachers_tokens[course_id].extend(t_toks)
+
+                        # Для курсу з 1 викладачем одразу додаємо його до персональних викладачів студента.
+                        # Для спільного курсу з 2+ викладачами (напр. Токарєва + Хочинська в одному курсі)
+                        # викладача студента визначаємо нижче за фактичними публікаціями (creatorUserId),
+                        # які адресовані цьому студенту!
+                        if is_single_teacher_course:
+                            synced_teacher_tokens.update(t_toks)
+                            if t_display_name:
+                                synced_teacher_names.add(t_display_name)
 
             if not isinstance(ann_resp, Exception) and ann_resp.status_code == 200:
                 for ann in ann_resp.json().get("announcements", []):
@@ -1266,18 +1315,64 @@ async def perform_course_sync(
                             headers=headers,
                         )
                         if r.status_code == 200:
-                            fn = _norm(r.json().get("profile", {}).get("name", {}).get("fullName", ""))
-                            return u_id, [w for w in fn.split() if len(w) >= 3]
+                            raw_fn = r.json().get("profile", {}).get("name", {}).get("fullName", "").strip()
+                            fn = _norm(raw_fn)
+                            return u_id, raw_fn, [w for w in fn.split() if len(w) >= 3]
                     except Exception:
                         pass
-                    return u_id, []
+                    return u_id, "", []
 
             fetched_profiles = await asyncio.gather(
                 *(_fetch_missing_creator(c_id, u_id) for c_id, u_id in missing_creators)
             )
-            for u_id, toks in fetched_profiles:
+            for u_id, raw_fn, toks in fetched_profiles:
                 if toks or u_id not in teacher_tokens_by_uid:
                     teacher_tokens_by_uid[u_id] = toks
+                if raw_fn and u_id not in teacher_name_by_uid:
+                    matched_db_t = next(
+                        (dbt for dbt in db_teachers if any(tok in dbt.name.lower() for tok in toks)),
+                        None,
+                    )
+                    teacher_name_by_uid[u_id] = matched_db_t.name if matched_db_t else raw_fn
+
+        # Для спільних курсів з кількома викладачами (course_teacher_count > 1) визначаємо викладача
+        # підгрупи цього студента за автором (creatorUserId) видимих для нього оголошень і завдань.
+        for course, bundle_items in bundles:
+            if len(bundle_items) < 5:
+                continue
+            course_id = course["id"]
+            if course_teacher_count.get(course_id, 0) <= 1:
+                continue
+
+            ann_resp = bundle_items[1]
+            cw_resp = bundle_items[2]
+            mat_resp = bundle_items[4]
+            creator_counts: dict[str, int] = {}
+
+            if not isinstance(ann_resp, Exception) and ann_resp.status_code == 200:
+                for ann in ann_resp.json().get("announcements", []):
+                    cid = ann.get("creatorUserId", "")
+                    if cid and teacher_tokens_by_uid.get(cid):
+                        creator_counts[cid] = creator_counts.get(cid, 0) + 1
+
+            if not isinstance(cw_resp, Exception) and cw_resp.status_code == 200:
+                for cw in cw_resp.json().get("courseWork", []):
+                    cid = cw.get("creatorUserId", "")
+                    if cid and teacher_tokens_by_uid.get(cid):
+                        creator_counts[cid] = creator_counts.get(cid, 0) + 1
+
+            if not isinstance(mat_resp, Exception) and mat_resp.status_code == 200:
+                for mat in mat_resp.json().get("courseWorkMaterial", []):
+                    cid = mat.get("creatorUserId", "")
+                    if cid and teacher_tokens_by_uid.get(cid):
+                        creator_counts[cid] = creator_counts.get(cid, 0) + 1
+
+            if creator_counts:
+                dominant_uid = max(creator_counts.items(), key=lambda kv: kv[1])[0]
+                student_dominant_uid_by_course[course_id] = dominant_uid
+                synced_teacher_tokens.update(teacher_tokens_by_uid.get(dominant_uid, []))
+                if dominant_uid in teacher_name_by_uid:
+                    synced_teacher_names.add(teacher_name_by_uid[dominant_uid])
 
         # Прохід 2: Миттєва обробка оголошень, матеріалів та ДЗ у пам'яті без жодного HTTP-запиту
         for course, bundle_items in bundles:
@@ -1290,6 +1385,8 @@ async def perform_course_sync(
             course_title = f"{course.get('name', '')} {course.get('section', '')}".strip()
             course_title_norm = _norm(course_title)
             topics_by_id = topics_by_course.get(course_id, {})
+            is_single_teacher = course_teacher_count.get(course_id, 0) <= 1
+            dominant_uid = student_dominant_uid_by_course.get(course_id)
 
             # 2.0. Посилання з заголовку/опису/кімнати курсу
             course_header_text = f"{course.get('descriptionHeading', '')} {course.get('description', '')} {course.get('room', '')}".strip()
@@ -1299,7 +1396,12 @@ async def perform_course_sync(
                     parsed["has_explicit_date"] = False
                     parsed["is_course_level"] = True
                     parsed["course_title_norm"] = course_title_norm
-                    parsed["author_tokens"] = list(set(course_teachers_tokens.get(course_id, [])))
+                    header_tokens = (
+                        teacher_tokens_by_uid.get(dominant_uid, [])
+                        if dominant_uid
+                        else course_teachers_tokens.get(course_id, [])
+                    )
+                    parsed["author_tokens"] = list(set(header_tokens))
                     parsed_announcements.append(parsed)
 
             if not isinstance(ann_resp, Exception) and ann_resp.status_code == 200:
@@ -1319,8 +1421,8 @@ async def perform_course_sync(
 
                     creator_id = ann.get("creatorUserId", "")
                     ann_author_tokens = list(teacher_tokens_by_uid.get(creator_id, []))
-                    if len(course_teachers_tokens.get(course_id, [])) <= 2:
-                        ann_author_tokens.extend(course_teachers_tokens[course_id])
+                    if not ann_author_tokens and is_single_teacher:
+                        ann_author_tokens.extend(course_teachers_tokens.get(course_id, []))
 
                     parsed["course_title_norm"] = course_title_norm
                     parsed["author_tokens"] = list(set(ann_author_tokens))
@@ -1343,8 +1445,8 @@ async def perform_course_sync(
 
                     creator_id = mat.get("creatorUserId", "")
                     mat_author_tokens = list(teacher_tokens_by_uid.get(creator_id, []))
-                    if len(course_teachers_tokens.get(course_id, [])) <= 2:
-                        mat_author_tokens.extend(course_teachers_tokens[course_id])
+                    if not mat_author_tokens and is_single_teacher:
+                        mat_author_tokens.extend(course_teachers_tokens.get(course_id, []))
 
                     parsed["course_title_norm"] = course_title_norm
                     parsed["author_tokens"] = list(set(mat_author_tokens))
@@ -1394,13 +1496,16 @@ async def perform_course_sync(
                     topic_norm = _norm(topic_name)
 
                     task_author_tokens = list(teacher_tokens_by_uid.get(creator_id, []))
-                    if len(course_teachers_tokens.get(course_id, [])) <= 2:
-                        task_author_tokens.extend(course_teachers_tokens[course_id])
+                    if not task_author_tokens and is_single_teacher:
+                        task_author_tokens.extend(course_teachers_tokens.get(course_id, []))
 
-                    matched_teacher_name = None
+                    matched_teacher_name = teacher_name_by_uid.get(creator_id)
                     for dbt in db_teachers:
                         clean_t_surname = _norm(dbt.name.split()[0])
-                        if len(clean_t_surname) >= 3 and clean_t_surname in topic_norm:
+                        if len(clean_t_surname) >= 3 and (
+                            clean_t_surname in topic_norm
+                            or any(clean_t_surname in tok or tok in clean_t_surname for tok in task_author_tokens)
+                        ):
                             if clean_t_surname not in task_author_tokens:
                                 task_author_tokens.append(clean_t_surname)
                             if not matched_teacher_name:
@@ -1409,7 +1514,7 @@ async def perform_course_sync(
                     title_norm = _norm(title_raw)
                     combined_cw_text = f"{topic_norm} {title_norm} {course_title_norm}".strip()
 
-                    all_classroom_tasks.append({
+                    task_entry = {
                         "id": cw_id,
                         "course_id": course_id,
                         "course_name": course_title,
@@ -1424,7 +1529,21 @@ async def perform_course_sync(
                         "state": cw_state,
                         "grade": assigned_grade,
                         "max_points": max_points,
-                    })
+                    }
+                    all_classroom_tasks.append(task_entry)
+
+                    # Якщо у спільному курсі викладач іншої підгрупи випадково опублікував ДЗ "для всіх студентів",
+                    # відсікаємо його з персонального списку студента, зберігаючи в загальній базі групи.
+                    is_other_coteacher_task = (
+                        not is_single_teacher
+                        and dominant_uid is not None
+                        and bool(creator_id)
+                        and creator_id in teacher_tokens_by_uid
+                        and creator_id != dominant_uid
+                    )
+                    if not is_other_coteacher_task:
+                        personal_classroom_tasks.append(task_entry)
+
                     # 13.3: Усі опубліковані завдання записуються в загальну базу розкладу групи,
                     # щоб не прив'язані користувачі бачили все з наявними правилами розкладу.
                     # 25.6: Персональний стан здачі (TURNED_IN, RETURNED, оцінки) НЕ впливає на спільні нотатки групи!
@@ -1448,6 +1567,57 @@ async def perform_course_sync(
                         "combined_text": combined_cw_text,
                         "author_tokens": list(set(task_author_tokens)),
                     })
+
+    # КРОК 1b: Smart Merge для старих [TASK] та посилань Meet/Zoom.
+    # Тепер відомо, які саме викладачі є активними для цього студента (synced_teacher_tokens),
+    # тож оновлюємо/очищуємо лише ЇХНІ рядки, а посилання та ДЗ викладача іншої підгрупи зберігаємо!
+    sync_teacher_tokens = set(synced_teacher_tokens)
+    synced_subject_ids: set[int] = set()
+    for course, _ in bundles:
+        c_id = course["id"]
+        c_title_norm = _norm(f"{course.get('name', '')} {course.get('section', '')}".strip())
+        c_toks = course_teachers_tokens.get(c_id, [])
+        for d_lessons in week_days_lessons.values():
+            for l_obj in d_lessons:
+                if getattr(l_obj, "subject_id", None) and _matches_lesson(l_obj, c_title_norm, "", c_toks):
+                    synced_subject_ids.add(l_obj.subject_id)
+
+    for gn in all_group_notes:
+        if gn.archived:
+            continue
+        kept: list[str] = []
+        changed = False
+        for line in gn.note.split("\n"):
+            l_str = line.strip()
+            if not l_str:
+                continue
+            if l_str.startswith("[TASK"):
+                c_match = re.search(r"/(?:c|w)/([A-Za-z0-9_\-]+)", l_str)
+                task_c_id = c_match.group(1) if c_match else None
+                if _task_line_belongs_to_sync(l_str, task_c_id, current_sync_course_ids, sync_teacher_tokens):
+                    changed = True
+                    continue
+                kept.append(l_str)
+                continue
+            if (
+                URL_RE.search(l_str)
+                and _link_line_belongs_to_sync(l_str, sync_teacher_tokens)
+            ):
+                if skipped_ids and _link_line_prefix(l_str) is None:
+                    if gn.subject_id not in synced_subject_ids:
+                        kept.append(l_str)
+                        continue
+                changed = True
+                continue
+            kept.append(l_str)
+        if changed:
+            if kept:
+                gn.note = "\n".join(kept)
+            else:
+                gn.archived = True
+            gn.revision += 1
+            gn.updated_at = datetime.now(timezone.utc)
+    await db.flush()
 
     # КРОК 4: Прикріплюємо ДЗ (за правилами 13.1, 13.2 та 13.3)
     sorted_horizon_dates = sorted(
@@ -1584,50 +1754,6 @@ async def perform_course_sync(
 
     # КРОК 5: Ставимо розпізнані посилання Meet / Zoom СТРОГО на відповідні пари поточного тижня
     parsed_announcements.sort(key=lambda x: x["created_dt"])
-    # КРОК 1b: Smart Merge для посилань. Тепер відомо, які викладачі є у курсах цього користувача,
-    # тож видаляємо лише застарілі посилання ЇХ, а посилання викладачів іншої підгрупи зберігаємо.
-    sync_teacher_tokens = {tok for toks in course_teachers_tokens.values() for tok in toks}
-    synced_subject_ids: set[int] = set()
-    for course, _ in bundles:
-        c_id = course["id"]
-        c_title_norm = _norm(f"{course.get('name', '')} {course.get('section', '')}".strip())
-        c_toks = course_teachers_tokens.get(c_id, [])
-        for d_lessons in week_days_lessons.values():
-            for l_obj in d_lessons:
-                if getattr(l_obj, "subject_id", None) and _matches_lesson(l_obj, c_title_norm, "", c_toks):
-                    synced_subject_ids.add(l_obj.subject_id)
-
-    for gn in all_group_notes:
-        if gn.archived:
-            continue
-        kept: list[str] = []
-        changed = False
-        for line in gn.note.split("\n"):
-            l_str = line.strip()
-            if not l_str:
-                continue
-            if (
-                not l_str.startswith("[TASK")
-                and URL_RE.search(l_str)
-                and _link_line_belongs_to_sync(l_str, sync_teacher_tokens)
-            ):
-                # Якщо це безпрефіксне посилання (спільна пара), а ми у режимі дедуплікації курсів (skip_course_ids),
-                # очищуємо його лише якщо предмет пари входить до фактично оброблених курсів цього синку
-                if skipped_ids and _link_line_prefix(l_str) is None:
-                    if gn.subject_id not in synced_subject_ids:
-                        kept.append(l_str)
-                        continue
-                changed = True
-                continue
-            kept.append(l_str)
-        if changed:
-            if kept:
-                gn.note = "\n".join(kept)
-            else:
-                gn.archived = True
-            gn.revision += 1
-            gn.updated_at = datetime.now(timezone.utc)
-    await db.flush()
 
     for pa in parsed_announcements:
         target_date: date = pa["target_date"]
@@ -1685,12 +1811,26 @@ async def perform_course_sync(
 
     _latest_unmapped_tasks[group.id] = unmapped_tasks
 
-    # Smart Merge: зберігаємо завдання курсів інших підгруп, яких не було в цьому синку
+    # Smart Merge: зберігаємо завдання курсів інших підгруп (у т.ч. зі спільного курсу з 2 викладачами)
     existing_tasks = _latest_group_tasks.get(group.id, [])
-    preserved_tasks = [
-        t for t in existing_tasks
-        if str(t.get("course_id")) not in current_sync_course_ids
-    ]
+    folded_sync_tokens = {_fold(tok) for tok in sync_teacher_tokens if tok}
+
+    def _should_preserve_task(t: dict) -> bool:
+        t_cid = str(t.get("course_id") or "")
+        if t_cid not in current_sync_course_ids:
+            return True
+        t_teacher = str(t.get("teacher") or "").strip()
+        if t_teacher and folded_sync_tokens:
+            p = _fold(t_teacher.split()[0])
+            if len(p) >= 3:
+                matches_current = any(
+                    p in tok or (len(tok) >= 4 and tok in p) for tok in folded_sync_tokens
+                )
+                if not matches_current:
+                    return True
+        return False
+
+    preserved_tasks = [t for t in existing_tasks if _should_preserve_task(t)]
     new_group_tasks = [
         {**t, "state": "NEW", "grade": None}
         for t in all_classroom_tasks
@@ -1719,10 +1859,16 @@ async def perform_course_sync(
         elif "хочин" in tok:
             synced_subgroups.add(2)
 
+    deduplicable_course_ids = [
+        cid for cid in current_sync_course_ids
+        if course_teacher_count.get(cid, 0) <= 1
+    ]
+
     return {
         "user_email": user_email,
         "google_user_id": google_user_id,
         "synced_course_ids": list(current_sync_course_ids),
+        "deduplicable_course_ids": deduplicable_course_ids,
         "synced_teacher_names": sorted(list(synced_teacher_names)),
         "synced_teacher_tokens": sorted(list(synced_teacher_tokens)),
         "synced_subgroups": sorted(list(synced_subgroups)),
@@ -1731,7 +1877,7 @@ async def perform_course_sync(
         "synced_students": synced_students,
         "unmapped_tasks": unmapped_tasks,
         "tasks": combined_tasks,
-        "personal_tasks": all_classroom_tasks,
+        "personal_tasks": personal_classroom_tasks,
         "needs_reconnect": has_submission_scope_error,
     }
 
@@ -2218,11 +2364,8 @@ async def trigger_background_sync_if_needed(
                     group_course_id=binding.course_id if binding else None,
                     skip_course_ids=seen_course_ids,
                 )
-                for cid in sync_res.get("synced_course_ids", []):
+                for cid in sync_res.get("deduplicable_course_ids", sync_res.get("synced_course_ids", [])):
                     seen_course_ids.add(str(cid))
-                for c_obj in courses:
-                    if c_obj.get("id"):
-                        seen_course_ids.add(str(c_obj["id"]))
 
                 cred.last_synced_at = now
                 cred.fail_count = 0

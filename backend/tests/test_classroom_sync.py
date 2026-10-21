@@ -1162,4 +1162,179 @@ async def test_sequential_subgroup_syncs_preserve_both_links_and_tasks(classroom
             assert "Есе 2" in eng_note_after.note
 
 
+@pytest.mark.anyio
+async def test_shared_single_course_with_two_teachers_targets_specific_students(classroom_db):
+    """
+    Реальний кейс: один спільний курс ("101", "Іноземна мова 85 ДФКР"), де записані ОБИДВА викладачі
+    (Токарєва і Хочинська) та всі студенти групи, а викладачі публікують посилання і ДЗ,
+    вибираючи конкретних студентів своєї підгрупи.
+    Перевіряємо:
+    1) Студент 1 отримує лише свою підгрупу (1), свого викладача (Токарєва) та своє ДЗ у personal_tasks.
+    2) Студент 2 отримує лише свою підгрупу (2), свого викладача (Хочинська) та своє ДЗ у personal_tasks.
+    3) У БД та загальному списку групи зберігаються ОБИДВА посилання і ОБИДВА ДЗ для неавторизованих користувачів,
+       не перезаписуючи одне одного ні при ручному, ні при фоновому синку.
+    """
+    client, state = classroom_db
+    monday: date = state["monday"]
+    monday_iso = f"{monday.isoformat()}T08:00:00Z"
 
+    shared_courses = [{"id": "101", "name": "Іноземна мова 85 ДФКР"}]
+    shared_teachers = [
+        {"userId": "t1", "profile": {"name": {"fullName": "Токарєва Тетяна Олександрівна"}}},
+        {"userId": "t2", "profile": {"name": {"fullName": "Хочинська Олена Сергіївна"}}},
+    ]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        auth = request.headers.get("Authorization", "")
+        token = auth.replace("Bearer ", "").strip()
+
+        if "oauth2.googleapis.com/token" in url:
+            body = request.content.decode("utf-8", errors="ignore")
+            if "rt_shared_1" in body:
+                return httpx.Response(200, json={"access_token": "ya29.shared_s1"})
+            if "rt_shared_2" in body:
+                return httpx.Response(200, json={"access_token": "ya29.shared_s2"})
+            return httpx.Response(400, json={"error": "invalid_grant"})
+
+        if url.endswith("/v1/userProfiles/me"):
+            if token == "ya29.shared_s1":
+                return httpx.Response(200, json={"id": "uid_shared_1", "emailAddress": "s1@kre.dp.ua"})
+            if token == "ya29.shared_s2":
+                return httpx.Response(200, json={"id": "uid_shared_2", "emailAddress": "s2@kre.dp.ua"})
+
+        if "/v1/courses" in url and "/teachers" not in url and "/announcements" not in url and "/courseWork" not in url and "/topics" not in url and "/students" not in url:
+            return httpx.Response(200, json={"courses": shared_courses})
+
+        if "/v1/courses/101/teachers" in url:
+            return httpx.Response(200, json={"teachers": shared_teachers})
+
+        if "/v1/courses/101/announcements" in url:
+            if token == "ya29.shared_s1":
+                return httpx.Response(200, json={"announcements": [
+                    {"text": f"Пара {monday.strftime('%d.%m')} на 1 пару: https://meet.google.com/tok-shared-1", "creationTime": monday_iso, "creatorUserId": "t1"}
+                ]})
+            if token == "ya29.shared_s2":
+                return httpx.Response(200, json={"announcements": [
+                    {"text": f"Пара {monday.strftime('%d.%m')} на 1 пару: https://meet.google.com/kho-shared-2", "creationTime": monday_iso, "creatorUserId": "t2"}
+                ]})
+
+        if "/v1/courses/101/courseWork/" in url and "studentSubmissions" in url:
+            return httpx.Response(200, json={"studentSubmissions": []})
+
+        if "/v1/courses/101/courseWorkMaterials" in url:
+            return httpx.Response(200, json={"courseWorkMaterial": []})
+
+        if "/v1/courses/101/courseWork" in url:
+            if token == "ya29.shared_s1":
+                return httpx.Response(200, json={"courseWork": [{
+                    "id": "cw_shared_1",
+                    "title": "ДЗ Підгрупа Токарєвої",
+                    "alternateLink": "https://classroom.google.com/c/101/a/111/details",
+                    "creationTime": monday_iso,
+                    "dueDate": {"year": monday.year, "month": monday.month, "day": monday.day},
+                    "creatorUserId": "t1",
+                }]})
+            if token == "ya29.shared_s2":
+                return httpx.Response(200, json={"courseWork": [{
+                    "id": "cw_shared_2",
+                    "title": "ДЗ Підгрупа Хочинської",
+                    "alternateLink": "https://classroom.google.com/c/101/a/222/details",
+                    "creationTime": monday_iso,
+                    "dueDate": {"year": monday.year, "month": monday.month, "day": monday.day},
+                    "creatorUserId": "t2",
+                }]})
+
+        if "/v1/courses/101/topics" in url:
+            return httpx.Response(200, json={"topic": []})
+        if "/v1/courses/101/students" in url:
+            return httpx.Response(200, json={"students": []})
+        if "people.googleapis.com" in url:
+            return httpx.Response(200, json={"people": []})
+
+        return httpx.Response(404, json={})
+
+    transport = httpx.MockTransport(handler)
+    real_async_client = httpx.AsyncClient
+
+    def mocked_client(*args, **kwargs):
+        kwargs["transport"] = transport
+        return real_async_client(*args, **kwargs)
+
+    with patch("app.routers.classroom.httpx.AsyncClient", side_effect=mocked_client), \
+         patch.object(classroom_router.settings, "google_client_secret", "test_secret"), \
+         patch.object(classroom_router.settings, "google_client_id", "test_client_id"):
+
+        # 1. Студент 1 логіниться
+        r1 = await client.post(
+            "/api/classroom/sync",
+            json={
+                "access_token": "ya29.shared_s1",
+                "refresh_token": "1//rt_shared_1",
+                "group_id": state["group_id"],
+                "week_start": monday.isoformat(),
+            },
+        )
+        assert r1.status_code == 200
+        d1 = r1.json()
+        assert d1["synced_subgroups"] == [1]
+        assert any("Токарєва" in n for n in d1["synced_teacher_names"])
+        assert not any("Хочинська" in n for n in d1["synced_teacher_names"])
+        assert [t["title"] for t in d1["personal_tasks"]] == ["ДЗ Підгрупа Токарєвої"]
+
+        # 2. Студент 2 логіниться
+        r2 = await client.post(
+            "/api/classroom/sync",
+            json={
+                "access_token": "ya29.shared_s2",
+                "refresh_token": "1//rt_shared_2",
+                "group_id": state["group_id"],
+                "week_start": monday.isoformat(),
+            },
+        )
+        assert r2.status_code == 200
+        d2 = r2.json()
+        assert d2["synced_subgroups"] == [2]
+        assert any("Хочинська" in n for n in d2["synced_teacher_names"])
+        assert not any("Токарєва" in n for n in d2["synced_teacher_names"])
+        assert [t["title"] for t in d2["personal_tasks"]] == ["ДЗ Підгрупа Хочинської"]
+
+        # Загальний список завдань групи (для неавторизованих) містить ОБИДВА ДЗ
+        group_titles = [t["title"] for t in d2["tasks"]]
+        assert "ДЗ Підгрупа Токарєвої" in group_titles
+        assert "ДЗ Підгрупа Хочинської" in group_titles
+
+        # У БД збереглися ОБИДВА посилання і ОБИДВА ДЗ
+        async with state["sessions"]() as db:
+            eng_note = await db.scalar(
+                select(LessonOccurrenceNote).where(
+                    LessonOccurrenceNote.group_id == state["group_id"],
+                    LessonOccurrenceNote.note_date == monday,
+                    LessonOccurrenceNote.lesson_number == 1,
+                    LessonOccurrenceNote.archived.is_(False),
+                )
+            )
+            assert eng_note is not None
+            assert "Токарєва: https://meet.google.com/tok-shared-1" in eng_note.note
+            assert "Хочинська: https://meet.google.com/kho-shared-2" in eng_note.note
+            assert "[TASK] [Токарєва] ДЗ Підгрупа Токарєвої" in eng_note.note
+            assert "[TASK] [Хочинська] ДЗ Підгрупа Хочинської" in eng_note.note
+
+            # 3. Фоновий синк обох акаунтів на спільному курсі "101" не пропускає 2-й акаунт і зберігає обидві підгрупи
+            await classroom_router.trigger_background_sync_if_needed(
+                db, state["group_id"], force=True
+            )
+
+            eng_note_bg = await db.scalar(
+                select(LessonOccurrenceNote).where(
+                    LessonOccurrenceNote.group_id == state["group_id"],
+                    LessonOccurrenceNote.note_date == monday,
+                    LessonOccurrenceNote.lesson_number == 1,
+                    LessonOccurrenceNote.archived.is_(False),
+                )
+            )
+            assert eng_note_bg is not None
+            assert "Токарєва: https://meet.google.com/tok-shared-1" in eng_note_bg.note
+            assert "Хочинська: https://meet.google.com/kho-shared-2" in eng_note_bg.note
+            assert "[TASK] [Токарєва] ДЗ Підгрупа Токарєвої" in eng_note_bg.note
+            assert "[TASK] [Хочинська] ДЗ Підгрупа Хочинської" in eng_note_bg.note

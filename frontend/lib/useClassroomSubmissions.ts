@@ -113,29 +113,26 @@ export function isOwnTask(
 ): boolean {
   if (!isLinked) return true;
 
+  if (taskTeacher && personalTeachers && personalTeachers.length > 0) {
+    const tLow = taskTeacher.toLowerCase();
+    const pJoined = personalTeachers.join(" ").toLowerCase();
+    const userIsSub1 = pJoined.includes("токар") && !pJoined.includes("хочин");
+    const userIsSub2 = pJoined.includes("хочин") && !pJoined.includes("токар");
+    if (userIsSub1 && tLow.includes("хочин")) return false;
+    if (userIsSub2 && tLow.includes("токар")) return false;
+  }
+
   const hasSubmissions = Object.keys(submissions).length > 0;
   if (url && hasSubmissions) {
-    if (submissions[url]) return true;
+    return Boolean(submissions[url]);
   }
 
   if (taskTeacher && personalTeachers && personalTeachers.length > 0) {
     const tLow = taskTeacher.toLowerCase();
-    const isTeacherOfUser = personalTeachers.some((pt) => {
+    return personalTeachers.some((pt) => {
       const pLow = pt.toLowerCase();
       return tLow.includes(pLow) || pLow.includes(tLow);
     });
-    if (isTeacherOfUser) return true;
-
-    const isKnownOtherTeacher =
-      (tLow.includes("хочин") && personalTeachers.some((p) => p.toLowerCase().includes("токар"))) ||
-      (tLow.includes("токар") && personalTeachers.some((p) => p.toLowerCase().includes("хочин")));
-    if (isKnownOtherTeacher) {
-      return false;
-    }
-  }
-
-  if (url && hasSubmissions && !submissions[url]) {
-    return false;
   }
 
   return true;
