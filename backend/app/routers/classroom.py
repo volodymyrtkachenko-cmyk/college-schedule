@@ -443,6 +443,36 @@ def _resolve_matched_teacher_surname(lesson, author_tokens: list[str], combined_
     return None
 
 
+_LINK_PREFIX_RE = re.compile(r"^\s*([А-Яа-яІіЇїЄєҐґ'’ʼ\-]{3,})\s*:\s*https?://", re.IGNORECASE)
+
+
+def _link_line_prefix(line: str) -> Optional[str]:
+    """Прізвище-префікс рядка з посиланням на пару з двома викладачами («Токарєва: https://...»)."""
+    m = _LINK_PREFIX_RE.match(line or "")
+    return m.group(1) if m else None
+
+
+def _link_line_belongs_to_sync(line: str, sync_teacher_tokens: set[str]) -> bool:
+    """Чи належить рядок з посиланням викладачу з курсів ПОТОЧНОГО синку.
+
+    Рядок без прізвища (пара з одним викладачем) вважаємо належним, як і раніше.
+    Рядок із прізвищем належить синку лише якщо такий викладач є у курсах цього користувача.
+    Інакше це посилання іншої підгрупи, і його потрібно зберегти (Smart Merge).
+    """
+    prefix = _link_line_prefix(line)
+    if not prefix:
+        return True
+    def _fold(x: str) -> str:
+        # «Токарєва» (розклад) і «Токарева» (Classroom) мають збігатися
+        return re.sub(r"[^а-яіїєґ']", "", _norm(x)).replace("є", "е").replace("ї", "і").replace("ґ", "г")
+
+    p = _fold(prefix)
+    if len(p) < 3:
+        return True
+    folded = {_fold(tok) for tok in sync_teacher_tokens}
+    return any(p in tok or (len(tok) >= 4 and tok in p) for tok in folded)
+
+
 async def _save_link_to_slot(
     db: AsyncSession,
     target_date: date,
@@ -759,6 +789,9 @@ async def perform_course_sync(
             if "classroom.google.com/" in l_str.lower():
                 continue
             if URL_RE.search(l_str):
+                # Посилання не видаляємо наосліп: після завантаження викладачів курсів (КРОК 1b)
+                # прибираємо лише ті, що належать викладачам ПОТОЧНОГО синку. Посилання іншої підгрупи лишаються.
+                manual_lines.append(l_str)
                 continue
             if re.search(r"(?:Код|ID|Passcode|Пароль)\s*:", l_str, re.IGNORECASE):
                 continue
@@ -1465,6 +1498,35 @@ async def perform_course_sync(
 
     # КРОК 5: Ставимо розпізнані посилання Meet / Zoom СТРОГО на відповідні пари поточного тижня
     parsed_announcements.sort(key=lambda x: x["created_dt"])
+    # КРОК 1b: Smart Merge для посилань. Тепер відомо, які викладачі є у курсах цього користувача,
+    # тож видаляємо лише застарілі посилання ЇХ, а посилання викладачів іншої підгрупи зберігаємо.
+    sync_teacher_tokens = {tok for toks in course_teachers_tokens.values() for tok in toks}
+    for gn in all_group_notes:
+        if gn.archived:
+            continue
+        kept: list[str] = []
+        changed = False
+        for line in gn.note.split("\n"):
+            l_str = line.strip()
+            if not l_str:
+                continue
+            if (
+                not l_str.startswith("[TASK")
+                and URL_RE.search(l_str)
+                and _link_line_belongs_to_sync(l_str, sync_teacher_tokens)
+            ):
+                changed = True
+                continue
+            kept.append(l_str)
+        if changed:
+            if kept:
+                gn.note = "\n".join(kept)
+            else:
+                gn.archived = True
+            gn.revision += 1
+            gn.updated_at = datetime.now(timezone.utc)
+    await db.flush()
+
     for pa in parsed_announcements:
         target_date: date = pa["target_date"]
         has_explicit_date: bool = pa.get("has_explicit_date", False)

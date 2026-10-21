@@ -5,6 +5,8 @@ import pytest
 from app.routers.classroom import (
     _parse_announcement,
     _matches_lesson,
+    _link_line_prefix,
+    _link_line_belongs_to_sync,
 )
 
 KYIV_TZ = ZoneInfo("Europe/Kyiv")
@@ -244,3 +246,27 @@ def test_due_date_falls_back_to_next_week_only_when_due_week_has_no_pair():
     assert target_lesson == lesson_this_week
 
 
+
+
+def test_link_prefix_is_parsed_only_for_teacher_prefixed_lines():
+    assert _link_line_prefix("Токарєва: https://meet.google.com/abc-defg-hij") == "Токарєва"
+    assert _link_line_prefix("https://meet.google.com/abc-defg-hij") is None
+
+
+def test_other_subgroup_link_is_preserved_when_other_teacher_syncs():
+    # Синхронізує студент 2 підгрупи: у його курсах є лише Хочинська
+    sync_tokens = {"хочинська", "олена", "сергіївна"}
+    assert _link_line_belongs_to_sync("Хочинська: https://meet.google.com/abc-defg-hij", sync_tokens) is True
+    # Посилання Токарєвої (1 підгрупа) НЕ належить цьому синку, його не можна видаляти
+    assert _link_line_belongs_to_sync("Токарєва: https://meet.google.com/xyz-uvwx-rst", sync_tokens) is False
+
+
+def test_link_without_teacher_prefix_is_owned_by_sync_as_before():
+    assert _link_line_belongs_to_sync("https://meet.google.com/abc-defg-hij", {"хочинська"}) is True
+
+
+def test_link_prefix_matches_ru_spelling_in_classroom():
+    # У Classroom прізвище може бути «Токарева», а в розкладі «Токарєва»
+    assert _link_line_belongs_to_sync("Токарєва: https://zoom.us/j/123", {"токарєва"}) is True
+    assert _link_line_belongs_to_sync("Токарєва: https://zoom.us/j/123", {"токарева"}) is True
+    assert _link_line_belongs_to_sync("Токарєва: https://zoom.us/j/123", {"хочинська"}) is False
