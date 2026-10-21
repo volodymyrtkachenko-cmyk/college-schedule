@@ -1287,7 +1287,7 @@ export const api = {
                 needs_reconnect?: boolean;
             }>(`/api/classroom/groups/${groupId}/status`),
         sync: (
-            tokenOrPayload: string | { code?: string; access_token?: string; group_id?: number; week_start?: string },
+            tokenOrPayload: string | { code?: string; access_token?: string; refresh_token?: string; group_id?: number; week_start?: string },
             groupId?: number
         ) => {
             const body = typeof tokenOrPayload === "string"
@@ -1299,6 +1299,8 @@ export const api = {
                 course_name?: string;
                 user_email?: string | null;
                 last_synced_at?: string;
+                access_token?: string | null;
+                refresh_token?: string | null;
                 synced_links: number;
                 synced_tasks: number;
                 synced_students: number;

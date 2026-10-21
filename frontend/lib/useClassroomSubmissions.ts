@@ -10,6 +10,9 @@ export interface PersonalSubmission {
 
 const LINKED_EMAIL_KEY = "schedule:classroom_linked_email";
 const SUBMITTED_TASKS_KEY = "schedule:classroom_submitted_tasks";
+const ACCESS_TOKEN_KEY = "schedule:classroom_access_token";
+const ACCESS_TOKEN_EXP_KEY = "schedule:classroom_access_token_exp";
+const REFRESH_TOKEN_KEY = "schedule:classroom_refresh_token";
 const EVENT_NAME = "classroom-linked-change";
 
 export function getLinkedEmail(): string | null {
@@ -31,6 +34,47 @@ export function getPersonalSubmissions(): Record<string, PersonalSubmission> {
   }
 }
 
+export function saveClassroomTokens(
+  accessToken?: string | null,
+  refreshToken?: string | null,
+  ttlSeconds: number = 3300
+): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (accessToken) {
+      localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
+      localStorage.setItem(ACCESS_TOKEN_EXP_KEY, String(Date.now() + ttlSeconds * 1000));
+    }
+    if (refreshToken) {
+      localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+    }
+  } catch {}
+}
+
+export function getClassroomSilentAuth(): {
+  accessToken: string | null;
+  refreshToken: string | null;
+} {
+  if (typeof window === "undefined") return { accessToken: null, refreshToken: null };
+  try {
+    const rawToken = localStorage.getItem(ACCESS_TOKEN_KEY);
+    const rawExp = Number(localStorage.getItem(ACCESS_TOKEN_EXP_KEY) || "0");
+    const validAccess = rawToken && rawExp > Date.now() ? rawToken : null;
+    const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY) || null;
+    return { accessToken: validAccess, refreshToken };
+  } catch {
+    return { accessToken: null, refreshToken: null };
+  }
+}
+
+export function clearClassroomAccessToken(): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(ACCESS_TOKEN_KEY);
+    localStorage.removeItem(ACCESS_TOKEN_EXP_KEY);
+  } catch {}
+}
+
 // Прив'язаний користувач бачить лише свої завдання (ті, що є в його submissions).
 // Якщо особистих даних немає (напр., бракує scope) — показуємо всі, як для неприв'язаного.
 export function isOwnTask(
@@ -48,21 +92,27 @@ export function unlinkClassroomEmail(): void {
   try {
     localStorage.removeItem(LINKED_EMAIL_KEY);
     localStorage.removeItem(SUBMITTED_TASKS_KEY);
+    localStorage.removeItem(ACCESS_TOKEN_KEY);
+    localStorage.removeItem(ACCESS_TOKEN_EXP_KEY);
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
     window.dispatchEvent(new Event(EVENT_NAME));
   } catch {}
 }
 
 export function saveClassroomSyncData(
   userEmail: string | null | undefined,
-  tasks: Array<any> | undefined
+  tasks: Array<any> | undefined,
+  accessToken?: string | null,
+  refreshToken?: string | null
 ): void {
   if (typeof window === "undefined") return;
   try {
     if (userEmail) {
       localStorage.setItem(LINKED_EMAIL_KEY, userEmail);
-    } else {
+    } else if (!localStorage.getItem(LINKED_EMAIL_KEY)) {
       localStorage.setItem(LINKED_EMAIL_KEY, "підключено");
     }
+    saveClassroomTokens(accessToken, refreshToken);
 
     const submittedMap: Record<string, PersonalSubmission> = {};
     if (tasks && Array.isArray(tasks)) {

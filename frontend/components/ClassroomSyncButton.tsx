@@ -4,7 +4,12 @@ import { useEffect, useState, useCallback } from "react";
 import { api } from "../lib/api";
 import { invalidateScheduleCache } from "../lib/hooks";
 import { useToast } from "./ToastProvider";
-import { saveClassroomSyncData, useClassroomSubmissions } from "../lib/useClassroomSubmissions";
+import {
+  clearClassroomAccessToken,
+  getClassroomSilentAuth,
+  saveClassroomSyncData,
+  useClassroomSubmissions,
+} from "../lib/useClassroomSubmissions";
 
 const GOOGLE_CLIENT_ID =
   process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
@@ -87,9 +92,19 @@ export function ClassroomSyncButton({
       document.body.appendChild(script);
     });
 
-  const handleSyncSuccess = (res: any, usedCode: boolean, isSilent = false) => {
+  const handleSyncSuccess = (
+    res: any,
+    usedCode: boolean,
+    isSilent = false,
+    fallbackAccessToken?: string | null
+  ) => {
     invalidateScheduleCache();
-    saveClassroomSyncData(res.user_email, res.personal_tasks ?? res.tasks);
+    saveClassroomSyncData(
+      res.user_email,
+      res.personal_tasks ?? res.tasks,
+      res.access_token ?? fallbackAccessToken ?? null,
+      res.refresh_token ?? null
+    );
     const switchedGroup = currentGroupId !== null && currentGroupId !== res.group_id;
     if (res?.last_synced_at) {
       setLastSyncedAt(res.last_synced_at);
@@ -134,7 +149,7 @@ export function ClassroomSyncButton({
               group_id: currentGroupId ?? undefined,
               week_start: weekStart,
             });
-            handleSyncSuccess(res, false, false);
+            handleSyncSuccess(res, false, false, resp.access_token);
           } catch (err) {
             showToast(err instanceof Error ? err.message : "Помилка синхронізації", "error");
           } finally {
@@ -189,7 +204,7 @@ export function ClassroomSyncButton({
   };
 
   const performSilentSync = useCallback(async () => {
-    if (!GOOGLE_CLIENT_ID || !currentGroupId || syncing) return;
+    if (!currentGroupId || syncing) return;
     if (!linkedEmail) return;
 
     const throttleKey = `schedule:last_silent_sync:${currentGroupId}`;
@@ -205,37 +220,35 @@ export function ClassroomSyncButton({
       sessionStorage.setItem(throttleKey, String(now));
     } catch {}
 
-    try {
-      await loadGsiScript();
-      if (!(window as any).google?.accounts?.oauth2?.initTokenClient) return;
-
-      const tokenClient = (window as any).google.accounts.oauth2.initTokenClient({
-        client_id: GOOGLE_CLIENT_ID,
-        scope: SCOPES,
-        ...(linkedEmail && linkedEmail.includes("@") ? { hint: linkedEmail } : {}),
-        error_callback: () => {},
-        callback: async (resp: any) => {
-          if (resp?.error || !resp?.access_token) {
-            return;
-          }
-          try {
-            const res = await api.classroom.sync({
-              access_token: resp.access_token,
-              group_id: currentGroupId ?? undefined,
-              week_start: weekStart,
-            });
-            handleSyncSuccess(res, false, true);
-          } catch {
-            // Silently ignore background network errors
-          }
-        },
-      });
-      // prompt: "none" — лише тихе оновлення токена, без вікна вибору пошти
-      tokenClient.requestAccessToken({ prompt: "none" });
-    } catch {
-      // Silently ignore
+    // Використовуємо збережений у браузері токен або серверний refresh_token
+    // без виклику google.accounts.oauth2.initTokenClient у фоні (щоб не миготіло popup-вікно Google)
+    const { accessToken, refreshToken } = getClassroomSilentAuth();
+    if (accessToken || refreshToken) {
+      try {
+        const res = await api.classroom.sync({
+          access_token: accessToken ?? undefined,
+          refresh_token: refreshToken ?? undefined,
+          group_id: currentGroupId ?? undefined,
+          week_start: weekStart,
+        });
+        handleSyncSuccess(res, Boolean(refreshToken), true, accessToken);
+        return;
+      } catch {
+        clearClassroomAccessToken();
+      }
     }
-  }, [currentGroupId, weekStart, syncing, linkedEmail]);
+
+    // Фолбек: тихо оновлюємо публічний статус та завдання групи з бекенду без жодних вікон Google
+    try {
+      const data = await api.classroom.groupStatus(currentGroupId);
+      if (data?.last_synced_at) setLastSyncedAt(data.last_synced_at);
+      if (data?.tasks && Array.isArray(data.tasks)) {
+        onSynced(currentGroupId, data.tasks, data.last_synced_at ?? null);
+      }
+    } catch {
+      // Silently ignore background network errors
+    }
+  }, [currentGroupId, weekStart, syncing, linkedEmail, onSynced]);
 
   // 1. Silent sync on initial load / group switch if account was previously linked
   useEffect(() => {

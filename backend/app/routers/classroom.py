@@ -182,6 +182,7 @@ def ukr_sort_key(name: str) -> list[int]:
 class ClassroomSyncRequest(BaseModel):
     code: Optional[str] = None
     access_token: Optional[str] = None
+    refresh_token: Optional[str] = None
     group_id: Optional[int] = None
     week_start: Optional[date] = None
 
@@ -1546,7 +1547,7 @@ async def sync_from_classroom(
 ):
     try:
         access_token = payload.access_token
-        refresh_token = None
+        refresh_token = payload.refresh_token
 
         if payload.code:
             client_id = get_google_client_id()
@@ -1570,7 +1571,7 @@ async def sync_from_classroom(
                 if token_resp.status_code == 200:
                     token_data = token_resp.json()
                     access_token = token_data.get("access_token")
-                    refresh_token = token_data.get("refresh_token")
+                    refresh_token = token_data.get("refresh_token") or refresh_token
                 else:
                     logger.warning(
                         f"Failed to exchange code: {token_resp.status_code} {token_resp.text}"
@@ -1579,6 +1580,9 @@ async def sync_from_classroom(
                         status_code=400,
                         detail=f"Не вдалося обміняти код авторизації Google: {token_resp.text[:200]}",
                     )
+
+        if not access_token and refresh_token:
+            access_token = await _refresh_google_token(refresh_token)
 
         if not access_token:
             raise HTTPException(status_code=400, detail="Не вдалося отримати токен доступу Google")
@@ -1592,6 +1596,16 @@ async def sync_from_classroom(
                 params={"courseStates": "ACTIVE", "pageSize": 100},
                 headers=headers,
             )
+            if courses_resp.status_code == 401 and refresh_token:
+                fresh_token = await _refresh_google_token(refresh_token)
+                if fresh_token:
+                    access_token = fresh_token
+                    headers = {"Authorization": f"Bearer {access_token}"}
+                    courses_resp = await client.get(
+                        "https://classroom.googleapis.com/v1/courses",
+                        params={"courseStates": "ACTIVE", "pageSize": 100},
+                        headers=headers,
+                    )
             if courses_resp.status_code != 200:
                 raise HTTPException(status_code=401, detail="Не вдалося прочитати курси з Google Classroom")
 
@@ -1678,6 +1692,8 @@ async def sync_from_classroom(
             "group_name": detected_group.name,
             "course_name": binding.course_name,
             "last_synced_at": binding.last_synced_at.isoformat() if binding.last_synced_at else datetime.now(timezone.utc).isoformat(),
+            "access_token": access_token,
+            "refresh_token": refresh_token,
             **stats,
         }
     except HTTPException:
