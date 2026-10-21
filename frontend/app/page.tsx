@@ -649,6 +649,20 @@ export default function HomePage() {
     return `${new Intl.DateTimeFormat("uk-UA", startOpts).format(weekAnchorDate)} – ${new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "long", year: "numeric" }).format(end)}`;
   }, [weekAnchorDate]);
 
+  const compactWeekRange = useMemo(() => {
+    const end = new Date(weekAnchorDate);
+    end.setDate(end.getDate() + 6);
+    const startDay = weekAnchorDate.getDate();
+    const endDay = end.getDate();
+    const startMonth = new Intl.DateTimeFormat("uk-UA", { month: "short" }).format(weekAnchorDate).replace(".", "");
+    const endMonth = new Intl.DateTimeFormat("uk-UA", { month: "short" }).format(end).replace(".", "");
+
+    if (startMonth === endMonth) {
+      return `${startDay}–${endDay} ${startMonth}.`;
+    }
+    return `${startDay} ${startMonth}. – ${endDay} ${endMonth}.`;
+  }, [weekAnchorDate]);
+
   const resetWeek = () => setWeekAnchorDate(getInitialAnchor());
 
   const weekDaysMini = useMemo(() => {
@@ -1162,13 +1176,13 @@ export default function HomePage() {
       {/* Mobile 2-Tier Header (< 1024px) */}
       <header className="sticky top-0 z-40 border-b border-sys-border bg-sys-card/95 backdrop-blur-md pt-[env(safe-area-inset-top)] lg:hidden">
         {/* Tier 1 (h-14): [85 ▾]   ‹ 19–25 жовт. ›   [⋯] */}
-        <div className="flex h-14 items-center justify-between px-3 gap-2">
+        <div className="flex h-14 items-center justify-between px-3 gap-1.5 overflow-hidden">
           {/* Left: Context Selector */}
           <button
             type="button"
             onClick={() => setContextModalOpen(true)}
             aria-label="Обрати групу або викладача"
-            className="flex h-10 items-center gap-1.5 rounded-xl border border-sys-border bg-sys-bg/90 px-3 text-xs font-semibold text-sys-text-primary hover:border-sys-accent/60 active:scale-95 transition-all truncate max-w-[130px] sm:max-w-[160px]"
+            className="flex h-10 items-center gap-1.5 rounded-xl border border-sys-border bg-sys-bg/90 px-2.5 text-xs font-semibold text-sys-text-primary hover:border-sys-accent/60 active:scale-95 transition-all truncate max-w-[110px] sm:max-w-[150px] shrink-0"
           >
             <span className="truncate">
               {currentName || (mode === "student" ? "Група" : "Викладач")}
@@ -1183,12 +1197,12 @@ export default function HomePage() {
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center flex-1 min-w-0">
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-0.5">
                 <button
                   type="button"
                   onClick={() => shiftWeekPreservingDay(-1)}
                   aria-label="Попередній тиждень"
-                  className="flex h-9 w-9 items-center justify-center rounded-lg text-sys-text-secondary hover:text-white active:scale-90 transition-transform"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-sys-text-secondary hover:text-white active:scale-90 transition-transform shrink-0"
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="m15 18-6-6 6-6" />
@@ -1199,10 +1213,10 @@ export default function HomePage() {
                   type="button"
                   onClick={resetWeekPreservingDay}
                   title={isCurrentWeek ? "Поточний тиждень" : "Повернутися на поточний тиждень"}
-                  className="px-1 text-center truncate max-w-[150px] sm:max-w-[200px]"
+                  className="px-1 text-center truncate min-w-0 max-w-[130px] sm:max-w-[180px]"
                 >
                   <span className="text-xs sm:text-[13px] font-bold text-sys-text-primary block truncate leading-tight">
-                    {weekRange.split("–")[0]?.trim()} – {weekRange.split("–")[1]?.trim()?.split(" ")?.slice(0, 2)?.join(" ") || ""}
+                    {compactWeekRange}
                   </span>
                 </button>
 
@@ -1210,7 +1224,7 @@ export default function HomePage() {
                   type="button"
                   onClick={() => shiftWeekPreservingDay(1)}
                   aria-label="Наступний тиждень"
-                  className="flex h-9 w-9 items-center justify-center rounded-lg text-sys-text-secondary hover:text-white active:scale-90 transition-transform"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-sys-text-secondary hover:text-white active:scale-90 transition-transform shrink-0"
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="m9 18 6-6-6-6" />
@@ -1221,23 +1235,23 @@ export default function HomePage() {
               <button
                 type="button"
                 onClick={() => setWeekTypeSheetOpen(true)}
-                className="flex flex-wrap items-center justify-center gap-1 text-xs text-sys-text-muted hover:text-sys-text-secondary -mt-0.5 leading-none py-0.5"
+                className="flex items-center justify-center gap-1 text-[11px] text-sys-text-muted hover:text-sys-text-secondary leading-none py-0.5 whitespace-nowrap overflow-hidden max-w-full"
               >
-                {currentWeekNumber ? <span>{currentWeekNumber} тиждень</span> : null}
+                {currentWeekNumber ? <span className="shrink-0">{currentWeekNumber} тиждень</span> : null}
                 {weekType !== "both" && (
                   <>
-                    {currentWeekNumber ? <span>·</span> : null}
-                    <span className="underline decoration-dotted underline-offset-2">
+                    {currentWeekNumber ? <span className="shrink-0">·</span> : null}
+                    <span className="underline decoration-dotted underline-offset-2 shrink-0">
                       {weekType === "numerator" ? "чисельник" : "знаменник"}
                     </span>
-                    <span className="text-xs">ⓘ</span>
+                    <span className="text-[10px] shrink-0">ⓘ</span>
                   </>
                 )}
                 {headerLearningMode && (
                   <>
-                    {(currentWeekNumber || weekType !== "both") && <span>·</span>}
+                    {(currentWeekNumber || weekType !== "both") && <span className="shrink-0">·</span>}
                     <span
-                      className={`font-bold ${
+                      className={`font-bold shrink-0 ${
                         headerLearningMode === "offline" ? "text-sys-accent" : "text-sys-warning"
                       }`}
                     >

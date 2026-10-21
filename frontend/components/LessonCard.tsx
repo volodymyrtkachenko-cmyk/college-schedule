@@ -771,6 +771,7 @@ export function LessonCard({
   const nearestDated = useMemo(() => {
     return tasks.find((t) => t.deadline.formattedDate || (t.deadline.day && t.deadline.month)) || null;
   }, [tasks]);
+  const highlightTask = nearestDated || tasks[0] || null;
   const meetings = useMemo(
     () => extractOnlineMeetings(lesson.note, lesson.room, lesson.teacher_name, lesson.subject_name),
     [lesson.note, lesson.room, lesson.teacher_name, lesson.subject_name]
@@ -1307,11 +1308,11 @@ export function LessonCard({
                           return (
                             <div
                               key={idx}
-                              className={`flex flex-wrap items-center justify-between gap-y-1.5 gap-x-2 w-full transition-opacity ${
+                              className={`flex items-center justify-between gap-x-2 w-full transition-opacity ${
                                 isFaded ? "opacity-50 hover:opacity-80" : "opacity-100"
                               }`}
                             >
-                              <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                              <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1 mr-1">
                                 <button
                                   type="button"
                                   onClick={(e) => { e.stopPropagation(); handleSubgroupToggle(subNum); }}
@@ -1344,13 +1345,13 @@ export function LessonCard({
                                   <button
                                     type="button"
                                     onClick={(e) => { e.stopPropagation(); onQuickJump(item.target); }}
-                                    className="text-left text-xs sm:text-sm font-medium text-sys-text-secondary hover:text-sys-accent hover:underline focus:outline-none break-words"
+                                    className="text-left text-xs sm:text-sm font-medium text-sys-text-secondary hover:text-sys-accent hover:underline focus:outline-none truncate min-w-0"
                                     title={item.displayName}
                                   >
                                     {item.displayName}
                                   </button>
                                 ) : (
-                                  <span className="text-xs sm:text-sm font-medium text-sys-text-secondary break-words" title={item.displayName}>
+                                  <span className="text-xs sm:text-sm font-medium text-sys-text-secondary truncate min-w-0" title={item.displayName}>
                                     {item.displayName}
                                   </span>
                                 )}
@@ -1599,11 +1600,11 @@ export function LessonCard({
                 className="w-full rounded-xl bg-[#16161a] border border-[#27272a] transition-all duration-150 overflow-hidden shadow-xs"
                 style={{
                   boxShadow:
-                    isLinked && tasks[0].deadline.badgeTone === "overdue"
+                    isLinked && highlightTask?.deadline.badgeTone === "overdue"
                       ? "inset 3px 0 0 #ef4444"
-                      : tasks[0].deadline.badgeTone === "urgent"
+                      : highlightTask?.deadline.badgeTone === "urgent"
                       ? "inset 3px 0 0 #f59e0b"
-                      : tasks[0].deadline.formattedDate
+                      : highlightTask?.deadline.formattedDate
                       ? "inset 3px 0 0 #8b5cf6"
                       : undefined,
                 }}
@@ -1615,58 +1616,40 @@ export function LessonCard({
                   onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") toggleHw(e); }}
                   className="flex w-full items-center justify-between px-3.5 py-2.5 cursor-pointer select-none gap-2 hover:bg-white/5 transition-colors"
                 >
-                  <div className="flex items-center gap-2 min-w-0">
+                  <div className="flex items-center gap-2 shrink-0">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-slate-400">
                       <path d="M16 4h2a2 2 0 0 1 2 2v14l-8-4-8 4V6a2 2 0 0 1 2-2h2" />
                       <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
                     </svg>
-                    <span className="text-xs font-bold text-sys-text-primary">
+                    <span className="text-xs font-bold text-sys-text-primary whitespace-nowrap">
                       {formatTaskCount(tasks.length)}
                     </span>
-                    {nearestDated && (
-                      <>
-                        <span className="text-slate-600 text-xs shrink-0">•</span>
-                        <span
-                          className="text-xs font-normal truncate"
-                          style={{
-                            color:
-                              nearestDated.deadline.badgeTone === "overdue"
-                                ? isLinked ? "#f87171" : "#a1a1aa"
-                                : nearestDated.deadline.badgeTone === "urgent"
-                                ? "#fbbf24"
-                                : "#a1a1aa",
-                          }}
-                        >
-                          найближче {getTaskStatusText(nearestDated.deadline, isLinked)}
-                        </span>
-                      </>
-                    )}
                   </div>
-                  <div className="flex items-center gap-2 shrink-0 ml-3">
-                    {tasks[0].deadline.statusText ? (
+                  <div className="flex items-center gap-2 min-w-0 justify-end ml-auto">
+                    {highlightTask?.deadline.statusText ? (
                       <span
-                        className="inline-flex items-center gap-1.5 font-medium text-xs"
+                        className="inline-flex items-center gap-1.5 font-medium text-xs min-w-0"
                         style={{
                           color:
-                            tasks[0].deadline.badgeTone === "overdue"
+                            highlightTask.deadline.badgeTone === "overdue"
                               ? isLinked ? "#f87171" : "#a1a1aa"
-                              : tasks[0].deadline.badgeTone === "urgent"
+                              : highlightTask.deadline.badgeTone === "urgent"
                               ? "#fbbf24"
-                              : "#c084fc",
+                              : "#a1a1aa",
                         }}
                       >
                         <span
                           className="h-1.5 w-1.5 rounded-full shrink-0"
                           style={{
                             backgroundColor:
-                              tasks[0].deadline.badgeTone === "overdue"
+                              highlightTask.deadline.badgeTone === "overdue"
                                 ? isLinked ? "#ef4444" : "#71717a"
-                                : tasks[0].deadline.badgeTone === "urgent"
+                                : highlightTask.deadline.badgeTone === "urgent"
                                 ? "#f59e0b"
-                                : "#8b5cf6",
+                                : "#71717a",
                           }}
                         />
-                        <span>{getTaskStatusText(tasks[0].deadline, isLinked)}</span>
+                        <span className="truncate">{getTaskStatusText(highlightTask.deadline, isLinked)}</span>
                       </span>
                     ) : null}
                     <svg
@@ -1930,13 +1913,13 @@ export function LessonCard({
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); onQuickJump(secondaryItems[singleSubgroupIdx].target); }}
-                      className="text-left text-xs sm:text-sm font-medium text-sys-text-secondary hover:text-sys-accent hover:underline focus:outline-none break-words"
+                      className="text-left text-xs sm:text-sm font-medium text-sys-text-secondary hover:text-sys-accent hover:underline focus:outline-none truncate min-w-0"
                       title={secondaryItems[singleSubgroupIdx].displayName}
                     >
                       {secondaryItems[singleSubgroupIdx].displayName}
                     </button>
                   ) : (
-                    <span className="text-xs sm:text-sm font-medium text-sys-text-secondary break-words" title={secondaryItems[singleSubgroupIdx].displayName}>
+                    <span className="text-xs sm:text-sm font-medium text-sys-text-secondary truncate min-w-0" title={secondaryItems[singleSubgroupIdx].displayName}>
                       {secondaryItems[singleSubgroupIdx].displayName}
                     </span>
                   )}
@@ -1954,11 +1937,11 @@ export function LessonCard({
                     return (
                       <div
                         key={idx}
-                        className={`flex flex-wrap items-center justify-between gap-y-1.5 gap-x-2 w-full transition-opacity ${
+                        className={`flex items-center justify-between gap-x-2 w-full transition-opacity ${
                           isFaded ? "opacity-50 hover:opacity-80" : "opacity-100"
                         }`}
                       >
-                        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1 mr-1">
                           <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); handleSubgroupToggle(subNum); }}
@@ -1991,13 +1974,13 @@ export function LessonCard({
                             <button
                               type="button"
                               onClick={(e) => { e.stopPropagation(); onQuickJump(item.target); }}
-                              className="text-left text-xs sm:text-sm font-medium text-sys-text-secondary hover:text-sys-accent hover:underline focus:outline-none break-words"
+                              className="text-left text-xs sm:text-sm font-medium text-sys-text-secondary hover:text-sys-accent hover:underline focus:outline-none truncate min-w-0"
                               title={item.displayName}
                             >
                               {item.displayName}
                             </button>
                           ) : (
-                            <span className="text-xs sm:text-sm font-medium text-sys-text-secondary break-words" title={item.displayName}>
+                            <span className="text-xs sm:text-sm font-medium text-sys-text-secondary truncate min-w-0" title={item.displayName}>
                               {item.displayName}
                             </span>
                           )}
@@ -2194,11 +2177,11 @@ export function LessonCard({
               className="w-full rounded-xl bg-[#16161a] border border-[#27272a] transition-all duration-150 overflow-hidden shadow-xs mt-1"
               style={{
                 boxShadow:
-                  isLinked && tasks[0].deadline.badgeTone === "overdue"
+                  isLinked && highlightTask?.deadline.badgeTone === "overdue"
                     ? "inset 3px 0 0 #ef4444"
-                    : tasks[0].deadline.badgeTone === "urgent"
+                    : highlightTask?.deadline.badgeTone === "urgent"
                     ? "inset 3px 0 0 #f59e0b"
-                    : tasks[0].deadline.formattedDate
+                    : highlightTask?.deadline.formattedDate
                     ? "inset 3px 0 0 #8b5cf6"
                     : undefined,
               }}
@@ -2210,8 +2193,8 @@ export function LessonCard({
                 onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") toggleHw(e); }}
                 className="flex min-h-[44px] w-full items-center justify-between px-3.5 py-2.5 cursor-pointer select-none gap-2 hover:bg-white/5 transition-colors"
               >
-                <div className="flex items-center gap-2 min-w-0">
-                  {tasks[0].deadline.badgeTone === "overdue" && isLinked ? (
+                <div className="flex items-center gap-2 shrink-0">
+                  {highlightTask?.deadline.badgeTone === "overdue" && isLinked ? (
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-rose-400 shrink-0">
                       <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
                       <line x1="12" y1="9" x2="12" y2="13" />
@@ -2223,43 +2206,35 @@ export function LessonCard({
                       <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
                     </svg>
                   )}
-                  <span className="text-xs font-bold text-sys-text-primary">
+                  <span className="text-xs font-bold text-sys-text-primary whitespace-nowrap">
                     {formatTaskCount(tasks.length)}
                   </span>
-                  {nearestDated && (
-                    <>
-                      <span className="text-slate-600 text-xs shrink-0">•</span>
-                      <span className="text-xs font-normal text-slate-400 truncate">
-                        найближче {getTaskStatusText(nearestDated.deadline, isLinked)}
-                      </span>
-                    </>
-                  )}
                 </div>
-                <div className="flex items-center gap-2 shrink-0 ml-3">
-                  {tasks[0].deadline.statusText ? (
+                <div className="flex items-center gap-2 min-w-0 justify-end ml-auto">
+                  {highlightTask?.deadline.statusText ? (
                     <span
-                      className="inline-flex items-center gap-1.5 font-medium text-xs"
+                      className="inline-flex items-center gap-1.5 font-medium text-xs min-w-0"
                       style={{
                         color:
-                          tasks[0].deadline.badgeTone === "overdue"
+                          highlightTask.deadline.badgeTone === "overdue"
                             ? isLinked ? "#f87171" : "#a1a1aa"
-                            : tasks[0].deadline.badgeTone === "urgent"
+                            : highlightTask.deadline.badgeTone === "urgent"
                             ? "#fbbf24"
-                            : "#c084fc",
+                            : "#a1a1aa",
                       }}
                     >
                       <span
                         className="h-1.5 w-1.5 rounded-full shrink-0"
                         style={{
                           backgroundColor:
-                            tasks[0].deadline.badgeTone === "overdue"
+                            highlightTask.deadline.badgeTone === "overdue"
                               ? isLinked ? "#ef4444" : "#71717a"
-                              : tasks[0].deadline.badgeTone === "urgent"
+                              : highlightTask.deadline.badgeTone === "urgent"
                               ? "#f59e0b"
-                              : "#8b5cf6",
+                              : "#71717a",
                         }}
                       />
-                      <span>{getTaskStatusText(tasks[0].deadline, isLinked)}</span>
+                      <span className="truncate">{getTaskStatusText(highlightTask.deadline, isLinked)}</span>
                     </span>
                   ) : null}
                   <svg
