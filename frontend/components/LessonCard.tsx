@@ -669,6 +669,9 @@ export function LessonCard({
 
   const roomsLabel = useMemo(() => formatRoomsList(rooms), [rooms]);
   const hasBothRoomAndMeet = rooms.length > 0 && hasMeeting;
+  // Два викладачі (ПК, вигляд «День»): аудиторія і посилання біля кожного окремо
+  const hasPerTeacherRoom = Boolean(lesson.teacher_room || lesson.second_teacher_room || rooms.length >= 2);
+  const deskMeeting = (isDualTeachers ? row3Meetings[0] : meetings[0]) ?? null;
 
   const groupedTasks = useMemo(() => {
     if (!isDualTeachers || tasks.length === 0) {
