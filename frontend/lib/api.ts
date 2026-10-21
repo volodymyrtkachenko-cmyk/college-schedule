@@ -1378,11 +1378,22 @@ export const api = {
                     method: "DELETE",
                 }
             ),
+        deleteCredential: (credId: number) =>
+            authenticatedRequest<{ ok: boolean; message: string }>(
+                `/api/classroom/credentials/${credId}`,
+                {
+                    method: "DELETE",
+                }
+            ),
     },
 };
 export interface ClassroomAccountStat {
     id: number;
     google_user_id: string;
+    email?: string | null;
+    student_name?: string | null;
+    photo_url?: string | null;
+    subgroup?: number | null;
     last_synced_at: string | null;
     last_error: string | null;
     fail_count: number;

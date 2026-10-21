@@ -1963,6 +1963,8 @@ async def sync_from_classroom(
 
         google_user_id: Optional[str] = None
         profile_email: Optional[str] = None
+        profile_name: Optional[str] = None
+        profile_photo: Optional[str] = None
 
         async with httpx.AsyncClient(timeout=15.0) as client:
             courses_resp = await client.get(
@@ -1985,7 +1987,7 @@ async def sync_from_classroom(
 
             courses = courses_resp.json().get("courses", [])
 
-            # 25.4.1: Викликаємо userProfiles/me і беремо стабільний id акаунта
+            # 25.4.1: Викликаємо userProfiles/me і беремо стабільний id акаунта, ім'я та пошту
             try:
                 me_resp = await client.get(
                     "https://classroom.googleapis.com/v1/userProfiles/me",
@@ -1995,6 +1997,9 @@ async def sync_from_classroom(
                     me_json = me_resp.json()
                     google_user_id = str(me_json.get("id") or "").strip() or None
                     profile_email = (me_json.get("emailAddress") or "").strip() or None
+                    name_obj = me_json.get("name") or {}
+                    profile_name = name_obj.get("fullName") or None
+                    profile_photo = me_json.get("photoUrl") or None
             except Exception as exc:
                 logger.warning(f"Failed to read userProfiles/me during sync: {_sanitize_error_msg(str(exc))}")
 
@@ -2088,6 +2093,14 @@ async def sync_from_classroom(
         # 25.4.2: Upsert запису в classroom_credentials за парою (group_id, google_user_id)
         if effective_user_id:
             effective_user_id = str(effective_user_id)[:128]
+            final_email = profile_email or stats.get("user_email")
+            synced_subs = stats.get("synced_subgroups", [])
+            detected_subgroup: Optional[int] = None
+            if 1 in synced_subs and 2 not in synced_subs:
+                detected_subgroup = 1
+            elif 2 in synced_subs and 1 not in synced_subs:
+                detected_subgroup = 2
+
             cred = await db.scalar(
                 select(ClassroomCredential).where(
                     ClassroomCredential.group_id == detected_group.id,
@@ -2099,6 +2112,10 @@ async def sync_from_classroom(
                 cred = ClassroomCredential(
                     group_id=detected_group.id,
                     google_user_id=effective_user_id,
+                    email=final_email,
+                    student_name=profile_name,
+                    photo_url=profile_photo,
+                    subgroup=detected_subgroup,
                     refresh_token=token_to_store,
                     last_synced_at=now_utc,
                     last_error=None,
@@ -2110,6 +2127,14 @@ async def sync_from_classroom(
             else:
                 if encrypted_refresh or not cred.refresh_token:
                     cred.refresh_token = token_to_store
+                if final_email:
+                    cred.email = final_email
+                if profile_name:
+                    cred.student_name = profile_name
+                if profile_photo:
+                    cred.photo_url = profile_photo
+                if detected_subgroup:
+                    cred.subgroup = detected_subgroup
                 cred.last_synced_at = now_utc
                 cred.last_error = None
                 cred.fail_count = 0
@@ -2512,25 +2537,66 @@ async def _build_group_accounts_summary(db: AsyncSession, group_id: int) -> dict
             if latest_sync_dt is None or ts > latest_sync_dt:
                 latest_sync_dt = ts
 
+    # Підтягуємо список студентів групи для збагачення даних старих акаунтів
+    students = (
+        await db.scalars(
+            select(GroupStudent).where(GroupStudent.group_id == group_id)
+        )
+    ).all()
+    student_by_uid: dict[str, GroupStudent] = {s.classroom_user_id: s for s in students if s.classroom_user_id}
+    student_by_email: dict[str, GroupStudent] = {s.email.lower(): s for s in students if s.email}
+
+    account_items = []
+    for c in creds:
+        matched: Optional[GroupStudent] = student_by_uid.get(c.google_user_id)
+        if not matched and c.email:
+            matched = student_by_email.get(c.email.lower())
+        if not matched and c.google_user_id and "@" in c.google_user_id:
+            matched = student_by_email.get(c.google_user_id.lower())
+
+        student_name = c.student_name or (matched.full_name if matched else None)
+        email = c.email or (matched.email if matched else None)
+        photo_url = c.photo_url or (matched.photo_url if matched else None)
+
+        account_items.append({
+            "id": c.id,
+            "google_user_id": c.google_user_id,
+            "email": email,
+            "student_name": student_name,
+            "photo_url": photo_url,
+            "subgroup": c.subgroup,
+            "last_synced_at": c.last_synced_at.isoformat() if c.last_synced_at else None,
+            "last_error": c.last_error,
+            "fail_count": c.fail_count,
+            "next_attempt_at": c.next_attempt_at.isoformat() if c.next_attempt_at else None,
+            "is_active": c.is_active,
+        })
+
     return {
         "connected_accounts_count": active_count,
         "total_accounts_count": len(creds),
         "has_subgroups": has_subgroups,
         "subgroup_warning": subgroup_warning,
         "latest_cred_synced_at": latest_sync_dt.isoformat() if latest_sync_dt else None,
-        "accounts": [
-            {
-                "id": c.id,
-                "google_user_id": c.google_user_id,
-                "last_synced_at": c.last_synced_at.isoformat() if c.last_synced_at else None,
-                "last_error": c.last_error,
-                "fail_count": c.fail_count,
-                "next_attempt_at": c.next_attempt_at.isoformat() if c.next_attempt_at else None,
-                "is_active": c.is_active,
-            }
-            for c in creds
-        ],
+        "accounts": account_items,
     }
+
+
+@router.delete("/credentials/{cred_id}")
+async def delete_classroom_credential(
+    cred_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_roles("admin", "editor")),
+):
+    """Видаляє підключений акаунт групи (ClassroomCredential)."""
+    cred = await db.get(ClassroomCredential, cred_id)
+    if not cred:
+        raise HTTPException(status_code=404, detail="Підключений акаунт не знайдено")
+    group_id = cred.group_id
+    await db.delete(cred)
+    await db.commit()
+    summary = await _build_group_accounts_summary(db, group_id)
+    return {"ok": True, "message": "Акаунт успішно відключено", **summary}
 
 
 @router.get("/groups/{group_id}/students")

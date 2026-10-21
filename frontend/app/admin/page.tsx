@@ -84,6 +84,31 @@ function extractSurname(fullName: string): string {
   return parts[parts.length - 1];
 }
 
+function formatLastSynced(isoStr: string): string {
+  try {
+    const d = new Date(isoStr);
+    const now = Date.now();
+    const diffSec = Math.floor((now - d.getTime()) / 1000);
+    if (diffSec < 60) return "щойно";
+    if (diffSec < 3600) {
+      const min = Math.floor(diffSec / 60);
+      return `${min} хв тому`;
+    }
+    if (diffSec < 86400) {
+      const hours = Math.floor(diffSec / 3600);
+      return `${hours} год тому`;
+    }
+    return d.toLocaleString("uk-UA", {
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return isoStr;
+  }
+}
+
 const resources = Object.keys(referenceLabels) as ReferenceResource[];
 
 const resourceConfig: Record<ReferenceResource, {
@@ -219,6 +244,18 @@ function AdminContent() {
       await openGroupRoster(rosterGroup);
     } catch (err) {
       setToast(err instanceof Error ? err.message : "Не вдалося видалити студента", "error");
+    }
+  };
+
+  const handleDeleteClassroomAccount = async (credId: number, accountName: string) => {
+    if (!rosterGroup) return;
+    if (!confirm(`Відключити Classroom-акаунт «${accountName}»?`)) return;
+    try {
+      await api.classroom.deleteCredential(credId);
+      setToast(`Акаунт «${accountName}» відключено`, "success");
+      await openGroupRoster(rosterGroup);
+    } catch (err) {
+      setToast(err instanceof Error ? err.message : "Не вдалося відключити акаунт", "error");
     }
   };
 
@@ -796,43 +833,96 @@ function AdminContent() {
                   </div>
                 )}
 
-                {/* 25.7: Список підключених акаунтів, час останнього синку кожного та останні помилки */}
+                {/* 25.7: Список підключених акаунтів (Варіант 1: Картки студентів) */}
                 {rosterData?.accounts && rosterData.accounts.length > 0 && (
-                  <div className="rounded-xl border border-sys-border/70 bg-sys-bg/50 p-2.5 space-y-1.5">
-                    <div className="text-[11px] font-bold uppercase tracking-wider text-sys-text-muted">
-                      Підключені Classroom-акаунти ({rosterData.connected_accounts_count ?? 0} активних з {rosterData.accounts.length})
+                  <div className="rounded-xl border border-sys-border/70 bg-sys-bg/50 p-3 space-y-2.5">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px] font-bold uppercase tracking-wider text-sys-text-muted">
+                      <span>Підключені Classroom-акаунти ({rosterData.connected_accounts_count ?? 0} активних з {rosterData.accounts.length})</span>
+                      <span className="text-xs normal-case font-normal text-sys-text-secondary">
+                        {rosterData.has_subgroups ? "Бажано по 1 акаунту на підгрупу" : "Достатньо 1 акаунта"}
+                      </span>
                     </div>
-                    <div className="space-y-1 max-h-28 overflow-y-auto pr-1">
-                      {rosterData.accounts.map((acc, idx) => (
-                        <div
-                          key={acc.id || idx}
-                          className="flex flex-col gap-0.5 rounded-lg border border-sys-border/50 bg-sys-card/60 px-2.5 py-1.5 text-[11px]"
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="font-medium text-sys-text-primary flex items-center gap-1.5">
-                              <span
-                                className={`h-1.5 w-1.5 rounded-full shrink-0 ${
-                                  acc.is_active ? "bg-emerald-400" : "bg-rose-400"
-                                }`}
-                              />
-                              <span>Акаунт #{idx + 1}</span>
-                              <span className="text-sys-text-muted font-mono">
-                                ({acc.google_user_id.slice(0, 12)})
-                              </span>
-                            </span>
-                            <span className="text-sys-text-secondary whitespace-nowrap">
-                              {acc.last_synced_at
-                                ? new Date(acc.last_synced_at).toLocaleString("uk-UA")
-                                : "ще не синхронізовано"}
-                            </span>
-                          </div>
-                          {acc.last_error && (
-                            <div className="text-rose-400 truncate" title={acc.last_error}>
-                              Помилка: {acc.last_error}
+
+                    <div className="space-y-2">
+                      {rosterData.accounts.map((acc, idx) => {
+                        const displayName = acc.student_name || `Акаунт #${idx + 1}`;
+                        const displayEmail = acc.email || (acc.google_user_id.startsWith("user_") ? `ID: ${acc.google_user_id.slice(5)}` : acc.google_user_id);
+                        return (
+                          <div
+                            key={acc.id || idx}
+                            className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 rounded-xl border border-sys-border/60 bg-sys-card/70 p-3 text-xs transition-colors hover:border-sys-border"
+                          >
+                            {/* Ліва частина: Аватар + Ім'я + Email + Підгрупа */}
+                            <div className="flex items-center gap-3 min-w-0">
+                              {acc.photo_url ? (
+                                <img
+                                  src={acc.photo_url}
+                                  alt=""
+                                  className="h-8 w-8 rounded-full object-cover shrink-0 border border-sys-border/50"
+                                />
+                              ) : (
+                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sys-tabActive text-xs font-bold text-sys-text-secondary shrink-0 border border-sys-border/40">
+                                  {acc.student_name ? acc.student_name.charAt(0) : "👤"}
+                                </div>
+                              )}
+
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-semibold text-sys-text-primary text-[13px] truncate">
+                                    {displayName}
+                                  </span>
+                                  {acc.subgroup ? (
+                                    <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold bg-sys-accent/20 text-sys-accent border border-sys-accent/40">
+                                      {acc.subgroup} підгр.
+                                    </span>
+                                  ) : null}
+                                </div>
+                                <div className="flex items-center gap-2 text-sys-text-muted text-[11px] truncate mt-0.5">
+                                  <span>{displayEmail}</span>
+                                </div>
+                              </div>
                             </div>
-                          )}
-                        </div>
-                      ))}
+
+                            {/* Права частина: Статус синхронізації + Кнопка відключення */}
+                            <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-sys-border/30">
+                              <div className="text-left sm:text-right">
+                                <div className="flex items-center sm:justify-end gap-1.5 text-[11px]">
+                                  <span
+                                    className={`h-2 w-2 rounded-full shrink-0 ${
+                                      acc.is_active ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]" : "bg-rose-400"
+                                    }`}
+                                  />
+                                  <span className={acc.is_active ? "text-emerald-400 font-medium" : "text-rose-400 font-medium"}>
+                                    {acc.is_active ? "Активний" : "Неактивний"}
+                                  </span>
+                                </div>
+                                <span className="text-[10px] text-sys-text-secondary block mt-0.5">
+                                  {acc.last_synced_at
+                                    ? `Синхронізовано ${formatLastSynced(acc.last_synced_at)}`
+                                    : "ще не синхронізовано"}
+                                </span>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteClassroomAccount(acc.id, displayName)}
+                                className="rounded-lg p-1.5 text-sys-text-muted hover:bg-rose-500/10 hover:text-rose-400 transition-colors"
+                                title="Відключити цей акаунт"
+                              >
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+                                </svg>
+                              </button>
+                            </div>
+
+                            {acc.last_error && (
+                              <div className="w-full text-rose-400 text-[11px] bg-rose-500/10 border border-rose-500/20 rounded-lg p-2 mt-1 truncate" title={acc.last_error}>
+                                ⚠ Помилка доступу: {acc.last_error}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
