@@ -120,7 +120,7 @@ function AdminContent() {
   const requested = searchParams.get("resource");
   
   let currentTab = requested || "schedule";
-  if (user && user.role !== "admin") {
+  if (user && user.role !== "admin" && currentTab !== "groups") {
       currentTab = "schedule";
   }
   
@@ -273,7 +273,7 @@ function AdminContent() {
   useEffect(() => {
     if (authLoading) return;
     if (currentTab === "semester" || currentTab === "learning-mode" || !activeResource) return;
-    if (user?.role !== "admin" && !isSchedule) return;
+    if (user?.role !== "admin" && currentTab !== "groups") return;
     let cancelled = false;
     setLoading(true);
     setError(null);
@@ -572,21 +572,23 @@ function AdminContent() {
               title={referenceLabels[activeResource]}
               description={`Керування списком записів: редагування, додавання та пошук у довіднику «${referenceLabels[activeResource]}».`}
               actions={
-                <div className="flex items-center gap-2 flex-wrap">
-                  <button
-                    type="button"
-                    onClick={() => { setBulkOpen(!bulkOpen); setBulkError(null); }}
-                    className="shrink-0 min-h-[44px] sm:min-h-[40px] rounded-lg border border-sys-border bg-sys-card px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold text-sys-text-primary hover:bg-white/5 transition-colors"
-                  >
-                    📋 Списком
-                  </button>
-                  <button
-                    onClick={() => setEditor(null)}
-                    className="shrink-0 min-h-[44px] sm:min-h-[40px] rounded-lg bg-sys-accent px-3.5 sm:px-4 py-2 text-xs sm:text-sm font-bold text-[#0b1120] hover:opacity-90 active:scale-95 transition-all"
-                  >
-                    + Додати {resourceConfig[activeResource].addLabel}
-                  </button>
-                </div>
+                user?.role === "admin" ? (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => { setBulkOpen(!bulkOpen); setBulkError(null); }}
+                      className="shrink-0 min-h-[44px] sm:min-h-[40px] rounded-lg border border-sys-border bg-sys-card px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold text-sys-text-primary hover:bg-white/5 transition-colors"
+                    >
+                      📋 Списком
+                    </button>
+                    <button
+                      onClick={() => setEditor(null)}
+                      className="shrink-0 min-h-[44px] sm:min-h-[40px] rounded-lg bg-sys-accent px-3.5 sm:px-4 py-2 text-xs sm:text-sm font-bold text-[#0b1120] hover:opacity-90 active:scale-95 transition-all"
+                    >
+                      + Додати {resourceConfig[activeResource].addLabel}
+                    </button>
+                  </div>
+                ) : undefined
               }
             />
 
@@ -701,7 +703,7 @@ function AdminContent() {
           loading={loading}
           error={error}
           onEdit={setEditor}
-          onDelete={setItemToDelete}
+          onDelete={user?.role === "admin" ? setItemToDelete : undefined}
           onOpenRoster={openGroupRoster}
         />
         

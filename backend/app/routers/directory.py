@@ -6,7 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import require_roles
 from app.database import get_db
-from app.models import Faculty, Group, Subject, Teacher
+from app.models import Faculty, Group, Subject, Teacher, User
+from sqlalchemy.orm import selectinload
 from app.schemas import (
     FacultyCreate, FacultyResource, FacultyUpdate, GroupCreate, GroupResource,
     GroupUpdate, SubjectCreate,
@@ -17,7 +18,7 @@ router = APIRouter(tags=["directory"])
 admin_router = APIRouter(
     prefix="/admin",
     tags=["admin-directory"],
-    dependencies=[Depends(require_roles("admin"))],
+    dependencies=[Depends(require_roles("admin", "editor"))],
 )
 
 
@@ -110,7 +111,7 @@ async def _soft_delete(db, model, entity_id: int):
 
 
 admin = Depends(require_roles("admin"))
-
+admin_or_editor = Depends(require_roles("admin", "editor"))
 
 
 @router.get("/teacher-subjects", response_model=dict[int, list[int]])
@@ -167,7 +168,19 @@ async def create_group(payload: GroupCreate, db: AsyncSession = Depends(get_db),
 
 
 @admin_router.patch("/groups/{entity_id}", response_model=GroupResource)
-async def update_group(entity_id: int, payload: GroupUpdate, db: AsyncSession = Depends(get_db), _: object = admin):
+async def update_group(
+    entity_id: int,
+    payload: GroupUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = admin_or_editor,
+):
+    if current_user.role == "editor":
+        u = await db.scalar(
+            select(User).options(selectinload(User.allowed_groups)).where(User.id == current_user.id)
+        )
+        allowed_ids = {g.id for g in u.allowed_groups} if u else set()
+        if entity_id not in allowed_ids:
+            raise HTTPException(status_code=403, detail="Ви не маєте доступу до цієї групи")
     if "faculty_id" in payload.model_fields_set:
         await _active_fk(db, Faculty, payload.faculty_id, "faculty")
     if "curator_id" in payload.model_fields_set:
@@ -211,22 +224,29 @@ async def delete_subject(entity_id: int, db: AsyncSession = Depends(get_db), _: 
 
 
 @admin_router.get("/faculties", response_model=list[FacultyResource])
-async def admin_faculties(db: AsyncSession = Depends(get_db)):
+async def admin_faculties(db: AsyncSession = Depends(get_db), _: object = admin):
     return await items(Faculty, db)
 
 
 @admin_router.get("/groups", response_model=list[GroupResource])
-async def admin_groups(db: AsyncSession = Depends(get_db)):
-    return await items(Group, db)
+async def admin_groups(db: AsyncSession = Depends(get_db), current_user: User = admin_or_editor):
+    all_groups = await items(Group, db)
+    if current_user.role == "editor":
+        u = await db.scalar(
+            select(User).options(selectinload(User.allowed_groups)).where(User.id == current_user.id)
+        )
+        allowed_ids = {g.id for g in u.allowed_groups} if u else set()
+        return [g for g in all_groups if g.id in allowed_ids]
+    return all_groups
 
 
 @admin_router.get("/teachers", response_model=list[TeacherResource])
-async def admin_teachers(db: AsyncSession = Depends(get_db)):
+async def admin_teachers(db: AsyncSession = Depends(get_db), _: object = admin):
     return await items(Teacher, db)
 
 
 @admin_router.get("/subjects", response_model=list[SubjectResource])
-async def admin_subjects(db: AsyncSession = Depends(get_db)):
+async def admin_subjects(db: AsyncSession = Depends(get_db), _: object = admin):
     return await items(Subject, db)
 
 

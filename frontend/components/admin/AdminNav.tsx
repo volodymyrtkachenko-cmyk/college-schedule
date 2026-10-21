@@ -258,6 +258,7 @@ export function AdminNav({ active }: { active: string }) {
   };
 
   useEffect(() => {
+    if (user?.role !== "admin") return;
     const fetchMetrics = async () => {
       if (document.visibilityState !== "visible") return;
       try {
@@ -284,7 +285,7 @@ export function AdminNav({ active }: { active: string }) {
       clearInterval(interval);
       document.removeEventListener("visibilitychange", fetchMetrics);
     };
-  }, []);
+  }, [user?.role]);
 
   useEffect(() => {
     if (user?.role !== "admin") return;
@@ -403,36 +404,52 @@ export function AdminNav({ active }: { active: string }) {
                 <span className="truncate">Сітка розкладу</span>
               </Link>
 
-              <Link
-                href="/admin?resource=versions"
-                onClick={() => setDrawerOpen(false)}
-                aria-current={active === "versions" || active === "semester" ? "page" : undefined}
-                className={linkClass(active === "versions" || active === "semester")}
-              >
-                <VersionsIcon className="w-4 h-4 shrink-0 text-current" />
-                <span className="truncate">Версії та семестри</span>
-              </Link>
+              {user?.role === "editor" && (
+                <Link
+                  href="/admin?resource=groups"
+                  onClick={() => setDrawerOpen(false)}
+                  aria-current={active === "groups" ? "page" : undefined}
+                  className={linkClass(active === "groups")}
+                >
+                  <GroupsIcon className="w-4 h-4 shrink-0 text-current" />
+                  <span className="truncate">Групи</span>
+                </Link>
+              )}
 
-              <Link
-                href="/admin?resource=learning-mode"
-                onClick={() => setDrawerOpen(false)}
-                aria-current={active === "learning-mode" ? "page" : undefined}
-                className={linkClass(active === "learning-mode")}
-              >
-                <CalendarRangeIcon className="w-4 h-4 shrink-0 text-current" />
-                <span className="truncate">Режим навчання</span>
-              </Link>
+              {user?.role === "admin" && (
+                <>
+                  <Link
+                    href="/admin?resource=versions"
+                    onClick={() => setDrawerOpen(false)}
+                    aria-current={active === "versions" || active === "semester" ? "page" : undefined}
+                    className={linkClass(active === "versions" || active === "semester")}
+                  >
+                    <VersionsIcon className="w-4 h-4 shrink-0 text-current" />
+                    <span className="truncate">Версії та семестри</span>
+                  </Link>
 
-              <Link
-                href="/admin?resource=periods"
-                onClick={() => setDrawerOpen(false)}
-                aria-current={active === "periods" ? "page" : undefined}
-                className={linkClass(active === "periods")}
-                title="Графік процесу (Практики, канікули, сесії)"
-              >
-                <CalendarRangeIcon className="w-4 h-4 shrink-0 text-current" />
-                <span className="truncate">Графік процесу</span>
-              </Link>
+                  <Link
+                    href="/admin?resource=learning-mode"
+                    onClick={() => setDrawerOpen(false)}
+                    aria-current={active === "learning-mode" ? "page" : undefined}
+                    className={linkClass(active === "learning-mode")}
+                  >
+                    <CalendarRangeIcon className="w-4 h-4 shrink-0 text-current" />
+                    <span className="truncate">Режим навчання</span>
+                  </Link>
+
+                  <Link
+                    href="/admin?resource=periods"
+                    onClick={() => setDrawerOpen(false)}
+                    aria-current={active === "periods" ? "page" : undefined}
+                    className={linkClass(active === "periods")}
+                    title="Графік процесу (Практики, канікули, сесії)"
+                  >
+                    <CalendarRangeIcon className="w-4 h-4 shrink-0 text-current" />
+                    <span className="truncate">Графік процесу</span>
+                  </Link>
+                </>
+              )}
             </div>
           </div>
 

@@ -419,7 +419,7 @@ class BulkCuratorRequest(BaseModel):
 async def bulk_curator_hours(
     payload: BulkCuratorRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_roles("admin", "editor")),
+    current_user: User = Depends(require_roles("admin")),
 ):
     try:
         await lock_versions(db)

@@ -20,6 +20,7 @@ import { MobileWeekBar } from "../MobileWeekBar";
 import { MobileWeekDaysStrip } from "../MobileWeekDaysStrip";
 import { LessonCard } from "../LessonCard";
 import { isSlotInPast } from "../ScheduleEditGrid";
+import { useAuth } from "../../lib/auth";
 
 function GraduationIcon() {
   return (
@@ -66,6 +67,8 @@ export interface SwapState {
 const BUFFER_STORAGE_KEY = "college_schedule_editor_buffer";
 
 export function AdminScheduleEditor() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
   const [weekAnchorDate, setWeekAnchorDate] = useState(() => {
     const date = new Date();
     const day = date.getDay();
@@ -932,28 +935,32 @@ export function AdminScheduleEditor() {
                 </button>
               </div>
 
-              <a
-                href={`/admin?resource=permanent-schedule${activeVersion ? `&version_id=${activeVersion.id}` : ""}`}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-3 py-1.5 text-xs font-semibold text-indigo-300 hover:bg-indigo-500/20 transition-colors whitespace-nowrap"
-                title="Редагувати постійний розклад версії"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
-                  <line x1="16" y1="2" x2="16" y2="6" />
-                  <line x1="8" y1="2" x2="8" y2="6" />
-                  <line x1="3" y1="10" x2="21" y2="10" />
-                </svg>
-                <span className="whitespace-nowrap">Постійний розклад</span>
-              </a>
+              {isAdmin && (
+                <a
+                  href={`/admin?resource=permanent-schedule${activeVersion ? `&version_id=${activeVersion.id}` : ""}`}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-3 py-1.5 text-xs font-semibold text-indigo-300 hover:bg-indigo-500/20 transition-colors whitespace-nowrap"
+                  title="Редагувати постійний розклад версії"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
+                    <line x1="16" y1="2" x2="16" y2="6" />
+                    <line x1="8" y1="2" x2="8" y2="6" />
+                    <line x1="3" y1="10" x2="21" y2="10" />
+                  </svg>
+                  <span className="whitespace-nowrap">Постійний розклад</span>
+                </a>
+              )}
 
-              <button
-                type="button"
-                onClick={() => setCuratorModalOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-sys-border bg-sys-card px-3 py-1.5 text-xs font-semibold text-sys-text-primary hover:bg-white/5 whitespace-nowrap"
-              >
-                <GraduationIcon />
-                <span className="whitespace-nowrap">Виховна година</span>
-              </button>
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={() => setCuratorModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-sys-border bg-sys-card px-3 py-1.5 text-xs font-semibold text-sys-text-primary hover:bg-white/5 whitespace-nowrap"
+                >
+                  <GraduationIcon />
+                  <span className="whitespace-nowrap">Виховна година</span>
+                </button>
+              )}
 
               <button
                 type="button"
@@ -1066,7 +1073,7 @@ export function AdminScheduleEditor() {
               onMoveDay={handleMoveDay}
               onPasteDay={handlePasteDay}
               canPasteDay={buffer?.type === "day"}
-              onOpenPermanentSchedule={handleOpenPermanentSchedule}
+              onOpenPermanentSchedule={isAdmin ? handleOpenPermanentSchedule : undefined}
             />
           </div>
 
@@ -1225,7 +1232,7 @@ export function AdminScheduleEditor() {
                                     hideTimeColumn={true}
                                     onSwapSelect={() => handleSwapSelect(lesson, currentDay.date)}
                                     isSwapSource={swapSource?.lesson.id === lesson.id && swapSource.date === currentDay.date}
-                                    onOpenPermanentSchedule={handleOpenPermanentSchedule}
+                                    onOpenPermanentSchedule={isAdmin ? handleOpenPermanentSchedule : undefined}
                                   />
                                 ))}
                               </div>
@@ -1463,13 +1470,15 @@ export function AdminScheduleEditor() {
                 </button>
               </div>
               <div className="grid grid-cols-1 gap-2 pt-1">
-                <a
-                  href={`/admin?resource=permanent-schedule${activeVersion ? `&version_id=${activeVersion.id}` : ""}`}
-                  className="flex items-center gap-3 w-full rounded-xl border border-indigo-500/30 bg-indigo-500/10 p-3 text-left text-sm font-semibold text-indigo-300 hover:bg-indigo-500/20"
-                >
-                  <span className="text-base">📅</span>
-                  <span>Постійний розклад</span>
-                </a>
+                {isAdmin && (
+                  <a
+                    href={`/admin?resource=permanent-schedule${activeVersion ? `&version_id=${activeVersion.id}` : ""}`}
+                    className="flex items-center gap-3 w-full rounded-xl border border-indigo-500/30 bg-indigo-500/10 p-3 text-left text-sm font-semibold text-indigo-300 hover:bg-indigo-500/20"
+                  >
+                    <span className="text-base">📅</span>
+                    <span>Постійний розклад</span>
+                  </a>
+                )}
                 <button
                   type="button"
                   onClick={() => {
@@ -1497,17 +1506,19 @@ export function AdminScheduleEditor() {
                   </button>
                 )}
                 <div className="my-1 border-t border-sys-border/40" />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMobileActionsOpen(false);
-                    setCuratorModalOpen(true);
-                  }}
-                  className="flex items-center gap-3 w-full rounded-xl border border-sys-border bg-sys-bg/60 p-3 text-left text-sm font-medium text-sys-text-primary hover:bg-sys-bg"
-                >
-                  <GraduationIcon />
-                  <span>Виховна година (кураторська)</span>
-                </button>
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileActionsOpen(false);
+                      setCuratorModalOpen(true);
+                    }}
+                    className="flex items-center gap-3 w-full rounded-xl border border-sys-border bg-sys-bg/60 p-3 text-left text-sm font-medium text-sys-text-primary hover:bg-sys-bg"
+                  >
+                    <GraduationIcon />
+                    <span>Виховна година (кураторська)</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => {

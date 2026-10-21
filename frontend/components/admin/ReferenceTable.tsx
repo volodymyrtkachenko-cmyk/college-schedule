@@ -38,8 +38,8 @@ export function ReferenceTable({
   teachers?: ReferenceRecord[];
   loading: boolean;
   error: string | null;
-  onEdit: (item: ReferenceRecord) => void;
-  onDelete: (item: ReferenceRecord) => void;
+  onEdit?: (item: ReferenceRecord) => void;
+  onDelete?: (item: ReferenceRecord) => void;
   onOpenRoster?: (group: { id: number; name: string }) => void;
 }) {
   if (loading) {
@@ -135,24 +135,28 @@ export function ReferenceTable({
                         👥 Студенти
                       </button>
                     )}
-                    <button
-                      type="button"
-                      aria-label={`Редагувати ${item.name}`}
-                      title="Редагувати"
-                      onClick={() => onEdit(item)}
-                      className="w-10 h-10 flex items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-accent hover:bg-sys-accent/10 transition-colors"
-                    >
-                      <EditIcon />
-                    </button>
-                    <button
-                      type="button"
-                      aria-label={`Видалити ${item.name}`}
-                      title="Видалити"
-                      onClick={() => onDelete(item)}
-                      className="w-10 h-10 flex items-center justify-center rounded-lg text-sys-text-secondary hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
-                    >
-                      <TrashIcon />
-                    </button>
+                    {onEdit && (
+                      <button
+                        type="button"
+                        aria-label={`Редагувати ${item.name}`}
+                        title="Редагувати"
+                        onClick={() => onEdit(item)}
+                        className="w-10 h-10 flex items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-accent hover:bg-sys-accent/10 transition-colors"
+                      >
+                        <EditIcon />
+                      </button>
+                    )}
+                    {onDelete && (
+                      <button
+                        type="button"
+                        aria-label={`Видалити ${item.name}`}
+                        title="Видалити"
+                        onClick={() => onDelete(item)}
+                        className="w-10 h-10 flex items-center justify-center rounded-lg text-sys-text-secondary hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                      >
+                        <TrashIcon />
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -200,22 +204,26 @@ export function ReferenceTable({
 
               {/* Horizontal actions 44x44 */}
               <div className="flex items-center gap-1 shrink-0">
-                <button
-                  type="button"
-                  aria-label={`Редагувати ${item.name}`}
-                  onClick={() => onEdit(item)}
-                  className="w-11 h-11 flex items-center justify-center rounded-lg border border-sys-border bg-sys-card text-sys-text-secondary hover:text-sys-accent active:bg-sys-accent/15"
-                >
-                  <EditIcon />
-                </button>
-                <button
-                  type="button"
-                  aria-label={`Видалити ${item.name}`}
-                  onClick={() => onDelete(item)}
-                  className="w-11 h-11 flex items-center justify-center rounded-lg border border-rose-500/30 bg-rose-500/10 text-rose-400 active:bg-rose-500/20"
-                >
-                  <TrashIcon />
-                </button>
+                {onEdit && (
+                  <button
+                    type="button"
+                    aria-label={`Редагувати ${item.name}`}
+                    onClick={() => onEdit(item)}
+                    className="w-11 h-11 flex items-center justify-center rounded-lg border border-sys-border bg-sys-card text-sys-text-secondary hover:text-sys-accent active:bg-sys-accent/15"
+                  >
+                    <EditIcon />
+                  </button>
+                )}
+                {onDelete && (
+                  <button
+                    type="button"
+                    aria-label={`Видалити ${item.name}`}
+                    onClick={() => onDelete(item)}
+                    className="w-11 h-11 flex items-center justify-center rounded-lg border border-rose-500/30 bg-rose-500/10 text-rose-400 active:bg-rose-500/20"
+                  >
+                    <TrashIcon />
+                  </button>
+                )}
               </div>
             </div>
 

@@ -122,10 +122,18 @@ export function OfficialPrintModal({
   const [lessonsByGroup, setLessonsByGroup] = useState<Record<number, Record<number, Lesson>>>({});
   const [loadedDate, setLoadedDate] = useState<string | null>(null);
 
+  const [allGroups, setAllGroups] = useState<ReferenceRecord[]>(groups);
   const printSheetRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMounted(true);
+    api.groups()
+      .then((list) => {
+        if (list && list.length > 0) {
+          setAllGroups(list);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const loadDayForAllGroups = async (dateStr: string) => {
@@ -162,7 +170,7 @@ export function OfficialPrintModal({
   const weekLabel = computeWeekType(targetDate);
 
   // Сортування груп за спаданням від 99 до 75:
-  const sortedGroups = [...groups].sort((a, b) => {
+  const sortedGroups = [...allGroups].sort((a, b) => {
     const numA = parseInt(a.name, 10);
     const numB = parseInt(b.name, 10);
     const idxA = DEFAULT_GROUPS_ORDER.indexOf(numA);
