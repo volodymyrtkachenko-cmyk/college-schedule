@@ -204,7 +204,7 @@ export function MobileTasksView({
             </button>
           </div>
           <p className="text-xs text-slate-400 mt-1.5 pl-5">
-            Лише читання, ми нічого не змінюємо в Classroom.
+            Сервер лише читає ваші завдання з Classroom і нічого не змінює.
           </p>
         </div>
       )}

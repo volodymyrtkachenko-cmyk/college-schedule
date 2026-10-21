@@ -1994,7 +1994,7 @@ export default function HomePage() {
                               </button>
                             </div>
                             <p className="text-xs text-slate-400 mt-1 pl-4">
-                              Лише читання, ми нічого не змінюємо в Classroom.
+                              Сервер лише читає ваші завдання з Classroom і нічого не змінює.
                             </p>
                           </div>
                         )}

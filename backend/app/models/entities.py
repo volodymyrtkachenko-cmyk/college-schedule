@@ -450,4 +450,20 @@ class ClassroomGroupBinding(Base):
     group: Mapped["Group"] = relationship("Group")
 
 
+class ClassroomCredential(Base):
+    __tablename__ = "classroom_credentials"
+    __table_args__ = (
+        UniqueConstraint("group_id", "google_user_id", name="uq_classroom_cred_group_user"),
+    )
 
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    group_id: Mapped[int] = mapped_column(ForeignKey("groups.id", ondelete="CASCADE"), nullable=False, index=True)
+    google_user_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    refresh_token: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    last_synced_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    fail_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
+    next_attempt_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1", nullable=False)
+
+    group: Mapped["Group"] = relationship("Group")

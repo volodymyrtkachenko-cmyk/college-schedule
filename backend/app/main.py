@@ -17,7 +17,7 @@ from app.routers import (
     health, schedule, schedule_periods, statistics, settings as settings_router, teacher_constraints, users,
     schedule_dated, schedule_template,
 )
-from app.models import AcademicEvent, GroupStudent, ClassroomGroupBinding
+from app.models import AcademicEvent, GroupStudent, ClassroomGroupBinding, ClassroomCredential
 from app.routers.classroom import router as classroom_router
 from app.routers.events import router as events_router
 from app.routers.schedule_now import router as schedule_now_router
@@ -35,6 +35,7 @@ async def lifespan(_: FastAPI):
         await conn.run_sync(AcademicEvent.__table__.create, checkfirst=True)
         await conn.run_sync(GroupStudent.__table__.create, checkfirst=True)
         await conn.run_sync(ClassroomGroupBinding.__table__.create, checkfirst=True)
+        await conn.run_sync(ClassroomCredential.__table__.create, checkfirst=True)
         try:
             from sqlalchemy import text
             await conn.execute(text("ALTER TABLE teachers ADD COLUMN IF NOT EXISTS full_name VARCHAR(150)"))

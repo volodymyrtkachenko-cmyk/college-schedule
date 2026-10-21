@@ -166,6 +166,11 @@ function AdminContent() {
   const [rosterData, setRosterData] = useState<{
     course_name: string | null;
     last_synced_at: string | null;
+    connected_accounts_count?: number;
+    total_accounts_count?: number;
+    has_subgroups?: boolean;
+    subgroup_warning?: string | null;
+    accounts?: import("../../lib/api").ClassroomAccountStat[];
     students: Array<{ id: number; full_name: string; email?: string | null; photo_url?: string | null }>;
   } | null>(null);
   const [rosterLoading, setRosterLoading] = useState(false);
@@ -742,11 +747,23 @@ function AdminContent() {
               <div className="flex flex-col gap-3 border-b border-sys-border px-5 py-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="flex items-center gap-2 text-base font-bold text-white">
+                    <h3 className="flex items-center gap-2 text-base font-bold text-white flex-wrap">
                       <span>👥 Студенти групи {rosterGroup.name}</span>
                       {rosterData?.students && rosterData.students.length > 0 && (
                         <span className="rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-xs font-semibold text-emerald-400">
                           {rosterData.students.length} осіб
+                        </span>
+                      )}
+                      {typeof rosterData?.connected_accounts_count === "number" && (
+                        <span
+                          className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                            rosterData.connected_accounts_count > 0
+                              ? "bg-sky-500/20 text-sky-300 border border-sky-500/30"
+                              : "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                          }`}
+                          title="Кількість активних підключених Classroom-акаунтів групи"
+                        >
+                          Акаунтів Classroom: {rosterData.connected_accounts_count}
                         </span>
                       )}
                     </h3>
@@ -770,6 +787,56 @@ function AdminContent() {
                     ✕
                   </button>
                 </div>
+
+                {/* 25.7: Попередження, якщо для підгрупи немає жодного активного акаунта */}
+                {rosterData?.subgroup_warning && (
+                  <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200 flex items-start gap-2">
+                    <span className="text-amber-400 font-bold shrink-0">⚠</span>
+                    <span>{rosterData.subgroup_warning}</span>
+                  </div>
+                )}
+
+                {/* 25.7: Список підключених акаунтів, час останнього синку кожного та останні помилки */}
+                {rosterData?.accounts && rosterData.accounts.length > 0 && (
+                  <div className="rounded-xl border border-sys-border/70 bg-sys-bg/50 p-2.5 space-y-1.5">
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-sys-text-muted">
+                      Підключені Classroom-акаунти ({rosterData.connected_accounts_count ?? 0} активних з {rosterData.accounts.length})
+                    </div>
+                    <div className="space-y-1 max-h-28 overflow-y-auto pr-1">
+                      {rosterData.accounts.map((acc, idx) => (
+                        <div
+                          key={acc.id || idx}
+                          className="flex flex-col gap-0.5 rounded-lg border border-sys-border/50 bg-sys-card/60 px-2.5 py-1.5 text-[11px]"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-medium text-sys-text-primary flex items-center gap-1.5">
+                              <span
+                                className={`h-1.5 w-1.5 rounded-full shrink-0 ${
+                                  acc.is_active ? "bg-emerald-400" : "bg-rose-400"
+                                }`}
+                              />
+                              <span>Акаунт #{idx + 1}</span>
+                              <span className="text-sys-text-muted font-mono">
+                                ({acc.google_user_id.slice(0, 12)})
+                              </span>
+                            </span>
+                            <span className="text-sys-text-secondary whitespace-nowrap">
+                              {acc.last_synced_at
+                                ? new Date(acc.last_synced_at).toLocaleString("uk-UA")
+                                : "ще не синхронізовано"}
+                            </span>
+                          </div>
+                          {acc.last_error && (
+                            <div className="text-rose-400 truncate" title={acc.last_error}>
+                              Помилка: {acc.last_error}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex flex-wrap items-center gap-2">
                   <ClassroomSyncButton
                     currentGroupId={rosterGroup.id}

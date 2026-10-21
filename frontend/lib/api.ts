@@ -1278,6 +1278,11 @@ export const api = {
                 last_synced_at: string | null;
                 has_refresh_token?: boolean;
                 has_client_secret?: boolean;
+                connected_accounts_count?: number;
+                total_accounts_count?: number;
+                has_subgroups?: boolean;
+                subgroup_warning?: string | null;
+                accounts?: ClassroomAccountStat[];
                 unmapped_tasks?: Array<{ title: string; due_date: string | null; reason: string }>;
                 tasks?: Array<{
                     id: string;
@@ -1307,6 +1312,7 @@ export const api = {
                 group_name: string;
                 course_name?: string;
                 user_email?: string | null;
+                google_user_id?: string | null;
                 last_synced_at?: string;
                 access_token?: string | null;
                 refresh_token?: string | null;
@@ -1332,10 +1338,29 @@ export const api = {
                 body: JSON.stringify(body),
             });
         },
+        disconnect: (payload: {
+            group_id?: number;
+            google_user_id?: string | null;
+            access_token?: string | null;
+            refresh_token?: string | null;
+        }) =>
+            rawRequest<{
+                status: string;
+                deleted_credentials: number;
+                revoked: boolean;
+            }>("/api/classroom/disconnect", {
+                method: "POST",
+                body: JSON.stringify(payload),
+            }),
         groupStudents: (groupId: number) =>
             authenticatedRequest<{
                 course_name: string | null;
                 last_synced_at: string | null;
+                connected_accounts_count?: number;
+                total_accounts_count?: number;
+                has_subgroups?: boolean;
+                subgroup_warning?: string | null;
+                accounts?: ClassroomAccountStat[];
                 students: Array<{ id: number; full_name: string; email?: string | null; photo_url?: string | null }>;
             }>(`/api/classroom/groups/${groupId}/students`),
         bulkImportStudents: (groupId: number, raw_text: string, replace_existing: boolean = false) =>
@@ -1355,6 +1380,15 @@ export const api = {
             ),
     },
 };
+export interface ClassroomAccountStat {
+    id: number;
+    google_user_id: string;
+    last_synced_at: string | null;
+    last_error: string | null;
+    fail_count: number;
+    next_attempt_at: string | null;
+    is_active: boolean;
+}
 export interface ClassroomSyncResult {
     group_id: number;
     group_name: string;

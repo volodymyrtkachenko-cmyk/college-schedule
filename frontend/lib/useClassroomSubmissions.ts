@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { api } from "./api";
 
 export interface PersonalSubmission {
   state: string;
@@ -9,6 +10,8 @@ export interface PersonalSubmission {
 }
 
 const LINKED_EMAIL_KEY = "schedule:classroom_linked_email";
+const GOOGLE_USER_ID_KEY = "schedule:classroom_google_user_id";
+const LINKED_GROUP_ID_KEY = "schedule:classroom_linked_group_id";
 const SUBMITTED_TASKS_KEY = "schedule:classroom_submitted_tasks";
 const ACCESS_TOKEN_KEY = "schedule:classroom_access_token";
 const ACCESS_TOKEN_EXP_KEY = "schedule:classroom_access_token_exp";
@@ -90,7 +93,26 @@ export function isOwnTask(
 export function unlinkClassroomEmail(): void {
   if (typeof window === "undefined") return;
   try {
+    const googleUserId = localStorage.getItem(GOOGLE_USER_ID_KEY);
+    const groupIdRaw = localStorage.getItem(LINKED_GROUP_ID_KEY);
+    const accessToken = localStorage.getItem(ACCESS_TOKEN_KEY);
+    const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
+    const groupId = groupIdRaw ? Number(groupIdRaw) : undefined;
+
+    if (googleUserId || accessToken || refreshToken) {
+      void api.classroom
+        .disconnect({
+          group_id: groupId && !Number.isNaN(groupId) ? groupId : undefined,
+          google_user_id: googleUserId || undefined,
+          access_token: accessToken || undefined,
+          refresh_token: refreshToken || undefined,
+        })
+        .catch(() => {});
+    }
+
     localStorage.removeItem(LINKED_EMAIL_KEY);
+    localStorage.removeItem(GOOGLE_USER_ID_KEY);
+    localStorage.removeItem(LINKED_GROUP_ID_KEY);
     localStorage.removeItem(SUBMITTED_TASKS_KEY);
     localStorage.removeItem(ACCESS_TOKEN_KEY);
     localStorage.removeItem(ACCESS_TOKEN_EXP_KEY);
@@ -103,7 +125,9 @@ export function saveClassroomSyncData(
   userEmail: string | null | undefined,
   tasks: Array<any> | undefined,
   accessToken?: string | null,
-  refreshToken?: string | null
+  refreshToken?: string | null,
+  googleUserId?: string | null,
+  groupId?: number | null
 ): void {
   if (typeof window === "undefined") return;
   try {
@@ -111,6 +135,12 @@ export function saveClassroomSyncData(
       localStorage.setItem(LINKED_EMAIL_KEY, userEmail);
     } else if (!localStorage.getItem(LINKED_EMAIL_KEY)) {
       localStorage.setItem(LINKED_EMAIL_KEY, "підключено");
+    }
+    if (googleUserId) {
+      localStorage.setItem(GOOGLE_USER_ID_KEY, googleUserId);
+    }
+    if (groupId) {
+      localStorage.setItem(LINKED_GROUP_ID_KEY, String(groupId));
     }
     saveClassroomTokens(accessToken, refreshToken);
 

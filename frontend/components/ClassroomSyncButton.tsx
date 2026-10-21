@@ -103,7 +103,9 @@ export function ClassroomSyncButton({
       res.user_email,
       res.personal_tasks ?? res.tasks,
       res.access_token ?? fallbackAccessToken ?? null,
-      res.refresh_token ?? null
+      res.refresh_token ?? null,
+      res.google_user_id ?? null,
+      res.group_id ?? currentGroupId ?? null
     );
     const switchedGroup = currentGroupId !== null && currentGroupId !== res.group_id;
     if (res?.last_synced_at) {
@@ -319,10 +321,10 @@ export function ClassroomSyncButton({
       aria-label={isLinked ? "Classroom прив'язано" : "Прив'язати Classroom"}
       title={
         needsReconnect
-          ? "Потрібно надати доступ до завдань — натисніть, щоб перепідключити Classroom"
+          ? "Потрібно надати доступ до завдань — натисніть, щоб перепідключити Classroom. Сервер лише читає ваші завдання з Classroom і нічого не змінює"
           : isLinked
             ? `Classroom (прив'язано ${linkedEmail}) — натисніть для синхронізації`
-            : "Прив'язати Google Classroom для відстеження зданих робіт"
+            : "Прив'язати Google Classroom. Сервер лише читає ваші завдання з Classroom і нічого не змінює"
       }
       className={
         needsReconnect

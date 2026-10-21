@@ -13,12 +13,15 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.core.crypto import decrypt_token, encrypt_token, is_fernet_ciphertext
 from app.core.security import require_roles
 from app.database import async_session_factory, get_db
 from app.models import (
+    ClassroomCredential,
     ClassroomGroupBinding,
     Group,
     GroupStudent,
+    Schedule,
     Teacher,
     User,
 )
@@ -185,6 +188,14 @@ class ClassroomSyncRequest(BaseModel):
     refresh_token: Optional[str] = None
     group_id: Optional[int] = None
     week_start: Optional[date] = None
+
+
+class ClassroomDisconnectRequest(BaseModel):
+    group_id: Optional[int] = None
+    google_user_id: Optional[str] = None
+    access_token: Optional[str] = None
+    refresh_token: Optional[str] = None
+
 
 
 async def ensure_known_online_links(db: AsyncSession) -> None:
@@ -462,6 +473,7 @@ def _link_line_belongs_to_sync(line: str, sync_teacher_tokens: set[str]) -> bool
     prefix = _link_line_prefix(line)
     if not prefix:
         return True
+
     def _fold(x: str) -> str:
         # «Токарєва» (розклад) і «Токарева» (Classroom) мають збігатися
         return re.sub(r"[^а-яіїєґ']", "", _norm(x)).replace("є", "е").replace("ї", "і").replace("ґ", "г")
@@ -657,75 +669,56 @@ async def _upsert_task_line(
             return True
 
 
-async def _upsert_tasks_completed_note(
-    db: AsyncSession,
-    target_date: date,
-    group_id: int,
-    lesson,
-) -> bool:
-    if not lesson or not getattr(lesson, "subject_id", None):
-        return False
-    if not (1 <= getattr(lesson, "lesson_number", 0) <= 4):
-        return False
+def _sanitize_error_msg(msg: str) -> str:
+    """Ensure no tokens or secrets leak into logs or DB error strings."""
+    if not msg:
+        return ""
+    cleaned = re.sub(r"ya29\.[A-Za-z0-9_\-\.]+", "[REDACTED_TOKEN]", msg)
+    cleaned = re.sub(r"1//[A-Za-z0-9_\-\.]+", "[REDACTED_REFRESH_TOKEN]", msg)
+    cleaned = re.sub(r"gAAAAA[A-Za-z0-9_\-=]+", "[REDACTED_CIPHERTEXT]", cleaned)
+    return cleaned[:400]
 
-    existing = (
-        await db.scalars(
-            select(LessonOccurrenceNote)
-            .where(
-                LessonOccurrenceNote.note_date == target_date,
-                LessonOccurrenceNote.group_id == group_id,
-                LessonOccurrenceNote.lesson_number == lesson.lesson_number,
-                LessonOccurrenceNote.archived.is_(False),
-            )
-            .order_by(LessonOccurrenceNote.id.desc())
-            .limit(1)
-        )
-    ).first()
 
-    if existing:
-        if "[TASK]" not in existing.note and "[TASKS_COMPLETED]" not in existing.note:
-            existing.note = f"{existing.note}\n[TASKS_COMPLETED]".strip()[:500]
-            existing.revision += 1
-            existing.updated_at = datetime.now(timezone.utc)
-            await db.flush()
-            return True
-        return False
-    else:
-        db.add(
-            LessonOccurrenceNote(
-                note_date=target_date,
-                group_id=group_id,
-                lesson_number=lesson.lesson_number,
-                subject_id=lesson.subject_id,
-                subject_name=(lesson.subject_name or "")[:255],
-                note="[TASKS_COMPLETED]",
-                revision=1,
-                archived=False,
-                origin_kind="classroom",
-                origin_id=0,
+async def _refresh_google_token_detailed(refresh_token: str) -> tuple[Optional[str], Optional[str], Optional[int]]:
+    """Returns (access_token, error_code_or_msg, status_code)."""
+    plain_rt = decrypt_token(refresh_token)
+    if not plain_rt:
+        return None, "missing_or_corrupt_refresh_token", 400
+    client_id = get_google_client_id()
+    if not client_id or not settings.google_client_secret:
+        return None, "missing_client_secret", 400
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(
+                "https://oauth2.googleapis.com/token",
+                data={
+                    "client_id": client_id,
+                    "client_secret": settings.google_client_secret,
+                    "refresh_token": plain_rt,
+                    "grant_type": "refresh_token",
+                },
             )
-        )
-        await db.flush()
-        return True
+            if resp.status_code == 200:
+                return resp.json().get("access_token"), None, 200
+            try:
+                err_data = resp.json()
+                err_code = err_data.get("error") or f"http_{resp.status_code}"
+                err_desc = err_data.get("error_description") or ""
+                if err_code == "invalid_grant":
+                    return None, f"invalid_grant: {_sanitize_error_msg(err_desc)}".strip(": "), resp.status_code
+                return None, _sanitize_error_msg(f"{err_code}: {err_desc}".strip(": ")), resp.status_code
+            except Exception:
+                return None, f"http_{resp.status_code}", resp.status_code
+    except Exception as exc:
+        return None, _sanitize_error_msg(str(exc)), 500
 
 
 async def _refresh_google_token(refresh_token: str) -> Optional[str]:
-    client_id = get_google_client_id()
-    if not client_id or not settings.google_client_secret:
-        return None
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        resp = await client.post(
-            "https://oauth2.googleapis.com/token",
-            data={
-                "client_id": client_id,
-                "client_secret": settings.google_client_secret,
-                "refresh_token": refresh_token,
-                "grant_type": "refresh_token",
-            },
-        )
-        if resp.status_code == 200:
-            return resp.json().get("access_token")
-    return None
+    tok, _, _ = await _refresh_google_token_detailed(refresh_token)
+    return tok
+
+
+MAX_ACCOUNTS_PER_CYCLE = 2
 
 
 async def perform_course_sync(
@@ -735,6 +728,7 @@ async def perform_course_sync(
     access_token: str,
     group_course_id: Optional[str] = None,
     week_start: Optional[date] = None,
+    skip_course_ids: Optional[set[str]] = None,
 ) -> dict:
     headers = {"Authorization": f"Bearer {access_token}"}
     synced_links = 0
@@ -759,7 +753,9 @@ async def perform_course_sync(
 
     db_teachers = (await db.scalars(select(Teacher))).all()
 
-    current_sync_course_ids = {str(c.get("id")) for c in courses if c.get("id")}
+    skipped_ids = {str(cid) for cid in (skip_course_ids or set()) if cid}
+    effective_courses = [c for c in courses if str(c.get("id") or "") not in skipped_ids]
+    current_sync_course_ids = {str(c.get("id")) for c in effective_courses if c.get("id")}
 
     # КРОК 1: Розумне очищення старих авто-посилань та старих [TASK]
     # Завдання інших підгруп/курсів (наприклад, іншої підгрупи англійської мови),
@@ -780,10 +776,11 @@ async def perform_course_sync(
             if not l_str:
                 continue
             if l_str.startswith("[TASK"):
-                # Якщо завдання з іншого курсу (іншої підгрупи), якого немає в поточному синку — зберігаємо його
+                # Якщо завдання з іншого курсу (іншої підгрупи або вже синхронізованого в цьому циклі),
+                # якого немає в effective_courses — зберігаємо його
                 c_match = re.search(r"/c/([0-9]+)", l_str)
                 task_c_id = c_match.group(1) if c_match else None
-                if task_c_id and current_sync_course_ids and task_c_id not in current_sync_course_ids:
+                if not current_sync_course_ids or (task_c_id and task_c_id not in current_sync_course_ids):
                     manual_lines.append(l_str)
                 continue
             if "classroom.google.com/" in l_str.lower():
@@ -810,9 +807,11 @@ async def perform_course_sync(
 
     # Додатковий захист: очищаємо залишкові авто-нотатки з інших груп,
     # які не мають власних активних прив'язок до Classroom
-    active_binding_group_ids = (
-        await db.scalars(select(ClassroomGroupBinding.group_id).where(ClassroomGroupBinding.is_active.is_(True)))
-    ).all()
+    active_binding_group_ids = set(
+        (await db.scalars(select(ClassroomGroupBinding.group_id).where(ClassroomGroupBinding.is_active.is_(True)))).all()
+    ) | set(
+        (await db.scalars(select(ClassroomCredential.group_id).where(ClassroomCredential.is_active.is_(True)))).all()
+    ) | {group.id}
     orphan_notes = (
         await db.scalars(
             select(LessonOccurrenceNote).where(
@@ -869,21 +868,24 @@ async def perform_course_sync(
 
     async with httpx.AsyncClient(timeout=15.0) as client:
         user_email: Optional[str] = None
+        google_user_id: Optional[str] = None
         try:
             me_resp = await client.get(
                 "https://classroom.googleapis.com/v1/userProfiles/me",
                 headers=headers,
             )
             if me_resp.status_code == 200:
-                user_email = me_resp.json().get("emailAddress")
+                me_data = me_resp.json()
+                user_email = me_data.get("emailAddress")
+                google_user_id = (me_data.get("id") or "").strip() or None
         except Exception as e:
-            logger.warning(f"Could not fetch user profile: {e}")
+            logger.warning(f"Could not fetch user profile: {_sanitize_error_msg(str(e))}")
 
         all_active_groups = (await db.scalars(select(Group).where(Group.is_active.is_(True)))).all()
         target_group_courses = []
         relevant_courses = []
 
-        for c in courses:
+        for c in effective_courses:
             full_title = f"{c.get('name', '')} {c.get('section', '')} {c.get('descriptionHeading', '')}".strip()
             matched_g = _extract_group_from_course_name(full_title, all_active_groups)
             if matched_g:
@@ -896,10 +898,10 @@ async def perform_course_sync(
                 if group_course_id and c.get("id") == group_course_id:
                     target_group_courses.append(c)
 
-        if not target_group_courses and courses:
+        if not target_group_courses and effective_courses and not skipped_ids:
             # Якщо немає курсів з назвою групи, беремо лише той курс, який безпосередньо прив'язаний
-            target_group_courses = [c for c in courses if group_course_id and c.get("id") == group_course_id] or [courses[0]]
-        if not relevant_courses:
+            target_group_courses = [c for c in effective_courses if group_course_id and c.get("id") == group_course_id] or [effective_courses[0]]
+        if not relevant_courses and not skipped_ids:
             relevant_courses = target_group_courses
 
         # 1. Синхронізація списку студентів
@@ -950,49 +952,50 @@ async def perform_course_sync(
                     if not page_token:
                         break
             except Exception as e:
-                logger.warning(f"Could not sync students for course {c_id}: {e}")
+                logger.warning(f"Could not sync students for course {c_id}: {_sanitize_error_msg(str(e))}")
 
         # Пошук одногрупників через Google People Directory API (@kre.dp.ua)
-        try:
-            search_queries = [group.name]
-            for gc in target_group_courses:
-                c_name = (gc.get("name") or "").strip()
-                if c_name and c_name not in search_queries:
-                    search_queries.append(c_name)
+        if target_group_courses:
+            try:
+                search_queries = [group.name]
+                for gc in target_group_courses:
+                    c_name = (gc.get("name") or "").strip()
+                    if c_name and c_name not in search_queries:
+                        search_queries.append(c_name)
 
-            for sq in search_queries[:2]:
-                people_resp = await client.get(
-                    "https://people.googleapis.com/v1/people:searchDirectoryPeople",
-                    params={
-                        "query": sq,
-                        "readMask": "names,emailAddresses,photos,organizations",
-                        "sources": ["DIRECTORY_SOURCE_TYPE_DOMAIN_PROFILE"],
-                        "pageSize": 100,
-                    },
-                    headers=headers,
-                )
-                if people_resp.status_code == 200:
-                    for person in people_resp.json().get("people", []):
-                        names = person.get("names", [])
-                        full_name = names[0].get("displayName", "").strip() if names else ""
-                        emails = person.get("emailAddresses", [])
-                        email = emails[0].get("value", "").strip() if emails else ""
-                        photos = person.get("photos", [])
-                        photo = photos[0].get("url") if photos else None
+                for sq in search_queries[:2]:
+                    people_resp = await client.get(
+                        "https://people.googleapis.com/v1/people:searchDirectoryPeople",
+                        params={
+                            "query": sq,
+                            "readMask": "names,emailAddresses,photos,organizations",
+                            "sources": ["DIRECTORY_SOURCE_TYPE_DOMAIN_PROFILE"],
+                            "pageSize": 100,
+                        },
+                        headers=headers,
+                    )
+                    if people_resp.status_code == 200:
+                        for person in people_resp.json().get("people", []):
+                            names = person.get("names", [])
+                            full_name = names[0].get("displayName", "").strip() if names else ""
+                            emails = person.get("emailAddresses", [])
+                            email = emails[0].get("value", "").strip() if emails else ""
+                            photos = person.get("photos", [])
+                            photo = photos[0].get("url") if photos else None
 
-                        if not full_name:
-                            continue
+                            if not full_name:
+                                continue
 
-                        p_uid = f"dir_{abs(hash(email or full_name)) % (10**12)}"
-                        if p_uid not in students_by_user_id:
-                            students_by_user_id[p_uid] = {
-                                "classroom_user_id": p_uid[:64],
-                                "full_name": full_name[:150],
-                                "email": email[:150] or None,
-                                "photo_url": photo[:500] if photo else None,
-                            }
-        except Exception as e:
-            logger.warning(f"People API directory search skipped: {e}")
+                            p_uid = f"dir_{abs(hash(email or full_name)) % (10**12)}"
+                            if p_uid not in students_by_user_id:
+                                students_by_user_id[p_uid] = {
+                                    "classroom_user_id": p_uid[:64],
+                                    "full_name": full_name[:150],
+                                    "email": email[:150] or None,
+                                    "photo_url": photo[:500] if photo else None,
+                                }
+            except Exception as e:
+                logger.warning(f"People API directory search skipped: {_sanitize_error_msg(str(e))}")
 
         existing_students = (
             await db.scalars(
@@ -1324,34 +1327,15 @@ async def perform_course_sync(
                     })
                     # 13.3: Усі опубліковані завдання записуються в загальну базу розкладу групи,
                     # щоб не прив'язані користувачі бачили все з наявними правилами розкладу.
-
-                    # 22.3: Якщо діє обмеження за часом (наприклад, лише останні N днів), воно застосовується лише до зданих завдань.
-                    # Нездане завдання ніколи не зникає зі списку, поки його не здано.
-                    is_turned_in = cw_id in turned_in_cw_ids
-                    if is_turned_in:
-                        if due_date is not None:
-                            if due_date < tasks_lookback_start:
-                                unmapped_tasks.append({
-                                    "title": title_raw,
-                                    "due_date": due_date.isoformat(),
-                                    "reason": f"Дедлайн минув більше ніж {TASKS_LOOKBACK_DAYS} дн. тому ({due_date.strftime('%d.%m')})",
-                                })
-                                continue
-                            if due_date > tasks_window_end:
-                                unmapped_tasks.append({
-                                    "title": title_raw,
-                                    "due_date": due_date.isoformat(),
-                                    "reason": f"Дедлайн за межами горизонту розкладу ({due_date.strftime('%d.%m')})",
-                                })
-                                continue
-                        else:
-                            if (today_real - created_dt.date()).days > TASKS_LOOKBACK_DAYS:
-                                unmapped_tasks.append({
-                                    "title": title_raw,
-                                    "due_date": None,
-                                    "reason": f"Створено більше {TASKS_LOOKBACK_DAYS} днів тому без дедлайну",
-                                })
-                                continue
+                    # 25.6: Персональний стан здачі (TURNED_IN, RETURNED, оцінки) НЕ впливає на спільні нотатки групи!
+                    if due_date is not None:
+                        if due_date > tasks_window_end:
+                            unmapped_tasks.append({
+                                "title": title_raw,
+                                "due_date": due_date.isoformat(),
+                                "reason": f"Дедлайн за межами горизонту розкладу ({due_date.strftime('%d.%m')})",
+                            })
+                            continue
 
                     raw_coursework_items.append({
                         "due_date": due_date,
@@ -1501,6 +1485,16 @@ async def perform_course_sync(
     # КРОК 1b: Smart Merge для посилань. Тепер відомо, які викладачі є у курсах цього користувача,
     # тож видаляємо лише застарілі посилання ЇХ, а посилання викладачів іншої підгрупи зберігаємо.
     sync_teacher_tokens = {tok for toks in course_teachers_tokens.values() for tok in toks}
+    synced_subject_ids: set[int] = set()
+    for course, _ in bundles:
+        c_id = course["id"]
+        c_title_norm = _norm(f"{course.get('name', '')} {course.get('section', '')}".strip())
+        c_toks = course_teachers_tokens.get(c_id, [])
+        for d_lessons in week_days_lessons.values():
+            for l_obj in d_lessons:
+                if getattr(l_obj, "subject_id", None) and _matches_lesson(l_obj, c_title_norm, "", c_toks):
+                    synced_subject_ids.add(l_obj.subject_id)
+
     for gn in all_group_notes:
         if gn.archived:
             continue
@@ -1515,6 +1509,12 @@ async def perform_course_sync(
                 and URL_RE.search(l_str)
                 and _link_line_belongs_to_sync(l_str, sync_teacher_tokens)
             ):
+                # Якщо це безпрефіксне посилання (спільна пара), а ми у режимі дедуплікації курсів (skip_course_ids),
+                # очищуємо його лише якщо предмет пари входить до фактично оброблених курсів цього синку
+                if skipped_ids and _link_line_prefix(l_str) is None:
+                    if gn.subject_id not in synced_subject_ids:
+                        kept.append(l_str)
+                        continue
                 changed = True
                 continue
             kept.append(l_str)
@@ -1598,6 +1598,8 @@ async def perform_course_sync(
     _latest_scope_missing[group.id] = has_submission_scope_error
     return {
         "user_email": user_email,
+        "google_user_id": google_user_id,
+        "synced_course_ids": list(current_sync_course_ids),
         "synced_links": synced_links,
         "synced_tasks": synced_tasks,
         "synced_students": synced_students,
@@ -1642,11 +1644,11 @@ async def sync_from_classroom(
                     refresh_token = token_data.get("refresh_token") or refresh_token
                 else:
                     logger.warning(
-                        f"Failed to exchange code: {token_resp.status_code} {token_resp.text}"
+                        f"Failed to exchange code: {token_resp.status_code} {_sanitize_error_msg(token_resp.text)}"
                     )
                     raise HTTPException(
                         status_code=400,
-                        detail=f"Не вдалося обміняти код авторизації Google: {token_resp.text[:200]}",
+                        detail=f"Не вдалося обміняти код авторизації Google: {_sanitize_error_msg(token_resp.text)[:200]}",
                     )
 
         if not access_token and refresh_token:
@@ -1657,6 +1659,9 @@ async def sync_from_classroom(
 
         headers = {"Authorization": f"Bearer {access_token}"}
         all_groups = (await db.scalars(select(Group).where(Group.is_active.is_(True)))).all()
+
+        google_user_id: Optional[str] = None
+        profile_email: Optional[str] = None
 
         async with httpx.AsyncClient(timeout=15.0) as client:
             courses_resp = await client.get(
@@ -1678,6 +1683,19 @@ async def sync_from_classroom(
                 raise HTTPException(status_code=401, detail="Не вдалося прочитати курси з Google Classroom")
 
             courses = courses_resp.json().get("courses", [])
+
+            # 25.4.1: Викликаємо userProfiles/me і беремо стабільний id акаунта
+            try:
+                me_resp = await client.get(
+                    "https://classroom.googleapis.com/v1/userProfiles/me",
+                    headers=headers,
+                )
+                if me_resp.status_code == 200:
+                    me_json = me_resp.json()
+                    google_user_id = str(me_json.get("id") or "").strip() or None
+                    profile_email = (me_json.get("emailAddress") or "").strip() or None
+            except Exception as exc:
+                logger.warning(f"Failed to read userProfiles/me during sync: {_sanitize_error_msg(str(exc))}")
 
         courses_by_group_id: dict[int, tuple[Group, dict]] = {}
         for c in courses:
@@ -1705,6 +1723,10 @@ async def sync_from_classroom(
                 detail="Не знайдено курс вашої групи у Classroom (наприклад, КІ-24-2/9-85).",
             )
 
+        now_utc = datetime.now(timezone.utc)
+        plain_refresh = decrypt_token(refresh_token) if refresh_token else ""
+        encrypted_refresh = encrypt_token(plain_refresh) if plain_refresh else None
+
         binding = await db.scalar(
             select(ClassroomGroupBinding).where(ClassroomGroupBinding.group_id == detected_group.id)
         )
@@ -1716,9 +1738,9 @@ async def sync_from_classroom(
                 group_id=detected_group.id,
                 course_id=group_course_id[:64],
                 course_name=group_course_name[:200],
-                access_token=access_token[:512],
-                refresh_token=refresh_token[:512] if refresh_token else None,
-                last_synced_at=datetime.now(timezone.utc),
+                access_token=encrypt_token(access_token)[:512] if access_token else None,
+                refresh_token=encrypted_refresh[:512] if encrypted_refresh else None,
+                last_synced_at=now_utc,
                 is_active=True,
             )
             db.add(binding)
@@ -1726,10 +1748,10 @@ async def sync_from_classroom(
             if group_course_id:
                 binding.course_id = group_course_id[:64]
                 binding.course_name = group_course_name[:200]
-            binding.access_token = access_token[:512]
-            if refresh_token:
-                binding.refresh_token = refresh_token[:512]
-            binding.last_synced_at = datetime.now(timezone.utc)
+            binding.access_token = encrypt_token(access_token)[:512] if access_token else None
+            if encrypted_refresh:
+                binding.refresh_token = encrypted_refresh[:512]
+            binding.last_synced_at = now_utc
             binding.is_active = True
 
         # Видаляємо лише дублікати прив'язки цього ж курсу до чужих груп, НЕ чіпаючи інші підключені групи!
@@ -1751,6 +1773,59 @@ async def sync_from_classroom(
             group_course_id=binding.course_id,
             week_start=payload.week_start,
         )
+
+        effective_user_id = (
+            google_user_id
+            or stats.get("google_user_id")
+            or profile_email
+            or stats.get("user_email")
+        )
+        if not effective_user_id and plain_refresh:
+            import hashlib as _hashlib
+            effective_user_id = f"user_{_hashlib.sha256(plain_refresh.encode('utf-8')).hexdigest()[:16]}"
+
+        # 25.4.2: Upsert запису в classroom_credentials за парою (group_id, google_user_id)
+        if effective_user_id:
+            effective_user_id = str(effective_user_id)[:128]
+            cred = await db.scalar(
+                select(ClassroomCredential).where(
+                    ClassroomCredential.group_id == detected_group.id,
+                    ClassroomCredential.google_user_id == effective_user_id,
+                )
+            )
+            token_to_store = encrypted_refresh or (encrypt_token(access_token) if access_token else "")
+            if cred is None:
+                cred = ClassroomCredential(
+                    group_id=detected_group.id,
+                    google_user_id=effective_user_id,
+                    refresh_token=token_to_store,
+                    last_synced_at=now_utc,
+                    last_error=None,
+                    fail_count=0,
+                    next_attempt_at=None,
+                    is_active=True,
+                )
+                db.add(cred)
+            else:
+                if encrypted_refresh or not cred.refresh_token:
+                    cred.refresh_token = token_to_store
+                cred.last_synced_at = now_utc
+                cred.last_error = None
+                cred.fail_count = 0
+                cred.next_attempt_at = None
+                cred.is_active = True
+
+            # Якщо існував тимчасовий запис міграції legacy_group_{id} з тим самим токеном — прибираємо дубль
+            legacy_cred = await db.scalar(
+                select(ClassroomCredential).where(
+                    ClassroomCredential.group_id == detected_group.id,
+                    ClassroomCredential.google_user_id == f"legacy_group_{detected_group.id}",
+                )
+            )
+            if legacy_cred and legacy_cred.google_user_id != effective_user_id:
+                if plain_refresh and decrypt_token(legacy_cred.refresh_token) == plain_refresh:
+                    await db.delete(legacy_cred)
+
         await db.commit()
 
         _sync_backoff_state.pop(detected_group.id, None)
@@ -1759,20 +1834,98 @@ async def sync_from_classroom(
             "group_id": detected_group.id,
             "group_name": detected_group.name,
             "course_name": binding.course_name,
-            "last_synced_at": binding.last_synced_at.isoformat() if binding.last_synced_at else datetime.now(timezone.utc).isoformat(),
+            "last_synced_at": binding.last_synced_at.isoformat() if binding.last_synced_at else now_utc.isoformat(),
             "access_token": access_token,
-            "refresh_token": refresh_token,
+            "refresh_token": plain_refresh or refresh_token,
             **stats,
+            "google_user_id": effective_user_id,
         }
     except HTTPException:
         raise
     except Exception as exc:
-        logger.error(f"Classroom sync error: {traceback.format_exc()}")
+        logger.error(f"Classroom sync error: {_sanitize_error_msg(traceback.format_exc())}")
         await db.rollback()
         raise HTTPException(
             status_code=500,
-            detail=f"Помилка синхронізації Classroom: {str(exc)}",
+            detail=f"Помилка синхронізації Classroom: {_sanitize_error_msg(str(exc))}",
         )
+
+
+@router.post("/disconnect")
+async def disconnect_classroom_account(
+    payload: ClassroomDisconnectRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    25.6: «Від'єднати» видаляє запис цього студента з classroom_credentials
+    і відкликає його токен у Google. Інші записи групи не зачіпаються.
+    """
+    target_user_id = (payload.google_user_id or "").strip() or None
+    plain_rt = decrypt_token(payload.refresh_token) if payload.refresh_token else ""
+    plain_at = decrypt_token(payload.access_token) if payload.access_token else ""
+
+    if not target_user_id and plain_at:
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                me_resp = await client.get(
+                    "https://classroom.googleapis.com/v1/userProfiles/me",
+                    headers={"Authorization": f"Bearer {plain_at}"},
+                )
+                if me_resp.status_code == 200:
+                    me_data = me_resp.json()
+                    target_user_id = str(me_data.get("id") or me_data.get("emailAddress") or "").strip() or None
+        except Exception as exc:
+            logger.warning(f"Disconnect profile lookup failed: {_sanitize_error_msg(str(exc))}")
+
+    query = select(ClassroomCredential)
+    if payload.group_id:
+        query = query.where(ClassroomCredential.group_id == payload.group_id)
+    candidates = (await db.scalars(query)).all()
+
+    to_delete: list[ClassroomCredential] = []
+    tokens_to_revoke: set[str] = set()
+    if plain_rt:
+        tokens_to_revoke.add(plain_rt)
+    if plain_at:
+        tokens_to_revoke.add(plain_at)
+
+    for cred in candidates:
+        cred_rt = decrypt_token(cred.refresh_token)
+        if target_user_id and cred.google_user_id == target_user_id:
+            to_delete.append(cred)
+            if cred_rt:
+                tokens_to_revoke.add(cred_rt)
+        elif plain_rt and cred_rt and cred_rt == plain_rt:
+            to_delete.append(cred)
+            tokens_to_revoke.add(cred_rt)
+
+    deleted_count = 0
+    for cred in to_delete:
+        await db.delete(cred)
+        deleted_count += 1
+
+    await db.commit()
+
+    revoked = False
+    if tokens_to_revoke:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            for tok in tokens_to_revoke:
+                try:
+                    rev_resp = await client.post(
+                        "https://oauth2.googleapis.com/revoke",
+                        params={"token": tok},
+                        headers={"Content-Type": "application/x-www-form-urlencoded"},
+                    )
+                    if rev_resp.status_code == 200:
+                        revoked = True
+                except Exception as exc:
+                    logger.warning(f"Google token revoke warning: {_sanitize_error_msg(str(exc))}")
+
+    return {
+        "status": "disconnected",
+        "deleted_credentials": deleted_count,
+        "revoked": revoked,
+    }
 
 
 async def run_background_sync_task(group_id: int) -> None:
@@ -1809,48 +1962,178 @@ def should_trigger_background_sync(group_id: Optional[int]) -> bool:
     return True
 
 
-async def trigger_background_sync_if_needed(db: AsyncSession, group_id: Optional[int]) -> None:
+def _apply_credential_backoff(cred: ClassroomCredential, err_msg: str, now: datetime) -> None:
+    cred.fail_count = (cred.fail_count or 0) + 1
+    delay_seconds = min(14400.0, 900.0 * (2 ** min(cred.fail_count, 4)))
+    cred.next_attempt_at = now + timedelta(seconds=delay_seconds)
+    cred.last_error = _sanitize_error_msg(err_msg)
+
+
+async def trigger_background_sync_if_needed(
+    db: AsyncSession,
+    group_id: Optional[int],
+    max_accounts: int = MAX_ACCOUNTS_PER_CYCLE,
+    force: bool = False,
+) -> None:
     if not group_id or group_id in _SYNC_LOCK_GROUPS:
         return
 
     now_mono = _time.monotonic()
     failures, next_allowed = _sync_backoff_state.get(group_id, (0, 0.0))
-    if now_mono < next_allowed:
+    if not force and now_mono < next_allowed:
         return
 
     _SYNC_LOCK_GROUPS.add(group_id)
     try:
+        group = await db.get(Group, group_id)
+        if not group:
+            return
+
+        now = datetime.now(timezone.utc)
+
+        # Перевіряємо наявність записів у новій таблиці classroom_credentials
+        all_creds = (
+            await db.scalars(
+                select(ClassroomCredential).where(ClassroomCredential.group_id == group_id)
+            )
+        ).all()
+
         binding = await db.scalar(
             select(ClassroomGroupBinding).where(
                 ClassroomGroupBinding.group_id == group_id,
                 ClassroomGroupBinding.is_active.is_(True),
             )
         )
+
+        if all_creds:
+            # 25.5: Беремо активні записи групи, для яких настав час спроби,
+            # відсортовані за last_synced_at (найстаріший першим, NULLS FIRST).
+            def _is_ready(c: ClassroomCredential) -> bool:
+                if not c.is_active:
+                    return False
+                if force or c.next_attempt_at is None:
+                    return True
+                na = c.next_attempt_at if c.next_attempt_at.tzinfo else c.next_attempt_at.replace(tzinfo=timezone.utc)
+                return na <= now
+
+            active_creds = [c for c in all_creds if _is_ready(c)]
+            if not active_creds:
+                return
+
+            def _cred_sort_key(c: ClassroomCredential):
+                if c.last_synced_at is None:
+                    return (0, datetime.min.replace(tzinfo=timezone.utc), c.id or 0)
+                ts = c.last_synced_at if c.last_synced_at.tzinfo else c.last_synced_at.replace(tzinfo=timezone.utc)
+                return (1, ts, c.id or 0)
+
+            active_creds.sort(key=_cred_sort_key)
+
+            # Якщо навіть найстаріший акаунт синхронізувався менше 15 хв тому (і не force) — пропускаємо
+            oldest = active_creds[0]
+            if not force and oldest.last_synced_at is not None:
+                oldest_ts = oldest.last_synced_at if oldest.last_synced_at.tzinfo else oldest.last_synced_at.replace(tzinfo=timezone.utc)
+                if (now - oldest_ts).total_seconds() < 900:
+                    return
+
+            selected_creds = active_creds[:max(1, max_accounts)]
+            seen_course_ids: set[str] = set()
+            any_synced = False
+
+            for cred in selected_creds:
+                fresh_token, err_msg, status_code = await _refresh_google_token_detailed(cred.refresh_token)
+                if not fresh_token:
+                    if err_msg and err_msg.startswith("invalid_grant"):
+                        # 25.5: Помилка invalid_grant деактивує лише цей запис і пише last_error
+                        cred.is_active = False
+                        cred.fail_count = (cred.fail_count or 0) + 1
+                        cred.last_error = _sanitize_error_msg(err_msg)
+                        cred.next_attempt_at = None
+                    else:
+                        _apply_credential_backoff(cred, err_msg or f"refresh_failed_{status_code}", now)
+                    await db.flush()
+                    continue
+
+                headers = {"Authorization": f"Bearer {fresh_token}"}
+                try:
+                    async with httpx.AsyncClient(timeout=15.0) as client:
+                        courses_resp = await client.get(
+                            "https://classroom.googleapis.com/v1/courses",
+                            params={"courseStates": "ACTIVE", "pageSize": 100},
+                            headers=headers,
+                        )
+                except Exception as req_exc:
+                    _apply_credential_backoff(cred, f"network_error: {req_exc}", now)
+                    await db.flush()
+                    continue
+
+                if courses_resp.status_code in (401, 403, 429):
+                    _apply_credential_backoff(
+                        cred,
+                        f"courses_http_{courses_resp.status_code}",
+                        now,
+                    )
+                    await db.flush()
+                    continue
+                if courses_resp.status_code != 200:
+                    _apply_credential_backoff(
+                        cred,
+                        f"courses_http_{courses_resp.status_code}",
+                        now,
+                    )
+                    await db.flush()
+                    continue
+
+                courses = courses_resp.json().get("courses", [])
+                sync_res = await perform_course_sync(
+                    db,
+                    group,
+                    courses,
+                    fresh_token,
+                    group_course_id=binding.course_id if binding else None,
+                    skip_course_ids=seen_course_ids,
+                )
+                for cid in sync_res.get("synced_course_ids", []):
+                    seen_course_ids.add(str(cid))
+                for c_obj in courses:
+                    if c_obj.get("id"):
+                        seen_course_ids.add(str(c_obj["id"]))
+
+                cred.last_synced_at = now
+                cred.fail_count = 0
+                cred.last_error = None
+                cred.next_attempt_at = None
+                any_synced = True
+                await db.flush()
+
+            if any_synced and binding:
+                binding.last_synced_at = now
+            await db.commit()
+            if any_synced:
+                _sync_backoff_state.pop(group_id, None)
+            return
+
+        # 25.8.1: Фолбек на стару таблицю classroom_group_bindings, якщо у новій ще немає записів
         if not binding:
             return
 
-        now = datetime.now(timezone.utc)
-        if binding.last_synced_at and (now - binding.last_synced_at).total_seconds() < 900:
-            return
+        if not force and binding.last_synced_at:
+            b_ts = binding.last_synced_at if binding.last_synced_at.tzinfo else binding.last_synced_at.replace(tzinfo=timezone.utc)
+            if (now - b_ts).total_seconds() < 900:
+                return
 
-        token = binding.access_token
+        token = decrypt_token(binding.access_token) if binding.access_token else None
         if binding.refresh_token:
             fresh = await _refresh_google_token(binding.refresh_token)
             if fresh:
                 token = fresh
-                binding.access_token = fresh
+                binding.access_token = encrypt_token(fresh)[:512]
             elif not token:
-                # refresh_token відкликаний або невалідний — ставимо backoff до 4 годин
                 new_fails = failures + 1
                 delay = min(14400.0, 900.0 * (2 ** min(new_fails, 4)))
                 _sync_backoff_state[group_id] = (new_fails, _time.monotonic() + delay)
                 return
 
         if not token:
-            return
-
-        group = await db.get(Group, group_id)
-        if not group:
             return
 
         headers = {"Authorization": f"Bearer {token}"}
@@ -1865,7 +2148,6 @@ async def trigger_background_sync_if_needed(db: AsyncSession, group_id: Optional
                 delay = min(14400.0, 900.0 * (2 ** min(new_fails, 4)))
                 _sync_backoff_state[group_id] = (new_fails, _time.monotonic() + delay)
                 if courses_resp.status_code in (401, 403) and not binding.refresh_token:
-                    # Прострочений одноразовий access_token без refresh_token — очищуємо, щоб не спамити
                     binding.access_token = None
                     await db.commit()
                 return
@@ -1887,10 +2169,70 @@ async def trigger_background_sync_if_needed(db: AsyncSession, group_id: Optional
         new_fails = failures + 1
         delay = min(7200.0, 300.0 * (2 ** min(new_fails, 4)))
         _sync_backoff_state[group_id] = (new_fails, _time.monotonic() + delay)
-        logger.warning(f"Background Classroom sync failed for group {group_id} (backoff {delay:.0f}s): {e}")
+        logger.warning(f"Background Classroom sync failed for group {group_id} (backoff {delay:.0f}s): {_sanitize_error_msg(str(e))}")
         await db.rollback()
     finally:
         _SYNC_LOCK_GROUPS.discard(group_id)
+
+
+async def _build_group_accounts_summary(db: AsyncSession, group_id: int) -> dict:
+    """25.7: Статистика підключених акаунтів групи для адмінки та статусу."""
+    creds = (
+        await db.scalars(
+            select(ClassroomCredential)
+            .where(ClassroomCredential.group_id == group_id)
+            .order_by(ClassroomCredential.id.asc())
+        )
+    ).all()
+
+    active_creds = [c for c in creds if c.is_active]
+    active_count = len(active_creds)
+
+    # Перевіряємо, чи має група пари з поділом на підгрупи (2 викладачі: second_teacher_id IS NOT NULL)
+    subgroup_lessons_count = await db.scalar(
+        select(func.count(Schedule.id)).where(
+            Schedule.group_id == group_id,
+            Schedule.second_teacher_id.is_not(None),
+            Schedule.is_active.is_(True),
+        )
+    ) or 0
+    has_subgroups = subgroup_lessons_count > 0
+
+    subgroup_warning: Optional[str] = None
+    if active_count == 0:
+        subgroup_warning = "Для цієї групи немає жодного активного Classroom-акаунта."
+    elif has_subgroups and active_count < 2:
+        subgroup_warning = (
+            "Група має пари з поділом на підгрупи, але підключено лише 1 активний акаунт. "
+            "Для оновлення обох підгруп бажано підключити по одному студенту з кожної підгрупи."
+        )
+
+    latest_sync_dt: Optional[datetime] = None
+    for c in creds:
+        if c.last_synced_at:
+            ts = c.last_synced_at if c.last_synced_at.tzinfo else c.last_synced_at.replace(tzinfo=timezone.utc)
+            if latest_sync_dt is None or ts > latest_sync_dt:
+                latest_sync_dt = ts
+
+    return {
+        "connected_accounts_count": active_count,
+        "total_accounts_count": len(creds),
+        "has_subgroups": has_subgroups,
+        "subgroup_warning": subgroup_warning,
+        "latest_cred_synced_at": latest_sync_dt.isoformat() if latest_sync_dt else None,
+        "accounts": [
+            {
+                "id": c.id,
+                "google_user_id": c.google_user_id,
+                "last_synced_at": c.last_synced_at.isoformat() if c.last_synced_at else None,
+                "last_error": c.last_error,
+                "fail_count": c.fail_count,
+                "next_attempt_at": c.next_attempt_at.isoformat() if c.next_attempt_at else None,
+                "is_active": c.is_active,
+            }
+            for c in creds
+        ],
+    }
 
 
 @router.get("/groups/{group_id}/students")
@@ -1908,9 +2250,15 @@ async def get_group_students(
     binding = await db.scalar(
         select(ClassroomGroupBinding).where(ClassroomGroupBinding.group_id == group_id)
     )
+    accounts_summary = await _build_group_accounts_summary(db, group_id)
+    last_synced = (
+        accounts_summary["latest_cred_synced_at"]
+        or (binding.last_synced_at.isoformat() if (binding and binding.last_synced_at) else None)
+    )
     return {
         "course_name": binding.course_name if binding else None,
-        "last_synced_at": binding.last_synced_at.isoformat() if (binding and binding.last_synced_at) else None,
+        "last_synced_at": last_synced,
+        **accounts_summary,
         "students": [
             {
                 "id": s.id,
@@ -2027,7 +2375,8 @@ async def clear_all_classroom_data(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Очищає всі Classroom-прив'язки (classroom_group_bindings) та автоматичні нотатки/посилання/ДЗ.
+    Очищає всі Classroom-прив'язки (classroom_group_bindings та classroom_credentials)
+    та автоматичні нотатки/посилання/ДЗ.
     Ручні текстові нотатки студентів та викладачів залишаються недоторканими.
     """
     if not settings.wipe_secret or wipe_secret != settings.wipe_secret:
@@ -2035,9 +2384,12 @@ async def clear_all_classroom_data(
 
     # 1. Видаляємо зв'язки
     binding_stmt = delete(ClassroomGroupBinding)
+    cred_stmt = delete(ClassroomCredential)
     if group_id:
         binding_stmt = binding_stmt.where(ClassroomGroupBinding.group_id == group_id)
+        cred_stmt = cred_stmt.where(ClassroomCredential.group_id == group_id)
     binding_res = await db.execute(binding_stmt)
+    await db.execute(cred_stmt)
     deleted_bindings = binding_res.rowcount or 0
 
     # 2. Очищаємо всі автоматичні нотатки [TASK], посилання Meet/Zoom
@@ -2099,8 +2451,11 @@ async def get_classroom_group_status(
             ClassroomGroupBinding.is_active.is_(True),
         )
     )
+    accounts_summary = await _build_group_accounts_summary(db, group_id)
+    has_active_creds = accounts_summary["connected_accounts_count"] > 0
+
     tasks = _latest_group_tasks.get(group_id)
-    if tasks is None and binding:
+    if tasks is None and (binding or has_active_creds):
         notes = (
             await db.scalars(
                 select(LessonOccurrenceNote).where(
@@ -2148,8 +2503,8 @@ async def get_classroom_group_status(
 
                 reconstructed.append({
                     "id": url_part,
-                    "course_id": binding.course_id,
-                    "course_name": binding.course_name,
+                    "course_id": binding.course_id if binding else "",
+                    "course_name": binding.course_name if binding else "",
                     "title": title_clean or "Завдання",
                     "subject": subj,
                     "teacher": teacher,
@@ -2163,28 +2518,46 @@ async def get_classroom_group_status(
         _latest_group_tasks[group_id] = reconstructed
         tasks = reconstructed
 
+    last_synced = (
+        accounts_summary["latest_cred_synced_at"]
+        or (binding.last_synced_at.isoformat() if (binding and binding.last_synced_at) else None)
+    )
+
     return {
-        "connected": bool(binding),
-        "last_synced_at": binding.last_synced_at.isoformat() if (binding and binding.last_synced_at) else None,
-        "has_refresh_token": bool(binding and binding.refresh_token),
+        "connected": bool(binding) or has_active_creds,
+        "last_synced_at": last_synced,
+        "has_refresh_token": bool(binding and binding.refresh_token) or has_active_creds,
         "has_client_secret": bool(settings.google_client_secret),
         "unmapped_tasks": _latest_unmapped_tasks.get(group_id, []),
         "tasks": tasks if tasks is not None else [],
         "needs_reconnect": _latest_scope_missing.get(group_id, False),
+        **accounts_summary,
     }
 
 
 async def sync_all_connected_groups_once() -> dict:
-    """Проходить по всіх підключених групах у classroom_group_bindings і оновлює їх розклад."""
+    """Проходить по всіх підключених групах у classroom_credentials та classroom_group_bindings і оновлює їх розклад."""
     synced_groups = []
     async with async_session_factory() as db:
-        group_ids = (
-            await db.scalars(
-                select(ClassroomGroupBinding.group_id).where(
-                    ClassroomGroupBinding.is_active.is_(True)
+        cred_group_ids = set(
+            (
+                await db.scalars(
+                    select(ClassroomCredential.group_id).where(
+                        ClassroomCredential.is_active.is_(True)
+                    )
                 )
-            )
-        ).all()
+            ).all()
+        )
+        binding_group_ids = set(
+            (
+                await db.scalars(
+                    select(ClassroomGroupBinding.group_id).where(
+                        ClassroomGroupBinding.is_active.is_(True)
+                    )
+                )
+            ).all()
+        )
+        group_ids = sorted(cred_group_ids | binding_group_ids)
 
     for gid in group_ids:
         try:
@@ -2193,7 +2566,7 @@ async def sync_all_connected_groups_once() -> dict:
                 synced_groups.append(gid)
             await asyncio.sleep(3)  # Пауза між групами для захисту від Google API Rate Limit
         except Exception as e:
-            logger.warning(f"Auto-sync skipped for group {gid}: {e}")
+            logger.warning(f"Auto-sync skipped for group {gid}: {_sanitize_error_msg(str(e))}")
 
     return {"checked_groups": len(group_ids), "processed": synced_groups}
 
@@ -2207,7 +2580,7 @@ async def classroom_auto_sync_loop() -> None:
         except asyncio.CancelledError:
             break
         except Exception as e:
-            logger.error(f"Classroom auto-sync loop error: {e}")
+            logger.error(f"Classroom auto-sync loop error: {_sanitize_error_msg(str(e))}")
         await asyncio.sleep(600)  # Перевірка кожні 10 хвилин
 
 
