@@ -60,6 +60,7 @@ export interface LearningModeOverride {
     end: string;
     mode: LearningMode;
     courses: number[];
+    reason?: string | null;
 }
 
 export interface LearningModeConfig {
@@ -136,6 +137,7 @@ export interface ScheduleResponse {
     week_type: WeekType;
     lessons: Lesson[];
     learning_mode?: LearningMode | null;
+    learning_mode_override?: LearningModeOverride | null;
 }
 
 export interface TemplateDaySchedule {

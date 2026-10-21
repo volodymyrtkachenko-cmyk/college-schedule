@@ -18,6 +18,7 @@ const EMPTY_OVERRIDE: LearningModeOverride = {
   end: "",
   mode: "online",
   courses: [],
+  reason: "",
 };
 
 function toggle<T>(list: T[], value: T): T[] {
@@ -72,7 +73,16 @@ export function LearningModePanel() {
     }
     let next = config;
     if (draftOverride.start && draftOverride.end && draftOverride.end >= draftOverride.start) {
-      next = { ...config, overrides: [...config.overrides, draftOverride] };
+      next = {
+        ...config,
+        overrides: [
+          ...config.overrides,
+          {
+            ...draftOverride,
+            reason: draftOverride.reason?.trim() || null,
+          },
+        ],
+      };
       setDraftOverride(EMPTY_OVERRIDE);
     }
     void persist(next, "Цикл збережено.");
@@ -95,6 +105,7 @@ export function LearningModePanel() {
       start,
       end,
       courses: [...draftOverride.courses].sort((a, b) => a - b),
+      reason: draftOverride.reason?.trim() || null,
     };
     const next = { ...config, overrides: [...config.overrides, normalized] };
     setDraftOverride(EMPTY_OVERRIDE);
@@ -192,29 +203,36 @@ export function LearningModePanel() {
               ) : (
                 <ul className="space-y-2">
                   {config.overrides.map((override, index) => (
-                    <li key={`${override.start}-${override.end}-${index}`} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-sys-border bg-sys-bg/60 px-3 py-2 text-sm">
-                      <div className="flex flex-wrap items-center gap-2 text-sys-text-primary">
-                        <span className="font-semibold">
-                          {override.start === override.end ? override.start : `${override.start} – ${override.end}`}
-                        </span>
-                        <span
-                          className={`rounded-full border px-2 py-0.5 text-xs font-bold ${
-                            override.mode === "offline"
-                              ? "border-sys-accent/30 bg-sys-accent/10 text-sys-accent"
-                              : "border-sys-warning/30 bg-sys-warning/10 text-sys-warning"
-                          }`}
-                        >
-                          {override.mode === "offline" ? "Очно" : "Дистанційно"}
-                        </span>
-                        <span className="text-xs text-sys-text-secondary">
-                          {override.courses.length ? override.courses.map((c) => `${c} курс`).join(", ") : "усі курси"}
-                        </span>
+                    <li key={`${override.start}-${override.end}-${index}`} className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-sys-border bg-sys-bg/60 px-3 py-2.5 text-sm">
+                      <div className="flex flex-col gap-1 min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2 text-sys-text-primary">
+                          <span className="font-semibold">
+                            {override.start === override.end ? override.start : `${override.start} – ${override.end}`}
+                          </span>
+                          <span
+                            className={`rounded-full border px-2 py-0.5 text-xs font-bold ${
+                              override.mode === "offline"
+                                ? "border-sys-accent/30 bg-sys-accent/10 text-sys-accent"
+                                : "border-sys-warning/30 bg-sys-warning/10 text-sys-warning"
+                            }`}
+                          >
+                            {override.mode === "offline" ? "Очно" : "Дистанційно"}
+                          </span>
+                          <span className="text-xs text-sys-text-secondary">
+                            {override.courses.length ? override.courses.map((c) => `${c} курс`).join(", ") : "усі курси"}
+                          </span>
+                        </div>
+                        {override.reason && (
+                          <p className="text-xs text-sys-text-secondary whitespace-normal break-words">
+                            {override.reason}
+                          </p>
+                        )}
                       </div>
                       <button
                         type="button"
                         onClick={() => removeOverride(index)}
                         disabled={saving}
-                        className="min-h-[44px] sm:min-h-0 px-2 text-xs font-semibold text-rose-400 hover:underline disabled:opacity-50"
+                        className="min-h-[44px] sm:min-h-0 px-2 text-xs font-semibold text-rose-400 hover:underline disabled:opacity-50 shrink-0"
                       >
                         Видалити
                       </button>
@@ -309,6 +327,17 @@ export function LearningModePanel() {
                     })}
                   </div>
                 </div>
+                <label className="block">
+                  <span className="form-label text-sys-text-secondary">Пояснення для студентів (необов&apos;язково)</span>
+                  <input
+                    type="text"
+                    maxLength={500}
+                    placeholder="Наприклад: Дистанційне навчання через безпекову ситуацію"
+                    value={draftOverride.reason ?? ""}
+                    onChange={(event) => setDraftOverride({ ...draftOverride, reason: event.target.value })}
+                    className="form-control mt-1 shadow-sm bg-sys-bg w-full"
+                  />
+                </label>
                 <div className="flex justify-end">
                   <button
                     type="submit"

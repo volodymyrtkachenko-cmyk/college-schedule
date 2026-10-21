@@ -17,7 +17,10 @@ from app.services.schedule import fetch_schedule, fetch_week_schedule, conflicti
 from app.routers.schedule_versions import lock_versions
 
 from app.services.lesson_notes import attach_notes
-from app.services.learning_mode import resolve_group_learning_mode
+from app.services.learning_mode import (
+    resolve_group_learning_mode_detail,
+    resolve_group_week_learning_modes,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -182,11 +185,13 @@ async def schedule(group_id: int | None = None, teacher_id: int | None = None,
         include_cancelled=include_cancelled,
     )
     bell_t = await get_bell_times(db)
+    learning_mode, learning_mode_override = await resolve_group_learning_mode_detail(db, group_id, target_date)
     return ScheduleResponse(
         date=target_date,
         week_type=week_type,
         lessons=await attach_notes(db, target_date, serialize_schedule_items(lessons, week_type, target_date, bell_t)),
-        learning_mode=await resolve_group_learning_mode(db, group_id, target_date),
+        learning_mode=learning_mode,
+        learning_mode_override=learning_mode_override,
     )
 
 @router.get("/schedule/today", response_model=ScheduleResponse)
@@ -318,12 +323,17 @@ async def week(
         for i in range(5)
     ]
     await attach_week_notes(db, days_serialized)
+    week_dates = [day_date for day_date, _ in days_serialized]
+    modes_by_date = await resolve_group_week_learning_modes(
+        db, group_id, week_dates, group=scope if isinstance(scope, Group) else None
+    )
     return [
         ScheduleResponse(
             date=day_date,
             week_type=week_type,
             lessons=day_lessons,
-            learning_mode=await resolve_group_learning_mode(db, group_id, day_date),
+            learning_mode=modes_by_date.get(day_date, (None, None))[0],
+            learning_mode_override=modes_by_date.get(day_date, (None, None))[1],
         )
         for day_date, day_lessons in days_serialized
     ]

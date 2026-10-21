@@ -1163,16 +1163,28 @@ export default function HomePage() {
               <button
                 type="button"
                 onClick={() => setWeekTypeSheetOpen(true)}
-                className="flex items-center gap-1 text-xs text-sys-text-muted hover:text-sys-text-secondary -mt-0.5 leading-none py-0.5"
+                className="flex flex-wrap items-center justify-center gap-1 text-xs text-sys-text-muted hover:text-sys-text-secondary -mt-0.5 leading-none py-0.5"
               >
-                <span>{currentWeekNumber ? `${currentWeekNumber} тиждень` : ""}</span>
+                {currentWeekNumber ? <span>{currentWeekNumber} тиждень</span> : null}
                 {weekType !== "both" && (
                   <>
-                    <span>·</span>
+                    {currentWeekNumber ? <span>·</span> : null}
                     <span className="underline decoration-dotted underline-offset-2">
                       {weekType === "numerator" ? "чисельник" : "знаменник"}
                     </span>
                     <span className="text-xs">ⓘ</span>
+                  </>
+                )}
+                {headerLearningMode && (
+                  <>
+                    {(currentWeekNumber || weekType !== "both") && <span>·</span>}
+                    <span
+                      className={`font-bold ${
+                        headerLearningMode === "offline" ? "text-sys-accent" : "text-sys-warning"
+                      }`}
+                    >
+                      {headerLearningMode === "offline" ? "Очно" : "Дистанційно"}
+                    </span>
                   </>
                 )}
               </button>

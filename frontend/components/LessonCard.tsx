@@ -397,26 +397,76 @@ export function hasAllTasksCompleted(note?: string | null): boolean {
   return note.includes("[TASKS_COMPLETED]");
 }
 
+let _taskMetaMapCache: Map<string, { title?: string; teacher?: string }> | null = null;
+let _taskMetaCacheListenerRegistered = false;
+
+function ensureTaskMetaCacheListener() {
+  if (_taskMetaCacheListenerRegistered || typeof window === "undefined") return;
+  _taskMetaCacheListenerRegistered = true;
+  const invalidate = () => {
+    _taskMetaMapCache = null;
+  };
+  window.addEventListener("classroom-synced", invalidate);
+  window.addEventListener("storage", invalidate);
+}
+
 function findFullTaskMetaByUrl(url: string): { title?: string; teacher?: string } | null {
   if (typeof window === "undefined" || !url) return null;
-  try {
-    for (let i = 0; i < window.localStorage.length; i++) {
-      const k = window.localStorage.key(i);
-      if (!k || !k.startsWith("schedule:classroom_tasks:")) continue;
-      const raw = window.localStorage.getItem(k);
-      if (!raw) continue;
-      const list = JSON.parse(raw);
-      if (!Array.isArray(list)) continue;
-      const found = list.find((t: any) => (t?.url || t?.alternate_link) === url);
-      if (found) {
-        return {
-          title: typeof found.title === "string" ? found.title.replace(/\s+/g, " ").trim() : undefined,
-          teacher: typeof found.teacher === "string" ? found.teacher.trim() : undefined,
-        };
+  ensureTaskMetaCacheListener();
+  if (!_taskMetaMapCache) {
+    const map = new Map<string, { title?: string; teacher?: string }>();
+    try {
+      for (let i = 0; i < window.localStorage.length; i++) {
+        const k = window.localStorage.key(i);
+        if (!k || !k.startsWith("schedule:classroom_tasks:")) continue;
+        const raw = window.localStorage.getItem(k);
+        if (!raw) continue;
+        const list = JSON.parse(raw);
+        if (!Array.isArray(list)) continue;
+        for (const t of list) {
+          const itemUrl = t?.url || t?.alternate_link;
+          if (typeof itemUrl === "string" && itemUrl) {
+            map.set(itemUrl, {
+              title: typeof t.title === "string" ? t.title.replace(/\s+/g, " ").trim() : undefined,
+              teacher: typeof t.teacher === "string" ? t.teacher.trim() : undefined,
+            });
+          }
+        }
       }
+    } catch {}
+    _taskMetaMapCache = map;
+  }
+  return _taskMetaMapCache.get(url) ?? null;
+}
+
+type KyivNowSnapshot = { dateIso: string; minutes: number };
+let _sharedKyivNow: KyivNowSnapshot | null = null;
+let _sharedKyivTimer: ReturnType<typeof setInterval> | null = null;
+const _kyivNowSubscribers = new Set<(now: KyivNowSnapshot) => void>();
+
+function subscribeKyivNow(cb: (now: KyivNowSnapshot) => void) {
+  _kyivNowSubscribers.add(cb);
+  if (_kyivNowSubscribers.size === 1 && typeof window !== "undefined") {
+    _sharedKyivNow = getKyivNow();
+    _sharedKyivTimer = setInterval(() => {
+      const next = getKyivNow();
+      if (
+        !_sharedKyivNow ||
+        _sharedKyivNow.minutes !== next.minutes ||
+        _sharedKyivNow.dateIso !== next.dateIso
+      ) {
+        _sharedKyivNow = next;
+        _kyivNowSubscribers.forEach((sub) => sub(next));
+      }
+    }, 30_000);
+  }
+  return () => {
+    _kyivNowSubscribers.delete(cb);
+    if (_kyivNowSubscribers.size === 0 && _sharedKyivTimer) {
+      clearInterval(_sharedKyivTimer);
+      _sharedKyivTimer = null;
     }
-  } catch {}
-  return null;
+  };
 }
 
 export function extractClassroomTasks(note?: string | null): ClassroomTaskItem[] {
@@ -584,12 +634,14 @@ export function LessonCard({
     setIsHwOpen((prev) => !prev);
   };
 
-  const [nowState, setNowState] = useState<{ dateIso: string; minutes: number } | null>(null);
+  const [nowState, setNowState] = useState<KyivNowSnapshot | null>(() => _sharedKyivNow);
 
   useEffect(() => {
-    setNowState(getKyivNow());
-    const timer = setInterval(() => setNowState(getKyivNow()), 30_000);
-    return () => clearInterval(timer);
+    if (!_sharedKyivNow) {
+      _sharedKyivNow = getKyivNow();
+    }
+    setNowState(_sharedKyivNow);
+    return subscribeKyivNow(setNowState);
   }, []);
 
   const [selectedSubgroup, setSelectedSubgroup] = useState<number | null>(null);
@@ -680,10 +732,6 @@ export function LessonCard({
     });
   }, [rawTasks, isLinked, submissions]);
 
-  const hasCompletedTasks = useMemo(() => {
-    if (!isLinked) return false;
-    return rawTasks.length > 0 && tasks.length === 0;
-  }, [isLinked, rawTasks.length, tasks.length]);
   const nearestDated = useMemo(() => {
     return tasks.find((t) => t.deadline.formattedDate || (t.deadline.day && t.deadline.month)) || null;
   }, [tasks]);
@@ -1278,16 +1326,6 @@ export function LessonCard({
               </div>
             </div>
 
-            {/* If all tasks completed for this course: muted green Усе здано (ghost outline without fill) */}
-            {hasCompletedTasks && tasks.length === 0 && (
-              <div className="flex w-full items-center gap-2 rounded-xl bg-transparent border border-emerald-500/30 px-3.5 py-2 text-xs text-emerald-400/90 shadow-xs select-none">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-emerald-400">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-                <span className="font-medium">Усе здано</span>
-              </div>
-            )}
-
             {/* 1 Task: Entire strip is a direct link with ↗ (no accordion) */}
             {tasks.length === 1 && (
               <a
@@ -1740,16 +1778,6 @@ export function LessonCard({
             </div>
           )}
 
-          {/* If all tasks completed for this course: muted green Усе здано (ghost outline without fill) */}
-          {hasCompletedTasks && tasks.length === 0 && (
-            <div className="flex min-h-[36px] w-full items-center gap-2 rounded-xl bg-transparent border border-emerald-500/30 px-3.5 py-1.5 text-xs text-emerald-400/90 shadow-xs select-none mt-1">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-emerald-400">
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-              <span className="font-medium">Усе здано</span>
-            </div>
-          )}
-
           {/* Row 4: Full-width HW strip (44px min-height) */}
           {tasks.length === 1 && (
             <a
@@ -2166,17 +2194,6 @@ export function LessonCard({
                   <span className="text-xs text-slate-400">↗</span>
                 </a>
               ))}
-
-              {hasCompletedTasks && tasks.length === 0 && (
-                <span
-                  title="Усі завдання здано"
-                  className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-emerald-500/30 bg-transparent text-emerald-400 select-none"
-                >
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                </span>
-              )}
 
               {tasks.length > 0 && (
                 <button

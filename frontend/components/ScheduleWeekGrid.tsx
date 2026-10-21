@@ -169,6 +169,53 @@ export function ScheduleWeekGrid({
     return res;
   }, [week]);
 
+  const weekDaysMeta = useMemo(() => {
+    return week.map((day) => {
+      const slots = new Map<number, Lesson[]>();
+      let firstLessonNum = 99;
+      let lastLessonNum = 0;
+      let latestLesson: Lesson | null = null;
+
+      for (const lesson of day.lessons) {
+        const list = slots.get(lesson.lesson_number);
+        if (list) {
+          list.push(lesson);
+        } else {
+          slots.set(lesson.lesson_number, [lesson]);
+        }
+        if (lesson.lesson_number < firstLessonNum) firstLessonNum = lesson.lesson_number;
+        if (lesson.lesson_number >= lastLessonNum) {
+          lastLessonNum = lesson.lesson_number;
+          latestLesson = lesson;
+        }
+      }
+
+      const count = day.lessons.length;
+      let latestEnd: string | null = null;
+      if (latestLesson?.time) {
+        const parts = latestLesson.time.split("-");
+        if (parts[1]) latestEnd = parts[1].trim();
+      }
+      const summaryText =
+        count > 0
+          ? `${count} ${count === 1 ? "пара" : count < 5 ? "пари" : "пар"}${latestEnd ? ` · до ${latestEnd}` : ""}`
+          : "пар немає";
+
+      return {
+        day,
+        slots,
+        firstLessonNum,
+        lastLessonNum,
+        summaryText,
+      };
+    });
+  }, [week]);
+
+  const hasAnyOverride = useMemo(
+    () => week.some((d) => Boolean(d.learning_mode_override)),
+    [week]
+  );
+
   return (
     <div className="w-full pb-4">
       {/* Desktop (>= 1024px): 5-column synchronized CSS Grid by lesson numbers */}
@@ -206,30 +253,62 @@ export function ScheduleWeekGrid({
                 }`}>
                   {shortDateUk(day.date)}
                 </span>
-                {day.learning_mode && (
-                  <span
-                    className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-bold leading-none ${
-                      day.learning_mode === "offline"
-                        ? "border-sys-accent/30 bg-sys-accent/10 text-sys-accent"
-                        : "border-sys-warning/30 bg-sys-warning/10 text-sys-warning"
-                    }`}
-                  >
-                    {day.learning_mode === "offline" ? "Очно" : "Дистанційно"}
-                  </span>
-                )}
               </div>
             </div>
           );
         })}
 
+        {/* Optional Exception Row in Desktop Week Grid */}
+        {hasAnyOverride &&
+          week.map((day) => {
+            const ov = day.learning_mode_override;
+            if (!ov) {
+              return <div key={`desktop-override-${day.date}`} className="hidden lg:block" />;
+            }
+            return (
+              <div
+                key={`desktop-override-${day.date}`}
+                className={`flex items-start gap-2 rounded-2xl border px-3 py-2 text-xs shadow-xs ${
+                  ov.mode === "offline"
+                    ? "border-sys-accent/35 bg-sys-accent/10 text-sys-text-primary"
+                    : "border-sys-warning/35 bg-sys-warning/10 text-sys-text-primary"
+                }`}
+              >
+                <span
+                  className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
+                    ov.mode === "offline"
+                      ? "bg-sys-accent/20 text-sys-accent"
+                      : "bg-sys-warning/20 text-sys-warning"
+                  }`}
+                >
+                  !
+                </span>
+                <div className="min-w-0 flex-1 whitespace-normal break-words leading-snug">
+                  <div
+                    className={`font-bold ${
+                      ov.mode === "offline" ? "text-sys-accent" : "text-sys-warning"
+                    }`}
+                  >
+                    {ov.mode === "offline"
+                      ? "Виняток: очне навчання"
+                      : "Виняток: дистанційне навчання"}
+                  </div>
+                  {ov.reason && (
+                    <p className="mt-0.5 text-[11px] text-sys-text-secondary whitespace-normal break-words">
+                      {ov.reason}
+                    </p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
         {/* Rows 1..N: Lesson Slots (1 row per lesson number, synchronized across all 5 days) */}
         {allLessonNumbers.map((num) =>
-          week.map((day) => {
+          weekDaysMeta.map(({ day, slots, firstLessonNum, lastLessonNum }) => {
             const isToday = day.date === kyivTodayIso;
             const isPast = day.date < kyivTodayIso;
-            const lessonsForSlot = day.lessons.filter((l) => l.lesson_number === num);
-            const lastLessonNum = day.lessons.length > 0 ? Math.max(...day.lessons.map((l) => l.lesson_number)) : 0;
-            const firstLessonNum = day.lessons.length > 0 ? Math.min(...day.lessons.map((l) => l.lesson_number)) : 99;
+            const lessonsForSlot = slots.get(num) ?? [];
             const isWindow = num > firstLessonNum && num < lastLessonNum && lessonsForSlot.length === 0;
 
             return (
@@ -270,38 +349,23 @@ export function ScheduleWeekGrid({
         )}
 
         {/* Row N+1: Column Summary Footer */}
-        {week.map((day) => {
-          const isToday = day.date === kyivTodayIso;
-          const isPast = day.date < kyivTodayIso;
-          const count = day.lessons.length;
-          let latestEnd: string | null = null;
-          if (count > 0) {
-            const sorted = [...day.lessons].sort((a, b) => b.lesson_number - a.lesson_number);
-            const last = sorted[0];
-            const parts = last.time?.split("-");
-            if (parts && parts[1]) latestEnd = parts[1].trim();
-          }
-          const summaryText = count > 0
-            ? `${count} ${count === 1 ? "пара" : count < 5 ? "пари" : "пар"}${latestEnd ? ` · до ${latestEnd}` : ""}`
-            : "пар немає";
-
-          return (
-            <div
-              key={`desktop-footer-${day.date}`}
-              className="py-2 px-3 text-center text-xs font-medium border-t border-sys-border/40 mt-1"
-              style={{ color: "#a1a1aa" }}
-            >
-              <span>{summaryText}</span>
-            </div>
-          );
-        })}
+        {weekDaysMeta.map(({ day, summaryText }) => (
+          <div
+            key={`desktop-footer-${day.date}`}
+            className="py-2 px-3 text-center text-xs font-medium border-t border-sys-border/40 mt-1"
+            style={{ color: "#a1a1aa" }}
+          >
+            <span>{summaryText}</span>
+          </div>
+        ))}
       </div>
 
       {/* Tablet (640px – 1023px): horizontal scroll with snap-start */}
       <div className="hidden sm:flex lg:hidden items-start gap-3 overflow-x-auto snap-x snap-mandatory pb-4" style={{ scrollbarWidth: "thin" }}>
-        {week.map((day) => {
+        {weekDaysMeta.map(({ day, slots, firstLessonNum, lastLessonNum }) => {
           const isToday = day.date === kyivTodayIso;
           const isPast = day.date < kyivTodayIso;
+          const ov = day.learning_mode_override;
           return (
             <div
               key={`tablet-${day.date}`}
@@ -330,24 +394,47 @@ export function ScheduleWeekGrid({
                   <span className="text-xs text-sys-text-secondary">
                     {shortDateUk(day.date)}
                   </span>
-                  {day.learning_mode && (
-                    <span
-                      className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-bold leading-none ${
-                        day.learning_mode === "offline"
-                          ? "border-sys-accent/30 bg-sys-accent/10 text-sys-accent"
-                          : "border-sys-warning/30 bg-sys-warning/10 text-sys-warning"
-                      }`}
-                    >
-                      {day.learning_mode === "offline" ? "Очно" : "Дистанційно"}
-                    </span>
-                  )}
                 </div>
               </div>
 
+              {ov && (
+                <div
+                  className={`flex items-start gap-2 rounded-2xl border px-3 py-2 text-xs shadow-xs ${
+                    ov.mode === "offline"
+                      ? "border-sys-accent/35 bg-sys-accent/10 text-sys-text-primary"
+                      : "border-sys-warning/35 bg-sys-warning/10 text-sys-text-primary"
+                  }`}
+                >
+                  <span
+                    className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
+                      ov.mode === "offline"
+                        ? "bg-sys-accent/20 text-sys-accent"
+                        : "bg-sys-warning/20 text-sys-warning"
+                    }`}
+                  >
+                    !
+                  </span>
+                  <div className="min-w-0 flex-1 whitespace-normal break-words leading-snug">
+                    <div
+                      className={`font-bold ${
+                        ov.mode === "offline" ? "text-sys-accent" : "text-sys-warning"
+                      }`}
+                    >
+                      {ov.mode === "offline"
+                        ? "Виняток: очне навчання"
+                        : "Виняток: дистанційне навчання"}
+                    </div>
+                    {ov.reason && (
+                      <p className="mt-0.5 text-[11px] text-sys-text-secondary whitespace-normal break-words">
+                        {ov.reason}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {allLessonNumbers.map((num) => {
-                const lessonsForSlot = day.lessons.filter((l) => l.lesson_number === num);
-                const lastLessonNum = day.lessons.length > 0 ? Math.max(...day.lessons.map((l) => l.lesson_number)) : 0;
-                const firstLessonNum = day.lessons.length > 0 ? Math.min(...day.lessons.map((l) => l.lesson_number)) : 99;
+                const lessonsForSlot = slots.get(num) ?? [];
                 const isWindow = num > firstLessonNum && num < lastLessonNum && lessonsForSlot.length === 0;
 
                 if (lessonsForSlot.length > 0) {

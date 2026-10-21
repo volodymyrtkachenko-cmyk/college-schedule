@@ -132,18 +132,12 @@ class ScheduleItem(BaseModel):
     moved_to_lesson: int | None = None
     has_template: bool | None = True
 
-class ScheduleResponse(BaseModel):
-    date: date
-    week_type: str
-    lessons: list[ScheduleItem]
-    learning_mode: str | None = None
-
-
 class LearningModeOverride(BaseModel):
     start: date
     end: date
     mode: Literal["offline", "online"]
     courses: list[int] = Field(default_factory=list)
+    reason: str | None = Field(default=None, max_length=500)
 
     @model_validator(mode="after")
     def validate_range(self):
@@ -152,6 +146,14 @@ class LearningModeOverride(BaseModel):
         if any(not 1 <= course <= 5 for course in self.courses):
             raise ValueError("courses must be between 1 and 5")
         return self
+
+
+class ScheduleResponse(BaseModel):
+    date: date
+    week_type: str
+    lessons: list[ScheduleItem]
+    learning_mode: str | None = None
+    learning_mode_override: LearningModeOverride | None = None
 
 
 class LearningModeConfig(BaseModel):
