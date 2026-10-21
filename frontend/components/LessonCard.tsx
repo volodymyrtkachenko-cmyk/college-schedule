@@ -669,6 +669,9 @@ export function LessonCard({
 
   const roomsLabel = useMemo(() => formatRoomsList(rooms), [rooms]);
   const hasBothRoomAndMeet = rooms.length > 0 && hasMeeting;
+  // Два викладачі (ПК, вигляд «День»): аудиторія і посилання біля кожного окремо
+  const hasPerTeacherRoom = Boolean(lesson.teacher_room || lesson.second_teacher_room || rooms.length >= 2);
+  const deskMeeting = (isDualTeachers ? row3Meetings[0] : meetings[0]) ?? null;
 
   const groupedTasks = useMemo(() => {
     if (!isDualTeachers || tasks.length === 0) {
@@ -790,12 +793,14 @@ export function LessonCard({
                     <circle cx="12" cy="7" r="4" />
                   </svg>
                   {isDualTeachers ? (
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-col gap-2 flex-1 min-w-0">
                       {secondaryItems.map((item, idx) => {
                         const subNum = idx + 1;
                         const isFaded = selectedSubgroup !== null && selectedSubgroup !== subNum;
+                        const ownMeeting = teacherMeetings[idx];
+                        const ownRoom = (idx === 0 ? lesson.teacher_room : lesson.second_teacher_room) || rooms[idx] || null;
                         return (
-                          <span key={idx} className={`inline-flex items-center gap-1.5 transition-opacity ${isFaded ? "opacity-50 hover:opacity-80" : "opacity-100"}`}>
+                          <span key={idx} className={`flex w-full items-center gap-2 transition-opacity ${isFaded ? "opacity-50 hover:opacity-80" : "opacity-100"}`}>
                             <button
                               type="button"
                               onClick={(e) => { e.stopPropagation(); handleSubgroupToggle(subNum); }}
@@ -820,6 +825,30 @@ export function LessonCard({
                             ) : (
                               <span>{item.displayName}</span>
                             )}
+                            <span className="ml-auto flex items-center gap-2 shrink-0">
+                              {/* Є посилання: аудиторія не показується. Немає посилання: показуємо аудиторію (або «ауд. —») */}
+                              {!ownMeeting && (
+                                <span className={`inline-flex h-8 px-3 items-center rounded-lg border border-sys-border bg-sys-bg text-xs whitespace-nowrap ${ownRoom ? "text-sys-text-secondary font-medium" : "text-sys-text-muted"}`}>
+                                  {ownRoom ? `ауд. ${ownRoom.replace(/^ауд\.?\s*/i, "")}` : "ауд. —"}
+                                </span>
+                              )}
+                              {ownMeeting && (
+                                <a
+                                  href={ownMeeting.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
+                                  className={`inline-flex h-8 px-3 items-center gap-1.5 rounded-lg border text-xs font-bold whitespace-nowrap transition-all ${
+                                    isMeetingLiveOrSoon
+                                      ? "bg-emerald-600 text-white border-emerald-500"
+                                      : "border-sys-border bg-sys-card text-sys-text-primary hover:border-sys-accent/50 hover:text-sys-accent"
+                                  }`}
+                                >
+                                  <span>{ownMeeting.platform === "zoom" ? "Zoom" : ownMeeting.platform === "meet" ? "Meet" : "Онлайн"}</span>
+                                  <span className="text-[11px] opacity-75">↗</span>
+                                </a>
+                              )}
+                            </span>
                           </span>
                         );
                       })}
@@ -847,14 +876,14 @@ export function LessonCard({
               {/* Zone 3: Location & Actions */}
               <div className="shrink-0 flex flex-col items-end justify-start gap-2 pt-0.5">
                 <div className="flex flex-wrap items-center justify-end gap-2">
-                  {rooms.length > 0 && (
+                  {rooms.length > 0 && (!isDualTeachers || !hasPerTeacherRoom) && (
                     <div className="inline-flex h-8 px-3 items-center gap-1.5 rounded-lg border border-sys-border bg-sys-bg text-sys-text-secondary font-medium text-xs shadow-xs whitespace-nowrap">
                       <span>{formatRoomsList(rooms)}</span>
                     </div>
                   )}
-                  {hasMeeting && (
+                  {deskMeeting && (
                     <a
-                      href={meetings[0].url}
+                      href={deskMeeting.url}
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
@@ -864,7 +893,7 @@ export function LessonCard({
                           : "px-3 border border-sys-border bg-sys-card text-sys-text-primary hover:border-sys-accent/50 hover:text-sys-accent"
                       }`}
                     >
-                      {meetings[0].platform === "zoom" ? (
+                      {deskMeeting.platform === "zoom" ? (
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
                           <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.934a.5.5 0 0 0-.777-.416L16 11" />
                           <rect x="2" y="6" width="14" height="12" rx="2" />
@@ -875,7 +904,7 @@ export function LessonCard({
                           <rect x="1" y="5" width="15" height="14" rx="2" />
                         </svg>
                       )}
-                      <span>{meetings[0].platform === "zoom" ? "Zoom" : meetings[0].platform === "meet" ? "Meet" : "Онлайн"}</span>
+                      <span>{deskMeeting.platform === "zoom" ? "Zoom" : deskMeeting.platform === "meet" ? "Meet" : "Онлайн"}</span>
                       <span className="text-xs opacity-75">↗</span>
                     </a>
                   )}
