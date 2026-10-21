@@ -26,6 +26,7 @@ import { extractClassroomTasks, parseTaskDeadline, sortTasksByDeadline, TaskDead
 import { useToast } from "../components/ToastProvider";
 import { QuickJumpTarget, findGroupIdByName, findTeacherIdByName } from "../lib/quickJump";
 import { isOwnTask, useClassroomSubmissions } from "../lib/useClassroomSubmissions";
+import { shareWeekScheduleAsImage } from "../lib/shareImage";
 
 const UK_SHORT_WEEKDAY_FMT = new Intl.DateTimeFormat("uk-UA", { weekday: "short" });
 
@@ -700,6 +701,40 @@ export default function HomePage() {
       }
     } catch {
       setToast("Не вдалося скопіювати розклад", "error");
+    }
+  };
+
+  const [sharingWeekImage, setSharingWeekImage] = useState(false);
+
+  const handleShareWeekImage = async () => {
+    if (!week || week.length === 0 || sharingWeekImage) return;
+    setSharingWeekImage(true);
+    try {
+      const ownerLabel =
+        mode === "student"
+          ? groups.find((g) => g.id === groupId)?.name
+            ? `Група ${groups.find((g) => g.id === groupId)?.name}`
+            : "Розклад занять"
+          : teachers.find((t) => t.id === teacherId)?.name || "Розклад викладача";
+
+      const result = await shareWeekScheduleAsImage(
+        week,
+        mode,
+        ownerLabel,
+        weekRange,
+        currentWeekNumber
+      );
+      if (result === "copied") {
+        setToast("Картинку тижня скопійовано!", "success");
+      } else if (result === "downloaded") {
+        setToast("Картинку розкладу тижня завантажено", "success");
+      }
+    } catch (err) {
+      if (err instanceof Error && err.name !== "AbortError") {
+        setToast("Не вдалося створити картинку розкладу тижня", "error");
+      }
+    } finally {
+      setSharingWeekImage(false);
     }
   };
 
@@ -1468,6 +1503,28 @@ export default function HomePage() {
                   </button>
                 )}
 
+                {/* Share week image */}
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={sharingWeekImage}
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    void handleShareWeekImage();
+                  }}
+                  className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 px-3 py-2 text-xs font-semibold text-sys-text-primary hover:border-sys-accent/40 disabled:opacity-50"
+                >
+                  <span className="flex items-center gap-2">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400">
+                      <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+                      <circle cx="9" cy="9" r="2" />
+                      <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+                    </svg>
+                    <span>Зберегти картинку тижня</span>
+                  </span>
+                  <span className="text-sys-text-muted">PNG</span>
+                </button>
+
                 {/* Share week */}
                 <button
                   type="button"
@@ -2158,20 +2215,35 @@ export default function HomePage() {
                         </>
                       )}
                     </div>
-                    <div className="flex items-center gap-2.5 shrink-0">
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => void handleShareWeekImage()}
+                        disabled={sharingWeekImage}
+                        title="Скопіювати або зберегти розклад тижня як PNG-картинку"
+                        aria-label="Поділитися картинкою розкладу тижня"
+                        className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-sys-border bg-sys-bg px-3 text-xs font-semibold text-sys-text-secondary hover:text-sys-accent hover:border-sys-accent/40 hover:bg-sys-accent/5 active:scale-95 transition-all disabled:opacity-50"
+                      >
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+                          <circle cx="9" cy="9" r="2" />
+                          <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+                        </svg>
+                        <span>Зберегти картинку</span>
+                      </button>
                       <button
                         type="button"
                         onClick={handleShareWeek}
                         title="Скопіювати розклад усього тижня"
                         aria-label="Поділитися розкладом на тиждень"
-                        className="inline-flex h-8 items-center gap-1.5 rounded-xl border border-sys-border bg-sys-bg px-3 text-xs font-semibold text-sys-text-secondary hover:text-sys-accent hover:border-sys-accent/40 hover:bg-sys-accent/5 active:scale-95 transition-all"
+                        className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-sys-border bg-sys-bg px-3 text-xs font-semibold text-sys-text-secondary hover:text-sys-accent hover:border-sys-accent/40 hover:bg-sys-accent/5 active:scale-95 transition-all"
                       >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
                           <polyline points="16 6 12 2 8 6" />
                           <line x1="12" y1="2" x2="12" y2="15" />
                         </svg>
-                        <span>Поділитися тижнем</span>
+                        <span>Поділитися</span>
                       </button>
                     </div>
                   </div>
