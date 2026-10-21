@@ -1283,13 +1283,13 @@ export function LessonCard({
                           <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); onQuickJump(secondaryItems[singleSubgroupIdx].target); }}
-                            className="truncate text-left text-xs sm:text-sm font-medium text-sys-text-secondary hover:text-sys-accent hover:underline focus:outline-none"
+                            className="text-left text-xs sm:text-sm font-medium text-sys-text-secondary hover:text-sys-accent hover:underline focus:outline-none break-words [overflow-wrap:anywhere]"
                             title={secondaryItems[singleSubgroupIdx].displayName}
                           >
                             {secondaryItems[singleSubgroupIdx].displayName}
                           </button>
                         ) : (
-                          <span className="truncate text-xs sm:text-sm font-medium text-sys-text-secondary" title={secondaryItems[singleSubgroupIdx].displayName}>
+                          <span className="text-xs sm:text-sm font-medium text-sys-text-secondary break-words [overflow-wrap:anywhere]" title={secondaryItems[singleSubgroupIdx].displayName}>
                             {secondaryItems[singleSubgroupIdx].displayName}
                           </span>
                         )}
@@ -1344,13 +1344,13 @@ export function LessonCard({
                                   <button
                                     type="button"
                                     onClick={(e) => { e.stopPropagation(); onQuickJump(item.target); }}
-                                    className="truncate text-left text-xs sm:text-sm font-medium text-sys-text-secondary hover:text-sys-accent hover:underline focus:outline-none"
+                                    className="text-left text-xs sm:text-sm font-medium text-sys-text-secondary hover:text-sys-accent hover:underline focus:outline-none break-words [overflow-wrap:anywhere]"
                                     title={item.displayName}
                                   >
                                     {item.displayName}
                                   </button>
                                 ) : (
-                                  <span className="truncate text-xs sm:text-sm font-medium text-sys-text-secondary" title={item.displayName}>
+                                  <span className="text-xs sm:text-sm font-medium text-sys-text-secondary break-words [overflow-wrap:anywhere]" title={item.displayName}>
                                     {item.displayName}
                                   </span>
                                 )}
@@ -1930,13 +1930,13 @@ export function LessonCard({
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); onQuickJump(secondaryItems[singleSubgroupIdx].target); }}
-                      className="truncate text-left text-xs sm:text-sm font-medium text-sys-text-secondary hover:text-sys-accent hover:underline focus:outline-none"
+                      className="text-left text-xs sm:text-sm font-medium text-sys-text-secondary hover:text-sys-accent hover:underline focus:outline-none break-words [overflow-wrap:anywhere]"
                       title={secondaryItems[singleSubgroupIdx].displayName}
                     >
                       {secondaryItems[singleSubgroupIdx].displayName}
                     </button>
                   ) : (
-                    <span className="truncate text-xs sm:text-sm font-medium text-sys-text-secondary" title={secondaryItems[singleSubgroupIdx].displayName}>
+                    <span className="text-xs sm:text-sm font-medium text-sys-text-secondary break-words [overflow-wrap:anywhere]" title={secondaryItems[singleSubgroupIdx].displayName}>
                       {secondaryItems[singleSubgroupIdx].displayName}
                     </span>
                   )}
@@ -1991,13 +1991,13 @@ export function LessonCard({
                             <button
                               type="button"
                               onClick={(e) => { e.stopPropagation(); onQuickJump(item.target); }}
-                              className="truncate text-left text-xs sm:text-sm font-medium text-sys-text-secondary hover:text-sys-accent hover:underline focus:outline-none"
+                              className="text-left text-xs sm:text-sm font-medium text-sys-text-secondary hover:text-sys-accent hover:underline focus:outline-none break-words [overflow-wrap:anywhere]"
                               title={item.displayName}
                             >
                               {item.displayName}
                             </button>
                           ) : (
-                            <span className="truncate text-xs sm:text-sm font-medium text-sys-text-secondary" title={item.displayName}>
+                            <span className="text-xs sm:text-sm font-medium text-sys-text-secondary break-words [overflow-wrap:anywhere]" title={item.displayName}>
                               {item.displayName}
                             </span>
                           )}
@@ -2410,13 +2410,13 @@ export function LessonCard({
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); onQuickJump(secondaryItems[singleSubgroupIdx].target); }}
-                    className="truncate text-left text-xs font-medium text-sys-text-secondary hover:text-sys-accent hover:underline focus:outline-none"
+                    className="text-left text-xs font-medium text-sys-text-secondary hover:text-sys-accent hover:underline focus:outline-none break-words [overflow-wrap:anywhere]"
                     title={secondaryItems[singleSubgroupIdx].displayName}
                   >
                     {secondaryItems[singleSubgroupIdx].displayName}
                   </button>
                 ) : (
-                  <span className="truncate text-xs font-medium text-sys-text-secondary" title={secondaryItems[singleSubgroupIdx].displayName}>
+                  <span className="text-xs font-medium text-sys-text-secondary break-words [overflow-wrap:anywhere]" title={secondaryItems[singleSubgroupIdx].displayName}>
                     {secondaryItems[singleSubgroupIdx].displayName}
                   </span>
                 )}
@@ -2471,13 +2471,13 @@ export function LessonCard({
                           <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); onQuickJump(item.target); }}
-                            className="truncate text-left text-xs font-medium text-sys-text-secondary hover:text-sys-accent hover:underline focus:outline-none"
+                            className="text-left text-xs font-medium text-sys-text-secondary hover:text-sys-accent hover:underline focus:outline-none break-words [overflow-wrap:anywhere]"
                             title={item.displayName}
                           >
                             {item.displayName}
                           </button>
                         ) : (
-                          <span className="truncate text-xs font-medium text-sys-text-secondary" title={item.displayName}>
+                          <span className="text-xs font-medium text-sys-text-secondary break-words [overflow-wrap:anywhere]" title={item.displayName}>
                             {item.displayName}
                           </span>
                         )}
