@@ -181,6 +181,7 @@ function AdminContent() {
   const [revertingNotif, setRevertingNotif] = useState(false);
 
   const [rosterGroup, setRosterGroup] = useState<{ id: number; name: string } | null>(null);
+  const [rosterTab, setRosterTab] = useState<"students" | "classroom">("students");
   const [studentSearch, setStudentSearch] = useState("");
   const [studentSortBy, setStudentSortBy] = useState<"surname" | "name">("surname");
   const [studentSortOrder, setStudentSortOrder] = useState<"asc" | "desc">("asc");
@@ -202,6 +203,7 @@ function AdminContent() {
 
   const openGroupRoster = async (group: { id: number; name: string }) => {
     setRosterGroup(group);
+    setRosterTab("students");
     setStudentSearch("");
     setStudentSortBy("surname");
     setStudentSortOrder("asc");
@@ -779,338 +781,459 @@ function AdminContent() {
                 animate={shouldReduceMotion ? { opacity: 1 } : { y: 0, opacity: 1 }}
                 exit={shouldReduceMotion ? { opacity: 0 } : { y: "100%", opacity: 0 }}
                 transition={{ duration: 0.22, ease: [0.2, 0, 0, 1] }}
-                className="flex max-h-[92dvh] sm:max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card shadow-2xl pb-safe"
+                className="flex max-h-[92dvh] sm:max-h-[88vh] w-full max-w-lg sm:max-w-2xl lg:max-w-3xl flex-col overflow-hidden rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card shadow-2xl pb-safe"
               >
-              <div className="flex flex-col gap-3 border-b border-sys-border px-5 py-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="flex items-center gap-2 text-base font-bold text-white flex-wrap">
-                      <span>👥 Студенти групи {rosterGroup.name}</span>
-                      {rosterData?.students && rosterData.students.length > 0 && (
-                        <span className="rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-xs font-semibold text-emerald-400">
-                          {rosterData.students.length} осіб
-                        </span>
-                      )}
-                      {typeof rosterData?.connected_accounts_count === "number" && (
-                        <span
-                          className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                            rosterData.connected_accounts_count > 0
-                              ? "bg-sky-500/20 text-sky-300 border border-sky-500/30"
-                              : "bg-amber-500/20 text-amber-300 border border-amber-500/30"
-                          }`}
-                          title="Кількість активних підключених Classroom-акаунтів групи"
-                        >
-                          Акаунтів Classroom: {rosterData.connected_accounts_count}
-                        </span>
-                      )}
-                    </h3>
-                    {rosterData?.course_name && (
-                      <p className="text-xs text-emerald-400 mt-0.5">
-                        Курс Classroom: {rosterData.course_name}
-                      </p>
-                    )}
-                    {rosterData?.last_synced_at && (
-                      <p className="text-[11px] text-sys-text-muted">
-                        Синхронізовано: {new Date(rosterData.last_synced_at).toLocaleString("uk-UA")}
-                      </p>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setRosterGroup(null)}
-                    aria-label="Закрити"
-                    className="w-8 h-8 flex items-center justify-center rounded-lg text-sys-text-secondary hover:text-white"
-                  >
-                    ✕
-                  </button>
-                </div>
-
-                {/* 25.7: Попередження, якщо для підгрупи немає жодного активного акаунта */}
-                {rosterData?.subgroup_warning && (
-                  <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200 flex items-start gap-2">
-                    <span className="text-amber-400 font-bold shrink-0">⚠</span>
-                    <span>{rosterData.subgroup_warning}</span>
-                  </div>
-                )}
-
-                {/* 25.7: Список підключених акаунтів (Варіант 1: Картки студентів) */}
-                {rosterData?.accounts && rosterData.accounts.length > 0 && (
-                  <div className="rounded-xl border border-sys-border/70 bg-sys-bg/50 p-3 space-y-2.5">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px] font-bold uppercase tracking-wider text-sys-text-muted">
-                      <span>Підключені Classroom-акаунти ({rosterData.connected_accounts_count ?? 0} активних з {rosterData.accounts.length})</span>
-                      <span className="text-xs normal-case font-normal text-sys-text-secondary">
-                        {rosterData.has_subgroups ? "Бажано по 1 акаунту на підгрупу" : "Достатньо 1 акаунта"}
-                      </span>
+                {/* Header & Tabs */}
+                <div className="flex flex-col border-b border-sys-border bg-sys-card">
+                  <div className="flex items-center justify-between px-5 pt-4 pb-2.5">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sys-bg/60 border border-sys-border/60 text-base shrink-0">
+                        👥
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="text-base font-bold text-white truncate">
+                            Група {rosterGroup.name}
+                          </h3>
+                          {rosterData?.course_name && (
+                            <span className="text-xs text-emerald-400 font-medium truncate max-w-[200px] sm:max-w-[320px]">
+                              · {rosterData.course_name}
+                            </span>
+                          )}
+                        </div>
+                        {rosterData?.last_synced_at && (
+                          <p className="text-[11px] text-sys-text-muted truncate">
+                            Остання синхронізація: {new Date(rosterData.last_synced_at).toLocaleString("uk-UA")}
+                          </p>
+                        )}
+                      </div>
                     </div>
-
-                    <div className="space-y-2">
-                      {rosterData.accounts.map((acc, idx) => {
-                        const displayName = acc.student_name || `Акаунт #${idx + 1}`;
-                        const displayEmail = acc.email || (acc.google_user_id.startsWith("user_") ? `ID: ${acc.google_user_id.slice(5)}` : acc.google_user_id);
-                        return (
-                          <div
-                            key={acc.id || idx}
-                            className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 rounded-xl border border-sys-border/60 bg-sys-card/70 p-3 text-xs transition-colors hover:border-sys-border"
-                          >
-                            {/* Ліва частина: Аватар + Ім'я + Email + Підгрупа */}
-                            <div className="flex items-center gap-3 min-w-0">
-                              {acc.photo_url ? (
-                                <img
-                                  src={acc.photo_url}
-                                  alt=""
-                                  className="h-8 w-8 rounded-full object-cover shrink-0 border border-sys-border/50"
-                                />
-                              ) : (
-                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sys-tabActive text-xs font-bold text-sys-text-secondary shrink-0 border border-sys-border/40">
-                                  {acc.student_name ? acc.student_name.charAt(0) : "👤"}
-                                </div>
-                              )}
-
-                              <div className="min-w-0">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="font-semibold text-sys-text-primary text-[13px] truncate">
-                                    {displayName}
-                                  </span>
-                                  {acc.subgroup ? (
-                                    <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold bg-sys-accent/20 text-sys-accent border border-sys-accent/40">
-                                      {acc.subgroup} підгр.
-                                    </span>
-                                  ) : null}
-                                </div>
-                                <div className="flex items-center gap-2 text-sys-text-muted text-[11px] truncate mt-0.5">
-                                  <span>{displayEmail}</span>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Права частина: Статус синхронізації + Кнопка відключення */}
-                            <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-sys-border/30">
-                              <div className="text-left sm:text-right">
-                                <div className="flex items-center sm:justify-end gap-1.5 text-[11px]">
-                                  <span
-                                    className={`h-2 w-2 rounded-full shrink-0 ${
-                                      acc.is_active ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]" : "bg-rose-400"
-                                    }`}
-                                  />
-                                  <span className={acc.is_active ? "text-emerald-400 font-medium" : "text-rose-400 font-medium"}>
-                                    {acc.is_active ? "Активний" : "Неактивний"}
-                                  </span>
-                                </div>
-                                <span className="text-[10px] text-sys-text-secondary block mt-0.5">
-                                  {acc.last_synced_at
-                                    ? `Синхронізовано ${formatLastSynced(acc.last_synced_at)}`
-                                    : "ще не синхронізовано"}
-                                </span>
-                              </div>
-
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteClassroomAccount(acc.id, displayName)}
-                                className="rounded-lg p-1.5 text-sys-text-muted hover:bg-rose-500/10 hover:text-rose-400 transition-colors"
-                                title="Відключити цей акаунт"
-                              >
-                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                  <path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
-                                </svg>
-                              </button>
-                            </div>
-
-                            {acc.last_error && (
-                              <div className="w-full text-rose-400 text-[11px] bg-rose-500/10 border border-rose-500/20 rounded-lg p-2 mt-1 truncate" title={acc.last_error}>
-                                ⚠ Помилка доступу: {acc.last_error}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setRosterGroup(null)}
+                      aria-label="Закрити"
+                      className="w-8 h-8 flex items-center justify-center rounded-lg text-sys-text-secondary hover:text-white hover:bg-sys-bg/60 transition-colors shrink-0"
+                    >
+                      ✕
+                    </button>
                   </div>
-                )}
 
-                <div className="flex flex-wrap items-center gap-2">
-                  <ClassroomSyncButton
-                    currentGroupId={rosterGroup.id}
-                    onSynced={() => openGroupRoster(rosterGroup)}
-                  />
-                  {rosterData && rosterData.students.length > 0 && !bulkStudentOpen && (
+                  {/* Вкладки: Студенти / Classroom-акаунти */}
+                  <div className="flex items-center gap-2 px-5 pb-3">
                     <button
                       type="button"
                       onClick={() => {
-                        const sorted = [...rosterData.students].sort((a, b) => {
-                          const valA = studentSortBy === "surname" ? extractSurname(a.full_name) : a.full_name;
-                          const valB = studentSortBy === "surname" ? extractSurname(b.full_name) : b.full_name;
-                          const res = valA.localeCompare(valB, "uk", { sensitivity: "base" });
-                          return studentSortOrder === "asc" ? res : -res;
-                        });
-                        const text = sorted.map((s, idx) => `${idx + 1}. ${s.full_name}`).join("\n");
-                        void navigator.clipboard.writeText(text);
-                        setToast(`Скопійовано список (${sorted.length} студентів)`, "success");
+                        setRosterTab("students");
+                        setBulkStudentOpen(false);
                       }}
-                      className="min-h-[36px] flex items-center rounded-lg border border-sky-500/40 bg-sky-500/10 px-2.5 py-1 text-xs font-semibold text-sky-300 hover:bg-sky-500/20 transition-colors"
-                      title="Скопіювати нумерований список групи у буфер обміну"
+                      className={`flex items-center gap-2 rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                        rosterTab === "students"
+                          ? "bg-sys-tabActive text-white shadow-sm border border-sys-border/80"
+                          : "text-sys-text-secondary hover:text-white hover:bg-sys-bg/40"
+                      }`}
                     >
-                      📄 Копіювати список
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => setBulkStudentOpen(!bulkStudentOpen)}
-                    className="min-h-[36px] flex items-center rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/20 transition-colors"
-                  >
-                    {bulkStudentOpen ? "← До списку" : "📋 Вставити список"}
-                  </button>
-                </div>
-              </div>
-
-              {bulkStudentOpen ? (
-                <div className="flex-1 overflow-y-auto p-5 space-y-4">
-                  <div className="rounded-xl border border-sys-border/60 bg-sys-bg/40 p-3 text-xs text-sys-text-secondary">
-                    💡 <strong className="text-white">Швидкий імпорт:</strong> відкрийте вкладку <em>«Пользователи» (або «Люди»)</em> у своєму курсі Google Classroom, виділіть список одногрупників (Ctrl+A / мишкою), скопіюйте (Ctrl+C) та вставте сюди. Також підходить копіювання з Excel або відомості. Розумний парсер сам прибере номери та зайві слова.
-                  </div>
-                  <div>
-                    <textarea
-                      rows={8}
-                      value={bulkStudentText}
-                      onChange={(e) => setBulkStudentText(e.target.value)}
-                      placeholder="Вставте скопійований список студентів тут...&#10;Іванов Іван&#10;Петренко Петро&#10;Сидоренко Анна..."
-                      className="w-full rounded-xl border border-sys-border bg-sys-bg/60 p-3 text-xs font-mono text-sys-text-primary placeholder:text-sys-text-muted focus:border-emerald-500 focus:outline-none"
-                    />
-                  </div>
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
-                    <label className="flex items-center gap-2 text-xs text-sys-text-secondary cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={bulkStudentReplace}
-                        onChange={(e) => setBulkStudentReplace(e.target.checked)}
-                        className="rounded border-sys-border bg-sys-bg text-emerald-500 focus:ring-emerald-500"
-                      />
-                      <span>Замінити весь існуючий список</span>
-                    </label>
-                    <div className="flex flex-col-reverse sm:flex-row gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setBulkStudentOpen(false)}
-                        className="min-h-[44px] sm:min-h-[36px] flex items-center justify-center rounded-lg border border-sys-border px-3.5 py-1.5 text-xs text-sys-text-secondary hover:text-white"
-                      >
-                        Скасувати
-                      </button>
-                      <button
-                        type="button"
-                        disabled={bulkStudentSaving || !bulkStudentText.trim()}
-                        onClick={handleBulkStudentImport}
-                        className="min-h-[44px] sm:min-h-[36px] flex items-center justify-center rounded-lg bg-emerald-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-50 shadow-sm"
-                      >
-                        {bulkStudentSaving ? "Збереження..." : "💾 Зберегти список"}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  {rosterData && rosterData.students.length > 0 && (
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 border-b border-sys-border/60 bg-sys-bg/30 px-5 py-2.5">
-                      <input
-                        type="text"
-                        value={studentSearch}
-                        onChange={(e) => setStudentSearch(e.target.value)}
-                        placeholder="Пошук студента за прізвищем, ім'ям чи email..."
-                        className="flex-1 rounded-lg border border-sys-border bg-sys-bg/60 px-3 py-1.5 text-xs text-sys-text-primary placeholder:text-sys-text-muted focus:border-emerald-500 focus:outline-none min-h-[38px]"
-                      />
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setStudentSortBy((prev) => (prev === "surname" ? "name" : "surname"))}
-                          className={`flex-1 sm:flex-none min-h-[38px] flex items-center justify-center rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap ${
-                            studentSortBy === "surname"
-                              ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-400"
-                              : "border-sys-border bg-sys-card text-sys-text-secondary hover:text-white"
+                      <span>👥 Студенти</span>
+                      {rosterData?.students && (
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                            rosterTab === "students"
+                              ? "bg-emerald-500/20 text-emerald-300"
+                              : "bg-sys-bg text-sys-text-muted"
                           }`}
-                          title="Перемкнути: сортування за прізвищем чи за повним ім'ям"
                         >
-                          {studentSortBy === "surname" ? "👤 По прізвищу" : "📝 По імені"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setStudentSortOrder((prev) => (prev === "asc" ? "desc" : "asc"))}
-                          className="flex-1 sm:flex-none min-h-[38px] flex items-center justify-center gap-1 rounded-lg border border-sys-border/80 bg-sys-card px-2 py-1.5 text-xs font-semibold text-sys-text-secondary hover:border-emerald-500/50 hover:text-white transition-colors whitespace-nowrap"
-                          title="Змінити напрямок сортування (А-Я / Я-А)"
-                        >
-                          <span>{studentSortOrder === "asc" ? "🔤 А → Я" : "🔤 Я → А"}</span>
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                          {rosterData.students.length}
+                        </span>
+                      )}
+                    </button>
 
-                  <div className="flex-1 overflow-y-auto p-5">
-                    {rosterLoading ? (
-                      <p className="text-sm text-sys-text-secondary">Завантаження списку...</p>
-                    ) : !rosterData || rosterData.students.length === 0 ? (
-                      <p className="text-sm text-sys-text-muted">
-                        Список порожній. Натисніть кнопку «🎓 Classroom» під час перегляду розкладу цієї групи, або натисніть «📋 Вставити список», щоб миттєво додати одногрупників.
-                      </p>
-                    ) : (
-                      <ol className="space-y-2">
-                        {rosterData.students
-                          .filter((st) => {
-                            if (!studentSearch.trim()) return true;
-                            const q = studentSearch.toLowerCase();
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRosterTab("classroom");
+                        setBulkStudentOpen(false);
+                      }}
+                      className={`flex items-center gap-2 rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                        rosterTab === "classroom"
+                          ? "bg-sys-tabActive text-white shadow-sm border border-sys-border/80"
+                          : "text-sys-text-secondary hover:text-white hover:bg-sys-bg/40"
+                      }`}
+                    >
+                      <span>🎓 Classroom-акаунти</span>
+                      {typeof rosterData?.connected_accounts_count === "number" && (
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                            rosterData.connected_accounts_count > 0
+                              ? "bg-sky-500/20 text-sky-300"
+                              : "bg-amber-500/20 text-amber-300"
+                          }`}
+                        >
+                          {rosterData.connected_accounts_count}
+                        </span>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Вміст вкладки: Classroom-акаунти */}
+                {rosterTab === "classroom" && (
+                  <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+                    {/* Синхронізація та статус курсу */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-sys-border/60 bg-sys-bg/40 p-3.5">
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-sys-text-primary">
+                          Синхронізація розкладу та завдань
+                        </p>
+                        <p className="text-[11px] text-sys-text-muted mt-0.5">
+                          {rosterData?.has_subgroups
+                            ? "Група має підгрупи: бажано підключити хоча б по 1 студенту з кожної підгрупи"
+                            : "Для повної синхронізації завдань достатньо 1 активного акаунта"}
+                        </p>
+                      </div>
+                      <ClassroomSyncButton
+                        currentGroupId={rosterGroup.id}
+                        onSynced={() => openGroupRoster(rosterGroup)}
+                      />
+                    </div>
+
+                    {/* Попередження, якщо для підгрупи немає жодного активного акаунта */}
+                    {rosterData?.subgroup_warning && (
+                      <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3.5 py-2.5 text-xs text-amber-200 flex items-start gap-2.5">
+                        <span className="text-amber-400 font-bold shrink-0 text-sm">⚠</span>
+                        <div>
+                          <p className="font-semibold text-amber-300">Попередження щодо підгруп</p>
+                          <p className="text-amber-200/90 text-[11px] leading-relaxed mt-0.5">
+                            {rosterData.subgroup_warning}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Список підключених акаунтів */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-sys-text-muted px-1">
+                        <span>
+                          Підключені акаунти ({rosterData?.connected_accounts_count ?? 0} активних з {rosterData?.accounts?.length ?? 0})
+                        </span>
+                      </div>
+
+                      {rosterLoading ? (
+                        <p className="text-xs text-sys-text-secondary py-4 text-center">Завантаження акаунтів...</p>
+                      ) : !rosterData?.accounts || rosterData.accounts.length === 0 ? (
+                        <div className="rounded-xl border border-dashed border-sys-border/80 bg-sys-bg/20 p-6 text-center">
+                          <p className="text-xs text-sys-text-muted">
+                            Для цієї групи ще немає підключених акаунтів Classroom.
+                          </p>
+                          <p className="text-[11px] text-sys-text-secondary mt-1">
+                            Будь-який студент або староста групи може прив'язати свій акаунт у розкладі, щоб відкрити доступ до завдань.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {rosterData.accounts.map((acc, idx) => {
+                            const displayName = acc.student_name || `Акаунт #${idx + 1}`;
+                            const subtitle = acc.email || "Підключено через Google";
                             return (
-                              st.full_name.toLowerCase().includes(q) ||
-                              (st.email && st.email.toLowerCase().includes(q))
-                            );
-                          })
-                          .slice()
-                          .sort((a, b) => {
-                            const valA = studentSortBy === "surname" ? extractSurname(a.full_name) : a.full_name;
-                            const valB = studentSortBy === "surname" ? extractSurname(b.full_name) : b.full_name;
-                            let res = valA.localeCompare(valB, "uk", { sensitivity: "base" });
-                            if (res === 0) {
-                              res = a.full_name.localeCompare(b.full_name, "uk", { sensitivity: "base" });
-                            }
-                            return studentSortOrder === "asc" ? res : -res;
-                          })
-                          .map((st, i) => (
-                          <li
-                            key={st.id}
-                            className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/40 px-3.5 py-2.5 text-sm"
-                          >
-                            <div className="flex items-center gap-3">
-                              <span className="w-5 text-xs font-bold text-sys-text-muted">
-                                {i + 1}.
-                              </span>
-                              {st.photo_url ? (
-                                <img
-                                  src={st.photo_url}
-                                  alt=""
-                                  className="h-8 w-8 rounded-full object-cover"
-                                />
-                              ) : (
-                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sys-tabActive text-xs font-bold text-sys-text-secondary">
-                                  {st.full_name.charAt(0)}
+                              <div
+                                key={acc.id || idx}
+                                className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-sys-border/60 bg-sys-card/70 p-3 text-xs transition-colors hover:border-sys-border"
+                              >
+                                {/* Ліва частина: Аватар + Ім'я + Email + Підгрупа */}
+                                <div className="flex items-center gap-3 min-w-0">
+                                  {acc.photo_url ? (
+                                    <img
+                                      src={acc.photo_url}
+                                      alt=""
+                                      className="h-8 w-8 rounded-full object-cover shrink-0 border border-sys-border/50"
+                                    />
+                                  ) : (
+                                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sys-tabActive text-xs font-bold text-sys-text-secondary shrink-0 border border-sys-border/40">
+                                      {acc.student_name ? acc.student_name.charAt(0) : "👤"}
+                                    </div>
+                                  )}
+
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="font-semibold text-sys-text-primary text-[13px] truncate">
+                                        {displayName}
+                                      </span>
+                                      {acc.subgroup ? (
+                                        <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold bg-sky-500/15 text-sky-300 border border-sky-500/30">
+                                          {acc.subgroup} підгр.
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                    <div className="flex items-center gap-2 text-sys-text-muted text-[11px] truncate mt-0.5">
+                                      <span>{subtitle}</span>
+                                    </div>
+                                  </div>
                                 </div>
-                              )}
-                              <div>
-                                <p className="font-semibold text-sys-text-primary">{st.full_name}</p>
-                                {st.email && (
-                                  <p className="text-xs text-sys-text-muted">{st.email}</p>
+
+                                {/* Права частина: Статус синхронізації + Кнопка відключення */}
+                                <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-sys-border/30">
+                                  <div className="text-left sm:text-right">
+                                    <div className="flex items-center sm:justify-end gap-1.5 text-[11px]">
+                                      <span
+                                        className={`h-2 w-2 rounded-full shrink-0 ${
+                                          acc.is_active ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]" : "bg-rose-400"
+                                        }`}
+                                      />
+                                      <span className={acc.is_active ? "text-emerald-400 font-medium" : "text-rose-400 font-medium"}>
+                                        {acc.is_active ? "Активний" : "Неактивний"}
+                                      </span>
+                                    </div>
+                                    <span className="text-[10px] text-sys-text-secondary block mt-0.5">
+                                      {acc.last_synced_at
+                                        ? `Синхронізовано ${formatLastSynced(acc.last_synced_at)}`
+                                        : "ще не синхронізовано"}
+                                    </span>
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteClassroomAccount(acc.id, displayName)}
+                                    className="rounded-lg p-1.5 text-sys-text-muted hover:bg-rose-500/10 hover:text-rose-400 transition-colors"
+                                    title="Відключити цей акаунт"
+                                  >
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                      <path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+                                    </svg>
+                                  </button>
+                                </div>
+
+                                {acc.last_error && (
+                                  <div className="w-full text-rose-400 text-[11px] bg-rose-500/10 border border-rose-500/20 rounded-lg p-2 mt-1 truncate" title={acc.last_error}>
+                                    ⚠ Помилка доступу: {acc.last_error}
+                                  </div>
                                 )}
                               </div>
-                            </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Вміст вкладки: Студенти */}
+                {rosterTab === "students" && (
+                  <>
+                    {bulkStudentOpen ? (
+                      <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <button
+                            type="button"
+                            onClick={() => setBulkStudentOpen(false)}
+                            className="flex items-center gap-1.5 text-xs font-semibold text-sys-text-secondary hover:text-white transition-colors"
+                          >
+                            ← Назад до списку студентів
+                          </button>
+                        </div>
+                        <div className="rounded-xl border border-sys-border/60 bg-sys-bg/40 p-3 text-xs text-sys-text-secondary">
+                          💡 <strong className="text-white">Швидкий імпорт:</strong> відкрийте вкладку <em>«Пользователи» (або «Люди»)</em> у своєму курсі Google Classroom, виділіть список одногрупників (Ctrl+A / мишкою), скопіюйте (Ctrl+C) та вставте сюди. Також підходить копіювання з Excel або відомості. Розумний парсер сам прибере номери та зайві слова.
+                        </div>
+                        <div>
+                          <textarea
+                            rows={8}
+                            value={bulkStudentText}
+                            onChange={(e) => setBulkStudentText(e.target.value)}
+                            placeholder="Вставте скопійований список студентів тут...&#10;Іванов Іван&#10;Петренко Петро&#10;Сидоренко Анна..."
+                            className="w-full rounded-xl border border-sys-border bg-sys-bg/60 p-3 text-xs font-mono text-sys-text-primary placeholder:text-sys-text-muted focus:border-emerald-500 focus:outline-none"
+                          />
+                        </div>
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
+                          <label className="flex items-center gap-2 text-xs text-sys-text-secondary cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={bulkStudentReplace}
+                              onChange={(e) => setBulkStudentReplace(e.target.checked)}
+                              className="rounded border-sys-border bg-sys-bg text-emerald-500 focus:ring-emerald-500"
+                            />
+                            <span>Замінити весь існуючий список</span>
+                          </label>
+                          <div className="flex flex-col-reverse sm:flex-row gap-2">
                             <button
                               type="button"
-                              onClick={() => handleDeleteStudent(st.id, st.full_name)}
-                              className="rounded-lg p-1.5 text-sys-text-muted hover:bg-red-500/10 hover:text-red-400 transition-colors"
-                              title="Видалити зі списку групи"
+                              onClick={() => setBulkStudentOpen(false)}
+                              className="min-h-[44px] sm:min-h-[36px] flex items-center justify-center rounded-lg border border-sys-border px-3.5 py-1.5 text-xs text-sys-text-secondary hover:text-white"
                             >
-                              ✕
+                              Скасувати
                             </button>
-                          </li>
-                        ))}
-                      </ol>
+                            <button
+                              type="button"
+                              disabled={bulkStudentSaving || !bulkStudentText.trim()}
+                              onClick={handleBulkStudentImport}
+                              className="min-h-[44px] sm:min-h-[36px] flex items-center justify-center rounded-lg bg-emerald-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-50 shadow-sm"
+                            >
+                              {bulkStudentSaving ? "Збереження..." : "💾 Зберегти список"}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        {/* Компактний тулбар: пошук + сортування + кнопки дій */}
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 border-b border-sys-border/60 bg-sys-bg/30 px-5 py-2.5">
+                          {/* Ліва частина: Пошук */}
+                          <div className="flex-1 min-w-[200px]">
+                            <input
+                              type="text"
+                              value={studentSearch}
+                              onChange={(e) => setStudentSearch(e.target.value)}
+                              placeholder="Пошук за прізвищем, ім'ям чи email..."
+                              className="w-full rounded-lg border border-sys-border bg-sys-bg/60 px-3 py-1.5 text-xs text-sys-text-primary placeholder:text-sys-text-muted focus:border-emerald-500 focus:outline-none min-h-[36px]"
+                            />
+                          </div>
+
+                          {/* Права частина: Сортування та швидкі дії */}
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <button
+                              type="button"
+                              onClick={() => setStudentSortBy((prev) => (prev === "surname" ? "name" : "surname"))}
+                              className={`min-h-[36px] flex items-center justify-center rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors whitespace-nowrap ${
+                                studentSortBy === "surname"
+                                  ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-400"
+                                  : "border-sys-border bg-sys-card text-sys-text-secondary hover:text-white"
+                              }`}
+                              title="Перемкнути: сортування за прізвищем чи за повним ім'ям"
+                            >
+                              {studentSortBy === "surname" ? "👤 По прізвищу" : "📝 По імені"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setStudentSortOrder((prev) => (prev === "asc" ? "desc" : "asc"))}
+                              className="min-h-[36px] flex items-center justify-center gap-1 rounded-lg border border-sys-border/80 bg-sys-card px-2 py-1 text-xs font-semibold text-sys-text-secondary hover:border-emerald-500/50 hover:text-white transition-colors whitespace-nowrap"
+                              title="Змінити напрямок сортування (А-Я / Я-А)"
+                            >
+                              <span>{studentSortOrder === "asc" ? "🔤 А → Я" : "🔤 Я → А"}</span>
+                            </button>
+
+                            {rosterData && rosterData.students.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const sorted = [...rosterData.students].sort((a, b) => {
+                                    const valA = studentSortBy === "surname" ? extractSurname(a.full_name) : a.full_name;
+                                    const valB = studentSortBy === "surname" ? extractSurname(b.full_name) : b.full_name;
+                                    const res = valA.localeCompare(valB, "uk", { sensitivity: "base" });
+                                    return studentSortOrder === "asc" ? res : -res;
+                                  });
+                                  const text = sorted.map((s, idx) => `${idx + 1}. ${s.full_name}`).join("\n");
+                                  void navigator.clipboard.writeText(text);
+                                  setToast(`Скопійовано список (${sorted.length} студентів)`, "success");
+                                }}
+                                className="min-h-[36px] flex items-center rounded-lg border border-sky-500/40 bg-sky-500/10 px-2.5 py-1 text-xs font-semibold text-sky-300 hover:bg-sky-500/20 transition-colors whitespace-nowrap"
+                                title="Скопіювати нумерований список групи у буфер обміну"
+                              >
+                                📄 Копіювати
+                              </button>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => setBulkStudentOpen(true)}
+                              className="min-h-[36px] flex items-center rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/20 transition-colors whitespace-nowrap"
+                              title="Швидкий імпорт списку"
+                            >
+                              📋 Вставити
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Список студентів (2 колонки на sm:) */}
+                        <div className="flex-1 overflow-y-auto p-4 sm:p-5">
+                          {rosterLoading ? (
+                            <p className="text-sm text-sys-text-secondary py-6 text-center">Завантаження списку...</p>
+                          ) : !rosterData || rosterData.students.length === 0 ? (
+                            <div className="rounded-xl border border-dashed border-sys-border/80 bg-sys-bg/20 p-8 text-center">
+                              <p className="text-sm font-semibold text-sys-text-primary">Список групи порожній</p>
+                              <p className="text-xs text-sys-text-muted mt-1.5 max-w-md mx-auto">
+                                Натисніть «📋 Вставити», щоб вставити скопійований список з Classroom чи Excel, або синхронізуйте групу у вкладці «Classroom-акаунти».
+                              </p>
+                            </div>
+                          ) : (
+                            (() => {
+                              const filtered = rosterData.students
+                                .filter((st) => {
+                                  if (!studentSearch.trim()) return true;
+                                  const q = studentSearch.toLowerCase();
+                                  return (
+                                    st.full_name.toLowerCase().includes(q) ||
+                                    (st.email && st.email.toLowerCase().includes(q))
+                                  );
+                                })
+                                .slice()
+                                .sort((a, b) => {
+                                  const valA = studentSortBy === "surname" ? extractSurname(a.full_name) : a.full_name;
+                                  const valB = studentSortBy === "surname" ? extractSurname(b.full_name) : b.full_name;
+                                  let res = valA.localeCompare(valB, "uk", { sensitivity: "base" });
+                                  if (res === 0) {
+                                    res = a.full_name.localeCompare(b.full_name, "uk", { sensitivity: "base" });
+                                  }
+                                  return studentSortOrder === "asc" ? res : -res;
+                                });
+
+                              if (filtered.length === 0) {
+                                return (
+                                  <p className="text-xs text-sys-text-muted py-6 text-center">
+                                    Не знайдено студентів за запитом «{studentSearch}»
+                                  </p>
+                                );
+                              }
+
+                              return (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                  {filtered.map((st, i) => (
+                                    <div
+                                      key={st.id}
+                                      className="flex items-center justify-between gap-2 rounded-xl border border-sys-border/60 bg-sys-bg/40 px-3 py-2 text-xs transition-colors hover:border-sys-border hover:bg-sys-bg/60"
+                                    >
+                                      <div className="flex items-center gap-2.5 min-w-0">
+                                        <span className="w-5 text-[11px] font-bold text-sys-text-muted shrink-0 text-center">
+                                          {i + 1}
+                                        </span>
+                                        {st.photo_url ? (
+                                          <img
+                                            src={st.photo_url}
+                                            alt=""
+                                            className="h-7 w-7 rounded-full object-cover shrink-0 border border-sys-border/40"
+                                          />
+                                        ) : (
+                                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-sys-tabActive text-xs font-bold text-sys-text-secondary shrink-0 border border-sys-border/30">
+                                            {st.full_name.charAt(0)}
+                                          </div>
+                                        )}
+                                        <div className="min-w-0">
+                                          <p className="font-semibold text-sys-text-primary text-[13px] truncate">
+                                            {st.full_name}
+                                          </p>
+                                          {st.email && (
+                                            <p className="text-[11px] text-sys-text-muted truncate">
+                                              {st.email}
+                                            </p>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeleteStudent(st.id, st.full_name)}
+                                        className="rounded-lg p-1.5 text-sys-text-muted hover:bg-rose-500/10 hover:text-rose-400 transition-colors shrink-0"
+                                        title={`Видалити ${st.full_name} зі списку групи`}
+                                      >
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                          <path d="M18 6 6 18M6 6l12 12" />
+                                        </svg>
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              );
+                            })()
+                          )}
+                        </div>
+                      </>
                     )}
-                  </div>
-                </>
-              )}
+                  </>
+                )}
               </motion.div>
             </motion.div>
           )}
