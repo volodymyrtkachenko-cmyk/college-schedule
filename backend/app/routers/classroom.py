@@ -489,9 +489,9 @@ async def _save_link_to_slot(
                 kept_lines.append(l_str)
 
         active_row.note = (
-            f"{url_line}\n{chr(10).join(kept_lines)}"[:500]
+            f"{url_line}\n{chr(10).join(kept_lines)}"[:9500]
             if kept_lines
-            else url_line[:500]
+            else url_line[:9500]
         )
         active_row.subject_id = lesson.subject_id
         active_row.subject_name = (lesson.subject_name or active_row.subject_name)[:255]
@@ -514,7 +514,7 @@ async def _save_link_to_slot(
         ).first()
 
         if existing_row:
-            existing_row.note = url_line[:500]
+            existing_row.note = url_line[:9500]
             existing_row.subject_id = lesson.subject_id
             existing_row.subject_name = (lesson.subject_name or "")[:255]
             existing_row.archived = False
@@ -529,7 +529,7 @@ async def _save_link_to_slot(
                     lesson_number=lesson.lesson_number,
                     subject_id=lesson.subject_id,
                     subject_name=(lesson.subject_name or "")[:255],
-                    note=url_line[:500],
+                    note=url_line[:9500],
                     revision=1,
                     archived=False,
                     origin_kind="classroom",
@@ -552,6 +552,8 @@ async def _upsert_task_line(
     if not (1 <= getattr(lesson, "lesson_number", 0) <= 4):
         return False
 
+    task_line = re.sub(r"[\r\n]+", " ", task_line).strip()
+
     existing = (
         await db.scalars(
             select(LessonOccurrenceNote)
@@ -569,10 +571,12 @@ async def _upsert_task_line(
     if existing:
         clean_note = "\n".join(
             line for line in existing.note.split("\n")
-            if line.strip() and not line.strip().startswith("[TASKS_COMPLETED]")
+            if line.strip()
+            and not line.strip().startswith("[TASKS_COMPLETED]")
+            and not (not line.strip().startswith("[TASK") and "classroom.google.com/" in line.lower())
         )
         if unique_link not in clean_note:
-            existing.note = f"{clean_note}\n{task_line}".strip()[:500]
+            existing.note = f"{clean_note}\n{task_line}".strip()[:9500]
             existing.subject_id = lesson.subject_id
             existing.subject_name = (lesson.subject_name or existing.subject_name)[:255]
             existing.revision += 1
@@ -596,7 +600,7 @@ async def _upsert_task_line(
         ).first()
 
         if archived_row:
-            archived_row.note = task_line[:500]
+            archived_row.note = task_line[:9500]
             archived_row.subject_id = lesson.subject_id
             archived_row.subject_name = (lesson.subject_name or "")[:255]
             archived_row.archived = False
@@ -612,7 +616,7 @@ async def _upsert_task_line(
                     lesson_number=lesson.lesson_number,
                     subject_id=lesson.subject_id,
                     subject_name=(lesson.subject_name or "")[:255],
-                    note=task_line[:500],
+                    note=task_line[:9500],
                     revision=1,
                     archived=False,
                     origin_kind="classroom",
@@ -751,6 +755,8 @@ async def perform_course_sync(
                 task_c_id = c_match.group(1) if c_match else None
                 if task_c_id and current_sync_course_ids and task_c_id not in current_sync_course_ids:
                     manual_lines.append(l_str)
+                continue
+            if "classroom.google.com/" in l_str.lower():
                 continue
             if URL_RE.search(l_str):
                 continue
@@ -1231,7 +1237,7 @@ async def perform_course_sync(
                         except ValueError:
                             due_date = None
 
-                    title_raw = (cw.get("title") or "").strip() or "Без назви"
+                    title_raw = re.sub(r"\s+", " ", (cw.get("title") or "").replace("|", "/")).strip() or "Без назви"
                     max_points = cw.get("maxPoints")
 
                     sub_data = submissions_by_cw_id.get(cw_id)

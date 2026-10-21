@@ -397,13 +397,58 @@ export function hasAllTasksCompleted(note?: string | null): boolean {
   return note.includes("[TASKS_COMPLETED]");
 }
 
+function findFullTaskMetaByUrl(url: string): { title?: string; teacher?: string } | null {
+  if (typeof window === "undefined" || !url) return null;
+  try {
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const k = window.localStorage.key(i);
+      if (!k || !k.startsWith("schedule:classroom_tasks:")) continue;
+      const raw = window.localStorage.getItem(k);
+      if (!raw) continue;
+      const list = JSON.parse(raw);
+      if (!Array.isArray(list)) continue;
+      const found = list.find((t: any) => (t?.url || t?.alternate_link) === url);
+      if (found) {
+        return {
+          title: typeof found.title === "string" ? found.title.replace(/\s+/g, " ").trim() : undefined,
+          teacher: typeof found.teacher === "string" ? found.teacher.trim() : undefined,
+        };
+      }
+    }
+  } catch {}
+  return null;
+}
+
 export function extractClassroomTasks(note?: string | null): ClassroomTaskItem[] {
   if (!note) return [];
+  const rawLines = note.split("\n");
+  const normalizedLines: string[] = [];
+
+  for (let i = 0; i < rawLines.length; i++) {
+    const cur = rawLines[i].trim();
+    if (!cur) continue;
+    if (cur.startsWith("[TASK]") && !cur.includes("|") && i + 1 < rawLines.length) {
+      const next = rawLines[i + 1].trim();
+      if (next.includes("|") && /https?:\/\//i.test(next)) {
+        normalizedLines.push(`${cur} ${next}`);
+        i++;
+        continue;
+      }
+    }
+    normalizedLines.push(cur);
+  }
+
   const tasks: ClassroomTaskItem[] = [];
-  for (const line of note.split("\n")) {
-    if (line.trim().startsWith("[TASK]")) {
-      const raw = line.replace("[TASK]", "").trim();
-      const [leftPart, urlPart] = raw.split("|").map((s) => s.trim());
+  for (const line of normalizedLines) {
+    const isTaskLine =
+      line.startsWith("[TASK]") ||
+      (/\|\s*https?:\/\/classroom\.google\.com\//i.test(line));
+    if (isTaskLine) {
+      const raw = line.replace(/^\[TASK\]\s*/i, "").trim();
+      const pipeIdx = raw.lastIndexOf("|");
+      if (pipeIdx === -1) continue;
+      const leftPart = raw.slice(0, pipeIdx).trim();
+      const urlPart = raw.slice(pipeIdx + 1).trim();
       if (!leftPart || !urlPart || !urlPart.startsWith("http")) continue;
 
       let teacher: string | null = null;
@@ -418,7 +463,15 @@ export function extractClassroomTasks(note?: string | null): ClassroomTaskItem[]
       // Приводимо до стандарту "до DD.MM" або ""
       const dueMatch = rest.match(/\(до\s+\d{1,2}\.\d{1,2}\)/i);
       const label = dueMatch ? dueMatch[0].replace(/[()]/g, "").trim() : "";
-      const title = rest.replace(/\(до\s+\d{1,2}\.\d{1,2}\)/i, "").trim() || "Завдання";
+      let title = rest.replace(/\(до\s+\d{1,2}\.\d{1,2}\)/i, "").trim() || "Завдання";
+
+      // Якщо рядок був розірваний (без префікса [TASK]), відновлюємо повну назву та викладача з кешу завдань
+      if (!line.startsWith("[TASK]")) {
+        const meta = findFullTaskMetaByUrl(urlPart);
+        if (meta?.title) title = meta.title;
+        if (!teacher && meta?.teacher) teacher = meta.teacher;
+      }
+
       const deadline = parseTaskDeadline(label);
 
       tasks.push({ title, teacher, label, url: urlPart, deadline });
@@ -432,7 +485,9 @@ export function getVisibleUserNote(note?: string | null): string {
   return note
     .split("\n")
     .map((line) => {
-      if (line.trim().startsWith("[TASK")) return "";
+      const trimmed = line.trim();
+      if (trimmed.startsWith("[TASK")) return "";
+      if (/https?:\/\/classroom\.google\.com\//i.test(trimmed)) return "";
       // ВАЖЛИВО: без \b перед кирилицею, бо в JS \b працює лише для латиниці!
       const cleaned = line
         .replace(/https?:\/\/(?:meet\.google\.com|[a-z0-9.-]*zoom\.us)\/[^\s|]+/gi, "")
