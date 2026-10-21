@@ -237,8 +237,8 @@ export function ScheduleDay({
                 }`}
               >
                 {schedule.learning_mode_override.mode === "offline"
-                  ? "Виняток: очне навчання"
-                  : "Виняток: дистанційне навчання"}
+                  ? "Очне навчання"
+                  : "Дистанційне навчання"}
               </span>
               <span className="text-xs text-sys-text-secondary">
                 {schedule.learning_mode_override.start === schedule.learning_mode_override.end

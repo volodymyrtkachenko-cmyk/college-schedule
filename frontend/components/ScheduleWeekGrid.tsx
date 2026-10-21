@@ -290,8 +290,8 @@ export function ScheduleWeekGrid({
                     }`}
                   >
                     {ov.mode === "offline"
-                      ? "Виняток: очне навчання"
-                      : "Виняток: дистанційне навчання"}
+                      ? "Очне навчання"
+                      : "Дистанційне навчання"}
                   </div>
                   {ov.reason && (
                     <p className="mt-0.5 text-[11px] text-sys-text-secondary whitespace-normal break-words">
@@ -421,8 +421,8 @@ export function ScheduleWeekGrid({
                       }`}
                     >
                       {ov.mode === "offline"
-                        ? "Виняток: очне навчання"
-                        : "Виняток: дистанційне навчання"}
+                        ? "Очне навчання"
+                        : "Дистанційне навчання"}
                     </div>
                     {ov.reason && (
                       <p className="mt-0.5 text-[11px] text-sys-text-secondary whitespace-normal break-words">
