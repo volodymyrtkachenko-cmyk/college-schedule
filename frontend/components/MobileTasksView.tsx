@@ -54,7 +54,7 @@ export function MobileTasksView({
   const scope = tasksScope ?? internalScope;
   const setScope = onTasksScopeChange ?? setInternalScope;
 
-  const [pastWeekOpen, setPastWeekOpen] = useState(true);
+  const [pastWeekOpen, setPastWeekOpen] = useState(false);
   const [userToggledOverdue, setUserToggledOverdue] = useState<boolean | null>(null);
   const overdueOpen = userToggledOverdue !== null ? userToggledOverdue : isLinked;
   const [activeOpen, setActiveOpen] = useState(true);

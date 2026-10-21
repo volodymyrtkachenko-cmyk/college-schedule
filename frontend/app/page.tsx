@@ -146,7 +146,7 @@ export default function HomePage() {
   const [classroomLastSyncedAt, setClassroomLastSyncedAt] = useState<string | null>(null);
   const { linkedEmail, isLinked, submissions, personalTeachers, unlink: unlinkClassroom } = useClassroomSubmissions();
   const [tasksScope, setTasksScope] = useState<"week" | "all">("week");
-  const [sidebarPastWeekOpen, setSidebarPastWeekOpen] = useState(true);
+  const [sidebarPastWeekOpen, setSidebarPastWeekOpen] = useState(false);
   const [sidebarUserToggledOverdue, setSidebarUserToggledOverdue] = useState<boolean | null>(null);
   const sidebarOverdueOpen = sidebarUserToggledOverdue !== null ? sidebarUserToggledOverdue : isLinked;
   const [sidebarActiveOpen, setSidebarActiveOpen] = useState(true);
