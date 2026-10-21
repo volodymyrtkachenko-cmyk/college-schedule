@@ -25,7 +25,7 @@ import { ClassroomSyncButton } from "../components/ClassroomSyncButton";
 import { extractClassroomTasks, parseTaskDeadline, sortTasksByDeadline, TaskDeadline, UKR_MONTHS_SHORT, pluralDays } from "../components/LessonCard";
 import { useToast } from "../components/ToastProvider";
 import { QuickJumpTarget, findGroupIdByName, findTeacherIdByName } from "../lib/quickJump";
-import { isOwnTask, useClassroomSubmissions } from "../lib/useClassroomSubmissions";
+import { extractClassroomTaskKey, isOwnTask, useClassroomSubmissions } from "../lib/useClassroomSubmissions";
 import { shareWeekScheduleAsImage } from "../lib/shareImage";
 
 const UK_SHORT_WEEKDAY_FMT = new Intl.DateTimeFormat("uk-UA", { weekday: "short" });
@@ -817,7 +817,8 @@ export default function HomePage() {
             if (!seenUrls.has(t.url)) {
               seenUrls.add(t.url);
 
-              const personalSub = isLinked ? submissions[t.url] : null;
+              const key = extractClassroomTaskKey(t.url);
+              const personalSub = isLinked ? (submissions[t.url] || (key ? submissions[key] : null)) : null;
               const effectiveState = personalSub ? personalSub.state : "NEW";
               const effectiveGrade = personalSub ? (personalSub.grade ?? null) : null;
               const effectiveMaxPoints = personalSub ? (personalSub.maxPoints ?? null) : null;
@@ -866,7 +867,8 @@ export default function HomePage() {
         }
         seenUrls.add(url);
 
-        const personalSub = isLinked ? submissions[url] : null;
+        const key = extractClassroomTaskKey(url);
+        const personalSub = isLinked ? (submissions[url] || (key ? submissions[key] : null)) : null;
         const effectiveState = personalSub ? personalSub.state : "NEW";
         const effectiveGrade = personalSub ? (personalSub.grade ?? null) : null;
         const effectiveMaxPoints = personalSub ? (personalSub.maxPoints ?? null) : null;

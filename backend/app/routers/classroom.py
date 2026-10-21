@@ -1182,6 +1182,7 @@ async def perform_course_sync(
         missing_creators: set[tuple[str, str]] = set()
         turned_in_cw_ids: set[str] = set()
         submissions_by_cw_id: dict[str, dict] = {}
+        course_student_cw_ids: dict[str, set[str]] = {}
         has_submission_scope_error = False
         synced_teacher_names: set[str] = set()
         synced_teacher_tokens: set[str] = set()
@@ -1207,6 +1208,7 @@ async def perform_course_sync(
             course_teachers_tokens[course_id] = []
             course_teacher_count[course_id] = 0
             course_teacher_uids[course_id] = []
+            course_student_cw_ids[course_id] = set()
             topics_by_id: dict[str, str] = {}
 
             if getattr(sub_resp, "status_code", None) == 403:
@@ -1214,6 +1216,8 @@ async def perform_course_sync(
             elif sub_resp is not None and not isinstance(sub_resp, Exception) and getattr(sub_resp, "status_code", None) == 200:
                 for sub in sub_resp.json().get("studentSubmissions", []):
                     cw_id = sub.get("courseWorkId")
+                    if cw_id:
+                        course_student_cw_ids[course_id].add(cw_id)
                     if cw_id:
                         sub_st = sub.get("state") or "NEW"
                         assigned_grade = sub.get("assignedGrade")
@@ -1558,7 +1562,15 @@ async def perform_course_sync(
                         elif user_is_sub2 and not user_is_sub1 and task_is_sub1:
                             is_other_coteacher_task = True
 
-                    if not is_other_coteacher_task:
+                    assigned_cws = course_student_cw_ids.get(course_id)
+                    # Якщо у цьому курсі Google Classroom повернув studentSubmissions:
+                    # показуємо лише завдання, які призначені саме цьому конкретному студенту (userId="me").
+                    # Завдання, які викладач призначив тільки окремим іншим студентам, не додаються.
+                    is_assigned_to_student = True
+                    if assigned_cws:
+                        is_assigned_to_student = cw_id in assigned_cws
+
+                    if is_assigned_to_student and not is_other_coteacher_task:
                         personal_classroom_tasks.append(task_entry)
 
                     # 13.3: Усі опубліковані завдання записуються в загальну базу розкладу групи,

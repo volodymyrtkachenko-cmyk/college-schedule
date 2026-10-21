@@ -102,6 +102,15 @@ export function clearClassroomAccessToken(): void {
   } catch {}
 }
 
+export function extractClassroomTaskKey(url?: string | null): string | null {
+  if (!url) return null;
+  const m = url.match(/\/c\/([^\/\?#]+)\/a\/([^\/\?#]+)/i);
+  if (m) {
+    return `${m[1]}_${m[2]}`;
+  }
+  return url.split("?")[0].split("#")[0].replace(/\/details\/?$/i, "").replace(/\/+$/, "");
+}
+
 // Користувач, який не залогінився (гість), бачить ВСІ посилання та ДЗ обох підгруп.
 // Користувач, який прив'язав Classroom (залогінений), бачить ТІЛЬКИ свою підгрупу та своє ДЗ.
 // Загальні предмети групи (математика, схемотехніка, електроніка, філософія тощо) бачать усі студенти!
@@ -163,8 +172,20 @@ export function isOwnTask(
       return true;
     }
 
-    if (userSubgroup === 1 && isSub2Task) return false;
-    if (userSubgroup === 2 && isSub1Task) return false;
+    if (userSubgroup === 1 && isSub2Task && !isSub1Task) return false;
+    if (userSubgroup === 2 && isSub1Task && !isSub2Task) return false;
+  }
+
+  // Якщо користувач прив'язав акаунт і в нього є завантажені персональні завдання:
+  // якщо викладач показав роботу не для всіх (індивідуально чи іншій підгрупі),
+  // показуємо ТІЛЬКИ ті завдання, які призначені саме цьому студенту!
+  const hasSubmissions = Object.keys(submissions).length > 0;
+  if (hasSubmissions && url) {
+    const key = extractClassroomTaskKey(url);
+    const isMyTask = Boolean(submissions[url] || (key && submissions[key]));
+    if (!isMyTask) {
+      return false;
+    }
   }
 
   // Усі загальні предмети та завдання своєї підгрупи завжди відображаються
@@ -241,11 +262,16 @@ export function saveClassroomSyncData(
         const url = t.url || t.alternate_link;
         if (url) {
           const state = t.state || "NEW";
-          submittedMap[url] = {
+          const subObj: PersonalSubmission = {
             state,
             grade: t.grade ?? t.assigned_grade ?? t.assignedGrade ?? null,
             maxPoints: t.max_points ?? t.maxPoints ?? null,
           };
+          submittedMap[url] = subObj;
+          const key = extractClassroomTaskKey(url);
+          if (key) {
+            submittedMap[key] = subObj;
+          }
         }
         if (t.teacher) {
           extractedTeachers.add(t.teacher);

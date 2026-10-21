@@ -7,7 +7,7 @@ const LessonNoteModal = dynamic(() => import("./LessonNote").then((m) => m.Lesso
 import { EditIcon, MoveIcon } from "./LessonIcons";
 import { Lesson } from "../lib/api";
 import { formatRoom, formatRoomsList, extractOnlineMeetings, MeetingInfo } from "../lib/format";
-import { isOwnTask, useClassroomSubmissions } from "../lib/useClassroomSubmissions";
+import { extractClassroomTaskKey, isOwnTask, useClassroomSubmissions } from "../lib/useClassroomSubmissions";
 import { QuickJumpTarget, parseLessonTeachers, parseLessonGroups } from "../lib/quickJump";
 import { DEFAULT_LESSON_TIMES } from "../lib/constants/lessons";
 
@@ -762,7 +762,8 @@ export function LessonCard({
       if (!isOwnTask(isLinked, submissions, t.url, t.teacher, personalTeachers, t.title)) {
         return false;
       }
-      const sub = submissions[t.url];
+      const key = extractClassroomTaskKey(t.url);
+      const sub = submissions[t.url] || (key ? submissions[key] : null);
       return !(isLinked && sub && (sub.state === "TURNED_IN" || sub.state === "RETURNED"));
     });
   }, [rawTasks, isLinked, submissions, personalTeachers]);
