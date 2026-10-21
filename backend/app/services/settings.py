@@ -38,6 +38,8 @@ class SettingsService:
             setting.value = value
         await db.commit()
         self.invalidate_cache()
+        from app.services import cache_rev
+        cache_rev.bump(global_=True)
 
     async def get_semester_start(self, db: AsyncSession) -> date:
         value = await self.get(
@@ -84,5 +86,7 @@ class SettingsService:
                 setting.value = value
         await db.commit()
         self.invalidate_cache()
+        from app.services import cache_rev
+        cache_rev.bump(global_=True)
 
 settings_service = SettingsService()

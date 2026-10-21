@@ -1193,8 +1193,8 @@ export function AdminScheduleEditor() {
                         const isPast = isSlotInPast(currentDay.date, slotNum);
 
                         return (
-                          <div key={slotNum} className="rounded-xl border border-sys-border bg-sys-card/40 overflow-hidden">
-                            <div className="flex items-center justify-between px-3 py-1.5 border-b border-sys-border/40 bg-sys-bg/30 text-xs">
+                          <div key={slotNum} className="rounded-xl border border-sys-border bg-sys-card/40">
+                            <div className="flex items-center justify-between px-3 py-1.5 rounded-t-xl border-b border-sys-border/40 bg-sys-bg/30 text-xs">
                               <span className="font-bold text-sys-text-primary">
                                 {slotNum}-та пара
                               </span>

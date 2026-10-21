@@ -153,6 +153,17 @@ export function ScheduleDay({
                 {fmt(schedule.date, { day: "numeric", month: "long" })}
               </span>
             </div>
+            {schedule.learning_mode && (
+              <span
+                className={`shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-bold ${
+                  schedule.learning_mode === "offline"
+                    ? "border-sys-accent/30 bg-sys-accent/10 text-sys-accent"
+                    : "border-sys-warning/30 bg-sys-warning/10 text-sys-warning"
+                }`}
+              >
+                {schedule.learning_mode === "offline" ? "Очно" : "Дистанційно"}
+              </span>
+            )}
           </div>
         ) : (
           <div className="flex flex-col justify-center min-h-[56px] min-w-0 flex-1">
@@ -166,9 +177,22 @@ export function ScheduleDay({
                 </span>
               )}
             </div>
-            <span className="text-xs font-medium text-sys-text-secondary mt-0.5">
-              {fmt(schedule.date, { day: "numeric", month: "short" })}
-            </span>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="text-xs font-medium text-sys-text-secondary">
+                {fmt(schedule.date, { day: "numeric", month: "short" })}
+              </span>
+              {schedule.learning_mode && (
+                <span
+                  className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-bold leading-none ${
+                    schedule.learning_mode === "offline"
+                      ? "border-sys-accent/30 bg-sys-accent/10 text-sys-accent"
+                      : "border-sys-warning/30 bg-sys-warning/10 text-sys-warning"
+                  }`}
+                >
+                  {schedule.learning_mode === "offline" ? "Очно" : "Дистанційно"}
+                </span>
+              )}
+            </div>
           </div>
         )}
 

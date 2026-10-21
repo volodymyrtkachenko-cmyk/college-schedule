@@ -720,6 +720,262 @@ export function LessonCard({
                 ? "border-emerald-400 ring-1 ring-emerald-400/70"
                 : "border-sys-border";
 
+  const renderStatusBadge = (compact = false) => {
+    const baseCls = compact
+      ? "inline-flex max-w-full [white-space:normal] [overflow-wrap:anywhere] items-center gap-1 rounded px-1.5 py-0.5 text-xs font-bold"
+      : "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-bold";
+    if (lesson.is_cancelled) {
+      if (lesson.moved_to_date) {
+        return (
+          <span className={`${baseCls} border border-amber-500/40 bg-amber-500/15 tracking-wide text-amber-300`}>
+            ↪ {formatMovedTo(lesson.moved_to_date, lesson.moved_to_lesson)}
+          </span>
+        );
+      }
+      return (
+        <span className={`${baseCls} border border-rose-500/40 bg-rose-500/15 uppercase tracking-wider text-rose-400`}>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+          <span>Скасовано</span>
+        </span>
+      );
+    }
+    if (eventBadge) {
+      return (
+        <span className={`${baseCls} border uppercase tracking-wider ${eventBadge.badgeClass}`}>
+          {eventBadge.label}
+        </span>
+      );
+    }
+    if (lesson.is_replacement) {
+      return (
+        <span className={`${baseCls} bg-sys-warning uppercase tracking-wider text-sys-warningText`}>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-warningText">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+          </svg>
+          <span>Заміна</span>
+        </span>
+      );
+    }
+    return null;
+  };
+
+  const renderTemplateWeekBadge = () => {
+    if (!isTemplateMode || lesson.week_type === "both") return null;
+    return (
+      <span
+        className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider ${
+          lesson.week_type === "numerator"
+            ? "border-sky-500/30 bg-sky-500/10 text-sky-300"
+            : "border-purple-500/30 bg-purple-500/10 text-purple-300"
+        }`}
+      >
+        {lesson.week_type === "numerator" ? "Чисельник" : "Знаменник"}
+      </span>
+    );
+  };
+
+  const renderMoreMenu = (alignTop = true) => {
+    if (!moreOpen) return null;
+    return (
+      <>
+        <div
+          className="fixed inset-0 z-40"
+          onClick={(e) => {
+            e.stopPropagation();
+            setMoreOpen(false);
+          }}
+        />
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className={`absolute right-0 ${
+            alignTop ? "bottom-full mb-1" : "top-full mt-1"
+          } z-50 min-w-[200px] rounded-xl border border-sys-border bg-sys-card shadow-2xl p-1 text-xs space-y-0.5 animate-in fade-in zoom-in-95 duration-150`}
+        >
+          {isTemplateMode ? (
+            <>
+              {onCopySelect && !movingLesson && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMoreOpen(false);
+                    onCopySelect(lesson);
+                  }}
+                  className="w-full flex items-center gap-2 px-2.5 py-2 sm:py-1.5 rounded-lg text-left text-sys-text-primary hover:bg-sky-500/10 hover:text-sky-400 transition-colors"
+                >
+                  <CopyIcon />
+                  <span>Копіювати</span>
+                </button>
+              )}
+
+              {onMoveSelect && !movingLesson && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMoreOpen(false);
+                    onMoveSelect(lesson);
+                  }}
+                  className="w-full flex items-center gap-2 px-2.5 py-2 sm:py-1.5 rounded-lg text-left text-sys-text-primary hover:bg-emerald-500/10 hover:text-emerald-400 transition-colors"
+                >
+                  <MoveIcon />
+                  <span>Перемістити</span>
+                </button>
+              )}
+
+              {onSwapSelect && !movingLesson && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMoreOpen(false);
+                    onSwapSelect(lesson);
+                  }}
+                  className="w-full flex items-center gap-2 px-2.5 py-2 sm:py-1.5 rounded-lg text-left text-sys-text-primary hover:bg-amber-500/10 hover:text-amber-400 transition-colors"
+                >
+                  <SwapIcon />
+                  <span>Поміняти місцями</span>
+                </button>
+              )}
+
+              {onDeleteTemplate && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMoreOpen(false);
+                    if (
+                      typeof window !== "undefined" &&
+                      window.confirm(`Видалити пару «${lesson.subject_name}» з постійного розкладу?`)
+                    ) {
+                      onDeleteTemplate(lesson);
+                    }
+                  }}
+                  className="w-full flex items-center gap-2 px-2.5 py-2 sm:py-1.5 rounded-lg text-left text-rose-400 hover:bg-rose-500/10 transition-colors"
+                >
+                  <TrashIcon />
+                  <span>Видалити</span>
+                </button>
+              )}
+            </>
+          ) : (
+            <>
+              {canMove && !movingLesson && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMoreOpen(false);
+                    onMoveSelect?.(lesson);
+                  }}
+                  className="w-full flex items-center gap-2 px-2.5 py-2 sm:py-1.5 rounded-lg text-left text-sys-text-primary hover:bg-emerald-500/10 hover:text-emerald-400 transition-colors"
+                >
+                  <MoveIcon />
+                  <span>Перенести</span>
+                </button>
+              )}
+
+              {onSwapSelect && !movingLesson && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMoreOpen(false);
+                    onSwapSelect(lesson);
+                  }}
+                  className="w-full flex items-center gap-2 px-2.5 py-2 sm:py-1.5 rounded-lg text-left text-sys-text-primary hover:bg-amber-500/10 hover:text-amber-400 transition-colors"
+                >
+                  <SwapIcon />
+                  <span>Поміняти місцями</span>
+                </button>
+              )}
+
+              {lesson.is_replacement ? (
+                onRemoveReplacement && lesson.group_id && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMoreOpen(false);
+                      if (
+                        typeof window !== "undefined" &&
+                        window.confirm(`Прибрати заміну «${lesson.subject_name}» на ${targetDate}?`)
+                      ) {
+                        onRemoveReplacement(lesson, targetDate);
+                      }
+                    }}
+                    className="w-full flex items-center gap-2 px-2.5 py-2 sm:py-1.5 rounded-lg text-left text-amber-400 hover:bg-amber-500/10 transition-colors"
+                  >
+                    <span>↩</span>
+                    <span>Прибрати заміну</span>
+                  </button>
+                )
+              ) : (
+                onCancelDated && lesson.group_id && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMoreOpen(false);
+                      if (
+                        typeof window !== "undefined" &&
+                        window.confirm(`Скасувати пару «${lesson.subject_name}» на ${targetDate}?`)
+                      ) {
+                        onCancelDated(lesson, targetDate);
+                      }
+                    }}
+                    className="w-full flex items-center gap-2 px-2.5 py-2 sm:py-1.5 rounded-lg text-left text-rose-400 hover:bg-rose-500/10 transition-colors"
+                  >
+                    <CalendarOffIcon />
+                    <span>Скасувати</span>
+                  </button>
+                )
+              )}
+
+              {onOpenPermanentSchedule && (!lesson.is_replacement || lesson.has_template !== false) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMoreOpen(false);
+                    onOpenPermanentSchedule(lesson);
+                  }}
+                  className="w-full flex items-center gap-2 px-2.5 py-2 sm:py-1.5 rounded-lg text-left text-sys-accent hover:bg-sys-accent/10 transition-colors"
+                >
+                  <TemplateIcon />
+                  <span>Змінити в постійному розкладі</span>
+                </button>
+              )}
+
+              {lesson.group_id && (
+                <>
+                  <div className="border-t border-sys-border/40 my-1" />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMoreOpen(false);
+                      setNoteModalMode("edit");
+                    }}
+                    className="w-full flex items-center gap-2 px-2.5 py-2 sm:py-1.5 rounded-lg text-left text-sys-text-secondary hover:text-sys-accent hover:bg-sys-accent/10 transition-colors"
+                  >
+                    <span>💬</span>
+                    <span>{visibleNoteText ? "Редагувати примітку" : "+ Примітка"}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMoreOpen(false);
+                      setNoteModalMode("history");
+                    }}
+                    className="w-full flex items-center gap-2 px-2.5 py-2 sm:py-1.5 rounded-lg text-left text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/5 transition-colors"
+                  >
+                    <span>📜</span>
+                    <span>Історія примітки</span>
+                  </button>
+                </>
+              )}
+            </>
+          )}
+        </div>
+      </>
+    );
+  };
+
   return (
     <article
       data-live={isLive ? "true" : undefined}
@@ -738,7 +994,13 @@ export function LessonCard({
         }
       }}
       className={`group relative flex min-w-0 flex-col rounded-2xl border bg-sys-card shadow-sm transition-all duration-200 ${
-        isDay ? "p-4 sm:p-6 lg:px-7 lg:py-7 sm:min-h-[140px]" : "p-2.5 rounded-xl h-full flex flex-col justify-between"
+        isDay
+          ? isLive
+            ? "p-4 pb-6 sm:p-6 sm:pb-8 lg:px-7 lg:py-7 lg:pb-9 sm:min-h-[140px]"
+            : "p-4 sm:p-6 lg:px-7 lg:py-7 sm:min-h-[140px]"
+          : isLive
+            ? "p-2.5 pb-5 rounded-xl h-full flex flex-col justify-between"
+            : "p-2.5 rounded-xl h-full flex flex-col justify-between"
       } ${stateClass} ${
         !lesson.is_relevant_this_week ? "opacity-60" : ""
       } ${canMove ? "cursor-grab active:cursor-grabbing" : ""}`}
@@ -752,7 +1014,7 @@ export function LessonCard({
               <span className={`text-2xl sm:text-[26px] font-black leading-none ${isLive ? "text-sys-accent" : "text-[#94a3b8]"}`}>
                 {lesson.lesson_number}
               </span>
-              <div className="mt-1.5 flex flex-col leading-tight">
+              <div className="mt-1.5 flex flex-col leading-tight whitespace-nowrap">
                 <span className="text-sm sm:text-[15px] font-bold text-sys-text-primary">
                   {startT}
                 </span>
@@ -785,17 +1047,15 @@ export function LessonCard({
 
                 {/* Teacher / Group info */}
                 <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm text-sys-text-secondary mt-0.5">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-sys-text-muted shrink-0">
-                    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
-                    <circle cx="12" cy="7" r="4" />
-                  </svg>
                   {isDualTeachers ? (
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-col gap-1.5 w-full max-w-[480px]">
                       {secondaryItems.map((item, idx) => {
                         const subNum = idx + 1;
                         const isFaded = selectedSubgroup !== null && selectedSubgroup !== subNum;
+                        const ownMeeting = teacherMeetings[idx];
+                        const ownRoom = (idx === 0 ? lesson.teacher_room : lesson.second_teacher_room) || rooms[idx] || null;
                         return (
-                          <span key={idx} className={`inline-flex items-center gap-1.5 transition-opacity ${isFaded ? "opacity-50 hover:opacity-80" : "opacity-100"}`}>
+                          <div key={idx} className={`flex items-center gap-2 transition-opacity ${isFaded ? "opacity-50 hover:opacity-80" : "opacity-100"}`}>
                             <button
                               type="button"
                               onClick={(e) => { e.stopPropagation(); handleSubgroupToggle(subNum); }}
@@ -813,33 +1073,55 @@ export function LessonCard({
                               <button
                                 type="button"
                                 onClick={(e) => { e.stopPropagation(); onQuickJump(item.target); }}
-                                className="hover:text-sys-accent hover:underline focus:outline-none"
+                                className="flex-1 min-w-0 text-left break-words font-medium text-slate-200 hover:text-sys-accent hover:underline focus:outline-none"
                               >
                                 {item.displayName}
                               </button>
                             ) : (
-                              <span>{item.displayName}</span>
+                              <span className="flex-1 min-w-0 break-words font-medium text-slate-200">{item.displayName}</span>
                             )}
-                          </span>
+                            {ownMeeting ? (
+                              <a
+                                href={ownMeeting.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
+                                className="ml-auto shrink-0 text-emerald-400 font-bold hover:underline whitespace-nowrap text-xs"
+                              >
+                                {ownMeeting.platform === "zoom" ? "Zoom" : ownMeeting.platform === "meet" ? "Meet" : "Онлайн"} ↗
+                              </a>
+                            ) : (
+                              <span className="ml-auto shrink-0 rounded-md border border-sys-border bg-sys-bg px-2 py-0.5 text-xs font-semibold leading-none text-sys-text-secondary whitespace-nowrap">
+                                {ownRoom ? `ауд. ${ownRoom.replace(/^ауд\.?\s*/i, "")}` : "ауд. —"}
+                              </span>
+                            )}
+                          </div>
                         );
                       })}
                     </div>
                   ) : secondaryItems.length > 0 ? (
-                    secondaryItems.map((item, idx) => (
-                      <span key={idx}>
-                        {onQuickJump ? (
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); onQuickJump(item.target); }}
-                            className="hover:text-sys-accent hover:underline focus:outline-none"
-                          >
-                            {item.displayName}
-                          </button>
-                        ) : (
-                          <span>{item.displayName}</span>
-                        )}
-                      </span>
-                    ))
+                    <>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-sys-text-muted shrink-0">
+                        <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                        <circle cx="12" cy="7" r="4" />
+                      </svg>
+                      {secondaryItems.map((item, idx) => (
+                        <span key={idx}>
+                          {idx > 0 && <span className="text-sys-text-muted"> / </span>}
+                          {onQuickJump ? (
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); onQuickJump(item.target); }}
+                              className="hover:text-sys-accent hover:underline focus:outline-none"
+                            >
+                              {item.displayName}
+                            </button>
+                          ) : (
+                            <span>{item.displayName}</span>
+                          )}
+                        </span>
+                      ))}
+                    </>
                   ) : null}
                 </div>
               </div>
@@ -847,85 +1129,91 @@ export function LessonCard({
               {/* Zone 3: Location & Actions */}
               <div className="shrink-0 flex flex-col items-end justify-start gap-2 pt-0.5">
                 <div className="flex flex-wrap items-center justify-end gap-2">
-                  {rooms.length > 0 && (
+                  {!isDualTeachers && rooms.length > 0 && (
                     <div className="inline-flex h-8 px-3 items-center gap-1.5 rounded-lg border border-sys-border bg-sys-bg text-sys-text-secondary font-medium text-xs shadow-xs whitespace-nowrap">
                       <span>{formatRoomsList(rooms)}</span>
                     </div>
                   )}
-                  {hasMeeting && (
-                    <a
-                      href={meetings[0].url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
-                      className={`inline-flex h-8 items-center gap-1.5 rounded-lg font-bold text-xs active:scale-95 transition-all whitespace-nowrap ${
-                        isMeetingLiveOrSoon
-                          ? "px-3 shadow-xs bg-emerald-600 text-white border border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.35)] hover:bg-emerald-500 animate-pulse"
-                          : "px-3 border border-sys-border bg-sys-card text-sys-text-primary hover:border-sys-accent/50 hover:text-sys-accent"
-                      }`}
-                    >
-                      {meetings[0].platform === "zoom" ? (
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                          <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.934a.5.5 0 0 0-.777-.416L16 11" />
-                          <rect x="2" y="6" width="14" height="12" rx="2" />
-                        </svg>
-                      ) : (
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                          <polygon points="23 7 16 12 23 17 23 7" />
-                          <rect x="1" y="5" width="15" height="14" rx="2" />
-                        </svg>
-                      )}
-                      <span>{meetings[0].platform === "zoom" ? "Zoom" : meetings[0].platform === "meet" ? "Meet" : "Онлайн"}</span>
-                      <span className="text-xs opacity-75">↗</span>
-                    </a>
-                  )}
+                  {(isDualTeachers ? row3Meetings[0] : meetings[0]) && (() => {
+                    const m = isDualTeachers ? row3Meetings[0] : meetings[0];
+                    return (
+                      <a
+                        href={m.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
+                        className={`inline-flex h-8 items-center gap-1.5 rounded-lg font-bold text-xs active:scale-95 transition-all whitespace-nowrap ${
+                          isMeetingLiveOrSoon
+                            ? "px-3 shadow-xs bg-emerald-600 text-white border border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.35)] hover:bg-emerald-500 animate-pulse"
+                            : "px-3 border border-sys-border bg-sys-card text-sys-text-primary hover:border-sys-accent/50 hover:text-sys-accent"
+                        }`}
+                      >
+                        {m.platform === "zoom" ? (
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                            <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.934a.5.5 0 0 0-.777-.416L16 11" />
+                            <rect x="2" y="6" width="14" height="12" rx="2" />
+                          </svg>
+                        ) : (
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                            <polygon points="23 7 16 12 23 17 23 7" />
+                            <rect x="1" y="5" width="15" height="14" rx="2" />
+                          </svg>
+                        )}
+                        <span>{m.platform === "zoom" ? "Zoom" : m.platform === "meet" ? "Meet" : "Онлайн"}</span>
+                        <span className="text-xs opacity-75">↗</span>
+                      </a>
+                    );
+                  })()}
                 </div>
 
                 {/* Statuses and Actions */}
                 <div className="flex flex-wrap items-center justify-end gap-1.5">
-                  {lesson.is_cancelled ? (
-                    <span className="inline-flex items-center gap-1 rounded-md border border-rose-500/40 bg-rose-500/15 px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-rose-400">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                        <line x1="18" y1="6" x2="6" y2="18" />
-                        <line x1="6" y1="6" x2="18" y2="18" />
-                      </svg>
-                      <span>Скасовано</span>
-                    </span>
-                  ) : eventBadge ? (
-                    <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-bold uppercase tracking-wider ${eventBadge.badgeClass}`}>
-                      {eventBadge.label}
-                    </span>
-                  ) : lesson.is_replacement ? (
-                    <span className="inline-flex items-center gap-1 rounded-md bg-sys-warning px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-sys-warningText">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-warningText">
-                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-                      </svg>
-                      <span>Заміна</span>
-                    </span>
-                  ) : null}
+                  {renderTemplateWeekBadge()}
+                  {renderStatusBadge(false)}
 
                   {canEdit && (
-                    <div className="flex items-center gap-1 ml-1">
-                      {canEditAction && (
-                        <button
-                          type="button"
-                          title="Редагувати пару"
-                          aria-label="Редагувати пару"
-                          onClick={(e) => { e.stopPropagation(); onEdit?.(lesson); }}
-                          className="w-8 h-8 flex items-center justify-center rounded-lg border border-sys-border/60 bg-sys-card text-sys-text-secondary hover:text-sys-accent hover:border-sys-accent/60"
-                        >
-                          <EditIcon />
-                        </button>
+                    <div className="relative flex items-center gap-1 ml-1">
+                      {lesson.is_cancelled ? (
+                        onRestoreDated && lesson.group_id && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onRestoreDated(lesson, targetDate);
+                            }}
+                            title={lesson.moved_to_date ? "Скасувати перенесення та відновити пару" : `Відновити пару на ${targetDate}`}
+                            aria-label={lesson.moved_to_date ? "Скасувати перенесення та відновити пару" : `Відновити пару на ${targetDate}`}
+                            className="inline-flex h-8 items-center justify-center rounded-lg border border-emerald-500/50 bg-emerald-500/15 px-2.5 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/25 active:scale-[0.98] transition-colors whitespace-nowrap"
+                          >
+                            Відновити
+                          </button>
+                        )
+                      ) : (
+                        <>
+                          {canEditAction && (
+                            <button
+                              type="button"
+                              title="Редагувати пару"
+                              aria-label="Редагувати пару"
+                              onClick={(e) => { e.stopPropagation(); onEdit?.(lesson); }}
+                              className="w-8 h-8 flex items-center justify-center rounded-lg border border-sys-border/60 bg-sys-card text-sys-text-secondary hover:text-sys-accent hover:border-sys-accent/60"
+                            >
+                              <EditIcon />
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            title="Більше дій"
+                            aria-label="Більше дій"
+                            aria-expanded={moreOpen}
+                            onClick={(e) => { e.stopPropagation(); setMoreOpen(!moreOpen); }}
+                            className="w-8 h-8 flex items-center justify-center rounded-lg border border-sys-border/60 bg-sys-card text-sys-text-secondary hover:text-sys-text-primary"
+                          >
+                            ⋯
+                          </button>
+                          {renderMoreMenu(true)}
+                        </>
                       )}
-                      <button
-                        type="button"
-                        title="Більше дій"
-                        aria-label="Більше дій"
-                        onClick={(e) => { e.stopPropagation(); setMoreOpen(!moreOpen); }}
-                        className="w-8 h-8 flex items-center justify-center rounded-lg border border-sys-border/60 bg-sys-card text-sys-text-secondary hover:text-sys-text-primary"
-                      >
-                        ⋯
-                      </button>
                     </div>
                   )}
                 </div>
@@ -1161,63 +1449,127 @@ export function LessonCard({
       {/* Mobile Day Mode (< sm) */}
       {isDay && (
         <div className="flex sm:hidden flex-col gap-2 w-full">
-          {/* Row 1: Number + Time on left, Live pill or Room/Meet on right */}
-          <div className="flex items-center justify-between gap-2 w-full min-h-[36px]">
-            <div className="flex items-center gap-2 whitespace-nowrap min-w-0">
-              <span className={`text-base font-black leading-none ${isLive ? "text-sys-accent" : "text-[#94a3b8]"}`}>
-                {lesson.lesson_number}
-              </span>
-              <span className="text-slate-500 font-bold text-xs">·</span>
-              <span className="text-xs font-semibold text-sys-text-secondary tracking-tight whitespace-nowrap">
-                {startT}–{endT || DEFAULT_LESSON_TIMES[lesson.lesson_number]?.split("-")[1] || ""}
-              </span>
-            </div>
-
-            {isLive ? (
-              <div className="shrink-0 flex items-center gap-1.5 rounded-full bg-sys-accent/15 border border-sys-accent/30 px-2.5 py-0.5 text-xs font-bold text-sys-accent whitespace-nowrap">
-                <span className="h-1.5 w-1.5 animate-ping rounded-full bg-sys-accent shrink-0" />
-                <span>ще {remainingMin} хв</span>
-              </div>
-            ) : !hasBothRoomAndMeet && !isDualTeachers ? (
-              <div className="shrink-0 flex items-center gap-2">
-                {rooms.length > 0 && (
-                  <div
-                    title={roomsLabel}
-                    className="inline-flex h-8 px-2.5 items-center gap-1 rounded-lg border border-[#3f3f46] bg-sys-bg text-sys-text-secondary font-medium text-xs shadow-xs max-w-[160px] truncate whitespace-nowrap"
-                  >
-                    <span className="truncate">{roomsLabel}</span>
+          {/* Row 1: Number + Time (or badges when hideTimeColumn) on left, Live pill / Room / Meet / Edit actions on right */}
+          {(!hideTimeColumn || canEdit || isLive || lesson.is_cancelled || eventBadge || lesson.is_replacement || (isTemplateMode && lesson.week_type !== "both") || (!hasBothRoomAndMeet && !isDualTeachers && (rooms.length > 0 || hasMeeting))) && (
+            <div className="flex flex-wrap items-center justify-between gap-2 w-full min-h-[34px]">
+              <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+                {!hideTimeColumn && (
+                  <div className="flex items-center gap-2 whitespace-nowrap">
+                    <span className={`text-base font-black leading-none ${isLive ? "text-sys-accent" : "text-[#94a3b8]"}`}>
+                      {lesson.lesson_number}
+                    </span>
+                    <span className="text-slate-500 font-bold text-xs">·</span>
+                    <span className="text-xs font-semibold text-sys-text-secondary tracking-tight whitespace-nowrap">
+                      {startT}–{endT || DEFAULT_LESSON_TIMES[lesson.lesson_number]?.split("-")[1] || ""}
+                    </span>
                   </div>
                 )}
-                {hasMeeting && (
-                  <a
-                    href={meetings[0].url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
-                    className={`inline-flex h-8 min-h-[32px] px-2.5 items-center gap-1.5 rounded-lg font-bold text-xs shadow-xs active:scale-95 transition-all whitespace-nowrap ${
-                      isMeetingLiveOrSoon
-                        ? "bg-emerald-600 text-white border border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.35)] hover:bg-emerald-500 animate-pulse"
-                        : "border border-sys-border bg-sys-card text-sys-text-primary hover:border-sys-accent/50 hover:text-sys-accent"
-                    }`}
-                  >
-                    {meetings[0].platform === "zoom" ? (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                        <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.934a.5.5 0 0 0-.777-.416L16 11" />
-                        <rect x="2" y="6" width="14" height="12" rx="2" />
-                      </svg>
-                    ) : (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                        <polygon points="23 7 16 12 23 17 23 7" />
-                        <rect x="1" y="5" width="15" height="14" rx="2" />
-                      </svg>
-                    )}
-                    <span>{meetings[0].platform === "zoom" ? "Zoom" : meetings[0].platform === "meet" ? "Meet" : "Онлайн"}</span>
-                    <span className="text-xs opacity-75">↗</span>
-                  </a>
+                {renderTemplateWeekBadge()}
+                {renderStatusBadge(true)}
+                {canEdit && !isDualTeachers && rooms.length > 0 && (
+                  <span className="inline-flex h-6 px-2 items-center rounded-md border border-[#3f3f46] bg-sys-bg text-sys-text-secondary font-medium text-xs whitespace-nowrap">
+                    {roomsLabel}
+                  </span>
                 )}
               </div>
-            ) : null}
-          </div>
+
+              {canEdit ? (
+                <div className="relative flex items-center gap-1.5 ml-auto shrink-0">
+                  {lesson.is_cancelled ? (
+                    onRestoreDated && lesson.group_id && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRestoreDated(lesson, targetDate);
+                        }}
+                        title={lesson.moved_to_date ? "Скасувати перенесення та відновити пару" : `Відновити пару на ${targetDate}`}
+                        aria-label={lesson.moved_to_date ? "Скасувати перенесення та відновити пару" : `Відновити пару на ${targetDate}`}
+                        className="inline-flex h-9 items-center justify-center rounded-lg border border-emerald-500/50 bg-emerald-500/15 px-3 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/25 active:scale-[0.98] transition-colors whitespace-nowrap"
+                      >
+                        Відновити
+                      </button>
+                    )
+                  ) : (
+                    <>
+                      {canEditAction && (
+                        <button
+                          type="button"
+                          title={isEvent ? "Редагувати подію сесії" : lesson.is_replacement ? "Редагувати заміну" : "Редагувати пару"}
+                          aria-label={`Редагувати ${lesson.subject_name}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onEdit?.(lesson);
+                          }}
+                          className="inline-flex h-9 px-2.5 items-center justify-center gap-1.5 rounded-lg border border-sys-border bg-sys-bg/80 text-xs font-semibold text-sys-text-primary hover:border-sys-accent/60 hover:text-sys-accent active:scale-[0.98] transition-colors whitespace-nowrap"
+                        >
+                          <EditIcon />
+                          <span>Редагувати</span>
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        title="Більше дій"
+                        aria-label="Більше дій для пари"
+                        aria-expanded={moreOpen}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setMoreOpen(!moreOpen);
+                        }}
+                        className="w-9 h-9 flex items-center justify-center rounded-lg border border-sys-border bg-sys-bg/80 text-sys-text-secondary hover:text-sys-text-primary active:scale-[0.98] transition-colors font-bold text-sm"
+                      >
+                        ⋯
+                      </button>
+                      {renderMoreMenu(false)}
+                    </>
+                  )}
+                </div>
+              ) : isLive ? (
+                <div className="shrink-0 flex items-center gap-1.5 rounded-full bg-sys-accent/15 border border-sys-accent/30 px-2.5 py-0.5 text-xs font-bold text-sys-accent whitespace-nowrap ml-auto">
+                  <span className="h-1.5 w-1.5 animate-ping rounded-full bg-sys-accent shrink-0" />
+                  <span>ще {remainingMin} хв</span>
+                </div>
+              ) : !hasBothRoomAndMeet && !isDualTeachers ? (
+                <div className="shrink-0 flex items-center gap-2 ml-auto">
+                  {rooms.length > 0 && (
+                    <div
+                      title={roomsLabel}
+                      className="inline-flex h-8 px-2.5 items-center gap-1 rounded-lg border border-[#3f3f46] bg-sys-bg text-sys-text-secondary font-medium text-xs shadow-xs max-w-[160px] truncate whitespace-nowrap"
+                    >
+                      <span className="truncate">{roomsLabel}</span>
+                    </div>
+                  )}
+                  {hasMeeting && (
+                    <a
+                      href={meetings[0].url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
+                      className={`inline-flex h-8 min-h-[32px] px-2.5 items-center gap-1.5 rounded-lg font-bold text-xs shadow-xs active:scale-95 transition-all whitespace-nowrap ${
+                        isMeetingLiveOrSoon
+                          ? "bg-emerald-600 text-white border border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.35)] hover:bg-emerald-500 animate-pulse"
+                          : "border border-sys-border bg-sys-card text-sys-text-primary hover:border-sys-accent/50 hover:text-sys-accent"
+                      }`}
+                    >
+                      {meetings[0].platform === "zoom" ? (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                          <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.934a.5.5 0 0 0-.777-.416L16 11" />
+                          <rect x="2" y="6" width="14" height="12" rx="2" />
+                        </svg>
+                      ) : (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                          <polygon points="23 7 16 12 23 17 23 7" />
+                          <rect x="1" y="5" width="15" height="14" rx="2" />
+                        </svg>
+                      )}
+                      <span>{meetings[0].platform === "zoom" ? "Zoom" : meetings[0].platform === "meet" ? "Meet" : "Онлайн"}</span>
+                      <span className="text-xs opacity-75">↗</span>
+                    </a>
+                  )}
+                </div>
+              ) : null}
+            </div>
+          )}
 
           {/* Row 2: Subject Title (16px/600) */}
           <div>
@@ -1234,7 +1586,7 @@ export function LessonCard({
           {/* Row 3: Teacher / Subgroups */}
           <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm text-sys-text-secondary">
             {isDualTeachers ? (
-              <div className="flex flex-col gap-1 w-full">
+              <div className="flex flex-col gap-1.5 w-full">
                 {secondaryItems.map((item, idx) => {
                   const subNum = idx + 1;
                   const isFaded = selectedSubgroup !== null && selectedSubgroup !== subNum;
@@ -1253,19 +1605,19 @@ export function LessonCard({
                       >
                         {subNum} підгр.
                       </button>
-                      <span className="font-medium text-slate-200 min-w-0 break-words">{item.displayName}</span>
+                      <span className="flex-1 font-medium text-slate-200 min-w-0 break-words">{item.displayName}</span>
                       {ownMeeting ? (
                         <a
                           href={ownMeeting.url}
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
-                          className="ml-auto shrink-0 text-emerald-400 font-bold hover:underline"
+                          className="ml-auto shrink-0 text-emerald-400 font-bold hover:underline whitespace-nowrap"
                         >
                           {ownMeeting.platform === "zoom" ? "Zoom" : ownMeeting.platform === "meet" ? "Meet" : "Онлайн"} ↗
                         </a>
                       ) : (
-                        <span className="ml-auto shrink-0 rounded-md border border-sys-border bg-sys-bg px-1.5 py-0.5 text-[11px] font-semibold leading-none text-sys-text-secondary">{ownRoom ? `ауд. ${ownRoom.replace(/^ауд\.?\s*/i, "")}` : "ауд. —"}</span>
+                        <span className="ml-auto shrink-0 rounded-md border border-sys-border bg-sys-bg px-1.5 py-0.5 text-[11px] font-semibold leading-none text-sys-text-secondary whitespace-nowrap">{ownRoom ? `ауд. ${ownRoom.replace(/^ауд\.?\s*/i, "")}` : "ауд. —"}</span>
                       )}
                     </div>
                   );
@@ -1289,10 +1641,10 @@ export function LessonCard({
             ) : null}
           </div>
 
-          {/* Dedicated Row for Room & Meet: on live lessons OR when both exist */}
-          {!isDualTeachers && ((isLive && (rooms.length > 0 || hasMeeting)) || hasBothRoomAndMeet) && (
-            <div className="flex items-center gap-2 w-full mt-0.5">
-              {rooms.length > 0 && (
+          {/* Dedicated Row for Room & Meet: on live lessons OR when both exist (or when canEdit and hasMeeting) */}
+          {!isDualTeachers && ((isLive && (rooms.length > 0 || hasMeeting)) || hasBothRoomAndMeet || (canEdit && hasMeeting)) && (
+            <div className="flex flex-wrap items-center gap-2 w-full mt-0.5">
+              {!canEdit && rooms.length > 0 && (
                 <div
                   title={roomsLabel}
                   className="inline-flex min-h-[38px] px-3 items-center rounded-xl border border-[#3f3f46] bg-sys-bg text-sys-text-secondary font-medium text-xs shadow-xs max-w-[55%] truncate"
@@ -1306,7 +1658,7 @@ export function LessonCard({
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
-                  className={`inline-flex min-h-[44px] h-11 px-3.5 items-center gap-2 rounded-xl font-bold text-xs shadow-xs active:scale-95 transition-all whitespace-nowrap ${
+                  className={`inline-flex min-h-[40px] h-10 px-3.5 items-center gap-2 rounded-xl font-bold text-xs shadow-xs active:scale-95 transition-all whitespace-nowrap ${
                     isMeetingLiveOrSoon
                       ? "bg-emerald-600 text-white border border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.35)] hover:bg-emerald-500 animate-pulse"
                       : "border border-sys-border bg-sys-card text-sys-text-primary hover:border-sys-accent/50 hover:text-sys-accent"
@@ -1564,12 +1916,12 @@ export function LessonCard({
             <span className={`text-lg sm:text-xl font-bold leading-none ${isLive ? "text-sys-accent" : "text-slate-400"}`}>
               {lesson.lesson_number}
             </span>
-            <span className="text-xs sm:text-xs font-semibold text-sys-text-secondary mt-1">
+            <span className="text-xs sm:text-xs font-semibold text-sys-text-secondary mt-1 whitespace-nowrap">
               {startT}
             </span>
             {isLive && (
-              <span className="mt-1 flex items-center gap-1 text-xs font-semibold text-sys-accent">
-                <span className="h-1.5 w-1.5 animate-ping rounded-full bg-sys-accent" />
+              <span className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-sys-accent whitespace-nowrap">
+                <span className="h-1.5 w-1.5 shrink-0 animate-ping rounded-full bg-sys-accent" />
                 <span>{remainingMin}хв</span>
               </span>
             )}
@@ -1616,12 +1968,12 @@ export function LessonCard({
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); onQuickJump(secondaryItems[0].target); }}
-                    className="min-w-0 break-words hover:text-sys-accent hover:underline focus:outline-none text-left font-medium text-slate-200"
+                    className="flex-1 min-w-0 break-words hover:text-sys-accent hover:underline focus:outline-none text-left font-medium text-slate-200"
                   >
                     {secondaryItems[0]?.displayName}
                   </button>
                 ) : (
-                  <span className="min-w-0 break-words font-medium text-slate-200">{secondaryItems[0]?.displayName}</span>
+                  <span className="flex-1 min-w-0 break-words font-medium text-slate-200">{secondaryItems[0]?.displayName}</span>
                 )}
                 {teacherMeetings[0] ? (
                   <a
@@ -1629,12 +1981,12 @@ export function LessonCard({
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
-                    className="ml-auto text-emerald-400 font-bold hover:underline shrink-0"
+                    className="ml-auto text-emerald-400 font-bold hover:underline shrink-0 whitespace-nowrap"
                   >
                     {teacherMeetings[0].platform === "zoom" ? "Zoom" : teacherMeetings[0].platform === "meet" ? "Meet" : "Онлайн"} ↗
                   </a>
                 ) : (
-                  <span className="ml-auto shrink-0 rounded-md border border-sys-border bg-sys-bg px-1.5 py-0.5 text-[11px] font-semibold leading-none text-sys-text-secondary">{(lesson.teacher_room || rooms[0]) ? `ауд. ${(lesson.teacher_room || rooms[0]).replace(/^ауд\.?\s*/i, "")}` : "ауд. —"}</span>
+                  <span className="ml-auto shrink-0 rounded-md border border-sys-border bg-sys-bg px-1.5 py-0.5 text-[11px] font-semibold leading-none text-sys-text-secondary whitespace-nowrap">{(lesson.teacher_room || rooms[0]) ? `ауд. ${(lesson.teacher_room || rooms[0]).replace(/^ауд\.?\s*/i, "")}` : "ауд. —"}</span>
                 )}
               </div>
               <div className={`flex items-center gap-1.5 min-w-0 transition-opacity ${selectedSubgroup === 1 ? "opacity-50 hover:opacity-80" : "opacity-100"}`}>
@@ -1653,12 +2005,12 @@ export function LessonCard({
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); onQuickJump(secondaryItems[1].target); }}
-                    className="min-w-0 break-words hover:text-sys-accent hover:underline focus:outline-none text-left font-medium text-slate-200"
+                    className="flex-1 min-w-0 break-words hover:text-sys-accent hover:underline focus:outline-none text-left font-medium text-slate-200"
                   >
                     {secondaryItems[1]?.displayName}
                   </button>
                 ) : (
-                  <span className="min-w-0 break-words font-medium text-slate-200">{secondaryItems[1]?.displayName}</span>
+                  <span className="flex-1 min-w-0 break-words font-medium text-slate-200">{secondaryItems[1]?.displayName}</span>
                 )}
                 {teacherMeetings[1] ? (
                   <a
@@ -1666,12 +2018,12 @@ export function LessonCard({
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
-                    className="ml-auto text-emerald-400 font-bold hover:underline shrink-0"
+                    className="ml-auto text-emerald-400 font-bold hover:underline shrink-0 whitespace-nowrap"
                   >
                     {teacherMeetings[1].platform === "zoom" ? "Zoom" : teacherMeetings[1].platform === "meet" ? "Meet" : "Онлайн"} ↗
                   </a>
                 ) : (
-                  <span className="ml-auto shrink-0 rounded-md border border-sys-border bg-sys-bg px-1.5 py-0.5 text-[11px] font-semibold leading-none text-sys-text-secondary">{(lesson.second_teacher_room || rooms[1]) ? `ауд. ${(lesson.second_teacher_room || rooms[1]).replace(/^ауд\.?\s*/i, "")}` : "ауд. —"}</span>
+                  <span className="ml-auto shrink-0 rounded-md border border-sys-border bg-sys-bg px-1.5 py-0.5 text-[11px] font-semibold leading-none text-sys-text-secondary whitespace-nowrap">{(lesson.second_teacher_room || rooms[1]) ? `ауд. ${(lesson.second_teacher_room || rooms[1]).replace(/^ауд\.?\s*/i, "")}` : "ауд. —"}</span>
                 )}
               </div>
             </div>
@@ -1738,7 +2090,7 @@ export function LessonCard({
               )}
 
               {/* Online meetings */}
-              {!isDualTeachers && row3Meetings.map((m, idx) => (
+              {row3Meetings.map((m, idx) => (
                 <a
                   key={`${m.url}-${idx}`}
                   href={m.url}
@@ -1798,44 +2150,8 @@ export function LessonCard({
                 </button>
               )}
 
-              {lesson.is_cancelled ? (
-                lesson.moved_to_date ? (
-                  <span
-                    className="inline-flex max-w-full [white-space:normal] [overflow-wrap:anywhere] items-center gap-1 rounded border border-amber-500/40 bg-amber-500/15 px-1.5 py-0.5 text-xs font-bold tracking-wide text-amber-300"
-                    style={{ maxWidth: "100%", whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "break-word" }}
-                  >
-                    ↪ {formatMovedTo(lesson.moved_to_date, lesson.moved_to_lesson)}
-                  </span>
-                ) : (
-                  <span
-                    className="inline-flex max-w-full [white-space:normal] [overflow-wrap:anywhere] items-center gap-1 rounded border border-rose-500/40 bg-rose-500/15 px-1.5 py-0.5 text-xs font-bold uppercase tracking-wider text-rose-400"
-                    style={{ maxWidth: "100%", whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "break-word" }}
-                  >
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                      <line x1="18" y1="6" x2="6" y2="18" />
-                      <line x1="6" y1="6" x2="18" y2="18" />
-                    </svg>
-                    <span>Скасовано</span>
-                  </span>
-                )
-              ) : eventBadge ? (
-                <span
-                  className={`inline-flex max-w-full [white-space:normal] [overflow-wrap:anywhere] items-center gap-1 rounded border px-1.5 py-0.5 text-xs font-bold uppercase tracking-wider ${eventBadge.badgeClass}`}
-                  style={{ maxWidth: "100%", whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "break-word" }}
-                >
-                  {eventBadge.label}
-                </span>
-              ) : lesson.is_replacement ? (
-                <span
-                  className="inline-flex max-w-full [white-space:normal] [overflow-wrap:anywhere] items-center gap-1 rounded bg-sys-warning px-1.5 py-0.5 text-xs font-bold uppercase tracking-wider text-sys-warningText"
-                  style={{ maxWidth: "100%", whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "break-word" }}
-                >
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-warningText">
-                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-                  </svg>
-                  <span>Заміна</span>
-                </span>
-              ) : null}
+              {renderTemplateWeekBadge()}
+              {renderStatusBadge(true)}
             </div>
 
             {/* Actions for canEdit pinned to bottom-right (on desktop visible on hover, on mobile always visible) */}
@@ -1895,199 +2211,7 @@ export function LessonCard({
                       ⋯
                     </button>
 
-                    {moreOpen && (
-                      <>
-                        <div
-                          className="fixed inset-0 z-40"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setMoreOpen(false);
-                          }}
-                        />
-                        <div
-                          onClick={(e) => e.stopPropagation()}
-                          className="absolute right-0 bottom-full mb-1 z-50 min-w-[190px] rounded-xl border border-sys-border bg-sys-card shadow-2xl p-1 text-xs space-y-0.5 animate-in fade-in zoom-in-95 duration-150"
-                        >
-                          {isTemplateMode ? (
-                            <>
-                              {onCopySelect && !movingLesson && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setMoreOpen(false);
-                                    onCopySelect(lesson);
-                                  }}
-                                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-sys-text-primary hover:bg-sky-500/10 hover:text-sky-400 transition-colors"
-                                >
-                                  <CopyIcon />
-                                  <span>Копіювати</span>
-                                </button>
-                              )}
-
-                              {onMoveSelect && !movingLesson && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setMoreOpen(false);
-                                    onMoveSelect(lesson);
-                                  }}
-                                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-sys-text-primary hover:bg-emerald-500/10 hover:text-emerald-400 transition-colors"
-                                >
-                                  <MoveIcon />
-                                  <span>Перемістити</span>
-                                </button>
-                              )}
-
-                              {onSwapSelect && !movingLesson && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setMoreOpen(false);
-                                    onSwapSelect(lesson);
-                                  }}
-                                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-sys-text-primary hover:bg-amber-500/10 hover:text-amber-400 transition-colors"
-                                >
-                                  <SwapIcon />
-                                  <span>Поміняти місцями</span>
-                                </button>
-                              )}
-
-                              {onDeleteTemplate && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setMoreOpen(false);
-                                    if (
-                                      typeof window !== "undefined" &&
-                                      window.confirm(`Видалити пару «${lesson.subject_name}» з постійного розкладу?`)
-                                    ) {
-                                      onDeleteTemplate(lesson);
-                                    }
-                                  }}
-                                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-rose-400 hover:bg-rose-500/10 transition-colors"
-                                >
-                                  <TrashIcon />
-                                  <span>Видалити</span>
-                                </button>
-                              )}
-                            </>
-                          ) : (
-                            <>
-                              {canMove && !movingLesson && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setMoreOpen(false);
-                                    onMoveSelect?.(lesson);
-                                  }}
-                                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-sys-text-primary hover:bg-emerald-500/10 hover:text-emerald-400 transition-colors"
-                                >
-                                  <MoveIcon />
-                                  <span>Перенести</span>
-                                </button>
-                              )}
-
-                              {onSwapSelect && !movingLesson && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setMoreOpen(false);
-                                    onSwapSelect(lesson);
-                                  }}
-                                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-sys-text-primary hover:bg-amber-500/10 hover:text-amber-400 transition-colors"
-                                >
-                                  <SwapIcon />
-                                  <span>Поміняти місцями</span>
-                                </button>
-                              )}
-
-                              {lesson.is_replacement ? (
-                                onRemoveReplacement && lesson.group_id && (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setMoreOpen(false);
-                                      if (
-                                        typeof window !== "undefined" &&
-                                        window.confirm(`Прибрати заміну «${lesson.subject_name}» на ${targetDate}?`)
-                                      ) {
-                                        onRemoveReplacement(lesson, targetDate);
-                                      }
-                                    }}
-                                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-amber-400 hover:bg-amber-500/10 transition-colors"
-                                  >
-                                    <span>↩</span>
-                                    <span>Прибрати заміну</span>
-                                  </button>
-                                )
-                              ) : (
-                                onCancelDated && lesson.group_id && (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setMoreOpen(false);
-                                      if (
-                                        typeof window !== "undefined" &&
-                                        window.confirm(`Скасувати пару «${lesson.subject_name}» на ${targetDate}?`)
-                                      ) {
-                                        onCancelDated(lesson, targetDate);
-                                      }
-                                    }}
-                                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-rose-400 hover:bg-rose-500/10 transition-colors"
-                                  >
-                                    <CalendarOffIcon />
-                                    <span>Скасувати</span>
-                                  </button>
-                                )
-                              )}
-
-                              {onOpenPermanentSchedule && (!lesson.is_replacement || lesson.has_template !== false) && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setMoreOpen(false);
-                                    onOpenPermanentSchedule(lesson);
-                                  }}
-                                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-sys-accent hover:bg-sys-accent/10 transition-colors"
-                                >
-                                  <TemplateIcon />
-                                  <span>Змінити в постійному розкладі</span>
-                                </button>
-                              )}
-
-                              {lesson.group_id && (
-                                <>
-                                  <div className="border-t border-sys-border/40 my-1" />
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setMoreOpen(false);
-                                      setNoteModalMode("edit");
-                                    }}
-                                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-sys-text-secondary hover:text-sys-accent hover:bg-sys-accent/10 transition-colors"
-                                  >
-                                    <span>💬</span>
-                                    <span>{visibleNoteText ? "Редагувати примітку" : "+ Примітка"}</span>
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setMoreOpen(false);
-                                      setNoteModalMode("history");
-                                    }}
-                                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/5 transition-colors"
-                                  >
-                                    <span>📜</span>
-                                    <span>Історія примітки</span>
-                                  </button>
-                                </>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      </>
-                    )}
+                    {renderMoreMenu(true)}
                   </>
                 )}
               </div>
@@ -2180,18 +2304,18 @@ export function LessonCard({
               <span>{visibleNoteText}</span>
             </p>
           )}
-
-          {noteModalMode && (
-            <LessonNoteModal
-              lesson={lesson}
-              date={targetDate}
-              initialMode={noteModalMode}
-              onClose={() => setNoteModalMode(null)}
-            />
-          )}
         </div>
       </div>
     )}
+
+      {noteModalMode && (
+        <LessonNoteModal
+          lesson={lesson}
+          date={targetDate}
+          initialMode={noteModalMode}
+          onClose={() => setNoteModalMode(null)}
+        />
+      )}
 
       {/* Progress bar inside card padding for live lesson */}
       {isLive && (

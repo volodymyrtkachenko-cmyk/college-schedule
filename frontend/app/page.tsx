@@ -704,10 +704,16 @@ export default function HomePage() {
   };
 
 
-  const headerLearningMode =
-    view === "week"
-      ? (week?.find((d) => d.learning_mode)?.learning_mode ?? null)
-      : (selectedDaySchedule?.learning_mode ?? null);
+  const headerLearningMode = useMemo(() => {
+    if (view !== "week") {
+      return selectedDaySchedule?.learning_mode ?? null;
+    }
+    if (!week || week.length === 0) return null;
+    const todayInWeek = week.find((d) => d.date === todayActualIso);
+    if (todayInWeek?.learning_mode) return todayInWeek.learning_mode;
+    if (selectedDaySchedule?.learning_mode) return selectedDaySchedule.learning_mode;
+    return week.find((d) => d.learning_mode)?.learning_mode ?? null;
+  }, [view, week, selectedDaySchedule, todayActualIso]);
 
   const dayTasks = useMemo(() => {
     if (!selectedDaySchedule?.lessons) return [];

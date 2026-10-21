@@ -1,6 +1,7 @@
 "use client";
 import { FormEvent, useEffect, useState } from "react";
 import { api, LearningMode, LearningModeConfig, LearningModeOverride } from "../../lib/api";
+import { invalidateScheduleCache } from "../../lib/hooks";
 import { PageHeader } from "./PageHeader";
 
 const COURSES = [1, 2, 3, 4];
@@ -15,7 +16,7 @@ const EMPTY_CONFIG: LearningModeConfig = {
 const EMPTY_OVERRIDE: LearningModeOverride = {
   start: "",
   end: "",
-  mode: "offline",
+  mode: "online",
   courses: [],
 };
 
@@ -53,6 +54,7 @@ export function LearningModePanel() {
     try {
       const session = await api.auth.ensureAuthenticated();
       const saved = await api.settings.updateLearningMode(next, session.access_token);
+      invalidateScheduleCache();
       setConfig(saved);
       setSuccess(message);
     } catch (cause) {
@@ -68,16 +70,33 @@ export function LearningModePanel() {
       setError("Вкажіть дату початку циклу.");
       return;
     }
-    void persist(config, "Цикл збережено.");
+    let next = config;
+    if (draftOverride.start && draftOverride.end && draftOverride.end >= draftOverride.start) {
+      next = { ...config, overrides: [...config.overrides, draftOverride] };
+      setDraftOverride(EMPTY_OVERRIDE);
+    }
+    void persist(next, "Цикл збережено.");
   }
 
   function addOverride(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (draftOverride.end < draftOverride.start) {
+    const start = draftOverride.start.trim();
+    const end = (draftOverride.end || draftOverride.start).trim();
+    if (!start || !end) {
+      setError("Вкажіть дати дії винятку.");
+      return;
+    }
+    if (end < start) {
       setError("Дата завершення винятку не може бути раніше початку.");
       return;
     }
-    const next = { ...config, overrides: [...config.overrides, draftOverride] };
+    const normalized: LearningModeOverride = {
+      ...draftOverride,
+      start,
+      end,
+      courses: [...draftOverride.courses].sort((a, b) => a - b),
+    };
+    const next = { ...config, overrides: [...config.overrides, normalized] };
     setDraftOverride(EMPTY_OVERRIDE);
     void persist(next, "Виняток додано.");
   }
@@ -173,14 +192,24 @@ export function LearningModePanel() {
               ) : (
                 <ul className="space-y-2">
                   {config.overrides.map((override, index) => (
-                    <li key={`${override.start}-${override.end}-${index}`} className="flex items-center justify-between gap-3 rounded-lg border border-sys-border bg-sys-bg/60 px-3 py-2 text-sm">
-                      <span className="text-sys-text-primary">
-                        {override.start === override.end ? override.start : `${override.start} – ${override.end}`}
-                        {" · "}
-                        {override.mode === "offline" ? "очно" : "дистанційно"}
-                        {" · "}
-                        {override.courses.length ? override.courses.map((c) => `${c} курс`).join(", ") : "всі курси"}
-                      </span>
+                    <li key={`${override.start}-${override.end}-${index}`} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-sys-border bg-sys-bg/60 px-3 py-2 text-sm">
+                      <div className="flex flex-wrap items-center gap-2 text-sys-text-primary">
+                        <span className="font-semibold">
+                          {override.start === override.end ? override.start : `${override.start} – ${override.end}`}
+                        </span>
+                        <span
+                          className={`rounded-full border px-2 py-0.5 text-xs font-bold ${
+                            override.mode === "offline"
+                              ? "border-sys-accent/30 bg-sys-accent/10 text-sys-accent"
+                              : "border-sys-warning/30 bg-sys-warning/10 text-sys-warning"
+                          }`}
+                        >
+                          {override.mode === "offline" ? "Очно" : "Дистанційно"}
+                        </span>
+                        <span className="text-xs text-sys-text-secondary">
+                          {override.courses.length ? override.courses.map((c) => `${c} курс`).join(", ") : "усі курси"}
+                        </span>
+                      </div>
                       <button
                         type="button"
                         onClick={() => removeOverride(index)}
@@ -202,7 +231,14 @@ export function LearningModePanel() {
                       required
                       type="date"
                       value={draftOverride.start}
-                      onChange={(event) => setDraftOverride({ ...draftOverride, start: event.target.value })}
+                      onChange={(event) => {
+                        const nextStart = event.target.value;
+                        setDraftOverride((prev) => ({
+                          ...prev,
+                          start: nextStart,
+                          end: !prev.end || prev.end < nextStart ? nextStart : prev.end,
+                        }));
+                      }}
                       className="form-control mt-1 shadow-sm bg-sys-bg w-full"
                     />
                   </label>
@@ -241,6 +277,18 @@ export function LearningModePanel() {
                 <div>
                   <span className="form-label text-sys-text-secondary">Курси (порожньо — всі)</span>
                   <div className="mt-2 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      aria-pressed={draftOverride.courses.length === 0}
+                      onClick={() => setDraftOverride({ ...draftOverride, courses: [] })}
+                      className={`min-h-[44px] sm:min-h-0 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${
+                        draftOverride.courses.length === 0
+                          ? "border-sys-accent bg-sys-accent/15 text-sys-accent"
+                          : "border-sys-border bg-sys-bg text-sys-text-secondary"
+                      }`}
+                    >
+                      Усі курси
+                    </button>
                     {COURSES.map((course) => {
                       const active = draftOverride.courses.includes(course);
                       return (
@@ -255,7 +303,7 @@ export function LearningModePanel() {
                               : "border-sys-border bg-sys-bg text-sys-text-secondary"
                           }`}
                         >
-                          {course}
+                          {course} курс
                         </button>
                       );
                     })}

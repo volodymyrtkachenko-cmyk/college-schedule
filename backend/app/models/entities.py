@@ -55,14 +55,16 @@ class Group(Base):
 
     @property
     def course(self) -> Optional[int]:
-        if not self.year_of_admission:
+        from app.services.learning_mode import infer_year_of_admission
+        year = self.year_of_admission or infer_year_of_admission(self.name)
+        if not year:
             return None
         from datetime import date
         today = date.today()
         # Якщо зараз вересень або пізніше, академічний рік почався в цьому році
         # Якщо до вересня, то академічний рік почався минулого року
         current_academic_start_year = today.year if today.month >= 8 else today.year - 1
-        course = current_academic_start_year - self.year_of_admission + 1
+        course = current_academic_start_year - year + 1
         # Зазвичай курс від 1 до 4 (або 5)
         return max(1, course)
 

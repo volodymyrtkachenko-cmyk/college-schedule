@@ -232,7 +232,7 @@ async def today(
         else:
             last_modified = last_modified.astimezone(datetime.timezone.utc)
         if_modified_since = request.headers.get("if-modified-since")
-        if if_modified_since:
+        if if_modified_since and not request.headers.get("if-none-match") and cache_rev.global_rev == 0:
             try:
                 from email.utils import parsedate_to_datetime
                 client_time = parsedate_to_datetime(if_modified_since)
@@ -290,7 +290,7 @@ async def week(
         else:
             last_modified = last_modified.astimezone(datetime.timezone.utc)
         if_modified_since = request.headers.get("if-modified-since")
-        if if_modified_since:
+        if if_modified_since and not request.headers.get("if-none-match") and cache_rev.global_rev == 0:
             try:
                 from email.utils import parsedate_to_datetime
                 client_time = parsedate_to_datetime(if_modified_since)

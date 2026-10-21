@@ -19,7 +19,10 @@ const fields: Record<ReferenceResource, { key: keyof ReferenceMutation; label: s
     { key: "name", label: "Назва" },
     { key: "short_name", label: "Скорочення" },
   ],
-  groups: [{ key: "name", label: "Назва" }],
+  groups: [
+    { key: "name", label: "Назва" },
+    { key: "year_of_admission", label: "Рік вступу (напр. 2024)", type: "number" },
+  ],
   teachers: [
     { key: "name", label: "Скорочене ім’я (для розкладу)" },
     { key: "full_name", label: "Повне ім’я (ПІБ з Classroom)" },
