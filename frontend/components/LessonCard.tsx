@@ -759,7 +759,7 @@ export function LessonCard({
     const sorted = sortTasksByDeadline(rawTasks);
     if (!isLinked) return sorted;
     return sorted.filter((t) => {
-      if (!isOwnTask(isLinked, submissions, t.url, t.teacher, personalTeachers)) {
+      if (!isOwnTask(isLinked, submissions, t.url, t.teacher, personalTeachers, t.title)) {
         return false;
       }
       const sub = submissions[t.url];

@@ -1534,13 +1534,30 @@ async def perform_course_sync(
 
                     # Якщо у спільному курсі викладач іншої підгрупи випадково опублікував ДЗ "для всіх студентів",
                     # відсікаємо його з персонального списку студента, зберігаючи в загальній базі групи.
-                    is_other_coteacher_task = (
-                        not is_single_teacher
-                        and dominant_uid is not None
-                        and bool(creator_id)
-                        and creator_id in teacher_tokens_by_uid
-                        and creator_id != dominant_uid
+                    is_english_or_split = any(
+                        sub_tok in course_title_norm
+                        for sub_tok in ("іноземн", "англ", "english", "foreign")
+                    ) or (
+                        any("токар" in tok for tok in task_author_tokens)
+                        or any("хочин" in tok for tok in task_author_tokens)
                     )
+
+                    is_other_coteacher_task = False
+                    if is_english_or_split:
+                        user_is_sub1 = any("токар" in tok for tok in synced_teacher_tokens) or 1 in synced_subgroups
+                        user_is_sub2 = any("хочин" in tok for tok in synced_teacher_tokens) or 2 in synced_subgroups
+                        task_is_sub1 = any("токар" in tok for tok in task_author_tokens) or (
+                            bool(matched_teacher_name) and "токар" in matched_teacher_name.lower()
+                        )
+                        task_is_sub2 = any("хочин" in tok for tok in task_author_tokens) or (
+                            bool(matched_teacher_name) and "хочин" in matched_teacher_name.lower()
+                        )
+
+                        if user_is_sub1 and not user_is_sub2 and task_is_sub2:
+                            is_other_coteacher_task = True
+                        elif user_is_sub2 and not user_is_sub1 and task_is_sub1:
+                            is_other_coteacher_task = True
+
                     if not is_other_coteacher_task:
                         personal_classroom_tasks.append(task_entry)
 

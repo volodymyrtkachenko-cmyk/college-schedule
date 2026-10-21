@@ -811,7 +811,7 @@ export default function HomePage() {
           const extracted = extractClassroomTasks(l.note);
           for (const t of extracted) {
             if (!t.url) continue;
-            if (isLinked && !isOwnTask(isLinked, submissions, t.url, t.teacher || l.teacher_name, personalTeachers)) {
+            if (isLinked && !isOwnTask(isLinked, submissions, t.url, t.teacher || l.teacher_name, personalTeachers, t.title)) {
               continue;
             }
             if (!seenUrls.has(t.url)) {
@@ -861,7 +861,7 @@ export default function HomePage() {
       for (const ct of classroomTasks) {
         const url = ct.alternate_link || (ct as any).url;
         if (!url || seenUrls.has(url)) continue;
-        if (isLinked && !isOwnTask(isLinked, submissions, url, (ct as any).teacher, personalTeachers)) {
+        if (isLinked && !isOwnTask(isLinked, submissions, url, (ct as any).teacher, personalTeachers, ct.title)) {
           continue;
         }
         seenUrls.add(url);
