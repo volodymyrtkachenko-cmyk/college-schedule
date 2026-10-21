@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { OfflineIndicator } from "../components/OfflineIndicator";
 import { InstallPrompt } from "../components/InstallPrompt";
-import { ScheduleDay } from "../components/ScheduleDay";
+import { ScheduleDay, ViewModeSwitcher } from "../components/ScheduleDay";
 import { ScheduleWeekGrid } from "../components/ScheduleWeekGrid";
 import { DayPager } from "../components/DayPager";
 import { MobileWeekBar } from "../components/MobileWeekBar";
@@ -146,12 +146,46 @@ export default function HomePage() {
   const [classroomLastSyncedAt, setClassroomLastSyncedAt] = useState<string | null>(null);
   const { linkedEmail, isLinked, submissions, personalTeachers, unlink: unlinkClassroom } = useClassroomSubmissions();
   const [tasksScope, setTasksScope] = useState<"week" | "all">("week");
-  const [sidebarPastWeekOpen, setSidebarPastWeekOpen] = useState(false);
+  const [sidebarPastWeekOpen, setSidebarPastWeekOpen] = useState(true);
   const [sidebarUserToggledOverdue, setSidebarUserToggledOverdue] = useState<boolean | null>(null);
   const sidebarOverdueOpen = sidebarUserToggledOverdue !== null ? sidebarUserToggledOverdue : isLinked;
   const [sidebarActiveOpen, setSidebarActiveOpen] = useState(true);
   const [sidebarNoDateOpen, setSidebarNoDateOpen] = useState(false);
   const [sidebarTurnedInOpen, setSidebarTurnedInOpen] = useState(false);
+
+  const [desktopViewMode, setDesktopViewMode] = useState<"compact" | "detailed">("compact");
+  const [showViewModeTip, setShowViewModeTip] = useState(false);
+  const [tasksDrawerOpen, setTasksDrawerOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("college_schedule_view_mode") as "compact" | "detailed" | null;
+      if (saved === "compact" || saved === "detailed") {
+        setDesktopViewMode(saved);
+      } else {
+        setDesktopViewMode("compact");
+      }
+
+      const tipShown = localStorage.getItem("college_schedule_view_mode_tip_shown");
+      if (!tipShown) {
+        setShowViewModeTip(true);
+      }
+    }
+  }, []);
+
+  const handleDesktopViewModeChange = (nextMode: "compact" | "detailed") => {
+    setDesktopViewMode(nextMode);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("college_schedule_view_mode", nextMode);
+    }
+  };
+
+  const handleDismissViewModeTip = () => {
+    setShowViewModeTip(false);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("college_schedule_view_mode_tip_shown", "true");
+    }
+  };
 
   const formattedSyncTime = useMemo(() => {
     if (!classroomLastSyncedAt) return null;
@@ -942,20 +976,242 @@ export default function HomePage() {
       {user ? (
         <>
           {canAccessAdmin(user) && (
-            <a href="/admin" className="rounded-lg bg-sys-accent px-3 py-1.5 text-xs font-medium text-white whitespace-nowrap shadow-sm hover:opacity-90 transition-opacity">
+            <a
+              href="/admin"
+              className="rounded-lg border border-sys-borderStrong bg-sys-surface px-3 py-1.5 text-xs font-medium text-sys-text-primary whitespace-nowrap hover:bg-sys-surfaceHover transition-colors"
+            >
               Для працівників
             </a>
           )}
-          <button onClick={logout} className="rounded-lg bg-transparent border border-sys-border px-3 py-1.5 text-xs font-medium text-sys-text-secondary whitespace-nowrap hover:text-white hover:bg-sys-bg transition-colors">
+          <button
+            onClick={logout}
+            className="rounded-lg border border-sys-borderStrong bg-sys-surface px-3 py-1.5 text-xs font-medium text-sys-text-primary whitespace-nowrap hover:bg-sys-surfaceHover transition-colors cursor-pointer"
+          >
             Вийти
           </button>
         </>
       ) : (
-        <a href="/login" className="text-xs font-medium text-sys-text-secondary hover:text-white transition-colors underline-offset-4 hover:underline whitespace-nowrap">
+        <a
+          href="/login"
+          className="rounded-lg border border-sys-borderStrong bg-sys-surface px-3 py-1.5 text-xs font-medium text-sys-text-primary whitespace-nowrap hover:bg-sys-surfaceHover transition-colors"
+        >
           Для працівників
         </a>
       )}
     </div>
+  );
+
+  const renderSidebarTasksContent = () => (
+    <>
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-[13px] font-semibold text-sys-text-primary">
+          Завдання Classroom
+        </h3>
+        <select
+          value={tasksScope}
+          onChange={(e) => setTasksScope(e.target.value as "week" | "all")}
+          aria-label="Вибір тижня завдань"
+          className="rounded-lg border border-sys-borderStrong bg-sys-surface px-2.5 py-1 text-xs font-medium text-sys-text-secondary hover:text-sys-text-primary focus:outline-none focus:border-sys-accent cursor-pointer"
+        >
+          <option value="week">Цей тиждень</option>
+          <option value="all">Усі завдання</option>
+        </select>
+      </div>
+
+      <div className="mt-1 flex items-center gap-2">
+        <p className="text-xs text-sys-text-secondary">
+          {tasksScope === "week"
+            ? `${sidebarTaskGroups.totalCount} ${formatTaskWord(sidebarTaskGroups.totalCount)} на цьому тижні`
+            : `${sidebarTaskGroups.totalCount} ${formatTaskWord(sidebarTaskGroups.totalCount)} загалом`}
+        </p>
+        {formattedSyncTime && (
+          <>
+            <span className="text-sys-text-muted text-xs">•</span>
+            <span className="text-xs text-sys-text-muted">
+              дані від {formattedSyncTime}
+            </span>
+          </>
+        )}
+      </div>
+
+      {/* Unlinked Prompt Banner (Section 17.2) */}
+      {!isLinked && (
+        <div className="mt-3 rounded-xl border border-sys-accent/30 bg-sys-accent/10 p-3 text-xs text-sys-text-secondary">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-start gap-1.5 min-w-0">
+              <span className="text-sys-accent font-bold shrink-0">ⓘ</span>
+              <span className="leading-snug text-sys-text-primary">
+                Це завдання всієї групи. Прив&apos;яжи пошту, щоб бачити, що ти вже здав.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                window.dispatchEvent(new CustomEvent("trigger-classroom-sync"));
+              }}
+              className="shrink-0 rounded-lg bg-sys-accent px-2.5 py-1 text-xs font-semibold text-[#0B0B0E] transition-opacity hover:opacity-90 cursor-pointer"
+            >
+              Прив&apos;язати
+            </button>
+          </div>
+          <p className="text-[11px] text-sys-text-secondary mt-1 pl-4">
+            Сервер лише читає ваші завдання з Classroom і нічого не змінює.
+          </p>
+        </div>
+      )}
+
+      {/* Task Groups */}
+      <div className="mt-4 space-y-4">
+        {sidebarTaskGroups.totalCount > 0 ? (
+          <>
+            {/* Group 0: Past weeks */}
+            {tasksScope === "week" && sidebarTaskGroups.pastWeekTasks.length > 0 && (
+              <section>
+                <button
+                  type="button"
+                  onClick={() => setSidebarPastWeekOpen(!sidebarPastWeekOpen)}
+                  className="mb-2 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                  aria-expanded={sidebarPastWeekOpen}
+                >
+                  <h4 className="text-[13px] font-semibold text-sys-text-primary">
+                    З минулих тижнів · {sidebarTaskGroups.pastWeekTasks.length}
+                  </h4>
+                  <span className="text-xs text-sys-text-muted">
+                    {sidebarPastWeekOpen ? "Згорнути ▴" : "Показати ▾"}
+                  </span>
+                </button>
+                {sidebarPastWeekOpen && (
+                  <div className="space-y-2 animate-in fade-in duration-150">
+                    {sidebarTaskGroups.pastWeekTasks.map((t, idx) => renderTaskCard(t, `sb-past-${idx}`, isLinked))}
+                  </div>
+                )}
+              </section>
+            )}
+
+            {/* Group 1: Overdue or Past due */}
+            {sidebarTaskGroups.overdueTasks.length > 0 && (
+              <section>
+                <button
+                  type="button"
+                  onClick={() => setSidebarUserToggledOverdue(!sidebarOverdueOpen)}
+                  className="mb-2 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                  aria-expanded={sidebarOverdueOpen}
+                >
+                  <h4 className="text-[13px] font-semibold text-sys-text-primary">
+                    {isLinked ? "Прострочено" : "Термін минув"} · {sidebarTaskGroups.overdueTasks.length}
+                  </h4>
+                  <span className="text-xs text-sys-text-muted">
+                    {sidebarOverdueOpen ? "Згорнути ▴" : "Показати ▾"}
+                  </span>
+                </button>
+                {sidebarOverdueOpen && (
+                  <div className="space-y-2 animate-in fade-in duration-150">
+                    {sidebarTaskGroups.overdueTasks.map((t, idx) => renderTaskCard(t, `sb-overdue-${idx}`, isLinked))}
+                  </div>
+                )}
+              </section>
+            )}
+
+            {/* Group 2: Active */}
+            {sidebarTaskGroups.activeTasks.length > 0 && (
+              <section>
+                <button
+                  type="button"
+                  onClick={() => setSidebarActiveOpen(!sidebarActiveOpen)}
+                  className="mb-2 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                  aria-expanded={sidebarActiveOpen}
+                >
+                  <h4 className="text-[13px] font-semibold text-sys-text-primary">
+                    Активні · {sidebarTaskGroups.activeTasks.length}
+                  </h4>
+                  <span className="text-xs text-sys-text-muted">
+                    {sidebarActiveOpen ? "Згорнути ▴" : "Показати ▾"}
+                  </span>
+                </button>
+                {sidebarActiveOpen && (
+                  <div className="space-y-2 animate-in fade-in duration-150">
+                    {sidebarTaskGroups.activeTasks.map((t, idx) => renderTaskCard(t, `sb-active-${idx}`, isLinked))}
+                  </div>
+                )}
+              </section>
+            )}
+
+            {/* Group 3: No due date */}
+            {sidebarTaskGroups.noDateTasks.length > 0 && (
+              <section>
+                <button
+                  type="button"
+                  onClick={() => setSidebarNoDateOpen(!sidebarNoDateOpen)}
+                  className="mb-2 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                  aria-expanded={sidebarNoDateOpen}
+                >
+                  <h4 className="text-[13px] font-semibold text-sys-text-primary">
+                    Без терміну · {sidebarTaskGroups.noDateTasks.length}
+                  </h4>
+                  <span className="text-xs text-sys-text-muted">
+                    {sidebarNoDateOpen ? "Згорнути ▴" : "Показати ▾"}
+                  </span>
+                </button>
+                {sidebarNoDateOpen && (
+                  <div className="space-y-2 animate-in fade-in duration-150">
+                    {sidebarTaskGroups.noDateTasks.map((t, idx) => renderTaskCard(t, `sb-nodate-${idx}`, isLinked))}
+                  </div>
+                )}
+              </section>
+            )}
+
+            {/* Empty state when only turned-in tasks exist */}
+            {sidebarTaskGroups.isOnlyTurnedIn && (
+              <div className="flex items-center gap-2 rounded-xl border border-sys-success/30 bg-sys-success/10 px-3.5 py-2.5 text-xs text-sys-success font-medium select-none shadow-xs">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-success">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span>Нічого не горить</span>
+              </div>
+            )}
+
+            {/* Group 4: Turned In / Returned */}
+            {sidebarTaskGroups.turnedInTasks.length > 0 && (
+              <section className="pt-1">
+                <button
+                  type="button"
+                  onClick={() => setSidebarTurnedInOpen(!sidebarTurnedInOpen)}
+                  className="mb-2 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                  aria-expanded={sidebarTurnedInOpen}
+                >
+                  <h4 className="text-[13px] font-semibold text-sys-text-primary">
+                    Здано · {sidebarTaskGroups.turnedInTasks.length}
+                  </h4>
+                  <span className="text-xs text-sys-text-muted">
+                    {sidebarTurnedInOpen ? "Згорнути ▴" : "Показати ▾"}
+                  </span>
+                </button>
+                {sidebarTurnedInOpen && (
+                  <div className="space-y-2 animate-in fade-in duration-150">
+                    {sidebarTaskGroups.turnedInTasks.map((t, idx) => renderTaskCard(t, `sb-done-${idx}`, isLinked))}
+                  </div>
+                )}
+              </section>
+            )}
+          </>
+        ) : (
+          <div className="py-8 text-center text-sys-text-muted">
+            <p className="text-sm font-semibold text-sys-text-primary">
+              {tasksScope === "week" ? "На цьому тижні завдань немає" : "Завдань немає"}
+            </p>
+            {tasksScope === "week" && (
+              <button
+                type="button"
+                onClick={() => setTasksScope("all")}
+                className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-sys-accent/15 border border-sys-accent/30 px-3.5 py-1.5 text-xs font-semibold text-sys-accent hover:bg-sys-accent/25 transition-colors cursor-pointer"
+              >
+                Переглянути всі
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </>
   );
 
   if (!loading && !isSetupComplete) {
@@ -1090,10 +1346,10 @@ export default function HomePage() {
               <button
                 type="button"
                 onClick={() => handleViewChange("today")}
-                className={`h-8 px-3.5 rounded-lg font-semibold transition-all ${
+                className={`h-8 px-3.5 rounded-lg font-medium transition-all cursor-pointer ${
                   view === "today"
-                    ? "bg-sys-accent text-white shadow-xs"
-                    : "text-sys-text-secondary hover:text-white"
+                    ? "bg-sys-accent/15 text-sys-accent border border-sys-accent/30 font-semibold"
+                    : "text-sys-text-secondary hover:text-sys-text-primary"
                 }`}
               >
                 День
@@ -1101,21 +1357,18 @@ export default function HomePage() {
               <button
                 type="button"
                 onClick={() => handleViewChange("week")}
-                className={`h-8 px-3.5 rounded-lg font-semibold transition-all ${
+                className={`h-8 px-3.5 rounded-lg font-medium transition-all cursor-pointer ${
                   view === "week"
-                    ? "bg-sys-accent text-white shadow-xs"
-                    : "text-sys-text-secondary hover:text-white"
+                    ? "bg-sys-accent/15 text-sys-accent border border-sys-accent/30 font-semibold"
+                    : "text-sys-text-secondary hover:text-sys-text-primary"
                 }`}
               >
                 Тиждень
               </button>
             </div>
             {headerLearningMode && (
-              <span className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-bold ${
-                headerLearningMode === "offline"
-                  ? "border-sys-accent/30 bg-sys-accent/10 text-sys-accent"
-                  : "border-sys-warning/30 bg-sys-warning/10 text-sys-warning"
-              }`}>
+              <span className="shrink-0 rounded-full border border-sys-border bg-sys-surface px-2.5 py-1 text-xs font-medium text-sys-text-secondary inline-flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-sys-text-tertiary" />
                 {headerLearningMode === "offline" ? "Очно" : "Дистанційно"}
               </span>
             )}
@@ -1236,11 +1489,7 @@ export default function HomePage() {
                 {headerLearningMode && (
                   <>
                     {(currentWeekNumber || weekType !== "both") && <span>·</span>}
-                    <span
-                      className={`font-bold ${
-                        headerLearningMode === "offline" ? "text-sys-accent" : "text-sys-warning"
-                      }`}
-                    >
+                    <span className="font-medium text-sys-text-secondary">
                       {headerLearningMode === "offline" ? "Очно" : "Дистанційно"}
                     </span>
                   </>
@@ -1584,10 +1833,12 @@ export default function HomePage() {
                       type="button"
                       role="menuitem"
                       onClick={() => {
-                        unlinkClassroom();
-                        setMobileMenuOpen(false);
+                        if (window.confirm("Від'єднати акаунт? Завдання перестануть оновлюватись")) {
+                          unlinkClassroom();
+                          setMobileMenuOpen(false);
+                        }
                       }}
-                      className="shrink-0 rounded-lg bg-white/5 hover:bg-white/10 px-2.5 py-1 text-xs font-medium text-rose-300 hover:text-rose-200 transition-colors cursor-pointer"
+                      className="shrink-0 rounded-lg border border-sys-danger text-sys-danger hover:bg-sys-danger/10 px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer"
                     >
                       Від&apos;єднати
                     </button>
@@ -1801,21 +2052,34 @@ export default function HomePage() {
               transition={{ duration: shouldReduceMotion ? 0 : 0.15 }}
             >
               {view === "today" ? (
-                /* Desktop Day Mode: 2-column Dashboard */
+                /* Desktop Day Mode */
                 <div className="w-full min-w-0">
-                  <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-8 items-start w-full">
-                    {/* Left Column: Schedule (minmax(0, 1fr)) */}
-                    <div className="w-full min-w-0">
+                  {showViewModeTip && (
+                    <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-sys-accent/30 bg-sys-accent/10 px-4 py-2.5 text-xs text-sys-text-primary shadow-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sys-accent text-sm">💡</span>
+                        <span>Спробуйте <strong>компактний режим перегляду</strong> для швидкої навігації без зайвого скролу.</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleDismissViewModeTip}
+                        className="shrink-0 px-2.5 py-1 rounded-lg bg-sys-accent/20 hover:bg-sys-accent/30 text-sys-accent font-semibold transition-colors text-xs cursor-pointer"
+                      >
+                        Зрозуміло
+                      </button>
+                    </div>
+                  )}
+
+                  {desktopViewMode === "compact" ? (
+                    /* Compact Mode: 1-column layout without sidebar, day tabs inside ScheduleDay, and slide-over drawer */
+                    <div className="w-full max-w-6xl mx-auto min-w-0">
                       {isWeekend && (
-                        <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-slate-700/60 bg-slate-800/50 px-5 py-4 text-[15px] shadow-sm">
+                        <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-sys-border bg-sys-surface px-5 py-3.5 text-[15px] shadow-xs">
                           <div className="flex items-center gap-3 min-w-0">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-amber-300">
-                              <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                              <polyline points="9 22 9 12 15 12 15 22" />
-                            </svg>
+                            <span className="text-sys-warning text-base">ℹ️</span>
                             <div className="flex flex-col min-w-0">
-                              <span className="font-semibold text-sys-text-primary text-base">Сьогодні вихідний</span>
-                              <span className="text-sys-text-secondary text-xs sm:text-[13px]">Показано найближчий навчальний день</span>
+                              <span className="font-semibold text-sys-text-primary text-sm">Сьогодні вихідний</span>
+                              <span className="text-sys-text-secondary text-xs">Показано найближчий навчальний день</span>
                             </div>
                           </div>
                           <div className="flex items-center gap-3 shrink-0">
@@ -1824,7 +2088,6 @@ export default function HomePage() {
                         </div>
                       )}
 
-
                       <ScheduleDay
                         schedule={selectedDaySchedule ?? today!}
                         isToday={selectedDaySchedule?.date === todayActualIso && !isWeekend}
@@ -1832,382 +2095,116 @@ export default function HomePage() {
                         onQuickJump={handleQuickJump}
                         hideHeaderOnMobile={false}
                         weekNumber={currentWeekNumber}
+                        desktopViewMode="compact"
+                        onDesktopViewModeChange={handleDesktopViewModeChange}
+                        onOpenTasksDrawer={() => setTasksDrawerOpen(true)}
+                        taskCount={sidebarTaskGroups.totalCount}
+                        weekDays={weekDaysMini}
+                        selectedDayIndex={selectedDayIndex}
+                        onSelectDayIndex={handleSelectDayIndex}
                       />
                     </div>
-
-                    {/* Right Column: Week Info & Classroom Widget (360px) */}
-                    <div className="w-full lg:w-[360px] shrink-0 min-w-0 flex flex-col gap-6 sticky top-[72px]">
-                      {/* Week & Navigator Card */}
-                      <div className="rounded-2xl border border-sys-border bg-sys-card p-5 shadow-sm">
-                        <div className="pb-3.5 border-b border-sys-border/50">
-                          <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-sys-text-muted">
-                            <span>{currentWeekNumber ? `${currentWeekNumber} ТИЖДЕНЬ` : "РОЗКЛАД"}</span>
-                            {weekType !== "both" && (
-                              <>
-                                <span>•</span>
-                                <span
-                                  title={
-                                    weekType === "numerator"
-                                      ? "Чисельник — непарний тиждень навчального графіка"
-                                      : "Знаменник — парний тиждень навчального графіка"
-                                  }
-                                  className="lowercase font-medium text-sys-text-secondary cursor-help underline decoration-dotted underline-offset-2"
-                                >
-                                  {weekType === "numerator" ? "чисельник" : "знаменник"}
-                                </span>
-                              </>
-                            )}
+                  ) : (
+                    /* Detailed Mode: 2-column Dashboard with unified Sidebar */
+                    <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-8 items-start w-full">
+                      {/* Left Column: ScheduleDay */}
+                      <div className="w-full min-w-0">
+                        {isWeekend && (
+                          <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-sys-border bg-sys-surface px-5 py-4 text-[15px] shadow-xs">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <span className="text-sys-warning text-base">ℹ️</span>
+                              <div className="flex flex-col min-w-0">
+                                <span className="font-semibold text-sys-text-primary text-base">Сьогодні вихідний</span>
+                                <span className="text-sys-text-secondary text-xs sm:text-[13px]">Показано найближчий навчальний день</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3 shrink-0">
+                              <WeekTypeBadge weekType={today?.week_type ?? "both"} />
+                            </div>
                           </div>
-                          <h3 className="text-base sm:text-lg font-semibold text-sys-text-primary mt-1 truncate">
-                            {weekRange}
-                          </h3>
-                        </div>
+                        )}
 
-                        {/* 5-Day Quick Switcher */}
-                        <div className="mt-4">
-                          <div className="grid grid-cols-5 gap-2">
-                            {weekDaysMini.map((d) => {
-                              const isActive = d.index === selectedDayIndex;
-                              const isToday = d.iso === todayActualIso;
-                              return (
-                                <button
-                                  key={d.iso}
-                                  type="button"
-                                  onClick={() => handleSelectDayIndex(d.index)}
-                                  className={`flex flex-col items-center justify-center h-16 rounded-xl transition-all relative ${
-                                    isActive
-                                      ? "bg-sys-accent text-[#0b1120] font-black shadow-md ring-2 ring-sys-accent/60"
-                                      : "border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-white hover:border-sys-border-elevated font-medium"
-                                  }`}
-                                >
-                                  <span className={`text-xs uppercase font-semibold ${isActive ? "text-[#0b1120]/80" : ""}`}>{d.name}</span>
-                                  <span className="text-xl font-bold mt-0.5 leading-none">{d.dateStr}</span>
-                                  {isToday && (
-                                    <span
-                                      title="Сьогодні"
-                                      className={`h-1.5 w-1.5 rounded-full absolute bottom-1.5 left-1/2 -translate-x-1/2 ${isActive ? "bg-[#0b1120]" : "bg-sys-accent"}`}
-                                    />
-                                  )}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
+                        <ScheduleDay
+                          schedule={selectedDaySchedule ?? today!}
+                          isToday={selectedDaySchedule?.date === todayActualIso && !isWeekend}
+                          scheduleMode={mode}
+                          onQuickJump={handleQuickJump}
+                          hideHeaderOnMobile={false}
+                          weekNumber={currentWeekNumber}
+                          desktopViewMode="detailed"
+                          onDesktopViewModeChange={handleDesktopViewModeChange}
+                        />
                       </div>
 
-                      {/* Google Classroom Deadlines Widget */}
-                      <div className="rounded-2xl border border-sys-border bg-sys-card p-5 shadow-sm">
-                        <div className="pb-3 border-b border-sys-border/50">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-purple-400">
-                                <path d="M16 4h2a2 2 0 0 1 2 2v14l-8-4-8 4V6a2 2 0 0 1 2-2h2" />
-                                <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
-                              </svg>
-                              <span className="text-sm font-bold uppercase tracking-wider text-sys-text-primary">
-                                Завдання Classroom
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="mt-1 flex items-center gap-2">
-                            <p className="text-xs text-sys-text-secondary">
-                              {tasksScope === "week"
-                                ? `${sidebarTaskGroups.totalCount} ${formatTaskWord(sidebarTaskGroups.totalCount)} на цьому тижні`
-                                : `${sidebarTaskGroups.totalCount} ${formatTaskWord(sidebarTaskGroups.totalCount)} загалом`}
-                            </p>
-                            {formattedSyncTime && (
-                              <>
-                                <span className="text-slate-600 text-xs">•</span>
-                                <span className="text-xs text-sys-text-muted">
-                                  дані від {formattedSyncTime}
-                                </span>
-                              </>
-                            )}
-                          </div>
-
-                          {/* Week Switcher & Scope Segment (Section 22.1) */}
-                          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-sys-border/30">
-                            <div className={`inline-flex items-center gap-0.5 rounded-xl border border-sys-border bg-sys-bg px-1 py-0.5 text-xs shadow-xs transition-opacity ${tasksScope === "week" ? "" : "opacity-50"}`}>
-                              <button
-                                type="button"
-                                disabled={tasksScope !== "week"}
-                                onClick={() => shiftWeekPreservingDay(-1)}
-                                aria-label="Попередній тиждень"
-                                className="flex h-6 w-6 items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-white/5 active:scale-95 transition-all cursor-pointer disabled:cursor-default disabled:hover:bg-transparent font-bold"
-                              >
-                                ‹
-                              </button>
-                              <span className="px-1.5 font-semibold text-sys-text-primary whitespace-nowrap text-xs">
-                                {sidebarTaskGroups.weekLabel}
-                              </span>
-                              <button
-                                type="button"
-                                disabled={tasksScope !== "week"}
-                                onClick={() => shiftWeekPreservingDay(1)}
-                                aria-label="Наступний тиждень"
-                                className="flex h-6 w-6 items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-white/5 active:scale-95 transition-all cursor-pointer disabled:cursor-default disabled:hover:bg-transparent font-bold"
-                              >
-                                ›
-                              </button>
-                            </div>
-
-                            <div className="inline-flex items-center rounded-xl border border-sys-border bg-sys-bg p-0.5 text-xs shadow-xs">
-                              <button
-                                type="button"
-                                onClick={() => setTasksScope("week")}
-                                className={`rounded-lg px-2 py-0.5 font-semibold transition-all cursor-pointer ${
-                                  tasksScope === "week"
-                                    ? "bg-sys-accent text-[#0b1120] shadow-xs"
-                                    : "text-sys-text-secondary hover:text-white"
-                                }`}
-                              >
-                                Цей тиждень
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setTasksScope("all")}
-                                className={`rounded-lg px-2 py-0.5 font-semibold transition-all cursor-pointer ${
-                                  tasksScope === "all"
-                                    ? "bg-sys-accent text-[#0b1120] shadow-xs"
-                                    : "text-sys-text-secondary hover:text-white"
-                                }`}
-                              >
-                                Усі
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Unlinked Prompt Banner (Section 17.2) */}
-                        {!isLinked && (
-                          <div className="mt-3 rounded-xl border border-sky-500/30 bg-sky-500/10 p-3 text-xs text-sys-text-secondary">
+                      {/* Right Column: Unified Sidebar Card per Section 26.5 */}
+                      <div className="w-full lg:w-[360px] shrink-0 min-w-0 flex flex-col sticky top-[72px]">
+                        <div className="rounded-2xl border border-sys-border bg-sys-card p-5 shadow-sm space-y-5">
+                          {/* Block 1: Week Info & 5-Day Switcher */}
+                          <div>
                             <div className="flex items-center justify-between gap-2">
-                              <div className="flex items-start gap-1.5 min-w-0">
-                                <span className="text-sky-400 font-bold shrink-0">ⓘ</span>
-                                <span className="leading-snug text-slate-200">
-                                  Це завдання всієї групи. Прив&apos;яжи пошту, щоб бачити, що ти вже здав.
-                                </span>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  window.dispatchEvent(new CustomEvent("trigger-classroom-sync"));
-                                }}
-                                className="shrink-0 rounded-lg bg-sky-500/25 hover:bg-sky-500/35 border border-sky-500/40 px-2.5 py-1 text-xs font-semibold text-sky-200 transition-colors cursor-pointer"
-                              >
-                                Прив&apos;язати
-                              </button>
-                            </div>
-                            <p className="text-xs text-slate-400 mt-1 pl-4">
-                              Сервер лише читає ваші завдання з Classroom і нічого не змінює.
-                            </p>
-                          </div>
-                        )}
-
-                        {allTasks.length > 0 && (
-                          <div className="mt-3">
-                            <button
-                              type="button"
-                              onClick={() => setSidebarFiltersOpen((v) => !v)}
-                              aria-expanded={sidebarFiltersOpen || sidebarFiltersActive}
-                              className="flex items-center gap-1.5 text-xs font-semibold text-sys-text-secondary hover:text-white cursor-pointer"
-                            >
-                              Фільтри
-                              {sidebarFiltersActive && <span className="h-1.5 w-1.5 rounded-full bg-sys-accent" />}
-                              <span>{sidebarFiltersOpen || sidebarFiltersActive ? "▴" : "▾"}</span>
-                            </button>
-                            {(sidebarFiltersOpen || sidebarFiltersActive) && (
-                              <div className="mt-2">
-                                <TaskFilters
-                                  tasks={allTasks}
-                                  value={sidebarTaskFilters}
-                                  onChange={setSidebarTaskFilters}
-                                  isLinked={isLinked}
-                                />
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        <div className="mt-4 space-y-4">
-                          {sidebarTaskGroups.totalCount > 0 ? (
-                            <>
-                              {/* Group 0: Past weeks uncompleted overdue tasks (Section 22.1) */}
-                              {tasksScope === "week" && sidebarTaskGroups.pastWeekTasks.length > 0 && (
-                                <section>
-                                  <button
-                                    type="button"
-                                    onClick={() => setSidebarPastWeekOpen(!(sidebarPastWeekOpen || sidebarTaskFilters.status === "overdue"))}
-                                    className="mb-2 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
-                                    aria-expanded={sidebarPastWeekOpen || sidebarTaskFilters.status === "overdue"}
-                                  >
-                                    <div className="flex items-center gap-2">
-                                      <span className={`h-2 w-2 rounded-full shadow-xs ${isLinked ? "bg-rose-500" : "bg-slate-500"}`} />
-                                      <h4 className={`text-xs font-bold uppercase tracking-wider ${isLinked ? "text-rose-400" : "text-slate-400"}`}>
-                                        З минулих тижнів ({sidebarTaskGroups.pastWeekTasks.length})
-                                      </h4>
-                                    </div>
-                                    <span className="text-xs text-sys-text-muted">
-                                      {sidebarPastWeekOpen || sidebarTaskFilters.status === "overdue" ? "Згорнути ▴" : "Показати ▾"}
+                              <div className="flex items-center gap-1.5 text-xs font-semibold text-sys-text-secondary">
+                                <span>{currentWeekNumber ? `${currentWeekNumber} тиждень` : "Розклад"}</span>
+                                {weekType !== "both" && (
+                                  <>
+                                    <span>•</span>
+                                    <span
+                                      title={
+                                        weekType === "numerator"
+                                          ? "Чисельник — непарний тиждень навчального графіка"
+                                          : "Знаменник — парний тиждень навчального графіка"
+                                      }
+                                      className="font-medium text-sys-text-muted cursor-help underline decoration-dotted underline-offset-2"
+                                    >
+                                      {weekType === "numerator" ? "чисельник" : "знаменник"}
                                     </span>
-                                  </button>
-                                  {(sidebarPastWeekOpen || sidebarTaskFilters.status === "overdue") && (
-                                    <div className="space-y-2 animate-in fade-in duration-150">
-                                      {sidebarTaskGroups.pastWeekTasks.map((t, idx) => renderTaskCard(t, `sb-past-${idx}`, isLinked))}
-                                    </div>
-                                  )}
-                                </section>
-                              )}
+                                  </>
+                                )}
+                              </div>
+                              <div className="text-xs text-sys-text-muted truncate">
+                                {weekRange}
+                              </div>
+                            </div>
 
-                              {/* Group 1: Overdue or Past due */}
-                              {sidebarTaskGroups.overdueTasks.length > 0 && (
-                                <section>
+                            {/* 5-Day Quick Switcher */}
+                            <div className="mt-3 grid grid-cols-5 gap-1.5">
+                              {weekDaysMini.map((d) => {
+                                const isActive = d.index === selectedDayIndex;
+                                const isToday = d.iso === todayActualIso;
+                                return (
                                   <button
+                                    key={d.iso}
                                     type="button"
-                                    onClick={() => setSidebarUserToggledOverdue(!sidebarOverdueOpen)}
-                                    className="mb-2 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
-                                    aria-expanded={sidebarOverdueOpen}
+                                    onClick={() => handleSelectDayIndex(d.index)}
+                                    className={`flex flex-col items-center justify-center h-14 rounded-xl transition-all relative cursor-pointer ${
+                                      isActive
+                                        ? "bg-sys-accent/15 text-sys-accent border border-sys-accent/40 font-bold shadow-xs"
+                                        : "border border-sys-border bg-sys-surface text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-borderStrong font-medium"
+                                    }`}
                                   >
-                                    <div className="flex items-center gap-2">
+                                    <span className="text-[11px] font-medium">{d.name}</span>
+                                    <span className="text-base font-bold leading-tight">{d.dateStr}</span>
+                                    {isToday && (
                                       <span
-                                        className={`h-2 w-2 rounded-full shadow-xs ${
-                                          isLinked ? "bg-rose-500" : "bg-slate-500"
-                                        }`}
+                                        title="Сьогодні"
+                                        className="h-1 w-1 rounded-full absolute bottom-1.5 left-1/2 -translate-x-1/2 bg-sys-accent"
                                       />
-                                      <h4
-                                        className={`text-xs font-bold uppercase tracking-wider ${
-                                          isLinked ? "text-rose-400" : "text-slate-400"
-                                        }`}
-                                      >
-                                        {isLinked
-                                          ? `Прострочено (${sidebarTaskGroups.overdueTasks.length})`
-                                          : `Термін минув (${sidebarTaskGroups.overdueTasks.length})`}
-                                      </h4>
-                                    </div>
-                                    <span className="text-xs text-sys-text-muted">
-                                      {sidebarOverdueOpen ? "Згорнути ▴" : "Показати ▾"}
-                                    </span>
+                                    )}
                                   </button>
-                                  {sidebarOverdueOpen && (
-                                    <div className="space-y-2 animate-in fade-in duration-150">
-                                      {sidebarTaskGroups.overdueTasks.map((t, idx) => renderTaskCard(t, `sb-overdue-${idx}`, isLinked))}
-                                    </div>
-                                  )}
-                                </section>
-                              )}
-
-                              {/* Group 2: Active */}
-                              {sidebarTaskGroups.activeTasks.length > 0 && (
-                                <section>
-                                  <button
-                                    type="button"
-                                    onClick={() => setSidebarActiveOpen(!sidebarActiveOpen)}
-                                    className="mb-2 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
-                                    aria-expanded={sidebarActiveOpen}
-                                  >
-                                    <div className="flex items-center gap-2">
-                                      <span className="h-2 w-2 rounded-full bg-sys-accent shadow-xs" />
-                                      <h4 className="text-xs font-bold uppercase tracking-wider text-sys-text-secondary">
-                                        Активні ({sidebarTaskGroups.activeTasks.length})
-                                      </h4>
-                                    </div>
-                                    <span className="text-xs text-sys-text-muted">
-                                      {sidebarActiveOpen ? "Згорнути ▴" : "Показати ▾"}
-                                    </span>
-                                  </button>
-                                  {sidebarActiveOpen && (
-                                    <div className="space-y-2 animate-in fade-in duration-150">
-                                      {sidebarTaskGroups.activeTasks.map((t, idx) => renderTaskCard(t, `sb-active-${idx}`, isLinked))}
-                                    </div>
-                                  )}
-                                </section>
-                              )}
-
-                              {/* Group 3: No due date */}
-                              {sidebarTaskGroups.noDateTasks.length > 0 && (
-                                <section>
-                                  <button
-                                    type="button"
-                                    onClick={() => setSidebarNoDateOpen(!sidebarNoDateOpen)}
-                                    className="mb-2 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
-                                    aria-expanded={sidebarNoDateOpen}
-                                  >
-                                    <div className="flex items-center gap-2">
-                                      <span className="h-2 w-2 rounded-full bg-slate-400 shadow-xs" />
-                                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300">
-                                        Без терміну ({sidebarTaskGroups.noDateTasks.length})
-                                      </h4>
-                                    </div>
-                                    <span className="text-xs text-sys-text-muted">
-                                      {sidebarNoDateOpen ? "Згорнути ▴" : "Показати ▾"}
-                                    </span>
-                                  </button>
-                                  {sidebarNoDateOpen && (
-                                    <div className="space-y-2 animate-in fade-in duration-150">
-                                      {sidebarTaskGroups.noDateTasks.map((t, idx) => renderTaskCard(t, `sb-nodate-${idx}`, isLinked))}
-                                    </div>
-                                  )}
-                                </section>
-                              )}
-
-                              {/* Empty state when only turned-in tasks exist (Section 22.2) */}
-                              {sidebarTaskGroups.isOnlyTurnedIn && sidebarTaskFilters.status !== "done" && (
-                                <div className="flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-950/20 px-3.5 py-2.5 text-xs text-emerald-400 font-medium select-none shadow-xs">
-                                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-emerald-400">
-                                    <polyline points="20 6 9 17 4 12" />
-                                  </svg>
-                                  <span>Нічого не горить</span>
-                                </div>
-                              )}
-
-                              {/* Group 4: Turned In / Returned */}
-                              {sidebarTaskGroups.turnedInTasks.length > 0 && (
-                                <section className="pt-1">
-                                  <button
-                                    type="button"
-                                    onClick={() => setSidebarTurnedInOpen(!(sidebarTurnedInOpen || sidebarTaskFilters.status === "done"))}
-                                    className="mb-2 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
-                                    aria-expanded={sidebarTurnedInOpen || sidebarTaskFilters.status === "done"}
-                                  >
-                                    <div className="flex items-center gap-2">
-                                      <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-xs" />
-                                      <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-400">
-                                        Здано ({sidebarTaskGroups.turnedInTasks.length})
-                                      </h4>
-                                    </div>
-                                    <span className="text-xs text-sys-text-muted">
-                                      {sidebarTurnedInOpen || sidebarTaskFilters.status === "done" ? "Згорнути ▴" : "Показати ▾"}
-                                    </span>
-                                  </button>
-                                  {(sidebarTurnedInOpen || sidebarTaskFilters.status === "done") && (
-                                    <div className="space-y-2 animate-in fade-in duration-150">
-                                      {sidebarTaskGroups.turnedInTasks.map((t, idx) => renderTaskCard(t, `sb-done-${idx}`, isLinked))}
-                                    </div>
-                                  )}
-                                </section>
-                              )}
-                            </>
-                          ) : (
-                            <div className="py-8 text-center text-sys-text-muted">
-                              <p className="text-sm font-semibold text-sys-text-primary">
-                                {tasksScope === "week" ? "На цьому тижні завдань немає" : "Завдань немає"}
-                              </p>
-                              {tasksScope === "week" && (
-                                <button
-                                  type="button"
-                                  onClick={() => setTasksScope("all")}
-                                  className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-sys-accent/15 border border-sys-accent/30 px-3.5 py-1.5 text-xs font-semibold text-sys-accent hover:bg-sys-accent/25 transition-colors cursor-pointer"
-                                >
-                                  Переглянути всі
-                                </button>
-                              )}
+                                );
+                              })}
                             </div>
-                          )}
+                          </div>
+
+                          <hr className="border-sys-border/50" />
+
+                          {/* Block 2: Classroom Tasks */}
+                          <div>
+                            {renderSidebarTasksContent()}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               ) : (
                 /* Desktop Week Mode: Full Grid (ScheduleWeekGrid) */
@@ -2239,34 +2236,56 @@ export default function HomePage() {
                       )}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
+                      {/* Slide-over Tasks button in compact mode (desktop) */}
+                      {desktopViewMode === "compact" && (
+                        <button
+                          type="button"
+                          onClick={() => setTasksDrawerOpen(true)}
+                          className="hidden lg:inline-flex items-center gap-1.5 px-3 h-9 rounded-xl border border-transparent text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-surface transition-colors cursor-pointer"
+                          title="Відкрити список завдань"
+                        >
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M16 4h2a2 2 0 0 1 2 2v14l-8-4-8 4V6a2 2 0 0 1 2-2h2" />
+                            <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+                          </svg>
+                          <span>Завдання{sidebarTaskGroups.totalCount > 0 ? ` · ${sidebarTaskGroups.totalCount}` : ""}</span>
+                        </button>
+                      )}
+
+                      {/* Desktop Mode Switcher */}
+                      <ViewModeSwitcher
+                        mode={desktopViewMode}
+                        onChange={handleDesktopViewModeChange}
+                      />
+
                       <button
                         type="button"
                         onClick={() => void handleShareWeekImage()}
                         disabled={sharingWeekImage}
                         title="Скопіювати або зберегти розклад тижня як PNG-картинку"
                         aria-label="Поділитися картинкою розкладу тижня"
-                        className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-sys-border bg-sys-bg px-3 text-xs font-semibold text-sys-text-secondary hover:text-sys-accent hover:border-sys-accent/40 hover:bg-sys-accent/5 active:scale-95 transition-all disabled:opacity-50"
+                        className="h-9 px-3 gap-1.5 flex items-center justify-center rounded-xl border border-sys-borderStrong bg-sys-surface text-xs font-semibold text-sys-text-primary transition-all hover:bg-sys-surfaceHover active:scale-95 disabled:opacity-50 cursor-pointer"
                       >
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
                           <circle cx="9" cy="9" r="2" />
                           <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
                         </svg>
-                        <span>Зберегти картинку</span>
+                        <span className="hidden sm:inline">Зберегти картинку</span>
                       </button>
                       <button
                         type="button"
                         onClick={handleShareWeek}
                         title="Скопіювати розклад усього тижня"
                         aria-label="Поділитися розкладом на тиждень"
-                        className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-sys-border bg-sys-bg px-3 text-xs font-semibold text-sys-text-secondary hover:text-sys-accent hover:border-sys-accent/40 hover:bg-sys-accent/5 active:scale-95 transition-all"
+                        className="h-9 px-3 gap-1.5 flex items-center justify-center rounded-xl border border-sys-borderStrong bg-sys-surface text-xs font-semibold text-sys-text-primary transition-all hover:bg-sys-surfaceHover active:scale-95 cursor-pointer"
                       >
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
                           <polyline points="16 6 12 2 8 6" />
                           <line x1="12" y1="2" x2="12" y2="15" />
                         </svg>
-                        <span>Поділитися</span>
+                        <span className="hidden sm:inline">Поділитися</span>
                       </button>
                     </div>
                   </div>
@@ -2284,6 +2303,8 @@ export default function HomePage() {
                       scheduleMode={mode}
                       canEdit={false}
                       onQuickJump={handleQuickJump}
+                      weekNumber={currentWeekNumber}
+                      desktopViewMode={desktopViewMode}
                     />
                   </motion.div>
                 </div>
@@ -2306,6 +2327,58 @@ export default function HomePage() {
         }}
         overdueCount={isLinked ? overdueCount : 0}
       />
+
+      {/* Slide-over Tasks Drawer (Desktop Compact Mode) */}
+      <AnimatePresence>
+        {tasksDrawerOpen && (
+          <div className="fixed inset-0 z-50 overflow-hidden hidden lg:block">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              onClick={() => setTasksDrawerOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-xs cursor-pointer"
+              aria-hidden="true"
+            />
+            <div className="fixed inset-y-0 right-0 max-w-full flex pl-10 pointer-events-none">
+              <motion.div
+                initial={{ x: "100%" }}
+                animate={{ x: 0 }}
+                exit={{ x: "100%" }}
+                transition={{ type: "spring", damping: 28, stiffness: 300 }}
+                className="w-screen max-w-md bg-sys-card border-l border-sys-border flex flex-col shadow-2xl pointer-events-auto"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Drawer Header */}
+                <div className="flex items-center justify-between px-5 py-4 border-b border-sys-border">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-semibold text-sys-text-primary">
+                      Завдання Classroom
+                    </h3>
+                    <span className="px-2 py-0.5 rounded-full text-xs font-medium border border-sys-border bg-sys-surface text-sys-text-secondary">
+                      {sidebarTaskGroups.totalCount}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setTasksDrawerOpen(false)}
+                    className="flex h-8 w-8 items-center justify-center rounded-xl border border-sys-border text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-surface transition-colors cursor-pointer"
+                    aria-label="Закрити завдання"
+                  >
+                    ✕
+                  </button>
+                </div>
+                {/* Drawer Body */}
+                <div className="flex-1 overflow-y-auto p-5">
+                  {renderSidebarTasksContent()}
+                </div>
+              </motion.div>
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Week Type Bottom Sheet (Чисельник / Знаменник) */}
       <AnimatePresence>

@@ -4,18 +4,32 @@
 
 :root {
   color-scheme: dark;
-  --bg: #09090b;
-  --surface: #16161a;
-  --border: #27272a;
-  --border-chip: #3f3f46;
-  --text: #fafafa;
-  --text-muted: #a1a1aa;
+  --surface-1: #0b0b0e;
+  --surface-2: #14141a;
+  --surface-3: #1b1b22;
+  --border-subtle: #23232b;
+  --border-strong: #3f3f46;
+  --text-primary: #fafafa;
+  --text-secondary: #a1a1aa;
+  --text-tertiary: #8e8e99;
   --accent: #3b82f6;
+  --accent-hover: #2563eb;
+  --accent-subtle: rgba(59, 130, 246, 0.12);
+  --success: #34d399;
+  --warning: #fbbf24;
   --danger: #f87171;
-  --warn: #fbbf24;
-  --ok: #34d399;
+
+  /* Semantic aliases */
+  --bg: var(--surface-1);
+  --surface: var(--surface-2);
+  --border: var(--border-subtle);
+  --border-chip: var(--border-strong);
+  --text: var(--text-primary);
+  --text-muted: var(--text-secondary);
+  --warn: var(--warning);
+  --ok: var(--success);
   --page-padding: 16px;
-  --page-bg: #09090b;
+  --page-bg: var(--surface-1);
 }
 
 @media (min-width: 1024px) {

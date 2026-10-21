@@ -3,7 +3,9 @@ import { Lesson, ScheduleResponse } from "../lib/api";
 import { canMoveLesson } from "../lib/scheduleMove";
 import { ScheduleDay } from "./ScheduleDay";
 import { ScheduleEditGrid } from "./ScheduleEditGrid";
-import { LessonCard, QuickJumpTarget } from "./LessonCard";
+import { LessonCard, QuickJumpTarget, extractOnlineMeetings, extractClassroomTasks, sortTasksByDeadline } from "./LessonCard";
+import { parseLessonTeachers, parseLessonGroups } from "../lib/quickJump";
+import { formatRoom } from "../lib/format";
 
 const KYIV_DATE_FMT = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" });
 
@@ -21,6 +23,91 @@ function shortDateUk(dateStr: string): string {
   } catch {
     return "";
   }
+}
+
+
+function CompactWeekCell({
+  lesson,
+  targetDate,
+  scheduleMode,
+  onQuickJump,
+}: {
+  lesson: Lesson;
+  targetDate: string;
+  scheduleMode: "student" | "teacher";
+  onQuickJump?: (target: QuickJumpTarget) => void;
+}) {
+  const isTeacherView = scheduleMode === "teacher";
+  const secondaryItems = useMemo(() => {
+    return isTeacherView ? parseLessonGroups(lesson) : parseLessonTeachers(lesson);
+  }, [isTeacherView, lesson.group_id, lesson.group_name, lesson.teacher_id, lesson.second_teacher_id, lesson.teacher_name]);
+
+  const teacherNames = secondaryItems.map((s) => s.displayName).join(", ");
+  const teacherShort = secondaryItems[0]?.displayName?.split(" ")[0] || "";
+
+  const meetings = useMemo(() => {
+    return extractOnlineMeetings(lesson.note, lesson.room, lesson.teacher_name, lesson.subject_name);
+  }, [lesson.note, lesson.room, lesson.teacher_name, lesson.subject_name]);
+
+  const tasks = useMemo(() => {
+    return sortTasksByDeadline(extractClassroomTasks(lesson.note));
+  }, [lesson.note]);
+
+  const hasOverdue = tasks.some((t) => t.deadline.badgeTone === "overdue");
+  const hasUrgent = tasks.some((t) => t.deadline.badgeTone === "urgent");
+
+  const [startT] = useMemo(() => {
+    const raw = lesson.time || "";
+    return raw.split(/[-–—]/).map((s) => s.trim());
+  }, [lesson.time]);
+
+  return (
+    <div
+      className={`min-h-[64px] max-h-[88px] p-2 rounded-xl border border-sys-borderSubtle bg-sys-surface hover:bg-sys-surfaceHover transition-colors flex flex-col justify-between overflow-hidden relative ${
+        lesson.is_cancelled ? "opacity-60" : ""
+      }`}
+      title={`${lesson.subject_name}${teacherNames ? `\n${teacherNames}` : ""}${lesson.room ? `\n${formatRoom(lesson.room)}` : ""}`}
+    >
+      <div className="flex items-center justify-between gap-1 leading-none">
+        <span className="text-[11px] font-mono text-sys-text-tertiary">
+          {startT}
+        </span>
+        {meetings[0] ? (
+          <a
+            href={meetings[0].url}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="text-[11px] font-semibold text-sys-accent hover:underline flex items-center gap-0.5"
+          >
+            {meetings[0].platform === "zoom" ? "Zoom" : meetings[0].platform === "meet" ? "Meet" : "Онлайн"} ↗
+          </a>
+        ) : lesson.room ? (
+          <span className="text-[11px] font-mono text-sys-text-secondary truncate max-w-[60px]">
+            {formatRoom(lesson.room)}
+          </span>
+        ) : null}
+      </div>
+
+      <h4 className={`text-xs font-medium line-clamp-2 leading-tight my-1 ${lesson.is_cancelled ? "line-through text-sys-text-muted" : "text-sys-text-primary"}`}>
+        {lesson.subject_name}
+      </h4>
+
+      <div className="flex items-center justify-between gap-1 leading-none">
+        <span className="text-[11px] text-sys-text-secondary truncate" title={teacherNames}>
+          {teacherShort}
+        </span>
+        {tasks.length > 0 && (
+          <span
+            title={`${tasks.length} ДЗ`}
+            className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+              hasOverdue ? "bg-sys-danger" : hasUrgent ? "bg-sys-warning" : "bg-zinc-500"
+            }`}
+          />
+        )}
+      </div>
+    </div>
+  );
 }
 
 export function ScheduleWeekGrid({
@@ -57,6 +144,7 @@ export function ScheduleWeekGrid({
   canPasteDay,
   onOpenPermanentSchedule,
   weekNumber,
+  desktopViewMode = "detailed",
 }: {
   week: ScheduleResponse[];
   scheduleMode?: "student" | "teacher";
@@ -93,6 +181,7 @@ export function ScheduleWeekGrid({
   canPasteDay?: boolean;
   onOpenPermanentSchedule?: (lesson: Lesson) => void;
   weekNumber?: number | null;
+  desktopViewMode?: "compact" | "detailed";
 }) {
   const canMoveTo = (lesson: Lesson, date: string, lessonNumber: number) =>
     canMoveLesson(lesson, date, lessonNumber, week, availabilityWeek);
@@ -227,22 +316,21 @@ export function ScheduleWeekGrid({
           return (
             <div
               key={`desktop-header-${day.date}`}
-              className={`flex flex-col justify-center min-h-[64px] px-3.5 py-2.5 rounded-2xl border transition-all ${
+              className={`flex flex-col justify-center min-h-[60px] px-3.5 py-2 rounded-2xl border transition-all ${
                 isToday
-                  ? "bg-sys-accent/15 border-sys-accent shadow-[0_0_15px_rgba(59,130,246,0.12)] ring-1 ring-sys-accent/40"
+                  ? "bg-sys-card border-sys-accent/40 shadow-xs ring-1 ring-sys-accent/20"
                   : isPast
                   ? "bg-sys-card/60 border-sys-border/50 opacity-75 hover:opacity-100"
                   : "bg-sys-card border-sys-border"
               }`}
             >
               <div className="flex items-center justify-between gap-1.5">
-                <span className={`text-[17px] xl:text-[18px] font-bold capitalize tracking-tight truncate ${
-                  isToday ? "text-sys-accent" : "text-sys-text-primary"
-                }`}>
+                <span className="text-[17px] xl:text-[18px] font-bold capitalize tracking-tight truncate text-sys-text-primary">
                   {longWeekday(day.date)}
                 </span>
                 {isToday && (
-                  <span className="shrink-0 px-2 py-0.5 rounded-full bg-sys-accent text-xs font-extrabold text-[#0b1120] uppercase tracking-wider shadow-xs">
+                  <span className="shrink-0 px-2 py-0.5 rounded-full border border-sys-border bg-sys-surface text-[11px] font-medium text-sys-text-secondary inline-flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-sys-accent" />
                     Сьогодні
                   </span>
                 )}
@@ -321,16 +409,26 @@ export function ScheduleWeekGrid({
                 {lessonsForSlot.length > 0 ? (
                   <div className="flex flex-col gap-2 h-full">
                     {lessonsForSlot.map((lesson) => (
-                      <LessonCard
-                        key={`${lesson.id}-${lesson.lesson_number}`}
-                        lesson={lesson}
-                        targetDate={day.date}
-                        scheduleMode={scheduleMode}
-                        canEdit={canEdit}
-                        onQuickJump={onQuickJump}
-                        learningMode={day.learning_mode ?? null}
-                        mode="week"
-                      />
+                      desktopViewMode === "compact" ? (
+                        <CompactWeekCell
+                          key={`${lesson.id}-${lesson.lesson_number}`}
+                          lesson={lesson}
+                          targetDate={day.date}
+                          scheduleMode={scheduleMode}
+                          onQuickJump={onQuickJump}
+                        />
+                      ) : (
+                        <LessonCard
+                          key={`${lesson.id}-${lesson.lesson_number}`}
+                          lesson={lesson}
+                          targetDate={day.date}
+                          scheduleMode={scheduleMode}
+                          canEdit={canEdit}
+                          onQuickJump={onQuickJump}
+                          learningMode={day.learning_mode ?? null}
+                          mode="week"
+                        />
+                      )
                     ))}
                   </div>
                 ) : isWindow ? (
@@ -381,11 +479,12 @@ export function ScheduleWeekGrid({
                 }`}
               >
                 <div className="flex items-center justify-between gap-1">
-                  <span className={`text-base font-bold capitalize truncate ${isToday ? "text-sys-accent" : "text-sys-text-primary"}`}>
+                  <span className="text-base font-bold capitalize truncate text-sys-text-primary">
                     {longWeekday(day.date)}
                   </span>
                   {isToday && (
-                    <span className="shrink-0 px-2 py-0.5 rounded-full bg-sys-accent text-xs font-extrabold text-[#0b1120] uppercase">
+                    <span className="shrink-0 px-2 py-0.5 rounded-full border border-sys-border bg-sys-surface text-[11px] font-medium text-sys-text-secondary inline-flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-sys-accent" />
                       Сьогодні
                     </span>
                   )}

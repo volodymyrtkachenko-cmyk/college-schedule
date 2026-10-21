@@ -54,7 +54,7 @@ export function MobileTasksView({
   const scope = tasksScope ?? internalScope;
   const setScope = onTasksScopeChange ?? setInternalScope;
 
-  const [pastWeekOpen, setPastWeekOpen] = useState(false);
+  const [pastWeekOpen, setPastWeekOpen] = useState(true);
   const [userToggledOverdue, setUserToggledOverdue] = useState<boolean | null>(null);
   const overdueOpen = userToggledOverdue !== null ? userToggledOverdue : isLinked;
   const [activeOpen, setActiveOpen] = useState(true);
@@ -255,15 +255,12 @@ export function MobileTasksView({
               <button
                 type="button"
                 onClick={() => setPastWeekOpen(!(pastWeekOpen || filters.status === "overdue"))}
-                className="mb-2.5 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                className="mb-2 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
                 aria-expanded={pastWeekOpen || filters.status === "overdue"}
               >
-                <div className="flex items-center gap-2">
-                  <span className={`h-2 w-2 rounded-full shadow-xs ${isLinked ? "bg-rose-500" : "bg-slate-500"}`} />
-                  <h3 className={`text-xs font-bold uppercase tracking-wider ${isLinked ? "text-rose-400" : "text-slate-400"}`}>
-                    З минулих тижнів ({pastWeekTasks.length})
-                  </h3>
-                </div>
+                <h3 className="text-[13px] font-semibold text-sys-text-primary">
+                  З минулих тижнів · {pastWeekTasks.length}
+                </h3>
                 <span className="text-xs text-sys-text-muted">
                   {pastWeekOpen || filters.status === "overdue" ? "Згорнути ▴" : "Показати ▾"}
                 </span>
@@ -282,25 +279,12 @@ export function MobileTasksView({
               <button
                 type="button"
                 onClick={() => setUserToggledOverdue(!overdueOpen)}
-                className="mb-2.5 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                className="mb-2 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
                 aria-expanded={overdueOpen}
               >
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`h-2 w-2 rounded-full shadow-xs ${
-                      isLinked ? "bg-rose-500" : "bg-slate-500"
-                    }`}
-                  />
-                  <h3
-                    className={`text-xs font-bold uppercase tracking-wider ${
-                      isLinked ? "text-rose-400" : "text-slate-400"
-                    }`}
-                  >
-                    {isLinked
-                      ? `Прострочено (${overdueTasks.length})`
-                      : `Термін минув (${overdueTasks.length})`}
-                  </h3>
-                </div>
+                <h3 className="text-[13px] font-semibold text-sys-text-primary">
+                  {isLinked ? "Прострочено" : "Термін минув"} · {overdueTasks.length}
+                </h3>
                 <span className="text-xs text-sys-text-muted">
                   {overdueOpen ? "Згорнути ▴" : "Показати ▾"}
                 </span>
@@ -319,15 +303,12 @@ export function MobileTasksView({
               <button
                 type="button"
                 onClick={() => setActiveOpen(!activeOpen)}
-                className="mb-2.5 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                className="mb-2 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
                 aria-expanded={activeOpen}
               >
-                <div className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-sys-accent shadow-xs" />
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-sys-text-secondary">
-                    Активні ({activeTasks.length})
-                  </h3>
-                </div>
+                <h3 className="text-[13px] font-semibold text-sys-text-primary">
+                  Активні · {activeTasks.length}
+                </h3>
                 <span className="text-xs text-sys-text-muted">
                   {activeOpen ? "Згорнути ▴" : "Показати ▾"}
                 </span>
@@ -346,15 +327,12 @@ export function MobileTasksView({
               <button
                 type="button"
                 onClick={() => setNoDateOpen(!noDateOpen)}
-                className="mb-2.5 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                className="mb-2 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
                 aria-expanded={noDateOpen}
               >
-                <div className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-slate-400 shadow-xs" />
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">
-                    Без терміну ({noDateTasks.length})
-                  </h3>
-                </div>
+                <h3 className="text-[13px] font-semibold text-sys-text-primary">
+                  Без терміну · {noDateTasks.length}
+                </h3>
                 <span className="text-xs text-sys-text-muted">
                   {noDateOpen ? "Згорнути ▴" : "Показати ▾"}
                 </span>
@@ -383,15 +361,12 @@ export function MobileTasksView({
               <button
                 type="button"
                 onClick={() => setTurnedInOpen(!(turnedInOpen || filters.status === "done"))}
-                className="mb-2.5 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                className="mb-2 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
                 aria-expanded={turnedInOpen || filters.status === "done"}
               >
-                <div className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-xs" />
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-400">
-                    Здано ({turnedInTasks.length})
-                  </h3>
-                </div>
+                <h3 className="text-[13px] font-semibold text-sys-text-primary">
+                  Здано · {turnedInTasks.length}
+                </h3>
                 <span className="text-xs text-sys-text-muted">
                   {turnedInOpen || filters.status === "done" ? "Згорнути ▴" : "Показати ▾"}
                 </span>
