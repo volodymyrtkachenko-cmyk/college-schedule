@@ -29,8 +29,8 @@ const EVENT_META: Record<
   defense: {
     label: "Захист",
     icon: "🎓",
-    badgeClass: "bg-sys-accent/15 text-sys-accent border-sys-accent/30",
-    borderClass: "border-sys-accent/35 bg-gradient-to-r from-sys-accent/[0.06] to-sys-card",
+    badgeClass: "bg-purple-500/15 text-purple-300 border-purple-500/30",
+    borderClass: "border-purple-500/35 bg-gradient-to-r from-purple-500/[0.06] to-sys-card",
   },
   general: {
     label: "Подія",

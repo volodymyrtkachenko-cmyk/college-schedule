@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { ScheduleResponse, Lesson } from "../lib/api";
 import { buildTelegramShareText } from "../lib/format";
 import { useToast } from "./ToastProvider";
 import { LessonCard, QuickJumpTarget } from "./LessonCard";
 import { shareScheduleAsImage } from "../lib/shareImage";
-import { ScheduleCompactDay } from "./ScheduleCompactDay";
 
 const KYIV_DATE_FMT = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" });
 const KYIV_TIME_FMT = new Intl.DateTimeFormat("en-GB", {
@@ -26,53 +25,6 @@ function parseMin(t?: string): number | null {
   return Number.isNaN(h) || Number.isNaN(m) ? null : h * 60 + m;
 }
 
-export function ViewModeSwitcher({
-  mode,
-  onChange,
-}: {
-  mode: "compact" | "detailed";
-  onChange: (m: "compact" | "detailed") => void;
-}) {
-  return (
-    <div className="hidden lg:inline-flex items-center rounded-xl border border-sys-border bg-sys-surface p-0.5 text-xs">
-      <button
-        type="button"
-        onClick={() => onChange("compact")}
-        title="Компактний режим розкладу"
-        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
-          mode === "compact"
-            ? "bg-sys-accent/15 text-sys-accent border border-sys-accent/30 font-semibold"
-            : "text-sys-text-secondary hover:text-sys-text-primary border border-transparent"
-        }`}
-      >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <line x1="3" y1="6" x2="21" y2="6" />
-          <line x1="3" y1="12" x2="21" y2="12" />
-          <line x1="3" y1="18" x2="21" y2="18" />
-        </svg>
-        <span>Компактний</span>
-      </button>
-      <button
-        type="button"
-        onClick={() => onChange("detailed")}
-        title="Детальний режим розкладу"
-        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
-          mode === "detailed"
-            ? "bg-sys-accent/15 text-sys-accent border border-sys-accent/30 font-semibold"
-            : "text-sys-text-secondary hover:text-sys-text-primary border border-transparent"
-        }`}
-      >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="3" y="3" width="18" height="18" rx="2" />
-          <line x1="3" y1="9" x2="21" y2="9" />
-          <line x1="9" y1="21" x2="9" y2="9" />
-        </svg>
-        <span>Детальний</span>
-      </button>
-    </div>
-  );
-}
-
 /** Read-only or editable list of one day's lessons, with Telegram sharing, live break indicator, and cascade motion. */
 export function ScheduleDay({
   schedule,
@@ -89,13 +41,6 @@ export function ScheduleDay({
   onQuickJump,
   hideHeaderOnMobile = false,
   weekNumber,
-  desktopViewMode = "detailed",
-  onDesktopViewModeChange,
-  onOpenTasksDrawer,
-  taskCount = 0,
-  weekDays,
-  selectedDayIndex,
-  onSelectDayIndex,
 }: {
   schedule: ScheduleResponse;
   isToday?: boolean;
@@ -111,13 +56,6 @@ export function ScheduleDay({
   onQuickJump?: (target: QuickJumpTarget) => void;
   hideHeaderOnMobile?: boolean;
   weekNumber?: number | null;
-  desktopViewMode?: "compact" | "detailed";
-  onDesktopViewModeChange?: (mode: "compact" | "detailed") => void;
-  onOpenTasksDrawer?: () => void;
-  taskCount?: number;
-  weekDays?: { index: number; iso: string; name: string; dateStr: string }[];
-  selectedDayIndex?: number;
-  onSelectDayIndex?: (index: number) => void;
 }) {
   const { showToast } = useToast();
   const [kyivNow, setKyivNow] = useState<{ dateIso: string; minutes: number } | null>(null);
@@ -184,27 +122,10 @@ export function ScheduleDay({
     }
   };
 
-  const orderedLessons = useMemo(() => {
-    return [...schedule.lessons].sort(
-      (left, right) => left.lesson_number - right.lesson_number || left.id - right.id,
-    );
-  }, [schedule.lessons]);
 
-  const liveLessonId = useMemo(() => {
-    if (!isToday || !kyivNow) return null;
-    return orderedLessons.find((l) => {
-      const [s, e] = l.time.split(/[-–—]/).map(parseMin);
-      return s !== null && e !== null && kyivNow.minutes >= s && kyivNow.minutes < e && !l.is_cancelled;
-    })?.id ?? null;
-  }, [isToday, kyivNow, orderedLessons]);
-
-  const nextLessonId = useMemo(() => {
-    if (!isToday || !kyivNow || liveLessonId) return null;
-    return orderedLessons.find((l) => {
-      const [s] = l.time.split(/[-–—]/).map(parseMin);
-      return s !== null && kyivNow.minutes < s && !l.is_cancelled;
-    })?.id ?? null;
-  }, [isToday, kyivNow, liveLessonId, orderedLessons]);
+  const orderedLessons = [...schedule.lessons].sort(
+    (left, right) => left.lesson_number - right.lesson_number || left.id - right.id,
+  );
 
   const firstStart = orderedLessons.length > 0 ? parseMin(orderedLessons[0].time.split(/[-–—]/)[0]) : null;
   const isBeforeDayStart = Boolean(
@@ -216,89 +137,6 @@ export function ScheduleDay({
   );
   const timeToStart = isBeforeDayStart && firstStart !== null && kyivNow ? firstStart - kyivNow.minutes : 0;
 
-  const renderDetailedCards = () => {
-    if (!orderedLessons.length) {
-      return (
-        <div className="flex min-h-[200px] flex-col items-center justify-center rounded-2xl border border-dashed border-sys-border bg-sys-card/30 px-6 py-12 text-center text-sys-text-muted">
-          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-sys-bg border border-sys-border text-sys-accent shadow-xs">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" />
-              <path d="m9 16 2 2 4-4" />
-            </svg>
-          </div>
-          <p className="text-base font-semibold text-sys-text-primary">Пар немає</p>
-          <p className="text-xs text-sys-text-secondary mt-1">Розклад на цей день вільний</p>
-        </div>
-      );
-    }
-
-    return (
-      <motion.div
-        initial="hidden"
-        animate="visible"
-        variants={{
-          hidden: {},
-          visible: { transition: { staggerChildren: 0.02 } },
-        }}
-        className="flex flex-col gap-3"
-      >
-        {orderedLessons.map((lesson, idx) => {
-          const lessonKey = `${lesson.id}-${lesson.lesson_number}`;
-          const prev = idx > 0 ? orderedLessons[idx - 1] : null;
-          const prevEnd = prev ? parseMin(prev.time.split(/[-–—]/)[1]) : null;
-          const currStart = parseMin(lesson.time.split(/[-–—]/)[0]);
-          const isBreakNow = Boolean(
-            kyivNow &&
-            kyivNow.dateIso === schedule.date &&
-            prev &&
-            prev.lesson_number !== lesson.lesson_number &&
-            prevEnd !== null &&
-            currStart !== null &&
-            kyivNow.minutes >= prevEnd &&
-            kyivNow.minutes < currStart
-          );
-          const breakDuration = prevEnd !== null && currStart !== null ? currStart - prevEnd : 0;
-          const breakLeft = isBreakNow && currStart !== null && kyivNow ? currStart - kyivNow.minutes : 0;
-
-          return (
-            <motion.div
-              key={lessonKey}
-              variants={{
-                hidden: { opacity: 0, y: 8 },
-                visible: { opacity: 1, y: 0, transition: { duration: 0.18, ease: [0.2, 0, 0, 1] } },
-              }}
-              className="flex flex-col gap-2.5"
-            >
-              {isBreakNow && (
-                <div className="flex items-center justify-center gap-2 rounded-xl border border-sys-border bg-sys-card/60 px-3 py-1.5 text-xs font-semibold text-sys-text-secondary">
-                  <span>☕ Перерва{breakDuration > 0 ? ` ${breakDuration} хв` : ""}</span>
-                  <span>•</span>
-                  <span>до {lesson.lesson_number}-ї пари залишилось {breakLeft} хв</span>
-                </div>
-              )}
-              <LessonCard
-                lesson={lesson}
-                targetDate={schedule.date}
-                mode={mode}
-                learningMode={mode === "day" ? (schedule.learning_mode ?? null) : null}
-                isNext={lesson.id === nextLessonId}
-                scheduleMode={scheduleMode}
-                canEdit={canEdit}
-                onEdit={onEdit}
-                movingLesson={movingLesson}
-                onMoveSelect={onMoveSelect}
-                onCopySelect={onCopySelect}
-                onCancelDated={onCancelDated}
-                onRestoreDated={onRestoreDated}
-                onQuickJump={onQuickJump}
-              />
-            </motion.div>
-          );
-        })}
-      </motion.div>
-    );
-  };
-
   return (
     <section className="min-w-0">
       <header className={`mb-3.5 flex items-center justify-between gap-2 px-0 ${mode === "week" ? "min-h-[56px]" : "pt-1"} ${hideHeaderOnMobile ? "hidden sm:flex" : ""}`}>
@@ -306,15 +144,10 @@ export function ScheduleDay({
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex flex-wrap items-baseline gap-2">
               <div className="flex items-center gap-2.5">
-                <h2 className="text-xl sm:text-2xl lg:text-[26px] font-bold capitalize tracking-tight text-sys-text-primary">
+                {isToday && <span className="flex h-2.5 w-2.5 animate-pulse rounded-full bg-sys-accent shadow-[0_0_10px_rgba(59,130,246,0.9)]" />}
+                <h2 className={`text-xl sm:text-2xl lg:text-[26px] font-bold capitalize tracking-tight ${isToday ? "text-sys-accent" : "text-sys-text-primary"}`}>
                   {fmt(schedule.date, { weekday: "long" })}<span className="font-normal text-sys-text-secondary">,</span>
                 </h2>
-                {isToday && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border border-sys-border bg-sys-surface text-sys-text-secondary">
-                    <span className="w-1.5 h-1.5 rounded-full bg-sys-accent" />
-                    Сьогодні
-                  </span>
-                )}
               </div>
               <span className="text-sm sm:text-base lg:text-lg font-medium text-sys-text-secondary">
                 {fmt(schedule.date, { day: "numeric", month: "long" })}
@@ -324,12 +157,11 @@ export function ScheduleDay({
         ) : (
           <div className="flex flex-col justify-center min-h-[56px] min-w-0 flex-1">
             <div className="flex items-center justify-between gap-1">
-              <h2 className="text-base sm:text-lg font-bold capitalize tracking-tight truncate text-sys-text-primary">
+              <h2 className={`text-base sm:text-lg font-bold capitalize tracking-tight truncate ${isToday ? "text-sys-accent" : "text-sys-text-primary"}`}>
                 {fmt(schedule.date, { weekday: "long" })}
               </h2>
               {isToday && (
-                <span className="shrink-0 px-2 py-0.5 rounded-full border border-sys-border bg-sys-surface text-[11px] font-medium text-sys-text-secondary inline-flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-sys-accent" />
+                <span className="shrink-0 px-1.5 py-0.5 rounded-full bg-sys-accent text-xs font-extrabold text-[#0b1120] uppercase">
                   Сьогодні
                 </span>
               )}
@@ -342,88 +174,80 @@ export function ScheduleDay({
           </div>
         )}
 
-        {mode === "day" && (
+        {mode === "day" && orderedLessons.length > 0 && (
           <div className="flex items-center gap-2">
-            {/* Slide-over Tasks button in compact mode (desktop) */}
-            {desktopViewMode === "compact" && onOpenTasksDrawer && (
-              <button
-                type="button"
-                onClick={onOpenTasksDrawer}
-                className="hidden lg:inline-flex items-center gap-1.5 px-3 h-9 rounded-xl border border-transparent text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-surface transition-colors cursor-pointer"
-                title="Відкрити список завдань"
-              >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M16 4h2a2 2 0 0 1 2 2v14l-8-4-8 4V6a2 2 0 0 1 2-2h2" />
-                  <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
-                </svg>
-                <span>Завдання{taskCount > 0 ? ` · ${taskCount}` : ""}</span>
-              </button>
-            )}
-
-            {/* Desktop Mode Switcher */}
-            {onDesktopViewModeChange && (
-              <ViewModeSwitcher
-                mode={desktopViewMode}
-                onChange={onDesktopViewModeChange}
-              />
-            )}
-
-            {orderedLessons.length > 0 && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => void handleShareImage()}
-                  disabled={sharingImage}
-                  title="Скопіювати або зберегти розклад як PNG-картинку"
-                  aria-label="Поділитися картинкою розкладу"
-                  className="h-9 px-3 gap-1.5 flex items-center justify-center rounded-xl border border-sys-borderStrong bg-sys-surface text-xs font-semibold text-sys-text-primary transition-all hover:bg-sys-surfaceHover active:scale-95 disabled:opacity-50"
-                >
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
-                    <circle cx="9" cy="9" r="2" />
-                    <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
-                  </svg>
-                  <span className="hidden sm:inline">Зберегти картинку</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleShareDay}
-                  title="Скопіювати розклад"
-                  aria-label="Скопіювати розклад дня"
-                  className="h-9 px-3 gap-1.5 flex items-center justify-center rounded-xl border border-sys-borderStrong bg-sys-surface text-xs font-semibold text-sys-text-primary transition-all hover:bg-sys-surfaceHover active:scale-95"
-                >
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
-                    <polyline points="16 6 12 2 8 6" />
-                    <line x1="12" y1="2" x2="12" y2="15" />
-                  </svg>
-                  <span className="hidden sm:inline">Поділитися</span>
-                </button>
-              </>
-            )}
+            <button
+              type="button"
+              onClick={() => void handleShareImage()}
+              disabled={sharingImage}
+              title="Скопіювати або зберегти розклад як PNG-картинку"
+              aria-label="Поділитися картинкою розкладу"
+              className="h-9 px-3 gap-1.5 flex items-center justify-center rounded-xl border border-sys-border bg-sys-card text-xs font-semibold text-sys-text-secondary transition-all hover:border-sys-accent/40 hover:text-sys-accent hover:bg-sys-accent/5 active:scale-95 disabled:opacity-50"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+                <circle cx="9" cy="9" r="2" />
+                <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+              </svg>
+              <span className="hidden sm:inline">Зберегти картинку</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleShareDay}
+              title="Скопіювати розклад"
+              aria-label="Скопіювати розклад дня"
+              className="h-9 px-3 gap-1.5 flex items-center justify-center rounded-xl border border-sys-border bg-sys-card text-xs font-semibold text-sys-text-secondary transition-all hover:border-sys-accent/40 hover:text-sys-accent hover:bg-sys-accent/5 active:scale-95"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+                <polyline points="16 6 12 2 8 6" />
+                <line x1="12" y1="2" x2="12" y2="15" />
+              </svg>
+              <span className="hidden sm:inline">Поділитися</span>
+            </button>
           </div>
         )}
       </header>
 
       {/* Оголошення про виняток режиму навчання */}
       {schedule.learning_mode_override && (
-        <div className="mb-3 flex items-start gap-2.5 rounded-2xl border border-sys-border bg-sys-surface px-3.5 py-2.5 text-xs sm:text-sm shadow-xs">
-          <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-sys-border text-sys-text-secondary text-[11px] font-bold">
+        <div
+          className={`mb-3 flex items-start gap-3 rounded-2xl border px-3.5 py-3 text-xs sm:text-sm shadow-xs ${
+            schedule.learning_mode_override.mode === "offline"
+              ? "border-sys-accent/35 bg-sys-accent/10 text-sys-text-primary"
+              : "border-sys-warning/35 bg-sys-warning/10 text-sys-text-primary"
+          }`}
+        >
+          <span
+            className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+              schedule.learning_mode_override.mode === "offline"
+                ? "bg-sys-accent/20 text-sys-accent"
+                : "bg-sys-warning/20 text-sys-warning"
+            }`}
+          >
             !
           </span>
-          <div className="min-w-0 flex-1 leading-relaxed">
-            <span className="font-semibold text-sys-text-primary">
-              {schedule.learning_mode_override.mode === "offline"
-                ? "Очне навчання"
-                : "Дистанційне навчання"}
-            </span>
-            <span className="text-xs text-sys-text-secondary ml-2">
-              {schedule.learning_mode_override.start === schedule.learning_mode_override.end
-                ? fmt(schedule.learning_mode_override.start, { day: "numeric", month: "long" })
-                : `${fmt(schedule.learning_mode_override.start, { day: "numeric", month: "short" })} – ${fmt(schedule.learning_mode_override.end, { day: "numeric", month: "short" })}`}
-            </span>
+          <div className="min-w-0 flex-1 whitespace-normal break-words leading-relaxed">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+              <span
+                className={`font-bold ${
+                  schedule.learning_mode_override.mode === "offline"
+                    ? "text-sys-accent"
+                    : "text-sys-warning"
+                }`}
+              >
+                {schedule.learning_mode_override.mode === "offline"
+                  ? "Очне навчання"
+                  : "Дистанційне навчання"}
+              </span>
+              <span className="text-xs text-sys-text-secondary">
+                {schedule.learning_mode_override.start === schedule.learning_mode_override.end
+                  ? fmt(schedule.learning_mode_override.start, { day: "numeric", month: "long" })
+                  : `${fmt(schedule.learning_mode_override.start, { day: "numeric", month: "short" })} – ${fmt(schedule.learning_mode_override.end, { day: "numeric", month: "short" })}`}
+              </span>
+            </div>
             {schedule.learning_mode_override.reason && (
-              <p className="mt-0.5 text-xs text-sys-text-secondary">
+              <p className="mt-1 text-xs sm:text-[13px] text-sys-text-secondary whitespace-normal break-words">
                 {schedule.learning_mode_override.reason}
               </p>
             )}
@@ -446,51 +270,80 @@ export function ScheduleDay({
         </div>
       )}
 
-      {/* Compact vs Detailed Render */}
-      {mode === "day" && desktopViewMode === "compact" ? (
-        <>
-          {/* On desktop (>= 1024px): Horizontal tabs and 52px compact rows */}
-          <div className="hidden lg:block">
-            {weekDays && onSelectDayIndex && (
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 mb-3.5 border-b border-sys-borderSubtle">
-                {weekDays.map((d) => {
-                  const isActive = d.index === selectedDayIndex;
-                  const isTodayTab = d.iso === kyivNow?.dateIso;
-                  return (
-                    <button
-                      key={d.iso}
-                      type="button"
-                      onClick={() => onSelectDayIndex(d.index)}
-                      className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs transition-all cursor-pointer ${
-                        isActive
-                          ? "bg-sys-accent/15 text-sys-accent border border-sys-accent/30 font-semibold"
-                          : "border border-sys-border bg-sys-surface text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-borderStrong font-medium"
-                      }`}
-                    >
-                      <span>{d.name}, {d.dateStr}</span>
-                      {isTodayTab && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-sys-accent" title="Сьогодні" />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-            <ScheduleCompactDay
-              schedule={schedule}
-              isToday={isToday}
-              scheduleMode={scheduleMode}
-              onQuickJump={onQuickJump}
-            />
-          </div>
+      {orderedLessons.length ? (
+        <motion.div
+          initial="hidden"
+          animate="visible"
+          variants={{
+            hidden: {},
+            visible: { transition: { staggerChildren: 0.02 } },
+          }}
+          className="flex flex-col gap-3"
+        >
+          {orderedLessons.map((lesson, idx) => {
+            const lessonKey = `${lesson.id}-${lesson.lesson_number}`;
+            const prev = idx > 0 ? orderedLessons[idx - 1] : null;
+            const prevEnd = prev ? parseMin(prev.time.split(/[-–—]/)[1]) : null;
+            const currStart = parseMin(lesson.time.split(/[-–—]/)[0]);
+            const isBreakNow = Boolean(
+              kyivNow &&
+              kyivNow.dateIso === schedule.date &&
+              prev &&
+              prev.lesson_number !== lesson.lesson_number &&
+              prevEnd !== null &&
+              currStart !== null &&
+              kyivNow.minutes >= prevEnd &&
+              kyivNow.minutes < currStart
+            );
+            const breakDuration = prevEnd !== null && currStart !== null ? currStart - prevEnd : 0;
+            const breakLeft = isBreakNow && currStart !== null && kyivNow ? currStart - kyivNow.minutes : 0;
 
-          {/* On mobile (< 1024px): Standard cards */}
-          <div className="lg:hidden">
-            {renderDetailedCards()}
-          </div>
-        </>
+            return (
+              <motion.div
+                key={lessonKey}
+                variants={{
+                  hidden: { opacity: 0, y: 8 },
+                  visible: { opacity: 1, y: 0, transition: { duration: 0.18, ease: [0.2, 0, 0, 1] } },
+                }}
+                className="flex flex-col gap-2.5"
+              >
+                {isBreakNow && (
+                  <div className="flex items-center justify-center gap-2 rounded-xl border border-sys-border bg-sys-card/60 px-3 py-1.5 text-xs font-semibold text-sys-text-secondary">
+                    <span>☕ Перерва{breakDuration > 0 ? ` ${breakDuration} хв` : ""}</span>
+                    <span>•</span>
+                    <span>до {lesson.lesson_number}-ї пари залишилось {breakLeft} хв</span>
+                  </div>
+                )}
+                <LessonCard
+                  lesson={lesson}
+                  targetDate={schedule.date}
+                  mode={mode}
+                  learningMode={mode === "day" ? (schedule.learning_mode ?? null) : null}
+                  scheduleMode={scheduleMode}
+                  canEdit={canEdit}
+                  onEdit={onEdit}
+                  movingLesson={movingLesson}
+                  onMoveSelect={onMoveSelect}
+                  onCopySelect={onCopySelect}
+                  onCancelDated={onCancelDated}
+                  onRestoreDated={onRestoreDated}
+                  onQuickJump={onQuickJump}
+                />
+              </motion.div>
+            );
+          })}
+        </motion.div>
       ) : (
-        renderDetailedCards()
+        <div className="flex min-h-[200px] flex-col items-center justify-center rounded-2xl border border-dashed border-sys-border bg-sys-card/30 px-6 py-12 text-center text-sys-text-muted">
+          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-sys-bg border border-sys-border text-sys-accent shadow-xs">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" />
+              <path d="m9 16 2 2 4-4" />
+            </svg>
+          </div>
+          <p className="text-base font-semibold text-sys-text-primary">Пар немає</p>
+          <p className="text-xs text-sys-text-secondary mt-1">Розклад на цей день вільний</p>
+        </div>
       )}
     </section>
   );

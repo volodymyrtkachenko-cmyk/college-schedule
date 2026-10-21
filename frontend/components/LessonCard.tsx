@@ -134,10 +134,10 @@ function getRoomBadgeMeta(room: string) {
     return { icon: "🏃", tone: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" };
   }
   if (lower.includes("онлайн") || lower.includes("дистанц") || lower.includes("zoom") || lower.includes("meet")) {
-    return { icon: "💻", tone: "border-sys-borderSubtle bg-sys-surface text-sys-text-secondary" };
+    return { icon: "💻", tone: "border-sky-500/30 bg-sky-500/10 text-sky-300" };
   }
   if (lower.includes("лаб") || lower.includes("майст")) {
-    return { icon: "🔬", tone: "border-sys-border bg-sys-surface text-sys-text-secondary" };
+    return { icon: "🔬", tone: "border-purple-500/30 bg-purple-500/10 text-purple-300" };
   }
   return { icon: "🚪", tone: "border-sys-border bg-sys-tabActive text-sys-text-primary" };
 }
@@ -170,8 +170,8 @@ function getEventBadge(eventType?: string | null, eventTitle?: string | null) {
       return {
         label: "🎓 Захист",
         title: eventTitle || "Захист",
-        badgeClass: "border-sys-accent/40 bg-sys-accent/15 text-sys-accent",
-        cardClass: "border-sys-accent/40 ring-1 ring-sys-accent/40 bg-gradient-to-br from-sys-accent/10 via-sys-card to-sys-card",
+        badgeClass: "border-purple-500/40 bg-purple-500/15 text-purple-300",
+        cardClass: "border-purple-500/40 ring-1 ring-purple-500/40 bg-gradient-to-br from-purple-950/20 via-sys-card to-sys-card",
       };
     default:
       return {
@@ -591,11 +591,9 @@ export function LessonCard({
   onDeleteTemplate,
   onRemoveReplacement,
   learningMode = null,
-  isNext = false,
 }: {
   lesson: Lesson;
   learningMode?: "offline" | "online" | null;
-  isNext?: boolean;
   targetDate: string;
   mode: "today" | "week" | "day";
   scheduleMode: "student" | "teacher" | "admin";
@@ -916,18 +914,16 @@ export function LessonCard({
     : isSelected
       ? "border-sys-accent ring-2 ring-sys-accent/60 bg-sys-accent/10"
       : lesson.is_cancelled
-        ? "border-sys-borderSubtle border-dashed bg-rose-500/[0.02] opacity-80"
+        ? "border-rose-500/40 border-dashed bg-rose-500/[0.04] opacity-80"
         : isLive
-          ? "border-l-[3px] border-l-sys-accent border-sys-borderSubtle bg-gradient-to-r from-sys-accent/[0.08] via-sys-card to-sys-card shadow-[0_0_20px_rgba(56,189,248,0.12)]"
-          : isNext
-            ? "border-l-[3px] border-l-sys-accent border-sys-borderSubtle bg-sys-card"
-            : eventBadge
-              ? eventBadge.cardClass
-              : lesson.is_replacement
-                ? "border-sys-borderSubtle bg-sys-card"
-                : isSelectedForMove
-                  ? "border-emerald-400 ring-1 ring-emerald-400/70"
-                  : "border-sys-borderSubtle";
+          ? "border-sys-accent/60 ring-1 ring-sys-accent/50 bg-gradient-to-r from-sys-accent/[0.08] via-sys-card to-sys-card shadow-[0_0_20px_rgba(56,189,248,0.12)]"
+          : eventBadge
+            ? eventBadge.cardClass
+            : lesson.is_replacement
+              ? "border-sys-warning/40 ring-1 ring-sys-warning/60 bg-sys-warning/[0.03]"
+              : isSelectedForMove
+                ? "border-emerald-400 ring-1 ring-emerald-400/70"
+                : "border-sys-border";
 
   const renderStatusBadge = (compact = false) => {
     const baseCls = compact
@@ -977,8 +973,8 @@ export function LessonCard({
       <span
         className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider ${
           lesson.week_type === "numerator"
-            ? "border-sys-borderSubtle bg-sys-surface text-sys-text-secondary"
-            : "border-sys-borderSubtle bg-sys-surface text-sys-text-secondary"
+            ? "border-sky-500/30 bg-sky-500/10 text-sky-300"
+            : "border-purple-500/30 bg-purple-500/10 text-purple-300"
         }`}
       >
         {lesson.week_type === "numerator" ? "Чисельник" : "Знаменник"}
@@ -1231,17 +1227,12 @@ export function LessonCard({
                   {endT || DEFAULT_LESSON_TIMES[lesson.lesson_number]?.split("-")[1] || ""}
                 </span>
               </div>
-              {isLive ? (
+              {isLive && (
                 <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-sys-accent/15 border border-sys-accent/30 px-2.5 py-0.5 text-xs font-bold text-sys-accent whitespace-nowrap">
                   <span className="h-1.5 w-1.5 animate-ping rounded-full bg-sys-accent shrink-0" />
                   <span>ще {remainingMin} хв</span>
                 </div>
-              ) : isNext ? (
-                <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-sys-border bg-sys-surface px-2.5 py-0.5 text-xs font-semibold text-sys-text-secondary whitespace-nowrap">
-                  <span className="h-1.5 w-1.5 rounded-full bg-sys-accent shrink-0" />
-                  <span>Далі · {startT}</span>
-                </div>
-              ) : null}
+              )}
             </div>
           )}
 
@@ -1273,7 +1264,21 @@ export function LessonCard({
                         >
                           {singleSubgroupIdx + 1} підгр.
                         </button>
-                        
+                        <svg
+                          width="13"
+                          height="13"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="text-sys-text-muted shrink-0"
+                          aria-hidden="true"
+                        >
+                          <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                          <circle cx="12" cy="7" r="4" />
+                        </svg>
                         {onQuickJump ? (
                           <button
                             type="button"
@@ -1320,7 +1325,21 @@ export function LessonCard({
                                 >
                                   {subNum} підгр.
                                 </button>
-                                
+                                <svg
+                                  width="13"
+                                  height="13"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="1.5"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  className="text-sys-text-muted shrink-0"
+                                  aria-hidden="true"
+                                >
+                                  <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                                  <circle cx="12" cy="7" r="4" />
+                                </svg>
                                 {onQuickJump ? (
                                   <button
                                     type="button"
@@ -1377,7 +1396,10 @@ export function LessonCard({
                     )
                   ) : secondaryItems.length > 0 ? (
                     <>
-                      
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-sys-text-muted shrink-0">
+                        <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                        <circle cx="12" cy="7" r="4" />
+                      </svg>
                       {secondaryItems.map((item, idx) => (
                         <span key={idx}>
                           {idx > 0 && <span className="text-sys-text-muted"> / </span>}
@@ -1523,6 +1545,8 @@ export function LessonCard({
                       ? "inset 3px 0 0 #ef4444"
                       : tasks[0].deadline.badgeTone === "urgent"
                       ? "inset 3px 0 0 #f59e0b"
+                      : tasks[0].deadline.formattedDate
+                      ? "inset 3px 0 0 #8b5cf6"
                       : undefined,
                 }}
               >
@@ -1547,7 +1571,7 @@ export function LessonCard({
                             ? isLinked ? "#f87171" : "#a1a1aa"
                             : tasks[0].deadline.badgeTone === "urgent"
                             ? "#fbbf24"
-                            : "#a1a1aa",
+                            : "#c084fc",
                       }}
                     >
                       <span
@@ -1558,7 +1582,7 @@ export function LessonCard({
                               ? isLinked ? "#ef4444" : "#71717a"
                               : tasks[0].deadline.badgeTone === "urgent"
                               ? "#f59e0b"
-                              : "#71717a",
+                              : "#8b5cf6",
                         }}
                       />
                       <span>{getTaskStatusText(tasks[0].deadline, isLinked)}</span>
@@ -1579,6 +1603,8 @@ export function LessonCard({
                       ? "inset 3px 0 0 #ef4444"
                       : tasks[0].deadline.badgeTone === "urgent"
                       ? "inset 3px 0 0 #f59e0b"
+                      : tasks[0].deadline.formattedDate
+                      ? "inset 3px 0 0 #8b5cf6"
                       : undefined,
                 }}
               >
@@ -1626,7 +1652,7 @@ export function LessonCard({
                               ? isLinked ? "#f87171" : "#a1a1aa"
                               : tasks[0].deadline.badgeTone === "urgent"
                               ? "#fbbf24"
-                              : "#a1a1aa",
+                              : "#c084fc",
                         }}
                       >
                         <span
@@ -1637,7 +1663,7 @@ export function LessonCard({
                                 ? isLinked ? "#ef4444" : "#71717a"
                                 : tasks[0].deadline.badgeTone === "urgent"
                                 ? "#f59e0b"
-                                : "#71717a",
+                                : "#8b5cf6",
                           }}
                         />
                         <span>{getTaskStatusText(tasks[0].deadline, isLinked)}</span>
@@ -1691,7 +1717,7 @@ export function LessonCard({
                                     ? isLinked ? "#f87171" : "#a1a1aa"
                                     : task.deadline.badgeTone === "urgent"
                                     ? "#fbbf24"
-                                    : "#a1a1aa",
+                                    : "#c084fc",
                               }}
                             >
                               {getTaskStatusText(task.deadline, isLinked)}
@@ -1850,7 +1876,7 @@ export function LessonCard({
                           <rect x="1" y="5" width="15" height="14" rx="2" />
                         </svg>
                       )}
-                      <span>{isMeetingLiveOrSoon ? "Приєднатися" : mobileMeeting.platform === "zoom" ? "Zoom" : mobileMeeting.platform === "meet" ? "Meet" : "Онлайн"}</span>
+                      <span>{mobileMeeting.platform === "zoom" ? "Zoom" : mobileMeeting.platform === "meet" ? "Meet" : "Онлайн"}</span>
                       <span className="text-xs opacity-75">↗</span>
                     </a>
                   )}
@@ -1885,7 +1911,21 @@ export function LessonCard({
                   >
                     {singleSubgroupIdx + 1} підгр.
                   </button>
-                  
+                  <svg
+                    width="13"
+                    height="13"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="text-sys-text-muted shrink-0"
+                    aria-hidden="true"
+                  >
+                    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                    <circle cx="12" cy="7" r="4" />
+                  </svg>
                   {onQuickJump ? (
                     <button
                       type="button"
@@ -1932,7 +1972,21 @@ export function LessonCard({
                           >
                             {subNum} підгр.
                           </button>
-                          
+                          <svg
+                            width="13"
+                            height="13"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="text-sys-text-muted shrink-0"
+                            aria-hidden="true"
+                          >
+                            <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                            <circle cx="12" cy="7" r="4" />
+                          </svg>
                           {onQuickJump ? (
                             <button
                               type="button"
@@ -2060,7 +2114,7 @@ export function LessonCard({
                       <rect x="1" y="5" width="15" height="14" rx="2" />
                     </svg>
                   )}
-                  <span>{isMeetingLiveOrSoon ? "Приєднатися" : mobileMeeting.platform === "zoom" ? "Zoom" : mobileMeeting.platform === "meet" ? "Meet" : "Онлайн"}</span>
+                  <span>{mobileMeeting.platform === "zoom" ? "Zoom" : mobileMeeting.platform === "meet" ? "Meet" : "Онлайн"}</span>
                   <span className="text-xs opacity-75">↗</span>
                 </a>
               )}
@@ -2084,6 +2138,8 @@ export function LessonCard({
                     ? "inset 3px 0 0 #ef4444"
                     : tasks[0].deadline.badgeTone === "urgent"
                     ? "inset 3px 0 0 #f59e0b"
+                    : tasks[0].deadline.formattedDate
+                    ? "inset 3px 0 0 #8b5cf6"
                     : undefined,
               }}
             >
@@ -2142,6 +2198,8 @@ export function LessonCard({
                     ? "inset 3px 0 0 #ef4444"
                     : tasks[0].deadline.badgeTone === "urgent"
                     ? "inset 3px 0 0 #f59e0b"
+                    : tasks[0].deadline.formattedDate
+                    ? "inset 3px 0 0 #8b5cf6"
                     : undefined,
               }}
             >
@@ -2187,7 +2245,7 @@ export function LessonCard({
                             ? isLinked ? "#f87171" : "#a1a1aa"
                             : tasks[0].deadline.badgeTone === "urgent"
                             ? "#fbbf24"
-                            : "#a1a1aa",
+                            : "#c084fc",
                       }}
                     >
                       <span
@@ -2198,7 +2256,7 @@ export function LessonCard({
                               ? isLinked ? "#ef4444" : "#71717a"
                               : tasks[0].deadline.badgeTone === "urgent"
                               ? "#f59e0b"
-                              : "#71717a",
+                              : "#8b5cf6",
                         }}
                       />
                       <span>{getTaskStatusText(tasks[0].deadline, isLinked)}</span>
@@ -2333,7 +2391,21 @@ export function LessonCard({
                 >
                   {singleSubgroupIdx + 1} підгр.
                 </button>
-                
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="text-sys-text-muted shrink-0"
+                  aria-hidden="true"
+                >
+                  <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
                 {onQuickJump ? (
                   <button
                     type="button"
@@ -2380,7 +2452,21 @@ export function LessonCard({
                         >
                           {subNum} підгр.
                         </button>
-                        
+                        <svg
+                          width="12"
+                          height="12"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="text-sys-text-muted shrink-0"
+                          aria-hidden="true"
+                        >
+                          <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                          <circle cx="12" cy="7" r="4" />
+                        </svg>
                         {onQuickJump ? (
                           <button
                             type="button"
@@ -2534,7 +2620,7 @@ export function LessonCard({
                       ? "border-rose-500/40 bg-sys-card text-rose-300 hover:border-rose-500/60"
                       : tasks[0].deadline.badgeTone === "urgent"
                       ? "border-amber-500/40 bg-sys-card text-amber-300 hover:border-amber-500/60"
-                      : "border-sys-border bg-sys-surface text-sys-text-secondary hover:text-sys-text-primary"
+                      : "border-sys-border bg-sys-card text-purple-200 hover:border-purple-500/50"
                   }`}
                 >
                   {tasks[0].deadline.badgeTone === "overdue" && isLinked ? (

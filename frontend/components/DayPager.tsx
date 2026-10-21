@@ -191,27 +191,16 @@ export function DayPager({
   const showTodayChip = !isToday && !!onJumpToToday;
   const dayParts = formatDayParts(schedule.date);
   const learningModeBadge = schedule.learning_mode ? (
-    <span className="shrink-0 rounded-full border border-sys-border bg-sys-surface px-2.5 py-0.5 text-xs font-medium text-sys-text-secondary inline-flex items-center gap-1.5">
-      <span className="w-1.5 h-1.5 rounded-full bg-sys-text-tertiary" />
+    <span
+      className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-bold ${
+        schedule.learning_mode === "offline"
+          ? "border-sys-accent/30 bg-sys-accent/10 text-sys-accent"
+          : "border-sys-warning/30 bg-sys-warning/10 text-sys-warning"
+      }`}
+    >
       {schedule.learning_mode === "offline" ? "Очно" : "Дистанційно"}
     </span>
   ) : null;
-
-  const liveLessonId = useMemo(() => {
-    if (!isToday || !kyivNow) return null;
-    return orderedLessons.find((l) => {
-      const [s, e] = l.time.split(/[-–—]/).map(parseMin);
-      return s !== null && e !== null && kyivNow.minutes >= s && kyivNow.minutes < e && !l.is_cancelled;
-    })?.id ?? null;
-  }, [isToday, kyivNow, orderedLessons]);
-
-  const nextLessonId = useMemo(() => {
-    if (!isToday || !kyivNow || liveLessonId) return null;
-    return orderedLessons.find((l) => {
-      const [s] = l.time.split(/[-–—]/).map(parseMin);
-      return s !== null && kyivNow.minutes < s && !l.is_cancelled;
-    })?.id ?? null;
-  }, [isToday, kyivNow, liveLessonId, orderedLessons]);
 
   const firstStart = orderedLessons.length > 0 ? parseMin(orderedLessons[0].time.split(/[-–—]/)[0]) : null;
   const isBeforeDayStart = Boolean(
@@ -263,16 +252,13 @@ export function DayPager({
       {/* Day header: як на ПК — «Понеділок, 20 жовтня» + кнопки поділитися (44x44px) */}
       <header className="mb-3.5 flex items-center justify-between gap-2 px-0 pt-1">
         <div className="flex flex-wrap items-baseline gap-2 min-w-0">
-          <div className="flex items-center gap-2 min-w-0">
-            <h2 className="text-xl font-bold capitalize tracking-tight truncate text-sys-text-primary">
+          <div className="flex items-center gap-2.5 min-w-0">
+            {isToday && (
+              <span className="flex h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-sys-accent shadow-[0_0_10px_rgba(59,130,246,0.9)]" />
+            )}
+            <h2 className={`text-xl font-bold capitalize tracking-tight truncate ${isToday ? "text-sys-accent" : "text-sys-text-primary"}`}>
               {dayParts.weekday}<span className="font-normal text-sys-text-secondary">,</span>
             </h2>
-            {isToday && (
-              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium border border-sys-border bg-sys-surface text-sys-text-secondary">
-                <span className="w-1.5 h-1.5 rounded-full bg-sys-accent" />
-                Сьогодні
-              </span>
-            )}
           </div>
           <span className="text-sm font-medium text-sys-text-secondary">{dayParts.dayMonth}</span>
           {learningModeBadge}
@@ -286,7 +272,7 @@ export function DayPager({
               disabled={sharingImage}
               title="Скопіювати або зберегти розклад як PNG-картинку"
               aria-label="Поділитися картинкою розкладу"
-              className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-sys-borderStrong bg-sys-surface text-sys-text-primary transition-all hover:bg-sys-surfaceHover active:scale-95 disabled:opacity-50"
+              className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-sys-border bg-sys-card text-sys-text-secondary transition-all hover:border-sys-accent/40 hover:text-sys-accent active:scale-95 disabled:opacity-50"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
                 <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
@@ -299,7 +285,7 @@ export function DayPager({
               onClick={handleShareDay}
               title="Скопіювати розклад дня"
               aria-label="Скопіювати розклад дня"
-              className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-sys-borderStrong bg-sys-surface text-sys-text-primary transition-all hover:bg-sys-surfaceHover active:scale-95"
+              className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-sys-border bg-sys-card text-sys-text-secondary transition-all hover:border-sys-accent/40 hover:text-sys-accent active:scale-95"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
@@ -385,7 +371,6 @@ export function DayPager({
                     targetDate={schedule.date}
                     mode="day"
                     learningMode={schedule.learning_mode ?? null}
-                    isNext={lesson.id === nextLessonId}
                     scheduleMode={scheduleMode}
                     canEdit={canEdit}
                     onEdit={onEdit}

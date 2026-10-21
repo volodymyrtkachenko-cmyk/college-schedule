@@ -334,22 +334,16 @@ export function ClassroomSyncButton({
       }
       className={
         needsReconnect
-          ? "inline-flex h-9 items-center gap-1.5 rounded-xl border border-amber-500/50 bg-amber-500/10 px-3 text-xs font-semibold text-amber-300 transition-colors hover:bg-amber-500/20 disabled:opacity-50"
+          ? "inline-flex h-8 sm:h-9 items-center gap-1.5 rounded-lg border border-amber-500/50 bg-amber-500/15 px-2.5 sm:px-3 text-xs font-semibold text-amber-300 transition-colors hover:bg-amber-500/25 disabled:opacity-50"
           : isLinked
-          ? "inline-flex h-9 items-center gap-1.5 rounded-xl border border-transparent px-2.5 text-xs font-medium text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/5 transition-colors disabled:opacity-50"
-          : "inline-flex h-9 items-center gap-1.5 rounded-xl bg-sys-accent text-white px-3 text-xs font-semibold shadow-xs hover:bg-sys-accentHover active:scale-95 transition-all disabled:opacity-50"
+          ? "inline-flex h-8 sm:h-9 items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 sm:px-3 text-xs font-semibold text-emerald-300 transition-colors hover:bg-emerald-500/20 disabled:opacity-50"
+          : "inline-flex h-8 sm:h-9 items-center gap-1.5 rounded-lg border border-sky-500/30 bg-sky-500/10 px-2.5 sm:px-3 text-xs font-semibold text-sky-300 transition-colors hover:bg-sky-500/20 disabled:opacity-50"
       }
     >
-      {isLinked && !needsReconnect ? (
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-text-muted">
-          <polyline points="20 6 9 17 4 12" />
-        </svg>
-      ) : (
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-          <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
-          <path d="M6 12v5c3 3 9 3 12 0v-5" />
-        </svg>
-      )}
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+        <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
+        <path d="M6 12v5c3 3 9 3 12 0v-5" />
+      </svg>
       <span className="hidden sm:inline">
         {syncing
           ? "Синхронізація..."
@@ -359,9 +353,14 @@ export function ClassroomSyncButton({
               ? "Classroom"
               : "Прив'язати Classroom"}
       </span>
-      {needsReconnect && !syncing && (
-        <span className="h-1.5 w-1.5 rounded-full shrink-0 bg-amber-400 animate-pulse" />
-      )}
+      {needsReconnect && !syncing ? (
+        <span className="h-2 w-2 rounded-full shrink-0 bg-amber-400 animate-pulse" />
+      ) : isLinked && !syncing ? (
+        <span
+          title={`Classroom прив'язано (${linkedEmail})`}
+          className="h-2 w-2 rounded-full shrink-0 bg-emerald-400"
+        />
+      ) : null}
     </button>
   );
 }
