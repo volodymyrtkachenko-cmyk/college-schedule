@@ -947,3 +947,182 @@ def test_alembic_migration_copies_and_encrypts_legacy_binding_token():
         engine.dispose()
 
 
+def test_resolve_matched_teacher_surname_latin_and_subgroup_labels():
+    class DummyDualLesson:
+        def __init__(self):
+            self.teacher_name = "Токарєва Т.В. / Хочинська Л.О."
+            self.second_teacher_id = 2
+
+    lesson = DummyDualLesson()
+
+    # Subgroup keywords in course title
+    assert classroom_router._resolve_matched_teacher_surname(lesson, [], "іноземна мова 1 підгрупа") == "Токарєва"
+    assert classroom_router._resolve_matched_teacher_surname(lesson, [], "англійська мова 2 підгрупа") == "Хочинська"
+    assert classroom_router._resolve_matched_teacher_surname(lesson, [], "1-ша підгрупа англійська") == "Токарєва"
+    assert classroom_router._resolve_matched_teacher_surname(lesson, [], "2-га підгрупа англійська") == "Хочинська"
+
+    # Latin spelling in Google account profile
+    assert classroom_router._resolve_matched_teacher_surname(lesson, ["tokareva"], "") == "Токарєва"
+    assert classroom_router._resolve_matched_teacher_surname(lesson, ["khochynska"], "") == "Хочинська"
+
+    # Russian 'e' in Google account profile
+    assert classroom_router._resolve_matched_teacher_surname(lesson, ["токарева"], "") == "Токарєва"
+
+
+def test_link_line_prefix_handles_brackets_and_subgroups():
+    assert classroom_router._link_line_prefix("[Токарєва]: https://meet.google.com/abc") == "Токарєва"
+    assert classroom_router._link_line_prefix("[Токарєва] https://meet.google.com/abc") == "Токарєва"
+    assert classroom_router._link_line_prefix("Токарєва Т.В.: https://meet.google.com/abc") == "Токарєва Т.В."
+    assert classroom_router._link_line_prefix("1 підгрупа: https://meet.google.com/abc") == "1 підгрупа"
+    assert classroom_router._link_line_prefix("2 підгрупа: https://zoom.us/j/123") == "2 підгрупа"
+    assert classroom_router._link_line_prefix("https://meet.google.com/abc") is None
+
+
+@pytest.mark.anyio
+async def test_sequential_subgroup_syncs_preserve_both_links_and_tasks(classroom_db):
+    """
+    Simulates:
+    1. Student 1 (subgroup 1, Tokareva) syncs via POST /api/classroom/sync.
+    2. Student 2 (subgroup 2, Khochynska) syncs via POST /api/classroom/sync.
+    3. Student 1 syncs again via POST /api/classroom/sync.
+    Verifies that NEITHER student wipes out the other's link or coursework.
+    """
+    client, state = classroom_db
+    monday: date = state["monday"]
+    monday_iso = f"{monday.isoformat()}T08:00:00Z"
+
+    call_counter: dict[str, int] = {}
+    transport = _make_fake_google_transport(
+        courses_by_token={
+            "ya29.tok_student_1": [
+                {"id": "101", "name": "Іноземна мова 85 ДФКР (1 підгр)"},
+            ],
+            "ya29.tok_student_2": [
+                {"id": "102", "name": "Іноземна мова 85 ДФКР (2 підгр)"},
+            ],
+        },
+        profiles_by_token={
+            "ya29.tok_student_1": {"id": "uid_s1", "emailAddress": "s1@kre.dp.ua"},
+            "ya29.tok_student_2": {"id": "uid_s2", "emailAddress": "s2@kre.dp.ua"},
+        },
+        teachers_by_course={
+            "101": [{"userId": "t1", "profile": {"name": {"fullName": "Токарєва Тетяна Олександрівна"}}}],
+            "102": [{"userId": "t2", "profile": {"name": {"fullName": "Хочинська Олена Сергіївна"}}}],
+        },
+        announcements_by_course={
+            "101": [{"text": f"Заняття {monday.strftime('%d.%m')} на 1 пару: https://meet.google.com/tok-seq-1", "creationTime": monday_iso, "creatorUserId": "t1"}],
+            "102": [{"text": f"Заняття {monday.strftime('%d.%m')} на 1 пару: https://meet.google.com/kho-seq-2", "creationTime": monday_iso, "creatorUserId": "t2"}],
+        },
+        coursework_by_course={
+            "101": [{
+                "id": "cw_seq_1",
+                "title": "Граматика 1",
+                "alternateLink": "https://classroom.google.com/c/101/a/111/details",
+                "creationTime": monday_iso,
+                "dueDate": {"year": monday.year, "month": monday.month, "day": monday.day},
+                "creatorUserId": "t1",
+            }],
+            "102": [{
+                "id": "cw_seq_2",
+                "title": "Есе 2",
+                "alternateLink": "https://classroom.google.com/c/102/a/222/details",
+                "creationTime": monday_iso,
+                "dueDate": {"year": monday.year, "month": monday.month, "day": monday.day},
+                "creatorUserId": "t2",
+            }],
+        },
+        token_refresh_map={
+            "1//rt_seq_1": (200, {"access_token": "ya29.tok_student_1"}),
+            "1//rt_seq_2": (200, {"access_token": "ya29.tok_student_2"}),
+        },
+        call_counter=call_counter,
+    )
+
+    real_async_client = httpx.AsyncClient
+
+    def mocked_client(*args, **kwargs):
+        kwargs["transport"] = transport
+        return real_async_client(*args, **kwargs)
+
+    with patch("app.routers.classroom.httpx.AsyncClient", side_effect=mocked_client), \
+         patch.object(classroom_router.settings, "google_client_secret", "test_secret"), \
+         patch.object(classroom_router.settings, "google_client_id", "test_client_id"):
+
+        # 1. Студент 1 синхронізує
+        resp1 = await client.post(
+            "/api/classroom/sync",
+            json={
+                "access_token": "ya29.tok_student_1",
+                "refresh_token": "1//rt_seq_1",
+                "group_id": state["group_id"],
+                "week_start": monday.isoformat(),
+            },
+        )
+        assert resp1.status_code == 200
+
+        # 2. Студент 2 синхронізує
+        resp2 = await client.post(
+            "/api/classroom/sync",
+            json={
+                "access_token": "ya29.tok_student_2",
+                "refresh_token": "1//rt_seq_2",
+                "group_id": state["group_id"],
+                "week_start": monday.isoformat(),
+            },
+        )
+        assert resp2.status_code == 200
+        # tasks у відповіді містить завдання ОБОХ підгруп
+        r2_tasks = resp2.json()["tasks"]
+        r2_titles = [t["title"] for t in r2_tasks]
+        assert "Граматика 1" in r2_titles
+        assert "Есе 2" in r2_titles
+
+        # Перевірка БД після 2-го синку: обидва посилання і обидва ДЗ на місці
+        async with state["sessions"]() as db:
+            eng_note = await db.scalar(
+                select(LessonOccurrenceNote).where(
+                    LessonOccurrenceNote.group_id == state["group_id"],
+                    LessonOccurrenceNote.note_date == monday,
+                    LessonOccurrenceNote.lesson_number == 1,
+                    LessonOccurrenceNote.archived.is_(False),
+                )
+            )
+            assert eng_note is not None
+            assert "Токарєва: https://meet.google.com/tok-seq-1" in eng_note.note
+            assert "Хочинська: https://meet.google.com/kho-seq-2" in eng_note.note
+            assert "Граматика 1" in eng_note.note
+            assert "Есе 2" in eng_note.note
+
+        # 3. Студент 1 синхронізує знову — посилання і ДЗ 2-ї підгрупи не зникають!
+        resp3 = await client.post(
+            "/api/classroom/sync",
+            json={
+                "access_token": "ya29.tok_student_1",
+                "refresh_token": "1//rt_seq_1",
+                "group_id": state["group_id"],
+                "week_start": monday.isoformat(),
+            },
+        )
+        assert resp3.status_code == 200
+        r3_tasks = resp3.json()["tasks"]
+        r3_titles = [t["title"] for t in r3_tasks]
+        assert "Граматика 1" in r3_titles
+        assert "Есе 2" in r3_titles
+
+        async with state["sessions"]() as db:
+            eng_note_after = await db.scalar(
+                select(LessonOccurrenceNote).where(
+                    LessonOccurrenceNote.group_id == state["group_id"],
+                    LessonOccurrenceNote.note_date == monday,
+                    LessonOccurrenceNote.lesson_number == 1,
+                    LessonOccurrenceNote.archived.is_(False),
+                )
+            )
+            assert eng_note_after is not None
+            assert "Токарєва: https://meet.google.com/tok-seq-1" in eng_note_after.note
+            assert "Хочинська: https://meet.google.com/kho-seq-2" in eng_note_after.note
+            assert "Граматика 1" in eng_note_after.note
+            assert "Есе 2" in eng_note_after.note
+
+
+

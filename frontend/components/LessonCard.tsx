@@ -721,14 +721,12 @@ export function LessonCard({
     [isTeacherView, lesson.note]
   );
   // Завдання, які здано, не показуються ТІЛЬКИ у користувача, який прив'язав пошту.
-  // Для всіх інших користувачів показуються абсолютно всі завдання пари за наявними правилами!
   const tasks = useMemo(() => {
     const sorted = sortTasksByDeadline(rawTasks);
     if (!isLinked) return sorted;
     return sorted.filter((t) => {
-      if (!isOwnTask(isLinked, submissions, t.url)) return false;
       const sub = submissions[t.url];
-      return !(sub && (sub.state === "TURNED_IN" || sub.state === "RETURNED"));
+      return !(isLinked && sub && (sub.state === "TURNED_IN" || sub.state === "RETURNED"));
     });
   }, [rawTasks, isLinked, submissions]);
 
@@ -760,8 +758,32 @@ export function LessonCard({
     if (!isDualTeachers || meetings.length === 0) return [null, null];
     const s0 = secondaryItems[0].name.split(/[\s.]+/)[0].toLowerCase();
     const s1 = secondaryItems[1].name.split(/[\s.]+/)[0].toLowerCase();
-    const m0 = meetings.find((m) => m.label && (m.label.toLowerCase().includes(s0) || s0.includes(m.label.toLowerCase())));
-    const m1 = meetings.find((m) => m.label && (m.label.toLowerCase().includes(s1) || s1.includes(m.label.toLowerCase())));
+
+    const matchesTeacher = (m: MeetingInfo, s: string, subNum: number) => {
+      if (!m.label) return false;
+      const l = m.label.toLowerCase();
+      if (l.includes(s) || s.includes(l)) return true;
+      if (subNum === 1 && (l.includes("1 підгр") || l.includes("1-ша") || l === "1")) return true;
+      if (subNum === 2 && (l.includes("2 підгр") || l.includes("2-га") || l === "2")) return true;
+      if (s.includes("токар") && (l.includes("токар") || l.includes("токарев"))) return true;
+      if (s.includes("хочин") && (l.includes("хочин") || l.includes("хочинск"))) return true;
+      return false;
+    };
+
+    let m0 = meetings.find((m) => matchesTeacher(m, s0, 1)) || null;
+    let m1 = meetings.find((m) => matchesTeacher(m, s1, 2) && m !== m0) || null;
+
+    if (meetings.length >= 2) {
+      if (m0 && !m1) {
+        m1 = meetings.find((m) => m !== m0) || null;
+      } else if (m1 && !m0) {
+        m0 = meetings.find((m) => m !== m1) || null;
+      } else if (!m0 && !m1) {
+        m0 = meetings[0];
+        m1 = meetings[1];
+      }
+    }
+
     return [m0 || null, m1 || null];
   }, [isDualTeachers, secondaryItems, meetings]);
 

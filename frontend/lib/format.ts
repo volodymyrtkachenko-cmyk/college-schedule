@@ -337,11 +337,11 @@ export function extractOnlineMeetings(
         label = "Хочинська";
       } else {
         const prefixMatch = line.match(
-          /^([А-Яа-яІіЇїЄєҐґa-zA-Z\s.'—–\-]+|\d+\s*підгрупа|підгрупа\s*\d+)\s*[:\-–]\s*https?/i
+          /^(?:\[([^\]]+)\]|([А-Яа-яІіЇїЄєҐґa-zA-Z0-9\s.'—–\-]+|\d+\s*підгрупа|підгрупа\s*\d+))\s*[:\-–]?\s*https?/i
         );
         if (prefixMatch) {
-          const raw = prefixMatch[1].trim();
-          if (raw.length >= 3 && raw.length <= 25) {
+          const raw = (prefixMatch[1] || prefixMatch[2] || "").trim();
+          if (raw.length >= 2 && raw.length <= 30) {
             label = raw;
           }
         }

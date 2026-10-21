@@ -811,7 +811,6 @@ export default function HomePage() {
           const extracted = extractClassroomTasks(l.note);
           for (const t of extracted) {
             if (!t.url) continue;
-            if (!isOwnTask(isLinked, submissions, t.url)) continue;
             if (!seenUrls.has(t.url)) {
               seenUrls.add(t.url);
 
@@ -859,7 +858,6 @@ export default function HomePage() {
       for (const ct of classroomTasks) {
         const url = ct.alternate_link || (ct as any).url;
         if (!url || seenUrls.has(url)) continue;
-        if (!isOwnTask(isLinked, submissions, url)) continue;
         seenUrls.add(url);
 
         const personalSub = isLinked ? submissions[url] : null;

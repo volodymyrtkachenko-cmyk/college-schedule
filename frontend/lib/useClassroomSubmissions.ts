@@ -78,16 +78,14 @@ export function clearClassroomAccessToken(): void {
   } catch {}
 }
 
-// Прив'язаний користувач бачить лише свої завдання (ті, що є в його submissions).
-// Якщо особистих даних немає (напр., бракує scope) — показуємо всі, як для неприв'язаного.
+// Завдання обох підгруп завжди доступні для всієї групи (ТЗ 25.1-25.2).
+// Персональний статус (Здано/оцінка) застосовується індивідуально для робіт, що є в submissions.
 export function isOwnTask(
-  isLinked: boolean,
-  submissions: Record<string, PersonalSubmission>,
-  url: string | null | undefined
+  _isLinked: boolean,
+  _submissions: Record<string, PersonalSubmission>,
+  _url: string | null | undefined
 ): boolean {
-  if (!isLinked) return true;
-  if (Object.keys(submissions).length === 0) return true;
-  return Boolean(url && submissions[url]);
+  return true;
 }
 
 export function unlinkClassroomEmail(): void {

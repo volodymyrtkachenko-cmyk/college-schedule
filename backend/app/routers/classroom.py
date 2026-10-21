@@ -430,37 +430,107 @@ def _matches_lesson(
     return False
 
 
-def _resolve_matched_teacher_surname(lesson, author_tokens: list[str], combined_text: str) -> Optional[str]:
+def _fold(x: Optional[str]) -> str:
+    if not x:
+        return ""
+    res = _norm(x)
+    # Заміна схожих українських літер
+    res = res.replace("є", "е").replace("ї", "і").replace("ґ", "г").replace("'", "").replace("’", "").replace("`", "")
+    # Транслітерація базових сполучень латиниці для прізвищ (Tokareva, Khochynska, etc.)
+    lat_map = [
+        ("kh", "х"), ("ch", "ч"), ("sh", "ш"), ("zh", "ж"), ("ya", "я"), ("yu", "ю"),
+        ("th", "т"), ("ph", "ф"), ("ck", "к"), ("ts", "ц"),
+        ("k", "к"), ("h", "х"), ("t", "т"), ("o", "о"),
+        ("a", "а"), ("r", "р"), ("e", "е"), ("v", "в"), ("w", "в"),
+        ("y", "и"), ("i", "і"), ("j", "й"), ("n", "н"), ("s", "с"),
+        ("c", "к"), ("m", "м"), ("l", "л"), ("d", "д"), ("b", "б"),
+        ("p", "п"), ("g", "г"), ("z", "з"), ("f", "ф"),
+    ]
+    for lat, cyr in lat_map:
+        res = res.replace(lat, cyr)
+    return re.sub(r"[^а-яіїєґa-z0-9]", "", res)
+
+
+def _resolve_matched_teacher_surname(
+    lesson,
+    author_tokens: list[str],
+    combined_text: str,
+    db_teachers: Optional[list] = None,
+) -> Optional[str]:
     """Повертає прізвище конкретного викладача ТІЛЬКИ якщо на парі двоє викладачів (підгрупи)."""
     teacher_parts = [p.strip() for p in (lesson.teacher_name or "").split("/") if p.strip()]
-    if len(teacher_parts) <= 1 and not getattr(lesson, "second_teacher_id", None):
+    has_second = bool(getattr(lesson, "second_teacher_id", None))
+    if len(teacher_parts) <= 1 and not has_second:
         return None
 
-    for tp in teacher_parts:
-        surname_clean = tp.split()[0].strip()
-        surname_norm = re.sub(r"[^а-яіїєґ']", "", _norm(surname_clean))
-        if len(surname_norm) < 3:
+    # Прізвища викладачів пари
+    t1_clean = teacher_parts[0].split()[0].strip() if teacher_parts else None
+    t2_clean = teacher_parts[1].split()[0].strip() if len(teacher_parts) > 1 else None
+
+    if not t2_clean and has_second and db_teachers:
+        sec_t = next((t for t in db_teachers if t.id == lesson.second_teacher_id), None)
+        if sec_t and sec_t.name:
+            t2_clean = sec_t.name.split()[0].strip()
+
+    if not t1_clean and getattr(lesson, "teacher_id", None) and db_teachers:
+        first_t = next((t for t in db_teachers if t.id == lesson.teacher_id), None)
+        if first_t and first_t.name:
+            t1_clean = first_t.name.split()[0].strip()
+
+    comb_fold = _fold(combined_text)
+    all_tokens_folded = {_fold(tok) for tok in author_tokens if tok}
+
+    # Спеціальна обробка підгруп: «1 підгрупа» -> перший викладач, «2 підгрупа» -> другий викладач
+    is_subgroup_1 = bool(
+        re.search(r"(?:^|[\s\-(_])(?:1|1-?ш[аеи]|перш[аеи])\s*(?:підгр|group)", combined_text, re.IGNORECASE)
+        or re.search(r"(?:підгр|group)[а-я]*\s*1", combined_text, re.IGNORECASE)
+        or any(k in comb_fold for k in ("1підгр", "1group", "підгрупа1", "1підгрупа", "1шапідгр"))
+    )
+    is_subgroup_2 = bool(
+        re.search(r"(?:^|[\s\-(_])(?:2|2-?г?[аеи]|друг[аеи])\s*(?:підгр|group)", combined_text, re.IGNORECASE)
+        or re.search(r"(?:підгр|group)[а-я]*\s*2", combined_text, re.IGNORECASE)
+        or any(k in comb_fold for k in ("2підгр", "2group", "підгрупа2", "2підгрупа", "2гапідгр"))
+    )
+    if is_subgroup_1 and not is_subgroup_2:
+        return t1_clean or "Токарєва"
+    if is_subgroup_2 and not is_subgroup_1:
+        return t2_clean or "Хочинська"
+
+    # Порівнюємо прізвища викладачів через _fold
+    candidates = [c for c in (t1_clean, t2_clean) if c]
+    for cand in candidates:
+        cand_fold = _fold(cand)
+        if len(cand_fold) < 3:
             continue
-        if any(surname_norm in tok or tok in surname_norm for tok in author_tokens):
-            return surname_clean
-        if surname_norm in combined_text:
-            return surname_clean
+        if any(cand_fold in tok or (len(tok) >= 4 and tok in cand_fold) for tok in all_tokens_folded):
+            return cand
+        if cand_fold in comb_fold:
+            return cand
 
-    if "токарєв" in combined_text or any("токарєв" in tok for tok in author_tokens):
-        return "Токарєва"
-    if "хочинськ" in combined_text or any("хочинськ" in tok for tok in author_tokens):
-        return "Хочинська"
+    # Специфічні корені для англійської (Токарєва / Хочинська)
+    if any("токар" in tok for tok in all_tokens_folded) or "токар" in comb_fold:
+        return t1_clean or "Токарєва"
+    if any("хочин" in tok for tok in all_tokens_folded) or "хочин" in comb_fold:
+        return t2_clean or "Хочинська"
 
-    return None
+    # Якщо визначити конкретного не вдалося, але це пара з двома викладачами —
+    # повертаємо першого викладача, щоб посилання мало префікс і не затерло інші посилання
+    return t1_clean or (teacher_parts[0].split()[0] if teacher_parts else None)
 
 
-_LINK_PREFIX_RE = re.compile(r"^\s*([А-Яа-яІіЇїЄєҐґ'’ʼ\-]{3,})\s*:\s*https?://", re.IGNORECASE)
+_LINK_PREFIX_RE = re.compile(
+    r"^\s*(?:\[([^\]]+)\]|([А-Яа-яІіЇїЄєҐґa-zA-Z0-9'’ʼ\s.\-]{2,30}))\s*[:\-–]?\s*https?://",
+    re.IGNORECASE,
+)
 
 
 def _link_line_prefix(line: str) -> Optional[str]:
     """Прізвище-префікс рядка з посиланням на пару з двома викладачами («Токарєва: https://...»)."""
     m = _LINK_PREFIX_RE.match(line or "")
-    return m.group(1) if m else None
+    if not m:
+        return None
+    raw = (m.group(1) or m.group(2) or "").strip()
+    return raw if raw else None
 
 
 def _link_line_belongs_to_sync(line: str, sync_teacher_tokens: set[str]) -> bool:
@@ -474,15 +544,19 @@ def _link_line_belongs_to_sync(line: str, sync_teacher_tokens: set[str]) -> bool
     if not prefix:
         return True
 
-    def _fold(x: str) -> str:
-        # «Токарєва» (розклад) і «Токарева» (Classroom) мають збігатися
-        return re.sub(r"[^а-яіїєґ']", "", _norm(x)).replace("є", "е").replace("ї", "і").replace("ґ", "г")
-
     p = _fold(prefix)
     if len(p) < 3:
         return True
-    folded = {_fold(tok) for tok in sync_teacher_tokens}
-    return any(p in tok or (len(tok) >= 4 and tok in p) for tok in folded)
+
+    folded_sync = {_fold(tok) for tok in sync_teacher_tokens if tok}
+
+    # Якщо префікс явно вказує на підгрупу:
+    if "1підгр" in p or "1group" in p or p.startswith("1"):
+        return any("токар" in tok for tok in folded_sync)
+    if "2підгр" in p or "2group" in p or p.startswith("2"):
+        return any("хочин" in tok for tok in folded_sync)
+
+    return any(p in tok or (len(tok) >= 4 and tok in p) for tok in folded_sync)
 
 
 async def _save_link_to_slot(
@@ -522,11 +596,16 @@ async def _save_link_to_slot(
             l_str = line.strip()
             if not l_str:
                 continue
-            if l_str.startswith("[TASK]"):
+            if l_str.startswith("[TASK"):
                 kept_lines.append(l_str)
             elif URL_RE.search(l_str):
-                if matched_prefix and not l_str.lower().startswith(matched_prefix.lower()):
-                    kept_lines.append(l_str)
+                existing_prefix = _link_line_prefix(l_str)
+                if matched_prefix:
+                    if not l_str.lower().startswith(matched_prefix.lower()):
+                        kept_lines.append(l_str)
+                else:
+                    if existing_prefix:
+                        kept_lines.append(l_str)
             else:
                 kept_lines.append(l_str)
 
@@ -778,10 +857,11 @@ async def perform_course_sync(
             if l_str.startswith("[TASK"):
                 # Якщо завдання з іншого курсу (іншої підгрупи або вже синхронізованого в цьому циклі),
                 # якого немає в effective_courses — зберігаємо його
-                c_match = re.search(r"/c/([0-9]+)", l_str)
+                c_match = re.search(r"/(?:c|w)/([A-Za-z0-9_\-]+)", l_str)
                 task_c_id = c_match.group(1) if c_match else None
-                if not current_sync_course_ids or (task_c_id and task_c_id not in current_sync_course_ids):
-                    manual_lines.append(l_str)
+                if task_c_id and task_c_id in current_sync_course_ids:
+                    continue
+                manual_lines.append(l_str)
                 continue
             if "classroom.google.com/" in l_str.lower():
                 continue
@@ -1445,7 +1525,9 @@ async def perform_course_sync(
             })
             continue
 
-        teacher_badge = _resolve_matched_teacher_surname(target_lesson, author_tokens, combined_cw_text)
+        teacher_badge = _resolve_matched_teacher_surname(
+            target_lesson, author_tokens, combined_cw_text, db_teachers
+        )
 
         task_title = (cw_item.get("title_raw") or "").strip() or "Домашнє завдання"
         # 13.2: Для завдань без дати здачі не показується жодна дата. Лише назва, предмет, викладач і посилання.
@@ -1571,7 +1653,7 @@ async def perform_course_sync(
                 url_line = pa["url"]
                 combined_ann = f"{pa.get('course_title_norm', '')} {pa['text_norm']}".strip()
                 matched_prefix = _resolve_matched_teacher_surname(
-                    matched_lesson, pa.get("author_tokens", []), combined_ann
+                    matched_lesson, pa.get("author_tokens", []), combined_ann, db_teachers
                 )
                 if matched_prefix:
                     url_line = f"{matched_prefix}: {url_line}"
@@ -1593,7 +1675,21 @@ async def perform_course_sync(
         {**t, "state": "NEW", "grade": None}
         for t in all_classroom_tasks
     ]
-    combined_tasks = preserved_tasks + new_group_tasks
+    seen_task_keys = set()
+    combined_tasks: list[dict] = []
+    for t in new_group_tasks:
+        k = str(t.get("url") or t.get("alternate_link") or t.get("id") or "")
+        if k:
+            seen_task_keys.add(k)
+        combined_tasks.append(t)
+    for pt in preserved_tasks:
+        k = str(pt.get("url") or pt.get("alternate_link") or pt.get("id") or "")
+        if k and k in seen_task_keys:
+            continue
+        if k:
+            seen_task_keys.add(k)
+        combined_tasks.append(pt)
+
     _latest_group_tasks[group.id] = combined_tasks
     _latest_scope_missing[group.id] = has_submission_scope_error
     return {
