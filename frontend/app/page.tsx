@@ -149,7 +149,7 @@ export default function HomePage() {
   const [sidebarUserToggledOverdue, setSidebarUserToggledOverdue] = useState<boolean | null>(null);
   const sidebarOverdueOpen = sidebarUserToggledOverdue !== null ? sidebarUserToggledOverdue : isLinked;
   const [sidebarActiveOpen, setSidebarActiveOpen] = useState(true);
-  const [sidebarNoDateOpen, setSidebarNoDateOpen] = useState(true);
+  const [sidebarNoDateOpen, setSidebarNoDateOpen] = useState(false);
   const [sidebarTurnedInOpen, setSidebarTurnedInOpen] = useState(false);
 
   const formattedSyncTime = useMemo(() => {

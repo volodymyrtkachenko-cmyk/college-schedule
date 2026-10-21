@@ -58,7 +58,7 @@ export function MobileTasksView({
   const [userToggledOverdue, setUserToggledOverdue] = useState<boolean | null>(null);
   const overdueOpen = userToggledOverdue !== null ? userToggledOverdue : isLinked;
   const [activeOpen, setActiveOpen] = useState(true);
-  const [noDateOpen, setNoDateOpen] = useState(true);
+  const [noDateOpen, setNoDateOpen] = useState(false);
   const [turnedInOpen, setTurnedInOpen] = useState(false);
 
   const anchor = weekAnchorDate ?? new Date();
