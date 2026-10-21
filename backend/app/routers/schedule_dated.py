@@ -97,6 +97,43 @@ async def cancel_dated_lesson(
             ScheduleOverride.lesson_number == payload.lesson_number,
         )
     )
+
+    # Check if there is a base lesson in this slot on this date
+    projection = await build_projection(db, payload.date, group_id=payload.group_id, include_cancelled=True)
+    slot_items = [item for item in projection if item.lesson_number == payload.lesson_number]
+    has_base_template = any(getattr(item, "has_template", False) or item.source_kind == "base" for item in slot_items)
+
+    # If there is no base lesson in this slot (e.g. a moved-in or one-off added lesson),
+    # deleting/cancelling it should completely clear the slot instead of leaving a 'Скасована пара' stub!
+    if existing and not has_base_template:
+        # Also clear moved_to_date / moved_to_lesson on the source override if this was a moved lesson
+        source_moved = (await db.scalars(
+            select(ScheduleOverride).where(
+                ScheduleOverride.group_id == payload.group_id,
+                ScheduleOverride.moved_to_date == payload.date,
+                ScheduleOverride.moved_to_lesson == payload.lesson_number,
+            )
+        )).all()
+        for src in source_moved:
+            if src.subject_id is None and not any(
+                b.lesson_number == src.lesson_number
+                for b in await build_projection(db, src.date, group_id=payload.group_id, include_cancelled=True)
+                if getattr(b, "has_template", False) or b.source_kind == "base"
+            ):
+                await db.delete(src)
+            else:
+                src.cancelled = False
+                src.moved_to_date = None
+                src.moved_to_lesson = None
+                if src.subject_id is None:
+                    await db.delete(src)
+
+        await db.delete(existing)
+        await db.commit()
+        from app.services.projection import invalidate_projection_cache
+        invalidate_projection_cache(payload.group_id)
+        return {"status": "removed"}
+
     if existing:
         existing.cancelled = True
     else:
@@ -109,6 +146,8 @@ async def cancel_dated_lesson(
             )
         )
     await db.commit()
+    from app.services.projection import invalidate_projection_cache
+    invalidate_projection_cache(payload.group_id)
     return {"status": "cancelled"}
 
 
@@ -146,6 +185,8 @@ async def restore_dated_lesson(
             existing.moved_to_date = None
             existing.moved_to_lesson = None
         await db.commit()
+    from app.services.projection import invalidate_projection_cache
+    invalidate_projection_cache(payload.group_id)
     return {"status": "restored"}
 
 
@@ -227,6 +268,34 @@ async def remove_dated_replacement(
         )
     )
     if ovr:
+        # If this override had moved a lesson to another slot, also delete that target slot override
+        if getattr(ovr, "moved_to_date", None) and getattr(ovr, "moved_to_lesson", None):
+            target_ovr = await db.scalar(
+                select(ScheduleOverride).where(
+                    ScheduleOverride.group_id == payload.group_id,
+                    ScheduleOverride.date == ovr.moved_to_date,
+                    ScheduleOverride.lesson_number == ovr.moved_to_lesson,
+                )
+            )
+            if target_ovr:
+                await db.delete(target_ovr)
+
+        # If this override was the target of a move from another slot, restore the source slot
+        source_moved = (await db.scalars(
+            select(ScheduleOverride).where(
+                ScheduleOverride.group_id == payload.group_id,
+                ScheduleOverride.moved_to_date == payload.date,
+                ScheduleOverride.moved_to_lesson == payload.lesson_number,
+            )
+        )).all()
+        for src in source_moved:
+            if src.subject_id is None:
+                await db.delete(src)
+            else:
+                src.cancelled = False
+                src.moved_to_date = None
+                src.moved_to_lesson = None
+
         await db.delete(ovr)
 
     imported_list = (await db.scalars(

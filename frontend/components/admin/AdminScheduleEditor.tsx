@@ -522,7 +522,11 @@ export function AdminScheduleEditor() {
   
   const remove = async (lesson: Lesson, targetDate?: string) => {
     const dateToCancel = targetDate || week?.find((day) => day.lessons.some((item) => item.id === lesson.id))?.date || (today?.date || week?.[0]?.date) || "";
-    await cancelOnDate(lesson, dateToCancel);
+    if (lesson.is_replacement) {
+      await removeReplacementOnDate(lesson, dateToCancel);
+    } else {
+      await cancelOnDate(lesson, dateToCancel);
+    }
   };
 
   const handleSwapSelect = async (targetLesson: Lesson, targetDate: string) => {

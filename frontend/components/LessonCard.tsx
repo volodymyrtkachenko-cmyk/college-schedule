@@ -1280,20 +1280,36 @@ export function LessonCard({
                   {canEdit && (
                     <div className="relative flex items-center gap-1 ml-1">
                       {lesson.is_cancelled ? (
-                        onRestoreDated && lesson.group_id && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onRestoreDated(lesson, targetDate);
-                            }}
-                            title={lesson.moved_to_date ? "Скасувати перенесення та відновити пару" : `Відновити пару на ${targetDate}`}
-                            aria-label={lesson.moved_to_date ? "Скасувати перенесення та відновити пару" : `Відновити пару на ${targetDate}`}
-                            className="inline-flex h-8 items-center justify-center rounded-lg border border-emerald-500/50 bg-emerald-500/15 px-2.5 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/25 active:scale-[0.98] transition-colors whitespace-nowrap"
-                          >
-                            Відновити
-                          </button>
-                        )
+                        <div className="flex items-center gap-1">
+                          {onRestoreDated && lesson.group_id && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onRestoreDated(lesson, targetDate);
+                              }}
+                              title={lesson.moved_to_date ? "Скасувати перенесення та відновити пару" : `Відновити пару на ${targetDate}`}
+                              aria-label={lesson.moved_to_date ? "Скасувати перенесення та відновити пару" : `Відновити пару на ${targetDate}`}
+                              className="inline-flex h-8 items-center justify-center rounded-lg border border-emerald-500/50 bg-emerald-500/15 px-2.5 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/25 active:scale-[0.98] transition-colors whitespace-nowrap"
+                            >
+                              Відновити
+                            </button>
+                          )}
+                          {onRemoveReplacement && lesson.group_id && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onRemoveReplacement(lesson, targetDate);
+                              }}
+                              title="Очистити слот (повністю прибрати скасовану пару)"
+                              aria-label="Очистити слот"
+                              className="inline-flex h-8 items-center justify-center rounded-lg border border-rose-500/40 bg-rose-500/10 px-2.5 text-xs font-semibold text-rose-300 hover:bg-rose-500/20 active:scale-[0.98] transition-colors whitespace-nowrap"
+                            >
+                              Очистити слот
+                            </button>
+                          )}
+                        </div>
                       ) : (
                         <>
                           {canEditAction && (
@@ -1572,20 +1588,36 @@ export function LessonCard({
               {canEdit ? (
                 <div className="relative flex items-center gap-1.5 ml-auto shrink-0">
                   {lesson.is_cancelled ? (
-                    onRestoreDated && lesson.group_id && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onRestoreDated(lesson, targetDate);
-                        }}
-                        title={lesson.moved_to_date ? "Скасувати перенесення та відновити пару" : `Відновити пару на ${targetDate}`}
-                        aria-label={lesson.moved_to_date ? "Скасувати перенесення та відновити пару" : `Відновити пару на ${targetDate}`}
-                        className="inline-flex h-9 items-center justify-center rounded-lg border border-emerald-500/50 bg-emerald-500/15 px-3 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/25 active:scale-[0.98] transition-colors whitespace-nowrap"
-                      >
-                        Відновити
-                      </button>
-                    )
+                    <div className="flex items-center gap-1.5">
+                      {onRestoreDated && lesson.group_id && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onRestoreDated(lesson, targetDate);
+                          }}
+                          title={lesson.moved_to_date ? "Скасувати перенесення та відновити пару" : `Відновити пару на ${targetDate}`}
+                          aria-label={lesson.moved_to_date ? "Скасувати перенесення та відновити пару" : `Відновити пару на ${targetDate}`}
+                          className="inline-flex h-9 items-center justify-center rounded-lg border border-emerald-500/50 bg-emerald-500/15 px-3 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/25 active:scale-[0.98] transition-colors whitespace-nowrap"
+                        >
+                          Відновити
+                        </button>
+                      )}
+                      {onRemoveReplacement && lesson.group_id && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onRemoveReplacement(lesson, targetDate);
+                          }}
+                          title="Очистити слот (повністю прибрати скасовану пару)"
+                          aria-label="Очистити слот"
+                          className="inline-flex h-9 items-center justify-center rounded-lg border border-rose-500/40 bg-rose-500/10 px-2.5 text-xs font-semibold text-rose-300 hover:bg-rose-500/20 active:scale-[0.98] transition-colors whitespace-nowrap"
+                        >
+                          Очистити
+                        </button>
+                      )}
+                    </div>
                   ) : (
                     <>
                       {canEditAction && (
@@ -2240,21 +2272,38 @@ export function LessonCard({
                 }}
               >
                 {lesson.is_cancelled ? (
-                  onRestoreDated && lesson.group_id && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onRestoreDated(lesson, targetDate);
-                      }}
-                      title={lesson.moved_to_date ? "Скасувати перенесення та відновити пару" : `Відновити пару на ${targetDate}`}
-                      aria-label={lesson.moved_to_date ? "Скасувати перенесення та відновити пару" : `Відновити пару на ${targetDate}`}
-                      className="inline-flex min-h-[44px] min-w-[44px] sm:min-h-[32px] items-center justify-center rounded-md border border-emerald-500/50 bg-emerald-500/15 px-2.5 py-1 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/25 active:scale-[0.98] transition-colors whitespace-nowrap"
-                      style={{ whiteSpace: "nowrap" }}
-                    >
-                      Відновити
-                    </button>
-                  )
+                  <div className="flex items-center gap-1">
+                    {onRestoreDated && lesson.group_id && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRestoreDated(lesson, targetDate);
+                        }}
+                        title={lesson.moved_to_date ? "Скасувати перенесення та відновити пару" : `Відновити пару на ${targetDate}`}
+                        aria-label={lesson.moved_to_date ? "Скасувати перенесення та відновити пару" : `Відновити пару на ${targetDate}`}
+                        className="inline-flex min-h-[44px] min-w-[44px] sm:min-h-[32px] items-center justify-center rounded-md border border-emerald-500/50 bg-emerald-500/15 px-2.5 py-1 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/25 active:scale-[0.98] transition-colors whitespace-nowrap"
+                        style={{ whiteSpace: "nowrap" }}
+                      >
+                        Відновити
+                      </button>
+                    )}
+                    {onRemoveReplacement && lesson.group_id && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRemoveReplacement(lesson, targetDate);
+                        }}
+                        title="Очистити слот (повністю прибрати скасовану пару)"
+                        aria-label="Очистити слот"
+                        className="inline-flex min-h-[44px] sm:min-h-[32px] items-center justify-center rounded-md border border-rose-500/40 bg-rose-500/10 px-2 py-1 text-xs font-semibold text-rose-300 hover:bg-rose-500/20 active:scale-[0.98] transition-colors whitespace-nowrap"
+                        style={{ whiteSpace: "nowrap" }}
+                      >
+                        Очистити
+                      </button>
+                    )}
+                  </div>
                 ) : (
                   <>
                     {canEditAction && (
