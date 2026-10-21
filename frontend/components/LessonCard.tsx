@@ -1213,7 +1213,7 @@ export function LessonCard({
                 {/* Teacher / Group info */}
                 <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm text-sys-text-secondary mt-0.5">
                   {isDualTeachers ? (
-                    <div className="flex flex-col gap-1.5 w-full max-w-[480px]">
+                    <div className="flex flex-col gap-2 w-full max-w-[520px]">
                       {secondaryItems.map((item, idx) => {
                         const subNum = idx + 1;
                         if (isLinked && effectiveSubgroup !== null && effectiveSubgroup !== subNum) {
@@ -1223,43 +1223,87 @@ export function LessonCard({
                         const ownMeeting = teacherMeetings[idx];
                         const ownRoom = (idx === 0 ? lesson.teacher_room : lesson.second_teacher_room) || rooms[idx] || null;
                         return (
-                          <div key={idx} className={`flex items-center gap-2 transition-opacity ${isFaded ? "opacity-50 hover:opacity-80" : "opacity-100"}`}>
-                            <button
-                              type="button"
-                              onClick={(e) => { e.stopPropagation(); handleSubgroupToggle(subNum); }}
-                              title={isLinked ? `Ваша підгрупа ${subNum} (натисніть, щоб перемкнути)` : (selectedSubgroup === subNum ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${subNum} підгрупу`)}
-                              aria-label={isLinked ? `Ваша підгрупа ${subNum} (натисніть, щоб перемкнути)` : (selectedSubgroup === subNum ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${subNum} підгрупу`)}
-                              className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold transition-colors ${
-                                (isLinked ? effectiveSubgroup === subNum : selectedSubgroup === subNum)
-                                  ? "bg-sys-accent/20 text-sys-accent font-bold border border-sys-accent/40"
-                                  : "bg-sys-border/60 border border-sys-border text-slate-300 hover:text-white"
-                              }`}
-                            >
-                              {subNum} підгр.
-                            </button>
-                            {onQuickJump ? (
+                          <div
+                            key={idx}
+                            className={`flex items-center justify-between gap-2 w-full transition-opacity ${
+                              isFaded ? "opacity-50 hover:opacity-80" : "opacity-100"
+                            }`}
+                          >
+                            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1 mr-2">
                               <button
                                 type="button"
-                                onClick={(e) => { e.stopPropagation(); onQuickJump(item.target); }}
-                                className="flex-1 min-w-0 text-left break-words font-medium text-slate-200 hover:text-sys-accent hover:underline focus:outline-none"
+                                onClick={(e) => { e.stopPropagation(); handleSubgroupToggle(subNum); }}
+                                title={isLinked ? `Ваша підгрупа ${subNum} (натисніть, щоб перемкнути)` : (selectedSubgroup === subNum ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${subNum} підгрупу`)}
+                                aria-label={isLinked ? `Ваша підгрупа ${subNum} (натисніть, щоб перемкнути)` : (selectedSubgroup === subNum ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${subNum} підгрупу`)}
+                                className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold transition-colors ${
+                                  (isLinked ? effectiveSubgroup === subNum : selectedSubgroup === subNum)
+                                    ? "bg-sys-accent/20 text-sys-accent font-bold border border-sys-accent/40"
+                                    : "bg-sys-border/60 border border-sys-border text-slate-300 hover:text-white"
+                                }`}
                               >
-                                {item.displayName}
+                                {subNum} підгр.
                               </button>
-                            ) : (
-                              <span className="flex-1 min-w-0 break-words font-medium text-slate-200">{item.displayName}</span>
-                            )}
+                              <svg
+                                width="13"
+                                height="13"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.5"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                className="text-sys-text-muted shrink-0"
+                                aria-hidden="true"
+                              >
+                                <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                                <circle cx="12" cy="7" r="4" />
+                              </svg>
+                              {onQuickJump ? (
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); onQuickJump(item.target); }}
+                                  className="truncate text-left text-xs sm:text-sm font-medium text-sys-text-secondary hover:text-sys-accent hover:underline focus:outline-none"
+                                  title={item.displayName}
+                                >
+                                  {item.displayName}
+                                </button>
+                              ) : (
+                                <span className="truncate text-xs sm:text-sm font-medium text-sys-text-secondary" title={item.displayName}>
+                                  {item.displayName}
+                                </span>
+                              )}
+                            </div>
                             {ownMeeting ? (
                               <a
                                 href={ownMeeting.url}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
-                                className="ml-auto shrink-0 text-emerald-400 font-bold hover:underline whitespace-nowrap text-xs"
+                                className={`inline-flex shrink-0 h-7 px-2.5 items-center gap-1.5 rounded-lg border text-xs font-semibold whitespace-nowrap active:scale-95 transition-all ${
+                                  isLive && isMeetingLiveOrSoon
+                                    ? "bg-emerald-600/90 text-white border-emerald-500 shadow-xs hover:bg-emerald-500"
+                                    : "border-sys-border bg-sys-card text-sys-text-primary hover:border-sys-accent/50 hover:text-sys-accent hover:bg-white/5"
+                                }`}
                               >
-                                {ownMeeting.platform === "zoom" ? "Zoom" : ownMeeting.platform === "meet" ? "Meet" : "Онлайн"} ↗
+                                {ownMeeting.platform === "zoom" ? (
+                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                                    <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.934a.5.5 0 0 0-.777-.416L16 11" />
+                                    <rect x="2" y="6" width="14" height="12" rx="2" />
+                                  </svg>
+                                ) : (
+                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                                    <polygon points="23 7 16 12 23 17 23 7" />
+                                    <rect x="1" y="5" width="15" height="14" rx="2" />
+                                  </svg>
+                                )}
+                                <span>{ownMeeting.platform === "zoom" ? "Zoom" : ownMeeting.platform === "meet" ? "Meet" : "Онлайн"}</span>
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 opacity-70">
+                                  <path d="M7 17 17 7" />
+                                  <path d="M7 7h10v10" />
+                                </svg>
                               </a>
                             ) : (
-                              <span className="ml-auto shrink-0 rounded-md border border-sys-border bg-sys-bg px-2 py-0.5 text-xs font-semibold leading-none text-sys-text-secondary whitespace-nowrap">
+                              <span className="shrink-0 rounded-md border border-sys-border bg-sys-bg px-2 py-1 text-xs font-semibold leading-none text-sys-text-secondary whitespace-nowrap">
                                 {ownRoom ? `ауд. ${ownRoom.replace(/^ауд\.?\s*/i, "")}` : "ауд. —"}
                               </span>
                             )}
@@ -1776,7 +1820,7 @@ export function LessonCard({
           {/* Row 3: Teacher / Subgroups */}
           <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm text-sys-text-secondary">
             {isDualTeachers ? (
-              <div className="flex flex-col gap-1.5 w-full">
+              <div className="flex flex-col gap-2 w-full">
                 {secondaryItems.map((item, idx) => {
                   const subNum = idx + 1;
                   if (isLinked && effectiveSubgroup !== null && effectiveSubgroup !== subNum) {
@@ -1786,47 +1830,124 @@ export function LessonCard({
                   const ownMeeting = teacherMeetings[idx];
                   const ownRoom = (idx === 0 ? lesson.teacher_room : lesson.second_teacher_room) || rooms[idx] || null;
                   return (
-                    <div key={idx} className={`flex items-center gap-2 text-xs transition-opacity ${isFaded ? "opacity-50" : "opacity-100"}`}>
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); handleSubgroupToggle(subNum); }}
-                        title={isLinked ? `Ваша підгрупа ${subNum} (натисніть, щоб перемкнути)` : (selectedSubgroup === subNum ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${subNum} підгрупу`)}
-                        aria-label={isLinked ? `Ваша підгрупа ${subNum} (натисніть, щоб перемкнути)` : (selectedSubgroup === subNum ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${subNum} підгрупу`)}
-                        className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold transition-colors ${
-                          (isLinked ? effectiveSubgroup === subNum : selectedSubgroup === subNum)
-                            ? "bg-sys-accent/20 text-sys-accent font-bold border border-sys-accent/40"
-                            : "bg-sys-border/60 border border-sys-border text-slate-300"
-                        }`}
-                      >
-                        {subNum} підгр.
-                      </button>
-                      <span className="flex-1 font-medium text-slate-200 min-w-0 break-words">{item.displayName}</span>
+                    <div
+                      key={idx}
+                      className={`flex items-center justify-between gap-2 w-full transition-opacity ${
+                        isFaded ? "opacity-50 hover:opacity-80" : "opacity-100"
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1 mr-2">
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleSubgroupToggle(subNum); }}
+                          title={isLinked ? `Ваша підгрупа ${subNum} (натисніть, щоб перемкнути)` : (selectedSubgroup === subNum ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${subNum} підгрупу`)}
+                          aria-label={isLinked ? `Ваша підгрупа ${subNum} (натисніть, щоб перемкнути)` : (selectedSubgroup === subNum ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${subNum} підгрупу`)}
+                          className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold transition-colors ${
+                            (isLinked ? effectiveSubgroup === subNum : selectedSubgroup === subNum)
+                              ? "bg-sys-accent/20 text-sys-accent font-bold border border-sys-accent/40"
+                              : "bg-sys-border/60 border border-sys-border text-slate-300 hover:text-white"
+                          }`}
+                        >
+                          {subNum} підгр.
+                        </button>
+                        <svg
+                          width="13"
+                          height="13"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="text-sys-text-muted shrink-0"
+                          aria-hidden="true"
+                        >
+                          <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                          <circle cx="12" cy="7" r="4" />
+                        </svg>
+                        {onQuickJump ? (
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); onQuickJump(item.target); }}
+                            className="truncate text-left text-xs sm:text-sm font-medium text-sys-text-secondary hover:text-sys-accent hover:underline focus:outline-none"
+                            title={item.displayName}
+                          >
+                            {item.displayName}
+                          </button>
+                        ) : (
+                          <span className="truncate text-xs sm:text-sm font-medium text-sys-text-secondary" title={item.displayName}>
+                            {item.displayName}
+                          </span>
+                        )}
+                      </div>
                       {ownMeeting ? (
                         <a
                           href={ownMeeting.url}
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
-                          className="ml-auto shrink-0 text-emerald-400 font-bold hover:underline whitespace-nowrap"
+                          className={`inline-flex shrink-0 h-7 px-2.5 items-center gap-1.5 rounded-lg border text-xs font-semibold whitespace-nowrap active:scale-95 transition-all ${
+                            isLive && isMeetingLiveOrSoon
+                              ? "bg-emerald-600/90 text-white border-emerald-500 shadow-xs hover:bg-emerald-500"
+                              : "border-sys-border bg-sys-card text-sys-text-primary hover:border-sys-accent/50 hover:text-sys-accent hover:bg-white/5"
+                          }`}
                         >
-                          {ownMeeting.platform === "zoom" ? "Zoom" : ownMeeting.platform === "meet" ? "Meet" : "Онлайн"} ↗
+                          {ownMeeting.platform === "zoom" ? (
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                              <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.934a.5.5 0 0 0-.777-.416L16 11" />
+                              <rect x="2" y="6" width="14" height="12" rx="2" />
+                            </svg>
+                          ) : (
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                              <polygon points="23 7 16 12 23 17 23 7" />
+                              <rect x="1" y="5" width="15" height="14" rx="2" />
+                            </svg>
+                          )}
+                          <span>{ownMeeting.platform === "zoom" ? "Zoom" : ownMeeting.platform === "meet" ? "Meet" : "Онлайн"}</span>
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 opacity-70">
+                            <path d="M7 17 17 7" />
+                            <path d="M7 7h10v10" />
+                          </svg>
                         </a>
                       ) : (
-                        <span className="ml-auto shrink-0 rounded-md border border-sys-border bg-sys-bg px-1.5 py-0.5 text-[11px] font-semibold leading-none text-sys-text-secondary whitespace-nowrap">{ownRoom ? `ауд. ${ownRoom.replace(/^ауд\.?\s*/i, "")}` : "ауд. —"}</span>
+                        <span className="shrink-0 rounded-md border border-sys-border bg-sys-bg px-2 py-1 text-xs font-semibold leading-none text-sys-text-secondary whitespace-nowrap">
+                          {ownRoom ? `ауд. ${ownRoom.replace(/^ауд\.?\s*/i, "")}` : "ауд. —"}
+                        </span>
                       )}
                     </div>
                   );
                 })}
                 {row3Meetings[0] && (
-                  <a
-                    href={row3Meetings[0].url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
-                    className="self-end text-emerald-400 font-bold hover:underline text-xs"
-                  >
-                    {row3Meetings[0].platform === "zoom" ? "Zoom" : row3Meetings[0].platform === "meet" ? "Meet" : "Онлайн"} ↗
-                  </a>
+                  <div className="flex justify-end w-full pt-0.5">
+                    <a
+                      href={row3Meetings[0].url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
+                      className={`inline-flex shrink-0 h-7 px-2.5 items-center gap-1.5 rounded-lg border text-xs font-semibold whitespace-nowrap active:scale-95 transition-all ${
+                        isLive && isMeetingLiveOrSoon
+                          ? "bg-emerald-600/90 text-white border-emerald-500 shadow-xs hover:bg-emerald-500"
+                          : "border-sys-border bg-sys-card text-sys-text-primary hover:border-sys-accent/50 hover:text-sys-accent hover:bg-white/5"
+                      }`}
+                    >
+                      {row3Meetings[0].platform === "zoom" ? (
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                          <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.934a.5.5 0 0 0-.777-.416L16 11" />
+                          <rect x="2" y="6" width="14" height="12" rx="2" />
+                        </svg>
+                      ) : (
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                          <polygon points="23 7 16 12 23 17 23 7" />
+                          <rect x="1" y="5" width="15" height="14" rx="2" />
+                        </svg>
+                      )}
+                      <span>{row3Meetings[0].platform === "zoom" ? "Zoom" : row3Meetings[0].platform === "meet" ? "Meet" : "Онлайн"}</span>
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 opacity-70">
+                        <path d="M7 17 17 7" />
+                        <path d="M7 7h10v10" />
+                      </svg>
+                    </a>
+                  </div>
                 )}
               </div>
             ) : secondaryItems.length > 0 ? (
@@ -2136,85 +2257,103 @@ export function LessonCard({
 
           {/* Row 2: Teacher(s) - compressed into single lines for week view */}
           {isDualTeachers ? (
-            <div className="flex flex-col gap-1 text-xs xl:text-xs text-sys-text-secondary [overflow-wrap:anywhere] mt-0.5">
-              {(!isLinked || effectiveSubgroup === null || effectiveSubgroup === 1) && (
-                <div className={`flex items-center gap-1.5 min-w-0 transition-opacity ${!isLinked && selectedSubgroup === 2 ? "opacity-50 hover:opacity-80" : "opacity-100"}`}>
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); handleSubgroupToggle(1); }}
-                    title={isLinked ? "Ваша підгрупа 1 (натисніть, щоб перемкнути)" : (selectedSubgroup === 1 ? "Ваша підгрупа (натисніть для скидання)" : "Обрати 1 підгрупу")}
-                    aria-label={isLinked ? "Ваша підгрупа 1 (натисніть, щоб перемкнути)" : (selectedSubgroup === 1 ? "Ваша підгрупа (натисніть для скидання)" : "Обрати 1 підгрупу")}
-                    className={`shrink-0 text-xs font-semibold transition-colors ${
-                      (isLinked ? effectiveSubgroup === 1 : selectedSubgroup === 1) ? "text-sys-accent font-bold" : "text-slate-400 hover:text-slate-200"
+            <div className="flex flex-col gap-1.5 text-xs text-sys-text-secondary w-full mt-0.5">
+              {secondaryItems.map((item, idx) => {
+                const subNum = idx + 1;
+                if (isLinked && effectiveSubgroup !== null && effectiveSubgroup !== subNum) {
+                  return null;
+                }
+                const isFaded = !isLinked && selectedSubgroup !== null && selectedSubgroup !== subNum;
+                const ownMeeting = teacherMeetings[idx];
+                const ownRoom = (idx === 0 ? lesson.teacher_room : lesson.second_teacher_room) || rooms[idx] || null;
+                return (
+                  <div
+                    key={idx}
+                    className={`flex items-center justify-between gap-2 w-full transition-opacity ${
+                      isFaded ? "opacity-50 hover:opacity-80" : "opacity-100"
                     }`}
                   >
-                    1 підгр.
-                  </button>
-                  {onQuickJump ? (
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); onQuickJump(secondaryItems[0].target); }}
-                      className="flex-1 min-w-0 break-words hover:text-sys-accent hover:underline focus:outline-none text-left font-medium text-slate-200"
-                    >
-                      {secondaryItems[0]?.displayName}
-                    </button>
-                  ) : (
-                    <span className="flex-1 min-w-0 break-words font-medium text-slate-200">{secondaryItems[0]?.displayName}</span>
-                  )}
-                  {teacherMeetings[0] ? (
-                    <a
-                      href={teacherMeetings[0].url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
-                      className="ml-auto text-emerald-400 font-bold hover:underline shrink-0 whitespace-nowrap"
-                    >
-                      {teacherMeetings[0].platform === "zoom" ? "Zoom" : teacherMeetings[0].platform === "meet" ? "Meet" : "Онлайн"} ↗
-                    </a>
-                  ) : (
-                    <span className="ml-auto shrink-0 rounded-md border border-sys-border bg-sys-bg px-1.5 py-0.5 text-[11px] font-semibold leading-none text-sys-text-secondary whitespace-nowrap">{(lesson.teacher_room || rooms[0]) ? `ауд. ${(lesson.teacher_room || rooms[0]).replace(/^ауд\.?\s*/i, "")}` : "ауд. —"}</span>
-                  )}
-                </div>
-              )}
-              {(!isLinked || effectiveSubgroup === null || effectiveSubgroup === 2) && (
-                <div className={`flex items-center gap-1.5 min-w-0 transition-opacity ${!isLinked && selectedSubgroup === 1 ? "opacity-50 hover:opacity-80" : "opacity-100"}`}>
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); handleSubgroupToggle(2); }}
-                    title={isLinked ? "Ваша підгрупа 2 (натисніть, щоб перемкнути)" : (selectedSubgroup === 2 ? "Ваша підгрупа (натисніть для скидання)" : "Обрати 2 підгрупу")}
-                    aria-label={isLinked ? "Ваша підгрупа 2 (натисніть, щоб перемкнути)" : (selectedSubgroup === 2 ? "Ваша підгрупа (натисніть для скидання)" : "Обрати 2 підгрупу")}
-                    className={`shrink-0 text-xs font-semibold transition-colors ${
-                      (isLinked ? effectiveSubgroup === 2 : selectedSubgroup === 2) ? "text-sys-accent font-bold" : "text-slate-400 hover:text-slate-200"
-                    }`}
-                  >
-                    2 підгр.
-                  </button>
-                  {onQuickJump ? (
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); onQuickJump(secondaryItems[1].target); }}
-                      className="flex-1 min-w-0 break-words hover:text-sys-accent hover:underline focus:outline-none text-left font-medium text-slate-200"
-                    >
-                      {secondaryItems[1]?.displayName}
-                    </button>
-                  ) : (
-                    <span className="flex-1 min-w-0 break-words font-medium text-slate-200">{secondaryItems[1]?.displayName}</span>
-                  )}
-                  {teacherMeetings[1] ? (
-                    <a
-                      href={teacherMeetings[1].url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
-                      className="ml-auto text-emerald-400 font-bold hover:underline shrink-0 whitespace-nowrap"
-                    >
-                      {teacherMeetings[1].platform === "zoom" ? "Zoom" : teacherMeetings[1].platform === "meet" ? "Meet" : "Онлайн"} ↗
-                    </a>
-                  ) : (
-                    <span className="ml-auto shrink-0 rounded-md border border-sys-border bg-sys-bg px-1.5 py-0.5 text-[11px] font-semibold leading-none text-sys-text-secondary whitespace-nowrap">{(lesson.second_teacher_room || rooms[1]) ? `ауд. ${(lesson.second_teacher_room || rooms[1]).replace(/^ауд\.?\s*/i, "")}` : "ауд. —"}</span>
-                  )}
-                </div>
-              )}
+                    <div className="flex items-center gap-1.5 min-w-0 flex-1 mr-1.5">
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); handleSubgroupToggle(subNum); }}
+                        title={isLinked ? `Ваша підгрупа ${subNum} (натисніть, щоб перемкнути)` : (selectedSubgroup === subNum ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${subNum} підгрупу`)}
+                        aria-label={isLinked ? `Ваша підгрупа ${subNum} (натисніть, щоб перемкнути)` : (selectedSubgroup === subNum ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${subNum} підгрупу`)}
+                        className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-semibold transition-colors ${
+                          (isLinked ? effectiveSubgroup === subNum : selectedSubgroup === subNum)
+                            ? "bg-sys-accent/20 text-sys-accent font-bold border border-sys-accent/40"
+                            : "bg-sys-border/60 border border-sys-border text-slate-300 hover:text-white"
+                        }`}
+                      >
+                        {subNum} підгр.
+                      </button>
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="text-sys-text-muted shrink-0"
+                        aria-hidden="true"
+                      >
+                        <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                        <circle cx="12" cy="7" r="4" />
+                      </svg>
+                      {onQuickJump ? (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); onQuickJump(item.target); }}
+                          className="truncate text-left text-xs font-medium text-sys-text-secondary hover:text-sys-accent hover:underline focus:outline-none"
+                          title={item.displayName}
+                        >
+                          {item.displayName}
+                        </button>
+                      ) : (
+                        <span className="truncate text-xs font-medium text-sys-text-secondary" title={item.displayName}>
+                          {item.displayName}
+                        </span>
+                      )}
+                    </div>
+                    {ownMeeting ? (
+                      <a
+                        href={ownMeeting.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
+                        className={`inline-flex shrink-0 h-6 px-2 items-center gap-1 rounded-md border text-[11px] font-semibold whitespace-nowrap active:scale-95 transition-all ${
+                          isLive && isMeetingLiveOrSoon
+                            ? "bg-emerald-600/90 text-white border-emerald-500 shadow-xs hover:bg-emerald-500"
+                            : "border-sys-border bg-sys-card text-sys-text-primary hover:border-sys-accent/50 hover:text-sys-accent hover:bg-white/5"
+                        }`}
+                      >
+                        {ownMeeting.platform === "zoom" ? (
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                            <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.934a.5.5 0 0 0-.777-.416L16 11" />
+                            <rect x="2" y="6" width="14" height="12" rx="2" />
+                          </svg>
+                        ) : (
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                            <polygon points="23 7 16 12 23 17 23 7" />
+                            <rect x="1" y="5" width="15" height="14" rx="2" />
+                          </svg>
+                        )}
+                        <span>{ownMeeting.platform === "zoom" ? "Zoom" : ownMeeting.platform === "meet" ? "Meet" : "Онлайн"}</span>
+                        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 opacity-70">
+                          <path d="M7 17 17 7" />
+                          <path d="M7 7h10v10" />
+                        </svg>
+                      </a>
+                    ) : (
+                      <span className="shrink-0 rounded-md border border-sys-border bg-sys-bg px-1.5 py-0.5 text-[11px] font-semibold leading-none text-sys-text-secondary whitespace-nowrap">
+                        {ownRoom ? `ауд. ${ownRoom.replace(/^ауд\.?\s*/i, "")}` : "ауд. —"}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           ) : secondaryItems.length > 0 ? (
             <div className="text-xs text-sys-text-secondary [overflow-wrap:anywhere]">
