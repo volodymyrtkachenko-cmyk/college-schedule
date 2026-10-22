@@ -1163,7 +1163,7 @@ export default function HomePage() {
               </button>
             </div>
             {headerLearningMode && (
-              <span className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-sys-border bg-sys-surface/80 px-2.5 py-1 text-xs font-semibold text-sys-text-secondary">
+              <span className="shrink-0 inline-flex items-center justify-center gap-1.5 w-[124px] rounded-full border border-sys-border bg-sys-surface/80 px-2.5 py-1 text-xs font-semibold text-sys-text-secondary">
                 <span className={`h-1.5 w-1.5 rounded-full ${headerLearningMode === "offline" ? "bg-sys-accent" : "bg-slate-400"}`} />
                 {headerLearningMode === "offline" ? "Очно" : "Дистанційно"}
               </span>
@@ -1891,58 +1891,19 @@ export default function HomePage() {
                               </span>
                             </div>
 
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              <button
-                                type="button"
-                                onClick={goToPrevDay}
-                                title="Попередній день"
-                                aria-label="Попередній день"
-                                className="flex h-8 w-8 items-center justify-center rounded-lg border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-white hover:border-sys-border-elevated transition-colors"
-                              >
-                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                  <path d="m15 18-6-6 6-6" />
-                                </svg>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={handleJumpToToday}
-                                title="Перейти на сьогодні"
-                                className={`h-8 px-2.5 rounded-lg border text-xs font-semibold transition-colors ${
-                                  selectedDaySchedule?.date === todayActualIso
-                                    ? "border-sys-accent/40 bg-sys-accent/15 text-sys-accent font-bold"
-                                    : "border-sys-border bg-sys-bg text-sys-text-secondary hover:text-white"
-                                }`}
-                              >
-                                Сьогодні
-                              </button>
-                              <button
-                                type="button"
-                                onClick={goToNextDay}
-                                title="Наступний день"
-                                aria-label="Наступний день"
-                                className="flex h-8 w-8 items-center justify-center rounded-lg border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-white hover:border-sys-border-elevated transition-colors"
-                              >
-                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                  <path d="m9 18 6-6-6-6" />
-                                </svg>
-                              </button>
-
-                              <div className="h-5 w-px bg-sys-border/60 mx-1" />
-
-                              <button
-                                type="button"
-                                onClick={toggleFocusMode}
-                                title="Показати бічну панель завдань"
-                                aria-label="Показати бічну панель завдань"
-                                className="flex h-8 w-8 items-center justify-center rounded-lg border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-accent hover:border-sys-accent/40 active:scale-95 transition-all shrink-0 cursor-pointer"
-                              >
-                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                  <rect width="18" height="18" x="3" y="3" rx="2" />
-                                  <path d="M15 3v18" />
-                                  <path d="m8 9 3 3-3 3" />
-                                </svg>
-                              </button>
-                            </div>
+                            <button
+                              type="button"
+                              onClick={toggleFocusMode}
+                              title="Показати бічну панель завдань"
+                              aria-label="Показати бічну панель завдань"
+                              className="flex h-8 w-8 items-center justify-center rounded-lg border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-accent hover:border-sys-accent/40 active:scale-95 transition-all shrink-0 cursor-pointer"
+                            >
+                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <rect width="18" height="18" x="3" y="3" rx="2" />
+                                <path d="M15 3v18" />
+                                <path d="m8 9 3 3-3 3" />
+                              </svg>
+                            </button>
                           </div>
 
                           <div className="grid grid-cols-5 gap-2">
