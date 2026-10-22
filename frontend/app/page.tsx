@@ -198,8 +198,18 @@ export default function HomePage() {
     max_points?: number | null;
   }>>([]);
   const [classroomLastSyncedAt, setClassroomLastSyncedAt] = useState<string | null>(null);
-  const { linkedEmail, isLinked, submissions, personalTeachers, unlink: unlinkClassroom } = useClassroomSubmissions();
+  const { linkedEmail, isLinked, isLinkedToGroup, submissions, personalTeachers, unlink: unlinkClassroom } = useClassroomSubmissions();
+  const hasGroupTaskAccess = mode !== "student" || isLinkedToGroup(groupId);
   const [tasksScope, setTasksScope] = useState<"week" | "all">("week");
+
+  useEffect(() => {
+    const handlePrompt = () => {
+      setToast("Для перегляду онлайн-пари прив'яжіть Google Classroom цієї групи", "info");
+      window.dispatchEvent(new CustomEvent("trigger-classroom-sync"));
+    };
+    window.addEventListener("prompt-classroom-link", handlePrompt);
+    return () => window.removeEventListener("prompt-classroom-link", handlePrompt);
+  }, [setToast]);
   const [sidebarPastWeekOpen, setSidebarPastWeekOpen] = useState(false);
   const [sidebarUserToggledOverdue, setSidebarUserToggledOverdue] = useState<boolean | null>(null);
   const sidebarOverdueOpen = sidebarUserToggledOverdue !== null ? sidebarUserToggledOverdue : isLinked;
@@ -1143,11 +1153,15 @@ export default function HomePage() {
             <button
               type="button"
               onClick={toggleTheme}
-              aria-label={resolvedTheme === "dark" ? "Увімкнути світлу тему" : "Увімкнути темну тему"}
-              title={resolvedTheme === "dark" ? "Світла тема" : "Темна тема"}
+              aria-label={resolvedTheme === "dark" ? "Поточна тема: Темна (натисніть, щоб змінити)" : "Поточна тема: Світла (натисніть, щоб змінити)"}
+              title={resolvedTheme === "dark" ? "Поточна тема: Темна" : "Поточна тема: Світла"}
               className="flex h-10 w-10 items-center justify-center rounded-xl border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-border-elevated active:scale-95 transition-all focus:outline-none focus:ring-2 focus:ring-sys-accent cursor-pointer"
             >
               {resolvedTheme === "dark" ? (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+                </svg>
+              ) : (
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="12" cy="12" r="4" />
                   <path d="M12 2v2" />
@@ -1158,10 +1172,6 @@ export default function HomePage() {
                   <path d="M20 12h2" />
                   <path d="m6.34 17.66-1.41 1.41" />
                   <path d="m19.07 4.93-1.41 1.41" />
-                </svg>
-              ) : (
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
                 </svg>
               )}
             </button>
@@ -1832,57 +1842,91 @@ export default function HomePage() {
                           </div>
 
                           {/* Week Switcher & Scope Segment (Section 22.1) */}
-                          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-sys-border/30">
-                            <div className={`inline-flex items-center gap-0.5 rounded-xl border border-sys-border bg-sys-bg px-1 py-0.5 text-xs shadow-xs transition-opacity ${tasksScope === "week" ? "" : "opacity-50"}`}>
-                              <button
-                                type="button"
-                                disabled={tasksScope !== "week"}
-                                onClick={() => shiftWeekPreservingDay(-1)}
-                                aria-label="Попередній тиждень"
-                                className="flex h-6 w-6 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-card active:scale-95 transition-all cursor-pointer disabled:cursor-default disabled:hover:bg-transparent font-bold"
-                              >
-                                ‹
-                              </button>
-                              <span className="px-1.5 font-semibold text-sys-text-primary whitespace-nowrap text-xs">
-                                {sidebarTaskGroups.weekLabel}
-                              </span>
-                              <button
-                                type="button"
-                                disabled={tasksScope !== "week"}
-                                onClick={() => shiftWeekPreservingDay(1)}
-                                aria-label="Наступний тиждень"
-                                className="flex h-6 w-6 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-card active:scale-95 transition-all cursor-pointer disabled:cursor-default disabled:hover:bg-transparent font-bold"
-                              >
-                                ›
-                              </button>
-                            </div>
+                          {hasGroupTaskAccess && (
+                            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-sys-border/30">
+                              <div className={`inline-flex items-center gap-0.5 rounded-xl border border-sys-border bg-sys-bg px-1 py-0.5 text-xs shadow-xs transition-opacity ${tasksScope === "week" ? "" : "opacity-50"}`}>
+                                <button
+                                  type="button"
+                                  disabled={tasksScope !== "week"}
+                                  onClick={() => shiftWeekPreservingDay(-1)}
+                                  aria-label="Попередній тиждень"
+                                  className="flex h-6 w-6 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-card active:scale-95 transition-all cursor-pointer disabled:cursor-default disabled:hover:bg-transparent font-bold"
+                                >
+                                  ‹
+                                </button>
+                                <span className="px-1.5 font-semibold text-sys-text-primary whitespace-nowrap text-xs">
+                                  {sidebarTaskGroups.weekLabel}
+                                </span>
+                                <button
+                                  type="button"
+                                  disabled={tasksScope !== "week"}
+                                  onClick={() => shiftWeekPreservingDay(1)}
+                                  aria-label="Наступний тиждень"
+                                  className="flex h-6 w-6 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-card active:scale-95 transition-all cursor-pointer disabled:cursor-default disabled:hover:bg-transparent font-bold"
+                                >
+                                  ›
+                                </button>
+                              </div>
 
-                            <div className="inline-flex items-center rounded-xl border border-sys-border bg-sys-bg p-0.5 text-xs shadow-xs">
-                              <button
-                                type="button"
-                                onClick={() => setTasksScope("week")}
-                                className={`rounded-lg px-2 py-0.5 font-semibold transition-all cursor-pointer ${
-                                  tasksScope === "week"
-                                    ? "bg-sys-accent text-white shadow-xs"
-                                    : "text-sys-text-secondary hover:text-sys-text-primary"
-                                }`}
-                              >
-                                Цей тиждень
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setTasksScope("all")}
-                                className={`rounded-lg px-2 py-0.5 font-semibold transition-all cursor-pointer ${
-                                  tasksScope === "all"
-                                    ? "bg-sys-accent text-white shadow-xs"
-                                    : "text-sys-text-secondary hover:text-sys-text-primary"
-                                }`}
-                              >
-                                Усі
-                              </button>
+                              <div className="inline-flex items-center rounded-xl border border-sys-border bg-sys-bg p-0.5 text-xs shadow-xs">
+                                <button
+                                  type="button"
+                                  onClick={() => setTasksScope("week")}
+                                  className={`rounded-lg px-2 py-0.5 font-semibold transition-all cursor-pointer ${
+                                    tasksScope === "week"
+                                      ? "bg-sys-accent text-white shadow-xs"
+                                      : "text-sys-text-secondary hover:text-sys-text-primary"
+                                  }`}
+                                >
+                                  Цей тиждень
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setTasksScope("all")}
+                                  className={`rounded-lg px-2 py-0.5 font-semibold transition-all cursor-pointer ${
+                                    tasksScope === "all"
+                                      ? "bg-sys-accent text-white shadow-xs"
+                                      : "text-sys-text-secondary hover:text-sys-text-primary"
+                                  }`}
+                                >
+                                  Усі
+                                </button>
+                              </div>
                             </div>
-                          </div>
+                          )}
                         </div>
+
+                        {!hasGroupTaskAccess ? (
+                          <div className="mt-4 rounded-2xl border border-sky-500/20 bg-sky-500/5 p-5 text-center">
+                            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/>
+                                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                              </svg>
+                            </div>
+                            <h3 className="text-sm font-semibold text-sys-text-primary mb-1">
+                              Завдання захищено
+                            </h3>
+                            <p className="text-xs text-sys-text-secondary leading-relaxed mb-4">
+                              Домашні завдання та матеріали доступні лише для студентів цієї групи. Підключіть студентський Google Classroom, щоб отримати доступ.
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                window.dispatchEvent(new CustomEvent("trigger-classroom-sync"));
+                              }}
+                              className="inline-flex items-center justify-center gap-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-medium text-xs px-4 py-2.5 transition-colors shadow-sm cursor-pointer active:scale-95"
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+                                <polyline points="10 17 15 12 10 7" />
+                                <line x1="15" y1="12" x2="3" y2="12" />
+                              </svg>
+                              <span>Прив&apos;язати Google Classroom</span>
+                            </button>
+                          </div>
+                        ) : (
+                          <>
 
                         {/* Unlinked Prompt Banner (Section 17.2) */}
                         {!isLinked && (
@@ -2110,6 +2154,8 @@ export default function HomePage() {
                             </div>
                           )}
                         </div>
+                          </>
+                        )}
                       </div>
                     </div>
                   </motion.aside>

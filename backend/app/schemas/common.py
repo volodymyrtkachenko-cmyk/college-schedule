@@ -131,6 +131,8 @@ class ScheduleItem(BaseModel):
     moved_to_date: DateType | None = None
     moved_to_lesson: int | None = None
     has_template: bool | None = True
+    is_online: bool = False
+    has_protected_link: bool = False
 
 class LearningModeOverride(BaseModel):
     start: date

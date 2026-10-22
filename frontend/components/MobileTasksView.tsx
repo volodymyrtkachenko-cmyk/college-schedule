@@ -48,7 +48,8 @@ export function MobileTasksView({
   onSynced?: (detectedId: number) => void;
 }) {
   const [filters, setFilters] = useState<TaskFilterState>(DEFAULT_TASK_FILTERS);
-  const { isLinked } = useClassroomSubmissions();
+  const { isLinked, isLinkedToGroup } = useClassroomSubmissions();
+  const hasAccess = Boolean(groupId && isLinkedToGroup(groupId));
 
   const [internalScope, setInternalScope] = useState<"week" | "all">("week");
   const scope = tasksScope ?? internalScope;
@@ -127,87 +128,118 @@ export function MobileTasksView({
         )}
       </div>
 
-      {/* Week Switcher & Scope Segment (Section 22.1) */}
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        {/* Week Switcher ‹ 19–25 жовт. · 8 тиждень › */}
-        <div className="inline-flex items-center gap-1 rounded-xl border border-sys-border bg-sys-card px-1.5 py-1 text-xs shadow-xs">
-          {onPrevWeek && (
-            <button
-              type="button"
-              onClick={onPrevWeek}
-              aria-label="Попередній тиждень"
-              className="flex h-7 w-7 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg active:scale-95 transition-all cursor-pointer font-bold"
-            >
-              ‹
-            </button>
-          )}
-          <span className="px-1.5 font-semibold text-sys-text-primary whitespace-nowrap text-xs">
-            {weekLabel}
-          </span>
-          {onNextWeek && (
-            <button
-              type="button"
-              onClick={onNextWeek}
-              aria-label="Наступний тиждень"
-              className="flex h-7 w-7 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg active:scale-95 transition-all cursor-pointer font-bold"
-            >
-              ›
-            </button>
-          )}
-        </div>
-
-        {/* Scope Segment [Цей тиждень | Усі] */}
-        <div className="inline-flex items-center rounded-xl border border-sys-border bg-sys-card p-0.5 text-xs shadow-xs">
-          <button
-            type="button"
-            onClick={() => setScope("week")}
-            className={`rounded-lg px-2.5 py-1 font-semibold transition-all cursor-pointer ${
-              scope === "week"
-                ? "bg-sys-accent text-white shadow-xs"
-                : "text-sys-text-secondary hover:text-sys-text-primary"
-            }`}
-          >
-            Цей тиждень
-          </button>
-          <button
-            type="button"
-            onClick={() => setScope("all")}
-            className={`rounded-lg px-2.5 py-1 font-semibold transition-all cursor-pointer ${
-              scope === "all"
-                ? "bg-sys-accent text-white shadow-xs"
-                : "text-sys-text-secondary hover:text-sys-text-primary"
-            }`}
-          >
-            Усі
-          </button>
-        </div>
-      </div>
-
-      {/* Unlinked Prompt Banner (Section 17.2) */}
-      {!isLinked && (
-        <div className="mb-4 rounded-xl border border-sky-500/30 bg-sky-500/10 p-3 text-xs text-sys-text-secondary">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-start gap-2 min-w-0">
-              <span className="text-sky-400 font-bold shrink-0">ⓘ</span>
-              <span className="leading-snug text-sys-text-primary">
-                Це завдання всієї групи. Прив&apos;яжи пошту, щоб бачити, що ти вже здав.
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                window.dispatchEvent(new CustomEvent("trigger-classroom-sync"));
-              }}
-              className="shrink-0 rounded-lg bg-sky-500/25 hover:bg-sky-500/35 border border-sky-500/40 px-2.5 py-1 text-xs font-semibold text-sky-700 dark:text-sky-200 transition-colors cursor-pointer"
-            >
-              Прив&apos;язати
-            </button>
+      {!hasAccess ? (
+        <div className="rounded-2xl border border-sky-500/20 bg-sky-500/5 p-6 text-center mt-6">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-500/10 text-sky-400 border border-sky-500/20">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
           </div>
-          <p className="text-xs text-sys-text-muted mt-1.5 pl-5">
-            Сервер лише читає ваші завдання з Classroom і нічого не змінює.
+          <h3 className="text-base font-bold text-sys-text-primary mb-1.5">
+            Завдання захищено
+          </h3>
+          <p className="text-xs text-sys-text-secondary leading-relaxed max-w-sm mx-auto mb-5">
+            Домашні завдання та матеріали доступні лише для студентів цієї групи. Підключіть студентський Google Classroom, щоб отримати доступ.
           </p>
+          <button
+            type="button"
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent("trigger-classroom-sync"));
+            }}
+            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-semibold text-xs px-5 py-2.5 transition-colors shadow-sm cursor-pointer active:scale-95"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+              <polyline points="10 17 15 12 10 7" />
+              <line x1="15" y1="12" x2="3" y2="12" />
+            </svg>
+            <span>Прив&apos;язати Google Classroom</span>
+          </button>
         </div>
-      )}
+      ) : (
+        <>
+          {/* Week Switcher & Scope Segment (Section 22.1) */}
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            {/* Week Switcher ‹ 19–25 жовт. · 8 тиждень › */}
+            <div className="inline-flex items-center gap-1 rounded-xl border border-sys-border bg-sys-card px-1.5 py-1 text-xs shadow-xs">
+              {onPrevWeek && (
+                <button
+                  type="button"
+                  onClick={onPrevWeek}
+                  aria-label="Попередній тиждень"
+                  className="flex h-7 w-7 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg active:scale-95 transition-all cursor-pointer font-bold"
+                >
+                  ‹
+                </button>
+              )}
+              <span className="px-1.5 font-semibold text-sys-text-primary whitespace-nowrap text-xs">
+                {weekLabel}
+              </span>
+              {onNextWeek && (
+                <button
+                  type="button"
+                  onClick={onNextWeek}
+                  aria-label="Наступний тиждень"
+                  className="flex h-7 w-7 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg active:scale-95 transition-all cursor-pointer font-bold"
+                >
+                  ›
+                </button>
+              )}
+            </div>
+
+            {/* Scope Segment [Цей тиждень | Усі] */}
+            <div className="inline-flex items-center rounded-xl border border-sys-border bg-sys-card p-0.5 text-xs shadow-xs">
+              <button
+                type="button"
+                onClick={() => setScope("week")}
+                className={`rounded-lg px-2.5 py-1 font-semibold transition-all cursor-pointer ${
+                  scope === "week"
+                    ? "bg-sys-accent text-white shadow-xs"
+                    : "text-sys-text-secondary hover:text-sys-text-primary"
+                }`}
+              >
+                Цей тиждень
+              </button>
+              <button
+                type="button"
+                onClick={() => setScope("all")}
+                className={`rounded-lg px-2.5 py-1 font-semibold transition-all cursor-pointer ${
+                  scope === "all"
+                    ? "bg-sys-accent text-white shadow-xs"
+                    : "text-sys-text-secondary hover:text-sys-text-primary"
+                }`}
+              >
+                Усі
+              </button>
+            </div>
+          </div>
+
+          {/* Unlinked Prompt Banner (Section 17.2) */}
+          {!isLinked && (
+            <div className="mb-4 rounded-xl border border-sky-500/30 bg-sky-500/10 p-3 text-xs text-sys-text-secondary">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-start gap-2 min-w-0">
+                  <span className="text-sky-400 font-bold shrink-0">ⓘ</span>
+                  <span className="leading-snug text-sys-text-primary">
+                    Це завдання всієї групи. Прив&apos;яжи пошту, щоб бачити, що ти вже здав.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.dispatchEvent(new CustomEvent("trigger-classroom-sync"));
+                  }}
+                  className="shrink-0 rounded-lg bg-sky-500/25 hover:bg-sky-500/35 border border-sky-500/40 px-2.5 py-1 text-xs font-semibold text-sky-700 dark:text-sky-200 transition-colors cursor-pointer"
+                >
+                  Прив&apos;язати
+                </button>
+              </div>
+              <p className="text-xs text-sys-text-muted mt-1.5 pl-5">
+                Сервер лише читає ваші завдання з Classroom і нічого не змінює.
+              </p>
+            </div>
+          )}
 
       {/* Filters */}
       {tasks.length > 0 && (
@@ -404,6 +436,8 @@ export function MobileTasksView({
             </section>
           )}
         </div>
+      )}
+        </>
       )}
     </div>
   );

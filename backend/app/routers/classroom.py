@@ -7,7 +7,7 @@ from typing import Optional
 from zoneinfo import ZoneInfo
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -2807,8 +2807,12 @@ async def get_classroom_status():
 @router.get("/groups/{group_id}/status")
 async def get_classroom_group_status(
     group_id: int,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ):
+    from app.services.classroom_access import check_classroom_group_access
+    has_access = await check_classroom_group_access(db, group_id, request)
+
     binding = await db.scalar(
         select(ClassroomGroupBinding).where(
             ClassroomGroupBinding.group_id == group_id,
@@ -2892,8 +2896,9 @@ async def get_classroom_group_status(
         "last_synced_at": last_synced,
         "has_refresh_token": bool(binding and binding.refresh_token) or has_active_creds,
         "has_client_secret": bool(settings.google_client_secret),
-        "unmapped_tasks": _latest_unmapped_tasks.get(group_id, []),
-        "tasks": tasks if tasks is not None else [],
+        "unmapped_tasks": _latest_unmapped_tasks.get(group_id, []) if has_access else [],
+        "tasks": (tasks if tasks is not None else []) if has_access else [],
+        "requires_auth": not has_access,
         "needs_reconnect": _latest_scope_missing.get(group_id, False),
         **accounts_summary,
     }

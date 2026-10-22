@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { LessonNote } from "./LessonNote";
 const LessonNoteModal = dynamic(() => import("./LessonNote").then((m) => m.LessonNoteModal), { ssr: false });
@@ -659,6 +659,38 @@ function MeetingPlatformIcon({
   );
 }
 
+function LockedMeetingBadge({
+  platform,
+  size = "normal",
+  onClick,
+}: {
+  platform?: "meet" | "zoom" | "teams" | "link";
+  size?: "normal" | "compact" | "tiny";
+  onClick?: (e: React.MouseEvent) => void;
+}) {
+  const sizeClasses =
+    size === "tiny"
+      ? "h-6 min-h-[24px] px-2 text-[11px] gap-1 rounded-md"
+      : size === "compact"
+      ? "h-7 px-2.5 text-xs gap-1.5 rounded-lg"
+      : "min-h-[36px] h-9 px-3 text-xs gap-1.5 rounded-xl";
+
+  const label = platform === "zoom" ? "Zoom" : platform === "meet" ? "Meet" : "Онлайн";
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title="Онлайн-заняття. Прив'яжіть студентський Classroom цієї групи для доступу до дзвінка"
+      aria-label="Онлайн-заняття. Прив'яжіть студентський Classroom цієї групи для доступу до дзвінка"
+      className={`inline-flex shrink-0 items-center border border-amber-500/40 bg-amber-500/10 text-amber-300 dark:text-amber-200 font-bold whitespace-nowrap hover:bg-amber-500/20 active:scale-95 transition-all shadow-xs cursor-pointer ${sizeClasses}`}
+    >
+      <span className="text-[12px]">🔒</span>
+      <span>{label}</span>
+    </button>
+  );
+}
+
 export function LessonCard({
   lesson,
   targetDate,
@@ -744,9 +776,29 @@ export function LessonCard({
     return subscribeKyivNow(setNowState);
   }, []);
 
-  const { isLinked, submissions, personalTeachers, personalSubgroup } = useClassroomSubmissions();
+  const { isLinked, isLinkedToGroup, submissions, personalTeachers, personalSubgroup } = useClassroomSubmissions();
 
   const isTeacherView = scheduleMode === "teacher";
+  const hasGroupAccess = useMemo(() => {
+    if (isTeacherView || canEdit || scheduleMode === "admin") return true;
+    if (!lesson.group_id) return true;
+    return isLinkedToGroup(lesson.group_id);
+  }, [isTeacherView, canEdit, scheduleMode, lesson.group_id, isLinkedToGroup]);
+
+  const handleLockedMeetingClick = useCallback((e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    vibrateTap(12);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("prompt-classroom-link", {
+          detail: {
+            groupId: lesson.group_id,
+            message: "Для переходу на онлайн-дзвінок необхідно прив'язати студентський Google Classroom цієї групи.",
+          },
+        })
+      );
+    }
+  }, [lesson.group_id]);
 
   const hasMultipleTeachers = Boolean(
     lesson.second_teacher_id ||
@@ -850,8 +902,8 @@ export function LessonCard({
     isLive && endMin !== null && nowState ? Math.max(1, endMin - nowState.minutes) : 0;
 
   const rawTasks = useMemo(
-    () => (isTeacherView || canEdit || scheduleMode === "admin" ? [] : extractClassroomTasks(lesson.note)),
-    [isTeacherView, canEdit, scheduleMode, lesson.note]
+    () => (isTeacherView || canEdit || scheduleMode === "admin" || !hasGroupAccess ? [] : extractClassroomTasks(lesson.note)),
+    [isTeacherView, canEdit, scheduleMode, hasGroupAccess, lesson.note]
   );
   // Завдання іншої підгрупи та завдання, які здано, не показуються ТІЛЬКИ у користувача, який прив'язав пошту.
   // Завдання іншої підгрупи та завдання, які здано, фільтруються відповідно до обраної підгрупи
@@ -1496,22 +1548,26 @@ export function LessonCard({
                                 )}
                               </div>
                               {ownMeeting ? (
-                                <a
-                                  href={ownMeeting.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
-                                  className={`inline-flex shrink-0 h-7 px-2.5 items-center gap-1.5 rounded-lg border text-xs font-semibold whitespace-nowrap active:scale-95 transition-all ${
-                                    getMeetingBtnStyle(ownMeeting.platform, isLive && isMeetingLiveOrSoon, "compact")
-                                  }`}
-                                >
-                                  <MeetingPlatformIcon platform={ownMeeting.platform} size={13} />
-                                  <span>{ownMeeting.platform === "zoom" ? "Zoom" : ownMeeting.platform === "meet" ? "Meet" : "Онлайн"}</span>
-                                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 opacity-70">
-                                    <path d="M7 17 17 7" />
-                                    <path d="M7 7h10v10" />
-                                  </svg>
-                                </a>
+                                !hasGroupAccess ? (
+                                  <LockedMeetingBadge size="compact" onClick={handleLockedMeetingClick} />
+                                ) : (
+                                  <a
+                                    href={ownMeeting.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
+                                    className={`inline-flex shrink-0 h-7 px-2.5 items-center gap-1.5 rounded-lg border text-xs font-semibold whitespace-nowrap active:scale-95 transition-all ${
+                                      getMeetingBtnStyle(ownMeeting.platform, isLive && isMeetingLiveOrSoon, "compact")
+                                    }`}
+                                  >
+                                    <MeetingPlatformIcon platform={ownMeeting.platform} size={13} />
+                                    <span>{ownMeeting.platform === "zoom" ? "Zoom" : ownMeeting.platform === "meet" ? "Meet" : "Онлайн"}</span>
+                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 opacity-70">
+                                      <path d="M7 17 17 7" />
+                                      <path d="M7 7h10v10" />
+                                    </svg>
+                                  </a>
+                                )
                               ) : (
                                 <span className="shrink-0 rounded-md border border-sys-border bg-sys-bg px-2 py-1 text-xs font-semibold leading-none text-sys-text-secondary whitespace-nowrap">
                                   {ownRoom ? `ауд. ${ownRoom.replace(/^ауд\.?\s*/i, "")}` : "ауд. —"}
@@ -1557,21 +1613,27 @@ export function LessonCard({
                       <span>{roomsLabel}</span>
                     </div>
                   )}
-                  {deskMeeting && (
-                    <a
-                      href={deskMeeting.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
-                      className={`inline-flex h-8 px-3 items-center gap-1.5 rounded-lg font-bold text-xs active:scale-95 transition-all whitespace-nowrap border ${
-                        getMeetingBtnStyle(deskMeeting.platform, isMeetingLiveOrSoon, "normal")
-                      }`}
-                    >
-                      <MeetingPlatformIcon platform={deskMeeting.platform} size={14} />
-                      <span>{deskMeeting.platform === "zoom" ? "Zoom" : deskMeeting.platform === "meet" ? "Meet" : "Онлайн"}</span>
-                      <span className="text-xs opacity-75">↗</span>
-                    </a>
-                  )}
+                  {deskMeeting ? (
+                    !hasGroupAccess ? (
+                      <LockedMeetingBadge size="normal" onClick={handleLockedMeetingClick} />
+                    ) : (
+                      <a
+                        href={deskMeeting.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
+                        className={`inline-flex h-8 px-3 items-center gap-1.5 rounded-lg font-bold text-xs active:scale-95 transition-all whitespace-nowrap border ${
+                          getMeetingBtnStyle(deskMeeting.platform, isMeetingLiveOrSoon, "normal")
+                        }`}
+                      >
+                        <MeetingPlatformIcon platform={deskMeeting.platform} size={14} />
+                        <span>{deskMeeting.platform === "zoom" ? "Zoom" : deskMeeting.platform === "meet" ? "Meet" : "Онлайн"}</span>
+                        <span className="text-xs opacity-75">↗</span>
+                      </a>
+                    )
+                  ) : (!isDualTeachers || isSingleSubgroupShown) && !hasGroupAccess && (lesson.has_protected_link || (lesson.is_online && displayRooms.length === 0)) ? (
+                    <LockedMeetingBadge size="normal" onClick={handleLockedMeetingClick} />
+                  ) : null}
                 </div>
 
                 {/* Statuses and Actions */}
@@ -1923,21 +1985,27 @@ export function LessonCard({
                       <span className="truncate">{roomsLabel}</span>
                     </div>
                   )}
-                  {mobileMeeting && (
-                    <a
-                      href={mobileMeeting.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
-                      className={`inline-flex h-8 min-h-[32px] px-2.5 items-center gap-1.5 rounded-lg font-bold text-xs shadow-xs active:scale-95 transition-all whitespace-nowrap border ${
-                        getMeetingBtnStyle(mobileMeeting.platform, isMeetingLiveOrSoon, "normal")
-                      }`}
-                    >
-                      <MeetingPlatformIcon platform={mobileMeeting.platform} size={14} />
-                      <span>{mobileMeeting.platform === "zoom" ? "Zoom" : mobileMeeting.platform === "meet" ? "Meet" : "Онлайн"}</span>
-                      <span className="text-xs opacity-75">↗</span>
-                    </a>
-                  )}
+                  {mobileMeeting ? (
+                    !hasGroupAccess ? (
+                      <LockedMeetingBadge size="normal" onClick={handleLockedMeetingClick} />
+                    ) : (
+                      <a
+                        href={mobileMeeting.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
+                        className={`inline-flex h-8 min-h-[32px] px-2.5 items-center gap-1.5 rounded-lg font-bold text-xs shadow-xs active:scale-95 transition-all whitespace-nowrap border ${
+                          getMeetingBtnStyle(mobileMeeting.platform, isMeetingLiveOrSoon, "normal")
+                        }`}
+                      >
+                        <MeetingPlatformIcon platform={mobileMeeting.platform} size={14} />
+                        <span>{mobileMeeting.platform === "zoom" ? "Zoom" : mobileMeeting.platform === "meet" ? "Meet" : "Онлайн"}</span>
+                        <span className="text-xs opacity-75">↗</span>
+                      </a>
+                    )
+                  ) : !hasGroupAccess && (lesson.has_protected_link || (lesson.is_online && displayRooms.length === 0)) ? (
+                    <LockedMeetingBadge size="normal" onClick={handleLockedMeetingClick} />
+                  ) : null}
                 </div>
               ) : null}
             </div>
@@ -2069,22 +2137,26 @@ export function LessonCard({
                           )}
                         </div>
                         {ownMeeting ? (
-                          <a
-                            href={ownMeeting.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
-                            className={`inline-flex shrink-0 h-7 px-2.5 items-center gap-1.5 rounded-lg border text-xs font-semibold whitespace-nowrap active:scale-95 transition-all ${
-                              getMeetingBtnStyle(ownMeeting.platform, isLive && isMeetingLiveOrSoon, "compact")
-                            }`}
-                          >
-                            <MeetingPlatformIcon platform={ownMeeting.platform} size={13} />
-                            <span>{ownMeeting.platform === "zoom" ? "Zoom" : ownMeeting.platform === "meet" ? "Meet" : "Онлайн"}</span>
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 opacity-70">
-                              <path d="M7 17 17 7" />
-                              <path d="M7 7h10v10" />
-                            </svg>
-                          </a>
+                          !hasGroupAccess ? (
+                            <LockedMeetingBadge size="compact" onClick={handleLockedMeetingClick} />
+                          ) : (
+                            <a
+                              href={ownMeeting.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
+                              className={`inline-flex shrink-0 h-7 px-2.5 items-center gap-1.5 rounded-lg border text-xs font-semibold whitespace-nowrap active:scale-95 transition-all ${
+                                getMeetingBtnStyle(ownMeeting.platform, isLive && isMeetingLiveOrSoon, "compact")
+                              }`}
+                            >
+                              <MeetingPlatformIcon platform={ownMeeting.platform} size={13} />
+                              <span>{ownMeeting.platform === "zoom" ? "Zoom" : ownMeeting.platform === "meet" ? "Meet" : "Онлайн"}</span>
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 opacity-70">
+                                <path d="M7 17 17 7" />
+                                <path d="M7 7h10v10" />
+                              </svg>
+                            </a>
+                          )
                         ) : (
                           <span className="shrink-0 rounded-md border border-sys-border bg-sys-bg px-2 py-1 text-xs font-semibold leading-none text-sys-text-secondary whitespace-nowrap">
                             {ownRoom ? `ауд. ${ownRoom.replace(/^ауд\.?\s*/i, "")}` : "ауд. —"}
@@ -2095,22 +2167,26 @@ export function LessonCard({
                   })}
                   {row3Meetings[0] && (
                     <div className="flex justify-end w-full pt-0.5">
-                      <a
-                        href={row3Meetings[0].url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
-                        className={`inline-flex shrink-0 h-7 px-2.5 items-center gap-1.5 rounded-lg border text-xs font-semibold whitespace-nowrap active:scale-95 transition-all ${
-                          getMeetingBtnStyle(row3Meetings[0].platform, isLive && isMeetingLiveOrSoon, "compact")
-                        }`}
-                      >
-                        <MeetingPlatformIcon platform={row3Meetings[0].platform} size={13} />
-                        <span>{row3Meetings[0].platform === "zoom" ? "Zoom" : row3Meetings[0].platform === "meet" ? "Meet" : "Онлайн"}</span>
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 opacity-70">
-                          <path d="M7 17 17 7" />
-                          <path d="M7 7h10v10" />
-                        </svg>
-                      </a>
+                      {!hasGroupAccess ? (
+                        <LockedMeetingBadge size="compact" onClick={handleLockedMeetingClick} />
+                      ) : (
+                        <a
+                          href={row3Meetings[0].url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
+                          className={`inline-flex shrink-0 h-7 px-2.5 items-center gap-1.5 rounded-lg border text-xs font-semibold whitespace-nowrap active:scale-95 transition-all ${
+                            getMeetingBtnStyle(row3Meetings[0].platform, isLive && isMeetingLiveOrSoon, "compact")
+                          }`}
+                        >
+                          <MeetingPlatformIcon platform={row3Meetings[0].platform} size={13} />
+                          <span>{row3Meetings[0].platform === "zoom" ? "Zoom" : row3Meetings[0].platform === "meet" ? "Meet" : "Онлайн"}</span>
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 opacity-70">
+                            <path d="M7 17 17 7" />
+                            <path d="M7 7h10v10" />
+                          </svg>
+                        </a>
+                      )}
                     </div>
                   )}
                 </div>
@@ -2123,7 +2199,7 @@ export function LessonCard({
           </div>
 
           {/* Dedicated Row for Room & Meet: on live lessons OR when both exist (or when canEdit and hasMeeting) */}
-          {(!isDualTeachers || isSingleSubgroupShown) && ((isLive && (displayRooms.length > 0 || hasMobileMeeting)) || hasBothRoomAndMeet || (canEdit && hasMobileMeeting)) && (
+          {(!isDualTeachers || isSingleSubgroupShown) && ((isLive && (displayRooms.length > 0 || hasMobileMeeting || (!hasGroupAccess && lesson.is_online))) || hasBothRoomAndMeet || (canEdit && hasMobileMeeting) || (!hasGroupAccess && lesson.has_protected_link)) && (
             <div className="flex flex-wrap items-center gap-2 w-full mt-0.5">
               {!canEdit && displayRooms.length > 0 && (
                 <div
@@ -2133,21 +2209,27 @@ export function LessonCard({
                   <span className="truncate">{roomsLabel}</span>
                 </div>
               )}
-              {mobileMeeting && (
-                <a
-                  href={mobileMeeting.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
-                  className={`inline-flex min-h-[40px] h-10 px-3.5 items-center gap-2 rounded-xl font-bold text-xs shadow-xs active:scale-95 transition-all whitespace-nowrap border ${
-                    getMeetingBtnStyle(mobileMeeting.platform, isMeetingLiveOrSoon, "normal")
-                  }`}
-                >
-                  <MeetingPlatformIcon platform={mobileMeeting.platform} size={15} />
-                  <span>{mobileMeeting.platform === "zoom" ? "Zoom" : mobileMeeting.platform === "meet" ? "Meet" : "Онлайн"}</span>
-                  <span className="text-xs opacity-75">↗</span>
-                </a>
-              )}
+              {mobileMeeting ? (
+                !hasGroupAccess ? (
+                  <LockedMeetingBadge size="normal" onClick={handleLockedMeetingClick} />
+                ) : (
+                  <a
+                    href={mobileMeeting.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
+                    className={`inline-flex min-h-[40px] h-10 px-3.5 items-center gap-2 rounded-xl font-bold text-xs shadow-xs active:scale-95 transition-all whitespace-nowrap border ${
+                      getMeetingBtnStyle(mobileMeeting.platform, isMeetingLiveOrSoon, "normal")
+                    }`}
+                  >
+                    <MeetingPlatformIcon platform={mobileMeeting.platform} size={15} />
+                    <span>{mobileMeeting.platform === "zoom" ? "Zoom" : mobileMeeting.platform === "meet" ? "Meet" : "Онлайн"}</span>
+                    <span className="text-xs opacity-75">↗</span>
+                  </a>
+                )
+              ) : !hasGroupAccess && (lesson.has_protected_link || (lesson.is_online && displayRooms.length === 0)) ? (
+                <LockedMeetingBadge size="normal" onClick={handleLockedMeetingClick} />
+              ) : null}
             </div>
           )}
 
@@ -2469,22 +2551,30 @@ export function LessonCard({
                       </div>
                       {ownMeeting ? (
                         <div className="flex items-center justify-end w-full pl-5">
-                          <a
-                            href={ownMeeting.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
-                            className={`inline-flex shrink-0 h-6 px-2 items-center gap-1.5 rounded-md border text-[11px] font-semibold whitespace-nowrap active:scale-95 transition-all ${
-                              getMeetingBtnStyle(ownMeeting.platform, isLive && isMeetingLiveOrSoon, "tiny")
-                            }`}
-                          >
-                            <MeetingPlatformIcon platform={ownMeeting.platform} size={11} />
-                            <span>{ownMeeting.platform === "zoom" ? "Zoom" : ownMeeting.platform === "meet" ? "Meet" : "Онлайн"}</span>
-                            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 opacity-70">
-                              <path d="M7 17 17 7" />
-                              <path d="M7 7h10v10" />
-                            </svg>
-                          </a>
+                          {!hasGroupAccess || ownMeeting.isProtected ? (
+                            <LockedMeetingBadge
+                              platform={ownMeeting.platform}
+                              size="tiny"
+                              onClick={handleLockedMeetingClick}
+                            />
+                          ) : (
+                            <a
+                              href={ownMeeting.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
+                              className={`inline-flex shrink-0 h-6 px-2 items-center gap-1.5 rounded-md border text-[11px] font-semibold whitespace-nowrap active:scale-95 transition-all ${
+                                getMeetingBtnStyle(ownMeeting.platform, isLive && isMeetingLiveOrSoon, "tiny")
+                              }`}
+                            >
+                              <MeetingPlatformIcon platform={ownMeeting.platform} size={11} />
+                              <span>{ownMeeting.platform === "zoom" ? "Zoom" : ownMeeting.platform === "meet" ? "Meet" : "Онлайн"}</span>
+                              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 opacity-70">
+                                <path d="M7 17 17 7" />
+                                <path d="M7 7h10v10" />
+                              </svg>
+                            </a>
+                          )}
                         </div>
                       ) : ownRoom ? (
                         <div className="flex items-center justify-end w-full pl-5">
@@ -2562,25 +2652,34 @@ export function LessonCard({
 
               {/* Online meetings */}
               {weekGridMeetings.map((m, idx) => (
-                <a
-                  key={`${m.url}-${idx}`}
-                  href={m.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    vibrateTap(12);
-                  }}
-                  className={`inline-flex h-6 min-h-[24px] items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs font-semibold active:scale-95 transition-all ${
-                    getMeetingBtnStyle(m.platform, isLive && isMeetingLiveOrSoon, "tiny")
-                  }`}
-                >
-                  <MeetingPlatformIcon platform={m.platform} size={12} />
-                  <span>
-                    {m.platform === "zoom" ? "Zoom" : m.platform === "meet" ? "Meet" : "Онлайн"}
-                  </span>
-                  <span className="text-[11px] font-bold opacity-75">↗</span>
-                </a>
+                !hasGroupAccess || m.isProtected ? (
+                  <LockedMeetingBadge
+                    key={`${m.url}-${idx}`}
+                    platform={m.platform}
+                    size="tiny"
+                    onClick={handleLockedMeetingClick}
+                  />
+                ) : (
+                  <a
+                    key={`${m.url}-${idx}`}
+                    href={m.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      vibrateTap(12);
+                    }}
+                    className={`inline-flex h-6 min-h-[24px] items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs font-semibold active:scale-95 transition-all ${
+                      getMeetingBtnStyle(m.platform, isLive && isMeetingLiveOrSoon, "tiny")
+                    }`}
+                  >
+                    <MeetingPlatformIcon platform={m.platform} size={12} />
+                    <span>
+                      {m.platform === "zoom" ? "Zoom" : m.platform === "meet" ? "Meet" : "Онлайн"}
+                    </span>
+                    <span className="text-[11px] font-bold opacity-75">↗</span>
+                  </a>
+                )
               ))}
 
               {showHw && tasks.length > 0 && (

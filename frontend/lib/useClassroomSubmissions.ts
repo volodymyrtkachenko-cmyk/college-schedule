@@ -29,6 +29,16 @@ export function getLinkedEmail(): string | null {
   }
 }
 
+export function getLinkedGroupId(): number | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(LINKED_GROUP_ID_KEY);
+    return raw ? Number(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function getPersonalSubmissions(): Record<string, PersonalSubmission> {
   if (typeof window === "undefined") return {};
   try {
@@ -315,13 +325,16 @@ export function saveClassroomSyncData(
 
 export function useClassroomSubmissions() {
   const [linkedEmail, setLinkedEmail] = useState<string | null>(null);
+  const [linkedGroupId, setLinkedGroupId] = useState<number | null>(null);
   const [submissions, setSubmissions] = useState<Record<string, PersonalSubmission>>({});
   const [personalTeachers, setPersonalTeachers] = useState<string[]>([]);
   const [personalSubgroup, setPersonalSubgroup] = useState<number | null>(null);
 
   const reload = useCallback(() => {
     const email = getLinkedEmail();
+    const gId = getLinkedGroupId();
     setLinkedEmail(email);
+    setLinkedGroupId(gId);
     if (email) {
       setSubmissions(getPersonalSubmissions());
       setPersonalTeachers(getPersonalTeachers());
@@ -339,9 +352,19 @@ export function useClassroomSubmissions() {
     return () => window.removeEventListener(EVENT_NAME, reload);
   }, [reload]);
 
+  const isLinkedToGroup = useCallback(
+    (gid?: number | null) => {
+      if (!gid) return false;
+      return Boolean(linkedEmail && linkedGroupId === gid);
+    },
+    [linkedEmail, linkedGroupId]
+  );
+
   return {
     linkedEmail,
+    linkedGroupId,
     isLinked: Boolean(linkedEmail),
+    isLinkedToGroup,
     submissions,
     personalTeachers,
     personalSubgroup,

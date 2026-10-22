@@ -130,6 +130,8 @@ export interface Lesson {
     effective_until?: string | null;
     version_id?: number | null;
     has_template?: boolean;
+    is_online?: boolean;
+    has_protected_link?: boolean;
 }
 
 export interface ScheduleResponse {
@@ -342,6 +344,16 @@ async function rawRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
     const headers = new Headers(init.headers);
     if (method !== "GET" && !headers.has("Content-Type")) {
         headers.set("Content-Type", "application/json");
+    }
+    if (typeof window !== "undefined") {
+        try {
+            const cUid = localStorage.getItem("schedule:classroom_google_user_id");
+            const cEmail = localStorage.getItem("schedule:classroom_linked_email");
+            const cToken = localStorage.getItem("schedule:classroom_access_token");
+            if (cUid && !headers.has("X-Classroom-User-Id")) headers.set("X-Classroom-User-Id", cUid);
+            if (cEmail && !headers.has("X-Classroom-Email")) headers.set("X-Classroom-Email", cEmail);
+            if (cToken && !headers.has("X-Classroom-Token")) headers.set("X-Classroom-Token", cToken);
+        } catch {}
     }
     try {
         const cacheMode = init.cache ?? (method === "GET" ? "no-cache" : "no-store");
@@ -1300,6 +1312,7 @@ export const api = {
                     max_points?: number | null;
                 }>;
                 needs_reconnect?: boolean;
+                requires_auth?: boolean;
             }>(`/api/classroom/groups/${groupId}/status`),
         sync: (
             tokenOrPayload: string | { code?: string; access_token?: string; refresh_token?: string; group_id?: number; week_start?: string },

@@ -275,6 +275,7 @@ export interface MeetingInfo {
   platform: "meet" | "zoom" | "teams" | "link";
   passcode: string | null;
   label?: string;
+  isProtected?: boolean;
 }
 
 export function extractOnlineMeetings(
@@ -304,68 +305,118 @@ export function extractOnlineMeetings(
       line.matchAll(/https?:\/\/(?:meet\.google\.com|[a-z0-9.-]*zoom\.us|teams\.microsoft\.com|teams\.live\.com)\/[^\s<>"')|]+/gi)
     );
 
-    for (const match of urlMatches) {
-      let url = match[0];
-      if (seenUrls.has(url.toLowerCase())) continue;
-      seenUrls.add(url.toLowerCase());
+    if (urlMatches.length > 0) {
+      for (const match of urlMatches) {
+        let url = match[0];
+        if (seenUrls.has(url.toLowerCase())) continue;
+        seenUrls.add(url.toLowerCase());
 
-      const lowerUrl = url.toLowerCase();
-      const isMeet = lowerUrl.includes("meet.google.com");
-      const isZoom = lowerUrl.includes("zoom.us");
-      const isTeams = lowerUrl.includes("teams.microsoft.com") || lowerUrl.includes("teams.live.com");
-      const hasPwdInUrl = /[?&]pwd=[^&\s]+/i.test(url);
+        const lowerUrl = url.toLowerCase();
+        const isMeet = lowerUrl.includes("meet.google.com");
+        const isZoom = lowerUrl.includes("zoom.us");
+        const isTeams = lowerUrl.includes("teams.microsoft.com") || lowerUrl.includes("teams.live.com");
+        const hasPwdInUrl = /[?&]pwd=[^&\s]+/i.test(url);
 
-      const passMatch = line.match(
-        /(?:Код(?:\s+доступ[уа])?|Passcode|Пароль)\s*[:\-]?\s*([A-Za-z0-9_.\-]+)/i
-      );
-      let rawPass = passMatch ? passMatch[1] : null;
-
-      if (isElectronics && !isMeet && !hasPwdInUrl && !rawPass) {
-        rawPass = "dfkr";
-      }
-
-      if (isZoom && !hasPwdInUrl && rawPass) {
-        const sep = url.includes("?") ? "&" : "?";
-        url = `${url}${sep}pwd=${encodeURIComponent(rawPass)}`;
-      }
-
-      let label: string | undefined;
-      const lowerLine = line.toLowerCase();
-      if (lowerLine.includes("токарєв") || lowerLine.includes("токарев")) {
-        label = "Токарєва";
-      } else if (lowerLine.includes("хочинськ") || lowerLine.includes("хочинск")) {
-        label = "Хочинська";
-      } else {
-        const prefixMatch = line.match(
-          /^(?:\[([^\]]+)\]|([А-Яа-яІіЇїЄєҐґa-zA-Z0-9\s.'—–\-]+|\d+\s*підгрупа|підгрупа\s*\d+))\s*[:\-–]?\s*https?/i
+        const passMatch = line.match(
+          /(?:Код(?:\s+доступ[уа])?|Passcode|Пароль)\s*[:\-]?\s*([A-Za-z0-9_.\-]+)/i
         );
-        if (prefixMatch) {
-          const raw = (prefixMatch[1] || prefixMatch[2] || "").trim();
-          if (raw.length >= 2 && raw.length <= 30) {
-            label = raw;
+        let rawPass = passMatch ? passMatch[1] : null;
+
+        if (isElectronics && !isMeet && !hasPwdInUrl && !rawPass) {
+          rawPass = "dfkr";
+        }
+
+        if (isZoom && !hasPwdInUrl && rawPass) {
+          const sep = url.includes("?") ? "&" : "?";
+          url = `${url}${sep}pwd=${encodeURIComponent(rawPass)}`;
+        }
+
+        let label: string | undefined;
+        const lowerLine = line.toLowerCase();
+        if (lowerLine.includes("токарєв") || lowerLine.includes("токарев")) {
+          label = "Токарєва";
+        } else if (lowerLine.includes("хочинськ") || lowerLine.includes("хочинск")) {
+          label = "Хочинська";
+        } else {
+          const prefixMatch = line.match(
+            /^(?:\[([^\]]+)\]|([А-Яа-яІіЇїЄєҐґa-zA-Z0-9\s.'—–\-]+|\d+\s*підгрупа|підгрупа\s*\d+))\s*[:\-–]?\s*https?/i
+          );
+          if (prefixMatch) {
+            const raw = (prefixMatch[1] || prefixMatch[2] || "").trim();
+            if (raw.length >= 2 && raw.length <= 30) {
+              label = raw;
+            }
           }
         }
+
+        if (!label && isForeignLang) {
+          label = isMeet ? "Токарєва" : "Хочинська";
+        }
+
+        const platform: MeetingInfo["platform"] = isMeet
+          ? "meet"
+          : isZoom
+          ? "zoom"
+          : isTeams
+          ? "teams"
+          : "link";
+
+        results.push({
+          url,
+          platform,
+          passcode: null,
+          label,
+        });
       }
+    } else {
+      const lockedMatches = Array.from(
+        line.matchAll(/\[🔒\s*Онлайн(?::\s*(Meet|Zoom|Teams))?\]|\[🔒\s*(Meet|Zoom|Teams|Онлайн)\]/gi)
+      );
+      for (const match of lockedMatches) {
+        const rawPlat = (match[1] || match[2] || "").toLowerCase();
+        const platform: MeetingInfo["platform"] =
+          rawPlat === "meet" ? "meet" : rawPlat === "zoom" ? "zoom" : rawPlat === "teams" ? "teams" : "link";
 
-      if (!label && isForeignLang) {
-        label = isMeet ? "Токарєва" : "Хочинська";
+        let label: string | undefined;
+        const lowerLine = line.toLowerCase();
+        if (lowerLine.includes("токарєв") || lowerLine.includes("токарев")) {
+          label = "Токарєва";
+        } else if (lowerLine.includes("хочинськ") || lowerLine.includes("хочинск")) {
+          label = "Хочинська";
+        } else {
+          const prefixMatch = line.match(
+            /^(?:\[([^\]]+)\]|([А-Яа-яІіЇїЄєҐґa-zA-Z0-9\s.'—–\-]+|\d+\s*підгрупа|підгрупа\s*\d+))\s*[:\-–]?\s*\[🔒/i
+          );
+          if (prefixMatch) {
+            const raw = (prefixMatch[1] || prefixMatch[2] || "").trim();
+            if (raw.length >= 2 && raw.length <= 30 && !raw.includes("🔒")) {
+              label = raw;
+            }
+          }
+        }
+
+        if (!label && isForeignLang) {
+          label = platform === "meet" ? "Токарєва" : "Хочинська";
+        }
+
+        results.push({
+          url: "",
+          platform,
+          passcode: null,
+          label,
+          isProtected: true,
+        });
       }
-
-      const platform: MeetingInfo["platform"] = isMeet
-        ? "meet"
-        : isZoom
-        ? "zoom"
-        : isTeams
-        ? "teams"
-        : "link";
-
-      results.push({
-        url,
-        platform,
-        passcode: null,
-        label,
-      });
     }
+  }
+
+  if (results.length === 0 && (room?.trim() === "Онлайн" || (note && note.includes("🔒")))) {
+    results.push({
+      url: "",
+      platform: "link",
+      passcode: null,
+      isProtected: true,
+    });
   }
 
   if (isForeignLang && results.length > 0) {

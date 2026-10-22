@@ -170,7 +170,8 @@ def serialize_schedule_items(lessons, week_type, target_date, bell_times):
     return sorted(items, key=lambda item: (item.lesson_number, item.group_name or "", item.id))
 
 @router.get("/schedule", response_model=ScheduleResponse)
-async def schedule(group_id: int | None = None, teacher_id: int | None = None,
+async def schedule(request: Request = None,
+                   group_id: int | None = None, teacher_id: int | None = None,
                    day_of_week: int | None = Query(None, ge=1, le=7),
                    target_date: date | None = None,
                    include_cancelled: bool = Query(False),
@@ -186,10 +187,33 @@ async def schedule(group_id: int | None = None, teacher_id: int | None = None,
     )
     bell_t = await get_bell_times(db)
     learning_mode, learning_mode_override = await resolve_group_learning_mode_detail(db, group_id, target_date)
+    serialized_items = await attach_notes(db, target_date, serialize_schedule_items(lessons, week_type, target_date, bell_t))
+
+    from app.services.classroom_access import check_classroom_group_access, sanitize_note_for_guest, sanitize_room_for_guest, MEETING_URL_RE
+    has_access = await check_classroom_group_access(db, group_id, request)
+
+    for item in serialized_items:
+        has_meeting = bool(
+            (item.note and MEETING_URL_RE.search(item.note))
+            or (item.room and MEETING_URL_RE.search(item.room))
+            or (item.teacher_room and MEETING_URL_RE.search(item.teacher_room))
+            or (item.second_teacher_room and MEETING_URL_RE.search(item.second_teacher_room))
+        )
+        if has_meeting:
+            item.is_online = True
+        if not has_access:
+            if has_meeting:
+                item.has_protected_link = True
+            item.note, _ = sanitize_note_for_guest(item.note)
+            item.room, _ = sanitize_room_for_guest(item.room)
+            item.teacher_room, _ = sanitize_room_for_guest(item.teacher_room)
+            item.second_teacher_room, _ = sanitize_room_for_guest(item.second_teacher_room)
+            item.room_override, _ = sanitize_room_for_guest(item.room_override)
+
     return ScheduleResponse(
         date=target_date,
         week_type=week_type,
-        lessons=await attach_notes(db, target_date, serialize_schedule_items(lessons, week_type, target_date, bell_t)),
+        lessons=serialized_items,
         learning_mode=learning_mode,
         learning_mode_override=learning_mode_override,
     )
@@ -212,12 +236,15 @@ async def today(
     if target.isoweekday() > 5:
         target = target + timedelta(days=8 - target.isoweekday())
 
+    from app.services.classroom_access import check_classroom_group_access
+    is_auth = await check_classroom_group_access(db, group_id, request)
+
     from app.services import cache_rev
-    variant = f"today:{target.isoformat()}:{int(include_cancelled)}"
+    variant = f"today:{target.isoformat()}:{int(include_cancelled)}:{int(is_auth)}"
     etag = cache_rev.schedule_etag(group_id=group_id, teacher_id=teacher_id, variant=variant)
     response.headers["ETag"] = etag
     response.headers["Cache-Control"] = "public, max-age=0, s-maxage=15, stale-while-revalidate=300"
-    response.headers["Vary"] = "Date, Origin, Accept-Encoding"
+    response.headers["Vary"] = "Date, Origin, Accept-Encoding, X-Classroom-User-Id, X-Classroom-Email, Authorization"
 
     if cache_rev.etag_matches(request.headers.get("if-none-match"), etag):
         return Response(status_code=304, headers=dict(response.headers))
@@ -249,7 +276,7 @@ async def today(
         from email.utils import format_datetime
         response.headers["Last-Modified"] = format_datetime(last_modified, usegmt=True)
 
-    return await schedule(group_id=group_id, teacher_id=teacher_id, target_date=target, day_of_week=target.isoweekday(), include_cancelled=include_cancelled, db=db)
+    return await schedule(request=request, group_id=group_id, teacher_id=teacher_id, target_date=target, day_of_week=target.isoweekday(), include_cancelled=include_cancelled, db=db)
 
 @router.get("/schedule/week")
 async def week(
@@ -269,12 +296,15 @@ async def week(
     requested = target_date or today_local()
     start = requested - timedelta(days=requested.isoweekday() - 1)
 
+    from app.services.classroom_access import check_classroom_group_access, sanitize_note_for_guest, sanitize_room_for_guest, MEETING_URL_RE
+    is_auth = await check_classroom_group_access(db, group_id, request)
+
     from app.services import cache_rev
-    variant = f"week:{start.isoformat()}:{int(include_cancelled)}"
+    variant = f"week:{start.isoformat()}:{int(include_cancelled)}:{int(is_auth)}"
     etag = cache_rev.schedule_etag(group_id=group_id, teacher_id=teacher_id, variant=variant)
     response.headers["ETag"] = etag
     response.headers["Cache-Control"] = "public, max-age=0, s-maxage=15, stale-while-revalidate=300"
-    response.headers["Vary"] = "Date, Origin, Accept-Encoding"
+    response.headers["Vary"] = "Date, Origin, Accept-Encoding, X-Classroom-User-Id, X-Classroom-Email, Authorization"
 
     if cache_rev.etag_matches(request.headers.get("if-none-match"), etag):
         return Response(status_code=304, headers=dict(response.headers))
@@ -323,6 +353,26 @@ async def week(
         for i in range(5)
     ]
     await attach_week_notes(db, days_serialized)
+
+    for day_date, day_lessons in days_serialized:
+        for item in day_lessons:
+            has_meeting = bool(
+                (item.note and MEETING_URL_RE.search(item.note))
+                or (item.room and MEETING_URL_RE.search(item.room))
+                or (item.teacher_room and MEETING_URL_RE.search(item.teacher_room))
+                or (item.second_teacher_room and MEETING_URL_RE.search(item.second_teacher_room))
+            )
+            if has_meeting:
+                item.is_online = True
+            if not is_auth:
+                if has_meeting:
+                    item.has_protected_link = True
+                item.note, _ = sanitize_note_for_guest(item.note)
+                item.room, _ = sanitize_room_for_guest(item.room)
+                item.teacher_room, _ = sanitize_room_for_guest(item.teacher_room)
+                item.second_teacher_room, _ = sanitize_room_for_guest(item.second_teacher_room)
+                item.room_override, _ = sanitize_room_for_guest(item.room_override)
+
     week_dates = [day_date for day_date, _ in days_serialized]
     modes_by_date = await resolve_group_week_learning_modes(
         db, group_id, week_dates, group=scope if isinstance(scope, Group) else None
