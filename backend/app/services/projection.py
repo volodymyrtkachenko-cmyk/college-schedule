@@ -18,6 +18,7 @@ from app.models import (
 from app.services.settings import settings_service
 from app.services.week import get_week_type
 import copy
+import re
 import time as _time
 
 _WEEK_PROJ_CACHE: dict[tuple, tuple[float, str, Dict[int, List["EffectiveLesson"]]]] = {}
@@ -103,18 +104,55 @@ class EffectiveLesson:
     def occurrence_key(self) -> str:
         return f"group_{self.group_id}_{self.date.isoformat()}_slot_{self.lesson_number}"
 
+def clean_room_string(value: Optional[str]) -> Optional[str]:
+    if not value or not value.strip():
+        return None
+    val = value.strip()
+    clean = re.sub(r'^(?:аудиторія|ауд\.?\s*иторія|ауд\.?)\s*', '', val, flags=re.IGNORECASE).strip()
+    return clean or val
+
+
+def _week_matches(cur: str, base: str) -> bool:
+    return cur == "both" or base == "both" or cur == base
+
+
+def is_same_day_swap(
+    item_group_id: int,
+    item_subject_id: Optional[int],
+    item_teacher_id: Optional[int],
+    base_lessons_for_day: list,
+) -> bool:
+    """
+    Checks if a lesson's subject and teacher already belong to the base schedule
+    of the group on that same day. If so, moving or swapping it across lesson numbers
+    is a rearrangement (перестановка), NOT a substitution (заміна).
+    """
+    if not item_subject_id:
+        return False
+    for b in base_lessons_for_day:
+        if getattr(b, "group_id", None) == item_group_id and getattr(b, "subject_id", None) == item_subject_id:
+            b_teacher = getattr(b, "teacher_id", None)
+            if item_teacher_id is None or b_teacher is None or b_teacher == item_teacher_id:
+                return True
+    return False
+
+
 def resolve_effective_room(
     room_override: Optional[str],
     teacher: Optional[Any] = None,
     second_teacher: Optional[Any] = None,
 ) -> Optional[str]:
     if room_override and room_override.strip():
-        return room_override.strip()
+        return clean_room_string(room_override)
     rooms = []
     if teacher and getattr(teacher, "room", None) and teacher.room.strip():
-        rooms.append(teacher.room.strip())
+        cleaned = clean_room_string(teacher.room)
+        if cleaned:
+            rooms.append(cleaned)
     if second_teacher and getattr(second_teacher, "room", None) and second_teacher.room.strip():
-        rooms.append(second_teacher.room.strip())
+        cleaned = clean_room_string(second_teacher.room)
+        if cleaned:
+            rooms.append(cleaned)
     return " / ".join(rooms) if rooms else None
 
 def resolve_own_room(teacher: Optional[Any] = None) -> Optional[str]:
@@ -338,6 +376,10 @@ async def build_projection(
             imp_room_override = getattr(imp, 'room_override', getattr(imp, 'room', None))
             imp_room = resolve_effective_room(imp_room_override, imp.teacher, imp.second_teacher)
             imp_teacher_name = resolve_teacher_names(imp.teacher, imp.second_teacher)
+            is_swap_or_move = (
+                getattr(imp, "change_type", None) in ("swap", "move")
+                or is_same_day_swap(imp.group_id, imp.subject_id, imp.teacher_id, base_lessons)
+            )
             replace_slot(*key, EffectiveLesson(
                 group_id=imp.group_id, date=target_date, lesson_number=imp.lesson_number,
                 subject_id=imp.subject_id, teacher_id=imp.teacher_id, second_teacher_id=imp.second_teacher_id,
@@ -347,7 +389,7 @@ async def build_projection(
                 group_name=imp.group.name if imp.group else None,
                 subject_name=imp.subject.name if imp.subject else None,
                 teacher_name=imp_teacher_name,
-                is_replacement=True
+                is_replacement=not is_swap_or_move
             ), f"i{imp.id}")
 
     # C. Apply Manual Overrides
@@ -385,6 +427,7 @@ async def build_projection(
             # Add or replace
             ovr_room = resolve_effective_room(ovr.room, ovr.teacher, ovr.second_teacher)
             ovr_teacher_name = resolve_teacher_names(ovr.teacher, ovr.second_teacher)
+            is_swap_or_move = is_same_day_swap(ovr.group_id, ovr.subject_id, ovr.teacher_id, base_lessons)
             replace_slot(*key, EffectiveLesson(
                 group_id=ovr.group_id, date=target_date, lesson_number=ovr.lesson_number,
                 subject_id=ovr.subject_id, teacher_id=ovr.teacher_id, second_teacher_id=ovr.second_teacher_id,
@@ -394,7 +437,7 @@ async def build_projection(
                 group_name=ovr.group.name if getattr(ovr, "group", None) else None,
                 subject_name=ovr.subject.name if ovr.subject else None,
                 teacher_name=ovr_teacher_name,
-                is_replacement=True
+                is_replacement=not is_swap_or_move
             ), f"o{ovr.id}")
 
     # D. Apply Academic Events (Exams, Consultations, Credits, Defenses, Special Events)
@@ -716,6 +759,15 @@ async def build_week_projection(
                 ),
             )
 
+        day_base_lessons = [
+            b for b in all_base_lessons
+            if b.day_of_week == weekday
+            and (b.version_id == expected_version_id)
+            and (b.effective_from is None or b.effective_from <= target_date)
+            and (b.effective_until is None or b.effective_until >= target_date)
+            and _week_matches(week_type, b.week_type)
+        ]
+
         for imp in all_imported:
             if imp.date != target_date or imp.group_id in blocked_groups:
                 continue
@@ -729,6 +781,10 @@ async def build_week_projection(
                 imp_room_override = getattr(imp, "room_override", getattr(imp, "room", None))
                 imp_room = resolve_effective_room(imp_room_override, imp.teacher, imp.second_teacher)
                 imp_teacher_name = resolve_teacher_names(imp.teacher, imp.second_teacher)
+                is_swap_or_move = (
+                    getattr(imp, "change_type", None) in ("swap", "move")
+                    or is_same_day_swap(imp.group_id, imp.subject_id, imp.teacher_id, day_base_lessons)
+                )
                 replace_slot(
                     *key,
                     EffectiveLesson(
@@ -746,7 +802,7 @@ async def build_week_projection(
                         group_name=imp.group.name if imp.group else None,
                         subject_name=imp.subject.name if imp.subject else None,
                         teacher_name=imp_teacher_name,
-                        is_replacement=True,
+                        is_replacement=not is_swap_or_move,
                     ),
                     f"i{imp.id}",
                 )
@@ -795,6 +851,7 @@ async def build_week_projection(
             else:
                 ovr_room = resolve_effective_room(ovr.room, ovr.teacher, ovr.second_teacher)
                 ovr_teacher_name = resolve_teacher_names(ovr.teacher, ovr.second_teacher)
+                is_swap_or_move = is_same_day_swap(ovr.group_id, ovr.subject_id, ovr.teacher_id, day_base_lessons)
                 replace_slot(
                     *key,
                     EffectiveLesson(
@@ -812,7 +869,7 @@ async def build_week_projection(
                         group_name=ovr.group.name if getattr(ovr, "group", None) else None,
                         subject_name=ovr.subject.name if ovr.subject else None,
                         teacher_name=ovr_teacher_name,
-                        is_replacement=True,
+                        is_replacement=not is_swap_or_move,
                     ),
                     f"o{ovr.id}",
                 )

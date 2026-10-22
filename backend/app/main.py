@@ -44,6 +44,7 @@ async def lifespan(_: FastAPI):
             await conn.execute(text("ALTER TABLE schedule_events ADD COLUMN IF NOT EXISTS custom_subject VARCHAR(200)"))
             await conn.execute(text("ALTER TABLE schedule_publications ADD COLUMN IF NOT EXISTS is_reverted BOOLEAN NOT NULL DEFAULT FALSE"))
             await conn.execute(text("ALTER TABLE schedule_publications ALTER COLUMN actor_id DROP NOT NULL"))
+            await conn.execute(text("ALTER TABLE imported_schedule_changes ADD COLUMN IF NOT EXISTS change_type VARCHAR(20) DEFAULT 'substitution'"))
             await conn.execute(text(
                 "CREATE INDEX IF NOT EXISTS ix_schedule_active_lookup "
                 "ON schedule (version_id, is_active, day_of_week, group_id)"

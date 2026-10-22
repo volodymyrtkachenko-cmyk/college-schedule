@@ -107,7 +107,7 @@ class KREParser:
                     clean_text = re.sub(r'(?i)\(заміна\)', '', text).strip()
                     clean_lower = clean_text.lower()
                     if clean_lower.startswith("аудиторія") or clean_lower.startswith("ауд"):
-                        room = clean_text
+                        room = re.sub(r'^(?:аудиторія|ауд\.?)\s*', '', clean_text, flags=re.IGNORECASE).strip() or clean_text
                     elif clean_text:
                         teacher_names.append(clean_text)
                 

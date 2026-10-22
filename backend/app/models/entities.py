@@ -255,6 +255,7 @@ class ImportedScheduleChange(Base):
     publication_id: Mapped[Optional[int]] = mapped_column(ForeignKey("schedule_publications.id", ondelete="CASCADE"), nullable=True, index=True)
     date: Mapped[date] = mapped_column(Date, index=True)
     kind: Mapped[str] = mapped_column(String(20))
+    change_type: Mapped[Optional[str]] = mapped_column(String(20), nullable=True, default="substitution")
     group_id: Mapped[int] = mapped_column(ForeignKey("groups.id", ondelete="CASCADE"), index=True)
     subject_id: Mapped[Optional[int]] = mapped_column(ForeignKey("subjects.id"), nullable=True)
     teacher_id: Mapped[Optional[int]] = mapped_column(ForeignKey("teachers.id"), nullable=True)

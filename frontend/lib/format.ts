@@ -251,7 +251,7 @@ const ROOM_PREFIXES = ["ауд", "каб", "спорт", "дист", "акт", "
 export function formatRoom(room: string): string {
   const clean = room
     .split(",")
-    .map((part) => part.replace(/^ауд\.?\s*/i, "").trim())
+    .map((part) => part.replace(/^(?:аудиторія|ауд\.?\s*иторія|ауд\.?)\s*/i, "").trim())
     .filter(Boolean)
     .join(" / ");
   const lower = clean.toLowerCase();
@@ -262,7 +262,7 @@ export function formatRoomsList(rooms: string[]): string {
   if (rooms.length === 0) return "";
   const parts = rooms
     .flatMap((r) => r.split(","))
-    .map((part) => part.replace(/^ауд\.?\s*/i, "").trim())
+    .map((part) => part.replace(/^(?:аудиторія|ауд\.?\s*иторія|ауд\.?)\s*/i, "").trim())
     .filter(Boolean);
   if (parts.length > 1) {
     return parts.join(" · ");

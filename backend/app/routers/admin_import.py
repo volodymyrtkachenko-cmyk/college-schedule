@@ -1298,6 +1298,7 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
                         publication_id=publication.id,
                         date=d_obj,
                         kind="substitution",
+                        change_type=sub.get("change_type", "substitution"),
                         group_id=sub["group_id"],
                         subject_id=sub.get("subject_id"),
                         teacher_id=sub.get("teacher_id"),
