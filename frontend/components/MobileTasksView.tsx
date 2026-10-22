@@ -45,7 +45,12 @@ export function MobileTasksView({
   tasksScope?: "week" | "all";
   onTasksScopeChange?: (scope: "week" | "all") => void;
   lastSyncedAt?: string | null;
-  onSynced?: (detectedId: number) => void;
+  onSynced?: (
+    detectedId: number,
+    tasks?: any[],
+    lastSyncedAt?: string | null,
+    isSilent?: boolean
+  ) => void;
 }) {
   const [filters, setFilters] = useState<TaskFilterState>(DEFAULT_TASK_FILTERS);
   const { isLinked, isLinkedToGroup } = useClassroomSubmissions();
@@ -122,7 +127,9 @@ export function MobileTasksView({
             <ClassroomSyncButton
               currentGroupId={groupId}
               weekStart={weekStart}
-              onSynced={(id) => onSynced?.(id)}
+              onSynced={(id, tasks, lastSynced, isSilent) =>
+                onSynced?.(id, tasks, lastSynced, isSilent)
+              }
             />
           </div>
         )}

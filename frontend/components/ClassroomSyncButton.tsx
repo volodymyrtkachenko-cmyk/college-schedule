@@ -32,13 +32,13 @@ export function ClassroomSyncButton({
 }: {
   currentGroupId: number | null;
   weekStart?: string;
-  onSynced: (detectedGroupId: number, tasks?: any[], lastSyncedAt?: string | null) => void;
+  onSynced: (detectedGroupId: number, tasks?: any[], lastSyncedAt?: string | null, isSilent?: boolean) => void;
 }) {
   const [syncing, setSyncing] = useState(false);
   const [hasClientSecret, setHasClientSecret] = useState<boolean>(false);
   const [needsReconnect, setNeedsReconnect] = useState<boolean>(false);
   const { showToast } = useToast();
-  const { linkedEmail } = useClassroomSubmissions();
+  const { linkedEmail, linkedGroupId } = useClassroomSubmissions();
 
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
 
@@ -103,13 +103,17 @@ export function ClassroomSyncButton({
       ...(res.synced_teacher_names || []),
       ...(res.synced_teacher_tokens || []),
     ];
+    const targetGroupId = isSilent && currentGroupId !== res.group_id
+      ? (linkedGroupId ?? res.group_id)
+      : (res.group_id ?? currentGroupId ?? null);
+
     saveClassroomSyncData(
       res.user_email,
       res.personal_tasks ?? res.tasks,
       res.access_token ?? fallbackAccessToken ?? null,
       res.refresh_token ?? null,
       res.google_user_id ?? null,
-      res.group_id ?? currentGroupId ?? null,
+      targetGroupId,
       personalTeachers,
       res.synced_subgroups ?? null
     );
@@ -117,7 +121,8 @@ export function ClassroomSyncButton({
     if (res?.last_synced_at) {
       setLastSyncedAt(res.last_synced_at);
     }
-    onSynced(res.group_id, res.tasks, res.last_synced_at);
+    // On silent background sync, NEVER switch the viewed group
+    onSynced(isSilent ? (currentGroupId ?? res.group_id) : res.group_id, res.tasks, res.last_synced_at, isSilent);
     window.dispatchEvent(new CustomEvent("classroom-synced", { detail: res }));
 
     if (typeof res?.needs_reconnect === "boolean") {
@@ -215,6 +220,20 @@ export function ClassroomSyncButton({
     if (!currentGroupId || syncing) return;
     if (!linkedEmail) return;
 
+    // Якщо користувач переглядає іншу групу (не свою прив'язану), НЕ викликаємо персональний sync!
+    // Персональні Google OAuth токени належать курсам своєї групи. Для чужої групи
+    // завантажуємо лише її публічні завдання з бекенду.
+    if (linkedGroupId && currentGroupId !== linkedGroupId) {
+      try {
+        const data = await api.classroom.groupStatus(currentGroupId);
+        if (data?.last_synced_at) setLastSyncedAt(data.last_synced_at);
+        if (data?.tasks && Array.isArray(data.tasks)) {
+          onSynced(currentGroupId, data.tasks, data.last_synced_at ?? null, true);
+        }
+      } catch {}
+      return;
+    }
+
     const throttleKey = `schedule:last_silent_sync:${currentGroupId}`;
     const now = Date.now();
     try {
@@ -251,12 +270,12 @@ export function ClassroomSyncButton({
       const data = await api.classroom.groupStatus(currentGroupId);
       if (data?.last_synced_at) setLastSyncedAt(data.last_synced_at);
       if (data?.tasks && Array.isArray(data.tasks)) {
-        onSynced(currentGroupId, data.tasks, data.last_synced_at ?? null);
+        onSynced(currentGroupId, data.tasks, data.last_synced_at ?? null, true);
       }
     } catch {
       // Silently ignore background network errors
     }
-  }, [currentGroupId, weekStart, syncing, linkedEmail, onSynced]);
+  }, [currentGroupId, weekStart, syncing, linkedEmail, linkedGroupId, onSynced]);
 
   // 1. Silent sync on initial load / group switch if account was previously linked
   useEffect(() => {

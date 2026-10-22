@@ -1139,8 +1139,8 @@ export default function HomePage() {
               <ClassroomSyncButton
                 currentGroupId={groupId}
                 weekStart={weekStartStr}
-                onSynced={(detectedId, tasks, lastSynced) => {
-                  if (detectedId && detectedId !== groupId) {
+                onSynced={(detectedId, tasks, lastSynced, isSilent) => {
+                  if (!isSilent && detectedId && detectedId !== groupId) {
                     setGroupId(detectedId);
                   }
                   if (tasks && Array.isArray(tasks)) {
@@ -1457,8 +1457,8 @@ export default function HomePage() {
             tasksScope={tasksScope}
             onTasksScopeChange={setTasksScope}
             lastSyncedAt={classroomLastSyncedAt}
-            onSynced={(detectedId) => {
-              if (detectedId && detectedId !== groupId) setGroupId(detectedId);
+            onSynced={(detectedId, _tasks, _lastSynced, isSilent) => {
+              if (!isSilent && detectedId && detectedId !== groupId) setGroupId(detectedId);
             }}
           />
         ) : (
