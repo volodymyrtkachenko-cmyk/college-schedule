@@ -535,7 +535,7 @@ export function PermanentScheduleEditor() {
               type="button"
               onClick={() => startTransition(() => setMode("student"))}
               className={`relative z-10 flex-1 sm:flex-none sm:w-28 text-center rounded-md px-3 py-2 sm:py-1.5 transition-colors ${
-                mode === "student" ? "text-[#0b1120] font-medium" : "text-sys-text-secondary hover:text-sys-text-primary"
+                mode === "student" ? "text-white font-semibold" : "text-sys-text-secondary hover:text-sys-text-primary"
               }`}
             >
               Група
@@ -546,7 +546,7 @@ export function PermanentScheduleEditor() {
               type="button"
               onClick={() => startTransition(() => setMode("teacher"))}
               className={`relative z-10 flex-1 sm:flex-none sm:w-28 text-center rounded-md px-3 py-2 sm:py-1.5 transition-colors ${
-                mode === "teacher" ? "text-[#0b1120] font-medium" : "text-sys-text-secondary hover:text-sys-text-primary"
+                mode === "teacher" ? "text-white font-semibold" : "text-sys-text-secondary hover:text-sys-text-primary"
               }`}
             >
               Викладач
@@ -962,7 +962,7 @@ export function PermanentScheduleEditor() {
                           <button
                             type="button"
                             onClick={() => setEditor({ day_of_week: currentDayDef.day })}
-                            className="min-h-[40px] px-3.5 rounded-lg bg-sys-accent text-xs font-bold text-[#0b1120] hover:opacity-90 active:scale-95 transition-all"
+                            className="min-h-[40px] px-3.5 rounded-lg bg-sys-accent text-xs font-semibold text-white shadow-xs hover:opacity-95 active:scale-95 transition-all"
                           >
                             + Додати
                           </button>

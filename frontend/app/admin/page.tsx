@@ -535,7 +535,7 @@ function AdminContent() {
               <button
                 type="button"
                 onClick={() => setSelectedNotifPubId(importNotification.publication_id)}
-                className="px-3.5 py-2 rounded-xl text-xs font-semibold border border-sys-border bg-white/10 hover:bg-white/15 text-sys-text-primary transition-all active:scale-95"
+                className="px-3.5 py-2 rounded-xl text-xs font-semibold border border-sys-border bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 text-sys-text-primary transition-all active:scale-95"
               >
                 Показати зміни
               </button>
@@ -605,7 +605,7 @@ function AdminContent() {
           <div className="surface-panel mt-2 max-w-xl p-6">
             <h1 className="text-xl font-bold">Розділ не знайдено</h1>
             <p className="mt-2 text-sm text-sys-text-secondary">Оберіть розділ адміністрування з меню.</p>
-            <a href="/admin?resource=schedule" className="mt-5 inline-block rounded-lg bg-sys-accent px-4 py-2 text-sm font-semibold text-[#0b1120]">
+            <a href="/admin?resource=schedule" className="mt-5 inline-block rounded-lg bg-sys-accent px-4 py-2 text-sm font-semibold text-white shadow-xs hover:opacity-95">
               До розкладу
             </a>
           </div>
@@ -717,7 +717,7 @@ function AdminContent() {
                   type="button"
                   onClick={saveBulk}
                   disabled={bulkSaving || parsedLines.length === 0}
-                  className="min-h-[44px] sm:min-h-[36px] flex items-center justify-center rounded-lg bg-sys-accent px-5 py-2 text-xs font-bold text-[#0b1120] hover:opacity-90 active:scale-[0.98] disabled:opacity-50 shadow-sm"
+                  className="min-h-[44px] sm:min-h-[36px] flex items-center justify-center rounded-lg bg-sys-accent px-5 py-2 text-xs font-semibold text-white shadow-xs hover:opacity-95 active:scale-[0.98] disabled:opacity-50"
                 >
                   {bulkSaving ? "Збереження…" : `Імпортувати (${parsedLines.length})`}
                 </button>

@@ -333,7 +333,7 @@ export function SchedulePeriodsPanel() {
             <button
               type="button"
               onClick={() => setDraft(blankPeriod())}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-sys-accent px-4 py-2 text-sm font-semibold text-[#0b1120] transition-opacity hover:opacity-90"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-sys-accent px-4 py-2 text-sm font-semibold text-white shadow-xs hover:opacity-95 transition-opacity"
             >
               + Додати період
             </button>
@@ -558,7 +558,7 @@ export function SchedulePeriodsPanel() {
             <button
               type="submit"
               disabled={saving}
-              className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] flex items-center justify-center gap-2 rounded-lg bg-sys-accent px-6 py-2 text-sm font-bold text-[#0b1120] hover:opacity-90 active:scale-[0.98] disabled:opacity-50 transition-all shadow-sm"
+              className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] flex items-center justify-center gap-2 rounded-lg bg-sys-accent px-6 py-2 text-sm font-semibold text-white shadow-xs hover:opacity-95 active:scale-[0.98] disabled:opacity-50 transition-all"
             >
               {saving ? (
                 <>

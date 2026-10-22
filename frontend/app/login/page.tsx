@@ -38,7 +38,7 @@ export default function LoginPage() {
       <div className="surface-panel w-full max-w-md space-y-8 p-6 shadow-xl sm:p-8">
         <div>
           <div className="mb-5 flex justify-center">
-            <span className="rounded-md bg-sys-accent px-2.5 py-1 text-sm font-black tracking-[0.18em] text-[#0b1120]">ДФКР</span>
+            <span className="rounded-md bg-sys-accent/15 px-2.5 py-1 text-sm font-black tracking-[0.18em] text-sys-accent border border-sys-accent/25">ДФКР</span>
           </div>
           <h2 className="mt-2 text-center text-3xl font-bold tracking-tight text-sys-text-primary">Вхід у систему</h2>
           <p className="mt-2 text-center text-sm text-sys-text-secondary">Для адміністраторів і редакторів розкладу</p>

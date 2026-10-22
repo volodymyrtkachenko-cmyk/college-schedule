@@ -185,7 +185,7 @@ export function LearningModePanel() {
               <button
                 type="submit"
                 disabled={saving}
-                className="rounded-lg bg-sys-accent px-5 py-2.5 min-h-[44px] sm:min-h-0 text-sm font-bold text-[#0b1120] hover:opacity-90 disabled:opacity-50 transition-colors"
+                className="rounded-lg bg-sys-accent px-5 py-2.5 min-h-[44px] sm:min-h-0 text-sm font-semibold text-white shadow-xs hover:opacity-95 disabled:opacity-50 transition-colors"
               >
                 Зберегти цикл
               </button>
@@ -342,7 +342,7 @@ export function LearningModePanel() {
                   <button
                     type="submit"
                     disabled={saving || !draftOverride.start || !draftOverride.end}
-                    className="rounded-lg bg-sys-accent px-5 py-2.5 min-h-[44px] sm:min-h-0 text-sm font-bold text-[#0b1120] hover:opacity-90 disabled:opacity-50 transition-colors"
+                    className="rounded-lg bg-sys-accent px-5 py-2.5 min-h-[44px] sm:min-h-0 text-sm font-semibold text-white shadow-xs hover:opacity-95 disabled:opacity-50 transition-colors"
                   >
                     Додати виняток
                   </button>

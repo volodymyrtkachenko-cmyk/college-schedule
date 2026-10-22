@@ -556,7 +556,7 @@ export function OfficialPrintModal({
             type="button"
             onClick={() => void loadDayForAllGroups(targetDate)}
             disabled={loading}
-            className="min-h-[44px] sm:min-h-[40px] rounded-lg bg-sys-accent px-4 py-2 text-sm font-semibold text-[#0b1120] disabled:opacity-50 transition-opacity"
+            className="min-h-[44px] sm:min-h-[40px] rounded-lg bg-sys-accent px-4 py-2 text-sm font-semibold text-white shadow-xs disabled:opacity-50 hover:opacity-95 transition-opacity"
           >
             {loading ? "Формуємо..." : "Сформувати відомість"}
           </button>
@@ -564,7 +564,7 @@ export function OfficialPrintModal({
             <button
               type="button"
               onClick={handlePrint}
-              className="min-h-[44px] sm:min-h-[40px] rounded-lg bg-emerald-500 px-4 py-2 text-sm font-bold text-slate-950 hover:bg-emerald-400 transition-colors"
+              className="min-h-[44px] sm:min-h-[40px] rounded-lg bg-emerald-600 dark:bg-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow-xs hover:opacity-95 transition-colors"
             >
               Роздрукувати / PDF
             </button>

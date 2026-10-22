@@ -269,7 +269,7 @@ export function LessonNoteModal({
                   type="submit"
                   form="lesson-note-form"
                   disabled={busy || !online}
-                  className="w-full sm:w-auto min-h-[44px] sm:min-h-[38px] px-5 py-2 text-xs sm:text-sm font-bold text-[#0b1120] bg-sys-accent hover:opacity-90 active:scale-[0.98] rounded-lg transition-all disabled:opacity-50 shadow-sm"
+                  className="w-full sm:w-auto min-h-[44px] sm:min-h-[38px] px-5 py-2 text-xs sm:text-sm font-semibold text-white shadow-xs bg-sys-accent hover:opacity-95 active:scale-[0.98] rounded-lg transition-all disabled:opacity-50"
                 >
                   {busy ? "Збереження…" : "Зберегти"}
                 </button>

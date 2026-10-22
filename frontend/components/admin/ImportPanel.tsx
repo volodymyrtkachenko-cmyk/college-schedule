@@ -467,7 +467,7 @@ export function ImportPanel() {
                <p className="text-sys-text-secondary text-sm mb-6 max-w-lg">
                    Система сама обходить усі групи на kre.dp.ua, знаходить зміни й одразу застосовує їх. Останню публікацію можна відкотити.
                </p>
-               <button onClick={handleImport} disabled={loading} className="bg-sys-accent text-[#0b1120] font-bold py-2.5 px-6 rounded-lg disabled:opacity-50 flex items-center gap-2 hover:opacity-90 active:scale-98 transition-all">
+               <button onClick={handleImport} disabled={loading} className="bg-sys-accent text-white font-semibold shadow-xs py-2.5 px-6 rounded-lg disabled:opacity-50 flex items-center gap-2 hover:opacity-95 active:scale-98 transition-all">
                    {loading ? (
                      <><svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Імпортуємо...</>
                    ) : "Почати імпорт"}
@@ -487,14 +487,14 @@ export function ImportPanel() {
                     <p className="opacity-80">Перед тим, як залити розклад у базу, переконайтеся, що ви зв'язали ці нові назви з наявними в системі. Заповніть усі поля.</p>
                 </div>
 
-                <div className="space-y-3 mb-6 bg-slate-900/50 p-4 rounded-xl border border-sys-border">
+                <div className="space-y-3 mb-6 bg-sys-card p-4 rounded-xl border border-sys-border">
                     {report.unresolved.map((item, idx) => (
-                        <div key={idx} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 py-2 border-b border-white/5 last:border-0">
+                        <div key={idx} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 py-2 border-b border-sys-border/40 last:border-0">
                             <div className="flex-1">
-                                <span className="inline-block text-[10px] uppercase font-bold text-sys-text-secondary bg-white/5 px-2 py-0.5 rounded mr-3">
+                                <span className="inline-block text-[10px] uppercase font-bold text-sys-text-secondary bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded mr-3">
                                     {item.type === 'teacher' ? 'Викладач' : item.type === 'subject' ? 'Предмет' : 'Група'}
                                 </span>
-                                <strong className="text-gray-200">{item.raw}</strong>
+                                <strong className="text-sys-text-primary">{item.raw}</strong>
                             </div>
                             <div className="w-full sm:w-[300px]">
                                 <SearchableSelect
@@ -666,7 +666,7 @@ export function ImportPanel() {
                 )}
                 
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                    <button onClick={handlePrimaryAction} disabled={loading} className="w-full sm:w-auto bg-sys-accent text-[#0b1120] font-bold py-2.5 px-6 rounded-lg disabled:opacity-50">
+                    <button onClick={handlePrimaryAction} disabled={loading} className="w-full sm:w-auto bg-sys-accent text-white font-semibold shadow-xs hover:opacity-95 py-2.5 px-6 rounded-lg disabled:opacity-50">
                         {loading ? "Зберігаємо…" : report.unresolved.length > 0 ? "Зберегти відповідності та продовжити" : "Зберегти зміни"}
                     </button>
                     <button onClick={() => void cancelImport()} className="w-full sm:w-auto py-2.5 px-4 text-center rounded-lg border border-sys-border sm:border-0 bg-white/5 sm:bg-transparent text-sys-text-secondary hover:text-white" disabled={loading}>Скасувати імпорт</button>
@@ -722,7 +722,7 @@ export function ImportPanel() {
                     type="button"
                     onClick={() => void publishImportMode("substitutions_only")}
                     disabled={loading || !draftId}
-                    className="flex-1 bg-sys-accent text-[#0b1120] font-bold py-2.5 px-4 rounded-xl disabled:opacity-50 shadow-sm hover:opacity-90 active:scale-98 transition-all flex flex-col items-center justify-center text-xs sm:text-sm"
+                    className="flex-1 bg-sys-accent text-white font-semibold shadow-xs hover:opacity-95 py-2.5 px-4 rounded-xl disabled:opacity-50 active:scale-98 transition-all flex flex-col items-center justify-center text-xs sm:text-sm"
                   >
                     <span>Опублікувати тільки зміни</span>
                     <span className="text-[10px] font-normal opacity-85">(без скасувань та дублів)</span>
@@ -768,7 +768,7 @@ export function ImportPanel() {
                 </div>
                 <h3 className="text-2xl font-bold text-sys-text-primary mb-2">Змін не знайдено</h3>
                 <p className="text-sys-text-secondary max-w-md mx-auto mb-6">Поточний розклад та імпортні зміни такі самі, як у попередньому імпорті. Нову чернетку створювати не потрібно.</p>
-                <button onClick={() => setStatus("idle")} className="bg-sys-bg border border-sys-border px-6 py-2 rounded-lg text-sm font-bold text-gray-300 hover:bg-white/5 transition-colors">
+                <button onClick={() => setStatus("idle")} className="bg-sys-card border border-sys-border px-6 py-2 rounded-lg text-sm font-semibold text-sys-text-primary hover:bg-slate-100 dark:hover:bg-white/5 transition-colors">
                     Зрозуміло
                 </button>
             </div>
@@ -779,17 +779,17 @@ export function ImportPanel() {
                 <div className="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-4">
                     <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
                 </div>
-                <h3 className="text-2xl font-bold text-emerald-300 mb-2">Імпорт опубліковано успішно!</h3>
-                <p className="text-emerald-500/80 max-w-md mx-auto mb-6">Зміни імпорту додано до опублікованого розкладу.</p>
+                <h3 className="text-2xl font-bold text-emerald-600 dark:text-emerald-300 mb-2">Імпорт опубліковано успішно!</h3>
+                <p className="text-emerald-600/80 dark:text-emerald-500/80 max-w-md mx-auto mb-6">Зміни імпорту додано до опублікованого розкладу.</p>
                 
                 <div className="flex justify-center gap-8 mb-8 text-left">
-                    <div className="bg-[#0b1120] px-4 py-3 rounded-lg border border-white/5">
+                    <div className="bg-sys-card px-4 py-3 rounded-lg border border-sys-border">
                         <div className="text-xs text-sys-text-secondary font-bold uppercase mb-1">Знайдено замін</div>
-                        <div className="text-xl text-white font-black">{substitutions.filter(s => (s as any).is_new !== false).length} нових</div>
+                        <div className="text-xl text-sys-text-primary font-black">{substitutions.filter(s => (s as any).is_new !== false).length} нових</div>
                     </div>
                 </div>
                 
-                <button onClick={() => setStatus("idle")} className="bg-sys-bg border border-sys-border px-6 py-2 rounded-lg text-sm font-bold text-gray-300 hover:bg-white/5 transition-colors">
+                <button onClick={() => setStatus("idle")} className="bg-sys-card border border-sys-border px-6 py-2 rounded-lg text-sm font-semibold text-sys-text-primary hover:bg-slate-100 dark:hover:bg-white/5 transition-colors">
                     Готово
                 </button>
             </div>

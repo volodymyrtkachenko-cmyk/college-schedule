@@ -161,7 +161,7 @@ export const PublicationHistory: React.FC = () => {
                             Поточна
                           </span>
                         ) : (
-                          <span className="inline-flex items-center rounded-md bg-white/5 px-2 py-0.5 text-xs font-medium text-sys-text-muted">
+                          <span className="inline-flex items-center rounded-md bg-slate-100 dark:bg-white/5 px-2 py-0.5 text-xs font-medium text-sys-text-muted">
                             В історії
                           </span>
                         )}
@@ -170,7 +170,7 @@ export const PublicationHistory: React.FC = () => {
                         <div className="flex items-center justify-end gap-2">
                           <button
                             onClick={() => void handleViewChanges(p.id)}
-                            className="rounded-lg border border-sys-border bg-white/5 px-2.5 py-1.5 text-xs font-medium text-sys-text-secondary transition-colors hover:bg-white/10 hover:text-sys-text-primary"
+                            className="rounded-lg border border-sys-border bg-sys-card px-2.5 py-1.5 text-xs font-medium text-sys-text-secondary transition-colors hover:bg-slate-100 dark:hover:bg-white/10 hover:text-sys-text-primary"
                           >
                             Показати зміни
                           </button>
@@ -178,7 +178,7 @@ export const PublicationHistory: React.FC = () => {
                             <button
                               onClick={() => void handleRevert(p.id)}
                               disabled={revertingId === p.id}
-                              className="rounded-lg border border-rose-500/30 bg-rose-500/15 px-3 py-1.5 text-xs font-semibold text-rose-300 transition-colors hover:bg-rose-500/25 disabled:opacity-50"
+                              className="rounded-lg border border-rose-500/30 bg-rose-500/15 px-3 py-1.5 text-xs font-semibold text-rose-600 dark:text-rose-300 transition-colors hover:bg-rose-500/25 disabled:opacity-50"
                             >
                               {revertingId === p.id ? "Скасування..." : "Відкотити"}
                             </button>

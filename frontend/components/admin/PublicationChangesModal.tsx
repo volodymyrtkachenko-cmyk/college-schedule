@@ -165,7 +165,7 @@ export function PublicationChangesModal({
               type="button"
               onClick={() => void handleRevert()}
               disabled={reverting}
-              className="rounded-xl border border-rose-500/30 bg-rose-500/15 px-3.5 py-2 text-xs font-semibold text-rose-300 hover:bg-rose-500/25 transition-colors disabled:opacity-50"
+              className="rounded-xl border border-rose-500/30 bg-rose-500/15 px-3.5 py-2 text-xs font-semibold text-rose-600 dark:text-rose-300 hover:bg-rose-500/25 transition-colors disabled:opacity-50"
             >
               {reverting ? "Відкат..." : "Відкотити публікацію"}
             </button>
@@ -175,7 +175,7 @@ export function PublicationChangesModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl border border-sys-border bg-white/10 px-4 py-2 text-xs font-semibold text-sys-text-primary hover:bg-white/15 transition-colors"
+            className="rounded-xl border border-sys-border bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 px-4 py-2 text-xs font-semibold text-sys-text-primary transition-colors"
           >
             Закрити
           </button>

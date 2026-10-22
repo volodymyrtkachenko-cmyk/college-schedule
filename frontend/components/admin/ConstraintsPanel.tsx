@@ -179,8 +179,8 @@ export function ConstraintsPanel() {
             <span
               className={`font-bold px-2 py-0.5 rounded-full ${
                 blockedCount > 0
-                  ? "bg-rose-500/15 text-rose-300 border border-rose-500/30"
-                  : "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                  ? "bg-rose-500/15 text-rose-600 dark:text-rose-300 border border-rose-500/30"
+                  : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
               }`}
             >
               {blockedCount} з {DAYS.length * LESSON_NUMBERS.length}
@@ -225,7 +225,7 @@ export function ConstraintsPanel() {
                       title={`Клікніть, щоб ${dayBlocked ? "розблокувати" : "заблокувати"} весь ${d.name}`}
                       className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl border text-xs transition-all active:scale-98 ${
                         dayBlocked
-                          ? "border-rose-500/40 bg-rose-500/15 text-rose-300 font-bold"
+                          ? "border-rose-500/40 bg-rose-500/15 text-rose-600 dark:text-rose-300 font-bold"
                           : "border-sys-border bg-sys-bg text-sys-text-primary hover:border-sys-accent/50 hover:bg-sys-bg/80"
                       }`}
                     >
@@ -260,7 +260,7 @@ export function ConstraintsPanel() {
                           onClick={() => void toggleCell(d.id, lesson)}
                           className={`relative flex flex-col items-center justify-center h-16 rounded-xl border p-2 transition-all active:scale-[0.97] focus:outline-none focus:ring-2 focus:ring-sys-accent ${
                             isBlocked
-                              ? "border-rose-500/50 bg-rose-500/10 text-rose-300 shadow-inner hover:bg-rose-500/20"
+                              ? "border-rose-500/50 bg-rose-500/10 text-rose-600 dark:text-rose-300 shadow-inner hover:bg-rose-500/20"
                               : "border-sys-border bg-sys-bg/60 text-sys-text-muted hover:border-sys-accent/60 hover:bg-sys-bg hover:text-sys-text-primary"
                           }`}
                         >

@@ -416,7 +416,7 @@ export function EventsModal({
                     type="button"
                     disabled={saving || !groupId}
                     onClick={() => void handleSave()}
-                    className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-lg bg-sys-accent px-5 py-2 text-xs sm:text-sm font-bold text-[#0b1120] shadow-sm transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-50"
+                    className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-lg bg-sys-accent px-5 py-2 text-xs sm:text-sm font-semibold text-white shadow-xs transition-all hover:opacity-95 active:scale-[0.98] disabled:opacity-50"
                   >
                     {saving ? "Зберігаємо..." : "Зберегти зміни"}
                   </button>
@@ -435,7 +435,7 @@ export function EventsModal({
                   type="button"
                   disabled={saving || !groupId}
                   onClick={() => void handleSave()}
-                  className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-lg bg-sys-accent px-5 py-2 text-xs sm:text-sm font-bold text-[#0b1120] shadow-sm transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-50"
+                  className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-lg bg-sys-accent px-5 py-2 text-xs sm:text-sm font-semibold text-white shadow-xs transition-all hover:opacity-95 active:scale-[0.98] disabled:opacity-50"
                 >
                   {saving ? "Додаємо..." : "+ Додати подію у розклад"}
                 </button>

@@ -355,7 +355,7 @@ export function AdminNav({ active }: { active: string }) {
               className="flex items-center gap-2 hover:opacity-85 transition-opacity"
               title="Повернутися на сайт розкладу"
             >
-              <span className="text-[13px] font-black tracking-widest text-[#0b1120] bg-sys-accent px-1.5 py-0.5 rounded shadow-xs shrink-0">
+              <span className="text-[13px] font-black tracking-widest text-sys-accent bg-sys-accent/15 border border-sys-accent/25 px-1.5 py-0.5 rounded shadow-xs shrink-0">
                 ДФКР
               </span>
               <span className="font-bold text-[14px] text-sys-text-primary tracking-tight whitespace-nowrap truncate">
@@ -645,7 +645,7 @@ export function AdminNav({ active }: { active: string }) {
             )}
           </button>
           <div className="flex items-center gap-2">
-            <span className="text-[12px] font-black tracking-wider text-[#0b1120] bg-sys-accent px-1.5 py-0.5 rounded shadow-xs">
+            <span className="text-[12px] font-black tracking-wider text-sys-accent bg-sys-accent/15 border border-sys-accent/25 px-1.5 py-0.5 rounded shadow-xs">
               ДФКР
             </span>
             <span className="font-bold text-[15px] text-sys-text-primary truncate max-w-[180px] sm:max-w-[280px]">

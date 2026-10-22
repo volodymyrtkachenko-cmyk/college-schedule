@@ -179,7 +179,7 @@ export function SemesterSettingsPanel() {
             <button
               type="submit"
               disabled={saving || loading}
-              className="flex items-center justify-center gap-2 rounded-lg bg-sys-accent px-5 py-2.5 min-h-[44px] sm:min-h-0 text-sm font-bold text-[#0b1120] hover:opacity-90 disabled:opacity-50 transition-colors w-full sm:w-auto"
+              className="flex items-center justify-center gap-2 rounded-lg bg-sys-accent px-5 py-2.5 min-h-[44px] sm:min-h-0 text-sm font-semibold text-white shadow-xs hover:opacity-95 disabled:opacity-50 transition-colors w-full sm:w-auto"
             >
               {saving ? (
                 <>

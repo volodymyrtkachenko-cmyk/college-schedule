@@ -117,7 +117,7 @@ export function ScheduleVersionsPanel() {
         actions={
           <button
             onClick={() => setDraft({ key: Date.now().toString(), name: "", valid_from: "", valid_until: "" })}
-            className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-sys-accent px-4 py-2 text-sm font-semibold text-[#0b1120] hover:opacity-90 active:scale-95 transition-all"
+            className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-sys-accent px-4 py-2 text-sm font-semibold text-white shadow-xs hover:opacity-95 active:scale-95 transition-all"
           >
             + Додати версію
           </button>
@@ -161,7 +161,7 @@ export function ScheduleVersionsPanel() {
                 <div className="mt-5 flex items-center gap-2 border-t border-sys-border/40 pt-4">
                   <Link
                     href={`/admin?resource=permanent-schedule&version_id=${version.id}`}
-                    className="flex-1 min-h-[40px] flex items-center justify-center gap-2 rounded-lg bg-sys-accent px-4 py-2 text-xs font-bold text-[#0b1120] hover:opacity-90 active:scale-[0.98] transition-all shadow-sm"
+                    className="flex-1 min-h-[40px] flex items-center justify-center gap-2 rounded-lg bg-sys-accent px-4 py-2 text-xs font-semibold text-white shadow-xs hover:opacity-95 active:scale-[0.98] transition-all"
                   >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/></svg>
                     <span>Відкрити розклад</span>
@@ -364,7 +364,7 @@ export function ScheduleVersionsPanel() {
                 type="button"
                 onClick={handleClone}
                 disabled={!cloneSourceId || isSubmitting}
-                className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] flex items-center justify-center gap-2 rounded-lg bg-sys-accent px-6 py-2 text-sm font-bold text-[#0b1120] hover:opacity-90 active:scale-[0.98] disabled:opacity-50 transition-all shadow-sm"
+                className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] flex items-center justify-center gap-2 rounded-lg bg-sys-accent px-6 py-2 text-sm font-semibold text-white shadow-xs hover:opacity-95 active:scale-[0.98] disabled:opacity-50 transition-all"
               >
                 {isSubmitting ? (
                   <>

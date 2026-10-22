@@ -260,7 +260,7 @@ export function GeneratorPanel() {
                   setSelectedSlotId(null);
                 }}
                 className={`flex-1 rounded-lg px-5 py-2 text-sm font-semibold transition-colors sm:flex-none ${
-                  activeWeek === week ? "bg-sys-accent text-[#0b1120]" : "text-sys-text-secondary hover:text-sys-text-primary"
+                  activeWeek === week ? "bg-sys-accent text-white shadow-xs" : "text-sys-text-secondary hover:text-sys-text-primary"
                 }`}
               >
                 {week === "numerator" ? "Чисельник" : "Знаменник"}
@@ -444,11 +444,11 @@ export function GeneratorPanel() {
           <button
             onClick={handleGenerate}
             disabled={generating}
-            className="shrink-0 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-[#0b1120] hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-wait flex items-center gap-2"
+            className="shrink-0 rounded-lg bg-emerald-600 dark:bg-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow-xs hover:opacity-95 transition-opacity disabled:opacity-50 disabled:cursor-wait flex items-center gap-2"
           >
             {generating ? (
               <>
-                <svg className="animate-spin h-4 w-4 text-[#0b1120]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+                <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
                 Створюємо розклад…
               </>
             ) : "Створити розклад"}
