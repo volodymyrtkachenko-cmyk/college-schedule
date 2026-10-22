@@ -2953,7 +2953,7 @@ async def sync_all_connected_groups_once() -> dict:
 
 async def classroom_auto_sync_loop() -> None:
     """Нескінченний фоновий цикл: автоматично парсить Classroom кожні 10 хвилин."""
-    await asyncio.sleep(15)  # Перший запуск через 15 секунд після старту сервера
+    await asyncio.sleep(45)  # Перший запуск через 45 секунд після старту сервера (після стартового автоімпорту розкладу)
     while True:
         try:
             await sync_all_connected_groups_once()

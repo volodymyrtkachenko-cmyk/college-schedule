@@ -54,6 +54,16 @@ async def import_mutex(engine: AsyncEngine, error_id: str):
     uncertain = False
     primary_error = None
     local_acquired = False
+    keepalive_task: asyncio.Task | None = None
+
+    async def _keepalive_loop() -> None:
+        try:
+            while True:
+                await asyncio.sleep(15)
+                await conn.scalar(text("SELECT 1"))
+        except BaseException:
+            pass
+
     try:
         if conn.dialect.name == "postgresql":
             # Cancellation during acquire can leave the result unknown.
@@ -69,6 +79,8 @@ async def import_mutex(engine: AsyncEngine, error_id: str):
                 raise HTTPException(409, "Імпорт вже виконується іншим процесом")
             # Keep transaction open to retain the physical connection (PgBouncer compatibility)
             # xact_lock will be automatically released when conn is closed/rolled back in finally block.
+            if isinstance(conn, AsyncConnection):
+                keepalive_task = asyncio.create_task(_keepalive_loop())
         else:
             if _local_lock.locked():
                 raise HTTPException(409, "Імпорт вже виконується")
@@ -79,6 +91,12 @@ async def import_mutex(engine: AsyncEngine, error_id: str):
         primary_error = exc
         raise
     finally:
+        if keepalive_task is not None:
+            keepalive_task.cancel()
+            try:
+                await keepalive_task
+            except BaseException:
+                pass
         task = asyncio.create_task(
             _finish_connection(conn, acquired, uncertain, error_id)
         )

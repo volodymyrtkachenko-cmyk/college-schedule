@@ -694,16 +694,11 @@ async def execute_import_logic(db: AsyncSession, weeks: int = 2, actor_id: int |
 async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int | None = None):
     fetcher = ScheduleFetcher()
     parser = KREParser()
+    set_active_jobs(1)
     try:
-        normalizer = EntityNormalizer(db)
-        await normalizer.load_dictionaries()
-        differ = ScheduleDiffer(db, normalizer)
-
         group_ids = await fetcher.get_all_group_ids()
         if not group_ids:
             raise HTTPException(502, detail={"code": "empty_import_group_list", "msg": "Джерело не повернуло групи. Імпорт зупинено."})
-
-        total_db_groups = await db.scalar(select(func.count(Group.id)).where(Group.is_active.is_(True))) or 0
 
         aggregated_unresolved = {}
         aggregated_unresolved_subs = []
@@ -781,51 +776,56 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
             tasks = [fetch_and_parse(client, g_id) for g_id in group_ids]
             parsed_weeks = await asyncio.gather(*tasks, return_exceptions=True)
 
-            for g_idx, parsed_week_list in enumerate(parsed_weeks):
-                if isinstance(parsed_week_list, Exception):
-                    errors.append({"group": group_ids[g_idx], "error": str(parsed_week_list)})
-                    continue
-                for parsed_week in parsed_week_list:
-                    parsed_week_obj, source_url, page_hash = parsed_week
-                    gid = group_ids[g_idx]
-                    page_snapshots.append({
-                        "group_id": gid,
-                        "url": source_url,
-                        "html_hash": page_hash,
-                        "dates": sorted({lesson.date.isoformat() for lesson in parsed_week_obj.lessons}),
-                        "week_type": parsed_week_obj.week_type,
-                    })
-                    seen_page_urls.add(source_url)
-                    seen_page_hashes.add(page_hash)
-                    group_page_hashes.setdefault(str(gid), []).append(page_hash)
-                    raw_lessons += len(parsed_week_obj.lessons)
-                    imported_dates.update(lesson.date.isoformat() for lesson in parsed_week_obj.lessons)
-                    diff_report = await differ.diff(parsed_week_obj)
-                    page_group_ids = {
-                        item["group_id"]
-                        for key in ("base_slots", "substitutions", "cancelled")
-                        for item in diff_report[key]
-                    }
-                    for page_group_id in page_group_ids:
-                        scraped_weeks.setdefault(page_group_id, set()).add(parsed_week_obj.week_type)
-                        group_page_hashes.setdefault(str(page_group_id), []).append(page_hash)
-                    for item in diff_report["unresolved"]:
-                        key = f"{item['type']}_{item['raw']}"
-                        aggregated_unresolved[key] = item
-                    aggregated_substitutions.extend(diff_report["substitutions"])
-                    aggregated_unresolved_subs.extend(diff_report["unresolved_substitutions"])
-                    aggregated_cancelled.extend(diff_report["cancelled"])
-                    aggregated_base_slots.extend(diff_report["base_slots"])
-                    aggregated_skipped.extend(diff_report["skipped_base_slots"])
-                    imported_group_ids.update(
-                        slot["group_id"] for slot in diff_report["base_slots"]
-                    )
-                    imported_group_ids.update(
-                        item["group_id"] for item in diff_report["substitutions"]
-                    )
-                    imported_group_ids.update(
-                        item["group_id"] for item in diff_report["cancelled"]
-                    )
+        normalizer = EntityNormalizer(db)
+        await normalizer.load_dictionaries()
+        differ = ScheduleDiffer(db, normalizer)
+        total_db_groups = await db.scalar(select(func.count(Group.id)).where(Group.is_active.is_(True))) or 0
+
+        for g_idx, parsed_week_list in enumerate(parsed_weeks):
+            if isinstance(parsed_week_list, Exception):
+                errors.append({"group": group_ids[g_idx], "error": str(parsed_week_list)})
+                continue
+            for parsed_week in parsed_week_list:
+                parsed_week_obj, source_url, page_hash = parsed_week
+                gid = group_ids[g_idx]
+                page_snapshots.append({
+                    "group_id": gid,
+                    "url": source_url,
+                    "html_hash": page_hash,
+                    "dates": sorted({lesson.date.isoformat() for lesson in parsed_week_obj.lessons}),
+                    "week_type": parsed_week_obj.week_type,
+                })
+                seen_page_urls.add(source_url)
+                seen_page_hashes.add(page_hash)
+                group_page_hashes.setdefault(str(gid), []).append(page_hash)
+                raw_lessons += len(parsed_week_obj.lessons)
+                imported_dates.update(lesson.date.isoformat() for lesson in parsed_week_obj.lessons)
+                diff_report = await differ.diff(parsed_week_obj)
+                page_group_ids = {
+                    item["group_id"]
+                    for key in ("base_slots", "substitutions", "cancelled")
+                    for item in diff_report[key]
+                }
+                for page_group_id in page_group_ids:
+                    scraped_weeks.setdefault(page_group_id, set()).add(parsed_week_obj.week_type)
+                    group_page_hashes.setdefault(str(page_group_id), []).append(page_hash)
+                for item in diff_report["unresolved"]:
+                    key = f"{item['type']}_{item['raw']}"
+                    aggregated_unresolved[key] = item
+                aggregated_substitutions.extend(diff_report["substitutions"])
+                aggregated_unresolved_subs.extend(diff_report["unresolved_substitutions"])
+                aggregated_cancelled.extend(diff_report["cancelled"])
+                aggregated_base_slots.extend(diff_report["base_slots"])
+                aggregated_skipped.extend(diff_report["skipped_base_slots"])
+                imported_group_ids.update(
+                    slot["group_id"] for slot in diff_report["base_slots"]
+                )
+                imported_group_ids.update(
+                    item["group_id"] for item in diff_report["substitutions"]
+                )
+                imported_group_ids.update(
+                    item["group_id"] for item in diff_report["cancelled"]
+                )
 
         # Safety Guard 1 (B3.2): Dubious Parsing
         if errors and not imported_group_ids:
@@ -1537,8 +1537,9 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
         raise
     except Exception as e:
         logger.error(f"Import error [{error_id}]: {e}", exc_info=True)
-        set_active_jobs(0)
         raise HTTPException(status_code=500, detail={"msg": "Внутрішня помилка імпорту. Зверніться до підтримки.", "error_id": error_id})
+    finally:
+        set_active_jobs(0)
 
 
 @router.post("/import/cron")
@@ -1564,8 +1565,12 @@ async def import_data_cron(
 
 async def schedule_auto_import_loop() -> None:
     """Фоновий цикл: періодично перевіряє сайт коледжу та автоматично імпортує заміни/розклад."""
-    await asyncio.sleep(15)  # Чекаємо 15 секунд після старту сервера
-    interval_seconds = max(300, getattr(settings, "auto_import_interval_minutes", 30) * 60)
+    await asyncio.sleep(5)  # Перша перевірка через 5 секунд після старту сервера
+    try:
+        raw_interval = int(getattr(settings, "auto_import_interval_minutes", 30) or 30)
+    except Exception:
+        raw_interval = 30
+    interval_seconds = max(300, raw_interval * 60)
 
     while True:
         try:

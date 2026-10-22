@@ -27,10 +27,10 @@ from app.routers.admin_import import schedule_auto_import_loop
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    classroom_sync_task = asyncio.create_task(classroom_auto_sync_loop())
-    auto_import_task = None
-    if str(getattr(settings, "auto_import_enabled", True)).strip().lower() in ("true", "1", "yes"):
-        auto_import_task = asyncio.create_task(schedule_auto_import_loop())
+    import os
+    run_cron = os.environ.get("RUN_CRON", "true").strip().lower() not in ("false", "0", "no")
+    classroom_sync_task = asyncio.create_task(classroom_auto_sync_loop()) if run_cron else None
+    auto_import_task = asyncio.create_task(schedule_auto_import_loop()) if run_cron else None
     async with engine.begin() as conn:
         await conn.run_sync(AcademicEvent.__table__.create, checkfirst=True)
         await conn.run_sync(GroupStudent.__table__.create, checkfirst=True)
@@ -42,6 +42,8 @@ async def lifespan(_: FastAPI):
             await conn.execute(text("ALTER TABLE teachers ADD COLUMN IF NOT EXISTS email VARCHAR(255)"))
             await conn.execute(text("ALTER TABLE schedule_events ADD COLUMN IF NOT EXISTS lesson_number INTEGER"))
             await conn.execute(text("ALTER TABLE schedule_events ADD COLUMN IF NOT EXISTS custom_subject VARCHAR(200)"))
+            await conn.execute(text("ALTER TABLE schedule_publications ADD COLUMN IF NOT EXISTS is_reverted BOOLEAN NOT NULL DEFAULT FALSE"))
+            await conn.execute(text("ALTER TABLE schedule_publications ALTER COLUMN actor_id DROP NOT NULL"))
             await conn.execute(text(
                 "CREATE INDEX IF NOT EXISTS ix_schedule_active_lookup "
                 "ON schedule (version_id, is_active, day_of_week, group_id)"
@@ -68,7 +70,8 @@ async def lifespan(_: FastAPI):
     try:
         yield
     finally:
-        classroom_sync_task.cancel()
+        if classroom_sync_task:
+            classroom_sync_task.cancel()
         if auto_import_task:
             auto_import_task.cancel()
         await engine.dispose()

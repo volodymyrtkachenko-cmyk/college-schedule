@@ -18,10 +18,17 @@ class Base(DeclarativeBase):
 
 # Setup engine with explicit pool params (for PostgreSQL)
 _db_url = normalize_database_url(settings.database_url)
-_engine_kwargs = {"pool_pre_ping": True}
+_engine_kwargs: dict = {"pool_pre_ping": True}
 if "postgresql" in _db_url:
     _engine_kwargs["pool_size"] = 5
     _engine_kwargs["max_overflow"] = 10
+    _engine_kwargs["pool_recycle"] = 300
+    _engine_kwargs["connect_args"] = {
+        "keepalives": 1,
+        "keepalives_idle": 30,
+        "keepalives_interval": 10,
+        "keepalives_count": 5,
+    }
 
 engine: AsyncEngine = create_async_engine(_db_url, **_engine_kwargs)
 async_session_factory = async_sessionmaker(engine, expire_on_commit=False)
