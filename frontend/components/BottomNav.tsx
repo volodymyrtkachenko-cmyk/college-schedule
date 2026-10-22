@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 function vibrateTap(ms = 10) {
   if (typeof navigator !== "undefined" && "vibrate" in navigator) {
     try {
@@ -8,7 +10,7 @@ function vibrateTap(ms = 10) {
   }
 }
 
-export type MobileTab = "schedule" | "tasks" | "more";
+export type MobileTab = "schedule" | "tasks";
 
 export function BottomNav({
   activeTab,
@@ -103,20 +105,12 @@ export function BottomNav({
           <span className="text-xs leading-tight tracking-tight">Завдання</span>
         </button>
 
-        {/* Tab 3: More / Settings */}
-        <button
-          type="button"
-          onClick={() => {
-            vibrateTap(10);
-            onTabChange("more");
-          }}
-          aria-label="Ще"
-          aria-pressed={activeTab === "more"}
-          className={`flex flex-1 min-h-[48px] flex-col items-center justify-center gap-0.5 rounded-xl transition-all duration-150 active:scale-95 ${
-            activeTab === "more"
-              ? "font-bold text-sys-accent"
-              : "text-sys-text-secondary hover:text-sys-text-primary font-medium"
-          }`}
+        {/* Tab 3: Settings */}
+        <Link
+          href="/settings"
+          onClick={() => vibrateTap(10)}
+          aria-label="Налаштування"
+          className="flex flex-1 min-h-[48px] flex-col items-center justify-center gap-0.5 rounded-xl transition-all duration-150 active:scale-95 text-sys-text-secondary hover:text-sys-text-primary font-medium"
         >
           <svg
             width="20"
@@ -124,15 +118,15 @@ export function BottomNav({
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
-            strokeWidth={activeTab === "more" ? "2.2" : "1.75"}
+            strokeWidth="1.75"
             strokeLinecap="round"
             strokeLinejoin="round"
           >
             <circle cx="12" cy="12" r="3" />
             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
           </svg>
-          <span className="text-xs leading-tight tracking-tight">Ще</span>
-        </button>
+          <span className="text-xs leading-tight tracking-tight">Налаштування</span>
+        </Link>
       </div>
     </nav>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import Link from "next/link";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { OfflineIndicator } from "../components/OfflineIndicator";
 import { InstallPrompt } from "../components/InstallPrompt";
@@ -134,6 +135,10 @@ export default function HomePage() {
       if (saved !== null) {
         setIsFocusMode(saved === "true");
       }
+      const isDesktop = window.innerWidth >= 1024;
+      const defaultDesktop = (localStorage.getItem("schedule:default_view_desktop") as "week" | "today") || "week";
+      const defaultMobile = (localStorage.getItem("schedule:default_view_mobile") as "today" | "week") || "today";
+      setView(isDesktop ? defaultDesktop : defaultMobile);
     } catch {}
   }, []);
 
@@ -432,38 +437,7 @@ export default function HomePage() {
     return { displayDaySchedule: today, isShowingTomorrow: false };
   }, [today, week]);
 
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const menuButtonRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!mobileMenuOpen) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        setMobileMenuOpen(false);
-        menuButtonRef.current?.focus();
-        return;
-      }
-      if (e.key === "Tab" && menuRef.current) {
-        const focusable = menuRef.current.querySelectorAll<HTMLElement>(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-        );
-        if (focusable.length === 0) return;
-        const first = focusable[0];
-        const last = focusable[focusable.length - 1];
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
-        }
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [mobileMenuOpen]);
 
   const getKyivWeekday = (d: Date): number => {
     const short = new Intl.DateTimeFormat("en-US", {
@@ -974,43 +948,7 @@ export default function HomePage() {
   const noDateTasks = sidebarTaskGroups.noDateTasks;
   const turnedInTasks = sidebarTaskGroups.turnedInTasks;
 
-  const UserControls = () => (
-    <div className="flex items-center gap-2">
-      {user ? (
-        <>
-          {canAccessAdmin(user) && (
-            <a
-              href="/admin"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-sys-border bg-sys-surface/80 px-3 py-1.5 text-xs font-medium text-sys-text-primary whitespace-nowrap shadow-xs hover:border-sys-accent/40 hover:text-sys-accent hover:bg-sys-accent/5 transition-all"
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-sys-accent shrink-0">
-                <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
-                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-              </svg>
-              <span>Для працівників</span>
-            </a>
-          )}
-          <button
-            onClick={logout}
-            className="rounded-lg bg-transparent border border-sys-border px-3 py-1.5 text-xs font-medium text-sys-text-secondary whitespace-nowrap hover:text-white hover:bg-sys-surface transition-colors"
-          >
-            Вийти
-          </button>
-        </>
-      ) : (
-        <a
-          href="/login"
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-sys-text-secondary hover:text-sys-text-primary transition-colors whitespace-nowrap py-1 px-1.5 rounded-md hover:bg-sys-surface"
-        >
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400 shrink-0">
-            <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
-            <circle cx="12" cy="7" r="4" />
-          </svg>
-          <span>Для працівників</span>
-        </a>
-      )}
-    </div>
-  );
+
 
   if (!loading && !isSetupComplete) {
     return <WelcomeScreen groups={groups} teachers={teachers} initialMode={mode} onComplete={(m, id) => {
@@ -1221,18 +1159,28 @@ export default function HomePage() {
               )}
             </button>
 
-            {/* Action Menu Trigger ⋯ */}
-            <button
-              ref={menuButtonRef}
-              type="button"
-              onClick={() => setMobileMenuOpen((prev) => !prev)}
-              aria-label="Меню налаштувань та швидких посилань"
-              title="Меню розкладу"
-              aria-expanded={mobileMenuOpen}
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-border-elevated transition-colors focus:outline-none focus:ring-2 focus:ring-sys-accent"
+            {/* Settings Link ⚙️ */}
+            <Link
+              href="/settings"
+              aria-label="Налаштування застосунку"
+              title="Налаштування"
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-border-elevated active:scale-95 transition-all focus:outline-none focus:ring-2 focus:ring-sys-accent"
             >
-              ⋯
-            </button>
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+            </Link>
           </div>
         </div>
       </header>
@@ -1323,18 +1271,28 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* Right: Action menu trigger ⋯ */}
-          <button
-            ref={menuButtonRef}
-            type="button"
-            onClick={() => setMobileMenuOpen((prev) => !prev)}
-            aria-label="Меню налаштувань та швидких дій"
-            title="Меню дій"
-            aria-expanded={mobileMenuOpen}
+          {/* Right: Settings Link ⚙️ */}
+          <Link
+            href="/settings"
+            aria-label="Налаштування застосунку"
+            title="Налаштування"
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-elevated-border active:scale-95 transition-all"
           >
-            ⋯
-          </button>
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+          </Link>
         </div>
 
         {/* Tier 2 (h-11): Sticky Day tabs Пн• Вт Ср Чт Пт */}
@@ -1446,331 +1404,7 @@ export default function HomePage() {
         )}
       </AnimatePresence>
 
-      {/* Action Menu (⋯ Dropdown / Drawer) */}
-      <AnimatePresence>
-        {mobileMenuOpen && (
-          <>
-            <motion.div
-              key="mobileMenuBackdrop"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: shouldReduceMotion ? 0 : 0.15 }}
-              className="fixed inset-0 z-40 bg-black/50 backdrop-blur-xs"
-              onClick={() => setMobileMenuOpen(false)}
-              aria-hidden="true"
-            />
-            <motion.div
-              key="mobileMenuDropdown"
-              id="mobile-dropdown-menu"
-              ref={menuRef}
-              role="menu"
-              initial={{ opacity: 0, scale: 0.95, y: -6 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: -6 }}
-              transition={{ duration: shouldReduceMotion ? 0 : 0.15 }}
-              className="fixed top-14 right-3 z-50 w-72 max-w-[calc(100vw-1.5rem)] rounded-2xl border border-sys-border bg-sys-card p-3 shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between pb-2 border-b border-sys-border/50">
-                <span className="text-xs font-bold uppercase tracking-wider text-sys-text-muted">Меню розкладу</span>
-                <button
-                  type="button"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex h-6 w-6 items-center justify-center rounded-md border border-sys-border text-xs text-sys-text-secondary hover:text-sys-text-primary"
-                >
-                  ✕
-                </button>
-              </div>
 
-              {/* Theme selector */}
-              <div className="mt-2.5">
-                <span className="mb-1 block text-xs font-semibold text-sys-text-secondary">Тема оформлення</span>
-                <div role="group" aria-label="Тема оформлення" className="flex rounded-lg border border-sys-border bg-sys-bg p-1 relative w-full text-xs">
-                  <button
-                    type="button"
-                    role="menuitem"
-                    aria-pressed={theme === "dark"}
-                    onClick={() => setTheme("dark")}
-                    className={`flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 font-semibold transition-colors ${
-                      theme === "dark" ? "bg-sys-accent text-white shadow-xs" : "text-sys-text-secondary hover:text-sys-text-primary"
-                    }`}
-                  >
-                    <span>🌙</span>
-                    <span>Темна</span>
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    aria-pressed={theme === "light"}
-                    onClick={() => setTheme("light")}
-                    className={`flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 font-semibold transition-colors ${
-                      theme === "light" ? "bg-sys-accent text-white shadow-xs" : "text-sys-text-secondary hover:text-sys-text-primary"
-                    }`}
-                  >
-                    <span>☀️</span>
-                    <span>Світла</span>
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    aria-pressed={theme === "system"}
-                    onClick={() => setTheme("system")}
-                    className={`flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 font-semibold transition-colors ${
-                      theme === "system" ? "bg-sys-accent text-white shadow-xs" : "text-sys-text-secondary hover:text-sys-text-primary"
-                    }`}
-                  >
-                    <span>💻</span>
-                    <span>Авто</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Mode switch */}
-              {teachers.length > 0 && (
-                <div className="mt-2.5">
-                  <span className="mb-1 block text-xs font-semibold text-sys-text-secondary">Режим перегляду</span>
-                  <div role="group" aria-label="Тип розкладу" className="flex rounded-lg border border-sys-border bg-sys-bg p-1 relative w-full">
-                    <button
-                      type="button"
-                      role="menuitem"
-                      aria-pressed={mode === "student"}
-                      onClick={() => {
-                        toggleMode("student");
-                        setMobileMenuOpen(false);
-                      }}
-                      className={`flex-1 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${
-                        mode === "student" ? "bg-sys-accent text-white shadow-xs" : "text-sys-text-secondary hover:text-sys-text-primary"
-                      }`}
-                    >
-                      Для групи
-                    </button>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      aria-pressed={mode === "teacher"}
-                      onClick={() => {
-                        toggleMode("teacher");
-                        setMobileMenuOpen(false);
-                      }}
-                      className={`flex-1 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${
-                        mode === "teacher" ? "bg-sys-accent text-white shadow-xs" : "text-sys-text-secondary hover:text-sys-text-primary"
-                      }`}
-                    >
-                      Для викладача
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Pinned shortcuts */}
-              {pins.length > 0 && (
-                <div className="mt-2.5">
-                  <span className="mb-1 block text-xs font-semibold text-sys-text-secondary">Закріплені</span>
-                  <div className="flex flex-wrap gap-1">
-                    {pins.map((pin) => (
-                      <button
-                        key={`menu-pin-${pin.mode}-${pin.id}`}
-                        type="button"
-                        role="menuitem"
-                        onClick={() => {
-                          toggleMode(pin.mode);
-                          if (pin.mode === "student") setGroupId(pin.id);
-                          else setTeacherId(pin.id);
-                          setMobileMenuOpen(false);
-                        }}
-                        className="rounded-full border border-sys-border bg-sys-bg px-2.5 py-0.5 text-xs font-medium text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-elevated-border transition-colors"
-                      >
-                        ★ {pin.name}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Secondary Links & Controls */}
-              <div className="mt-3 flex flex-col gap-1.5 border-t border-sys-border/50 pt-2.5">
-                {/* View format switcher (Day / Week) on mobile */}
-                <div className="mb-1 lg:hidden">
-                  <span className="mb-1 block text-xs font-semibold text-sys-text-secondary">Формат розкладу</span>
-                  <div role="group" aria-label="Формат розкладу" className="flex rounded-lg border border-sys-border bg-sys-bg p-1 relative w-full">
-                    <button
-                      type="button"
-                      role="menuitem"
-                      aria-pressed={view === "today"}
-                      onClick={() => {
-                        handleViewChange("today");
-                        setMobileTab("schedule");
-                        setMobileMenuOpen(false);
-                      }}
-                      className={`flex-1 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${
-                        view === "today" ? "bg-sys-accent text-white shadow-xs" : "text-sys-text-secondary hover:text-sys-text-primary"
-                      }`}
-                    >
-                      День
-                    </button>
-                  </div>
-                </div>
-
-                {/* Save group in favorites */}
-                {currentId && (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      togglePinCurrent();
-                      setMobileMenuOpen(false);
-                    }}
-                    className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-surface/60 px-3 py-2 text-xs font-semibold text-sys-text-primary hover:border-amber-400/40 hover:bg-amber-400/5 transition-colors"
-                  >
-                    <span className="flex items-center gap-2">
-                      <svg
-                        width="15"
-                        height="15"
-                        viewBox="0 0 24 24"
-                        fill={isCurrentPinned ? "currentColor" : "none"}
-                        stroke="currentColor"
-                        strokeWidth="1.75"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className={isCurrentPinned ? "text-amber-400 shrink-0" : "text-amber-400/80 shrink-0"}
-                      >
-                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                      </svg>
-                      <span>{isCurrentPinned ? "Відкріпити розклад" : "Зберегти розклад у обрані"}</span>
-                    </span>
-                    {isCurrentPinned && <span className="text-xs text-amber-400 font-bold">Збережено</span>}
-                  </button>
-                )}
-
-                {/* Share week image */}
-                <button
-                  type="button"
-                  role="menuitem"
-                  disabled={sharingWeekImage}
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    void handleShareWeekImage();
-                  }}
-                  className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-surface/60 px-3 py-2 text-xs font-semibold text-sys-text-primary hover:border-sky-500/40 hover:bg-sky-500/5 transition-colors disabled:opacity-50"
-                >
-                  <span className="flex items-center gap-2">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="text-sky-400 shrink-0">
-                      <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
-                      <circle cx="9" cy="9" r="2" />
-                      <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
-                    </svg>
-                    <span>Зберегти картинку тижня</span>
-                  </span>
-                  <span className="text-xs font-semibold text-sky-400/90">PNG</span>
-                </button>
-
-                {/* Share week */}
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    void handleShareWeek();
-                  }}
-                  className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-surface/60 px-3 py-2 text-xs font-semibold text-sys-text-primary hover:border-emerald-500/40 hover:bg-emerald-500/5 transition-colors"
-                >
-                  <span className="flex items-center gap-2">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-400 shrink-0">
-                      <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
-                      <polyline points="16 6 12 2 8 6" />
-                      <line x1="12" y1="2" x2="12" y2="15" />
-                    </svg>
-                    <span>Поділитися розкладом тижня</span>
-                  </span>
-                  <span className="text-emerald-400/90">↗</span>
-                </button>
-
-                {/* Google Account / Classroom Status & Unlink (Section 17.3) */}
-                <div className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-surface/60 px-3 py-2 text-xs">
-                  <div className="flex flex-col min-w-0 pr-2">
-                    <span className="text-xs font-semibold text-sys-text-secondary">Google-акаунт</span>
-                    {isLinked && linkedEmail ? (
-                      <span className="font-medium text-sys-text-primary truncate">{linkedEmail}</span>
-                    ) : (
-                      <span className="text-slate-400 text-xs">Не прив&apos;язано</span>
-                    )}
-                  </div>
-                  {isLinked ? (
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        unlinkClassroom();
-                        setMobileMenuOpen(false);
-                      }}
-                      className="shrink-0 rounded-lg bg-white/5 hover:bg-white/10 px-2.5 py-1 text-xs font-medium text-rose-300 hover:text-rose-200 transition-colors cursor-pointer"
-                    >
-                      Від&apos;єднати
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        setMobileMenuOpen(false);
-                        window.dispatchEvent(new CustomEvent("trigger-classroom-sync"));
-                      }}
-                      className="shrink-0 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 border border-sky-500/40 px-2.5 py-1 text-xs font-semibold text-sky-300 transition-colors cursor-pointer"
-                    >
-                      Прив&apos;язати
-                    </button>
-                  )}
-                </div>
-                <a
-                  href="/statistics"
-                  role="menuitem"
-                  className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-surface/60 px-3 py-2 text-xs font-semibold text-sys-text-primary hover:border-purple-500/40 hover:bg-purple-500/5 transition-colors"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  <span className="flex items-center gap-2">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="text-purple-400 shrink-0"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-                    <span>Статистика</span>
-                  </span>
-                  <span className="text-purple-400/90">↗</span>
-                </a>
-                <a
-                  href="/educational-process"
-                  role="menuitem"
-                  className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-surface/60 px-3 py-2 text-xs font-semibold text-sys-text-primary hover:border-indigo-500/40 hover:bg-indigo-500/5 transition-colors"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  <span className="flex items-center gap-2">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-400 shrink-0"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                    <span>Графік процесу</span>
-                  </span>
-                  <span className="text-indigo-400/90">↗</span>
-                </a>
-                {isStandalone && !isDownloaded && (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setMobileMenuOpen(false);
-                      void handleDownloadOffline();
-                    }}
-                    disabled={isDownloading}
-                    className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-surface/60 px-3 py-2 text-xs font-semibold text-sys-text-primary hover:border-cyan-500/40 hover:bg-cyan-500/5 transition-colors disabled:opacity-50"
-                  >
-                    <span className="flex items-center gap-2">
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="text-cyan-400 shrink-0"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                      <span>{isDownloading ? "Зберігаємо…" : "Зберегти на пристрій"}</span>
-                    </span>
-                  </button>
-                )}
-                <div className="pt-1.5">
-                  <UserControls />
-                </div>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
 
       {/* Mobile Main Content (<1024px) */}
       <div className="lg:hidden pb-24">
@@ -2553,15 +2187,8 @@ export default function HomePage() {
 
       {/* Mobile Bottom Navigation */}
       <BottomNav
-        activeTab={mobileMenuOpen ? "more" : mobileTab}
-        onTabChange={(tab) => {
-          if (tab === "more") {
-            setMobileMenuOpen(true);
-          } else {
-            setMobileMenuOpen(false);
-            setMobileTab(tab);
-          }
-        }}
+        activeTab={mobileTab}
+        onTabChange={(tab) => setMobileTab(tab)}
         overdueCount={isLinked ? overdueCount : 0}
       />
 

@@ -8,6 +8,7 @@ import { EditIcon, MoveIcon } from "./LessonIcons";
 import { Lesson } from "../lib/api";
 import { formatRoom, formatRoomsList, extractOnlineMeetings, MeetingInfo } from "../lib/format";
 import { extractClassroomTaskKey, isOwnTask, useClassroomSubmissions } from "../lib/useClassroomSubmissions";
+import { useUserSettings } from "../lib/useUserSettings";
 import { QuickJumpTarget, parseLessonTeachers, parseLessonGroups } from "../lib/quickJump";
 import { DEFAULT_LESSON_TIMES } from "../lib/constants/lessons";
 
@@ -719,6 +720,8 @@ export function LessonCard({
   const [isHwOpen, setIsHwOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [noteModalMode, setNoteModalMode] = useState<"edit" | "history" | null>(null);
+  const { settings } = useUserSettings();
+  const showHw = settings.showHomeworkBadges;
 
   const toggleHw = (e: React.MouseEvent | React.KeyboardEvent) => {
     e.stopPropagation();
@@ -1608,7 +1611,7 @@ export function LessonCard({
             </div>
 
             {/* 1 Task: Entire strip is a direct link with ↗ (no accordion) */}
-            {tasks.length === 1 && (
+            {showHw && tasks.length === 1 && (
               <a
                 href={tasks[0].url}
                 target="_blank"
@@ -1655,7 +1658,7 @@ export function LessonCard({
             )}
 
             {/* 2+ Tasks: Accordion container with rotating chevron */}
-            {tasks.length > 1 && (
+            {showHw && tasks.length > 1 && (
               <div
                 className="w-full rounded-xl bg-sys-bg/60 border border-sys-border transition-all duration-150 overflow-hidden shadow-xs"
                 style={{
@@ -2115,7 +2118,7 @@ export function LessonCard({
           )}
 
           {/* Row 4: Full-width HW strip (44px min-height) */}
-          {tasks.length === 1 && (
+          {showHw && tasks.length === 1 && (
             <a
               href={tasks[0].url}
               target="_blank"
@@ -2165,7 +2168,7 @@ export function LessonCard({
             </a>
           )}
 
-          {tasks.length > 1 && (
+          {showHw && tasks.length > 1 && (
             <div
               className="w-full rounded-xl bg-sys-bg/60 border border-sys-border transition-all duration-150 overflow-hidden shadow-xs mt-1"
               style={{
@@ -2546,7 +2549,7 @@ export function LessonCard({
                 </a>
               ))}
 
-              {tasks.length > 0 && (
+              {showHw && tasks.length > 0 && (
                 <button
                   type="button"
                   onClick={toggleHw}
@@ -2662,7 +2665,7 @@ export function LessonCard({
           </div>
 
           {/* Week mode tasks popover floating over grid without stretching table rows */}
-          {tasks.length > 0 && isHwOpen && (
+          {showHw && tasks.length > 0 && isHwOpen && (
             <div
               id={`hw-list-${lesson.id}-${lesson.lesson_number}`}
               onClick={(e) => e.stopPropagation()}
