@@ -6,7 +6,7 @@ from sqlalchemy import select, insert, update, delete, func, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
-from app.models.entities import ScheduleVersion, Schedule, User
+from app.models.entities import ScheduleVersion, Schedule, User, SchedulePublication, ScheduleOverride
 from app.core.security import require_roles
 
 router = APIRouter(prefix="/schedule-versions", tags=["Schedule Versions"])
@@ -119,12 +119,19 @@ async def delete_version(version_id: int, db: AsyncSession = Depends(get_db),
     version = await db.get(ScheduleVersion, version_id)
     if version is None:
         raise HTTPException(404, "Версію розкладу не знайдено")
-    has_rows = await db.scalar(select(func.count()).select_from(Schedule).where(Schedule.version_id == version_id))
-    if version.is_active or has_rows:
+    if version.is_active:
         raise HTTPException(409, detail={
             "code": "version_delete_requires_data_policy",
-            "msg": "Активну або заповнену версію не можна видалити цією операцією. Спочатку деактивуйте її; дані та історія мають зберігатися.",
+            "msg": "Активну версію розкладу не можна видалити цією операцією. Спочатку деактивуйте її або призначте активною іншу версію.",
         })
+    schedule_subquery = select(Schedule.id).where(Schedule.version_id == version_id)
+    await db.execute(
+        update(ScheduleOverride)
+        .where(ScheduleOverride.schedule_id.in_(schedule_subquery))
+        .values(schedule_id=None)
+    )
+    await db.execute(delete(Schedule).where(Schedule.version_id == version_id))
+    await db.execute(delete(SchedulePublication).where(SchedulePublication.version_id == version_id))
     await db.delete(version)
     await commit_version_change(db)
 

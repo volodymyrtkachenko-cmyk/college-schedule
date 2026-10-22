@@ -114,10 +114,13 @@ async def test_clone_and_delete_do_not_erase_target_or_overrides(client_and_sess
         override=ScheduleOverride(schedule_id=row.id,group_id=1,lesson_number=2,date=date(2026,10,5),room='Manual',cancelled=False)
         db.add(override);await db.commit();row_id=row.id;override_id=override.id
     assert (await client.post(f"/api/schedule-versions/{target['id']}/clone-from/{source['id']}")).status_code==409
-    assert (await client.delete(f"/api/schedule-versions/{target['id']}")).status_code==409
+    assert (await client.delete(f"/api/schedule-versions/{target['id']}")).status_code==204
     async with sessions() as db:
-        assert await db.get(Schedule,row_id) is not None
-        assert (await db.get(ScheduleOverride,override_id)).room=='Manual'
+        assert await db.get(Schedule,row_id) is None
+        override_db = await db.get(ScheduleOverride,override_id)
+        assert override_db is not None
+        assert override_db.schedule_id is None
+        assert override_db.room=='Manual'
 
 @pytest.mark.anyio
 async def test_clone_into_empty_target_copies_without_deleting_source(client_and_sessions):

@@ -766,8 +766,8 @@ export function LessonCard({
     isLive && endMin !== null && nowState ? Math.max(1, endMin - nowState.minutes) : 0;
 
   const rawTasks = useMemo(
-    () => (isTeacherView ? [] : extractClassroomTasks(lesson.note)),
-    [isTeacherView, lesson.note]
+    () => (isTeacherView || canEdit || scheduleMode === "admin" ? [] : extractClassroomTasks(lesson.note)),
+    [isTeacherView, canEdit, scheduleMode, lesson.note]
   );
   // Завдання іншої підгрупи та завдання, які здано, не показуються ТІЛЬКИ у користувача, який прив'язав пошту.
   // Гість (не залогінений) бачить ВСІ завдання обох підгруп.
