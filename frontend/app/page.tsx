@@ -124,6 +124,27 @@ export default function HomePage() {
   };
 
   const [view, setView] = useState<"today" | "week">("today");
+  const [isFocusMode, setIsFocusMode] = useState<boolean>(false);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("desktop_focus_mode");
+      if (saved !== null) {
+        setIsFocusMode(saved === "true");
+      }
+    } catch {}
+  }, []);
+
+  const toggleFocusMode = () => {
+    setIsFocusMode((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("desktop_focus_mode", String(next));
+      } catch {}
+      return next;
+    });
+  };
+
   const [mobileTab, setMobileTab] = useState<MobileTab>("schedule");
   const [weekTypeSheetOpen, setWeekTypeSheetOpen] = useState(false);
   const [sidebarTaskFilters, setSidebarTaskFilters] = useState<TaskFilterState>(DEFAULT_TASK_FILTERS);
@@ -1826,10 +1847,132 @@ export default function HomePage() {
             >
               {view === "today" ? (
                 /* Desktop Day Mode: 2-column Dashboard */
-                <div className="w-full min-w-0">
-                  <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-8 items-start w-full">
-                    {/* Left Column: Schedule (minmax(0, 1fr)) */}
+                <motion.div
+                  layout
+                  transition={{ duration: shouldReduceMotion ? 0 : 0.28, ease: [0.25, 0.1, 0.25, 1.0] }}
+                  className="w-full min-w-0"
+                >
+                  <div
+                    className={
+                      isFocusMode
+                        ? "w-full max-w-[760px] mx-auto min-w-0"
+                        : "grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-8 items-start w-full"
+                    }
+                  >
+                    {/* Schedule Column (Centered in Focus Mode) */}
                     <div className="w-full min-w-0">
+                      {/* Focus Mode Day Switcher Card */}
+                      {isFocusMode && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -6 }}
+                          transition={{ duration: shouldReduceMotion ? 0 : 0.18 }}
+                          className="mb-6 rounded-2xl border border-sys-border bg-sys-card p-4 shadow-sm"
+                        >
+                          <div className="flex items-center justify-between pb-3 mb-3 border-b border-sys-border/50">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="text-xs font-bold uppercase tracking-wider text-sys-text-muted shrink-0">
+                                {currentWeekNumber ? `${currentWeekNumber} ТИЖДЕНЬ` : "РОЗКЛАД"}
+                              </span>
+                              {weekType !== "both" && (
+                                <>
+                                  <span className="text-sys-text-muted">•</span>
+                                  <span className="text-xs lowercase font-medium text-sys-text-secondary">
+                                    {weekType === "numerator" ? "чисельник" : "знаменник"}
+                                  </span>
+                                </>
+                              )}
+                              <span className="text-sys-text-muted">•</span>
+                              <span className="text-xs font-semibold text-sys-text-primary truncate">
+                                {weekRange}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={goToPrevDay}
+                                title="Попередній день"
+                                aria-label="Попередній день"
+                                className="flex h-8 w-8 items-center justify-center rounded-lg border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-white hover:border-sys-border-elevated transition-colors"
+                              >
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="m15 18-6-6 6-6" />
+                                </svg>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleJumpToToday}
+                                title="Перейти на сьогодні"
+                                className={`h-8 px-2.5 rounded-lg border text-xs font-semibold transition-colors ${
+                                  selectedDaySchedule?.date === todayActualIso
+                                    ? "border-sys-accent/40 bg-sys-accent/15 text-sys-accent font-bold"
+                                    : "border-sys-border bg-sys-bg text-sys-text-secondary hover:text-white"
+                                }`}
+                              >
+                                Сьогодні
+                              </button>
+                              <button
+                                type="button"
+                                onClick={goToNextDay}
+                                title="Наступний день"
+                                aria-label="Наступний день"
+                                className="flex h-8 w-8 items-center justify-center rounded-lg border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-white hover:border-sys-border-elevated transition-colors"
+                              >
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="m9 18 6-6-6-6" />
+                                </svg>
+                              </button>
+
+                              <div className="h-5 w-px bg-sys-border/60 mx-1" />
+
+                              <button
+                                type="button"
+                                onClick={toggleFocusMode}
+                                title="Показати бічну панель завдань"
+                                aria-label="Показати бічну панель завдань"
+                                className="flex h-8 w-8 items-center justify-center rounded-lg border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-accent hover:border-sys-accent/40 active:scale-95 transition-all shrink-0 cursor-pointer"
+                              >
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <rect width="18" height="18" x="3" y="3" rx="2" />
+                                  <path d="M15 3v18" />
+                                  <path d="m8 9 3 3-3 3" />
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-5 gap-2">
+                            {weekDaysMini.map((d) => {
+                              const isActive = d.index === selectedDayIndex;
+                              const isToday = d.iso === todayActualIso;
+                              return (
+                                <button
+                                  key={d.iso}
+                                  type="button"
+                                  onClick={() => handleSelectDayIndex(d.index)}
+                                  className={`flex flex-col items-center justify-center h-15 rounded-xl transition-all relative ${
+                                    isActive
+                                      ? "bg-sys-accent text-[#0b1120] font-black shadow-md ring-2 ring-sys-accent/60"
+                                      : "border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-white hover:border-sys-border-elevated font-medium"
+                                  }`}
+                                >
+                                  <span className={`text-xs uppercase font-semibold ${isActive ? "text-[#0b1120]/80" : ""}`}>{d.name}</span>
+                                  <span className="text-xl font-bold mt-0.5 leading-none">{d.dateStr}</span>
+                                  {isToday && (
+                                    <span
+                                      title="Сьогодні"
+                                      className={`h-1.5 w-1.5 rounded-full absolute bottom-1.5 left-1/2 -translate-x-1/2 ${isActive ? "bg-[#0b1120]" : "bg-sys-accent"}`}
+                                    />
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </motion.div>
+                      )}
+
                       {isWeekend && (
                         <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-slate-700/60 bg-slate-800/50 px-5 py-4 text-[15px] shadow-sm">
                           <div className="flex items-center gap-3 min-w-0">
@@ -1848,44 +1991,78 @@ export default function HomePage() {
                         </div>
                       )}
 
-
-                      <ScheduleDay
-                        schedule={selectedDaySchedule ?? today!}
-                        isToday={selectedDaySchedule?.date === todayActualIso && !isWeekend}
-                        scheduleMode={mode}
-                        onQuickJump={handleQuickJump}
-                        hideHeaderOnMobile={false}
-                        weekNumber={currentWeekNumber}
-                      />
+                      <AnimatePresence mode="wait">
+                        <motion.div
+                          key={selectedDaySchedule?.date ?? today?.date ?? "day"}
+                          initial={{ opacity: 0, y: 6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -6 }}
+                          transition={{ duration: shouldReduceMotion ? 0 : 0.18, ease: "easeInOut" }}
+                        >
+                          <ScheduleDay
+                            schedule={selectedDaySchedule ?? today!}
+                            isToday={selectedDaySchedule?.date === todayActualIso && !isWeekend}
+                            scheduleMode={mode}
+                            onQuickJump={handleQuickJump}
+                            hideHeaderOnMobile={false}
+                            weekNumber={currentWeekNumber}
+                          />
+                        </motion.div>
+                      </AnimatePresence>
                     </div>
 
                     {/* Right Column: Week Info & Classroom Widget (360px) */}
-                    <div className="w-full lg:w-[360px] shrink-0 min-w-0 flex flex-col gap-6 sticky top-[72px]">
-                      {/* Week & Navigator Card */}
-                      <div className="rounded-2xl border border-sys-border bg-sys-card p-5 shadow-sm">
-                        <div className="pb-3.5 border-b border-sys-border/50">
-                          <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-sys-text-muted">
-                            <span>{currentWeekNumber ? `${currentWeekNumber} ТИЖДЕНЬ` : "РОЗКЛАД"}</span>
-                            {weekType !== "both" && (
-                              <>
-                                <span>•</span>
-                                <span
-                                  title={
-                                    weekType === "numerator"
-                                      ? "Чисельник — непарний тиждень навчального графіка"
-                                      : "Знаменник — парний тиждень навчального графіка"
-                                  }
-                                  className="lowercase font-medium text-sys-text-secondary cursor-help underline decoration-dotted underline-offset-2"
-                                >
-                                  {weekType === "numerator" ? "чисельник" : "знаменник"}
-                                </span>
-                              </>
-                            )}
-                          </div>
-                          <h3 className="text-base sm:text-lg font-semibold text-sys-text-primary mt-1 truncate">
-                            {weekRange}
-                          </h3>
-                        </div>
+                    <AnimatePresence>
+                      {!isFocusMode && (
+                        <motion.div
+                          key="desktop-sidebar"
+                          initial={{ opacity: 0, x: 20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: 20 }}
+                          transition={{ duration: shouldReduceMotion ? 0 : 0.22, ease: "easeInOut" }}
+                          className="w-full lg:w-[360px] shrink-0 min-w-0 flex flex-col gap-6 sticky top-[72px]"
+                        >
+                          {/* Week & Navigator Card */}
+                          <div className="rounded-2xl border border-sys-border bg-sys-card p-5 shadow-sm">
+                            <div className="pb-3.5 border-b border-sys-border/50 flex items-center justify-between gap-2">
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-sys-text-muted">
+                                  <span>{currentWeekNumber ? `${currentWeekNumber} ТИЖДЕНЬ` : "РОЗКЛАД"}</span>
+                                  {weekType !== "both" && (
+                                    <>
+                                      <span>•</span>
+                                      <span
+                                        title={
+                                          weekType === "numerator"
+                                            ? "Чисельник — непарний тиждень навчального графіка"
+                                            : "Знаменник — парний тиждень навчального графіка"
+                                        }
+                                        className="lowercase font-medium text-sys-text-secondary cursor-help underline decoration-dotted underline-offset-2"
+                                      >
+                                        {weekType === "numerator" ? "чисельник" : "знаменник"}
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
+                                <h3 className="text-base sm:text-lg font-semibold text-sys-text-primary mt-1 truncate">
+                                  {weekRange}
+                                </h3>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={toggleFocusMode}
+                                title="Фокус на розкладі (приховати панелі)"
+                                aria-label="Фокус на розкладі (приховати панелі)"
+                                className="flex h-9 w-9 items-center justify-center rounded-xl border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-accent hover:border-sys-accent/40 transition-colors shrink-0"
+                              >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <rect width="18" height="18" x="3" y="3" rx="2" />
+                                  <path d="M15 3v18" />
+                                  <path d="m11 15-3-3 3-3" />
+                                </svg>
+                              </button>
+                            </div>
 
                         {/* 5-Day Quick Switcher */}
                         <div className="mt-4">
@@ -2230,10 +2407,12 @@ export default function HomePage() {
                           )}
                         </div>
                       </div>
-                    </div>
-                  </div>
-                </div>
-              ) : (
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </motion.div>
+          ) : (
                 /* Desktop Week Mode: Full Grid (ScheduleWeekGrid) */
                 <div className="w-full min-w-0">
                   <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl bg-sys-card p-3 sm:px-4 sm:py-3 border border-sys-border shadow-xs">

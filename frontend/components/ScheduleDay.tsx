@@ -275,6 +275,7 @@ export function ScheduleDay({
 
       {orderedLessons.length ? (
         <motion.div
+          key={schedule.date}
           initial="hidden"
           animate="visible"
           variants={{
