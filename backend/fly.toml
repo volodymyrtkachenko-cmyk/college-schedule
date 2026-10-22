@@ -10,7 +10,7 @@ primary_region = 'fra'
 
 [env]
   GOOGLE_CLIENT_ID = "1079868158360-ok75uv5l93pcql2iktfcple97sdu180b.apps.googleusercontent.com"
-  AUTO_IMPORT_ENABLED = "false"
+  AUTO_IMPORT_ENABLED = "true"
   AUTO_IMPORT_INTERVAL_MINUTES = "30"
 
 [http_service]

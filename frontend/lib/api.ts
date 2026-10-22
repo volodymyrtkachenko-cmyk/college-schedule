@@ -805,9 +805,10 @@ export interface ImportStatusResponse {
   last_check?: {
     checked_at: string;
     source: string;
-    status: "published" | "unchanged" | "anomaly" | "draft";
+    status: "published" | "unchanged" | "anomaly" | "draft" | "error";
     changes_count: number;
     publication_id?: number | null;
+    error_message?: string | null;
   } | null;
   pending_anomaly_draft: {
     id: number;

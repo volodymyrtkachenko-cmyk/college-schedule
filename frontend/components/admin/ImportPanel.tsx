@@ -354,6 +354,8 @@ export function ImportPanel() {
                         ? `опубліковано (${importStatus.last_check.changes_count} змін)`
                         : importStatus.last_check.status === "anomaly"
                         ? `виявлено аномалію (${importStatus.last_check.changes_count} змін)`
+                        : importStatus.last_check.status === "error"
+                        ? `помилка зв'язку з сайтом коледжу (${(importStatus.last_check as any).error_message || "таймаут"})`
                         : `створено чернетку (${importStatus.last_check.changes_count} змін)`}
                     </strong>
                   </span>
@@ -378,7 +380,7 @@ export function ImportPanel() {
             )}
           </div>
 
-        {/* Anomaly draft warning banner */}
+        {/* Anomaly / Cancellation draft warning banner */}
         {importStatus?.pending_anomaly_draft && (
           <div className="mb-6 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-amber-200 animate-in fade-in">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -388,12 +390,16 @@ export function ImportPanel() {
                 </svg>
                 <div>
                   <div className="font-bold text-sm text-amber-300">
-                    Автоімпорт знайшов багато змін ({importStatus.pending_anomaly_draft.changes_count}). Перевірте й опублікуйте
+                    {importStatus.pending_anomaly_draft.auto_publish_skipped_reason === "cancellations_require_review"
+                      ? `Автоімпорт виявив скасування пар (${importStatus.pending_anomaly_draft.changes_count}). Перевірте й підтвердіть`
+                      : `Автоімпорт знайшов багато змін (${importStatus.pending_anomaly_draft.changes_count}). Перевірте й опублікуйте`}
                   </div>
                   {importStatus.pending_anomaly_draft.auto_publish_skipped_reason && (
                     <div className="text-xs font-medium text-amber-300/90 mt-0.5">
-                      Причина пропуску автопублікації:{" "}
-                      {importStatus.pending_anomaly_draft.auto_publish_skipped_reason === "anomaly"
+                      Причина:{" "}
+                      {importStatus.pending_anomaly_draft.auto_publish_skipped_reason === "cancellations_require_review"
+                        ? "заміни опубліковано автоматично; скасування пар вимагають підтвердження"
+                        : importStatus.pending_anomaly_draft.auto_publish_skipped_reason === "anomaly"
                         ? "виявлено аномалію (потребує ручної перевірки)"
                         : importStatus.pending_anomaly_draft.auto_publish_skipped_reason === "disabled"
                         ? "автопублікацію вимкнено в налаштуваннях"
@@ -407,15 +413,34 @@ export function ImportPanel() {
                   )}
                 </div>
               </div>
-              <button
-                onClick={() => {
-                  setDraftId(importStatus.pending_anomaly_draft!.id);
-                  setStatus("ready");
-                }}
-                className="shrink-0 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/30 px-3.5 py-1.5 text-xs font-semibold transition-colors"
-              >
-                Перевірити та опублікувати
-              </button>
+              <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!confirm("Відхилити цю чернетку імпорту?")) return;
+                    try {
+                      const session = await api.auth.ensureAuthenticated();
+                      await api.generator.deleteDraft(importStatus.pending_anomaly_draft!.id, session.access_token);
+                      await loadStatus();
+                    } catch (e) {
+                      console.error("Failed to dismiss draft", e);
+                    }
+                  }}
+                  className="rounded-lg border border-sys-border bg-white/5 hover:bg-white/10 text-sys-text-secondary hover:text-white px-3 py-1.5 text-xs font-semibold transition-colors"
+                >
+                  Відхилити
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDraftId(importStatus.pending_anomaly_draft!.id);
+                    setStatus("ready");
+                  }}
+                  className="rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/30 px-3.5 py-1.5 text-xs font-semibold transition-colors"
+                >
+                  Перевірити та опублікувати
+                </button>
+              </div>
             </div>
           </div>
         )}

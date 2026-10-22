@@ -352,3 +352,49 @@ async def test_publication_changes_diff_endpoint(ctx, monkeypatch):
     assert ch["lesson_number"] == 1
     assert ch["kind"] == "substitution"
     assert "Математика" in ch["after"]
+
+
+@pytest.mark.anyio
+async def test_auto_import_publishes_substitutions_and_keeps_cancellations_in_draft(ctx, monkeypatch):
+    db, ids = ctx
+    target_date = (date(2026, 10, 20)).isoformat()
+    sub = {
+        "group_id": ids["group_id"],
+        "subject_id": ids["subject_id"],
+        "teacher_id": ids["teacher_id"],
+        "second_teacher_id": None,
+        "date": target_date,
+        "lesson_number": 2,
+        "week_type": "denominator",
+        "room": "101",
+    }
+    canc = {
+        "group_id": ids["group_id"],
+        "date": target_date,
+        "lesson_number": 3,
+        "week_type": "denominator",
+    }
+    setup_kre_mock(monkeypatch, ids, substitutions=[sub], cancelled=[canc])
+
+    result = await admin_import._do_import(db, 2, "sub-and-canc-test", actor_id=None)
+
+    assert result["status"] == "success"
+    assert result["meta"]["auto_published"] is True
+
+    # Substitution was published immediately
+    pub = await db.get(SchedulePublication, result["meta"]["publication_id"])
+    assert pub is not None
+    assert pub.changes_count == 1
+    changes = (await db.scalars(select(ImportedScheduleChange).where(ImportedScheduleChange.publication_id == pub.id))).all()
+    assert len(changes) == 1
+    assert changes[0].kind == "substitution"
+    assert changes[0].lesson_number == 2
+
+    # Cancellation was preserved in a pending review draft for admin confirmation
+    pending_drafts = (await db.scalars(
+        select(ScheduleDraft).where(ScheduleDraft.draft_type == "import", ScheduleDraft.status == "pending")
+    )).all()
+    assert len(pending_drafts) == 1
+    cancellation_draft = pending_drafts[0]
+    assert len(cancellation_draft.data.get("cancelled", [])) == 1
+    assert cancellation_draft.data["cancelled"][0]["lesson_number"] == 3

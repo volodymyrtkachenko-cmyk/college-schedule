@@ -29,7 +29,7 @@ from app.routers.admin_import import schedule_auto_import_loop
 async def lifespan(_: FastAPI):
     classroom_sync_task = asyncio.create_task(classroom_auto_sync_loop())
     auto_import_task = None
-    if getattr(settings, "auto_import_enabled", True):
+    if str(getattr(settings, "auto_import_enabled", True)).strip().lower() in ("true", "1", "yes"):
         auto_import_task = asyncio.create_task(schedule_auto_import_loop())
     async with engine.begin() as conn:
         await conn.run_sync(AcademicEvent.__table__.create, checkfirst=True)
@@ -57,6 +57,11 @@ async def lifespan(_: FastAPI):
             await conn.execute(text(
                 "CREATE INDEX IF NOT EXISTS ix_notes_week_lookup "
                 "ON lesson_occurrence_notes (note_date, group_id, archived)"
+            ))
+            # Archive stale pending import drafts older than 12 hours
+            await conn.execute(text(
+                "UPDATE schedule_drafts SET status = 'archived' "
+                "WHERE draft_type = 'import' AND status = 'pending' AND created_at < NOW() - INTERVAL '12 hours'"
             ))
         except Exception:
             pass

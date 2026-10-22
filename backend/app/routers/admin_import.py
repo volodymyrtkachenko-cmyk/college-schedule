@@ -1225,8 +1225,14 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
             if auto_publish_unchanged:
                 logger.info("Import payload identical to currently published schedule. Skipping publication.")
                 unchanged = True
-                if pending_draft:
-                    pending_draft.status = "archived"
+                old_pending = (await db.scalars(
+                    select(ScheduleDraft).where(
+                        ScheduleDraft.draft_type == "import",
+                        ScheduleDraft.status == "pending",
+                    )
+                )).all()
+                for d in old_pending:
+                    d.status = "archived"
                 await settings_service.set(
                     db,
                     "import_last_check_status",
@@ -1351,6 +1357,26 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
                 )).all()
                 for d in old_pending:
                     d.status = "archived"
+
+                # If there are cancellations, keep them in a review draft for admin confirmation
+                if aggregated_cancelled:
+                    cancellation_draft = ScheduleDraft(
+                        name=f"Скасування пар з імпорту {now_local().strftime('%Y-%m-%d %H:%M')}",
+                        draft_type="import",
+                        status="pending",
+                        data={
+                            "base_version_id": import_version_id,
+                            "base_slots": [],
+                            "substitutions": [],
+                            "cancelled": aggregated_cancelled,
+                            "import_scope": payload["import_scope"],
+                            "is_anomaly": False,
+                            "anomaly_reasons": [],
+                            "changes_count": len(aggregated_cancelled),
+                            "auto_publish_skipped_reason": "cancellations_require_review",
+                        },
+                    )
+                    db.add(cancellation_draft)
 
                 # Create admin notification
                 today = now_local().date()
@@ -1557,6 +1583,27 @@ async def schedule_auto_import_loop() -> None:
             break
         except Exception as e:
             logger.warning(f"Auto-import cycle error: {e}")
+            try:
+                async with async_session_factory() as err_db:
+                    err_detail = getattr(e, "detail", str(e))
+                    if isinstance(err_detail, dict):
+                        err_msg = err_detail.get("message") or err_detail.get("msg") or str(err_detail)
+                    else:
+                        err_msg = str(err_detail)
+                    await settings_service.set(
+                        err_db,
+                        "import_last_check_status",
+                        json.dumps({
+                            "checked_at": now_local().isoformat(),
+                            "source": "Авто",
+                            "status": "error",
+                            "error_message": err_msg[:120],
+                            "changes_count": 0,
+                        }),
+                    )
+                    await err_db.commit()
+            except Exception:
+                pass
 
         await asyncio.sleep(interval_seconds)
 
