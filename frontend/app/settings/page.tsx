@@ -139,18 +139,7 @@ export default function SettingsPage() {
             <p className="text-xs text-sys-text-secondary">
               Автоматичний вибір для пар із поділом на підгрупи.
             </p>
-            <div className="grid grid-cols-3 gap-1.5 rounded-xl border border-sys-border bg-sys-bg p-1 text-xs">
-              <button
-                type="button"
-                onClick={() => updateSetting("defaultSubgroup", null)}
-                className={`py-1.5 px-2 rounded-lg font-semibold text-center transition-all ${
-                  settings.defaultSubgroup === null
-                    ? "bg-sys-accent text-white shadow-xs"
-                    : "text-sys-text-secondary hover:text-sys-text-primary"
-                }`}
-              >
-                Обидві
-              </button>
+            <div className="grid grid-cols-2 gap-1.5 rounded-xl border border-sys-border bg-sys-bg p-1 text-xs">
               <button
                 type="button"
                 onClick={() => updateSetting("defaultSubgroup", 1)}

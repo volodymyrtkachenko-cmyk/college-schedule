@@ -19,7 +19,7 @@ import dynamic from "next/dynamic";
 const WelcomeScreen = dynamic(() => import("../components/WelcomeScreen").then((m) => m.WelcomeScreen), { ssr: false });
 import { BottomNav, MobileTab } from "../components/BottomNav";
 import { MobileTasksView, FullTaskItem, renderTaskCard } from "../components/MobileTasksView";
-import { useTaskGroups, TaskFilterState, DEFAULT_TASK_FILTERS } from "../lib/useTaskGroups";
+import { useTaskGroups, formatTaskWord, TaskFilterState, DEFAULT_TASK_FILTERS } from "../lib/useTaskGroups";
 import { TaskFilters } from "../components/TaskFilters";
 import { SearchableSelect } from "../components/SearchableSelect";
 import { ClassroomSyncButton } from "../components/ClassroomSyncButton";
@@ -138,7 +138,7 @@ export default function HomePage() {
       }
       const isDesktop = window.innerWidth >= 1024;
       if (isDesktop) {
-        const defaultDesktop = (localStorage.getItem("schedule:default_view_desktop") as "week" | "today") || "week";
+        const defaultDesktop = (localStorage.getItem("schedule:default_view_desktop") as "week" | "today") || "today";
         setView(defaultDesktop);
       } else {
         setView("today");
@@ -148,7 +148,7 @@ export default function HomePage() {
     const handleSettingsChange = () => {
       try {
         if (window.innerWidth >= 1024) {
-          const defaultDesktop = (localStorage.getItem("schedule:default_view_desktop") as "week" | "today") || "week";
+          const defaultDesktop = (localStorage.getItem("schedule:default_view_desktop") as "week" | "today") || "today";
           setView(defaultDesktop);
         } else {
           setView("today");
@@ -1825,11 +1825,21 @@ export default function HomePage() {
                             </div>
                           </div>
 
-                          {formattedSyncTime && (
+                          {hasGroupTaskAccess && (
                             <div className="mt-1 flex items-center gap-2">
-                              <span className="text-xs text-sys-text-muted">
-                                Синхронізовано · {formattedSyncTime}
-                              </span>
+                              <p className="text-xs text-sys-text-secondary">
+                                {tasksScope === "week"
+                                  ? `${sidebarTaskGroups.totalCount} ${formatTaskWord(sidebarTaskGroups.totalCount)} на цьому тижні`
+                                  : `${sidebarTaskGroups.totalCount} ${formatTaskWord(sidebarTaskGroups.totalCount)} загалом`}
+                              </p>
+                              {formattedSyncTime && (
+                                <>
+                                  <span className="text-slate-600 text-xs">•</span>
+                                  <span className="text-xs text-sys-text-muted">
+                                    дані від {formattedSyncTime}
+                                  </span>
+                                </>
+                              )}
                             </div>
                           )}
 

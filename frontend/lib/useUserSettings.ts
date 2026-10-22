@@ -17,8 +17,8 @@ export function getUserSettings(): UserSettings {
   if (typeof window === "undefined") {
     return {
       showHomeworkBadges: true,
-      defaultSubgroup: null,
-      defaultViewDesktop: "week",
+      defaultSubgroup: 1,
+      defaultViewDesktop: "today",
     };
   }
 
@@ -28,13 +28,13 @@ export function getUserSettings(): UserSettings {
     if (val !== null) showHomeworkBadges = val !== "false";
   } catch {}
 
-  let defaultSubgroup: number | null = null;
+  let defaultSubgroup: number | null = 1;
   try {
     const val = localStorage.getItem(SUBGROUP_KEY);
     if (val === "1" || val === "2") defaultSubgroup = parseInt(val, 10);
   } catch {}
 
-  let defaultViewDesktop: "week" | "today" = "week";
+  let defaultViewDesktop: "week" | "today" = "today";
   try {
     const val = localStorage.getItem(VIEW_DESKTOP_KEY);
     if (val === "week" || val === "today") defaultViewDesktop = val;

@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { ClassroomTaskItem, getTaskStatusText } from "./LessonCard";
 import { ClassroomSyncButton } from "./ClassroomSyncButton";
 import { useClassroomSubmissions } from "../lib/useClassroomSubmissions";
-import { useTaskGroups, TaskFilterState, DEFAULT_TASK_FILTERS } from "../lib/useTaskGroups";
+import { useTaskGroups, formatTaskWord, TaskFilterState, DEFAULT_TASK_FILTERS } from "../lib/useTaskGroups";
 import { TaskFilters } from "./TaskFilters";
 
 export interface FullTaskItem {
@@ -98,11 +98,21 @@ export function MobileTasksView({
           <h2 className="text-xl font-bold tracking-tight text-sys-text-primary">
             Завдання Classroom
           </h2>
-          {formattedSyncTime && (
+          {hasAccess && (
             <div className="flex items-center gap-2 mt-0.5">
-              <p className="text-xs text-sys-text-muted">
-                Синхронізовано · {formattedSyncTime}
+              <p className="text-xs text-sys-text-secondary">
+                {scope === "week"
+                  ? `${totalCount} ${formatTaskWord(totalCount)} на цьому тижні`
+                  : `${totalCount} ${formatTaskWord(totalCount)} загалом`}
               </p>
+              {formattedSyncTime && (
+                <>
+                  <span className="text-slate-600 text-xs">•</span>
+                  <span className="text-xs text-sys-text-muted">
+                    дані від {formattedSyncTime}
+                  </span>
+                </>
+              )}
             </div>
           )}
         </div>

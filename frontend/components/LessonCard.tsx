@@ -865,12 +865,7 @@ export function LessonCard({
   }, [selectedSubgroup, isDualTeachers, isLinked, personalSubgroup, secondaryItems, personalTeachers]);
 
   const handleSubgroupToggle = (subIdx: number) => {
-    let nextVal: number | null;
-    if (isLinked) {
-      nextVal = effectiveSubgroup === subIdx ? (subIdx === 1 ? 2 : 1) : subIdx;
-    } else {
-      nextVal = effectiveSubgroup === subIdx ? null : subIdx;
-    }
+    const nextVal = effectiveSubgroup === subIdx ? (subIdx === 1 ? 2 : 1) : subIdx;
     updateSetting("defaultSubgroup", nextVal);
   };
 
