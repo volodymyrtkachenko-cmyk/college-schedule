@@ -401,11 +401,13 @@ export function MobileTasksView({
 
           {/* Empty state when only turned-in tasks exist (Section 22.2) */}
           {isOnlyTurnedIn && filters.status !== "done" && (
-            <div className="flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-950/20 px-3.5 py-2.5 text-xs text-emerald-400 font-medium select-none shadow-xs">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-emerald-400">
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-              <span>Нічого не горить</span>
+            <div className="flex items-center gap-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-2.5 text-xs text-emerald-800 dark:text-emerald-200 font-semibold select-none shadow-xs">
+              <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-700 dark:text-emerald-300">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              </div>
+              <span>Усі завдання виконано</span>
             </div>
           )}
 
