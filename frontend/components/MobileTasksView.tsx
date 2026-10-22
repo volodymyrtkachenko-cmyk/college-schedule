@@ -189,7 +189,7 @@ export function MobileTasksView({
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-start gap-2 min-w-0">
               <span className="text-sky-400 font-bold shrink-0">ⓘ</span>
-              <span className="leading-snug text-slate-200">
+              <span className="leading-snug text-sys-text-primary">
                 Це завдання всієї групи. Прив&apos;яжи пошту, щоб бачити, що ти вже здав.
               </span>
             </div>
@@ -198,12 +198,12 @@ export function MobileTasksView({
               onClick={() => {
                 window.dispatchEvent(new CustomEvent("trigger-classroom-sync"));
               }}
-              className="shrink-0 rounded-lg bg-sky-500/25 hover:bg-sky-500/35 border border-sky-500/40 px-2.5 py-1 text-xs font-semibold text-sky-200 transition-colors cursor-pointer"
+              className="shrink-0 rounded-lg bg-sky-500/25 hover:bg-sky-500/35 border border-sky-500/40 px-2.5 py-1 text-xs font-semibold text-sky-700 dark:text-sky-200 transition-colors cursor-pointer"
             >
               Прив&apos;язати
             </button>
           </div>
-          <p className="text-xs text-slate-400 mt-1.5 pl-5">
+          <p className="text-xs text-sys-text-muted mt-1.5 pl-5">
             Сервер лише читає ваші завдання з Classroom і нічого не змінює.
           </p>
         </div>
@@ -457,7 +457,7 @@ export function renderTaskCard(t: FullTaskItem, key: string, isLinked: boolean =
       href={t.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="group block min-h-[76px] rounded-xl bg-[#16161a] border border-[#27272a] p-3.5 transition-all hover:border-slate-600 hover:bg-[#1a1a20] cursor-pointer shadow-xs text-left active:scale-[0.99] overflow-hidden"
+      className="group block min-h-[76px] rounded-xl bg-sys-card border border-sys-border p-3.5 transition-all hover:border-sys-border-elevated hover:bg-sys-bg/60 cursor-pointer shadow-xs text-left active:scale-[0.99] overflow-hidden"
       style={{
         boxShadow: isDone
           ? "inset 3px 0 0 #10b981"
@@ -472,7 +472,7 @@ export function renderTaskCard(t: FullTaskItem, key: string, isLinked: boolean =
         <h4 className="text-sm font-semibold text-sys-text-primary leading-snug line-clamp-2 break-words group-hover:text-sys-accent transition-colors flex-1">
           {titleLine}
         </h4>
-        <span className="text-slate-400 group-hover:text-white transition-colors text-xs shrink-0 mt-0.5">
+        <span className="text-sys-text-muted group-hover:text-sys-text-primary transition-colors text-xs shrink-0 mt-0.5">
           ↗
         </span>
       </div>

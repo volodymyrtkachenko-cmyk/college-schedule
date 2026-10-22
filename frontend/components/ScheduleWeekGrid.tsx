@@ -351,8 +351,7 @@ export function ScheduleWeekGrid({
         {weekDaysMeta.map(({ day, summaryText }) => (
           <div
             key={`desktop-footer-${day.date}`}
-            className="py-2 px-3 text-center text-xs font-medium border-t border-sys-border/40 mt-1"
-            style={{ color: "#a1a1aa" }}
+            className="py-2 px-3 text-center text-xs font-medium border-t border-sys-border/40 mt-1 text-sys-text-secondary"
           >
             <span>{summaryText}</span>
           </div>

@@ -3,6 +3,7 @@ import "./globals.css";
 import { AuthProvider } from "../lib/auth";
 import { Heartbeat } from "../components/Heartbeat";
 import { ToastProvider } from "../components/ToastProvider";
+import { ThemeProvider } from "../lib/useTheme";
 
 export const metadata: Metadata = {
   title: "Розклад занять | ДФКР",
@@ -20,26 +21,44 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0D1117",
-  colorScheme: "dark",
+  themeColor: [
+    { media: "(prefers-color-scheme: dark)", color: "#0a0d14" },
+    { media: "(prefers-color-scheme: light)", color: "#f8fafc" },
+  ],
+  colorScheme: "dark light",
   width: "device-width",
   initialScale: 1,
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="uk">
+    <html lang="uk" suppressHydrationWarning>
       <head>
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                var stored = localStorage.getItem('college_theme');
+                var mql = window.matchMedia('(prefers-color-scheme: dark)');
+                var theme = (stored === 'light' || stored === 'dark') ? stored : (mql.matches ? 'dark' : 'light');
+                document.documentElement.classList.add(theme);
+                document.documentElement.setAttribute('data-theme', theme);
+              } catch (e) {}
+            `,
+          }}
+        />
       </head>
       <body>
-        <AuthProvider>
-          <ToastProvider>
-          <Heartbeat />
-          {children}
-        </ToastProvider>
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <ToastProvider>
+              <Heartbeat />
+              {children}
+            </ToastProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

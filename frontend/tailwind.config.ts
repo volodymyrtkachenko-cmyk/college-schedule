@@ -1,6 +1,7 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
+  darkMode: ["class", '[data-theme="dark"]'],
   content: [
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -10,26 +11,26 @@ const config: Config = {
     extend: {
       colors: {
         sys: {
-          bg: '#0a0d14',
-          card: '#121722',
-          surface: '#121722',
-          elevated: '#182030',
-          elevatedBorder: '#28354d',
-          border: '#1e2638',
-          input: '#0d121c',
-          tabActive: '#182030',
-          destructive: '#EF4444',
-          accent: '#3B82F6',
-          success: '#10B981',
-          info: '#8B5CF6',
-          neon: '#3B82F6',
-          warning: '#F59E0B',
-          warningText: '#000000',
+          bg: 'rgb(var(--sys-bg) / <alpha-value>)',
+          card: 'rgb(var(--sys-card) / <alpha-value>)',
+          surface: 'rgb(var(--sys-surface) / <alpha-value>)',
+          elevated: 'rgb(var(--sys-elevated) / <alpha-value>)',
+          elevatedBorder: 'rgb(var(--sys-elevated-border) / <alpha-value>)',
+          border: 'rgb(var(--sys-border) / <alpha-value>)',
+          input: 'rgb(var(--sys-input) / <alpha-value>)',
+          tabActive: 'rgb(var(--sys-tab-active) / <alpha-value>)',
+          destructive: 'rgb(var(--sys-destructive) / <alpha-value>)',
+          accent: 'rgb(var(--sys-accent) / <alpha-value>)',
+          success: 'rgb(var(--sys-success) / <alpha-value>)',
+          info: 'rgb(var(--sys-info) / <alpha-value>)',
+          neon: 'rgb(var(--sys-neon) / <alpha-value>)',
+          warning: 'rgb(var(--sys-warning) / <alpha-value>)',
+          warningText: 'rgb(var(--sys-warning-text) / <alpha-value>)',
           text: {
-            subject: '#FFFFFF',
-            primary: '#F4F4F5',
-            secondary: '#94A3B8',
-            muted: '#64748B',
+            subject: 'rgb(var(--sys-text-subject) / <alpha-value>)',
+            primary: 'rgb(var(--sys-text-primary) / <alpha-value>)',
+            secondary: 'rgb(var(--sys-text-secondary) / <alpha-value>)',
+            muted: 'rgb(var(--sys-text-muted) / <alpha-value>)',
           }
         }
       },

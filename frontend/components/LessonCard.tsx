@@ -1235,14 +1235,14 @@ export function LessonCard({
           {/* Zone 1: Timeline (100px - 110px) */}
           {!hideTimeColumn && (
             <div className="w-24 sm:w-28 shrink-0 self-start flex flex-col items-start pr-4 border-r border-sys-border/50 text-left pt-1">
-              <span className={`text-2xl sm:text-[26px] font-black leading-none transition-colors ${isLive ? "text-sys-accent" : "text-slate-200 group-hover:text-sys-accent"}`}>
+              <span className={`text-2xl sm:text-[26px] font-black leading-none transition-colors ${isLive ? "text-sys-accent" : "text-sys-text-primary group-hover:text-sys-accent"}`}>
                 {lesson.lesson_number}
               </span>
               <div className="mt-1.5 flex flex-col leading-tight whitespace-nowrap">
                 <span className="text-sm sm:text-[15px] font-bold text-sys-text-primary">
                   {startT}
                 </span>
-                <span className="text-xs text-[#9ca3af] mt-0.5">
+                <span className="text-xs text-sys-text-muted mt-0.5">
                   {endT || DEFAULT_LESSON_TIMES[lesson.lesson_number]?.split("-")[1] || ""}
                 </span>
               </div>
@@ -1561,7 +1561,7 @@ export function LessonCard({
                   e.stopPropagation();
                   vibrateTap(10);
                 }}
-                className="group flex w-full items-center justify-between rounded-xl bg-[#16161a] border border-[#27272a] px-3.5 py-2.5 text-xs text-sys-text-secondary hover:border-slate-600 hover:bg-[#1a1a20] transition-all shadow-xs cursor-pointer overflow-hidden"
+                className="group flex w-full items-center justify-between rounded-xl bg-sys-bg/60 border border-sys-border px-3.5 py-2.5 text-xs text-sys-text-secondary hover:border-sys-border-elevated hover:bg-sys-bg transition-all shadow-xs cursor-pointer overflow-hidden"
                 style={{
                   boxShadow:
                     isLinked && tasks[0].deadline.badgeTone === "overdue"
@@ -1574,7 +1574,7 @@ export function LessonCard({
                 }}
               >
                 <div className="flex items-center gap-2 min-w-0">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-slate-400 group-hover:text-sys-accent transition-colors">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-text-muted group-hover:text-sys-accent transition-colors">
                     <path d="M16 4h2a2 2 0 0 1 2 2v14l-8-4-8 4V6a2 2 0 0 1 2-2h2" />
                     <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
                   </svg>
@@ -1611,7 +1611,7 @@ export function LessonCard({
                       <span>{getTaskStatusText(tasks[0].deadline, isLinked)}</span>
                     </span>
                   ) : null}
-                  <span className="text-slate-400 group-hover:text-white transition-colors text-xs ml-1">↗</span>
+                  <span className="text-sys-text-muted group-hover:text-sys-text-primary transition-colors text-xs ml-1">↗</span>
                 </div>
               </a>
             )}
@@ -1619,7 +1619,7 @@ export function LessonCard({
             {/* 2+ Tasks: Accordion container with rotating chevron */}
             {tasks.length > 1 && (
               <div
-                className="w-full rounded-xl bg-[#16161a] border border-[#27272a] transition-all duration-150 overflow-hidden shadow-xs"
+                className="w-full rounded-xl bg-sys-bg/60 border border-sys-border transition-all duration-150 overflow-hidden shadow-xs"
                 style={{
                   boxShadow:
                     isLinked && highlightTask?.deadline.badgeTone === "overdue"
@@ -1636,10 +1636,10 @@ export function LessonCard({
                   role="button"
                   tabIndex={0}
                   onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") toggleHw(e); }}
-                  className="flex w-full items-center justify-between px-3.5 py-2.5 cursor-pointer select-none gap-2 hover:bg-white/5 transition-colors"
+                  className="flex w-full items-center justify-between px-3.5 py-2.5 cursor-pointer select-none gap-2 hover:bg-sys-card transition-colors"
                 >
                   <div className="flex items-center gap-2 shrink-0">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-slate-400">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-text-muted">
                       <path d="M16 4h2a2 2 0 0 1 2 2v14l-8-4-8 4V6a2 2 0 0 1 2-2h2" />
                       <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
                     </svg>
@@ -1683,7 +1683,7 @@ export function LessonCard({
                       strokeWidth="2"
                       strokeLinecap="round"
                       strokeLinejoin="round"
-                      className={`text-slate-400 transition-transform duration-200 shrink-0 ${isHwOpen ? "rotate-180" : ""}`}
+                      className={`text-sys-text-muted transition-transform duration-200 shrink-0 ${isHwOpen ? "rotate-180" : ""}`}
                     >
                       <path d="m6 9 6 6 6-6" />
                     </svg>
@@ -1691,7 +1691,7 @@ export function LessonCard({
                 </div>
 
                 {isHwOpen && (
-                  <div className="flex flex-col gap-1.5 p-3 border-t border-[#27272a] bg-[#121216] animate-in fade-in duration-150">
+                  <div className="flex flex-col gap-1.5 p-3 border-t border-sys-border/60 bg-sys-bg/40 animate-in fade-in duration-150">
                     {tasks.map((task, idx) => (
                       <a
                         key={idx}
@@ -1702,14 +1702,14 @@ export function LessonCard({
                           e.stopPropagation();
                           vibrateTap(10);
                         }}
-                        className="group flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-xs hover:bg-[#1c1c24] transition-colors"
+                        className="group flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-xs hover:bg-sys-card transition-colors"
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           <span className="font-semibold text-sys-text-primary group-hover:text-sys-accent transition-colors truncate">
                             {task.title || "Завдання"}
                           </span>
                           {task.teacher && (
-                            <span className="text-slate-500 text-xs truncate">({task.teacher})</span>
+                            <span className="text-sys-text-muted text-xs truncate">({task.teacher})</span>
                           )}
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
@@ -1728,7 +1728,7 @@ export function LessonCard({
                               {getTaskStatusText(task.deadline, isLinked)}
                             </span>
                           ) : null}
-                          <span className="text-slate-400 group-hover:text-white transition-colors text-xs">↗</span>
+                          <span className="text-sys-text-muted group-hover:text-sys-text-primary transition-colors text-xs">↗</span>
                         </div>
                       </a>
                     ))}
@@ -1758,10 +1758,10 @@ export function LessonCard({
               <div className="flex flex-wrap items-center gap-1.5 min-w-0">
                 {!hideTimeColumn && (
                   <div className="flex items-center gap-2 whitespace-nowrap">
-                    <span className={`text-base font-black leading-none transition-colors ${isLive ? "text-sys-accent" : "text-slate-200 group-hover:text-sys-accent"}`}>
+                    <span className={`text-base font-black leading-none transition-colors ${isLive ? "text-sys-accent" : "text-sys-text-primary group-hover:text-sys-accent"}`}>
                       {lesson.lesson_number}
                     </span>
-                    <span className="text-slate-500 font-bold text-xs">·</span>
+                    <span className="text-sys-text-muted font-bold text-xs">·</span>
                     <span className="text-xs font-semibold text-sys-text-secondary tracking-tight whitespace-nowrap">
                       {startT}–{endT || DEFAULT_LESSON_TIMES[lesson.lesson_number]?.split("-")[1] || ""}
                     </span>
@@ -1770,7 +1770,7 @@ export function LessonCard({
                 {renderTemplateWeekBadge()}
                 {renderStatusBadge(true)}
                 {canEdit && !isDualTeachers && rooms.length > 0 && (
-                  <span className="inline-flex h-6 px-2 items-center rounded-md border border-[#3f3f46] bg-sys-bg text-sys-text-secondary font-medium text-xs whitespace-nowrap">
+                  <span className="inline-flex h-6 px-2 items-center rounded-md border border-sys-border bg-sys-bg text-sys-text-secondary font-medium text-xs whitespace-nowrap">
                     {roomsLabel}
                   </span>
                 )}
@@ -2136,7 +2136,7 @@ export function LessonCard({
                 e.stopPropagation();
                 vibrateTap(10);
               }}
-              className="group flex min-h-[44px] w-full items-start justify-between rounded-xl bg-[#16161a] border border-[#27272a] px-3.5 py-2.5 text-xs text-sys-text-secondary hover:border-slate-600 hover:bg-[#1a1a20] transition-all shadow-xs cursor-pointer mt-1 overflow-hidden"
+              className="group flex min-h-[44px] w-full items-start justify-between rounded-xl bg-sys-bg/60 border border-sys-border px-3.5 py-2.5 text-xs text-sys-text-secondary hover:border-sys-border-elevated hover:bg-sys-bg transition-all shadow-xs cursor-pointer mt-1 overflow-hidden"
               style={{
                 boxShadow:
                   isLinked && tasks[0].deadline.badgeTone === "overdue"
@@ -2149,7 +2149,7 @@ export function LessonCard({
               }}
             >
               <div className="flex items-start gap-2 min-w-0 flex-1">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 mt-0.5 text-slate-400 group-hover:text-sys-accent transition-colors">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 mt-0.5 text-sys-text-muted group-hover:text-sys-accent transition-colors">
                   <path d="M16 4h2a2 2 0 0 1 2 2v14l-8-4-8 4V6a2 2 0 0 1 2-2h2" />
                   <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
                 </svg>
@@ -2189,14 +2189,14 @@ export function LessonCard({
                 </div>
               </div>
               <div className="shrink-0 ml-1.5 mt-0.5">
-                <span className="text-slate-400 group-hover:text-white transition-colors text-xs">↗</span>
+                <span className="text-sys-text-muted group-hover:text-sys-text-primary transition-colors text-xs">↗</span>
               </div>
             </a>
           )}
 
           {tasks.length > 1 && (
             <div
-              className="w-full rounded-xl bg-[#16161a] border border-[#27272a] transition-all duration-150 overflow-hidden shadow-xs mt-1"
+              className="w-full rounded-xl bg-sys-bg/60 border border-sys-border transition-all duration-150 overflow-hidden shadow-xs mt-1"
               style={{
                 boxShadow:
                   isLinked && highlightTask?.deadline.badgeTone === "overdue"
@@ -2213,7 +2213,7 @@ export function LessonCard({
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") toggleHw(e); }}
-                className="flex min-h-[44px] w-full items-center justify-between px-3.5 py-2.5 cursor-pointer select-none gap-2 hover:bg-white/5 transition-colors"
+                className="flex min-h-[44px] w-full items-center justify-between px-3.5 py-2.5 cursor-pointer select-none gap-2 hover:bg-sys-card transition-colors"
               >
                 <div className="flex items-center gap-2 shrink-0">
                   {highlightTask?.deadline.badgeTone === "overdue" && isLinked ? (
@@ -2223,7 +2223,7 @@ export function LessonCard({
                       <line x1="12" y1="17" x2="12.01" y2="17" />
                     </svg>
                   ) : (
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-slate-400">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-text-muted">
                       <path d="M16 4h2a2 2 0 0 1 2 2v14l-8-4-8 4V6a2 2 0 0 1 2-2h2" />
                       <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
                     </svg>
@@ -2268,7 +2268,7 @@ export function LessonCard({
                     strokeWidth="2"
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    className={`text-slate-400 transition-transform duration-200 shrink-0 ${isHwOpen ? "rotate-180" : ""}`}
+                    className={`text-sys-text-muted transition-transform duration-200 shrink-0 ${isHwOpen ? "rotate-180" : ""}`}
                   >
                     <path d="m6 9 6 6 6-6" />
                   </svg>
@@ -2276,7 +2276,7 @@ export function LessonCard({
               </div>
 
               {isHwOpen && (
-                <div className="flex flex-col gap-1.5 p-3 border-t border-[#27272a] bg-[#121216] animate-in fade-in duration-150">
+                <div className="flex flex-col gap-1.5 p-3 border-t border-sys-border/60 bg-sys-bg/40 animate-in fade-in duration-150">
                   {tasks.map((task, idx) => (
                     <a
                       key={idx}
@@ -2287,14 +2287,14 @@ export function LessonCard({
                         e.stopPropagation();
                         vibrateTap(10);
                       }}
-                      className="group flex min-h-[44px] items-center justify-between gap-3 rounded-lg px-3 py-2 text-xs hover:bg-[#1c1c24] transition-colors"
+                      className="group flex min-h-[44px] items-center justify-between gap-3 rounded-lg px-3 py-2 text-xs hover:bg-sys-card transition-colors"
                     >
                       <div className="flex items-center gap-2 min-w-0">
                         <span className="font-semibold text-sys-text-primary group-hover:text-sys-accent transition-colors truncate">
                           {task.title || "Завдання"}
                         </span>
                         {task.teacher && (
-                          <span className="text-slate-500 text-xs truncate">({task.teacher})</span>
+                          <span className="text-sys-text-muted text-xs truncate">({task.teacher})</span>
                         )}
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
@@ -2313,7 +2313,7 @@ export function LessonCard({
                             {getTaskStatusText(task.deadline, isLinked)}
                           </span>
                         ) : null}
-                        <span className="text-slate-400 group-hover:text-white transition-colors text-xs">↗</span>
+                        <span className="text-sys-text-muted group-hover:text-sys-text-primary transition-colors text-xs">↗</span>
                       </div>
                     </a>
                   ))}
@@ -2339,7 +2339,7 @@ export function LessonCard({
         {/* Left: narrow fixed column (number + start time) */}
         {!hideTimeColumn && (
           <div className="flex w-11 sm:w-12 shrink-0 flex-col text-left">
-            <span className={`text-lg sm:text-xl font-bold leading-none transition-colors ${isLive ? "text-sys-accent" : "text-slate-300 group-hover:text-sys-accent"}`}>
+            <span className={`text-lg sm:text-xl font-bold leading-none transition-colors ${isLive ? "text-sys-accent" : "text-sys-text-primary group-hover:text-sys-accent"}`}>
               {lesson.lesson_number}
             </span>
             <span className="text-xs sm:text-xs font-semibold text-sys-text-secondary mt-1 whitespace-nowrap">

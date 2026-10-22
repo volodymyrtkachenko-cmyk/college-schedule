@@ -2,8 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
+:root,
+html.dark,
+html[data-theme="dark"] {
   color-scheme: dark;
+  --page-bg: #0a0d14;
   --bg: #0a0d14;
   --surface: #121722;
   --border: #1e2638;
@@ -15,11 +18,73 @@
   --warn: #fbbf24;
   --ok: #34d399;
   --page-padding: 16px;
-  --page-bg: #0a0d14;
+
+  /* Tailwind sys tokens (R G B for opacity modifier compatibility) */
+  --sys-bg: 10 13 20;              /* #0a0d14 */
+  --sys-card: 18 23 34;            /* #121722 */
+  --sys-surface: 18 23 34;         /* #121722 */
+  --sys-elevated: 24 32 48;        /* #182030 */
+  --sys-elevated-border: 40 53 77; /* #28354d */
+  --sys-border: 30 38 56;          /* #1e2638 */
+  --sys-input: 13 18 28;           /* #0d121c */
+  --sys-tab-active: 24 32 48;      /* #182030 */
+  --sys-destructive: 239 68 68;    /* #ef4444 */
+  --sys-accent: 59 130 246;        /* #3b82f6 */
+  --sys-success: 16 185 129;       /* #10b981 */
+  --sys-info: 139 92 246;          /* #8b5cf6 */
+  --sys-neon: 59 130 246;          /* #3b82f6 */
+  --sys-warning: 245 158 11;       /* #f59e0b */
+  --sys-warning-text: 0 0 0;       /* #000000 */
+
+  --sys-text-subject: 255 255 255;
+  --sys-text-primary: 244 244 245;   /* #f4f4f5 */
+  --sys-text-secondary: 148 163 184; /* #94a3b8 */
+  --sys-text-muted: 100 116 139;     /* #64748b */
+}
+
+html.light,
+html[data-theme="light"] {
+  color-scheme: light;
+  --page-bg: #f8fafc;
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --border: #e2e8f0;
+  --border-chip: #cbd5e1;
+  --text: #0f172a;
+  --text-muted: #64748b;
+  --accent: #2563eb;
+  --danger: #dc2626;
+  --warn: #d97706;
+  --ok: #059669;
+  --page-padding: 16px;
+
+  /* Tailwind sys tokens (R G B for opacity modifier compatibility) */
+  --sys-bg: 248 250 252;            /* #f8fafc Slate-50 */
+  --sys-card: 255 255 255;          /* #ffffff White */
+  --sys-surface: 255 255 255;       /* #ffffff White */
+  --sys-elevated: 255 255 255;      /* #ffffff White */
+  --sys-elevated-border: 203 213 225;/* #cbd5e1 Slate-300 */
+  --sys-border: 226 232 240;        /* #e2e8f0 Slate-200 */
+  --sys-input: 241 245 249;         /* #f1f5f9 Slate-100 */
+  --sys-tab-active: 226 232 240;    /* #e2e8f0 Slate-200 */
+  --sys-destructive: 220 38 38;     /* #dc2626 Red-600 */
+  --sys-accent: 37 99 235;          /* #2563eb Blue-600 */
+  --sys-success: 5 150 105;         /* #059669 Emerald-600 */
+  --sys-info: 124 58 237;           /* #7c3aed Violet-600 */
+  --sys-neon: 37 99 235;            /* #2563eb Blue-600 */
+  --sys-warning: 217 119 6;         /* #d97706 Amber-600 */
+  --sys-warning-text: 255 255 255;  /* #ffffff White */
+
+  --sys-text-subject: 15 23 42;     /* #0f172a Slate-900 */
+  --sys-text-primary: 15 23 42;     /* #0f172a Slate-900 */
+  --sys-text-secondary: 71 85 105;  /* #475569 Slate-600 */
+  --sys-text-muted: 100 116 139;    /* #64748b Slate-500 */
 }
 
 @media (min-width: 1024px) {
-  :root {
+  :root,
+  html.dark,
+  html.light {
     --page-padding: 27px;
   }
 }
@@ -41,13 +106,14 @@
     min-height: 100vh;
     margin: 0;
     background: var(--page-bg);
-    color: #F4F4F5;
+    color: rgb(var(--sys-text-primary));
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
+    transition: background-color 0.2s ease, color 0.2s ease;
   }
 
   :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
-    color: #F4F4F5;
+    color: rgb(var(--sys-text-primary));
   }
 
   :is(input, select, textarea, button, a):focus-visible {
@@ -56,7 +122,7 @@
   }
 
   ::selection {
-    color: #000000;
+    color: #ffffff;
     background: var(--accent);
   }
 }

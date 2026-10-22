@@ -27,6 +27,7 @@ import { useToast } from "../components/ToastProvider";
 import { QuickJumpTarget, findGroupIdByName, findTeacherIdByName } from "../lib/quickJump";
 import { extractClassroomTaskKey, isOwnTask, useClassroomSubmissions } from "../lib/useClassroomSubmissions";
 import { shareWeekScheduleAsImage } from "../lib/shareImage";
+import { useTheme } from "../lib/useTheme";
 
 const UK_SHORT_WEEKDAY_FMT = new Intl.DateTimeFormat("uk-UA", { weekday: "short" });
 
@@ -50,6 +51,7 @@ function isTaskUrgent(label: string): boolean {
 }
 
 export default function HomePage() {
+  const { theme, resolvedTheme, setTheme, toggleTheme } = useTheme();
   const getInitialAnchor = () => {
     const date = new Date();
     const day = date.getDay();
@@ -1192,6 +1194,33 @@ export default function HomePage() {
             )}
 
 
+            {/* Theme Toggle Button */}
+            <button
+              type="button"
+              onClick={toggleTheme}
+              aria-label={resolvedTheme === "dark" ? "Увімкнути світлу тему" : "Увімкнути темну тему"}
+              title={resolvedTheme === "dark" ? "Світла тема" : "Темна тема"}
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-border-elevated active:scale-95 transition-all focus:outline-none focus:ring-2 focus:ring-sys-accent cursor-pointer"
+            >
+              {resolvedTheme === "dark" ? (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="4" />
+                  <path d="M12 2v2" />
+                  <path d="M12 20v2" />
+                  <path d="m4.93 4.93 1.41 1.41" />
+                  <path d="m17.66 17.66 1.41 1.41" />
+                  <path d="M2 12h2" />
+                  <path d="M20 12h2" />
+                  <path d="m6.34 17.66-1.41 1.41" />
+                  <path d="m19.07 4.93-1.41 1.41" />
+                </svg>
+              ) : (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+                </svg>
+              )}
+            </button>
+
             {/* Action Menu Trigger ⋯ */}
             <button
               ref={menuButtonRef}
@@ -1200,7 +1229,7 @@ export default function HomePage() {
               aria-label="Меню налаштувань та швидких посилань"
               title="Меню розкладу"
               aria-expanded={mobileMenuOpen}
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-white hover:border-sys-border-elevated transition-colors focus:outline-none focus:ring-2 focus:ring-sys-accent"
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-border-elevated transition-colors focus:outline-none focus:ring-2 focus:ring-sys-accent"
             >
               ⋯
             </button>
@@ -1448,10 +1477,53 @@ export default function HomePage() {
                 <button
                   type="button"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex h-6 w-6 items-center justify-center rounded-md border border-sys-border text-xs text-sys-text-secondary hover:text-white"
+                  className="flex h-6 w-6 items-center justify-center rounded-md border border-sys-border text-xs text-sys-text-secondary hover:text-sys-text-primary"
                 >
                   ✕
                 </button>
+              </div>
+
+              {/* Theme selector */}
+              <div className="mt-2.5">
+                <span className="mb-1 block text-xs font-semibold text-sys-text-secondary">Тема оформлення</span>
+                <div role="group" aria-label="Тема оформлення" className="flex rounded-lg border border-sys-border bg-sys-bg p-1 relative w-full text-xs">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    aria-pressed={theme === "dark"}
+                    onClick={() => setTheme("dark")}
+                    className={`flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 font-semibold transition-colors ${
+                      theme === "dark" ? "bg-sys-accent text-white shadow-xs" : "text-sys-text-secondary hover:text-sys-text-primary"
+                    }`}
+                  >
+                    <span>🌙</span>
+                    <span>Темна</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    aria-pressed={theme === "light"}
+                    onClick={() => setTheme("light")}
+                    className={`flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 font-semibold transition-colors ${
+                      theme === "light" ? "bg-sys-accent text-white shadow-xs" : "text-sys-text-secondary hover:text-sys-text-primary"
+                    }`}
+                  >
+                    <span>☀️</span>
+                    <span>Світла</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    aria-pressed={theme === "system"}
+                    onClick={() => setTheme("system")}
+                    className={`flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 font-semibold transition-colors ${
+                      theme === "system" ? "bg-sys-accent text-white shadow-xs" : "text-sys-text-secondary hover:text-sys-text-primary"
+                    }`}
+                  >
+                    <span>💻</span>
+                    <span>Авто</span>
+                  </button>
+                </div>
               </div>
 
               {/* Mode switch */}
@@ -1468,7 +1540,7 @@ export default function HomePage() {
                         setMobileMenuOpen(false);
                       }}
                       className={`flex-1 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${
-                        mode === "student" ? "bg-sys-accent text-white shadow-xs" : "text-sys-text-secondary hover:text-white"
+                        mode === "student" ? "bg-sys-accent text-white shadow-xs" : "text-sys-text-secondary hover:text-sys-text-primary"
                       }`}
                     >
                       Для групи
@@ -1482,7 +1554,7 @@ export default function HomePage() {
                         setMobileMenuOpen(false);
                       }}
                       className={`flex-1 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${
-                        mode === "teacher" ? "bg-sys-accent text-white shadow-xs" : "text-sys-text-secondary hover:text-white"
+                        mode === "teacher" ? "bg-sys-accent text-white shadow-xs" : "text-sys-text-secondary hover:text-sys-text-primary"
                       }`}
                     >
                       Для викладача
@@ -2169,7 +2241,7 @@ export default function HomePage() {
                             <div className="flex items-center justify-between gap-2">
                               <div className="flex items-start gap-1.5 min-w-0">
                                 <span className="text-sky-400 font-bold shrink-0">ⓘ</span>
-                                <span className="leading-snug text-slate-200">
+                                <span className="leading-snug text-sys-text-primary">
                                   Це завдання всієї групи. Прив&apos;яжи пошту, щоб бачити, що ти вже здав.
                                 </span>
                               </div>
@@ -2178,12 +2250,12 @@ export default function HomePage() {
                                 onClick={() => {
                                   window.dispatchEvent(new CustomEvent("trigger-classroom-sync"));
                                 }}
-                                className="shrink-0 rounded-lg bg-sky-500/25 hover:bg-sky-500/35 border border-sky-500/40 px-2.5 py-1 text-xs font-semibold text-sky-200 transition-colors cursor-pointer"
+                                className="shrink-0 rounded-lg bg-sky-500/25 hover:bg-sky-500/35 border border-sky-500/40 px-2.5 py-1 text-xs font-semibold text-sky-700 dark:text-sky-200 transition-colors cursor-pointer"
                               >
                                 Прив&apos;язати
                               </button>
                             </div>
-                            <p className="text-xs text-slate-400 mt-1 pl-4">
+                            <p className="text-xs text-sys-text-muted mt-1 pl-4">
                               Сервер лише читає ваші завдання з Classroom і нічого не змінює.
                             </p>
                           </div>
