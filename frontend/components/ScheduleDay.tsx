@@ -41,6 +41,7 @@ export function ScheduleDay({
   onQuickJump,
   hideHeaderOnMobile = false,
   weekNumber,
+  hideDayTitle = false,
 }: {
   schedule: ScheduleResponse;
   isToday?: boolean;
@@ -56,6 +57,7 @@ export function ScheduleDay({
   onQuickJump?: (target: QuickJumpTarget) => void;
   hideHeaderOnMobile?: boolean;
   weekNumber?: number | null;
+  hideDayTitle?: boolean;
 }) {
   const { showToast } = useToast();
   const [kyivNow, setKyivNow] = useState<{ dateIso: string; minutes: number } | null>(null);
@@ -139,43 +141,52 @@ export function ScheduleDay({
 
   return (
     <section className="min-w-0">
-      <header className={`mb-3.5 flex items-center justify-between gap-2 px-0 ${mode === "week" ? "min-h-[56px]" : "pt-1"} ${hideHeaderOnMobile ? "hidden sm:flex" : ""}`}>
-        {mode === "day" ? (
-          <div className="flex flex-wrap items-center gap-2.5">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-xl sm:text-2xl lg:text-[26px] font-bold capitalize tracking-tight text-sys-text-primary">
-                {fmt(schedule.date, { weekday: "long" })}<span className="font-normal text-sys-text-secondary">,</span>
-              </h2>
-              <span className="text-sm sm:text-base lg:text-lg font-medium text-sys-text-secondary">
-                {fmt(schedule.date, { day: "numeric", month: "long" })}
-              </span>
-              {isToday && (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-sys-accent/35 bg-sys-accent/15 text-xs font-bold text-sys-accent tracking-wide shadow-xs">
-                  <span className="h-1.5 w-1.5 rounded-full bg-sys-accent animate-pulse" />
-                  Сьогодні
-                </span>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className="flex flex-col justify-center min-h-[56px] min-w-0 flex-1">
-            <div className="flex items-center justify-between gap-1">
-              <h2 className="text-base sm:text-lg font-bold capitalize tracking-tight truncate text-sys-text-primary">
-                {fmt(schedule.date, { weekday: "long" })}
-              </h2>
-              {isToday && (
-                <span className="shrink-0 px-2 py-0.5 rounded-full border border-sys-accent/35 bg-sys-accent/15 text-xs font-extrabold text-sys-accent uppercase tracking-wider">
-                  Сьогодні
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-xs font-medium text-sys-text-secondary">
-                {fmt(schedule.date, { day: "numeric", month: "short" })}
-              </span>
-            </div>
-          </div>
-        )}
+      {(!hideDayTitle || (mode === "day" && orderedLessons.length > 0)) && (
+        <header
+          className={`mb-3.5 flex items-center ${
+            hideDayTitle ? "justify-end" : "justify-between"
+          } gap-2 px-0 ${mode === "week" ? "min-h-[56px]" : "pt-1"} ${
+            hideHeaderOnMobile ? "hidden sm:flex" : ""
+          }`}
+        >
+          {!hideDayTitle && (
+            mode === "day" ? (
+              <div className="flex flex-wrap items-center gap-2.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-xl sm:text-2xl lg:text-[26px] font-bold capitalize tracking-tight text-sys-text-primary">
+                    {fmt(schedule.date, { weekday: "long" })}<span className="font-normal text-sys-text-secondary">,</span>
+                  </h2>
+                  <span className="text-sm sm:text-base lg:text-lg font-medium text-sys-text-secondary">
+                    {fmt(schedule.date, { day: "numeric", month: "long" })}
+                  </span>
+                  {isToday && (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-sys-accent/35 bg-sys-accent/15 text-xs font-bold text-sys-accent tracking-wide shadow-xs">
+                      <span className="h-1.5 w-1.5 rounded-full bg-sys-accent animate-pulse" />
+                      Сьогодні
+                    </span>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col justify-center min-h-[56px] min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-1">
+                  <h2 className="text-base sm:text-lg font-bold capitalize tracking-tight truncate text-sys-text-primary">
+                    {fmt(schedule.date, { weekday: "long" })}
+                  </h2>
+                  {isToday && (
+                    <span className="shrink-0 px-2 py-0.5 rounded-full border border-sys-accent/35 bg-sys-accent/15 text-xs font-extrabold text-sys-accent uppercase tracking-wider">
+                      Сьогодні
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-xs font-medium text-sys-text-secondary">
+                    {fmt(schedule.date, { day: "numeric", month: "short" })}
+                  </span>
+                </div>
+              </div>
+            )
+          )}
 
         {mode === "day" && orderedLessons.length > 0 && (
           <div className="flex items-center gap-2">
@@ -211,6 +222,7 @@ export function ScheduleDay({
           </div>
         )}
       </header>
+      )}
 
       {/* Оголошення про виняток режиму навчання */}
       {schedule.learning_mode_override && (

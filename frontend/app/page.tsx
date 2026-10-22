@@ -1846,30 +1846,50 @@ export default function HomePage() {
               transition={{ duration: shouldReduceMotion ? 0 : 0.15 }}
             >
               {view === "today" ? (
-                /* Desktop Day Mode: 2-column Dashboard */
-                <motion.div
-                  layout
-                  transition={{ duration: shouldReduceMotion ? 0 : 0.28, ease: [0.25, 0.1, 0.25, 1.0] }}
-                  className="w-full min-w-0"
-                >
-                  <div
+                /* Desktop Day Mode: Smooth Animated Focus / 2-Column Dashboard */
+                <div className="w-full min-w-0 flex items-start justify-center gap-0 lg:gap-8 overflow-x-clip">
+                  {/* Schedule Column (Smoothly glides to center in Focus Mode) */}
+                  <motion.div
+                    layout
+                    transition={{
+                      duration: shouldReduceMotion ? 0 : 0.38,
+                      ease: [0.32, 0.72, 0, 1],
+                    }}
                     className={
                       isFocusMode
-                        ? "w-full max-w-[760px] mx-auto min-w-0"
-                        : "grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-8 items-start w-full"
+                        ? "w-full max-w-[760px] min-w-0"
+                        : "w-full min-w-0 flex-1 max-w-[840px]"
                     }
                   >
-                    {/* Schedule Column (Centered in Focus Mode) */}
-                    <div className="w-full min-w-0">
-                      {/* Focus Mode Day Switcher Card */}
+                    {/* Focus Mode Day Switcher Card (smoothly slides down from top) */}
+                    <AnimatePresence initial={false}>
                       {isFocusMode && (
                         <motion.div
-                          initial={{ opacity: 0, y: -6 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -6 }}
-                          transition={{ duration: shouldReduceMotion ? 0 : 0.18 }}
-                          className="mb-6 rounded-2xl border border-sys-border bg-sys-card p-4 shadow-sm"
+                          key="focus-day-switcher"
+                          initial={{ opacity: 0, y: -24, height: 0 }}
+                          animate={{
+                            opacity: 1,
+                            y: 0,
+                            height: "auto",
+                            transition: {
+                              height: { duration: shouldReduceMotion ? 0 : 0.35, ease: [0.32, 0.72, 0, 1] },
+                              opacity: { duration: shouldReduceMotion ? 0 : 0.28, delay: 0.08 },
+                              y: { duration: shouldReduceMotion ? 0 : 0.32, ease: [0.32, 0.72, 0, 1], delay: 0.04 },
+                            },
+                          }}
+                          exit={{
+                            opacity: 0,
+                            y: -24,
+                            height: 0,
+                            transition: {
+                              opacity: { duration: shouldReduceMotion ? 0 : 0.18 },
+                              y: { duration: shouldReduceMotion ? 0 : 0.22, ease: [0.32, 0.72, 0, 1] },
+                              height: { duration: shouldReduceMotion ? 0 : 0.32, ease: [0.32, 0.72, 0, 1], delay: 0.04 },
+                            },
+                          }}
+                          className="overflow-hidden mb-5"
                         >
+                          <div className="rounded-2xl border border-sys-border bg-sys-card p-4 shadow-sm">
                           <div className="flex items-center justify-between pb-3 mb-3 border-b border-sys-border/50">
                             <div className="flex items-center gap-2 min-w-0">
                               <span className="text-xs font-bold uppercase tracking-wider text-sys-text-muted shrink-0">
@@ -1970,8 +1990,10 @@ export default function HomePage() {
                               );
                             })}
                           </div>
-                        </motion.div>
-                      )}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
 
                       {isWeekend && (
                         <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-slate-700/60 bg-slate-800/50 px-5 py-4 text-[15px] shadow-sm">
@@ -2006,22 +2028,41 @@ export default function HomePage() {
                             onQuickJump={handleQuickJump}
                             hideHeaderOnMobile={false}
                             weekNumber={currentWeekNumber}
+                            hideDayTitle={isFocusMode}
                           />
                         </motion.div>
                       </AnimatePresence>
-                    </div>
+                    </motion.div>
 
-                    {/* Right Column: Week Info & Classroom Widget (360px) */}
-                    <AnimatePresence>
+                    {/* Right Column: Week Info & Classroom Widget (360px, slides out to right on focus mode) */}
+                    <AnimatePresence initial={false}>
                       {!isFocusMode && (
-                        <motion.div
+                        <motion.aside
                           key="desktop-sidebar"
-                          initial={{ opacity: 0, x: 20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{ opacity: 0, x: 20 }}
-                          transition={{ duration: shouldReduceMotion ? 0 : 0.22, ease: "easeInOut" }}
-                          className="w-full lg:w-[360px] shrink-0 min-w-0 flex flex-col gap-6 sticky top-[72px]"
+                          initial={{ opacity: 0, x: 180, width: 0 }}
+                          animate={{
+                            opacity: 1,
+                            x: 0,
+                            width: 360,
+                            transition: {
+                              width: { duration: shouldReduceMotion ? 0 : 0.38, ease: [0.32, 0.72, 0, 1] },
+                              x: { duration: shouldReduceMotion ? 0 : 0.35, ease: [0.32, 0.72, 0, 1] },
+                              opacity: { duration: shouldReduceMotion ? 0 : 0.25, delay: 0.08 },
+                            },
+                          }}
+                          exit={{
+                            opacity: 0,
+                            x: 240,
+                            width: 0,
+                            transition: {
+                              opacity: { duration: shouldReduceMotion ? 0 : 0.2 },
+                              x: { duration: shouldReduceMotion ? 0 : 0.35, ease: [0.32, 0.72, 0, 1] },
+                              width: { duration: shouldReduceMotion ? 0 : 0.38, ease: [0.32, 0.72, 0, 1] },
+                            },
+                          }}
+                          className="hidden lg:block shrink-0 overflow-hidden"
                         >
+                          <div className="w-[360px] flex flex-col gap-6 sticky top-[72px]">
                           {/* Week & Navigator Card */}
                           <div className="rounded-2xl border border-sys-border bg-sys-card p-5 shadow-sm">
                             <div className="pb-3.5 border-b border-sys-border/50 flex items-center justify-between gap-2">
@@ -2407,11 +2448,11 @@ export default function HomePage() {
                           )}
                         </div>
                       </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            </motion.div>
+                    </div>
+                  </motion.aside>
+                )}
+              </AnimatePresence>
+            </div>
           ) : (
                 /* Desktop Week Mode: Full Grid (ScheduleWeekGrid) */
                 <div className="w-full min-w-0">
