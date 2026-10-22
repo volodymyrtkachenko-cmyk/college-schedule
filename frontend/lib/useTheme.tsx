@@ -72,7 +72,27 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       try {
         localStorage.setItem(STORAGE_KEY, newTheme);
       } catch {}
-      applyTheme(newTheme);
+
+      if (typeof document !== "undefined") {
+        const root = document.documentElement;
+        root.classList.add("theme-transitioning");
+
+        const update = () => {
+          applyTheme(newTheme);
+        };
+
+        if ("startViewTransition" in document && typeof (document as any).startViewTransition === "function") {
+          (document as any).startViewTransition(update);
+        } else {
+          update();
+        }
+
+        setTimeout(() => {
+          root.classList.remove("theme-transitioning");
+        }, 320);
+      } else {
+        applyTheme(newTheme);
+      }
     },
     [applyTheme]
   );

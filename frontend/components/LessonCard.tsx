@@ -569,17 +569,17 @@ function vibrateTap(ms = 10) {
 function getMeetingBtnStyle(platform?: string | null, isLiveOrSoon?: boolean, size: "normal" | "compact" | "tiny" = "normal") {
   if (isLiveOrSoon) {
     if (size === "compact" || size === "tiny") {
-      return "bg-emerald-600/90 text-white border-emerald-500 shadow-xs hover:bg-emerald-500";
+      return "bg-emerald-600 text-white border-emerald-500 shadow-xs hover:bg-emerald-500";
     }
     return "bg-emerald-600 text-white border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.35)] hover:bg-emerald-500 animate-pulse";
   }
   if (platform === "zoom") {
-    return "border-sky-500/35 bg-sky-500/12 text-sky-400 hover:border-sky-500/50 hover:text-sky-300 hover:bg-sky-500/20";
+    return "border-sky-500/40 bg-sky-50 dark:bg-sky-500/12 text-sky-800 dark:text-sky-300 hover:border-sky-500/60 hover:text-sky-900 dark:hover:text-sky-200 hover:bg-sky-100 dark:hover:bg-sky-500/20";
   }
   if (platform === "meet") {
-    return "border-emerald-500/35 bg-emerald-500/12 text-emerald-400 hover:border-emerald-500/50 hover:text-emerald-300 hover:bg-emerald-500/20";
+    return "border-emerald-500/40 bg-emerald-50 dark:bg-emerald-500/12 text-emerald-800 dark:text-emerald-300 hover:border-emerald-500/60 hover:text-emerald-900 dark:hover:text-emerald-200 hover:bg-emerald-100 dark:hover:bg-emerald-500/20";
   }
-  return "border-indigo-500/35 bg-indigo-500/12 text-indigo-400 hover:border-indigo-500/50 hover:text-indigo-300 hover:bg-indigo-500/20";
+  return "border-indigo-500/40 bg-indigo-50 dark:bg-indigo-500/12 text-indigo-800 dark:text-indigo-300 hover:border-indigo-500/60 hover:text-indigo-900 dark:hover:text-indigo-200 hover:bg-indigo-100 dark:hover:bg-indigo-500/20";
 }
 
 export function LessonCard({

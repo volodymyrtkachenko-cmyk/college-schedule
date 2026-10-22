@@ -136,7 +136,7 @@ export function MobileTasksView({
               type="button"
               onClick={onPrevWeek}
               aria-label="Попередній тиждень"
-              className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-white/5 active:scale-95 transition-all cursor-pointer font-bold"
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg active:scale-95 transition-all cursor-pointer font-bold"
             >
               ‹
             </button>
@@ -149,7 +149,7 @@ export function MobileTasksView({
               type="button"
               onClick={onNextWeek}
               aria-label="Наступний тиждень"
-              className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-white/5 active:scale-95 transition-all cursor-pointer font-bold"
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg active:scale-95 transition-all cursor-pointer font-bold"
             >
               ›
             </button>
@@ -163,8 +163,8 @@ export function MobileTasksView({
             onClick={() => setScope("week")}
             className={`rounded-lg px-2.5 py-1 font-semibold transition-all cursor-pointer ${
               scope === "week"
-                ? "bg-sys-accent text-[#0b1120] shadow-xs"
-                : "text-sys-text-secondary hover:text-white"
+                ? "bg-sys-accent text-white shadow-xs"
+                : "text-sys-text-secondary hover:text-sys-text-primary"
             }`}
           >
             Цей тиждень
@@ -174,8 +174,8 @@ export function MobileTasksView({
             onClick={() => setScope("all")}
             className={`rounded-lg px-2.5 py-1 font-semibold transition-all cursor-pointer ${
               scope === "all"
-                ? "bg-sys-accent text-[#0b1120] shadow-xs"
-                : "text-sys-text-secondary hover:text-white"
+                ? "bg-sys-accent text-white shadow-xs"
+                : "text-sys-text-secondary hover:text-sys-text-primary"
             }`}
           >
             Усі

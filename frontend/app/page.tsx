@@ -1102,7 +1102,7 @@ export default function HomePage() {
                 onClick={view === "today" ? goToPrevDay : () => shiftWeek(-1)}
                 aria-label="Попередній період"
                 title="Попередній період"
-                className="flex h-10 w-10 items-center justify-center rounded-lg text-sys-text-secondary hover:bg-sys-card hover:text-white transition-colors"
+                className="flex h-10 w-10 items-center justify-center rounded-lg text-sys-text-secondary hover:bg-sys-card hover:text-sys-text-primary transition-colors"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="m15 18-6-6 6-6" />
@@ -1121,7 +1121,7 @@ export default function HomePage() {
                   (view === "today" && isCurrentWeek && (selectedDaySchedule?.date === todayActualIso || (isWeekend && selectedDayIndex === 0))) ||
                   (view === "week" && isCurrentWeek)
                     ? "text-sys-text-muted cursor-default bg-transparent opacity-50"
-                    : "text-sys-text-secondary hover:text-white hover:bg-sys-card active:scale-95"
+                    : "text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-card active:scale-95"
                 }`}
               >
                 Сьогодні
@@ -1131,7 +1131,7 @@ export default function HomePage() {
                 onClick={view === "today" ? goToNextDay : () => shiftWeek(1)}
                 aria-label="Наступний період"
                 title="Наступний період"
-                className="flex h-10 w-10 items-center justify-center rounded-lg text-sys-text-secondary hover:bg-sys-card hover:text-white transition-colors"
+                className="flex h-10 w-10 items-center justify-center rounded-lg text-sys-text-secondary hover:bg-sys-card hover:text-sys-text-primary transition-colors"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="m9 18 6-6-6-6" />
@@ -1147,7 +1147,7 @@ export default function HomePage() {
                 className={`h-8 px-3.5 rounded-lg font-semibold transition-all ${
                   view === "today"
                     ? "bg-sys-accent text-white shadow-xs"
-                    : "text-sys-text-secondary hover:text-white"
+                    : "text-sys-text-secondary hover:text-sys-text-primary"
                 }`}
               >
                 День
@@ -1158,7 +1158,7 @@ export default function HomePage() {
                 className={`h-8 px-3.5 rounded-lg font-semibold transition-all ${
                   view === "week"
                     ? "bg-sys-accent text-white shadow-xs"
-                    : "text-sys-text-secondary hover:text-white"
+                    : "text-sys-text-secondary hover:text-sys-text-primary"
                 }`}
               >
                 Тиждень
@@ -1266,7 +1266,7 @@ export default function HomePage() {
                   type="button"
                   onClick={() => shiftWeekPreservingDay(-1)}
                   aria-label="Попередній тиждень"
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-sys-text-secondary hover:text-white active:scale-90 transition-transform shrink-0"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg active:scale-90 transition-all shrink-0"
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="m15 18-6-6 6-6" />
@@ -1288,7 +1288,7 @@ export default function HomePage() {
                   type="button"
                   onClick={() => shiftWeekPreservingDay(1)}
                   aria-label="Наступний тиждень"
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-sys-text-secondary hover:text-white active:scale-90 transition-transform shrink-0"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg active:scale-90 transition-all shrink-0"
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="m9 18 6-6-6-6" />
@@ -1331,7 +1331,7 @@ export default function HomePage() {
             aria-label="Меню налаштувань та швидких дій"
             title="Меню дій"
             aria-expanded={mobileMenuOpen}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-white active:scale-95 transition-all"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-elevated-border active:scale-95 transition-all"
           >
             ⋯
           </button>
@@ -1376,7 +1376,7 @@ export default function HomePage() {
                     type="button"
                     onClick={() => { setModalTab("student"); setModalSearch(""); }}
                     className={`flex-1 h-9 rounded-lg text-xs font-semibold transition-all ${
-                      modalTab === "student" ? "bg-sys-accent text-white shadow-xs" : "text-sys-text-secondary hover:text-white"
+                      modalTab === "student" ? "bg-sys-accent text-white shadow-xs" : "text-sys-text-secondary hover:text-sys-text-primary"
                     }`}
                   >
                     Групи ({groups.length})
@@ -1385,7 +1385,7 @@ export default function HomePage() {
                     type="button"
                     onClick={() => { setModalTab("teacher"); setModalSearch(""); }}
                     className={`flex-1 h-9 rounded-lg text-xs font-semibold transition-all ${
-                      modalTab === "teacher" ? "bg-sys-accent text-white shadow-xs" : "text-sys-text-secondary hover:text-white"
+                      modalTab === "teacher" ? "bg-sys-accent text-white shadow-xs" : "text-sys-text-secondary hover:text-sys-text-primary"
                     }`}
                   >
                     Викладачі ({teachers.length})
@@ -1394,7 +1394,7 @@ export default function HomePage() {
                 <button
                   type="button"
                   onClick={() => setContextModalOpen(false)}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-sys-border text-sys-text-secondary hover:text-white hover:bg-sys-bg transition-colors"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-sys-border text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg transition-colors"
                 >
                   ✕
                 </button>
@@ -1579,7 +1579,7 @@ export default function HomePage() {
                           else setTeacherId(pin.id);
                           setMobileMenuOpen(false);
                         }}
-                        className="rounded-full border border-sys-border bg-sys-bg px-2.5 py-0.5 text-xs font-medium text-sys-text-secondary hover:text-white"
+                        className="rounded-full border border-sys-border bg-sys-bg px-2.5 py-0.5 text-xs font-medium text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-elevated-border transition-colors"
                       >
                         ★ {pin.name}
                       </button>
@@ -1604,7 +1604,7 @@ export default function HomePage() {
                         setMobileMenuOpen(false);
                       }}
                       className={`flex-1 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${
-                        view === "today" ? "bg-sys-accent text-white shadow-xs" : "text-sys-text-secondary hover:text-white"
+                        view === "today" ? "bg-sys-accent text-white shadow-xs" : "text-sys-text-secondary hover:text-sys-text-primary"
                       }`}
                     >
                       День
@@ -1782,7 +1782,7 @@ export default function HomePage() {
             <button
               type="button"
               onClick={handleReturnBack}
-              className="shrink-0 rounded-lg bg-sys-accent px-2.5 py-1 text-xs font-semibold text-[#0b1120] active:scale-[0.98]"
+              className="shrink-0 rounded-lg bg-sys-accent px-2.5 py-1 text-xs font-semibold text-white active:scale-[0.98]"
             >
               ← До {returnTarget.label}
             </button>
@@ -1815,12 +1815,12 @@ export default function HomePage() {
                     className="flex items-start gap-4 rounded-xl border border-sys-border/60 bg-sys-card/70 p-4 animate-pulse"
                   >
                     <div className="flex w-12 shrink-0 flex-col gap-1.5">
-                      <div className="h-5 w-6 rounded bg-slate-700/70" />
-                      <div className="h-3 w-10 rounded bg-slate-800" />
+                      <div className="h-5 w-6 rounded bg-slate-200 dark:bg-slate-700/70" />
+                      <div className="h-3 w-10 rounded bg-slate-100 dark:bg-slate-800" />
                     </div>
                     <div className="flex flex-1 flex-col gap-2.5">
-                      <div className="h-4 w-3/5 rounded bg-slate-700/70" />
-                      <div className="h-3.5 w-2/5 rounded bg-slate-800" />
+                      <div className="h-4 w-3/5 rounded bg-slate-200 dark:bg-slate-700/70" />
+                      <div className="h-3.5 w-2/5 rounded bg-slate-100 dark:bg-slate-800" />
                     </div>
                   </div>
                 ))}
@@ -1881,7 +1881,7 @@ export default function HomePage() {
             <button
               type="button"
               onClick={handleReturnBack}
-              className="rounded-lg bg-sys-accent px-3 py-1 text-xs font-semibold text-[#0b1120] transition-opacity hover:opacity-90 active:scale-[0.98]"
+              className="rounded-lg bg-sys-accent px-3 py-1 text-xs font-semibold text-white transition-opacity hover:opacity-90 active:scale-[0.98]"
             >
               ← Повернутися до {returnTarget.label}
             </button>
@@ -1896,12 +1896,12 @@ export default function HomePage() {
                 className="flex items-start gap-4 rounded-xl border border-sys-border/60 bg-sys-card/70 p-4 animate-pulse"
               >
                 <div className="flex w-12 shrink-0 flex-col gap-1.5">
-                  <div className="h-5 w-6 rounded bg-slate-700/70" />
-                  <div className="h-3 w-10 rounded bg-slate-800" />
+                  <div className="h-5 w-6 rounded bg-slate-200 dark:bg-slate-700/70" />
+                  <div className="h-3 w-10 rounded bg-slate-100 dark:bg-slate-800" />
                 </div>
                 <div className="flex flex-1 flex-col gap-2.5">
-                  <div className="h-4 w-3/5 rounded bg-slate-700/70" />
-                  <div className="h-3.5 w-2/5 rounded bg-slate-800" />
+                  <div className="h-4 w-3/5 rounded bg-slate-200 dark:bg-slate-700/70" />
+                  <div className="h-3.5 w-2/5 rounded bg-slate-100 dark:bg-slate-800" />
                 </div>
               </div>
             ))}
@@ -1989,16 +1989,16 @@ export default function HomePage() {
                                   onClick={() => handleSelectDayIndex(d.index)}
                                   className={`flex flex-col items-center justify-center h-15 rounded-xl transition-all relative cursor-pointer active:scale-95 ${
                                     isActive
-                                      ? "bg-sys-accent text-[#0b1120] font-black shadow-md ring-2 ring-sys-accent/60"
-                                      : "border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-white hover:border-sys-border-elevated font-medium"
+                                      ? "bg-sys-accent text-white font-black shadow-md ring-2 ring-sys-accent/60"
+                                      : "border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-elevated-border font-medium"
                                   }`}
                                 >
                                   <div className="flex items-center gap-1.5">
-                                    <span className={`text-xs uppercase font-semibold ${isActive ? "text-[#0b1120]/80" : ""}`}>{d.name}</span>
+                                    <span className={`text-xs uppercase font-semibold ${isActive ? "text-white/80" : ""}`}>{d.name}</span>
                                     {isToday && (
                                       <span
                                         title="Сьогодні"
-                                        className={`h-1.5 w-1.5 rounded-full shrink-0 ${isActive ? "bg-[#0b1120]" : "bg-sys-accent"}`}
+                                        className={`h-1.5 w-1.5 rounded-full shrink-0 ${isActive ? "bg-white" : "bg-sys-accent"}`}
                                       />
                                     )}
                                   </div>
@@ -2012,9 +2012,9 @@ export default function HomePage() {
                     </div>
 
                       {isWeekend && (
-                        <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-slate-700/60 bg-slate-800/50 px-5 py-4 text-[15px] shadow-sm">
+                        <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-sys-border bg-sys-card px-5 py-4 text-[15px] shadow-sm">
                           <div className="flex items-center gap-3 min-w-0">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-amber-300">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-amber-500 dark:text-amber-300">
                               <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
                               <polyline points="9 22 9 12 15 12 15 22" />
                             </svg>
@@ -2130,16 +2130,16 @@ export default function HomePage() {
                                   onClick={() => handleSelectDayIndex(d.index)}
                                   className={`flex flex-col items-center justify-center h-16 rounded-xl transition-all relative cursor-pointer active:scale-95 ${
                                     isActive
-                                      ? "bg-sys-accent text-[#0b1120] font-black shadow-md ring-2 ring-sys-accent/60"
-                                      : "border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-white hover:border-sys-border-elevated font-medium"
+                                      ? "bg-sys-accent text-white font-black shadow-md ring-2 ring-sys-accent/60"
+                                      : "border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-elevated-border font-medium"
                                   }`}
                                 >
                                   <div className="flex items-center gap-1.5">
-                                    <span className={`text-xs uppercase font-semibold ${isActive ? "text-[#0b1120]/80" : ""}`}>{d.name}</span>
+                                    <span className={`text-xs uppercase font-semibold ${isActive ? "text-white/80" : ""}`}>{d.name}</span>
                                     {isToday && (
                                       <span
                                         title="Сьогодні"
-                                        className={`h-1.5 w-1.5 rounded-full shrink-0 ${isActive ? "bg-[#0b1120]" : "bg-sys-accent"}`}
+                                        className={`h-1.5 w-1.5 rounded-full shrink-0 ${isActive ? "bg-white" : "bg-sys-accent"}`}
                                       />
                                     )}
                                   </div>
@@ -2190,7 +2190,7 @@ export default function HomePage() {
                                 disabled={tasksScope !== "week"}
                                 onClick={() => shiftWeekPreservingDay(-1)}
                                 aria-label="Попередній тиждень"
-                                className="flex h-6 w-6 items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-white/5 active:scale-95 transition-all cursor-pointer disabled:cursor-default disabled:hover:bg-transparent font-bold"
+                                className="flex h-6 w-6 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-card active:scale-95 transition-all cursor-pointer disabled:cursor-default disabled:hover:bg-transparent font-bold"
                               >
                                 ‹
                               </button>
@@ -2202,7 +2202,7 @@ export default function HomePage() {
                                 disabled={tasksScope !== "week"}
                                 onClick={() => shiftWeekPreservingDay(1)}
                                 aria-label="Наступний тиждень"
-                                className="flex h-6 w-6 items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-white/5 active:scale-95 transition-all cursor-pointer disabled:cursor-default disabled:hover:bg-transparent font-bold"
+                                className="flex h-6 w-6 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-card active:scale-95 transition-all cursor-pointer disabled:cursor-default disabled:hover:bg-transparent font-bold"
                               >
                                 ›
                               </button>
@@ -2214,8 +2214,8 @@ export default function HomePage() {
                                 onClick={() => setTasksScope("week")}
                                 className={`rounded-lg px-2 py-0.5 font-semibold transition-all cursor-pointer ${
                                   tasksScope === "week"
-                                    ? "bg-sys-accent text-[#0b1120] shadow-xs"
-                                    : "text-sys-text-secondary hover:text-white"
+                                    ? "bg-sys-accent text-white shadow-xs"
+                                    : "text-sys-text-secondary hover:text-sys-text-primary"
                                 }`}
                               >
                                 Цей тиждень
@@ -2225,8 +2225,8 @@ export default function HomePage() {
                                 onClick={() => setTasksScope("all")}
                                 className={`rounded-lg px-2 py-0.5 font-semibold transition-all cursor-pointer ${
                                   tasksScope === "all"
-                                    ? "bg-sys-accent text-[#0b1120] shadow-xs"
-                                    : "text-sys-text-secondary hover:text-white"
+                                    ? "bg-sys-accent text-white shadow-xs"
+                                    : "text-sys-text-secondary hover:text-sys-text-primary"
                                 }`}
                               >
                                 Усі
@@ -2267,7 +2267,7 @@ export default function HomePage() {
                               type="button"
                               onClick={() => setSidebarFiltersOpen((v) => !v)}
                               aria-expanded={sidebarFiltersOpen || sidebarFiltersActive}
-                              className="flex items-center gap-1.5 text-xs font-semibold text-sys-text-secondary hover:text-white cursor-pointer"
+                              className="flex items-center gap-1.5 text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary cursor-pointer transition-colors"
                             >
                               Фільтри
                               {sidebarFiltersActive && <span className="h-1.5 w-1.5 rounded-full bg-sys-accent" />}
@@ -2592,7 +2592,7 @@ export default function HomePage() {
                 <button
                   type="button"
                   onClick={() => setWeekTypeSheetOpen(false)}
-                  className="flex h-8 w-8 items-center justify-center rounded-xl border border-sys-border text-sys-text-secondary hover:text-white"
+                  className="flex h-8 w-8 items-center justify-center rounded-xl border border-sys-border text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg transition-colors"
                 >
                   ✕
                 </button>
