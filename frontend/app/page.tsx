@@ -1857,33 +1857,21 @@ export default function HomePage() {
                     }}
                     className="w-full max-w-[760px] min-w-0"
                   >
-                    {/* Focus Mode Day Switcher Card (smoothly slides down from top) */}
-                    <AnimatePresence initial={false}>
-                      {isFocusMode && (
-                        <motion.div
-                          key="focus-day-switcher"
-                          initial={{ opacity: 0, y: -14, scale: 0.99 }}
-                          animate={{
-                            opacity: 1,
-                            y: 0,
-                            scale: 1,
-                            transition: {
-                              duration: shouldReduceMotion ? 0 : 0.26,
-                              ease: [0.25, 0.1, 0.25, 1.0],
-                            },
-                          }}
-                          exit={{
-                            opacity: 0,
-                            y: -14,
-                            scale: 0.99,
-                            transition: {
-                              duration: shouldReduceMotion ? 0 : 0.2,
-                              ease: [0.25, 0.1, 0.25, 1.0],
-                            },
-                          }}
-                          className="mb-5"
-                        >
-                          <div className="rounded-2xl border border-sys-border bg-sys-card p-4 shadow-sm">
+                    {/* Focus Mode Day Switcher Card (smoothly expands and collapses via CSS grid without unmount snap) */}
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateRows: isFocusMode ? "1fr" : "0fr",
+                        opacity: isFocusMode ? 1 : 0,
+                        marginBottom: isFocusMode ? 20 : 0,
+                        transition: shouldReduceMotion
+                          ? "none"
+                          : "grid-template-rows 0.32s cubic-bezier(0.25, 0.1, 0.25, 1.0), opacity 0.22s ease, margin-bottom 0.32s cubic-bezier(0.25, 0.1, 0.25, 1.0)",
+                      }}
+                      className={`w-full overflow-hidden ${isFocusMode ? "" : "pointer-events-none"}`}
+                    >
+                      <div className="min-h-0 overflow-hidden">
+                        <div className="rounded-2xl border border-sys-border bg-sys-card p-4 shadow-sm">
                           <div className="flex items-center justify-between pb-3 mb-3 border-b border-sys-border/50">
                             <div className="flex items-center gap-2 min-w-0">
                               <span className="text-xs font-bold uppercase tracking-wider text-sys-text-muted shrink-0">
@@ -1987,9 +1975,8 @@ export default function HomePage() {
                             })}
                           </div>
                         </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                      </div>
+                    </div>
 
                       {isWeekend && (
                         <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-slate-700/60 bg-slate-800/50 px-5 py-4 text-[15px] shadow-sm">
@@ -2011,16 +1998,11 @@ export default function HomePage() {
 
                       <AnimatePresence mode="wait">
                         <motion.div
-                          layout="position"
                           key={selectedDaySchedule?.date ?? today?.date ?? "day"}
                           initial={{ opacity: 0, y: 6 }}
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: -6 }}
-                          transition={{
-                            layout: { duration: shouldReduceMotion ? 0 : 0.28, ease: [0.25, 0.1, 0.25, 1.0] },
-                            opacity: { duration: shouldReduceMotion ? 0 : 0.18, ease: "easeInOut" },
-                            y: { duration: shouldReduceMotion ? 0 : 0.18, ease: "easeInOut" },
-                          }}
+                          transition={{ duration: shouldReduceMotion ? 0 : 0.18, ease: "easeInOut" }}
                         >
                           <ScheduleDay
                             schedule={selectedDaySchedule ?? today!}
