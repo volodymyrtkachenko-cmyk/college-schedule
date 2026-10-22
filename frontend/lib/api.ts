@@ -333,6 +333,17 @@ async function parseError(response: Response) {
     }
 }
 
+function attachClassroomQueryParams(params: URLSearchParams) {
+    if (typeof window !== "undefined") {
+        try {
+            const cUid = localStorage.getItem("schedule:classroom_google_user_id");
+            const cEmail = localStorage.getItem("schedule:classroom_linked_email");
+            if (cUid && !params.has("classroom_user_id")) params.set("classroom_user_id", cUid);
+            if (cEmail && cEmail !== "підключено" && !params.has("classroom_email")) params.set("classroom_email", cEmail);
+        } catch {}
+    }
+}
+
 async function rawRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
     let response: Response;
     // IMPORTANT: build headers via the Headers constructor, not object-spread.
@@ -344,16 +355,6 @@ async function rawRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
     const headers = new Headers(init.headers);
     if (method !== "GET" && !headers.has("Content-Type")) {
         headers.set("Content-Type", "application/json");
-    }
-    if (typeof window !== "undefined") {
-        try {
-            const cUid = localStorage.getItem("schedule:classroom_google_user_id");
-            const cEmail = localStorage.getItem("schedule:classroom_linked_email");
-            const cToken = localStorage.getItem("schedule:classroom_access_token");
-            if (cUid && !headers.has("X-Classroom-User-Id")) headers.set("X-Classroom-User-Id", cUid);
-            if (cEmail && !headers.has("X-Classroom-Email")) headers.set("X-Classroom-Email", cEmail);
-            if (cToken && !headers.has("X-Classroom-Token")) headers.set("X-Classroom-Token", cToken);
-        } catch {}
     }
     try {
         const cacheMode = init.cache ?? (method === "GET" ? "no-cache" : "no-store");
@@ -1022,6 +1023,7 @@ export const api = {
         if (groupId) params.set("group_id", String(groupId));
         if (teacherId) params.set("teacher_id", String(teacherId));
         if (includeCancelled) params.set("include_cancelled", "true");
+        attachClassroomQueryParams(params);
         return request<ScheduleResponse>(`/api/schedule/today?${params.toString()}`);
     },
     week: (groupId?: number, teacherId?: number, date = new Date(), includeCancelled?: boolean) => {
@@ -1029,6 +1031,7 @@ export const api = {
         if (groupId) params.set("group_id", String(groupId));
         if (teacherId) params.set("teacher_id", String(teacherId));
         if (includeCancelled) params.set("include_cancelled", "true");
+        attachClassroomQueryParams(params);
         return request<ScheduleResponse[]>(`/api/schedule/week?${params.toString()}`);
     },
     statistics: (target: { groupId?: number; teacherId?: number }) => {
@@ -1285,8 +1288,11 @@ export const api = {
                 has_client_secret: boolean;
                 client_id: string;
             }>("/api/classroom/status"),
-        groupStatus: (groupId: number) =>
-            rawRequest<{
+        groupStatus: (groupId: number) => {
+            const params = new URLSearchParams();
+            attachClassroomQueryParams(params);
+            const qs = params.toString();
+            return rawRequest<{
                 connected: boolean;
                 last_synced_at: string | null;
                 has_refresh_token?: boolean;
@@ -1313,7 +1319,8 @@ export const api = {
                 }>;
                 needs_reconnect?: boolean;
                 requires_auth?: boolean;
-            }>(`/api/classroom/groups/${groupId}/status`),
+            }>(`/api/classroom/groups/${groupId}/status${qs ? `?${qs}` : ""}`);
+        },
         sync: (
             tokenOrPayload: string | { code?: string; access_token?: string; refresh_token?: string; group_id?: number; week_start?: string },
             groupId?: number

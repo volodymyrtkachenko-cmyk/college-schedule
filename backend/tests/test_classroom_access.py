@@ -94,6 +94,13 @@ async def test_check_classroom_group_access_authorized_student(db_session):
     has_access = await check_classroom_group_access(db_session, group_id=85, request=request)
     assert has_access is True
 
+    # Also test via query_params
+    request_qp = MagicMock()
+    request_qp.headers = {}
+    request_qp.query_params = {"classroom_user_id": "google_test_uid_123"}
+    has_access_qp = await check_classroom_group_access(db_session, group_id=85, request=request_qp)
+    assert has_access_qp is True
+
     # But for a different group_id, access should be False
     has_other_access = await check_classroom_group_access(db_session, group_id=99, request=request)
     assert has_other_access is False
