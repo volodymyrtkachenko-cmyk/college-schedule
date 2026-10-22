@@ -79,7 +79,7 @@ export default function SettingsPage() {
             <span>Налаштування</span>
           </h1>
           <p className="mt-1 text-xs sm:text-sm text-sys-text-secondary">
-            Параметри розкладу, інтерфейсу та застосунку
+            Параметри інтерфейсу та розкладу для цього пристрою
           </p>
         </div>
 
@@ -95,14 +95,9 @@ export default function SettingsPage() {
           {/* Toggle: Homework badges */}
           <div className="flex items-start justify-between gap-4 py-1">
             <div className="space-y-0.5 min-w-0 pr-2">
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-xs sm:text-sm text-sys-text-primary">
-                  Показувати завдання (ДЗ) на парах
-                </span>
-                <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold bg-sys-bg text-sys-text-secondary border border-sys-border">
-                  Мобільний + ПК
-                </span>
-              </div>
+              <span className="font-semibold text-xs sm:text-sm text-sys-text-primary">
+                Показувати завдання (ДЗ) на парах
+              </span>
               <p className="text-xs text-sys-text-secondary leading-relaxed">
                 Мітки домашніх завдань у картках занять.
               </p>
@@ -128,14 +123,9 @@ export default function SettingsPage() {
 
           {/* Setting: Preferred subgroup */}
           <div className="space-y-2 py-1">
-            <div className="flex items-center justify-between">
-              <span className="font-semibold text-xs sm:text-sm text-sys-text-primary">
-                Бажана підгрупа за замовчуванням
-              </span>
-              <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold bg-sys-bg text-sys-text-secondary border border-sys-border">
-                Мобільний + ПК
-              </span>
-            </div>
+            <span className="font-semibold text-xs sm:text-sm text-sys-text-primary">
+              Бажана підгрупа за замовчуванням
+            </span>
             <p className="text-xs text-sys-text-secondary">
               Автоматичний вибір для пар із поділом на підгрупи.
             </p>
@@ -169,16 +159,11 @@ export default function SettingsPage() {
 
           {/* Setting: Default view Desktop */}
           <div className="space-y-2 py-1 hidden lg:block">
-            <div className="flex items-center justify-between">
-              <span className="font-semibold text-xs sm:text-sm text-sys-text-primary">
-                Початковий вигляд розкладу на ПК
-              </span>
-              <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold bg-sys-bg text-sys-text-secondary border border-sys-border">
-                ПК / Планшет (від 1024px)
-              </span>
-            </div>
+            <span className="font-semibold text-xs sm:text-sm text-sys-text-primary">
+              Початковий вигляд розкладу
+            </span>
             <p className="text-xs text-sys-text-secondary">
-              Стартовий режим для великих екранів.
+              Стартовий режим для великих екранів: день або тиждень.
             </p>
             <div className="grid grid-cols-2 gap-1.5 rounded-xl border border-sys-border bg-sys-bg p-1 text-xs">
               <button
