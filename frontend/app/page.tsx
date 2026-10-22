@@ -2503,9 +2503,9 @@ export default function HomePage() {
                         disabled={sharingWeekImage}
                         title="Скопіювати або зберегти розклад тижня як PNG-картинку"
                         aria-label="Поділитися картинкою розкладу тижня"
-                        className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-sys-border bg-sys-card px-3 text-xs font-semibold text-sys-text-secondary hover:text-sky-300 hover:border-sky-500/40 hover:bg-sky-500/5 active:scale-95 transition-all disabled:opacity-50"
+                        className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-sys-border bg-sys-card px-3 text-xs font-semibold text-sys-text-secondary hover:border-sky-500/50 hover:text-sky-700 dark:hover:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-500/10 active:scale-95 transition-all disabled:opacity-50"
                       >
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-sky-400 shrink-0">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-sky-500 dark:text-sky-400 shrink-0">
                           <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
                           <circle cx="9" cy="9" r="2" />
                           <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
@@ -2517,9 +2517,9 @@ export default function HomePage() {
                         onClick={handleShareWeek}
                         title="Скопіювати розклад усього тижня"
                         aria-label="Поділитися розкладом на тиждень"
-                        className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-sys-border bg-sys-card px-3 text-xs font-semibold text-sys-text-secondary hover:text-emerald-300 hover:border-emerald-500/40 hover:bg-emerald-500/5 active:scale-95 transition-all"
+                        className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-sys-border bg-sys-card px-3 text-xs font-semibold text-sys-text-secondary hover:border-emerald-500/50 hover:text-emerald-700 dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 active:scale-95 transition-all"
                       >
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-400 shrink-0">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-500 dark:text-emerald-400 shrink-0">
                           <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
                           <polyline points="16 6 12 2 8 6" />
                           <line x1="12" y1="2" x2="12" y2="15" />

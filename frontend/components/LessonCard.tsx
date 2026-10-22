@@ -357,6 +357,26 @@ export function formatTaskCount(n: number): string {
   return `${n} завдань`;
 }
 
+export function getTaskDeadlineTextColor(badgeTone: "overdue" | "urgent" | "normal", isLinked: boolean): string {
+  if (badgeTone === "overdue") {
+    return isLinked ? "text-rose-600 dark:text-rose-400 font-medium" : "text-sys-text-muted";
+  }
+  if (badgeTone === "urgent") {
+    return "text-amber-700 dark:text-amber-400 font-medium";
+  }
+  return "text-purple-700 dark:text-purple-300";
+}
+
+export function getTaskDeadlineDotColor(badgeTone: "overdue" | "urgent" | "normal", isLinked: boolean): string {
+  if (badgeTone === "overdue") {
+    return isLinked ? "bg-rose-500" : "bg-slate-400 dark:bg-zinc-500";
+  }
+  if (badgeTone === "urgent") {
+    return "bg-amber-500";
+  }
+  return "bg-purple-500";
+}
+
 export function sortTasksByDeadline<T extends { deadline: TaskDeadline; state?: string }>(taskList: T[]): T[] {
   return [...taskList].sort((a, b) => {
     // Turned in / Returned at bottom
@@ -1586,27 +1606,9 @@ export function LessonCard({
                 </div>
                 <div className="flex items-center gap-2 shrink-0 ml-3">
                   {tasks[0].deadline.statusText ? (
-                    <span
-                      className="inline-flex items-center gap-1.5 font-medium"
-                      style={{
-                        color:
-                          tasks[0].deadline.badgeTone === "overdue"
-                            ? isLinked ? "#f87171" : "#a1a1aa"
-                            : tasks[0].deadline.badgeTone === "urgent"
-                            ? "#fbbf24"
-                            : "#c084fc",
-                      }}
-                    >
+                    <span className={`inline-flex items-center gap-1.5 font-medium ${getTaskDeadlineTextColor(tasks[0].deadline.badgeTone, isLinked)}`}>
                       <span
-                        className="h-1.5 w-1.5 rounded-full shrink-0"
-                        style={{
-                          backgroundColor:
-                            tasks[0].deadline.badgeTone === "overdue"
-                              ? isLinked ? "#ef4444" : "#71717a"
-                              : tasks[0].deadline.badgeTone === "urgent"
-                              ? "#f59e0b"
-                              : "#8b5cf6",
-                        }}
+                        className={`h-1.5 w-1.5 rounded-full shrink-0 ${getTaskDeadlineDotColor(tasks[0].deadline.badgeTone, isLinked)}`}
                       />
                       <span>{getTaskStatusText(tasks[0].deadline, isLinked)}</span>
                     </span>
@@ -1714,17 +1716,7 @@ export function LessonCard({
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           {task.deadline.statusText ? (
-                            <span
-                              className="text-xs font-medium"
-                              style={{
-                                color:
-                                  task.deadline.badgeTone === "overdue"
-                                    ? isLinked ? "#f87171" : "#a1a1aa"
-                                    : task.deadline.badgeTone === "urgent"
-                                    ? "#fbbf24"
-                                    : "#c084fc",
-                              }}
-                            >
+                            <span className={`text-xs font-medium ${getTaskDeadlineTextColor(task.deadline.badgeTone, isLinked)}`}>
                               {getTaskStatusText(task.deadline, isLinked)}
                             </span>
                           ) : null}
@@ -2162,26 +2154,9 @@ export function LessonCard({
                   {tasks[0].deadline.statusText ? (
                     <div className="flex items-center gap-1.5 mt-1 text-xs font-medium">
                       <span
-                        className="h-1.5 w-1.5 rounded-full shrink-0"
-                        style={{
-                          backgroundColor:
-                            tasks[0].deadline.badgeTone === "overdue"
-                              ? isLinked ? "#ef4444" : "#71717a"
-                              : tasks[0].deadline.badgeTone === "urgent"
-                              ? "#f59e0b"
-                              : "#71717a",
-                        }}
+                        className={`h-1.5 w-1.5 rounded-full shrink-0 ${getTaskDeadlineDotColor(tasks[0].deadline.badgeTone, isLinked)}`}
                       />
-                      <span
-                        style={{
-                          color:
-                            tasks[0].deadline.badgeTone === "overdue"
-                              ? isLinked ? "#f87171" : "#a1a1aa"
-                              : tasks[0].deadline.badgeTone === "urgent"
-                              ? "#fbbf24"
-                              : "#a1a1aa",
-                        }}
-                      >
+                      <span className={getTaskDeadlineTextColor(tasks[0].deadline.badgeTone, isLinked)}>
                         {getTaskStatusText(tasks[0].deadline, isLinked)}
                       </span>
                     </div>
@@ -2234,27 +2209,9 @@ export function LessonCard({
                 </div>
                 <div className="flex items-center gap-2 min-w-0 justify-end ml-auto">
                   {highlightTask?.deadline.statusText ? (
-                    <span
-                      className="inline-flex items-center gap-1.5 font-medium text-xs min-w-0"
-                      style={{
-                        color:
-                          highlightTask.deadline.badgeTone === "overdue"
-                            ? isLinked ? "#f87171" : "#a1a1aa"
-                            : highlightTask.deadline.badgeTone === "urgent"
-                            ? "#fbbf24"
-                            : "#a1a1aa",
-                      }}
-                    >
+                    <span className={`inline-flex items-center gap-1.5 font-medium text-xs min-w-0 ${getTaskDeadlineTextColor(highlightTask.deadline.badgeTone, isLinked)}`}>
                       <span
-                        className="h-1.5 w-1.5 rounded-full shrink-0"
-                        style={{
-                          backgroundColor:
-                            highlightTask.deadline.badgeTone === "overdue"
-                              ? isLinked ? "#ef4444" : "#71717a"
-                              : highlightTask.deadline.badgeTone === "urgent"
-                              ? "#f59e0b"
-                              : "#71717a",
-                        }}
+                        className={`h-1.5 w-1.5 rounded-full shrink-0 ${getTaskDeadlineDotColor(highlightTask.deadline.badgeTone, isLinked)}`}
                       />
                       <span className="truncate">{getTaskStatusText(highlightTask.deadline, isLinked)}</span>
                     </span>
@@ -2299,17 +2256,7 @@ export function LessonCard({
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         {task.deadline.statusText ? (
-                          <span
-                            className="text-xs font-medium"
-                            style={{
-                              color:
-                                task.deadline.badgeTone === "overdue"
-                                  ? isLinked ? "#f87171" : "#a1a1aa"
-                                  : task.deadline.badgeTone === "urgent"
-                                  ? "#fbbf24"
-                                  : "#a1a1aa",
-                            }}
-                          >
+                          <span className={`text-xs font-medium ${getTaskDeadlineTextColor(task.deadline.badgeTone, isLinked)}`}>
                             {getTaskStatusText(task.deadline, isLinked)}
                           </span>
                         ) : null}
@@ -2339,7 +2286,7 @@ export function LessonCard({
         {/* Left: narrow fixed column (number + start time) */}
         {!hideTimeColumn && (
           <div className="flex w-11 sm:w-12 shrink-0 flex-col text-left">
-            <span className={`text-lg sm:text-xl font-bold leading-none transition-colors ${isLive ? "text-sys-accent" : "text-sys-text-primary group-hover:text-sys-accent"}`}>
+            <span className={`text-lg sm:text-xl font-bold leading-none transition-colors ${isLive ? "text-sys-accent font-black" : "text-sys-text-primary"}`}>
               {lesson.lesson_number}
             </span>
             <span className="text-xs sm:text-xs font-semibold text-sys-text-secondary mt-1 whitespace-nowrap">
@@ -2622,21 +2569,21 @@ export function LessonCard({
                   aria-label={isHwOpen ? "Згорнути завдання" : `${tasks.length} ДЗ (${getTaskStatusText(tasks[0].deadline, isLinked) || "без терміну"})`}
                   className={`inline-flex h-6 min-h-[24px] items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-semibold transition-all active:scale-95 ${
                     tasks[0].deadline.badgeTone === "overdue" && isLinked
-                      ? "border-rose-500/40 bg-sys-card text-rose-300 hover:border-rose-500/60"
+                      ? "border-rose-500/40 bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300 hover:border-rose-500/60"
                       : tasks[0].deadline.badgeTone === "urgent"
-                      ? "border-amber-500/40 bg-sys-card text-amber-300 hover:border-amber-500/60"
-                      : "border-sys-border bg-sys-card text-purple-200 hover:border-purple-500/50"
+                      ? "border-amber-500/40 bg-amber-50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-300 hover:border-amber-500/60"
+                      : "border-purple-500/30 bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-300 hover:border-purple-500/50"
                   }`}
                 >
                   {tasks[0].deadline.badgeTone === "overdue" && isLinked ? (
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-rose-400 shrink-0">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-rose-500 dark:text-rose-400 shrink-0">
                       <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
                       <line x1="12" y1="9" x2="12" y2="13" />
                       <line x1="12" y1="17" x2="12.01" y2="17" />
                     </svg>
                   ) : null}
                   <span>{tasks.length} ДЗ</span>
-                  <span className={`text-xs text-slate-400 transition-transform duration-150 ${isHwOpen ? "rotate-180" : ""}`}>
+                  <span className={`text-xs text-sys-text-muted transition-transform duration-150 ${isHwOpen ? "rotate-180" : ""}`}>
                     ▾
                   </span>
                 </button>
@@ -2732,13 +2679,15 @@ export function LessonCard({
             <div
               id={`hw-list-${lesson.id}-${lesson.lesson_number}`}
               onClick={(e) => e.stopPropagation()}
-              className="absolute left-0 right-0 top-full z-40 mt-1 max-h-60 overflow-y-auto rounded-xl border border-sys-border bg-[#16161a] p-2.5 shadow-2xl animate-in fade-in duration-150"
+              className={`absolute left-0 right-0 ${
+                lesson.lesson_number >= 3 ? "bottom-full mb-1" : "top-full mt-1"
+              } z-40 max-h-60 overflow-y-auto rounded-xl border border-sys-border bg-sys-card p-2.5 shadow-2xl animate-in fade-in duration-150`}
             >
-              <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-[#27272a] text-xs font-semibold text-slate-300">
+              <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-sys-border/60 text-xs font-semibold text-sys-text-secondary">
                 <span className="flex items-center gap-1.5 truncate">
-                  <span className="font-bold text-white">{formatTaskCount(tasks.length)}</span>
+                  <span className="font-bold text-sys-text-primary">{formatTaskCount(tasks.length)}</span>
                   {nearestDated && (
-                    <span className="text-xs text-slate-400 truncate">
+                    <span className="text-xs text-sys-text-muted truncate">
                       (найближче {nearestDated.deadline.statusText.startsWith("до") ? nearestDated.deadline.statusText : `до ${nearestDated.deadline.formattedDate}`})
                     </span>
                   )}
@@ -2747,7 +2696,7 @@ export function LessonCard({
                   type="button"
                   onClick={toggleHw}
                   aria-label="Закрити"
-                  className="rounded p-0.5 text-slate-400 hover:text-white hover:bg-white/10 shrink-0 ml-1"
+                  className="rounded p-0.5 text-sys-text-muted hover:text-sys-text-primary hover:bg-sys-bg transition-colors shrink-0 ml-1 cursor-pointer"
                 >
                   ✕
                 </button>
@@ -2756,7 +2705,7 @@ export function LessonCard({
                 {groupedTasks.map((group, gIdx) => (
                   <div key={gIdx} className="flex flex-col gap-1">
                     {group.teacher && (
-                      <span className="text-xs font-bold text-slate-400 pt-0.5">
+                      <span className="text-xs font-bold text-sys-text-secondary pt-0.5">
                         {group.teacher}:
                       </span>
                     )}
@@ -2771,29 +2720,19 @@ export function LessonCard({
                           vibrateTap(10);
                         }}
                         title={`${task.teacher ? `[${task.teacher}] ` : ""}${task.title || "Завдання"} — Відкрити в Classroom`}
-                        className="group flex items-center justify-between gap-2 rounded-lg border border-[#27272a] bg-[#1a1a22] px-2.5 py-1.5 text-xs text-sys-text-primary hover:border-slate-500 hover:bg-[#22222c] transition-colors"
+                        className="group flex items-center justify-between gap-2 rounded-lg border border-sys-border bg-sys-bg/80 px-2.5 py-1.5 text-xs text-sys-text-primary hover:border-sys-elevated-border hover:bg-sys-surface transition-colors"
                       >
                         <div className="flex min-w-0 flex-col">
-                          <span className="font-semibold text-sys-text-primary truncate text-xs">
+                          <span className="font-semibold text-sys-text-primary truncate text-xs group-hover:text-sys-accent transition-colors">
                             {task.title || "Завдання"}
                           </span>
                           {task.deadline.statusText ? (
-                            <span
-                              className="text-xs"
-                              style={{
-                                color:
-                                  task.deadline.badgeTone === "overdue"
-                                    ? isLinked ? "#f87171" : "#a1a1aa"
-                                    : task.deadline.badgeTone === "urgent"
-                                    ? "#fbbf24"
-                                    : "#a1a1aa",
-                              }}
-                            >
+                            <span className={`text-xs ${getTaskDeadlineTextColor(task.deadline.badgeTone, isLinked)}`}>
                               {getTaskStatusText(task.deadline, isLinked)}
                             </span>
                           ) : null}
                         </div>
-                        <span className="shrink-0 text-xs text-slate-400 group-hover:text-white ml-1">
+                        <span className="shrink-0 text-xs text-sys-text-muted group-hover:text-sys-accent transition-colors ml-1">
                           ↗
                         </span>
                       </a>
