@@ -136,10 +136,27 @@ export default function HomePage() {
         setIsFocusMode(saved === "true");
       }
       const isDesktop = window.innerWidth >= 1024;
-      const defaultDesktop = (localStorage.getItem("schedule:default_view_desktop") as "week" | "today") || "week";
-      const defaultMobile = (localStorage.getItem("schedule:default_view_mobile") as "today" | "week") || "today";
-      setView(isDesktop ? defaultDesktop : defaultMobile);
+      if (isDesktop) {
+        const defaultDesktop = (localStorage.getItem("schedule:default_view_desktop") as "week" | "today") || "week";
+        setView(defaultDesktop);
+      } else {
+        setView("today");
+      }
     } catch {}
+
+    const handleSettingsChange = () => {
+      try {
+        if (window.innerWidth >= 1024) {
+          const defaultDesktop = (localStorage.getItem("schedule:default_view_desktop") as "week" | "today") || "week";
+          setView(defaultDesktop);
+        } else {
+          setView("today");
+        }
+      } catch {}
+    };
+
+    window.addEventListener("schedule-settings-change", handleSettingsChange);
+    return () => window.removeEventListener("schedule-settings-change", handleSettingsChange);
   }, []);
 
   const toggleFocusMode = () => {
@@ -263,26 +280,6 @@ export default function HomePage() {
     return () => window.removeEventListener("classroom-synced", handleClassroomSynced);
   }, [groupId, fetchClassroomTasks]);
 
-  useEffect(() => {
-    try {
-      const sessionSaved = sessionStorage.getItem("schedule:view");
-      if (sessionSaved === "week" && window.innerWidth >= 1024) {
-        setView("week");
-        return;
-      }
-      if (sessionSaved === "today") {
-        setView("today");
-        return;
-      }
-      const localSaved = localStorage.getItem("schedule:view");
-      if (localSaved === "today") {
-        setView("today");
-      } else {
-        setView("today");
-        localStorage.setItem("schedule:view", "today");
-      }
-    } catch {}
-  }, []);
 
   // Context search modal state
   const [contextModalOpen, setContextModalOpen] = useState(false);
@@ -822,7 +819,7 @@ export default function HomePage() {
           const extracted = extractClassroomTasks(l.note);
           for (const t of extracted) {
             if (!t.url) continue;
-            if (isLinked && !isOwnTask(isLinked, submissions, t.url, t.teacher || l.teacher_name, personalTeachers, t.title)) {
+            if (!isOwnTask(isLinked, submissions, t.url, t.teacher || l.teacher_name, personalTeachers, t.title)) {
               continue;
             }
             if (!seenUrls.has(t.url)) {
@@ -873,7 +870,7 @@ export default function HomePage() {
       for (const ct of classroomTasks) {
         const url = ct.alternate_link || (ct as any).url;
         if (!url || seenUrls.has(url)) continue;
-        if (isLinked && !isOwnTask(isLinked, submissions, url, (ct as any).teacher, personalTeachers, ct.title)) {
+        if (!isOwnTask(isLinked, submissions, url, (ct as any).teacher, personalTeachers, ct.title)) {
           continue;
         }
         seenUrls.add(url);

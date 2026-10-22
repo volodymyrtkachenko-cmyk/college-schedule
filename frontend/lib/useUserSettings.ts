@@ -6,13 +6,11 @@ export interface UserSettings {
   showHomeworkBadges: boolean;
   defaultSubgroup: number | null; // 1, 2, or null (обидві/авто)
   defaultViewDesktop: "week" | "today";
-  defaultViewMobile: "today" | "week";
 }
 
 const HW_BADGES_KEY = "schedule:show_hw_badges";
 const SUBGROUP_KEY = "schedule_selected_subgroup";
 const VIEW_DESKTOP_KEY = "schedule:default_view_desktop";
-const VIEW_MOBILE_KEY = "schedule:default_view_mobile";
 const SETTINGS_CHANGE_EVENT = "schedule-settings-change";
 
 export function getUserSettings(): UserSettings {
@@ -21,7 +19,6 @@ export function getUserSettings(): UserSettings {
       showHomeworkBadges: true,
       defaultSubgroup: null,
       defaultViewDesktop: "week",
-      defaultViewMobile: "today",
     };
   }
 
@@ -43,17 +40,10 @@ export function getUserSettings(): UserSettings {
     if (val === "week" || val === "today") defaultViewDesktop = val;
   } catch {}
 
-  let defaultViewMobile: "today" | "week" = "today";
-  try {
-    const val = localStorage.getItem(VIEW_MOBILE_KEY);
-    if (val === "today" || val === "week") defaultViewMobile = val;
-  } catch {}
-
   return {
     showHomeworkBadges,
     defaultSubgroup,
     defaultViewDesktop,
-    defaultViewMobile,
   };
 }
 
@@ -91,8 +81,6 @@ export function useUserSettings() {
         }
       } else if (key === "defaultViewDesktop") {
         localStorage.setItem(VIEW_DESKTOP_KEY, String(value));
-      } else if (key === "defaultViewMobile") {
-        localStorage.setItem(VIEW_MOBILE_KEY, String(value));
       }
       window.dispatchEvent(new Event(SETTINGS_CHANGE_EVENT));
       window.dispatchEvent(new Event("storage"));

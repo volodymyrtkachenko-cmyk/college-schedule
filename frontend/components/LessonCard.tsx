@@ -720,8 +720,9 @@ export function LessonCard({
   const [isHwOpen, setIsHwOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [noteModalMode, setNoteModalMode] = useState<"edit" | "history" | null>(null);
-  const { settings } = useUserSettings();
+  const { settings, updateSetting } = useUserSettings();
   const showHw = settings.showHomeworkBadges;
+  const selectedSubgroup = settings.defaultSubgroup;
 
   const toggleHw = (e: React.MouseEvent | React.KeyboardEvent) => {
     e.stopPropagation();
@@ -739,32 +740,6 @@ export function LessonCard({
     return subscribeKyivNow(setNowState);
   }, []);
 
-  const [selectedSubgroup, setSelectedSubgroup] = useState<number | null>(null);
-
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem("schedule_selected_subgroup");
-      if (saved) {
-        const val = parseInt(saved, 10);
-        if (val === 1 || val === 2) setSelectedSubgroup(val);
-      }
-    } catch {}
-
-    const onStorage = () => {
-      try {
-        const saved = localStorage.getItem("schedule_selected_subgroup");
-        if (saved) {
-          const val = parseInt(saved, 10);
-          setSelectedSubgroup(val === 1 || val === 2 ? val : null);
-        } else {
-          setSelectedSubgroup(null);
-        }
-      } catch {}
-    };
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
-  }, []);
-
   const { isLinked, submissions, personalTeachers, personalSubgroup } = useClassroomSubmissions();
 
   const isTeacherView = scheduleMode === "teacher";
@@ -778,7 +753,8 @@ export function LessonCard({
     if (selectedSubgroup === 1 || selectedSubgroup === 2) {
       return selectedSubgroup;
     }
-    if (!isLinked || !isDualTeachers) return null;
+    if (!isDualTeachers) return null;
+    if (!isLinked) return null;
     if (personalSubgroup === 1 || personalSubgroup === 2) return personalSubgroup;
 
     const s0 = secondaryItems[0]?.name ? secondaryItems[0].name.split(/[\s.]+/)[0].toLowerCase() : "";
@@ -794,24 +770,16 @@ export function LessonCard({
     if (matches0 && !matches1) return 1;
     if (matches1 && !matches0) return 2;
     return null;
-  }, [selectedSubgroup, isLinked, isDualTeachers, personalSubgroup, secondaryItems, personalTeachers]);
+  }, [selectedSubgroup, isDualTeachers, isLinked, personalSubgroup, secondaryItems, personalTeachers]);
 
   const handleSubgroupToggle = (subIdx: number) => {
     let nextVal: number | null;
     if (isLinked) {
       nextVal = effectiveSubgroup === subIdx ? (subIdx === 1 ? 2 : 1) : subIdx;
     } else {
-      nextVal = selectedSubgroup === subIdx ? null : subIdx;
+      nextVal = effectiveSubgroup === subIdx ? null : subIdx;
     }
-    setSelectedSubgroup(nextVal);
-    try {
-      if (nextVal === null) {
-        localStorage.removeItem("schedule_selected_subgroup");
-      } else {
-        localStorage.setItem("schedule_selected_subgroup", String(nextVal));
-      }
-      window.dispatchEvent(new Event("storage"));
-    } catch {}
+    updateSetting("defaultSubgroup", nextVal);
   };
 
   const startMin = parseMinutes(startT);
@@ -849,19 +817,18 @@ export function LessonCard({
     [isTeacherView, canEdit, scheduleMode, lesson.note]
   );
   // Завдання іншої підгрупи та завдання, які здано, не показуються ТІЛЬКИ у користувача, який прив'язав пошту.
-  // Гість (не залогінений) бачить ВСІ завдання обох підгруп.
+  // Завдання іншої підгрупи та завдання, які здано, фільтруються відповідно до обраної підгрупи
   const tasks = useMemo(() => {
     const sorted = sortTasksByDeadline(rawTasks);
-    if (!isLinked) return sorted;
     return sorted.filter((t) => {
-      if (!isOwnTask(isLinked, submissions, t.url, t.teacher, personalTeachers, t.title)) {
+      if (!isOwnTask(isLinked, submissions, t.url, t.teacher, personalTeachers, t.title, effectiveSubgroup)) {
         return false;
       }
       const key = extractClassroomTaskKey(t.url);
       const sub = submissions[t.url] || (key ? submissions[key] : null);
       return !(isLinked && sub && (sub.state === "TURNED_IN" || sub.state === "RETURNED"));
     });
-  }, [rawTasks, isLinked, submissions, personalTeachers]);
+  }, [rawTasks, isLinked, submissions, personalTeachers, effectiveSubgroup]);
 
   const nearestDated = useMemo(() => {
     return tasks.find((t) => t.deadline.formattedDate || (t.deadline.day && t.deadline.month)) || null;
@@ -917,12 +884,12 @@ export function LessonCard({
 
   const singleSubgroupIdx = useMemo(() => {
     if (!isDualTeachers) return null;
-    if (isLinked && effectiveSubgroup !== null) {
+    if (effectiveSubgroup !== null) {
       const idx = effectiveSubgroup - 1;
       return idx >= 0 && idx < secondaryItems.length ? idx : null;
     }
     return null;
-  }, [isDualTeachers, isLinked, effectiveSubgroup, secondaryItems.length]);
+  }, [isDualTeachers, effectiveSubgroup, secondaryItems.length]);
 
   const isSingleSubgroupShown = singleSubgroupIdx !== null;
 
@@ -970,7 +937,7 @@ export function LessonCard({
     if (!isDualTeachers || tasks.length === 0) {
       return [{ teacher: null, items: tasks }];
     }
-    if (isLinked && effectiveSubgroup !== null) {
+    if (effectiveSubgroup !== null) {
       const myIdx = effectiveSubgroup - 1;
       const myTeacher = secondaryItems[myIdx]?.displayName || null;
       return [{ teacher: myTeacher, items: tasks }];
@@ -998,7 +965,7 @@ export function LessonCard({
     if (g1.length > 0) res.push({ teacher: secondaryItems[1].displayName, items: g1 });
     if (others.length > 0) res.push({ teacher: res.length > 0 ? "Інші завдання" : null, items: others });
     return res.length > 0 ? res : [{ teacher: null, items: tasks }];
-  }, [isDualTeachers, secondaryItems, tasks, isLinked, effectiveSubgroup]);
+  }, [isDualTeachers, secondaryItems, tasks, effectiveSubgroup]);
 
   const eventBadge = useMemo(
     () => getEventBadge(lesson.event_type, lesson.event_title),
@@ -1356,8 +1323,8 @@ export function LessonCard({
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); handleSubgroupToggle(singleSubgroupIdx + 1); }}
-                          title={isLinked ? `Ваша підгрупа ${singleSubgroupIdx + 1} (натисніть, щоб перемкнути)` : (selectedSubgroup === singleSubgroupIdx + 1 ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${singleSubgroupIdx + 1} підгрупу`)}
-                          aria-label={isLinked ? `Ваша підгрупа ${singleSubgroupIdx + 1} (натисніть, щоб перемкнути)` : (selectedSubgroup === singleSubgroupIdx + 1 ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${singleSubgroupIdx + 1} підгрупу`)}
+                          title={`Ваша підгрупа ${singleSubgroupIdx + 1} (натисніть, щоб скинути або перемкнути)`}
+                          aria-label={`Ваша підгрупа ${singleSubgroupIdx + 1} (натисніть, щоб скинути або перемкнути)`}
                           className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold border ${
                             singleSubgroupIdx === 0
                               ? "bg-sky-500/20 text-sky-400 font-bold border-sky-500/40"
@@ -1400,10 +1367,10 @@ export function LessonCard({
                       <div className="flex flex-col gap-2 w-full max-w-[520px]">
                         {secondaryItems.map((item, idx) => {
                           const subNum = idx + 1;
-                          if (isLinked && effectiveSubgroup !== null && effectiveSubgroup !== subNum) {
+                          if (effectiveSubgroup !== null && effectiveSubgroup !== subNum) {
                             return null;
                           }
-                          const isFaded = !isLinked && selectedSubgroup !== null && selectedSubgroup !== subNum;
+                          const isFaded = selectedSubgroup !== null && selectedSubgroup !== subNum;
                           const ownMeeting = teacherMeetings[idx];
                           const ownRoom = (idx === 0 ? lesson.teacher_room : lesson.second_teacher_room) || rooms[idx] || null;
                           return (
@@ -1417,10 +1384,10 @@ export function LessonCard({
                                 <button
                                   type="button"
                                   onClick={(e) => { e.stopPropagation(); handleSubgroupToggle(subNum); }}
-                                  title={isLinked ? `Ваша підгрупа ${subNum} (натисніть, щоб перемкнути)` : (selectedSubgroup === subNum ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${subNum} підгрупу`)}
-                                  aria-label={isLinked ? `Ваша підгрупа ${subNum} (натисніть, щоб перемкнути)` : (selectedSubgroup === subNum ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${subNum} підгрупу`)}
+                                  title={effectiveSubgroup === subNum ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${subNum} підгрупу`}
+                                  aria-label={effectiveSubgroup === subNum ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${subNum} підгрупу`}
                                   className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold transition-colors ${
-                                    (isLinked ? effectiveSubgroup === subNum : selectedSubgroup === subNum)
+                                    effectiveSubgroup === subNum
                                       ? subNum === 1
                                         ? "bg-sky-500/20 text-sky-400 font-bold border border-sky-500/40"
                                         : "bg-indigo-500/20 text-indigo-400 font-bold border border-indigo-500/40"
@@ -1929,8 +1896,8 @@ export function LessonCard({
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); handleSubgroupToggle(singleSubgroupIdx + 1); }}
-                    title={isLinked ? `Ваша підгрупа ${singleSubgroupIdx + 1} (натисніть, щоб перемкнути)` : (selectedSubgroup === singleSubgroupIdx + 1 ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${singleSubgroupIdx + 1} підгрупу`)}
-                    aria-label={isLinked ? `Ваша підгрупа ${singleSubgroupIdx + 1} (натисніть, щоб перемкнути)` : (selectedSubgroup === singleSubgroupIdx + 1 ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${singleSubgroupIdx + 1} підгрупу`)}
+                    title={`Ваша підгрупа ${singleSubgroupIdx + 1} (натисніть, щоб скинути або перемкнути)`}
+                    aria-label={`Ваша підгрупа ${singleSubgroupIdx + 1} (натисніть, щоб скинути або перемкнути)`}
                     className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold border ${
                       singleSubgroupIdx === 0
                         ? "bg-sky-500/20 text-sky-400 font-bold border-sky-500/40"
@@ -1973,10 +1940,10 @@ export function LessonCard({
                 <div className="flex flex-col gap-2 w-full">
                   {secondaryItems.map((item, idx) => {
                     const subNum = idx + 1;
-                    if (isLinked && effectiveSubgroup !== null && effectiveSubgroup !== subNum) {
+                    if (effectiveSubgroup !== null && effectiveSubgroup !== subNum) {
                       return null;
                     }
-                    const isFaded = !isLinked && selectedSubgroup !== null && selectedSubgroup !== subNum;
+                    const isFaded = selectedSubgroup !== null && selectedSubgroup !== subNum;
                     const ownMeeting = teacherMeetings[idx];
                     const ownRoom = (idx === 0 ? lesson.teacher_room : lesson.second_teacher_room) || rooms[idx] || null;
                     return (
@@ -1990,10 +1957,10 @@ export function LessonCard({
                           <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); handleSubgroupToggle(subNum); }}
-                            title={isLinked ? `Ваша підгрупа ${subNum} (натисніть, щоб перемкнути)` : (selectedSubgroup === subNum ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${subNum} підгрупу`)}
-                            aria-label={isLinked ? `Ваша підгрупа ${subNum} (натисніть, щоб перемкнути)` : (selectedSubgroup === subNum ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${subNum} підгрупу`)}
+                            title={effectiveSubgroup === subNum ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${subNum} підгрупу`}
+                            aria-label={effectiveSubgroup === subNum ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${subNum} підгрупу`}
                             className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold transition-colors ${
-                              (isLinked ? effectiveSubgroup === subNum : selectedSubgroup === subNum)
+                              effectiveSubgroup === subNum
                                 ? subNum === 1
                                   ? "bg-sky-500/20 text-sky-400 font-bold border border-sky-500/40"
                                   : "bg-indigo-500/20 text-indigo-400 font-bold border border-indigo-500/40"
@@ -2328,8 +2295,8 @@ export function LessonCard({
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); handleSubgroupToggle(singleSubgroupIdx + 1); }}
-                  title={isLinked ? `Ваша підгрупа ${singleSubgroupIdx + 1} (натисніть, щоб перемкнути)` : (selectedSubgroup === singleSubgroupIdx + 1 ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${singleSubgroupIdx + 1} підгрупу`)}
-                  aria-label={isLinked ? `Ваша підгрупа ${singleSubgroupIdx + 1} (натисніть, щоб перемкнути)` : (selectedSubgroup === singleSubgroupIdx + 1 ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${singleSubgroupIdx + 1} підгрупу`)}
+                  title={`Ваша підгрупа ${singleSubgroupIdx + 1} (натисніть, щоб скинути або перемкнути)`}
+                  aria-label={`Ваша підгрупа ${singleSubgroupIdx + 1} (натисніть, щоб скинути або перемкнути)`}
                   className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-bold border ${
                     singleSubgroupIdx === 0
                       ? "bg-sky-500/20 text-sky-400 border-sky-500/40"
@@ -2372,10 +2339,10 @@ export function LessonCard({
               <div className="flex flex-col gap-2 text-xs text-sys-text-secondary w-full mt-1">
                 {secondaryItems.map((item, idx) => {
                   const subNum = idx + 1;
-                  if (isLinked && effectiveSubgroup !== null && effectiveSubgroup !== subNum) {
+                  if (effectiveSubgroup !== null && effectiveSubgroup !== subNum) {
                     return null;
                   }
-                  const isFaded = !isLinked && selectedSubgroup !== null && selectedSubgroup !== subNum;
+                  const isFaded = selectedSubgroup !== null && selectedSubgroup !== subNum;
                   const ownMeeting = teacherMeetings[idx];
                   const ownRoom = (idx === 0 ? lesson.teacher_room : lesson.second_teacher_room) || rooms[idx] || null;
                   return (
@@ -2389,10 +2356,10 @@ export function LessonCard({
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); handleSubgroupToggle(subNum); }}
-                          title={isLinked ? `Ваша підгрупа ${subNum} (натисніть, щоб перемкнути)` : (selectedSubgroup === subNum ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${subNum} підгрупу`)}
-                          aria-label={isLinked ? `Ваша підгрупа ${subNum} (натисніть, щоб перемкнути)` : (selectedSubgroup === subNum ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${subNum} підгрупу`)}
+                          title={effectiveSubgroup === subNum ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${subNum} підгрупу`}
+                          aria-label={effectiveSubgroup === subNum ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${subNum} підгрупу`}
                           className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-semibold transition-colors ${
-                            (isLinked ? effectiveSubgroup === subNum : selectedSubgroup === subNum)
+                            effectiveSubgroup === subNum
                               ? subNum === 1
                                 ? "bg-sky-500/20 text-sky-400 font-bold border border-sky-500/40"
                                 : "bg-indigo-500/20 text-indigo-400 font-bold border border-indigo-500/40"

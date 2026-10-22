@@ -187,14 +187,14 @@ export default function SettingsPage() {
           <div className="space-y-2 py-1">
             <div className="flex items-center justify-between">
               <span className="font-semibold text-xs sm:text-sm text-sys-text-primary">
-                Формат при відкритті на комп&apos;ютері
+                Початковий вигляд розкладу на ПК
               </span>
               <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold bg-sys-bg text-sys-text-secondary border border-sys-border">
-                ПК / Планшет
+                ПК / Планшет (від 1024px)
               </span>
             </div>
             <p className="text-xs text-sys-text-secondary">
-              Який вигляд розкладу показувати першим на великих екранах.
+              Оберіть, який вигляд відкривати за замовчуванням на великих екранах. На смартфонах завжди відкривається оптимізований денний розклад (DayPager).
             </p>
             <div className="grid grid-cols-2 gap-1.5 rounded-xl border border-sys-border bg-sys-bg p-1 text-xs">
               <button
@@ -218,47 +218,6 @@ export default function SettingsPage() {
                 }`}
               >
                 День
-              </button>
-            </div>
-          </div>
-
-          <div className="h-px bg-sys-border/40" />
-
-          {/* Setting: Default view Mobile */}
-          <div className="space-y-2 py-1">
-            <div className="flex items-center justify-between">
-              <span className="font-semibold text-xs sm:text-sm text-sys-text-primary">
-                Формат при відкритті на телефоні
-              </span>
-              <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold bg-sys-bg text-sys-text-secondary border border-sys-border">
-                Телефон
-              </span>
-            </div>
-            <p className="text-xs text-sys-text-secondary">
-              Зручний денний пейджер зі свайпами або повна тижнева сітка.
-            </p>
-            <div className="grid grid-cols-2 gap-1.5 rounded-xl border border-sys-border bg-sys-bg p-1 text-xs">
-              <button
-                type="button"
-                onClick={() => updateSetting("defaultViewMobile", "today")}
-                className={`py-1.5 px-2 rounded-lg font-semibold text-center transition-all ${
-                  settings.defaultViewMobile === "today"
-                    ? "bg-sys-accent text-white shadow-xs"
-                    : "text-sys-text-secondary hover:text-sys-text-primary"
-                }`}
-              >
-                День (рекомендовано)
-              </button>
-              <button
-                type="button"
-                onClick={() => updateSetting("defaultViewMobile", "week")}
-                className={`py-1.5 px-2 rounded-lg font-semibold text-center transition-all ${
-                  settings.defaultViewMobile === "week"
-                    ? "bg-sys-accent text-white shadow-xs"
-                    : "text-sys-text-secondary hover:text-sys-text-primary"
-                }`}
-              >
-                Тиждень
               </button>
             </div>
           </div>

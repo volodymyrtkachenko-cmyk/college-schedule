@@ -120,19 +120,18 @@ export function isOwnTask(
   url: string | null | undefined,
   taskTeacher?: string | null,
   personalTeachers?: string[],
-  taskTitle?: string | null
+  taskTitle?: string | null,
+  explicitSubgroup?: number | null
 ): boolean {
-  if (!isLinked) return true;
-
-  let userSubgroup: number | null = getPersonalSubgroup();
+  let userSubgroup: number | null = explicitSubgroup ?? (isLinked ? getPersonalSubgroup() : null);
   if (!userSubgroup && typeof window !== "undefined") {
     try {
       const sel = localStorage.getItem("schedule_selected_subgroup");
       if (sel === "1" || sel === "2") userSubgroup = parseInt(sel, 10);
     } catch {}
   }
-  const pJoined = (personalTeachers || []).join(" ").toLowerCase();
-  if (!userSubgroup) {
+  if (!userSubgroup && isLinked) {
+    const pJoined = (personalTeachers || []).join(" ").toLowerCase();
     if (pJoined.includes("токар") && !pJoined.includes("хочин")) {
       userSubgroup = 1;
     } else if (pJoined.includes("хочин") && !pJoined.includes("токар")) {
@@ -175,6 +174,8 @@ export function isOwnTask(
     if (userSubgroup === 1 && isSub2Task && !isSub1Task) return false;
     if (userSubgroup === 2 && isSub1Task && !isSub2Task) return false;
   }
+
+  if (!isLinked) return true;
 
   // Якщо користувач прив'язав акаунт і в нього є завантажені персональні завдання:
   // якщо викладач показав роботу не для всіх (індивідуально чи іншій підгрупі),
