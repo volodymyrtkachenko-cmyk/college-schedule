@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { ClassroomTaskItem, getTaskStatusText } from "./LessonCard";
 import { ClassroomSyncButton } from "./ClassroomSyncButton";
 import { useClassroomSubmissions } from "../lib/useClassroomSubmissions";
-import { useTaskGroups, formatTaskWord, TaskFilterState, DEFAULT_TASK_FILTERS } from "../lib/useTaskGroups";
+import { useTaskGroups, TaskFilterState, DEFAULT_TASK_FILTERS } from "../lib/useTaskGroups";
 import { TaskFilters } from "./TaskFilters";
 
 export interface FullTaskItem {
@@ -90,8 +90,6 @@ export function MobileTasksView({
     }
   }, [lastSyncedAt]);
 
-  const countNoun = formatTaskWord(totalCount);
-
   return (
     <div className="w-full min-w-0 pb-20 px-4 pt-3">
       {/* Header */}
@@ -100,21 +98,13 @@ export function MobileTasksView({
           <h2 className="text-xl font-bold tracking-tight text-sys-text-primary">
             Завдання Classroom
           </h2>
-          <div className="flex items-center gap-2 mt-0.5">
-            <p className="text-xs text-sys-text-secondary">
-              {scope === "week"
-                ? `${totalCount} ${countNoun} на цьому тижні`
-                : `${totalCount} ${countNoun} загалом`}
-            </p>
-            {formattedSyncTime && (
-              <>
-                <span className="text-slate-600 text-xs">•</span>
-                <span className="text-xs text-sys-text-muted">
-                  дані від {formattedSyncTime}
-                </span>
-              </>
-            )}
-          </div>
+          {formattedSyncTime && (
+            <div className="flex items-center gap-2 mt-0.5">
+              <p className="text-xs text-sys-text-muted">
+                Синхронізовано · {formattedSyncTime}
+              </p>
+            </div>
+          )}
         </div>
 
         {groupId && (

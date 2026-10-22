@@ -592,7 +592,11 @@ export function buildTelegramShareText(
     if (item.meetings.length > 0) {
       const m = item.meetings[0];
       const name = m.platform === "zoom" ? "Zoom" : m.platform === "meet" ? "Meet" : "Онлайн";
-      parts.push(`💻 ${name}: ${m.url}`);
+      if (m.isProtected || !m.url) {
+        parts.push(`💻 🔒 ${name}`);
+      } else {
+        parts.push(`💻 ${name}: ${m.url}`);
+      }
     }
 
     const detailsLine = parts.length > 0 ? `\n   ${parts.join(" • ")}` : "";

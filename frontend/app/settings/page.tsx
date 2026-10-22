@@ -65,10 +65,6 @@ export default function SettingsPage() {
             </svg>
             <span>До розкладу</span>
           </Link>
-          <div className="flex items-center gap-1.5 text-xs text-sys-text-muted">
-            <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
-            <span>PWA v2.4</span>
-          </div>
         </div>
       </header>
 
@@ -83,7 +79,7 @@ export default function SettingsPage() {
             <span>Налаштування</span>
           </h1>
           <p className="mt-1 text-xs sm:text-sm text-sys-text-secondary">
-            Персоналізація інтерфейсу розкладу, кастомізація занять та параметри застосунку
+            Параметри розкладу, інтерфейсу та застосунку
           </p>
         </div>
 
@@ -108,8 +104,7 @@ export default function SettingsPage() {
                 </span>
               </div>
               <p className="text-xs text-sys-text-secondary leading-relaxed">
-                Відображати мітки домашніх завдань (1 ДЗ, 3 ДЗ) безпосередньо всередині карток.
-                Вимкніть для максимально простого і чистого розкладу.
+                Мітки домашніх завдань у картках занять.
               </p>
             </div>
             <button
@@ -142,7 +137,7 @@ export default function SettingsPage() {
               </span>
             </div>
             <p className="text-xs text-sys-text-secondary">
-              Автоматично виділяти заняття обраної підгрупи для пар, де група ділиться на двох викладачів.
+              Автоматичний вибір для пар із поділом на підгрупи.
             </p>
             <div className="grid grid-cols-3 gap-1.5 rounded-xl border border-sys-border bg-sys-bg p-1 text-xs">
               <button
@@ -181,10 +176,10 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          <div className="h-px bg-sys-border/40" />
+          <div className="h-px bg-sys-border/40 hidden lg:block" />
 
           {/* Setting: Default view Desktop */}
-          <div className="space-y-2 py-1">
+          <div className="space-y-2 py-1 hidden lg:block">
             <div className="flex items-center justify-between">
               <span className="font-semibold text-xs sm:text-sm text-sys-text-primary">
                 Початковий вигляд розкладу на ПК
@@ -194,7 +189,7 @@ export default function SettingsPage() {
               </span>
             </div>
             <p className="text-xs text-sys-text-secondary">
-              Оберіть, який вигляд відкривати за замовчуванням на великих екранах. На смартфонах завжди відкривається оптимізований денний розклад (DayPager).
+              Стартовий режим для великих екранів.
             </p>
             <div className="grid grid-cols-2 gap-1.5 rounded-xl border border-sys-border bg-sys-bg p-1 text-xs">
               <button
@@ -231,9 +226,6 @@ export default function SettingsPage() {
               Тема оформлення
             </h2>
           </div>
-          <p className="text-xs text-sys-text-secondary">
-            Оберіть кольорову гаму інтерфейсу. Перемикання тем плавне та адаптоване для очей.
-          </p>
           <div className="grid grid-cols-3 gap-2 rounded-xl border border-sys-border bg-sys-bg p-1 text-xs font-semibold">
             <button
               type="button"
@@ -317,7 +309,7 @@ export default function SettingsPage() {
             </div>
           </div>
           <p className="text-xs text-sys-text-secondary leading-relaxed">
-            Прив&apos;язка Google-пошти дозволяє автоматично показувати оцінки, здані роботи та ваші дедлайни.
+            Доступ до дзвінків, персональних оцінок та завдань.
           </p>
         </section>
 
@@ -332,7 +324,7 @@ export default function SettingsPage() {
 
           {pins.length === 0 ? (
             <p className="text-xs text-sys-text-secondary">
-              У вас немає закріплених розкладів. Натискайте зірочку біля селектора групи або викладача на головній сторінці для швидкого доступу.
+              Немає закріплених розкладів. Натискайте зірочку біля селектора для збереження.
             </p>
           ) : (
             <div className="space-y-1.5">
@@ -396,12 +388,12 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        {/* Section 6: Адміністрування */}
+        {/* Section 6: Вхід для адміністрації */}
         <section className="rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-xs space-y-3">
           <div className="flex items-center gap-2 pb-2 border-b border-sys-border/60">
             <span className="text-base">🛡️</span>
             <h2 className="text-sm font-bold uppercase tracking-wider text-sys-text-muted">
-              Адміністрування
+              Вхід для адміністрації
             </h2>
           </div>
 
@@ -424,7 +416,7 @@ export default function SettingsPage() {
                 href="/admin"
                 className="flex items-center justify-center gap-2 rounded-xl bg-sys-accent px-4 py-2.5 text-xs font-bold text-white hover:bg-sys-accent/90 transition-colors"
               >
-                <span>Перейти в панель керування розкладом</span>
+                <span>Панель керування розкладом</span>
                 <span>→</span>
               </Link>
             </div>
@@ -434,8 +426,8 @@ export default function SettingsPage() {
               className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 p-3 text-xs hover:border-sys-accent/40 hover:bg-sys-accent/5 transition-all group"
             >
               <div className="space-y-0.5">
-                <div className="font-semibold text-sys-text-primary">Вхід для викладачів та адміністраторів</div>
-                <div className="text-[11px] text-sys-text-secondary">Редагування розкладу, замін та чернеток</div>
+                <div className="font-semibold text-sys-text-primary">Вхід для адміністрації</div>
+                <div className="text-[11px] text-sys-text-secondary">Керування розкладом та чернетками</div>
               </div>
               <span className="text-sys-accent font-bold group-hover:translate-x-0.5 transition-transform">→</span>
             </Link>

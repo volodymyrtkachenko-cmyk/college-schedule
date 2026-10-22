@@ -558,9 +558,11 @@ export function getVisibleUserNote(note?: string | null): string {
     .map((line) => {
       const trimmed = line.trim();
       if (trimmed.startsWith("[TASK")) return "";
+      if (trimmed.includes("🔒") || trimmed.includes("[🔒")) return "";
       if (/https?:\/\/classroom\.google\.com\//i.test(trimmed)) return "";
       // ВАЖЛИВО: без \b перед кирилицею, бо в JS \b працює лише для латиниці!
       const cleaned = line
+        .replace(/\[🔒[^\]]*\]/gi, "")
         .replace(/https?:\/\/(?:meet\.google\.com|[a-z0-9.-]*zoom\.us)\/[^\s|]+/gi, "")
         .replace(/(?:Ідентифікатор(?:\s+конференції)?|Meeting\s*ID|ID)\s*[:\-]?\s*[\d\s\-]+/gi, "")
         .replace(/(?:Код(?:\s+доступ[уа])?|Passcode|Пароль)\s*[:\-]?\s*[A-Za-zА-Яа-яІіЇїЄєҐґ0-9_.\-]+/gi, "")
@@ -569,6 +571,7 @@ export function getVisibleUserNote(note?: string | null): string {
         .replace(/^[-—_|~*=]{1,5}$/g, "")
         .replace(/\|/g, " ")
         .trim();
+      if (cleaned.includes("🔒")) return "";
       return cleaned;
     })
     .filter(Boolean)
@@ -683,7 +686,7 @@ function LockedMeetingBadge({
       onClick={onClick}
       title="Онлайн-заняття. Прив'яжіть студентський Classroom цієї групи для доступу до дзвінка"
       aria-label="Онлайн-заняття. Прив'яжіть студентський Classroom цієї групи для доступу до дзвінка"
-      className={`inline-flex shrink-0 items-center border border-amber-500/40 bg-amber-500/10 text-amber-300 dark:text-amber-200 font-bold whitespace-nowrap hover:bg-amber-500/20 active:scale-95 transition-all shadow-xs cursor-pointer ${sizeClasses}`}
+      className={`inline-flex shrink-0 items-center border border-amber-500/40 dark:border-amber-500/30 bg-amber-500/15 dark:bg-amber-500/10 text-amber-800 dark:text-amber-200 font-bold whitespace-nowrap hover:bg-amber-500/25 dark:hover:bg-amber-500/20 active:scale-95 transition-all shadow-xs cursor-pointer ${sizeClasses}`}
     >
       <span className="text-[12px]">🔒</span>
       <span>{label}</span>
@@ -1549,7 +1552,7 @@ export function LessonCard({
                               </div>
                               {ownMeeting ? (
                                 !hasGroupAccess ? (
-                                  <LockedMeetingBadge size="compact" onClick={handleLockedMeetingClick} />
+                                  <LockedMeetingBadge platform={ownMeeting.platform} size="compact" onClick={handleLockedMeetingClick} />
                                 ) : (
                                   <a
                                     href={ownMeeting.url}
@@ -1615,7 +1618,7 @@ export function LessonCard({
                   )}
                   {deskMeeting ? (
                     !hasGroupAccess ? (
-                      <LockedMeetingBadge size="normal" onClick={handleLockedMeetingClick} />
+                      <LockedMeetingBadge platform={deskMeeting.platform} size="normal" onClick={handleLockedMeetingClick} />
                     ) : (
                       <a
                         href={deskMeeting.url}
@@ -1632,7 +1635,7 @@ export function LessonCard({
                       </a>
                     )
                   ) : (!isDualTeachers || isSingleSubgroupShown) && !hasGroupAccess && (lesson.has_protected_link || (lesson.is_online && displayRooms.length === 0)) ? (
-                    <LockedMeetingBadge size="normal" onClick={handleLockedMeetingClick} />
+                    <LockedMeetingBadge platform={meetings[0]?.platform} size="normal" onClick={handleLockedMeetingClick} />
                   ) : null}
                 </div>
 
@@ -1987,7 +1990,7 @@ export function LessonCard({
                   )}
                   {mobileMeeting ? (
                     !hasGroupAccess ? (
-                      <LockedMeetingBadge size="normal" onClick={handleLockedMeetingClick} />
+                      <LockedMeetingBadge platform={mobileMeeting.platform} size="normal" onClick={handleLockedMeetingClick} />
                     ) : (
                       <a
                         href={mobileMeeting.url}
@@ -2004,7 +2007,7 @@ export function LessonCard({
                       </a>
                     )
                   ) : !hasGroupAccess && (lesson.has_protected_link || (lesson.is_online && displayRooms.length === 0)) ? (
-                    <LockedMeetingBadge size="normal" onClick={handleLockedMeetingClick} />
+                    <LockedMeetingBadge platform={meetings[0]?.platform} size="normal" onClick={handleLockedMeetingClick} />
                   ) : null}
                 </div>
               ) : null}
@@ -2138,7 +2141,7 @@ export function LessonCard({
                         </div>
                         {ownMeeting ? (
                           !hasGroupAccess ? (
-                            <LockedMeetingBadge size="compact" onClick={handleLockedMeetingClick} />
+                            <LockedMeetingBadge platform={ownMeeting.platform} size="compact" onClick={handleLockedMeetingClick} />
                           ) : (
                             <a
                               href={ownMeeting.url}
@@ -2168,7 +2171,7 @@ export function LessonCard({
                   {row3Meetings[0] && (
                     <div className="flex justify-end w-full pt-0.5">
                       {!hasGroupAccess ? (
-                        <LockedMeetingBadge size="compact" onClick={handleLockedMeetingClick} />
+                        <LockedMeetingBadge platform={row3Meetings[0]?.platform || meetings[0]?.platform} size="compact" onClick={handleLockedMeetingClick} />
                       ) : (
                         <a
                           href={row3Meetings[0].url}
@@ -2211,7 +2214,7 @@ export function LessonCard({
               )}
               {mobileMeeting ? (
                 !hasGroupAccess ? (
-                  <LockedMeetingBadge size="normal" onClick={handleLockedMeetingClick} />
+                  <LockedMeetingBadge platform={mobileMeeting.platform} size="normal" onClick={handleLockedMeetingClick} />
                 ) : (
                   <a
                     href={mobileMeeting.url}
@@ -2228,7 +2231,7 @@ export function LessonCard({
                   </a>
                 )
               ) : !hasGroupAccess && (lesson.has_protected_link || (lesson.is_online && displayRooms.length === 0)) ? (
-                <LockedMeetingBadge size="normal" onClick={handleLockedMeetingClick} />
+                <LockedMeetingBadge platform={meetings[0]?.platform} size="normal" onClick={handleLockedMeetingClick} />
               ) : null}
             </div>
           )}

@@ -19,7 +19,7 @@ import dynamic from "next/dynamic";
 const WelcomeScreen = dynamic(() => import("../components/WelcomeScreen").then((m) => m.WelcomeScreen), { ssr: false });
 import { BottomNav, MobileTab } from "../components/BottomNav";
 import { MobileTasksView, FullTaskItem, renderTaskCard } from "../components/MobileTasksView";
-import { useTaskGroups, formatTaskWord, TaskFilterState, DEFAULT_TASK_FILTERS } from "../lib/useTaskGroups";
+import { useTaskGroups, TaskFilterState, DEFAULT_TASK_FILTERS } from "../lib/useTaskGroups";
 import { TaskFilters } from "../components/TaskFilters";
 import { SearchableSelect } from "../components/SearchableSelect";
 import { ClassroomSyncButton } from "../components/ClassroomSyncButton";
@@ -1825,21 +1825,13 @@ export default function HomePage() {
                             </div>
                           </div>
 
-                          <div className="mt-1 flex items-center gap-2">
-                            <p className="text-xs text-sys-text-secondary">
-                              {tasksScope === "week"
-                                ? `${sidebarTaskGroups.totalCount} ${formatTaskWord(sidebarTaskGroups.totalCount)} на цьому тижні`
-                                : `${sidebarTaskGroups.totalCount} ${formatTaskWord(sidebarTaskGroups.totalCount)} загалом`}
-                            </p>
-                            {formattedSyncTime && (
-                              <>
-                                <span className="text-slate-600 text-xs">•</span>
-                                <span className="text-xs text-sys-text-muted">
-                                  дані від {formattedSyncTime}
-                                </span>
-                              </>
-                            )}
-                          </div>
+                          {formattedSyncTime && (
+                            <div className="mt-1 flex items-center gap-2">
+                              <span className="text-xs text-sys-text-muted">
+                                Синхронізовано · {formattedSyncTime}
+                              </span>
+                            </div>
+                          )}
 
                           {/* Week Switcher & Scope Segment (Section 22.1) */}
                           {hasGroupTaskAccess && (
