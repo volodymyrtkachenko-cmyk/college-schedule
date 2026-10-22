@@ -29,6 +29,7 @@ import { QuickJumpTarget, findGroupIdByName, findTeacherIdByName } from "../lib/
 import { extractClassroomTaskKey, isOwnTask, useClassroomSubmissions } from "../lib/useClassroomSubmissions";
 import { shareWeekScheduleAsImage } from "../lib/shareImage";
 import { useTheme } from "../lib/useTheme";
+import { normalizeSubjectName } from "../lib/format";
 
 const UK_SHORT_WEEKDAY_FMT = new Intl.DateTimeFormat("uk-UA", { weekday: "short" });
 
@@ -866,9 +867,10 @@ export default function HomePage() {
                 ? new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(t.deadline.date)
                 : null;
 
+              const cleanSubj = normalizeSubjectName(l.subject_name || l.subject || "Дисципліна");
               tasks.push({
                 title: t.title || "Завдання",
-                subject: l.subject_name || l.subject,
+                subject: cleanSubj,
                 teacher: t.teacher || l.teacher_name || l.teacher,
                 label: t.label,
                 url: t.url,
@@ -926,10 +928,13 @@ export default function HomePage() {
           };
         }
 
+        const rawSubj = (ct as any).subject || ct.course_name || "";
+        const cleanSubj = normalizeSubjectName(rawSubj) || "Дисципліна";
+
         tasks.push({
           id: ct.id,
           title: ct.title || "Завдання",
-          subject: ct.course_name,
+          subject: cleanSubj,
           label: ct.due_date ? `до ${ct.due_date}` : "",
           url,
           deadline,
@@ -1989,9 +1994,9 @@ export default function HomePage() {
                                 <section>
                                   <button
                                     type="button"
-                                    onClick={() => setSidebarPastWeekOpen(!(sidebarPastWeekOpen || sidebarTaskFilters.status === "overdue"))}
+                                    onClick={() => setSidebarPastWeekOpen(!(sidebarPastWeekOpen || sidebarTaskFilters.status === "overdue" || Boolean(sidebarTaskFilters.subject)))}
                                     className="mb-2 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
-                                    aria-expanded={sidebarPastWeekOpen || sidebarTaskFilters.status === "overdue"}
+                                    aria-expanded={sidebarPastWeekOpen || sidebarTaskFilters.status === "overdue" || Boolean(sidebarTaskFilters.subject)}
                                   >
                                     <div className="flex items-center gap-2">
                                       <span className={`h-2 w-2 rounded-full shadow-xs ${isLinked ? "bg-rose-500" : "bg-slate-500"}`} />
@@ -2000,10 +2005,10 @@ export default function HomePage() {
                                       </h4>
                                     </div>
                                     <span className="text-xs text-sys-text-muted">
-                                      {sidebarPastWeekOpen || sidebarTaskFilters.status === "overdue" ? "Згорнути ▴" : "Показати ▾"}
+                                      {sidebarPastWeekOpen || sidebarTaskFilters.status === "overdue" || Boolean(sidebarTaskFilters.subject) ? "Згорнути ▴" : "Показати ▾"}
                                     </span>
                                   </button>
-                                  {(sidebarPastWeekOpen || sidebarTaskFilters.status === "overdue") && (
+                                  {(sidebarPastWeekOpen || sidebarTaskFilters.status === "overdue" || Boolean(sidebarTaskFilters.subject)) && (
                                     <div className="space-y-2 animate-in fade-in duration-150">
                                       {sidebarTaskGroups.pastWeekTasks.map((t, idx) => renderTaskCard(t, `sb-past-${idx}`, isLinked))}
                                     </div>
@@ -2016,9 +2021,9 @@ export default function HomePage() {
                                 <section>
                                   <button
                                     type="button"
-                                    onClick={() => setSidebarUserToggledOverdue(!sidebarOverdueOpen)}
+                                    onClick={() => setSidebarUserToggledOverdue(!(sidebarOverdueOpen || sidebarTaskFilters.status === "overdue" || Boolean(sidebarTaskFilters.subject)))}
                                     className="mb-2 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
-                                    aria-expanded={sidebarOverdueOpen}
+                                    aria-expanded={sidebarOverdueOpen || sidebarTaskFilters.status === "overdue" || Boolean(sidebarTaskFilters.subject)}
                                   >
                                     <div className="flex items-center gap-2">
                                       <span
@@ -2037,10 +2042,10 @@ export default function HomePage() {
                                       </h4>
                                     </div>
                                     <span className="text-xs text-sys-text-muted">
-                                      {sidebarOverdueOpen ? "Згорнути ▴" : "Показати ▾"}
+                                      {sidebarOverdueOpen || sidebarTaskFilters.status === "overdue" || Boolean(sidebarTaskFilters.subject) ? "Згорнути ▴" : "Показати ▾"}
                                     </span>
                                   </button>
-                                  {sidebarOverdueOpen && (
+                                  {(sidebarOverdueOpen || sidebarTaskFilters.status === "overdue" || Boolean(sidebarTaskFilters.subject)) && (
                                     <div className="space-y-2 animate-in fade-in duration-150">
                                       {sidebarTaskGroups.overdueTasks.map((t, idx) => renderTaskCard(t, `sb-overdue-${idx}`, isLinked))}
                                     </div>
@@ -2080,9 +2085,9 @@ export default function HomePage() {
                                 <section>
                                   <button
                                     type="button"
-                                    onClick={() => setSidebarNoDateOpen(!sidebarNoDateOpen)}
+                                    onClick={() => setSidebarNoDateOpen(!(sidebarNoDateOpen || (sidebarTaskFilters.status === "pending" && sidebarTaskGroups.activeTasks.length === 0) || Boolean(sidebarTaskFilters.subject)))}
                                     className="mb-2 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
-                                    aria-expanded={sidebarNoDateOpen}
+                                    aria-expanded={sidebarNoDateOpen || (sidebarTaskFilters.status === "pending" && sidebarTaskGroups.activeTasks.length === 0) || Boolean(sidebarTaskFilters.subject)}
                                   >
                                     <div className="flex items-center gap-2">
                                       <span className="h-2 w-2 rounded-full bg-slate-400 shadow-xs" />
@@ -2091,10 +2096,10 @@ export default function HomePage() {
                                       </h4>
                                     </div>
                                     <span className="text-xs text-sys-text-muted">
-                                      {sidebarNoDateOpen ? "Згорнути ▴" : "Показати ▾"}
+                                      {sidebarNoDateOpen || (sidebarTaskFilters.status === "pending" && sidebarTaskGroups.activeTasks.length === 0) || Boolean(sidebarTaskFilters.subject) ? "Згорнути ▴" : "Показати ▾"}
                                     </span>
                                   </button>
-                                  {sidebarNoDateOpen && (
+                                  {(sidebarNoDateOpen || (sidebarTaskFilters.status === "pending" && sidebarTaskGroups.activeTasks.length === 0) || Boolean(sidebarTaskFilters.subject)) && (
                                     <div className="space-y-2 animate-in fade-in duration-150">
                                       {sidebarTaskGroups.noDateTasks.map((t, idx) => renderTaskCard(t, `sb-nodate-${idx}`, isLinked))}
                                     </div>
@@ -2142,8 +2147,15 @@ export default function HomePage() {
                           ) : (
                             <div className="py-8 text-center text-sys-text-muted">
                               <p className="text-sm font-semibold text-sys-text-primary">
-                                {tasksScope === "week" ? "На цьому тижні завдань немає" : "Завдань немає"}
+                                {sidebarTaskFilters.status !== "all" || sidebarTaskFilters.subject
+                                  ? "Нічого не знайдено за вибраними фільтрами"
+                                  : tasksScope === "week"
+                                    ? "На цьому тижні завдань немає"
+                                    : "Завдань немає"}
                               </p>
+                              {tasksScope === "week" && (sidebarTaskFilters.status !== "all" || sidebarTaskFilters.subject) && allTasks.length > 0 && (
+                                <p className="mt-1 text-xs">Спробуйте «Переглянути всі» або скиньте фільтри</p>
+                              )}
                               {tasksScope === "week" && (
                                 <button
                                   type="button"

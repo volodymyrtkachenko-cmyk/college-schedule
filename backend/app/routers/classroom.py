@@ -1518,12 +1518,18 @@ async def perform_course_sync(
                     title_norm = _norm(title_raw)
                     combined_cw_text = f"{topic_norm} {title_norm} {course_title_norm}".strip()
 
+                    course_clean = re.sub(
+                        r"\s*[\(\[]\s*(?:гр(?:упа|\.)?\s*)?\d{1,3}[\s\-_–—]?(?:[А-Яа-яA-Za-z]+)?\s*[\)\]]",
+                        "",
+                        course_title,
+                        flags=re.IGNORECASE,
+                    ).strip()
                     task_entry = {
                         "id": cw_id,
                         "course_id": course_id,
-                        "course_name": course_title,
+                        "course_name": course_clean or course_title,
                         "title": title_raw,
-                        "subject": course.get("name", "") or course_title,
+                        "subject": course_clean or course.get("name", "") or course_title,
                         "teacher": matched_teacher_name or (task_author_tokens[0] if task_author_tokens else None),
                         "due_date": due_date.isoformat() if due_date else None,
                         "created_at": created_dt.isoformat(),
@@ -1595,6 +1601,7 @@ async def perform_course_sync(
                         "course_title_norm": course_title_norm,
                         "combined_text": combined_cw_text,
                         "author_tokens": list(set(task_author_tokens)),
+                        "task_entry": task_entry,
                     })
 
     # КРОК 1b: Smart Merge для старих [TASK] та посилань Meet/Zoom.
@@ -1743,6 +1750,10 @@ async def perform_course_sync(
                 "reason": "Не знайдено відповідної пари в розкладі (предмет або викладач не збіглися)",
             })
             continue
+
+        if target_lesson and getattr(target_lesson, "subject_name", None) and cw_item.get("task_entry"):
+            cw_item["task_entry"]["subject"] = target_lesson.subject_name
+            cw_item["task_entry"]["course_name"] = target_lesson.subject_name
 
         teacher_badge = _resolve_matched_teacher_surname(
             target_lesson, author_tokens, combined_cw_text, db_teachers
@@ -2872,7 +2883,7 @@ async def get_classroom_group_status(
                 reconstructed.append({
                     "id": url_part,
                     "course_id": binding.course_id if binding else "",
-                    "course_name": binding.course_name if binding else "",
+                    "course_name": subj or (binding.course_name if binding else "Дисципліна"),
                     "title": title_clean or "Завдання",
                     "subject": subj,
                     "teacher": teacher,

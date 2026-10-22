@@ -286,9 +286,9 @@ export function MobileTasksView({
             <section>
               <button
                 type="button"
-                onClick={() => setPastWeekOpen(!(pastWeekOpen || filters.status === "overdue"))}
+                onClick={() => setPastWeekOpen(!(pastWeekOpen || filters.status === "overdue" || Boolean(filters.subject)))}
                 className="mb-2.5 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
-                aria-expanded={pastWeekOpen || filters.status === "overdue"}
+                aria-expanded={pastWeekOpen || filters.status === "overdue" || Boolean(filters.subject)}
               >
                 <div className="flex items-center gap-2">
                   <span className={`h-2 w-2 rounded-full shadow-xs ${isLinked ? "bg-rose-500" : "bg-slate-500"}`} />
@@ -297,10 +297,10 @@ export function MobileTasksView({
                   </h3>
                 </div>
                 <span className="text-xs text-sys-text-muted">
-                  {pastWeekOpen || filters.status === "overdue" ? "Згорнути ▴" : "Показати ▾"}
+                  {pastWeekOpen || filters.status === "overdue" || Boolean(filters.subject) ? "Згорнути ▴" : "Показати ▾"}
                 </span>
               </button>
-              {(pastWeekOpen || filters.status === "overdue") && (
+              {(pastWeekOpen || filters.status === "overdue" || Boolean(filters.subject)) && (
                 <div className="space-y-2 animate-in fade-in duration-150">
                   {pastWeekTasks.map((t, idx) => renderTaskCard(t, `past-${idx}`, isLinked))}
                 </div>
@@ -313,9 +313,9 @@ export function MobileTasksView({
             <section>
               <button
                 type="button"
-                onClick={() => setUserToggledOverdue(!overdueOpen)}
+                onClick={() => setUserToggledOverdue(!(overdueOpen || filters.status === "overdue" || Boolean(filters.subject)))}
                 className="mb-2.5 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
-                aria-expanded={overdueOpen}
+                aria-expanded={overdueOpen || filters.status === "overdue" || Boolean(filters.subject)}
               >
                 <div className="flex items-center gap-2">
                   <span
@@ -334,10 +334,10 @@ export function MobileTasksView({
                   </h3>
                 </div>
                 <span className="text-xs text-sys-text-muted">
-                  {overdueOpen ? "Згорнути ▴" : "Показати ▾"}
+                  {overdueOpen || filters.status === "overdue" || Boolean(filters.subject) ? "Згорнути ▴" : "Показати ▾"}
                 </span>
               </button>
-              {overdueOpen && (
+              {(overdueOpen || filters.status === "overdue" || Boolean(filters.subject)) && (
                 <div className="space-y-2 animate-in fade-in duration-150">
                   {overdueTasks.map((t, idx) => renderTaskCard(t, `overdue-${idx}`, isLinked))}
                 </div>
@@ -377,9 +377,9 @@ export function MobileTasksView({
             <section>
               <button
                 type="button"
-                onClick={() => setNoDateOpen(!noDateOpen)}
+                onClick={() => setNoDateOpen(!(noDateOpen || (filters.status === "pending" && activeTasks.length === 0) || Boolean(filters.subject)))}
                 className="mb-2.5 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
-                aria-expanded={noDateOpen}
+                aria-expanded={noDateOpen || (filters.status === "pending" && activeTasks.length === 0) || Boolean(filters.subject)}
               >
                 <div className="flex items-center gap-2">
                   <span className="h-2 w-2 rounded-full bg-slate-400 shadow-xs" />
@@ -388,10 +388,10 @@ export function MobileTasksView({
                   </h3>
                 </div>
                 <span className="text-xs text-sys-text-muted">
-                  {noDateOpen ? "Згорнути ▴" : "Показати ▾"}
+                  {noDateOpen || (filters.status === "pending" && activeTasks.length === 0) || Boolean(filters.subject) ? "Згорнути ▴" : "Показати ▾"}
                 </span>
               </button>
-              {noDateOpen && (
+              {(noDateOpen || (filters.status === "pending" && activeTasks.length === 0) || Boolean(filters.subject)) && (
                 <div className="space-y-2 animate-in fade-in duration-150">
                   {noDateTasks.map((t, idx) => renderTaskCard(t, `nodate-${idx}`, isLinked))}
                 </div>

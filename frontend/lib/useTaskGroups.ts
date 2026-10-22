@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { FullTaskItem } from "../components/MobileTasksView";
-import { getMondayOf, formatShortWeekRange } from "./format";
+import { getMondayOf, formatShortWeekRange, isSubjectMatch } from "./format";
 
 export interface TaskGroupsResult {
   pastWeekTasks: FullTaskItem[];
@@ -57,7 +57,7 @@ export function useTaskGroups(
 
   const filteredTasks = useMemo(() => {
     return tasks.filter((t) => {
-      if (filters.subject && t.subject !== filters.subject) return false;
+      if (filters.subject && !isSubjectMatch(t.subject, filters.subject)) return false;
       if (filters.status === "all") return true;
       const isDone = isLinked && (t.state === "TURNED_IN" || t.state === "RETURNED");
       if (filters.status === "done") return isDone;

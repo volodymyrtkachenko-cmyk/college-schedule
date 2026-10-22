@@ -634,5 +634,44 @@ export function formatShortWeekRange(monday: Date, weekNumber?: number | null): 
   return dateRange;
 }
 
+/**
+ * Нормалізує назву навчальної дисципліни:
+ * - Видаляє суфікси груп: (85 ДФКР), [85-ДФКР], 85 ДФКР, (гр. 85), (група 85) тощо
+ * - Видаляє згадки викладачів або підгруп у дужках: (Хочинська Н. О.), (Токарь), (1 підгрупа)
+ * - Очищує зайві знаки пунктуації та пробіли
+ */
+export function normalizeSubjectName(rawName?: string | null): string {
+  if (!rawName) return "";
+  let name = rawName.trim();
+  // Видаляємо групу в дужках або квадратних дужках: (85 ДФКР), [85-ДФКР], (85), (гр. 85), (група 85)
+  name = name.replace(/\s*[\(\[]\s*(?:гр(?:упа|\.)?\s*)?\d{1,3}[\s\-_–—]?(?:[А-Яа-яA-Za-z]+)?\s*[\)\]]/gi, "");
+  // Видаляємо окремі назви груп у хвості: 85 ДФКР, 85-ДФКР, 85ДФКР
+  name = name.replace(/\s*\b\d{1,3}[\s\-_–—]?(?:[А-Яа-яA-Za-z]+)\b/g, "");
+  name = name.replace(/\s*\b(?:гр(?:упа|\.)?)\s*\d+.*$/gi, "");
+  // Видаляємо прізвища викладачів або підгрупи у дужках: (Хочинська Н. О.), (Токарь), (підгрупа 1)
+  name = name.replace(/\s*[\(\[]\s*(?:(?:1|2)[\s\-_–—]?(?:ша|га|а)?\s*(?:підгр(?:упа|\.)?)|(?:викл(?:адач|\.)?\s*)?[А-ЯІЇЄҐA-Z][а-яіїєґa-z]+(?:\s+[А-ЯІЇЄҐA-Z]\.?\s*[А-ЯІЇЄҐA-Z]\.?)?)\s*[\)\]]/gi, "");
+  // Прибираємо кінцеві дефіси, коми, двокрапки
+  name = name.replace(/[\s\-_–—:,.]+$/, "").trim();
+  return name || rawName.trim();
+}
+
+/**
+ * Перевіряє відповідність дисципліни завданню за фільтром:
+ * Нечутливий до регістру, враховує нормалізовані назви та включення
+ */
+export function isSubjectMatch(taskSubject?: string | null, filterSubject?: string | null): boolean {
+  if (!filterSubject || filterSubject.trim() === "") return true;
+  if (!taskSubject) return false;
+  if (taskSubject === filterSubject) return true;
+  const normTask = normalizeSubjectName(taskSubject).toLowerCase();
+  const normFilter = normalizeSubjectName(filterSubject).toLowerCase();
+  if (!normFilter) return true;
+  if (normTask === normFilter) return true;
+  if (normTask.length >= 4 && normFilter.length >= 4) {
+    if (normTask.includes(normFilter) || normFilter.includes(normTask)) return true;
+  }
+  return false;
+}
+
 
 

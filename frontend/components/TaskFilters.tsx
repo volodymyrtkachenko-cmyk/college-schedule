@@ -3,6 +3,7 @@
 import { useEffect, useMemo } from "react";
 import { FullTaskItem } from "./MobileTasksView";
 import { TaskFilterState, DEFAULT_TASK_FILTERS } from "../lib/useTaskGroups";
+import { normalizeSubjectName, isSubjectMatch } from "../lib/format";
 
 const selectClass =
   "w-full h-9 min-w-0 rounded-lg border border-sys-border bg-sys-card px-2.5 text-xs text-sys-text-primary focus:border-sys-accent focus:outline-none focus:ring-1 focus:ring-sys-accent cursor-pointer";
@@ -20,7 +21,10 @@ export function TaskFilters({
 }) {
   const subjects = useMemo(() => {
     const set = new Set<string>();
-    for (const t of tasks) if (t.subject) set.add(t.subject);
+    for (const t of tasks) {
+      const s = normalizeSubjectName(t.subject);
+      if (s) set.add(s);
+    }
     return Array.from(set).sort((a, b) => a.localeCompare(b, "uk"));
   }, [tasks]);
 
@@ -28,7 +32,13 @@ export function TaskFilters({
     if (!isLinked && value.status === "done") onChange({ ...value, status: "all" });
   }, [isLinked, value, onChange]);
 
-  const subjectValue = subjects.includes(value.subject) ? value.subject : "";
+  const subjectValue = useMemo(() => {
+    if (!value.subject) return "";
+    if (subjects.includes(value.subject)) return value.subject;
+    const match = subjects.find((s) => isSubjectMatch(s, value.subject));
+    return match || "";
+  }, [subjects, value.subject]);
+
   const isActive = value.status !== "all" || subjectValue !== "";
 
   return (
