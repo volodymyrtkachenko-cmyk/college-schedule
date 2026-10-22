@@ -594,12 +594,68 @@ function getMeetingBtnStyle(platform?: string | null, isLiveOrSoon?: boolean, si
     return "bg-emerald-600 text-white border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.35)] hover:bg-emerald-500 animate-pulse";
   }
   if (platform === "zoom") {
-    return "border-sky-500/40 bg-sky-50 dark:bg-sky-500/12 text-sky-800 dark:text-sky-300 hover:border-sky-500/60 hover:text-sky-900 dark:hover:text-sky-200 hover:bg-sky-100 dark:hover:bg-sky-500/20";
+    return "border-sky-400/60 dark:border-sky-500/50 bg-sky-100/80 dark:bg-sky-500/20 text-sky-900 dark:text-sky-200 shadow-xs hover:border-sky-500 dark:hover:border-sky-400 hover:text-sky-950 dark:hover:text-sky-100 hover:bg-sky-200/90 dark:hover:bg-sky-500/30";
   }
   if (platform === "meet") {
-    return "border-emerald-500/40 bg-emerald-50 dark:bg-emerald-500/12 text-emerald-800 dark:text-emerald-300 hover:border-emerald-500/60 hover:text-emerald-900 dark:hover:text-emerald-200 hover:bg-emerald-100 dark:hover:bg-emerald-500/20";
+    return "border-emerald-400/60 dark:border-emerald-500/50 bg-emerald-100/80 dark:bg-emerald-500/20 text-emerald-900 dark:text-emerald-200 shadow-xs hover:border-emerald-500 dark:hover:border-emerald-400 hover:text-emerald-950 dark:hover:text-emerald-100 hover:bg-emerald-200/90 dark:hover:bg-emerald-500/30";
   }
-  return "border-indigo-500/40 bg-indigo-50 dark:bg-indigo-500/12 text-indigo-800 dark:text-indigo-300 hover:border-indigo-500/60 hover:text-indigo-900 dark:hover:text-indigo-200 hover:bg-indigo-100 dark:hover:bg-indigo-500/20";
+  return "border-indigo-400/60 dark:border-indigo-500/50 bg-indigo-100/80 dark:bg-indigo-500/20 text-indigo-900 dark:text-indigo-200 shadow-xs hover:border-indigo-500 dark:hover:border-indigo-400 hover:text-indigo-950 dark:hover:text-indigo-100 hover:bg-indigo-200/90 dark:hover:bg-indigo-500/30";
+}
+
+function MeetingPlatformIcon({
+  platform,
+  size = 12,
+  className = "shrink-0",
+}: {
+  platform?: string | null;
+  size?: number;
+  className?: string;
+}) {
+  if (platform === "zoom") {
+    return (
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        fill="currentColor"
+        className={className}
+        aria-hidden="true"
+      >
+        <path d="M15 8c0-.55-.45-1-1-1H3c-.55 0-1 .45-1 1v8c0 .55.45 1 1 1h11c.55 0 1-.45 1-1v-3.24l4.39 3.59c.35.29.88 0 .88-.45V7.1c0-.45-.53-.74-.88-.45L15 10.24V8z" />
+      </svg>
+    );
+  }
+  if (platform === "meet") {
+    return (
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        fill="currentColor"
+        className={className}
+        aria-hidden="true"
+      >
+        <path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z" />
+      </svg>
+    );
+  }
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <polygon points="23 7 16 12 23 17 23 7" />
+      <rect x="1" y="5" width="15" height="14" rx="2" />
+    </svg>
+  );
 }
 
 export function LessonCard({
@@ -1412,17 +1468,7 @@ export function LessonCard({
                                     getMeetingBtnStyle(ownMeeting.platform, isLive && isMeetingLiveOrSoon, "compact")
                                   }`}
                                 >
-                                  {ownMeeting.platform === "zoom" ? (
-                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                                      <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.934a.5.5 0 0 0-.777-.416L16 11" />
-                                      <rect x="2" y="6" width="14" height="12" rx="2" />
-                                    </svg>
-                                  ) : (
-                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                                      <polygon points="23 7 16 12 23 17 23 7" />
-                                      <rect x="1" y="5" width="15" height="14" rx="2" />
-                                    </svg>
-                                  )}
+                                  <MeetingPlatformIcon platform={ownMeeting.platform} size={13} />
                                   <span>{ownMeeting.platform === "zoom" ? "Zoom" : ownMeeting.platform === "meet" ? "Meet" : "Онлайн"}</span>
                                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 opacity-70">
                                     <path d="M7 17 17 7" />
@@ -1484,17 +1530,7 @@ export function LessonCard({
                         getMeetingBtnStyle(deskMeeting.platform, isMeetingLiveOrSoon, "normal")
                       }`}
                     >
-                      {deskMeeting.platform === "zoom" ? (
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                          <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.934a.5.5 0 0 0-.777-.416L16 11" />
-                          <rect x="2" y="6" width="14" height="12" rx="2" />
-                        </svg>
-                      ) : (
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                          <polygon points="23 7 16 12 23 17 23 7" />
-                          <rect x="1" y="5" width="15" height="14" rx="2" />
-                        </svg>
-                      )}
+                      <MeetingPlatformIcon platform={deskMeeting.platform} size={14} />
                       <span>{deskMeeting.platform === "zoom" ? "Zoom" : deskMeeting.platform === "meet" ? "Meet" : "Онлайн"}</span>
                       <span className="text-xs opacity-75">↗</span>
                     </a>
@@ -1860,17 +1896,7 @@ export function LessonCard({
                         getMeetingBtnStyle(mobileMeeting.platform, isMeetingLiveOrSoon, "normal")
                       }`}
                     >
-                      {mobileMeeting.platform === "zoom" ? (
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                          <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.934a.5.5 0 0 0-.777-.416L16 11" />
-                          <rect x="2" y="6" width="14" height="12" rx="2" />
-                        </svg>
-                      ) : (
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                          <polygon points="23 7 16 12 23 17 23 7" />
-                          <rect x="1" y="5" width="15" height="14" rx="2" />
-                        </svg>
-                      )}
+                      <MeetingPlatformIcon platform={mobileMeeting.platform} size={14} />
                       <span>{mobileMeeting.platform === "zoom" ? "Zoom" : mobileMeeting.platform === "meet" ? "Meet" : "Онлайн"}</span>
                       <span className="text-xs opacity-75">↗</span>
                     </a>
@@ -2015,17 +2041,7 @@ export function LessonCard({
                               getMeetingBtnStyle(ownMeeting.platform, isLive && isMeetingLiveOrSoon, "compact")
                             }`}
                           >
-                            {ownMeeting.platform === "zoom" ? (
-                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                                <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.934a.5.5 0 0 0-.777-.416L16 11" />
-                                <rect x="2" y="6" width="14" height="12" rx="2" />
-                              </svg>
-                            ) : (
-                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                                <polygon points="23 7 16 12 23 17 23 7" />
-                                <rect x="1" y="5" width="15" height="14" rx="2" />
-                              </svg>
-                            )}
+                            <MeetingPlatformIcon platform={ownMeeting.platform} size={13} />
                             <span>{ownMeeting.platform === "zoom" ? "Zoom" : ownMeeting.platform === "meet" ? "Meet" : "Онлайн"}</span>
                             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 opacity-70">
                               <path d="M7 17 17 7" />
@@ -2051,17 +2067,7 @@ export function LessonCard({
                           getMeetingBtnStyle(row3Meetings[0].platform, isLive && isMeetingLiveOrSoon, "compact")
                         }`}
                       >
-                        {row3Meetings[0].platform === "zoom" ? (
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                            <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.934a.5.5 0 0 0-.777-.416L16 11" />
-                            <rect x="2" y="6" width="14" height="12" rx="2" />
-                          </svg>
-                        ) : (
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                            <polygon points="23 7 16 12 23 17 23 7" />
-                            <rect x="1" y="5" width="15" height="14" rx="2" />
-                          </svg>
-                        )}
+                        <MeetingPlatformIcon platform={row3Meetings[0].platform} size={13} />
                         <span>{row3Meetings[0].platform === "zoom" ? "Zoom" : row3Meetings[0].platform === "meet" ? "Meet" : "Онлайн"}</span>
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 opacity-70">
                           <path d="M7 17 17 7" />
@@ -2100,17 +2106,7 @@ export function LessonCard({
                     getMeetingBtnStyle(mobileMeeting.platform, isMeetingLiveOrSoon, "normal")
                   }`}
                 >
-                  {mobileMeeting.platform === "zoom" ? (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                      <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.934a.5.5 0 0 0-.777-.416L16 11" />
-                      <rect x="2" y="6" width="14" height="12" rx="2" />
-                    </svg>
-                  ) : (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                      <polygon points="23 7 16 12 23 17 23 7" />
-                      <rect x="1" y="5" width="15" height="14" rx="2" />
-                    </svg>
-                  )}
+                  <MeetingPlatformIcon platform={mobileMeeting.platform} size={15} />
                   <span>{mobileMeeting.platform === "zoom" ? "Zoom" : mobileMeeting.platform === "meet" ? "Meet" : "Онлайн"}</span>
                   <span className="text-xs opacity-75">↗</span>
                 </a>
@@ -2441,21 +2437,11 @@ export function LessonCard({
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
-                            className={`inline-flex shrink-0 h-6 px-2 items-center gap-1 rounded-md border text-[11px] font-semibold whitespace-nowrap active:scale-95 transition-all ${
+                            className={`inline-flex shrink-0 h-6 px-2 items-center gap-1.5 rounded-md border text-[11px] font-semibold whitespace-nowrap active:scale-95 transition-all ${
                               getMeetingBtnStyle(ownMeeting.platform, isLive && isMeetingLiveOrSoon, "tiny")
                             }`}
                           >
-                            {ownMeeting.platform === "zoom" ? (
-                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                                <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.934a.5.5 0 0 0-.777-.416L16 11" />
-                                <rect x="2" y="6" width="14" height="12" rx="2" />
-                              </svg>
-                            ) : (
-                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                                <polygon points="23 7 16 12 23 17 23 7" />
-                                <rect x="1" y="5" width="15" height="14" rx="2" />
-                              </svg>
-                            )}
+                            <MeetingPlatformIcon platform={ownMeeting.platform} size={11} />
                             <span>{ownMeeting.platform === "zoom" ? "Zoom" : ownMeeting.platform === "meet" ? "Meet" : "Онлайн"}</span>
                             <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 opacity-70">
                               <path d="M7 17 17 7" />
@@ -2548,14 +2534,15 @@ export function LessonCard({
                     e.stopPropagation();
                     vibrateTap(12);
                   }}
-                  className={`inline-flex h-6 min-h-[24px] items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-semibold active:scale-95 transition-all ${
+                  className={`inline-flex h-6 min-h-[24px] items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs font-semibold active:scale-95 transition-all ${
                     getMeetingBtnStyle(m.platform, isLive && isMeetingLiveOrSoon, "tiny")
                   }`}
                 >
+                  <MeetingPlatformIcon platform={m.platform} size={12} />
                   <span>
                     {m.platform === "zoom" ? "Zoom" : m.platform === "meet" ? "Meet" : "Онлайн"}
                   </span>
-                  <span className="text-xs text-slate-400">↗</span>
+                  <span className="text-[11px] font-bold opacity-75">↗</span>
                 </a>
               ))}
 

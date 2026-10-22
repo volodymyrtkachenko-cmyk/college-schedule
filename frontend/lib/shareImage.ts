@@ -223,16 +223,31 @@ export async function generateScheduleCardBlob(
       const bottomY = currentY + cardHeight - 30;
 
       if (item.meetings.length > 0) {
-        const meetLabel = item.meetings[0].platform === "zoom" ? "Zoom ↗" : "Meet ↗";
+        const plat = item.meetings[0].platform;
+        const meetLabel = plat === "zoom" ? "Zoom ↗" : plat === "meet" ? "Meet ↗" : "Онлайн ↗";
         ctx.font = "600 11px Inter, system-ui, sans-serif";
         const meetW = ctx.measureText(meetLabel).width + 14;
         const meetX = rightX - meetW;
         drawRoundedRect(ctx, meetX, bottomY, meetW, 20, 6);
-        ctx.fillStyle = "rgba(14, 165, 233, 0.12)";
-        ctx.fill();
-        ctx.strokeStyle = "rgba(14, 165, 233, 0.4)";
-        ctx.stroke();
-        ctx.fillStyle = "#38bdf8";
+        if (plat === "zoom") {
+          ctx.fillStyle = "rgba(14, 165, 233, 0.2)";
+          ctx.fill();
+          ctx.strokeStyle = "rgba(14, 165, 233, 0.5)";
+          ctx.stroke();
+          ctx.fillStyle = "#38bdf8";
+        } else if (plat === "meet") {
+          ctx.fillStyle = "rgba(16, 185, 129, 0.2)";
+          ctx.fill();
+          ctx.strokeStyle = "rgba(16, 185, 129, 0.5)";
+          ctx.stroke();
+          ctx.fillStyle = "#34d399";
+        } else {
+          ctx.fillStyle = "rgba(99, 102, 241, 0.2)";
+          ctx.fill();
+          ctx.strokeStyle = "rgba(99, 102, 241, 0.5)";
+          ctx.stroke();
+          ctx.fillStyle = "#818cf8";
+        }
         ctx.fillText(meetLabel, meetX + 7, bottomY + 14);
         rightX = meetX - 6;
       }
@@ -567,11 +582,25 @@ export async function generateWeekScheduleCardBlob(
         const meetW = ctx.measureText(meetLabel).width + 12;
         const meetX = rightX - meetW;
         drawRoundedRect(ctx, meetX, bottomY, meetW, 18, 5);
-        ctx.fillStyle = "rgba(14, 165, 233, 0.12)";
-        ctx.fill();
-        ctx.strokeStyle = "rgba(14, 165, 233, 0.4)";
-        ctx.stroke();
-        ctx.fillStyle = "#38bdf8";
+        if (plat === "zoom") {
+          ctx.fillStyle = "rgba(14, 165, 233, 0.2)";
+          ctx.fill();
+          ctx.strokeStyle = "rgba(14, 165, 233, 0.5)";
+          ctx.stroke();
+          ctx.fillStyle = "#38bdf8";
+        } else if (plat === "meet") {
+          ctx.fillStyle = "rgba(16, 185, 129, 0.2)";
+          ctx.fill();
+          ctx.strokeStyle = "rgba(16, 185, 129, 0.5)";
+          ctx.stroke();
+          ctx.fillStyle = "#34d399";
+        } else {
+          ctx.fillStyle = "rgba(99, 102, 241, 0.2)";
+          ctx.fill();
+          ctx.strokeStyle = "rgba(99, 102, 241, 0.5)";
+          ctx.stroke();
+          ctx.fillStyle = "#818cf8";
+        }
         ctx.fillText(meetLabel, meetX + 6, bottomY + 12.5);
         rightX = meetX - 5;
       }
