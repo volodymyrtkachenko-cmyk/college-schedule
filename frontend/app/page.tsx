@@ -1847,47 +1847,41 @@ export default function HomePage() {
             >
               {view === "today" ? (
                 /* Desktop Day Mode: Smooth Animated Focus / 2-Column Dashboard */
-                <div className="w-full min-w-0 flex items-start justify-center gap-0 lg:gap-8 overflow-x-clip">
+                <div className="w-full min-w-0 flex items-start justify-center overflow-x-clip">
                   {/* Schedule Column (Smoothly glides to center in Focus Mode) */}
                   <motion.div
-                    layout
+                    layout="position"
                     transition={{
-                      duration: shouldReduceMotion ? 0 : 0.38,
-                      ease: [0.32, 0.72, 0, 1],
+                      duration: shouldReduceMotion ? 0 : 0.32,
+                      ease: [0.25, 0.1, 0.25, 1.0],
                     }}
-                    className={
-                      isFocusMode
-                        ? "w-full max-w-[760px] min-w-0"
-                        : "w-full min-w-0 flex-1 max-w-[840px]"
-                    }
+                    className="w-full max-w-[760px] min-w-0"
                   >
                     {/* Focus Mode Day Switcher Card (smoothly slides down from top) */}
                     <AnimatePresence initial={false}>
                       {isFocusMode && (
                         <motion.div
                           key="focus-day-switcher"
-                          initial={{ opacity: 0, y: -24, height: 0 }}
+                          initial={{ opacity: 0, y: -14, scale: 0.99 }}
                           animate={{
                             opacity: 1,
                             y: 0,
-                            height: "auto",
+                            scale: 1,
                             transition: {
-                              height: { duration: shouldReduceMotion ? 0 : 0.35, ease: [0.32, 0.72, 0, 1] },
-                              opacity: { duration: shouldReduceMotion ? 0 : 0.28, delay: 0.08 },
-                              y: { duration: shouldReduceMotion ? 0 : 0.32, ease: [0.32, 0.72, 0, 1], delay: 0.04 },
+                              duration: shouldReduceMotion ? 0 : 0.26,
+                              ease: [0.25, 0.1, 0.25, 1.0],
                             },
                           }}
                           exit={{
                             opacity: 0,
-                            y: -24,
-                            height: 0,
+                            y: -14,
+                            scale: 0.99,
                             transition: {
-                              opacity: { duration: shouldReduceMotion ? 0 : 0.18 },
-                              y: { duration: shouldReduceMotion ? 0 : 0.22, ease: [0.32, 0.72, 0, 1] },
-                              height: { duration: shouldReduceMotion ? 0 : 0.32, ease: [0.32, 0.72, 0, 1], delay: 0.04 },
+                              duration: shouldReduceMotion ? 0 : 0.2,
+                              ease: [0.25, 0.1, 0.25, 1.0],
                             },
                           }}
-                          className="overflow-hidden mb-5"
+                          className="mb-5"
                         >
                           <div className="rounded-2xl border border-sys-border bg-sys-card p-4 shadow-sm">
                           <div className="flex items-center justify-between pb-3 mb-3 border-b border-sys-border/50">
@@ -1972,20 +1966,22 @@ export default function HomePage() {
                                   key={d.iso}
                                   type="button"
                                   onClick={() => handleSelectDayIndex(d.index)}
-                                  className={`flex flex-col items-center justify-center h-15 rounded-xl transition-all relative ${
+                                  className={`flex flex-col items-center justify-center h-15 rounded-xl transition-all relative cursor-pointer active:scale-95 ${
                                     isActive
                                       ? "bg-sys-accent text-[#0b1120] font-black shadow-md ring-2 ring-sys-accent/60"
                                       : "border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-white hover:border-sys-border-elevated font-medium"
                                   }`}
                                 >
-                                  <span className={`text-xs uppercase font-semibold ${isActive ? "text-[#0b1120]/80" : ""}`}>{d.name}</span>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className={`text-xs uppercase font-semibold ${isActive ? "text-[#0b1120]/80" : ""}`}>{d.name}</span>
+                                    {isToday && (
+                                      <span
+                                        title="Сьогодні"
+                                        className={`h-1.5 w-1.5 rounded-full shrink-0 ${isActive ? "bg-[#0b1120]" : "bg-sys-accent"}`}
+                                      />
+                                    )}
+                                  </div>
                                   <span className="text-xl font-bold mt-0.5 leading-none">{d.dateStr}</span>
-                                  {isToday && (
-                                    <span
-                                      title="Сьогодні"
-                                      className={`h-1.5 w-1.5 rounded-full absolute bottom-1.5 left-1/2 -translate-x-1/2 ${isActive ? "bg-[#0b1120]" : "bg-sys-accent"}`}
-                                    />
-                                  )}
                                 </button>
                               );
                             })}
@@ -2015,11 +2011,16 @@ export default function HomePage() {
 
                       <AnimatePresence mode="wait">
                         <motion.div
+                          layout="position"
                           key={selectedDaySchedule?.date ?? today?.date ?? "day"}
                           initial={{ opacity: 0, y: 6 }}
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: -6 }}
-                          transition={{ duration: shouldReduceMotion ? 0 : 0.18, ease: "easeInOut" }}
+                          transition={{
+                            layout: { duration: shouldReduceMotion ? 0 : 0.28, ease: [0.25, 0.1, 0.25, 1.0] },
+                            opacity: { duration: shouldReduceMotion ? 0 : 0.18, ease: "easeInOut" },
+                            y: { duration: shouldReduceMotion ? 0 : 0.18, ease: "easeInOut" },
+                          }}
                         >
                           <ScheduleDay
                             schedule={selectedDaySchedule ?? today!}
@@ -2039,26 +2040,22 @@ export default function HomePage() {
                       {!isFocusMode && (
                         <motion.aside
                           key="desktop-sidebar"
-                          initial={{ opacity: 0, x: 180, width: 0 }}
+                          initial={{ opacity: 0, x: 200, width: 0, marginLeft: 0 }}
                           animate={{
                             opacity: 1,
                             x: 0,
                             width: 360,
-                            transition: {
-                              width: { duration: shouldReduceMotion ? 0 : 0.38, ease: [0.32, 0.72, 0, 1] },
-                              x: { duration: shouldReduceMotion ? 0 : 0.35, ease: [0.32, 0.72, 0, 1] },
-                              opacity: { duration: shouldReduceMotion ? 0 : 0.25, delay: 0.08 },
-                            },
+                            marginLeft: 32,
                           }}
                           exit={{
                             opacity: 0,
-                            x: 240,
+                            x: 200,
                             width: 0,
-                            transition: {
-                              opacity: { duration: shouldReduceMotion ? 0 : 0.2 },
-                              x: { duration: shouldReduceMotion ? 0 : 0.35, ease: [0.32, 0.72, 0, 1] },
-                              width: { duration: shouldReduceMotion ? 0 : 0.38, ease: [0.32, 0.72, 0, 1] },
-                            },
+                            marginLeft: 0,
+                          }}
+                          transition={{
+                            duration: shouldReduceMotion ? 0 : 0.32,
+                            ease: [0.25, 0.1, 0.25, 1.0],
                           }}
                           className="hidden lg:block shrink-0 overflow-hidden"
                         >
@@ -2116,20 +2113,22 @@ export default function HomePage() {
                                   key={d.iso}
                                   type="button"
                                   onClick={() => handleSelectDayIndex(d.index)}
-                                  className={`flex flex-col items-center justify-center h-16 rounded-xl transition-all relative ${
+                                  className={`flex flex-col items-center justify-center h-16 rounded-xl transition-all relative cursor-pointer active:scale-95 ${
                                     isActive
                                       ? "bg-sys-accent text-[#0b1120] font-black shadow-md ring-2 ring-sys-accent/60"
                                       : "border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-white hover:border-sys-border-elevated font-medium"
                                   }`}
                                 >
-                                  <span className={`text-xs uppercase font-semibold ${isActive ? "text-[#0b1120]/80" : ""}`}>{d.name}</span>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className={`text-xs uppercase font-semibold ${isActive ? "text-[#0b1120]/80" : ""}`}>{d.name}</span>
+                                    {isToday && (
+                                      <span
+                                        title="Сьогодні"
+                                        className={`h-1.5 w-1.5 rounded-full shrink-0 ${isActive ? "bg-[#0b1120]" : "bg-sys-accent"}`}
+                                      />
+                                    )}
+                                  </div>
                                   <span className="text-xl font-bold mt-0.5 leading-none">{d.dateStr}</span>
-                                  {isToday && (
-                                    <span
-                                      title="Сьогодні"
-                                      className={`h-1.5 w-1.5 rounded-full absolute bottom-1.5 left-1/2 -translate-x-1/2 ${isActive ? "bg-[#0b1120]" : "bg-sys-accent"}`}
-                                    />
-                                  )}
                                 </button>
                               );
                             })}
