@@ -59,7 +59,7 @@ export function ConfirmModal({ isOpen, title, message, onConfirm, onCancel }: Pr
               <button
                 type="button"
                 onClick={onCancel}
-                className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-lg border border-sys-border bg-sys-card px-4 py-2 text-sm font-semibold text-sys-text-primary hover:bg-white/5 active:scale-[0.98] transition-all"
+                className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-lg border border-sys-border bg-sys-card px-4 py-2 text-sm font-semibold text-sys-text-primary hover:bg-slate-100 dark:hover:bg-white/5 active:scale-[0.98] transition-all"
               >
                 Скасувати
               </button>

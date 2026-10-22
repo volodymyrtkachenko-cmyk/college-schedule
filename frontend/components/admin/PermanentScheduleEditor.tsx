@@ -759,7 +759,7 @@ export function PermanentScheduleEditor() {
                         <button
                           type="button"
                           onClick={() => handleCopyDay(day)}
-                          className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/5 text-left"
+                          className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-sys-text-secondary hover:text-sys-text-primary hover:bg-slate-100 dark:hover:bg-white/5 text-left"
                         >
                           <span>📋</span>
                           <span>Копіювати день</span>
@@ -767,7 +767,7 @@ export function PermanentScheduleEditor() {
                         <button
                           type="button"
                           onClick={() => handleMoveDay(day)}
-                          className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/5 text-left"
+                          className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-sys-text-secondary hover:text-sys-text-primary hover:bg-slate-100 dark:hover:bg-white/5 text-left"
                         >
                           <span>✂️</span>
                           <span>Перемістити день</span>

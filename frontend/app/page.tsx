@@ -97,6 +97,7 @@ export default function HomePage() {
   };
 
   const { isSetupComplete, completeSetup, mode, toggleMode, teachers, teacherId, setTeacherId, groups, groupId, setGroupId, today, week, semesterStart, loading, error } = useSchedule(weekAnchorDate);
+  const selectedTeacher = useMemo(() => teachers.find((t) => t.id === teacherId) || null, [teachers, teacherId]);
   const { user, loading: authLoading, logout } = useAuth();
   
   const isStandalone = useIsStandalonePwa();
@@ -170,6 +171,14 @@ export default function HomePage() {
   };
 
   const [mobileTab, setMobileTab] = useState<MobileTab>("schedule");
+  const isFocusEffective = isFocusMode || mode === "teacher";
+
+  useEffect(() => {
+    if (mode === "teacher" && mobileTab === "tasks") {
+      setMobileTab("schedule");
+    }
+  }, [mode, mobileTab]);
+
   const [weekTypeSheetOpen, setWeekTypeSheetOpen] = useState(false);
   const [sidebarTaskFilters, setSidebarTaskFilters] = useState<TaskFilterState>(DEFAULT_TASK_FILTERS);
   const [sidebarFiltersOpen, setSidebarFiltersOpen] = useState(false);
@@ -795,6 +804,7 @@ export default function HomePage() {
   }, [selectedDaySchedule]);
 
   const allTasks = useMemo<FullTaskItem[]>(() => {
+    if (mode === "teacher") return [];
     const tasks: FullTaskItem[] = [];
     const seenUrls = new Set<string>();
 
@@ -923,7 +933,7 @@ export default function HomePage() {
     }
 
     return sortTasksByDeadline(tasks);
-  }, [week, classroomTasks, isLinked, submissions]);
+  }, [mode, week, classroomTasks, isLinked, submissions]);
 
   const allWeekTasks = allTasks;
 
@@ -1477,6 +1487,8 @@ export default function HomePage() {
                 isWeekend={isAutoSelectedWeekendDay}
                 isShowingTomorrow={isEveningAfterLessons && isCurrentWeek}
                 weekNumber={currentWeekNumber}
+                currentTeacherId={mode === "teacher" ? teacherId : null}
+                currentTeacherName={mode === "teacher" ? (selectedTeacher?.name ?? null) : null}
               />
             ) : (
               <ScheduleWeekGrid
@@ -1485,6 +1497,8 @@ export default function HomePage() {
                 canEdit={false}
                 onQuickJump={handleQuickJump}
                 weekNumber={currentWeekNumber}
+                currentTeacherId={mode === "teacher" ? teacherId : null}
+                currentTeacherName={mode === "teacher" ? (selectedTeacher?.name ?? null) : null}
               />
             )}
 
@@ -1558,20 +1572,20 @@ export default function HomePage() {
                       duration: shouldReduceMotion ? 0 : 0.32,
                       ease: [0.25, 0.1, 0.25, 1.0],
                     }}
-                    className="w-full max-w-[760px] min-w-0"
+                    className={`w-full ${mode === "teacher" ? "max-w-[880px]" : "max-w-[760px]"} min-w-0`}
                   >
                     {/* Focus Mode Day Switcher Card (smoothly expands and collapses via CSS grid without unmount snap) */}
                     <div
                       style={{
                         display: "grid",
-                        gridTemplateRows: isFocusMode ? "1fr" : "0fr",
-                        opacity: isFocusMode ? 1 : 0,
-                        marginBottom: isFocusMode ? 20 : 0,
+                        gridTemplateRows: isFocusEffective ? "1fr" : "0fr",
+                        opacity: isFocusEffective ? 1 : 0,
+                        marginBottom: isFocusEffective ? 20 : 0,
                         transition: shouldReduceMotion
                           ? "none"
                           : "grid-template-rows 0.32s cubic-bezier(0.25, 0.1, 0.25, 1.0), opacity 0.22s ease, margin-bottom 0.32s cubic-bezier(0.25, 0.1, 0.25, 1.0)",
                       }}
-                      className={`w-full overflow-hidden ${isFocusMode ? "" : "pointer-events-none"}`}
+                      className={`w-full overflow-hidden ${isFocusEffective ? "" : "pointer-events-none"}`}
                     >
                       <div className="min-h-0 overflow-hidden">
                         <div className="rounded-2xl border border-sys-border bg-sys-card p-4 shadow-sm">
@@ -1594,19 +1608,21 @@ export default function HomePage() {
                               </span>
                             </div>
 
-                            <button
-                              type="button"
-                              onClick={toggleFocusMode}
-                              title="Показати бічну панель завдань"
-                              aria-label="Показати бічну панель завдань"
-                              className="flex h-8 w-8 items-center justify-center rounded-lg border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-accent hover:border-sys-accent/40 active:scale-95 transition-all shrink-0 cursor-pointer"
-                            >
-                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <rect width="18" height="18" x="3" y="3" rx="2" />
-                                <path d="M15 3v18" />
-                                <path d="m8 9 3 3-3 3" />
-                              </svg>
-                            </button>
+                            {mode !== "teacher" && (
+                              <button
+                                type="button"
+                                onClick={toggleFocusMode}
+                                title="Показати бічну панель завдань"
+                                aria-label="Показати бічну панель завдань"
+                                className="flex h-8 w-8 items-center justify-center rounded-lg border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-accent hover:border-sys-accent/40 active:scale-95 transition-all shrink-0 cursor-pointer"
+                              >
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <rect width="18" height="18" x="3" y="3" rx="2" />
+                                  <path d="M15 3v18" />
+                                  <path d="m8 9 3 3-3 3" />
+                                </svg>
+                              </button>
+                            )}
                           </div>
 
                           <div className="grid grid-cols-5 gap-2">
@@ -1675,7 +1691,9 @@ export default function HomePage() {
                             onQuickJump={handleQuickJump}
                             hideHeaderOnMobile={false}
                             weekNumber={currentWeekNumber}
-                            hideDayTitle={isFocusMode}
+                            hideDayTitle={isFocusEffective}
+                            currentTeacherId={mode === "teacher" ? teacherId : null}
+                            currentTeacherName={mode === "teacher" ? (selectedTeacher?.name ?? null) : null}
                           />
                         </motion.div>
                       </AnimatePresence>
@@ -1683,7 +1701,7 @@ export default function HomePage() {
 
                     {/* Right Column: Week Info & Classroom Widget (360px, slides out to right on focus mode) */}
                     <AnimatePresence initial={false}>
-                      {!isFocusMode && (
+                      {!isFocusEffective && (
                         <motion.aside
                           key="desktop-sidebar"
                           initial={{ opacity: 0, x: 200, width: 0, marginLeft: 0 }}
@@ -2173,6 +2191,8 @@ export default function HomePage() {
                       scheduleMode={mode}
                       canEdit={false}
                       onQuickJump={handleQuickJump}
+                      currentTeacherId={mode === "teacher" ? teacherId : null}
+                      currentTeacherName={mode === "teacher" ? (selectedTeacher?.name ?? null) : null}
                     />
                   </motion.div>
                 </div>
@@ -2187,6 +2207,7 @@ export default function HomePage() {
         activeTab={mobileTab}
         onTabChange={(tab) => setMobileTab(tab)}
         overdueCount={isLinked ? overdueCount : 0}
+        hideTasksTab={mode === "teacher"}
       />
 
       {/* Week Type Bottom Sheet (Чисельник / Знаменник) */}

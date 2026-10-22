@@ -959,7 +959,7 @@ export function AdminScheduleEditor() {
                 <button
                   type="button"
                   onClick={() => setCuratorModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-sys-border bg-sys-card px-3 py-1.5 text-xs font-semibold text-sys-text-primary hover:bg-white/5 whitespace-nowrap"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-sys-border bg-sys-card px-3 py-1.5 text-xs font-semibold text-sys-text-primary hover:bg-slate-100 dark:hover:bg-white/5 whitespace-nowrap"
                 >
                   <GraduationIcon />
                   <span className="whitespace-nowrap">Виховна година</span>
@@ -969,7 +969,7 @@ export function AdminScheduleEditor() {
               <button
                 type="button"
                 onClick={() => setEventsModalOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-sys-border bg-sys-card px-3 py-1.5 text-xs font-semibold text-sys-text-primary hover:bg-white/5 whitespace-nowrap"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-sys-border bg-sys-card px-3 py-1.5 text-xs font-semibold text-sys-text-primary hover:bg-slate-100 dark:hover:bg-white/5 whitespace-nowrap"
               >
                 <CalendarEventIcon />
                 <span className="whitespace-nowrap">Сесія / Події</span>
@@ -978,7 +978,7 @@ export function AdminScheduleEditor() {
               <button
                 type="button"
                 onClick={() => setPrintModalOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-sys-border bg-sys-card px-3 py-1.5 text-xs font-semibold text-sys-text-primary hover:bg-white/5 whitespace-nowrap"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-sys-border bg-sys-card px-3 py-1.5 text-xs font-semibold text-sys-text-primary hover:bg-slate-100 dark:hover:bg-white/5 whitespace-nowrap"
               >
                 <PrinterIcon />
                 <span className="whitespace-nowrap">Друк</span>
@@ -1331,7 +1331,7 @@ export function AdminScheduleEditor() {
                 type="button"
                 onClick={() => setCuratorModalOpen(false)}
                 aria-label="Закрити"
-                className="w-8 h-8 flex items-center justify-center rounded-lg text-sys-text-secondary hover:bg-white/5 hover:text-white text-base"
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-sys-text-secondary hover:bg-slate-100 dark:hover:bg-white/5 hover:text-sys-text-primary text-base"
               >
                 ✕
               </button>

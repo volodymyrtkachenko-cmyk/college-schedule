@@ -271,7 +271,7 @@ export function SchedulePeriodsPanel() {
   });
 
   const renderGroupSelection = (title: string) => (
-    <div className="max-w-2xl space-y-4 mt-4 bg-[#111827]/40 p-4 rounded-xl border border-sys-border/50">
+    <div className="max-w-2xl space-y-4 mt-4 bg-slate-100/60 dark:bg-[#111827]/40 p-4 rounded-xl border border-sys-border/50">
       <div className="flex items-center justify-between">
          <label className="form-label mb-0">{title}</label>
          <button type="button" onClick={() => setGroupsForDraft([])} className="text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary hover:underline transition-colors">Очистити все</button>

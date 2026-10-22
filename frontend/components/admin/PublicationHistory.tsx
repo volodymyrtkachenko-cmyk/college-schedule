@@ -105,7 +105,7 @@ export const PublicationHistory: React.FC = () => {
           {/* Desktop Table (>=640px) */}
           <div className="hidden sm:block overflow-x-auto rounded-xl border border-sys-border bg-sys-bg/30">
             <table className="min-w-full text-left text-sm text-sys-text-secondary border-collapse">
-              <thead className="bg-[#111827] sticky top-0 z-10 border-b border-sys-border text-xs uppercase text-sys-text-secondary">
+              <thead className="bg-slate-100 dark:bg-[#111827] sticky top-0 z-10 border-b border-sys-border text-xs uppercase text-slate-700 dark:text-sys-text-secondary">
                 <tr>
                   <th className="px-4 py-3">ID</th>
                   <th className="px-4 py-3">Дата / Час</th>

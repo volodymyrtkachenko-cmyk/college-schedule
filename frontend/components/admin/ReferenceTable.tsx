@@ -67,7 +67,7 @@ export function ReferenceTable({
       <div className="hidden sm:block overflow-x-auto rounded-xl border border-sys-border bg-sys-card/50">
         <table className="w-full text-left text-sm border-collapse">
           <caption className="sr-only">{referenceLabels[resource]}</caption>
-          <thead className="bg-[#111827] sticky top-0 z-10 border-b border-sys-border text-xs uppercase tracking-wider text-sys-text-secondary">
+          <thead className="bg-slate-100 dark:bg-[#111827] sticky top-0 z-10 border-b border-sys-border text-xs uppercase tracking-wider text-slate-700 dark:text-sys-text-secondary">
             <tr>
               <th scope="col" className="px-5 py-3.5 font-semibold">Назва</th>
               {resource === "groups" && (
@@ -82,10 +82,10 @@ export function ReferenceTable({
           </thead>
           <tbody className="divide-y divide-sys-border/50">
             {items.map((item) => (
-              <tr key={item.id} className="hover:bg-white/[0.02] transition-colors">
+              <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors">
                 <td className="px-5 py-3.5 font-medium text-sys-text-primary">
                   {resource === "groups" ? (
-                    <span className="inline-block px-2.5 py-0.5 rounded-md bg-white/5 border border-sys-border/60 text-sys-text-primary font-semibold">
+                    <span className="inline-block px-2.5 py-0.5 rounded-md bg-slate-100 dark:bg-white/5 border border-sys-border/60 text-sys-text-primary font-semibold">
                       {item.name}
                     </span>
                   ) : (

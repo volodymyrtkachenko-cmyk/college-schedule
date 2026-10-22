@@ -111,7 +111,7 @@ export function PublicationChangesModal({
           ) : (
             <div className="overflow-x-auto rounded-xl border border-sys-border bg-sys-bg/40">
               <table className="min-w-full text-left text-xs text-sys-text-secondary border-collapse">
-                <thead className="bg-[#111827] sticky top-0 z-10 border-b border-sys-border text-[11px] uppercase text-sys-text-secondary">
+                <thead className="bg-slate-100 dark:bg-[#111827] sticky top-0 z-10 border-b border-sys-border text-[11px] uppercase text-slate-700 dark:text-sys-text-secondary">
                   <tr>
                     <th className="px-3.5 py-2.5">Група</th>
                     <th className="px-3.5 py-2.5">Дата</th>

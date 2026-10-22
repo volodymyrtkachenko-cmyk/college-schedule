@@ -124,7 +124,7 @@ export function ReferenceForm({
             type="button"
             onClick={onCancel}
             aria-label="Закрити"
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-sys-text-secondary hover:bg-white/5 hover:text-sys-text-primary"
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-sys-text-secondary hover:bg-slate-100 dark:hover:bg-white/5 hover:text-sys-text-primary transition-colors"
           >
             ✕
           </button>
@@ -185,14 +185,14 @@ export function ReferenceForm({
           <button
             type="button"
             onClick={onCancel}
-            className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] px-4 rounded-lg border border-sys-border bg-sys-card text-sm font-semibold text-sys-text-primary hover:bg-white/5 active:scale-[0.98] transition-all"
+            className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] px-4 rounded-lg border border-sys-border bg-sys-card text-sm font-semibold text-sys-text-primary hover:bg-slate-100 dark:hover:bg-white/5 active:scale-[0.98] transition-all"
           >
             Скасувати
           </button>
           <button
             type="submit"
             disabled={saving}
-            className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] px-6 rounded-lg bg-sys-accent text-sm font-semibold text-[#0b1120] hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50"
+            className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] px-6 rounded-lg bg-sys-accent text-sm font-semibold text-white shadow-xs hover:opacity-95 active:scale-[0.98] transition-all disabled:opacity-50"
           >
             {saving ? "Збереження…" : "Зберегти"}
           </button>

@@ -57,6 +57,8 @@ export function ScheduleWeekGrid({
   canPasteDay,
   onOpenPermanentSchedule,
   weekNumber,
+  currentTeacherId,
+  currentTeacherName,
 }: {
   week: ScheduleResponse[];
   scheduleMode?: "student" | "teacher";
@@ -93,6 +95,8 @@ export function ScheduleWeekGrid({
   canPasteDay?: boolean;
   onOpenPermanentSchedule?: (lesson: Lesson) => void;
   weekNumber?: number | null;
+  currentTeacherId?: number | null;
+  currentTeacherName?: string | null;
 }) {
   const canMoveTo = (lesson: Lesson, date: string, lessonNumber: number) =>
     canMoveLesson(lesson, date, lessonNumber, week, availabilityWeek);
@@ -329,6 +333,8 @@ export function ScheduleWeekGrid({
                         onQuickJump={onQuickJump}
                         learningMode={day.learning_mode ?? null}
                         mode="week"
+                        currentTeacherId={currentTeacherId}
+                        currentTeacherName={currentTeacherName}
                       />
                     ))}
                   </div>
@@ -448,6 +454,8 @@ export function ScheduleWeekGrid({
                           onQuickJump={onQuickJump}
                           learningMode={day.learning_mode ?? null}
                           mode="week"
+                          currentTeacherId={currentTeacherId}
+                          currentTeacherName={currentTeacherName}
                         />
                       ))}
                     </div>

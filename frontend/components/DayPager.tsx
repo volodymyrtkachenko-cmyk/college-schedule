@@ -54,6 +54,8 @@ export function DayPager({
   tomorrowDate,
   onJumpToTomorrow,
   weekNumber,
+  currentTeacherId,
+  currentTeacherName,
 }: {
   schedule: ScheduleResponse;
   todayDate?: string;
@@ -76,6 +78,8 @@ export function DayPager({
   isWeekend?: boolean;
   isShowingTomorrow?: boolean;
   weekNumber?: number | null;
+  currentTeacherId?: number | null;
+  currentTeacherName?: string | null;
 }) {
   const { showToast } = useToast();
   const [kyivNow, setKyivNow] = useState<{ dateIso: string; minutes: number } | null>(null);
@@ -380,6 +384,8 @@ export function DayPager({
                     onCancelDated={onCancelDated}
                     onRestoreDated={onRestoreDated}
                     onQuickJump={onQuickJump}
+                    currentTeacherId={currentTeacherId}
+                    currentTeacherName={currentTeacherName}
                   />
                 </div>
               );

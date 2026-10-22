@@ -248,21 +248,21 @@ export function CurriculumPanel() {
           {/* Desktop Table View (>=768px) */}
           <div className="surface-panel mt-4 overflow-x-auto hidden md:block">
             <table className="w-full text-left text-sm border-collapse">
-              <thead className="bg-[#111827] sticky top-0 z-10">
+              <thead className="bg-slate-100 dark:bg-[#111827] sticky top-0 z-10 border-b border-sys-border">
                 <tr>
-                  <th className="px-5 py-3.5 font-semibold text-sys-text-secondary whitespace-nowrap border-b border-sys-border text-xs uppercase tracking-wider">Група</th>
-                  <th className="px-5 py-3.5 font-semibold text-sys-text-secondary border-b border-sys-border text-xs uppercase tracking-wider min-w-[200px]">Предмет</th>
-                  <th className="px-5 py-3.5 font-semibold text-sys-text-secondary border-b border-sys-border text-xs uppercase tracking-wider min-w-[150px]">Викладач</th>
-                  <th className="px-5 py-3.5 font-semibold text-sys-text-secondary border-b border-sys-border text-xs uppercase tracking-wider">Другий викладач</th>
-                  <th className="px-5 py-3.5 font-semibold text-sys-text-secondary border-b border-sys-border text-xs uppercase tracking-wider text-center">Пари / 2 тижні</th>
-                  <th className="px-5 py-3.5 font-semibold text-sys-text-secondary border-b border-sys-border text-xs uppercase tracking-wider text-center">Годин</th>
-                  <th className="px-5 py-3.5 font-semibold text-sys-text-secondary border-b border-sys-border text-xs uppercase tracking-wider">Позначки</th>
-                  <th className="px-5 py-3.5 font-semibold text-sys-text-secondary border-b border-sys-border text-right min-w-[100px]">Дії</th>
+                  <th className="px-5 py-3.5 font-semibold text-slate-700 dark:text-sys-text-secondary whitespace-nowrap text-xs uppercase tracking-wider">Група</th>
+                  <th className="px-5 py-3.5 font-semibold text-slate-700 dark:text-sys-text-secondary text-xs uppercase tracking-wider min-w-[200px]">Предмет</th>
+                  <th className="px-5 py-3.5 font-semibold text-slate-700 dark:text-sys-text-secondary text-xs uppercase tracking-wider min-w-[150px]">Викладач</th>
+                  <th className="px-5 py-3.5 font-semibold text-slate-700 dark:text-sys-text-secondary text-xs uppercase tracking-wider">Другий викладач</th>
+                  <th className="px-5 py-3.5 font-semibold text-slate-700 dark:text-sys-text-secondary text-xs uppercase tracking-wider text-center">Пари / 2 тижні</th>
+                  <th className="px-5 py-3.5 font-semibold text-slate-700 dark:text-sys-text-secondary text-xs uppercase tracking-wider text-center">Годин</th>
+                  <th className="px-5 py-3.5 font-semibold text-slate-700 dark:text-sys-text-secondary text-xs uppercase tracking-wider">Позначки</th>
+                  <th className="px-5 py-3.5 font-semibold text-slate-700 dark:text-sys-text-secondary text-right min-w-[100px]">Дії</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-sys-border/50">
                 {sortedItems.map(item => (
-                  <tr key={item.id} className="hover:bg-white/[0.02] transition-colors group">
+                  <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors group">
                     <td className="px-5 py-3 whitespace-nowrap">
                       <span className="font-semibold text-sys-text-primary px-2 py-0.5 bg-sys-accent/10 text-sys-accent rounded text-xs">{item.group.name}</span>
                     </td>
@@ -398,7 +398,7 @@ export function CurriculumPanel() {
                 type="button"
                 onClick={() => setEditor(null)}
                 aria-label="Закрити"
-                className="w-8 h-8 flex items-center justify-center rounded-lg text-sys-text-secondary hover:bg-white/5 hover:text-sys-text-primary transition-colors text-base"
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-sys-text-secondary hover:bg-slate-100 dark:hover:bg-white/5 hover:text-sys-text-primary transition-colors text-base"
               >
                 ✕
               </button>
@@ -560,14 +560,14 @@ export function CurriculumPanel() {
                <button
                   type="button"
                   onClick={() => setEditor(null)}
-                  className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-lg border border-sys-border bg-sys-card px-4 py-2 text-sm font-semibold text-sys-text-primary hover:bg-white/5 active:scale-[0.98] transition-all"
+                  className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-lg border border-sys-border bg-sys-card px-4 py-2 text-sm font-semibold text-sys-text-primary hover:bg-slate-100 dark:hover:bg-white/5 active:scale-[0.98] transition-all"
                >
                   Скасувати
                </button>
                <button
                   type="submit"
                   form="curr-form"
-                  className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] flex items-center justify-center gap-2 rounded-lg bg-sys-accent px-6 py-2 text-sm font-bold text-[#0b1120] hover:opacity-90 active:scale-[0.98] transition-all shadow-sm"
+                  className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] flex items-center justify-center gap-2 rounded-lg bg-sys-accent px-6 py-2 text-sm font-semibold text-white shadow-xs hover:opacity-95 active:scale-[0.98] transition-all"
                >
                   Зберегти
                </button>

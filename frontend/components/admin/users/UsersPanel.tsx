@@ -84,7 +84,7 @@ export function UsersPanel() {
         return (
             <div className="surface-panel max-w-2xl space-y-4 p-6">
                 <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200">{error}</div>
-                <button type="button" onClick={() => void load()} className="rounded-lg bg-sys-accent px-4 py-2 font-bold text-slate-950">Повторити</button>
+                <button type="button" onClick={() => void load()} className="rounded-lg bg-sys-accent px-4 py-2 font-semibold text-white shadow-xs">Повторити</button>
             </div>
         );
     }
@@ -110,7 +110,7 @@ export function UsersPanel() {
                         type="button"
                         onClick={() => { setEditor(null); setError(null); }}
                         disabled={saving}
-                        className="w-8 h-8 rounded-lg flex items-center justify-center text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/5 transition-colors"
+                        className="w-8 h-8 rounded-lg flex items-center justify-center text-sys-text-secondary hover:text-sys-text-primary hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
                         aria-label="Закрити"
                     >
                         ✕
@@ -157,8 +157,8 @@ export function UsersPanel() {
                     )}
                 </div>
                 <div className="mt-6 flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5">
-                    <button type="button" onClick={() => { setEditor(null); setError(null); }} disabled={saving} className="min-h-[44px] w-full sm:w-auto rounded-xl border border-sys-border px-5 py-2.5 text-sys-text-secondary transition-colors hover:bg-white/5 hover:text-white">Скасувати</button>
-                    <button type="submit" disabled={saving} className="min-h-[44px] w-full sm:w-auto rounded-xl bg-sys-accent px-5 py-2.5 font-bold text-slate-950 transition-opacity hover:opacity-90 disabled:opacity-50">{saving ? "Зберігаємо…" : "Зберегти"}</button>
+                    <button type="button" onClick={() => { setEditor(null); setError(null); }} disabled={saving} className="min-h-[44px] w-full sm:w-auto rounded-xl border border-sys-border px-5 py-2.5 text-sys-text-secondary transition-colors hover:bg-slate-100 dark:hover:bg-white/5 hover:text-sys-text-primary">Скасувати</button>
+                    <button type="submit" disabled={saving} className="min-h-[44px] w-full sm:w-auto rounded-xl bg-sys-accent px-5 py-2.5 font-semibold text-white shadow-xs transition-opacity hover:opacity-95 disabled:opacity-50">{saving ? "Зберігаємо…" : "Зберегти"}</button>
                 </div>
             </form>
         </div>
@@ -186,7 +186,7 @@ export function UsersPanel() {
                 actions={
                     <button
                         onClick={() => setEditor({ role: "editor", allowed_groups: [] })}
-                        className="inline-flex items-center gap-1.5 bg-sys-accent text-slate-950 font-bold px-4 py-2 rounded-lg text-sm hover:opacity-90 transition-opacity"
+                        className="inline-flex items-center gap-1.5 bg-sys-accent text-white font-semibold px-4 py-2 rounded-lg text-sm shadow-xs hover:opacity-95 transition-opacity"
                     >
                         + Додати користувача
                     </button>
@@ -207,7 +207,7 @@ export function UsersPanel() {
             {/* Desktop Table (>=640px) */}
             <div className="hidden sm:block surface-panel overflow-x-auto rounded-xl border border-sys-border">
                 <table className="w-full text-left border-collapse text-sm">
-                    <thead className="bg-[#111827] sticky top-0 z-10 border-b border-sys-border text-xs uppercase tracking-wider text-sys-text-secondary">
+                    <thead className="bg-slate-100 dark:bg-[#111827] sticky top-0 z-10 border-b border-sys-border text-xs uppercase tracking-wider text-slate-700 dark:text-sys-text-secondary">
                         <tr>
                             <th className="py-3.5 px-4 font-semibold min-w-[200px]">Користувач</th>
                             <th className="py-3.5 px-4 font-semibold min-w-[150px]">Роль</th>
@@ -217,7 +217,7 @@ export function UsersPanel() {
                     </thead>
                     <tbody className="divide-y divide-sys-border/50">
                         {filteredUsers.map(u => (
-                            <tr key={u.id} className="hover:bg-white/[0.02] transition-colors">
+                            <tr key={u.id} className="hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors">
                                 <td className="py-3 px-4">
                                     <div className="font-medium text-sys-text-primary">{u.name}</div>
                                     <div className="text-xs text-sys-text-secondary font-mono mt-0.5">@{u.username}</div>

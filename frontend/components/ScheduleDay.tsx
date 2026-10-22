@@ -42,6 +42,8 @@ export function ScheduleDay({
   hideHeaderOnMobile = false,
   weekNumber,
   hideDayTitle = false,
+  currentTeacherId,
+  currentTeacherName,
 }: {
   schedule: ScheduleResponse;
   isToday?: boolean;
@@ -58,6 +60,8 @@ export function ScheduleDay({
   hideHeaderOnMobile?: boolean;
   weekNumber?: number | null;
   hideDayTitle?: boolean;
+  currentTeacherId?: number | null;
+  currentTeacherName?: string | null;
 }) {
   const { showToast } = useToast();
   const [kyivNow, setKyivNow] = useState<{ dateIso: string; minutes: number } | null>(null);
@@ -344,6 +348,8 @@ export function ScheduleDay({
                   onCancelDated={onCancelDated}
                   onRestoreDated={onRestoreDated}
                   onQuickJump={onQuickJump}
+                  currentTeacherId={currentTeacherId}
+                  currentTeacherName={currentTeacherName}
                 />
               </motion.div>
             );

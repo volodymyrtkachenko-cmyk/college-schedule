@@ -16,10 +16,12 @@ export function BottomNav({
   activeTab,
   onTabChange,
   overdueCount = 0,
+  hideTasksTab = false,
 }: {
   activeTab: MobileTab;
   onTabChange: (tab: MobileTab) => void;
   overdueCount?: number;
+  hideTasksTab?: boolean;
 }) {
   return (
     <nav
@@ -61,49 +63,51 @@ export function BottomNav({
         </button>
 
         {/* Tab 2: Tasks (ДЗ) */}
-        <button
-          type="button"
-          onClick={() => {
-            vibrateTap(10);
-            onTabChange("tasks");
-          }}
-          aria-label={`Завдання${overdueCount > 0 ? `, прострочено ${overdueCount}` : ""}`}
-          aria-pressed={activeTab === "tasks"}
-          className={`relative flex flex-1 min-h-[48px] flex-col items-center justify-center gap-0.5 rounded-xl transition-all duration-150 active:scale-95 ${
-            activeTab === "tasks"
-              ? "font-bold text-sys-accent"
-              : "text-sys-text-secondary hover:text-sys-text-primary font-medium"
-          }`}
-        >
-          <div className="relative">
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={activeTab === "tasks" ? "2.2" : "1.75"}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <rect width="8" height="4" x="8" y="2" rx="1" ry="1" />
-              <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
-              <path d="M12 11h4" />
-              <path d="M12 16h4" />
-              <path d="M8 11h.01" />
-              <path d="M8 16h.01" />
-            </svg>
-            {overdueCount > 0 && (
-              <span
-                aria-label={`Прострочено: ${overdueCount}`}
-                className="absolute -top-1.5 -right-2.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 px-1 text-xs font-black text-white shadow-xs"
+        {!hideTasksTab && (
+          <button
+            type="button"
+            onClick={() => {
+              vibrateTap(10);
+              onTabChange("tasks");
+            }}
+            aria-label={`Завдання${overdueCount > 0 ? `, прострочено ${overdueCount}` : ""}`}
+            aria-pressed={activeTab === "tasks"}
+            className={`relative flex flex-1 min-h-[48px] flex-col items-center justify-center gap-0.5 rounded-xl transition-all duration-150 active:scale-95 ${
+              activeTab === "tasks"
+                ? "font-bold text-sys-accent"
+                : "text-sys-text-secondary hover:text-sys-text-primary font-medium"
+            }`}
+          >
+            <div className="relative">
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={activeTab === "tasks" ? "2.2" : "1.75"}
+                strokeLinecap="round"
+                strokeLinejoin="round"
               >
-                {overdueCount}
-              </span>
-            )}
-          </div>
-          <span className="text-xs leading-tight tracking-tight">Завдання</span>
-        </button>
+                <rect width="8" height="4" x="8" y="2" rx="1" ry="1" />
+                <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+                <path d="M12 11h4" />
+                <path d="M12 16h4" />
+                <path d="M8 11h.01" />
+                <path d="M8 16h.01" />
+              </svg>
+              {overdueCount > 0 && (
+                <span
+                  aria-label={`Прострочено: ${overdueCount}`}
+                  className="absolute -top-1.5 -right-2.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 px-1 text-xs font-black text-white shadow-xs"
+                >
+                  {overdueCount}
+                </span>
+              )}
+            </div>
+            <span className="text-xs leading-tight tracking-tight">Завдання</span>
+          </button>
+        )}
 
         {/* Tab 3: Settings */}
         <Link

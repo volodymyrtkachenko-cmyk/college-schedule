@@ -340,7 +340,7 @@ export function GeneratorPanel() {
                               <span className="font-semibold text-sys-text-muted text-xs">
                                 {sub.lesson_number}-та пара · {sub.group_name} · {fmtSubDate(sub.date)}
                               </span>
-                              <span className={`inline-block px-1.5 py-0.5 text-[0.65rem] font-bold rounded leading-none ${sub.kind === "cancelled" ? "bg-rose-500/20 text-rose-300" : "bg-sys-accent text-slate-950"}`}>
+                              <span className={`inline-block px-1.5 py-0.5 text-[0.65rem] font-bold rounded leading-none ${sub.kind === "cancelled" ? "bg-rose-500/20 text-rose-300" : "bg-sys-accent text-white"}`}>
                                 {sub.kind === "cancelled" ? "Скасовано" : "Заміна"}
                               </span>
                             </div>
@@ -465,17 +465,17 @@ export function GeneratorPanel() {
           {/* Desktop Table (>=640px) */}
           <div className="hidden sm:block overflow-x-auto">
             <table className="w-full min-w-[700px] border-collapse text-left text-sm">
-              <thead className="bg-[#111827]">
+              <thead className="bg-slate-100 dark:bg-[#111827] sticky top-0 z-10 border-b border-sys-border">
                 <tr>
-                  <th className="px-5 py-4 font-semibold text-sys-text-secondary text-xs uppercase tracking-wider">№</th>
-                  <th className="px-5 py-4 font-semibold text-sys-text-secondary text-xs uppercase tracking-wider">Назва розкладу</th>
-                  <th className="px-5 py-4 font-semibold text-sys-text-secondary text-xs uppercase tracking-wider">Статус</th>
-                  <th className="px-5 py-4 font-semibold text-sys-text-secondary text-right min-w-[200px]">Дії</th>
+                  <th className="px-5 py-4 font-semibold text-slate-700 dark:text-sys-text-secondary text-xs uppercase tracking-wider">№</th>
+                  <th className="px-5 py-4 font-semibold text-slate-700 dark:text-sys-text-secondary text-xs uppercase tracking-wider">Назва розкладу</th>
+                  <th className="px-5 py-4 font-semibold text-slate-700 dark:text-sys-text-secondary text-xs uppercase tracking-wider">Статус</th>
+                  <th className="px-5 py-4 font-semibold text-slate-700 dark:text-sys-text-secondary text-right min-w-[200px]">Дії</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-sys-border/50">
                 {drafts.map(d => (
-                  <tr key={d.id} className="hover:bg-white/[0.02] transition-colors">
+                  <tr key={d.id} className="hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors">
                     <td className="px-5 py-3 whitespace-nowrap text-sys-text-muted">#{d.id}</td>
                     <td className="px-5 py-3 font-semibold text-sys-text-primary">{d.name}</td>
                     <td className="px-5 py-3">
@@ -584,7 +584,7 @@ export function GeneratorPanel() {
               <button
                 type="button"
                 onClick={() => setDraftToPublish(null)}
-                className="w-8 h-8 flex items-center justify-center rounded-lg text-sys-text-secondary hover:bg-white/5 hover:text-white text-base transition-colors"
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-sys-text-secondary hover:bg-slate-100 dark:hover:bg-white/5 hover:text-sys-text-primary text-base transition-colors"
               >
                 ✕
               </button>
@@ -618,7 +618,7 @@ export function GeneratorPanel() {
               <button
                 type="button"
                 onClick={() => setDraftToPublish(null)}
-                className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-lg border border-sys-border bg-sys-card px-4 py-2 text-sm font-semibold text-sys-text-primary hover:bg-white/5 transition-all"
+                className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-lg border border-sys-border bg-sys-card px-4 py-2 text-sm font-semibold text-sys-text-primary hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
               >
                 Скасувати
               </button>
@@ -626,7 +626,7 @@ export function GeneratorPanel() {
                 type="button"
                 onClick={handleConfirmPublish}
                 disabled={publishingId === draftToPublish.id}
-                className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] flex items-center justify-center gap-2 rounded-lg bg-emerald-500 px-6 py-2 text-sm font-bold text-[#0b1120] hover:opacity-90 disabled:opacity-50 transition-all shadow-sm"
+                className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] flex items-center justify-center gap-2 rounded-lg bg-emerald-500 px-6 py-2 text-sm font-semibold text-white shadow-xs hover:opacity-95 disabled:opacity-50 transition-all"
               >
                 {publishingId === draftToPublish.id ? "Публікація..." : "Опублікувати розклад"}
               </button>

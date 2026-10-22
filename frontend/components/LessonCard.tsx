@@ -684,6 +684,8 @@ export function LessonCard({
   onDeleteTemplate,
   onRemoveReplacement,
   learningMode = null,
+  currentTeacherId = null,
+  currentTeacherName = null,
 }: {
   lesson: Lesson;
   learningMode?: "offline" | "online" | null;
@@ -709,6 +711,8 @@ export function LessonCard({
   onOpenPermanentSchedule?: (lesson: Lesson) => void;
   isTemplateMode?: boolean;
   onDeleteTemplate?: (lesson: Lesson) => void;
+  currentTeacherId?: number | null;
+  currentTeacherName?: string | null;
 }) {
   const isSelectedForMove = movingLesson?.id === lesson.id;
   const isDay = mode !== "week";
@@ -743,11 +747,44 @@ export function LessonCard({
   const { isLinked, submissions, personalTeachers, personalSubgroup } = useClassroomSubmissions();
 
   const isTeacherView = scheduleMode === "teacher";
+
+  const hasMultipleTeachers = Boolean(
+    lesson.second_teacher_id ||
+    (lesson.teacher_name && /[,/]/.test(lesson.teacher_name)) ||
+    (lesson.teacher_room && lesson.second_teacher_room)
+  );
+
+  const activeTeacherIdx = useMemo(() => {
+    if (!isTeacherView || !hasMultipleTeachers) return null;
+    if (currentTeacherId != null) {
+      if (lesson.second_teacher_id && lesson.second_teacher_id === currentTeacherId) return 1;
+      if (lesson.teacher_id && lesson.teacher_id === currentTeacherId) return 0;
+    }
+    if (currentTeacherName && lesson.teacher_name) {
+      const parts = lesson.teacher_name.split(/\s*[,/]\s*/).map((p) => p.trim().toLowerCase());
+      const curLastName = currentTeacherName.trim().toLowerCase().split(/[\s.]+/)[0];
+      if (parts[1] && (parts[1].includes(curLastName) || curLastName.includes(parts[1].split(/[\s.]+/)[0]))) return 1;
+      if (parts[0] && (parts[0].includes(curLastName) || curLastName.includes(parts[0].split(/[\s.]+/)[0]))) return 0;
+    }
+    return 0;
+  }, [isTeacherView, hasMultipleTeachers, currentTeacherId, lesson.second_teacher_id, lesson.teacher_id, currentTeacherName, lesson.teacher_name]);
+
   const secondaryItems = useMemo(() => {
-    return isTeacherView ? parseLessonGroups(lesson) : parseLessonTeachers(lesson);
-  }, [isTeacherView, lesson.group_id, lesson.group_name, lesson.teacher_id, lesson.second_teacher_id, lesson.teacher_name]);
+    if (isTeacherView) {
+      const groups = parseLessonGroups(lesson);
+      if (hasMultipleTeachers && activeTeacherIdx !== null) {
+        return groups.map((g) => ({
+          ...g,
+          displayName: `${g.displayName} · ${activeTeacherIdx + 1} підгр.`,
+        }));
+      }
+      return groups;
+    }
+    return parseLessonTeachers(lesson);
+  }, [isTeacherView, lesson.group_id, lesson.group_name, lesson.teacher_id, lesson.second_teacher_id, lesson.teacher_name, hasMultipleTeachers, activeTeacherIdx]);
 
   const isDualTeachers = !isTeacherView && secondaryItems.length === 2;
+  const isDualTeachersOrSplit = isDualTeachers || (isTeacherView && hasMultipleTeachers);
 
   const effectiveSubgroup = useMemo(() => {
     if (selectedSubgroup === 1 || selectedSubgroup === 2) {
@@ -850,14 +887,17 @@ export function LessonCard({
   }, [lesson.room, learningMode, meetings.length]);
 
   const teacherMeetings = useMemo(() => {
-    if (!isDualTeachers || meetings.length === 0) return [null, null];
-    const s0 = secondaryItems[0].name.split(/[\s.]+/)[0].toLowerCase();
-    const s1 = secondaryItems[1].name.split(/[\s.]+/)[0].toLowerCase();
+    if (!isDualTeachersOrSplit || meetings.length === 0) return [null, null];
+    const teacherNames = isTeacherView
+      ? (lesson.teacher_name ? lesson.teacher_name.split(/\s*[,/]\s*/).map((s) => s.trim()) : [])
+      : [secondaryItems[0]?.name || "", secondaryItems[1]?.name || ""];
+    const s0 = (teacherNames[0] || "").split(/[\s.]+/)[0].toLowerCase();
+    const s1 = (teacherNames[1] || "").split(/[\s.]+/)[0].toLowerCase();
 
     const matchesTeacher = (m: MeetingInfo, s: string, subNum: number) => {
       if (!m.label) return false;
       const l = m.label.toLowerCase();
-      if (l.includes(s) || s.includes(l)) return true;
+      if (s && (l.includes(s) || s.includes(l))) return true;
       if (subNum === 1 && (l.includes("1 підгр") || l.includes("1-ша") || l === "1")) return true;
       if (subNum === 2 && (l.includes("2 підгр") || l.includes("2-га") || l === "2")) return true;
       if (s.includes("токар") && (l.includes("токар") || l.includes("токарев"))) return true;
@@ -880,7 +920,22 @@ export function LessonCard({
     }
 
     return [m0 || null, m1 || null];
-  }, [isDualTeachers, secondaryItems, meetings]);
+  }, [isDualTeachersOrSplit, isTeacherView, lesson.teacher_name, secondaryItems, meetings]);
+
+  const teacherSpecificRoom = useMemo(() => {
+    if (!isTeacherView || !hasMultipleTeachers || activeTeacherIdx === null) return null;
+    const r = activeTeacherIdx === 1
+      ? (lesson.second_teacher_room || rooms[1] || rooms[0] || lesson.room)
+      : (lesson.teacher_room || rooms[0] || lesson.room);
+    return r ? r.replace(/^ауд\.?\s*/i, "") : null;
+  }, [isTeacherView, hasMultipleTeachers, activeTeacherIdx, lesson.second_teacher_room, lesson.teacher_room, rooms, lesson.room]);
+
+  const teacherSpecificMeeting = useMemo(() => {
+    if (!isTeacherView || !hasMultipleTeachers || activeTeacherIdx === null) return null;
+    return teacherMeetings[activeTeacherIdx] || (meetings.length === 1 ? meetings[0] : null);
+  }, [isTeacherView, hasMultipleTeachers, activeTeacherIdx, teacherMeetings, meetings]);
+
+  const isTeacherSubgroupShown = isTeacherView && hasMultipleTeachers && activeTeacherIdx !== null;
 
   const singleSubgroupIdx = useMemo(() => {
     if (!isDualTeachers) return null;
@@ -909,29 +964,41 @@ export function LessonCard({
     return meetings.filter((m) => m !== teacherMeetings[0] && m !== teacherMeetings[1]);
   }, [isDualTeachers, meetings, teacherMeetings]);
 
-  const deskMeeting = (isDualTeachers ? (isSingleSubgroupShown ? singleSubgroupMeeting : row3Meetings[0]) : meetings[0]) ?? null;
-  const mobileMeeting = (isDualTeachers ? (isSingleSubgroupShown ? singleSubgroupMeeting : row3Meetings[0]) : meetings[0]) ?? null;
+  const deskMeeting = isTeacherSubgroupShown
+    ? teacherSpecificMeeting
+    : ((isDualTeachers ? (isSingleSubgroupShown ? singleSubgroupMeeting : row3Meetings[0]) : meetings[0]) ?? null);
+  const mobileMeeting = isTeacherSubgroupShown
+    ? teacherSpecificMeeting
+    : ((isDualTeachers ? (isSingleSubgroupShown ? singleSubgroupMeeting : row3Meetings[0]) : meetings[0]) ?? null);
   const hasMobileMeeting = Boolean(mobileMeeting);
 
   const displayRooms = useMemo(() => {
+    if (isTeacherSubgroupShown) {
+      if (!teacherSpecificRoom) return [];
+      if (learningMode === "online" && teacherSpecificMeeting) return [];
+      return [teacherSpecificRoom];
+    }
     if (isSingleSubgroupShown) {
       if (!singleSubgroupRoom) return [];
       if (learningMode === "online" && singleSubgroupMeeting) return [];
       return [singleSubgroupRoom];
     }
     return rooms;
-  }, [isSingleSubgroupShown, singleSubgroupRoom, learningMode, singleSubgroupMeeting, rooms]);
+  }, [isTeacherSubgroupShown, teacherSpecificRoom, teacherSpecificMeeting, isSingleSubgroupShown, singleSubgroupRoom, learningMode, singleSubgroupMeeting, rooms]);
 
   const roomsLabel = useMemo(() => formatRoomsList(displayRooms), [displayRooms]);
-  const hasBothRoomAndMeet = displayRooms.length > 0 && (isSingleSubgroupShown ? hasMobileMeeting : hasMeeting);
-  // Два викладачі (ПК, вигляд «День»): аудиторія і посилання біля кожного окремо
-  const hasPerTeacherRoom = Boolean(lesson.teacher_room || lesson.second_teacher_room || rooms.length >= 2);
+  const hasBothRoomAndMeet = displayRooms.length > 0 && (isTeacherSubgroupShown ? Boolean(teacherSpecificMeeting) : (isSingleSubgroupShown ? hasMobileMeeting : hasMeeting));
+  // Два викладачі (ПК, вигляд «День»): аудиторія і посилання біля кожного окремо (тільки для студента)
+  const hasPerTeacherRoom = !isTeacherView && Boolean(lesson.teacher_room || lesson.second_teacher_room || rooms.length >= 2);
 
   const weekGridMeetings = useMemo(() => {
+    if (isTeacherSubgroupShown) {
+      return teacherSpecificMeeting ? [teacherSpecificMeeting] : [];
+    }
     if (!isDualTeachers) return meetings;
     if (isSingleSubgroupShown) return singleSubgroupMeeting ? [singleSubgroupMeeting] : [];
     return row3Meetings;
-  }, [isDualTeachers, isSingleSubgroupShown, singleSubgroupMeeting, row3Meetings, meetings]);
+  }, [isTeacherSubgroupShown, teacherSpecificMeeting, isDualTeachers, isSingleSubgroupShown, singleSubgroupMeeting, row3Meetings, meetings]);
 
   const groupedTasks = useMemo(() => {
     if (!isDualTeachers || tasks.length === 0) {

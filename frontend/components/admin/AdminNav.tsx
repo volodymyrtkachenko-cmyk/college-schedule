@@ -340,7 +340,7 @@ export function AdminNav({ active }: { active: string }) {
     `flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
       isActive
         ? "border border-sys-accent/30 bg-sys-accent/15 text-sys-accent font-semibold"
-        : "border border-transparent text-sys-text-secondary hover:bg-white/5 hover:text-sys-text-primary"
+        : "border border-transparent text-sys-text-secondary hover:bg-slate-100 dark:hover:bg-white/5 hover:text-sys-text-primary"
     }`;
 
   // Inner navigation content used in both Desktop Sidebar and Mobile Drawer
@@ -370,7 +370,7 @@ export function AdminNav({ active }: { active: string }) {
                 aria-label="Згорнути меню"
                 title="Згорнути меню (Ctrl+B)"
                 onClick={toggleDesktopCollapse}
-                className="hidden lg:flex items-center justify-center w-7 h-7 rounded-lg text-sys-text-secondary hover:bg-white/5 hover:text-sys-text-primary transition-colors text-base font-bold"
+                className="hidden lg:flex items-center justify-center w-7 h-7 rounded-lg text-sys-text-secondary hover:bg-slate-100 dark:hover:bg-white/5 hover:text-sys-text-primary transition-colors text-base font-bold"
               >
                 ‹
               </button>
@@ -379,7 +379,7 @@ export function AdminNav({ active }: { active: string }) {
                 type="button"
                 aria-label="Закрити меню"
                 onClick={() => setDrawerOpen(false)}
-                className="lg:hidden rounded-lg p-1.5 text-sys-text-secondary hover:bg-white/5 hover:text-sys-text-primary"
+                className="lg:hidden rounded-lg p-1.5 text-sys-text-secondary hover:bg-slate-100 dark:hover:bg-white/5 hover:text-sys-text-primary"
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="m18 6-12 12M6 6l12 12" />
@@ -633,7 +633,7 @@ export function AdminNav({ active }: { active: string }) {
             aria-expanded={drawerOpen}
             aria-controls="admin-drawer"
             onClick={() => setDrawerOpen(true)}
-            className="relative flex items-center justify-center w-10 h-10 rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/5 transition-colors focus:outline-none focus:ring-2 focus:ring-sys-accent"
+            className="relative flex items-center justify-center w-10 h-10 rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-slate-100 dark:hover:bg-white/5 transition-colors focus:outline-none focus:ring-2 focus:ring-sys-accent"
           >
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="4" y1="12" x2="20" y2="12" />
@@ -697,7 +697,7 @@ export function AdminNav({ active }: { active: string }) {
         <button
           type="button"
           onClick={toggleDesktopCollapse}
-          className="hidden lg:flex fixed top-3.5 left-3.5 z-40 items-center justify-center w-9 h-9 rounded-lg border border-sys-border bg-sys-card text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/5 shadow-lg transition-all active:scale-95"
+          className="hidden lg:flex fixed top-3.5 left-3.5 z-40 items-center justify-center w-9 h-9 rounded-lg border border-sys-border bg-sys-card text-sys-text-secondary hover:text-sys-text-primary hover:bg-slate-100 dark:hover:bg-white/5 shadow-lg transition-all active:scale-95"
           title="Розгорнути бічне меню (Ctrl+B)"
           aria-label="Розгорнути бічне меню"
         >
