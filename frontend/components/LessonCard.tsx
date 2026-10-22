@@ -1439,7 +1439,7 @@ export function LessonCard({
                       <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
                         <button
                           type="button"
-                          onClick={(e) => { e.stopPropagation(); handleSubgroupToggle(singleSubgroupIdx + 1); }}
+                          onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleSubgroupToggle(singleSubgroupIdx + 1); }}
                           title={`Ваша підгрупа ${singleSubgroupIdx + 1} (натисніть, щоб скинути або перемкнути)`}
                           aria-label={`Ваша підгрупа ${singleSubgroupIdx + 1} (натисніть, щоб скинути або перемкнути)`}
                           className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold border ${
@@ -1500,7 +1500,7 @@ export function LessonCard({
                               <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1 mr-1">
                                 <button
                                   type="button"
-                                  onClick={(e) => { e.stopPropagation(); handleSubgroupToggle(subNum); }}
+                                  onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleSubgroupToggle(subNum); }}
                                   title={effectiveSubgroup === subNum ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${subNum} підгрупу`}
                                   aria-label={effectiveSubgroup === subNum ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${subNum} підгрупу`}
                                   className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold transition-colors ${
@@ -2028,7 +2028,7 @@ export function LessonCard({
                 <div className="flex items-center gap-1.5 min-w-0">
                   <button
                     type="button"
-                    onClick={(e) => { e.stopPropagation(); handleSubgroupToggle(singleSubgroupIdx + 1); }}
+                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleSubgroupToggle(singleSubgroupIdx + 1); }}
                     title={`Ваша підгрупа ${singleSubgroupIdx + 1} (натисніть, щоб скинути або перемкнути)`}
                     aria-label={`Ваша підгрупа ${singleSubgroupIdx + 1} (натисніть, щоб скинути або перемкнути)`}
                     className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold border ${
@@ -2089,7 +2089,7 @@ export function LessonCard({
                         <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1 mr-1">
                           <button
                             type="button"
-                            onClick={(e) => { e.stopPropagation(); handleSubgroupToggle(subNum); }}
+                            onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleSubgroupToggle(subNum); }}
                             title={effectiveSubgroup === subNum ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${subNum} підгрупу`}
                             aria-label={effectiveSubgroup === subNum ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${subNum} підгрупу`}
                             className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold transition-colors ${
@@ -2441,7 +2441,7 @@ export function LessonCard({
               <div className="flex items-center gap-1.5 min-w-0 text-xs text-sys-text-secondary mt-0.5">
                 <button
                   type="button"
-                  onClick={(e) => { e.stopPropagation(); handleSubgroupToggle(singleSubgroupIdx + 1); }}
+                  onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleSubgroupToggle(singleSubgroupIdx + 1); }}
                   title={`Ваша підгрупа ${singleSubgroupIdx + 1} (натисніть, щоб скинути або перемкнути)`}
                   aria-label={`Ваша підгрупа ${singleSubgroupIdx + 1} (натисніть, щоб скинути або перемкнути)`}
                   className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-bold border ${
@@ -2502,7 +2502,7 @@ export function LessonCard({
                       <div className="flex items-center gap-1.5 min-w-0 w-full">
                         <button
                           type="button"
-                          onClick={(e) => { e.stopPropagation(); handleSubgroupToggle(subNum); }}
+                          onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleSubgroupToggle(subNum); }}
                           title={effectiveSubgroup === subNum ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${subNum} підгрупу`}
                           aria-label={effectiveSubgroup === subNum ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${subNum} підгрупу`}
                           className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-semibold transition-colors ${

@@ -146,13 +146,15 @@ export default function HomePage() {
       }
     } catch {}
 
-    const handleSettingsChange = () => {
+    const handleSettingsChange = (e: Event) => {
       try {
+        const customEvt = e as CustomEvent<{ key?: string; value?: any }>;
+        if (!customEvt?.detail || customEvt.detail.key !== "defaultViewDesktop") {
+          return;
+        }
         if (window.innerWidth >= 1024) {
-          const defaultDesktop = (localStorage.getItem("schedule:default_view_desktop") as "week" | "today") || "today";
+          const defaultDesktop = (customEvt.detail.value as "week" | "today") || "today";
           setView(defaultDesktop);
-        } else {
-          setView("today");
         }
       } catch {}
     };

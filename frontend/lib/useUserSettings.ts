@@ -82,7 +82,9 @@ export function useUserSettings() {
       } else if (key === "defaultViewDesktop") {
         localStorage.setItem(VIEW_DESKTOP_KEY, String(value));
       }
-      window.dispatchEvent(new Event(SETTINGS_CHANGE_EVENT));
+      window.dispatchEvent(
+        new CustomEvent(SETTINGS_CHANGE_EVENT, { detail: { key, value } })
+      );
       window.dispatchEvent(new Event("storage"));
     } catch {}
     setSettings((prev) => ({ ...prev, [key]: value }));
