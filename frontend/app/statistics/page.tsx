@@ -558,9 +558,16 @@ export default function StatisticsPage() {
                                 Група {grp.name}
                               </h3>
                               {grp.subject_names && grp.subject_names.length > 0 && (
-                                <p className="line-clamp-1 text-xs text-sys-accent/90 mb-1" title={grp.subject_names.join(", ")}>
-                                  {grp.subject_names.join(", ")}
-                                </p>
+                                <div className="flex flex-wrap gap-1 my-1.5">
+                                  {grp.subject_names.map((subjectName) => (
+                                    <span
+                                      key={subjectName}
+                                      className="rounded bg-sky-500/10 border border-sky-500/20 px-1.5 py-0.5 text-[11px] font-medium text-sky-300 leading-snug"
+                                    >
+                                      {subjectName}
+                                    </span>
+                                  ))}
+                                </div>
                               )}
                               <p className="text-xs text-slate-400">
                                 {grp.completed_hours} акад. год · {grp.lessons_count} пар
@@ -572,9 +579,6 @@ export default function StatisticsPage() {
                     </div>
                   )
                 )}
-                <p className="mt-6 text-center text-xs text-sys-text-muted">
-                  Дані розраховані за розкладом і не враховують фактичну присутність.
-                </p>
               </section>
             )}
           </>
