@@ -32,6 +32,7 @@ import { ClassroomSyncButton } from "../../components/ClassroomSyncButton";
 import { PageHeader } from "../../components/admin/PageHeader";
 import { PublicationChangesModal } from "../../components/admin/PublicationChangesModal";
 import { invalidateScheduleCache } from "../../lib/hooks";
+import { TeacherPinAdminCard } from "../../components/admin/TeacherPinAdminCard";
 
 function extractSurname(fullName: string): string {
   const parts = fullName.trim().split(/\s+/).filter(Boolean);
@@ -635,6 +636,11 @@ function AdminContent() {
                 ) : undefined
               }
             />
+            {activeResource === "teachers" && user?.role === "admin" && (
+              <TeacherPinAdminCard
+                onNotify={(msg, tone) => setToast(msg, tone === "positive" ? "success" : "error")}
+              />
+            )}
 
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 max-w-[960px]">
               <div className="relative w-full sm:max-w-md">
