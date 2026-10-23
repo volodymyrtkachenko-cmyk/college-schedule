@@ -1050,7 +1050,9 @@ export const LessonCard = memo(function LessonCard({
   }, [isTeacherSubgroupShown, teacherSpecificRoom, teacherSpecificMeeting, isSingleSubgroupShown, singleSubgroupRoom, learningMode, singleSubgroupMeeting, rooms]);
 
   const roomsLabel = useMemo(() => formatRoomsList(displayRooms), [displayRooms]);
-  const hasBothRoomAndMeet = displayRooms.length > 0 && (isTeacherSubgroupShown ? Boolean(teacherSpecificMeeting) : (isSingleSubgroupShown ? hasMobileMeeting : hasMeeting));
+  const effectiveHasMobileMeeting = hasMobileMeeting || (!hasGroupAccess && Boolean(lesson.has_protected_link || (lesson.is_online && displayRooms.length === 0)));
+  const effectiveHasMeeting = hasMeeting || (!hasGroupAccess && Boolean(lesson.has_protected_link || lesson.is_online));
+  const hasBothRoomAndMeet = displayRooms.length > 0 && (isTeacherSubgroupShown ? Boolean(teacherSpecificMeeting) : (isSingleSubgroupShown ? effectiveHasMobileMeeting : effectiveHasMeeting));
   // Два викладачі (ПК, вигляд «День»): аудиторія і посилання біля кожного окремо (тільки для студента)
   const hasPerTeacherRoom = !isTeacherView && Boolean(lesson.teacher_room || lesson.second_teacher_room || rooms.length >= 2);
 
@@ -1891,7 +1893,7 @@ export const LessonCard = memo(function LessonCard({
       {isDay && (
         <div className="flex sm:hidden flex-col gap-2 w-full">
           {/* Row 1: Number + Time (or badges when hideTimeColumn) on left, Live pill / Room / Meet / Edit actions on right */}
-          {(!hideTimeColumn || canEdit || isLive || lesson.is_cancelled || eventBadge || lesson.is_replacement || (isTemplateMode && lesson.week_type !== "both") || (!hasBothRoomAndMeet && !isDualTeachers && (rooms.length > 0 || hasMeeting))) && (
+          {(!hideTimeColumn || canEdit || isLive || lesson.is_cancelled || eventBadge || lesson.is_replacement || (isTemplateMode && lesson.week_type !== "both") || (!hasBothRoomAndMeet && !isDualTeachers && (rooms.length > 0 || effectiveHasMeeting))) && (
             <div className="flex flex-wrap items-center justify-between gap-2 w-full min-h-[34px]">
               <div className="flex flex-wrap items-center gap-1.5 min-w-0">
                 {!hideTimeColumn && (
@@ -2210,7 +2212,7 @@ export const LessonCard = memo(function LessonCard({
           </div>
 
           {/* Dedicated Row for Room & Meet: on live lessons OR when both exist (or when canEdit and hasMeeting) */}
-          {(!isDualTeachers || isSingleSubgroupShown) && ((isLive && (displayRooms.length > 0 || hasMobileMeeting || (!hasGroupAccess && lesson.is_online))) || hasBothRoomAndMeet || (canEdit && hasMobileMeeting) || (!hasGroupAccess && lesson.has_protected_link)) && (
+          {(!isDualTeachers || isSingleSubgroupShown) && ((isLive && (displayRooms.length > 0 || hasMobileMeeting || (!hasGroupAccess && (lesson.is_online || lesson.has_protected_link)))) || hasBothRoomAndMeet || (canEdit && (hasMobileMeeting || (!hasGroupAccess && lesson.has_protected_link)))) && (
             <div className="flex flex-wrap items-center gap-2 w-full mt-0.5">
               {!canEdit && displayRooms.length > 0 && (
                 <div
