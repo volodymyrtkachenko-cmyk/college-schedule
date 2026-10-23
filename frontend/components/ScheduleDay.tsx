@@ -6,15 +6,7 @@ import { ScheduleResponse, Lesson } from "../lib/api";
 import { buildTelegramShareText } from "../lib/format";
 import { useToast } from "./ToastProvider";
 import { LessonCard, QuickJumpTarget } from "./LessonCard";
-import { shareScheduleAsImage } from "../lib/shareImage";
-
-const KYIV_DATE_FMT = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" });
-const KYIV_TIME_FMT = new Intl.DateTimeFormat("en-GB", {
-  timeZone: "Europe/Kyiv",
-  hour: "2-digit",
-  minute: "2-digit",
-  hour12: false,
-});
+import { KYIV_DATE_FMT, KYIV_TIME_FMT } from "../lib/date";
 
 const fmt = (value: string, options: Intl.DateTimeFormatOptions) =>
   new Intl.DateTimeFormat("uk-UA", options).format(new Date(`${value}T12:00:00`));
@@ -113,6 +105,7 @@ export function ScheduleDay({
             ? `Група ${firstLesson.group_name}`
             : "Розклад занять";
 
+      const { shareScheduleAsImage } = await import("../lib/shareImage");
       const result = await shareScheduleAsImage(schedule, scheduleMode, ownerLabel, weekNumber);
       if (result === "copied") {
         showToast("Картинку скопійовано!", "success");

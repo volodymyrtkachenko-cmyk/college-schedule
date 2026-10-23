@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { api, DirectoryItem, ScheduleResponse } from "./api";
+import { api, DirectoryItem, ScheduleResponse, invalidateEtagCache, invalidateGroupStatusCache } from "./api";
 import { useAuth } from "./auth";
 
 
@@ -10,6 +10,8 @@ const CACHE_TTL = 1000 * 60;
 
 export function invalidateScheduleCache() {
   memoryCache.clear();
+  invalidateEtagCache();
+  invalidateGroupStatusCache();
   if (typeof navigator === "undefined" || navigator.onLine) {
     for (let index = 0; index < window.localStorage.length; index++) {
       const key = window.localStorage.key(index);
@@ -128,22 +130,27 @@ export function useSchedule(weekAnchorDate: Date, includeCancelled = false) {
     if (mode === "student" && !groupId) { setWeek([]); setToday(null); return; }
     if (mode === "teacher" && !teacherId) { setWeek([]); setToday(null); return; }
 
-    // Очищення застарілих ключів schedule:week:* (старших за 14 днів)
-    try {
-      const cutoff = new Date();
-      cutoff.setDate(cutoff.getDate() - 14);
-      const cutoffIso = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, "0")}-${String(cutoff.getDate()).padStart(2, "0")}`;
-      for (let i = 0; i < window.localStorage.length; i++) {
-        const k = window.localStorage.key(i);
-        if (k && k.startsWith("schedule:week:")) {
-          const dateMatch = k.match(/:(\d{4}-\d{2}-\d{2})(?::all)?$/);
-          if (dateMatch && dateMatch[1] < cutoffIso) {
-            window.localStorage.removeItem(k);
-            i--;
+    // Очищення застарілих ключів schedule:week:* (старших за 14 днів) у фоні один раз за сесію
+    if (typeof window !== "undefined" && !(window as any).__scheduleStorageCleaned) {
+      (window as any).__scheduleStorageCleaned = true;
+      setTimeout(() => {
+        try {
+          const cutoff = new Date();
+          cutoff.setDate(cutoff.getDate() - 14);
+          const cutoffIso = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, "0")}-${String(cutoff.getDate()).padStart(2, "0")}`;
+          for (let i = 0; i < window.localStorage.length; i++) {
+            const k = window.localStorage.key(i);
+            if (k && k.startsWith("schedule:week:")) {
+              const dateMatch = k.match(/:(\d{4}-\d{2}-\d{2})(?::all)?$/);
+              if (dateMatch && dateMatch[1] < cutoffIso) {
+                window.localStorage.removeItem(k);
+                i--;
+              }
+            }
           }
-        }
-      }
-    } catch {}
+        } catch {}
+      }, 3000);
+    }
 
     const formatDateKey = (d: Date) =>
       `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -227,7 +234,7 @@ export function useSchedule(weekAnchorDate: Date, includeCancelled = false) {
         .then(async (weekResponse) => {
           if (!isSubscribed) return;
           const matchingDay = isWeekday ? weekResponse.find((d) => d.date === todayIso) : undefined;
-          const todayResponse = matchingDay ?? (await api.today(targetGroupId, targetTeacherId, includeCancelled));
+          const todayResponse = matchingDay ?? (weekResponse.length > 0 ? weekResponse[0] : (await api.today(targetGroupId, targetTeacherId, includeCancelled)));
           if (!isSubscribed) return;
 
           setToday(todayResponse);

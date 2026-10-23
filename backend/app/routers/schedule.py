@@ -175,6 +175,7 @@ async def schedule(request: Request = None,
                    day_of_week: int | None = Query(None, ge=1, le=7),
                    target_date: date | None = None,
                    include_cancelled: bool = Query(False),
+                   has_access: bool | None = None,
                    db: AsyncSession = Depends(get_db)):
     target_date = target_date or today_local()
     week_type, lessons = await fetch_schedule(
@@ -190,7 +191,8 @@ async def schedule(request: Request = None,
     serialized_items = await attach_notes(db, target_date, serialize_schedule_items(lessons, week_type, target_date, bell_t))
 
     from app.services.classroom_access import check_classroom_group_access, sanitize_note_for_guest, sanitize_room_for_guest, MEETING_URL_RE
-    has_access = await check_classroom_group_access(db, group_id, request)
+    if has_access is None:
+        has_access = await check_classroom_group_access(db, group_id, request)
 
     for item in serialized_items:
         has_meeting = bool(
@@ -276,7 +278,7 @@ async def today(
         from email.utils import format_datetime
         response.headers["Last-Modified"] = format_datetime(last_modified, usegmt=True)
 
-    return await schedule(request=request, group_id=group_id, teacher_id=teacher_id, target_date=target, day_of_week=target.isoweekday(), include_cancelled=include_cancelled, db=db)
+    return await schedule(request=request, group_id=group_id, teacher_id=teacher_id, target_date=target, day_of_week=target.isoweekday(), include_cancelled=include_cancelled, has_access=is_auth, db=db)
 
 @router.get("/schedule/week")
 async def week(

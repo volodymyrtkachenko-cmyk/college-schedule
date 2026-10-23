@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useSyncExternalStore, useCallback } from "react";
 
 export interface UserSettings {
   showHomeworkBadges: boolean;
@@ -13,13 +13,18 @@ const SUBGROUP_KEY = "schedule_selected_subgroup";
 const VIEW_DESKTOP_KEY = "schedule:default_view_desktop";
 const SETTINGS_CHANGE_EVENT = "schedule-settings-change";
 
-export function getUserSettings(): UserSettings {
+const DEFAULT_SERVER_SETTINGS: UserSettings = {
+  showHomeworkBadges: true,
+  defaultSubgroup: 1,
+  defaultViewDesktop: "today",
+};
+
+let _cachedSettingsSnapshot: UserSettings | null = null;
+const _settingsSubscribers = new Set<() => void>();
+
+function readSettingsFromStorage(): UserSettings {
   if (typeof window === "undefined") {
-    return {
-      showHomeworkBadges: true,
-      defaultSubgroup: 1,
-      defaultViewDesktop: "today",
-    };
+    return DEFAULT_SERVER_SETTINGS;
   }
 
   let showHomeworkBadges = true;
@@ -47,27 +52,44 @@ export function getUserSettings(): UserSettings {
   };
 }
 
+function getSettingsSnapshot(): UserSettings {
+  if (!_cachedSettingsSnapshot) {
+    _cachedSettingsSnapshot = readSettingsFromStorage();
+  }
+  return _cachedSettingsSnapshot;
+}
+
+function notifySettingsChange() {
+  _cachedSettingsSnapshot = readSettingsFromStorage();
+  _settingsSubscribers.forEach((fn) => fn());
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener(SETTINGS_CHANGE_EVENT, notifySettingsChange);
+  window.addEventListener("storage", (e: StorageEvent) => {
+    if (!e.key || e.key.startsWith("schedule")) {
+      notifySettingsChange();
+    }
+  });
+}
+
+function subscribeSettings(cb: () => void) {
+  _settingsSubscribers.add(cb);
+  return () => {
+    _settingsSubscribers.delete(cb);
+  };
+}
+
+export function getUserSettings(): UserSettings {
+  return getSettingsSnapshot();
+}
+
 export function useUserSettings() {
-  const [settings, setSettings] = useState<UserSettings>(getUserSettings);
-
-  const reload = useCallback(() => {
-    setSettings(getUserSettings());
-  }, []);
-
-  useEffect(() => {
-    reload();
-    const onStorage = (e: StorageEvent) => {
-      if (!e.key || e.key.startsWith("schedule")) {
-        reload();
-      }
-    };
-    window.addEventListener("storage", onStorage);
-    window.addEventListener(SETTINGS_CHANGE_EVENT, reload);
-    return () => {
-      window.removeEventListener("storage", onStorage);
-      window.removeEventListener(SETTINGS_CHANGE_EVENT, reload);
-    };
-  }, [reload]);
+  const settings = useSyncExternalStore(
+    subscribeSettings,
+    getSettingsSnapshot,
+    () => DEFAULT_SERVER_SETTINGS
+  );
 
   const updateSetting = useCallback(<K extends keyof UserSettings>(key: K, value: UserSettings[K]) => {
     try {
@@ -87,12 +109,12 @@ export function useUserSettings() {
       );
       window.dispatchEvent(new Event("storage"));
     } catch {}
-    setSettings((prev) => ({ ...prev, [key]: value }));
+    notifySettingsChange();
   }, []);
 
   return {
     settings,
     updateSetting,
-    reload,
+    reload: notifySettingsChange,
   };
 }

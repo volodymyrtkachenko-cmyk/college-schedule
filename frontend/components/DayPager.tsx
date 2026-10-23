@@ -6,15 +6,7 @@ import { ScheduleResponse, Lesson } from "../lib/api";
 import { buildTelegramShareText } from "../lib/format";
 import { useToast } from "./ToastProvider";
 import { LessonCard, QuickJumpTarget } from "./LessonCard";
-import { shareScheduleAsImage } from "../lib/shareImage";
-
-const KYIV_DATE_FMT = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" });
-const KYIV_TIME_FMT = new Intl.DateTimeFormat("en-GB", {
-  timeZone: "Europe/Kyiv",
-  hour: "2-digit",
-  minute: "2-digit",
-  hour12: false,
-});
+import { KYIV_DATE_FMT, KYIV_TIME_FMT, UKR_WEEKDAY_LONG_FMT, UKR_DAY_MONTH_LONG_FMT } from "../lib/date";
 
 function parseMin(t?: string): number | null {
   if (!t) return null;
@@ -27,8 +19,8 @@ function formatDayParts(dateStr?: string): { weekday: string; dayMonth: string }
   const d = new Date(`${dateStr}T12:00:00`);
   if (isNaN(d.getTime())) return { weekday: "", dayMonth: "" };
   return {
-    weekday: new Intl.DateTimeFormat("uk-UA", { weekday: "long" }).format(d),
-    dayMonth: new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "long" }).format(d),
+    weekday: UKR_WEEKDAY_LONG_FMT.format(d),
+    dayMonth: UKR_DAY_MONTH_LONG_FMT.format(d),
   };
 }
 
@@ -128,6 +120,7 @@ export function DayPager({
             ? `Група ${firstLesson.group_name}`
             : "Розклад занять";
 
+      const { shareScheduleAsImage } = await import("../lib/shareImage");
       const result = await shareScheduleAsImage(schedule, scheduleMode, ownerLabel, weekNumber);
       if (result === "copied") {
         showToast("Картинку скопійовано!", "success");

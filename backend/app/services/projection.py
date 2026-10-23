@@ -252,6 +252,8 @@ async def build_projection(
         base_conds.append(Schedule.version_id.is_(None))
     if group_id is not None:
         base_conds.append(Schedule.group_id == group_id)
+    elif teacher_id is not None:
+        base_conds.append(or_(Schedule.teacher_id == teacher_id, Schedule.second_teacher_id == teacher_id))
 
     base_query = select(Schedule).where(*base_conds).options(
         joinedload(Schedule.group), joinedload(Schedule.subject),
@@ -266,6 +268,15 @@ async def build_projection(
     ]
     if group_id is not None:
         import_conds.append(ImportedScheduleChange.group_id == group_id)
+    elif teacher_id is not None:
+        teacher_groups = {b.group_id for b in base_lessons}
+        t_filters = [
+            ImportedScheduleChange.teacher_id == teacher_id,
+            ImportedScheduleChange.second_teacher_id == teacher_id,
+        ]
+        if teacher_groups:
+            t_filters.append(ImportedScheduleChange.group_id.in_(teacher_groups))
+        import_conds.append(or_(*t_filters))
 
     import_query = (
         select(ImportedScheduleChange)
@@ -291,6 +302,15 @@ async def build_projection(
     override_conds = [ScheduleOverride.date == target_date]
     if group_id is not None:
         override_conds.append(ScheduleOverride.group_id == group_id)
+    elif teacher_id is not None:
+        teacher_groups = {b.group_id for b in base_lessons}
+        t_filters = [
+            ScheduleOverride.teacher_id == teacher_id,
+            ScheduleOverride.second_teacher_id == teacher_id,
+        ]
+        if teacher_groups:
+            t_filters.append(ScheduleOverride.group_id.in_(teacher_groups))
+        override_conds.append(or_(*t_filters))
 
     override_query = select(ScheduleOverride).where(*override_conds).options(
         joinedload(ScheduleOverride.group),
@@ -574,6 +594,8 @@ async def build_week_projection(
     base_conds.append(or_(Schedule.effective_until.is_(None), Schedule.effective_until >= start_date))
     if group_id is not None:
         base_conds.append(Schedule.group_id == group_id)
+    elif teacher_id is not None:
+        base_conds.append(or_(Schedule.teacher_id == teacher_id, Schedule.second_teacher_id == teacher_id))
 
     all_base_lessons = (
         await db.scalars(
@@ -594,6 +616,15 @@ async def build_week_projection(
     ]
     if group_id is not None:
         import_conds.append(ImportedScheduleChange.group_id == group_id)
+    elif teacher_id is not None:
+        teacher_groups = {b.group_id for b in all_base_lessons}
+        t_filters = [
+            ImportedScheduleChange.teacher_id == teacher_id,
+            ImportedScheduleChange.second_teacher_id == teacher_id,
+        ]
+        if teacher_groups:
+            t_filters.append(ImportedScheduleChange.group_id.in_(teacher_groups))
+        import_conds.append(or_(*t_filters))
 
     raw_all_imported = (
         await db.scalars(
@@ -619,6 +650,15 @@ async def build_week_projection(
     override_conds = [ScheduleOverride.date.between(start_date, end_date)]
     if group_id is not None:
         override_conds.append(ScheduleOverride.group_id == group_id)
+    elif teacher_id is not None:
+        teacher_groups = {b.group_id for b in all_base_lessons}
+        t_filters = [
+            ScheduleOverride.teacher_id == teacher_id,
+            ScheduleOverride.second_teacher_id == teacher_id,
+        ]
+        if teacher_groups:
+            t_filters.append(ScheduleOverride.group_id.in_(teacher_groups))
+        override_conds.append(or_(*t_filters))
 
     all_overrides = (
         await db.scalars(

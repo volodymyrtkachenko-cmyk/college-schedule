@@ -209,6 +209,7 @@ export function getScheduleInsightMessage(
 }
 import { getRandomPhrase, motivationPhrases } from "./constants/phrases";
 import type { Lesson, ScheduleResponse } from "./api";
+import { KYIV_DATE_FMT } from "./date";
 
 function getStablePhrase(phrases: string[], key: string): string {
   if (phrases.length === 0) return "";
@@ -221,7 +222,7 @@ function getStablePhrase(phrases: string[], key: string): string {
 }
 
 function dateKey(date: Date): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(date);
+  return KYIV_DATE_FMT.format(date);
 }
 
 function parseLessonEnd(time: string | undefined): number | null {

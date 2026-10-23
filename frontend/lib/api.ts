@@ -344,6 +344,16 @@ function attachClassroomQueryParams(params: URLSearchParams) {
     }
 }
 
+interface EtagCacheEntry<T = any> {
+    etag: string;
+    data: T;
+}
+const etagResponseCache = new Map<string, EtagCacheEntry>();
+
+export function invalidateEtagCache(): void {
+    etagResponseCache.clear();
+}
+
 async function rawRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
     let response: Response;
     // IMPORTANT: build headers via the Headers constructor, not object-spread.
@@ -356,6 +366,12 @@ async function rawRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
     if (method !== "GET" && !headers.has("Content-Type")) {
         headers.set("Content-Type", "application/json");
     }
+
+    const cachedEtag = method === "GET" ? etagResponseCache.get(path) : undefined;
+    if (cachedEtag && !headers.has("If-None-Match")) {
+        headers.set("If-None-Match", cachedEtag.etag);
+    }
+
     try {
         const cacheMode = init.cache ?? (method === "GET" ? "no-cache" : "no-store");
         response = await fetch(`${API_URL}${path}`, {
@@ -368,9 +384,18 @@ async function rawRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
     } catch {
         throw new ApiError(0, "Не вдалося з’єднатися із сервером. Перевірте підключення до інтернету та спробуйте ще раз.");
     }
+    if (response.status === 304 && cachedEtag) {
+        return cachedEtag.data as T;
+    }
     if (!response.ok) throw new ApiError(response.status, await parseError(response));
     if (response.status === 204) return undefined as T;
-    return response.json() as Promise<T>;
+
+    const data = (await response.json()) as T;
+    const responseEtag = response.headers?.get ? response.headers.get("ETag") : null;
+    if (method === "GET" && responseEtag) {
+        etagResponseCache.set(path, { etag: responseEtag, data });
+    }
+    return data;
 }
 
 async function authenticatedRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -923,6 +948,13 @@ export interface NoteRevision {
   created_at: string;
 }
 
+const GROUP_STATUS_CACHE_TTL = 15000;
+const groupStatusCache = new Map<string, { expiresAt: number; promise: Promise<any> }>();
+
+export function invalidateGroupStatusCache(): void {
+    groupStatusCache.clear();
+}
+
 export const api = {
   publications: {
     list: () => request<any[]>("/api/schedule-versions/publications", { method: "GET" }, true, true),
@@ -1292,7 +1324,12 @@ export const api = {
             const params = new URLSearchParams();
             attachClassroomQueryParams(params);
             const qs = params.toString();
-            return rawRequest<{
+            const cacheKey = `${groupId}:${qs}`;
+            const cached = groupStatusCache.get(cacheKey);
+            if (cached && cached.expiresAt > Date.now()) {
+                return cached.promise;
+            }
+            const promise = rawRequest<{
                 connected: boolean;
                 last_synced_at: string | null;
                 has_refresh_token?: boolean;
@@ -1319,7 +1356,12 @@ export const api = {
                 }>;
                 needs_reconnect?: boolean;
                 requires_auth?: boolean;
-            }>(`/api/classroom/groups/${groupId}/status${qs ? `?${qs}` : ""}`);
+            }>(`/api/classroom/groups/${groupId}/status${qs ? `?${qs}` : ""}`).catch((err) => {
+                groupStatusCache.delete(cacheKey);
+                throw err;
+            });
+            groupStatusCache.set(cacheKey, { expiresAt: Date.now() + GROUP_STATUS_CACHE_TTL, promise });
+            return promise;
         },
         sync: (
             tokenOrPayload: string | { code?: string; access_token?: string; refresh_token?: string; group_id?: number; week_start?: string },

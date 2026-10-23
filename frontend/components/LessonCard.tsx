@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { LessonNote } from "./LessonNote";
 const LessonNoteModal = dynamic(() => import("./LessonNote").then((m) => m.LessonNoteModal), { ssr: false });
@@ -258,7 +258,7 @@ export function parseTaskDeadline(labelOrText: string): TaskDeadline {
   const month = parseInt(match[2], 10);
 
   const now = new Date();
-  const kyivNowStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(now);
+  const kyivNowStr = KYIV_DATE_FMT.format(now);
   const [nowYear, nowMonth, nowDay] = kyivNowStr.split("-").map(Number);
 
   let year = nowYear;
@@ -420,12 +420,15 @@ export function hasAllTasksCompleted(note?: string | null): boolean {
 
 let _taskMetaMapCache: Map<string, { title?: string; teacher?: string }> | null = null;
 let _taskMetaCacheListenerRegistered = false;
+const _classroomTasksCache = new Map<string, ClassroomTaskItem[]>();
+const MAX_CLASSROOM_TASKS_CACHE = 250;
 
 function ensureTaskMetaCacheListener() {
   if (_taskMetaCacheListenerRegistered || typeof window === "undefined") return;
   _taskMetaCacheListenerRegistered = true;
   const invalidate = () => {
     _taskMetaMapCache = null;
+    _classroomTasksCache.clear();
   };
   window.addEventListener("classroom-synced", invalidate);
   window.addEventListener("storage", invalidate);
@@ -492,6 +495,10 @@ function subscribeKyivNow(cb: (now: KyivNowSnapshot) => void) {
 
 export function extractClassroomTasks(note?: string | null): ClassroomTaskItem[] {
   if (!note) return [];
+  ensureTaskMetaCacheListener();
+  const cached = _classroomTasksCache.get(note);
+  if (cached) return cached;
+
   const rawLines = note.split("\n");
   const normalizedLines: string[] = [];
 
@@ -548,6 +555,12 @@ export function extractClassroomTasks(note?: string | null): ClassroomTaskItem[]
       tasks.push({ title, teacher, label, url: urlPart, deadline });
     }
   }
+
+  if (_classroomTasksCache.size >= MAX_CLASSROOM_TASKS_CACHE) {
+    _classroomTasksCache.clear();
+  }
+  _classroomTasksCache.set(note, tasks);
+
   return tasks;
 }
 
@@ -694,7 +707,7 @@ function LockedMeetingBadge({
   );
 }
 
-export function LessonCard({
+export const LessonCard = memo(function LessonCard({
   lesson,
   targetDate,
   mode,
@@ -853,10 +866,10 @@ export function LessonCard({
     const s1 = secondaryItems[1]?.name ? secondaryItems[1].name.split(/[\s.]+/)[0].toLowerCase() : "";
 
     const matches0 = s0 ? personalTeachers.some(
-      (pt) => pt.toLowerCase().includes(s0) || s0.includes(pt.toLowerCase())
+      (pt: string) => pt.toLowerCase().includes(s0) || s0.includes(pt.toLowerCase())
     ) : false;
     const matches1 = s1 ? personalTeachers.some(
-      (pt) => pt.toLowerCase().includes(s1) || s1.includes(pt.toLowerCase())
+      (pt: string) => pt.toLowerCase().includes(s1) || s1.includes(pt.toLowerCase())
     ) : false;
 
     if (matches0 && !matches1) return 1;
@@ -2897,4 +2910,4 @@ export function LessonCard({
       )}
     </article>
   );
-}
+});

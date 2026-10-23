@@ -18,6 +18,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let mounted = true;
+    const hasAdminSession = typeof window !== "undefined" && localStorage.getItem("schedule:has_admin_session") === "1";
+    if (!hasAdminSession) {
+      setLoading(false);
+      return;
+    }
     const generation = api.auth.generation();
     api.auth.ensureAuthenticated()
       .then((session) => {
@@ -26,6 +31,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .catch((e) => {
         if (mounted && generation === api.auth.generation() && !(e instanceof AuthSupersededError)) {
           setUser(null);
+          try { localStorage.removeItem("schedule:has_admin_session"); } catch {}
         }
       })
       .finally(() => {
@@ -37,11 +43,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   async function login(username: string, password: string) {
     const session = await api.auth.login(username, password);
     if (!api.auth.isCurrentSession(session)) throw new AuthSupersededError();
+    try { localStorage.setItem("schedule:has_admin_session", "1"); } catch {}
     setUser(session.user);
   }
 
   useEffect(() => {
     const receiveLogout = () => {
+      try { localStorage.removeItem("schedule:has_admin_session"); } catch {}
       api.auth.clear();
       setUser(null);
       window.location.href = "/login";
@@ -85,6 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       try {
         localStorage.setItem("college-schedule:logout", `${Date.now()}:${Math.random()}`);
+        localStorage.removeItem("schedule:has_admin_session");
       } catch { /* Storage may be disabled. */ }
       setUser(null);
       window.location.href = "/login";

@@ -5,11 +5,11 @@ import { ScheduleDay } from "./ScheduleDay";
 import { ScheduleEditGrid } from "./ScheduleEditGrid";
 import { LessonCard, QuickJumpTarget } from "./LessonCard";
 
-const KYIV_DATE_FMT = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" });
+import { KYIV_DATE_FMT, UKR_WEEKDAY_LONG_FMT, UKR_DAY_MONTH_SHORT_FMT } from "../lib/date";
 
 function longWeekday(dateStr: string): string {
   try {
-    return new Intl.DateTimeFormat("uk-UA", { weekday: "long" }).format(new Date(`${dateStr}T12:00:00`));
+    return UKR_WEEKDAY_LONG_FMT.format(new Date(`${dateStr}T12:00:00`));
   } catch {
     return "";
   }
@@ -17,7 +17,7 @@ function longWeekday(dateStr: string): string {
 
 function shortDateUk(dateStr: string): string {
   try {
-    return new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "short" }).format(new Date(`${dateStr}T12:00:00`));
+    return UKR_DAY_MONTH_SHORT_FMT.format(new Date(`${dateStr}T12:00:00`));
   } catch {
     return "";
   }

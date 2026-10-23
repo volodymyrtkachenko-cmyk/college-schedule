@@ -14,7 +14,7 @@ import { WeekTypeBadge } from "../components/WeekTypeBadge";
 import { ScheduleResponse, api } from "../lib/api";
 import { useSchedule, useIsStandalonePwa, downloadForOffline, invalidateScheduleCache } from "../lib/hooks";
 import { useAuth, canAccessAdmin } from "../lib/auth";
-import { getMondayOf } from "../lib/date";
+import { getMondayOf, KYIV_DATE_FMT, KYIV_TIME_FMT, UKR_WEEKDAY_LONG_FMT, UKR_DAY_MONTH_SHORT_FMT, UKR_MONTH_SHORT_FMT } from "../lib/date";
 import dynamic from "next/dynamic";
 const WelcomeScreen = dynamic(() => import("../components/WelcomeScreen").then((m) => m.WelcomeScreen), { ssr: false });
 import { BottomNav, MobileTab } from "../components/BottomNav";
@@ -27,11 +27,13 @@ import { extractClassroomTasks, parseTaskDeadline, sortTasksByDeadline, TaskDead
 import { useToast } from "../components/ToastProvider";
 import { QuickJumpTarget, findGroupIdByName, findTeacherIdByName } from "../lib/quickJump";
 import { extractClassroomTaskKey, isOwnTask, useClassroomSubmissions } from "../lib/useClassroomSubmissions";
-import { shareWeekScheduleAsImage } from "../lib/shareImage";
 import { useTheme } from "../lib/useTheme";
 import { normalizeSubjectName } from "../lib/format";
 
-const UK_SHORT_WEEKDAY_FMT = new Intl.DateTimeFormat("uk-UA", { weekday: "short" });
+const EN_KYIV_DOW_FMT = new Intl.DateTimeFormat("en-US", {
+  timeZone: "Europe/Kyiv",
+  weekday: "short",
+});
 
 interface PinnedTarget {
   mode: "student" | "teacher";
@@ -459,10 +461,7 @@ export default function HomePage() {
 
 
   const getKyivWeekday = (d: Date): number => {
-    const short = new Intl.DateTimeFormat("en-US", {
-      timeZone: "Europe/Kyiv",
-      weekday: "short",
-    }).format(d);
+    const short = EN_KYIV_DOW_FMT.format(d);
     const map: Record<string, number> = {
       Sun: 0,
       Mon: 1,
@@ -486,13 +485,8 @@ export default function HomePage() {
     const now = new Date();
     const dow = getKyivWeekday(now);
     if (dow === 0 || dow === 6) return 0;
-    const kyivHour = Number(
-      new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Kyiv", hour: "2-digit", hour12: false }).format(now)
-    );
-    const kyivMin = Number(
-      new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Kyiv", minute: "2-digit" }).format(now)
-    );
-    const totalMins = kyivHour * 60 + kyivMin;
+    const [kyivHour, kyivMin] = KYIV_TIME_FMT.format(now).split(":").map(Number);
+    const totalMins = (kyivHour || 0) * 60 + (kyivMin || 0);
     if (dow >= 1 && dow <= 4 && totalMins >= 15 * 60 + 20) {
       return dow;
     }
@@ -507,30 +501,25 @@ export default function HomePage() {
   const activeDayDate = useMemo(() => {
     const d = new Date(weekAnchorDate);
     d.setDate(weekAnchorDate.getDate() + selectedDayIndex);
-    return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(d);
+    return KYIV_DATE_FMT.format(d);
   }, [weekAnchorDate, selectedDayIndex]);
 
   const todayActualIso = useMemo(() => {
-    return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(new Date());
+    return KYIV_DATE_FMT.format(new Date());
   }, []);
 
   const tomorrowActualIso = useMemo(() => {
     const d = new Date();
     d.setDate(d.getDate() + 1);
-    return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(d);
+    return KYIV_DATE_FMT.format(d);
   }, []);
 
   const isEveningAfterLessons = useMemo(() => {
     const now = new Date();
     const dow = getKyivWeekday(now);
     if (dow < 1 || dow > 4) return false;
-    const kyivHour = Number(
-      new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Kyiv", hour: "2-digit", hour12: false }).format(now)
-    );
-    const kyivMin = Number(
-      new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Kyiv", minute: "2-digit" }).format(now)
-    );
-    const totalMins = kyivHour * 60 + kyivMin;
+    const [kyivHour, kyivMin] = KYIV_TIME_FMT.format(now).split(":").map(Number);
+    const totalMins = (kyivHour || 0) * 60 + (kyivMin || 0);
     return totalMins >= 15 * 60 + 20;
   }, []);
 
@@ -670,8 +659,8 @@ export default function HomePage() {
     end.setDate(end.getDate() + 6);
     const startDay = weekAnchorDate.getDate();
     const endDay = end.getDate();
-    const startMonth = new Intl.DateTimeFormat("uk-UA", { month: "short" }).format(weekAnchorDate).replace(".", "");
-    const endMonth = new Intl.DateTimeFormat("uk-UA", { month: "short" }).format(end).replace(".", "");
+    const startMonth = UKR_MONTH_SHORT_FMT.format(weekAnchorDate).replace(".", "");
+    const endMonth = UKR_MONTH_SHORT_FMT.format(end).replace(".", "");
 
     if (startMonth === endMonth) {
       return `${startDay}–${endDay} ${startMonth}.`;
@@ -687,7 +676,7 @@ export default function HomePage() {
     for (let i = 0; i < 5; i++) {
       const d = new Date(weekAnchorDate);
       d.setDate(weekAnchorDate.getDate() + i);
-      const iso = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(d);
+      const iso = KYIV_DATE_FMT.format(d);
       days.push({
         index: i,
         name: dayNames[i],
@@ -719,12 +708,9 @@ export default function HomePage() {
 
     const dayBlocks = week
       .map((d) => {
-        const dayName = new Intl.DateTimeFormat("uk-UA", { weekday: "long" }).format(
-          new Date(`${d.date}T12:00:00`)
-        );
-        const dayDate = new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "short" }).format(
-          new Date(`${d.date}T12:00:00`)
-        );
+        const dObj = new Date(`${d.date}T12:00:00`);
+        const dayName = UKR_WEEKDAY_LONG_FMT.format(dObj);
+        const dayDate = UKR_DAY_MONTH_SHORT_FMT.format(dObj);
         if (!d.lessons || d.lessons.length === 0) {
           return `▫️ ${dayName.toUpperCase()} (${dayDate}): пар немає`;
         }
@@ -764,6 +750,7 @@ export default function HomePage() {
             : "Розклад занять"
           : teachers.find((t) => t.id === teacherId)?.name || "Розклад викладача";
 
+      const { shareWeekScheduleAsImage } = await import("../lib/shareImage");
       const result = await shareWeekScheduleAsImage(
         week,
         mode,
@@ -822,18 +809,6 @@ export default function HomePage() {
     const seenUrls = new Set<string>();
 
     const boundUrls = new Set<string>();
-    if (week && week.length > 0) {
-      for (const d of week) {
-        if (!d.lessons) continue;
-        for (const l of d.lessons) {
-          const extracted = extractClassroomTasks(l.note);
-          for (const t of extracted) {
-            if (t.url) boundUrls.add(t.url);
-          }
-        }
-      }
-    }
-
     // 1. Спочатку збираємо завдання, прив'язані до пар ЦЬОГО тижня
     if (week && week.length > 0) {
       for (const d of week) {
@@ -842,6 +817,7 @@ export default function HomePage() {
           const extracted = extractClassroomTasks(l.note);
           for (const t of extracted) {
             if (!t.url) continue;
+            boundUrls.add(t.url);
             if (!isOwnTask(isLinked, submissions, t.url, t.teacher || l.teacher_name, personalTeachers, t.title)) {
               continue;
             }
@@ -866,7 +842,7 @@ export default function HomePage() {
               }
 
               const dueIso = t.deadline.date
-                ? new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(t.deadline.date)
+                ? KYIV_DATE_FMT.format(t.deadline.date)
                 : null;
 
               const cleanSubj = normalizeSubjectName(l.subject_name || l.subject || "Дисципліна");

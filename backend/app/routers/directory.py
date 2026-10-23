@@ -22,10 +22,28 @@ admin_router = APIRouter(
 )
 
 
+_DIR_CACHE: dict[tuple[type, int], list] = {}
+
+
+def invalidate_directory_cache() -> None:
+    _DIR_CACHE.clear()
+
+
 async def items(model, db: AsyncSession):
-    return (await db.scalars(
+    from app.services import cache_rev
+    rev = cache_rev.global_rev
+    key = (model, rev)
+    cached = _DIR_CACHE.get(key)
+    if cached is not None:
+        return cached
+    data = (await db.scalars(
         select(model).where(model.is_active.is_(True)).order_by(model.name)
     )).all()
+    stale = [k for k in _DIR_CACHE if k[1] != rev]
+    for k in stale:
+        _DIR_CACHE.pop(k, None)
+    _DIR_CACHE[key] = data
+    return data
 
 
 @router.get("/faculties", response_model=list[FacultyResource])
@@ -65,6 +83,7 @@ async def _create(db, model, payload, response_model):
     try:
         await db.commit()
         await db.refresh(entity)
+        _DIR_CACHE.clear()
     except IntegrityError as exc:
         await db.rollback()
         raise HTTPException(409, "Запис із такими даними вже існує") from exc
@@ -87,6 +106,7 @@ async def _update(db, model, entity_id: int, payload):
     try:
         await db.commit()
         await db.refresh(entity)
+        _DIR_CACHE.clear()
     except IntegrityError as exc:
         await db.rollback()
         raise HTTPException(409, "Запис із такими даними вже існує") from exc
@@ -107,6 +127,7 @@ async def _soft_delete(db, model, entity_id: int):
         raise HTTPException(404, f"Запис не знайдено")
     entity.is_active = False
     await db.commit()
+    _DIR_CACHE.clear()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

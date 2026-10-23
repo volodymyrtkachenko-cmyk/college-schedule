@@ -8,6 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import ClassroomCredential, GroupStudent, User
 from app.core.security import decode_token
 
+import time as _time
+
 # Regex to match video conference and classroom URLs in note/room
 MEETING_URL_RE = re.compile(
     r"https?://(?:meet\.google\.com|[a-z0-9.-]*zoom\.us|teams\.microsoft\.com|teams\.live\.com)/[^\s<>\"')|]+",
@@ -17,6 +19,14 @@ ZOOM_PASS_RE = re.compile(
     r"(?:Код(?:\s+доступ[уа])?|Passcode|Пароль)\s*[:\-]?\s*([A-Za-z0-9_.\-]+)",
     re.IGNORECASE,
 )
+
+_ACCESS_CACHE: dict[tuple, tuple[float, bool]] = {}
+_ACCESS_CACHE_TTL = 300.0  # 5 minutes
+_ACCESS_CACHE_MAX = 1000
+
+
+def invalidate_classroom_access_cache() -> None:
+    _ACCESS_CACHE.clear()
 
 
 async def check_classroom_group_access(
@@ -65,6 +75,18 @@ async def check_classroom_group_access(
     if not classroom_uid and not classroom_email:
         return False
 
+    cache_key = (group_id, classroom_uid, classroom_email)
+    now_mono = _time.monotonic()
+    cached = _ACCESS_CACHE.get(cache_key)
+    if cached is not None and (now_mono - cached[0]) < _ACCESS_CACHE_TTL:
+        return cached[1]
+
+    def _store_and_return(result: bool) -> bool:
+        if len(_ACCESS_CACHE) >= _ACCESS_CACHE_MAX:
+            _ACCESS_CACHE.clear()
+        _ACCESS_CACHE[cache_key] = (now_mono, result)
+        return result
+
     # 3. Check ClassroomCredential table
     cred_conditions = [ClassroomCredential.group_id == group_id, ClassroomCredential.is_active.is_(True)]
     match_conditions = []
@@ -81,7 +103,7 @@ async def check_classroom_group_access(
             ).limit(1)
         )
         if cred:
-            return True
+            return _store_and_return(True)
 
     # 4. Check GroupStudent table
     student_conditions = [GroupStudent.group_id == group_id]
@@ -99,9 +121,9 @@ async def check_classroom_group_access(
             ).limit(1)
         )
         if student:
-            return True
+            return _store_and_return(True)
 
-    return False
+    return _store_and_return(False)
 
 
 def sanitize_note_for_guest(note: Optional[str]) -> tuple[Optional[str], bool]:

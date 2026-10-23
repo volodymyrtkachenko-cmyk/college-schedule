@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { FullTaskItem } from "../components/MobileTasksView";
 import { getMondayOf, formatShortWeekRange, isSubjectMatch } from "./format";
+import { KYIV_DATE_FMT } from "./date";
 
 export interface TaskGroupsResult {
   pastWeekTasks: FullTaskItem[];
@@ -42,13 +43,13 @@ export function useTaskGroups(
   }, [weekAnchorDate]);
 
   const mondayIso = useMemo(() => {
-    return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(currentWeekMonday);
+    return KYIV_DATE_FMT.format(currentWeekMonday);
   }, [currentWeekMonday]);
 
   const sundayIso = useMemo(() => {
     const sun = new Date(currentWeekMonday);
     sun.setDate(sun.getDate() + 6);
-    return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(sun);
+    return KYIV_DATE_FMT.format(sun);
   }, [currentWeekMonday]);
 
   const weekLabel = useMemo(() => {
@@ -79,7 +80,7 @@ export function useTaskGroups(
 
       let dueIso = t.dueDateIso;
       if (!dueIso && t.deadline.date) {
-        dueIso = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(t.deadline.date);
+        dueIso = KYIV_DATE_FMT.format(t.deadline.date);
       }
 
       if (scope === "all") {

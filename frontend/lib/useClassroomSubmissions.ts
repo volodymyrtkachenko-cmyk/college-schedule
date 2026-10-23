@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useSyncExternalStore } from "react";
 import { api } from "./api";
 
 export interface PersonalSubmission {
@@ -323,52 +323,98 @@ export function saveClassroomSyncData(
   } catch {}
 }
 
-export function useClassroomSubmissions() {
-  const [linkedEmail, setLinkedEmail] = useState<string | null>(null);
-  const [linkedGroupId, setLinkedGroupId] = useState<number | null>(null);
-  const [submissions, setSubmissions] = useState<Record<string, PersonalSubmission>>({});
-  const [personalTeachers, setPersonalTeachers] = useState<string[]>([]);
-  const [personalSubgroup, setPersonalSubgroup] = useState<number | null>(null);
+interface ClassroomSnapshot {
+  linkedEmail: string | null;
+  linkedGroupId: number | null;
+  submissions: Record<string, PersonalSubmission>;
+  personalTeachers: string[];
+  personalSubgroup: number | null;
+}
 
-  const reload = useCallback(() => {
-    const email = getLinkedEmail();
-    const gId = getLinkedGroupId();
-    setLinkedEmail(email);
-    setLinkedGroupId(gId);
-    if (email) {
-      setSubmissions(getPersonalSubmissions());
-      setPersonalTeachers(getPersonalTeachers());
-      setPersonalSubgroup(getPersonalSubgroup());
-    } else {
-      setSubmissions({});
-      setPersonalTeachers([]);
-      setPersonalSubgroup(null);
+const DEFAULT_SERVER_CLASSROOM_SNAPSHOT: ClassroomSnapshot = {
+  linkedEmail: null,
+  linkedGroupId: null,
+  submissions: {},
+  personalTeachers: [],
+  personalSubgroup: null,
+};
+
+let _cachedClassroomSnapshot: ClassroomSnapshot | null = null;
+const _classroomSubscribers = new Set<() => void>();
+
+function readClassroomSnapshot(): ClassroomSnapshot {
+  const email = getLinkedEmail();
+  const gId = getLinkedGroupId();
+  if (email) {
+    return {
+      linkedEmail: email,
+      linkedGroupId: gId,
+      submissions: getPersonalSubmissions(),
+      personalTeachers: getPersonalTeachers(),
+      personalSubgroup: getPersonalSubgroup(),
+    };
+  }
+  return {
+    linkedEmail: null,
+    linkedGroupId: null,
+    submissions: {},
+    personalTeachers: [],
+    personalSubgroup: null,
+  };
+}
+
+function getClassroomSnapshot(): ClassroomSnapshot {
+  if (!_cachedClassroomSnapshot) {
+    _cachedClassroomSnapshot = readClassroomSnapshot();
+  }
+  return _cachedClassroomSnapshot;
+}
+
+function notifyClassroomChange() {
+  _cachedClassroomSnapshot = readClassroomSnapshot();
+  _classroomSubscribers.forEach((fn) => fn());
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener(EVENT_NAME, notifyClassroomChange);
+  window.addEventListener("storage", (e: StorageEvent) => {
+    if (!e.key || e.key.includes("classroom") || e.key.includes("subgroup")) {
+      notifyClassroomChange();
     }
-  }, []);
+  });
+}
 
-  useEffect(() => {
-    reload();
-    window.addEventListener(EVENT_NAME, reload);
-    return () => window.removeEventListener(EVENT_NAME, reload);
-  }, [reload]);
+function subscribeClassroom(cb: () => void) {
+  _classroomSubscribers.add(cb);
+  return () => {
+    _classroomSubscribers.delete(cb);
+  };
+}
+
+export function useClassroomSubmissions() {
+  const snapshot = useSyncExternalStore(
+    subscribeClassroom,
+    getClassroomSnapshot,
+    () => DEFAULT_SERVER_CLASSROOM_SNAPSHOT
+  );
 
   const isLinkedToGroup = useCallback(
     (gid?: number | null) => {
       if (!gid) return false;
-      return Boolean(linkedEmail && linkedGroupId === gid);
+      return Boolean(snapshot.linkedEmail && snapshot.linkedGroupId === gid);
     },
-    [linkedEmail, linkedGroupId]
+    [snapshot.linkedEmail, snapshot.linkedGroupId]
   );
 
   return {
-    linkedEmail,
-    linkedGroupId,
-    isLinked: Boolean(linkedEmail),
+    linkedEmail: snapshot.linkedEmail,
+    linkedGroupId: snapshot.linkedGroupId,
+    isLinked: Boolean(snapshot.linkedEmail),
     isLinkedToGroup,
-    submissions,
-    personalTeachers,
-    personalSubgroup,
+    submissions: snapshot.submissions,
+    personalTeachers: snapshot.personalTeachers,
+    personalSubgroup: snapshot.personalSubgroup,
     unlink: unlinkClassroomEmail,
-    reload,
+    reload: notifyClassroomChange,
   };
 }
