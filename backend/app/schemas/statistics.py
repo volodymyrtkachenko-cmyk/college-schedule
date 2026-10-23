@@ -15,10 +15,29 @@ class StatisticsEntry(BaseModel):
     replaced_count: int = 0
 
 
+class TeacherSubjectEntry(BaseModel):
+    id: int
+    name: str
+    completed_hours: int
+    lessons_count: int
+    groups: list[str] = []
+
+
+class TeacherGroupDetail(BaseModel):
+    id: int
+    name: str
+    completed_hours: int
+    lessons_count: int
+    subject_names: list[str] = []
+
+
 class StatisticsResponse(BaseModel):
     mode: Literal["student", "teacher"]
     semester_start: date
     through_date: date
     total_hours: int
     planned_hours: int | None = None
+    weekly_hours: int | None = None
     entries: list[StatisticsEntry]
+    subjects: list[TeacherSubjectEntry] | None = None
+    groups: list[TeacherGroupDetail] | None = None

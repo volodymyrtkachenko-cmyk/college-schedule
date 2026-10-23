@@ -106,6 +106,21 @@ async def test_group_and_teacher_statistics_apply_week_types_and_calendar_period
     assert group_result["total_hours"] == 6
     assert teacher_result["total_hours"] == 6
     assert teacher_result["entries"] == [{"id": group.id, "name": group.name, "completed_hours": 6}]
+    assert teacher_result["groups"] == [
+        {
+            "id": group.id,
+            "name": group.name,
+            "completed_hours": 6,
+            "lessons_count": 3,
+            "subject_names": sorted([regular_subject.name, practice_subject.name]),
+        }
+    ]
+    assert len(teacher_result["subjects"]) == 2
+    regular_s = next(s for s in teacher_result["subjects"] if s["id"] == regular_subject.id)
+    assert regular_s["completed_hours"] == 4
+    assert regular_s["lessons_count"] == 2
+    assert regular_s["groups"] == [group.name]
+    assert teacher_result["planned_hours"] == 10
 
 
 @pytest.mark.anyio

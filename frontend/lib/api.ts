@@ -165,6 +165,23 @@ export interface StatisticsEntry {
     notes_count?: number;
     cancelled_count?: number;
     replaced_count?: number;
+    subject_names?: string[];
+}
+
+export interface TeacherSubjectEntry {
+    id: number;
+    name: string;
+    completed_hours: number;
+    lessons_count: number;
+    groups: string[];
+}
+
+export interface TeacherGroupDetail {
+    id: number;
+    name: string;
+    completed_hours: number;
+    lessons_count: number;
+    subject_names: string[];
 }
 
 export interface StatisticsResponse {
@@ -173,7 +190,10 @@ export interface StatisticsResponse {
     through_date: string;
     total_hours: number;
     planned_hours: number | null;
+    weekly_hours?: number | null;
     entries: StatisticsEntry[];
+    subjects?: TeacherSubjectEntry[] | null;
+    groups?: TeacherGroupDetail[] | null;
 }
 
 export interface AuthUser {

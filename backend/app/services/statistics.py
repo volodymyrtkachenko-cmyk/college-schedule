@@ -31,7 +31,7 @@ async def group_statistics(
             .options(joinedload(Curriculum.subject))
         )
     ).unique().all()
-    scheduled, total_hours = await _scheduled_hours(
+    scheduled, total_hours, _, _ = await _scheduled_hours(
         db, semester_start, through_date, group_id=group.id
     )
 
@@ -90,7 +90,7 @@ async def teacher_statistics(
     semester_start: date,
     through_date: date,
 ) -> dict:
-    scheduled, total_hours = await _scheduled_hours(
+    scheduled, total_hours, teacher_subjects, weekly_hours = await _scheduled_hours(
         db, semester_start, through_date, teacher_id=teacher.id
     )
     entries = [
@@ -103,12 +103,50 @@ async def teacher_statistics(
     ]
     entries.sort(key=lambda item: item["name"].casefold())
 
+    groups = [
+        {
+            "id": group_id,
+            "name": item["name"],
+            "completed_hours": item["hours"],
+            "lessons_count": item["hours"] // 2,
+            "subject_names": sorted(list(item.get("subject_names", []))),
+        }
+        for group_id, item in scheduled.items()
+    ]
+    groups.sort(key=lambda item: item["name"].casefold())
+
+    subjects_list = [
+        {
+            "id": s_id,
+            "name": s_data["name"],
+            "completed_hours": s_data["hours"],
+            "lessons_count": s_data["hours"] // 2,
+            "groups": sorted(list(s_data["groups"])),
+        }
+        for s_id, s_data in teacher_subjects.items()
+    ]
+    subjects_list.sort(key=lambda item: item["completed_hours"], reverse=True)
+
+    curricula = (
+        await db.scalars(
+            select(Curriculum).where(
+                or_(Curriculum.teacher_id == teacher.id, Curriculum.second_teacher_id == teacher.id)
+            )
+        )
+    ).all()
+    planned_hours_val = sum(c.total_hours for c in curricula)
+    planned_hours = planned_hours_val if planned_hours_val > 0 else None
+
     return {
         "mode": "teacher",
         "semester_start": semester_start,
         "through_date": through_date,
         "total_hours": total_hours,
+        "planned_hours": planned_hours,
+        "weekly_hours": weekly_hours,
         "entries": entries,
+        "groups": groups,
+        "subjects": subjects_list,
     }
 
 
@@ -119,7 +157,7 @@ async def _scheduled_hours(
     *,
     group_id: int | None = None,
     teacher_id: int | None = None,
-) -> tuple[dict[int, dict], int]:
+) -> tuple[dict[int, dict], int, dict[int, dict], int | None]:
     if group_id is not None:
         schedule_filter = Schedule.group_id == group_id
     else:
@@ -177,6 +215,8 @@ async def _scheduled_hours(
 
     result: dict[int, dict] = {}
     unique_lessons: set[tuple] = set()
+    teacher_subjects: dict[int, dict] = {}
+    unique_subject_lessons: set[tuple] = set()
     current_date = semester_start
     while current_date <= through_date:
         if current_date.isoweekday() <= 5:
@@ -228,6 +268,8 @@ async def _scheduled_hours(
                         item.id,
                         item.stream_id,
                         teacher_id is not None,
+                        teacher_subjects=teacher_subjects,
+                        unique_subject_lessons=unique_subject_lessons,
                     )
 
                 for change in latest_changes.values():
@@ -258,6 +300,8 @@ async def _scheduled_hours(
                         None,
                         teacher_id is not None,
                         replaced=True,
+                        teacher_subjects=teacher_subjects,
+                        unique_subject_lessons=unique_subject_lessons,
                     )
 
 
@@ -288,6 +332,8 @@ async def _scheduled_hours(
                             None,
                             teacher_id is not None,
                             cancelled=True,
+                            teacher_subjects=teacher_subjects,
+                            unique_subject_lessons=unique_subject_lessons,
                         )
 
                 for period in practice_periods:
@@ -318,6 +364,8 @@ async def _scheduled_hours(
                             slot.id,
                             None,
                             teacher_id is not None,
+                            teacher_subjects=teacher_subjects,
+                            unique_subject_lessons=unique_subject_lessons,
                         )
         current_date += timedelta(days=1)
 
@@ -326,7 +374,32 @@ async def _scheduled_hours(
         if teacher_id is not None
         else sum(item["hours"] for item in result.values())
     )
-    return result, total_hours
+
+    weekly_hours: int | None = None
+    if teacher_id is not None:
+        active_version_id = active_versions[0].id if active_versions else None
+        target_schedules = [s for s in schedules if active_version_id is None or s.version_id == active_version_id]
+        if target_schedules:
+            seen_slots = set()
+            half_pairs = 0
+            for s in target_schedules:
+                if s.lesson_number is None or s.day_of_week is None:
+                    continue
+                slot_key = (s.day_of_week, s.lesson_number, s.week_type, s.stream_id if s.stream_id else f"slot_{s.id}")
+                if slot_key not in seen_slots:
+                    seen_slots.add(slot_key)
+                    if s.week_type == "both":
+                        half_pairs += 2
+                    else:
+                        half_pairs += 1
+            if half_pairs > 0:
+                weekly_hours = half_pairs
+
+        if not weekly_hours and total_hours > 0:
+            weeks_count = max(1, (through_date - semester_start).days // 7)
+            weekly_hours = round(total_hours / weeks_count)
+
+    return result, total_hours, teacher_subjects, weekly_hours
 
 
 def _record_lesson(
@@ -344,15 +417,27 @@ def _record_lesson(
     *,
     cancelled: bool = False,
     replaced: bool = False,
+    teacher_subjects: dict[int, dict] | None = None,
+    unique_subject_lessons: set[tuple] | None = None,
 ) -> None:
     key = group_id if is_teacher else subject_id
     name = group_name if is_teacher else subject_name
     entry = result.setdefault(
         key,
-        {"name": name, "hours": 0, "notes_count": 0, "cancelled_count": 0, "replaced_count": 0},
+        {"name": name, "hours": 0, "notes_count": 0, "cancelled_count": 0, "replaced_count": 0, "subject_names": set()},
     )
+    if is_teacher and subject_name:
+        entry.setdefault("subject_names", set()).add(subject_name)
+
     if cancelled:
         entry["cancelled_count"] += 1
+        if is_teacher and teacher_subjects is not None:
+            subj_entry = teacher_subjects.setdefault(
+                subject_id,
+                {"id": subject_id, "name": subject_name, "hours": 0, "groups": set(), "cancelled_count": 0, "replaced_count": 0}
+            )
+            subj_entry["groups"].add(group_name)
+            subj_entry["cancelled_count"] += 1
         return
 
     if not is_teacher:
@@ -370,3 +455,16 @@ def _record_lesson(
             if stream_id
             else (lesson_date, "lesson", lesson_id)
         )
+        if teacher_subjects is not None:
+            subj_entry = teacher_subjects.setdefault(
+                subject_id,
+                {"id": subject_id, "name": subject_name, "hours": 0, "groups": set(), "cancelled_count": 0, "replaced_count": 0}
+            )
+            subj_entry["groups"].add(group_name)
+            subj_lesson_key = (lesson_date, lesson_number, subject_id, stream_id if stream_id else f"lesson_{lesson_id}")
+            if unique_subject_lessons is not None:
+                if subj_lesson_key not in unique_subject_lessons:
+                    unique_subject_lessons.add(subj_lesson_key)
+                    subj_entry["hours"] += 2
+            else:
+                subj_entry["hours"] += 2
