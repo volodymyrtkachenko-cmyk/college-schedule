@@ -159,6 +159,7 @@ college-schedule/
 | **23. Жива пара та прогрес** | Прогрес-лінія живе всередині картки (`left-4 right-4 bottom-2.5 rounded-full`), верхній рядок живої пари: час `whitespace-nowrap`, `● ще N хв` праворуч, `overflow-hidden` для заокруглення акцентів. | `frontend/components/LessonCard.tsx` |
 | **24. Режим навчання (Очно / Дистанційно)** | Адмін-налаштування формату навчання по курсах (1–4) із датами дії та відображенням єдиного бейджа в розкладі дня і тижня. | `backend/app/services/learning_mode.py`, `frontend/components/admin/LearningModePanel.tsx`, `frontend/app/page.tsx` |
 | **25. Постійне та разове редагування пар** | В адмін-редакторі зняття галочки «одноразова зміна» дозволяє редагувати пару на постійній основі в поточній версії розкладу. | `frontend/components/admin/AdminScheduleEditor.tsx`, `backend/app/services/projection.py` |
+| **26. Захист посилань у розкладі викладачів** | Студенти у вкладці викладача бачать відкриті посилання лише для своєї групи (за наявності прив'язаного Classroom). Для інших груп та гостей посилання захищені `[🔒 Онлайн]`. Викладач розблоковує всі свої посилання через швидкий PIN-код викладача (`X-Teacher-Pin` / `TeacherPinModal`). | `backend/app/services/classroom_access.py`, `backend/app/routers/schedule.py`, `backend/app/routers/settings.py`, `frontend/lib/useTeacherAccess.ts`, `frontend/components/TeacherPinModal.tsx`, `frontend/components/LessonCard.tsx` |
 
 ---
 

@@ -28,6 +28,8 @@ import { extractClassroomTasks, parseTaskDeadline, sortTasksByDeadline, TaskDead
 import { useToast } from "../components/ToastProvider";
 import { QuickJumpTarget, findGroupIdByName, findTeacherIdByName } from "../lib/quickJump";
 import { extractClassroomTaskKey, isOwnTask, useClassroomSubmissions } from "../lib/useClassroomSubmissions";
+import { useTeacherAccess } from "../lib/useTeacherAccess";
+import { TeacherPinModal } from "../components/TeacherPinModal";
 import { useTheme } from "../lib/useTheme";
 import { normalizeSubjectName } from "../lib/format";
 
@@ -198,11 +200,20 @@ export default function HomePage() {
   }>>([]);
   const [classroomLastSyncedAt, setClassroomLastSyncedAt] = useState<string | null>(null);
   const { linkedEmail, isLinked, isLinkedToGroup, submissions, personalTeachers, unlink: unlinkClassroom } = useClassroomSubmissions();
+  const { isTeacherUnlocked } = useTeacherAccess();
+  const [teacherPinModalOpen, setTeacherPinModalOpen] = useState(false);
+  const [teacherPinTargetGroup, setTeacherPinTargetGroup] = useState<string | null>(null);
   const hasGroupTaskAccess = mode !== "student" || isLinkedToGroup(groupId);
   const [tasksScope, setTasksScope] = useState<"week" | "all">("week");
 
   useEffect(() => {
-    const handlePrompt = () => {
+    const handlePrompt = (e?: Event) => {
+      const detail = (e as CustomEvent)?.detail;
+      if (detail?.isTeacherView) {
+        setTeacherPinTargetGroup(detail?.groupName || null);
+        setTeacherPinModalOpen(true);
+        return;
+      }
       setToast("Для перегляду онлайн-пари прив'яжіть Google Classroom цієї групи", "info");
       window.dispatchEvent(new CustomEvent("trigger-classroom-sync"));
     };
@@ -967,6 +978,37 @@ export default function HomePage() {
               <span className="text-sys-text-muted text-xs ml-auto shrink-0">▼</span>
             </button>
 
+            {mode === "teacher" && (
+              <button
+                type="button"
+                onClick={() => {
+                  setTeacherPinTargetGroup(null);
+                  setTeacherPinModalOpen(true);
+                }}
+                className={`flex h-10 items-center gap-1.5 px-3 rounded-xl text-xs font-semibold border transition-all active:scale-95 ${
+                  isTeacherUnlocked
+                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20"
+                    : "border-sys-border bg-sys-bg/80 text-sys-text-secondary hover:border-sys-accent/40 hover:text-sys-accent"
+                }`}
+                title={isTeacherUnlocked ? "Режим викладача активний" : "Вхід для викладача (PIN)"}
+              >
+                {isTeacherUnlocked ? (
+                  <>
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                    <span>Викладач</span>
+                  </>
+                ) : (
+                  <>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                      <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                    </svg>
+                    <span>Вхід викладача</span>
+                  </>
+                )}
+              </button>
+            )}
+
           </div>
 
           {/* Center Zone: Date Navigator + View Mode */}
@@ -1128,17 +1170,44 @@ export default function HomePage() {
         {/* Tier 1 (h-14): [85 ▾]   ‹ 19–25 жовт. ›   [⋯] */}
         <div className="flex h-14 items-center justify-between px-3 gap-1.5 overflow-hidden">
           {/* Left: Context Selector */}
-          <button
-            type="button"
-            onClick={() => setContextModalOpen(true)}
-            aria-label="Обрати групу або викладача"
-            className="flex h-10 items-center gap-1.5 rounded-xl border border-sys-border bg-sys-bg/90 px-2.5 text-xs font-semibold text-sys-text-primary hover:border-sys-accent/60 active:scale-95 transition-all truncate max-w-[110px] sm:max-w-[150px] shrink-0"
-          >
-            <span className="truncate">
-              {currentName || (mode === "student" ? "Група" : "Викладач")}
-            </span>
-            <span className="text-sys-text-muted text-xs shrink-0">▼</span>
-          </button>
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={() => setContextModalOpen(true)}
+              aria-label="Обрати групу або викладача"
+              className="flex h-10 items-center gap-1.5 rounded-xl border border-sys-border bg-sys-bg/90 px-2.5 text-xs font-semibold text-sys-text-primary hover:border-sys-accent/60 active:scale-95 transition-all truncate max-w-[110px] sm:max-w-[150px] shrink-0"
+            >
+              <span className="truncate">
+                {currentName || (mode === "student" ? "Група" : "Викладач")}
+              </span>
+              <span className="text-sys-text-muted text-xs shrink-0">▼</span>
+            </button>
+            {mode === "teacher" && (
+              <button
+                type="button"
+                onClick={() => {
+                  setTeacherPinTargetGroup(null);
+                  setTeacherPinModalOpen(true);
+                }}
+                className={`flex h-10 w-10 items-center justify-center rounded-xl border transition-all active:scale-95 shrink-0 ${
+                  isTeacherUnlocked
+                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                    : "border-sys-border bg-sys-bg/90 text-sys-text-secondary hover:text-sys-accent"
+                }`}
+                title={isTeacherUnlocked ? "Режим викладача активний" : "Вхід для викладача (PIN)"}
+                aria-label={isTeacherUnlocked ? "Режим викладача активний" : "Вхід для викладача (PIN)"}
+              >
+                {isTeacherUnlocked ? (
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-xs shadow-emerald-400/50" />
+                ) : (
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                  </svg>
+                )}
+              </button>
+            )}
+          </div>
 
           {/* Center: Week Navigator & week type info */}
           {mobileTab === "tasks" ? (
@@ -2282,6 +2351,15 @@ export default function HomePage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <TeacherPinModal
+        isOpen={teacherPinModalOpen}
+        onClose={() => setTeacherPinModalOpen(false)}
+        targetGroupName={teacherPinTargetGroup}
+        onSuccess={() => {
+          setToast("✓ Доступ викладача активовано", "success");
+        }}
+      />
     </main>
   );
 }

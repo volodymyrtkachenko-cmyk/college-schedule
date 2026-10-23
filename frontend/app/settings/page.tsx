@@ -5,13 +5,37 @@ import Link from "next/link";
 import { useTheme, Theme } from "../../lib/useTheme";
 import { useUserSettings } from "../../lib/useUserSettings";
 import { useClassroomSubmissions } from "../../lib/useClassroomSubmissions";
+import { useTeacherAccess } from "../../lib/useTeacherAccess";
 import { useAuth } from "../../lib/auth";
 
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
   const { settings, updateSetting } = useUserSettings();
   const { isLinked, linkedEmail, unlink } = useClassroomSubmissions();
+  const { isTeacherUnlocked, unlockTeacher, lockTeacher } = useTeacherAccess();
   const auth = useAuth();
+
+  const [pinInput, setPinInput] = useState("");
+  const [pinError, setPinError] = useState<string | null>(null);
+  const [pinSuccess, setPinSuccess] = useState(false);
+  const [isVerifyingPin, setIsVerifyingPin] = useState(false);
+
+  const handlePinSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pinInput.trim()) return;
+    setPinError(null);
+    setPinSuccess(false);
+    setIsVerifyingPin(true);
+    const res = await unlockTeacher(pinInput.trim());
+    setIsVerifyingPin(false);
+    if (res.success) {
+      setPinInput("");
+      setPinSuccess(true);
+      setTimeout(() => setPinSuccess(false), 3000);
+    } else {
+      setPinError(res.error || "Невірний PIN-код");
+    }
+  };
 
   const handleClassroomLinkClick = () => {
     window.location.href = "/?sync=1";
@@ -260,6 +284,74 @@ export default function SettingsPage() {
           </div>
           <p className="text-xs text-sys-text-secondary leading-relaxed">
             Доступ до дзвінків, персональних оцінок та завдань.
+          </p>
+        </section>
+
+        {/* Section: Режим викладача (PIN-код) */}
+        <section className="rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-xs space-y-4">
+          <div className="flex items-center gap-2 pb-2 border-b border-sys-border/60">
+            <span className="text-base">👨‍🏫</span>
+            <h2 className="text-sm font-bold uppercase tracking-wider text-sys-text-muted">
+              Доступ викладача
+            </h2>
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-sys-border/60 bg-sys-bg/60 p-3.5 text-xs">
+            <div className="space-y-0.5 min-w-0">
+              <span className="text-xs font-semibold text-sys-text-secondary">Статус доступу викладача</span>
+              {isTeacherUnlocked ? (
+                <div className="flex items-center gap-1.5 font-bold text-emerald-400">
+                  <span className="h-2 w-2 rounded-full bg-emerald-400 shrink-0" />
+                  <span>Режим викладача активний (онлайн-посилання розблоковано)</span>
+                </div>
+              ) : (
+                <div className="text-sys-text-muted font-medium">Не активовано (потрібен PIN-код)</div>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              {isTeacherUnlocked && (
+                <button
+                  type="button"
+                  onClick={lockTeacher}
+                  className="rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 px-3 py-1.5 text-xs font-semibold text-rose-400 transition-colors cursor-pointer"
+                >
+                  Вийти з режиму
+                </button>
+              )}
+            </div>
+          </div>
+
+          {!isTeacherUnlocked && (
+            <form onSubmit={handlePinSubmit} className="space-y-2 pt-1">
+              <div className="flex items-center gap-2">
+                <input
+                  type="password"
+                  placeholder="Введіть PIN-код викладача..."
+                  value={pinInput}
+                  onChange={(e) => {
+                    setPinInput(e.target.value);
+                    if (pinError) setPinError(null);
+                  }}
+                  className={`flex-1 h-10 px-3 rounded-xl border bg-sys-bg text-xs text-sys-text-primary placeholder:text-sys-text-muted focus:outline-hidden focus:ring-2 ${
+                    pinError ? "border-rose-500/50 focus:ring-rose-500/20" : "border-sys-border focus:border-sys-accent focus:ring-sys-accent/20"
+                  }`}
+                />
+                <button
+                  type="submit"
+                  disabled={isVerifyingPin || !pinInput.trim()}
+                  className="h-10 px-4 rounded-xl bg-sys-accent text-slate-950 font-bold text-xs hover:bg-sys-accent/90 disabled:opacity-50 transition-all shrink-0 cursor-pointer"
+                >
+                  {isVerifyingPin ? "Перевірка..." : "Активувати"}
+                </button>
+              </div>
+              {pinError && <p className="text-xs text-rose-400 font-medium">{pinError}</p>}
+              {pinSuccess && <p className="text-xs text-emerald-400 font-medium">✓ Доступ викладача успішно активовано!</p>}
+            </form>
+          )}
+
+          <p className="text-xs text-sys-text-secondary leading-relaxed">
+            Дозволяє викладачам бачити всі посилання на онлайн-пари в розкладі без прив&apos;язки Google Classroom.
           </p>
         </section>
 

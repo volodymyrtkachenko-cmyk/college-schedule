@@ -360,6 +360,8 @@ function attachClassroomQueryParams(params: URLSearchParams) {
             const cEmail = localStorage.getItem("schedule:classroom_linked_email");
             if (cUid && !params.has("classroom_user_id")) params.set("classroom_user_id", cUid);
             if (cEmail && cEmail !== "підключено" && !params.has("classroom_email")) params.set("classroom_email", cEmail);
+            const teacherPin = localStorage.getItem("college_schedule_teacher_pin");
+            if (teacherPin && !params.has("teacher_pin")) params.set("teacher_pin", teacherPin);
         } catch {}
     }
 }
@@ -385,6 +387,15 @@ async function rawRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
     const headers = new Headers(init.headers);
     if (method !== "GET" && !headers.has("Content-Type")) {
         headers.set("Content-Type", "application/json");
+    }
+
+    if (typeof window !== "undefined") {
+        try {
+            const teacherPin = localStorage.getItem("college_schedule_teacher_pin");
+            if (teacherPin && !headers.has("X-Teacher-Pin")) {
+                headers.set("X-Teacher-Pin", teacherPin);
+            }
+        } catch {}
     }
 
     const cachedEtag = method === "GET" ? etagResponseCache.get(path) : undefined;
@@ -1108,6 +1119,18 @@ export const api = {
                 method: "PUT",
                 body: JSON.stringify(payload),
             }, true, true, token),
+        verifyTeacherPin: (pin: string) =>
+            rawRequest<{ valid: boolean }>("/api/settings/verify-teacher-pin", {
+                method: "POST",
+                body: JSON.stringify({ pin }),
+            }),
+        getTeacherPin: () =>
+            authenticatedRequest<{ pin: string }>("/api/settings/teacher-pin"),
+        updateTeacherPin: (pin: string) =>
+            authenticatedRequest<{ pin: string }>("/api/settings/teacher-pin", {
+                method: "PUT",
+                body: JSON.stringify({ pin }),
+            }),
     },
 
     scheduleVersions: {

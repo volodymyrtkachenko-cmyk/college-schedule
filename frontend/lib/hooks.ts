@@ -269,6 +269,7 @@ export function useSchedule(weekAnchorDate: Date, includeCancelled = false) {
     window.addEventListener("visibilitychange", handleVisibility);
     window.addEventListener("online", handleOnline);
     window.addEventListener("schedule:refresh", handleScheduleRefresh);
+    window.addEventListener("teacher-access-changed", handleScheduleRefresh);
 
     return () => {
       isSubscribed = false;
@@ -276,6 +277,7 @@ export function useSchedule(weekAnchorDate: Date, includeCancelled = false) {
       window.removeEventListener("visibilitychange", handleVisibility);
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("schedule:refresh", handleScheduleRefresh);
+      window.removeEventListener("teacher-access-changed", handleScheduleRefresh);
     };
   }, [mode, groupId, teacherId, weekAnchorDate, includeCancelled]);
 

@@ -190,9 +190,19 @@ async def schedule(request: Request = None,
     learning_mode, learning_mode_override = await resolve_group_learning_mode_detail(db, group_id, target_date)
     serialized_items = await attach_notes(db, target_date, serialize_schedule_items(lessons, week_type, target_date, bell_t))
 
-    from app.services.classroom_access import check_classroom_group_access, sanitize_note_for_guest, sanitize_room_for_guest, MEETING_URL_RE
-    if has_access is None:
-        has_access = await check_classroom_group_access(db, group_id, request)
+    from app.services.classroom_access import check_classroom_group_access, check_teacher_access, sanitize_note_for_guest, sanitize_room_for_guest, MEETING_URL_RE
+
+    is_teacher_auth = False
+    group_access_cache: dict[int, bool] = {}
+
+    if teacher_id and not group_id:
+        if has_access is True:
+            is_teacher_auth = True
+        else:
+            is_teacher_auth = await check_teacher_access(db, request)
+    else:
+        if has_access is None:
+            has_access = await check_classroom_group_access(db, group_id, request)
 
     for item in serialized_items:
         has_meeting = bool(
@@ -203,7 +213,20 @@ async def schedule(request: Request = None,
         )
         if has_meeting:
             item.is_online = True
-        if not has_access:
+
+        if teacher_id and not group_id:
+            if is_teacher_auth:
+                item_has_access = True
+            elif item.group_id:
+                if item.group_id not in group_access_cache:
+                    group_access_cache[item.group_id] = await check_classroom_group_access(db, item.group_id, request)
+                item_has_access = group_access_cache[item.group_id]
+            else:
+                item_has_access = False
+        else:
+            item_has_access = bool(has_access)
+
+        if not item_has_access:
             if has_meeting:
                 item.has_protected_link = True
             item.note, _ = sanitize_note_for_guest(item.note)
@@ -238,15 +261,18 @@ async def today(
     if target.isoweekday() > 5:
         target = target + timedelta(days=8 - target.isoweekday())
 
-    from app.services.classroom_access import check_classroom_group_access
-    is_auth = await check_classroom_group_access(db, group_id, request)
+    from app.services.classroom_access import check_classroom_group_access, check_teacher_access
+    if teacher_id and not group_id:
+        is_auth = await check_teacher_access(db, request)
+    else:
+        is_auth = await check_classroom_group_access(db, group_id, request)
 
     from app.services import cache_rev
     variant = f"today:{target.isoformat()}:{int(include_cancelled)}:{int(is_auth)}"
     etag = cache_rev.schedule_etag(group_id=group_id, teacher_id=teacher_id, variant=variant)
     response.headers["ETag"] = etag
     response.headers["Cache-Control"] = "public, max-age=0, s-maxage=15, stale-while-revalidate=300"
-    response.headers["Vary"] = "Date, Origin, Accept-Encoding, X-Classroom-User-Id, X-Classroom-Email, Authorization"
+    response.headers["Vary"] = "Date, Origin, Accept-Encoding, X-Classroom-User-Id, X-Classroom-Email, X-Teacher-Pin, Authorization"
 
     if cache_rev.etag_matches(request.headers.get("if-none-match"), etag):
         return Response(status_code=304, headers=dict(response.headers))
@@ -278,7 +304,16 @@ async def today(
         from email.utils import format_datetime
         response.headers["Last-Modified"] = format_datetime(last_modified, usegmt=True)
 
-    return await schedule(request=request, group_id=group_id, teacher_id=teacher_id, target_date=target, day_of_week=target.isoweekday(), include_cancelled=include_cancelled, has_access=is_auth, db=db)
+    return await schedule(
+        request=request,
+        group_id=group_id,
+        teacher_id=teacher_id,
+        target_date=target,
+        day_of_week=target.isoweekday(),
+        include_cancelled=include_cancelled,
+        has_access=True if is_auth else None,
+        db=db,
+    )
 
 @router.get("/schedule/week")
 async def week(
@@ -298,15 +333,18 @@ async def week(
     requested = target_date or today_local()
     start = requested - timedelta(days=requested.isoweekday() - 1)
 
-    from app.services.classroom_access import check_classroom_group_access, sanitize_note_for_guest, sanitize_room_for_guest, MEETING_URL_RE
-    is_auth = await check_classroom_group_access(db, group_id, request)
+    from app.services.classroom_access import check_classroom_group_access, check_teacher_access, sanitize_note_for_guest, sanitize_room_for_guest, MEETING_URL_RE
+    if teacher_id and not group_id:
+        is_auth = await check_teacher_access(db, request)
+    else:
+        is_auth = await check_classroom_group_access(db, group_id, request)
 
     from app.services import cache_rev
     variant = f"week:{start.isoformat()}:{int(include_cancelled)}:{int(is_auth)}"
     etag = cache_rev.schedule_etag(group_id=group_id, teacher_id=teacher_id, variant=variant)
     response.headers["ETag"] = etag
     response.headers["Cache-Control"] = "public, max-age=0, s-maxage=15, stale-while-revalidate=300"
-    response.headers["Vary"] = "Date, Origin, Accept-Encoding, X-Classroom-User-Id, X-Classroom-Email, Authorization"
+    response.headers["Vary"] = "Date, Origin, Accept-Encoding, X-Classroom-User-Id, X-Classroom-Email, X-Teacher-Pin, Authorization"
 
     if cache_rev.etag_matches(request.headers.get("if-none-match"), etag):
         return Response(status_code=304, headers=dict(response.headers))
@@ -356,6 +394,7 @@ async def week(
     ]
     await attach_week_notes(db, days_serialized)
 
+    group_access_cache: dict[int, bool] = {}
     for day_date, day_lessons in days_serialized:
         for item in day_lessons:
             has_meeting = bool(
@@ -366,7 +405,20 @@ async def week(
             )
             if has_meeting:
                 item.is_online = True
-            if not is_auth:
+
+            if teacher_id and not group_id:
+                if is_auth:
+                    item_has_access = True
+                elif item.group_id:
+                    if item.group_id not in group_access_cache:
+                        group_access_cache[item.group_id] = await check_classroom_group_access(db, item.group_id, request)
+                    item_has_access = group_access_cache[item.group_id]
+                else:
+                    item_has_access = False
+            else:
+                item_has_access = bool(is_auth)
+
+            if not item_has_access:
                 if has_meeting:
                     item.has_protected_link = True
                 item.note, _ = sanitize_note_for_guest(item.note)

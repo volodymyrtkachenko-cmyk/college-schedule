@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     google_client_id: str = "1079868158360-ok75uv5l93pcql2iktfcple97sdu180b.apps.googleusercontent.com"
     google_client_secret: str = ""
     classroom_fernet_key: str = ""
+    teacher_pin: str = "dfkr2026"
     auto_import_enabled: bool = True
     auto_import_interval_minutes: int = 30
 

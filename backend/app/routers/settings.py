@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from pydantic import BaseModel, Field
 from app.core.security import require_roles
 from app.database import get_db
 from app.schemas import LearningModeConfig, SemesterDatesSetting, SemesterDatesUpdate, SemesterStartSetting
 from app.services.learning_mode import get_learning_mode_config, save_learning_mode_config
-from app.services.settings import SEMESTER_START_KEY, settings_service
+from app.services.settings import SEMESTER_START_KEY, TEACHER_PIN_KEY, settings_service
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
@@ -78,3 +79,44 @@ async def update_semester_dates(
         semester_end=payload.semester_end,
         configured=True,
     )
+
+
+class VerifyTeacherPinRequest(BaseModel):
+    pin: str
+
+
+class VerifyTeacherPinResponse(BaseModel):
+    valid: bool
+
+
+class TeacherPinSetting(BaseModel):
+    pin: str = Field(min_length=1, max_length=50)
+
+
+@router.post("/verify-teacher-pin", response_model=VerifyTeacherPinResponse)
+async def verify_teacher_pin(
+    payload: VerifyTeacherPinRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    expected = await settings_service.get_teacher_pin(db)
+    is_valid = bool(payload.pin and payload.pin.strip() == expected.strip())
+    return VerifyTeacherPinResponse(valid=is_valid)
+
+
+@router.get("/teacher-pin", response_model=TeacherPinSetting)
+async def get_teacher_pin_setting(
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_roles("admin")),
+):
+    pin = await settings_service.get_teacher_pin(db)
+    return TeacherPinSetting(pin=pin)
+
+
+@router.put("/teacher-pin", response_model=TeacherPinSetting)
+async def update_teacher_pin_setting(
+    payload: TeacherPinSetting,
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_roles("admin")),
+):
+    await settings_service.set(db, TEACHER_PIN_KEY, payload.pin.strip())
+    return payload

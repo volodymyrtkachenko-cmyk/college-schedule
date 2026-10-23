@@ -8,6 +8,7 @@ import { EditIcon, MoveIcon } from "./LessonIcons";
 import { Lesson } from "../lib/api";
 import { formatRoom, formatRoomsList, extractOnlineMeetings, MeetingInfo } from "../lib/format";
 import { extractClassroomTaskKey, isOwnTask, useClassroomSubmissions } from "../lib/useClassroomSubmissions";
+import { useTeacherAccess } from "../lib/useTeacherAccess";
 import { useUserSettings } from "../lib/useUserSettings";
 import { QuickJumpTarget, parseLessonTeachers, parseLessonGroups } from "../lib/quickJump";
 import { DEFAULT_LESSON_TIMES } from "../lib/constants/lessons";
@@ -793,13 +794,14 @@ export const LessonCard = memo(function LessonCard({
   }, []);
 
   const { isLinked, isLinkedToGroup, submissions, personalTeachers, personalSubgroup } = useClassroomSubmissions();
+  const { isTeacherUnlocked } = useTeacherAccess();
 
   const isTeacherView = scheduleMode === "teacher";
   const hasGroupAccess = useMemo(() => {
-    if (isTeacherView || canEdit || scheduleMode === "admin") return true;
+    if (canEdit || scheduleMode === "admin" || (isTeacherView && isTeacherUnlocked)) return true;
     if (!lesson.group_id) return true;
     return isLinkedToGroup(lesson.group_id);
-  }, [isTeacherView, canEdit, scheduleMode, lesson.group_id, isLinkedToGroup]);
+  }, [canEdit, scheduleMode, isTeacherView, isTeacherUnlocked, lesson.group_id, isLinkedToGroup]);
 
   const handleLockedMeetingClick = useCallback((e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -809,12 +811,16 @@ export const LessonCard = memo(function LessonCard({
         new CustomEvent("prompt-classroom-link", {
           detail: {
             groupId: lesson.group_id,
-            message: "Для переходу на онлайн-дзвінок необхідно прив'язати студентський Google Classroom цієї групи.",
+            groupName: lesson.group_name,
+            isTeacherView,
+            message: isTeacherView
+              ? `Для переходу на пару групи ${lesson.group_name || ""} прив'яжіть Google Classroom цієї групи або введіть PIN-код викладача.`
+              : "Для переходу на онлайн-дзвінок необхідно прив'язати студентський Google Classroom цієї групи.",
           },
         })
       );
     }
-  }, [lesson.group_id]);
+  }, [lesson.group_id, lesson.group_name, isTeacherView]);
 
   const hasMultipleTeachers = Boolean(
     lesson.second_teacher_id ||

@@ -29,6 +29,44 @@ def invalidate_classroom_access_cache() -> None:
     _ACCESS_CACHE.clear()
 
 
+async def check_teacher_access(
+    db: AsyncSession,
+    request: Optional[Request] = None,
+) -> bool:
+    """
+    Checks if the requester is an authorized teacher or admin:
+    - User has admin or editor JWT role
+    - Request carries valid X-Teacher-Pin or query param teacher_pin matching configured teacher PIN
+    """
+    if request is None:
+        return False
+
+    # 1. Staff / Admin JWT
+    auth_header = request.headers.get("authorization")
+    if auth_header and auth_header.lower().startswith("bearer "):
+        token = auth_header.split(" ", 1)[1].strip()
+        try:
+            payload = decode_token(token, "access")
+            role = payload.get("role")
+            if role in ("admin", "editor", "teacher"):
+                return True
+        except Exception:
+            pass
+
+    # 2. Teacher PIN
+    provided_pin = (
+        request.headers.get("x-teacher-pin")
+        or request.query_params.get("teacher_pin")
+    )
+    if provided_pin:
+        from app.services.settings import settings_service
+        expected_pin = await settings_service.get_teacher_pin(db)
+        if provided_pin.strip() == expected_pin.strip():
+            return True
+
+    return False
+
+
 async def check_classroom_group_access(
     db: AsyncSession,
     group_id: int | None,
@@ -37,26 +75,18 @@ async def check_classroom_group_access(
     """
     Checks if the requester has authorized access to group_id's online meetings and classroom tasks.
     Returns True if:
-    - group_id is None (e.g. general query)
-    - User is an admin or editor (via Authorization Bearer JWT)
+    - User is an authorized teacher or admin (via Teacher PIN or JWT)
     - Request carries X-Classroom-User-Id or X-Classroom-Email that belongs to group_id in ClassroomCredential or GroupStudent
     """
-    if not group_id:
-        return True
     if request is None:
+        return False
+
+    # 1. Check for teacher PIN or staff / admin JWT
+    if await check_teacher_access(db, request):
         return True
 
-    # 1. Check for staff / admin JWT
-    auth_header = request.headers.get("authorization")
-    if auth_header and auth_header.lower().startswith("bearer "):
-        token = auth_header.split(" ", 1)[1].strip()
-        try:
-            payload = decode_token(token, "access")
-            role = payload.get("role")
-            if role in ("admin", "editor"):
-                return True
-        except Exception:
-            pass
+    if not group_id:
+        return False
 
     # 2. Extract client-provided classroom credentials
     classroom_uid = (

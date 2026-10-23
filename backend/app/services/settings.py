@@ -8,6 +8,7 @@ from app.config import settings
 
 SEMESTER_START_KEY = "semester_start"
 SEMESTER_END_KEY = "semester_end"
+TEACHER_PIN_KEY = "teacher_pin"
 _CACHE_TTL = 300.0
 
 class SettingsService:
@@ -88,5 +89,9 @@ class SettingsService:
         self.invalidate_cache()
         from app.services import cache_rev
         cache_rev.bump(global_=True)
+
+    async def get_teacher_pin(self, db: AsyncSession) -> str:
+        value = await self.get(db, TEACHER_PIN_KEY, default=settings.teacher_pin)
+        return value or settings.teacher_pin
 
 settings_service = SettingsService()

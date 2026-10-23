@@ -165,3 +165,45 @@ async def test_invalid_semester_start_is_rejected(settings_client, value, detail
     assert response.status_code == 422
     if detail:
         assert response.json()["detail"] == detail
+
+
+@pytest.mark.anyio
+async def test_verify_and_update_teacher_pin(settings_client):
+    client, tokens, sessions = settings_client
+    from app.config import settings
+
+    # 1. Verify default PIN
+    res = await client.post("/api/settings/verify-teacher-pin", json={"pin": settings.teacher_pin})
+    assert res.status_code == 200
+    assert res.json() == {"valid": True}
+
+    # 2. Verify invalid PIN
+    res_bad = await client.post("/api/settings/verify-teacher-pin", json={"pin": "wrong-pin-xyz"})
+    assert res_bad.status_code == 200
+    assert res_bad.json() == {"valid": False}
+
+    # 3. Viewer/Editor cannot get or update PIN
+    for role in ("viewer", "editor"):
+        assert (await client.get("/api/settings/teacher-pin", headers={"Authorization": f"Bearer {tokens[role]}"})).status_code == 403
+        assert (await client.put("/api/settings/teacher-pin", json={"pin": "newpin123"}, headers={"Authorization": f"Bearer {tokens[role]}"})).status_code == 403
+
+    # 4. Admin can get current PIN
+    admin_get = await client.get("/api/settings/teacher-pin", headers={"Authorization": f"Bearer {tokens['admin']}"})
+    assert admin_get.status_code == 200
+    assert admin_get.json()["pin"] == settings.teacher_pin
+
+    # 5. Admin can update PIN
+    admin_put = await client.put("/api/settings/teacher-pin", json={"pin": "newsecretpin99"}, headers={"Authorization": f"Bearer {tokens['admin']}"})
+    assert admin_put.status_code == 200
+    assert admin_put.json()["pin"] == "newsecretpin99"
+
+    # 6. Now verify with new PIN
+    res_new = await client.post("/api/settings/verify-teacher-pin", json={"pin": "newsecretpin99"})
+    assert res_new.status_code == 200
+    assert res_new.json() == {"valid": True}
+
+    # Old PIN is no longer valid
+    res_old = await client.post("/api/settings/verify-teacher-pin", json={"pin": settings.teacher_pin})
+    assert res_old.status_code == 200
+    assert res_old.json() == {"valid": False}
+

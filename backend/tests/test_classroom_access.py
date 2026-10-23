@@ -104,3 +104,39 @@ async def test_check_classroom_group_access_authorized_student(db_session):
     # But for a different group_id, access should be False
     has_other_access = await check_classroom_group_access(db_session, group_id=99, request=request)
     assert has_other_access is False
+
+
+@pytest.mark.anyio
+async def test_check_teacher_access_and_pin(db_session):
+    from app.services.classroom_access import check_teacher_access
+    from app.config import settings
+
+    # Guest request has no access
+    guest_req = MagicMock()
+    guest_req.headers = {}
+    guest_req.query_params = {}
+    assert await check_teacher_access(db_session, guest_req) is False
+    assert await check_classroom_group_access(db_session, group_id=None, request=guest_req) is False
+
+    # Invalid PIN
+    bad_req = MagicMock()
+    bad_req.headers = {"x-teacher-pin": "wrong-pin"}
+    bad_req.query_params = {}
+    assert await check_teacher_access(db_session, bad_req) is False
+
+    # Valid PIN via header
+    good_req = MagicMock()
+    good_req.headers = {"x-teacher-pin": settings.teacher_pin}
+    good_req.query_params = {}
+    assert await check_teacher_access(db_session, good_req) is True
+    # Teacher PIN unlocks any group access as well as group_id=None
+    assert await check_classroom_group_access(db_session, group_id=None, request=good_req) is True
+    assert await check_classroom_group_access(db_session, group_id=85, request=good_req) is True
+    assert await check_classroom_group_access(db_session, group_id=99, request=good_req) is True
+
+    # Valid PIN via query param
+    good_qp = MagicMock()
+    good_qp.headers = {}
+    good_qp.query_params = {"teacher_pin": settings.teacher_pin}
+    assert await check_teacher_access(db_session, good_qp) is True
+
