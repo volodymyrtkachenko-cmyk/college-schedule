@@ -36,13 +36,6 @@ const EN_KYIV_DOW_FMT = new Intl.DateTimeFormat("en-US", {
   weekday: "short",
 });
 
-interface PinnedTarget {
-  mode: "student" | "teacher";
-  id: number;
-  name: string;
-}
-
-const MAX_PINS = 3;
 
 function isTaskUrgent(label: string): boolean {
   const m = label.match(/(\d{2})\.(\d{2})/);
@@ -381,38 +374,10 @@ export default function HomePage() {
     setReturnTarget(null);
   };
 
-  const [pins, setPins] = useState<PinnedTarget[]>([]);
-
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem("schedule:pins");
-      if (raw) setPins(JSON.parse(raw).slice(0, MAX_PINS));
-    } catch {}
-  }, []);
-
-  const currentId = mode === "student" ? groupId : teacherId;
   const currentName =
     mode === "student"
       ? groups.find((g) => g.id === groupId)?.name
       : teachers.find((t) => t.id === teacherId)?.name;
-
-  const isCurrentPinned = Boolean(
-    currentId && pins.some((p) => p.mode === mode && p.id === currentId)
-  );
-
-  const togglePinCurrent = () => {
-    if (!currentId || !currentName) return;
-    setPins((prev) => {
-      const exists = prev.some((p) => p.mode === mode && p.id === currentId);
-      const next = exists
-        ? prev.filter((p) => !(p.mode === mode && p.id === currentId))
-        : [{ mode, id: currentId, name: currentName }, ...prev].slice(0, MAX_PINS);
-      try {
-        localStorage.setItem("schedule:pins", JSON.stringify(next));
-      } catch {}
-      return next;
-    });
-  };
 
   const currentWeekNumber = useMemo(() => {
     if (!semesterStart) return null;
@@ -1002,35 +967,6 @@ export default function HomePage() {
               <span className="text-sys-text-muted text-xs ml-auto shrink-0">▼</span>
             </button>
 
-            {/* Star Pin */}
-            {currentId && (
-              <button
-                type="button"
-                onClick={togglePinCurrent}
-                title={isCurrentPinned ? "Прибрати із закріплених" : "Закріпити розклад"}
-                aria-label={isCurrentPinned ? "Відкріпити розклад" : "Закріпити розклад"}
-                aria-pressed={isCurrentPinned}
-                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border text-base transition-colors ${
-                  isCurrentPinned
-                    ? "border-amber-400/40 bg-amber-400/10 text-amber-300"
-                    : "border-sys-border bg-sys-bg text-sys-text-muted hover:text-sys-text-primary hover:border-sys-border-elevated"
-                }`}
-              >
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill={isCurrentPinned ? "currentColor" : "none"}
-                  stroke="currentColor"
-                  strokeWidth="1.75"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className={isCurrentPinned ? "text-amber-400" : "text-slate-400 hover:text-amber-300"}
-                >
-                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                </svg>
-              </button>
-            )}
           </div>
 
           {/* Center Zone: Date Navigator + View Mode */}
@@ -1425,85 +1361,98 @@ export default function HomePage() {
           </div>
         )}
 
-        {mobileTab === "tasks" ? (
-          <MobileTasksView
-            tasks={allTasks}
-            groupId={groupId}
-            weekStart={weekStartStr}
-            weekAnchorDate={weekAnchorDate}
-            weekNumber={currentWeekNumber}
-            onPrevWeek={() => shiftWeekPreservingDay(-1)}
-            onNextWeek={() => shiftWeekPreservingDay(1)}
-            tasksScope={tasksScope}
-            onTasksScopeChange={setTasksScope}
-            lastSyncedAt={classroomLastSyncedAt}
-            onSynced={(detectedId, _tasks, _lastSynced, isSilent) => {
-              if (!isSilent && detectedId && detectedId !== groupId) setGroupId(detectedId);
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={mobileTab === "tasks" ? "tasks" : view}
+            initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: shouldReduceMotion ? 0 : -4 }}
+            transition={{
+              duration: shouldReduceMotion ? 0 : 0.2,
+              ease: [0.16, 1, 0.3, 1],
             }}
-          />
-        ) : (
-          <div className="px-3 py-3">
-            {loading ? (
-              <div className="space-y-3" aria-busy="true" aria-label="Завантаження розкладу">
-                {[1, 2, 3].map((num) => (
-                  <div
-                    key={num}
-                    className="flex items-start gap-4 rounded-xl border border-sys-border/60 bg-sys-card/70 p-4 animate-pulse"
-                  >
-                    <div className="flex w-12 shrink-0 flex-col gap-1.5">
-                      <div className="h-5 w-6 rounded bg-slate-200 dark:bg-slate-700/70" />
-                      <div className="h-3 w-10 rounded bg-slate-100 dark:bg-slate-800" />
-                    </div>
-                    <div className="flex flex-1 flex-col gap-2.5">
-                      <div className="h-4 w-3/5 rounded bg-slate-200 dark:bg-slate-700/70" />
-                      <div className="h-3.5 w-2/5 rounded bg-slate-100 dark:bg-slate-800" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : error ? (
-              <div className="rounded-2xl border border-rose-400/20 bg-rose-400/5 p-6 text-center text-sm text-rose-200">
-                {error}
-              </div>
-            ) : view === "today" ? (
-              <DayPager
-                schedule={selectedDaySchedule}
-                todayDate={todayActualIso}
-                tomorrowDate={tomorrowActualIso}
-                scheduleMode={mode}
-                canEdit={false}
-                onQuickJump={handleQuickJump}
-                onNextDay={goToNextDay}
-                onPrevDay={goToPrevDay}
-                onJumpToToday={handleJumpToToday}
-                onJumpToTomorrow={handleJumpToTomorrow}
-                daySlideDir={daySlideDir}
-                shouldReduceMotion={shouldReduceMotion ?? false}
-                isWeekend={isAutoSelectedWeekendDay}
-                isShowingTomorrow={isEveningAfterLessons && isCurrentWeek}
+          >
+            {mobileTab === "tasks" ? (
+              <MobileTasksView
+                tasks={allTasks}
+                groupId={groupId}
+                weekStart={weekStartStr}
+                weekAnchorDate={weekAnchorDate}
                 weekNumber={currentWeekNumber}
-                currentTeacherId={mode === "teacher" ? teacherId : null}
-                currentTeacherName={mode === "teacher" ? (selectedTeacher?.name ?? null) : null}
+                onPrevWeek={() => shiftWeekPreservingDay(-1)}
+                onNextWeek={() => shiftWeekPreservingDay(1)}
+                tasksScope={tasksScope}
+                onTasksScopeChange={setTasksScope}
+                lastSyncedAt={classroomLastSyncedAt}
+                onSynced={(detectedId, _tasks, _lastSynced, isSilent) => {
+                  if (!isSilent && detectedId && detectedId !== groupId) setGroupId(detectedId);
+                }}
               />
             ) : (
-              <ScheduleWeekGrid
-                week={week}
-                scheduleMode={mode}
-                canEdit={false}
-                onQuickJump={handleQuickJump}
-                weekNumber={currentWeekNumber}
-                currentTeacherId={mode === "teacher" ? teacherId : null}
-                currentTeacherName={mode === "teacher" ? (selectedTeacher?.name ?? null) : null}
-              />
-            )}
+              <div className="px-3 py-3">
+                {loading ? (
+                  <div className="space-y-3" aria-busy="true" aria-label="Завантаження розкладу">
+                    {[1, 2, 3].map((num) => (
+                      <div
+                        key={num}
+                        className="flex items-start gap-4 rounded-xl border border-sys-border/60 bg-sys-card/70 p-4 animate-pulse"
+                      >
+                        <div className="flex w-12 shrink-0 flex-col gap-1.5">
+                          <div className="h-5 w-6 rounded bg-slate-200 dark:bg-slate-700/70" />
+                          <div className="h-3 w-10 rounded bg-slate-100 dark:bg-slate-800" />
+                        </div>
+                        <div className="flex flex-1 flex-col gap-2.5">
+                          <div className="h-4 w-3/5 rounded bg-slate-200 dark:bg-slate-700/70" />
+                          <div className="h-3.5 w-2/5 rounded bg-slate-100 dark:bg-slate-800" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : error ? (
+                  <div className="rounded-2xl border border-rose-400/20 bg-rose-400/5 p-6 text-center text-sm text-rose-200">
+                    {error}
+                  </div>
+                ) : view === "today" ? (
+                  <DayPager
+                    schedule={selectedDaySchedule}
+                    todayDate={todayActualIso}
+                    tomorrowDate={tomorrowActualIso}
+                    scheduleMode={mode}
+                    canEdit={false}
+                    onQuickJump={handleQuickJump}
+                    onNextDay={goToNextDay}
+                    onPrevDay={goToPrevDay}
+                    onJumpToToday={handleJumpToToday}
+                    onJumpToTomorrow={handleJumpToTomorrow}
+                    daySlideDir={daySlideDir}
+                    shouldReduceMotion={shouldReduceMotion ?? false}
+                    isWeekend={isAutoSelectedWeekendDay}
+                    isShowingTomorrow={isEveningAfterLessons && isCurrentWeek}
+                    weekNumber={currentWeekNumber}
+                    currentTeacherId={mode === "teacher" ? teacherId : null}
+                    currentTeacherName={mode === "teacher" ? (selectedTeacher?.name ?? null) : null}
+                  />
+                ) : (
+                  <ScheduleWeekGrid
+                    week={week}
+                    scheduleMode={mode}
+                    canEdit={false}
+                    onQuickJump={handleQuickJump}
+                    weekNumber={currentWeekNumber}
+                    currentTeacherId={mode === "teacher" ? teacherId : null}
+                    currentTeacherName={mode === "teacher" ? (selectedTeacher?.name ?? null) : null}
+                  />
+                )}
 
-            {!loading && !error && ((mode === "student" && !groups.length) || (mode === "teacher" && !teachers.length)) && (
-              <div className="mt-4 rounded-2xl border border-dashed border-sys-border p-8 text-center text-xs text-sys-text-secondary">
-                {mode === "student" ? "Список груп поки порожній." : "Список викладачів поки порожній."}
+                {!loading && !error && ((mode === "student" && !groups.length) || (mode === "teacher" && !teachers.length)) && (
+                  <div className="mt-4 rounded-2xl border border-dashed border-sys-border p-8 text-center text-xs text-sys-text-secondary">
+                    {mode === "student" ? "Список груп поки порожній." : "Список викладачів поки порожній."}
+                  </div>
+                )}
               </div>
             )}
-          </div>
-        )}
+          </motion.div>
+        </AnimatePresence>
       </div>
 
       {/* Desktop Main Content (>= 1024px) */}
@@ -1552,10 +1501,13 @@ export default function HomePage() {
           <AnimatePresence mode="wait">
             <motion.div
               key={view}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: shouldReduceMotion ? 0 : 0.15 }}
+              initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: shouldReduceMotion ? 0 : -4 }}
+              transition={{
+                duration: shouldReduceMotion ? 0 : 0.2,
+                ease: [0.16, 1, 0.3, 1],
+              }}
             >
               {view === "today" ? (
                 /* Desktop Day Mode: Smooth Animated Focus / 2-Column Dashboard */

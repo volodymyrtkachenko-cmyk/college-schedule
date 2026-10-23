@@ -156,12 +156,6 @@ export function ScheduleDay({
                   <span className="text-sm sm:text-base lg:text-lg font-medium text-sys-text-secondary">
                     {fmt(schedule.date, { day: "numeric", month: "long" })}
                   </span>
-                  {isToday && (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-sys-accent/35 bg-sys-accent/15 text-xs font-bold text-sys-accent tracking-wide shadow-xs">
-                      <span className="h-1.5 w-1.5 rounded-full bg-sys-accent animate-pulse" />
-                      Сьогодні
-                    </span>
-                  )}
                 </div>
               </div>
             ) : (
@@ -170,11 +164,6 @@ export function ScheduleDay({
                   <h2 className="text-base sm:text-lg font-bold capitalize tracking-tight truncate text-sys-text-primary">
                     {fmt(schedule.date, { weekday: "long" })}
                   </h2>
-                  {isToday && (
-                    <span className="shrink-0 px-2 py-0.5 rounded-full border border-sys-accent/35 bg-sys-accent/15 text-xs font-extrabold text-sys-accent uppercase tracking-wider">
-                      Сьогодні
-                    </span>
-                  )}
                 </div>
                 <div className="flex items-center gap-2 mt-0.5">
                   <span className="text-xs font-medium text-sys-text-secondary">

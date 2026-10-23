@@ -250,10 +250,7 @@ export function DayPager({
       <header className="mb-3.5 flex items-center justify-between gap-2 px-0 pt-1">
         <div className="flex flex-wrap items-baseline gap-2 min-w-0">
           <div className="flex items-center gap-2.5 min-w-0">
-            {isToday && (
-              <span className="flex h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-sys-accent shadow-[0_0_10px_rgba(59,130,246,0.9)]" />
-            )}
-            <h2 className={`text-xl font-bold capitalize tracking-tight truncate ${isToday ? "text-sys-accent" : "text-sys-text-primary"}`}>
+            <h2 className="text-xl font-bold capitalize tracking-tight truncate text-sys-text-primary">
               {dayParts.weekday}<span className="font-normal text-sys-text-secondary">,</span>
             </h2>
           </div>

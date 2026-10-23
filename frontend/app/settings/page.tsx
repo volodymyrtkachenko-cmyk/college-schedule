@@ -7,35 +7,11 @@ import { useUserSettings } from "../../lib/useUserSettings";
 import { useClassroomSubmissions } from "../../lib/useClassroomSubmissions";
 import { useAuth } from "../../lib/auth";
 
-interface PinnedTarget {
-  mode: "student" | "teacher";
-  id: number;
-  name: string;
-}
-
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
   const { settings, updateSetting } = useUserSettings();
   const { isLinked, linkedEmail, unlink } = useClassroomSubmissions();
   const auth = useAuth();
-
-  const [pins, setPins] = useState<PinnedTarget[]>([]);
-
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem("schedule:pins");
-      if (raw) setPins(JSON.parse(raw));
-    } catch {}
-  }, []);
-
-  const handleRemovePin = (mode: "student" | "teacher", id: number) => {
-    const next = pins.filter((p) => !(p.mode === mode && p.id === id));
-    setPins(next);
-    try {
-      localStorage.setItem("schedule:pins", JSON.stringify(next));
-      window.dispatchEvent(new Event("storage"));
-    } catch {}
-  };
 
   const handleClassroomLinkClick = () => {
     window.location.href = "/?sync=1";
@@ -287,48 +263,7 @@ export default function SettingsPage() {
           </p>
         </section>
 
-        {/* Section 4: Закріплені розклади */}
-        <section className="rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-xs space-y-4">
-          <div className="flex items-center gap-2 pb-2 border-b border-sys-border/60">
-            <span className="text-base">★</span>
-            <h2 className="text-sm font-bold uppercase tracking-wider text-sys-text-muted">
-              Закріплені розклади
-            </h2>
-          </div>
-
-          {pins.length === 0 ? (
-            <p className="text-xs text-sys-text-secondary">
-              Немає закріплених розкладів. Натискайте зірочку біля селектора для збереження.
-            </p>
-          ) : (
-            <div className="space-y-1.5">
-              {pins.map((pin) => (
-                <div
-                  key={`pin-${pin.mode}-${pin.id}`}
-                  className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 px-3 py-2 text-xs"
-                >
-                  <div className="flex items-center gap-2 min-w-0 pr-2">
-                    <span className="text-amber-400 font-bold">★</span>
-                    <span className="font-semibold text-sys-text-primary truncate">{pin.name}</span>
-                    <span className="rounded px-1.5 py-0.2 text-[10px] font-semibold bg-sys-bg text-sys-text-secondary border border-sys-border">
-                      {pin.mode === "student" ? "Група" : "Викладач"}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleRemovePin(pin.mode, pin.id)}
-                    title="Видалити зі збережених"
-                    className="flex h-6 w-6 items-center justify-center rounded-md border border-sys-border/60 text-sys-text-secondary hover:text-rose-400 hover:border-rose-400/40 transition-colors"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* Section 5: Корисні посилання */}
+        {/* Section 4: Корисні посилання */}
         <section className="rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-xs space-y-3">
           <div className="flex items-center gap-2 pb-2 border-b border-sys-border/60">
             <span className="text-base">🔗</span>

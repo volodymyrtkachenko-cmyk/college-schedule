@@ -75,7 +75,7 @@ export function MobileWeekDaysStrip({
             onKeyDown={(e) => handleKeyDown(e, day.offset)}
             className={`relative flex h-full w-1/5 flex-col items-center justify-center py-1 transition-colors duration-150 active:scale-[0.96] motion-reduce:transition-none focus:outline-none ${
               isSelected
-                ? "text-sys-accent font-bold"
+                ? "text-sys-text-primary font-bold"
                 : "text-sys-text-secondary hover:text-sys-text-primary"
             }`}
           >
@@ -83,16 +83,9 @@ export function MobileWeekDaysStrip({
               {day.weekday}
             </span>
             <div className="relative flex flex-col items-center justify-center mt-0.5">
-              <span className={`text-[13px] leading-tight ${isSelected ? "font-bold text-sys-accent" : "font-medium"}`}>
+              <span className={`text-[13px] leading-tight ${isSelected ? "font-bold text-sys-text-primary" : "font-medium text-sys-text-secondary"}`}>
                 {day.dayNum}
               </span>
-              {day.isToday && (
-                <span
-                  aria-label="Сьогодні"
-                  title="Сьогодні"
-                  className="absolute -bottom-1 left-1/2 -translate-x-1/2 h-1 w-1 rounded-full bg-sys-accent"
-                />
-              )}
             </div>
           </button>
         );
