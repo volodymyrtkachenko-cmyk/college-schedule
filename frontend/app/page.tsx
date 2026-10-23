@@ -17,6 +17,7 @@ import { useAuth, canAccessAdmin } from "../lib/auth";
 import { getMondayOf, KYIV_DATE_FMT, KYIV_TIME_FMT, UKR_WEEKDAY_LONG_FMT, UKR_DAY_MONTH_SHORT_FMT, UKR_MONTH_SHORT_FMT } from "../lib/date";
 import dynamic from "next/dynamic";
 const WelcomeScreen = dynamic(() => import("../components/WelcomeScreen").then((m) => m.WelcomeScreen), { ssr: false });
+import { SplashScreen } from "../components/SplashScreen";
 import { BottomNav, MobileTab } from "../components/BottomNav";
 import { MobileTasksView, FullTaskItem, renderTaskCard } from "../components/MobileTasksView";
 import { useTaskGroups, formatTaskWord, TaskFilterState, DEFAULT_TASK_FILTERS } from "../lib/useTaskGroups";
@@ -961,6 +962,7 @@ export default function HomePage() {
 
   return (
     <main className="min-h-screen bg-sys-bg pb-6 text-sys-text-primary md:pb-8">
+      <SplashScreen isLoading={loading} />
       <OfflineIndicator />
       <InstallPrompt />
 
