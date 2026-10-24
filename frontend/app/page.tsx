@@ -55,7 +55,6 @@ export default function HomePage() {
   }, []);
 
   const shouldReduceMotion = useReducedMotion();
-  const [weekShiftDir, setWeekShiftDir] = useState<number>(0);
   const [daySlideDir, setDaySlideDir] = useState<number>(0);
 
   const isCurrentWeek = useMemo(() => {
@@ -68,7 +67,6 @@ export default function HomePage() {
   }, [weekAnchorDate]);
 
   const shiftWeek = (offset: number) => {
-    setWeekShiftDir(offset);
     setWeekAnchorDate((date) => {
       const next = new Date(date);
       next.setDate(next.getDate() + offset * 7);
@@ -498,7 +496,6 @@ export default function HomePage() {
       setSelectedDayIndex((prev) => prev - 1);
       resetScroll();
     } else {
-      setWeekShiftDir(-1);
       setDaySlideDir(-1);
       setWeekAnchorDate((prev) => {
         const prevAnchor = new Date(prev);
@@ -516,7 +513,6 @@ export default function HomePage() {
       setSelectedDayIndex((prev) => prev + 1);
       resetScroll();
     } else {
-      setWeekShiftDir(1);
       setDaySlideDir(1);
       setWeekAnchorDate((prev) => {
         const nextAnchor = new Date(prev);
@@ -529,7 +525,6 @@ export default function HomePage() {
   };
 
   const shiftWeekPreservingDay = (offset: number) => {
-    setWeekShiftDir(offset);
     setDaySlideDir(offset > 0 ? 1 : -1);
     setWeekAnchorDate((prev) => {
       const nextAnchor = new Date(prev);
@@ -541,7 +536,6 @@ export default function HomePage() {
 
   const resetWeekPreservingDay = () => {
     const currentAnchor = getInitialAnchor();
-    setWeekShiftDir(0);
     setWeekAnchorDate(currentAnchor);
     resetScroll();
   };
@@ -1525,7 +1519,7 @@ export default function HomePage() {
         ) : error ? (
           <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-8 text-center text-rose-700 dark:text-rose-200">{error}</div>
         ) : (
-          <AnimatePresence>
+          <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={view}
               initial={{ opacity: 0 }}
@@ -1541,10 +1535,10 @@ export default function HomePage() {
                 <div className="w-full min-w-0 flex items-start justify-center overflow-x-clip">
                   {/* Schedule Column (Smoothly glides to center in Focus Mode) */}
                   <motion.div
-                    layout="position"
+                    layout={shouldReduceMotion ? false : "position"}
                     transition={{
-                      duration: shouldReduceMotion ? 0 : 0.32,
-                      ease: [0.25, 0.1, 0.25, 1.0],
+                      duration: shouldReduceMotion ? 0 : 0.18,
+                      ease: [0.2, 0, 0, 1],
                     }}
                     className={`w-full ${mode === "teacher" ? "max-w-[880px]" : "max-w-[760px]"} min-w-0`}
                   >
@@ -1557,7 +1551,7 @@ export default function HomePage() {
                         marginBottom: isFocusEffective ? 20 : 0,
                         transition: shouldReduceMotion
                           ? "none"
-                          : "grid-template-rows 0.32s cubic-bezier(0.25, 0.1, 0.25, 1.0), opacity 0.22s ease, margin-bottom 0.32s cubic-bezier(0.25, 0.1, 0.25, 1.0)",
+                          : "grid-template-rows 0.18s cubic-bezier(0.2, 0, 0, 1), opacity 0.15s ease, margin-bottom 0.18s cubic-bezier(0.2, 0, 0, 1)",
                       }}
                       className={`w-full overflow-hidden ${isFocusEffective ? "" : "pointer-events-none"}`}
                     >
@@ -1692,8 +1686,8 @@ export default function HomePage() {
                             marginLeft: 0,
                           }}
                           transition={{
-                            duration: shouldReduceMotion ? 0 : 0.32,
-                            ease: [0.25, 0.1, 0.25, 1.0],
+                            duration: shouldReduceMotion ? 0 : 0.18,
+                            ease: [0.2, 0, 0, 1],
                           }}
                           className="hidden lg:block shrink-0 overflow-hidden"
                         >
@@ -2198,24 +2192,15 @@ export default function HomePage() {
                       </button>
                     </div>
                   </div>
-                  <motion.div
-                    key={weekAnchorDate.toISOString()}
-                    initial={{ opacity: 0, x: weekShiftDir > 0 ? 8 : weekShiftDir < 0 ? -8 : 0 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{
-                      duration: shouldReduceMotion ? 0 : 0.18,
-                      ease: [0.2, 0, 0, 1],
-                    }}
-                  >
-                    <ScheduleWeekGrid
-                      week={week}
-                      scheduleMode={mode}
-                      canEdit={false}
-                      onQuickJump={handleQuickJump}
-                      currentTeacherId={mode === "teacher" ? teacherId : null}
-                      currentTeacherName={mode === "teacher" ? (selectedTeacher?.name ?? null) : null}
-                    />
-                  </motion.div>
+                  <ScheduleWeekGrid
+                    week={week}
+                    scheduleMode={mode}
+                    canEdit={false}
+                    onQuickJump={handleQuickJump}
+                    weekNumber={currentWeekNumber}
+                    currentTeacherId={mode === "teacher" ? teacherId : null}
+                    currentTeacherName={mode === "teacher" ? (selectedTeacher?.name ?? null) : null}
+                  />
                 </div>
               )}
             </motion.div>
