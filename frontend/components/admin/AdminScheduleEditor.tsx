@@ -9,6 +9,7 @@ const LessonEditor = dynamic(() => import("../LessonEditor").then((m) => m.Lesso
 import { Lesson, LessonMutation, AcademicEvent, AcademicEventType, api } from "../../lib/api";
 import { invalidateScheduleCache, useSchedule } from "../../lib/hooks";
 import { getMondayOf } from "../../lib/date";
+import { formatFullWeekRange } from "../../lib/format";
 import { SearchableSelect } from "../SearchableSelect";
 import { useToast } from "../ToastProvider";
 import { QuickJumpTarget, findGroupIdByName, findTeacherIdByName } from "../../lib/quickJump";
@@ -238,11 +239,7 @@ export function AdminScheduleEditor() {
   }, [needsAvailability, availabilityWeek, weekAnchorDate]);
 
   const weekRange = useMemo(() => {
-    const end = new Date(weekAnchorDate);
-    end.setDate(end.getDate() + 6);
-    const startOpts: Intl.DateTimeFormatOptions = { day: "numeric", month: "long" };
-    if (weekAnchorDate.getFullYear() !== end.getFullYear()) startOpts.year = "numeric";
-    return `${new Intl.DateTimeFormat("uk-UA", startOpts).format(weekAnchorDate)} – ${new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "long", year: "numeric" }).format(end)}`;
+    return formatFullWeekRange(weekAnchorDate);
   }, [weekAnchorDate]);
 
   const resetWeek = () => setWeekAnchorDate(getMondayOf(new Date()));

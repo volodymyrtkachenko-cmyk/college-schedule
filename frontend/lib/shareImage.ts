@@ -1,5 +1,5 @@
 import { ScheduleResponse } from "./api";
-import { formatLessonDetails } from "./format";
+import { formatLessonDetails, formatFullWeekRange } from "./format";
 
 function drawRoundedRect(
   ctx: CanvasRenderingContext2D,
@@ -352,14 +352,8 @@ export async function generateWeekScheduleCardBlob(
   const lastDay = week[week.length - 1];
   const computedRange =
     weekRangeLabel ||
-    (firstDay && lastDay
-      ? `${new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "long" }).format(
-          new Date(`${firstDay.date}T12:00:00`)
-        )} – ${new Intl.DateTimeFormat("uk-UA", {
-          day: "numeric",
-          month: "long",
-          year: "numeric",
-        }).format(new Date(`${lastDay.date}T12:00:00`))}`
+    (firstDay
+      ? formatFullWeekRange(new Date(`${firstDay.date}T12:00:00`))
       : "Розклад на тиждень");
 
   ctx.fillStyle = "#f8fafc";

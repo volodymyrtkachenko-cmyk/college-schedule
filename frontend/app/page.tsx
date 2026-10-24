@@ -31,7 +31,7 @@ import { extractClassroomTaskKey, isOwnTask, useClassroomSubmissions } from "../
 import { useTeacherAccess } from "../lib/useTeacherAccess";
 import { TeacherPinModal } from "../components/TeacherPinModal";
 import { useTheme } from "../lib/useTheme";
-import { normalizeSubjectName } from "../lib/format";
+import { normalizeSubjectName, formatFullWeekRange } from "../lib/format";
 
 const EN_KYIV_DOW_FMT = new Intl.DateTimeFormat("en-US", {
   timeZone: "Europe/Kyiv",
@@ -597,11 +597,7 @@ export default function HomePage() {
   const isViewingToday = isCurrentWeek && selectedDaySchedule?.date === todayActualIso;
 
   const weekRange = useMemo(() => {
-    const end = new Date(weekAnchorDate);
-    end.setDate(end.getDate() + 6);
-    const startOpts: Intl.DateTimeFormatOptions = { day: "numeric", month: "long" };
-    if (weekAnchorDate.getFullYear() !== end.getFullYear()) startOpts.year = "numeric";
-    return `${new Intl.DateTimeFormat("uk-UA", startOpts).format(weekAnchorDate)} – ${new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "long", year: "numeric" }).format(end)}`;
+    return formatFullWeekRange(weekAnchorDate);
   }, [weekAnchorDate]);
 
   const compactWeekRange = useMemo(() => {
@@ -1714,7 +1710,7 @@ export default function HomePage() {
                                     </>
                                   )}
                                 </div>
-                                <h3 className="text-base sm:text-lg font-semibold text-sys-text-primary mt-1 truncate">
+                                <h3 className="text-base sm:text-lg font-semibold text-sys-text-primary mt-1 leading-snug">
                                   {weekRange}
                                 </h3>
                               </div>

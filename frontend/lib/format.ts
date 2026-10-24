@@ -614,6 +614,41 @@ const UKR_MONTHS_SHORT_DECL = [
   "лип.", "серп.", "верес.", "жовт.", "листоп.", "груд."
 ];
 
+export const UKR_MONTHS_LONG_DECL = [
+  "січня", "лютого", "березня", "квітня", "травня", "червня",
+  "липня", "серпня", "вересня", "жовтня", "листопада", "грудня"
+];
+
+/**
+ * Форматує повний діапазон дат тижня (понеділок – неділя):
+ * - Якщо дні в одному місяці: "19–25 жовтня 2026 року"
+ * - Якщо дні в різних місяцях одного року: "26 жовтня – 1 листопада 2026 року"
+ * - Якщо тиждень охоплює різні роки: "28 грудня 2026 року – 3 січня 2027 року"
+ * Забезпечує коректне літературне написання «року» без скорочення «р.» та запобігає обрізанню до «202...».
+ */
+export function formatFullWeekRange(monday: Date): string {
+  const mon = getMondayOf(monday);
+  const sun = new Date(mon);
+  sun.setDate(mon.getDate() + 6);
+
+  const monDay = mon.getDate();
+  const sunDay = sun.getDate();
+  const monMonth = mon.getMonth();
+  const sunMonth = sun.getMonth();
+  const monYear = mon.getFullYear();
+  const sunYear = sun.getFullYear();
+
+  if (monYear !== sunYear) {
+    return `${monDay} ${UKR_MONTHS_LONG_DECL[monMonth]} ${monYear} року – ${sunDay} ${UKR_MONTHS_LONG_DECL[sunMonth]} ${sunYear} року`;
+  }
+
+  if (monMonth === sunMonth) {
+    return `${monDay}–${sunDay} ${UKR_MONTHS_LONG_DECL[monMonth]} ${sunYear} року`;
+  }
+
+  return `${monDay} ${UKR_MONTHS_LONG_DECL[monMonth]} – ${sunDay} ${UKR_MONTHS_LONG_DECL[sunMonth]} ${sunYear} року`;
+}
+
 export function formatShortWeekRange(monday: Date, weekNumber?: number | null): string {
   const mon = getMondayOf(monday);
   const sun = new Date(mon);
