@@ -150,12 +150,23 @@ class LearningModeOverride(BaseModel):
         return self
 
 
+class ShortenedDayItem(BaseModel):
+    date: date
+    reason: str | None = Field(default=None, max_length=255)
+
+
+class ShortenedDayTogglePayload(BaseModel):
+    date: date
+    reason: str | None = Field(default=None, max_length=255)
+
+
 class ScheduleResponse(BaseModel):
     date: date
     week_type: str
     lessons: list[ScheduleItem]
     learning_mode: str | None = None
     learning_mode_override: LearningModeOverride | None = None
+    is_shortened_day: bool = False
 
 
 class LearningModeConfig(BaseModel):

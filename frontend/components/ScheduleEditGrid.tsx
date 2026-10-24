@@ -40,6 +40,7 @@ export interface DayActionOptions {
   onSelectDayLessons?: (date: string) => void;
   onPasteDay?: (targetDate: string) => void;
   canPasteDay?: boolean;
+  onToggleShortenedDay?: (date: string) => void;
 }
 
 /** Admin week table: rows are lesson slots (1-4), columns are weekdays. */
@@ -73,6 +74,7 @@ export function ScheduleEditGrid({
   onSelectDayLessons,
   onPasteDay,
   canPasteDay,
+  onToggleShortenedDay,
   onOpenPermanentSchedule,
   onRemoveReplacement,
 }: {
@@ -106,6 +108,7 @@ export function ScheduleEditGrid({
   onSelectDayLessons?: (date: string) => void;
   onPasteDay?: (targetDate: string) => void;
   canPasteDay?: boolean;
+  onToggleShortenedDay?: (date: string) => void;
   onOpenPermanentSchedule?: (lesson: Lesson) => void;
 }) {
   const [activeDayMenu, setActiveDayMenu] = useState<string | null>(null);
@@ -143,9 +146,16 @@ export function ScheduleEditGrid({
             >
               <div className="flex items-center justify-between gap-1">
                 <div className="flex-1 text-left min-w-0">
-                  <h3 className="font-semibold text-sm capitalize text-sys-text-primary truncate">
-                    {longWeekday(day.date)}
-                  </h3>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <h3 className="font-semibold text-sm capitalize text-sys-text-primary truncate">
+                      {longWeekday(day.date)}
+                    </h3>
+                    {day.is_shortened_day && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/15 text-amber-300 border border-amber-500/30" title="Скорочений день: пари по 50 хв, перерви 10 хв">
+                        ⏱ 50 хв
+                      </span>
+                    )}
+                  </div>
                   <span className="text-[11px] text-sys-text-muted">{shortDate(day.date)}</span>
                 </div>
 
@@ -168,7 +178,7 @@ export function ScheduleEditGrid({
                   {isMenuOpen && (
                     <div
                       ref={menuRef}
-                      className="absolute right-0 top-full mt-1 z-50 w-48 rounded-xl border border-sys-border bg-sys-card p-1 text-left shadow-xl animate-in fade-in zoom-in-95 duration-150"
+                      className="absolute right-0 top-full mt-1 z-50 w-52 rounded-xl border border-sys-border bg-sys-card p-1 text-left shadow-xl animate-in fade-in zoom-in-95 duration-150"
                     >
                       {onCopyDay && (
                         <button
@@ -224,6 +234,30 @@ export function ScheduleEditGrid({
                               <rect width="8" height="4" x="8" y="2" rx="1" ry="1" />
                             </svg>
                             <span>Вставити день сюди</span>
+                          </button>
+                        </>
+                      )}
+
+                      {onToggleShortenedDay && (
+                        <>
+                          <div className="my-1 border-t border-sys-border/40" />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveDayMenu(null);
+                              onToggleShortenedDay(day.date);
+                            }}
+                            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-sys-text-secondary hover:bg-white/5 hover:text-sys-text-primary transition-colors"
+                          >
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <circle cx="12" cy="12" r="10" />
+                              <polyline points="12 6 12 12 16 14" />
+                            </svg>
+                            <span>
+                              {day.is_shortened_day
+                                ? "Звичайні пари (80 хв)"
+                                : "Скорочений день (50 хв)"}
+                            </span>
                           </button>
                         </>
                       )}

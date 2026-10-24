@@ -4,7 +4,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, Field
 from app.core.security import require_roles
 from app.database import get_db
-from app.schemas import LearningModeConfig, SemesterDatesSetting, SemesterDatesUpdate, SemesterStartSetting
+from app.schemas import (
+    LearningModeConfig,
+    SemesterDatesSetting,
+    SemesterDatesUpdate,
+    SemesterStartSetting,
+    ShortenedDayItem,
+    ShortenedDayTogglePayload,
+)
 from app.services.learning_mode import get_learning_mode_config, save_learning_mode_config
 from app.services.settings import SEMESTER_START_KEY, TEACHER_PIN_KEY, settings_service
 
@@ -120,3 +127,44 @@ async def update_teacher_pin_setting(
 ):
     await settings_service.set(db, TEACHER_PIN_KEY, payload.pin.strip())
     return payload
+
+
+@router.get("/shortened-days", response_model=list[ShortenedDayItem])
+async def list_shortened_days(db: AsyncSession = Depends(get_db)):
+    items = await settings_service.get_shortened_days(db)
+    return [ShortenedDayItem(date=it["date"], reason=it.get("reason")) for it in items]
+
+
+@router.post("/shortened-days", response_model=list[ShortenedDayItem])
+async def add_shortened_day_setting(
+    payload: ShortenedDayItem,
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_roles("admin", "editor")),
+):
+    items = await settings_service.add_shortened_day(db, payload.date, payload.reason)
+    return [ShortenedDayItem(date=it["date"], reason=it.get("reason")) for it in items]
+
+
+@router.delete("/shortened-days/{date_str}", response_model=list[ShortenedDayItem])
+async def delete_shortened_day_setting(
+    date_str: str,
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_roles("admin", "editor")),
+):
+    try:
+        from datetime import date as _date
+        target_date = _date.fromisoformat(date_str)
+    except ValueError:
+        raise HTTPException(400, "Невірний формат дати. Очікується YYYY-MM-DD")
+    items = await settings_service.remove_shortened_day(db, target_date)
+    return [ShortenedDayItem(date=it["date"], reason=it.get("reason")) for it in items]
+
+
+@router.post("/shortened-days/toggle")
+async def toggle_shortened_day_setting(
+    payload: ShortenedDayTogglePayload,
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_roles("admin", "editor")),
+):
+    is_shortened = await settings_service.toggle_shortened_day(db, payload.date, payload.reason)
+    return {"date": payload.date.isoformat(), "is_shortened": is_shortened}

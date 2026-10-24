@@ -55,6 +55,7 @@ export function ScheduleWeekGrid({
   onSelectDayLessons,
   onPasteDay,
   canPasteDay,
+  onToggleShortenedDay,
   onOpenPermanentSchedule,
   weekNumber,
   currentTeacherId,
@@ -93,6 +94,7 @@ export function ScheduleWeekGrid({
   onSelectDayLessons?: (date: string) => void;
   onPasteDay?: (targetDate: string) => void;
   canPasteDay?: boolean;
+  onToggleShortenedDay?: (date: string) => void;
   onOpenPermanentSchedule?: (lesson: Lesson) => void;
   weekNumber?: number | null;
   currentTeacherId?: number | null;
@@ -151,6 +153,7 @@ export function ScheduleWeekGrid({
           onSelectDayLessons={onSelectDayLessons}
           onPasteDay={onPasteDay}
           canPasteDay={canPasteDay}
+          onToggleShortenedDay={onToggleShortenedDay}
           onOpenPermanentSchedule={onOpenPermanentSchedule}
         />
       </div>
@@ -256,6 +259,11 @@ export function ScheduleWeekGrid({
                 }`}>
                   {shortDateUk(day.date)}
                 </span>
+                {day.is_shortened_day && (
+                  <span className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/15 text-amber-300 border border-amber-500/30" title="Скорочений день: пари по 50 хв, перерви 10 хв">
+                    ⏱ 50 хв
+                  </span>
+                )}
               </div>
             </div>
           );

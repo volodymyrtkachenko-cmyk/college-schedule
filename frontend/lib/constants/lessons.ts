@@ -8,3 +8,11 @@ export const DEFAULT_LESSON_TIMES: Record<number, string> = {
   3: "12:30–13:50",
   4: "14:00–15:20",
 };
+
+export const SHORTENED_LESSON_TIMES: Record<number, string> = {
+  1: "09:00–09:50",
+  2: "10:00–10:50",
+  3: "11:00–11:50",
+  4: "12:00–12:50",
+  5: "13:00–13:50",
+};

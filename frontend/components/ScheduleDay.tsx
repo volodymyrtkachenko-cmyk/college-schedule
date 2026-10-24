@@ -156,6 +156,15 @@ export function ScheduleDay({
                   <span className="text-sm sm:text-base lg:text-lg font-medium text-sys-text-secondary">
                     {fmt(schedule.date, { day: "numeric", month: "long" })}
                   </span>
+                  {schedule.is_shortened_day && (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30 shadow-xs">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="12" cy="12" r="10" />
+                        <polyline points="12 6 12 12 16 14" />
+                      </svg>
+                      <span>Скорочений день (пари по 50 хв)</span>
+                    </span>
+                  )}
                 </div>
               </div>
             ) : (
@@ -165,10 +174,15 @@ export function ScheduleDay({
                     {fmt(schedule.date, { weekday: "long" })}
                   </h2>
                 </div>
-                <div className="flex items-center gap-2 mt-0.5">
+                <div className="flex items-center justify-between gap-2 mt-0.5">
                   <span className="text-xs font-medium text-sys-text-secondary">
                     {fmt(schedule.date, { day: "numeric", month: "short" })}
                   </span>
+                  {schedule.is_shortened_day && (
+                    <span className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                      ⏱ 50 хв
+                    </span>
+                  )}
                 </div>
               </div>
             )

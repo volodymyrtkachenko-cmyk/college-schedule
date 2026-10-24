@@ -256,6 +256,15 @@ export function DayPager({
           </div>
           <span className="text-sm font-medium text-sys-text-secondary">{dayParts.dayMonth}</span>
           {learningModeBadge}
+          {schedule.is_shortened_day && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30 shadow-xs">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
+              </svg>
+              <span>50 хв</span>
+            </span>
+          )}
         </div>
 
         {orderedLessons.length > 0 && (

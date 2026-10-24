@@ -14,7 +14,7 @@ import { useToast } from "../ToastProvider";
 import { QuickJumpTarget, findGroupIdByName, findTeacherIdByName } from "../../lib/quickJump";
 const OfficialPrintModal = dynamic(() => import("./OfficialPrintSheet").then((m) => m.OfficialPrintModal), { ssr: false });
 const EventsModal = dynamic(() => import("./EventsModal").then((m) => m.EventsModal), { ssr: false });
-import { DEFAULT_LESSON_TIMES } from "../../lib/constants/lessons";
+import { DEFAULT_LESSON_TIMES, SHORTENED_LESSON_TIMES } from "../../lib/constants/lessons";
 import { PageHeader } from "./PageHeader";
 import { MobileWeekBar } from "../MobileWeekBar";
 import { MobileWeekDaysStrip } from "../MobileWeekDaysStrip";
@@ -55,8 +55,8 @@ function PrinterIcon() {
 const MAX_ONE_OFF_WEEKS_AHEAD = 2;
 
 export type ScheduleBuffer =
-  | { type: "single"; mode: "move"; lesson: Lesson; sourceDate: string }
-  | { type: "day"; mode: "move"; sourceDate: string; lessons: Lesson[] }
+  | { type: "single"; mode: "move" | "copy"; lesson: Lesson; sourceDate: string }
+  | { type: "day"; mode: "move" | "copy"; sourceDate: string; lessons: Lesson[] }
   | null;
 
 export interface SwapState {
@@ -611,8 +611,19 @@ export function AdminScheduleEditor() {
     setToast(`Перенесення ${dayLessons.length} пар дня. Оберіть день для вставки у меню «⋮».`, "info");
   };
 
+  const handleCopyDay = (sourceDate: string) => {
+    const dayLessons = week.find((d) => d.date === sourceDate)?.lessons || [];
+    if (!dayLessons.length) {
+      setToast("У цей день немає пар для копіювання", "info");
+      return;
+    }
+    setBuffer({ type: "day", mode: "copy", sourceDate, lessons: dayLessons });
+    setToast(`Скопійовано ${dayLessons.length} пар дня. Оберіть день для вставки у меню «⋮».`, "info");
+  };
+
   const handlePasteDay = async (targetDate: string) => {
     if (buffer?.type !== "day") return;
+    const action = buffer.mode === "copy" ? "copy" : "move";
     const items = buffer.lessons.map((l) => ({
       source_group_id: l.group_id ?? groupId ?? 0,
       source_date: buffer.sourceDate,
@@ -623,11 +634,16 @@ export function AdminScheduleEditor() {
     }));
     try {
       const res = await api.dated.batch({
-        action: "move",
+        action,
         items,
         skip_conflicts: true,
       });
-      setToast(`Перенесено ${res.succeeded} з ${res.total} пар дня.`, "success");
+      setToast(
+        action === "copy"
+          ? `Скопійовано ${res.succeeded} з ${res.total} пар дня.`
+          : `Перенесено ${res.succeeded} з ${res.total} пар дня.`,
+        "success"
+      );
       setBuffer(null);
       invalidateScheduleCache();
       const refreshed = await api.week(
@@ -637,7 +653,29 @@ export function AdminScheduleEditor() {
       );
       setWeek(refreshed);
     } catch (err: any) {
-      setToast(err?.message || "Помилка перенесення дня", "error");
+      setToast(err?.message || (action === "copy" ? "Помилка копіювання дня" : "Помилка перенесення дня"), "error");
+    }
+  };
+
+  const handleToggleShortenedDay = async (targetDate: string) => {
+    try {
+      const session = await api.auth.ensureAuthenticated();
+      const res = await api.settings.shortenedDays.toggle(targetDate, session.access_token);
+      invalidateScheduleCache();
+      const refreshed = await api.week(
+        mode === "student" ? (groupId ?? undefined) : undefined,
+        mode === "teacher" ? (teacherId ?? undefined) : undefined,
+        weekAnchorDate
+      );
+      setWeek(refreshed);
+      setToast(
+        res.is_shortened
+          ? "Встановлено скорочений день (пари по 50 хв, перерви 10 хв)"
+          : "Повернуто звичайний розклад дзвінків (80 хв)",
+        "success"
+      );
+    } catch (err: any) {
+      setToast(err?.message || "Помилка зміни формату дня", "error");
     }
   };
 
@@ -1026,12 +1064,16 @@ export function AdminScheduleEditor() {
                 className="sticky top-2 z-40 mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-500/40 bg-sys-card p-3 shadow-xl backdrop-blur-md"
               >
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <span className="text-lg shrink-0">✂️</span>
+                  <span className="text-lg shrink-0">{buffer.mode === "copy" ? "📋" : "✂️"}</span>
                   <div className="min-w-0">
                     <p className="text-xs font-bold text-sys-text-primary">
                       {buffer.type === "single"
-                        ? `Перенесення пари: «${buffer.lesson.subject_name}»`
-                        : `Перенесення дня (${buffer.lessons.length} пар)`}
+                        ? buffer.mode === "copy"
+                          ? `Копіювання пари: «${buffer.lesson.subject_name}»`
+                          : `Перенесення пари: «${buffer.lesson.subject_name}»`
+                        : buffer.mode === "copy"
+                          ? `Копіювання дня (${buffer.lessons.length} пар)`
+                          : `Перенесення дня (${buffer.lessons.length} пар)`}
                     </p>
                     <p className="text-[11px] text-sys-text-secondary break-words">
                       Разова зміна · {weekRange} · {weekType === "numerator" ? "Чисельник" : weekType === "denominator" ? "Знаменник" : "Обидва"} — діє лише на цей тиждень. {buffer.type === "day" ? "Оберіть день і в меню дня (⋮) натисніть «Вставити день сюди»." : "Натисніть «Вставити сюди» у будь-якому вільному слоті."}
@@ -1074,9 +1116,11 @@ export function AdminScheduleEditor() {
               onSwapSelectLesson={handleSwapSelect}
               hasBufferContent={Boolean(buffer)}
               onPasteToSlot={handlePasteToSlot}
+              onCopyDay={handleCopyDay}
               onMoveDay={handleMoveDay}
               onPasteDay={handlePasteDay}
               canPasteDay={buffer?.type === "day"}
+              onToggleShortenedDay={handleToggleShortenedDay}
               onOpenPermanentSchedule={isAdmin ? handleOpenPermanentSchedule : undefined}
             />
           </div>
@@ -1173,8 +1217,15 @@ export function AdminScheduleEditor() {
                       className="space-y-3 will-change-transform"
                     >
                       <div className="flex items-center justify-between">
-                        <div className="text-sm font-semibold capitalize text-sys-text-primary">
-                          {dayLabel}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <div className="text-sm font-semibold capitalize text-sys-text-primary">
+                            {dayLabel}
+                          </div>
+                          {currentDay.is_shortened_day && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                              ⏱ 50 хв
+                            </span>
+                          )}
                         </div>
                         <div className="flex items-center gap-1.5">
                           <button
@@ -1210,7 +1261,9 @@ export function AdminScheduleEditor() {
                                 {slotNum}-та пара
                               </span>
                               <span className="text-[11px] text-sys-text-muted">
-                                {DEFAULT_LESSON_TIMES[slotNum]}
+                                {currentDay.is_shortened_day
+                                  ? (SHORTENED_LESSON_TIMES[slotNum] || DEFAULT_LESSON_TIMES[slotNum])
+                                  : DEFAULT_LESSON_TIMES[slotNum]}
                               </span>
                             </div>
 
@@ -1488,6 +1541,18 @@ export function AdminScheduleEditor() {
                   onClick={() => {
                     setMobileActionsOpen(false);
                     const currentDay = week[selectedDayIndex];
+                    if (currentDay) handleCopyDay(currentDay.date);
+                  }}
+                  className="flex items-center gap-3 w-full rounded-xl border border-sys-border bg-sys-bg/60 p-3 text-left text-sm font-medium text-sys-text-primary hover:bg-sys-bg"
+                >
+                  <span className="text-base">📋</span>
+                  <span>Скопіювати цей день</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileActionsOpen(false);
+                    const currentDay = week[selectedDayIndex];
                     if (currentDay) handleMoveDay(currentDay.date);
                   }}
                   className="flex items-center gap-3 w-full rounded-xl border border-sys-border bg-sys-bg/60 p-3 text-left text-sm font-medium text-sys-text-primary hover:bg-sys-bg"
@@ -1509,6 +1574,22 @@ export function AdminScheduleEditor() {
                     <span>Вставити день у цей день</span>
                   </button>
                 )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileActionsOpen(false);
+                    const currentDay = week[selectedDayIndex];
+                    if (currentDay) handleToggleShortenedDay(currentDay.date);
+                  }}
+                  className="flex items-center gap-3 w-full rounded-xl border border-sys-border bg-sys-bg/60 p-3 text-left text-sm font-medium text-sys-text-primary hover:bg-sys-bg"
+                >
+                  <span className="text-base">⏱</span>
+                  <span>
+                    {week[selectedDayIndex]?.is_shortened_day
+                      ? "Звичайні пари (80 хв)"
+                      : "Скорочений день (пари по 50 хв)"}
+                  </span>
+                </button>
                 <div className="my-1 border-t border-sys-border/40" />
                 {isAdmin && (
                   <button

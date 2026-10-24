@@ -1,5 +1,7 @@
+import json
 import time
 from datetime import date
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,6 +11,7 @@ from app.config import settings
 SEMESTER_START_KEY = "semester_start"
 SEMESTER_END_KEY = "semester_end"
 TEACHER_PIN_KEY = "teacher_pin"
+SHORTENED_DAYS_KEY = "shortened_days"
 _CACHE_TTL = 300.0
 
 class SettingsService:
@@ -93,5 +96,67 @@ class SettingsService:
     async def get_teacher_pin(self, db: AsyncSession) -> str:
         value = await self.get(db, TEACHER_PIN_KEY, default=settings.teacher_pin)
         return value or settings.teacher_pin
+
+    async def get_shortened_days(self, db: AsyncSession) -> list[dict[str, Any]]:
+        raw = await self.get(db, SHORTENED_DAYS_KEY, default="[]")
+        if not raw:
+            return []
+        try:
+            parsed = json.loads(raw)
+            if isinstance(parsed, list):
+                result = []
+                for item in parsed:
+                    if isinstance(item, str):
+                        result.append({"date": item, "reason": None})
+                    elif isinstance(item, dict) and "date" in item:
+                        result.append({"date": str(item["date"]), "reason": item.get("reason")})
+                result.sort(key=lambda x: x["date"])
+                return result
+        except Exception:
+            pass
+        return []
+
+    async def get_shortened_dates_set(self, db: AsyncSession) -> set[date]:
+        items = await self.get_shortened_days(db)
+        res = set()
+        for it in items:
+            try:
+                res.add(date.fromisoformat(it["date"]))
+            except Exception:
+                pass
+        return res
+
+    async def add_shortened_day(self, db: AsyncSession, day_date: date, reason: str | None = None) -> list[dict[str, Any]]:
+        items = await self.get_shortened_days(db)
+        d_str = day_date.isoformat()
+        found = False
+        for it in items:
+            if it["date"] == d_str:
+                it["reason"] = reason
+                found = True
+                break
+        if not found:
+            items.append({"date": d_str, "reason": reason})
+        items.sort(key=lambda x: x["date"])
+        await self.set(db, SHORTENED_DAYS_KEY, json.dumps(items))
+        return items
+
+    async def remove_shortened_day(self, db: AsyncSession, day_date: date) -> list[dict[str, Any]]:
+        items = await self.get_shortened_days(db)
+        d_str = day_date.isoformat()
+        items = [it for it in items if it["date"] != d_str]
+        await self.set(db, SHORTENED_DAYS_KEY, json.dumps(items))
+        return items
+
+    async def toggle_shortened_day(self, db: AsyncSession, day_date: date, reason: str | None = None) -> bool:
+        items = await self.get_shortened_days(db)
+        d_str = day_date.isoformat()
+        exists = any(it["date"] == d_str for it in items)
+        if exists:
+            await self.remove_shortened_day(db, day_date)
+            return False
+        else:
+            await self.add_shortened_day(db, day_date, reason)
+            return True
 
 settings_service = SettingsService()

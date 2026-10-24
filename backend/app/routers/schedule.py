@@ -21,6 +21,7 @@ from app.services.learning_mode import (
     resolve_group_learning_mode_detail,
     resolve_group_week_learning_modes,
 )
+from app.services.settings import settings_service
 
 logger = logging.getLogger(__name__)
 
@@ -112,6 +113,14 @@ async def get_bell_times(db):
         _bell_cache = (now, result)
     return result
 
+SHORTENED_BELL_TIMES: dict[int, tuple[str, str]] = {
+    1: ("09:00", "09:50"),
+    2: ("10:00", "10:50"),
+    3: ("11:00", "11:50"),
+    4: ("12:00", "12:50"),
+    5: ("13:00", "13:50"),
+}
+
 def to_item(item, week_type, target_date, bell_times=None, *, item_id=None, is_replacement=None):
     if bell_times is None:
         bell_times = {}
@@ -186,7 +195,9 @@ async def schedule(request: Request = None,
         day_of_week=day_of_week,
         include_cancelled=include_cancelled,
     )
-    bell_t = await get_bell_times(db)
+    shortened_dates = await settings_service.get_shortened_dates_set(db)
+    is_shortened = target_date in shortened_dates
+    bell_t = SHORTENED_BELL_TIMES if is_shortened else await get_bell_times(db)
     learning_mode, learning_mode_override = await resolve_group_learning_mode_detail(db, group_id, target_date)
     serialized_items = await attach_notes(db, target_date, serialize_schedule_items(lessons, week_type, target_date, bell_t))
 
@@ -241,6 +252,7 @@ async def schedule(request: Request = None,
         lessons=serialized_items,
         learning_mode=learning_mode,
         learning_mode_override=learning_mode_override,
+        is_shortened_day=is_shortened,
     )
 
 @router.get("/schedule/today", response_model=ScheduleResponse)
@@ -378,7 +390,8 @@ async def week(
         response.headers["Last-Modified"] = format_datetime(last_modified, usegmt=True)
 
     week_type, lessons_by_day = await fetch_week_schedule(db, start, group_id, teacher_id, include_cancelled=include_cancelled)
-    bell_t = await get_bell_times(db)
+    standard_bells = await get_bell_times(db)
+    shortened_dates = await settings_service.get_shortened_dates_set(db)
     from app.services.lesson_notes import attach_week_notes
     days_serialized = [
         (
@@ -387,7 +400,7 @@ async def week(
                 lessons_by_day.get(i + 1, []),
                 week_type,
                 start + timedelta(days=i),
-                bell_t,
+                SHORTENED_BELL_TIMES if (start + timedelta(days=i)) in shortened_dates else standard_bells,
             ),
         )
         for i in range(5)
@@ -438,6 +451,7 @@ async def week(
             lessons=day_lessons,
             learning_mode=modes_by_date.get(day_date, (None, None))[0],
             learning_mode_override=modes_by_date.get(day_date, (None, None))[1],
+            is_shortened_day=(day_date in shortened_dates),
         )
         for day_date, day_lessons in days_serialized
     ]

@@ -134,12 +134,18 @@ export interface Lesson {
     has_protected_link?: boolean;
 }
 
+export interface ShortenedDayItem {
+    date: string;
+    reason?: string | null;
+}
+
 export interface ScheduleResponse {
     date: string;
     week_type: WeekType;
     lessons: Lesson[];
     learning_mode?: LearningMode | null;
     learning_mode_override?: LearningModeOverride | null;
+    is_shortened_day?: boolean;
 }
 
 export interface TemplateDaySchedule {
@@ -1131,6 +1137,23 @@ export const api = {
                 method: "PUT",
                 body: JSON.stringify({ pin }),
             }),
+        shortenedDays: {
+            list: () => request<ShortenedDayItem[]>("/api/settings/shortened-days"),
+            add: (item: ShortenedDayItem, token: string) =>
+                request<ShortenedDayItem[]>("/api/settings/shortened-days", {
+                    method: "POST",
+                    body: JSON.stringify(item),
+                }, true, true, token),
+            delete: (dateStr: string, token: string) =>
+                request<ShortenedDayItem[]>(`/api/settings/shortened-days/${dateStr}`, {
+                    method: "DELETE",
+                }, true, true, token),
+            toggle: (dateStr: string, token: string, reason?: string) =>
+                request<{ date: string; is_shortened: boolean }>("/api/settings/shortened-days/toggle", {
+                    method: "POST",
+                    body: JSON.stringify({ date: dateStr, reason }),
+                }, true, true, token),
+        },
     },
 
     scheduleVersions: {

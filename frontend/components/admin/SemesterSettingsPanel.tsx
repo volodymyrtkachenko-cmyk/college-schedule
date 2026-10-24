@@ -1,6 +1,6 @@
 "use client";
 import { FormEvent, useEffect, useState } from "react";
-import { api } from "../../lib/api";
+import { ShortenedDayItem, api } from "../../lib/api";
 import { PageHeader } from "./PageHeader";
 
 export function SemesterSettingsPanel() {
@@ -11,6 +11,14 @@ export function SemesterSettingsPanel() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  const [shortenedDays, setShortenedDays] = useState<ShortenedDayItem[]>([]);
+  const [shortenedLoading, setShortenedLoading] = useState(true);
+  const [newShortenedDate, setNewShortenedDate] = useState("");
+  const [newShortenedReason, setNewShortenedReason] = useState("");
+  const [shortenedActionLoading, setShortenedActionLoading] = useState(false);
+  const [shortenedError, setShortenedError] = useState<string | null>(null);
+  const [shortenedSuccess, setShortenedSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -29,8 +37,59 @@ export function SemesterSettingsPanel() {
       .finally(() => {
         if (active) setLoading(false);
       });
+
+    api.settings.shortenedDays.list()
+      .then((items) => {
+        if (active) setShortenedDays(items);
+      })
+      .catch(() => {
+        // non-blocking
+      })
+      .finally(() => {
+        if (active) setShortenedLoading(false);
+      });
+
     return () => { active = false; };
   }, []);
+
+  async function handleAddShortenedDay(e: FormEvent) {
+    e.preventDefault();
+    if (!newShortenedDate) return;
+    setShortenedError(null);
+    setShortenedSuccess(null);
+    setShortenedActionLoading(true);
+    try {
+      const session = await api.auth.ensureAuthenticated();
+      const updated = await api.settings.shortenedDays.add({
+        date: newShortenedDate,
+        reason: newShortenedReason.trim() || undefined,
+      }, session.access_token);
+      setShortenedDays(updated);
+      setNewShortenedDate("");
+      setNewShortenedReason("");
+      setShortenedSuccess("Скорочений день додано.");
+    } catch (cause) {
+      setShortenedError(cause instanceof Error ? cause.message : "Не вдалося додати скорочений день.");
+    } finally {
+      setShortenedActionLoading(false);
+    }
+  }
+
+  async function handleDeleteShortenedDay(dateStr: string) {
+    setShortenedError(null);
+    setShortenedSuccess(null);
+    setShortenedActionLoading(true);
+    try {
+      const session = await api.auth.ensureAuthenticated();
+      const updated = await api.settings.shortenedDays.delete(dateStr, session.access_token);
+      setShortenedDays(updated);
+      setShortenedSuccess("Скорочений день видалено.");
+    } catch (cause) {
+      setShortenedError(cause instanceof Error ? cause.message : "Не вдалося видалити скорочений день.");
+    } finally {
+      setShortenedActionLoading(false);
+    }
+  }
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -193,6 +252,133 @@ export function SemesterSettingsPanel() {
           </div>
         </form>
       )}
+
+      {/* Скорочені навчальні дні (пари по 50 хв) */}
+      <div className="w-full max-w-md rounded-2xl border border-sys-border bg-sys-card shadow-lg overflow-hidden">
+        <div className="bg-gradient-to-b from-white/5 to-transparent p-6 pb-4 border-b border-sys-border/50">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">⏱</span>
+            <h3 className="text-lg font-bold text-sys-text-primary">Скорочені дні (пари по 50 хв)</h3>
+          </div>
+          <p className="mt-1 text-xs text-sys-text-secondary">
+            Одноразові дні зі спеціальним розкладом дзвінків (початок о 09:00, пари по 50 хв, перерви по 10 хв).
+          </p>
+        </div>
+
+        <div className="px-6 py-5 space-y-4">
+          {/* Info callout */}
+          <div className="rounded-xl border border-sys-border/80 bg-sys-bg/60 p-3.5 space-y-2 text-xs">
+            <div className="font-semibold text-sys-text-primary flex items-center gap-1.5">
+              <span>🔔 Розклад дзвінків скороченого дня:</span>
+            </div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sys-text-secondary font-mono text-[11px]">
+              <div>1 пара: 09:00 – 09:50</div>
+              <div>2 пара: 10:00 – 10:50</div>
+              <div>3 пара: 11:00 – 11:50</div>
+              <div>4 пара: 12:00 – 12:50</div>
+              <div className="col-span-2">5 пара: 13:00 – 13:50</div>
+            </div>
+            <p className="text-[11px] text-sys-text-muted pt-1 border-t border-sys-border/40">
+              Усі перерви — рівно 10 хвилин. У розкладі день автоматично отримує позначку «⏱ 50 хв».
+            </p>
+          </div>
+
+          {/* List of active shortened days */}
+          <div className="space-y-2">
+            <span className="text-xs font-semibold text-sys-text-secondary uppercase tracking-wider">
+              Заплановані скорочені дні ({shortenedDays.length})
+            </span>
+            {shortenedLoading ? (
+              <p className="text-xs text-sys-text-muted">Завантаження...</p>
+            ) : shortenedDays.length === 0 ? (
+              <p className="text-xs text-sys-text-muted italic py-1">
+                Немає скорочених днів. Ви можете додати один нижче або через меню дня «⋮» у редакторі розкладу.
+              </p>
+            ) : (
+              <div className="divide-y divide-sys-border/50 rounded-xl border border-sys-border/80 bg-sys-bg/40 overflow-hidden">
+                {shortenedDays.map((item) => {
+                  const formattedDate = new Intl.DateTimeFormat("uk-UA", {
+                    weekday: "short",
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  }).format(new Date(`${item.date}T12:00:00`));
+                  return (
+                    <div key={item.date} className="flex items-center justify-between gap-3 p-3 text-xs">
+                      <div className="min-w-0">
+                        <div className="font-medium text-sys-text-primary capitalize">
+                          {formattedDate}
+                        </div>
+                        {item.reason && (
+                          <div className="text-[11px] text-sys-text-muted truncate">
+                            {item.reason}
+                          </div>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        disabled={shortenedActionLoading}
+                        onClick={() => void handleDeleteShortenedDay(item.date)}
+                        aria-label={`Видалити скорочений день ${item.date}`}
+                        title="Скасувати скорочений день"
+                        className="p-1.5 rounded-lg text-sys-text-muted hover:text-rose-400 hover:bg-rose-500/10 transition-colors disabled:opacity-50"
+                      >
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="3 6 5 6 21 6" />
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                        </svg>
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Add shortened day form */}
+          <form onSubmit={handleAddShortenedDay} className="pt-2 space-y-3 border-t border-sys-border/50">
+            <span className="text-xs font-semibold text-sys-text-secondary uppercase tracking-wider">
+              Додати скорочений день
+            </span>
+            <div className="space-y-2">
+              <input
+                required
+                type="date"
+                value={newShortenedDate}
+                onChange={(e) => setNewShortenedDate(e.target.value)}
+                className="form-control text-xs shadow-sm bg-sys-bg w-full"
+              />
+              <input
+                type="text"
+                placeholder="Причина (наприклад: Передсвятковий день, Педрада)"
+                value={newShortenedReason}
+                onChange={(e) => setNewShortenedReason(e.target.value)}
+                maxLength={255}
+                className="form-control text-xs shadow-sm bg-sys-bg w-full"
+              />
+            </div>
+
+            {shortenedError && (
+              <div className="flex items-start gap-2 rounded-lg border border-rose-500/20 bg-rose-500/10 p-2.5 text-xs text-rose-400">
+                <p>{shortenedError}</p>
+              </div>
+            )}
+            {shortenedSuccess && (
+              <div className="flex items-start gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-2.5 text-xs text-emerald-400">
+                <p>{shortenedSuccess}</p>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={shortenedActionLoading || !newShortenedDate}
+              className="w-full flex items-center justify-center gap-2 rounded-lg border border-sys-border bg-white/5 px-4 py-2 text-xs font-semibold text-sys-text-primary hover:bg-white/10 active:scale-[0.99] transition-all disabled:opacity-50"
+            >
+              + Додати скорочений день
+            </button>
+          </form>
+        </div>
+      </div>
     </section>
   );
 }

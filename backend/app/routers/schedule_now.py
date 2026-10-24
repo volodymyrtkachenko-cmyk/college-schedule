@@ -20,13 +20,28 @@ async def get_schedule_now(db: AsyncSession = Depends(get_db)):
     today_date = now.date()
     current_time = now.time()
 
-    bells = (await db.scalars(select(BellSchedule).where(BellSchedule.is_active == True).order_by(BellSchedule.lesson_number))).all()
-    
+    shortened_dates = await settings_service.get_shortened_dates_set(db)
     current_lesson = None
-    for bell in bells:
-        if bell.start_time <= current_time <= bell.end_time:
-            current_lesson = bell.lesson_number
-            break
+
+    if today_date in shortened_dates:
+        from datetime import time as _time_cls
+        shortened_bells = [
+            (1, _time_cls(9, 0), _time_cls(9, 50)),
+            (2, _time_cls(10, 0), _time_cls(10, 50)),
+            (3, _time_cls(11, 0), _time_cls(11, 50)),
+            (4, _time_cls(12, 0), _time_cls(12, 50)),
+            (5, _time_cls(13, 0), _time_cls(13, 50)),
+        ]
+        for l_num, s_t, e_t in shortened_bells:
+            if s_t <= current_time <= e_t:
+                current_lesson = l_num
+                break
+    else:
+        bells = (await db.scalars(select(BellSchedule).where(BellSchedule.is_active == True).order_by(BellSchedule.lesson_number))).all()
+        for bell in bells:
+            if bell.start_time <= current_time <= bell.end_time:
+                current_lesson = bell.lesson_number
+                break
             
     semester_start = await settings_service.get_semester_start(db)
     week_type = get_week_type(today_date, semester_start)
