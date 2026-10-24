@@ -2336,7 +2336,7 @@ export default function HomePage() {
         onClose={() => setTeacherPinModalOpen(false)}
         targetGroupName={teacherPinTargetGroup}
         onSuccess={() => {
-          setToast("✓ Доступ викладача активовано", "success");
+          setToast("Доступ викладача активовано", "success");
         }}
       />
     </main>

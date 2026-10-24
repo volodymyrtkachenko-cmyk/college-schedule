@@ -22,7 +22,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   const showToast = useCallback((message: string, type: ToastType = "info") => {
     const id = Math.random().toString(36).substring(2, 9);
-    setToasts((prev) => [...prev, { id, message, type }]);
+    const cleanMessage = type === "success"
+      ? message.replace(/^[✓✔]\s*/, "")
+      : type === "error"
+      ? message.replace(/^[✗✕✖❌]\s*/, "")
+      : message;
+    setToasts((prev) => [...prev, { id, message: cleanMessage, type }]);
     
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
