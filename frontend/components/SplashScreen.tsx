@@ -111,11 +111,11 @@ export function SplashScreen({ isLoading, minDurationMs = 850 }: SplashScreenPro
             </span>
           </h1>
           <p
-            className={`text-xs sm:text-sm font-medium tracking-wide max-w-xs ${
+            className={`text-xs sm:text-sm font-medium tracking-wide max-w-[280px] sm:max-w-sm ${
               isDark ? "text-slate-400" : "text-slate-500"
             }`}
           >
-            Фаховий коледж електронних приладів
+            Дніпровський Фаховий коледж радіоелектроніки
           </p>
         </div>
 
