@@ -1107,7 +1107,7 @@ export default function HomePage() {
 
             {/* Settings Link ⚙️ */}
             <Link
-              href="/settings"
+              href={`/settings?mode=${mode}`}
               aria-label="Налаштування застосунку"
               title="Налаштування"
               className="flex h-10 w-10 items-center justify-center rounded-xl border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-border-elevated active:scale-95 transition-colors duration-fast ease-smooth focus:outline-none focus:ring-2 focus:ring-sys-accent"
@@ -1238,7 +1238,7 @@ export default function HomePage() {
 
           {/* Right: Settings Link ⚙️ */}
           <Link
-            href="/settings"
+            href={`/settings?mode=${mode}`}
             aria-label="Налаштування застосунку"
             title="Налаштування"
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-elevated-border active:scale-95 transition-colors duration-fast ease-smooth"
@@ -2229,6 +2229,7 @@ export default function HomePage() {
         onTabChange={(tab) => setMobileTab(tab)}
         overdueCount={isLinked ? overdueCount : 0}
         hideTasksTab={mode === "teacher"}
+        scheduleMode={mode}
       />
 
       {/* Week Type Bottom Sheet (Чисельник / Знаменник) */}

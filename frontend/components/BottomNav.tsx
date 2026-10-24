@@ -17,11 +17,13 @@ export function BottomNav({
   onTabChange,
   overdueCount = 0,
   hideTasksTab = false,
+  scheduleMode,
 }: {
   activeTab: MobileTab;
   onTabChange: (tab: MobileTab) => void;
   overdueCount?: number;
   hideTasksTab?: boolean;
+  scheduleMode?: "student" | "teacher";
 }) {
   return (
     <nav
@@ -111,7 +113,7 @@ export function BottomNav({
 
         {/* Tab 3: Settings */}
         <Link
-          href="/settings"
+          href={scheduleMode ? `/settings?mode=${scheduleMode}` : "/settings"}
           onClick={() => vibrateTap(10)}
           aria-label="Налаштування"
           className="flex flex-1 min-h-[48px] flex-col items-center justify-center gap-0.5 rounded-xl transition-[color,transform] duration-fast ease-smooth active:scale-95 text-sys-text-secondary hover:text-sys-text-primary font-medium"
