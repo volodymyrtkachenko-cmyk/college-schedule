@@ -48,10 +48,19 @@ async def get_schedule_now(db: AsyncSession = Depends(get_db)):
     
     lessons = await build_projection(db, target_date=today_date)
     
+    active_bells = shortened_bells if today_date in shortened_dates else [(b.lesson_number, b.start_time, b.end_time) for b in bells]
+    is_school_day = today_date.isoweekday() <= 5
+    is_study_hours = False
+    if active_bells and is_school_day:
+        first_start = active_bells[0][1]
+        last_end = active_bells[-1][2]
+        is_study_hours = first_start <= current_time <= last_end
+
+    is_break = bool(is_study_hours and current_lesson is None)
     if current_lesson:
         active_lessons = [L for L in lessons if L.lesson_number == current_lesson]
     else:
-        active_lessons = lessons
+        active_lessons = []
 
     response_data = []
     for ln in active_lessons:
@@ -74,6 +83,7 @@ async def get_schedule_now(db: AsyncSession = Depends(get_db)):
         "timestamp": now.isoformat(),
         "week_type": week_type,
         "current_lesson_number": current_lesson,
-        "is_break": current_lesson is None,
+        "is_break": is_break,
+        "is_outside_hours": not is_study_hours,
         "active_classes": response_data
     }

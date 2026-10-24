@@ -280,7 +280,14 @@ async def today(
         is_auth = await check_classroom_group_access(db, group_id, request)
 
     from app.services import cache_rev
-    variant = f"today:{target.isoformat()}:{int(include_cancelled)}:{int(is_auth)}"
+    cred_tag = "0"
+    if teacher_id and not group_id and not is_auth and request:
+        c_uid = request.headers.get("x-classroom-user-id") or request.query_params.get("classroom_user_id") or ""
+        c_email = request.headers.get("x-classroom-email") or request.query_params.get("classroom_email") or ""
+        if c_uid or c_email:
+            import hashlib
+            cred_tag = hashlib.sha256(f"{c_uid}:{c_email.strip().lower()}".encode()).hexdigest()[:8]
+    variant = f"today:{target.isoformat()}:{int(include_cancelled)}:{int(is_auth)}:{cred_tag}"
     etag = cache_rev.schedule_etag(group_id=group_id, teacher_id=teacher_id, variant=variant)
     response.headers["ETag"] = etag
     response.headers["Cache-Control"] = "public, max-age=0, s-maxage=15, stale-while-revalidate=300"
@@ -352,7 +359,14 @@ async def week(
         is_auth = await check_classroom_group_access(db, group_id, request)
 
     from app.services import cache_rev
-    variant = f"week:{start.isoformat()}:{int(include_cancelled)}:{int(is_auth)}"
+    cred_tag = "0"
+    if teacher_id and not group_id and not is_auth and request:
+        c_uid = request.headers.get("x-classroom-user-id") or request.query_params.get("classroom_user_id") or ""
+        c_email = request.headers.get("x-classroom-email") or request.query_params.get("classroom_email") or ""
+        if c_uid or c_email:
+            import hashlib
+            cred_tag = hashlib.sha256(f"{c_uid}:{c_email.strip().lower()}".encode()).hexdigest()[:8]
+    variant = f"week:{start.isoformat()}:{int(include_cancelled)}:{int(is_auth)}:{cred_tag}"
     etag = cache_rev.schedule_etag(group_id=group_id, teacher_id=teacher_id, variant=variant)
     response.headers["ETag"] = etag
     response.headers["Cache-Control"] = "public, max-age=0, s-maxage=15, stale-while-revalidate=300"

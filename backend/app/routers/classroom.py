@@ -2908,7 +2908,7 @@ async def get_classroom_group_status(
         "has_refresh_token": bool(binding and binding.refresh_token) or has_active_creds,
         "has_client_secret": bool(settings.google_client_secret),
         "unmapped_tasks": _latest_unmapped_tasks.get(group_id, []) if has_access else [],
-        "tasks": (tasks if tasks is not None else []) if has_access else [],
+        "tasks": tasks if tasks is not None else [],
         "requires_auth": not has_access,
         "needs_reconnect": _latest_scope_missing.get(group_id, False),
         **accounts_summary,

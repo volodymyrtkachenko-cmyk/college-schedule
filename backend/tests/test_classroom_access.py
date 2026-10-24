@@ -140,3 +140,19 @@ async def test_check_teacher_access_and_pin(db_session):
     good_qp.query_params = {"teacher_pin": settings.teacher_pin}
     assert await check_teacher_access(db_session, good_qp) is True
 
+
+@pytest.mark.anyio
+async def test_get_classroom_group_status_returns_tasks_for_guest(db_session):
+    from app.routers.classroom import get_classroom_group_status, _latest_group_tasks
+    _latest_group_tasks[85] = [
+        {"id": "task-1", "title": "Лабораторна 1", "subject": "Фізика", "due_date": "2026-10-25"}
+    ]
+    guest_req = MagicMock()
+    guest_req.headers = {}
+    guest_req.query_params = {}
+
+    res = await get_classroom_group_status(group_id=85, request=guest_req, db=db_session)
+    assert res["requires_auth"] is True
+    assert len(res["tasks"]) == 1
+    assert res["tasks"][0]["title"] == "Лабораторна 1"
+

@@ -14,7 +14,7 @@ import { WeekTypeBadge } from "../components/WeekTypeBadge";
 import { ScheduleResponse, api } from "../lib/api";
 import { useSchedule, useIsStandalonePwa, downloadForOffline, invalidateScheduleCache } from "../lib/hooks";
 import { useAuth, canAccessAdmin } from "../lib/auth";
-import { getMondayOf, KYIV_DATE_FMT, KYIV_TIME_FMT, UKR_WEEKDAY_LONG_FMT, UKR_DAY_MONTH_SHORT_FMT, UKR_MONTH_SHORT_FMT } from "../lib/date";
+import { getMondayOf, getKyivInitialWeekAnchor, getKyivTomorrowDateIso, KYIV_DATE_FMT, KYIV_TIME_FMT, UKR_WEEKDAY_LONG_FMT, UKR_DAY_MONTH_SHORT_FMT, UKR_MONTH_SHORT_FMT } from "../lib/date";
 import dynamic from "next/dynamic";
 const WelcomeScreen = dynamic(() => import("../components/WelcomeScreen").then((m) => m.WelcomeScreen), { ssr: false });
 import { SplashScreen } from "../components/SplashScreen";
@@ -38,28 +38,9 @@ const EN_KYIV_DOW_FMT = new Intl.DateTimeFormat("en-US", {
   weekday: "short",
 });
 
-
-function isTaskUrgent(label: string): boolean {
-  const m = label.match(/(\d{2})\.(\d{2})/);
-  if (!m) return false;
-  const day = Number(m[1]);
-  const month = Number(m[2]) - 1;
-  const now = new Date();
-  const deadlineDate = new Date(now.getFullYear(), month, day, 23, 59, 59);
-  const diffHours = (deadlineDate.getTime() - now.getTime()) / (1000 * 60 * 60);
-  return diffHours <= 24;
-}
-
 export default function HomePage() {
   const { theme, resolvedTheme, setTheme, toggleTheme } = useTheme();
-  const getInitialAnchor = () => {
-    const date = new Date();
-    const day = date.getDay();
-    if (day === 0 || day === 6) {
-        date.setDate(date.getDate() + (day === 0 ? 1 : 2));
-    }
-    return getMondayOf(date);
-  };
+  const getInitialAnchor = () => getKyivInitialWeekAnchor();
   const [weekAnchorDate, setWeekAnchorDate] = useState(getInitialAnchor());
 
   useEffect(() => {
@@ -486,9 +467,7 @@ export default function HomePage() {
   }, []);
 
   const tomorrowActualIso = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 1);
-    return KYIV_DATE_FMT.format(d);
+    return getKyivTomorrowDateIso();
   }, []);
 
   const isEveningAfterLessons = useMemo(() => {
