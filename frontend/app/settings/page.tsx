@@ -522,10 +522,7 @@ export default function SettingsPage() {
               href="/login"
               className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 p-3 text-xs hover:border-sys-accent/40 hover:bg-sys-accent/5 transition-colors duration-fast ease-smooth group"
             >
-              <div className="space-y-0.5">
-                <div className="font-semibold text-sys-text-primary">Увійти до панелі керування</div>
-                <div className="text-[11px] text-sys-text-secondary">Розклад, чернетки, довідники</div>
-              </div>
+              <span className="font-semibold text-sys-text-primary">Увійти до панелі керування</span>
               <span className="text-sys-accent font-bold group-hover:translate-x-0.5 transition-transform">→</span>
             </Link>
           )}
