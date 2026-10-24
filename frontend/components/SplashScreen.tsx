@@ -6,49 +6,61 @@ import { useTheme } from "../lib/useTheme";
 
 interface SplashScreenProps {
   isLoading: boolean;
-  minDurationMs?: number;
 }
 
 /**
  * Lightweight, hardware-accelerated PWA splash screen.
- * - Displays on initial app boot for a smooth, intentional duration (default: 850ms).
- * - Adapts seamlessly to user's active theme (dark / light) to prevent color flashes.
- * - Zero heavy blur filters or dynamic box-shadow recalculations to protect mobile CPU/battery.
- * - Hardware-accelerated CSS compositor transforms for the progress indicator.
- * - Once dismissed on initial load, remains unmounted throughout the session.
+ * - Displays only if initial data loading takes longer than 150ms.
+ * - Closes immediately without flash if data is already cached / fast (<150ms).
+ * - Smooth hardware-accelerated fade-out in <= 200ms once data is loaded.
+ * - Adapts seamlessly to user's active theme (dark / light).
  */
-export function SplashScreen({ isLoading, minDurationMs = 850 }: SplashScreenProps) {
+export function SplashScreen({ isLoading }: SplashScreenProps) {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
-  const [isDismissed, setIsDismissed] = useState(false);
+  const [isDismissed, setIsDismissed] = useState(!isLoading);
+  const [isVisible, setIsVisible] = useState(false);
   const [isFadingOut, setIsFadingOut] = useState(false);
-  const [minTimeElapsed, setMinTimeElapsed] = useState(false);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setMinTimeElapsed(true);
-    }, minDurationMs);
-    return () => clearTimeout(timer);
-  }, [minDurationMs]);
+    if (isDismissed) return;
+
+    // If initial loading finishes quickly (<150ms), never show splash screen
+    if (!isLoading && !isVisible) {
+      setIsDismissed(true);
+      return;
+    }
+
+    // If loading is still going after 150ms, show the splash screen
+    const thresholdTimer = setTimeout(() => {
+      if (isLoading) {
+        setIsVisible(true);
+      } else {
+        setIsDismissed(true);
+      }
+    }, 150);
+
+    return () => clearTimeout(thresholdTimer);
+  }, [isLoading, isVisible, isDismissed]);
 
   useEffect(() => {
-    // Dismiss once minimum display time has passed AND initial data loading is finished
-    if (minTimeElapsed && !isLoading && !isFadingOut && !isDismissed) {
+    // If visible and loading finishes, fade out quickly in 200ms
+    if (isVisible && !isLoading && !isFadingOut && !isDismissed) {
       setIsFadingOut(true);
       const dismissTimer = setTimeout(() => {
         setIsDismissed(true);
-      }, 320);
+      }, 200);
       return () => clearTimeout(dismissTimer);
     }
-  }, [minTimeElapsed, isLoading, isFadingOut, isDismissed]);
+  }, [isVisible, isLoading, isFadingOut, isDismissed]);
 
-  if (isDismissed) {
+  if (isDismissed || !isVisible) {
     return null;
   }
 
   return (
     <div
-      className={`fixed inset-0 z-[100] flex flex-col items-center justify-center select-none transition-opacity duration-300 ease-out will-change-[opacity] ${
+      className={`fixed inset-0 z-[100] flex flex-col items-center justify-center select-none transition-opacity duration-200 ease-smooth will-change-[opacity] ${
         isDark ? "bg-[#0a0d14] text-white" : "bg-[#f8fafc] text-slate-900"
       } ${isFadingOut ? "opacity-0 pointer-events-none" : "opacity-100 pointer-events-auto"}`}
       aria-label="Завантаження розкладу"

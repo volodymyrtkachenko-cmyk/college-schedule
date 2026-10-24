@@ -121,7 +121,7 @@ export function ScheduleWeekGrid({
           </div>
         )}
         {availabilityError && (
-          <p role="alert" className="mb-4 rounded-xl border border-rose-400/30 bg-rose-400/5 px-4 py-3 text-sm text-rose-200">
+          <p role="alert" className="mb-4 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-700 dark:text-rose-200">
             Не вдалося перевірити вільні місця: {availabilityError} Вільні місця не підсвічено, але під час збереження система ще раз перевірить розклад.
           </p>
         )}
@@ -234,7 +234,7 @@ export function ScheduleWeekGrid({
           return (
             <div
               key={`desktop-header-${day.date}`}
-              className={`flex flex-col justify-center min-h-[64px] px-3.5 py-2.5 rounded-2xl border transition-all ${
+              className={`flex flex-col justify-center min-h-[64px] px-3.5 py-2.5 rounded-2xl border transition-colors duration-fast ease-smooth ${
                 isToday
                   ? "bg-sys-card border-sys-accent/45 shadow-[0_0_15px_rgba(59,130,246,0.08)] ring-1 ring-sys-accent/30"
                   : isPast
@@ -260,7 +260,7 @@ export function ScheduleWeekGrid({
                   {shortDateUk(day.date)}
                 </span>
                 {day.is_shortened_day && (
-                  <span className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/15 text-amber-300 border border-amber-500/30" title="Скорочений день: пари по 50 хв, перерви 10 хв">
+                  <span className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold bg-amber-500/10 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30" title="Скорочений день: пари по 50 хв, перерви 10 хв">
                     ⏱ 50 хв
                   </span>
                 )}

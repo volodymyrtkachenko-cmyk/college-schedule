@@ -945,7 +945,7 @@ export function PermanentScheduleEditor() {
                         duration: shouldReduceMotion ? 0 : 0.15,
                         ease: "easeOut",
                       }}
-                      className="space-y-3 will-change-transform"
+                      className="space-y-3"
                     >
                       <div className="flex items-center justify-between">
                         <div className="text-sm font-semibold capitalize text-sys-text-primary">

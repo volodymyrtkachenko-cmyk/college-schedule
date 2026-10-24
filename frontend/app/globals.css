@@ -12,10 +12,11 @@ html[data-theme="dark"] {
   --border: #1e2638;
   --border-chip: #28354d;
   --text: #fafafa;
-  --text-muted: #94a3b8;
+  --text-muted: #7d8ba1;
   --accent: #3b82f6;
-  --danger: #f87171;
-  --warn: #fbbf24;
+  --accent-solid: #2563eb;
+  --danger: #fb7185;
+  --warn: #fcd34d;
   --ok: #34d399;
   --page-padding: 16px;
 
@@ -30,16 +31,38 @@ html[data-theme="dark"] {
   --sys-tab-active: 24 32 48;      /* #182030 */
   --sys-destructive: 239 68 68;    /* #ef4444 */
   --sys-accent: 59 130 246;        /* #3b82f6 */
-  --sys-success: 16 185 129;       /* #10b981 */
-  --sys-info: 139 92 246;          /* #8b5cf6 */
+  --sys-accent-solid: 37 99 235;   /* #2563eb */
+  --sys-success: 52 211 153;       /* #34d399 */
+  --sys-info: 167 139 250;         /* #a78bfa */
   --sys-neon: 59 130 246;          /* #3b82f6 */
-  --sys-warning: 245 158 11;       /* #f59e0b */
+  --sys-warning: 252 211 77;       /* #fcd34d */
   --sys-warning-text: 0 0 0;       /* #000000 */
 
   --sys-text-subject: 255 255 255;
   --sys-text-primary: 244 244 245;   /* #f4f4f5 */
   --sys-text-secondary: 148 163 184; /* #94a3b8 */
-  --sys-text-muted: 100 116 139;     /* #64748b */
+  --sys-text-muted: 125 139 161;     /* #7d8ba1 */
+
+  /* A3. Semantic Status Tokens (Dark theme) */
+  --sys-status-ok-text: 52 211 153;        /* #34d399 */
+  --sys-status-ok-bg: 52 211 153;
+  --sys-status-warn-text: 252 211 77;      /* #fcd34d */
+  --sys-status-warn-bg: 251 191 36;
+  --sys-status-danger-text: 251 113 133;   /* #fb7185 */
+  --sys-status-danger-bg: 244 63 94;
+  --sys-status-info-text: 56 189 248;      /* #38bdf8 */
+  --sys-status-info-bg: 56 189 248;
+  --sys-status-denom-text: 216 180 254;    /* #d8b4fe */
+  --sys-status-denom-bg: 192 132 252;
+  --sys-status-neutral-text: 148 163 184;  /* #94a3b8 */
+  --sys-status-neutral-bg: 148 163 184;
+
+  /* B1. Motion Tokens */
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-slow: 280ms;
+  --ease-smooth: cubic-bezier(0.2, 0, 0, 1);
+  --ease-out: cubic-bezier(0.4, 0, 1, 1);
 }
 
 html.light,
@@ -51,11 +74,12 @@ html[data-theme="light"] {
   --border: #e2e8f0;
   --border-chip: #cbd5e1;
   --text: #0f172a;
-  --text-muted: #64748b;
+  --text-muted: #586579;
   --accent: #2563eb;
-  --danger: #dc2626;
-  --warn: #d97706;
-  --ok: #059669;
+  --accent-solid: #2563eb;
+  --danger: #be123c;
+  --warn: #b45309;
+  --ok: #047857;
   --page-padding: 16px;
 
   /* Tailwind sys tokens (R G B for opacity modifier compatibility) */
@@ -67,18 +91,40 @@ html[data-theme="light"] {
   --sys-border: 226 232 240;        /* #e2e8f0 Slate-200 */
   --sys-input: 241 245 249;         /* #f1f5f9 Slate-100 */
   --sys-tab-active: 226 232 240;    /* #e2e8f0 Slate-200 */
-  --sys-destructive: 220 38 38;     /* #dc2626 Red-600 */
+  --sys-destructive: 190 18 60;     /* #be123c Red-700 */
   --sys-accent: 37 99 235;          /* #2563eb Blue-600 */
-  --sys-success: 5 150 105;         /* #059669 Emerald-600 */
-  --sys-info: 124 58 237;           /* #7c3aed Violet-600 */
+  --sys-accent-solid: 37 99 235;   /* #2563eb */
+  --sys-success: 4 120 87;          /* #047857 Emerald-700 */
+  --sys-info: 3 105 161;            /* #0369a1 Sky-700 */
   --sys-neon: 37 99 235;            /* #2563eb Blue-600 */
-  --sys-warning: 217 119 6;         /* #d97706 Amber-600 */
+  --sys-warning: 180 83 9;          /* #b45309 Amber-700 */
   --sys-warning-text: 255 255 255;  /* #ffffff White */
 
   --sys-text-subject: 15 23 42;     /* #0f172a Slate-900 */
   --sys-text-primary: 15 23 42;     /* #0f172a Slate-900 */
   --sys-text-secondary: 71 85 105;  /* #475569 Slate-600 */
-  --sys-text-muted: 100 116 139;    /* #64748b Slate-500 */
+  --sys-text-muted: 88 101 121;     /* #586579 */
+
+  /* A3. Semantic Status Tokens (Light theme) */
+  --sys-status-ok-text: 4 120 87;          /* #047857 */
+  --sys-status-ok-bg: 4 120 87;
+  --sys-status-warn-text: 146 64 14;       /* #92400e */
+  --sys-status-warn-bg: 180 83 9;
+  --sys-status-danger-text: 190 18 60;     /* #be123c */
+  --sys-status-danger-bg: 225 29 72;
+  --sys-status-info-text: 3 105 161;       /* #0369a1 */
+  --sys-status-info-bg: 2 132 199;
+  --sys-status-denom-text: 126 34 206;     /* #7e22ce */
+  --sys-status-denom-bg: 147 51 234;
+  --sys-status-neutral-text: 71 85 105;    /* #475569 */
+  --sys-status-neutral-bg: 100 116 139;
+
+  /* B1. Motion Tokens */
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-slow: 280ms;
+  --ease-smooth: cubic-bezier(0.2, 0, 0, 1);
+  --ease-out: cubic-bezier(0.4, 0, 1, 1);
 }
 
 @media (min-width: 1024px) {
@@ -111,22 +157,10 @@ html[data-theme="light"] {
     -webkit-font-smoothing: antialiased;
   }
 
-  /* Synchronous theme transition across all elements */
-  html.theme-transitioning,
-  html.theme-transitioning *,
-  html.theme-transitioning *::before,
-  html.theme-transitioning *::after {
-    transition: background-color 0.28s cubic-bezier(0.4, 0, 0.2, 1),
-                border-color 0.28s cubic-bezier(0.4, 0, 0.2, 1),
-                color 0.24s cubic-bezier(0.4, 0, 0.2, 1),
-                fill 0.24s cubic-bezier(0.4, 0, 0.2, 1),
-                box-shadow 0.28s cubic-bezier(0.4, 0, 0.2, 1) !important;
-    transition-delay: 0s !important;
-  }
-
+  /* View Transitions API (where supported: 240ms, instant elsewhere) */
   ::view-transition-old(root),
   ::view-transition-new(root) {
-    animation-duration: 0.28s;
+    animation-duration: 0.24s;
     animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   }
 
@@ -185,5 +219,11 @@ html[data-theme="light"] {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
   }
 }

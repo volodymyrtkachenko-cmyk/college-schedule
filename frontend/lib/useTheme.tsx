@@ -16,9 +16,30 @@ const ThemeContext = createContext<ThemeContextType | null>(null);
 
 const STORAGE_KEY = "college_theme";
 
+function getInitialTheme(): Theme {
+  if (typeof window === "undefined") return "system";
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
+    return stored === "light" || stored === "dark" || stored === "system" ? stored : "system";
+  } catch {
+    return "system";
+  }
+}
+
+function getInitialResolvedTheme(): ResolvedTheme {
+  if (typeof window === "undefined") return "dark";
+  try {
+    const docAttr = document.documentElement.getAttribute("data-theme") as ResolvedTheme | null;
+    if (docAttr === "light" || docAttr === "dark") return docAttr;
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  } catch {
+    return "dark";
+  }
+}
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>("dark");
-  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>("dark");
+  const [theme, setThemeState] = useState<Theme>(getInitialTheme);
+  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(getInitialResolvedTheme);
 
   const applyTheme = useCallback((targetTheme: Theme) => {
     let effective: ResolvedTheme = "dark";
@@ -48,17 +69,17 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
-      const initialTheme: Theme = stored === "light" || stored === "dark" || stored === "system" ? stored : "dark";
+      const initialTheme: Theme = stored === "light" || stored === "dark" || stored === "system" ? stored : "system";
       setThemeState(initialTheme);
       applyTheme(initialTheme);
     } catch {
-      applyTheme("dark");
+      applyTheme("system");
     }
 
     const mql = window.matchMedia("(prefers-color-scheme: dark)");
     const handleChange = () => {
       const currentStored = localStorage.getItem(STORAGE_KEY) as Theme | null;
-      if (currentStored === "system") {
+      if (!currentStored || currentStored === "system") {
         applyTheme("system");
       }
     };
@@ -73,23 +94,18 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem(STORAGE_KEY, newTheme);
       } catch {}
 
-      if (typeof document !== "undefined") {
-        const root = document.documentElement;
-        root.classList.add("theme-transitioning");
+      const isReduced =
+        typeof window !== "undefined" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const hasViewTransition =
+        typeof document !== "undefined" &&
+        "startViewTransition" in document &&
+        typeof (document as any).startViewTransition === "function";
 
-        const update = () => {
+      if (hasViewTransition && !isReduced) {
+        (document as any).startViewTransition(() => {
           applyTheme(newTheme);
-        };
-
-        if ("startViewTransition" in document && typeof (document as any).startViewTransition === "function") {
-          (document as any).startViewTransition(update);
-        } else {
-          update();
-        }
-
-        setTimeout(() => {
-          root.classList.remove("theme-transitioning");
-        }, 320);
+        });
       } else {
         applyTheme(newTheme);
       }

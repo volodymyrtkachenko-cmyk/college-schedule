@@ -943,7 +943,7 @@ export default function HomePage() {
       <InstallPrompt />
 
       {/* Desktop Toolbar (>= 1024px) */}
-      <header className="sticky top-0 z-40 hidden lg:block h-14 border-b border-sys-border bg-sys-card/95 backdrop-blur-md">
+      <header className="sticky top-0 z-40 hidden lg:block h-14 border-b border-sys-border bg-sys-card">
         <div className="mx-auto grid grid-cols-[1fr_auto_1fr] h-full max-w-[1800px] items-center px-6">
           {/* Left Zone: Brand + Context Selector */}
           <div className="flex items-center gap-3 min-w-0 justify-self-start">
@@ -967,7 +967,7 @@ export default function HomePage() {
               type="button"
               onClick={() => setContextModalOpen(true)}
               aria-label="Обрати групу або викладача"
-              className="flex h-10 items-center gap-2 rounded-xl border border-sys-border bg-sys-bg/80 px-3 text-sm font-medium text-sys-text-primary hover:border-sys-accent/60 hover:bg-sys-bg transition-all truncate max-w-[260px] focus:outline-none focus:ring-2 focus:ring-sys-accent"
+              className="flex h-10 items-center gap-2 rounded-xl border border-sys-border bg-sys-bg/80 px-3 text-sm font-medium text-sys-text-primary hover:border-sys-accent/60 hover:bg-sys-bg transition-colors duration-fast ease-smooth truncate max-w-[260px] focus:outline-none focus:ring-2 focus:ring-sys-accent"
             >
               <span className="text-sys-text-muted shrink-0">
                 {mode === "student" ? "Група:" : "Викладач:"}
@@ -985,7 +985,7 @@ export default function HomePage() {
                   setTeacherPinTargetGroup(null);
                   setTeacherPinModalOpen(true);
                 }}
-                className="flex h-10 items-center gap-1.5 px-3 rounded-xl text-xs font-semibold border border-sys-border bg-sys-bg/80 text-sys-text-secondary hover:border-sys-accent/40 hover:text-sys-accent transition-all active:scale-95"
+                className="flex h-10 items-center gap-1.5 px-3 rounded-xl text-xs font-semibold border border-sys-border bg-sys-bg/80 text-sys-text-secondary hover:border-sys-accent/40 hover:text-sys-accent transition-colors duration-fast ease-smooth active:scale-95"
                 title="Вхід для викладача (PIN)"
               >
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
@@ -1049,7 +1049,7 @@ export default function HomePage() {
               <button
                 type="button"
                 onClick={() => handleViewChange("today")}
-                className={`h-8 px-3.5 rounded-lg font-semibold transition-all ${
+                className={`h-8 px-3.5 rounded-lg font-semibold transition-colors duration-fast ease-smooth ${
                   view === "today"
                     ? "bg-sys-accent text-white shadow-xs"
                     : "text-sys-text-secondary hover:text-sys-text-primary"
@@ -1060,7 +1060,7 @@ export default function HomePage() {
               <button
                 type="button"
                 onClick={() => handleViewChange("week")}
-                className={`h-8 px-3.5 rounded-lg font-semibold transition-all ${
+                className={`h-8 px-3.5 rounded-lg font-semibold transition-colors duration-fast ease-smooth ${
                   view === "week"
                     ? "bg-sys-accent text-white shadow-xs"
                     : "text-sys-text-secondary hover:text-sys-text-primary"
@@ -1105,7 +1105,7 @@ export default function HomePage() {
               onClick={toggleTheme}
               aria-label={resolvedTheme === "dark" ? "Поточна тема: Темна (натисніть, щоб змінити)" : "Поточна тема: Світла (натисніть, щоб змінити)"}
               title={resolvedTheme === "dark" ? "Поточна тема: Темна" : "Поточна тема: Світла"}
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-border-elevated active:scale-95 transition-all focus:outline-none focus:ring-2 focus:ring-sys-accent cursor-pointer"
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-border-elevated active:scale-95 transition-colors duration-fast ease-smooth focus:outline-none focus:ring-2 focus:ring-sys-accent cursor-pointer"
             >
               {resolvedTheme === "dark" ? (
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1131,7 +1131,7 @@ export default function HomePage() {
               href="/settings"
               aria-label="Налаштування застосунку"
               title="Налаштування"
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-border-elevated active:scale-95 transition-all focus:outline-none focus:ring-2 focus:ring-sys-accent"
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-border-elevated active:scale-95 transition-colors duration-fast ease-smooth focus:outline-none focus:ring-2 focus:ring-sys-accent"
             >
               <svg
                 width="18"
@@ -1153,7 +1153,7 @@ export default function HomePage() {
       </header>
 
       {/* Mobile 2-Tier Header (< 1024px) */}
-      <header className="sticky top-0 z-40 border-b border-sys-border bg-sys-card/95 backdrop-blur-md pt-[env(safe-area-inset-top)] lg:hidden">
+      <header className="sticky top-0 z-40 border-b border-sys-border bg-sys-card pt-[env(safe-area-inset-top)] lg:hidden">
         {/* Tier 1 (h-14): [85 ▾]   ‹ 19–25 жовт. ›   [⋯] */}
         <div className="flex h-14 items-center justify-between px-3 gap-1.5 overflow-hidden">
           {/* Left: Context Selector */}
@@ -1162,7 +1162,7 @@ export default function HomePage() {
               type="button"
               onClick={() => setContextModalOpen(true)}
               aria-label="Обрати групу або викладача"
-              className="flex h-10 items-center gap-1.5 rounded-xl border border-sys-border bg-sys-bg/90 px-2.5 text-xs font-semibold text-sys-text-primary hover:border-sys-accent/60 active:scale-95 transition-all truncate max-w-[110px] sm:max-w-[150px] shrink-0"
+              className="flex h-10 items-center gap-1.5 rounded-xl border border-sys-border bg-sys-bg/90 px-2.5 text-xs font-semibold text-sys-text-primary hover:border-sys-accent/60 active:scale-95 transition-colors duration-fast ease-smooth truncate max-w-[110px] sm:max-w-[150px] shrink-0"
             >
               <span className="truncate">
                 {currentName || (mode === "student" ? "Група" : "Викладач")}
@@ -1176,7 +1176,7 @@ export default function HomePage() {
                   setTeacherPinTargetGroup(null);
                   setTeacherPinModalOpen(true);
                 }}
-                className="flex h-10 w-10 items-center justify-center rounded-xl border border-sys-border bg-sys-bg/90 text-sys-text-secondary hover:text-sys-accent transition-all active:scale-95 shrink-0"
+                className="flex h-10 w-10 items-center justify-center rounded-xl border border-sys-border bg-sys-bg/90 text-sys-text-secondary hover:text-sys-accent transition-colors duration-fast ease-smooth active:scale-95 shrink-0"
                 title="Вхід для викладача (PIN)"
                 aria-label="Вхід для викладача (PIN)"
               >
@@ -1200,7 +1200,7 @@ export default function HomePage() {
                   type="button"
                   onClick={() => shiftWeekPreservingDay(-1)}
                   aria-label="Попередній тиждень"
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg active:scale-90 transition-all shrink-0"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg active:scale-90 transition-colors duration-fast ease-smooth shrink-0"
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="m15 18-6-6 6-6" />
@@ -1222,7 +1222,7 @@ export default function HomePage() {
                   type="button"
                   onClick={() => shiftWeekPreservingDay(1)}
                   aria-label="Наступний тиждень"
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg active:scale-90 transition-all shrink-0"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg active:scale-90 transition-colors duration-fast ease-smooth shrink-0"
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="m9 18 6-6-6-6" />
@@ -1262,7 +1262,7 @@ export default function HomePage() {
             href="/settings"
             aria-label="Налаштування застосунку"
             title="Налаштування"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-elevated-border active:scale-95 transition-all"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-elevated-border active:scale-95 transition-colors duration-fast ease-smooth"
           >
             <svg
               width="18"
@@ -1319,7 +1319,7 @@ export default function HomePage() {
                   <button
                     type="button"
                     onClick={() => { setModalTab("student"); setModalSearch(""); }}
-                    className={`flex-1 h-9 rounded-lg text-xs font-semibold transition-all ${
+                    className={`flex-1 h-9 rounded-lg text-xs font-semibold transition-colors duration-fast ease-smooth ${
                       modalTab === "student" ? "bg-sys-accent text-white shadow-xs" : "text-sys-text-secondary hover:text-sys-text-primary"
                     }`}
                   >
@@ -1328,7 +1328,7 @@ export default function HomePage() {
                   <button
                     type="button"
                     onClick={() => { setModalTab("teacher"); setModalSearch(""); }}
-                    className={`flex-1 h-9 rounded-lg text-xs font-semibold transition-all ${
+                    className={`flex-1 h-9 rounded-lg text-xs font-semibold transition-colors duration-fast ease-smooth ${
                       modalTab === "teacher" ? "bg-sys-accent text-white shadow-xs" : "text-sys-text-secondary hover:text-sys-text-primary"
                     }`}
                   >
@@ -1409,15 +1409,15 @@ export default function HomePage() {
           </div>
         )}
 
-        <AnimatePresence mode="wait">
+        <AnimatePresence>
           <motion.div
             key={mobileTab === "tasks" ? "tasks" : view}
             initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: shouldReduceMotion ? 0 : -4 }}
             transition={{
-              duration: shouldReduceMotion ? 0 : 0.2,
-              ease: [0.16, 1, 0.3, 1],
+              duration: shouldReduceMotion ? 0 : 0.18,
+              ease: [0.2, 0, 0, 1],
             }}
           >
             {mobileTab === "tasks" ? (
@@ -1457,7 +1457,7 @@ export default function HomePage() {
                     ))}
                   </div>
                 ) : error ? (
-                  <div className="rounded-2xl border border-rose-400/20 bg-rose-400/5 p-6 text-center text-sm text-rose-200">
+                  <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-6 text-center text-sm text-rose-700 dark:text-rose-200">
                     {error}
                   </div>
                 ) : view === "today" ? (
@@ -1544,17 +1544,17 @@ export default function HomePage() {
             ))}
           </div>
         ) : error ? (
-          <div className="rounded-2xl border border-rose-400/20 bg-rose-400/5 p-8 text-center text-rose-200">{error}</div>
+          <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-8 text-center text-rose-700 dark:text-rose-200">{error}</div>
         ) : (
-          <AnimatePresence mode="wait">
+          <AnimatePresence>
             <motion.div
               key={view}
               initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 4 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: shouldReduceMotion ? 0 : -4 }}
               transition={{
-                duration: shouldReduceMotion ? 0 : 0.2,
-                ease: [0.16, 1, 0.3, 1],
+                duration: shouldReduceMotion ? 0 : 0.18,
+                ease: [0.2, 0, 0, 1],
               }}
             >
               {view === "today" ? (
@@ -1609,10 +1609,10 @@ export default function HomePage() {
                                 onClick={toggleFocusMode}
                                 title="Показати бічну панель завдань"
                                 aria-label="Показати бічну панель завдань"
-                                className="flex h-8 w-8 items-center justify-center rounded-lg border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-accent hover:border-sys-accent/40 active:scale-95 transition-all shrink-0 cursor-pointer"
+                                className="flex h-8 w-8 items-center justify-center rounded-lg border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-accent hover:border-sys-accent/40 active:scale-95 transition-colors duration-fast ease-smooth shrink-0 cursor-pointer"
                               >
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                  <rect width="18" height="18" x="3" y="3" rx="2" />
+                                  <rect width="18" height="18" x="3" y="2" rx="2" />
                                   <path d="M15 3v18" />
                                   <path d="m8 9 3 3-3 3" />
                                 </svg>
@@ -1629,7 +1629,7 @@ export default function HomePage() {
                                   key={d.iso}
                                   type="button"
                                   onClick={() => handleSelectDayIndex(d.index)}
-                                  className={`flex flex-col items-center justify-center h-15 rounded-xl transition-all relative cursor-pointer active:scale-95 ${
+                                  className={`flex flex-col items-center justify-center h-15 rounded-xl transition-colors duration-fast ease-smooth relative cursor-pointer active:scale-95 ${
                                     isActive
                                       ? "bg-sys-accent text-white font-black shadow-md ring-2 ring-sys-accent/60"
                                       : "border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-elevated-border font-medium"
@@ -1671,13 +1671,13 @@ export default function HomePage() {
                         </div>
                       )}
 
-                      <AnimatePresence mode="wait">
+                      <AnimatePresence>
                         <motion.div
                           key={selectedDaySchedule?.date ?? today?.date ?? "day"}
                           initial={{ opacity: 0, y: 6 }}
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: -6 }}
-                          transition={{ duration: shouldReduceMotion ? 0 : 0.18, ease: "easeInOut" }}
+                          transition={{ duration: shouldReduceMotion ? 0 : 0.18, ease: [0.2, 0, 0, 1] }}
                         >
                           <ScheduleDay
                             schedule={selectedDaySchedule ?? today!}
@@ -1772,7 +1772,7 @@ export default function HomePage() {
                                   key={d.iso}
                                   type="button"
                                   onClick={() => handleSelectDayIndex(d.index)}
-                                  className={`flex flex-col items-center justify-center h-16 rounded-xl transition-all relative cursor-pointer active:scale-95 ${
+                                  className={`flex flex-col items-center justify-center h-16 rounded-xl transition-colors duration-fast ease-smooth relative cursor-pointer active:scale-95 ${
                                     isActive
                                       ? "bg-sys-accent text-white font-black shadow-md ring-2 ring-sys-accent/60"
                                       : "border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-elevated-border font-medium"
@@ -1837,7 +1837,7 @@ export default function HomePage() {
                                   disabled={tasksScope !== "week"}
                                   onClick={() => shiftWeekPreservingDay(-1)}
                                   aria-label="Попередній тиждень"
-                                  className="flex h-6 w-6 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-card active:scale-95 transition-all cursor-pointer disabled:cursor-default disabled:hover:bg-transparent font-bold"
+                                  className="flex h-6 w-6 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-card active:scale-95 transition-colors duration-fast ease-smooth cursor-pointer disabled:cursor-default disabled:hover:bg-transparent font-bold"
                                 >
                                   ‹
                                 </button>
@@ -1849,7 +1849,7 @@ export default function HomePage() {
                                   disabled={tasksScope !== "week"}
                                   onClick={() => shiftWeekPreservingDay(1)}
                                   aria-label="Наступний тиждень"
-                                  className="flex h-6 w-6 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-card active:scale-95 transition-all cursor-pointer disabled:cursor-default disabled:hover:bg-transparent font-bold"
+                                  className="flex h-6 w-6 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-card active:scale-95 transition-colors duration-fast ease-smooth cursor-pointer disabled:cursor-default disabled:hover:bg-transparent font-bold"
                                 >
                                   ›
                                 </button>
@@ -1859,7 +1859,7 @@ export default function HomePage() {
                                 <button
                                   type="button"
                                   onClick={() => setTasksScope("week")}
-                                  className={`rounded-lg px-2 py-0.5 font-semibold transition-all cursor-pointer ${
+                                  className={`rounded-lg px-2 py-0.5 font-semibold transition-colors duration-fast ease-smooth cursor-pointer ${
                                     tasksScope === "week"
                                       ? "bg-sys-accent text-white shadow-xs"
                                       : "text-sys-text-secondary hover:text-sys-text-primary"
@@ -1870,7 +1870,7 @@ export default function HomePage() {
                                 <button
                                   type="button"
                                   onClick={() => setTasksScope("all")}
-                                  className={`rounded-lg px-2 py-0.5 font-semibold transition-all cursor-pointer ${
+                                  className={`rounded-lg px-2 py-0.5 font-semibold transition-colors duration-fast ease-smooth cursor-pointer ${
                                     tasksScope === "all"
                                       ? "bg-sys-accent text-white shadow-xs"
                                       : "text-sys-text-secondary hover:text-sys-text-primary"
@@ -2194,7 +2194,7 @@ export default function HomePage() {
                         disabled={sharingWeekImage}
                         title="Скопіювати або зберегти розклад тижня як PNG-картинку"
                         aria-label="Поділитися картинкою розкладу тижня"
-                        className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-sys-border bg-sys-card px-3 text-xs font-semibold text-sys-text-secondary hover:border-sky-500/50 hover:text-sky-700 dark:hover:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-500/10 active:scale-95 transition-all disabled:opacity-50"
+                        className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-sys-border bg-sys-card px-3 text-xs font-semibold text-sys-text-secondary hover:border-sky-500/50 hover:text-sky-700 dark:hover:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-500/10 active:scale-95 transition-colors duration-fast ease-smooth disabled:opacity-50"
                       >
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-sky-500 dark:text-sky-400 shrink-0">
                           <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
@@ -2208,7 +2208,7 @@ export default function HomePage() {
                         onClick={handleShareWeek}
                         title="Скопіювати розклад усього тижня"
                         aria-label="Поділитися розкладом на тиждень"
-                        className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-sys-border bg-sys-card px-3 text-xs font-semibold text-sys-text-secondary hover:border-emerald-500/50 hover:text-emerald-700 dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 active:scale-95 transition-all"
+                        className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-sys-border bg-sys-card px-3 text-xs font-semibold text-sys-text-secondary hover:border-emerald-500/50 hover:text-emerald-700 dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 active:scale-95 transition-colors duration-fast ease-smooth"
                       >
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-500 dark:text-emerald-400 shrink-0">
                           <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
@@ -2307,7 +2307,7 @@ export default function HomePage() {
                       shiftWeekPreservingDay(1);
                       setWeekTypeSheetOpen(false);
                     }}
-                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-sys-tabActive border border-sys-border px-4 py-2.5 text-xs font-semibold text-sys-text-primary hover:border-sys-accent hover:text-sys-accent active:scale-[0.98] transition-all"
+                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-sys-tabActive border border-sys-border px-4 py-2.5 text-xs font-semibold text-sys-text-primary hover:border-sys-accent hover:text-sys-accent active:scale-[0.98] transition-colors duration-fast ease-smooth"
                   >
                     <span>Перейти на {weekType === "numerator" ? "знаменник (наступний тиждень)" : "чисельник (наступний тиждень)"}</span>
                     <span>→</span>

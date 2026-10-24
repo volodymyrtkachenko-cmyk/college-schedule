@@ -1214,7 +1214,7 @@ export function AdminScheduleEditor() {
                         duration: shouldReduceMotion ? 0 : 0.18,
                         ease: [0.2, 0, 0, 1],
                       }}
-                      className="space-y-3 will-change-transform"
+                      className="space-y-3"
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -1222,7 +1222,7 @@ export function AdminScheduleEditor() {
                             {dayLabel}
                           </div>
                           {currentDay.is_shortened_day && (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30">
                               ⏱ 50 хв
                             </span>
                           )}

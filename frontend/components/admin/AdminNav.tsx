@@ -500,7 +500,7 @@ export function AdminNav({ active }: { active: string }) {
                   <span className="truncate">Імпорт з КРЕ</span>
                   {anomalyDraftsCount > 0 && (
                     <span
-                      className="ml-auto inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-bold leading-none text-white bg-rose-500 rounded-full shadow-xs shrink-0 animate-pulse"
+                      className="ml-auto inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-bold leading-none text-white bg-rose-500 rounded-full shadow-xs shrink-0"
                       title={`Необхідна перевірка: ${anomalyDraftsCount} аномальних чернеток`}
                     >
                       {anomalyDraftsCount}
@@ -579,7 +579,6 @@ export function AdminNav({ active }: { active: string }) {
               <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sys-accent/15 border border-sys-accent/30 text-xs font-bold text-sys-accent uppercase">
                 {user?.username ? user.username.slice(0, 2).toUpperCase() : "AD"}
                 <span className="absolute -bottom-0.5 -right-0.5 flex h-2.5 w-2.5">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
                   <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500 border-2 border-sys-card" />
                 </span>
               </div>
@@ -588,7 +587,7 @@ export function AdminNav({ active }: { active: string }) {
                   {user?.name || user?.username || "Диспетчер"}
                 </p>
                 <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className="text-[10px] text-emerald-400 font-medium">
+                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
                     {online !== null ? `${online} онлайн` : "В мережі"}
                   </span>
                 </div>
@@ -641,7 +640,7 @@ export function AdminNav({ active }: { active: string }) {
               <line x1="4" y1="18" x2="20" y2="18" />
             </svg>
             {anomalyDraftsCount > 0 && (
-              <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-sys-bg animate-pulse" />
+              <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-sys-bg" />
             )}
           </button>
           <div className="flex items-center gap-2">
@@ -697,7 +696,7 @@ export function AdminNav({ active }: { active: string }) {
         <button
           type="button"
           onClick={toggleDesktopCollapse}
-          className="hidden lg:flex fixed top-3.5 left-3.5 z-40 items-center justify-center w-9 h-9 rounded-lg border border-sys-border bg-sys-card text-sys-text-secondary hover:text-sys-text-primary hover:bg-slate-100 dark:hover:bg-white/5 shadow-lg transition-all active:scale-95"
+          className="hidden lg:flex fixed top-3.5 left-3.5 z-40 items-center justify-center w-9 h-9 rounded-lg border border-sys-border bg-sys-card text-sys-text-secondary hover:text-sys-text-primary hover:bg-slate-100 dark:hover:bg-white/5 shadow-lg transition-colors duration-fast ease-smooth active:scale-95"
           title="Розгорнути бічне меню (Ctrl+B)"
           aria-label="Розгорнути бічне меню"
         >
@@ -707,7 +706,7 @@ export function AdminNav({ active }: { active: string }) {
             <line x1="4" y1="18" x2="20" y2="18" />
           </svg>
           {anomalyDraftsCount > 0 && (
-            <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-sys-card animate-pulse" />
+            <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-sys-card" />
           )}
         </button>
       )}

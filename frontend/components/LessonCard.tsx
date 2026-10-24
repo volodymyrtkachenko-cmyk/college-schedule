@@ -133,13 +133,13 @@ function getKyivNow() {
 function getRoomBadgeMeta(room: string) {
   const lower = room.toLowerCase();
   if (lower.includes("спорт") || lower.includes("зал")) {
-    return { icon: "🏃", tone: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" };
+    return { icon: "🏃", tone: "border-emerald-500/30 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300" };
   }
   if (lower.includes("онлайн") || lower.includes("дистанц") || lower.includes("zoom") || lower.includes("meet")) {
-    return { icon: "💻", tone: "border-sky-500/30 bg-sky-500/10 text-sky-300" };
+    return { icon: "💻", tone: "border-sky-500/30 bg-sky-500/10 text-sky-800 dark:text-sky-300" };
   }
   if (lower.includes("лаб") || lower.includes("майст")) {
-    return { icon: "🔬", tone: "border-purple-500/30 bg-purple-500/10 text-purple-300" };
+    return { icon: "🔬", tone: "border-purple-500/30 bg-purple-500/10 text-purple-800 dark:text-purple-300" };
   }
   return { icon: "🚪", tone: "border-sys-border bg-sys-tabActive text-sys-text-primary" };
 }
@@ -151,35 +151,35 @@ function getEventBadge(eventType?: string | null, eventTitle?: string | null) {
       return {
         label: "📝 Екзамен",
         title: eventTitle || "Екзамен",
-        badgeClass: "border-rose-500/40 bg-rose-500/15 text-rose-300",
+        badgeClass: "border-rose-500/40 bg-rose-500/15 text-rose-700 dark:text-rose-300",
         cardClass: "border-rose-500/40 ring-1 ring-rose-500/40 bg-gradient-to-br from-rose-950/20 via-sys-card to-sys-card",
       };
     case "consultation":
       return {
         label: "💬 Консультація",
         title: eventTitle || "Консультація",
-        badgeClass: "border-amber-500/40 bg-amber-500/15 text-amber-300",
+        badgeClass: "border-amber-500/40 bg-amber-500/15 text-amber-800 dark:text-amber-300",
         cardClass: "border-amber-500/40 ring-1 ring-amber-500/40 bg-gradient-to-br from-amber-950/20 via-sys-card to-sys-card",
       };
     case "credit":
       return {
         label: "✅ Залік",
         title: eventTitle || "Залік",
-        badgeClass: "border-emerald-500/40 bg-emerald-500/15 text-emerald-300",
+        badgeClass: "border-emerald-500/40 bg-emerald-500/15 text-emerald-800 dark:text-emerald-300",
         cardClass: "border-emerald-500/40 ring-1 ring-emerald-500/40 bg-gradient-to-br from-emerald-950/20 via-sys-card to-sys-card",
       };
     case "defense":
       return {
         label: "🎓 Захист",
         title: eventTitle || "Захист",
-        badgeClass: "border-purple-500/40 bg-purple-500/15 text-purple-300",
+        badgeClass: "border-purple-500/40 bg-purple-500/15 text-purple-800 dark:text-purple-300",
         cardClass: "border-purple-500/40 ring-1 ring-purple-500/40 bg-gradient-to-br from-purple-950/20 via-sys-card to-sys-card",
       };
     default:
       return {
         label: "Подія",
         title: eventTitle || "Подія",
-        badgeClass: "border-sky-500/40 bg-sky-500/15 text-sky-300",
+        badgeClass: "border-sky-500/40 bg-sky-500/15 text-sky-800 dark:text-sky-300",
         cardClass: "border-sky-500/40 ring-1 ring-sky-500/40 bg-gradient-to-br from-sky-950/20 via-sys-card to-sys-card",
       };
   }
@@ -700,7 +700,7 @@ function LockedMeetingBadge({
       onClick={onClick}
       title="Онлайн-заняття. Прив'яжіть студентський Classroom цієї групи для доступу до дзвінка"
       aria-label="Онлайн-заняття. Прив'яжіть студентський Classroom цієї групи для доступу до дзвінка"
-      className={`inline-flex shrink-0 items-center border border-amber-500/40 dark:border-amber-500/30 bg-amber-500/15 dark:bg-amber-500/10 text-amber-800 dark:text-amber-200 font-bold whitespace-nowrap hover:bg-amber-500/25 dark:hover:bg-amber-500/20 active:scale-95 transition-all shadow-xs cursor-pointer ${sizeClasses}`}
+      className={`inline-flex shrink-0 items-center border border-amber-500/40 dark:border-amber-500/30 bg-amber-500/15 dark:bg-amber-500/10 text-amber-800 dark:text-amber-200 font-bold whitespace-nowrap hover:bg-amber-500/25 dark:hover:bg-amber-500/20 active:scale-95 transition-colors duration-fast ease-smooth shadow-xs cursor-pointer ${sizeClasses}`}
     >
       <span className="text-[12px]">🔒</span>
       <span>{label}</span>
@@ -1135,13 +1135,13 @@ export const LessonCard = memo(function LessonCard({
     if (lesson.is_cancelled) {
       if (lesson.moved_to_date) {
         return (
-          <span className={`${baseCls} border border-amber-500/40 bg-amber-500/15 tracking-wide text-amber-300`}>
+          <span className={`${baseCls} border border-amber-500/40 bg-amber-500/15 tracking-wide text-amber-800 dark:text-amber-300`}>
             ↪ {formatMovedTo(lesson.moved_to_date, lesson.moved_to_lesson)}
           </span>
         );
       }
       return (
-        <span className={`${baseCls} border border-rose-500/40 bg-rose-500/15 uppercase tracking-wider text-rose-400`}>
+        <span className={`${baseCls} border border-rose-500/40 bg-rose-500/15 uppercase tracking-wider text-rose-700 dark:text-rose-400`}>
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
             <line x1="18" y1="6" x2="6" y2="18" />
             <line x1="6" y1="6" x2="18" y2="18" />
@@ -1174,10 +1174,10 @@ export const LessonCard = memo(function LessonCard({
     if (!isTemplateMode || lesson.week_type === "both") return null;
     return (
       <span
-        className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider ${
+        className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-bold uppercase tracking-wider ${
           lesson.week_type === "numerator"
-            ? "border-sky-500/30 bg-sky-500/10 text-sky-300"
-            : "border-purple-500/30 bg-purple-500/10 text-purple-300"
+            ? "border-sky-500/30 bg-sky-500/10 text-sky-800 dark:text-sky-300"
+            : "border-purple-500/30 bg-purple-500/10 text-purple-800 dark:text-purple-300"
         }`}
       >
         {lesson.week_type === "numerator" ? "Чисельник" : "Знаменник"}
@@ -1401,7 +1401,7 @@ export const LessonCard = memo(function LessonCard({
           onMoveSelect?.(lesson);
         }
       }}
-      className={`group relative flex min-w-0 flex-col rounded-2xl border bg-sys-card shadow-sm transition-all duration-200 ${
+      className={`group relative flex min-w-0 flex-col rounded-2xl border bg-sys-card shadow-sm transition-colors duration-base ease-smooth ${
         isDay
           ? isLive
             ? "p-4 pb-6 sm:p-6 sm:pb-8 lg:px-7 lg:py-7 lg:pb-9 sm:min-h-[140px]"
@@ -1575,7 +1575,7 @@ export const LessonCard = memo(function LessonCard({
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
-                                    className={`inline-flex shrink-0 h-7 px-2.5 items-center gap-1.5 rounded-lg border text-xs font-semibold whitespace-nowrap active:scale-95 transition-all ${
+                                    className={`inline-flex shrink-0 h-7 px-2.5 items-center gap-1.5 rounded-lg border text-xs font-semibold whitespace-nowrap active:scale-95 transition-colors duration-fast ease-smooth ${
                                       getMeetingBtnStyle(ownMeeting.platform, isLive && isMeetingLiveOrSoon, "compact")
                                     }`}
                                   >
@@ -1641,7 +1641,7 @@ export const LessonCard = memo(function LessonCard({
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
-                        className={`inline-flex h-8 px-3 items-center gap-1.5 rounded-lg font-bold text-xs active:scale-95 transition-all whitespace-nowrap border ${
+                        className={`inline-flex h-8 px-3 items-center gap-1.5 rounded-lg font-bold text-xs active:scale-95 transition-colors duration-fast ease-smooth whitespace-nowrap border ${
                           getMeetingBtnStyle(deskMeeting.platform, isMeetingLiveOrSoon, "normal")
                         }`}
                       >
@@ -1687,7 +1687,7 @@ export const LessonCard = memo(function LessonCard({
                               }}
                               title="Очистити слот (повністю прибрати скасовану пару)"
                               aria-label="Очистити слот"
-                              className="inline-flex h-8 items-center justify-center rounded-lg border border-rose-500/40 bg-rose-500/10 px-2.5 text-xs font-semibold text-rose-300 hover:bg-rose-500/20 active:scale-[0.98] transition-colors whitespace-nowrap"
+                              className="inline-flex h-8 items-center justify-center rounded-lg border border-rose-500/40 bg-rose-500/10 px-2.5 text-xs font-semibold text-rose-700 dark:text-rose-300 hover:bg-rose-500/20 active:scale-[0.98] transition-colors whitespace-nowrap"
                             >
                               Очистити слот
                             </button>
@@ -1735,7 +1735,7 @@ export const LessonCard = memo(function LessonCard({
                   e.stopPropagation();
                   vibrateTap(10);
                 }}
-                className="group flex w-full items-center justify-between rounded-xl bg-sys-bg/60 border border-sys-border px-3.5 py-2.5 text-xs text-sys-text-secondary hover:border-sys-border-elevated hover:bg-sys-bg transition-all shadow-xs cursor-pointer overflow-hidden"
+                className="group flex w-full items-center justify-between rounded-xl bg-sys-bg/60 border border-sys-border px-3.5 py-2.5 text-xs text-sys-text-secondary hover:border-sys-border-elevated hover:bg-sys-bg transition-colors duration-fast ease-smooth shadow-xs cursor-pointer overflow-hidden"
                 style={{
                   boxShadow:
                     isLinked && tasks[0].deadline.badgeTone === "overdue"
@@ -1775,7 +1775,7 @@ export const LessonCard = memo(function LessonCard({
             {/* 2+ Tasks: Accordion container with rotating chevron */}
             {showHw && tasks.length > 1 && (
               <div
-                className="w-full rounded-xl bg-sys-bg/60 border border-sys-border transition-all duration-150 overflow-hidden shadow-xs"
+                className="w-full rounded-xl bg-sys-bg/60 border border-sys-border transition-[opacity,border-color] duration-fast ease-smooth overflow-hidden shadow-xs"
                 style={{
                   boxShadow:
                     isLinked && highlightTask?.deadline.badgeTone === "overdue"
@@ -1949,7 +1949,7 @@ export const LessonCard = memo(function LessonCard({
                           }}
                           title="Очистити слот (повністю прибрати скасовану пару)"
                           aria-label="Очистити слот"
-                          className="inline-flex h-9 items-center justify-center rounded-lg border border-rose-500/40 bg-rose-500/10 px-2.5 text-xs font-semibold text-rose-300 hover:bg-rose-500/20 active:scale-[0.98] transition-colors whitespace-nowrap"
+                          className="inline-flex h-9 items-center justify-center rounded-lg border border-rose-500/40 bg-rose-500/10 px-2.5 text-xs font-semibold text-rose-700 dark:text-rose-300 hover:bg-rose-500/20 active:scale-[0.98] transition-colors whitespace-nowrap"
                         >
                           Очистити
                         </button>
@@ -2013,7 +2013,7 @@ export const LessonCard = memo(function LessonCard({
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
-                        className={`inline-flex h-8 min-h-[32px] px-2.5 items-center gap-1.5 rounded-lg font-bold text-xs shadow-xs active:scale-95 transition-all whitespace-nowrap border ${
+                        className={`inline-flex h-8 min-h-[32px] px-2.5 items-center gap-1.5 rounded-lg font-bold text-xs shadow-xs active:scale-95 transition-colors duration-fast ease-smooth whitespace-nowrap border ${
                           getMeetingBtnStyle(mobileMeeting.platform, isMeetingLiveOrSoon, "normal")
                         }`}
                       >
@@ -2164,7 +2164,7 @@ export const LessonCard = memo(function LessonCard({
                               target="_blank"
                               rel="noopener noreferrer"
                               onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
-                              className={`inline-flex shrink-0 h-7 px-2.5 items-center gap-1.5 rounded-lg border text-xs font-semibold whitespace-nowrap active:scale-95 transition-all ${
+                              className={`inline-flex shrink-0 h-7 px-2.5 items-center gap-1.5 rounded-lg border text-xs font-semibold whitespace-nowrap active:scale-95 transition-colors duration-fast ease-smooth ${
                                 getMeetingBtnStyle(ownMeeting.platform, isLive && isMeetingLiveOrSoon, "compact")
                               }`}
                             >
@@ -2194,7 +2194,7 @@ export const LessonCard = memo(function LessonCard({
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
-                          className={`inline-flex shrink-0 h-7 px-2.5 items-center gap-1.5 rounded-lg border text-xs font-semibold whitespace-nowrap active:scale-95 transition-all ${
+                          className={`inline-flex shrink-0 h-7 px-2.5 items-center gap-1.5 rounded-lg border text-xs font-semibold whitespace-nowrap active:scale-95 transition-colors duration-fast ease-smooth ${
                             getMeetingBtnStyle(row3Meetings[0].platform, isLive && isMeetingLiveOrSoon, "compact")
                           }`}
                         >
@@ -2237,7 +2237,7 @@ export const LessonCard = memo(function LessonCard({
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
-                    className={`inline-flex min-h-[40px] h-10 px-3.5 items-center gap-2 rounded-xl font-bold text-xs shadow-xs active:scale-95 transition-all whitespace-nowrap border ${
+                    className={`inline-flex min-h-[40px] h-10 px-3.5 items-center gap-2 rounded-xl font-bold text-xs shadow-xs active:scale-95 transition-colors duration-fast ease-smooth whitespace-nowrap border ${
                       getMeetingBtnStyle(mobileMeeting.platform, isMeetingLiveOrSoon, "normal")
                     }`}
                   >
@@ -2262,7 +2262,7 @@ export const LessonCard = memo(function LessonCard({
                 e.stopPropagation();
                 vibrateTap(10);
               }}
-              className="group flex min-h-[44px] w-full items-start justify-between rounded-xl bg-sys-bg/60 border border-sys-border px-3.5 py-2.5 text-xs text-sys-text-secondary hover:border-sys-border-elevated hover:bg-sys-bg transition-all shadow-xs cursor-pointer mt-1 overflow-hidden"
+              className="group flex min-h-[44px] w-full items-start justify-between rounded-xl bg-sys-bg/60 border border-sys-border px-3.5 py-2.5 text-xs text-sys-text-secondary hover:border-sys-border-elevated hover:bg-sys-bg transition-colors duration-fast ease-smooth shadow-xs cursor-pointer mt-1 overflow-hidden"
               style={{
                 boxShadow:
                   isLinked && tasks[0].deadline.badgeTone === "overdue"
@@ -2305,7 +2305,7 @@ export const LessonCard = memo(function LessonCard({
 
           {showHw && tasks.length > 1 && (
             <div
-              className="w-full rounded-xl bg-sys-bg/60 border border-sys-border transition-all duration-150 overflow-hidden shadow-xs mt-1"
+              className="w-full rounded-xl bg-sys-bg/60 border border-sys-border transition-[opacity,border-color] duration-fast ease-smooth overflow-hidden shadow-xs mt-1"
               style={{
                 boxShadow:
                   isLinked && highlightTask?.deadline.badgeTone === "overdue"
@@ -2582,7 +2582,7 @@ export const LessonCard = memo(function LessonCard({
                               target="_blank"
                               rel="noopener noreferrer"
                               onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
-                              className={`inline-flex shrink-0 h-6 px-2 items-center gap-1.5 rounded-md border text-[11px] font-semibold whitespace-nowrap active:scale-95 transition-all ${
+                              className={`inline-flex shrink-0 h-6 px-2 items-center gap-1.5 rounded-md border text-[11px] font-semibold whitespace-nowrap active:scale-95 transition-colors duration-fast ease-smooth ${
                                 getMeetingBtnStyle(ownMeeting.platform, isLive && isMeetingLiveOrSoon, "tiny")
                               }`}
                             >
@@ -2688,7 +2688,7 @@ export const LessonCard = memo(function LessonCard({
                       e.stopPropagation();
                       vibrateTap(12);
                     }}
-                    className={`inline-flex h-6 min-h-[24px] items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs font-semibold active:scale-95 transition-all ${
+                    className={`inline-flex h-6 min-h-[24px] items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs font-semibold active:scale-95 transition-colors duration-fast ease-smooth ${
                       getMeetingBtnStyle(m.platform, isLive && isMeetingLiveOrSoon, "tiny")
                     }`}
                   >
@@ -2709,7 +2709,7 @@ export const LessonCard = memo(function LessonCard({
                   aria-controls={`hw-list-${lesson.id}-${lesson.lesson_number}`}
                   title={isHwOpen ? "Згорнути завдання" : `${tasks.length} ДЗ (${getTaskStatusText(tasks[0].deadline, isLinked) || "без терміну"})`}
                   aria-label={isHwOpen ? "Згорнути завдання" : `${tasks.length} ДЗ (${getTaskStatusText(tasks[0].deadline, isLinked) || "без терміну"})`}
-                  className={`inline-flex h-6 min-h-[24px] items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-semibold transition-all active:scale-95 ${
+                  className={`inline-flex h-6 min-h-[24px] items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-semibold transition-colors duration-fast ease-smooth active:scale-95 ${
                     tasks[0].deadline.badgeTone === "overdue" && isLinked
                       ? "border-rose-500/40 bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300 hover:border-rose-500/60"
                       : tasks[0].deadline.badgeTone === "urgent"
@@ -2771,7 +2771,7 @@ export const LessonCard = memo(function LessonCard({
                         }}
                         title="Очистити слот (повністю прибрати скасовану пару)"
                         aria-label="Очистити слот"
-                        className="inline-flex min-h-[44px] sm:min-h-[32px] items-center justify-center rounded-md border border-rose-500/40 bg-rose-500/10 px-2 py-1 text-xs font-semibold text-rose-300 hover:bg-rose-500/20 active:scale-[0.98] transition-colors whitespace-nowrap"
+                        className="inline-flex min-h-[44px] sm:min-h-[32px] items-center justify-center rounded-md border border-rose-500/40 bg-rose-500/10 px-2 py-1 text-xs font-semibold text-rose-700 dark:text-rose-300 hover:bg-rose-500/20 active:scale-[0.98] transition-colors whitespace-nowrap"
                         style={{ whiteSpace: "nowrap" }}
                       >
                         Очистити
@@ -2911,7 +2911,7 @@ export const LessonCard = memo(function LessonCard({
       {isLive && (
         <div className="absolute left-4 right-4 bottom-2.5 h-[3px] rounded-full overflow-hidden bg-blue-500/20">
           <div
-            className="h-full rounded-full bg-sys-accent transition-all duration-500 ease-out"
+            className="h-full rounded-full bg-sys-accent transition-[width] duration-300 ease-out"
             style={{ width: `${progressPercent}%` }}
           />
         </div>

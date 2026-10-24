@@ -58,7 +58,7 @@ export function TeacherPinModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 sm:backdrop-blur-xs animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div
@@ -70,8 +70,8 @@ export function TeacherPinModal({
           <div className="flex items-center gap-3">
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${
               isTeacherUnlocked
-                ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-400"
-                : "bg-sky-500/15 border-sky-500/30 text-sky-400"
+                ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
+                : "bg-sky-500/15 border-sky-500/30 text-sky-600 dark:text-sky-400"
             }`}>
               {isTeacherUnlocked ? (
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -104,7 +104,7 @@ export function TeacherPinModal({
 
         {isTeacherUnlocked ? (
           <div className="space-y-4">
-            <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-300 leading-relaxed">
+            <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-800 dark:text-emerald-300 leading-relaxed font-medium">
               На цьому пристрої активовано доступ викладача. Усі посилання на відеоконференції (Zoom, Google Meet) у розкладі відображаються відкритими.
             </div>
             <div className="flex gap-2.5 pt-1">
@@ -118,7 +118,7 @@ export function TeacherPinModal({
               <button
                 type="button"
                 onClick={handleLock}
-                className="flex-1 h-10 rounded-xl border border-rose-500/40 bg-rose-500/10 text-xs font-semibold text-rose-300 hover:bg-rose-500/20 active:scale-98 transition-all"
+                className="flex-1 h-10 rounded-xl border border-rose-500/40 bg-rose-500/15 text-xs font-semibold text-rose-700 dark:text-rose-300 hover:bg-rose-500/25 active:scale-95 transition-colors"
               >
                 Вийти з режиму
               </button>
@@ -142,14 +142,14 @@ export function TeacherPinModal({
                   setPin(e.target.value);
                   if (error) setError(null);
                 }}
-                className={`w-full h-11 px-3.5 rounded-xl border text-sm text-sys-text-primary bg-sys-bg/90 placeholder:text-sys-text-muted focus:outline-hidden focus:ring-2 transition-all ${
+                className={`w-full h-11 px-3.5 rounded-xl border text-sm text-sys-text-primary bg-sys-bg/90 placeholder:text-sys-text-muted focus:outline-hidden focus:ring-2 transition-colors duration-fast ease-smooth ${
                   error
                     ? "border-rose-500/60 focus:ring-rose-500/30"
                     : "border-sys-border focus:border-sys-accent focus:ring-sys-accent/20"
                 }`}
               />
               {error && (
-                <p className="text-xs text-rose-400 font-medium mt-1.5 animate-in fade-in duration-150">
+                <p className="text-xs text-rose-700 dark:text-rose-400 font-medium mt-1.5 animate-in fade-in duration-150">
                   {error}
                 </p>
               )}
@@ -165,14 +165,14 @@ export function TeacherPinModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 h-11 rounded-xl border border-sys-border bg-sys-bg text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-card transition-colors"
+                className="flex-1 h-11 rounded-xl border border-sys-border bg-sys-bg text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-card transition-colors duration-fast ease-smooth"
               >
                 Скасувати
               </button>
               <button
                 type="submit"
                 disabled={isSubmitting || !pin.trim()}
-                className="flex-1 h-11 rounded-xl bg-sys-accent text-slate-950 text-xs font-bold shadow-md hover:bg-sys-accent/90 disabled:opacity-50 disabled:cursor-not-allowed active:scale-98 transition-all flex items-center justify-center gap-2"
+                className="flex-1 h-11 rounded-xl bg-sys-accent text-slate-950 text-xs font-bold shadow-md hover:bg-sys-accent/90 disabled:opacity-50 disabled:cursor-not-allowed active:scale-98 transition-colors duration-fast ease-smooth flex items-center justify-center gap-2"
               >
                 {isSubmitting ? (
                   <>

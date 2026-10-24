@@ -175,7 +175,7 @@ export function MobileTasksView({
                   type="button"
                   onClick={onPrevWeek}
                   aria-label="Попередній тиждень"
-                  className="flex h-7 w-7 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg active:scale-95 transition-all cursor-pointer font-bold"
+                  className="flex h-7 w-7 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg active:scale-95 transition-colors duration-fast ease-smooth cursor-pointer font-bold"
                 >
                   ‹
                 </button>
@@ -188,7 +188,7 @@ export function MobileTasksView({
                   type="button"
                   onClick={onNextWeek}
                   aria-label="Наступний тиждень"
-                  className="flex h-7 w-7 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg active:scale-95 transition-all cursor-pointer font-bold"
+                  className="flex h-7 w-7 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg active:scale-95 transition-colors duration-fast ease-smooth cursor-pointer font-bold"
                 >
                   ›
                 </button>
@@ -200,7 +200,7 @@ export function MobileTasksView({
               <button
                 type="button"
                 onClick={() => setScope("week")}
-                className={`rounded-lg px-2.5 py-1 font-semibold transition-all cursor-pointer ${
+                className={`rounded-lg px-2.5 py-1 font-semibold transition-colors duration-fast ease-smooth cursor-pointer ${
                   scope === "week"
                     ? "bg-sys-accent text-white shadow-xs"
                     : "text-sys-text-secondary hover:text-sys-text-primary"
@@ -211,7 +211,7 @@ export function MobileTasksView({
               <button
                 type="button"
                 onClick={() => setScope("all")}
-                className={`rounded-lg px-2.5 py-1 font-semibold transition-all cursor-pointer ${
+                className={`rounded-lg px-2.5 py-1 font-semibold transition-colors duration-fast ease-smooth cursor-pointer ${
                   scope === "all"
                     ? "bg-sys-accent text-white shadow-xs"
                     : "text-sys-text-secondary hover:text-sys-text-primary"
@@ -227,7 +227,7 @@ export function MobileTasksView({
             <div className="mb-4 rounded-xl border border-sky-500/30 bg-sky-500/10 p-3 text-xs text-sys-text-secondary">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-start gap-2 min-w-0">
-                  <span className="text-sky-400 font-bold shrink-0">ⓘ</span>
+                  <span className="text-sky-600 dark:text-sky-400 font-bold shrink-0">ⓘ</span>
                   <span className="leading-snug text-sys-text-primary">
                     Це завдання всієї групи. Прив&apos;яжи пошту, щоб бачити, що ти вже здав.
                   </span>
@@ -258,7 +258,7 @@ export function MobileTasksView({
       {/* Empty State (Section 22.2) */}
       {totalCount === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-sys-border bg-sys-card/30 p-8 text-center text-sys-text-muted mt-2">
-          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-sys-card border border-sys-border text-slate-400 shadow-xs">
+          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-sys-card border border-sys-border text-sys-text-muted shadow-xs">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
               <line x1="16" x2="16" y1="2" y2="6" />
@@ -299,7 +299,7 @@ export function MobileTasksView({
               >
                 <div className="flex items-center gap-2">
                   <span className={`h-2 w-2 rounded-full shadow-xs ${isLinked ? "bg-rose-500" : "bg-slate-500"}`} />
-                  <h3 className={`text-xs font-bold uppercase tracking-wider ${isLinked ? "text-rose-400" : "text-slate-400"}`}>
+                  <h3 className={`text-xs font-bold uppercase tracking-wider ${isLinked ? "text-rose-700 dark:text-rose-400" : "text-sys-text-secondary"}`}>
                     З минулих тижнів ({pastWeekTasks.length})
                   </h3>
                 </div>
@@ -332,7 +332,7 @@ export function MobileTasksView({
                   />
                   <h3
                     className={`text-xs font-bold uppercase tracking-wider ${
-                      isLinked ? "text-rose-400" : "text-slate-400"
+                      isLinked ? "text-rose-700 dark:text-rose-400" : "text-sys-text-secondary"
                     }`}
                   >
                     {isLinked
@@ -390,7 +390,7 @@ export function MobileTasksView({
               >
                 <div className="flex items-center gap-2">
                   <span className="h-2 w-2 rounded-full bg-slate-400 shadow-xs" />
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-sys-text-secondary">
                     Без терміну ({noDateTasks.length})
                   </h3>
                 </div>
@@ -429,7 +429,7 @@ export function MobileTasksView({
               >
                 <div className="flex items-center gap-2">
                   <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-xs" />
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-400">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
                     Здано ({turnedInTasks.length})
                   </h3>
                 </div>
@@ -466,32 +466,32 @@ export function renderTaskCard(t: FullTaskItem, key: string, isLinked: boolean =
   const isUrgent = !isDone && !isUnknown && t.deadline.badgeTone === "urgent";
 
   let statusText = getTaskStatusText(t.deadline, isLinked);
-  let statusColor = "#a1a1aa";
-  let dotColor = "#71717a";
+  let statusColorClass = "text-sys-text-secondary";
+  let dotColorClass = "bg-slate-400";
 
   if (isReturned) {
     statusText = t.assignedGrade != null ? `Оцінка: ${t.assignedGrade}/${t.maxPoints || 100}` : "Перевірено";
-    statusColor = "#34d399";
-    dotColor = "#10b981";
+    statusColorClass = "text-emerald-700 dark:text-emerald-400";
+    dotColorClass = "bg-emerald-600 dark:bg-emerald-400";
   } else if (isTurnedIn) {
     statusText = "Здано";
-    statusColor = "#34d399";
-    dotColor = "#10b981";
+    statusColorClass = "text-emerald-700 dark:text-emerald-400";
+    dotColorClass = "bg-emerald-600 dark:bg-emerald-400";
   } else if (isUnknown) {
     statusText = "статус невідомий";
-    statusColor = "#94a3b8";
-    dotColor = "#64748b";
+    statusColorClass = "text-sys-text-muted";
+    dotColorClass = "bg-slate-500";
   } else if (isOverdue) {
     if (isLinked) {
-      statusColor = "#f87171";
-      dotColor = "#ef4444";
+      statusColorClass = "text-rose-700 dark:text-rose-400";
+      dotColorClass = "bg-rose-600 dark:bg-rose-500";
     } else {
-      statusColor = "#a1a1aa";
-      dotColor = "#71717a";
+      statusColorClass = "text-sys-text-secondary";
+      dotColorClass = "bg-slate-400";
     }
   } else if (isUrgent) {
-    statusColor = "#fbbf24";
-    dotColor = "#f59e0b";
+    statusColorClass = "text-amber-800 dark:text-amber-400";
+    dotColorClass = "bg-amber-600 dark:bg-amber-400";
   }
 
   return (
@@ -500,7 +500,7 @@ export function renderTaskCard(t: FullTaskItem, key: string, isLinked: boolean =
       href={t.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="group block min-h-[76px] rounded-xl bg-sys-card border border-sys-border p-3.5 transition-all hover:border-sys-border-elevated hover:bg-sys-bg/60 cursor-pointer shadow-xs text-left active:scale-[0.99] overflow-hidden"
+      className="group block min-h-[76px] rounded-xl bg-sys-card border border-sys-border p-3.5 transition-colors duration-fast ease-smooth hover:border-sys-border-elevated hover:bg-sys-bg/60 cursor-pointer shadow-xs text-left active:scale-[0.99] overflow-hidden"
       style={{
         boxShadow: isDone
           ? "inset 3px 0 0 #10b981"
@@ -527,14 +527,8 @@ export function renderTaskCard(t: FullTaskItem, key: string, isLinked: boolean =
       )}
 
       {statusText ? (
-        <div
-          className="mt-2 flex items-center gap-1.5 text-xs font-medium"
-          style={{ color: statusColor }}
-        >
-          <span
-            className="h-1.5 w-1.5 rounded-full shrink-0"
-            style={{ backgroundColor: dotColor }}
-          />
+        <div className={`mt-2 flex items-center gap-1.5 text-xs font-medium ${statusColorClass}`}>
+          <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${dotColorClass}`} />
           <span>{statusText}</span>
         </div>
       ) : null}

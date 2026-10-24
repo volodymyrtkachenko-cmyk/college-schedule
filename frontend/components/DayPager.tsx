@@ -257,7 +257,7 @@ export function DayPager({
           <span className="text-sm font-medium text-sys-text-secondary">{dayParts.dayMonth}</span>
           {learningModeBadge}
           {schedule.is_shortened_day && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30 shadow-xs">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30 shadow-xs">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="12" cy="12" r="10" />
                 <polyline points="12 6 12 12 16 14" />
@@ -275,7 +275,7 @@ export function DayPager({
               disabled={sharingImage}
               title="Скопіювати або зберегти розклад як PNG-картинку"
               aria-label="Поділитися картинкою розкладу"
-              className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-sys-border bg-sys-card text-sys-text-secondary transition-all hover:border-sys-accent/40 hover:text-sys-accent active:scale-95 disabled:opacity-50"
+              className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-sys-border bg-sys-card text-sys-text-secondary transition-colors duration-fast ease-smooth hover:border-sys-accent/40 hover:text-sys-accent active:scale-95 disabled:opacity-50"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
                 <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
@@ -288,7 +288,7 @@ export function DayPager({
               onClick={handleShareDay}
               title="Скопіювати розклад дня"
               aria-label="Скопіювати розклад дня"
-              className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-sys-border bg-sys-card text-sys-text-secondary transition-all hover:border-sys-accent/40 hover:text-sys-accent active:scale-95"
+              className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-sys-border bg-sys-card text-sys-text-secondary transition-colors duration-fast ease-smooth hover:border-sys-accent/40 hover:text-sys-accent active:scale-95"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
@@ -316,7 +316,7 @@ export function DayPager({
       )}
 
       {/* Animated Day Schedule List */}
-      <AnimatePresence initial={false} custom={daySlideDir} mode="wait">
+      <AnimatePresence initial={false} custom={daySlideDir}>
         <motion.div
           key={schedule.date}
           custom={daySlideDir}
@@ -341,7 +341,7 @@ export function DayPager({
             duration: shouldReduceMotion ? 0 : 0.18,
             ease: [0.2, 0, 0, 1],
           }}
-          className="flex flex-col flex-1 gap-3 will-change-transform"
+          className="flex flex-col flex-1 gap-3"
         >
           {orderedLessons.length > 0 ? (
             orderedLessons.map((lesson, idx) => {

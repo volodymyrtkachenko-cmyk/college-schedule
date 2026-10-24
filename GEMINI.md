@@ -162,22 +162,32 @@ college-schedule/
 | **26. Захист посилань у розкладі викладачів** | Студенти у вкладці викладача бачать відкриті посилання лише для своєї групи (за наявності прив'язаного Classroom). Для інших груп та гостей посилання захищені `[🔒 Онлайн]`. Викладач розблоковує всі свої посилання через швидкий PIN-код викладача (`X-Teacher-Pin` / `TeacherPinModal`). | `backend/app/services/classroom_access.py`, `backend/app/routers/schedule.py`, `backend/app/routers/settings.py`, `frontend/lib/useTeacherAccess.ts`, `frontend/components/TeacherPinModal.tsx`, `frontend/components/LessonCard.tsx` |
 | **27. Скорочені дні та копіювання дня** | Підтримка скорочених днів (початок о 09:00, пари по 50 хв, перерви по 10 хв: 09:00–09:50, 10:00–10:50, 11:00–11:50, 12:00–12:50, 13:00–13:50) із бейджем `⏱ 50 хв`, керуванням у `SemesterSettingsPanel` та швидким тумблером у меню дня `⋮`. Можливість копіювання цілого дня в редакторі розкладу (як на ПК, так і в мобільному меню дій). | `backend/app/services/settings.py`, `backend/app/routers/settings.py`, `backend/app/routers/schedule.py`, `backend/app/routers/schedule_now.py`, `frontend/components/ScheduleEditGrid.tsx`, `frontend/components/ScheduleWeekGrid.tsx`, `frontend/components/admin/AdminScheduleEditor.tsx`, `frontend/components/admin/SemesterSettingsPanel.tsx`, `frontend/components/ScheduleDay.tsx`, `frontend/components/DayPager.tsx` |
 | **28. Сповіщення автоімпорту та перегляд змін** | Сповіщення автоімпорту відображає точну розбивку: кількість замін та перестановок пар у той же день (без згадки скасувань, оскільки автоімпорт не скасовує пари самостійно). Кнопка «Відкотити» виконана у контрастному насиченому кольорі (`bg-rose-600 text-white font-bold`), що забезпечує чітку видимість у світлій та темній темах. У модальному вікні змін розкладу (`PublicationChangesModal`) застосовано сортування за групами (в українській локалі з урахуванням чисел), швидкі фільтри за групами та чіткі бейджі типів (`🔀 Перестановка`, `🏷️ Заміна`, `❌ Скасовано`). | `backend/app/routers/admin_import.py`, `backend/app/routers/schedule_versions.py`, `frontend/app/admin/page.tsx`, `frontend/components/admin/PublicationChangesModal.tsx`, `frontend/lib/format.ts`, `frontend/lib/api.ts` |
+| **29. Контраст тем і плавність переходів** | Усі кольорові пари (40/40) проходять стандарт WCAG AA (≥ 4.5:1 для тексту, ≥ 3:1 для іконок/рамок/великого тексту) в обох темах (темна/світла). Повна відсутність застарілих однотемних класів палітри. Автоматичний скрипт аудиту `npm run check:contrast` (`check-contrast.mjs`). Уніфіковані токени руху (Fast 120ms, Base 200ms, Slow 280ms) у `motion.ts` та Tailwind. 0 `transition-all` у публічних компонентах. Перемикання теми через View Transitions API (240ms) без `theme-transitioning *`. Усунено спалах теми при першому візиті через узгодження `layout.tsx` та `useTheme.tsx`. Вилучено `mode="wait"` з `AnimatePresence` для миттєвого перемикання днів/тижнів. `SplashScreen` з'являється лише при завантаженні понад 150мс і плавно виходить за 200мс. Глобальний `MotionConfig reducedMotion="user"`. | `frontend/scripts/check-contrast.mjs`, `frontend/scripts/contrast-pairs.json`, `frontend/lib/motion.ts`, `frontend/components/MotionConfigProvider.tsx`, `frontend/app/globals.css`, `frontend/tailwind.config.ts`, `frontend/lib/useTheme.tsx`, `frontend/components/SplashScreen.tsx`, `frontend/components/LessonCard.tsx`, `frontend/components/ScheduleDay.tsx`, `frontend/components/ScheduleWeekGrid.tsx`, `frontend/components/DayPager.tsx`, `frontend/app/page.tsx` |
 
 ---
 
 ## 6. Дизайн-система
 
 - **Токени кольорів (CSS variables)**:
-  - `--bg`: фоновий колір сторінки (`#0b0f19`)
-  - `--sys-card` / `--surface`: фон карток (`#131926` або `#16161a`)
-  - `--border` / `--sys-border`: рамки елементів (`#1f293d` або `#27272a`)
+  - `--bg`: фоновий колір сторінки (`#0b0f19` dark / `#ffffff` light)
+  - `--sys-card` / `--surface`: фон карток (`#131926` / `#ffffff`)
+  - `--sys-elevated`: підняті поверхні карток (`#1b2333` / `#f8fafc`)
+  - `--sys-text-primary`: основний текст (`#f8fafc` / `#0f172a`)
+  - `--sys-text-secondary`: другорядний текст (`#94a3b8` / `#475569`)
+  - `--sys-text-muted`: приглушений текст (`#7d8ba1` dark / `#586579` light) — контраст ≥ 4.7:1 на всіх поверхнях
   - `--sys-accent`: небесно-синій акцент (`#38bdf8`)
-  - `--danger`: червоний для прострочених дедлайнів авторизованого користувача (`#ef4444` / `#f87171`)
-  - `--warn`: бурштиновий для термінових завдань (`#f59e0b` / `#fbbf24`)
-  - `--ok`: смарагдовий для зданих робіт та погоджених станів (`#10b981` / `#34d399`)
-- **Типографіка**:
-  - Чітка ієрархія, повні назви предметів та ПІБ викладачів без агресивного обрізання, підвищений мінімальний розмір шрифту для читабельності.
-  - Час занять завжди захищений від перенесення: `white-space: nowrap`.
+  - `--sys-accent-solid`: насичена синя заливка під білий текст (`#2563eb`, контраст 5.17:1)
+  - `--danger`: червоний для прострочених дедлайнів (`#fb7185` dark / `#be123c` light)
+  - `--warn`: бурштиновий для чисельника / термінових завдань (`#fcd34d` dark / `#92400e` light)
+  - `--ok`: смарагдовий для зданих робіт (`#34d399` dark / `#047857` light)
+  - `--sys-info`: інфо-синій (`#38bdf8` dark / `#0369a1` light)
+- **Токени руху (Motion tokens)**:
+  - Fast: 120ms (`duration-fast`) — hover, tap, активні стани
+  - Base: 200ms (`duration-base`) — картки, перемикання вкладок, діалоги
+  - Slow: 280ms (`duration-slow`) — шторки, великі переходи екранів
+  - Theme View Transition: 240ms (`::view-transition-old/new(root)`)
+  - Easing: `smooth` (`cubic-bezier(0.2, 0, 0, 1)`), `easeOut` (`cubic-bezier(0, 0, 0.2, 1)`)
+  - `prefers-reduced-motion`: 0s, підтримка через `<MotionConfig reducedMotion="user">`
 - **Тап-цілі та доступність**:
   - На мобільному всі ключові інтерактивні елементи мають мінімальну висоту 44px (`min-h-[44px]`), додані `aria-label` та підтримка `prefers-reduced-motion`.
 

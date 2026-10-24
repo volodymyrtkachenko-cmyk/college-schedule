@@ -134,7 +134,7 @@ export default function SettingsPage() {
               <button
                 type="button"
                 onClick={() => updateSetting("defaultSubgroup", 1)}
-                className={`py-1.5 px-2 rounded-lg font-semibold text-center transition-all ${
+                className={`py-1.5 px-2 rounded-lg font-semibold text-center transition-colors duration-fast ease-smooth ${
                   settings.defaultSubgroup === 1
                     ? "bg-sys-accent text-white shadow-xs"
                     : "text-sys-text-secondary hover:text-sys-text-primary"
@@ -145,7 +145,7 @@ export default function SettingsPage() {
               <button
                 type="button"
                 onClick={() => updateSetting("defaultSubgroup", 2)}
-                className={`py-1.5 px-2 rounded-lg font-semibold text-center transition-all ${
+                className={`py-1.5 px-2 rounded-lg font-semibold text-center transition-colors duration-fast ease-smooth ${
                   settings.defaultSubgroup === 2
                     ? "bg-sys-accent text-white shadow-xs"
                     : "text-sys-text-secondary hover:text-sys-text-primary"
@@ -170,7 +170,7 @@ export default function SettingsPage() {
               <button
                 type="button"
                 onClick={() => updateSetting("defaultViewDesktop", "week")}
-                className={`py-1.5 px-2 rounded-lg font-semibold text-center transition-all ${
+                className={`py-1.5 px-2 rounded-lg font-semibold text-center transition-colors duration-fast ease-smooth ${
                   settings.defaultViewDesktop === "week"
                     ? "bg-sys-accent text-white shadow-xs"
                     : "text-sys-text-secondary hover:text-sys-text-primary"
@@ -181,7 +181,7 @@ export default function SettingsPage() {
               <button
                 type="button"
                 onClick={() => updateSetting("defaultViewDesktop", "today")}
-                className={`py-1.5 px-2 rounded-lg font-semibold text-center transition-all ${
+                className={`py-1.5 px-2 rounded-lg font-semibold text-center transition-colors duration-fast ease-smooth ${
                   settings.defaultViewDesktop === "today"
                     ? "bg-sys-accent text-white shadow-xs"
                     : "text-sys-text-secondary hover:text-sys-text-primary"
@@ -205,7 +205,7 @@ export default function SettingsPage() {
             <button
               type="button"
               onClick={() => setTheme("dark")}
-              className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg transition-all ${
+              className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg transition-colors duration-fast ease-smooth ${
                 theme === "dark"
                   ? "bg-sys-accent text-white shadow-xs"
                   : "text-sys-text-secondary hover:text-sys-text-primary"
@@ -217,7 +217,7 @@ export default function SettingsPage() {
             <button
               type="button"
               onClick={() => setTheme("light")}
-              className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg transition-all ${
+              className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg transition-colors duration-fast ease-smooth ${
                 theme === "light"
                   ? "bg-sys-accent text-white shadow-xs"
                   : "text-sys-text-secondary hover:text-sys-text-primary"
@@ -229,7 +229,7 @@ export default function SettingsPage() {
             <button
               type="button"
               onClick={() => setTheme("system")}
-              className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg transition-all ${
+              className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg transition-colors duration-fast ease-smooth ${
                 theme === "system"
                   ? "bg-sys-accent text-white shadow-xs"
                   : "text-sys-text-secondary hover:text-sys-text-primary"
@@ -363,13 +363,13 @@ export default function SettingsPage() {
                 <button
                   type="submit"
                   disabled={isVerifyingPin || !pinInput.trim()}
-                  className="h-10 px-4 rounded-xl bg-sys-accent text-white font-semibold text-xs hover:bg-sys-accent/90 disabled:opacity-50 transition-all shrink-0 cursor-pointer shadow-xs active:scale-95"
+                  className="h-10 px-4 rounded-xl bg-sys-accent text-white font-semibold text-xs hover:bg-sys-accent/90 disabled:opacity-50 transition-colors duration-fast ease-smooth shrink-0 cursor-pointer shadow-xs active:scale-95"
                 >
                   {isVerifyingPin ? "Перевірка..." : "Активувати"}
                 </button>
               </div>
-              {pinError && <p className="text-xs text-rose-400 font-medium">{pinError}</p>}
-              {pinSuccess && <p className="text-xs text-emerald-400 font-medium">✓ Доступ викладача успішно активовано!</p>}
+              {pinError && <p className="text-xs text-rose-700 dark:text-rose-400 font-medium">{pinError}</p>}
+              {pinSuccess && <p className="text-xs text-emerald-800 dark:text-emerald-400 font-medium">✓ Доступ викладача успішно активовано!</p>}
             </form>
           )}
 
@@ -390,7 +390,7 @@ export default function SettingsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
             <Link
               href="/statistics"
-              className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 p-3 hover:border-purple-500/40 hover:bg-purple-500/5 transition-all group"
+              className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 p-3 hover:border-purple-500/40 hover:bg-purple-500/5 transition-colors duration-fast ease-smooth group"
             >
               <span className="flex items-center gap-2.5 font-semibold text-sys-text-primary">
                 <span className="text-base">📊</span>
@@ -401,7 +401,7 @@ export default function SettingsPage() {
 
             <Link
               href="/educational-process"
-              className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 p-3 hover:border-indigo-500/40 hover:bg-indigo-500/5 transition-all group"
+              className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 p-3 hover:border-indigo-500/40 hover:bg-indigo-500/5 transition-colors duration-fast ease-smooth group"
             >
               <span className="flex items-center gap-2.5 font-semibold text-sys-text-primary">
                 <span className="text-base">📅</span>
@@ -425,13 +425,13 @@ export default function SettingsPage() {
             <div className="space-y-3">
               <div className="flex items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3 text-xs">
                 <div>
-                  <div className="font-bold text-emerald-400">Авторизовано: {auth.user.username}</div>
+                  <div className="font-bold text-emerald-800 dark:text-emerald-400">Авторизовано: {auth.user.username}</div>
                   <div className="text-sys-text-secondary text-[11px]">Роль: {auth.user.role}</div>
                 </div>
                 <button
                   type="button"
                   onClick={() => auth.logout()}
-                  className="rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 px-3 py-1.5 text-xs font-semibold text-rose-400 transition-colors"
+                  className="rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 px-3 py-1.5 text-xs font-semibold text-rose-700 dark:text-rose-400 transition-colors"
                 >
                   Вийти
                 </button>
@@ -447,7 +447,7 @@ export default function SettingsPage() {
           ) : (
             <Link
               href="/login"
-              className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 p-3 text-xs hover:border-sys-accent/40 hover:bg-sys-accent/5 transition-all group"
+              className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 p-3 text-xs hover:border-sys-accent/40 hover:bg-sys-accent/5 transition-colors duration-fast ease-smooth group"
             >
               <div className="space-y-0.5">
                 <div className="font-semibold text-sys-text-primary">Вхід для адміністрації</div>

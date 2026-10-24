@@ -38,7 +38,7 @@ export function BottomNav({
           }}
           aria-label="Розклад"
           aria-pressed={activeTab === "schedule"}
-          className={`flex flex-1 min-h-[48px] flex-col items-center justify-center gap-0.5 rounded-xl transition-all duration-150 active:scale-95 ${
+          className={`flex flex-1 min-h-[48px] flex-col items-center justify-center gap-0.5 rounded-xl transition-[color,transform] duration-fast ease-smooth active:scale-95 ${
             activeTab === "schedule"
               ? "font-bold text-sys-accent"
               : "text-sys-text-secondary hover:text-sys-text-primary font-medium"
@@ -72,7 +72,7 @@ export function BottomNav({
             }}
             aria-label={`Завдання${overdueCount > 0 ? `, прострочено ${overdueCount}` : ""}`}
             aria-pressed={activeTab === "tasks"}
-            className={`relative flex flex-1 min-h-[48px] flex-col items-center justify-center gap-0.5 rounded-xl transition-all duration-150 active:scale-95 ${
+            className={`relative flex flex-1 min-h-[48px] flex-col items-center justify-center gap-0.5 rounded-xl transition-[color,transform] duration-fast ease-smooth active:scale-95 ${
               activeTab === "tasks"
                 ? "font-bold text-sys-accent"
                 : "text-sys-text-secondary hover:text-sys-text-primary font-medium"
@@ -114,7 +114,7 @@ export function BottomNav({
           href="/settings"
           onClick={() => vibrateTap(10)}
           aria-label="Налаштування"
-          className="flex flex-1 min-h-[48px] flex-col items-center justify-center gap-0.5 rounded-xl transition-all duration-150 active:scale-95 text-sys-text-secondary hover:text-sys-text-primary font-medium"
+          className="flex flex-1 min-h-[48px] flex-col items-center justify-center gap-0.5 rounded-xl transition-[color,transform] duration-fast ease-smooth active:scale-95 text-sys-text-secondary hover:text-sys-text-primary font-medium"
         >
           <svg
             width="20"

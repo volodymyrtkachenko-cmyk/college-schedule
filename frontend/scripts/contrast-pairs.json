@@ -1,0 +1,54 @@
+{
+  "themes": {
+    "dark": {
+      "baseBg": "#0a0d14",
+      "pairs": [
+        { "name": "Primary text on Background", "fg": "--sys-text-primary", "bg": "--sys-bg", "threshold": 4.5 },
+        { "name": "Primary text on Card", "fg": "--sys-text-primary", "bg": "--sys-card", "threshold": 4.5 },
+        { "name": "Primary text on Elevated", "fg": "--sys-text-primary", "bg": "--sys-elevated", "threshold": 4.5 },
+        { "name": "Secondary text on Background", "fg": "--sys-text-secondary", "bg": "--sys-bg", "threshold": 4.5 },
+        { "name": "Secondary text on Card", "fg": "--sys-text-secondary", "bg": "--sys-card", "threshold": 4.5 },
+        { "name": "Muted text on Background", "fg": "--sys-text-muted", "bg": "--sys-bg", "threshold": 4.5 },
+        { "name": "Muted text on Card", "fg": "--sys-text-muted", "bg": "--sys-card", "threshold": 4.5 },
+        { "name": "Muted text on Elevated", "fg": "--sys-text-muted", "bg": "--sys-elevated", "threshold": 4.5 },
+        { "name": "White text on Solid Accent Button", "fg": "#ffffff", "bg": "--sys-accent-solid", "threshold": 4.5 },
+        { "name": "Info text on Card", "fg": "--sys-info", "bg": "--sys-card", "threshold": 4.5 },
+        { "name": "OK Status text on Card", "fg": "--sys-status-ok-text", "bg": "--sys-card", "threshold": 4.5 },
+        { "name": "OK Status text on OK Badge", "fg": "--sys-status-ok-text", "bg": { "color": "--sys-status-ok-bg", "alpha": 0.15, "over": "--sys-card" }, "threshold": 4.5 },
+        { "name": "Warn (Numerator) text on Card", "fg": "--sys-status-warn-text", "bg": "--sys-card", "threshold": 4.5 },
+        { "name": "Warn text on Warn Badge", "fg": "--sys-status-warn-text", "bg": { "color": "--sys-status-warn-bg", "alpha": 0.15, "over": "--sys-card" }, "threshold": 4.5 },
+        { "name": "Danger text on Card", "fg": "--sys-status-danger-text", "bg": "--sys-card", "threshold": 4.5 },
+        { "name": "Danger text on Danger Badge", "fg": "--sys-status-danger-text", "bg": { "color": "--sys-status-danger-bg", "alpha": 0.15, "over": "--sys-card" }, "threshold": 4.5 },
+        { "name": "Info text on Info Badge", "fg": "--sys-status-info-text", "bg": { "color": "--sys-status-info-bg", "alpha": 0.15, "over": "--sys-card" }, "threshold": 4.5 },
+        { "name": "Denominator text on Denom Badge", "fg": "--sys-status-denom-text", "bg": { "color": "--sys-status-denom-bg", "alpha": 0.15, "over": "--sys-card" }, "threshold": 4.5 },
+        { "name": "Neutral text on Neutral Badge", "fg": "--sys-status-neutral-text", "bg": { "color": "--sys-status-neutral-bg", "alpha": 0.15, "over": "--sys-card" }, "threshold": 4.5 }
+      ]
+    },
+    "light": {
+      "baseBg": "#f8fafc",
+      "pairs": [
+        { "name": "Primary text on Background", "fg": "--sys-text-primary", "bg": "--sys-bg", "threshold": 4.5 },
+        { "name": "Primary text on Card", "fg": "--sys-text-primary", "bg": "--sys-card", "threshold": 4.5 },
+        { "name": "Secondary text on Background", "fg": "--sys-text-secondary", "bg": "--sys-bg", "threshold": 4.5 },
+        { "name": "Secondary text on Card", "fg": "--sys-text-secondary", "bg": "--sys-card", "threshold": 4.5 },
+        { "name": "Muted text on Background", "fg": "--sys-text-muted", "bg": "--sys-bg", "threshold": 4.5 },
+        { "name": "Muted text on Card", "fg": "--sys-text-muted", "bg": "--sys-card", "threshold": 4.5 },
+        { "name": "Muted text on Input", "fg": "--sys-text-muted", "bg": "--sys-input", "threshold": 4.5 },
+        { "name": "Muted text on Active Tab", "fg": "--sys-text-muted", "bg": "--sys-tab-active", "threshold": 4.5 },
+        { "name": "White text on Solid Accent Button", "fg": "#ffffff", "bg": "--sys-accent-solid", "threshold": 4.5 },
+        { "name": "Warn text on Card", "fg": "--sys-warning", "bg": "--sys-card", "threshold": 4.5 },
+        { "name": "OK text on Card", "fg": "--sys-success", "bg": "--sys-card", "threshold": 4.5 },
+        { "name": "White text on Warning button/badge", "fg": "#ffffff", "bg": "--sys-warning", "threshold": 4.5 },
+        { "name": "OK Status text on Card", "fg": "--sys-status-ok-text", "bg": "--sys-card", "threshold": 4.5 },
+        { "name": "OK Status text on OK Badge", "fg": "--sys-status-ok-text", "bg": { "color": "--sys-status-ok-bg", "alpha": 0.12, "over": "--sys-card" }, "threshold": 4.5 },
+        { "name": "Warn (Numerator) text on Card", "fg": "--sys-status-warn-text", "bg": "--sys-card", "threshold": 4.5 },
+        { "name": "Warn text on Warn Badge", "fg": "--sys-status-warn-text", "bg": { "color": "--sys-status-warn-bg", "alpha": 0.12, "over": "--sys-card" }, "threshold": 4.5 },
+        { "name": "Danger text on Card", "fg": "--sys-status-danger-text", "bg": "--sys-card", "threshold": 4.5 },
+        { "name": "Danger text on Danger Badge", "fg": "--sys-status-danger-text", "bg": { "color": "--sys-status-danger-bg", "alpha": 0.12, "over": "--sys-card" }, "threshold": 4.5 },
+        { "name": "Info text on Info Badge", "fg": "--sys-status-info-text", "bg": { "color": "--sys-status-info-bg", "alpha": 0.12, "over": "--sys-card" }, "threshold": 4.5 },
+        { "name": "Denominator text on Denom Badge", "fg": "--sys-status-denom-text", "bg": { "color": "--sys-status-denom-bg", "alpha": 0.12, "over": "--sys-card" }, "threshold": 4.5 },
+        { "name": "Neutral text on Neutral Badge", "fg": "--sys-status-neutral-text", "bg": { "color": "--sys-status-neutral-bg", "alpha": 0.12, "over": "--sys-card" }, "threshold": 4.5 }
+      ]
+    }
+  }
+}

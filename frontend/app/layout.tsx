@@ -4,6 +4,7 @@ import { AuthProvider } from "../lib/auth";
 import { Heartbeat } from "../components/Heartbeat";
 import { ToastProvider } from "../components/ToastProvider";
 import { ThemeProvider } from "../lib/useTheme";
+import { MotionConfigProvider } from "../components/MotionConfigProvider";
 
 export const metadata: Metadata = {
   title: "Розклад занять | ДФКР",
@@ -58,12 +59,14 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       </head>
       <body>
         <ThemeProvider>
-          <AuthProvider>
-            <ToastProvider>
-              <Heartbeat />
-              {children}
-            </ToastProvider>
-          </AuthProvider>
+          <MotionConfigProvider>
+            <AuthProvider>
+              <ToastProvider>
+                <Heartbeat />
+                {children}
+              </ToastProvider>
+            </AuthProvider>
+          </MotionConfigProvider>
         </ThemeProvider>
       </body>
     </html>
