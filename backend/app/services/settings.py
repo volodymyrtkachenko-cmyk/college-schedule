@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import json
 import time
 from datetime import date
-from typing import Any
+from typing import Any, Set
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -116,9 +118,9 @@ class SettingsService:
             pass
         return []
 
-    async def get_shortened_dates_set(self, db: AsyncSession) -> set[date]:
+    async def get_shortened_dates_set(self, db: AsyncSession) -> Set[date]:
         items = await self.get_shortened_days(db)
-        res = set()
+        res: Set[date] = set()
         for it in items:
             try:
                 res.add(date.fromisoformat(it["date"]))
