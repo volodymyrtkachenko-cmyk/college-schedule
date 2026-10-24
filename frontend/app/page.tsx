@@ -1409,14 +1409,14 @@ export default function HomePage() {
           </div>
         )}
 
-        <AnimatePresence>
+        <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={mobileTab === "tasks" ? "tasks" : view}
-            initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: shouldReduceMotion ? 0 : -4 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             transition={{
-              duration: shouldReduceMotion ? 0 : 0.18,
+              duration: shouldReduceMotion ? 0 : 0.12,
               ease: [0.2, 0, 0, 1],
             }}
           >
@@ -1549,11 +1549,11 @@ export default function HomePage() {
           <AnimatePresence>
             <motion.div
               key={view}
-              initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 4 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: shouldReduceMotion ? 0 : -4 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               transition={{
-                duration: shouldReduceMotion ? 0 : 0.18,
+                duration: shouldReduceMotion ? 0 : 0.12,
                 ease: [0.2, 0, 0, 1],
               }}
             >
@@ -1671,13 +1671,13 @@ export default function HomePage() {
                         </div>
                       )}
 
-                      <AnimatePresence>
+                      <AnimatePresence mode="wait" initial={false}>
                         <motion.div
                           key={selectedDaySchedule?.date ?? today?.date ?? "day"}
-                          initial={{ opacity: 0, y: 6 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -6 }}
-                          transition={{ duration: shouldReduceMotion ? 0 : 0.18, ease: [0.2, 0, 0, 1] }}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: shouldReduceMotion ? 0 : 0.12, ease: [0.2, 0, 0, 1] }}
                         >
                           <ScheduleDay
                             schedule={selectedDaySchedule ?? today!}

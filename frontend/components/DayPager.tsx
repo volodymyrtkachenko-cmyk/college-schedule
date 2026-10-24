@@ -316,13 +316,13 @@ export function DayPager({
       )}
 
       {/* Animated Day Schedule List */}
-      <AnimatePresence initial={false} custom={daySlideDir}>
+      <AnimatePresence mode="wait" initial={false} custom={daySlideDir}>
         <motion.div
           key={schedule.date}
           custom={daySlideDir}
           variants={{
             enter: (dir: number) => ({
-              x: dir > 0 ? 10 : dir < 0 ? -10 : 0,
+              x: dir > 0 ? 16 : dir < 0 ? -16 : 0,
               opacity: 0,
             }),
             center: {
@@ -330,7 +330,7 @@ export function DayPager({
               opacity: 1,
             },
             exit: (dir: number) => ({
-              x: dir > 0 ? -10 : dir < 0 ? 10 : 0,
+              x: dir > 0 ? -16 : dir < 0 ? 16 : 0,
               opacity: 0,
             }),
           }}
@@ -338,7 +338,7 @@ export function DayPager({
           animate="center"
           exit="exit"
           transition={{
-            duration: shouldReduceMotion ? 0 : 0.18,
+            duration: shouldReduceMotion ? 0 : 0.12,
             ease: [0.2, 0, 0, 1],
           }}
           className="flex flex-col flex-1 gap-3"

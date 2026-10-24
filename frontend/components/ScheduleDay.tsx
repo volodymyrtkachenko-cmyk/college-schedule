@@ -318,8 +318,8 @@ export function ScheduleDay({
               <motion.div
                 key={lessonKey}
                 variants={{
-                  hidden: { opacity: 0, y: 8 },
-                  visible: { opacity: 1, y: 0, transition: { duration: 0.18, ease: [0.2, 0, 0, 1] } },
+                  hidden: { opacity: 0 },
+                  visible: { opacity: 1, transition: { duration: 0.12, ease: [0.2, 0, 0, 1] } },
                 }}
                 className="flex flex-col gap-2.5"
               >
