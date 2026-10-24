@@ -23,7 +23,6 @@ export default function SettingsPage() {
   const auth = useAuth();
 
   const [scheduleMode, setScheduleMode] = useState<"student" | "teacher">("student");
-  const [showAllSettings, setShowAllSettings] = useState(false);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -67,8 +66,8 @@ export default function SettingsPage() {
     window.location.href = "/?sync=1";
   };
 
-  const isStudent = scheduleMode === "student" || showAllSettings;
-  const isTeacher = scheduleMode === "teacher" || showAllSettings;
+  const isStudent = scheduleMode === "student";
+  const isTeacher = scheduleMode === "teacher";
   const roleLabel = (auth?.user && (ROLE_NAMES[auth.user.role] || auth.user.role)) || "";
 
   return (
@@ -457,23 +456,6 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        {/* Toggle between filtered and all settings */}
-        <div className="flex justify-center pt-1 pb-1">
-          <button
-            type="button"
-            onClick={() => setShowAllSettings((prev) => !prev)}
-            className="inline-flex items-center gap-1.5 text-xs text-sys-text-muted hover:text-sys-text-primary transition-colors cursor-pointer py-1.5 px-3 rounded-lg hover:bg-sys-card border border-transparent hover:border-sys-border"
-          >
-            <span>{showAllSettings ? "✕" : "⚙️"}</span>
-            <span className="underline underline-offset-4 decoration-sys-border hover:decoration-sys-accent">
-              {showAllSettings
-                ? "Показувати лише для поточного режиму"
-                : scheduleMode === "student"
-                ? "Показати доступ викладача (PIN-код)"
-                : "Показати прив'язку Classroom і підгрупу"}
-            </span>
-          </button>
-        </div>
 
         {/* Section 6: Адміністрування */}
         <section className="rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-xs space-y-3">
