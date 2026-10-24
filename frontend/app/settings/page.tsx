@@ -1,12 +1,19 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
-import { useTheme, Theme } from "../../lib/useTheme";
+import { useTheme } from "../../lib/useTheme";
 import { useUserSettings } from "../../lib/useUserSettings";
 import { useClassroomSubmissions } from "../../lib/useClassroomSubmissions";
 import { useTeacherAccess } from "../../lib/useTeacherAccess";
 import { useAuth } from "../../lib/auth";
+
+const ROLE_NAMES: Record<string, string> = {
+  admin: "Адміністратор",
+  editor: "Редактор",
+  viewer: "Перегляд",
+  teacher: "Викладач",
+};
 
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
@@ -34,13 +41,15 @@ export default function SettingsPage() {
       setPinSuccess(true);
       setTimeout(() => setPinSuccess(false), 3000);
     } else {
-      setPinError(res.error || "Невірний PIN-код");
+      setPinError("Невірний PIN-код. Перевірте й спробуйте ще раз.");
     }
   };
 
   const handleClassroomLinkClick = () => {
     window.location.href = "/?sync=1";
   };
+
+  const roleLabel = (auth?.user && (ROLE_NAMES[auth.user.role] || auth.user.role)) || "";
 
   return (
     <div className="min-h-screen bg-sys-bg text-sys-text-primary transition-colors duration-200">
@@ -80,27 +89,99 @@ export default function SettingsPage() {
             <span>Налаштування</span>
           </h1>
           <p className="mt-1 text-xs sm:text-sm text-sys-text-secondary">
-            Параметри інтерфейсу та розкладу для цього пристрою
+            Параметри розкладу й інтерфейсу. Діють лише на цьому пристрої.
           </p>
         </div>
 
-        {/* Section 1: Розклад та кастомізація */}
+        {/* Section 1: Розклад */}
         <section className="rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-xs space-y-4">
           <div className="flex items-center gap-2 pb-2 border-b border-sys-border/60">
             <span className="text-base">📅</span>
             <h2 className="text-sm font-bold uppercase tracking-wider text-sys-text-muted">
-              Відображення розкладу
+              Розклад
             </h2>
           </div>
 
-          {/* Toggle: Homework badges */}
+          {/* 1.1 Setting: Моя підгрупа */}
+          <div className="space-y-2 py-1">
+            <span className="font-semibold text-xs sm:text-sm text-sys-text-primary">
+              Моя підгрупа
+            </span>
+            <p className="text-xs text-sys-text-secondary leading-relaxed">
+              Автоматично обирається для пар із поділом на підгрупи; на картці пари її можна змінити.
+            </p>
+            <div className="grid grid-cols-2 gap-1.5 rounded-xl border border-sys-border bg-sys-bg p-1 text-xs">
+              <button
+                type="button"
+                onClick={() => updateSetting("defaultSubgroup", 1)}
+                className={`py-1.5 px-2 rounded-lg font-semibold text-center transition-colors duration-fast ease-smooth cursor-pointer ${
+                  settings.defaultSubgroup === 1
+                    ? "bg-sys-accent text-white shadow-xs"
+                    : "text-sys-text-secondary hover:text-sys-text-primary"
+                }`}
+              >
+                1 підгрупа
+              </button>
+              <button
+                type="button"
+                onClick={() => updateSetting("defaultSubgroup", 2)}
+                className={`py-1.5 px-2 rounded-lg font-semibold text-center transition-colors duration-fast ease-smooth cursor-pointer ${
+                  settings.defaultSubgroup === 2
+                    ? "bg-sys-accent text-white shadow-xs"
+                    : "text-sys-text-secondary hover:text-sys-text-primary"
+                }`}
+              >
+                2 підгрупа
+              </button>
+            </div>
+          </div>
+
+          <div className="h-px bg-sys-border/40" />
+
+          {/* 1.2 Setting: Початковий вигляд */}
+          <div className="space-y-2 py-1">
+            <span className="font-semibold text-xs sm:text-sm text-sys-text-primary">
+              Початковий вигляд
+            </span>
+            <p className="text-xs text-sys-text-secondary leading-relaxed">
+              На широких екранах (комп&apos;ютер, планшет): що відкривається першим. На телефоні завжди день.
+            </p>
+            <div className="grid grid-cols-2 gap-1.5 rounded-xl border border-sys-border bg-sys-bg p-1 text-xs">
+              <button
+                type="button"
+                onClick={() => updateSetting("defaultViewDesktop", "today")}
+                className={`py-1.5 px-2 rounded-lg font-semibold text-center transition-colors duration-fast ease-smooth cursor-pointer ${
+                  settings.defaultViewDesktop === "today"
+                    ? "bg-sys-accent text-white shadow-xs"
+                    : "text-sys-text-secondary hover:text-sys-text-primary"
+                }`}
+              >
+                День
+              </button>
+              <button
+                type="button"
+                onClick={() => updateSetting("defaultViewDesktop", "week")}
+                className={`py-1.5 px-2 rounded-lg font-semibold text-center transition-colors duration-fast ease-smooth cursor-pointer ${
+                  settings.defaultViewDesktop === "week"
+                    ? "bg-sys-accent text-white shadow-xs"
+                    : "text-sys-text-secondary hover:text-sys-text-primary"
+                }`}
+              >
+                Тиждень
+              </button>
+            </div>
+          </div>
+
+          <div className="h-px bg-sys-border/40" />
+
+          {/* 1.3 Toggle: Показувати завдання (ДЗ) на парах */}
           <div className="flex items-start justify-between gap-4 py-1">
             <div className="space-y-0.5 min-w-0 pr-2">
               <span className="font-semibold text-xs sm:text-sm text-sys-text-primary">
                 Показувати завдання (ДЗ) на парах
               </span>
               <p className="text-xs text-sys-text-secondary leading-relaxed">
-                Мітки домашніх завдань у картках занять.
+                Мітки домашніх завдань у картках пар.
               </p>
             </div>
             <button
@@ -119,129 +200,9 @@ export default function SettingsPage() {
               />
             </button>
           </div>
-
-          <div className="h-px bg-sys-border/40" />
-
-          {/* Setting: Preferred subgroup */}
-          <div className="space-y-2 py-1">
-            <span className="font-semibold text-xs sm:text-sm text-sys-text-primary">
-              Бажана підгрупа за замовчуванням
-            </span>
-            <p className="text-xs text-sys-text-secondary">
-              Автоматичний вибір для пар із поділом на підгрупи.
-            </p>
-            <div className="grid grid-cols-2 gap-1.5 rounded-xl border border-sys-border bg-sys-bg p-1 text-xs">
-              <button
-                type="button"
-                onClick={() => updateSetting("defaultSubgroup", 1)}
-                className={`py-1.5 px-2 rounded-lg font-semibold text-center transition-colors duration-fast ease-smooth ${
-                  settings.defaultSubgroup === 1
-                    ? "bg-sys-accent text-white shadow-xs"
-                    : "text-sys-text-secondary hover:text-sys-text-primary"
-                }`}
-              >
-                1 підгрупа
-              </button>
-              <button
-                type="button"
-                onClick={() => updateSetting("defaultSubgroup", 2)}
-                className={`py-1.5 px-2 rounded-lg font-semibold text-center transition-colors duration-fast ease-smooth ${
-                  settings.defaultSubgroup === 2
-                    ? "bg-sys-accent text-white shadow-xs"
-                    : "text-sys-text-secondary hover:text-sys-text-primary"
-                }`}
-              >
-                2 підгрупа
-              </button>
-            </div>
-          </div>
-
-          <div className="h-px bg-sys-border/40 hidden lg:block" />
-
-          {/* Setting: Default view Desktop */}
-          <div className="space-y-2 py-1 hidden lg:block">
-            <span className="font-semibold text-xs sm:text-sm text-sys-text-primary">
-              Початковий вигляд розкладу
-            </span>
-            <p className="text-xs text-sys-text-secondary">
-              Стартовий режим для великих екранів: день або тиждень.
-            </p>
-            <div className="grid grid-cols-2 gap-1.5 rounded-xl border border-sys-border bg-sys-bg p-1 text-xs">
-              <button
-                type="button"
-                onClick={() => updateSetting("defaultViewDesktop", "week")}
-                className={`py-1.5 px-2 rounded-lg font-semibold text-center transition-colors duration-fast ease-smooth ${
-                  settings.defaultViewDesktop === "week"
-                    ? "bg-sys-accent text-white shadow-xs"
-                    : "text-sys-text-secondary hover:text-sys-text-primary"
-                }`}
-              >
-                Тиждень (сітка)
-              </button>
-              <button
-                type="button"
-                onClick={() => updateSetting("defaultViewDesktop", "today")}
-                className={`py-1.5 px-2 rounded-lg font-semibold text-center transition-colors duration-fast ease-smooth ${
-                  settings.defaultViewDesktop === "today"
-                    ? "bg-sys-accent text-white shadow-xs"
-                    : "text-sys-text-secondary hover:text-sys-text-primary"
-                }`}
-              >
-                День
-              </button>
-            </div>
-          </div>
         </section>
 
-        {/* Section 2: Тема оформлення */}
-        <section className="rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-xs space-y-4">
-          <div className="flex items-center gap-2 pb-2 border-b border-sys-border/60">
-            <span className="text-base">🎨</span>
-            <h2 className="text-sm font-bold uppercase tracking-wider text-sys-text-muted">
-              Тема оформлення
-            </h2>
-          </div>
-          <div className="grid grid-cols-3 gap-2 rounded-xl border border-sys-border bg-sys-bg p-1 text-xs font-semibold">
-            <button
-              type="button"
-              onClick={() => setTheme("dark")}
-              className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg transition-colors duration-fast ease-smooth ${
-                theme === "dark"
-                  ? "bg-sys-accent text-white shadow-xs"
-                  : "text-sys-text-secondary hover:text-sys-text-primary"
-              }`}
-            >
-              <span>🌙</span>
-              <span>Темна</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setTheme("light")}
-              className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg transition-colors duration-fast ease-smooth ${
-                theme === "light"
-                  ? "bg-sys-accent text-white shadow-xs"
-                  : "text-sys-text-secondary hover:text-sys-text-primary"
-              }`}
-            >
-              <span>☀️</span>
-              <span>Світла</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setTheme("system")}
-              className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg transition-colors duration-fast ease-smooth ${
-                theme === "system"
-                  ? "bg-sys-accent text-white shadow-xs"
-                  : "text-sys-text-secondary hover:text-sys-text-primary"
-              }`}
-            >
-              <span>💻</span>
-              <span>Авто</span>
-            </button>
-          </div>
-        </section>
-
-        {/* Section 3: Google Classroom */}
+        {/* Section 2: Google Classroom */}
         <section className="rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-xs space-y-4">
           <div className="flex items-center gap-2 pb-2 border-b border-sys-border/60">
             <span className="text-base">🎓</span>
@@ -256,10 +217,11 @@ export default function SettingsPage() {
               {isLinked && linkedEmail ? (
                 <div className="flex items-center gap-1.5 font-bold text-sys-text-primary truncate">
                   <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
+                  <span className="text-emerald-700 dark:text-emerald-400 font-semibold mr-1">Прив&apos;язано ·</span>
                   <span className="truncate">{linkedEmail}</span>
                 </div>
               ) : (
-                <div className="text-slate-400 font-medium">Акаунт не прив&apos;язано</div>
+                <div className="text-sys-text-muted font-medium">Не прив&apos;язано</div>
               )}
             </div>
 
@@ -268,27 +230,78 @@ export default function SettingsPage() {
                 <button
                   type="button"
                   onClick={unlink}
-                  className="rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 px-3 py-1.5 text-xs font-semibold text-rose-400 transition-colors cursor-pointer"
+                  className="rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 px-3 py-1.5 text-xs font-semibold text-rose-700 dark:text-rose-400 transition-colors cursor-pointer"
                 >
-                  Від&apos;єднати
+                  Відв&apos;язати
                 </button>
               ) : (
                 <button
                   type="button"
                   onClick={handleClassroomLinkClick}
-                  className="rounded-lg bg-sky-500/15 hover:bg-sky-500/25 border border-sky-500/40 px-3 py-1.5 text-xs font-semibold text-sky-400 transition-colors cursor-pointer"
+                  className="rounded-lg bg-sky-500/15 hover:bg-sky-500/25 border border-sky-500/40 px-3 py-1.5 text-xs font-semibold text-sky-700 dark:text-sky-400 transition-colors cursor-pointer"
                 >
-                  Прив&apos;язати акаунт
+                  Прив&apos;язати Classroom
                 </button>
               )}
             </div>
           </div>
           <p className="text-xs text-sys-text-secondary leading-relaxed">
-            Доступ до дзвінків, персональних оцінок та завдань.
+            Після прив&apos;язки відкриваються посилання на онлайн-пари, персональні статуси здачі та оцінки.
           </p>
         </section>
 
-        {/* Section: Режим викладача (PIN-код) */}
+        {/* Section 3: Тема оформлення */}
+        <section className="rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-xs space-y-4">
+          <div className="flex items-center gap-2 pb-2 border-b border-sys-border/60">
+            <span className="text-base">🎨</span>
+            <h2 className="text-sm font-bold uppercase tracking-wider text-sys-text-muted">
+              Тема оформлення
+            </h2>
+          </div>
+          <div className="grid grid-cols-3 gap-2 rounded-xl border border-sys-border bg-sys-bg p-1 text-xs font-semibold">
+            <button
+              type="button"
+              onClick={() => setTheme("dark")}
+              className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg transition-colors duration-fast ease-smooth cursor-pointer ${
+                theme === "dark"
+                  ? "bg-sys-accent text-white shadow-xs"
+                  : "text-sys-text-secondary hover:text-sys-text-primary"
+              }`}
+            >
+              <span>🌙</span>
+              <span>Темна</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setTheme("light")}
+              className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg transition-colors duration-fast ease-smooth cursor-pointer ${
+                theme === "light"
+                  ? "bg-sys-accent text-white shadow-xs"
+                  : "text-sys-text-secondary hover:text-sys-text-primary"
+              }`}
+            >
+              <span>☀️</span>
+              <span>Світла</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setTheme("system")}
+              className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg transition-colors duration-fast ease-smooth cursor-pointer ${
+                theme === "system"
+                  ? "bg-sys-accent text-white shadow-xs"
+                  : "text-sys-text-secondary hover:text-sys-text-primary"
+              }`}
+            >
+              <span>💻</span>
+              <span>Авто</span>
+            </button>
+          </div>
+          <p className="text-xs text-sys-text-secondary leading-relaxed">
+            «Авто» відповідає системній темі пристрою.
+          </p>
+        </section>
+
+        {/* Section 4: Доступ викладача */}
         <section className="rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-xs space-y-4">
           <div className="flex items-center gap-2 pb-2 border-b border-sys-border/60">
             <span className="text-base">👨‍🏫</span>
@@ -299,14 +312,14 @@ export default function SettingsPage() {
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-sys-border/60 bg-sys-bg/60 p-3.5 text-xs">
             <div className="space-y-0.5 min-w-0">
-              <span className="text-xs font-semibold text-sys-text-secondary">Статус доступу викладача</span>
+              <span className="text-xs font-semibold text-sys-text-secondary">Статус</span>
               {isTeacherUnlocked ? (
-                <div className="flex items-center gap-1.5 font-bold text-emerald-400">
-                  <span className="h-2 w-2 rounded-full bg-emerald-400 shrink-0" />
-                  <span>Режим викладача активний (онлайн-посилання розблоковано)</span>
+                <div className="flex items-center gap-1.5 font-bold text-emerald-700 dark:text-emerald-400">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
+                  <span>Активовано · онлайн-посилання розблоковано</span>
                 </div>
               ) : (
-                <div className="text-sys-text-muted font-medium">Не активовано (потрібен PIN-код)</div>
+                <div className="text-sys-text-muted font-medium">Не активовано</div>
               )}
             </div>
 
@@ -315,9 +328,9 @@ export default function SettingsPage() {
                 <button
                   type="button"
                   onClick={lockTeacher}
-                  className="rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 px-3 py-1.5 text-xs font-semibold text-rose-400 transition-colors cursor-pointer"
+                  className="rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 px-3 py-1.5 text-xs font-semibold text-rose-700 dark:text-rose-400 transition-colors cursor-pointer"
                 >
-                  Вийти з режиму
+                  Вимкнути режим викладача
                 </button>
               )}
             </div>
@@ -329,7 +342,7 @@ export default function SettingsPage() {
                 <div className="relative flex-1">
                   <input
                     type={showPinInput ? "text" : "password"}
-                    placeholder="Введіть PIN-код викладача..."
+                    placeholder="PIN-код викладача"
                     value={pinInput}
                     onChange={(e) => {
                       setPinInput(e.target.value);
@@ -365,25 +378,25 @@ export default function SettingsPage() {
                   disabled={isVerifyingPin || !pinInput.trim()}
                   className="h-10 px-4 rounded-xl bg-sys-accent text-white font-semibold text-xs hover:bg-sys-accent/90 disabled:opacity-50 transition-colors duration-fast ease-smooth shrink-0 cursor-pointer shadow-xs active:scale-95"
                 >
-                  {isVerifyingPin ? "Перевірка..." : "Активувати"}
+                  {isVerifyingPin ? "Перевірка…" : "Активувати"}
                 </button>
               </div>
               {pinError && <p className="text-xs text-rose-700 dark:text-rose-400 font-medium">{pinError}</p>}
-              {pinSuccess && <p className="text-xs text-emerald-800 dark:text-emerald-400 font-medium">✓ Доступ викладача успішно активовано!</p>}
+              {pinSuccess && <p className="text-xs text-emerald-700 dark:text-emerald-400 font-medium">Доступ викладача активовано.</p>}
             </form>
           )}
 
           <p className="text-xs text-sys-text-secondary leading-relaxed">
-            Дозволяє викладачам бачити всі посилання на онлайн-пари в розкладі без прив&apos;язки Google Classroom.
+            Відкриває всі посилання на онлайн-пари в розкладі без прив&apos;язки Classroom. PIN-код видає адміністратор розкладу.
           </p>
         </section>
 
-        {/* Section 4: Корисні посилання */}
+        {/* Section 5: Корисні посилання */}
         <section className="rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-xs space-y-3">
           <div className="flex items-center gap-2 pb-2 border-b border-sys-border/60">
             <span className="text-base">🔗</span>
             <h2 className="text-sm font-bold uppercase tracking-wider text-sys-text-muted">
-              Корисні посилання та інструменти
+              Корисні посилання
             </h2>
           </div>
 
@@ -412,12 +425,12 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        {/* Section 6: Вхід для адміністрації */}
+        {/* Section 6: Адміністрування */}
         <section className="rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-xs space-y-3">
           <div className="flex items-center gap-2 pb-2 border-b border-sys-border/60">
             <span className="text-base">🛡️</span>
             <h2 className="text-sm font-bold uppercase tracking-wider text-sys-text-muted">
-              Вхід для адміністрації
+              Адміністрування
             </h2>
           </div>
 
@@ -425,15 +438,15 @@ export default function SettingsPage() {
             <div className="space-y-3">
               <div className="flex items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3 text-xs">
                 <div>
-                  <div className="font-bold text-emerald-800 dark:text-emerald-400">Авторизовано: {auth.user.username}</div>
-                  <div className="text-sys-text-secondary text-[11px]">Роль: {auth.user.role}</div>
+                  <div className="font-bold text-emerald-800 dark:text-emerald-400">Увійшли як {auth.user.username}</div>
+                  <div className="text-sys-text-secondary text-[11px]">Роль: {roleLabel}</div>
                 </div>
                 <button
                   type="button"
                   onClick={() => auth.logout()}
-                  className="rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 px-3 py-1.5 text-xs font-semibold text-rose-700 dark:text-rose-400 transition-colors"
+                  className="rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 px-3 py-1.5 text-xs font-semibold text-rose-700 dark:text-rose-400 transition-colors cursor-pointer"
                 >
-                  Вийти
+                  Вийти з акаунта
                 </button>
               </div>
               <Link
@@ -450,8 +463,8 @@ export default function SettingsPage() {
               className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 p-3 text-xs hover:border-sys-accent/40 hover:bg-sys-accent/5 transition-colors duration-fast ease-smooth group"
             >
               <div className="space-y-0.5">
-                <div className="font-semibold text-sys-text-primary">Вхід для адміністрації</div>
-                <div className="text-[11px] text-sys-text-secondary">Керування розкладом та чернетками</div>
+                <div className="font-semibold text-sys-text-primary">Увійти до панелі керування</div>
+                <div className="text-[11px] text-sys-text-secondary">Розклад, чернетки, довідники</div>
               </div>
               <span className="text-sys-accent font-bold group-hover:translate-x-0.5 transition-transform">→</span>
             </Link>
