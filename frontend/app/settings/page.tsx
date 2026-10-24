@@ -16,6 +16,7 @@ export default function SettingsPage() {
   const auth = useAuth();
 
   const [pinInput, setPinInput] = useState("");
+  const [showPinInput, setShowPinInput] = useState(false);
   const [pinError, setPinError] = useState<string | null>(null);
   const [pinSuccess, setPinSuccess] = useState(false);
   const [isVerifyingPin, setIsVerifyingPin] = useState(false);
@@ -325,22 +326,44 @@ export default function SettingsPage() {
           {!isTeacherUnlocked && (
             <form onSubmit={handlePinSubmit} className="space-y-2 pt-1">
               <div className="flex items-center gap-2">
-                <input
-                  type="password"
-                  placeholder="Введіть PIN-код викладача..."
-                  value={pinInput}
-                  onChange={(e) => {
-                    setPinInput(e.target.value);
-                    if (pinError) setPinError(null);
-                  }}
-                  className={`flex-1 h-10 px-3 rounded-xl border bg-sys-bg text-xs text-sys-text-primary placeholder:text-sys-text-muted focus:outline-hidden focus:ring-2 ${
-                    pinError ? "border-rose-500/50 focus:ring-rose-500/20" : "border-sys-border focus:border-sys-accent focus:ring-sys-accent/20"
-                  }`}
-                />
+                <div className="relative flex-1">
+                  <input
+                    type={showPinInput ? "text" : "password"}
+                    placeholder="Введіть PIN-код викладача..."
+                    value={pinInput}
+                    onChange={(e) => {
+                      setPinInput(e.target.value);
+                      if (pinError) setPinError(null);
+                    }}
+                    className={`w-full h-10 px-3 pr-9 rounded-xl border bg-sys-bg text-xs text-sys-text-primary placeholder:text-sys-text-muted focus:outline-hidden focus:ring-2 ${
+                      pinError ? "border-rose-500/50 focus:ring-rose-500/20" : "border-sys-border focus:border-sys-accent focus:ring-sys-accent/20"
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPinInput(!showPinInput)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-sys-text-muted hover:text-sys-text-primary p-1 transition-colors cursor-pointer"
+                    title={showPinInput ? "Приховати PIN" : "Показати PIN"}
+                  >
+                    {showPinInput ? (
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
+                        <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
+                        <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
+                        <line x1="2" x2="22" y1="2" y2="22" />
+                      </svg>
+                    ) : (
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
                 <button
                   type="submit"
                   disabled={isVerifyingPin || !pinInput.trim()}
-                  className="h-10 px-4 rounded-xl bg-sys-accent text-slate-950 font-bold text-xs hover:bg-sys-accent/90 disabled:opacity-50 transition-all shrink-0 cursor-pointer"
+                  className="h-10 px-4 rounded-xl bg-sys-accent text-white font-semibold text-xs hover:bg-sys-accent/90 disabled:opacity-50 transition-all shrink-0 cursor-pointer shadow-xs active:scale-95"
                 >
                   {isVerifyingPin ? "Перевірка..." : "Активувати"}
                 </button>

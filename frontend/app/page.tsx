@@ -978,34 +978,21 @@ export default function HomePage() {
               <span className="text-sys-text-muted text-xs ml-auto shrink-0">▼</span>
             </button>
 
-            {mode === "teacher" && (
+            {mode === "teacher" && !isTeacherUnlocked && (
               <button
                 type="button"
                 onClick={() => {
                   setTeacherPinTargetGroup(null);
                   setTeacherPinModalOpen(true);
                 }}
-                className={`flex h-10 items-center gap-1.5 px-3 rounded-xl text-xs font-semibold border transition-all active:scale-95 ${
-                  isTeacherUnlocked
-                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20"
-                    : "border-sys-border bg-sys-bg/80 text-sys-text-secondary hover:border-sys-accent/40 hover:text-sys-accent"
-                }`}
-                title={isTeacherUnlocked ? "Режим викладача активний" : "Вхід для викладача (PIN)"}
+                className="flex h-10 items-center gap-1.5 px-3 rounded-xl text-xs font-semibold border border-sys-border bg-sys-bg/80 text-sys-text-secondary hover:border-sys-accent/40 hover:text-sys-accent transition-all active:scale-95"
+                title="Вхід для викладача (PIN)"
               >
-                {isTeacherUnlocked ? (
-                  <>
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
-                    <span>Викладач</span>
-                  </>
-                ) : (
-                  <>
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                      <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
-                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                    </svg>
-                    <span>Вхід викладача</span>
-                  </>
-                )}
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                  <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+                <span>Вхід викладача</span>
               </button>
             )}
 
@@ -1182,29 +1169,21 @@ export default function HomePage() {
               </span>
               <span className="text-sys-text-muted text-xs shrink-0">▼</span>
             </button>
-            {mode === "teacher" && (
+            {mode === "teacher" && !isTeacherUnlocked && (
               <button
                 type="button"
                 onClick={() => {
                   setTeacherPinTargetGroup(null);
                   setTeacherPinModalOpen(true);
                 }}
-                className={`flex h-10 w-10 items-center justify-center rounded-xl border transition-all active:scale-95 shrink-0 ${
-                  isTeacherUnlocked
-                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
-                    : "border-sys-border bg-sys-bg/90 text-sys-text-secondary hover:text-sys-accent"
-                }`}
-                title={isTeacherUnlocked ? "Режим викладача активний" : "Вхід для викладача (PIN)"}
-                aria-label={isTeacherUnlocked ? "Режим викладача активний" : "Вхід для викладача (PIN)"}
+                className="flex h-10 w-10 items-center justify-center rounded-xl border border-sys-border bg-sys-bg/90 text-sys-text-secondary hover:text-sys-accent transition-all active:scale-95 shrink-0"
+                title="Вхід для викладача (PIN)"
+                aria-label="Вхід для викладача (PIN)"
               >
-                {isTeacherUnlocked ? (
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-xs shadow-emerald-400/50" />
-                ) : (
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
-                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                  </svg>
-                )}
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
               </button>
             )}
           </div>
