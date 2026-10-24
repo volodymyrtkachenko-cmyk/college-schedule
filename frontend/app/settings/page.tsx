@@ -7,6 +7,8 @@ import { useUserSettings } from "../../lib/useUserSettings";
 import { useClassroomSubmissions } from "../../lib/useClassroomSubmissions";
 import { useTeacherAccess } from "../../lib/useTeacherAccess";
 import { useAuth } from "../../lib/auth";
+import { useToast } from "../../components/ToastProvider";
+import { requestClassroomAuth } from "../../lib/classroomAuth";
 
 const ROLE_NAMES: Record<string, string> = {
   admin: "Адміністратор",
@@ -21,6 +23,8 @@ export default function SettingsPage() {
   const { isLinked, linkedEmail, unlink } = useClassroomSubmissions();
   const { isTeacherUnlocked, unlockTeacher, lockTeacher } = useTeacherAccess();
   const auth = useAuth();
+  const { showToast } = useToast();
+  const [isLinkingClassroom, setIsLinkingClassroom] = useState(false);
 
   const [scheduleMode, setScheduleMode] = useState<"student" | "teacher">("student");
 
@@ -62,8 +66,31 @@ export default function SettingsPage() {
     }
   };
 
-  const handleClassroomLinkClick = () => {
-    window.location.href = "/?sync=1";
+  const handleClassroomLinkClick = async () => {
+    if (isLinkingClassroom) return;
+    setIsLinkingClassroom(true);
+    try {
+      const cachedGroupId = typeof window !== "undefined"
+        ? (Number(localStorage.getItem("schedule:groupId")) || Number(localStorage.getItem("schedule:classroom_linked_group_id")) || undefined)
+        : undefined;
+
+      await requestClassroomAuth({
+        groupId: cachedGroupId,
+        onSuccess: (res) => {
+          const parts = [`підтягнуто ${res.synced_links} онлайн-пар`];
+          if (res.synced_tasks > 0) parts.push(`${res.synced_tasks} завдань`);
+          const groupPrefix = res.group_name ? `Група ${res.group_name}: ` : "";
+          showToast(`${groupPrefix}Classroom успішно прив'язано (${parts.join(", ")})!`, "success");
+        },
+        onError: (err) => {
+          showToast(err.message || "Не вдалося прив'язати Classroom", "error");
+        },
+      });
+    } catch (err: any) {
+      showToast(err?.message || "Помилка авторизації Google", "error");
+    } finally {
+      setIsLinkingClassroom(false);
+    }
   };
 
   const isStudent = scheduleMode === "student";
@@ -266,9 +293,10 @@ export default function SettingsPage() {
                   <button
                     type="button"
                     onClick={handleClassroomLinkClick}
-                    className="rounded-lg bg-sky-500/15 hover:bg-sky-500/25 border border-sky-500/40 px-3 py-1.5 text-xs font-semibold text-sky-700 dark:text-sky-400 transition-colors cursor-pointer"
+                    disabled={isLinkingClassroom}
+                    className="rounded-lg bg-sky-500/15 hover:bg-sky-500/25 border border-sky-500/40 px-3 py-1.5 text-xs font-semibold text-sky-700 dark:text-sky-400 transition-colors cursor-pointer disabled:opacity-50"
                   >
-                    Прив&apos;язати Classroom
+                    {isLinkingClassroom ? "Підключення..." : "Прив'язати Classroom"}
                   </button>
                 )}
               </div>
