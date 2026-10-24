@@ -601,6 +601,26 @@ async def get_import_status_endpoint(
                 pub = await db.get(SchedulePublication, pub_id) if pub_id else None
                 if pub and not pub.is_reverted:
                     active_notif = parsed
+                    if "replacements_count" not in active_notif or "swaps_count" not in active_notif:
+                        snapshots = (await db.scalars(
+                            select(SchedulePublicationSnapshot)
+                            .where(SchedulePublicationSnapshot.publication_id == pub.id)
+                        )).all()
+                        swaps = 0
+                        replacements = 0
+                        dates_set = set()
+                        for s in snapshots:
+                            if s.date:
+                                dates_set.add(s.date.isoformat())
+                            adata = json.loads(s.after_data or "{}")
+                            if adata.get("is_swap") or adata.get("change_type") == "swap" or "Перестановка" in (adata.get("summary") or ""):
+                                swaps += 1
+                            else:
+                                replacements += 1
+                        active_notif["replacements_count"] = replacements
+                        active_notif["swaps_count"] = swaps
+                        if not active_notif.get("dates") and dates_set:
+                            active_notif["dates"] = sorted(list(dates_set))
         except Exception:
             pass
 
@@ -1386,12 +1406,21 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
                     datetime.strptime(item["date"], "%Y-%m-%d").date() in (today, tomorrow)
                     for item in auto_publish_substitutions
                 )
+                swaps_count = sum(
+                    1 for item in auto_publish_substitutions
+                    if item.get("is_swap") or item.get("change_type") == "swap"
+                )
+                replacements_count = len(auto_publish_substitutions) - swaps_count
+                dates_list = sorted(list({item["date"] for item in auto_publish_substitutions}))
                 notif_data = {
                     "id": str(uuid.uuid4()),
                     "publication_id": publication.id,
                     "source": source_label,
                     "created_at": now_local().isoformat(),
                     "changes_count": published_count,
+                    "replacements_count": replacements_count,
+                    "swaps_count": swaps_count,
+                    "dates": dates_list,
                     "urgent": urgent,
                     "dismissed": False,
                 }

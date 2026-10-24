@@ -909,6 +909,8 @@ export interface ImportStatusResponse {
     source: string;
     created_at: string;
     changes_count: number;
+    replacements_count?: number;
+    swaps_count?: number;
     urgent: boolean;
     dismissed: boolean;
     dates?: string[];
@@ -921,6 +923,8 @@ export interface PublicationChangeItem {
   date: string;
   lesson_number: number;
   kind: string;
+  change_type?: string;
+  is_swap?: boolean;
   before: string;
   after: string;
 }

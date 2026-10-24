@@ -366,12 +366,20 @@ async def get_publication_changes(
         after_obj = json.loads(s.after_data or "{}")
 
         if s.date is not None:
+            is_swap = bool(
+                after_obj.get("is_swap")
+                or after_obj.get("change_type") == "swap"
+                or "Перестановка" in (after_obj.get("summary") or "")
+            )
+            change_type = after_obj.get("change_type") or ("swap" if is_swap else "substitution")
             changes.append({
                 "group_id": s.group_id,
                 "group_name": group_name,
                 "date": s.date.isoformat(),
                 "lesson_number": s.lesson_number,
                 "kind": after_obj.get("kind", "substitution"),
+                "change_type": change_type,
+                "is_swap": is_swap,
                 "before": before_obj.get("summary") or before_obj.get("text") or "—",
                 "after": after_obj.get("summary") or after_obj.get("text") or "—",
             })
@@ -384,6 +392,8 @@ async def get_publication_changes(
                 "date": None,
                 "lesson_number": None,
                 "kind": "base_slots",
+                "change_type": "base_slots",
+                "is_swap": False,
                 "before": f"{len(b_slots)} пар у базовому розкладі",
                 "after": f"{len(a_slots)} пар у новому розкладі",
             })
@@ -405,14 +415,24 @@ async def get_publication_changes(
             teach_name = ic.teacher.name if ic.teacher else ""
             room_str = f", ауд. {ic.room_override}" if ic.room_override else ""
             after_str = "Скасовано" if ic.kind == "cancelled" else f"{subj_name} ({teach_name}{room_str})".strip()
+            is_swap = bool(ic.is_same_day_swap or ic.change_type == "swap")
             changes.append({
                 "group_id": ic.group_id,
                 "group_name": group_name,
                 "date": ic.date.isoformat(),
                 "lesson_number": ic.lesson_number,
                 "kind": ic.kind,
+                "change_type": ic.change_type or ("swap" if is_swap else "substitution"),
+                "is_swap": is_swap,
                 "before": "Базовий розклад",
                 "after": after_str,
             })
+
+    # Sort changes by group name first, then date, then lesson number
+    changes.sort(key=lambda c: (
+        c.get("group_name") or "",
+        c.get("date") or "",
+        c.get("lesson_number") or 0,
+    ))
 
     return changes

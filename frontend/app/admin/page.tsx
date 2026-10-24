@@ -33,6 +33,7 @@ import { PageHeader } from "../../components/admin/PageHeader";
 import { PublicationChangesModal } from "../../components/admin/PublicationChangesModal";
 import { invalidateScheduleCache } from "../../lib/hooks";
 import { TeacherPinAdminCard } from "../../components/admin/TeacherPinAdminCard";
+import { formatPlural } from "../../lib/format";
 
 function extractSurname(fullName: string): string {
   const parts = fullName.trim().split(/\s+/).filter(Boolean);
@@ -491,42 +492,51 @@ function AdminContent() {
             role="alert"
             className={`rounded-2xl p-4 sm:p-5 border transition-all shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4 ${
               importNotification.urgent
-                ? "bg-gradient-to-r from-amber-500/20 via-rose-500/15 to-amber-500/10 border-amber-500/50 text-amber-100 shadow-amber-950/30"
-                : "bg-gradient-to-r from-sys-accent/20 via-sky-500/15 to-sys-accent/10 border-sys-accent/40 text-sys-text-primary shadow-cyan-950/20"
+                ? "bg-gradient-to-r from-amber-500/15 via-rose-500/10 to-amber-500/5 border-amber-500/40 text-sys-text-primary shadow-amber-950/20"
+                : "bg-gradient-to-r from-sys-accent/15 via-sky-500/10 to-sys-accent/5 border-sys-accent/30 text-sys-text-primary shadow-cyan-950/15"
             }`}
           >
             <div className="flex items-start gap-3.5 min-w-0">
               <div
                 className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-xl font-bold ${
                   importNotification.urgent
-                    ? "bg-amber-500/25 border border-amber-500/40 text-amber-300 animate-bounce"
-                    : "bg-sys-accent/20 border border-sys-accent/40 text-sys-accent"
+                    ? "bg-amber-500/20 border border-amber-500/40 text-amber-600 dark:text-amber-300 animate-bounce"
+                    : "bg-sys-accent/15 border border-sys-accent/35 text-sys-accent"
                 }`}
               >
                 {importNotification.urgent ? "⚡" : "🤖"}
               </div>
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-sm sm:text-base font-bold tracking-tight">
-                    Автоімпорт: застосовано {importNotification.changes_count} змін
+                  <h3 className="text-sm sm:text-base font-bold tracking-tight text-sys-text-primary">
+                    Автоімпорт: застосовано {formatPlural(importNotification.changes_count, "зміну", "зміни", "змін")}
                   </h3>
+                  {typeof importNotification.replacements_count === "number" && (
+                    <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30">
+                      {formatPlural(importNotification.replacements_count, "заміна", "заміни", "замін")}
+                    </span>
+                  )}
+                  {typeof importNotification.swaps_count === "number" && (
+                    <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30">
+                      {formatPlural(importNotification.swaps_count, "перестановка", "перестановки", "перестановок")}
+                    </span>
+                  )}
                   {importNotification.urgent && (
-                    <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/30 text-amber-200 border border-amber-500/50 uppercase tracking-wide">
+                    <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-800 dark:text-amber-200 border border-amber-500/40 uppercase tracking-wide">
                       Терміново: розклад на сьогодні / завтра
                     </span>
                   )}
                 </div>
                 <p className="text-xs text-sys-text-secondary mt-1 leading-relaxed">
-                  {importNotification.dates && importNotification.dates.length > 0 ? (
+                  Оновлено разові заміни та перестановки пар у той же день. Постійний шаблон розкладу не змінено.
+                  {importNotification.dates && importNotification.dates.length > 0 && (
                     <>
-                      Зміни зафіксовано на дати:{" "}
+                      {" "}Дати змін:{" "}
                       <span className="font-mono font-medium text-sys-text-primary">
                         {importNotification.dates.join(", ")}
                       </span>
-                      . Постійний шаблон розкладу не змінено.
+                      .
                     </>
-                  ) : (
-                    "Оновлено разові заміни та скасування. Постійний шаблон розкладу не змінено."
                   )}
                 </p>
               </div>
@@ -536,7 +546,7 @@ function AdminContent() {
               <button
                 type="button"
                 onClick={() => setSelectedNotifPubId(importNotification.publication_id)}
-                className="px-3.5 py-2 rounded-xl text-xs font-semibold border border-sys-border bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 text-sys-text-primary transition-all active:scale-95"
+                className="px-3.5 py-2 rounded-xl text-xs font-semibold border border-sys-border bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 text-sys-text-primary transition-all active:scale-95 shrink-0"
               >
                 Показати зміни
               </button>
@@ -544,14 +554,14 @@ function AdminContent() {
                 type="button"
                 onClick={() => void handleRevertNotification()}
                 disabled={revertingNotif}
-                className="px-3.5 py-2 rounded-xl text-xs font-semibold border border-rose-500/40 bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 transition-all active:scale-95 disabled:opacity-50"
+                className="px-3.5 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-xs transition-all active:scale-95 disabled:opacity-50 shrink-0"
               >
                 {revertingNotif ? "Відкат..." : "Відкотити"}
               </button>
               <button
                 type="button"
                 onClick={() => void handleDismissNotification()}
-                className="px-2.5 py-2 rounded-xl text-xs font-medium text-sys-text-muted hover:text-sys-text-primary hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
+                className="px-2.5 py-2 rounded-xl text-xs font-medium text-sys-text-muted hover:text-sys-text-primary hover:bg-slate-100 dark:hover:bg-white/5 transition-colors shrink-0"
                 title="Приховати сповіщення"
               >
                 Зрозуміло ✕

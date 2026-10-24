@@ -15,15 +15,17 @@ export function formatTeacherName(value: string): string {
   return `${surname} ${initials}.`;
 }
 
+export function formatPlural(count: number, one: string, few: string, many: string): string {
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+  if (mod100 >= 11 && mod100 <= 19) return `${count} ${many}`;
+  if (mod10 === 1) return `${count} ${one}`;
+  if (mod10 >= 2 && mod10 <= 4) return `${count} ${few}`;
+  return `${count} ${many}`;
+}
+
 export function formatLessonCount(count: number): string {
-  const remainder10 = count % 10;
-  const remainder100 = count % 100;
-  const noun = remainder10 >= 2 && remainder10 <= 4 && (remainder100 < 12 || remainder100 > 14)
-    ? "заняття"
-    : remainder10 === 1 && remainder100 !== 11
-      ? "заняття"
-      : "занять";
-  return `${count} ${noun}`;
+  return formatPlural(count, "заняття", "заняття", "занять");
 }
 
 export function getWarmGreeting(date = new Date()): string {
