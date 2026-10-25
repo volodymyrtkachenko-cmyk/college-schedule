@@ -847,10 +847,6 @@ async def perform_course_sync(
     current_monday = today_real - timedelta(days=today_real.weekday())
 
     today_kyiv = week_start or today_real
-    if week_start is None and today_kyiv.weekday() in (5, 6):
-        # На вихідних (субота/неділя) фоновий синк за замовчуванням спрямовується на наступний понеділок,
-        # який користувачі переглядають у розкладі
-        today_kyiv = today_kyiv + timedelta(days=7 - today_kyiv.weekday())
     week_monday = today_kyiv - timedelta(days=today_kyiv.weekday())
     week_friday = week_monday + timedelta(days=4)
 
@@ -860,10 +856,6 @@ async def perform_course_sync(
     tasks_window_start = min(current_monday, week_monday)
     tasks_lookback_start = tasks_window_start - timedelta(days=TASKS_LOOKBACK_DAYS)
     tasks_window_end = max(current_monday, week_monday) + timedelta(days=11)  # п'ятниця наступного тижня
-
-    # Вікно збереження онлайн-посилань (Meet/Zoom): ТІЛЬКИ минулий тиждень + поточний тиждень
-    links_window_start = week_monday - timedelta(days=7)  # понеділок минулого тижня
-    links_window_end = week_friday  # п'ятниця поточного тижня
     unmapped_tasks: list[dict] = []
 
     db_teachers = (await db.scalars(select(Teacher))).all()
@@ -1438,8 +1430,6 @@ async def perform_course_sync(
 
                     parsed["course_title_norm"] = course_title_norm
                     parsed["author_tokens"] = list(set(ann_author_tokens))
-                    if not parsed.get("has_explicit_date"):
-                        parsed["is_course_level"] = True
                     parsed_announcements.append(parsed)
 
             if not isinstance(mat_resp, Exception) and mat_resp.status_code == 200:
@@ -1462,7 +1452,6 @@ async def perform_course_sync(
                     if not mat_author_tokens and is_single_teacher:
                         mat_author_tokens.extend(course_teachers_tokens.get(course_id, []))
 
-                    parsed["is_course_level"] = True
                     parsed["course_title_norm"] = course_title_norm
                     parsed["author_tokens"] = list(set(mat_author_tokens))
                     parsed_announcements.append(parsed)
@@ -1646,29 +1635,15 @@ async def perform_course_sync(
                     continue
                 kept.append(l_str)
                 continue
-            if URL_RE.search(l_str):
-                # ТЗ: Онлайн-посилання зберігаються ТІЛЬКИ для минулого та поточного тижнів.
-                # Якщо дата пари поза цим вікном — безумовно очищуємо посилання!
-                if gn.note_date < links_window_start or gn.note_date > links_window_end:
-                    changed = True
-                    continue
-
-                if _link_line_belongs_to_sync(l_str, sync_teacher_tokens):
+            if (
+                URL_RE.search(l_str)
+                and _link_line_belongs_to_sync(l_str, sync_teacher_tokens)
+            ):
+                if skipped_ids and _link_line_prefix(l_str) is None:
                     if gn.subject_id not in synced_subject_ids:
                         kept.append(l_str)
                         continue
-                    # Якщо поточний синк не містить нового замінного посилання для цієї пари/предмету,
-                    # дбайливо зберігаємо чинне посилання, щоб не стирати працюючі дзвінки викладачів
-                    has_replacement = any(
-                        pa for pa in parsed_announcements
-                        if pa.get("is_course_level") or (pa.get("has_explicit_date") and pa.get("target_date") == gn.note_date)
-                    )
-                    if not has_replacement:
-                        kept.append(l_str)
-                        continue
-                    changed = True
-                    continue
-                kept.append(l_str)
+                changed = True
                 continue
             kept.append(l_str)
         if changed:
@@ -1817,7 +1792,7 @@ async def perform_course_sync(
         )
     )
 
-    # КРОК 5: Ставимо розпізнані посилання Meet / Zoom СТРОГО на пари минулого та поточного тижня (ТЗ)
+    # КРОК 5: Ставимо розпізнані посилання Meet / Zoom СТРОГО на відповідні пари поточного тижня
     parsed_announcements.sort(key=lambda x: x["created_dt"])
 
     for pa in parsed_announcements:
@@ -1826,17 +1801,16 @@ async def perform_course_sync(
         is_course_level: bool = pa.get("is_course_level", False)
 
         if has_explicit_date:
-            candidate_dates = [target_date] if (links_window_start <= target_date <= links_window_end) else []
+            candidate_dates = [target_date] if (week_monday <= target_date <= week_friday) else []
         elif is_course_level:
-            candidate_dates = [
-                d for d in sorted(horizon_lessons_by_date.keys())
-                if links_window_start <= d <= links_window_end
-            ]
+            candidate_dates = [d for d in sorted(week_days_lessons.keys()) if week_monday <= d <= week_friday]
         else:
-            candidate_dates = [target_date] if (links_window_start <= target_date <= links_window_end) else []
+            # Оголошення без явної дати прив'язується ВИКЛЮЧНО до своєї цільової дати
+            # Публікації з інших тижнів КАТЕГОРИЧНО не прив'язуються до поточного
+            candidate_dates = [target_date] if (week_monday <= target_date <= week_friday) else []
 
         for c_date in candidate_dates:
-            day_lessons = horizon_lessons_by_date.get(c_date, [])
+            day_lessons = week_days_lessons.get(c_date, [])
             if not day_lessons:
                 continue
 

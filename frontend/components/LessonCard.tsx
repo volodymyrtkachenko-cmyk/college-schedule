@@ -593,15 +593,8 @@ export function getVisibleUserNote(note?: string | null): string {
     .trim();
 }
 
-export function extractOnlineMeetingInfo(
-  note?: string | null,
-  room?: string | null,
-  teacherName?: string | null,
-  subjectName?: string | null,
-  teacherRoom?: string | null,
-  secondTeacherRoom?: string | null
-) {
-  const meetings = extractOnlineMeetings(note, room, teacherName, subjectName, teacherRoom, secondTeacherRoom);
+export function extractOnlineMeetingInfo(note?: string | null, room?: string | null) {
+  const meetings = extractOnlineMeetings(note, room);
   return meetings[0] ?? null;
 }
 
@@ -805,16 +798,10 @@ export const LessonCard = memo(function LessonCard({
 
   const isTeacherView = scheduleMode === "teacher";
   const hasGroupAccess = useMemo(() => {
-    if (canEdit || scheduleMode === "admin") return true;
-    if (isTeacherView) {
-      if (isTeacherUnlocked) return true;
-      if (!lesson.group_id) return true;
-      return isLinkedToGroup(lesson.group_id);
-    }
-    // Student view: access to links and tasks strictly requires classroom link to this group
-    if (!lesson.group_id) return isLinked;
+    if (canEdit || scheduleMode === "admin" || (isTeacherView && isTeacherUnlocked)) return true;
+    if (!lesson.group_id) return true;
     return isLinkedToGroup(lesson.group_id);
-  }, [canEdit, scheduleMode, isTeacherView, isTeacherUnlocked, lesson.group_id, isLinked, isLinkedToGroup]);
+  }, [canEdit, scheduleMode, isTeacherView, isTeacherUnlocked, lesson.group_id, isLinkedToGroup]);
 
   const handleLockedMeetingClick = useCallback((e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -954,23 +941,8 @@ export const LessonCard = memo(function LessonCard({
   }, [tasks]);
   const highlightTask = nearestDated || tasks[0] || null;
   const meetings = useMemo(
-    () =>
-      extractOnlineMeetings(
-        lesson.note,
-        lesson.room,
-        lesson.teacher_name,
-        lesson.subject_name,
-        lesson.teacher_room,
-        lesson.second_teacher_room
-      ),
-    [
-      lesson.note,
-      lesson.room,
-      lesson.teacher_name,
-      lesson.subject_name,
-      lesson.teacher_room,
-      lesson.second_teacher_room,
-    ]
+    () => extractOnlineMeetings(lesson.note, lesson.room, lesson.teacher_name, lesson.subject_name),
+    [lesson.note, lesson.room, lesson.teacher_name, lesson.subject_name]
   );
   const visibleNoteText = useMemo(() => getVisibleUserNote(lesson.note), [lesson.note]);
   const hasMeeting = meetings.length > 0;
@@ -1084,7 +1056,7 @@ export const LessonCard = memo(function LessonCard({
   }, [isTeacherSubgroupShown, teacherSpecificRoom, teacherSpecificMeeting, isSingleSubgroupShown, singleSubgroupRoom, learningMode, singleSubgroupMeeting, rooms]);
 
   const roomsLabel = useMemo(() => formatRoomsList(displayRooms), [displayRooms]);
-  const effectiveHasMobileMeeting = hasMobileMeeting || (!hasGroupAccess && Boolean(lesson.has_protected_link || lesson.is_online));
+  const effectiveHasMobileMeeting = hasMobileMeeting || (!hasGroupAccess && Boolean(lesson.has_protected_link || (lesson.is_online && displayRooms.length === 0)));
   const effectiveHasMeeting = hasMeeting || (!hasGroupAccess && Boolean(lesson.has_protected_link || lesson.is_online));
   const hasBothRoomAndMeet = displayRooms.length > 0 && (isTeacherSubgroupShown ? Boolean(teacherSpecificMeeting) : (isSingleSubgroupShown ? effectiveHasMobileMeeting : effectiveHasMeeting));
   // Два викладачі (ПК, вигляд «День»): аудиторія і посилання біля кожного окремо (тільки для студента)
@@ -1678,7 +1650,7 @@ export const LessonCard = memo(function LessonCard({
                         <span className="text-xs opacity-75">↗</span>
                       </a>
                     )
-                  ) : (!isDualTeachers || isSingleSubgroupShown) && !hasGroupAccess && (lesson.has_protected_link || lesson.is_online) ? (
+                  ) : (!isDualTeachers || isSingleSubgroupShown) && !hasGroupAccess && (lesson.has_protected_link || (lesson.is_online && displayRooms.length === 0)) ? (
                     <LockedMeetingBadge platform={meetings[0]?.platform} size="normal" onClick={handleLockedMeetingClick} />
                   ) : null}
                 </div>
@@ -2050,7 +2022,7 @@ export const LessonCard = memo(function LessonCard({
                         <span className="text-xs opacity-75">↗</span>
                       </a>
                     )
-                  ) : !hasGroupAccess && (lesson.has_protected_link || lesson.is_online) ? (
+                  ) : !hasGroupAccess && (lesson.has_protected_link || (lesson.is_online && displayRooms.length === 0)) ? (
                     <LockedMeetingBadge platform={meetings[0]?.platform} size="normal" onClick={handleLockedMeetingClick} />
                   ) : null}
                 </div>
@@ -2274,7 +2246,7 @@ export const LessonCard = memo(function LessonCard({
                     <span className="text-xs opacity-75">↗</span>
                   </a>
                 )
-              ) : !hasGroupAccess && (lesson.has_protected_link || lesson.is_online) ? (
+              ) : !hasGroupAccess && (lesson.has_protected_link || (lesson.is_online && displayRooms.length === 0)) ? (
                 <LockedMeetingBadge platform={meetings[0]?.platform} size="normal" onClick={handleLockedMeetingClick} />
               ) : null}
             </div>

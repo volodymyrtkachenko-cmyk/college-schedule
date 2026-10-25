@@ -401,14 +401,6 @@ async function rawRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
             if (teacherPin && !headers.has("X-Teacher-Pin")) {
                 headers.set("X-Teacher-Pin", teacherPin);
             }
-            const cUid = localStorage.getItem("schedule:classroom_google_user_id");
-            const cEmail = localStorage.getItem("schedule:classroom_linked_email");
-            if (cUid && !headers.has("X-Classroom-User-Id")) {
-                headers.set("X-Classroom-User-Id", cUid);
-            }
-            if (cEmail && cEmail !== "підключено" && !headers.has("X-Classroom-Email")) {
-                headers.set("X-Classroom-Email", cEmail);
-            }
         } catch {}
     }
 

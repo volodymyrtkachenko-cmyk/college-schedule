@@ -222,7 +222,6 @@ export default function HomePage() {
   }, [classroomLastSyncedAt]);
 
   const fetchClassroomTasks = useCallback(async (gid: number) => {
-    if (!hasGroupTaskAccess) return;
     try {
       const res = await api.classroom.groupStatus(gid);
       if (res?.tasks && res.tasks.length > 0) {
@@ -237,7 +236,7 @@ export default function HomePage() {
     } catch {
       // Ignore background fetch error
     }
-  }, [hasGroupTaskAccess]);
+  }, []);
 
   useEffect(() => {
     if (groupId) {
@@ -751,7 +750,7 @@ export default function HomePage() {
   }, [selectedDaySchedule]);
 
   const allTasks = useMemo<FullTaskItem[]>(() => {
-    if (mode === "teacher" || !hasGroupTaskAccess) return [];
+    if (mode === "teacher") return [];
     const tasks: FullTaskItem[] = [];
     const seenUrls = new Set<string>();
 
@@ -1393,7 +1392,6 @@ export default function HomePage() {
             {mobileTab === "tasks" ? (
               <MobileTasksView
                 tasks={allTasks}
-                hasAccess={hasGroupTaskAccess}
                 groupId={groupId}
                 weekStart={weekStartStr}
                 weekAnchorDate={weekAnchorDate}

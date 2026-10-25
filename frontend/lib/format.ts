@@ -285,9 +285,7 @@ export function extractOnlineMeetings(
   note?: string | null,
   room?: string | null,
   teacherName?: string | null,
-  subjectName?: string | null,
-  teacherRoom?: string | null,
-  secondTeacherRoom?: string | null
+  subjectName?: string | null
 ): MeetingInfo[] {
   const isForeignLang = Boolean(
     (subjectName && /іноземн|англ/i.test(subjectName)) ||
@@ -299,7 +297,7 @@ export function extractOnlineMeetings(
     (teacherName && /філімончук/i.test(teacherName))
   );
 
-  const lines = `${room || ""}\n${teacherRoom || ""}\n${secondTeacherRoom || ""}\n${note || ""}`.split("\n");
+  const lines = `${room || ""}\n${note || ""}`.split("\n");
   const results: MeetingInfo[] = [];
   const seenUrls = new Set<string>();
 
@@ -342,11 +340,6 @@ export function extractOnlineMeetings(
           label = "Токарєва";
         } else if (lowerLine.includes("хочинськ") || lowerLine.includes("хочинск")) {
           label = "Хочинська";
-        } else if (teacherRoom && line.includes(teacherRoom.trim()) && teacherName) {
-          label = teacherName.split(/[\s,/]+/)[0];
-        } else if (secondTeacherRoom && line.includes(secondTeacherRoom.trim()) && teacherName && teacherName.includes("/")) {
-          const parts = teacherName.split(/\s*[/]\s*/);
-          label = (parts[1] || "").split(/[\s.]+/)[0];
         } else {
           const prefixMatch = line.match(
             /^(?:\[([^\]]+)\]|([А-Яа-яІіЇїЄєҐґa-zA-Z0-9\s.'—–\-]+|\d+\s*підгрупа|підгрупа\s*\d+))\s*[:\-–]?\s*https?/i
@@ -488,9 +481,7 @@ export function formatLessonDetails(
     lesson.note,
     lesson.room,
     lesson.teacher_name,
-    lesson.subject_name,
-    lesson.teacher_room,
-    lesson.second_teacher_room
+    lesson.subject_name
   );
 
   let eventBadge: FormattedLessonItem["eventBadge"] = null;
