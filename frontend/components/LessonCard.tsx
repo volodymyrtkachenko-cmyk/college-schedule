@@ -806,11 +806,15 @@ export const LessonCard = memo(function LessonCard({
   const isTeacherView = scheduleMode === "teacher";
   const hasGroupAccess = useMemo(() => {
     if (canEdit || scheduleMode === "admin") return true;
-    if (!isTeacherView) return true;
-    if (isTeacherUnlocked) return true;
-    if (!lesson.group_id) return true;
+    if (isTeacherView) {
+      if (isTeacherUnlocked) return true;
+      if (!lesson.group_id) return true;
+      return isLinkedToGroup(lesson.group_id);
+    }
+    // Student view: access to links and tasks strictly requires classroom link to this group
+    if (!lesson.group_id) return isLinked;
     return isLinkedToGroup(lesson.group_id);
-  }, [canEdit, scheduleMode, isTeacherView, isTeacherUnlocked, lesson.group_id, isLinkedToGroup]);
+  }, [canEdit, scheduleMode, isTeacherView, isTeacherUnlocked, lesson.group_id, isLinked, isLinkedToGroup]);
 
   const handleLockedMeetingClick = useCallback((e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -928,8 +932,8 @@ export const LessonCard = memo(function LessonCard({
     isLive && endMin !== null && nowState ? Math.max(1, endMin - nowState.minutes) : 0;
 
   const rawTasks = useMemo(
-    () => (isTeacherView || canEdit || scheduleMode === "admin" ? [] : extractClassroomTasks(lesson.note)),
-    [isTeacherView, canEdit, scheduleMode, lesson.note]
+    () => (isTeacherView || canEdit || scheduleMode === "admin" || !hasGroupAccess ? [] : extractClassroomTasks(lesson.note)),
+    [isTeacherView, canEdit, scheduleMode, hasGroupAccess, lesson.note]
   );
   // Завдання іншої підгрупи та завдання, які здано, не показуються ТІЛЬКИ у користувача, який прив'язав пошту.
   // Завдання іншої підгрупи та завдання, які здано, фільтруються відповідно до обраної підгрупи
@@ -1080,7 +1084,7 @@ export const LessonCard = memo(function LessonCard({
   }, [isTeacherSubgroupShown, teacherSpecificRoom, teacherSpecificMeeting, isSingleSubgroupShown, singleSubgroupRoom, learningMode, singleSubgroupMeeting, rooms]);
 
   const roomsLabel = useMemo(() => formatRoomsList(displayRooms), [displayRooms]);
-  const effectiveHasMobileMeeting = hasMobileMeeting || (!hasGroupAccess && Boolean(lesson.has_protected_link || (lesson.is_online && displayRooms.length === 0)));
+  const effectiveHasMobileMeeting = hasMobileMeeting || (!hasGroupAccess && Boolean(lesson.has_protected_link || lesson.is_online));
   const effectiveHasMeeting = hasMeeting || (!hasGroupAccess && Boolean(lesson.has_protected_link || lesson.is_online));
   const hasBothRoomAndMeet = displayRooms.length > 0 && (isTeacherSubgroupShown ? Boolean(teacherSpecificMeeting) : (isSingleSubgroupShown ? effectiveHasMobileMeeting : effectiveHasMeeting));
   // Два викладачі (ПК, вигляд «День»): аудиторія і посилання біля кожного окремо (тільки для студента)
@@ -1674,7 +1678,7 @@ export const LessonCard = memo(function LessonCard({
                         <span className="text-xs opacity-75">↗</span>
                       </a>
                     )
-                  ) : (!isDualTeachers || isSingleSubgroupShown) && !hasGroupAccess && (lesson.has_protected_link || (lesson.is_online && displayRooms.length === 0)) ? (
+                  ) : (!isDualTeachers || isSingleSubgroupShown) && !hasGroupAccess && (lesson.has_protected_link || lesson.is_online) ? (
                     <LockedMeetingBadge platform={meetings[0]?.platform} size="normal" onClick={handleLockedMeetingClick} />
                   ) : null}
                 </div>
@@ -2046,7 +2050,7 @@ export const LessonCard = memo(function LessonCard({
                         <span className="text-xs opacity-75">↗</span>
                       </a>
                     )
-                  ) : !hasGroupAccess && (lesson.has_protected_link || (lesson.is_online && displayRooms.length === 0)) ? (
+                  ) : !hasGroupAccess && (lesson.has_protected_link || lesson.is_online) ? (
                     <LockedMeetingBadge platform={meetings[0]?.platform} size="normal" onClick={handleLockedMeetingClick} />
                   ) : null}
                 </div>
@@ -2270,7 +2274,7 @@ export const LessonCard = memo(function LessonCard({
                     <span className="text-xs opacity-75">↗</span>
                   </a>
                 )
-              ) : !hasGroupAccess && (lesson.has_protected_link || (lesson.is_online && displayRooms.length === 0)) ? (
+              ) : !hasGroupAccess && (lesson.has_protected_link || lesson.is_online) ? (
                 <LockedMeetingBadge platform={meetings[0]?.platform} size="normal" onClick={handleLockedMeetingClick} />
               ) : null}
             </div>

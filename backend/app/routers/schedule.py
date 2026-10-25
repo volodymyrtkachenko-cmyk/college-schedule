@@ -211,8 +211,11 @@ async def schedule(request: Request = None,
             is_teacher_auth = True
         else:
             is_teacher_auth = await check_teacher_access(db, request)
+    elif group_id:
+        if has_access is not True:
+            has_access = await check_classroom_group_access(db, group_id, request)
     else:
-        has_access = True
+        has_access = False
 
     for item in serialized_items:
         has_meeting = bool(
@@ -234,7 +237,15 @@ async def schedule(request: Request = None,
             else:
                 item_has_access = False
         else:
-            item_has_access = True
+            target_gid = item.group_id or group_id
+            if has_access is True and (not target_gid or target_gid == group_id):
+                item_has_access = True
+            elif target_gid:
+                if target_gid not in group_access_cache:
+                    group_access_cache[target_gid] = await check_classroom_group_access(db, target_gid, request)
+                item_has_access = group_access_cache[target_gid]
+            else:
+                item_has_access = False
 
         if not item_has_access:
             if has_meeting:
@@ -275,12 +286,14 @@ async def today(
     from app.services.classroom_access import check_classroom_group_access, check_teacher_access
     if teacher_id and not group_id:
         is_auth = await check_teacher_access(db, request)
+    elif group_id:
+        is_auth = await check_classroom_group_access(db, group_id, request)
     else:
-        is_auth = True
+        is_auth = False
 
     from app.services import cache_rev
     cred_tag = "0"
-    if teacher_id and not group_id and not is_auth and request:
+    if not is_auth and request:
         c_uid = request.headers.get("x-classroom-user-id") or request.query_params.get("classroom_user_id") or ""
         c_email = request.headers.get("x-classroom-email") or request.query_params.get("classroom_email") or ""
         if c_uid or c_email:
@@ -329,7 +342,7 @@ async def today(
         target_date=target,
         day_of_week=target.isoweekday(),
         include_cancelled=include_cancelled,
-        has_access=True if is_auth else None,
+        has_access=True if is_auth else False,
         db=db,
     )
 
@@ -354,12 +367,14 @@ async def week(
     from app.services.classroom_access import check_classroom_group_access, check_teacher_access, sanitize_note_for_guest, sanitize_room_for_guest, MEETING_URL_RE
     if teacher_id and not group_id:
         is_auth = await check_teacher_access(db, request)
+    elif group_id:
+        is_auth = await check_classroom_group_access(db, group_id, request)
     else:
-        is_auth = True
+        is_auth = False
 
     from app.services import cache_rev
     cred_tag = "0"
-    if teacher_id and not group_id and not is_auth and request:
+    if not is_auth and request:
         c_uid = request.headers.get("x-classroom-user-id") or request.query_params.get("classroom_user_id") or ""
         c_email = request.headers.get("x-classroom-email") or request.query_params.get("classroom_email") or ""
         if c_uid or c_email:
@@ -442,7 +457,15 @@ async def week(
                 else:
                     item_has_access = False
             else:
-                item_has_access = True
+                target_gid = item.group_id or group_id
+                if is_auth and (not target_gid or target_gid == group_id):
+                    item_has_access = True
+                elif target_gid:
+                    if target_gid not in group_access_cache:
+                        group_access_cache[target_gid] = await check_classroom_group_access(db, target_gid, request)
+                    item_has_access = group_access_cache[target_gid]
+                else:
+                    item_has_access = False
 
             if not item_has_access:
                 if has_meeting:

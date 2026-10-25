@@ -860,6 +860,10 @@ async def perform_course_sync(
     tasks_window_start = min(current_monday, week_monday)
     tasks_lookback_start = tasks_window_start - timedelta(days=TASKS_LOOKBACK_DAYS)
     tasks_window_end = max(current_monday, week_monday) + timedelta(days=11)  # п'ятниця наступного тижня
+
+    # Вікно збереження онлайн-посилань (Meet/Zoom): ТІЛЬКИ минулий тиждень + поточний тиждень
+    links_window_start = week_monday - timedelta(days=7)  # понеділок минулого тижня
+    links_window_end = week_friday  # п'ятниця поточного тижня
     unmapped_tasks: list[dict] = []
 
     db_teachers = (await db.scalars(select(Teacher))).all()
@@ -1642,23 +1646,29 @@ async def perform_course_sync(
                     continue
                 kept.append(l_str)
                 continue
-            if (
-                URL_RE.search(l_str)
-                and _link_line_belongs_to_sync(l_str, sync_teacher_tokens)
-            ):
-                if gn.subject_id not in synced_subject_ids:
-                    kept.append(l_str)
+            if URL_RE.search(l_str):
+                # ТЗ: Онлайн-посилання зберігаються ТІЛЬКИ для минулого та поточного тижнів.
+                # Якщо дата пари поза цим вікном — безумовно очищуємо посилання!
+                if gn.note_date < links_window_start or gn.note_date > links_window_end:
+                    changed = True
                     continue
-                # Якщо поточний синк не містить нового замінного посилання для цієї пари/предмету,
-                # дбайливо зберігаємо чинне посилання, щоб не стирати працюючі дзвінки викладачів
-                has_replacement = any(
-                    pa for pa in parsed_announcements
-                    if pa.get("is_course_level") or (pa.get("has_explicit_date") and pa.get("target_date") == gn.note_date)
-                )
-                if not has_replacement:
-                    kept.append(l_str)
+
+                if _link_line_belongs_to_sync(l_str, sync_teacher_tokens):
+                    if gn.subject_id not in synced_subject_ids:
+                        kept.append(l_str)
+                        continue
+                    # Якщо поточний синк не містить нового замінного посилання для цієї пари/предмету,
+                    # дбайливо зберігаємо чинне посилання, щоб не стирати працюючі дзвінки викладачів
+                    has_replacement = any(
+                        pa for pa in parsed_announcements
+                        if pa.get("is_course_level") or (pa.get("has_explicit_date") and pa.get("target_date") == gn.note_date)
+                    )
+                    if not has_replacement:
+                        kept.append(l_str)
+                        continue
+                    changed = True
                     continue
-                changed = True
+                kept.append(l_str)
                 continue
             kept.append(l_str)
         if changed:
@@ -1807,7 +1817,7 @@ async def perform_course_sync(
         )
     )
 
-    # КРОК 5: Ставимо розпізнані посилання Meet / Zoom СТРОГО на відповідні пари поточного тижня
+    # КРОК 5: Ставимо розпізнані посилання Meet / Zoom СТРОГО на пари минулого та поточного тижня (ТЗ)
     parsed_announcements.sort(key=lambda x: x["created_dt"])
 
     for pa in parsed_announcements:
@@ -1816,14 +1826,14 @@ async def perform_course_sync(
         is_course_level: bool = pa.get("is_course_level", False)
 
         if has_explicit_date:
-            candidate_dates = [target_date] if (tasks_lookback_start <= target_date <= tasks_window_end) else []
+            candidate_dates = [target_date] if (links_window_start <= target_date <= links_window_end) else []
         elif is_course_level:
             candidate_dates = [
                 d for d in sorted(horizon_lessons_by_date.keys())
-                if tasks_window_start <= d <= tasks_window_end
+                if links_window_start <= d <= links_window_end
             ]
         else:
-            candidate_dates = [target_date] if (week_monday <= target_date <= week_friday) else []
+            candidate_dates = [target_date] if (links_window_start <= target_date <= links_window_end) else []
 
         for c_date in candidate_dates:
             day_lessons = horizon_lessons_by_date.get(c_date, [])
