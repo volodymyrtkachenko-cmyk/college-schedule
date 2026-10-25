@@ -593,8 +593,15 @@ export function getVisibleUserNote(note?: string | null): string {
     .trim();
 }
 
-export function extractOnlineMeetingInfo(note?: string | null, room?: string | null) {
-  const meetings = extractOnlineMeetings(note, room);
+export function extractOnlineMeetingInfo(
+  note?: string | null,
+  room?: string | null,
+  teacherName?: string | null,
+  subjectName?: string | null,
+  teacherRoom?: string | null,
+  secondTeacherRoom?: string | null
+) {
+  const meetings = extractOnlineMeetings(note, room, teacherName, subjectName, teacherRoom, secondTeacherRoom);
   return meetings[0] ?? null;
 }
 
@@ -798,7 +805,9 @@ export const LessonCard = memo(function LessonCard({
 
   const isTeacherView = scheduleMode === "teacher";
   const hasGroupAccess = useMemo(() => {
-    if (canEdit || scheduleMode === "admin" || (isTeacherView && isTeacherUnlocked)) return true;
+    if (canEdit || scheduleMode === "admin") return true;
+    if (!isTeacherView) return true;
+    if (isTeacherUnlocked) return true;
     if (!lesson.group_id) return true;
     return isLinkedToGroup(lesson.group_id);
   }, [canEdit, scheduleMode, isTeacherView, isTeacherUnlocked, lesson.group_id, isLinkedToGroup]);
@@ -919,8 +928,8 @@ export const LessonCard = memo(function LessonCard({
     isLive && endMin !== null && nowState ? Math.max(1, endMin - nowState.minutes) : 0;
 
   const rawTasks = useMemo(
-    () => (isTeacherView || canEdit || scheduleMode === "admin" || !hasGroupAccess ? [] : extractClassroomTasks(lesson.note)),
-    [isTeacherView, canEdit, scheduleMode, hasGroupAccess, lesson.note]
+    () => (isTeacherView || canEdit || scheduleMode === "admin" ? [] : extractClassroomTasks(lesson.note)),
+    [isTeacherView, canEdit, scheduleMode, lesson.note]
   );
   // Завдання іншої підгрупи та завдання, які здано, не показуються ТІЛЬКИ у користувача, який прив'язав пошту.
   // Завдання іншої підгрупи та завдання, які здано, фільтруються відповідно до обраної підгрупи
@@ -941,8 +950,23 @@ export const LessonCard = memo(function LessonCard({
   }, [tasks]);
   const highlightTask = nearestDated || tasks[0] || null;
   const meetings = useMemo(
-    () => extractOnlineMeetings(lesson.note, lesson.room, lesson.teacher_name, lesson.subject_name),
-    [lesson.note, lesson.room, lesson.teacher_name, lesson.subject_name]
+    () =>
+      extractOnlineMeetings(
+        lesson.note,
+        lesson.room,
+        lesson.teacher_name,
+        lesson.subject_name,
+        lesson.teacher_room,
+        lesson.second_teacher_room
+      ),
+    [
+      lesson.note,
+      lesson.room,
+      lesson.teacher_name,
+      lesson.subject_name,
+      lesson.teacher_room,
+      lesson.second_teacher_room,
+    ]
   );
   const visibleNoteText = useMemo(() => getVisibleUserNote(lesson.note), [lesson.note]);
   const hasMeeting = meetings.length > 0;

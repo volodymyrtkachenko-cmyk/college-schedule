@@ -212,8 +212,7 @@ async def schedule(request: Request = None,
         else:
             is_teacher_auth = await check_teacher_access(db, request)
     else:
-        if has_access is None:
-            has_access = await check_classroom_group_access(db, group_id, request)
+        has_access = True
 
     for item in serialized_items:
         has_meeting = bool(
@@ -235,7 +234,7 @@ async def schedule(request: Request = None,
             else:
                 item_has_access = False
         else:
-            item_has_access = bool(has_access)
+            item_has_access = True
 
         if not item_has_access:
             if has_meeting:
@@ -277,7 +276,7 @@ async def today(
     if teacher_id and not group_id:
         is_auth = await check_teacher_access(db, request)
     else:
-        is_auth = await check_classroom_group_access(db, group_id, request)
+        is_auth = True
 
     from app.services import cache_rev
     cred_tag = "0"
@@ -356,7 +355,7 @@ async def week(
     if teacher_id and not group_id:
         is_auth = await check_teacher_access(db, request)
     else:
-        is_auth = await check_classroom_group_access(db, group_id, request)
+        is_auth = True
 
     from app.services import cache_rev
     cred_tag = "0"
@@ -443,7 +442,7 @@ async def week(
                 else:
                     item_has_access = False
             else:
-                item_has_access = bool(is_auth)
+                item_has_access = True
 
             if not item_has_access:
                 if has_meeting:
