@@ -48,6 +48,20 @@ export async function requestClassroomAuth(options: ClassroomAuthOptions = {}): 
     throw new Error("Додайте NEXT_PUBLIC_GOOGLE_CLIENT_ID у .env");
   }
 
+  // Friendly alert if user is trying to auth from an arbitrary temporary Vercel preview deployment
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname;
+    const isVercelPreview = host.endsWith(".vercel.app") && !host.startsWith("college-schedule-flame");
+    if (isVercelPreview) {
+      const prodUrl = "https://college-schedule-flame.vercel.app/settings?mode=student";
+      const err = new Error(
+        `Вхід через Google працює лише на основному сайті: college-schedule-flame.vercel.app (поточна адреса — тимчасове прев'ю). Перейдіть на: ${prodUrl}`
+      );
+      options.onError?.(err);
+      return Promise.reject(err);
+    }
+  }
+
   await loadGsiScript();
   const statusData = await api.classroom.status().catch(() => null);
   const hasClientSecret = Boolean(statusData?.has_client_secret);

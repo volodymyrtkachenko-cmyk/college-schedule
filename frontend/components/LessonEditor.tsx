@@ -359,9 +359,11 @@ export function LessonEditor({
                 value={form.lesson_number}
                 onChange={(e) => update("lesson_number", Number(e.target.value))}
               >
-                {Object.entries(LESSON_TIME_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>{label}</option>
-                ))}
+                {Object.entries(LESSON_TIME_LABELS)
+                  .filter(([val]) => Number(val) <= 4 || form.lesson_number === Number(val))
+                  .map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
               </select>
             </label>
           </div>

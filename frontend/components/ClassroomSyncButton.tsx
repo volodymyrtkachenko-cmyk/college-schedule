@@ -314,6 +314,18 @@ export function ClassroomSyncButton({
       showToast("Додайте NEXT_PUBLIC_GOOGLE_CLIENT_ID у .env", "error");
       return;
     }
+
+    if (typeof window !== "undefined") {
+      const host = window.location.hostname;
+      const isVercelPreview = host.endsWith(".vercel.app") && !host.startsWith("college-schedule-flame");
+      if (isVercelPreview) {
+        showToast(
+          "Вхід Google працює лише на основному сайті: college-schedule-flame.vercel.app (поточна адреса — прев'ю)",
+          "error"
+        );
+        return;
+      }
+    }
     setSyncing(true);
     try {
       await loadGsiScript();

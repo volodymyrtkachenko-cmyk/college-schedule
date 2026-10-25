@@ -243,7 +243,7 @@ export function AdminScheduleEditor() {
   }, [weekAnchorDate]);
 
   const resetWeek = () => setWeekAnchorDate(getMondayOf(new Date()));
-  const LESSON_TIMES: Record<number, string> = { 1: "09:00-10:20", 2: "10:40-12:00", 3: "12:30-13:50", 4: "14:00-15:20", 5: "15:30-16:50" };
+  const LESSON_TIMES: Record<number, string> = { 1: "09:00–10:20", 2: "10:40–12:00", 3: "12:30–13:50", 4: "14:00–15:20" };
 
   const edit = async (lesson: Lesson, date: string, payload: LessonMutation) => {
     try {

@@ -258,7 +258,7 @@ export function EventsModal({
           <div className="space-y-1.5">
             <span className="text-xs font-medium text-sys-text-secondary">Номер пари у розкладі</span>
             <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-              {[1, 2, 3, 4, 5].map((num) => (
+              {[1, 2, 3, 4, ...(lessonNumber === 5 ? [5] : [])].map((num) => (
                 <button
                   key={num}
                   type="button"

@@ -27,7 +27,7 @@ export function GeneratorPanel() {
   const [error, setError] = useState<string | null>(null);
   
   const [activeDraft, setActiveDraft] = useState<DraftRecord | null>(null);
-  const [bellTimes, setBellTimes] = useState<Record<number, string>>({1:"09:00-10:20", 2:"10:40-12:00", 3:"12:30-13:50", 4:"14:00-15:20", 5:"15:30-16:50"});
+  const [bellTimes, setBellTimes] = useState<Record<number, string>>({1:"09:00–10:20", 2:"10:40–12:00", 3:"12:30–13:50", 4:"14:00–15:20"});
   const [slots, setSlots] = useState<DraftSlotRecord[]>([]);
   const [subs, setSubs] = useState<DraftSubstitutionRecord[]>([]);
   const [filterMode, setFilterMode] = useState<"group" | "teacher">("group");
