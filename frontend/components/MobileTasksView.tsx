@@ -24,6 +24,7 @@ export interface FullTaskItem {
 
 export function MobileTasksView({
   tasks,
+  hasAccess: explicitHasAccess,
   groupId,
   weekStart,
   weekAnchorDate,
@@ -36,6 +37,7 @@ export function MobileTasksView({
   onSynced,
 }: {
   tasks: FullTaskItem[];
+  hasAccess?: boolean;
   groupId: number | null;
   weekStart?: string;
   weekAnchorDate?: Date;
@@ -54,7 +56,7 @@ export function MobileTasksView({
 }) {
   const [filters, setFilters] = useState<TaskFilterState>(DEFAULT_TASK_FILTERS);
   const { isLinked, isLinkedToGroup } = useClassroomSubmissions();
-  const hasAccess = Boolean(groupId && isLinkedToGroup(groupId));
+  const hasAccess = explicitHasAccess !== undefined ? explicitHasAccess : Boolean(groupId && isLinkedToGroup(groupId));
 
   const [internalScope, setInternalScope] = useState<"week" | "all">("week");
   const scope = tasksScope ?? internalScope;
