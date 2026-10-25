@@ -652,7 +652,7 @@ function AdminContent() {
               />
             )}
 
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 max-w-[960px]">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 w-full">
               <div className="relative w-full sm:max-w-md">
                 <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sys-text-muted"><SearchIcon /></span>
                 <input 
@@ -663,6 +663,14 @@ function AdminContent() {
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="form-control w-full py-2.5 pl-10 pr-4 min-h-[44px] text-sm"
                 />
+              </div>
+              <div className="flex items-center gap-2 text-xs text-sys-text-secondary self-end sm:self-center">
+                <span>
+                  Усього: <strong className="font-semibold text-sys-text-primary">{filteredAndSortedItems.length}</strong>
+                  {searchTerm && items.length !== filteredAndSortedItems.length && (
+                    <span className="text-sys-text-muted font-normal"> (з {items.length})</span>
+                  )}
+                </span>
               </div>
             </div>
 

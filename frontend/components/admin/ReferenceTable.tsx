@@ -62,22 +62,25 @@ export function ReferenceTable({
   const teacherNames = new Map(teachers.map((t) => [t.id, t.name]));
 
   return (
-    <div className="w-full max-w-[960px]">
+    <div className="w-full">
       {/* Desktop & Tablet Table (>= 640px) */}
       <div className="hidden sm:block overflow-x-auto rounded-xl border border-sys-border bg-sys-card/50">
         <table className="w-full text-left text-sm border-collapse">
           <caption className="sr-only">{referenceLabels[resource]}</caption>
           <thead className="bg-slate-100 dark:bg-[#111827] sticky top-0 z-10 border-b border-sys-border text-xs uppercase tracking-wider text-slate-700 dark:text-sys-text-secondary">
             <tr>
-              <th scope="col" className="px-5 py-3.5 font-semibold">Назва</th>
+              <th scope="col" className={`px-5 py-3.5 font-semibold ${resource === "groups" ? "w-36 sm:w-48" : ""}`}>
+                {resource === "groups" ? "Група" : resource === "teachers" ? "Викладач" : resource === "subjects" ? "Назва предмету" : "Назва"}
+              </th>
               {resource === "groups" && (
                 <>
                   <th scope="col" className="px-5 py-3.5 font-semibold">Спеціальність</th>
                   <th scope="col" className="px-5 py-3.5 font-semibold">Куратор</th>
                 </>
               )}
-              {resource === "teachers" && <th scope="col" className="px-5 py-3.5 font-semibold">Аудиторія</th>}
-              <th scope="col" className="px-5 py-3.5 text-right font-semibold min-w-[120px]">Дії</th>
+              {resource === "teachers" && <th scope="col" className="px-5 py-3.5 font-semibold w-48 sm:w-64">Аудиторія</th>}
+              {resource === "subjects" && <th scope="col" className="px-5 py-3.5 font-semibold w-48 sm:w-64">Скорочення</th>}
+              <th scope="col" className="px-5 py-3.5 text-right font-semibold w-44 min-w-[140px]">Дії</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-sys-border/50">
@@ -114,6 +117,16 @@ export function ReferenceTable({
                     {item.room ? (
                       <span className="inline-block px-2 py-0.5 rounded bg-sys-input border border-sys-border/40 text-xs">
                         {item.room}
+                      </span>
+                    ) : "—"}
+                  </td>
+                )}
+
+                {resource === "subjects" && (
+                  <td className="px-5 py-3.5 text-sys-text-secondary">
+                    {item.short_name ? (
+                      <span className="inline-block px-2 py-0.5 rounded bg-slate-100 dark:bg-white/5 border border-sys-border/60 text-xs font-medium">
+                        {item.short_name}
                       </span>
                     ) : "—"}
                   </td>
@@ -188,6 +201,11 @@ export function ReferenceTable({
                 {resource === "teachers" && item.full_name && (
                   <p className="text-xs text-sys-text-secondary mt-1">
                     {item.full_name} {item.email ? `(${item.email})` : ""}
+                  </p>
+                )}
+                {resource === "subjects" && item.short_name && (
+                  <p className="text-xs text-sys-text-secondary mt-1">
+                    Скорочення: <span className="font-semibold text-sys-text-primary">{item.short_name}</span>
                   </p>
                 )}
               </div>

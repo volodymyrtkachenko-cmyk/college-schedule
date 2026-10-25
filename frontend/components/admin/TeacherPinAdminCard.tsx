@@ -89,7 +89,7 @@ export function TeacherPinAdminCard({ onNotify }: TeacherPinAdminCardProps) {
   };
 
   return (
-    <div className="surface-panel rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-xs space-y-3.5 mb-5 max-w-[960px]">
+    <div className="surface-panel rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-xs space-y-3.5 mb-5 w-full">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-sys-border/60">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center shrink-0">
@@ -188,11 +188,11 @@ export function TeacherPinAdminCard({ onNotify }: TeacherPinAdminCardProps) {
               <button
                 type="submit"
                 disabled={saving || !newPin.trim()}
-                className="min-h-[40px] px-4 rounded-xl bg-sys-accent text-slate-950 text-xs font-bold shadow-xs hover:bg-sys-accent/90 disabled:opacity-50 active:scale-95 transition-all flex items-center gap-1.5"
+                className="min-h-[40px] px-4 rounded-xl bg-sys-accent text-white text-xs font-semibold shadow-xs hover:bg-sys-accent/90 disabled:opacity-50 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
               >
                 {saving ? (
                   <>
-                    <span className="w-3.5 h-3.5 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
+                    <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                     <span>Збереження…</span>
                   </>
                 ) : (
