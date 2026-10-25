@@ -179,14 +179,14 @@ export default function StatisticsPage() {
       <div className="mx-auto max-w-5xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
         <section className="flex flex-col gap-4">
           <div className="flex justify-center mb-2">
-            <div role="group" className="inline-flex relative rounded-full bg-slate-800/80 p-1 shadow-inner border border-slate-700/50">
+            <div role="group" className="inline-flex relative rounded-full bg-slate-200/80 dark:bg-slate-800/80 p-1 shadow-inner border border-slate-300/80 dark:border-slate-700/50">
               {teachers.length > 0 && (
                 <div className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-sys-accent rounded-full transition-all duration-300 ease-out z-0 shadow-sm" style={{ left: mode === 'student' ? '4px' : 'calc(50% + 2px)' }}></div>
               )}
               <button
                 type="button"
                 onClick={() => changeMode("student")}
-                className={`relative z-10 flex-1 w-32 rounded-full px-6 py-2 text-sm font-semibold transition-all ${mode === "student" ? "text-slate-900" : "text-slate-400 hover:text-slate-200"}`}
+                className={`relative z-10 flex-1 w-32 rounded-full px-6 py-2 text-sm font-semibold transition-colors ${mode === "student" ? "text-white" : "text-sys-text-secondary hover:text-sys-text-primary"}`}
               >
                 Групам
               </button>
@@ -194,7 +194,7 @@ export default function StatisticsPage() {
                 <button
                   type="button"
                   onClick={() => changeMode("teacher")}
-                  className={`relative z-10 flex-1 w-32 rounded-full px-6 py-2 text-sm font-semibold transition-all ${mode === "teacher" ? "text-slate-900" : "text-slate-400 hover:text-slate-200"}`}
+                  className={`relative z-10 flex-1 w-32 rounded-full px-6 py-2 text-sm font-semibold transition-colors ${mode === "teacher" ? "text-white" : "text-sys-text-secondary hover:text-sys-text-primary"}`}
                 >
                   Викладачам
                 </button>
@@ -228,10 +228,10 @@ export default function StatisticsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               {[1, 2, 3, 4, 5, 6].map((i) => (
                 <div key={i} className="h-24 rounded-2xl border border-sys-border/60 bg-sys-card/70 p-4 flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-full bg-slate-800 shrink-0" />
+                  <div className="w-16 h-16 rounded-full bg-slate-200 dark:bg-slate-800 shrink-0" />
                   <div className="flex-1 space-y-2">
-                    <div className="h-4 w-3/4 rounded bg-slate-700/70" />
-                    <div className="h-3 w-1/2 rounded bg-slate-800" />
+                    <div className="h-4 w-3/4 rounded bg-slate-200/80 dark:bg-slate-700/70" />
+                    <div className="h-3 w-1/2 rounded bg-slate-100 dark:bg-slate-800" />
                   </div>
                 </div>
               ))}
@@ -267,7 +267,7 @@ export default function StatisticsPage() {
                 {hasGlobalPlan ? (
                   <div className="rounded-2xl border border-sys-border bg-sys-card p-5 text-center flex flex-col justify-center items-center">
                     <p className="text-xs font-semibold uppercase tracking-wider text-sys-text-secondary">Всього за планом</p>
-                    <p className="mt-2 text-4xl font-black text-white">
+                    <p className="mt-2 text-4xl font-black text-sys-text-primary">
                       {stats.planned_hours}
                     </p>
                     <p className="mt-1 text-xs text-sys-text-muted">
@@ -279,7 +279,7 @@ export default function StatisticsPage() {
                     <p className="text-xs font-semibold uppercase tracking-wider text-sys-text-secondary">
                       Дисциплін
                     </p>
-                    <p className="mt-2 text-4xl font-black text-white">{stats.entries.length}</p>
+                    <p className="mt-2 text-4xl font-black text-sys-text-primary">{stats.entries.length}</p>
                     <p className="mt-1 text-xs text-sys-text-muted">у поточному семестрі</p>
                   </div>
                 )}
@@ -300,7 +300,7 @@ export default function StatisticsPage() {
                 {hasGlobalPlan ? (
                   <div className="rounded-2xl border border-sys-border bg-sys-card p-5 text-center flex flex-col justify-center items-center">
                     <p className="text-xs font-semibold uppercase tracking-wider text-sys-text-secondary">Семестровий план</p>
-                    <p className="mt-2 text-4xl font-black text-white">
+                    <p className="mt-2 text-4xl font-black text-sys-text-primary">
                       {stats.planned_hours}
                     </p>
                     <p className="mt-1 text-xs text-sys-text-muted">
@@ -310,7 +310,7 @@ export default function StatisticsPage() {
                 ) : stats.weekly_hours ? (
                   <div className="rounded-2xl border border-sys-border bg-sys-card p-5 text-center flex flex-col justify-center items-center">
                     <p className="text-xs font-semibold uppercase tracking-wider text-sys-text-secondary">Тижневе навантаження</p>
-                    <p className="mt-2 text-4xl font-black text-white">
+                    <p className="mt-2 text-4xl font-black text-sys-text-primary">
                       {stats.weekly_hours}
                     </p>
                     <p className="mt-1 text-xs text-sys-text-muted">
@@ -322,7 +322,7 @@ export default function StatisticsPage() {
                     <p className="text-xs font-semibold uppercase tracking-wider text-sys-text-secondary">
                       Активних груп
                     </p>
-                    <p className="mt-2 text-4xl font-black text-white">{teacherGroups.length}</p>
+                    <p className="mt-2 text-4xl font-black text-sys-text-primary">{teacherGroups.length}</p>
                     <p className="mt-1 text-xs text-sys-text-muted">{teacherSubjects.length} дисциплін</p>
                   </div>
                 )}
@@ -356,20 +356,20 @@ export default function StatisticsPage() {
 
                       const colorClass = hasPlannedHours
                         ? progress >= 100
-                          ? "text-emerald-500"
+                          ? "text-emerald-600 dark:text-emerald-400"
                           : progress >= 50
-                            ? "text-purple-500"
-                            : "text-blue-500"
+                            ? "text-purple-600 dark:text-purple-400"
+                            : "text-blue-600 dark:text-blue-400"
                         : "text-sys-accent";
 
                       return (
-                        <div key={entry.id} className="rounded-2xl border border-sys-border bg-sys-card p-4 flex items-center gap-4 hover:bg-white/5 transition-colors">
+                        <div key={entry.id} className="rounded-2xl border border-sys-border bg-sys-card p-4 flex items-center gap-4 hover:bg-slate-50 dark:hover:bg-white/5 hover:border-sys-accent/40 transition-colors">
                           <div className="relative w-16 h-16 shrink-0 flex items-center justify-center">
                             <svg className="w-full h-full transform -rotate-90" viewBox="0 0 48 48">
                               <circle
                                 cx="24" cy="24" r="20"
                                 stroke="currentColor" strokeWidth="4" fill="none"
-                                className="text-slate-800"
+                                className="text-slate-200 dark:text-slate-800"
                               />
                               <circle
                                 cx="24" cy="24" r="20"
@@ -380,15 +380,15 @@ export default function StatisticsPage() {
                                 strokeLinecap="round"
                               />
                             </svg>
-                            <span className="absolute text-xs font-bold text-slate-200">
+                            <span className="absolute text-xs font-bold text-sys-text-primary">
                               {hasPlannedHours ? `${Math.round(clampedProgress)}%` : `${entry.completed_hours}г`}
                             </span>
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h3 className="line-clamp-2 leading-snug font-semibold text-sm mb-1 text-slate-200" title={entry.name}>
+                            <h3 className="line-clamp-2 leading-snug font-semibold text-sm mb-1 text-sys-text-primary" title={entry.name}>
                               {entry.name}
                             </h3>
-                            <p className="text-xs text-slate-400">
+                            <p className="text-xs text-sys-text-secondary">
                               {hasPlannedHours
                                 ? `${entry.completed_hours} з ${totalHours} акад. год · ${Math.round(entry.completed_hours / 2)} пар`
                                 : `${entry.completed_hours} акад. год · ${Math.round(entry.completed_hours / 2)} пар`}
@@ -396,12 +396,12 @@ export default function StatisticsPage() {
                             {Boolean(entry.replaced_count || entry.cancelled_count) && (
                               <div className="mt-1.5 flex flex-wrap gap-1.5 text-xs">
                                 {Boolean(entry.replaced_count) && (
-                                  <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-amber-300">
+                                  <span className="rounded border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-amber-700 dark:text-amber-300 font-medium">
                                     Замін: {entry.replaced_count}
                                   </span>
                                 )}
                                 {Boolean(entry.cancelled_count) && (
-                                  <span className="rounded bg-rose-500/10 px-1.5 py-0.5 text-rose-300">
+                                  <span className="rounded border border-rose-500/20 bg-rose-500/10 px-1.5 py-0.5 text-rose-700 dark:text-rose-300 font-medium">
                                     Скасовано: {entry.cancelled_count}
                                   </span>
                                 )}
@@ -430,14 +430,14 @@ export default function StatisticsPage() {
                         : `${teacherGroups.length} активних груп у поточному семестрі`}
                     </p>
                   </div>
-                  <div role="group" className="inline-flex rounded-xl bg-slate-800/80 p-1 border border-slate-700/50 text-xs font-medium self-start sm:self-auto">
+                  <div role="group" className="inline-flex rounded-xl bg-slate-200/80 dark:bg-slate-800/80 p-1 border border-slate-300/80 dark:border-slate-700/50 text-xs font-medium self-start sm:self-auto">
                     <button
                       type="button"
                       onClick={() => setTeacherView("subjects")}
-                      className={`rounded-lg px-3.5 py-1.5 transition-all ${
+                      className={`rounded-lg px-3.5 py-1.5 transition-colors ${
                         teacherView === "subjects"
-                          ? "bg-sys-accent text-slate-900 font-semibold shadow-sm"
-                          : "text-slate-400 hover:text-slate-200"
+                          ? "bg-sys-accent text-white font-semibold shadow-sm"
+                          : "text-sys-text-secondary hover:text-sys-text-primary"
                       }`}
                     >
                       За дисциплінами ({teacherSubjects.length})
@@ -445,10 +445,10 @@ export default function StatisticsPage() {
                     <button
                       type="button"
                       onClick={() => setTeacherView("groups")}
-                      className={`rounded-lg px-3.5 py-1.5 transition-all ${
+                      className={`rounded-lg px-3.5 py-1.5 transition-colors ${
                         teacherView === "groups"
-                          ? "bg-sys-accent text-slate-900 font-semibold shadow-sm"
-                          : "text-slate-400 hover:text-slate-200"
+                          ? "bg-sys-accent text-white font-semibold shadow-sm"
+                          : "text-sys-text-secondary hover:text-sys-text-primary"
                       }`}
                     >
                       За групами ({teacherGroups.length})
@@ -472,13 +472,13 @@ export default function StatisticsPage() {
                         const strokeDashoffset = circumference - (clampedProgress / 100) * circumference;
 
                         return (
-                          <div key={subj.id} className="rounded-2xl border border-sys-border bg-sys-card p-4 flex items-center gap-4 hover:bg-white/5 transition-colors">
+                          <div key={subj.id} className="rounded-2xl border border-sys-border bg-sys-card p-4 flex items-center gap-4 hover:bg-slate-50 dark:hover:bg-white/5 hover:border-sys-accent/40 transition-colors">
                             <div className="relative w-16 h-16 shrink-0 flex items-center justify-center">
                               <svg className="w-full h-full transform -rotate-90" viewBox="0 0 48 48">
                                 <circle
                                   cx="24" cy="24" r="20"
                                   stroke="currentColor" strokeWidth="4" fill="none"
-                                  className="text-slate-800"
+                                  className="text-slate-200 dark:text-slate-800"
                                 />
                                 <circle
                                   cx="24" cy="24" r="20"
@@ -489,22 +489,22 @@ export default function StatisticsPage() {
                                   strokeLinecap="round"
                                 />
                               </svg>
-                              <span className="absolute text-xs font-bold text-slate-200">
+                              <span className="absolute text-xs font-bold text-sys-text-primary">
                                 {subj.completed_hours}г
                               </span>
                             </div>
                             <div className="flex-1 min-w-0">
-                              <h3 className="line-clamp-2 leading-snug font-semibold text-sm mb-1 text-slate-200" title={subj.name}>
+                              <h3 className="line-clamp-2 leading-snug font-semibold text-sm mb-1 text-sys-text-primary" title={subj.name}>
                                 {subj.name}
                               </h3>
-                              <p className="text-xs text-slate-400 mb-1.5">
+                              <p className="text-xs text-sys-text-secondary mb-1.5">
                                 {subj.completed_hours} акад. год · {subj.lessons_count} пар
                               </p>
                               {subj.groups.length > 0 && (
                                 <div className="flex flex-wrap gap-1 items-center">
                                   <span className="text-[11px] text-sys-text-muted mr-0.5">Групи:</span>
                                   {subj.groups.map((grp) => (
-                                    <span key={grp} className="rounded bg-slate-800 border border-slate-700/60 px-1.5 py-0.5 text-[11px] font-medium text-slate-300">
+                                    <span key={grp} className="rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 px-1.5 py-0.5 text-[11px] font-medium text-slate-700 dark:text-slate-300">
                                       {grp}
                                     </span>
                                   ))}
@@ -532,13 +532,13 @@ export default function StatisticsPage() {
                         const strokeDashoffset = circumference - (clampedProgress / 100) * circumference;
 
                         return (
-                          <div key={grp.id} className="rounded-2xl border border-sys-border bg-sys-card p-4 flex items-center gap-4 hover:bg-white/5 transition-colors">
+                          <div key={grp.id} className="rounded-2xl border border-sys-border bg-sys-card p-4 flex items-center gap-4 hover:bg-slate-50 dark:hover:bg-white/5 hover:border-sys-accent/40 transition-colors">
                             <div className="relative w-16 h-16 shrink-0 flex items-center justify-center">
                               <svg className="w-full h-full transform -rotate-90" viewBox="0 0 48 48">
                                 <circle
                                   cx="24" cy="24" r="20"
                                   stroke="currentColor" strokeWidth="4" fill="none"
-                                  className="text-slate-800"
+                                  className="text-slate-200 dark:text-slate-800"
                                 />
                                 <circle
                                   cx="24" cy="24" r="20"
@@ -549,12 +549,12 @@ export default function StatisticsPage() {
                                   strokeLinecap="round"
                                 />
                               </svg>
-                              <span className="absolute text-xs font-bold text-slate-200">
+                              <span className="absolute text-xs font-bold text-sys-text-primary">
                                 {grp.completed_hours}г
                               </span>
                             </div>
                             <div className="flex-1 min-w-0">
-                              <h3 className="font-semibold text-sm mb-1 text-slate-200">
+                              <h3 className="font-semibold text-sm mb-1 text-sys-text-primary">
                                 Група {grp.name}
                               </h3>
                               {grp.subject_names && grp.subject_names.length > 0 && (
@@ -562,14 +562,14 @@ export default function StatisticsPage() {
                                   {grp.subject_names.map((subjectName) => (
                                     <span
                                       key={subjectName}
-                                      className="rounded bg-sky-500/10 border border-sky-500/20 px-1.5 py-0.5 text-[11px] font-medium text-sky-300 leading-snug"
+                                      className="rounded bg-sky-500/10 border border-sky-500/20 px-1.5 py-0.5 text-[11px] font-medium text-sky-700 dark:text-sky-300 leading-snug"
                                     >
                                       {subjectName}
                                     </span>
                                   ))}
                                 </div>
                               )}
-                              <p className="text-xs text-slate-400">
+                              <p className="text-xs text-sys-text-secondary">
                                 {grp.completed_hours} акад. год · {grp.lessons_count} пар
                               </p>
                             </div>
