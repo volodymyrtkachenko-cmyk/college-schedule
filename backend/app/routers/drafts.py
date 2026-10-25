@@ -358,6 +358,7 @@ async def publish_draft(
 
     from app.core.time import today_local
     from app.models.entities import SchedulePublication, SchedulePublicationSnapshot, ScheduleVersion, ImportedScheduleChange
+    from app.routers.admin_import import import_payload_hash
     import json
     from datetime import datetime
 
@@ -483,7 +484,11 @@ async def publish_draft(
                 "changes_count": total_changes,
                 "dates": sorted([d.isoformat() for d in scope_dates]),
             }),
-            source_fingerprint=json.dumps((draft.data or {}).get("import_scope", {})),
+            source_fingerprint=json.dumps({
+                "source_type": "draft_approval",
+                "payload_hash": import_payload_hash(draft.data or {}),
+                "import_scope": (draft.data or {}).get("import_scope", {}),
+            }),
         )
         db.add(publication)
         await db.flush()

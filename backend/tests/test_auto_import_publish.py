@@ -398,3 +398,63 @@ async def test_auto_import_publishes_substitutions_and_keeps_cancellations_in_dr
     cancellation_draft = pending_drafts[0]
     assert len(cancellation_draft.data.get("cancelled", [])) == 1
     assert cancellation_draft.data["cancelled"][0]["lesson_number"] == 3
+
+
+@pytest.mark.anyio
+async def test_auto_import_skips_publication_when_no_changes_compared_to_previous_publication(ctx, monkeypatch):
+    db, ids = ctx
+    target_date = (date(2026, 10, 20)).isoformat()
+    sub1 = {
+        "group_id": ids["group_id"],
+        "subject_id": ids["subject_id"],
+        "teacher_id": ids["teacher_id"],
+        "second_teacher_id": None,
+        "date": target_date,
+        "lesson_number": 2,
+        "week_type": "denominator",
+        "room": "101",
+    }
+    setup_kre_mock(monkeypatch, ids, substitutions=[sub1])
+
+    # 1. First run: changes exist -> publishes
+    res1 = await admin_import._do_import(db, 2, "initial-run", actor_id=None)
+    assert res1["status"] == "success"
+    assert res1["meta"]["auto_published"] is True
+    first_pub_id = res1["meta"]["publication_id"]
+    assert first_pub_id is not None
+
+    pub_count = await db.scalar(select(func.count(SchedulePublication.id)))
+    assert pub_count == 1
+
+    # 2. Second run: identical substitutions on site -> skips publication (unchanged=True)
+    res2 = await admin_import._do_import(db, 2, "second-run-same", actor_id=None)
+    assert res2["status"] == "success"
+    assert res2["meta"]["unchanged"] is True
+    assert res2["meta"]["auto_published"] is False
+    assert res2["meta"]["publication_id"] is None
+
+    # Verify no second publication was created
+    pub_count_after = await db.scalar(select(func.count(SchedulePublication.id)))
+    assert pub_count_after == 1
+
+    # 3. Third run: new substitution added -> changes detected -> publishes new publication
+    sub2 = {
+        "group_id": ids["group_id"],
+        "subject_id": ids["subject_id"],
+        "teacher_id": ids["teacher_id"],
+        "second_teacher_id": None,
+        "date": target_date,
+        "lesson_number": 3,
+        "week_type": "denominator",
+        "room": "102",
+    }
+    setup_kre_mock(monkeypatch, ids, substitutions=[sub1, sub2])
+
+    res3 = await admin_import._do_import(db, 2, "third-run-changed", actor_id=None)
+    assert res3["status"] == "success"
+    assert res3["meta"]["auto_published"] is True
+    assert res3["meta"]["publication_id"] is not None
+    assert res3["meta"]["publication_id"] != first_pub_id
+
+    pub_count_final = await db.scalar(select(func.count(SchedulePublication.id)))
+    assert pub_count_final == 2

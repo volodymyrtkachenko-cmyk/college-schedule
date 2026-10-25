@@ -105,7 +105,10 @@ def import_payload_hash(payload: dict) -> str:
 
 def import_changes_hash(payload: dict) -> str:
     if "changes" in payload:
-        records = payload["changes"]
+        records = sorted(
+            payload["changes"],
+            key=lambda item: json.dumps(item, sort_keys=True, default=str),
+        )
     else:
         records = _canonical_change_records(
             payload.get("substitutions", []),
@@ -1120,16 +1123,6 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
             s for s in aggregated_substitutions
             if _is_auto_publishable_sub(s)
         ]
-        latest_changes = [
-            item for item in await _latest_published_changes(db, scope_dates_obj, imported_group_ids)
-            if item.kind == "substitution"
-        ]
-        incoming_changes_records = _canonical_change_records(auto_publish_substitutions, [])
-        published_changes_records = [_change_payload(item) for item in latest_changes]
-        unchanged = (
-            import_changes_hash({"changes": incoming_changes_records})
-            == import_changes_hash({"changes": published_changes_records})
-        )
 
         # Restore base slots under substitutions to prevent holes in draft schedule
         restored_base_slots = []
@@ -1208,6 +1201,70 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
             "page_snapshots": page_snapshots,
         }
 
+        # Check against previous active publication
+        last_pub = await db.scalar(
+            select(SchedulePublication)
+            .where(SchedulePublication.is_reverted.is_(False))
+            .order_by(SchedulePublication.id.desc())
+            .limit(1)
+        )
+        last_pub_manifest = {}
+        last_pub_fp = {}
+        last_pub_dates: set[date] = set()
+        last_pub_groups: set[int] = set()
+        if last_pub:
+            try:
+                if last_pub.scope_manifest:
+                    last_pub_manifest = json.loads(last_pub.scope_manifest)
+                if last_pub.source_fingerprint:
+                    last_pub_fp = json.loads(last_pub.source_fingerprint)
+            except Exception:
+                pass
+            for d_str in last_pub_manifest.get("dates", []):
+                try:
+                    last_pub_dates.add(datetime.strptime(d_str, "%Y-%m-%d").date())
+                except Exception:
+                    pass
+            last_pub_groups = set(last_pub_manifest.get("group_ids", []))
+
+        effective_check_dates = scope_dates_obj | last_pub_dates
+        effective_check_groups = imported_group_ids | last_pub_groups
+
+        latest_changes = [
+            item for item in await _latest_published_changes(db, effective_check_dates, effective_check_groups)
+            if item.kind == "substitution"
+        ]
+        incoming_changes_records = _canonical_change_records(auto_publish_substitutions, [])
+        published_changes_records = [_change_payload(item) for item in latest_changes]
+        db_changes_match = (
+            import_changes_hash({"changes": incoming_changes_records})
+            == import_changes_hash({"changes": published_changes_records})
+        )
+
+        last_pub_matches = False
+        if last_pub:
+            prev_payload_hash = last_pub_fp.get("payload_hash")
+            if prev_payload_hash and prev_payload_hash == payload_hash:
+                last_pub_matches = True
+            prev_page_hashes = last_pub_fp.get("page_hashes")
+            if prev_page_hashes and group_page_hashes and prev_page_hashes == group_page_hashes:
+                last_pub_matches = True
+            if not last_pub_matches:
+                last_pub_changes = (await db.scalars(
+                    select(ImportedScheduleChange).where(
+                        ImportedScheduleChange.publication_id == last_pub.id,
+                        ImportedScheduleChange.kind == "substitution",
+                    )
+                )).all()
+                if last_pub_changes:
+                    last_pub_records = [_change_payload(item) for item in last_pub_changes]
+                    if import_changes_hash({"changes": incoming_changes_records}) == import_changes_hash({"changes": last_pub_records}):
+                        last_pub_matches = True
+                elif not auto_publish_substitutions and last_pub_manifest.get("changes_count") == 0:
+                    last_pub_matches = True
+
+        unchanged = db_changes_match or last_pub_matches
+
         # Check existing pending draft and current matches
         pending_stmt = (
             select(ScheduleDraft)
@@ -1226,7 +1283,7 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
             )
         )
         current_matches = await matches_published_schedule(db, payload, weeks)
-        auto_publish_unchanged = unchanged or current_matches
+        auto_publish_unchanged = unchanged or current_matches or last_pub_matches
 
         auto_published = False
         publication_id = None
@@ -1291,14 +1348,16 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
                 publication_id = publication.id
 
                 # Retire older active substitution changes in scope (never touch manual edits or cancellations)
-                if scope_dates_obj and imported_group_ids:
+                retire_dates = scope_dates_obj | last_pub_dates
+                retire_groups = imported_group_ids | last_pub_groups
+                if retire_dates and retire_groups:
                     await db.execute(
                         update(ImportedScheduleChange)
                         .where(
                             ImportedScheduleChange.is_published.is_(True),
                             ImportedScheduleChange.kind == "substitution",
-                            ImportedScheduleChange.date.in_(scope_dates_obj),
-                            ImportedScheduleChange.group_id.in_(imported_group_ids),
+                            ImportedScheduleChange.date.in_(retire_dates),
+                            ImportedScheduleChange.group_id.in_(retire_groups),
                             ImportedScheduleChange.manually_edited.is_(False),
                         )
                         .values(is_published=False)
