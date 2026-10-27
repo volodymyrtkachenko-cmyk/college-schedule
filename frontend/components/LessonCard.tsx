@@ -2211,8 +2211,47 @@ export const LessonCard = memo(function LessonCard({
                 </div>
               )
             ) : secondaryItems.length > 0 ? (
-              <div className="text-xs text-sys-text-secondary">
-                {secondaryItems.map((item) => item.displayName).join(" / ")}
+              <div className="flex flex-wrap items-center gap-1.5 text-xs text-sys-text-secondary">
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="text-sys-text-muted shrink-0"
+                  aria-hidden="true"
+                >
+                  <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+                {isTeacherView && (
+                  <span className="text-sys-text-muted">
+                    {secondaryItems.length > 1 ? "Групи: " : "Група: "}
+                  </span>
+                )}
+                {secondaryItems.map((item, idx) => (
+                  <span key={`${item.name}-${idx}`} className="inline-flex items-center">
+                    {idx > 0 && <span className="text-sys-text-muted mr-1"> / </span>}
+                    {onQuickJump ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onQuickJump(item.target);
+                        }}
+                        className="py-0.5 font-medium text-sys-text-secondary hover:text-sys-accent active:text-sys-accent active:scale-95 transition-colors duration-fast ease-smooth focus:outline-none underline-offset-2 hover:underline"
+                        title={item.displayName}
+                      >
+                        {item.displayName}
+                      </button>
+                    ) : (
+                      <span>{item.displayName}</span>
+                    )}
+                  </span>
+                ))}
               </div>
             ) : null}
           </div>
