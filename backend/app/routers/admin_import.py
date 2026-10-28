@@ -1246,10 +1246,9 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
             prev_payload_hash = last_pub_fp.get("payload_hash")
             if prev_payload_hash and prev_payload_hash == payload_hash:
                 last_pub_matches = True
-            prev_page_hashes = last_pub_fp.get("page_hashes")
-            if prev_page_hashes and group_page_hashes and prev_page_hashes == group_page_hashes:
+            elif not auto_publish_substitutions and last_pub_manifest.get("changes_count") == 0:
                 last_pub_matches = True
-            if not last_pub_matches:
+            else:
                 last_pub_changes = (await db.scalars(
                     select(ImportedScheduleChange).where(
                         ImportedScheduleChange.publication_id == last_pub.id,
@@ -1260,7 +1259,9 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
                     last_pub_records = [_change_payload(item) for item in last_pub_changes]
                     if import_changes_hash({"changes": incoming_changes_records}) == import_changes_hash({"changes": last_pub_records}):
                         last_pub_matches = True
-                elif not auto_publish_substitutions and last_pub_manifest.get("changes_count") == 0:
+            if not last_pub_matches and db_changes_match:
+                prev_page_hashes = last_pub_fp.get("page_hashes")
+                if prev_page_hashes and group_page_hashes and prev_page_hashes == group_page_hashes:
                     last_pub_matches = True
 
         unchanged = db_changes_match or last_pub_matches

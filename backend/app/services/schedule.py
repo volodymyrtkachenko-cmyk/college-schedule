@@ -53,6 +53,8 @@ def resolve_active_period_info(periods: list, target_date: date, group_id: int |
     if not periods:
         return None
     for p in periods:
+        if getattr(p, "period_type", "") == "theory":
+            continue
         if not (p.start_date <= target_date <= p.end_date):
             continue
         # Global holiday / period without explicit groups

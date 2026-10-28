@@ -448,7 +448,7 @@ async def test_auto_import_skips_publication_when_no_changes_compared_to_previou
         "week_type": "denominator",
         "room": "102",
     }
-    setup_kre_mock(monkeypatch, ids, substitutions=[sub1, sub2])
+    setup_kre_mock(monkeypatch, ids, substitutions=[sub1, sub2], html_content="<html>third-run-changed</html>")
 
     res3 = await admin_import._do_import(db, 2, "third-run-changed", actor_id=None)
     assert res3["status"] == "success"
