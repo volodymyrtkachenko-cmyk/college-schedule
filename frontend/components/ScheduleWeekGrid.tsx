@@ -4,7 +4,7 @@ import { canMoveLesson } from "../lib/scheduleMove";
 import { ScheduleDay } from "./ScheduleDay";
 import { ScheduleEditGrid } from "./ScheduleEditGrid";
 import { LessonCard, QuickJumpTarget } from "./LessonCard";
-import { SchedulePeriodCard, CompactSchedulePeriodCard, getPeriodMeta } from "./SchedulePeriodCard";
+import { CompactSchedulePeriodCard, getPeriodMeta } from "./SchedulePeriodCard";
 
 import { KYIV_DATE_FMT, UKR_WEEKDAY_LONG_FMT, UKR_DAY_MONTH_SHORT_FMT } from "../lib/date";
 
@@ -225,10 +225,6 @@ export function ScheduleWeekGrid({
     });
   }, [week]);
 
-  const weekPeriod = useMemo(() => {
-    return week.find((d) => d.period_info)?.period_info ?? null;
-  }, [week]);
-
   const allDaysInPeriod = useMemo(() => {
     return week.length > 0 && week.every((d) => Boolean(d.period_info) && d.lessons.length === 0);
   }, [week]);
@@ -240,12 +236,6 @@ export function ScheduleWeekGrid({
 
   return (
     <div className="w-full pb-4">
-      {allDaysInPeriod && weekPeriod && (
-        <div className="mb-4">
-          <SchedulePeriodCard period={weekPeriod} />
-        </div>
-      )}
-
       {/* Desktop (>= 1024px): 5-column synchronized CSS Grid by lesson numbers */}
       <div className="hidden lg:grid lg:grid-cols-5 gap-3 xl:gap-3.5 pb-4">
         {/* Row 0: Column Headers */}
