@@ -4,6 +4,7 @@ import { canMoveLesson } from "../lib/scheduleMove";
 import { ScheduleDay } from "./ScheduleDay";
 import { ScheduleEditGrid } from "./ScheduleEditGrid";
 import { LessonCard, QuickJumpTarget } from "./LessonCard";
+import { SchedulePeriodCard, CompactSchedulePeriodCard, getPeriodMeta } from "./SchedulePeriodCard";
 
 import { KYIV_DATE_FMT, UKR_WEEKDAY_LONG_FMT, UKR_DAY_MONTH_SHORT_FMT } from "../lib/date";
 
@@ -40,6 +41,7 @@ export function ScheduleWeekGrid({
   onRemoveReplacement,
   onMove,
   onQuickJump,
+  onSelectDay,
   // New props
   isSelectMode,
   selectedLessonIds,
@@ -77,6 +79,7 @@ export function ScheduleWeekGrid({
   onRemoveReplacement?: (lesson: Lesson, date: string) => void;
   onMove?: (lesson: Lesson, date: string, lessonNumber: number) => void;
   onQuickJump?: (target: QuickJumpTarget) => void;
+  onSelectDay?: (date: string, dayIndex: number) => void;
   // Selection & swap
   isSelectMode?: boolean;
   selectedLessonIds?: Set<number>;
@@ -198,6 +201,7 @@ export function ScheduleWeekGrid({
       }
 
       const count = day.lessons.length;
+      const periodMeta = day.period_info ? getPeriodMeta(day.period_info) : null;
       let latestEnd: string | null = null;
       if (latestLesson?.time) {
         const parts = latestLesson.time.split("-");
@@ -206,6 +210,8 @@ export function ScheduleWeekGrid({
       const summaryText =
         count > 0
           ? `${count} ${count === 1 ? "пара" : count < 5 ? "пари" : "пар"}${latestEnd ? ` · до ${latestEnd}` : ""}`
+          : periodMeta
+          ? `${periodMeta.icon} ${periodMeta.shortLabel.toLowerCase()}`
           : "пар немає";
 
       return {
@@ -214,8 +220,17 @@ export function ScheduleWeekGrid({
         firstLessonNum,
         lastLessonNum,
         summaryText,
+        periodMeta,
       };
     });
+  }, [week]);
+
+  const weekPeriod = useMemo(() => {
+    return week.find((d) => d.period_info)?.period_info ?? null;
+  }, [week]);
+
+  const allDaysInPeriod = useMemo(() => {
+    return week.length > 0 && week.every((d) => Boolean(d.period_info) && d.lessons.length === 0);
   }, [week]);
 
   const hasAnyOverride = useMemo(
@@ -225,16 +240,34 @@ export function ScheduleWeekGrid({
 
   return (
     <div className="w-full pb-4">
+      {allDaysInPeriod && weekPeriod && (
+        <div className="mb-4">
+          <SchedulePeriodCard period={weekPeriod} />
+        </div>
+      )}
+
       {/* Desktop (>= 1024px): 5-column synchronized CSS Grid by lesson numbers */}
       <div className="hidden lg:grid lg:grid-cols-5 gap-3 xl:gap-3.5 pb-4">
         {/* Row 0: Column Headers */}
-        {week.map((day) => {
+        {weekDaysMeta.map(({ day, periodMeta }, dIdx) => {
           const isToday = day.date === kyivTodayIso;
           const isPast = day.date < kyivTodayIso;
           return (
             <div
               key={`desktop-header-${day.date}`}
-              className={`flex flex-col justify-center min-h-[64px] px-3.5 py-2.5 rounded-2xl border transition-colors duration-fast ease-smooth ${
+              role={onSelectDay ? "button" : undefined}
+              tabIndex={onSelectDay ? 0 : undefined}
+              onClick={() => onSelectDay?.(day.date, dIdx)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onSelectDay?.(day.date, dIdx);
+                }
+              }}
+              style={{ gridColumn: dIdx + 1 }}
+              className={`flex flex-col justify-center min-h-[64px] px-3.5 py-2.5 rounded-2xl border transition-all duration-fast ease-smooth ${
+                onSelectDay ? "cursor-pointer hover:border-sys-accent/60" : ""
+              } ${
                 isToday
                   ? "bg-sys-card border-sys-accent/45 shadow-[0_0_15px_rgba(59,130,246,0.08)] ring-1 ring-sys-accent/30"
                   : isPast
@@ -246,12 +279,20 @@ export function ScheduleWeekGrid({
                 <span className="text-[17px] xl:text-[18px] font-bold capitalize tracking-tight truncate text-sys-text-primary">
                   {longWeekday(day.date)}
                 </span>
-                {isToday && (
+                {isToday ? (
                   <span className="shrink-0 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border border-sys-accent/35 bg-sys-accent/15 text-xs font-bold text-sys-accent tracking-wide shadow-xs">
                     <span className="h-1.5 w-1.5 rounded-full bg-sys-accent animate-pulse" />
                     Сьогодні
                   </span>
-                )}
+                ) : periodMeta ? (
+                  <span
+                    className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold border shadow-xs ${periodMeta.badgeTone}`}
+                    title={periodMeta.title}
+                  >
+                    <span>{periodMeta.icon}</span>
+                    <span className="max-w-[70px] truncate">{periodMeta.shortLabel}</span>
+                  </span>
+                ) : null}
               </div>
               <div className="flex items-center justify-between gap-1.5 mt-0.5">
                 <span className={`text-xs xl:text-[13px] font-medium ${
@@ -271,14 +312,15 @@ export function ScheduleWeekGrid({
 
         {/* Optional Exception Row in Desktop Week Grid */}
         {hasAnyOverride &&
-          week.map((day) => {
+          week.map((day, dIdx) => {
             const ov = day.learning_mode_override;
             if (!ov) {
-              return <div key={`desktop-override-${day.date}`} className="hidden lg:block" />;
+              return <div key={`desktop-override-${day.date}`} style={{ gridColumn: dIdx + 1 }} className="hidden lg:block" />;
             }
             return (
               <div
                 key={`desktop-override-${day.date}`}
+                style={{ gridColumn: dIdx + 1 }}
                 className={`flex items-start gap-2 rounded-2xl border px-3 py-2 text-xs shadow-xs ${
                   ov.mode === "offline"
                     ? "border-sys-accent/35 bg-sys-accent/10 text-sys-text-primary"
@@ -315,16 +357,40 @@ export function ScheduleWeekGrid({
           })}
 
         {/* Rows 1..N: Lesson Slots (1 row per lesson number, synchronized across all 5 days) */}
-        {allLessonNumbers.map((num) =>
-          weekDaysMeta.map(({ day, slots, firstLessonNum, lastLessonNum }) => {
+        {allLessonNumbers.map((num, numIdx) =>
+          weekDaysMeta.map(({ day, slots, firstLessonNum, lastLessonNum }, dIdx) => {
             const isToday = day.date === kyivTodayIso;
             const isPast = day.date < kyivTodayIso;
             const lessonsForSlot = slots.get(num) ?? [];
             const isWindow = num > firstLessonNum && num < lastLessonNum && lessonsForSlot.length === 0;
 
+            if (day.period_info && day.lessons.length === 0) {
+              if (numIdx === 0) {
+                return (
+                  <div
+                    key={`desktop-slot-${num}-${day.date}`}
+                    style={{
+                      gridColumn: dIdx + 1,
+                      gridRow: `${hasAnyOverride ? 3 : 2} / span ${allLessonNumbers.length}`,
+                    }}
+                    className={`flex flex-col h-full transition-opacity ${
+                      isPast && !isToday ? "opacity-80 hover:opacity-100" : ""
+                    }`}
+                  >
+                    <CompactSchedulePeriodCard
+                      period={day.period_info}
+                      onClick={onSelectDay ? () => onSelectDay(day.date, dIdx) : undefined}
+                    />
+                  </div>
+                );
+              }
+              return null;
+            }
+
             return (
               <div
                 key={`desktop-slot-${num}-${day.date}`}
+                style={{ gridColumn: dIdx + 1 }}
                 className={`flex flex-col min-h-[92px] transition-opacity ${
                   isPast && !isToday ? "opacity-80 hover:opacity-100" : ""
                 }`}
@@ -362,9 +428,10 @@ export function ScheduleWeekGrid({
         )}
 
         {/* Row N+1: Column Summary Footer */}
-        {weekDaysMeta.map(({ day, summaryText }) => (
+        {weekDaysMeta.map(({ day, summaryText }, dIdx) => (
           <div
             key={`desktop-footer-${day.date}`}
+            style={{ gridColumn: dIdx + 1 }}
             className="py-2 px-3 text-center text-xs font-medium border-t border-sys-border/40 mt-1 text-sys-text-secondary"
           >
             <span>{summaryText}</span>
@@ -374,7 +441,7 @@ export function ScheduleWeekGrid({
 
       {/* Tablet (640px – 1023px): horizontal scroll with snap-start */}
       <div className="hidden sm:flex lg:hidden items-start gap-3 overflow-x-auto snap-x snap-mandatory pb-4" style={{ scrollbarWidth: "thin" }}>
-        {weekDaysMeta.map(({ day, slots, firstLessonNum, lastLessonNum }) => {
+        {weekDaysMeta.map(({ day, slots, firstLessonNum, lastLessonNum, periodMeta }, dIdx) => {
           const isToday = day.date === kyivTodayIso;
           const isPast = day.date < kyivTodayIso;
           const ov = day.learning_mode_override;
@@ -386,7 +453,18 @@ export function ScheduleWeekGrid({
               }`}
             >
               <div
-                className={`flex flex-col justify-center min-h-[60px] px-3.5 py-2 rounded-2xl border ${
+                role={onSelectDay ? "button" : undefined}
+                tabIndex={onSelectDay ? 0 : undefined}
+                onClick={() => onSelectDay?.(day.date, dIdx)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onSelectDay?.(day.date, dIdx);
+                  }
+                }}
+                className={`flex flex-col justify-center min-h-[60px] px-3.5 py-2 rounded-2xl border transition-colors ${
+                  onSelectDay ? "cursor-pointer hover:border-sys-accent/60" : ""
+                } ${
                   isToday
                     ? "bg-sys-accent/15 border-sys-accent/60 shadow-sm"
                     : "bg-sys-card border-sys-border"
@@ -396,16 +474,26 @@ export function ScheduleWeekGrid({
                   <span className={`text-base font-bold capitalize truncate ${isToday ? "text-sys-accent" : "text-sys-text-primary"}`}>
                     {longWeekday(day.date)}
                   </span>
-                  {isToday && (
+                  {isToday ? (
                     <span className="shrink-0 px-2 py-0.5 rounded-full bg-sys-accent text-xs font-extrabold text-white uppercase">
                       Сьогодні
                     </span>
-                  )}
+                  ) : periodMeta ? (
+                    <span className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold border shadow-xs ${periodMeta.badgeTone}`}>
+                      <span>{periodMeta.icon}</span>
+                      <span>{periodMeta.shortLabel}</span>
+                    </span>
+                  ) : null}
                 </div>
                 <div className="flex items-center justify-between gap-1.5 mt-0.5">
                   <span className="text-xs text-sys-text-secondary">
                     {shortDateUk(day.date)}
                   </span>
+                  {day.is_shortened_day && (
+                    <span className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold bg-amber-500/10 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30">
+                      ⏱ 50 хв
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -445,43 +533,50 @@ export function ScheduleWeekGrid({
                 </div>
               )}
 
-              {allLessonNumbers.map((num) => {
-                const lessonsForSlot = slots.get(num) ?? [];
-                const isWindow = num > firstLessonNum && num < lastLessonNum && lessonsForSlot.length === 0;
+              {day.period_info && day.lessons.length === 0 ? (
+                <CompactSchedulePeriodCard
+                  period={day.period_info}
+                  onClick={onSelectDay ? () => onSelectDay(day.date, dIdx) : undefined}
+                />
+              ) : (
+                allLessonNumbers.map((num) => {
+                  const lessonsForSlot = slots.get(num) ?? [];
+                  const isWindow = num > firstLessonNum && num < lastLessonNum && lessonsForSlot.length === 0;
 
-                if (lessonsForSlot.length > 0) {
-                  return (
-                    <div key={`tablet-slot-${num}-${day.date}`} className="flex flex-col gap-2">
-                      {lessonsForSlot.map((lesson) => (
-                        <LessonCard
-                          key={`${lesson.id}-${lesson.lesson_number}`}
-                          lesson={lesson}
-                          targetDate={day.date}
-                          scheduleMode={scheduleMode}
-                          canEdit={canEdit}
-                          onQuickJump={onQuickJump}
-                          learningMode={day.learning_mode ?? null}
-                          mode="week"
-                          currentTeacherId={currentTeacherId}
-                          currentTeacherName={currentTeacherName}
-                        />
-                      ))}
-                    </div>
-                  );
-                }
-                if (isWindow) {
-                  return (
-                    <div
-                      key={`tablet-slot-${num}-${day.date}`}
-                      title={`Вікно на ${num}-й парі`}
-                      className="flex min-h-[56px] items-center justify-center rounded-2xl border border-dashed border-sys-border/40 bg-sys-card/[0.02] text-xs text-sys-text-muted/50 select-none"
-                    >
-                      <span>—</span>
-                    </div>
-                  );
-                }
-                return null;
-              })}
+                  if (lessonsForSlot.length > 0) {
+                    return (
+                      <div key={`tablet-slot-${num}-${day.date}`} className="flex flex-col gap-2">
+                        {lessonsForSlot.map((lesson) => (
+                          <LessonCard
+                            key={`${lesson.id}-${lesson.lesson_number}`}
+                            lesson={lesson}
+                            targetDate={day.date}
+                            scheduleMode={scheduleMode}
+                            canEdit={canEdit}
+                            onQuickJump={onQuickJump}
+                            learningMode={day.learning_mode ?? null}
+                            mode="week"
+                            currentTeacherId={currentTeacherId}
+                            currentTeacherName={currentTeacherName}
+                          />
+                        ))}
+                      </div>
+                    );
+                  }
+                  if (isWindow) {
+                    return (
+                      <div
+                        key={`tablet-slot-${num}-${day.date}`}
+                        title={`Вікно на ${num}-й парі`}
+                        className="flex min-h-[56px] items-center justify-center rounded-2xl border border-dashed border-sys-border/40 bg-sys-card/[0.02] text-xs text-sys-text-muted/50 select-none"
+                      >
+                        <span>—</span>
+                      </div>
+                    );
+                  }
+                  return null;
+                })
+              )}
             </div>
           );
         })}
@@ -504,6 +599,7 @@ export function ScheduleWeekGrid({
               onQuickJump={onQuickJump}
               isToday={day.date === kyivTodayIso}
               weekNumber={weekNumber}
+              compactPeriod={allDaysInPeriod}
             />
           </div>
         ))}

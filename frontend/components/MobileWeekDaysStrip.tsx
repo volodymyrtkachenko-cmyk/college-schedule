@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { ScheduleResponse } from "../lib/api";
 
 const WEEKDAYS = ["Пн", "Вт", "Ср", "Чт", "Пт"];
 
@@ -10,6 +11,7 @@ interface MobileWeekDaysStripProps {
   onSelectDay: (index: number) => void;
   isCurrentWeek: boolean;
   todayIso: string;
+  week?: ScheduleResponse[];
 }
 
 export function MobileWeekDaysStrip({
@@ -18,6 +20,7 @@ export function MobileWeekDaysStrip({
   onSelectDay,
   isCurrentWeek,
   todayIso,
+  week,
 }: MobileWeekDaysStripProps) {
   const days = useMemo(() => {
     return [0, 1, 2, 3, 4].map((offset) => {
@@ -25,15 +28,18 @@ export function MobileWeekDaysStrip({
       d.setDate(weekAnchorDate.getDate() + offset);
       const dayNum = d.getDate();
       const dateIso = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(d);
+      const daySchedule = week?.find((s) => s.date === dateIso);
+      const hasPeriod = Boolean(daySchedule?.period_info && daySchedule.lessons.length === 0);
       return {
         offset,
         weekday: WEEKDAYS[offset],
         dayNum,
         dateIso,
         isToday: isCurrentWeek && dateIso === todayIso,
+        hasPeriod,
       };
     });
-  }, [weekAnchorDate, isCurrentWeek, todayIso]);
+  }, [weekAnchorDate, isCurrentWeek, todayIso, week]);
 
   const handleKeyDown = (e: React.KeyboardEvent, index: number) => {
     if (e.key === "ArrowLeft") {
@@ -86,6 +92,12 @@ export function MobileWeekDaysStrip({
               <span className={`text-[13px] leading-tight ${isSelected ? "font-bold text-sys-text-primary" : "font-medium text-sys-text-secondary"}`}>
                 {day.dayNum}
               </span>
+              {day.hasPeriod && (
+                <span
+                  title="Спеціальний період"
+                  className="h-1.5 w-1.5 rounded-full bg-violet-400 dark:bg-violet-300 mt-0.5 shadow-xs"
+                />
+              )}
             </div>
           </button>
         );

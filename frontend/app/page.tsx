@@ -43,13 +43,21 @@ export default function HomePage() {
   const { theme, resolvedTheme, setTheme, toggleTheme } = useTheme();
   const getInitialAnchor = () => getKyivInitialWeekAnchor();
   const [weekAnchorDate, setWeekAnchorDate] = useState(getInitialAnchor());
+  const lastActiveDateRef = useRef<string>(KYIV_DATE_FMT.format(new Date()));
 
   useEffect(() => {
     const handleVisibility = () => {
-        if (document.visibilityState === "visible") {
-            const nextAnchor = getInitialAnchor();
-            setWeekAnchorDate(prev => prev.getTime() !== nextAnchor.getTime() ? nextAnchor : prev);
+      if (document.visibilityState === "visible") {
+        const todayStr = KYIV_DATE_FMT.format(new Date());
+        if (todayStr !== lastActiveDateRef.current) {
+          lastActiveDateRef.current = todayStr;
+          setWeekAnchorDate((prev) => {
+            const currentAnchor = getKyivInitialWeekAnchor();
+            const wasCurrentWeek = Math.abs(prev.getTime() - currentAnchor.getTime()) < 1000 * 60 * 60 * 24 * 7;
+            return wasCurrentWeek ? currentAnchor : prev;
+          });
         }
+      }
     };
     window.addEventListener("visibilitychange", handleVisibility);
     return () => window.removeEventListener("visibilitychange", handleVisibility);
@@ -581,11 +589,22 @@ export default function HomePage() {
       sessionStorage.setItem("schedule:view", nextView);
       localStorage.setItem("schedule:view", nextView);
     } catch {}
-    if (nextView === "today") {
-      handleJumpToToday();
-    }
     resetScroll();
   };
+
+  const handleSelectDayFromWeek = (targetDate: string, dayIdx: number) => {
+    setSelectedDayIndex(dayIdx);
+    setView("today");
+    try {
+      sessionStorage.setItem("schedule:view", "today");
+      localStorage.setItem("schedule:view", "today");
+    } catch {}
+    resetScroll();
+  };
+
+  const activeWeekPeriod = useMemo(() => {
+    return week?.find((d) => d.period_info)?.period_info ?? null;
+  }, [week]);
 
   const isWeekend = [0, 6].includes(new Date().getDay());
   const isAutoSelectedWeekendDay = isWeekend && isCurrentWeek && selectedDayIndex === 0;
@@ -1261,6 +1280,14 @@ export default function HomePage() {
                     </span>
                   </>
                 )}
+                {activeWeekPeriod && (
+                  <>
+                    {(currentWeekNumber || weekType !== "both" || headerLearningMode) && <span className="shrink-0">·</span>}
+                    <span className="font-semibold text-violet-400 shrink-0">
+                      {activeWeekPeriod.title}
+                    </span>
+                  </>
+                )}
               </button>
             </div>
           )}
@@ -1297,6 +1324,7 @@ export default function HomePage() {
             onSelectDay={handleSelectDayIndex}
             isCurrentWeek={isCurrentWeek}
             todayIso={todayActualIso}
+            week={week}
           />
         )}
       </header>
@@ -1497,6 +1525,7 @@ export default function HomePage() {
                     weekNumber={currentWeekNumber}
                     currentTeacherId={mode === "teacher" ? teacherId : null}
                     currentTeacherName={mode === "teacher" ? (selectedTeacher?.name ?? null) : null}
+                    onSelectDay={handleSelectDayFromWeek}
                   />
                 )}
 
@@ -2194,6 +2223,14 @@ export default function HomePage() {
                           </span>
                         </>
                       )}
+                      {activeWeekPeriod && (
+                        <>
+                          <span className="text-sys-text-muted">•</span>
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-violet-500/10 dark:bg-violet-500/15 text-violet-800 dark:text-violet-300 border border-violet-500/30 shadow-xs">
+                            <span>{activeWeekPeriod.title}</span>
+                          </span>
+                        </>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <button
@@ -2235,6 +2272,7 @@ export default function HomePage() {
                     weekNumber={currentWeekNumber}
                     currentTeacherId={mode === "teacher" ? teacherId : null}
                     currentTeacherName={mode === "teacher" ? (selectedTeacher?.name ?? null) : null}
+                    onSelectDay={handleSelectDayFromWeek}
                   />
                 </div>
               )}
