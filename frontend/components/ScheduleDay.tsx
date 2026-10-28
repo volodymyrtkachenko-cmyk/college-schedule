@@ -7,6 +7,7 @@ import { buildTelegramShareText } from "../lib/format";
 import { useToast } from "./ToastProvider";
 import { LessonCard, QuickJumpTarget } from "./LessonCard";
 import { SchedulePeriodCard, CompactSchedulePeriodCard } from "./SchedulePeriodCard";
+import { useTheme } from "../lib/useTheme";
 import { KYIV_DATE_FMT, KYIV_TIME_FMT } from "../lib/date";
 
 const fmt = (value: string, options: Intl.DateTimeFormatOptions) =>
@@ -59,6 +60,7 @@ export function ScheduleDay({
   compactPeriod?: boolean;
 }) {
   const { showToast } = useToast();
+  const { resolvedTheme } = useTheme();
   const [kyivNow, setKyivNow] = useState<{ dateIso: string; minutes: number } | null>(null);
 
   useEffect(() => {
@@ -109,7 +111,7 @@ export function ScheduleDay({
             : "Розклад занять";
 
       const { shareScheduleAsImage } = await import("../lib/shareImage");
-      const result = await shareScheduleAsImage(schedule, scheduleMode, ownerLabel, weekNumber);
+      const result = await shareScheduleAsImage(schedule, scheduleMode, ownerLabel, weekNumber, resolvedTheme);
       if (result === "copied") {
         showToast("Картинку скопійовано!", "success");
       } else if (result === "downloaded") {

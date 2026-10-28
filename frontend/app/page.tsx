@@ -738,7 +738,8 @@ export default function HomePage() {
         mode,
         ownerLabel,
         weekRange,
-        currentWeekNumber
+        currentWeekNumber,
+        resolvedTheme
       );
       if (result === "copied") {
         setToast("Картинку тижня скопійовано!", "success");

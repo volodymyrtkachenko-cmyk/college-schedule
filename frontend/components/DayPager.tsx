@@ -7,6 +7,7 @@ import { buildTelegramShareText } from "../lib/format";
 import { useToast } from "./ToastProvider";
 import { LessonCard, QuickJumpTarget } from "./LessonCard";
 import { SchedulePeriodCard } from "./SchedulePeriodCard";
+import { useTheme } from "../lib/useTheme";
 import { KYIV_DATE_FMT, KYIV_TIME_FMT, UKR_WEEKDAY_LONG_FMT, UKR_DAY_MONTH_LONG_FMT } from "../lib/date";
 
 function parseMin(t?: string): number | null {
@@ -75,6 +76,7 @@ export function DayPager({
   currentTeacherName?: string | null;
 }) {
   const { showToast } = useToast();
+  const { resolvedTheme } = useTheme();
   const [kyivNow, setKyivNow] = useState<{ dateIso: string; minutes: number } | null>(null);
   const [sharingImage, setSharingImage] = useState(false);
 
@@ -122,7 +124,7 @@ export function DayPager({
             : "Розклад занять";
 
       const { shareScheduleAsImage } = await import("../lib/shareImage");
-      const result = await shareScheduleAsImage(schedule, scheduleMode, ownerLabel, weekNumber);
+      const result = await shareScheduleAsImage(schedule, scheduleMode, ownerLabel, weekNumber, resolvedTheme);
       if (result === "copied") {
         showToast("Картинку скопійовано!", "success");
       } else if (result === "downloaded") {
