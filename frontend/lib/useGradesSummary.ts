@@ -2,6 +2,12 @@
 
 import { useMemo } from "react";
 import { FullTaskItem } from "../components/MobileTasksView";
+import {
+  normalizeSubjectName,
+  formatTeachers,
+  isSubjectMatch,
+  extractTeacherFromSubject,
+} from "./format";
 
 export interface GradeItem {
   id: string;
@@ -119,9 +125,98 @@ export function convertGrade(rawGrade: number, maxPointsInput?: number | null): 
   return { grade5, grade12, percentage, effectiveMax, isNative12 };
 }
 
+function getScheduleTeacherForSubject(subjectName: string): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const normSubj = normalizeSubjectName(subjectName).toLowerCase().trim();
+    if (!normSubj) return null;
+
+    // 1. Get personal teachers from localStorage
+    let personalTeachers: string[] = [];
+    try {
+      const pRaw = window.localStorage.getItem("schedule:classroom_personal_teachers");
+      if (pRaw) personalTeachers = JSON.parse(pRaw);
+    } catch {}
+
+    // 2. Scan cached weekly schedules and today schedules in localStorage
+    const keys: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const k = window.localStorage.key(i);
+      if (k && (k.startsWith("schedule:week:") || k.startsWith("schedule:today:"))) {
+        keys.push(k);
+      }
+    }
+
+    for (let i = 0; i < keys.length; i++) {
+      try {
+        const raw = window.localStorage.getItem(keys[i]);
+        if (!raw) continue;
+        const data = JSON.parse(raw);
+        const days = Array.isArray(data) ? data : Array.isArray(data.days) ? data.days : [data];
+        for (let j = 0; j < days.length; j++) {
+          const day = days[j];
+          if (!day || !day.lessons) continue;
+          for (let k = 0; k < day.lessons.length; k++) {
+            const l = day.lessons[k];
+            const lSubj = normalizeSubjectName(l.subject_name || l.subject || "").toLowerCase().trim();
+            if (lSubj && (lSubj === normSubj || isSubjectMatch(lSubj, normSubj))) {
+              const tRaw = l.teacher_name || l.teacher;
+              if (tRaw) {
+                if (/[,/]/.test(tRaw) && personalTeachers.length > 0) {
+                  const parts = tRaw.split(/\s*[,/]\s*/);
+                  for (let p = 0; p < parts.length; p++) {
+                    const pSurname = parts[p].trim().split(/[\s.]+/)[0].toLowerCase();
+                    for (let ptIdx = 0; ptIdx < personalTeachers.length; ptIdx++) {
+                      if (personalTeachers[ptIdx].toLowerCase().includes(pSurname)) {
+                        return formatTeachers(parts[p].trim());
+                      }
+                    }
+                  }
+                }
+                return formatTeachers(tRaw);
+              }
+            }
+          }
+        }
+      } catch {}
+    }
+
+    // 3. Fallback: match from directory teachers schedule:teachers
+    try {
+      const dRaw = window.localStorage.getItem("schedule:teachers");
+      if (dRaw) {
+        const dirTeachers: Array<{ id: number; name: string }> = JSON.parse(dRaw);
+        for (let i = 0; i < dirTeachers.length; i++) {
+          const dt = dirTeachers[i];
+          const surname = dt.name.trim().split(/[\s.]+/)[0].toLowerCase();
+          if (surname.length >= 3 && normSubj.includes(surname)) {
+            return formatTeachers(dt.name);
+          }
+        }
+      }
+    } catch {}
+  } catch {}
+  return null;
+}
+
 export function useGradesSummary(tasks: FullTaskItem[]): GradesSummaryResult {
   return useMemo(() => {
-    // 1. Extract graded tasks from Classroom
+    // 1. Gather teachers from ALL tasks (not just graded ones), including raw subject / title extraction
+    const teacherMap = new Map<string, string>();
+    for (let i = 0; i < tasks.length; i++) {
+      const t = tasks[i];
+      if (t.subject) {
+        const tName =
+          t.teacher ||
+          extractTeacherFromSubject(t.subject) ||
+          extractTeacherFromSubject(t.title);
+        if (tName && !teacherMap.has(t.subject)) {
+          teacherMap.set(t.subject, tName);
+        }
+      }
+    }
+
+    // 2. Extract graded tasks from Classroom
     const allGrades: GradeItem[] = [];
 
     for (let i = 0; i < tasks.length; i++) {
@@ -135,7 +230,7 @@ export function useGradesSummary(tasks: FullTaskItem[]): GradesSummaryResult {
           id: task.id || `task-${task.title}-${task.subject}`,
           title: task.title,
           subject: task.subject,
-          teacher: task.teacher,
+          teacher: task.teacher || teacherMap.get(task.subject) || null,
           rawGrade: task.assignedGrade,
           maxPoints: effectiveMax,
           grade5,
@@ -147,18 +242,14 @@ export function useGradesSummary(tasks: FullTaskItem[]): GradesSummaryResult {
       }
     }
 
-    // 2. Group by subject
+    // 3. Group by subject
     const subjectMap = new Map<string, GradeItem[]>();
-    const teacherMap = new Map<string, string | null | undefined>();
 
     for (let i = 0; i < allGrades.length; i++) {
       const g = allGrades[i];
       const list = subjectMap.get(g.subject) || [];
       list.push(g);
       subjectMap.set(g.subject, list);
-      if (g.teacher && !teacherMap.has(g.subject)) {
-        teacherMap.set(g.subject, g.teacher);
-      }
     }
 
     let globalCount5 = 0;
@@ -227,9 +318,14 @@ export function useGradesSummary(tasks: FullTaskItem[]): GradesSummaryResult {
         return new Date(b.date).getTime() - new Date(a.date).getTime();
       });
 
+      const resolvedTeacher =
+        teacherMap.get(subjectName) ||
+        getScheduleTeacherForSubject(subjectName) ||
+        null;
+
       subjects.push({
         subject: subjectName,
-        teacher: teacherMap.get(subjectName) || null,
+        teacher: resolvedTeacher,
         grades: gradesList,
         average5,
         average12,

@@ -711,5 +711,33 @@ export function isSubjectMatch(taskSubject?: string | null, filterSubject?: stri
   return false;
 }
 
+/**
+ * Витягує прізвище та ініціали викладача з назви курсу або теми (наприклад, "Математика (Токарєва О.В.)" -> "Токарєва О.В.").
+ */
+export function extractTeacherFromSubject(rawName?: string | null): string | null {
+  if (!rawName) return null;
+  // 1. Пошук у дужках: (Хочинська Н. О.), (викл. Токарєва О.В.), [Криволап В.В.]
+  const match = rawName.match(
+    /[\(\[]\s*(?:(?:викл(?:адач|\.)?|кер(?:івник|\.)?)\s*)?([А-ЯІЇЄҐA-Z][а-яіїєґa-z]+(?:\s+[А-ЯІЇЄҐA-Z]\.?\s*[А-ЯІЇЄҐA-Z]\.?)?)\s*[\)\]]/i
+  );
+  if (match && match[1]) {
+    const val = match[1].trim();
+    if (!/підгр|груп|курс|семестр|залік|екзамен|диплом/i.test(val)) {
+      return formatTeacherName(val);
+    }
+  }
+  // 2. Пошук після дефіса або двокрапки у кінці: "Дискретна математика - Токарєва О.В."
+  const dashMatch = rawName.match(
+    /(?:[-–—:]\s*)(?:(?:викл(?:адач|\.)?|кер(?:івник|\.)?)\s*)?([А-ЯІЇЄҐA-Z][а-яіїєґa-z]+(?:\s+[А-ЯІЇЄҐA-Z]\.?\s*[А-ЯІЇЄҐA-Z]\.?)?)\s*$/i
+  );
+  if (dashMatch && dashMatch[1]) {
+    const val = dashMatch[1].trim();
+    if (!/підгр|груп|курс|семестр|залік|екзамен/i.test(val)) {
+      return formatTeacherName(val);
+    }
+  }
+  return null;
+}
+
 
 

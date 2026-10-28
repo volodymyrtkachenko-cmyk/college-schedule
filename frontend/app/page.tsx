@@ -34,7 +34,7 @@ import { extractClassroomTaskKey, isOwnTask, useClassroomSubmissions } from "../
 import { useTeacherAccess } from "../lib/useTeacherAccess";
 import { TeacherPinModal } from "../components/TeacherPinModal";
 import { useTheme } from "../lib/useTheme";
-import { normalizeSubjectName, formatFullWeekRange } from "../lib/format";
+import { normalizeSubjectName, formatFullWeekRange, extractTeacherFromSubject, formatTeachers } from "../lib/format";
 
 const EN_KYIV_DOW_FMT = new Intl.DateTimeFormat("en-US", {
   timeZone: "Europe/Kyiv",
@@ -180,6 +180,7 @@ export default function HomePage() {
     title: string;
     alternate_link?: string;
     url?: string;
+    teacher?: string | null;
     due_date: string | null;
     due_time?: string | null;
     creation_time?: string | null;
@@ -893,11 +894,18 @@ export default function HomePage() {
 
         const rawSubj = (ct as any).subject || ct.course_name || "";
         const cleanSubj = normalizeSubjectName(rawSubj) || "Дисципліна";
+        const teacherFromRaw = extractTeacherFromSubject(rawSubj) || extractTeacherFromSubject(ct.title);
+        const resolvedTeacher =
+          (ct as any).teacher ||
+          (ct as any).teacher_name ||
+          teacherFromRaw ||
+          null;
 
         tasks.push({
           id: ct.id,
           title: ct.title || "Завдання",
           subject: cleanSubj,
+          teacher: resolvedTeacher,
           label: ct.due_date ? `до ${ct.due_date}` : "",
           url,
           deadline,
