@@ -36,7 +36,6 @@ export function GradesView({ tasks, isLinked, onSyncClassroom }: GradesViewProps
     totalSubjectsCount,
     distribution,
     subjects,
-    standing,
   } = useGradesSummary(tasks);
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -134,19 +133,6 @@ export function GradesView({ tasks, isLinked, onSyncClassroom }: GradesViewProps
     });
   }, [subjects, searchQuery, activeFilter]);
 
-  const getBadgeColorClasses = (color: "emerald" | "blue" | "amber" | "rose") => {
-    switch (color) {
-      case "emerald":
-        return "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30";
-      case "blue":
-        return "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30";
-      case "amber":
-        return "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30";
-      case "rose":
-        return "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30";
-    }
-  };
-
   const getGradePillClass = (grade5: number) => {
     if (grade5 === 5) {
       return "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30";
@@ -162,7 +148,7 @@ export function GradesView({ tasks, isLinked, onSyncClassroom }: GradesViewProps
 
   return (
     <div className="w-full space-y-3.5">
-      {/* GPA & Standing Overview Card */}
+      {/* GPA Overview Card */}
       <section className="rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-xs relative overflow-hidden">
         {/* Subtle decorative glow */}
         <div className="absolute -top-16 -right-16 w-44 h-44 rounded-full bg-sys-accent/10 blur-3xl pointer-events-none" />
@@ -170,24 +156,12 @@ export function GradesView({ tasks, isLinked, onSyncClassroom }: GradesViewProps
         {/* Top Header Row */}
         <div className="flex items-center justify-between gap-2 relative z-10 pb-0.5">
           <span className="text-[11px] font-bold uppercase tracking-wider text-sys-text-muted">
-            Академічна успішність
+            Середній бал
           </span>
         </div>
 
-        {/* Standing Badge on its own comfortable row */}
-        <div className="mt-1.5 relative z-10">
-          <div
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-xs font-semibold ${getBadgeColorClasses(
-              standing.badgeColor
-            )}`}
-          >
-            <span className="text-sm shrink-0">{standing.icon}</span>
-            <span className="leading-snug">{standing.title}</span>
-          </div>
-        </div>
-
         {/* Main GPA Score */}
-        <div className="mt-2.5 flex items-baseline gap-2.5 relative z-10">
+        <div className="mt-2 flex items-baseline gap-2.5 relative z-10">
           <div className="flex items-baseline gap-1">
             <span className="text-3xl sm:text-4xl font-black text-sys-text-primary tracking-tight">
               {totalGradesCount > 0 ? overallGpa5.toFixed(2) : "—"}
@@ -208,10 +182,6 @@ export function GradesView({ tasks, isLinked, onSyncClassroom }: GradesViewProps
             </div>
           )}
         </div>
-
-        <p className="mt-1 text-xs text-sys-text-secondary leading-relaxed relative z-10">
-          {standing.description}
-        </p>
 
         {/* Grade Distribution Grid with Interactive Quick Filters */}
         {totalGradesCount > 0 && (

@@ -45,12 +45,6 @@ export interface GradesSummaryResult {
     count2: number;
   };
   subjects: SubjectSummary[];
-  standing: {
-    title: string;
-    description: string;
-    badgeColor: "emerald" | "blue" | "amber" | "rose";
-    icon: string;
-  };
 }
 
 /**
@@ -261,45 +255,6 @@ export function useGradesSummary(tasks: FullTaskItem[]): GradesSummaryResult {
         ? Math.round((sumSubjectAverages12 / subjectsWith12Count) * 10) / 10
         : null;
 
-    let standing: GradesSummaryResult["standing"] = {
-      title: "Немає оцінок",
-      description: "Оцінки з'являться після того, як викладачі виставлять їх у Google Classroom.",
-      badgeColor: "blue",
-      icon: "ℹ️",
-    };
-
-    if (totalGradesCount > 0) {
-      if (overallGpa5 >= 4.75 && globalCount3 === 0 && globalCount2 === 0) {
-        standing = {
-          title: "Відмінно",
-          description: "Винятковий середній бал! Відмінна успішність.",
-          badgeColor: "emerald",
-          icon: "🌟",
-        };
-      } else if (overallGpa5 >= 4.0 && globalCount2 === 0) {
-        standing = {
-          title: "Стипендіальний рейтинг",
-          description: "Гарний академічний результат, достатній для отримання стипендії.",
-          badgeColor: "blue",
-          icon: "🎓",
-        };
-      } else if (overallGpa5 >= 3.0 && globalCount2 === 0) {
-        standing = {
-          title: "Задовільний рівень",
-          description: "Боргів немає, але варто підтягнути окремі предмети для підвищення рейтингу.",
-          badgeColor: "amber",
-          icon: "📚",
-        };
-      } else {
-        standing = {
-          title: "Потребує уваги · Є заборгованості",
-          description: "Зверніть увагу на незадовільні оцінки та зверніться до викладачів для перездачі.",
-          badgeColor: "rose",
-          icon: "⚠️",
-        };
-      }
-    }
-
     return {
       overallGpa5,
       overallAverage12,
@@ -312,7 +267,6 @@ export function useGradesSummary(tasks: FullTaskItem[]): GradesSummaryResult {
         count2: globalCount2,
       },
       subjects,
-      standing,
     };
   }, [tasks]);
 }
