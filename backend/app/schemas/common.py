@@ -160,6 +160,14 @@ class ShortenedDayTogglePayload(BaseModel):
     reason: str | None = Field(default=None, max_length=255)
 
 
+class SchedulePeriodInfo(BaseModel):
+    id: int
+    name: str
+    period_type: str
+    start_date: date
+    end_date: date
+
+
 class ScheduleResponse(BaseModel):
     date: date
     week_type: str
@@ -167,6 +175,7 @@ class ScheduleResponse(BaseModel):
     learning_mode: str | None = None
     learning_mode_override: LearningModeOverride | None = None
     is_shortened_day: bool = False
+    period_info: SchedulePeriodInfo | None = None
 
 
 class LearningModeConfig(BaseModel):

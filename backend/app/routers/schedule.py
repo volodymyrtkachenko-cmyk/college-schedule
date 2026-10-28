@@ -10,9 +10,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.schemas import LessonMutation, ScheduleItem, ScheduleResponse
 from app.core.security import require_roles
-from app.models import Group, Teacher, ImportedScheduleChange, Schedule, Subject, User, ScheduleVersion
+from app.models import Group, Teacher, ImportedScheduleChange, Schedule, Subject, User, ScheduleVersion, SchedulePeriod
 from sqlalchemy import and_
-from app.services.schedule import fetch_schedule, fetch_week_schedule, conflicting_lesson, save_schedule_item
+from app.services.schedule import fetch_schedule, fetch_week_schedule, conflicting_lesson, save_schedule_item, resolve_active_period_info, _active_periods
 
 from app.routers.schedule_versions import lock_versions
 
@@ -246,6 +246,9 @@ async def schedule(request: Request = None,
             item.second_teacher_room, _ = sanitize_room_for_guest(item.second_teacher_room)
             item.room_override, _ = sanitize_room_for_guest(item.room_override)
 
+    active_periods = await _active_periods(db, target_date)
+    period_info = resolve_active_period_info(active_periods, target_date, group_id)
+
     return ScheduleResponse(
         date=target_date,
         week_type=week_type,
@@ -253,6 +256,7 @@ async def schedule(request: Request = None,
         learning_mode=learning_mode,
         learning_mode_override=learning_mode_override,
         is_shortened_day=is_shortened,
+        period_info=period_info,
     )
 
 @router.get("/schedule/today", response_model=ScheduleResponse)
@@ -458,6 +462,18 @@ async def week(
     modes_by_date = await resolve_group_week_learning_modes(
         db, group_id, week_dates, group=scope if isinstance(scope, Group) else None
     )
+
+    week_periods = (
+        await db.scalars(
+            select(SchedulePeriod)
+            .where(
+                SchedulePeriod.start_date <= (start + timedelta(days=4)),
+                SchedulePeriod.end_date >= start,
+            )
+            .options(selectinload(SchedulePeriod.groups))
+        )
+    ).unique().all()
+
     return [
         ScheduleResponse(
             date=day_date,
@@ -466,6 +482,7 @@ async def week(
             learning_mode=modes_by_date.get(day_date, (None, None))[0],
             learning_mode_override=modes_by_date.get(day_date, (None, None))[1],
             is_shortened_day=(day_date in shortened_dates),
+            period_info=resolve_active_period_info(week_periods, day_date, group_id),
         )
         for day_date, day_lessons in days_serialized
     ]

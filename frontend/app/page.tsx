@@ -17,6 +17,7 @@ import { useAuth, canAccessAdmin } from "../lib/auth";
 import { getMondayOf, getKyivInitialWeekAnchor, getKyivTomorrowDateIso, KYIV_DATE_FMT, KYIV_TIME_FMT, UKR_WEEKDAY_LONG_FMT, UKR_DAY_MONTH_SHORT_FMT, UKR_MONTH_SHORT_FMT } from "../lib/date";
 import dynamic from "next/dynamic";
 const WelcomeScreen = dynamic(() => import("../components/WelcomeScreen").then((m) => m.WelcomeScreen), { ssr: false });
+const DatePickerModal = dynamic(() => import("../components/DatePickerModal").then((m) => m.DatePickerModal), { ssr: false });
 import { SplashScreen } from "../components/SplashScreen";
 import { BottomNav, MobileTab } from "../components/BottomNav";
 import { MobileTasksView, FullTaskItem, renderTaskCard } from "../components/MobileTasksView";
@@ -160,6 +161,7 @@ export default function HomePage() {
   }, [mode, mobileTab]);
 
   const [weekTypeSheetOpen, setWeekTypeSheetOpen] = useState(false);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [sidebarTaskFilters, setSidebarTaskFilters] = useState<TaskFilterState>(DEFAULT_TASK_FILTERS);
   const [sidebarFiltersOpen, setSidebarFiltersOpen] = useState(false);
   const sidebarFiltersActive = sidebarTaskFilters.status !== "all" || sidebarTaskFilters.subject !== "";
@@ -555,6 +557,19 @@ export default function HomePage() {
     const dow = now.getDay();
     if (dow >= 1 && dow <= 4) {
       setSelectedDayIndex(dow);
+    }
+    setDaySlideDir(0);
+    resetScroll();
+  };
+
+  const handleDatePickerSelect = (targetDate: Date) => {
+    const newAnchor = getMondayOf(targetDate);
+    setWeekAnchorDate(newAnchor);
+    const kyivDow = getKyivWeekday(targetDate);
+    if (kyivDow >= 1 && kyivDow <= 5) {
+      setSelectedDayIndex(kyivDow - 1);
+    } else {
+      setSelectedDayIndex(0);
     }
     setDaySlideDir(0);
     resetScroll();
@@ -1013,6 +1028,23 @@ export default function HomePage() {
               </button>
             </div>
 
+            {/* Quick Calendar Jump */}
+            <button
+              type="button"
+              onClick={() => setDatePickerOpen(true)}
+              aria-label="Обрати дату в календарі"
+              title="Обрати дату в календарі"
+              className="flex h-10 items-center gap-2 rounded-xl border border-sys-border bg-sys-bg px-3 text-xs font-semibold text-sys-text-primary hover:border-sys-accent/60 hover:bg-sys-card active:scale-95 transition-colors cursor-pointer"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-accent">
+                <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
+              <span className="truncate">{compactWeekRange}</span>
+            </button>
+
             {/* Segmented Switcher: [ День | Тиждень ] */}
             <div role="group" aria-label="Режим відображення" className="flex rounded-xl border border-sys-border bg-sys-bg p-1 text-xs">
               <button
@@ -1178,13 +1210,20 @@ export default function HomePage() {
 
                 <button
                   type="button"
-                  onClick={resetWeekPreservingDay}
-                  title={isCurrentWeek ? "Поточний тиждень" : "Повернутися на поточний тиждень"}
-                  className="px-1 text-center truncate min-w-0 max-w-[130px] sm:max-w-[180px]"
+                  onClick={() => setDatePickerOpen(true)}
+                  aria-label="Обрати дату в календарі"
+                  title="Відкрити календар для вибору дати"
+                  className="flex items-center justify-center gap-1 px-1.5 py-0.5 rounded-lg hover:bg-sys-bg text-center truncate min-w-0 max-w-[135px] sm:max-w-[185px] transition-colors active:scale-95 cursor-pointer"
                 >
                   <span className="text-xs sm:text-[13px] font-bold text-sys-text-primary block truncate leading-tight">
                     {compactWeekRange}
                   </span>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-accent opacity-90">
+                    <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
+                    <line x1="16" y1="2" x2="16" y2="6" />
+                    <line x1="8" y1="2" x2="8" y2="6" />
+                    <line x1="3" y1="10" x2="21" y2="10" />
+                  </svg>
                 </button>
 
                 <button
@@ -2299,6 +2338,15 @@ export default function HomePage() {
         onSuccess={() => {
           setToast("Доступ викладача активовано", "success");
         }}
+      />
+
+      <DatePickerModal
+        isOpen={datePickerOpen}
+        onClose={() => setDatePickerOpen(false)}
+        selectedDateIso={activeDayDate}
+        todayDateIso={todayActualIso}
+        semesterStartIso={semesterStart}
+        onSelectDate={handleDatePickerSelect}
       />
     </main>
   );

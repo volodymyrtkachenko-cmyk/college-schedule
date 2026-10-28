@@ -139,6 +139,14 @@ export interface ShortenedDayItem {
     reason?: string | null;
 }
 
+export interface SchedulePeriodInfo {
+    id: number;
+    name: string;
+    period_type: "theory" | "session" | "practice" | "holiday" | "diploma" | "attestation" | string;
+    start_date: string;
+    end_date: string;
+}
+
 export interface ScheduleResponse {
     date: string;
     week_type: WeekType;
@@ -146,6 +154,7 @@ export interface ScheduleResponse {
     learning_mode?: LearningMode | null;
     learning_mode_override?: LearningModeOverride | null;
     is_shortened_day?: boolean;
+    period_info?: SchedulePeriodInfo | null;
 }
 
 export interface TemplateDaySchedule {

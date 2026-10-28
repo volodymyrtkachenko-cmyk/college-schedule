@@ -6,6 +6,7 @@ import { ScheduleResponse, Lesson } from "../lib/api";
 import { buildTelegramShareText } from "../lib/format";
 import { useToast } from "./ToastProvider";
 import { LessonCard, QuickJumpTarget } from "./LessonCard";
+import { SchedulePeriodCard } from "./SchedulePeriodCard";
 import { KYIV_DATE_FMT, KYIV_TIME_FMT, UKR_WEEKDAY_LONG_FMT, UKR_DAY_MONTH_LONG_FMT } from "../lib/date";
 
 function parseMin(t?: string): number | null {
@@ -389,6 +390,8 @@ export function DayPager({
                 </div>
               );
             })
+          ) : schedule.period_info ? (
+            <SchedulePeriodCard period={schedule.period_info} isToday={isToday} />
           ) : (
             <div className="flex flex-1 min-h-[300px] flex-col items-center justify-center rounded-2xl border border-dashed border-sys-border bg-sys-card/30 px-6 py-12 text-center text-sys-text-muted my-auto">
               <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-sys-bg border border-sys-border text-sys-accent shadow-xs">

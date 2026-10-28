@@ -47,6 +47,34 @@ async def fetch_schedule(
     return week_type, lessons
 
 
+from app.schemas.common import SchedulePeriodInfo
+
+def resolve_active_period_info(periods: list, target_date: date, group_id: int | None = None) -> SchedulePeriodInfo | None:
+    if not periods:
+        return None
+    for p in periods:
+        if not (p.start_date <= target_date <= p.end_date):
+            continue
+        # Global holiday / period without explicit groups
+        if not p.groups:
+            return SchedulePeriodInfo(
+                id=p.id,
+                name=p.name,
+                period_type=p.period_type,
+                start_date=p.start_date,
+                end_date=p.end_date,
+            )
+        # Group-scoped period
+        if group_id and any(getattr(g, "id", None) == group_id for g in p.groups):
+            return SchedulePeriodInfo(
+                id=p.id,
+                name=p.name,
+                period_type=p.period_type,
+                start_date=p.start_date,
+                end_date=p.end_date,
+            )
+    return None
+
 async def _active_periods(db: AsyncSession, target_date: date):
     result = await db.scalars(
         select(SchedulePeriod)
