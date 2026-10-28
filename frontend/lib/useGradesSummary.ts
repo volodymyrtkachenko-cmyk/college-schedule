@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect, useCallback } from "react";
+import { useMemo } from "react";
 import { FullTaskItem } from "../components/MobileTasksView";
 
 export interface GradeItem {
@@ -15,7 +15,6 @@ export interface GradeItem {
   percentage: number;
   date?: string | null;
   url?: string | null;
-  isManual?: boolean;
 }
 
 export interface SubjectSummary {
@@ -52,21 +51,7 @@ export interface GradesSummaryResult {
     badgeColor: "emerald" | "blue" | "amber" | "rose";
     icon: string;
   };
-  customGrades: CustomGrade[];
-  addCustomGrade: (grade: Omit<CustomGrade, "id">) => void;
-  removeCustomGrade: (id: string) => void;
 }
-
-export interface CustomGrade {
-  id: string;
-  subject: string;
-  title: string;
-  grade: number;
-  maxScale: 5 | 12;
-  date: string;
-}
-
-const CUSTOM_GRADES_STORAGE_KEY = "schedule:custom_grades";
 
 /**
  * Converts a raw score and maxPoints into Ukrainian 5-point and 12-point scales.
@@ -141,46 +126,9 @@ export function convertGrade(rawGrade: number, maxPointsInput?: number | null): 
 }
 
 export function useGradesSummary(tasks: FullTaskItem[]): GradesSummaryResult {
-  const [customGrades, setCustomGrades] = useState<CustomGrade[]>([]);
-
-  // Load custom grades from localStorage
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const stored = localStorage.getItem(CUSTOM_GRADES_STORAGE_KEY);
-      if (stored) {
-        setCustomGrades(JSON.parse(stored));
-      }
-    } catch {}
-  }, []);
-
-  const addCustomGrade = useCallback((newGrade: Omit<CustomGrade, "id">) => {
-    const item: CustomGrade = {
-      ...newGrade,
-      id: "manual-" + Date.now() + "-" + Math.random().toString(36).slice(2, 6),
-    };
-    setCustomGrades((prev) => {
-      const updated = [item, ...prev];
-      try {
-        localStorage.setItem(CUSTOM_GRADES_STORAGE_KEY, JSON.stringify(updated));
-      } catch {}
-      return updated;
-    });
-  }, []);
-
-  const removeCustomGrade = useCallback((id: string) => {
-    setCustomGrades((prev) => {
-      const updated = prev.filter((g) => g.id !== id);
-      try {
-        localStorage.setItem(CUSTOM_GRADES_STORAGE_KEY, JSON.stringify(updated));
-      } catch {}
-      return updated;
-    });
-  }, []);
-
   return useMemo(() => {
     // 1. Extract graded tasks from Classroom
-    const classroomGraded: GradeItem[] = [];
+    const allGrades: GradeItem[] = [];
 
     for (let i = 0; i < tasks.length; i++) {
       const task = tasks[i];
@@ -189,7 +137,7 @@ export function useGradesSummary(tasks: FullTaskItem[]): GradesSummaryResult {
           task.assignedGrade,
           task.maxPoints
         );
-        classroomGraded.push({
+        allGrades.push({
           id: task.id || `task-${task.title}-${task.subject}`,
           title: task.title,
           subject: task.subject,
@@ -201,34 +149,11 @@ export function useGradesSummary(tasks: FullTaskItem[]): GradesSummaryResult {
           percentage,
           date: task.dueDateIso,
           url: task.url,
-          isManual: false,
         });
       }
     }
 
-    // 2. Add custom grades
-    const manualGraded: GradeItem[] = customGrades.map((cg) => {
-      const { grade5, grade12, percentage, effectiveMax } = convertGrade(
-        cg.grade,
-        cg.maxScale
-      );
-      return {
-        id: cg.id,
-        title: cg.title,
-        subject: cg.subject,
-        rawGrade: cg.grade,
-        maxPoints: effectiveMax,
-        grade5,
-        grade12,
-        percentage,
-        date: cg.date,
-        isManual: true,
-      };
-    });
-
-    const allGrades = [...classroomGraded, ...manualGraded];
-
-    // 3. Group by subject
+    // 2. Group by subject
     const subjectMap = new Map<string, GradeItem[]>();
     const teacherMap = new Map<string, string | null | undefined>();
 
@@ -346,8 +271,8 @@ export function useGradesSummary(tasks: FullTaskItem[]): GradesSummaryResult {
     if (totalGradesCount > 0) {
       if (overallGpa5 >= 4.75 && globalCount3 === 0 && globalCount2 === 0) {
         standing = {
-          title: "Претендент на підвищену стипендію",
-          description: "Винятковий середній бал! Високі результати та відмінна успішність.",
+          title: "Відмінно",
+          description: "Винятковий середній бал! Відмінна успішність.",
           badgeColor: "emerald",
           icon: "🌟",
         };
@@ -388,9 +313,6 @@ export function useGradesSummary(tasks: FullTaskItem[]): GradesSummaryResult {
       },
       subjects,
       standing,
-      customGrades,
-      addCustomGrade,
-      removeCustomGrade,
     };
-  }, [tasks, customGrades, addCustomGrade, removeCustomGrade]);
+  }, [tasks]);
 }

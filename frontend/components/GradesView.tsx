@@ -37,20 +37,11 @@ export function GradesView({ tasks, isLinked, onSyncClassroom }: GradesViewProps
     distribution,
     subjects,
     standing,
-    addCustomGrade,
-    removeCustomGrade,
   } = useGradesSummary(tasks);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const [expandedSubjects, setExpandedSubjects] = useState<Record<string, boolean>>({});
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-
-  // Form state for adding custom grade
-  const [newSubject, setNewSubject] = useState("");
-  const [newTitle, setNewTitle] = useState("");
-  const [newScale, setNewScale] = useState<5 | 12>(5);
-  const [newGrade, setNewGrade] = useState<number>(5);
 
   const toggleSubject = (subjectName: string) => {
     setExpandedSubjects((prev) => ({
@@ -143,22 +134,6 @@ export function GradesView({ tasks, isLinked, onSyncClassroom }: GradesViewProps
     });
   }, [subjects, searchQuery, activeFilter]);
 
-  const handleAddSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newSubject.trim()) return;
-
-    addCustomGrade({
-      subject: newSubject.trim(),
-      title: newTitle.trim() || (newScale === 5 ? "Самостійна оцінка" : "Тематична оцінка"),
-      grade: Number(newGrade),
-      maxScale: newScale,
-      date: new Date().toISOString(),
-    });
-
-    setNewTitle("");
-    setIsAddModalOpen(false);
-  };
-
   const getBadgeColorClasses = (color: "emerald" | "blue" | "amber" | "rose") => {
     switch (color) {
       case "emerald":
@@ -193,33 +168,13 @@ export function GradesView({ tasks, isLinked, onSyncClassroom }: GradesViewProps
         <div className="absolute -top-16 -right-16 w-44 h-44 rounded-full bg-sys-accent/10 blur-3xl pointer-events-none" />
 
         {/* Top Header Row */}
-        <div className="flex items-center justify-between gap-2 relative z-10 pb-1">
+        <div className="flex items-center justify-between gap-2 relative z-10 pb-0.5">
           <span className="text-[11px] font-bold uppercase tracking-wider text-sys-text-muted">
             Академічна успішність
           </span>
-          <button
-            type="button"
-            onClick={() => setIsAddModalOpen(true)}
-            className="inline-flex items-center gap-1 rounded-lg border border-sys-border bg-sys-bg hover:bg-sys-accent/10 hover:border-sys-accent/40 px-2.5 py-1 text-xs font-semibold text-sys-text-primary hover:text-sys-accent transition-colors duration-fast ease-smooth cursor-pointer shadow-xs active:scale-95"
-          >
-            <svg
-              width="13"
-              height="13"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-            <span>+ Оцінка</span>
-          </button>
         </div>
 
-        {/* Standing Badge on its own comfortable row (never squashed or oval) */}
+        {/* Standing Badge on its own comfortable row */}
         <div className="mt-1.5 relative z-10">
           <div
             className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-xs font-semibold ${getBadgeColorClasses(
@@ -517,16 +472,9 @@ export function GradesView({ tasks, isLinked, onSyncClassroom }: GradesViewProps
                           className="flex items-start justify-between gap-2 p-2.5 rounded-xl border border-sys-border/60 bg-sys-card text-xs"
                         >
                           <div className="space-y-0.5 min-w-0 pr-1 flex-1">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              {grade.isManual && (
-                                <span className="inline-block text-[10px] px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-700 dark:text-amber-400 font-semibold border border-amber-500/20">
-                                  Вручну
-                                </span>
-                              )}
-                              <span className="font-semibold text-sys-text-primary break-words leading-tight">
-                                {grade.title}
-                              </span>
-                            </div>
+                            <span className="font-semibold text-sys-text-primary break-words leading-tight block">
+                              {grade.title}
+                            </span>
 
                             {grade.date && (
                               <p className="text-[10px] text-sys-text-muted">
@@ -578,29 +526,6 @@ export function GradesView({ tasks, isLinked, onSyncClassroom }: GradesViewProps
                                 </svg>
                               </a>
                             )}
-
-                            {grade.isManual && (
-                              <button
-                                type="button"
-                                onClick={() => removeCustomGrade(grade.id)}
-                                className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer"
-                                title="Видалити оцінку"
-                              >
-                                <svg
-                                  width="14"
-                                  height="14"
-                                  viewBox="0 0 24 24"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth="2"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                >
-                                  <line x1="18" y1="6" x2="6" y2="18" />
-                                  <line x1="6" y1="6" x2="18" y2="18" />
-                                </svg>
-                              </button>
-                            )}
                           </div>
                         </div>
                       ))}
@@ -623,9 +548,9 @@ export function GradesView({ tasks, isLinked, onSyncClassroom }: GradesViewProps
           <p className="text-xs text-sys-text-secondary max-w-xs mx-auto leading-relaxed">
             {searchQuery || activeFilter !== "all"
               ? "Спробуйте очистити пошуковий запит або скинути вибраний фільтр."
-              : "Оцінки з'являться після того, як викладачі оцінять роботи в Google Classroom, або додайте оцінку вручну."}
+              : "Оцінки з'являться після того, як викладачі виставлять їх у Google Classroom."}
           </p>
-          {searchQuery || activeFilter !== "all" ? (
+          {(searchQuery || activeFilter !== "all") && (
             <button
               type="button"
               onClick={() => {
@@ -636,137 +561,7 @@ export function GradesView({ tasks, isLinked, onSyncClassroom }: GradesViewProps
             >
               Скинути фільтри
             </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setIsAddModalOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-sys-accent px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:opacity-90 active:scale-95 transition-all cursor-pointer"
-            >
-              + Додати оцінку
-            </button>
           )}
-        </div>
-      )}
-
-      {/* Modal Dialog: Add Custom Grade */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="w-full max-w-sm rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-xl space-y-3.5 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-2 border-b border-sys-border/60">
-              <h3 className="text-sm font-bold text-sys-text-primary flex items-center gap-1.5">
-                <span>📝</span>
-                <span>Додати оцінку</span>
-              </h3>
-              <button
-                type="button"
-                onClick={() => setIsAddModalOpen(false)}
-                className="text-sys-text-muted hover:text-sys-text-primary p-1 rounded-lg cursor-pointer text-sm"
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleAddSubmit} className="space-y-3">
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-sys-text-secondary">
-                  Предмет *
-                </label>
-                <input
-                  type="text"
-                  required
-                  list="grades-existing-subjects"
-                  value={newSubject}
-                  onChange={(e) => setNewSubject(e.target.value)}
-                  placeholder="наприклад: Вища математика"
-                  className="w-full px-3 py-1.5 rounded-xl border border-sys-border bg-sys-bg text-xs text-sys-text-primary placeholder:text-sys-text-muted focus:outline-none focus:ring-1 focus:ring-sys-accent"
-                />
-                <datalist id="grades-existing-subjects">
-                  {subjects.map((s: SubjectSummary) => (
-                    <option key={s.subject} value={s.subject} />
-                  ))}
-                </datalist>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-sys-text-secondary">
-                  Назва роботи / коментар
-                </label>
-                <input
-                  type="text"
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  placeholder="наприклад: Модульний контроль"
-                  className="w-full px-3 py-1.5 rounded-xl border border-sys-border bg-sys-bg text-xs text-sys-text-primary placeholder:text-sys-text-muted focus:outline-none focus:ring-1 focus:ring-sys-accent"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-sys-text-secondary">
-                  Система оцінювання
-                </label>
-                <div className="grid grid-cols-2 gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setNewScale(5);
-                      if (newGrade > 5) setNewGrade(5);
-                    }}
-                    className={`py-1.5 px-2 rounded-xl border text-xs font-semibold cursor-pointer transition-colors ${
-                      newScale === 5
-                        ? "border-sys-accent bg-sys-accent text-white"
-                        : "border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary"
-                    }`}
-                  >
-                    5-бальна (коледж)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setNewScale(12);
-                    }}
-                    className={`py-1.5 px-2 rounded-xl border text-xs font-semibold cursor-pointer transition-colors ${
-                      newScale === 12
-                        ? "border-sys-accent bg-sys-accent text-white"
-                        : "border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary"
-                    }`}
-                  >
-                    12-бальна (1-2 курс)
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-sys-text-secondary">
-                  Оцінка ({newScale === 5 ? "1..5" : "1..12"}) *
-                </label>
-                <input
-                  type="number"
-                  required
-                  min={1}
-                  max={newScale}
-                  value={newGrade}
-                  onChange={(e) => setNewGrade(Number(e.target.value))}
-                  className="w-full px-3 py-1.5 rounded-xl border border-sys-border bg-sys-bg text-xs text-sys-text-primary focus:outline-none focus:ring-1 focus:ring-sys-accent font-bold"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-sys-border/60">
-                <button
-                  type="button"
-                  onClick={() => setIsAddModalOpen(false)}
-                  className="px-3 py-1.5 rounded-xl border border-sys-border text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary cursor-pointer"
-                >
-                  Скасувати
-                </button>
-                <button
-                  type="submit"
-                  className="px-3.5 py-1.5 rounded-xl bg-sys-accent text-xs font-semibold text-white shadow-xs hover:opacity-90 active:scale-95 cursor-pointer"
-                >
-                  Зберегти
-                </button>
-              </div>
-            </form>
-          </div>
         </div>
       )}
     </div>

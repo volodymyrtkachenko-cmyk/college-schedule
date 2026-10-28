@@ -103,13 +103,13 @@ export function MobileTasksView({
       <div className="mb-3 flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold tracking-tight text-sys-text-primary">
-            {viewMode === "grades" ? "Успішність та оцінки" : "Завдання Classroom"}
+            {viewMode === "grades" ? "Оцінки" : "Завдання Classroom"}
           </h2>
           {hasAccess && (
             <div className="flex items-center gap-2 mt-0.5">
               <p className="text-xs text-sys-text-secondary">
                 {viewMode === "grades"
-                  ? "Оцінки з Google Classroom та підрахунок середнього балу"
+                  ? "Середній бал та успішність з Classroom"
                   : scope === "week"
                   ? `${totalCount} ${formatTaskWord(totalCount)} на цьому тижні`
                   : `${totalCount} ${formatTaskWord(totalCount)} загалом`}
@@ -139,7 +139,7 @@ export function MobileTasksView({
         )}
       </div>
 
-      {/* Segmented Switch: Завдання vs Оцінки та GPA */}
+      {/* Segmented Switch: Завдання vs Оцінки */}
       <div className="mb-4 grid grid-cols-2 gap-1 rounded-xl border border-sys-border bg-sys-card p-1 text-xs font-semibold shadow-xs">
         <button
           type="button"
@@ -163,7 +163,7 @@ export function MobileTasksView({
           }`}
         >
           <span>📊</span>
-          <span>Оцінки та GPA</span>
+          <span>Оцінки</span>
         </button>
       </div>
 

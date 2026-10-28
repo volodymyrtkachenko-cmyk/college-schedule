@@ -1873,7 +1873,7 @@ export default function HomePage() {
                                     : "text-sys-text-secondary hover:text-sys-text-primary"
                                 }`}
                               >
-                                Оцінки та GPA
+                                Оцінки
                               </button>
                             </div>
                           </div>
