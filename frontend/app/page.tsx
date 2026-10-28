@@ -34,7 +34,7 @@ import { extractClassroomTaskKey, isOwnTask, useClassroomSubmissions } from "../
 import { useTeacherAccess } from "../lib/useTeacherAccess";
 import { TeacherPinModal } from "../components/TeacherPinModal";
 import { useTheme } from "../lib/useTheme";
-import { normalizeSubjectName, formatFullWeekRange, extractTeacherFromSubject, formatTeachers } from "../lib/format";
+import { normalizeSubjectName, formatFullWeekRange, extractTeacherFromSubject, formatTeachers, isValidTeacherName } from "../lib/format";
 
 const EN_KYIV_DOW_FMT = new Intl.DateTimeFormat("en-US", {
   timeZone: "Europe/Kyiv",
@@ -894,10 +894,10 @@ export default function HomePage() {
 
         const rawSubj = (ct as any).subject || ct.course_name || "";
         const cleanSubj = normalizeSubjectName(rawSubj) || "Дисципліна";
-        const teacherFromRaw = extractTeacherFromSubject(rawSubj) || extractTeacherFromSubject(ct.title);
+        const teacherFromRaw = extractTeacherFromSubject(rawSubj);
         const resolvedTeacher =
-          (ct as any).teacher ||
-          (ct as any).teacher_name ||
+          (isValidTeacherName((ct as any).teacher) ? (ct as any).teacher : null) ||
+          (isValidTeacherName((ct as any).teacher_name) ? (ct as any).teacher_name : null) ||
           teacherFromRaw ||
           null;
 

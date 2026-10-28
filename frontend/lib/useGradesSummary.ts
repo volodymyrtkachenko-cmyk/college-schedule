@@ -7,6 +7,7 @@ import {
   formatTeachers,
   isSubjectMatch,
   extractTeacherFromSubject,
+  isValidTeacherName,
 } from "./format";
 
 export interface GradeItem {
@@ -161,7 +162,7 @@ function getScheduleTeacherForSubject(subjectName: string): string | null {
             const lSubj = normalizeSubjectName(l.subject_name || l.subject || "").toLowerCase().trim();
             if (lSubj && (lSubj === normSubj || isSubjectMatch(lSubj, normSubj))) {
               const tRaw = l.teacher_name || l.teacher;
-              if (tRaw) {
+              if (tRaw && isValidTeacherName(tRaw)) {
                 if (/[,/]/.test(tRaw) && personalTeachers.length > 0) {
                   const parts = tRaw.split(/\s*[,/]\s*/);
                   for (let p = 0; p < parts.length; p++) {
@@ -201,15 +202,13 @@ function getScheduleTeacherForSubject(subjectName: string): string | null {
 
 export function useGradesSummary(tasks: FullTaskItem[]): GradesSummaryResult {
   return useMemo(() => {
-    // 1. Gather teachers from ALL tasks (not just graded ones), including raw subject / title extraction
+    // 1. Gather teachers from ALL tasks (not just graded ones), including raw subject extraction
     const teacherMap = new Map<string, string>();
     for (let i = 0; i < tasks.length; i++) {
       const t = tasks[i];
       if (t.subject) {
-        const tName =
-          t.teacher ||
-          extractTeacherFromSubject(t.subject) ||
-          extractTeacherFromSubject(t.title);
+        const validTaskTeacher = t.teacher && isValidTeacherName(t.teacher) ? t.teacher : null;
+        const tName = validTaskTeacher || extractTeacherFromSubject(t.subject);
         if (tName && !teacherMap.has(t.subject)) {
           teacherMap.set(t.subject, tName);
         }
@@ -318,8 +317,10 @@ export function useGradesSummary(tasks: FullTaskItem[]): GradesSummaryResult {
         return new Date(b.date).getTime() - new Date(a.date).getTime();
       });
 
+      const directTeacher = teacherMap.get(subjectName);
+      const validDirectTeacher = directTeacher && isValidTeacherName(directTeacher) ? directTeacher : null;
       const resolvedTeacher =
-        teacherMap.get(subjectName) ||
+        validDirectTeacher ||
         getScheduleTeacherForSubject(subjectName) ||
         null;
 

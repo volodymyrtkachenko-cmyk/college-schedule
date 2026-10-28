@@ -1536,7 +1536,7 @@ async def perform_course_sync(
                     if not resolved_t_name and task_author_tokens:
                         first_tok = task_author_tokens[0].lower()
                         dbt_match = next((dbt for dbt in db_teachers if first_tok in dbt.name.lower()), None)
-                        resolved_t_name = dbt_match.name if dbt_match else task_author_tokens[0].title()
+                        resolved_t_name = dbt_match.name if dbt_match else None
 
                     title_norm = _norm(title_raw)
                     combined_cw_text = f"{topic_norm} {title_norm} {course_title_norm}".strip()

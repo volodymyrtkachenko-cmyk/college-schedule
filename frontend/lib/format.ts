@@ -712,7 +712,51 @@ export function isSubjectMatch(taskSubject?: string | null, filterSubject?: stri
 }
 
 /**
- * Витягує прізвище та ініціали викладача з назви курсу або теми (наприклад, "Математика (Токарєва О.В.)" -> "Токарєва О.В.").
+ * Перевіряє, чи є рядок реальним ПІБ викладача, а не назвою теми/завдання (наприклад, "Ренесанс", "Вступ").
+ * Справжній викладач повинен:
+ * - містити ініціали (наприклад, "Домніна Г.С.", "Токарєва О. В."), АБО
+ * - починатися з префікса викладача ("викл.", "доц."), АБО
+ * - складатись щонайменше з 2 повноцінних слів (Прізвище Ім'я).
+ */
+export function isValidTeacherName(name?: string | null): boolean {
+  if (!name) return false;
+  const clean = name.trim();
+  if (clean.length < 4) return false;
+
+  // Виключаємо відомі не-викладацькі слова та навчальні теми
+  if (
+    /^(?:ренесанс|античність|модернізм|просвітництво|середньовіччя|вступ|практика|лекція|семінар|модуль|залік|екзамен|диплом|лабораторна|тест|завдання|тема|конспект)$/i.test(
+      clean
+    )
+  ) {
+    return false;
+  }
+
+  // 1. Наявність ініціалів: "Домніна Г.С.", "Токарєва О. В.", "І.І. Іванов"
+  if (/[А-ЯІЇЄҐA-Z]\.\s*[А-ЯІЇЄҐA-Z]\.?|[А-ЯІЇЄҐA-Z]\.\s*[А-ЯІЇЄҐA-Z]/i.test(clean)) {
+    return true;
+  }
+
+  // 2. Явний префікс посади: "викл. Домніна", "викладач Шевченко"
+  if (
+    /^(?:викл(?:адач|\.)?|доц(?:ент|\.)?|проф(?:есор|\.)?|кер(?:івник|\.)?)\s+[А-ЯІЇЄҐA-Z][а-яіїєґa-z]+/i.test(
+      clean
+    )
+  ) {
+    return true;
+  }
+
+  // 3. Щонайменше 2 слова (Прізвище + Ім'я/По батькові): "Домніна Галина", "Токарєва Тетяна Олександрівна"
+  const words = clean.split(/\s+/).filter((w) => w.length >= 2);
+  if (words.length >= 2 && words.every((w) => /^[А-ЯІЇЄҐA-Z][а-яіїєґa-z'-]+$/i.test(w))) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Витягує прізвище та ініціали викладача з назви курсу (наприклад, "Математика (Токарєва О.В.)" -> "Токарєва О.В.").
  */
 export function extractTeacherFromSubject(rawName?: string | null): string | null {
   if (!rawName) return null;
@@ -722,7 +766,7 @@ export function extractTeacherFromSubject(rawName?: string | null): string | nul
   );
   if (match && match[1]) {
     const val = match[1].trim();
-    if (!/підгр|груп|курс|семестр|залік|екзамен|диплом/i.test(val)) {
+    if (isValidTeacherName(val)) {
       return formatTeacherName(val);
     }
   }
@@ -732,7 +776,7 @@ export function extractTeacherFromSubject(rawName?: string | null): string | nul
   );
   if (dashMatch && dashMatch[1]) {
     const val = dashMatch[1].trim();
-    if (!/підгр|груп|курс|семестр|залік|екзамен/i.test(val)) {
+    if (isValidTeacherName(val)) {
       return formatTeacherName(val);
     }
   }
