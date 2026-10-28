@@ -181,7 +181,8 @@ export function useGradesSummary(tasks: FullTaskItem[]): GradesSummaryResult {
     // 1. Extract graded tasks from Classroom
     const classroomGraded: GradeItem[] = [];
 
-    for (const task of tasks) {
+    for (let i = 0; i < tasks.length; i++) {
+      const task = tasks[i];
       if (task.assignedGrade !== undefined && task.assignedGrade !== null) {
         const { grade5, grade12, percentage, effectiveMax } = convertGrade(
           task.assignedGrade,
@@ -230,7 +231,8 @@ export function useGradesSummary(tasks: FullTaskItem[]): GradesSummaryResult {
     const subjectMap = new Map<string, GradeItem[]>();
     const teacherMap = new Map<string, string | null | undefined>();
 
-    for (const g of allGrades) {
+    for (let i = 0; i < allGrades.length; i++) {
+      const g = allGrades[i];
       const list = subjectMap.get(g.subject) || [];
       list.push(g);
       subjectMap.set(g.subject, list);
@@ -249,7 +251,7 @@ export function useGradesSummary(tasks: FullTaskItem[]): GradesSummaryResult {
     let sumSubjectAverages12 = 0;
     let subjectsWith12Count = 0;
 
-    for (const [subjectName, gradesList] of subjectMap.entries()) {
+    subjectMap.forEach((gradesList, subjectName) => {
       let count5 = 0;
       let count4 = 0;
       let count3 = 0;
@@ -259,7 +261,8 @@ export function useGradesSummary(tasks: FullTaskItem[]): GradesSummaryResult {
       let sum12 = 0;
       let has12 = false;
 
-      for (const g of gradesList) {
+      for (let i = 0; i < gradesList.length; i++) {
+        const g = gradesList[i];
         sum5 += g.grade5;
         sum12 += g.grade12;
         if (g.maxPoints > 5 && g.maxPoints <= 12) {
@@ -298,7 +301,7 @@ export function useGradesSummary(tasks: FullTaskItem[]): GradesSummaryResult {
       else level = "risk";
 
       // Sort grades by date descending
-      gradesList.sort((a, b) => {
+      gradesList.sort((a: GradeItem, b: GradeItem) => {
         if (!a.date) return 1;
         if (!b.date) return -1;
         return new Date(b.date).getTime() - new Date(a.date).getTime();
@@ -314,10 +317,10 @@ export function useGradesSummary(tasks: FullTaskItem[]): GradesSummaryResult {
         distribution: { count5, count4, count3, count2 },
         level,
       });
-    }
+    });
 
     // Sort subjects alphabetically or by lowest/highest grade
-    subjects.sort((a, b) => a.subject.localeCompare(b.subject, "uk"));
+    subjects.sort((a: SubjectSummary, b: SubjectSummary) => a.subject.localeCompare(b.subject, "uk"));
 
     const totalSubjectsCount = subjects.length;
     const totalGradesCount = allGrades.length;

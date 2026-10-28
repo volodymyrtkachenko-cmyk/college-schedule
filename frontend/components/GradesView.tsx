@@ -42,7 +42,7 @@ export function GradesView({ tasks, isLinked, onSyncClassroom }: GradesViewProps
   };
 
   const filteredSubjects = useMemo(() => {
-    return subjects.filter((subj) => {
+    return subjects.filter((subj: SubjectSummary) => {
       const matchesSearch = subj.subject.toLowerCase().includes(searchQuery.toLowerCase());
       if (!matchesSearch) return false;
 
