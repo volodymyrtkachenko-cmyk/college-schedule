@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { useTheme } from "../../lib/useTheme";
+import { useTheme, ACCENT_OPTIONS } from "../../lib/useTheme";
 import { useUserSettings } from "../../lib/useUserSettings";
 import { useClassroomSubmissions } from "../../lib/useClassroomSubmissions";
 import { useTeacherAccess } from "../../lib/useTeacherAccess";
@@ -18,7 +18,7 @@ const ROLE_NAMES: Record<string, string> = {
 };
 
 export default function SettingsPage() {
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, accent, setAccent } = useTheme();
   const { settings, updateSetting } = useUserSettings();
   const { isLinked, linkedEmail, unlink } = useClassroomSubmissions();
   const { isTeacherUnlocked, unlockTeacher, lockTeacher } = useTeacherAccess();
@@ -356,6 +356,65 @@ export default function SettingsPage() {
           <p className="text-xs text-sys-text-secondary leading-relaxed">
             «Авто» відповідає системній темі пристрою.
           </p>
+
+          <div className="h-px bg-sys-border/40" />
+
+          {/* Accent Color Selection */}
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-xs sm:text-sm text-sys-text-primary">
+                Колір акценту
+              </span>
+              <span className="text-xs font-semibold text-sys-accent">
+                {ACCENT_OPTIONS.find((opt) => opt.id === accent)?.label ?? "Океан"}
+              </span>
+            </div>
+            <p className="text-xs text-sys-text-secondary leading-relaxed">
+              Змінює відтінок кнопок, позначок та активних елементів розкладу.
+            </p>
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 pt-1">
+              {ACCENT_OPTIONS.map((opt) => {
+                const isSelected = accent === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setAccent(opt.id)}
+                    className={`flex flex-col items-center gap-1.5 p-2 rounded-xl border transition-all duration-fast ease-smooth cursor-pointer ${
+                      isSelected
+                        ? "border-sys-accent bg-sys-accent/10 shadow-xs ring-1 ring-sys-accent"
+                        : "border-sys-border bg-sys-bg hover:border-sys-border/80 text-sys-text-secondary"
+                    }`}
+                  >
+                    <div className="relative flex items-center justify-center">
+                      <span
+                        className="h-6 w-6 rounded-full shadow-xs flex items-center justify-center transition-transform hover:scale-110"
+                        style={{ backgroundColor: opt.colorHex }}
+                      >
+                        {isSelected && (
+                          <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="#ffffff"
+                            strokeWidth="3"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                        )}
+                      </span>
+                    </div>
+                    <span className={`text-[11px] font-medium leading-tight ${isSelected ? "text-sys-text-primary font-bold" : "text-sys-text-secondary"}`}>
+                      {opt.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </section>
 
         {/* Section 4: Доступ викладача (тільки для викладачів або при показі всіх параметрів) */}

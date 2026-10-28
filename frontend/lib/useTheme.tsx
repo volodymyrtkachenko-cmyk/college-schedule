@@ -5,16 +5,49 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 export type Theme = "light" | "dark" | "system";
 export type ResolvedTheme = "light" | "dark";
 
+export type AccentColor = "blue" | "emerald" | "violet" | "amber" | "rose" | "cyan";
+
+export interface AccentOption {
+  id: AccentColor;
+  label: string;
+  colorHex: string;
+  dotBg: string;
+}
+
+export const ACCENT_OPTIONS: AccentOption[] = [
+  { id: "blue", label: "Океан", colorHex: "#3b82f6", dotBg: "bg-blue-500" },
+  { id: "emerald", label: "Смарагд", colorHex: "#10b981", dotBg: "bg-emerald-500" },
+  { id: "violet", label: "Фіолетовий", colorHex: "#a855f7", dotBg: "bg-purple-500" },
+  { id: "amber", label: "Бурштин", colorHex: "#f59e0b", dotBg: "bg-amber-500" },
+  { id: "rose", label: "Троянда", colorHex: "#f43f5e", dotBg: "bg-rose-500" },
+  { id: "cyan", label: "Бірюза", colorHex: "#06b6d4", dotBg: "bg-cyan-500" },
+];
+
 interface ThemeContextType {
   theme: Theme;
   resolvedTheme: ResolvedTheme;
   setTheme: (theme: Theme) => void;
   toggleTheme: () => void;
+  accent: AccentColor;
+  setAccent: (accent: AccentColor) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | null>(null);
 
 const STORAGE_KEY = "college_theme";
+const ACCENT_STORAGE_KEY = "college_accent";
+
+function getInitialAccent(): AccentColor {
+  if (typeof window === "undefined") return "blue";
+  try {
+    const stored = localStorage.getItem(ACCENT_STORAGE_KEY) as AccentColor | null;
+    return stored && ["blue", "emerald", "violet", "amber", "rose", "cyan"].includes(stored)
+      ? stored
+      : "blue";
+  } catch {
+    return "blue";
+  }
+}
 
 function getInitialTheme(): Theme {
   if (typeof window === "undefined") return "system";
@@ -40,6 +73,21 @@ function getInitialResolvedTheme(): ResolvedTheme {
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(getInitialTheme);
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(getInitialResolvedTheme);
+  const [accent, setAccentState] = useState<AccentColor>(getInitialAccent);
+
+  const applyAccent = useCallback((newAccent: AccentColor) => {
+    setAccentState(newAccent);
+    if (typeof document !== "undefined") {
+      document.documentElement.setAttribute("data-accent", newAccent);
+    }
+  }, []);
+
+  const setAccent = useCallback((newAccent: AccentColor) => {
+    applyAccent(newAccent);
+    try {
+      localStorage.setItem(ACCENT_STORAGE_KEY, newAccent);
+    } catch {}
+  }, [applyAccent]);
 
   const applyTheme = useCallback((targetTheme: Theme) => {
     let effective: ResolvedTheme = "dark";
@@ -76,6 +124,17 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       applyTheme("system");
     }
 
+    try {
+      const storedAccent = localStorage.getItem(ACCENT_STORAGE_KEY) as AccentColor | null;
+      const initialAccent: AccentColor =
+        storedAccent && ["blue", "emerald", "violet", "amber", "rose", "cyan"].includes(storedAccent)
+          ? storedAccent
+          : "blue";
+      applyAccent(initialAccent);
+    } catch {
+      applyAccent("blue");
+    }
+
     const mql = window.matchMedia("(prefers-color-scheme: dark)");
     const handleChange = () => {
       const currentStored = localStorage.getItem(STORAGE_KEY) as Theme | null;
@@ -85,7 +144,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     };
     mql.addEventListener("change", handleChange);
     return () => mql.removeEventListener("change", handleChange);
-  }, [applyTheme]);
+  }, [applyTheme, applyAccent]);
 
   const setTheme = useCallback(
     (newTheme: Theme) => {
@@ -118,7 +177,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, [resolvedTheme, setTheme]);
 
   return (
-    <ThemeContext.Provider value={{ theme, resolvedTheme, setTheme, toggleTheme }}>
+    <ThemeContext.Provider value={{ theme, resolvedTheme, setTheme, toggleTheme, accent, setAccent }}>
       {children}
     </ThemeContext.Provider>
   );
@@ -132,6 +191,8 @@ export function useTheme(): ThemeContextType {
       resolvedTheme: "dark",
       setTheme: () => {},
       toggleTheme: () => {},
+      accent: "blue",
+      setAccent: () => {},
     };
   }
   return ctx;

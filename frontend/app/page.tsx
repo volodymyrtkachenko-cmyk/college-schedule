@@ -22,6 +22,7 @@ const DatePickerModal = dynamic(() => import("../components/DatePickerModal").th
 import { SplashScreen } from "../components/SplashScreen";
 import { BottomNav, MobileTab } from "../components/BottomNav";
 import { MobileTasksView, FullTaskItem, renderTaskCard } from "../components/MobileTasksView";
+import { GradesView } from "../components/GradesView";
 import { useTaskGroups, formatTaskWord, TaskFilterState, DEFAULT_TASK_FILTERS } from "../lib/useTaskGroups";
 import { TaskFilters } from "../components/TaskFilters";
 import { SearchableSelect } from "../components/SearchableSelect";
@@ -195,6 +196,7 @@ export default function HomePage() {
   const [teacherPinTargetGroup, setTeacherPinTargetGroup] = useState<string | null>(null);
   const hasGroupTaskAccess = mode !== "student" || isLinkedToGroup(groupId);
   const [tasksScope, setTasksScope] = useState<"week" | "all">("week");
+  const [desktopSidebarTab, setDesktopSidebarTab] = useState<"tasks" | "grades">("tasks");
 
   useEffect(() => {
     const handlePrompt = (e?: Event) => {
@@ -1845,12 +1847,38 @@ export default function HomePage() {
                                 <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
                               </svg>
                               <span className="text-sm font-bold uppercase tracking-wider text-sys-text-primary">
-                                Завдання Classroom
+                                Classroom
                               </span>
+                            </div>
+
+                            {/* Desktop Segmented Toggle: Завдання vs Оцінки */}
+                            <div className="inline-flex items-center rounded-lg border border-sys-border bg-sys-bg p-0.5 text-xs shadow-xs">
+                              <button
+                                type="button"
+                                onClick={() => setDesktopSidebarTab("tasks")}
+                                className={`rounded-md px-2 py-0.5 font-semibold transition-colors duration-fast ease-smooth cursor-pointer ${
+                                  desktopSidebarTab === "tasks"
+                                    ? "bg-sys-accent text-white shadow-xs font-bold"
+                                    : "text-sys-text-secondary hover:text-sys-text-primary"
+                                }`}
+                              >
+                                Завдання
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDesktopSidebarTab("grades")}
+                                className={`rounded-md px-2 py-0.5 font-semibold transition-colors duration-fast ease-smooth cursor-pointer ${
+                                  desktopSidebarTab === "grades"
+                                    ? "bg-sys-accent text-white shadow-xs font-bold"
+                                    : "text-sys-text-secondary hover:text-sys-text-primary"
+                                }`}
+                              >
+                                Оцінки та GPA
+                              </button>
                             </div>
                           </div>
 
-                          {hasGroupTaskAccess && (
+                          {desktopSidebarTab === "tasks" && hasGroupTaskAccess && (
                             <div className="mt-1 flex items-center gap-2">
                               <p className="text-xs text-sys-text-secondary">
                                 {tasksScope === "week"
@@ -1869,7 +1897,7 @@ export default function HomePage() {
                           )}
 
                           {/* Week Switcher & Scope Segment (Section 22.1) */}
-                          {hasGroupTaskAccess && (
+                          {desktopSidebarTab === "tasks" && hasGroupTaskAccess && (
                             <div className="mt-3 flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-sys-border/30">
                               <div className={`inline-flex items-center gap-0.5 rounded-xl border border-sys-border bg-sys-bg px-1 py-0.5 text-xs shadow-xs transition-opacity ${tasksScope === "week" ? "" : "opacity-50"}`}>
                                 <button
@@ -1923,7 +1951,17 @@ export default function HomePage() {
                           )}
                         </div>
 
-                        {!hasGroupTaskAccess ? (
+                        {desktopSidebarTab === "grades" ? (
+                          <div className="mt-4">
+                            <GradesView
+                              tasks={allTasks}
+                              isLinked={isLinked}
+                              onSyncClassroom={() =>
+                                window.dispatchEvent(new CustomEvent("trigger-classroom-sync"))
+                              }
+                            />
+                          </div>
+                        ) : !hasGroupTaskAccess ? (
                           <div className="mt-4 rounded-2xl border border-sky-500/20 bg-sky-500/5 p-5 text-center">
                             <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-500/10 text-sky-400 border border-sky-500/20">
                               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

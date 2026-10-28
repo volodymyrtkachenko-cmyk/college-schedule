@@ -6,6 +6,7 @@ import { ClassroomSyncButton } from "./ClassroomSyncButton";
 import { useClassroomSubmissions } from "../lib/useClassroomSubmissions";
 import { useTaskGroups, formatTaskWord, TaskFilterState, DEFAULT_TASK_FILTERS } from "../lib/useTaskGroups";
 import { TaskFilters } from "./TaskFilters";
+import { GradesView } from "./GradesView";
 
 export interface FullTaskItem {
   id?: string;
@@ -53,6 +54,7 @@ export function MobileTasksView({
   ) => void;
 }) {
   const [filters, setFilters] = useState<TaskFilterState>(DEFAULT_TASK_FILTERS);
+  const [viewMode, setViewMode] = useState<"tasks" | "grades">("tasks");
   const { isLinked, isLinkedToGroup } = useClassroomSubmissions();
   const hasAccess = Boolean(groupId && isLinkedToGroup(groupId));
 
@@ -101,12 +103,14 @@ export function MobileTasksView({
       <div className="mb-3 flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold tracking-tight text-sys-text-primary">
-            Завдання Classroom
+            {viewMode === "grades" ? "Успішність та оцінки" : "Завдання Classroom"}
           </h2>
           {hasAccess && (
             <div className="flex items-center gap-2 mt-0.5">
               <p className="text-xs text-sys-text-secondary">
-                {scope === "week"
+                {viewMode === "grades"
+                  ? "Оцінки з Google Classroom та підрахунок середнього балу"
+                  : scope === "week"
                   ? `${totalCount} ${formatTaskWord(totalCount)} на цьому тижні`
                   : `${totalCount} ${formatTaskWord(totalCount)} загалом`}
               </p>
@@ -135,7 +139,43 @@ export function MobileTasksView({
         )}
       </div>
 
-      {!hasAccess ? (
+      {/* Segmented Switch: Завдання vs Оцінки та GPA */}
+      <div className="mb-4 grid grid-cols-2 gap-1 rounded-xl border border-sys-border bg-sys-card p-1 text-xs font-semibold shadow-xs">
+        <button
+          type="button"
+          onClick={() => setViewMode("tasks")}
+          className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-all duration-fast ease-smooth cursor-pointer ${
+            viewMode === "tasks"
+              ? "bg-sys-accent text-white shadow-xs font-bold"
+              : "text-sys-text-secondary hover:text-sys-text-primary"
+          }`}
+        >
+          <span>📋</span>
+          <span>Завдання ({totalCount})</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setViewMode("grades")}
+          className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-all duration-fast ease-smooth cursor-pointer ${
+            viewMode === "grades"
+              ? "bg-sys-accent text-white shadow-xs font-bold"
+              : "text-sys-text-secondary hover:text-sys-text-primary"
+          }`}
+        >
+          <span>📊</span>
+          <span>Оцінки та GPA</span>
+        </button>
+      </div>
+
+      {viewMode === "grades" ? (
+        <GradesView
+          tasks={tasks}
+          isLinked={isLinked}
+          onSyncClassroom={() =>
+            window.dispatchEvent(new CustomEvent("trigger-classroom-sync"))
+          }
+        />
+      ) : !hasAccess ? (
         <div className="rounded-2xl border border-sky-500/20 bg-sky-500/5 p-6 text-center mt-6">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-500/10 text-sky-400 border border-sky-500/20">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
