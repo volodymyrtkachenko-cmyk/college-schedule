@@ -7,6 +7,7 @@ import { OfflineIndicator } from "../components/OfflineIndicator";
 import { InstallPrompt } from "../components/InstallPrompt";
 import { ScheduleDay } from "../components/ScheduleDay";
 import { ScheduleWeekGrid } from "../components/ScheduleWeekGrid";
+import { getPeriodMeta } from "../components/SchedulePeriodCard";
 import { DayPager } from "../components/DayPager";
 import { MobileWeekBar } from "../components/MobileWeekBar";
 import { MobileWeekDaysStrip } from "../components/MobileWeekDaysStrip";
@@ -602,8 +603,9 @@ export default function HomePage() {
     resetScroll();
   };
 
-  const activeWeekPeriod = useMemo(() => {
-    return week?.find((d) => d.period_info)?.period_info ?? null;
+  const activeWeekPeriodMeta = useMemo(() => {
+    const p = week?.find((d) => d.period_info)?.period_info;
+    return p ? getPeriodMeta(p) : null;
   }, [week]);
 
   const isWeekend = [0, 6].includes(new Date().getDay());
@@ -1280,11 +1282,11 @@ export default function HomePage() {
                     </span>
                   </>
                 )}
-                {activeWeekPeriod && (
+                {activeWeekPeriodMeta && (
                   <>
                     {(currentWeekNumber || weekType !== "both" || headerLearningMode) && <span className="shrink-0">·</span>}
                     <span className="font-semibold text-violet-400 shrink-0">
-                      {activeWeekPeriod.title}
+                      {activeWeekPeriodMeta.icon} {activeWeekPeriodMeta.shortLabel}
                     </span>
                   </>
                 )}
@@ -2223,11 +2225,12 @@ export default function HomePage() {
                           </span>
                         </>
                       )}
-                      {activeWeekPeriod && (
+                      {activeWeekPeriodMeta && (
                         <>
                           <span className="text-sys-text-muted">•</span>
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-violet-500/10 dark:bg-violet-500/15 text-violet-800 dark:text-violet-300 border border-violet-500/30 shadow-xs">
-                            <span>{activeWeekPeriod.title}</span>
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border shadow-xs ${activeWeekPeriodMeta.badgeTone}`}>
+                            <span>{activeWeekPeriodMeta.icon}</span>
+                            <span>{activeWeekPeriodMeta.title}</span>
                           </span>
                         </>
                       )}
