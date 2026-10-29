@@ -291,10 +291,10 @@ export default function EducationalProcessPage() {
                 key={num}
                 className="rounded-2xl border border-sys-border/60 bg-sys-card/70 p-5 animate-pulse"
               >
-                <div className="h-5 w-32 rounded bg-slate-700/60 mb-4" />
+                <div className="h-5 w-32 rounded bg-sys-elevated mb-4" />
                 <div className="space-y-2">
-                  <div className="h-4 w-full rounded bg-slate-800" />
-                  <div className="h-4 w-4/5 rounded bg-slate-800" />
+                  <div className="h-4 w-full rounded bg-sys-elevated" />
+                  <div className="h-4 w-4/5 rounded bg-sys-surface" />
                 </div>
               </div>
             ))}

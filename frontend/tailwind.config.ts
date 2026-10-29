@@ -22,6 +22,7 @@ const config: Config = {
           destructive: 'rgb(var(--sys-destructive) / <alpha-value>)',
           accent: 'rgb(var(--sys-accent) / <alpha-value>)',
           accentSolid: 'rgb(var(--sys-accent-solid) / <alpha-value>)',
+          onAccent: 'rgb(var(--sys-on-accent) / <alpha-value>)',
           success: 'rgb(var(--sys-success) / <alpha-value>)',
           info: 'rgb(var(--sys-info) / <alpha-value>)',
           neon: 'rgb(var(--sys-neon) / <alpha-value>)',

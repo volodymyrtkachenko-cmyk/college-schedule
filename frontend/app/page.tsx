@@ -2236,8 +2236,8 @@ export default function HomePage() {
                                     aria-expanded={sidebarPastWeekOpen || sidebarTaskFilters.status === "overdue" || Boolean(sidebarTaskFilters.subject)}
                                   >
                                     <div className="flex items-center gap-2">
-                                      <span className={`h-2 w-2 rounded-full shadow-xs ${isLinked ? "bg-rose-500" : "bg-slate-500"}`} />
-                                      <h4 className={`text-xs font-bold uppercase tracking-wider ${isLinked ? "text-rose-400" : "text-slate-400"}`}>
+                                      <span className={`h-2 w-2 rounded-full shadow-xs ${isLinked ? "bg-rose-500" : "bg-sys-text-muted"}`} />
+                                      <h4 className={`text-xs font-bold uppercase tracking-wider ${isLinked ? "text-rose-500 dark:text-rose-400" : "text-sys-text-secondary"}`}>
                                         З минулих тижнів ({sidebarTaskGroups.pastWeekTasks.length})
                                       </h4>
                                     </div>
@@ -2265,12 +2265,12 @@ export default function HomePage() {
                                     <div className="flex items-center gap-2">
                                       <span
                                         className={`h-2 w-2 rounded-full shadow-xs ${
-                                          isLinked ? "bg-rose-500" : "bg-slate-500"
+                                          isLinked ? "bg-rose-500" : "bg-sys-text-muted"
                                         }`}
                                       />
                                       <h4
                                         className={`text-xs font-bold uppercase tracking-wider ${
-                                          isLinked ? "text-rose-400" : "text-slate-400"
+                                          isLinked ? "text-rose-500 dark:text-rose-400" : "text-sys-text-secondary"
                                         }`}
                                       >
                                         {isLinked
@@ -2327,8 +2327,8 @@ export default function HomePage() {
                                     aria-expanded={sidebarNoDateOpen || (sidebarTaskFilters.status === "pending" && sidebarTaskGroups.activeTasks.length === 0) || Boolean(sidebarTaskFilters.subject)}
                                   >
                                     <div className="flex items-center gap-2">
-                                      <span className="h-2 w-2 rounded-full bg-slate-400 shadow-xs" />
-                                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                                      <span className="h-2 w-2 rounded-full bg-sys-text-muted shadow-xs" />
+                                      <h4 className="text-xs font-bold uppercase tracking-wider text-sys-text-secondary">
                                         Без терміну ({sidebarTaskGroups.noDateTasks.length})
                                       </h4>
                                     </div>

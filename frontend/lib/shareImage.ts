@@ -86,73 +86,107 @@ interface ImageThemePalette {
   overrideOnlineText: string;
 }
 
+type ImageAccent = "blue" | "emerald" | "violet" | "amber" | "rose" | "cyan";
+
+function resolveAccent(): ImageAccent {
+  if (typeof document !== "undefined") {
+    const attr = document.documentElement.getAttribute("data-accent") as ImageAccent | null;
+    if (attr && ["blue", "emerald", "violet", "amber", "rose", "cyan"].includes(attr)) {
+      return attr;
+    }
+  }
+  return "blue";
+}
+
 function getThemePalette(theme: "light" | "dark"): ImageThemePalette {
+  const accent = resolveAccent();
+
+  const lightAccents: Record<ImageAccent, { bg: string; border: string; text: string; secondary: string; muted: string; accent: string; chipBg: string }> = {
+    blue:    { bg: "#eef4fc", border: "#c5d7f2", text: "#0f1a33", secondary: "#2e4061", muted: "#4a5f82", accent: "#1d4ed8", chipBg: "#e6f0fd" },
+    emerald: { bg: "#ebf7f1", border: "#b8e0cd", text: "#0b241b", secondary: "#244a3b", muted: "#3f6958", accent: "#047857", chipBg: "#e0f4ea" },
+    violet:  { bg: "#f3effe", border: "#d2c4f7", text: "#1d1238", secondary: "#413066", muted: "#604c8a", accent: "#6d28d9", chipBg: "#ece4fe" },
+    amber:   { bg: "#fbf4e6", border: "#e8cf9d", text: "#2b1a08", secondary: "#573a1a", muted: "#78552d", accent: "#b45309", chipBg: "#f9edd4" },
+    rose:    { bg: "#fbeef2", border: "#edbbc9", text: "#2e0e19", secondary: "#5e283a", muted: "#804156", accent: "#be123c", chipBg: "#f9e1e8" },
+    cyan:    { bg: "#eaf6f9", border: "#b3dce6", text: "#0c232e", secondary: "#24495c", muted: "#40687d", accent: "#0e7490", chipBg: "#ddf1f6" },
+  };
+
+  const darkAccents: Record<ImageAccent, { bg: string; card: string; border: string; text: string; secondary: string; muted: string; accent: string; chipBg: string }> = {
+    blue:    { bg: "#080d18", card: "#111a2e", border: "#203152", text: "#f4f8ff", secondary: "#bacbe3", muted: "#90a5c4", accent: "#60a5fa", chipBg: "#182540" },
+    emerald: { bg: "#06120e", card: "#0d211a", border: "#1b4033", text: "#f0fdf8", secondary: "#b6d9cb", muted: "#8ab5a4", accent: "#34d399", chipBg: "#143026" },
+    violet:  { bg: "#0d0917", card: "#17112b", border: "#312357", text: "#f8f5ff", secondary: "#cabee6", muted: "#a494c9", accent: "#c084fc", chipBg: "#231940" },
+    amber:   { bg: "#120d06", card: "#21180b", border: "#423017", text: "#fffaf0", secondary: "#deccb1", muted: "#b8a282", accent: "#fbbf24", chipBg: "#302311" },
+    rose:    { bg: "#13080d", card: "#24101a", border: "#472033", text: "#fff5f7", secondary: "#e0bfcc", muted: "#ba93a3", accent: "#fb7185", chipBg: "#341726" },
+    cyan:    { bg: "#061117", card: "#0c202b", border: "#193e52", text: "#f0fbff", secondary: "#b4d4e3", muted: "#88b0c2", accent: "#22d3ee", chipBg: "#132e3d" },
+  };
+
   if (theme === "light") {
+    const a = lightAccents[accent];
     return {
       isDark: false,
-      canvasBg: "#f8fafc",
+      canvasBg: a.bg,
       cardBg: "#ffffff",
-      cardBorder: "#e2e8f0",
-      headerBorder: "#e2e8f0",
-      titlePrimary: "#0f172a",
-      textSecondary: "#475569",
-      textMuted: "#64748b",
-      accent: "#2563eb",
-      headerBadgeBg: "#eff6ff",
-      headerBadgeBorder: "#bfdbfe",
-      headerBadgeText: "#1d4ed8",
-      slotEmptyBg: "rgba(241, 245, 249, 0.7)",
-      slotEmptyBorder: "rgba(226, 232, 240, 0.9)",
-      slotEmptyText: "#94a3b8",
-      roomChipBg: "#f1f5f9",
-      roomChipBorder: "#e2e8f0",
-      roomChipText: "#334155",
-      repBg: "rgba(254, 243, 199, 0.6)",
-      repBorder: "rgba(245, 158, 11, 0.5)",
-      repText: "#b45309",
-      timeLine: "#e2e8f0",
-      footerText: "#94a3b8",
+      cardBorder: a.border,
+      headerBorder: a.border,
+      titlePrimary: a.text,
+      textSecondary: a.secondary,
+      textMuted: a.muted,
+      accent: a.accent,
+      headerBadgeBg: a.chipBg,
+      headerBadgeBorder: a.border,
+      headerBadgeText: a.accent,
+      slotEmptyBg: "rgba(255, 255, 255, 0.55)",
+      slotEmptyBorder: a.border,
+      slotEmptyText: a.muted,
+      roomChipBg: a.chipBg,
+      roomChipBorder: a.border,
+      roomChipText: a.secondary,
+      repBg: "rgba(254, 243, 199, 0.7)",
+      repBorder: "rgba(234, 88, 12, 0.45)",
+      repText: "#9a3412",
+      timeLine: a.border,
+      footerText: a.muted,
       shortenedBadgeBg: "rgba(254, 243, 199, 0.9)",
       shortenedBadgeBorder: "rgba(245, 158, 11, 0.4)",
       shortenedBadgeText: "#b45309",
-      overrideOfflineBg: "rgba(37, 99, 235, 0.1)",
-      overrideOfflineText: "#1d4ed8",
-      overrideOnlineBg: "rgba(217, 119, 6, 0.1)",
+      overrideOfflineBg: a.chipBg,
+      overrideOfflineText: a.accent,
+      overrideOnlineBg: "rgba(217, 119, 6, 0.12)",
       overrideOnlineText: "#b45309",
     };
   }
 
+  const d = darkAccents[accent];
   return {
     isDark: true,
-    canvasBg: "#09090b",
-    cardBg: "#121215",
-    cardBorder: "#27272a",
-    headerBorder: "#27272a",
-    titlePrimary: "#f8fafc",
-    textSecondary: "#a1a1aa",
-    textMuted: "#71717a",
-    accent: "#38bdf8",
-    headerBadgeBg: "#16161a",
-    headerBadgeBorder: "#27272a",
-    headerBadgeText: "#38bdf8",
-    slotEmptyBg: "rgba(22, 22, 26, 0.4)",
-    slotEmptyBorder: "rgba(39, 39, 42, 0.55)",
-    slotEmptyText: "#52525b",
-    roomChipBg: "#1e1e24",
-    roomChipBorder: "#27272a",
-    roomChipText: "#e4e4e7",
-    repBg: "rgba(245, 158, 11, 0.1)",
-    repBorder: "rgba(245, 158, 11, 0.45)",
-    repText: "#fbbf24",
-    timeLine: "#27272a",
-    footerText: "#71717a",
-    shortenedBadgeBg: "rgba(245, 158, 11, 0.15)",
-    shortenedBadgeBorder: "rgba(245, 158, 11, 0.35)",
-    shortenedBadgeText: "#fbbf24",
-    overrideOfflineBg: "rgba(56, 189, 248, 0.14)",
-    overrideOfflineText: "#38bdf8",
-    overrideOnlineBg: "rgba(245, 158, 11, 0.14)",
-    overrideOnlineText: "#fbbf24",
+    canvasBg: d.bg,
+    cardBg: d.card,
+    cardBorder: d.border,
+    headerBorder: d.border,
+    titlePrimary: d.text,
+    textSecondary: d.secondary,
+    textMuted: d.muted,
+    accent: d.accent,
+    headerBadgeBg: d.chipBg,
+    headerBadgeBorder: d.border,
+    headerBadgeText: d.accent,
+    slotEmptyBg: "rgba(255, 255, 255, 0.025)",
+    slotEmptyBorder: d.border,
+    slotEmptyText: d.muted,
+    roomChipBg: d.chipBg,
+    roomChipBorder: d.border,
+    roomChipText: d.text,
+    repBg: "rgba(234, 88, 12, 0.14)",
+    repBorder: "rgba(251, 146, 60, 0.5)",
+    repText: "#fdba74",
+    timeLine: d.border,
+    footerText: d.muted,
+    shortenedBadgeBg: "rgba(245, 158, 11, 0.18)",
+    shortenedBadgeBorder: "rgba(245, 158, 11, 0.4)",
+    shortenedBadgeText: "#fcd34d",
+    overrideOfflineBg: d.chipBg,
+    overrideOfflineText: d.accent,
+    overrideOnlineBg: "rgba(245, 158, 11, 0.16)",
+    overrideOnlineText: "#fcd34d",
   };
 }
 

@@ -179,9 +179,9 @@ export default function StatisticsPage() {
       <div className="mx-auto max-w-5xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
         <section className="flex flex-col gap-4">
           <div className="flex justify-center mb-2">
-            <div role="group" className="inline-flex relative rounded-full bg-slate-200/80 dark:bg-slate-800/80 p-1 shadow-inner border border-slate-300/80 dark:border-slate-700/50">
+            <div role="group" className="inline-flex relative rounded-full bg-sys-elevated p-1 shadow-inner border border-sys-border">
               {teachers.length > 0 && (
-                <div className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-sys-accent rounded-full transition-all duration-300 ease-out z-0 shadow-sm" style={{ left: mode === 'student' ? '4px' : 'calc(50% + 2px)' }}></div>
+                <div className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-sys-accentSolid rounded-full transition-all duration-300 ease-out z-0 shadow-sm" style={{ left: mode === 'student' ? '4px' : 'calc(50% + 2px)' }}></div>
               )}
               <button
                 type="button"
@@ -228,10 +228,10 @@ export default function StatisticsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               {[1, 2, 3, 4, 5, 6].map((i) => (
                 <div key={i} className="h-24 rounded-2xl border border-sys-border/60 bg-sys-card/70 p-4 flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-full bg-slate-200 dark:bg-slate-800 shrink-0" />
+                  <div className="w-16 h-16 rounded-full bg-sys-elevated shrink-0" />
                   <div className="flex-1 space-y-2">
-                    <div className="h-4 w-3/4 rounded bg-slate-200/80 dark:bg-slate-700/70" />
-                    <div className="h-3 w-1/2 rounded bg-slate-100 dark:bg-slate-800" />
+                    <div className="h-4 w-3/4 rounded bg-sys-elevated" />
+                    <div className="h-3 w-1/2 rounded bg-sys-surface" />
                   </div>
                 </div>
               ))}
@@ -363,13 +363,13 @@ export default function StatisticsPage() {
                         : "text-sys-accent";
 
                       return (
-                        <div key={entry.id} className="rounded-2xl border border-sys-border bg-sys-card p-4 flex items-center gap-4 hover:bg-slate-50 dark:hover:bg-white/5 hover:border-sys-accent/40 transition-colors">
+                        <div key={entry.id} className="rounded-2xl border border-sys-border bg-sys-card p-4 flex items-center gap-4 hover:bg-sys-elevated/60 hover:border-sys-accent/40 transition-colors">
                           <div className="relative w-16 h-16 shrink-0 flex items-center justify-center">
                             <svg className="w-full h-full transform -rotate-90" viewBox="0 0 48 48">
                               <circle
                                 cx="24" cy="24" r="20"
                                 stroke="currentColor" strokeWidth="4" fill="none"
-                                className="text-slate-200 dark:text-slate-800"
+                                className="text-sys-border"
                               />
                               <circle
                                 cx="24" cy="24" r="20"
@@ -430,7 +430,7 @@ export default function StatisticsPage() {
                         : `${teacherGroups.length} активних груп у поточному семестрі`}
                     </p>
                   </div>
-                  <div role="group" className="inline-flex rounded-xl bg-slate-200/80 dark:bg-slate-800/80 p-1 border border-slate-300/80 dark:border-slate-700/50 text-xs font-medium self-start sm:self-auto">
+                  <div role="group" className="inline-flex rounded-xl bg-sys-elevated p-1 border border-sys-border text-xs font-medium self-start sm:self-auto">
                     <button
                       type="button"
                       onClick={() => setTeacherView("subjects")}
@@ -472,13 +472,13 @@ export default function StatisticsPage() {
                         const strokeDashoffset = circumference - (clampedProgress / 100) * circumference;
 
                         return (
-                          <div key={subj.id} className="rounded-2xl border border-sys-border bg-sys-card p-4 flex items-center gap-4 hover:bg-slate-50 dark:hover:bg-white/5 hover:border-sys-accent/40 transition-colors">
+                          <div key={subj.id} className="rounded-2xl border border-sys-border bg-sys-card p-4 flex items-center gap-4 hover:bg-sys-elevated/60 hover:border-sys-accent/40 transition-colors">
                             <div className="relative w-16 h-16 shrink-0 flex items-center justify-center">
                               <svg className="w-full h-full transform -rotate-90" viewBox="0 0 48 48">
                                 <circle
                                   cx="24" cy="24" r="20"
                                   stroke="currentColor" strokeWidth="4" fill="none"
-                                  className="text-slate-200 dark:text-slate-800"
+                                  className="text-sys-border"
                                 />
                                 <circle
                                   cx="24" cy="24" r="20"
@@ -504,7 +504,7 @@ export default function StatisticsPage() {
                                 <div className="flex flex-wrap gap-1 items-center">
                                   <span className="text-[11px] text-sys-text-muted mr-0.5">Групи:</span>
                                   {subj.groups.map((grp) => (
-                                    <span key={grp} className="rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 px-1.5 py-0.5 text-[11px] font-medium text-slate-700 dark:text-slate-300">
+                                    <span key={grp} className="rounded bg-sys-elevated border border-sys-border px-1.5 py-0.5 text-[11px] font-medium text-sys-text-secondary">
                                       {grp}
                                     </span>
                                   ))}
@@ -532,13 +532,13 @@ export default function StatisticsPage() {
                         const strokeDashoffset = circumference - (clampedProgress / 100) * circumference;
 
                         return (
-                          <div key={grp.id} className="rounded-2xl border border-sys-border bg-sys-card p-4 flex items-center gap-4 hover:bg-slate-50 dark:hover:bg-white/5 hover:border-sys-accent/40 transition-colors">
+                          <div key={grp.id} className="rounded-2xl border border-sys-border bg-sys-card p-4 flex items-center gap-4 hover:bg-sys-elevated/60 hover:border-sys-accent/40 transition-colors">
                             <div className="relative w-16 h-16 shrink-0 flex items-center justify-center">
                               <svg className="w-full h-full transform -rotate-90" viewBox="0 0 48 48">
                                 <circle
                                   cx="24" cy="24" r="20"
                                   stroke="currentColor" strokeWidth="4" fill="none"
-                                  className="text-slate-200 dark:text-slate-800"
+                                  className="text-sys-border"
                                 />
                                 <circle
                                   cx="24" cy="24" r="20"

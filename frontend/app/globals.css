@@ -6,55 +6,56 @@
 html.dark,
 html[data-theme="dark"] {
   color-scheme: dark;
-  --page-bg: #0a0d14;
-  --bg: #0a0d14;
-  --surface: #121722;
-  --border: #1e2638;
-  --border-chip: #28354d;
-  --text: #fafafa;
-  --text-muted: #7d8ba1;
+  --page-bg: #080d18;
+  --bg: #080d18;
+  --surface: #111a2e;
+  --border: #203152;
+  --border-chip: #2d4470;
+  --text: #f8fafc;
+  --text-muted: #94a9c9;
   --accent: #3b82f6;
   --accent-solid: #2563eb;
   --danger: #fb7185;
-  --warn: #fcd34d;
+  --warn: #fbbf24;
   --ok: #34d399;
   --page-padding: 16px;
 
   /* Tailwind sys tokens (R G B for opacity modifier compatibility) */
-  --sys-bg: 10 13 20;              /* #0a0d14 */
-  --sys-card: 18 23 34;            /* #121722 */
-  --sys-surface: 18 23 34;         /* #121722 */
-  --sys-elevated: 24 32 48;        /* #182030 */
-  --sys-elevated-border: 40 53 77; /* #28354d */
-  --sys-border: 30 38 56;          /* #1e2638 */
-  --sys-input: 13 18 28;           /* #0d121c */
-  --sys-tab-active: 24 32 48;      /* #182030 */
+  --sys-bg: 8 13 24;               /* #080d18 */
+  --sys-card: 17 26 46;            /* #111a2e */
+  --sys-surface: 17 26 46;         /* #111a2e */
+  --sys-elevated: 24 37 64;        /* #182540 */
+  --sys-elevated-border: 45 68 112;/* #2d4470 */
+  --sys-border: 32 49 82;          /* #203152 */
+  --sys-input: 12 19 34;           /* #0c1322 */
+  --sys-tab-active: 27 42 74;      /* #1b2a4a */
   --sys-destructive: 239 68 68;    /* #ef4444 */
-  --sys-accent: 59 130 246;        /* #3b82f6 */
-  --sys-accent-solid: 37 99 235;   /* #2563eb */
+  --sys-accent: 96 165 250;        /* #60a5fa — high-contrast readable accent text on dark */
+  --sys-accent-solid: 37 99 235;   /* #2563eb — rich solid button fill with ≥5.1:1 contrast for white text */
+  --sys-on-accent: 255 255 255;    /* #ffffff */
   --sys-success: 52 211 153;       /* #34d399 */
   --sys-info: 167 139 250;         /* #a78bfa */
-  --sys-neon: 59 130 246;          /* #3b82f6 */
-  --sys-warning: 252 211 77;       /* #fcd34d */
-  --sys-warning-text: 0 0 0;       /* #000000 */
+  --sys-neon: 96 165 250;          /* #60a5fa */
+  --sys-warning: 251 191 36;       /* #fbbf24 */
+  --sys-warning-text: 15 23 42;    /* #0f172a */
 
   --sys-text-subject: 255 255 255;
-  --sys-text-primary: 244 244 245;   /* #f4f4f5 */
-  --sys-text-secondary: 148 163 184; /* #94a3b8 */
-  --sys-text-muted: 125 139 161;     /* #7d8ba1 */
+  --sys-text-primary: 248 250 252;   /* #f8fafc */
+  --sys-text-secondary: 186 203 227; /* #bacbe3 — crisp secondary labels (>8.5:1) */
+  --sys-text-muted: 144 165 196;     /* #90a5c4 — clearly legible muted text (>5.3:1) */
 
   /* A3. Semantic Status Tokens (Dark theme) */
   --sys-status-ok-text: 52 211 153;        /* #34d399 */
-  --sys-status-ok-bg: 52 211 153;
+  --sys-status-ok-bg: 16 185 129;
   --sys-status-warn-text: 252 211 77;      /* #fcd34d */
-  --sys-status-warn-bg: 251 191 36;
-  --sys-status-danger-text: 251 113 133;   /* #fb7185 */
+  --sys-status-warn-bg: 245 158 11;
+  --sys-status-danger-text: 253 130 148;   /* #fd8294 */
   --sys-status-danger-bg: 244 63 94;
-  --sys-status-info-text: 56 189 248;      /* #38bdf8 */
+  --sys-status-info-text: 125 211 252;     /* #7dd3fc */
   --sys-status-info-bg: 56 189 248;
   --sys-status-denom-text: 216 180 254;    /* #d8b4fe */
   --sys-status-denom-bg: 192 132 252;
-  --sys-status-neutral-text: 148 163 184;  /* #94a3b8 */
+  --sys-status-neutral-text: 186 203 227;  /* #bacbe3 */
   --sys-status-neutral-bg: 148 163 184;
 
   /* B1. Motion Tokens */
@@ -68,55 +69,56 @@ html[data-theme="dark"] {
 html.light,
 html[data-theme="light"] {
   color-scheme: light;
-  --page-bg: #f8fafc;
-  --bg: #f8fafc;
+  --page-bg: #f1f5fb;
+  --bg: #f1f5fb;
   --surface: #ffffff;
-  --border: #e2e8f0;
-  --border-chip: #cbd5e1;
+  --border: #cbd8eb;
+  --border-chip: #b2c5e0;
   --text: #0f172a;
-  --text-muted: #586579;
+  --text-muted: #4b5c73;
   --accent: #2563eb;
-  --accent-solid: #2563eb;
+  --accent-solid: #1d4ed8;
   --danger: #be123c;
   --warn: #b45309;
   --ok: #047857;
   --page-padding: 16px;
 
   /* Tailwind sys tokens (R G B for opacity modifier compatibility) */
-  --sys-bg: 248 250 252;            /* #f8fafc Slate-50 */
-  --sys-card: 255 255 255;          /* #ffffff White */
-  --sys-surface: 255 255 255;       /* #ffffff White */
-  --sys-elevated: 255 255 255;      /* #ffffff White */
-  --sys-elevated-border: 203 213 225;/* #cbd5e1 Slate-300 */
-  --sys-border: 226 232 240;        /* #e2e8f0 Slate-200 */
-  --sys-input: 241 245 249;         /* #f1f5f9 Slate-100 */
-  --sys-tab-active: 226 232 240;    /* #e2e8f0 Slate-200 */
-  --sys-destructive: 190 18 60;     /* #be123c Red-700 */
-  --sys-accent: 37 99 235;          /* #2563eb Blue-600 */
-  --sys-accent-solid: 37 99 235;   /* #2563eb */
-  --sys-success: 4 120 87;          /* #047857 Emerald-700 */
-  --sys-info: 3 105 161;            /* #0369a1 Sky-700 */
-  --sys-neon: 37 99 235;            /* #2563eb Blue-600 */
-  --sys-warning: 180 83 9;          /* #b45309 Amber-700 */
-  --sys-warning-text: 255 255 255;  /* #ffffff White */
+  --sys-bg: 241 245 251;            /* #f1f5fb */
+  --sys-card: 255 255 255;          /* #ffffff */
+  --sys-surface: 248 250 254;       /* #f8fafe */
+  --sys-elevated: 236 242 252;      /* #ecf2fc */
+  --sys-elevated-border: 178 197 224;/* #b2c5e0 */
+  --sys-border: 203 216 235;        /* #cbd8eb */
+  --sys-input: 242 246 253;         /* #f2f6fd */
+  --sys-tab-active: 219 234 254;    /* #dbeafe */
+  --sys-destructive: 190 18 60;     /* #be123c */
+  --sys-accent: 29 78 216;          /* #1d4ed8 — crisp WCAG AA/AAA text & border accent */
+  --sys-accent-solid: 37 99 235;    /* #2563eb — button fill with ≥5.1:1 contrast for white text */
+  --sys-on-accent: 255 255 255;     /* #ffffff */
+  --sys-success: 4 120 87;          /* #047857 */
+  --sys-info: 3 105 161;            /* #0369a1 */
+  --sys-neon: 37 99 235;            /* #2563eb */
+  --sys-warning: 180 83 9;          /* #b45309 */
+  --sys-warning-text: 255 255 255;  /* #ffffff */
 
-  --sys-text-subject: 15 23 42;     /* #0f172a Slate-900 */
-  --sys-text-primary: 15 23 42;     /* #0f172a Slate-900 */
-  --sys-text-secondary: 71 85 105;  /* #475569 Slate-600 */
-  --sys-text-muted: 88 101 121;     /* #586579 */
+  --sys-text-subject: 11 19 36;     /* #0b1324 */
+  --sys-text-primary: 15 23 42;     /* #0f172a */
+  --sys-text-secondary: 51 65 85;   /* #334155 — high-contrast Slate-700 (>8.5:1) */
+  --sys-text-muted: 75 92 115;      /* #4b5c73 — readable muted text (>5.8:1) */
 
   /* A3. Semantic Status Tokens (Light theme) */
-  --sys-status-ok-text: 4 120 87;          /* #047857 */
-  --sys-status-ok-bg: 4 120 87;
+  --sys-status-ok-text: 6 95 70;           /* #065f46 */
+  --sys-status-ok-bg: 5 150 105;
   --sys-status-warn-text: 146 64 14;       /* #92400e */
-  --sys-status-warn-bg: 180 83 9;
-  --sys-status-danger-text: 190 18 60;     /* #be123c */
+  --sys-status-warn-bg: 217 119 6;
+  --sys-status-danger-text: 159 18 57;     /* #9f1239 */
   --sys-status-danger-bg: 225 29 72;
-  --sys-status-info-text: 3 105 161;       /* #0369a1 */
+  --sys-status-info-text: 7 89 133;        /* #075985 */
   --sys-status-info-bg: 2 132 199;
-  --sys-status-denom-text: 126 34 206;     /* #7e22ce */
+  --sys-status-denom-text: 107 33 168;     /* #6b21a8 */
   --sys-status-denom-bg: 147 51 234;
-  --sys-status-neutral-text: 71 85 105;    /* #475569 */
+  --sys-status-neutral-text: 51 65 85;     /* #334155 */
   --sys-status-neutral-bg: 100 116 139;
 
   /* B1. Motion Tokens */
@@ -129,32 +131,37 @@ html[data-theme="light"] {
 
 /* ==========================================================================
    Dynamic Color Theme Palettes (Dark mode)
-   Full palette tinting: page background, cards, surfaces, borders, tabs,
-   inputs, secondary text, and accents all harmonize with the selected theme.
+   Engineered for WCAG AA/AAA readability:
+   - Distinct surface hierarchy (bg -> card -> elevated)
+   - High-luminance secondary & muted text harmonized with the theme hue
+   - Separate text accent (--sys-accent) vs solid button fill (--sys-accent-solid)
+   - Disambiguated semantic status badges so warnings/dangers never blend in
    ========================================================================== */
 :root[data-accent="blue"],
 html.dark[data-accent="blue"],
 html[data-theme="dark"][data-accent="blue"] {
   --page-bg: #080d18;
   --bg: #080d18;
-  --surface: #101829;
-  --border: #1d2b45;
-  --border-chip: #283c61;
-  --accent: #3b82f6;
+  --surface: #111a2e;
+  --border: #203152;
+  --border-chip: #2d4470;
+  --accent: #60a5fa;
   --accent-solid: #2563eb;
-  --sys-bg: 8 13 24;               /* #080d18 Deep Ocean */
-  --sys-card: 16 24 41;            /* #101829 */
-  --sys-surface: 16 24 41;         /* #101829 */
-  --sys-elevated: 23 35 58;        /* #17233a */
-  --sys-elevated-border: 40 60 97; /* #283c61 */
-  --sys-border: 29 43 69;          /* #1d2b45 */
-  --sys-input: 12 19 33;           /* #0c1321 */
-  --sys-tab-active: 25 39 66;      /* #192742 */
-  --sys-accent: 59 130 246;
-  --sys-accent-solid: 37 99 235;
-  --sys-neon: 59 130 246;
-  --sys-text-secondary: 150 172 204;
-  --sys-text-muted: 118 140 173;
+  --sys-bg: 8 13 24;                /* #080d18 Deep Ocean */
+  --sys-card: 17 26 46;             /* #111a2e */
+  --sys-surface: 17 26 46;          /* #111a2e */
+  --sys-elevated: 24 37 64;         /* #182540 */
+  --sys-elevated-border: 45 68 112; /* #2d4470 */
+  --sys-border: 32 49 82;           /* #203152 */
+  --sys-input: 12 19 34;            /* #0c1322 */
+  --sys-tab-active: 27 42 74;       /* #1b2a4a */
+  --sys-accent: 96 165 250;         /* #60a5fa (Contrast 8.2:1 on card) */
+  --sys-accent-solid: 37 99 235;    /* #2563eb (White text contrast 5.17:1) */
+  --sys-neon: 96 165 250;
+  --sys-text-subject: 255 255 255;
+  --sys-text-primary: 244 248 255;  /* #f4f8ff */
+  --sys-text-secondary: 186 203 227;/* #bacbe3 (Contrast 8.8:1) */
+  --sys-text-muted: 144 165 196;    /* #90a5c4 (Contrast 5.4:1) */
 }
 
 :root[data-accent="emerald"],
@@ -162,99 +169,119 @@ html.dark[data-accent="emerald"],
 html[data-theme="dark"][data-accent="emerald"] {
   --page-bg: #06120e;
   --bg: #06120e;
-  --surface: #0d1f19;
-  --border: #18382d;
-  --border-chip: #234f40;
+  --surface: #0d211a;
+  --border: #1b4033;
+  --border-chip: #265947;
   --accent: #34d399;
-  --accent-solid: #10b981;
-  --sys-bg: 6 18 14;               /* #06120e Deep Emerald Forest */
-  --sys-card: 13 31 25;            /* #0d1f19 */
-  --sys-surface: 13 31 25;         /* #0d1f19 */
-  --sys-elevated: 19 44 36;        /* #132c24 */
-  --sys-elevated-border: 35 79 64; /* #234f40 */
-  --sys-border: 24 56 45;          /* #18382d */
-  --sys-input: 9 23 18;            /* #091712 */
-  --sys-tab-active: 21 50 40;      /* #153228 */
-  --sys-accent: 52 211 153;
-  --sys-accent-solid: 16 185 129;
+  --accent-solid: #047857;
+  --sys-bg: 6 18 14;                /* #06120e Deep Emerald Forest */
+  --sys-card: 13 33 26;             /* #0d211a */
+  --sys-surface: 13 33 26;          /* #0d211a */
+  --sys-elevated: 20 48 38;         /* #143026 */
+  --sys-elevated-border: 38 89 71;  /* #265947 */
+  --sys-border: 27 64 51;           /* #1b4033 */
+  --sys-input: 9 24 19;             /* #091813 */
+  --sys-tab-active: 23 56 44;       /* #17382c */
+  --sys-accent: 52 211 153;         /* #34d399 (Contrast 9.6:1 on card) */
+  --sys-accent-solid: 4 120 87;     /* #047857 (White text contrast 5.48:1) */
   --sys-neon: 52 211 153;
-  --sys-text-secondary: 152 189 175;
-  --sys-text-muted: 115 156 141;
+  --sys-text-subject: 255 255 255;
+  --sys-text-primary: 240 253 248;  /* #f0fdf8 */
+  --sys-text-secondary: 182 217 203;/* #b6d9cb (Contrast 9.4:1) */
+  --sys-text-muted: 138 181 164;    /* #8ab5a4 (Contrast 5.7:1) */
+  /* Keep OK status distinct with bright lime-mint */
+  --sys-status-ok-text: 110 231 183;/* #6ee7b7 */
+  --sys-status-ok-bg: 16 185 129;
 }
 
 :root[data-accent="violet"],
 html.dark[data-accent="violet"],
 html[data-theme="dark"][data-accent="violet"] {
-  --page-bg: #0e0918;
-  --bg: #0e0918;
-  --surface: #181129;
-  --border: #2c1f4a;
-  --border-chip: #3f2d69;
+  --page-bg: #0d0917;
+  --bg: #0d0917;
+  --surface: #17112b;
+  --border: #312357;
+  --border-chip: #46327a;
   --accent: #c084fc;
-  --accent-solid: #9333ea;
-  --sys-bg: 14 9 24;               /* #0e0918 Deep Amethyst */
-  --sys-card: 24 17 41;            /* #181129 */
-  --sys-surface: 24 17 41;         /* #181129 */
-  --sys-elevated: 34 24 58;        /* #22183a */
-  --sys-elevated-border: 63 45 105;/* #3f2d69 */
-  --sys-border: 44 31 74;          /* #2c1f4a */
-  --sys-input: 18 12 32;           /* #120c20 */
-  --sys-tab-active: 38 27 66;      /* #261b42 */
-  --sys-accent: 192 132 252;
-  --sys-accent-solid: 147 51 234;
+  --accent-solid: #7c3aed;
+  --sys-bg: 13 9 23;                /* #0d0917 Deep Amethyst */
+  --sys-card: 23 17 43;             /* #17112b */
+  --sys-surface: 23 17 43;          /* #17112b */
+  --sys-elevated: 35 25 64;         /* #231940 */
+  --sys-elevated-border: 70 50 122; /* #46327a */
+  --sys-border: 49 35 87;           /* #312357 */
+  --sys-input: 18 12 33;            /* #120c21 */
+  --sys-tab-active: 40 29 74;       /* #281d4a */
+  --sys-accent: 192 132 252;        /* #c084fc (Contrast 7.5:1 on card) */
+  --sys-accent-solid: 124 58 237;   /* #7c3aed (White text contrast 5.70:1) */
   --sys-neon: 192 132 252;
-  --sys-text-secondary: 177 162 206;
-  --sys-text-muted: 142 125 176;
+  --sys-text-subject: 255 255 255;
+  --sys-text-primary: 248 245 255;  /* #f8f5ff */
+  --sys-text-secondary: 202 190 230;/* #cabee6 (Contrast 8.9:1) */
+  --sys-text-muted: 164 148 201;    /* #a494c9 (Contrast 5.5:1) */
+  /* Shift denominator badge to warm pink-fuchsia so it stands out from violet UI */
+  --sys-status-denom-text: 244 114 182; /* #f472b6 */
+  --sys-status-denom-bg: 219 39 119;
 }
 
 :root[data-accent="amber"],
 html.dark[data-accent="amber"],
 html[data-theme="dark"][data-accent="amber"] {
-  --page-bg: #130e07;
-  --bg: #130e07;
-  --surface: #21190d;
-  --border: #3b2c17;
-  --border-chip: #543e21;
+  --page-bg: #120d06;
+  --bg: #120d06;
+  --surface: #21180b;
+  --border: #423017;
+  --border-chip: #5e4421;
   --accent: #fbbf24;
-  --accent-solid: #d97706;
-  --sys-bg: 19 14 7;               /* #130e07 Warm Espresso Amber */
-  --sys-card: 33 25 13;            /* #21190d */
-  --sys-surface: 33 25 13;         /* #21190d */
-  --sys-elevated: 46 35 18;        /* #2e2312 */
-  --sys-elevated-border: 84 62 33; /* #543e21 */
-  --sys-border: 59 44 23;          /* #3b2c17 */
-  --sys-input: 25 18 9;            /* #191209 */
-  --sys-tab-active: 52 39 20;      /* #342714 */
-  --sys-accent: 251 191 36;
-  --sys-accent-solid: 217 119 6;
+  --accent-solid: #b45309;
+  --sys-bg: 18 13 6;                /* #120d06 Warm Espresso Amber */
+  --sys-card: 33 24 11;             /* #21180b */
+  --sys-surface: 33 24 11;          /* #21180b */
+  --sys-elevated: 48 35 17;         /* #302311 */
+  --sys-elevated-border: 94 68 33;  /* #5e4421 */
+  --sys-border: 66 48 23;           /* #423017 */
+  --sys-input: 24 17 8;             /* #181108 */
+  --sys-tab-active: 56 41 19;       /* #382913 */
+  --sys-accent: 251 191 36;         /* #fbbf24 (Contrast 10.8:1 on card) */
+  --sys-accent-solid: 180 83 9;     /* #b45309 (White text contrast 5.02:1) */
   --sys-neon: 251 191 36;
-  --sys-text-secondary: 196 178 151;
-  --sys-text-muted: 161 141 112;
+  --sys-text-subject: 255 255 255;
+  --sys-text-primary: 255 250 240;  /* #fffaf0 */
+  --sys-text-secondary: 222 204 177;/* #deccb1 (Contrast 9.6:1) */
+  --sys-text-muted: 184 162 130;    /* #b8a282 (Contrast 5.8:1) */
+  /* Shift warning/substitution badge to vivid coral-orange so it differs from amber theme */
+  --sys-status-warn-text: 253 186 116; /* #fdba74 */
+  --sys-status-warn-bg: 234 88 12;     /* #ea580c */
 }
 
 :root[data-accent="rose"],
 html.dark[data-accent="rose"],
 html[data-theme="dark"][data-accent="rose"] {
-  --page-bg: #14080e;
-  --bg: #14080e;
+  --page-bg: #13080d;
+  --bg: #13080d;
   --surface: #24101a;
-  --border: #401c2e;
-  --border-chip: #5c2842;
+  --border: #472033;
+  --border-chip: #632c47;
   --accent: #fb7185;
-  --accent-solid: #e11d48;
-  --sys-bg: 20 8 14;               /* #14080e Deep Ruby Rose */
-  --sys-card: 36 16 26;            /* #24101a */
-  --sys-surface: 36 16 26;         /* #24101a */
-  --sys-elevated: 50 22 36;        /* #321624 */
-  --sys-elevated-border: 92 40 66; /* #5c2842 */
-  --sys-border: 64 28 46;          /* #401c2e */
-  --sys-input: 27 11 19;           /* #1b0b13 */
-  --sys-tab-active: 56 25 41;      /* #381929 */
-  --sys-accent: 251 113 133;
-  --sys-accent-solid: 225 29 72;
+  --accent-solid: #be123c;
+  --sys-bg: 19 8 13;                /* #13080d Deep Ruby Rose */
+  --sys-card: 36 16 26;             /* #24101a */
+  --sys-surface: 36 16 26;          /* #24101a */
+  --sys-elevated: 52 23 38;         /* #341726 */
+  --sys-elevated-border: 99 44 71;  /* #632c47 */
+  --sys-border: 71 32 51;           /* #472033 */
+  --sys-input: 26 11 18;            /* #1a0b12 */
+  --sys-tab-active: 60 27 44;       /* #3c1b2c */
+  --sys-accent: 251 113 133;        /* #fb7185 (Contrast 7.4:1 on card) */
+  --sys-accent-solid: 190 18 60;    /* #be123c (White text contrast 6.30:1) */
   --sys-neon: 251 113 133;
-  --sys-text-secondary: 201 163 178;
-  --sys-text-muted: 166 124 141;
+  --sys-text-subject: 255 255 255;
+  --sys-text-primary: 255 245 247;  /* #fff5f7 */
+  --sys-text-secondary: 224 191 204;/* #e0bfcc (Contrast 9.1:1) */
+  --sys-text-muted: 186 147 163;    /* #ba93a3 (Contrast 5.5:1) */
+  /* Shift danger/cancelled status to fiery crimson-orange so it differs from rose accent */
+  --sys-status-danger-text: 252 165 165; /* #fca5a5 */
+  --sys-status-danger-bg: 239 68 68;     /* #ef4444 */
 }
 
 :root[data-accent="cyan"],
@@ -262,160 +289,192 @@ html.dark[data-accent="cyan"],
 html[data-theme="dark"][data-accent="cyan"] {
   --page-bg: #061117;
   --bg: #061117;
-  --surface: #0c1e26;
-  --border: #163645;
-  --border-chip: #204e63;
+  --surface: #0c202b;
+  --border: #193e52;
+  --border-chip: #245873;
   --accent: #22d3ee;
-  --accent-solid: #0891b2;
-  --sys-bg: 6 17 23;               /* #061117 Deep Lagoon Cyan */
-  --sys-card: 12 30 38;            /* #0c1e26 */
-  --sys-surface: 12 30 38;         /* #0c1e26 */
-  --sys-elevated: 18 43 54;        /* #122b36 */
-  --sys-elevated-border: 32 78 99; /* #204e63 */
-  --sys-border: 22 54 69;          /* #163645 */
-  --sys-input: 9 23 30;            /* #09171e */
-  --sys-tab-active: 20 49 62;      /* #14313e */
-  --sys-accent: 34 211 238;
-  --sys-accent-solid: 8 145 178;
+  --accent-solid: #0e7490;
+  --sys-bg: 6 17 23;                /* #061117 Deep Lagoon Cyan */
+  --sys-card: 12 32 43;             /* #0c202b */
+  --sys-surface: 12 32 43;          /* #0c202b */
+  --sys-elevated: 19 46 61;         /* #132e3d */
+  --sys-elevated-border: 36 88 115; /* #245873 */
+  --sys-border: 25 62 82;           /* #193e52 */
+  --sys-input: 9 23 31;             /* #09171f */
+  --sys-tab-active: 22 53 70;       /* #163546 */
+  --sys-accent: 34 211 238;         /* #22d3ee (Contrast 9.8:1 on card) */
+  --sys-accent-solid: 14 116 144;   /* #0e7490 (White text contrast 5.36:1) */
   --sys-neon: 34 211 238;
-  --sys-text-secondary: 150 186 199;
-  --sys-text-muted: 114 152 166;
+  --sys-text-subject: 255 255 255;
+  --sys-text-primary: 240 251 255;  /* #f0fbff */
+  --sys-text-secondary: 180 212 227;/* #b4d4e3 (Contrast 9.3:1) */
+  --sys-text-muted: 136 176 194;    /* #88b0c2 (Contrast 5.6:1) */
 }
 
 /* ==========================================================================
    Dynamic Color Theme Palettes (Light mode)
-   Soft pastel-tinted backgrounds, crisp cards, tinted borders & WCAG AA accents
+   Crisp card separation, harmonized ink-tinted typography, WCAG AA/AAA accents
    ========================================================================== */
 html.light[data-accent="blue"],
 html[data-theme="light"][data-accent="blue"] {
-  --page-bg: #f2f6fd;
-  --bg: #f2f6fd;
+  --page-bg: #eef4fc;
+  --bg: #eef4fc;
   --surface: #ffffff;
-  --border: #d5e2f6;
-  --border-chip: #b8cef0;
-  --accent: #2563eb;
-  --accent-solid: #1d4ed8;
-  --sys-bg: 242 246 253;           /* #f2f6fd Soft Ice Blue */
-  --sys-card: 255 255 255;         /* #ffffff */
-  --sys-surface: 248 251 255;      /* #f8fbff */
-  --sys-elevated: 235 243 254;     /* #ebf3fe */
-  --sys-elevated-border: 184 206 240; /* #b8cef0 */
-  --sys-border: 213 226 246;       /* #d5e2f6 */
-  --sys-input: 237 244 253;        /* #edf4fd */
-  --sys-tab-active: 219 234 254;   /* #dbeafe */
-  --sys-accent: 37 99 235;
-  --sys-accent-solid: 29 78 216;
+  --border: #c5d7f2;
+  --border-chip: #a6c1ea;
+  --accent: #1d4ed8;
+  --accent-solid: #2563eb;
+  --sys-bg: 238 244 252;            /* #eef4fc Soft Ice Blue */
+  --sys-card: 255 255 255;          /* #ffffff */
+  --sys-surface: 246 250 255;       /* #f6faff */
+  --sys-elevated: 230 240 253;      /* #e6f0fd */
+  --sys-elevated-border: 166 193 234; /* #a6c1ea */
+  --sys-border: 197 215 242;        /* #c5d7f2 */
+  --sys-input: 235 243 253;         /* #ebf3fd */
+  --sys-tab-active: 219 234 254;    /* #dbeafe */
+  --sys-accent: 29 78 216;          /* #1d4ed8 (Contrast 6.7:1 on white) */
+  --sys-accent-solid: 37 99 235;    /* #2563eb (White text contrast 5.17:1) */
   --sys-neon: 37 99 235;
+  --sys-text-subject: 10 22 46;     /* #0a162e */
+  --sys-text-primary: 15 26 51;     /* #0f1a33 */
+  --sys-text-secondary: 46 64 97;   /* #2e4061 (Contrast 9.6:1) */
+  --sys-text-muted: 74 95 130;      /* #4a5f82 (Contrast 5.9:1) */
 }
 
 html.light[data-accent="emerald"],
 html[data-theme="light"][data-accent="emerald"] {
-  --page-bg: #f0faf5;
-  --bg: #f0faf5;
+  --page-bg: #ebf7f1;
+  --bg: #ebf7f1;
   --surface: #ffffff;
-  --border: #cceadd;
-  --border-chip: #a7dcc5;
-  --accent: #059669;
+  --border: #b8e0cd;
+  --border-chip: #92ceb2;
+  --accent: #047857;
   --accent-solid: #047857;
-  --sys-bg: 240 250 245;           /* #f0faf5 Soft Mint Emerald */
-  --sys-card: 255 255 255;         /* #ffffff */
-  --sys-surface: 247 253 250;      /* #f7fdfa */
-  --sys-elevated: 230 247 238;     /* #e6f7ee */
-  --sys-elevated-border: 167 220 197; /* #a7dcc5 */
-  --sys-border: 204 234 221;       /* #cceadd */
-  --sys-input: 233 247 240;        /* #e9f7f0 */
-  --sys-tab-active: 209 250 229;   /* #d1fae5 */
-  --sys-accent: 5 150 105;
-  --sys-accent-solid: 4 120 87;
-  --sys-neon: 5 150 105;
+  --sys-bg: 235 247 241;            /* #ebf7f1 Soft Mint Emerald */
+  --sys-card: 255 255 255;          /* #ffffff */
+  --sys-surface: 245 252 248;       /* #f5fcf8 */
+  --sys-elevated: 224 244 234;      /* #e0f4ea */
+  --sys-elevated-border: 146 206 178; /* #92ceb2 */
+  --sys-border: 184 224 205;        /* #b8e0cd */
+  --sys-input: 230 245 237;         /* #e6f5ed */
+  --sys-tab-active: 209 250 229;    /* #d1fae5 */
+  --sys-accent: 4 120 87;           /* #047857 (Contrast 5.48:1 on white) */
+  --sys-accent-solid: 4 120 87;     /* #047857 (White text contrast 5.48:1) */
+  --sys-neon: 4 120 87;
+  --sys-text-subject: 6 28 20;      /* #061c14 */
+  --sys-text-primary: 11 36 27;     /* #0b241b */
+  --sys-text-secondary: 36 74 59;   /* #244a3b (Contrast 9.5:1) */
+  --sys-text-muted: 63 105 88;      /* #3f6958 (Contrast 5.8:1) */
 }
 
 html.light[data-accent="violet"],
 html[data-theme="light"][data-accent="violet"] {
-  --page-bg: #f6f3ff;
-  --bg: #f6f3ff;
+  --page-bg: #f3effe;
+  --bg: #f3effe;
   --surface: #ffffff;
-  --border: #dfd6fa;
-  --border-chip: #c8b8f6;
-  --accent: #7c3aed;
-  --accent-solid: #6d28d9;
-  --sys-bg: 246 243 255;           /* #f6f3ff Soft Lavender */
-  --sys-card: 255 255 255;         /* #ffffff */
-  --sys-surface: 251 249 255;      /* #fbf9ff */
-  --sys-elevated: 239 233 254;     /* #efe9fe */
-  --sys-elevated-border: 200 184 246; /* #c8b8f6 */
-  --sys-border: 223 214 250;       /* #dfd6fa */
-  --sys-input: 241 236 254;        /* #f1ecfe */
-  --sys-tab-active: 233 213 255;   /* #e9d5ff */
-  --sys-accent: 124 58 237;
-  --sys-accent-solid: 109 40 217;
-  --sys-neon: 124 58 237;
+  --border: #d2c4f7;
+  --border-chip: #b8a3f0;
+  --accent: #6d28d9;
+  --accent-solid: #7c3aed;
+  --sys-bg: 243 239 254;            /* #f3effe Soft Lavender */
+  --sys-card: 255 255 255;          /* #ffffff */
+  --sys-surface: 250 248 255;       /* #faf8ff */
+  --sys-elevated: 236 228 254;      /* #ece4fe */
+  --sys-elevated-border: 184 163 240; /* #b8a3f0 */
+  --sys-border: 210 196 247;        /* #d2c4f7 */
+  --sys-input: 239 233 254;         /* #efe9fe */
+  --sys-tab-active: 233 213 255;    /* #e9d5ff */
+  --sys-accent: 109 40 217;         /* #6d28d9 (Contrast 7.0:1 on white) */
+  --sys-accent-solid: 124 58 237;   /* #7c3aed (White text contrast 5.70:1) */
+  --sys-neon: 109 40 217;
+  --sys-text-subject: 22 11 46;     /* #160b2e */
+  --sys-text-primary: 29 18 56;     /* #1d1238 */
+  --sys-text-secondary: 65 48 102;  /* #413066 (Contrast 9.4:1) */
+  --sys-text-muted: 96 76 138;      /* #604c8a (Contrast 5.7:1) */
+  --sys-status-denom-text: 157 23 77; /* #9d174d */
+  --sys-status-denom-bg: 219 39 119;
 }
 
 html.light[data-accent="amber"],
 html[data-theme="light"][data-accent="amber"] {
-  --page-bg: #fdf8ee;
-  --bg: #fdf8ee;
+  --page-bg: #fbf4e6;
+  --bg: #fbf4e6;
   --surface: #ffffff;
-  --border: #f3e2c3;
-  --border-chip: #e8cb96;
-  --accent: #d97706;
+  --border: #e8cf9d;
+  --border-chip: #dbb670;
+  --accent: #b45309;
   --accent-solid: #b45309;
-  --sys-bg: 253 248 238;           /* #fdf8ee Warm Cream Amber */
-  --sys-card: 255 255 255;         /* #ffffff */
-  --sys-surface: 255 252 245;      /* #fffcf5 */
-  --sys-elevated: 251 241 220;     /* #fbf1dc */
-  --sys-elevated-border: 232 203 150; /* #e8cb96 */
-  --sys-border: 243 226 195;       /* #f3e2c3 */
-  --sys-input: 250 242 225;        /* #faf2e1 */
-  --sys-tab-active: 254 230 178;   /* #fee6b2 */
-  --sys-accent: 217 119 6;
-  --sys-accent-solid: 180 83 9;
-  --sys-neon: 217 119 6;
+  --sys-bg: 251 244 230;            /* #fbf4e6 Warm Cream Amber */
+  --sys-card: 255 255 255;          /* #ffffff */
+  --sys-surface: 254 250 242;       /* #fefaf2 */
+  --sys-elevated: 249 237 212;      /* #f9edd4 */
+  --sys-elevated-border: 219 182 112; /* #dbb670 */
+  --sys-border: 232 207 157;        /* #e8cf9d */
+  --sys-input: 248 238 216;         /* #f8eed8 */
+  --sys-tab-active: 253 224 161;    /* #fde0a1 */
+  --sys-accent: 180 83 9;           /* #b45309 (Contrast 5.02:1 on white) */
+  --sys-accent-solid: 180 83 9;     /* #b45309 (White text contrast 5.02:1) */
+  --sys-neon: 180 83 9;
+  --sys-text-subject: 36 20 5;      /* #241405 */
+  --sys-text-primary: 43 26 8;      /* #2b1a08 */
+  --sys-text-secondary: 87 58 26;   /* #573a1a (Contrast 9.2:1) */
+  --sys-text-muted: 120 85 45;      /* #78552d (Contrast 5.7:1) */
+  --sys-status-warn-text: 154 52 18;/* #9a3412 */
+  --sys-status-warn-bg: 234 88 12;
 }
 
 html.light[data-accent="rose"],
 html[data-theme="light"][data-accent="rose"] {
-  --page-bg: #fdf2f5;
-  --bg: #fdf2f5;
+  --page-bg: #fbeef2;
+  --bg: #fbeef2;
   --surface: #ffffff;
-  --border: #f5d2dc;
-  --border-chip: #ecb3c4;
-  --accent: #e11d48;
+  --border: #edbbc9;
+  --border-chip: #e096ac;
+  --accent: #be123c;
   --accent-solid: #be123c;
-  --sys-bg: 253 242 245;           /* #fdf2f5 Soft Sakura Rose */
-  --sys-card: 255 255 255;         /* #ffffff */
-  --sys-surface: 255 248 250;      /* #fff8fa */
-  --sys-elevated: 251 231 237;     /* #fbe7ed */
-  --sys-elevated-border: 236 179 196; /* #ecb3c4 */
-  --sys-border: 245 210 220;       /* #f5d2dc */
-  --sys-input: 250 234 239;        /* #faeaef */
-  --sys-tab-active: 254 205 211;   /* #fecdd3 */
-  --sys-accent: 225 29 72;
-  --sys-accent-solid: 190 18 60;
-  --sys-neon: 225 29 72;
+  --sys-bg: 251 238 242;            /* #fbeef2 Soft Sakura Rose */
+  --sys-card: 255 255 255;          /* #ffffff */
+  --sys-surface: 255 247 249;       /* #fff7f9 */
+  --sys-elevated: 249 225 232;      /* #f9e1e8 */
+  --sys-elevated-border: 224 150 172; /* #e096ac */
+  --sys-border: 237 187 201;        /* #edbbc9 */
+  --sys-input: 249 229 235;         /* #f9e5eb */
+  --sys-tab-active: 254 205 211;    /* #fecdd3 */
+  --sys-accent: 190 18 60;          /* #be123c (Contrast 6.30:1 on white) */
+  --sys-accent-solid: 190 18 60;    /* #be123c (White text contrast 6.30:1) */
+  --sys-neon: 190 18 60;
+  --sys-text-subject: 38 9 19;      /* #260913 */
+  --sys-text-primary: 46 14 25;     /* #2e0e19 */
+  --sys-text-secondary: 94 40 58;   /* #5e283a (Contrast 9.3:1) */
+  --sys-text-muted: 128 65 86;      /* #804156 (Contrast 5.7:1) */
+  --sys-status-danger-text: 153 27 27; /* #991b1b */
+  --sys-status-danger-bg: 220 38 38;
 }
 
 html.light[data-accent="cyan"],
 html[data-theme="light"][data-accent="cyan"] {
-  --page-bg: #eef9fb;
-  --bg: #eef9fb;
+  --page-bg: #eaf6f9;
+  --bg: #eaf6f9;
   --surface: #ffffff;
-  --border: #c9e8ef;
-  --border-chip: #a3d7e4;
-  --accent: #0891b2;
+  --border: #b3dce6;
+  --border-chip: #8bc7d6;
+  --accent: #0e7490;
   --accent-solid: #0e7490;
-  --sys-bg: 238 249 251;           /* #eef9fb Soft Aqua Cyan */
-  --sys-card: 255 255 255;         /* #ffffff */
-  --sys-surface: 246 252 254;      /* #f6fcfe */
-  --sys-elevated: 226 244 248;     /* #e2f4f8 */
-  --sys-elevated-border: 163 215 228; /* #a3d7e4 */
-  --sys-border: 201 232 239;       /* #c9e8ef */
-  --sys-input: 231 245 249;        /* #e7f5f9 */
-  --sys-tab-active: 207 250 254;   /* #cffafe */
-  --sys-accent: 8 145 178;
-  --sys-accent-solid: 14 116 144;
-  --sys-neon: 8 145 178;
+  --sys-bg: 234 246 249;            /* #eaf6f9 Soft Aqua Cyan */
+  --sys-card: 255 255 255;          /* #ffffff */
+  --sys-surface: 245 251 253;       /* #f5fbfd */
+  --sys-elevated: 221 241 246;      /* #ddf1f6 */
+  --sys-elevated-border: 139 199 214; /* #8bc7d6 */
+  --sys-border: 179 220 230;        /* #b3dce6 */
+  --sys-input: 227 243 247;         /* #e3f3f7 */
+  --sys-tab-active: 207 250 254;    /* #cffafe */
+  --sys-accent: 14 116 144;         /* #0e7490 (Contrast 5.36:1 on white) */
+  --sys-accent-solid: 14 116 144;   /* #0e7490 (White text contrast 5.36:1) */
+  --sys-neon: 14 116 144;
+  --sys-text-subject: 7 27 36;      /* #071b24 */
+  --sys-text-primary: 12 35 46;     /* #0c232e */
+  --sys-text-secondary: 36 73 92;   /* #24495c (Contrast 9.4:1) */
+  --sys-text-muted: 64 104 125;     /* #40687d (Contrast 5.8:1) */
 }
 
 @media (min-width: 1024px) {
@@ -444,12 +503,22 @@ html[data-theme="light"][data-accent="cyan"] {
     margin: 0;
     background-color: var(--page-bg);
     background-image:
-      radial-gradient(ellipse 85% 50% at 50% -10%, rgb(var(--sys-accent) / 0.14), transparent 70%),
-      radial-gradient(ellipse 60% 40% at 90% 100%, rgb(var(--sys-accent) / 0.06), transparent 65%);
+      radial-gradient(ellipse 85% 50% at 50% -10%, rgb(var(--sys-accent) / 0.12), transparent 70%),
+      radial-gradient(ellipse 60% 40% at 90% 100%, rgb(var(--sys-accent) / 0.05), transparent 65%);
     background-attachment: fixed;
     color: rgb(var(--sys-text-primary));
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
+  }
+
+  /* Guarantee WCAG AA contrast whenever solid bg-sys-accent is paired with white text */
+  .bg-sys-accent.text-white {
+    background-color: rgb(var(--sys-accent-solid));
+    color: #ffffff;
+  }
+
+  .bg-sys-accent.text-white:hover {
+    background-color: rgb(var(--sys-accent-solid) / 0.9);
   }
 
   /* View Transitions API (where supported: 240ms, instant elsewhere) */
@@ -470,7 +539,7 @@ html[data-theme="light"][data-accent="cyan"] {
 
   ::selection {
     color: #ffffff;
-    background: var(--accent);
+    background: var(--accent-solid);
   }
 }
 

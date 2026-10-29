@@ -18,7 +18,7 @@ const ROLE_NAMES: Record<string, string> = {
 };
 
 export default function SettingsPage() {
-  const { theme, setTheme, accent, setAccent } = useTheme();
+  const { theme, resolvedTheme, setTheme, accent, setAccent } = useTheme();
   const { settings, updateSetting } = useUserSettings();
   const { isLinked, linkedEmail, unlink } = useClassroomSubmissions();
   const { isTeacherUnlocked, unlockTeacher, lockTeacher } = useTeacherAccess();
@@ -244,7 +244,7 @@ export default function SettingsPage() {
               aria-checked={settings.showHomeworkBadges}
               onClick={() => updateSetting("showHomeworkBadges", !settings.showHomeworkBadges)}
               className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                settings.showHomeworkBadges ? "bg-sys-accent" : "bg-slate-300 dark:bg-slate-700"
+                settings.showHomeworkBadges ? "bg-sys-accentSolid" : "bg-sys-elevatedBorder"
               }`}
             >
               <span
@@ -375,6 +375,9 @@ export default function SettingsPage() {
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-1">
               {ACCENT_OPTIONS.map((opt) => {
                 const isSelected = accent === opt.id;
+                const isLight = resolvedTheme === "light";
+                const swatchBg = isLight ? opt.lightBgHex : opt.darkBgHex;
+                const swatchCard = isLight ? opt.lightCardHex : opt.darkCardHex;
                 return (
                   <button
                     key={opt.id}
@@ -388,12 +391,12 @@ export default function SettingsPage() {
                   >
                     {/* Mini Theme Swatch Preview */}
                     <span
-                      className="relative flex h-9 w-11 shrink-0 items-center justify-center rounded-lg border border-black/10 dark:border-white/15 overflow-hidden shadow-xs"
-                      style={{ backgroundColor: opt.darkBgHex }}
+                      className="relative flex h-9 w-11 shrink-0 items-center justify-center rounded-lg border border-black/15 dark:border-white/15 overflow-hidden shadow-xs"
+                      style={{ backgroundColor: swatchBg }}
                     >
                       <span
-                        className="absolute inset-x-1.5 bottom-1 top-2.5 rounded-md border border-white/10"
-                        style={{ backgroundColor: opt.darkCardHex }}
+                        className="absolute inset-x-1.5 bottom-1 top-2.5 rounded-md border border-black/10 dark:border-white/10"
+                        style={{ backgroundColor: swatchCard }}
                       />
                       <span
                         className="relative z-10 h-4 w-4 rounded-full flex items-center justify-center shadow-xs"

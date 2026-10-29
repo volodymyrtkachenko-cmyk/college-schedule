@@ -62,7 +62,7 @@ export default function LoginPage() {
           </div>
           {error && <p className="text-sm text-rose-400 text-center">{error}</p>}
           <div>
-            <button type="submit" disabled={isSubmitting} className="group relative flex w-full justify-center rounded-lg border border-transparent bg-sys-accent px-4 py-3 text-sm font-semibold text-slate-950 transition-opacity hover:opacity-90 disabled:cursor-wait disabled:opacity-50">
+            <button type="submit" disabled={isSubmitting} className="group relative flex w-full justify-center rounded-lg border border-transparent bg-sys-accent px-4 py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-wait disabled:opacity-50">
               {isSubmitting ? "Входимо…" : "Увійти"}
             </button>
           </div>
