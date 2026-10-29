@@ -20,6 +20,8 @@ DAY_IDXS = DAYS * WEEKS     # d = 0..9 (0..4 чисельник, 5..9 знаме
 
 MAX_PAIRS_PER_DAY = SLOTS
 MIN_PAIRS_PER_DAY = 3  # Kept for compatibility with diagnostics and callers.
+REDUCED_MIN_PAIRS_PER_DAY = 2  # Allowed for groups with total load < 32 pairs / 2 weeks.
+STANDARD_LOAD_THRESHOLD = 32   # Groups with < 32 pairs / 2 weeks may have 2-pair days.
 DEFAULT_NUM_WORKERS = 8
 DEFAULT_SOLVE_TIME_SECONDS = 600
 FEASIBILITY_TIME_FRACTION = 0.9
@@ -254,9 +256,15 @@ def precheck(
         total = sum(c.pairs_per_2_weeks for c in lst)
         fixed4_days = fixed_4th_days(lst)
         n_fixed4 = len(fixed4_days)
+        min_per_day = (
+            REDUCED_MIN_PAIRS_PER_DAY
+            if total < STANDARD_LOAD_THRESHOLD
+            else MIN_PAIRS_PER_DAY
+        )
+        fixed4_extra_per_day = SLOTS - min_per_day
         # Every group studies each weekday; fixed fourth-period lessons consume
-        # an additional slot because that day must contain four lessons.
-        lo = MIN_PAIRS_PER_DAY * DAY_IDXS + n_fixed4
+        # additional slots because that day must contain four contiguous lessons.
+        lo = min_per_day * DAY_IDXS + n_fixed4 * fixed4_extra_per_day
         hi = MAX_PAIRS_PER_DAY * DAY_IDXS
         if total < lo:
             extra = f" (закріплені 4-ті пари потребують повного дня)" if n_fixed4 else ""
@@ -316,8 +324,8 @@ def precheck(
                 f"доступно максимум {max_total} — зайвих {total - max_total}"
             )
         for week in range(WEEKS):
-            required = MIN_PAIRS_PER_DAY * DAYS + sum(
-                day // DAYS == week for day in fixed4_days
+            required = min_per_day * DAYS + sum(
+                (day // DAYS == week) * fixed4_extra_per_day for day in fixed4_days
             )
             available_max = 19 + int(curator_slots_by_week[week])
             if weekly_max[week] < required:
@@ -659,6 +667,8 @@ def solve(
     fixed4 = {g: fixed_4th_days(lst) for g, lst in group_curriculums.items()}
     day_pattern_penalties = []
     for g_id, curr_list in group_curriculums.items():
+        group_load = sum(c.pairs_per_2_weeks for c in curr_list)
+        allow_two_pair_days = group_load < STANDARD_LOAD_THRESHOLD
         for d in range(DAY_IDXS):
             slots_active = []
             for s in range(SLOTS):
@@ -667,14 +677,24 @@ def solve(
                 slots_active.append(a)
 
             if use_default_patterns:
-                # The three allowed patterns ((1,1,1,0), (1,1,1,1), (0,1,1,1))
-                # are equivalent to slots 2 and 3 always being occupied and at
-                # least one of slots 1 and 4 being occupied.
-                model.Add(slots_active[1] == 1)
-                model.Add(slots_active[2] == 1)
-                model.Add(slots_active[0] + slots_active[3] >= 1)
-                if weights.late_start:
-                    day_pattern_penalties.append((1 - slots_active[0]) * weights.late_start)
+                if allow_two_pair_days:
+                    # Groups with < 32 pairs/2 weeks may also have 2-pair days:
+                    # (1,1,0,0) or (0,1,1,0) in addition to 3- and 4-pair days,
+                    # always starting from period 1 or 2 and with no windows.
+                    model.Add(slots_active[1] == 1)
+                    model.Add(slots_active[0] + slots_active[2] >= 1)
+                    model.Add(slots_active[3] <= slots_active[2])
+                    if weights.late_start:
+                        day_pattern_penalties.append((1 - slots_active[0]) * weights.late_start)
+                else:
+                    # The three allowed patterns ((1,1,1,0), (1,1,1,1), (0,1,1,1))
+                    # are equivalent to slots 2 and 3 always being occupied and at
+                    # least one of slots 1 and 4 being occupied.
+                    model.Add(slots_active[1] == 1)
+                    model.Add(slots_active[2] == 1)
+                    model.Add(slots_active[0] + slots_active[3] >= 1)
+                    if weights.late_start:
+                        day_pattern_penalties.append((1 - slots_active[0]) * weights.late_start)
             else:
                 pattern_vars = []
                 for p_idx, (pat, pen) in enumerate(patterns):
@@ -689,6 +709,9 @@ def solve(
             # Виховна година (закріплена 4-та пара) => у цей день рівно 4 пари.
             if d in fixed4[g_id]:
                 model.Add(slots_active[0] == 1)
+                model.Add(slots_active[1] == 1)
+                model.Add(slots_active[2] == 1)
+                model.Add(slots_active[3] == 1)
 
     hint_assignments = _schedule_hint_assignments(
         curriculums, hint_path, hints, read_files=use_file_hints

@@ -233,8 +233,8 @@ def test_prefers_start_from_first_pair(solved):
 
 
 def test_underloaded_group_is_rejected_before_search():
-    """A provable daily-load shortage must not enter an expensive CP-SAT search."""
-    curr, cons = make_data(seed=1, load=26)
+    """A provable daily-load shortage (< 20 + fixed4*2) must not enter an expensive CP-SAT search."""
+    curr, cons = make_data(seed=1, load=18)
     assert any("бракує" in m for m in S.precheck(curr, cons))
     r = S.solve(curr, cons, max_time_in_seconds=3, num_workers=4)
     assert not r.ok
@@ -250,17 +250,17 @@ def test_legacy_patterns_allowed_bad_days():
 
 
 def test_precheck_counts_fixed_4th_pair_days():
-    """A 31-pair load is short by one when both Thursday curator hours are included."""
+    """With 2-pair minimum for <32 pairs, 23 pairs is short by 1 when two Thursday 4th-pair curator hours are fixed (20 + 2*2 = 24)."""
     group = NS(name="G1", curator_id=1)
     curr = [NS(id=1, group_id=1, group=group, subject=NS(name="Виховна година"),
                teacher_id=1, second_teacher_id=None, is_stream=False, stream_id=None,
                pairs_per_2_weeks=2, is_fixed=True, strict_day=4, strict_lesson=4,
                require_week=None),
             NS(id=2, group_id=1, teacher_id=2, second_teacher_id=None, is_stream=False, stream_id=None,
-               pairs_per_2_weeks=29, is_fixed=False, strict_day=None, strict_lesson=None,
+               pairs_per_2_weeks=21, is_fixed=False, strict_day=None, strict_lesson=None,
                require_week=None)]
     msgs = S.precheck(curr)
-    assert any("32" in message and "бракує 1" in message for message in msgs)
+    assert any("24" in message and "бракує 1" in message for message in msgs)
 
 
 def test_precheck_counts_fixed_external_block_fourth_period_day():
@@ -541,10 +541,57 @@ async def test_api_generates_valid_draft(gen_client):
 @pytest.mark.anyio
 async def test_api_explains_underloaded_group(gen_client):
     client, headers, sessions, fac = gen_client
-    await _seed(sessions, fac, [("G1", 34), ("Мала", 24)])
+    await _seed(sessions, fac, [("G1", 34), ("Мала", 16)])
     resp = await client.post("/api/generator?max_time_in_seconds=10", headers=headers)
     assert resp.status_code == 400
     assert "бракує" in resp.json()["detail"]
+
+
+def test_groups_below_32_pairs_can_have_2_pair_days_while_32_plus_cannot():
+    group1 = NS(name="G_Light", curator_id=1)
+    group2 = NS(name="G_Full", curator_id=2)
+    curr = [
+        # Group 1 has 28 pairs (< 32), including two Thursday 4th-period curator hours
+        NS(id=1, group_id=1, group=group1, subject=NS(name="Виховна година"),
+           teacher_id=1, second_teacher_id=None, is_stream=False, stream_id=None,
+           pairs_per_2_weeks=2, is_fixed=True, strict_day=4, strict_lesson=4,
+           require_week=None, allow_multiple_per_day=False),
+        NS(id=2, group_id=1, group=group1, subject=NS(name="Предмети G1"),
+           teacher_id=3, second_teacher_id=None, is_stream=False, stream_id=None,
+           pairs_per_2_weeks=26, is_fixed=False, strict_day=None, strict_lesson=None,
+           require_week=None, allow_multiple_per_day=True),
+        # Group 2 has 34 pairs (>= 32), must have >= 3 pairs every day
+        NS(id=3, group_id=2, group=group2, subject=NS(name="Виховна година"),
+           teacher_id=2, second_teacher_id=None, is_stream=False, stream_id=None,
+           pairs_per_2_weeks=2, is_fixed=True, strict_day=4, strict_lesson=4,
+           require_week=None, allow_multiple_per_day=False),
+        NS(id=4, group_id=2, group=group2, subject=NS(name="Предмети G2"),
+           teacher_id=4, second_teacher_id=None, is_stream=False, stream_id=None,
+           pairs_per_2_weeks=32, is_fixed=False, strict_day=None, strict_lesson=None,
+           require_week=None, allow_multiple_per_day=True),
+    ]
+    assert S.precheck(curr) == []
+    res = S.solve(curr, [], max_time_in_seconds=5, num_workers=2, use_file_hints=False)
+    assert res.ok, res.status
+
+    by_id = {c.id: c for c in curr}
+    group_day_slots: dict[tuple[int, int], list[int]] = {}
+    for cid, d, s in res.assignments:
+        g_id = by_id[cid].group_id
+        group_day_slots.setdefault((g_id, d), []).append(s)
+
+    for d in range(S.DAY_IDXS):
+        g1_slots = sorted(group_day_slots.get((1, d), []))
+        g2_slots = sorted(group_day_slots.get((2, d), []))
+        # Group 1 (< 32 pairs): 2..4 contiguous lessons, and 4 on Thursdays
+        assert 2 <= len(g1_slots) <= 4
+        assert g1_slots == list(range(g1_slots[0], g1_slots[0] + len(g1_slots)))
+        if d in (3, 8):
+            assert len(g1_slots) == 4
+        # Group 2 (>= 32 pairs): strictly 3..4 contiguous lessons every day
+        assert 3 <= len(g2_slots) <= 4
+        assert g2_slots == list(range(g2_slots[0], g2_slots[0] + len(g2_slots)))
+    assert any(len(group_day_slots.get((1, d), [])) == 2 for d in range(S.DAY_IDXS))
 
 
 @pytest.mark.anyio
