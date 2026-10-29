@@ -1,26 +1,204 @@
 from app.core.time import today_local, now_local
+from concurrent.futures import ProcessPoolExecutor
+from dataclasses import dataclass
 from datetime import datetime
+import asyncio
 import hashlib
 import json
 import logging
-import ortools
+import multiprocessing
+import os
 import time
+import ortools
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from app.models.entities import User
-from sqlalchemy.orm import selectinload
-from sqlalchemy.orm import joinedload
-import asyncio
+from sqlalchemy.orm import selectinload, joinedload
 
 from app.database import async_session_factory, get_db
-from app.models import Curriculum, TeacherConstraint, ScheduleDraft, ScheduleSlot
+from app.models import Curriculum, TeacherConstraint, ScheduleDraft, ScheduleSlot, Schedule
+from app.models.entities import User
 from app.schemas.constraint import ScheduleDraftResponse
 from app.core.security import require_roles
 from app.services import solver
 
 router = APIRouter(prefix="/generator", tags=["Generator"])
 logger = logging.getLogger(__name__)
+
+_DEFAULT_SOLVE = solver.solve
+_solver_pool: ProcessPoolExecutor | None = None
+
+
+@dataclass(slots=True)
+class _GroupSnapshot:
+    id: int
+    name: str
+    curator_id: int | None
+
+
+@dataclass(slots=True)
+class _SubjectSnapshot:
+    id: int
+    name: str
+
+
+@dataclass(slots=True)
+class _CurriculumSnapshot:
+    id: int
+    group_id: int
+    subject_id: int
+    teacher_id: int
+    second_teacher_id: int | None
+    pairs_per_2_weeks: int
+    is_stream: bool
+    stream_id: str | None
+    is_fixed: bool
+    strict_day: int | None
+    strict_lesson: int | None
+    require_week: str | None
+    allow_multiple_per_day: bool
+    group: _GroupSnapshot | None
+    subject: _SubjectSnapshot | None
+
+
+@dataclass(slots=True)
+class _ConstraintSnapshot:
+    teacher_id: int
+    day_of_week: int
+    lesson_number: int | None
+    is_hard_constraint: bool
+
+
+def _init_solver_worker() -> None:
+    try:
+        os.nice(15)
+    except (AttributeError, OSError):
+        pass
+
+
+def _get_solver_pool() -> ProcessPoolExecutor:
+    global _solver_pool
+    if _solver_pool is None:
+        _solver_pool = ProcessPoolExecutor(
+            max_workers=1,
+            mp_context=multiprocessing.get_context("spawn"),
+            initializer=_init_solver_worker,
+        )
+    return _solver_pool
+
+
+def _snapshot_inputs(
+    curriculums: list,
+    constraints: list,
+) -> tuple[list[_CurriculumSnapshot], list[_ConstraintSnapshot]]:
+    curr_snapshots = [
+        _CurriculumSnapshot(
+            id=c.id,
+            group_id=c.group_id,
+            subject_id=c.subject_id,
+            teacher_id=c.teacher_id,
+            second_teacher_id=c.second_teacher_id,
+            pairs_per_2_weeks=c.pairs_per_2_weeks,
+            is_stream=bool(c.is_stream),
+            stream_id=c.stream_id,
+            is_fixed=bool(c.is_fixed),
+            strict_day=c.strict_day,
+            strict_lesson=c.strict_lesson,
+            require_week=getattr(c, "require_week", None),
+            allow_multiple_per_day=bool(getattr(c, "allow_multiple_per_day", False)),
+            group=(
+                _GroupSnapshot(
+                    id=c.group.id,
+                    name=c.group.name,
+                    curator_id=getattr(c.group, "curator_id", None),
+                )
+                if getattr(c, "group", None) is not None
+                else None
+            ),
+            subject=(
+                _SubjectSnapshot(id=c.subject.id, name=c.subject.name)
+                if getattr(c, "subject", None) is not None
+                else None
+            ),
+        )
+        for c in curriculums
+    ]
+    cons_snapshots = [
+        _ConstraintSnapshot(
+            teacher_id=c.teacher_id,
+            day_of_week=c.day_of_week,
+            lesson_number=c.lesson_number,
+            is_hard_constraint=bool(getattr(c, "is_hard_constraint", True)),
+        )
+        for c in constraints
+    ]
+    return curr_snapshots, cons_snapshots
+
+
+async def _load_db_hints(
+    db: AsyncSession,
+    curriculums: list,
+) -> list[tuple[int, int, int]]:
+    by_id = {c.id: c for c in curriculums}
+    hints: set[tuple[int, int, int]] = set()
+
+    latest_draft_id = await db.scalar(
+        select(ScheduleDraft.id)
+        .where(
+            ScheduleDraft.draft_type == "generated",
+            ScheduleDraft.status.in_(("DRAFT", "PUBLISHED")),
+        )
+        .order_by(ScheduleDraft.id.desc())
+        .limit(1)
+    )
+    if latest_draft_id is not None:
+        slots = (
+            await db.scalars(
+                select(ScheduleSlot).where(ScheduleSlot.draft_id == latest_draft_id)
+            )
+        ).all()
+        for sl in slots:
+            if sl.curriculum_id not in by_id or not sl.lesson_number or not sl.day_of_week:
+                continue
+            d_base = int(sl.day_of_week) - 1
+            s_idx = int(sl.lesson_number) - 1
+            if not (0 <= d_base < solver.DAYS and 0 <= s_idx < solver.SLOTS):
+                continue
+            if sl.week_type in ("numerator", "both"):
+                hints.add((sl.curriculum_id, d_base, s_idx))
+            if sl.week_type in ("denominator", "both"):
+                hints.add((sl.curriculum_id, d_base + solver.DAYS, s_idx))
+        if hints:
+            return list(hints)
+
+    by_key: dict[tuple[int, int | None, int], list[int]] = {}
+    for c in curriculums:
+        by_key.setdefault((c.group_id, c.teacher_id, c.subject_id), []).append(c.id)
+
+    active_rows = (
+        await db.scalars(
+            select(Schedule).where(
+                Schedule.is_active == True,
+                Schedule.is_replacement == False,
+            )
+        )
+    ).all()
+    for row in active_rows:
+        if not row.lesson_number or not row.day_of_week:
+            continue
+        matches = by_key.get((row.group_id, row.teacher_id, row.subject_id), [])
+        if not matches:
+            continue
+        c_id = matches[0]
+        d_base = int(row.day_of_week) - 1
+        s_idx = int(row.lesson_number) - 1
+        if not (0 <= d_base < solver.DAYS and 0 <= s_idx < solver.SLOTS):
+            continue
+        if row.week_type in ("numerator", "both"):
+            hints.add((c_id, d_base, s_idx))
+        if row.week_type in ("denominator", "both"):
+            hints.add((c_id, d_base + solver.DAYS, s_idx))
+    return list(hints)
 
 
 def _solver_input_diagnostics(curriculums, constraints) -> dict[str, int | str]:
@@ -62,24 +240,66 @@ def _solver_input_diagnostics(curriculums, constraints) -> dict[str, int | str]:
 _generation_lock = asyncio.Lock()
 
 
+async def _run_solver(
+    curriculums: list,
+    constraints: list,
+    max_time_in_seconds: int,
+    workers: int,
+    hints: list[tuple[int, int, int]],
+) -> solver.SolveResult:
+    use_subprocess = (
+        solver.solve is _DEFAULT_SOLVE
+        and "PYTEST_CURRENT_TEST" not in os.environ
+    )
+    if use_subprocess:
+        curr_snapshots, cons_snapshots = _snapshot_inputs(curriculums, constraints)
+        try:
+            loop = asyncio.get_running_loop()
+            return await loop.run_in_executor(
+                _get_solver_pool(),
+                solver.solve,
+                curr_snapshots,
+                cons_snapshots,
+                max_time_in_seconds,
+                workers,
+                None,
+                None,
+                None,
+                hints,
+            )
+        except Exception:
+            global _solver_pool
+            _solver_pool = None
+            logger.warning("Subprocess solver failed; falling back to thread", exc_info=True)
+
+    return await asyncio.to_thread(
+        solver.solve,
+        curriculums,
+        constraints,
+        max_time_in_seconds,
+        workers,
+        hints=hints,
+    )
+
+
 async def _complete_generation(
     draft_id: int,
     curriculums: list,
     constraints: list,
     max_time_in_seconds: int,
+    hints: list[tuple[int, int, int]] | None = None,
 ) -> None:
     diagnostics = _solver_input_diagnostics(curriculums, constraints)
     solve_started = time.monotonic()
-    effective_time = min(max_time_in_seconds, 45)
-    workers = 1 if solver.effective_cpu_count() <= 2 else min(2, solver.effective_cpu_count() - 1)
+    workers = solver.selected_worker_count()
     try:
         async with _generation_lock:
-            result = await asyncio.to_thread(
-                solver.solve,
+            result = await _run_solver(
                 curriculums,
                 constraints,
-                effective_time,
+                max_time_in_seconds,
                 workers,
+                hints or [],
             )
         async with async_session_factory() as db:
             draft = await db.get(ScheduleDraft, draft_id)
@@ -170,6 +390,8 @@ async def generate_schedule(
             detail="Неможливо скласти розклад за заданими вимогами: " + "; ".join(problems),
         )
 
+    hints = await _load_db_hints(db, curriculums)
+
     draft = ScheduleDraft(
         name=f"Генерація від {now_local().strftime('%d.%m %H:%M')}",
         draft_type="generated",
@@ -184,5 +406,7 @@ async def generate_schedule(
         list(curriculums),
         list(constraints),
         max_time_in_seconds,
+        hints,
     )
     return draft
+

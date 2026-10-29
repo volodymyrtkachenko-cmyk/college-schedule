@@ -75,8 +75,19 @@ VALID_PATTERNS = [
 def _schedule_hint_assignments(
     curriculums: Iterable,
     path: str | os.PathLike[str] | None = None,
+    extra_hints: Iterable[tuple[int, int, int]] | None = None,
 ) -> set[tuple[int, int, int]]:
     """Read optional ``schedule.json`` hints without making them a dependency."""
+    by_id = {c.id: c for c in curriculums}
+    result: set[tuple[int, int, int]] = set()
+    if extra_hints:
+        for item in extra_hints:
+            try:
+                c_id, day, slot = int(item[0]), int(item[1]), int(item[2])
+                if c_id in by_id and 0 <= day < DAY_IDXS and 0 <= slot < SLOTS:
+                    result.add((c_id, day, slot))
+            except (IndexError, TypeError, ValueError):
+                continue
     candidates = [Path(path)] if path else [
         Path(os.environ["SCHEDULE_HINT_PATH"]) if os.environ.get("SCHEDULE_HINT_PATH") else None,
         Path.cwd() / "schedule.json",
@@ -93,10 +104,8 @@ def _schedule_hint_assignments(
         if not isinstance(rows, list):
             continue
         by_key: dict[tuple[int, int, int], list[int]] = {}
-        by_id = {c.id: c for c in curriculums}
         for c in curriculums:
             by_key.setdefault((c.group_id, c.teacher_id, c.subject_id), []).append(c.id)
-        result = set()
         for row in rows:
             if isinstance(row, (list, tuple)) and len(row) == 3:
                 curriculum_id, day, slot = row
@@ -128,7 +137,7 @@ def _schedule_hint_assignments(
             except (TypeError, ValueError):
                 continue
         return result
-    return set()
+    return result
 
 # Старі шаблони (для порівняння/діагностики): дозволяли вихідний та 2 пари.
 LEGACY_PATTERNS = [
@@ -352,6 +361,7 @@ def solve(
     patterns=None,
     seed: int | None = None,
     hint_path: str | os.PathLike[str] | None = None,
+    hints: Iterable[tuple[int, int, int]] | None = None,
 ) -> SolveResult:
     use_default_patterns = patterns is None
     patterns = VALID_PATTERNS if patterns is None else patterns
@@ -401,13 +411,28 @@ def solve(
         if c.is_stream and c.stream_id:
             streams.setdefault(c.stream_id, []).append(c)
 
-    week_imbalance_vars = []
+    group_pin_slack: dict[int, int] = {}
+    for g_id, curr_list in group_curriculums.items():
+        pinned_num = sum(
+            c.pairs_per_2_weeks
+            for c in curr_list
+            if getattr(c, "require_week", None) == "numerator"
+        )
+        pinned_den = sum(
+            c.pairs_per_2_weeks
+            for c in curr_list
+            if getattr(c, "require_week", None) == "denominator"
+        )
+        group_pin_slack[g_id] = abs(pinned_num - pinned_den)
+
+    unbalanced_curriculums = []
     for c in curriculums:
         all_vars = [X[(c.id, d, s)] for d in range(DAY_IDXS) for s in range(SLOTS)]
         model.Add(sum(all_vars) == c.pairs_per_2_weeks)
 
-        # Explicit week pins are hard; otherwise split each subject as evenly
-        # as possible between the numerator and denominator.
+        # Explicit week pins are hard; otherwise bound each subject tightly
+        # between the numerator and denominator so the two weeks decouple
+        # during the feasibility search instead of causing combinatorial blow-up.
         w1 = sum(X[(c.id, d, s)] for d in range(DAYS) for s in range(SLOTS))
         w2 = sum(X[(c.id, d, s)] for d in range(DAYS, DAY_IDXS) for s in range(SLOTS))
         
@@ -419,19 +444,17 @@ def solve(
             model.Add(w1 == 0)
             model.Add(w2 == c.pairs_per_2_weeks)
         else:
-            week_difference = model.NewIntVar(
-                -c.pairs_per_2_weeks,
-                c.pairs_per_2_weeks,
-                f"week_difference_c{c.id}",
+            slack = (
+                max(group_pin_slack[other.group_id] for other in streams[c.stream_id])
+                if c.is_stream and c.stream_id and c.stream_id in streams
+                else group_pin_slack[c.group_id]
             )
-            week_imbalance = model.NewIntVar(
-                0,
-                c.pairs_per_2_weeks,
-                f"week_imbalance_c{c.id}",
-            )
-            model.Add(week_difference == w1 - w2)
-            model.AddAbsEquality(week_imbalance, week_difference)
-            week_imbalance_vars.append(week_imbalance)
+            lo_w1 = max(0, c.pairs_per_2_weeks // 2 - slack)
+            hi_w1 = min(c.pairs_per_2_weeks, (c.pairs_per_2_weeks + 1) // 2 + slack)
+            model.Add(w1 >= lo_w1)
+            model.Add(w1 <= hi_w1)
+            if lo_w1 < hi_w1:
+                unbalanced_curriculums.append((c, w1, w2))
 
         # Закріплені пари (Може бути закріплений як конкретний день і пара, так і тільки конкретний день)
         if c.is_fixed and c.strict_day:
@@ -509,7 +532,7 @@ def solve(
                 ):
                     model.Add(X[(c.id, d, s)] == 0)
 
-    group_week_imbalance_vars = []
+    unbalanced_groups = []
     for g_id, curr_list in group_curriculums.items():
         numerator_load = sum(
             X[(c.id, d, s)]
@@ -524,19 +547,23 @@ def solve(
             for s in range(SLOTS)
         )
         group_load = sum(c.pairs_per_2_weeks for c in curr_list)
-        week_difference = model.NewIntVar(
-            -group_load,
-            group_load,
-            f"group_week_difference_g{g_id}",
+        pinned_num = sum(
+            c.pairs_per_2_weeks
+            for c in curr_list
+            if getattr(c, "require_week", None) == "numerator"
         )
-        week_imbalance = model.NewIntVar(
-            0,
-            group_load,
-            f"group_week_imbalance_g{g_id}",
+        pinned_den = sum(
+            c.pairs_per_2_weeks
+            for c in curr_list
+            if getattr(c, "require_week", None) == "denominator"
         )
-        model.Add(week_difference == numerator_load - denominator_load)
-        model.AddAbsEquality(week_imbalance, week_difference)
-        group_week_imbalance_vars.append(week_imbalance)
+        if pinned_num <= (group_load + 1) // 2 and pinned_den <= (group_load + 1) // 2:
+            model.Add(numerator_load >= group_load // 2)
+            model.Add(numerator_load <= (group_load + 1) // 2)
+            if group_load % 2 != 0:
+                unbalanced_groups.append((g_id, group_load, numerator_load, denominator_load))
+        else:
+            unbalanced_groups.append((g_id, group_load, numerator_load, denominator_load))
 
     teacher_slot_vars: dict[tuple[int, int, int], list] = {}
     for teacher_id, curr_list in teacher_curriculums.items():
@@ -566,35 +593,7 @@ def solve(
                         model.Add(X[(base.id, d, s)] == X[(other.id, d, s)])
 
     fixed4 = {g: fixed_4th_days(lst) for g, lst in group_curriculums.items()}
-    penalties = (
-        [week_imbalance * 100_000 for week_imbalance in group_week_imbalance_vars]
-        + [week_imbalance * 10_000 for week_imbalance in week_imbalance_vars]
-    )
-    for c in curriculums:
-        for week in range(WEEKS):
-            week_start = week * DAYS
-            daily_active = []
-            for weekday in range(DAYS):
-                day_active = model.NewBoolVar(
-                    f"active_c{c.id}_d{week_start + weekday}"
-                )
-                model.AddMaxEquality(
-                    day_active,
-                    [X[(c.id, week_start + weekday, slot)] for slot in range(SLOTS)],
-                )
-                daily_active.append(day_active)
-            for first_day in range(DAYS - 2):
-                three_consecutive_days = model.NewBoolVar(
-                    f"three_consecutive_c{c.id}_w{week}_d{first_day}"
-                )
-                model.AddBoolAnd(
-                    daily_active[first_day:first_day + 3]
-                ).OnlyEnforceIf(three_consecutive_days)
-                model.AddBoolOr(
-                    [day.Not() for day in daily_active[first_day:first_day + 3]]
-                ).OnlyEnforceIf(three_consecutive_days.Not())
-                penalties.append(three_consecutive_days * 2_000)
-
+    day_pattern_penalties = []
     for g_id, curr_list in group_curriculums.items():
         for d in range(DAY_IDXS):
             slots_active = []
@@ -604,32 +603,20 @@ def solve(
                 slots_active.append(a)
 
             if use_default_patterns:
-                daily_pairs = model.NewIntVar(0, SLOTS, f"daily_pairs_g{g_id}_d{d}")
-                model.Add(daily_pairs == sum(slots_active))
-                model.AddForbiddenAssignments([daily_pairs], [(0,), (1,), (2,)])
-
-                # If two occupied slots surround a slot, the middle one must
-                # be occupied.  Reifying the antecedent avoids enumerating
-                # day-pattern combinations.
-                for first in range(SLOTS - 2):
-                    model.AddImplication(
-                        slots_active[first], slots_active[first + 1]
-                    ).OnlyEnforceIf(slots_active[first + 2])
-
-                day_active = model.NewBoolVar(f"active_day_g{g_id}_d{d}")
-                model.AddMaxEquality(day_active, slots_active)
-                late_start = model.NewBoolVar(f"late_start_g{g_id}_d{d}")
-                model.Add(late_start <= day_active)
-                model.Add(late_start <= 1 - slots_active[0])
-                model.Add(late_start >= day_active - slots_active[0])
-                penalties.append(late_start * 50)
+                # The three allowed patterns ((1,1,1,0), (1,1,1,1), (0,1,1,1))
+                # are equivalent to slots 2 and 3 always being occupied and at
+                # least one of slots 1 and 4 being occupied.
+                model.Add(slots_active[1] == 1)
+                model.Add(slots_active[2] == 1)
+                model.Add(slots_active[0] + slots_active[3] >= 1)
+                day_pattern_penalties.append((1 - slots_active[0]) * 50)
             else:
                 pattern_vars = []
                 for p_idx, (pat, pen) in enumerate(patterns):
                     p = model.NewBoolVar(f"pat_{g_id}_{d}_{p_idx}")
                     pattern_vars.append(p)
                     if pen:
-                        penalties.append(p * pen)
+                        day_pattern_penalties.append(p * pen)
                     for s in range(SLOTS):
                         model.Add(slots_active[s] == pat[s]).OnlyEnforceIf(p)
                 model.AddExactlyOne(pattern_vars)
@@ -638,27 +625,7 @@ def solve(
             if d in fixed4[g_id]:
                 model.Add(slots_active[0] == 1)
 
-    # Teacher gaps are preferences, not hard constraints. Stream copies are
-    # counted once because they use one teacher slot.
-    for teacher_id in teacher_curriculums:
-        for d in range(DAY_IDXS):
-            active = []
-            for s in range(SLOTS):
-                unique_vars = teacher_slot_vars[(teacher_id, d, s)]
-                teacher_active = model.NewBoolVar(f"active_t{teacher_id}_d{d}_s{s}")
-                model.Add(sum(unique_vars) == teacher_active)
-                active.append(teacher_active)
-            for first in range(SLOTS - 2):
-                window = model.NewBoolVar(f"window_t{teacher_id}_d{d}_{first}")
-                model.Add(window <= active[first])
-                model.Add(window <= active[first + 2])
-                model.Add(window <= 1 - active[first + 1])
-                model.Add(
-                    window >= active[first] + active[first + 2] - active[first + 1] - 1
-                )
-                penalties.append(window * 100)
-
-    hint_assignments = _schedule_hint_assignments(curriculums, hint_path)
+    hint_assignments = _schedule_hint_assignments(curriculums, hint_path, hints)
     for key, var in X.items():
         if key in hint_assignments:
             model.AddHint(var, 1)
@@ -673,12 +640,90 @@ def solve(
             instance.parameters.random_seed = random_seed
         return instance
 
+    def add_soft_preference_penalties() -> list:
+        soft_penalties = list(day_pattern_penalties)
+        for g_id, group_load, numerator_load, denominator_load in unbalanced_groups:
+            week_difference = model.NewIntVar(
+                -group_load,
+                group_load,
+                f"group_week_difference_g{g_id}",
+            )
+            week_imbalance = model.NewIntVar(
+                0,
+                group_load,
+                f"group_week_imbalance_g{g_id}",
+            )
+            model.Add(week_difference == numerator_load - denominator_load)
+            model.AddAbsEquality(week_imbalance, week_difference)
+            soft_penalties.append(week_imbalance * 100_000)
+
+        for c, w1, w2 in unbalanced_curriculums:
+            week_difference = model.NewIntVar(
+                -c.pairs_per_2_weeks,
+                c.pairs_per_2_weeks,
+                f"week_difference_c{c.id}",
+            )
+            week_imbalance = model.NewIntVar(
+                0,
+                c.pairs_per_2_weeks,
+                f"week_imbalance_c{c.id}",
+            )
+            model.Add(week_difference == w1 - w2)
+            model.AddAbsEquality(week_imbalance, week_difference)
+            soft_penalties.append(week_imbalance * 10_000)
+
+        for c in curriculums:
+            for week in range(WEEKS):
+                week_start = week * DAYS
+                daily_active = []
+                for weekday in range(DAYS):
+                    day_active = model.NewBoolVar(
+                        f"active_c{c.id}_d{week_start + weekday}"
+                    )
+                    model.AddMaxEquality(
+                        day_active,
+                        [X[(c.id, week_start + weekday, slot)] for slot in range(SLOTS)],
+                    )
+                    daily_active.append(day_active)
+                for first_day in range(DAYS - 2):
+                    three_consecutive_days = model.NewBoolVar(
+                        f"three_consecutive_c{c.id}_w{week}_d{first_day}"
+                    )
+                    model.AddBoolAnd(
+                        daily_active[first_day:first_day + 3]
+                    ).OnlyEnforceIf(three_consecutive_days)
+                    model.AddBoolOr(
+                        [day.Not() for day in daily_active[first_day:first_day + 3]]
+                    ).OnlyEnforceIf(three_consecutive_days.Not())
+                    soft_penalties.append(three_consecutive_days * 2_000)
+
+        # Teacher gaps are preferences, not hard constraints. Stream copies are
+        # counted once because they use one teacher slot.
+        for teacher_id in teacher_curriculums:
+            for d in range(DAY_IDXS):
+                active = []
+                for s in range(SLOTS):
+                    unique_vars = teacher_slot_vars[(teacher_id, d, s)]
+                    teacher_active = model.NewBoolVar(f"active_t{teacher_id}_d{d}_s{s}")
+                    model.Add(sum(unique_vars) == teacher_active)
+                    active.append(teacher_active)
+                for first in range(SLOTS - 2):
+                    window = model.NewBoolVar(f"window_t{teacher_id}_d{d}_{first}")
+                    model.Add(window <= active[first])
+                    model.Add(window <= active[first + 2])
+                    model.Add(window <= 1 - active[first + 1])
+                    model.Add(
+                        window >= active[first] + active[first + 2] - active[first + 1] - 1
+                    )
+                    soft_penalties.append(window * 100)
+        return soft_penalties
+
     def result_from(instance: cp_model.CpSolver, status: int, *, optimized: bool) -> SolveResult:
         assignments = [key for key, var in X.items() if instance.Value(var) == 1]
         objective = (
             instance.ObjectiveValue()
             if optimized
-            else float(sum(instance.Value(penalty) for penalty in penalties))
+            else float(sum(instance.Value(penalty) for penalty in day_pattern_penalties))
         )
         return SolveResult(
             status=instance.StatusName(status),
@@ -687,11 +732,8 @@ def solve(
         )
 
     started_at = time.monotonic()
-    # First find any valid timetable without optimizing soft preferences. Search
-    # with an objective can spend most of the limit before producing its first
-    # incumbent, which is especially costly on small hosted instances.
-    if penalties:
-        model.ClearObjective()
+    # First find any valid timetable on the lean hard-constraint model without
+    # adding thousands of soft-preference variables.
     feasibility_budget = max_time_in_seconds * FEASIBILITY_TIME_FRACTION
     feasible_result = None
     last_solver = None
@@ -718,15 +760,17 @@ def solve(
     if feasible_result is not None:
         remaining = max_time_in_seconds - (time.monotonic() - started_at)
         opt_budget = min(remaining, 8.0)
-        if penalties and opt_budget > 0.05:
-            selected = set(feasible_result.assignments)
-            for key, var in X.items():
-                model.AddHint(var, int(key in selected))
-            model.Minimize(sum(penalties))
-            optimizer = new_solver(opt_budget, None if seed is None else seed + 1)
-            optimized_status = optimizer.Solve(model)
-            if optimized_status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-                return result_from(optimizer, optimized_status, optimized=True)
+        if opt_budget > 0.05:
+            penalties = add_soft_preference_penalties()
+            if penalties:
+                selected = set(feasible_result.assignments)
+                for key, var in X.items():
+                    model.AddHint(var, int(key in selected))
+                model.Minimize(sum(penalties))
+                optimizer = new_solver(opt_budget, None if seed is None else seed + 1)
+                optimized_status = optimizer.Solve(model)
+                if optimized_status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+                    return result_from(optimizer, optimized_status, optimized=True)
         return feasible_result
 
     # CP-SAT UNKNOWN means the bounded search neither found a schedule nor
@@ -735,3 +779,4 @@ def solve(
     if last_status == cp_model.UNKNOWN:
         name = "TIMEOUT"
     return SolveResult(status=name)
+

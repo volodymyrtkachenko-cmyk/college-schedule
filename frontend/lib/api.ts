@@ -889,7 +889,7 @@ export interface DraftRecord {
 }
 
 export const apiGenerator = {
-  generate: async (token: string, max_time: number = 45): Promise<DraftRecord> => {
+  generate: async (token: string, max_time: number = 600): Promise<DraftRecord> => {
     return request<DraftRecord>(`/api/generator?max_time_in_seconds=${max_time}`, {
       method: "POST",
     }, true, true, token);
