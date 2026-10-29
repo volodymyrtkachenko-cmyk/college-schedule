@@ -18,12 +18,28 @@ const draftStatusLabels: Record<string, string> = {
   INFEASIBLE: "Несумісні обмеження",
 };
 
+const GENERATION_STAGES = [
+  { label: "Аналіз навантаження та груп", detail: "Зчитування годин, потоків і підгруп" },
+  { label: "Перевірка обмежень викладачів", detail: "Врахування зайнятості та кураторських годин" },
+  { label: "Математичний CP-SAT пошук", detail: "Паралельний портфельний розрахунок розкладу" },
+  { label: "Оптимізація вікон і пар", detail: "Мінімізація розривів та вирівнювання занять" },
+];
+
+function formatTimer(sec: number): string {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+}
+
 export function GeneratorPanel() {
   const [drafts, setDrafts] = useState<DraftRecord[]>([]);
   const [versions, setVersions] = useState<import("../../lib/api").ScheduleVersion[]>([]);
   const [targetVersionId, setTargetVersionId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [generatingJob, setGeneratingJob] = useState<{ id: number; startedAt: number } | null>(null);
+  const [showGenModal, setShowGenModal] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState<string | null>(null);
   
   const [activeDraft, setActiveDraft] = useState<DraftRecord | null>(null);
@@ -43,9 +59,31 @@ export function GeneratorPanel() {
   
   const { showToast: setToast } = useToast();
 
+  const generatingDraft = drafts.find((d) => d.status === "GENERATING");
+  const isGeneratingActive = generating || generatingDraft !== undefined;
+
   useEffect(() => {
     loadDrafts();
   }, []);
+
+  useEffect(() => {
+    if (!isGeneratingActive) {
+      setElapsed(0);
+      return;
+    }
+    const timer = setInterval(() => {
+      setElapsed((prev) => prev + 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [isGeneratingActive]);
+
+  useEffect(() => {
+    if (!isGeneratingActive) return;
+    const interval = setInterval(() => {
+      loadDrafts();
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [isGeneratingActive]);
 
   async function loadDrafts() {
     try {
@@ -93,12 +131,14 @@ export function GeneratorPanel() {
   async function handleGenerate() {
     try {
       setGenerating(true);
+      setShowGenModal(true);
       const session = await api.auth.ensureAuthenticated();
       const job = await api.generator.generate(session.access_token);
+      setGeneratingJob({ id: job.id, startedAt: Date.now() });
       const startedAt = Date.now();
       let completed = job;
       while (completed.status === "GENERATING" && Date.now() - startedAt < 12 * 60 * 1000) {
-        await new Promise(resolve => setTimeout(resolve, 5000));
+        await new Promise(resolve => setTimeout(resolve, 3000));
         completed = await api.generator.getDraft(job.id, session.access_token);
       }
       if (completed.status === "TIMEOUT") {
@@ -117,9 +157,13 @@ export function GeneratorPanel() {
         throw new Error("Створення не завершилося. Спробуйте ще раз або зверніться до адміністратора.");
       }
       setToast("Розклад створено.", "success");
+      setShowGenModal(false);
+      setGeneratingJob(null);
       await loadDrafts();
     } catch(err: any) {
       setToast(err.message, "error");
+      setShowGenModal(false);
+      setGeneratingJob(null);
     } finally {
       setGenerating(false);
     }
@@ -434,6 +478,20 @@ export function GeneratorPanel() {
     );
   }
 
+  const activeStageIndex = elapsed < 4 ? 0 : elapsed < 9 ? 1 : elapsed < 28 ? 2 : 3;
+  const progressPercent = Math.min(
+    95,
+    Math.round(
+      elapsed < 4
+        ? 15 + elapsed * 5
+        : elapsed < 9
+        ? 35 + (elapsed - 4) * 4
+        : elapsed < 28
+        ? 55 + (elapsed - 9) * 1.5
+        : 83 + Math.min(11, (elapsed - 28) * 0.3)
+    )
+  );
+
   return (
     <>
       <PageHeader
@@ -443,18 +501,69 @@ export function GeneratorPanel() {
         actions={
           <button
             onClick={handleGenerate}
-            disabled={generating}
-            className="shrink-0 rounded-lg bg-emerald-600 dark:bg-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow-xs hover:opacity-95 transition-opacity disabled:opacity-50 disabled:cursor-wait flex items-center gap-2"
+            disabled={isGeneratingActive}
+            className="shrink-0 rounded-lg bg-emerald-600 dark:bg-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow-xs hover:opacity-95 transition-all disabled:opacity-50 disabled:cursor-wait flex items-center gap-2"
           >
-            {generating ? (
+            {isGeneratingActive ? (
               <>
-                <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+                <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                 Створюємо розклад…
               </>
-            ) : "Створити розклад"}
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Створити розклад
+              </>
+            )}
           </button>
         }
       />
+
+      {/* Persistent live banner when generation is active and modal is minimized */}
+      {isGeneratingActive && !showGenModal && (
+        <div className="relative overflow-hidden rounded-2xl border border-emerald-500/30 bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-sys-card p-4 shadow-sm animate-in fade-in duration-200 mt-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <span className="relative flex h-3 w-3 shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+              </span>
+              <div className="min-w-0">
+                <div className="font-semibold text-sm text-sys-text-primary flex items-center gap-2 flex-wrap">
+                  <span>Створення розкладу #{generatingJob?.id ?? generatingDraft?.id ?? ""}</span>
+                  <span className="font-mono text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold">
+                    {formatTimer(elapsed)}
+                  </span>
+                  <span className="text-xs text-sys-text-muted font-normal hidden sm:inline">
+                    · {GENERATION_STAGES[activeStageIndex]?.label}
+                  </span>
+                </div>
+                <p className="text-xs text-sys-text-secondary mt-0.5">
+                  Математичний солвер шукає оптимальний розклад у фоні на сервері
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowGenModal(true)}
+              className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 transition flex items-center justify-center gap-1.5 shrink-0"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+              </svg>
+              Показати анімацію
+            </button>
+          </div>
+          <div className="mt-3 relative h-1.5 w-full bg-sys-border/60 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-400 transition-all duration-700 ease-out"
+              style={{ width: `${progressPercent}%` }}
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-splash-beam" />
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="mt-8 text-center text-sys-text-secondary">Завантаження…</div>
@@ -479,15 +588,45 @@ export function GeneratorPanel() {
                     <td className="px-5 py-3 whitespace-nowrap text-sys-text-muted">#{d.id}</td>
                     <td className="px-5 py-3 font-semibold text-sys-text-primary">{d.name}</td>
                     <td className="px-5 py-3">
-                      <span className={`px-2 py-0.5 rounded text-xs font-bold tracking-wider ${d.status === 'published' ? 'bg-emerald-500/10 text-emerald-400' : (d.status === 'DRAFT' || d.status === 'pending') ? 'bg-amber-500/10 text-amber-400' : 'bg-gray-500/10 text-gray-400'}`}>{draftStatusLabels[d.status] ?? "Невідомий статус"}</span>
+                      {d.status === "GENERATING" ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 animate-pulse shadow-xs">
+                          <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                          </span>
+                          Створюється…
+                        </span>
+                      ) : (
+                        <span className={`px-2 py-0.5 rounded text-xs font-bold tracking-wider ${
+                          d.status === 'published' ? 'bg-emerald-500/10 text-emerald-400' :
+                          (d.status === 'DRAFT' || d.status === 'pending') ? 'bg-amber-500/10 text-amber-400' :
+                          (d.status === 'FAILED' || d.status === 'TIMEOUT' || d.status === 'INFEASIBLE') ? 'bg-rose-500/10 text-rose-400' :
+                          'bg-gray-500/10 text-gray-400'
+                        }`}>
+                          {draftStatusLabels[d.status] ?? "Невідомий статус"}
+                        </span>
+                      )}
                     </td>
                     <td className="px-5 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <button onClick={() => loadSlots(d)} className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-sys-accent/10 text-sys-accent hover:bg-sys-accent/20 transition">Переглянути</button>
+                        {d.status === "GENERATING" ? (
+                          <button
+                            onClick={() => setShowGenModal(true)}
+                            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 transition flex items-center gap-1.5"
+                          >
+                            <span className="relative flex h-1.5 w-1.5">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                            </span>
+                            Прогрес
+                          </button>
+                        ) : (
+                          <button onClick={() => loadSlots(d)} className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-sys-accent/10 text-sys-accent hover:bg-sys-accent/20 transition">Переглянути</button>
+                        )}
                         {d.status === 'DRAFT' && (
                            <button onClick={() => { setDraftToPublish(d); setPublishTargetVersionId(targetVersionId); }} className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 transition">Опублікувати</button>
                         )}
-                        {d.status !== 'published' && (
+                        {d.status !== 'published' && d.status !== 'GENERATING' && (
                           <button onClick={() => setDraftToDelete(d)} title="Видалити" aria-label="Видалити чернетку" className="p-1.5 rounded-lg text-sys-text-secondary hover:text-rose-400 hover:bg-rose-500/10 transition">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                           </button>
@@ -515,10 +654,22 @@ export function GeneratorPanel() {
                     <h4 className="font-semibold text-sm text-sys-text-primary leading-tight mt-0.5">{d.name}</h4>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className={`px-2 py-0.5 rounded text-[11px] font-bold tracking-wider ${d.status === 'published' ? 'bg-emerald-500/10 text-emerald-400' : (d.status === 'DRAFT' || d.status === 'pending') ? 'bg-amber-500/10 text-amber-400' : 'bg-gray-500/10 text-gray-400'}`}>
-                      {draftStatusLabels[d.status] ?? "Невідомий статус"}
-                    </span>
-                    {d.status !== 'published' && (
+                    {d.status === "GENERATING" ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold tracking-wider bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 animate-pulse">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping" />
+                        Створюється…
+                      </span>
+                    ) : (
+                      <span className={`px-2 py-0.5 rounded text-[11px] font-bold tracking-wider ${
+                        d.status === 'published' ? 'bg-emerald-500/10 text-emerald-400' :
+                        (d.status === 'DRAFT' || d.status === 'pending') ? 'bg-amber-500/10 text-amber-400' :
+                        (d.status === 'FAILED' || d.status === 'TIMEOUT' || d.status === 'INFEASIBLE') ? 'bg-rose-500/10 text-rose-400' :
+                        'bg-gray-500/10 text-gray-400'
+                      }`}>
+                        {draftStatusLabels[d.status] ?? "Невідомий статус"}
+                      </span>
+                    )}
+                    {d.status !== 'published' && d.status !== 'GENERATING' && (
                       <button
                         onClick={() => setDraftToDelete(d)}
                         title="Видалити"
@@ -531,12 +682,22 @@ export function GeneratorPanel() {
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-sys-border/40">
-                  <button
-                    onClick={() => loadSlots(d)}
-                    className="flex-1 min-h-[44px] px-3 py-2 text-xs font-semibold rounded-lg bg-sys-accent/10 text-sys-accent hover:bg-sys-accent/20 transition flex items-center justify-center"
-                  >
-                    Переглянути
-                  </button>
+                  {d.status === "GENERATING" ? (
+                    <button
+                      onClick={() => setShowGenModal(true)}
+                      className="flex-1 min-h-[44px] px-3 py-2 text-xs font-semibold rounded-lg bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 transition flex items-center justify-center gap-2"
+                    >
+                      <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
+                      Переглянути анімацію
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => loadSlots(d)}
+                      className="flex-1 min-h-[44px] px-3 py-2 text-xs font-semibold rounded-lg bg-sys-accent/10 text-sys-accent hover:bg-sys-accent/20 transition flex items-center justify-center"
+                    >
+                      Переглянути
+                    </button>
+                  )}
                   {d.status === 'DRAFT' && (
                     <button
                       onClick={() => { setDraftToPublish(d); setPublishTargetVersionId(targetVersionId); }}
@@ -553,6 +714,150 @@ export function GeneratorPanel() {
                 Чернеток ще немає. Створіть розклад, щоб він з’явився тут.
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Fullscreen Interactive Generation Animation Modal */}
+      {showGenModal && isGeneratingActive && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-md animate-in fade-in duration-200"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Генерація розкладу"
+        >
+          <div className="relative w-full max-w-lg overflow-hidden rounded-2xl border border-sys-border bg-sys-card p-6 shadow-2xl space-y-6 animate-in zoom-in-95 duration-200">
+            {/* Ambient background glow orbs */}
+            <div className="pointer-events-none absolute -left-20 -top-20 h-56 w-56 rounded-full bg-emerald-500/15 blur-3xl" />
+            <div className="pointer-events-none absolute -right-20 -bottom-20 h-56 w-56 rounded-full bg-sys-accent/15 blur-3xl" />
+
+            {/* Header: Title and Close/Minimize */}
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping" />
+                  Штучний інтелект & CP-SAT
+                </span>
+                <h3 className="mt-1.5 text-xl font-bold text-sys-text-primary">
+                  Генеруємо розклад
+                </h3>
+                <p className="text-xs text-sys-text-secondary mt-0.5">
+                  Чернетка #{generatingJob?.id ?? generatingDraft?.id ?? ""} · Автоматичний розподіл занять
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowGenModal(false)}
+                title="Згорнути у фон"
+                className="rounded-lg px-2.5 py-1 text-sys-text-secondary hover:bg-white/5 hover:text-sys-text-primary transition-colors text-xs font-semibold flex items-center gap-1 border border-sys-border/50"
+              >
+                Згорнути ✕
+              </button>
+            </div>
+
+            {/* Central Orbital Animation */}
+            <div className="py-2 flex flex-col items-center justify-center">
+              <div className="relative flex h-28 w-28 items-center justify-center">
+                {/* Outer glowing pulsing aura */}
+                <div className="absolute inset-0 rounded-full bg-emerald-500/20 blur-xl animate-pulse" />
+                
+                {/* Outer spinning dashed ring */}
+                <div className="absolute inset-0 rounded-full border-2 border-dashed border-emerald-400/40 animate-[spin_12s_linear_infinite]" />
+                
+                {/* Middle counter-rotating dotted ring */}
+                <div className="absolute inset-2.5 rounded-full border border-teal-400/30 border-t-teal-400 animate-[spin_6s_linear_infinite_reverse]" />
+                
+                {/* Radiating ping wave */}
+                <div className="absolute inset-4 rounded-full border border-emerald-400/40 animate-ping opacity-25" />
+                
+                {/* Center glowing crystal badge with Calendar icon */}
+                <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-tr from-emerald-600 via-teal-500 to-cyan-400 text-white shadow-lg shadow-emerald-500/30">
+                  <svg className="h-8 w-8 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+              </div>
+
+              {/* Timer badge */}
+              <div className="mt-4 flex items-center gap-2">
+                <span className="font-mono text-sm font-bold text-emerald-400 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 flex items-center gap-2 shadow-xs">
+                  <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                  {formatTimer(elapsed)}
+                </span>
+                <span className="text-xs text-sys-text-muted">триває оптимізація</span>
+              </div>
+            </div>
+
+            {/* Sleek Animated Progress Bar */}
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-xs text-sys-text-secondary">
+                <span>Прогрес генерації</span>
+                <span className="font-mono font-semibold text-emerald-400">{progressPercent}%</span>
+              </div>
+              <div className="relative h-2 w-full overflow-hidden rounded-full bg-slate-800 dark:bg-slate-900">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-400 transition-all duration-700 ease-out"
+                  style={{ width: `${progressPercent}%` }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-splash-beam" />
+              </div>
+            </div>
+
+            {/* Stages Checklist */}
+            <div className="space-y-2 rounded-xl border border-sys-border/60 bg-sys-bg/60 p-3.5">
+              {GENERATION_STAGES.map((st, idx) => {
+                const isDone = idx < activeStageIndex;
+                const isCurrent = idx === activeStageIndex;
+                return (
+                  <div
+                    key={idx}
+                    className={`flex items-start gap-3 rounded-lg p-2 transition-colors ${
+                      isCurrent
+                        ? "bg-emerald-500/10 border border-emerald-500/20"
+                        : "opacity-75"
+                    }`}
+                  >
+                    <div className="mt-0.5 shrink-0">
+                      {isDone ? (
+                        <div className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-slate-950">
+                          <svg className="h-3.5 w-3.5 stroke-[3]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                      ) : isCurrent ? (
+                        <div className="flex h-5 w-5 items-center justify-center rounded-full border-2 border-emerald-400 border-t-transparent animate-spin" />
+                      ) : (
+                        <div className="flex h-5 w-5 items-center justify-center rounded-full border border-sys-border text-sys-text-muted text-[10px]">
+                          {idx + 1}
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className={`text-xs font-semibold leading-tight ${isCurrent ? "text-emerald-400" : isDone ? "text-sys-text-primary" : "text-sys-text-muted"}`}>
+                        {st.label}
+                      </p>
+                      <p className="text-[11px] text-sys-text-secondary mt-0.5 leading-snug">
+                        {st.detail}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Note & Action */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-1 border-t border-sys-border/40">
+              <p className="text-[11px] text-sys-text-muted leading-tight text-center sm:text-left">
+                ⚡ Процес ізольований і не навантажує вебсервер. Можна безпечно згорнути вікно.
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowGenModal(false)}
+                className="w-full sm:w-auto shrink-0 px-4 py-2 rounded-lg text-xs font-semibold border border-sys-border bg-sys-card hover:bg-white/5 text-sys-text-primary transition-colors"
+              >
+                Працювати у фоні
+              </button>
+            </div>
           </div>
         </div>
       )}
