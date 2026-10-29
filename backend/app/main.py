@@ -85,51 +85,6 @@ async def lifespan(_: FastAPI):
         except Exception:
             pass
 
-    # Cleanup occurrence notes erroneously spread onto future weeks (>= 2026-10-26) during errant sync
-    try:
-        from app.models.lesson_notes import LessonOccurrenceNote
-        from datetime import date as d_date, datetime as dt_datetime, timezone as dt_timezone
-        import re
-
-        url_cleanup_pattern = re.compile(r"https?://(?:meet\.google\.com|[a-zA-Z0-9_\-\.]*zoom\.us)[^\s]*", re.IGNORECASE)
-        cutoff_dt = dt_datetime(2026, 10, 25, 12, 0, tzinfo=dt_timezone.utc)
-
-        async with async_session_factory() as cleanup_session:
-            future_notes = (await cleanup_session.scalars(
-                select(LessonOccurrenceNote).where(
-                    LessonOccurrenceNote.note_date >= d_date(2026, 10, 26),
-                    LessonOccurrenceNote.archived.is_(False),
-                )
-            )).all()
-
-            cleaned_count = 0
-            for fn in future_notes:
-                c_at = fn.created_at
-                if c_at and c_at.tzinfo is None:
-                    c_at = c_at.replace(tzinfo=dt_timezone.utc)
-                if c_at and c_at > cutoff_dt:
-                    continue
-
-                raw_lines = [line.strip() for line in fn.note.splitlines() if line.strip()]
-                if not any(url_cleanup_pattern.search(l) or l.startswith("[🔒") for l in raw_lines):
-                    continue
-
-                kept_lines = [l for l in raw_lines if not url_cleanup_pattern.search(l) and not l.startswith("[🔒")]
-                if kept_lines:
-                    new_text = "\n".join(kept_lines)
-                    if new_text != fn.note:
-                        fn.note = new_text
-                        fn.revision += 1
-                        cleaned_count += 1
-                else:
-                    fn.archived = True
-                    fn.revision += 1
-                    cleaned_count += 1
-
-            if cleaned_count > 0:
-                await cleanup_session.commit()
-    except Exception:
-        pass
     try:
         yield
     finally:

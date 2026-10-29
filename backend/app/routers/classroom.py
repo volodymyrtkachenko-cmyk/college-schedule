@@ -877,15 +877,19 @@ async def perform_course_sync(
     current_monday = today_real - timedelta(days=today_real.weekday())
 
     today_kyiv = week_start or today_real
+    if week_start is None and today_kyiv.weekday() in (5, 6):
+        today_kyiv = today_kyiv + timedelta(days=(7 - today_kyiv.weekday()))
     week_monday = today_kyiv - timedelta(days=today_kyiv.weekday())
     week_friday = week_monday + timedelta(days=4)
 
-    # Вікно збереження ДЗ: попередні 2 тижні (lookback 14 днів) + поточний + наступний тиждень,
-    # щоб завдання минулих тижнів прив'язувалися до пар свого тижня, а не виштовхувалися вперед
+    # Вікно збереження ДЗ та посилань: попередні 2 тижні (lookback 14 днів) + поточний + наступний тиждень,
+    # щоб завдання та посилання минулих тижнів прив'язувалися до пар свого тижня й не стиралися
     TASKS_LOOKBACK_DAYS = 14
     tasks_window_start = min(current_monday, week_monday)
     tasks_lookback_start = tasks_window_start - timedelta(days=TASKS_LOOKBACK_DAYS)
     tasks_window_end = max(current_monday, week_monday) + timedelta(days=11)  # п'ятниця наступного тижня
+    links_window_start = tasks_lookback_start
+    links_window_end = max(current_monday + timedelta(days=4), week_friday)
     unmapped_tasks: list[dict] = []
 
     db_teachers = (await db.scalars(select(Teacher))).all()
@@ -1667,10 +1671,112 @@ async def perform_course_sync(
         c_id = course["id"]
         c_title_norm = _norm(f"{course.get('name', '')} {course.get('section', '')}".strip())
         c_toks = course_teachers_tokens.get(c_id, [])
-        for d_lessons in week_days_lessons.values():
+        for d_lessons in horizon_lessons_by_date.values():
             for l_obj in d_lessons:
                 if getattr(l_obj, "subject_id", None) and _matches_lesson(l_obj, c_title_norm, "", c_toks):
                     synced_subject_ids.add(l_obj.subject_id)
+
+    # Попередньо визначаємо слоти, для яких є актуальні посилання у вікні синхронізації (попередні 2 тижні + поточний тиждень)
+    parsed_announcements.sort(key=lambda x: x["created_dt"])
+    planned_link_attachments: list[tuple[date, object, str, Optional[str]]] = []
+    replaced_link_slots: set[tuple[date, int]] = set()
+
+    for pa in parsed_announcements:
+        target_date: date = pa["target_date"]
+        has_explicit_date: bool = pa.get("has_explicit_date", False)
+        is_course_level: bool = pa.get("is_course_level", False)
+        course_title_norm_pa: str = pa.get("course_title_norm", "")
+        text_norm_pa: str = pa["text_norm"]
+        author_tokens_pa: list[str] = pa.get("author_tokens", [])
+
+        if has_explicit_date:
+            candidate_dates = [target_date] if (links_window_start <= target_date <= links_window_end) else []
+        elif is_course_level:
+            candidate_dates = [
+                d for d in sorted(horizon_lessons_by_date.keys())
+                if links_window_start <= d <= links_window_end
+            ]
+        else:
+            # Оголошення без явної дати прив'язується у межах тижня публікації (links_window_start..links_window_end).
+            # Якщо в сам день публікації пари цього предмета немає (або вона вже закінчилася),
+            # шукаємо найближчу пару цього предмета в межах ТОГО САМОГО тижня (понеділок–п'ятниця).
+            if links_window_start <= target_date <= links_window_end:
+                same_day_lessons = [
+                    l for l in horizon_lessons_by_date.get(target_date, [])
+                    if _matches_lesson(l, course_title_norm_pa, text_norm_pa, author_tokens_pa)
+                ]
+                created_dt_pa: datetime = pa["created_dt"]
+                created_mins_pa = created_dt_pa.hour * 60 + created_dt_pa.minute
+                posted_after_same_day_lesson = (
+                    bool(same_day_lessons)
+                    and target_date == created_dt_pa.date()
+                    and all(
+                        BELL_END_MINUTES.get(getattr(l, "lesson_number", 0), 15 * 60) <= created_mins_pa
+                        for l in same_day_lessons
+                    )
+                )
+                if same_day_lessons and not posted_after_same_day_lesson:
+                    candidate_dates = [target_date]
+                else:
+                    ann_monday = target_date - timedelta(days=target_date.weekday())
+                    ann_friday = min(ann_monday + timedelta(days=4), links_window_end)
+                    week_matching_dates = [
+                        d for d in sorted(horizon_lessons_by_date.keys())
+                        if max(ann_monday, links_window_start) <= d <= ann_friday
+                        and any(
+                            _matches_lesson(l, course_title_norm_pa, text_norm_pa, author_tokens_pa)
+                            for l in horizon_lessons_by_date.get(d, [])
+                        )
+                    ]
+                    upcoming_in_week = [d for d in week_matching_dates if d > target_date]
+                    if upcoming_in_week:
+                        candidate_dates = [upcoming_in_week[0]]
+                    elif same_day_lessons:
+                        candidate_dates = [target_date]
+                    elif week_matching_dates:
+                        candidate_dates = [week_matching_dates[-1]]
+                    else:
+                        candidate_dates = []
+            else:
+                candidate_dates = []
+
+        for c_date in candidate_dates:
+            day_lessons = horizon_lessons_by_date.get(c_date, [])
+            if not day_lessons:
+                continue
+
+            candidates = [
+                l for l in day_lessons
+                if _matches_lesson(l, course_title_norm_pa, text_norm_pa, author_tokens_pa)
+            ]
+            matched_lessons = []
+
+            if pa["lesson_number"] is not None:
+                matched_lessons = [l for l in candidates if l.lesson_number == pa["lesson_number"]]
+                if not matched_lessons and not candidates and has_explicit_date and c_date == target_date:
+                    fallback_l = next(
+                        (l for l in day_lessons if l.lesson_number == pa["lesson_number"]),
+                        None,
+                    )
+                    if fallback_l:
+                        matched_lessons = [fallback_l]
+            elif candidates:
+                matched_lessons = candidates
+
+            if not matched_lessons:
+                continue
+
+            for matched_lesson in matched_lessons:
+                url_line = pa["url"]
+                combined_ann = f"{course_title_norm_pa} {text_norm_pa}".strip()
+                matched_prefix = _resolve_matched_teacher_surname(
+                    matched_lesson, author_tokens_pa, combined_ann, db_teachers
+                )
+                if matched_prefix:
+                    url_line = f"{matched_prefix}: {url_line}"
+                planned_link_attachments.append((c_date, matched_lesson, url_line, matched_prefix))
+                if getattr(matched_lesson, "lesson_number", None):
+                    replaced_link_slots.add((c_date, matched_lesson.lesson_number))
 
     for gn in all_group_notes:
         if gn.archived:
@@ -1693,10 +1799,16 @@ async def perform_course_sync(
                 URL_RE.search(l_str)
                 and _link_line_belongs_to_sync(l_str, sync_teacher_tokens)
             ):
-                if skipped_ids and _link_line_prefix(l_str) is None:
-                    if gn.subject_id not in synced_subject_ids:
-                        kept.append(l_str)
-                        continue
+                # Ніколи не видаляємо посилання з історичних тижнів за межами вікна синхронізації,
+                # з предметів поза поточним синком, або зі слотів, де немає нового посилання на заміну
+                if (
+                    gn.note_date < links_window_start
+                    or gn.note_date > links_window_end
+                    or gn.subject_id not in synced_subject_ids
+                    or (gn.note_date, gn.lesson_number) not in replaced_link_slots
+                ):
+                    kept.append(l_str)
+                    continue
                 changed = True
                 continue
             kept.append(l_str)
@@ -1857,62 +1969,12 @@ async def perform_course_sync(
                 note_obj.archived = True
                 note_obj.revision += 1
 
-    # КРОК 5: Ставимо розпізнані посилання Meet / Zoom СТРОГО на відповідні пари поточного тижня
-    parsed_announcements.sort(key=lambda x: x["created_dt"])
-
-    for pa in parsed_announcements:
-        target_date: date = pa["target_date"]
-        has_explicit_date: bool = pa.get("has_explicit_date", False)
-        is_course_level: bool = pa.get("is_course_level", False)
-
-        if has_explicit_date:
-            candidate_dates = [target_date] if (week_monday <= target_date <= week_friday) else []
-        elif is_course_level:
-            candidate_dates = [d for d in sorted(week_days_lessons.keys()) if week_monday <= d <= week_friday]
-        else:
-            # Оголошення без явної дати прив'язується ВИКЛЮЧНО до своєї цільової дати
-            # Публікації з інших тижнів КАТЕГОРИЧНО не прив'язуються до поточного
-            candidate_dates = [target_date] if (week_monday <= target_date <= week_friday) else []
-
-        for c_date in candidate_dates:
-            day_lessons = week_days_lessons.get(c_date, [])
-            if not day_lessons:
-                continue
-
-            candidates = [
-                l for l in day_lessons
-                if _matches_lesson(l, pa.get("course_title_norm", ""), pa["text_norm"], pa.get("author_tokens", []))
-            ]
-            matched_lessons = []
-
-            if pa["lesson_number"] is not None:
-                matched_lessons = [l for l in candidates if l.lesson_number == pa["lesson_number"]]
-                if not matched_lessons and not candidates and has_explicit_date and c_date == target_date:
-                    fallback_l = next(
-                        (l for l in day_lessons if l.lesson_number == pa["lesson_number"]),
-                        None,
-                    )
-                    if fallback_l:
-                        matched_lessons = [fallback_l]
-            elif candidates:
-                matched_lessons = candidates
-
-            if not matched_lessons:
-                continue
-
-            for matched_lesson in matched_lessons:
-                url_line = pa["url"]
-                combined_ann = f"{pa.get('course_title_norm', '')} {pa['text_norm']}".strip()
-                matched_prefix = _resolve_matched_teacher_surname(
-                    matched_lesson, pa.get("author_tokens", []), combined_ann, db_teachers
-                )
-                if matched_prefix:
-                    url_line = f"{matched_prefix}: {url_line}"
-
-                await _save_link_to_slot(
-                    db, c_date, group.id, matched_lesson, url_line, matched_prefix, notes_by_slot=notes_by_slot
-                )
-                synced_links += 1
+    # КРОК 5: Ставимо розпізнані посилання Meet / Zoom на відповідні пари у вікні синхронізації (links_window_start..links_window_end)
+    for c_date, matched_lesson, url_line, matched_prefix in planned_link_attachments:
+        await _save_link_to_slot(
+            db, c_date, group.id, matched_lesson, url_line, matched_prefix, notes_by_slot=notes_by_slot
+        )
+        synced_links += 1
 
     await db.flush()
 
@@ -2984,7 +3046,7 @@ async def get_classroom_group_status(
     }
 
 
-async def sync_all_connected_groups_once() -> dict:
+async def sync_all_connected_groups_once(force: bool = False) -> dict:
     """Проходить по всіх підключених групах у classroom_credentials та classroom_group_bindings і оновлює їх розклад."""
     synced_groups = []
     async with async_session_factory() as db:
@@ -3011,7 +3073,7 @@ async def sync_all_connected_groups_once() -> dict:
     for gid in group_ids:
         try:
             async with async_session_factory() as db:
-                await trigger_background_sync_if_needed(db, gid)
+                await trigger_background_sync_if_needed(db, gid, force=force)
                 synced_groups.append(gid)
             await asyncio.sleep(3)  # Пауза між групами для захисту від Google API Rate Limit
         except Exception as e:
@@ -3023,9 +3085,11 @@ async def sync_all_connected_groups_once() -> dict:
 async def classroom_auto_sync_loop() -> None:
     """Нескінченний фоновий цикл: автоматично парсить Classroom кожні 10 хвилин."""
     await asyncio.sleep(45)  # Перший запуск через 45 секунд після старту сервера (після стартового автоімпорту розкладу)
+    first_cycle = True
     while True:
         try:
-            await sync_all_connected_groups_once()
+            await sync_all_connected_groups_once(force=first_cycle)
+            first_cycle = False
         except asyncio.CancelledError:
             break
         except Exception as e:
@@ -3036,5 +3100,6 @@ async def classroom_auto_sync_loop() -> None:
 @router.post("/sync-all")
 async def manual_trigger_sync_all():
     """Ендпоінт для примусового запуску автосинхронізації всіх груп (наприклад, із зовнішнього cron)."""
-    return await sync_all_connected_groups_once()
+    return await sync_all_connected_groups_once(force=True)
+
 

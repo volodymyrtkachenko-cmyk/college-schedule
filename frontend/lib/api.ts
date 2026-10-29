@@ -410,6 +410,14 @@ async function rawRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
             if (teacherPin && !headers.has("X-Teacher-Pin")) {
                 headers.set("X-Teacher-Pin", teacherPin);
             }
+            const classroomUid = localStorage.getItem("schedule_classroom_google_user_id");
+            if (classroomUid && !headers.has("X-Classroom-User-Id")) {
+                headers.set("X-Classroom-User-Id", classroomUid);
+            }
+            const classroomEmail = localStorage.getItem("schedule_classroom_linked_email");
+            if (classroomEmail && !headers.has("X-Classroom-Email")) {
+                headers.set("X-Classroom-Email", classroomEmail);
+            }
         } catch {}
     }
 

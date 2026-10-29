@@ -941,8 +941,23 @@ export const LessonCard = memo(function LessonCard({
   }, [tasks]);
   const highlightTask = nearestDated || tasks[0] || null;
   const meetings = useMemo(
-    () => extractOnlineMeetings(lesson.note, lesson.room, lesson.teacher_name, lesson.subject_name),
-    [lesson.note, lesson.room, lesson.teacher_name, lesson.subject_name]
+    () =>
+      extractOnlineMeetings(
+        lesson.note,
+        lesson.room,
+        lesson.teacher_name,
+        lesson.subject_name,
+        lesson.teacher_room,
+        lesson.second_teacher_room
+      ),
+    [
+      lesson.note,
+      lesson.room,
+      lesson.teacher_name,
+      lesson.subject_name,
+      lesson.teacher_room,
+      lesson.second_teacher_room,
+    ]
   );
   const visibleNoteText = useMemo(() => getVisibleUserNote(lesson.note), [lesson.note]);
   const hasMeeting = meetings.length > 0;

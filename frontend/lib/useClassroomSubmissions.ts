@@ -401,7 +401,7 @@ export function useClassroomSubmissions() {
   const isLinkedToGroup = useCallback(
     (gid?: number | null) => {
       if (!gid) return false;
-      return Boolean(snapshot.linkedEmail && snapshot.linkedGroupId === gid);
+      return Boolean(snapshot.linkedEmail && (!snapshot.linkedGroupId || snapshot.linkedGroupId === gid));
     },
     [snapshot.linkedEmail, snapshot.linkedGroupId]
   );

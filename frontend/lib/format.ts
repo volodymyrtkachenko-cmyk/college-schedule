@@ -285,7 +285,9 @@ export function extractOnlineMeetings(
   note?: string | null,
   room?: string | null,
   teacherName?: string | null,
-  subjectName?: string | null
+  subjectName?: string | null,
+  teacherRoom?: string | null,
+  secondTeacherRoom?: string | null
 ): MeetingInfo[] {
   const isForeignLang = Boolean(
     (subjectName && /іноземн|англ/i.test(subjectName)) ||
@@ -297,7 +299,7 @@ export function extractOnlineMeetings(
     (teacherName && /філімончук/i.test(teacherName))
   );
 
-  const lines = `${room || ""}\n${note || ""}`.split("\n");
+  const lines = `${room || ""}\n${teacherRoom || ""}\n${secondTeacherRoom || ""}\n${note || ""}`.split("\n");
   const results: MeetingInfo[] = [];
   const seenUrls = new Set<string>();
 
