@@ -81,14 +81,19 @@ export function ConstraintsPanel() {
 
     try {
       const session = await api.auth.ensureAuthenticated();
-      if (existing) {
+      const dayLabel = DAYS.find((d) => d.id === day)?.name;
+      if (!existing) {
+        const created = await api.constraints.create(Number(teacherId), day, lesson, session.access_token, true);
+        setItems((prev) => [created, ...prev]);
+        setToast(`Недоступний: ${dayLabel}, ${lesson} пара`, "success");
+      } else if (existing.is_hard_constraint) {
+        const updated = await api.constraints.update(existing.id, { is_hard_constraint: false }, session.access_token);
+        setItems((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
+        setToast(`М’яке побажання (небажано): ${dayLabel}, ${lesson} пара`, "success");
+      } else {
         await api.constraints.remove(existing.id, session.access_token);
         setItems((prev) => prev.filter((i) => i.id !== existing.id));
-        setToast(`Пару розблоковано: ${DAYS.find((d) => d.id === day)?.name}, ${lesson} пара`, "success");
-      } else {
-        const created = await api.constraints.create(Number(teacherId), day, lesson, session.access_token);
-        setItems((prev) => [created, ...prev]);
-        setToast(`Обмеження додано: ${DAYS.find((d) => d.id === day)?.name}, ${lesson} пара`, "success");
+        setToast(`Пару розблоковано: ${dayLabel}, ${lesson} пара`, "success");
       }
     } catch (err: any) {
       setToast(err.message || "Помилка оновлення обмеження", "error");
@@ -120,7 +125,7 @@ export function ConstraintsPanel() {
         // Add constraints for all free lessons in this day
         const toAdd = LESSON_NUMBERS.filter((l) => !teacherConstraintsMap.has(`${day}_${l}`));
         const newRecords = await Promise.all(
-          toAdd.map((l) => api.constraints.create(Number(teacherId), day, l, session.access_token))
+          toAdd.map((l) => api.constraints.create(Number(teacherId), day, l, session.access_token, true))
         );
         setItems((prev) => [...newRecords, ...prev]);
         setToast(`Методичний день: заблоковано весь ${DAYS.find((d) => d.id === day)?.name}`, "success");
@@ -148,13 +153,15 @@ export function ConstraintsPanel() {
   }
 
   const blockedCount = teacherConstraintsMap.size;
+  const hardCount = Array.from(teacherConstraintsMap.values()).filter((c) => c.is_hard_constraint).length;
+  const softCount = blockedCount - hardCount;
 
   return (
     <>
       <PageHeader
         eyebrow="АВТОМАТИЗАЦІЯ"
         title="Доступність викладачів"
-        description="Інтерактивна матриця щотижневої зайнятості. Клікніть по комірці, щоб позначити пару недоступною. Клікніть по заголовку дня тижня, щоб заблокувати весь день (методичний день)."
+        description="Інтерактивна матриця щотижневої зайнятості. 1 клік — недоступний (жорстко), 2 кліки — небажано (м’яке побажання), 3 кліки — вільний. Клік по заголовку дня блокує весь день."
       />
 
       {/* Top Bar: Teacher Picker & Quick Status */}
@@ -173,18 +180,26 @@ export function ConstraintsPanel() {
           />
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2 rounded-xl border border-sys-border bg-sys-card px-3.5 py-2 text-xs">
-            <span className="text-sys-text-secondary">Заблоковано пар:</span>
+            <span className="text-sys-text-secondary">Недоступні:</span>
             <span
               className={`font-bold px-2 py-0.5 rounded-full ${
-                blockedCount > 0
+                hardCount > 0
                   ? "bg-rose-500/15 text-rose-600 dark:text-rose-300 border border-rose-500/30"
                   : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
               }`}
             >
-              {blockedCount} з {DAYS.length * LESSON_NUMBERS.length}
+              {hardCount}
             </span>
+            {softCount > 0 && (
+              <>
+                <span className="text-sys-text-secondary ml-1">Небажані:</span>
+                <span className="font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-300 border border-amber-500/30">
+                  {softCount}
+                </span>
+              </>
+            )}
           </div>
 
           {blockedCount > 0 && (
@@ -249,7 +264,9 @@ export function ConstraintsPanel() {
                     {/* 5 Day Cells */}
                     {DAYS.map((d) => {
                       const key = `${d.id}_${lesson}`;
-                      const isBlocked = teacherConstraintsMap.has(key);
+                      const constraint = teacherConstraintsMap.get(key);
+                      const isHard = constraint?.is_hard_constraint === true;
+                      const isSoft = constraint !== undefined && !constraint.is_hard_constraint;
                       const isToggling = togglingCell === key;
 
                       return (
@@ -259,17 +276,24 @@ export function ConstraintsPanel() {
                           disabled={isToggling}
                           onClick={() => void toggleCell(d.id, lesson)}
                           className={`relative flex flex-col items-center justify-center h-16 rounded-xl border p-2 transition-all active:scale-[0.97] focus:outline-none focus:ring-2 focus:ring-sys-accent ${
-                            isBlocked
+                            isHard
                               ? "border-rose-500/50 bg-rose-500/10 text-rose-600 dark:text-rose-300 shadow-inner hover:bg-rose-500/20"
+                              : isSoft
+                              ? "border-amber-500/50 bg-amber-500/10 text-amber-600 dark:text-amber-300 shadow-inner hover:bg-amber-500/20"
                               : "border-sys-border bg-sys-bg/60 text-sys-text-muted hover:border-sys-accent/60 hover:bg-sys-bg hover:text-sys-text-primary"
                           }`}
                         >
                           {isToggling ? (
                             <span className="text-xs text-sys-text-muted animate-pulse">…</span>
-                          ) : isBlocked ? (
+                          ) : isHard ? (
                             <>
                               <span className="text-sm">⛔</span>
                               <span className="text-[11px] font-bold text-rose-400 mt-0.5">Недоступний</span>
+                            </>
+                          ) : isSoft ? (
+                            <>
+                              <span className="text-sm">⚠️</span>
+                              <span className="text-[11px] font-bold text-amber-400 mt-0.5">Небажано</span>
                             </>
                           ) : (
                             <>
@@ -286,14 +310,18 @@ export function ConstraintsPanel() {
           </div>
 
           {/* Helper Legend */}
-          <div className="flex items-center gap-6 px-2 text-xs text-sys-text-secondary">
+          <div className="flex flex-wrap items-center gap-6 px-2 text-xs text-sys-text-secondary">
             <div className="flex items-center gap-2">
               <span className="flex h-3.5 w-3.5 rounded-md border border-sys-border bg-sys-bg/60" />
               <span>Вільний для призначення</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="flex h-3.5 w-3.5 rounded-md border border-rose-500/50 bg-rose-500/15" />
-              <span>Недоступний (генератор не призначить пару)</span>
+              <span>Недоступний (жорстка заборона)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="flex h-3.5 w-3.5 rounded-md border border-amber-500/50 bg-amber-500/15" />
+              <span>Небажано (м’яке побажання — генератор уникає за можливості)</span>
             </div>
           </div>
         </div>

@@ -25,6 +25,34 @@ DEFAULT_SOLVE_TIME_SECONDS = 600
 FEASIBILITY_TIME_FRACTION = 0.9
 FEASIBILITY_RESTARTS = 2
 FIRST_ATTEMPT_TIME_FRACTION = 0.8
+# Upper bound for the preference-optimisation phase when callers do not
+# specify one explicitly (kept small for backwards-compatible behaviour).
+DEFAULT_OPTIMIZATION_SECONDS = 8.0
+
+
+@dataclass(frozen=True)
+class SolverWeights:
+    """Penalty weights of the soft criteria (0 disables a criterion).
+
+    Defaults reproduce the historically hard-coded values. The dataclass is
+    module-level and frozen, so it pickles cleanly into the solver subprocess.
+    """
+
+    teacher_windows: int = 100            # «вікно» викладача між двома парами
+    late_start: int = 50                  # день групи починається з 2-ї пари
+    three_consecutive_days: int = 2_000   # предмет три дні поспіль
+    subject_week_balance: int = 10_000    # дисбаланс предмета чисельник/знаменник
+    group_week_balance: int = 100_000     # дисбаланс навантаження групи по тижнях
+    soft_teacher_constraints: int = 500   # пара в небажаний для викладача слот
+
+    @classmethod
+    def coerce(cls, value: "SolverWeights | dict | None") -> "SolverWeights":
+        if value is None:
+            return cls()
+        if isinstance(value, cls):
+            return value
+        known = {name: max(0, int(value[name])) for name in cls.__dataclass_fields__ if name in value}
+        return cls(**known)
 
 
 def _cgroup_cpu_quota() -> float | None:
@@ -76,6 +104,7 @@ def _schedule_hint_assignments(
     curriculums: Iterable,
     path: str | os.PathLike[str] | None = None,
     extra_hints: Iterable[tuple[int, int, int]] | None = None,
+    read_files: bool = True,
 ) -> set[tuple[int, int, int]]:
     """Read optional ``schedule.json`` hints without making them a dependency."""
     by_id = {c.id: c for c in curriculums}
@@ -88,6 +117,8 @@ def _schedule_hint_assignments(
                     result.add((c_id, day, slot))
             except (IndexError, TypeError, ValueError):
                 continue
+    if not read_files:
+        return result
     candidates = [Path(path)] if path else [
         Path(os.environ["SCHEDULE_HINT_PATH"]) if os.environ.get("SCHEDULE_HINT_PATH") else None,
         Path.cwd() / "schedule.json",
@@ -203,7 +234,11 @@ def _is_curator_hour(c) -> bool:
     )
 
 
-def precheck(curriculums: Iterable, constraints: Iterable = ()) -> list[str]:
+def precheck(
+    curriculums: Iterable,
+    constraints: Iterable = (),
+    teacher_names: dict[int, str] | None = None,
+) -> list[str]:
     """Швидка перевірка навантаження ДО запуску солвера.
 
     Повертає список зрозумілих причин, через які розклад гарантовано неможливий.
@@ -326,7 +361,8 @@ def precheck(curriculums: Iterable, constraints: Iterable = ()) -> list[str]:
     for k in constraints:
         if not getattr(k, "is_hard_constraint", True):
             continue
-        blocked.setdefault(k.teacher_id, set()).add((k.day_of_week, k.lesson_number))
+        for slot_idx in constraint_slot_indices(k):
+            blocked.setdefault(k.teacher_id, set()).add((k.day_of_week, slot_idx + 1))
     # Thursday's fourth slot is reserved for curator hour in both weeks.
     curator_ids = {
         group.curator_id
@@ -347,10 +383,22 @@ def precheck(curriculums: Iterable, constraints: Iterable = ()) -> list[str]:
     for t, n in sorted(load.items()):
         free = DAY_IDXS * SLOTS - 2 * len(blocked.get(t, ()))
         if n > free:
+            name = (teacher_names or {}).get(t)
+            label = f"«{name}»" if name else f"id={t}"
             problems.append(
-                f"викладач id={t}: {n} пар/2 тижні, але вільних слотів лише {free} — перевантаження на {n - free}"
+                f"викладач {label}: {n} пар/2 тижні, але вільних слотів лише {free} — перевантаження на {n - free}"
             )
     return problems
+
+
+def constraint_slot_indices(constraint) -> list[int]:
+    """0-based slots covered by a teacher constraint (no lesson = whole day)."""
+    lesson = getattr(constraint, "lesson_number", None)
+    if lesson is None:
+        return list(range(SLOTS))
+    if 1 <= int(lesson) <= SLOTS:
+        return [int(lesson) - 1]
+    return []
 
 
 def solve(
@@ -362,9 +410,17 @@ def solve(
     seed: int | None = None,
     hint_path: str | os.PathLike[str] | None = None,
     hints: Iterable[tuple[int, int, int]] | None = None,
+    *,
+    weights: SolverWeights | dict | None = None,
+    optimization_time_seconds: float | None = None,
+    use_file_hints: bool = True,
 ) -> SolveResult:
     use_default_patterns = patterns is None
     patterns = VALID_PATTERNS if patterns is None else patterns
+    weights = SolverWeights.coerce(weights)
+    explicit_optimization_budget = optimization_time_seconds is not None
+    if optimization_time_seconds is None:
+        optimization_time_seconds = DEFAULT_OPTIMIZATION_SECONDS
 
     # Avoid spending the entire search limit proving simple load contradictions.
     if patterns is VALID_PATTERNS:
@@ -374,13 +430,21 @@ def solve(
 
     # (teacher_id, day_idx, slot_idx) недоступності. Обмеження діє в обидва тижні.
     invalid_teacher_slots: set[tuple[int, int, int]] = set()
+    # Небажані (м'які) слоти викладачів — штрафуються на етапі оптимізації.
+    soft_teacher_slots: set[tuple[int, int, int]] = set()
     for c in constraints:
-        if not getattr(c, "is_hard_constraint", True):
-            continue
+        target = (
+            invalid_teacher_slots
+            if getattr(c, "is_hard_constraint", True)
+            else soft_teacher_slots
+        )
         dow_idx = c.day_of_week - 1
-        slot_idx = c.lesson_number - 1
-        invalid_teacher_slots.add((c.teacher_id, dow_idx, slot_idx))
-        invalid_teacher_slots.add((c.teacher_id, dow_idx + DAYS, slot_idx))
+        if not 0 <= dow_idx < DAYS:
+            continue
+        for slot_idx in constraint_slot_indices(c):
+            target.add((c.teacher_id, dow_idx, slot_idx))
+            target.add((c.teacher_id, dow_idx + DAYS, slot_idx))
+    soft_teacher_slots -= invalid_teacher_slots
 
     # Thursday, period 4 is reserved in both weeks. Curriculum lessons cannot
     # occupy it, and each group's curator is unavailable to teach elsewhere.
@@ -609,7 +673,8 @@ def solve(
                 model.Add(slots_active[1] == 1)
                 model.Add(slots_active[2] == 1)
                 model.Add(slots_active[0] + slots_active[3] >= 1)
-                day_pattern_penalties.append((1 - slots_active[0]) * 50)
+                if weights.late_start:
+                    day_pattern_penalties.append((1 - slots_active[0]) * weights.late_start)
             else:
                 pattern_vars = []
                 for p_idx, (pat, pen) in enumerate(patterns):
@@ -625,7 +690,9 @@ def solve(
             if d in fixed4[g_id]:
                 model.Add(slots_active[0] == 1)
 
-    hint_assignments = _schedule_hint_assignments(curriculums, hint_path, hints)
+    hint_assignments = _schedule_hint_assignments(
+        curriculums, hint_path, hints, read_files=use_file_hints
+    )
     for key, var in X.items():
         if key in hint_assignments:
             model.AddHint(var, 1)
@@ -642,7 +709,9 @@ def solve(
 
     def add_soft_preference_penalties() -> list:
         soft_penalties = list(day_pattern_penalties)
-        for g_id, group_load, numerator_load, denominator_load in unbalanced_groups:
+        for g_id, group_load, numerator_load, denominator_load in (
+            unbalanced_groups if weights.group_week_balance else ()
+        ):
             week_difference = model.NewIntVar(
                 -group_load,
                 group_load,
@@ -655,9 +724,9 @@ def solve(
             )
             model.Add(week_difference == numerator_load - denominator_load)
             model.AddAbsEquality(week_imbalance, week_difference)
-            soft_penalties.append(week_imbalance * 100_000)
+            soft_penalties.append(week_imbalance * weights.group_week_balance)
 
-        for c, w1, w2 in unbalanced_curriculums:
+        for c, w1, w2 in (unbalanced_curriculums if weights.subject_week_balance else ()):
             week_difference = model.NewIntVar(
                 -c.pairs_per_2_weeks,
                 c.pairs_per_2_weeks,
@@ -670,9 +739,9 @@ def solve(
             )
             model.Add(week_difference == w1 - w2)
             model.AddAbsEquality(week_imbalance, week_difference)
-            soft_penalties.append(week_imbalance * 10_000)
+            soft_penalties.append(week_imbalance * weights.subject_week_balance)
 
-        for c in curriculums:
+        for c in (curriculums if weights.three_consecutive_days else ()):
             for week in range(WEEKS):
                 week_start = week * DAYS
                 daily_active = []
@@ -695,11 +764,19 @@ def solve(
                     model.AddBoolOr(
                         [day.Not() for day in daily_active[first_day:first_day + 3]]
                     ).OnlyEnforceIf(three_consecutive_days.Not())
-                    soft_penalties.append(three_consecutive_days * 2_000)
+                    soft_penalties.append(
+                        three_consecutive_days * weights.three_consecutive_days
+                    )
+
+        # Небажані слоти викладачів: кожна пара в такому слоті — штраф.
+        if weights.soft_teacher_constraints:
+            for teacher_id, d, s in sorted(soft_teacher_slots):
+                for var in teacher_slot_vars.get((teacher_id, d, s), ()):
+                    soft_penalties.append(var * weights.soft_teacher_constraints)
 
         # Teacher gaps are preferences, not hard constraints. Stream copies are
         # counted once because they use one teacher slot.
-        for teacher_id in teacher_curriculums:
+        for teacher_id in (teacher_curriculums if weights.teacher_windows else ()):
             for d in range(DAY_IDXS):
                 active = []
                 for s in range(SLOTS):
@@ -715,7 +792,7 @@ def solve(
                     model.Add(
                         window >= active[first] + active[first + 2] - active[first + 1] - 1
                     )
-                    soft_penalties.append(window * 100)
+                    soft_penalties.append(window * weights.teacher_windows)
         return soft_penalties
 
     def result_from(instance: cp_model.CpSolver, status: int, *, optimized: bool) -> SolveResult:
@@ -758,8 +835,11 @@ def solve(
             return SolveResult(status=feasibility_solver.StatusName(status))
 
     if feasible_result is not None:
-        remaining = max_time_in_seconds - (time.monotonic() - started_at)
-        opt_budget = min(remaining, 8.0)
+        if explicit_optimization_budget:
+            opt_budget = float(optimization_time_seconds)
+        else:
+            remaining = max_time_in_seconds - (time.monotonic() - started_at)
+            opt_budget = min(remaining, DEFAULT_OPTIMIZATION_SECONDS)
         if opt_budget > 0.05:
             penalties = add_soft_preference_penalties()
             if penalties:

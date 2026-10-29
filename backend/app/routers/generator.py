@@ -1,7 +1,8 @@
 from app.core.time import today_local, now_local
 from concurrent.futures import ProcessPoolExecutor
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import datetime
+from functools import partial
 import asyncio
 import hashlib
 import json
@@ -10,17 +11,24 @@ import multiprocessing
 import os
 import time
 import ortools
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload, joinedload
 
 from app.database import async_session_factory, get_db
-from app.models import Curriculum, TeacherConstraint, ScheduleDraft, ScheduleSlot, Schedule
+from app.models import Curriculum, TeacherConstraint, ScheduleDraft, ScheduleSlot, Schedule, Teacher
 from app.models.entities import User
 from app.schemas.constraint import ScheduleDraftResponse
 from app.core.security import require_roles
 from app.services import solver
+from app.services.generator_settings import (
+    GeneratorRunOptions,
+    GeneratorSettings,
+    apply_overrides,
+    get_generator_settings,
+    save_generator_settings,
+)
 
 router = APIRouter(prefix="/generator", tags=["Generator"])
 logger = logging.getLogger(__name__)
@@ -240,13 +248,24 @@ def _solver_input_diagnostics(curriculums, constraints) -> dict[str, int | str]:
 _generation_lock = asyncio.Lock()
 
 
+def _solver_kwargs(settings: GeneratorSettings) -> dict:
+    return {
+        "weights": settings.priorities.to_weights(),
+        "optimization_time_seconds": settings.optimization_time_seconds,
+        "use_file_hints": settings.hint_mode == "previous",
+    }
+
+
 async def _run_solver(
     curriculums: list,
     constraints: list,
     max_time_in_seconds: int,
     workers: int,
     hints: list[tuple[int, int, int]],
+    settings: GeneratorSettings | None = None,
 ) -> solver.SolveResult:
+    settings = settings or GeneratorSettings()
+    solver_kwargs = _solver_kwargs(settings)
     use_subprocess = (
         solver.solve is _DEFAULT_SOLVE
         and "PYTEST_CURRENT_TEST" not in os.environ
@@ -257,15 +276,15 @@ async def _run_solver(
             loop = asyncio.get_running_loop()
             return await loop.run_in_executor(
                 _get_solver_pool(),
-                solver.solve,
-                curr_snapshots,
-                cons_snapshots,
-                max_time_in_seconds,
-                workers,
-                None,
-                None,
-                None,
-                hints,
+                partial(
+                    solver.solve,
+                    curr_snapshots,
+                    cons_snapshots,
+                    max_time_in_seconds,
+                    workers,
+                    hints=hints,
+                    **solver_kwargs,
+                ),
             )
         except Exception:
             global _solver_pool
@@ -273,13 +292,34 @@ async def _run_solver(
             logger.warning("Subprocess solver failed; falling back to thread", exc_info=True)
 
     return await asyncio.to_thread(
-        solver.solve,
-        curriculums,
-        constraints,
-        max_time_in_seconds,
-        workers,
-        hints=hints,
+        partial(
+            solver.solve,
+            curriculums,
+            constraints,
+            max_time_in_seconds,
+            workers,
+            hints=hints,
+            **solver_kwargs,
+        )
     )
+
+
+def _generation_summary(
+    settings: GeneratorSettings,
+    *,
+    status: str,
+    elapsed: float,
+    objective: float | None = None,
+    hints_used: int = 0,
+) -> dict:
+    return {
+        "settings": settings.model_dump(),
+        "weights": asdict(settings.priorities.to_weights()),
+        "status": status,
+        "objective": objective,
+        "elapsed_seconds": round(elapsed, 1),
+        "hints_used": hints_used,
+    }
 
 
 async def _complete_generation(
@@ -288,7 +328,11 @@ async def _complete_generation(
     constraints: list,
     max_time_in_seconds: int,
     hints: list[tuple[int, int, int]] | None = None,
+    settings: GeneratorSettings | None = None,
 ) -> None:
+    settings = settings or GeneratorSettings().model_copy(
+        update={"max_time_seconds": max_time_in_seconds}
+    )
     diagnostics = _solver_input_diagnostics(curriculums, constraints)
     solve_started = time.monotonic()
     workers = solver.selected_worker_count()
@@ -300,11 +344,21 @@ async def _complete_generation(
                 max_time_in_seconds,
                 workers,
                 hints or [],
+                settings,
             )
+        elapsed = time.monotonic() - solve_started
+        summary = _generation_summary(
+            settings,
+            status=result.status,
+            elapsed=elapsed,
+            objective=result.objective,
+            hints_used=len(hints or []),
+        )
         async with async_session_factory() as db:
             draft = await db.get(ScheduleDraft, draft_id)
             if draft is None:
                 return
+            draft.data = {**(draft.data or {}), "generation": summary}
             if not result.ok:
                 draft.status = result.status
                 logger.warning(
@@ -315,7 +369,7 @@ async def _complete_generation(
                     diagnostics["groups"],
                     diagnostics["teacher_constraints"],
                     diagnostics["fingerprint"],
-                    time.monotonic() - solve_started,
+                    elapsed,
                     workers,
                     ortools.__version__,
                 )
@@ -347,10 +401,28 @@ async def _complete_generation(
                 await db.commit()
 
 
+@router.get("/settings", response_model=GeneratorSettings)
+async def read_generator_settings(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_roles("admin", "editor")),
+):
+    return await get_generator_settings(db)
+
+
+@router.put("/settings", response_model=GeneratorSettings)
+async def update_generator_settings(
+    payload: GeneratorSettings,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_roles("admin")),
+):
+    return await save_generator_settings(db, payload)
+
+
 @router.post("", response_model=ScheduleDraftResponse, status_code=202)
 async def generate_schedule(
     background_tasks: BackgroundTasks,
-    max_time_in_seconds: int = Query(default=solver.DEFAULT_SOLVE_TIME_SECONDS, gt=0),
+    max_time_in_seconds: int | None = Query(default=None, gt=0),
+    options: GeneratorRunOptions | None = Body(default=None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_roles("admin", "editor"))
 ):
@@ -363,6 +435,11 @@ async def generate_schedule(
         )
         if existing_generating is not None:
             return existing_generating
+
+    # Saved global settings → per-run overrides → legacy query parameter.
+    run_settings = apply_overrides(await get_generator_settings(db), options)
+    if max_time_in_seconds is not None and (options is None or options.max_time_seconds is None):
+        run_settings = run_settings.model_copy(update={"max_time_seconds": max_time_in_seconds})
 
     query = select(Curriculum).options(
         joinedload(Curriculum.group),
@@ -383,19 +460,30 @@ async def generate_schedule(
 
     # Вимоги до розкладу: кожен день групи має містити 3 або 4 пари,
     # без вікон. Вільні дні та вікна викладачів дозволені.
-    problems = solver.precheck(curriculums, constraints)
+    teacher_ids = {
+        t for c in curriculums for t in (c.teacher_id, c.second_teacher_id) if t
+    }
+    teacher_names = dict(
+        (await db.execute(select(Teacher.id, Teacher.name).where(Teacher.id.in_(teacher_ids)))).all()
+    ) if teacher_ids else {}
+    problems = solver.precheck(curriculums, constraints, teacher_names)
     if problems:
         raise HTTPException(
             status_code=400,
             detail="Неможливо скласти розклад за заданими вимогами: " + "; ".join(problems),
         )
 
-    hints = await _load_db_hints(db, curriculums)
+    hints = await _load_db_hints(db, curriculums) if run_settings.hint_mode == "previous" else []
 
     draft = ScheduleDraft(
         name=f"Генерація від {now_local().strftime('%d.%m %H:%M')}",
         draft_type="generated",
         status="GENERATING",
+        data={
+            "generation": _generation_summary(
+                run_settings, status="GENERATING", elapsed=0.0, hints_used=len(hints)
+            )
+        },
     )
     db.add(draft)
     await db.commit()
@@ -405,8 +493,8 @@ async def generate_schedule(
         draft.id,
         list(curriculums),
         list(constraints),
-        max_time_in_seconds,
+        run_settings.max_time_seconds,
         hints,
+        run_settings,
     )
     return draft
-

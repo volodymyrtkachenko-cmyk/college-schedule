@@ -53,6 +53,26 @@ async def create_constraint(
     res = await db.execute(query)
     return res.scalars().first()
 
+@router.patch("/{id}", response_model=TeacherConstraintResponse)
+async def update_constraint(
+    id: int,
+    payload: TeacherConstraintUpdate,
+    db: AsyncSession = Depends(get_db),
+    admin=Depends(require_roles("admin"))
+):
+    db_item = await db.get(TeacherConstraint, id)
+    if not db_item:
+        raise HTTPException(status_code=404, detail="Обмеження не знайдено")
+    if payload.is_hard_constraint is not None:
+        db_item.is_hard_constraint = payload.is_hard_constraint
+    await db.commit()
+    res = await db.execute(
+        select(TeacherConstraint)
+        .options(selectinload(TeacherConstraint.teacher))
+        .where(TeacherConstraint.id == id)
+    )
+    return res.scalars().first()
+
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_constraint(
     id: int,

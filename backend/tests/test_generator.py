@@ -590,3 +590,171 @@ async def test_delete_generated_draft_also_removes_its_slots(gen_client):
             select(ScheduleSlot).where(ScheduleSlot.draft_id == draft_id)
         )).all()
     assert slots == []
+
+
+def test_soft_teacher_constraints_are_avoided_when_feasible():
+    curr = [
+        NS(
+            id=1,
+            group_id=1,
+            teacher_id=1,
+            second_teacher_id=None,
+            is_stream=False,
+            stream_id=None,
+            pairs_per_2_weeks=30,
+            is_fixed=False,
+            strict_day=None,
+            strict_lesson=None,
+            require_week=None,
+            allow_multiple_per_day=True,
+        )
+    ]
+    # Mark every 4th period as soft-undesirable for teacher 1; since the group
+    # only needs 30 pairs across 10 days, the solver can place 3 lessons per day
+    # (slots 1..3) and avoid slot 4 completely.
+    soft_cons = [
+        NS(teacher_id=1, day_of_week=d, lesson_number=4, is_hard_constraint=False)
+        for d in range(1, 6)
+    ]
+    result = S.solve(
+        curr,
+        soft_cons,
+        max_time_in_seconds=5,
+        num_workers=2,
+        optimization_time_seconds=2.0,
+        use_file_hints=False,
+    )
+    assert result.ok, result.status
+    assert not any(slot == 3 for _cid, _day, slot in result.assignments)
+
+
+def test_solver_weights_can_disable_criteria():
+    from app.services.generator_settings import GeneratorPriorities
+
+    priorities = GeneratorPriorities(
+        teacher_windows=0,
+        late_start=4,
+        three_consecutive_days=1,
+        subject_week_balance=2,
+        group_week_balance=3,
+        soft_teacher_constraints=0,
+    )
+    weights = priorities.to_weights()
+    assert weights.teacher_windows == 0
+    assert weights.soft_teacher_constraints == 0
+    assert weights.late_start == 50 * 16
+    assert weights.three_consecutive_days == 500
+    assert weights.subject_week_balance == 10_000
+    assert weights.group_week_balance == 400_000
+
+
+def test_precheck_includes_teacher_name_when_provided():
+    curr = [
+        NS(
+            id=i,
+            group_id=i,
+            teacher_id=7,
+            second_teacher_id=None,
+            is_stream=False,
+            stream_id=None,
+            pairs_per_2_weeks=20,
+            is_fixed=False,
+            strict_day=None,
+            strict_lesson=None,
+        )
+        for i in (1, 2, 3)
+    ]
+    problems = S.precheck(curr, (), {7: "Іваненко І.І."})
+    assert any("Іваненко І.І." in m for m in problems)
+
+
+@pytest.mark.anyio
+async def test_generator_settings_roundtrip_and_per_run_override(gen_client, monkeypatch):
+    client, headers, sessions, fac = gen_client
+    await _seed(sessions, fac, [("G1", 32)])
+
+    # 1. Default settings returned when nothing saved yet
+    get_resp = await client.get("/api/generator/settings", headers=headers)
+    assert get_resp.status_code == 200
+    defaults = get_resp.json()
+    assert defaults["max_time_seconds"] == 600
+    assert defaults["optimization_time_seconds"] == 60
+    assert defaults["hint_mode"] == "previous"
+    assert defaults["priorities"]["teacher_windows"] == 2
+
+    # 2. Save custom global settings
+    updated_payload = {
+        "max_time_seconds": 300,
+        "optimization_time_seconds": 45,
+        "hint_mode": "fresh",
+        "priorities": {
+            "teacher_windows": 4,
+            "late_start": 3,
+            "three_consecutive_days": 1,
+            "subject_week_balance": 2,
+            "group_week_balance": 2,
+            "soft_teacher_constraints": 3,
+        },
+    }
+    put_resp = await client.put(
+        "/api/generator/settings", json=updated_payload, headers=headers
+    )
+    assert put_resp.status_code == 200
+    assert put_resp.json() == updated_payload
+
+    captured: dict = {}
+
+    def fake_solve(
+        curriculums,
+        constraints,
+        max_time_in_seconds=600,
+        num_workers=8,
+        patterns=None,
+        seed=None,
+        hint_path=None,
+        hints=None,
+        *,
+        weights=None,
+        optimization_time_seconds=None,
+        use_file_hints=True,
+    ):
+        captured["max_time"] = max_time_in_seconds
+        captured["weights"] = weights
+        captured["opt_time"] = optimization_time_seconds
+        captured["use_file_hints"] = use_file_hints
+        captured["hints"] = list(hints or [])
+        return S.SolveResult(status="OPTIMAL", objective=12.0, assignments=[])
+
+    monkeypatch.setattr(S, "solve", fake_solve)
+
+    # 3. Run generation with a per-run override (without mutating saved settings)
+    run_resp = await client.post(
+        "/api/generator",
+        json={
+            "max_time_seconds": 180,
+            "optimization_time_seconds": 90,
+            "priorities": {"teacher_windows": 0},
+        },
+        headers=headers,
+    )
+    assert run_resp.status_code == 202
+    draft_id = run_resp.json()["id"]
+
+    assert captured["max_time"] == 180
+    assert captured["opt_time"] == 90
+    assert captured["use_file_hints"] is False  # inherited from saved "fresh"
+    assert captured["weights"].teacher_windows == 0
+    assert captured["weights"].late_start == 200  # level 3 from saved settings
+
+    draft_resp = await client.get(f"/api/drafts/{draft_id}", headers=headers)
+    assert draft_resp.status_code == 200
+    gen_meta = draft_resp.json()["generation"]
+    assert gen_meta["status"] == "OPTIMAL"
+    assert gen_meta["settings"]["max_time_seconds"] == 180
+    assert gen_meta["settings"]["optimization_time_seconds"] == 90
+    assert gen_meta["settings"]["hint_mode"] == "fresh"
+
+    # Global settings remain untouched by the per-run override
+    after_resp = await client.get("/api/generator/settings", headers=headers)
+    assert after_resp.json() == updated_payload
+

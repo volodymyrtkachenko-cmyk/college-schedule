@@ -1,5 +1,5 @@
-from pydantic import BaseModel, ConfigDict, Field
-from typing import Optional
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+from typing import Any, Optional
 from .common import DirectoryItem
 from datetime import datetime
 
@@ -29,3 +29,24 @@ class ScheduleDraftResponse(BaseModel):
     draft_type: str
     status: str
     created_at: datetime
+    revision: Optional[int] = None
+    # Settings used and outcome of an automatic generation (generated drafts only).
+    generation: Optional[dict[str, Any]] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _extract_generation(cls, value: Any) -> Any:
+        if isinstance(value, dict):
+            if "generation" not in value and isinstance(value.get("data"), dict):
+                return {**value, "generation": value["data"].get("generation")}
+            return value
+        data = getattr(value, "data", None)
+        return {
+            "id": value.id,
+            "name": value.name,
+            "draft_type": value.draft_type,
+            "status": value.status,
+            "created_at": value.created_at,
+            "revision": getattr(value, "revision", None),
+            "generation": data.get("generation") if isinstance(data, dict) else None,
+        }

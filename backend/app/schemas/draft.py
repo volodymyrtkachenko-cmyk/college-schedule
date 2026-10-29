@@ -1,6 +1,6 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 from datetime import datetime
-from typing import Optional, Literal
+from typing import Any, Optional, Literal
 from .curriculum import CurriculumResponse
 
 class ScheduleDraftResponse(BaseModel):
@@ -13,6 +13,13 @@ class ScheduleDraftResponse(BaseModel):
     revision: int
 
     data: dict | None = None
+    generation: dict[str, Any] | None = None
+
+    @model_validator(mode="after")
+    def _populate_generation(self):
+        if self.generation is None and isinstance(self.data, dict):
+            self.generation = self.data.get("generation")
+        return self
 
 class ScheduleSlotBase(BaseModel):
     day_of_week: int

@@ -874,6 +874,38 @@ export interface DraftSubstitutionRecord {
   second_teacher_id: number | null;
 }
 
+export interface GeneratorPriorities {
+  teacher_windows: number;
+  late_start: number;
+  three_consecutive_days: number;
+  subject_week_balance: number;
+  group_week_balance: number;
+  soft_teacher_constraints: number;
+}
+
+export interface GeneratorSettings {
+  max_time_seconds: number;
+  optimization_time_seconds: number;
+  hint_mode: "previous" | "fresh";
+  priorities: GeneratorPriorities;
+}
+
+export interface GeneratorRunOptions {
+  max_time_seconds?: number;
+  optimization_time_seconds?: number;
+  hint_mode?: "previous" | "fresh";
+  priorities?: Partial<GeneratorPriorities>;
+}
+
+export interface DraftGenerationSummary {
+  settings?: GeneratorSettings;
+  weights?: Record<string, number>;
+  status?: string;
+  objective?: number | null;
+  elapsed_seconds?: number;
+  hints_used?: number;
+}
+
 export interface DraftRecord {
   id: number;
   name: string;
@@ -881,17 +913,40 @@ export interface DraftRecord {
   status: string;
   created_at: string;
   revision: number;
+  generation?: DraftGenerationSummary | null;
 
   data?: {
     substitutions?: ImportSubstitution[];
     cancelled?: ImportCancellation[];
+    generation?: DraftGenerationSummary;
   } | null;
 }
 
 export const apiGenerator = {
-  generate: async (token: string, max_time: number = 600): Promise<DraftRecord> => {
-    return request<DraftRecord>(`/api/generator?max_time_in_seconds=${max_time}`, {
+  getSettings: async (token: string): Promise<GeneratorSettings> => {
+    return request<GeneratorSettings>(`/api/generator/settings`, {}, true, true, token);
+  },
+  updateSettings: async (settings: GeneratorSettings, token: string): Promise<GeneratorSettings> => {
+    return request<GeneratorSettings>(`/api/generator/settings`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(settings),
+    }, true, true, token);
+  },
+  generate: async (
+    token: string,
+    max_time?: number,
+    options?: GeneratorRunOptions,
+  ): Promise<DraftRecord> => {
+    const query = max_time !== undefined ? `?max_time_in_seconds=${max_time}` : "";
+    return request<DraftRecord>(`/api/generator${query}`, {
       method: "POST",
+      ...(options
+        ? {
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(options),
+          }
+        : {}),
     }, true, true, token);
   },
   listDrafts: async (token: string): Promise<DraftRecord[]> => {
@@ -954,11 +1009,33 @@ export const apiConstraints = {
     if (teacherId) url += `?teacher_id=${teacherId}`;
     return request<TeacherConstraintRecord[]>(url, {}, true, true, token);
   },
-  create: async (teacherId: number, day: number, lesson: number, token: string): Promise<TeacherConstraintRecord> => {
+  create: async (
+    teacherId: number,
+    day: number,
+    lesson: number,
+    token: string,
+    isHardConstraint: boolean = true,
+  ): Promise<TeacherConstraintRecord> => {
     return request<TeacherConstraintRecord>(`/api/teacher-constraints/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ teacher_id: teacherId, day_of_week: day, lesson_number: lesson, is_hard_constraint: true })
+      body: JSON.stringify({
+        teacher_id: teacherId,
+        day_of_week: day,
+        lesson_number: lesson,
+        is_hard_constraint: isHardConstraint,
+      })
+    }, true, true, token);
+  },
+  update: async (
+    id: number,
+    data: { is_hard_constraint?: boolean },
+    token: string,
+  ): Promise<TeacherConstraintRecord> => {
+    return request<TeacherConstraintRecord>(`/api/teacher-constraints/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
     }, true, true, token);
   },
   remove: async (id: number, token: string): Promise<void> => {
