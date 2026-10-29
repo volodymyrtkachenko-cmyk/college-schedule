@@ -19,6 +19,15 @@ function formatGroupCount(count: number) {
   return `${count} ${noun}`;
 }
 
+function normalizeSubjectKey(name: string) {
+  return (name || "")
+    .replace(/\*/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase()
+    .replace(/[’ʼ`]/g, "'");
+}
+
 export function CurriculumPanel() {
   const [items, setItems] = useState<CurriculumRecord[]>([]);
   const [groups, setGroups] = useState<ReferenceRecord[]>([]);
@@ -26,6 +35,7 @@ export function CurriculumPanel() {
   const [teachers, setTeachers] = useState<ReferenceRecord[]>([]);
   
   const [loading, setLoading] = useState(true);
+  const [deduplicating, setDeduplicating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   const [searchTerm, setSearchTerm] = useState("");
@@ -60,6 +70,45 @@ export function CurriculumPanel() {
 
   const [filterGroupId, setFilterGroupId] = useState<number | null>(null);
   const [filterTeacherId, setFilterTeacherId] = useState<number | null>(null);
+
+  const duplicateCount = (() => {
+    const seen = new Set<string>();
+    let count = 0;
+    for (const item of items) {
+      const key = `${item.group.id}::${normalizeSubjectKey(item.subject.name)}`;
+      if (seen.has(key) || (item.subject.name || "").includes("*")) {
+        count += 1;
+      }
+      seen.add(key);
+    }
+    return count;
+  })();
+
+  async function handleDeduplicate() {
+    setDeduplicating(true);
+    try {
+      const session = await api.auth.ensureAuthenticated();
+      const res = await api.curriculums.deduplicate(session.access_token);
+      const [curr, s] = await Promise.all([
+        api.curriculums.list(session.access_token),
+        api.directory.subjects(),
+      ]);
+      setItems(curr);
+      setSubjects(s);
+      if (res.removed_curriculums > 0 || res.merged_subjects > 0 || res.renamed_subjects > 0) {
+        setToast(
+          `Очищено дублів навантаження: ${res.removed_curriculums}, об'єднано предметів: ${res.merged_subjects}.`,
+          "success",
+        );
+      } else {
+        setToast("Дублів предметів у навантаженні не знайдено.", "success");
+      }
+    } catch (err: any) {
+      setToast(err.message || "Помилка під час очищення дублів.", "error");
+    } finally {
+      setDeduplicating(false);
+    }
+  }
 
   const filteredItems = items.filter(i => {
     if (filterGroupId !== null && i.group.id !== filterGroupId) return false;
@@ -155,15 +204,27 @@ export function CurriculumPanel() {
         title="Навчальне навантаження"
         description="Розподіл предметів, аудиторних годин та викладачів між групами для розкладу"
         actions={
-          <button
-            onClick={() => {
-              setSelectedGroupIds([]);
-              setEditor({ is_fixed: false, is_stream: false, pairs_per_2_weeks: 2, total_hours: 40 });
-            }}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-sys-accent px-4 py-2 text-sm font-semibold text-white shadow-xs hover:opacity-95 transition-opacity"
-          >
-            + Додати навантаження
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {duplicateCount > 0 && (
+              <button
+                type="button"
+                onClick={handleDeduplicate}
+                disabled={deduplicating}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3.5 py-2 text-sm font-semibold text-amber-300 hover:bg-amber-500/20 disabled:opacity-50 transition-colors"
+              >
+                {deduplicating ? "Очищення…" : `Прибрати дублі предметів (${duplicateCount})`}
+              </button>
+            )}
+            <button
+              onClick={() => {
+                setSelectedGroupIds([]);
+                setEditor({ is_fixed: false, is_stream: false, pairs_per_2_weeks: 2, total_hours: 40 });
+              }}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-sys-accent px-4 py-2 text-sm font-semibold text-white shadow-xs hover:opacity-95 transition-opacity"
+            >
+              + Додати навантаження
+            </button>
+          </div>
         }
       />
 

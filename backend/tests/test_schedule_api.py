@@ -754,6 +754,68 @@ async def test_academic_event_appears_in_schedule_projection(api_client):
     assert exam_lesson["room"] == "301"
 
 
+@pytest.mark.anyio
+async def test_deduplicate_subjects_and_curriculums_removes_asterisk_duplicates(api_client):
+    client, headers, data = api_client
+    async with data["sessions"]() as session:
+        subj_clean = Subject(name="Інформатика", is_active=True)
+        subj_star = Subject(name="Інформатика*", is_active=True)
+        session.add_all([subj_clean, subj_star])
+        await session.flush()
+
+        c1 = Curriculum(
+            group_id=data["group_id"],
+            subject_id=subj_clean.id,
+            teacher_id=data["teacher_id"],
+            pairs_per_2_weeks=2,
+            total_hours=0,
+        )
+        c2 = Curriculum(
+            group_id=data["group_id"],
+            subject_id=subj_star.id,
+            teacher_id=data["teacher_id"],
+            pairs_per_2_weeks=4,
+            total_hours=60,
+        )
+        session.add_all([c1, c2])
+        await session.commit()
+        clean_id = subj_clean.id
+        star_id = subj_star.id
+
+    resp = await client.post("/api/curriculums/deduplicate", headers=headers)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["merged_subjects"] == 1
+    assert body["removed_curriculums"] == 1
+    assert body["affected_groups"] == 1
+
+    curr_list = await client.get(f"/api/curriculums/?group_id={data['group_id']}", headers=headers)
+    assert curr_list.status_code == 200
+    items = [item for item in curr_list.json() if item["subject"]["name"] == "Інформатика"]
+    assert len(items) == 1
+    assert items[0]["pairs_per_2_weeks"] == 4
+    assert items[0]["total_hours"] == 60
+    assert items[0]["subject"]["id"] == clean_id
+
+    async with data["sessions"]() as session:
+        assert await session.get(Subject, star_id) is None
 
 
+@pytest.mark.anyio
+async def test_create_subject_strips_asterisk_and_prevents_canonical_duplicate(api_client):
+    client, headers, data = api_client
+    created = await client.post(
+        "/api/admin/subjects",
+        json={"name": "Комп'ютерна графіка*"},
+        headers=headers,
+    )
+    assert created.status_code == 201
+    assert created.json()["name"] == "Комп'ютерна графіка"
+
+    dup = await client.post(
+        "/api/admin/subjects",
+        json={"name": "комп’ютерна графіка"},
+        headers=headers,
+    )
+    assert dup.status_code == 409
 

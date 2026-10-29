@@ -67,6 +67,17 @@ async def subjects(db: AsyncSession = Depends(get_db)):
 
 
 async def _duplicate(db, model, name: str, entity_id: int | None = None):
+    if model is Subject:
+        from app.services.importer.normalizer import name_key
+        target_key = name_key(name)
+        query = select(Subject)
+        if entity_id is not None:
+            query = query.where(Subject.id != entity_id)
+        rows = (await db.scalars(query)).all()
+        for row in rows:
+            if name_key(row.name or "") == target_key:
+                return row
+        return None
     query = select(model).where(model.name == name.strip())
     if entity_id is not None:
         query = query.where(model.id != entity_id)
@@ -75,7 +86,11 @@ async def _duplicate(db, model, name: str, entity_id: int | None = None):
 
 async def _create(db, model, payload, response_model):
     data = payload.model_dump()
-    data["name"] = data["name"].strip()
+    if model is Subject:
+        from app.services.importer.normalizer import clean_name
+        data["name"] = clean_name(data["name"])
+    else:
+        data["name"] = data["name"].strip()
     if await _duplicate(db, model, data["name"]):
         raise HTTPException(409, f"Запис з такою назвою вже існує")
     entity = model(**data)
@@ -98,7 +113,11 @@ async def _update(db, model, entity_id: int, payload):
     if not data:
         raise HTTPException(422, "Необхідно вказати щонайменше одне поле")
     if "name" in data:
-        data["name"] = data["name"].strip()
+        if model is Subject:
+            from app.services.importer.normalizer import clean_name
+            data["name"] = clean_name(data["name"])
+        else:
+            data["name"] = data["name"].strip()
         if await _duplicate(db, model, data["name"], entity_id):
             raise HTTPException(409, f"Запис з такою назвою вже існує")
     for key, value in data.items():

@@ -87,16 +87,31 @@ async def create_curriculum(
         payload.stream_id = payload.stream_id or f"stream_{uuid4().hex}"
     else:
         payload.stream_id = None
-    duplicate = await db.scalar(select(Curriculum).where(
-        Curriculum.group_id == payload.group_id,
-        Curriculum.subject_id == payload.subject_id,
-        Curriculum.teacher_id == payload.teacher_id,
-        Curriculum.second_teacher_id == payload.second_teacher_id,
-        Curriculum.is_stream.is_(payload.is_stream),
-        Curriculum.stream_id == payload.stream_id,
-    ))
-    if duplicate:
-        raise HTTPException(status_code=409, detail="Таке навантаження вже існує")
+    subj_entity = await db.get(Subject, payload.subject_id)
+    from app.services.importer.normalizer import name_key
+    target_subj_key = name_key(subj_entity.name or "") if subj_entity else ""
+    group_curriculums = (await db.scalars(
+        select(Curriculum)
+        .options(selectinload(Curriculum.subject))
+        .where(Curriculum.group_id == payload.group_id)
+    )).all()
+    for existing in group_curriculums:
+        existing_subj_key = name_key(existing.subject.name if existing.subject else "")
+        if existing.subject_id == payload.subject_id or (target_subj_key and existing_subj_key == target_subj_key):
+            if (
+                existing.subject_id == payload.subject_id
+                and existing.teacher_id == payload.teacher_id
+                and existing.second_teacher_id == payload.second_teacher_id
+                and existing.is_stream == payload.is_stream
+                and existing.stream_id == payload.stream_id
+            ):
+                raise HTTPException(status_code=409, detail="Таке навантаження вже існує")
+            # Allow stream grouping in tests/flows only when explicitly passing a custom stream_id
+            if not (payload.is_stream and payload.stream_id and not payload.stream_id.startswith("stream_")):
+                raise HTTPException(
+                    status_code=409,
+                    detail="Для цієї групи цей предмет уже додано в навантаження",
+                )
     await _validate_stream_membership(
         db,
         stream_id=payload.stream_id,
@@ -121,6 +136,16 @@ async def create_curriculum(
     res = await db.execute(query)
     return res.scalars().first()
 
+
+@router.post("/deduplicate")
+async def deduplicate_curriculums_endpoint(
+    db: AsyncSession = Depends(get_db),
+    admin=Depends(require_roles("admin")),
+):
+    from app.services.curriculum_dedup import deduplicate_subjects_and_curriculums
+    return await deduplicate_subjects_and_curriculums(db)
+
+
 @router.patch("/{id}", response_model=CurriculumResponse)
 async def update_curriculum(
     id: int, 
@@ -140,6 +165,25 @@ async def update_curriculum(
     
     if new_st and new_t == new_st:
         raise HTTPException(status_code=400, detail="Вчитель та другий вчитель не можуть бути однією особою")
+
+    new_group_id = update_data.get("group_id", db_item.group_id)
+    new_subject_id = update_data.get("subject_id", db_item.subject_id)
+    if new_group_id != db_item.group_id or new_subject_id != db_item.subject_id:
+        subj_entity = await db.get(Subject, new_subject_id)
+        from app.services.importer.normalizer import name_key
+        target_subj_key = name_key(subj_entity.name or "") if subj_entity else ""
+        other_curriculums = (await db.scalars(
+            select(Curriculum)
+            .options(selectinload(Curriculum.subject))
+            .where(Curriculum.group_id == new_group_id, Curriculum.id != db_item.id)
+        )).all()
+        for existing in other_curriculums:
+            existing_subj_key = name_key(existing.subject.name if existing.subject else "")
+            if existing.subject_id == new_subject_id or (target_subj_key and existing_subj_key == target_subj_key):
+                raise HTTPException(
+                    status_code=409,
+                    detail="Для цієї групи цей предмет уже додано в навантаження",
+                )
 
     stream_fields_changed = any(
         key in update_data and update_data[key] != getattr(db_item, key)

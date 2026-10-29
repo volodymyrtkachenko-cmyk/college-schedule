@@ -763,6 +763,13 @@ export interface AliasMutation {
     actual_id: number;
 }
 
+export interface CurriculumDeduplicateResult {
+  merged_subjects: number;
+  renamed_subjects: number;
+  removed_curriculums: number;
+  affected_groups: number;
+}
+
 export const apiCurriculums = {
   list: async (token: string, groupId?: number, teacherId?: number): Promise<CurriculumRecord[]> => {
     let url = `/api/curriculums/`;
@@ -790,7 +797,12 @@ export const apiCurriculums = {
     return request<void>(`/api/curriculums/${id}`, {
       method: "DELETE",
     }, true, true, token);
-  }
+  },
+  deduplicate: async (token: string): Promise<CurriculumDeduplicateResult> => {
+    return request<CurriculumDeduplicateResult>(`/api/curriculums/deduplicate`, {
+      method: "POST",
+    }, true, true, token);
+  },
 };
 
 export type SchedulePeriodType = "practice" | "holiday" | "session" | "diploma" | "attestation" | "theory";
