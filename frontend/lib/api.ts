@@ -552,7 +552,7 @@ async function refresh(): Promise<AuthSession> {
 
 async function bootstrap(): Promise<AuthSession> {
     if (logoutPending) throw new AuthSupersededError();
-    if (currentSession && isJwtFresh(currentSession.access_token, 30)) return currentSession;
+    if (currentSession) return currentSession;
     const stored = loadStoredAdminSession();
     if (stored.session && stored.isAccessFresh) {
         accessToken = stored.session.access_token;
@@ -578,10 +578,6 @@ async function getSession(): Promise<AuthSession> {
         const generation = authGeneration;
         const promise = bootstrap().then(async session => {
             assertAuthGeneration(generation);
-            if (session.user) {
-                currentSession = session;
-                return currentSession;
-            }
             const user = await rawRequest<AuthUser>("/api/auth/me", {
                 headers: { Authorization: "Bearer " + session.access_token },
             });
