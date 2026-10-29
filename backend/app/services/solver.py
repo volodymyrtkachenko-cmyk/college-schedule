@@ -717,12 +717,13 @@ def solve(
 
     if feasible_result is not None:
         remaining = max_time_in_seconds - (time.monotonic() - started_at)
-        if penalties and remaining > 0.05:
+        opt_budget = min(remaining, 8.0)
+        if penalties and opt_budget > 0.05:
             selected = set(feasible_result.assignments)
             for key, var in X.items():
                 model.AddHint(var, int(key in selected))
             model.Minimize(sum(penalties))
-            optimizer = new_solver(remaining, None if seed is None else seed + 1)
+            optimizer = new_solver(opt_budget, None if seed is None else seed + 1)
             optimized_status = optimizer.Solve(model)
             if optimized_status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
                 return result_from(optimizer, optimized_status, optimized=True)

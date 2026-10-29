@@ -82,6 +82,10 @@ async def lifespan(_: FastAPI):
                 "UPDATE schedule_drafts SET status = 'archived' "
                 "WHERE draft_type = 'import' AND status = 'pending' AND created_at < NOW() - INTERVAL '12 hours'"
             ))
+            await conn.execute(text(
+                "UPDATE schedule_drafts SET status = 'TIMEOUT' "
+                "WHERE status = 'GENERATING'"
+            ))
         except Exception:
             pass
 

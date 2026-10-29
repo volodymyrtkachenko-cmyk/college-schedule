@@ -47,6 +47,7 @@ class UserResponse(BaseModel):
 
 class TokenResponse(BaseModel):
     access_token: str
+    refresh_token: str | None = None
     token_type: str = "bearer"
     user: UserResponse
 
@@ -88,7 +89,7 @@ async def login(request: Request, payload: LoginRequest, response: Response, db:
     set_refresh_cookie(response, refresh_token)
     return TokenResponse(
         access_token=create_access_token(user),
-        
+        refresh_token=refresh_token,
         user=UserResponse(
             id=user.id, username=user.username, email=user.email, name=user.name, role=user.role, is_active=user.is_active,
             allowed_groups=[g.id for g in user.allowed_groups] if user.allowed_groups else []
@@ -99,10 +100,11 @@ async def login(request: Request, payload: LoginRequest, response: Response, db:
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh(
     response: Response,
+    payload: RefreshRequest | None = None,
     refresh_cookie: str | None = Cookie(default=None, alias=settings.auth_cookie_name),
     db: AsyncSession = Depends(get_db),
 ):
-    token = refresh_cookie
+    token = refresh_cookie or (payload.refresh_token if payload else None)
     if not token:
         raise HTTPException(status_code=401, detail="Потрібна авторизація")
     claims = decode_token(token, "refresh")
@@ -117,19 +119,26 @@ async def refresh(
     if user is None or not user.is_active:
         raise HTTPException(status_code=401, detail="Користувач не активний або не існує")
         
+    already_blocked = False
     if jti:
         is_blocked = await db.scalar(select(TokenBlocklist).where(TokenBlocklist.jti == jti))
         if is_blocked:
-            # Replay attack or double-use of refresh token: compromise signal. Revoke entire token family!
-            user.session_version = getattr(user, "session_version", 1) + 1
-            await db.commit()
-            raise HTTPException(status_code=401, detail="Виявлено спробу компрометації. Усі ваші сеанси завершено. Увійдіть знову.")
+            already_blocked = True
+            blocked_at = getattr(is_blocked, "created_at", None)
+            if blocked_at is not None and blocked_at.tzinfo is None:
+                blocked_at = blocked_at.replace(tzinfo=timezone.utc)
+            now_utc = datetime.now(timezone.utc)
+            # Allow a 60-second grace window for page reloads / network retries
+            if blocked_at is None or (now_utc - blocked_at).total_seconds() > 60:
+                user.session_version = getattr(user, "session_version", 1) + 1
+                await db.commit()
+                raise HTTPException(status_code=401, detail="Виявлено спробу компрометації. Усі ваші сеанси завершено. Увійдіть знову.")
 
     if claims.get("session_version") and claims.get("session_version") != getattr(user, "session_version", 1):
         raise HTTPException(status_code=401, detail="Сесія відкликана. Будь ласка, увійдіть знову.")
         
     # Valid refresh token. Consume it by adding to blocklist.
-    if jti:
+    if jti and not already_blocked:
         db.add(TokenBlocklist(jti=jti))
         
     new_refresh = create_refresh_token(user)
@@ -137,10 +146,14 @@ async def refresh(
     await _cleanup_expired_blocklist(db)
     await db.commit()
     
-    return TokenResponse(access_token=create_access_token(user),  user=UserResponse(
+    return TokenResponse(
+        access_token=create_access_token(user),
+        refresh_token=new_refresh,
+        user=UserResponse(
             id=user.id, username=user.username, email=user.email, name=user.name, role=user.role, is_active=user.is_active,
             allowed_groups=[g.id for g in user.allowed_groups] if user.allowed_groups else []
-        ))
+        ),
+    )
 
 
 

@@ -59,6 +59,9 @@ def _solver_input_diagnostics(curriculums, constraints) -> dict[str, int | str]:
     }
 
 
+_generation_lock = asyncio.Lock()
+
+
 async def _complete_generation(
     draft_id: int,
     curriculums: list,
@@ -67,13 +70,17 @@ async def _complete_generation(
 ) -> None:
     diagnostics = _solver_input_diagnostics(curriculums, constraints)
     solve_started = time.monotonic()
+    effective_time = min(max_time_in_seconds, 45)
+    workers = 1 if solver.effective_cpu_count() <= 2 else min(2, solver.effective_cpu_count() - 1)
     try:
-        result = await asyncio.to_thread(
-            solver.solve,
-            curriculums,
-            constraints,
-            max_time_in_seconds,
-        )
+        async with _generation_lock:
+            result = await asyncio.to_thread(
+                solver.solve,
+                curriculums,
+                constraints,
+                effective_time,
+                workers,
+            )
         async with async_session_factory() as db:
             draft = await db.get(ScheduleDraft, draft_id)
             if draft is None:
@@ -89,7 +96,7 @@ async def _complete_generation(
                     diagnostics["teacher_constraints"],
                     diagnostics["fingerprint"],
                     time.monotonic() - solve_started,
-                    solver.selected_worker_count(),
+                    workers,
                     ortools.__version__,
                 )
                 await db.commit()
@@ -121,14 +128,22 @@ async def _complete_generation(
 
 
 @router.post("", response_model=ScheduleDraftResponse, status_code=202)
-
-
 async def generate_schedule(
     background_tasks: BackgroundTasks,
     max_time_in_seconds: int = Query(default=solver.DEFAULT_SOLVE_TIME_SECONDS, gt=0),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_roles("admin", "editor"))
 ):
+    if _generation_lock.locked():
+        existing_generating = await db.scalar(
+            select(ScheduleDraft)
+            .where(ScheduleDraft.status == "GENERATING")
+            .order_by(ScheduleDraft.id.desc())
+            .limit(1)
+        )
+        if existing_generating is not None:
+            return existing_generating
+
     query = select(Curriculum).options(
         joinedload(Curriculum.group),
         joinedload(Curriculum.subject),

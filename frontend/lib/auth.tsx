@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
-import { api, AuthUser, AuthSupersededError } from "./api";
+import { api, ApiError, AuthUser, AuthSupersededError } from "./api";
 
 interface AuthContextValue {
   user: AuthUser | null;
@@ -18,20 +18,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let mounted = true;
-    const hasAdminSession = typeof window !== "undefined" && localStorage.getItem("schedule:has_admin_session") === "1";
+    const cachedUser = api.auth.getCachedUser();
+    const hasAdminSession =
+      typeof window !== "undefined" &&
+      (localStorage.getItem("schedule:has_admin_session") === "1" || Boolean(cachedUser));
     if (!hasAdminSession) {
       setLoading(false);
       return;
     }
+    if (cachedUser) {
+      setUser(cachedUser);
+    }
     const generation = api.auth.generation();
     api.auth.ensureAuthenticated()
       .then((session) => {
-        if (mounted && generation === api.auth.generation() && api.auth.isCurrentSession(session)) setUser(session.user);
+        if (mounted && generation === api.auth.generation() && api.auth.isCurrentSession(session)) {
+          setUser(session.user);
+        }
       })
       .catch((e) => {
         if (mounted && generation === api.auth.generation() && !(e instanceof AuthSupersededError)) {
-          setUser(null);
-          try { localStorage.removeItem("schedule:has_admin_session"); } catch {}
+          const isExplicitUnauthorized = e instanceof ApiError && (e.status === 401 || e.status === 403);
+          if (isExplicitUnauthorized || !cachedUser) {
+            setUser(null);
+            api.auth.clear();
+          }
         }
       })
       .finally(() => {

@@ -223,8 +223,64 @@ export interface AuthUser {
 
 export interface AuthSession {
     access_token: string;
-        token_type: "bearer";
+    refresh_token?: string | null;
+    token_type: "bearer";
     user: AuthUser;
+}
+
+const ADMIN_SESSION_STORAGE_KEY = "schedule:admin_session_data";
+
+function isJwtFresh(token: string | null | undefined, minSecondsRemaining = 60): boolean {
+    if (!token || typeof window === "undefined") return false;
+    try {
+        const parts = token.split(".");
+        if (parts.length !== 3) return false;
+        const payloadJson = atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"));
+        const payload = JSON.parse(payloadJson);
+        if (typeof payload.exp !== "number") return false;
+        return payload.exp * 1000 - Date.now() > minSecondsRemaining * 1000;
+    } catch {
+        return false;
+    }
+}
+
+function loadStoredAdminSession(): { session: AuthSession | null; refreshToken: string | null; isAccessFresh: boolean } {
+    if (typeof window === "undefined") return { session: null, refreshToken: null, isAccessFresh: false };
+    try {
+        const raw = localStorage.getItem(ADMIN_SESSION_STORAGE_KEY);
+        if (!raw) return { session: null, refreshToken: null, isAccessFresh: false };
+        const parsed = JSON.parse(raw) as AuthSession;
+        if (!parsed || !parsed.access_token || !parsed.user) {
+            return { session: null, refreshToken: null, isAccessFresh: false };
+        }
+        return {
+            session: parsed,
+            refreshToken: parsed.refresh_token ?? null,
+            isAccessFresh: isJwtFresh(parsed.access_token, 60),
+        };
+    } catch {
+        return { session: null, refreshToken: null, isAccessFresh: false };
+    }
+}
+
+function saveStoredAdminSession(session: AuthSession, fallbackRefreshToken?: string | null): void {
+    if (typeof window === "undefined") return;
+    try {
+        const toSave: AuthSession = {
+            ...session,
+            refresh_token: session.refresh_token ?? fallbackRefreshToken ?? null,
+        };
+        localStorage.setItem(ADMIN_SESSION_STORAGE_KEY, JSON.stringify(toSave));
+        localStorage.setItem("schedule:has_admin_session", "1");
+    } catch {}
+}
+
+function clearStoredAdminSession(): void {
+    if (typeof window === "undefined") return;
+    try {
+        localStorage.removeItem(ADMIN_SESSION_STORAGE_KEY);
+        localStorage.removeItem("schedule:has_admin_session");
+    } catch {}
 }
 
 export interface LessonMutation {
@@ -470,13 +526,21 @@ async function refresh(): Promise<AuthSession> {
     if (logoutPending) throw new AuthSupersededError();
     if (!refreshPromise) {
         const generation = authGeneration;
+        const stored = loadStoredAdminSession();
         const promise = authHttp(async () => {
             assertAuthGeneration(generation);
-            return rawRequest<AuthSession>("/api/auth/refresh", { method: "POST" });
+            const bodyPayload = stored.refreshToken
+                ? JSON.stringify({ refresh_token: stored.refreshToken })
+                : undefined;
+            return rawRequest<AuthSession>("/api/auth/refresh", {
+                method: "POST",
+                ...(bodyPayload ? { body: bodyPayload } : {}),
+            });
         }).then((session) => {
             assertAuthGeneration(generation);
             accessToken = session.access_token;
             currentSession = session;
+            saveStoredAdminSession(session, stored.refreshToken);
             return session;
         }).finally(() => {
             if (refreshPromise === promise) refreshPromise = null;
@@ -488,7 +552,13 @@ async function refresh(): Promise<AuthSession> {
 
 async function bootstrap(): Promise<AuthSession> {
     if (logoutPending) throw new AuthSupersededError();
-    if (currentSession) return currentSession;
+    if (currentSession && isJwtFresh(currentSession.access_token, 30)) return currentSession;
+    const stored = loadStoredAdminSession();
+    if (stored.session && stored.isAccessFresh) {
+        accessToken = stored.session.access_token;
+        currentSession = stored.session;
+        return currentSession;
+    }
     if (!bootstrapPromise) {
         const generation = authGeneration;
         const promise = refresh().then(session => {
@@ -508,11 +578,16 @@ async function getSession(): Promise<AuthSession> {
         const generation = authGeneration;
         const promise = bootstrap().then(async session => {
             assertAuthGeneration(generation);
+            if (session.user) {
+                currentSession = session;
+                return currentSession;
+            }
             const user = await rawRequest<AuthUser>("/api/auth/me", {
                 headers: { Authorization: "Bearer " + session.access_token },
             });
             assertAuthGeneration(generation);
             currentSession = { ...session, user };
+            saveStoredAdminSession(currentSession);
             return currentSession;
         }).finally(() => {
             if (sessionPromise === promise) sessionPromise = null;
@@ -545,7 +620,12 @@ async function request<T>(
                 const session = await refresh();
                 return await request<T>(path, init, false, true, session.access_token);
             } catch (refreshErr) {
-                if (requestGeneration === authGeneration && !(refreshErr instanceof AuthSupersededError)) {
+                if (
+                    requestGeneration === authGeneration &&
+                    !(refreshErr instanceof AuthSupersededError) &&
+                    refreshErr instanceof ApiError &&
+                    (refreshErr.status === 401 || refreshErr.status === 403)
+                ) {
                     api.auth.clear();
                 }
                 throw refreshErr;
@@ -813,7 +893,7 @@ export interface DraftRecord {
 }
 
 export const apiGenerator = {
-  generate: async (token: string, max_time: number = 600): Promise<DraftRecord> => {
+  generate: async (token: string, max_time: number = 45): Promise<DraftRecord> => {
     return request<DraftRecord>(`/api/generator?max_time_in_seconds=${max_time}`, {
       method: "POST",
     }, true, true, token);
@@ -1059,7 +1139,12 @@ export const api = {
             assertAuthGeneration(generation);
             accessToken = session.access_token;
             currentSession = session;
+            saveStoredAdminSession(session);
             return session;
+        },
+        getCachedUser: (): AuthUser | null => {
+            if (currentSession?.user) return currentSession.user;
+            return loadStoredAdminSession().session?.user ?? null;
         },
         refresh, bootstrap, ensureAuthenticated: getSession,
         generation: () => authGeneration,
@@ -1068,6 +1153,7 @@ export const api = {
             advanceAuthGeneration();
             accessToken = null;
             currentSession = null;
+            clearStoredAdminSession();
         },
         logout: async (): Promise<boolean> => {
             if (logoutPending) throw new Error("Вихід уже виконується.");
