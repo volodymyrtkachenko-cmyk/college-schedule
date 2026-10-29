@@ -51,6 +51,8 @@ export function useSchedule(weekAnchorDate: Date, includeCancelled = false) {
   const [week, setWeek] = useState<ScheduleResponse[]>([]);
   const [semesterStart, setSemesterStart] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isSlowNetwork, setIsSlowNetwork] = useState(false);
+  const [isUsingFallbackCache, setIsUsingFallbackCache] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -85,6 +87,11 @@ export function useSchedule(weekAnchorDate: Date, includeCancelled = false) {
         window.localStorage.removeItem("schedule:teachers");
       }
     }
+
+    const dirSlowTimer = setTimeout(() => {
+      setLoading(false);
+      setIsSlowNetwork(true);
+    }, 3200);
     
     Promise.all([api.directory.groups(), api.directory.teachers()]).then(([items, ts]) => {
         if (user && user.role === "editor") {
@@ -118,7 +125,10 @@ export function useSchedule(weekAnchorDate: Date, includeCancelled = false) {
       .catch(() => {
         if (!cachedGroups) setError("Не вдалося завантажити список груп. Перевірте підключення до інтернету та спробуйте ще раз.");
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        clearTimeout(dirSlowTimer);
+        setLoading(false);
+      });
   }, []);
 
   const toggleMode = (newMode: "student" | "teacher") => {
@@ -170,6 +180,53 @@ export function useSchedule(weekAnchorDate: Date, includeCancelled = false) {
 
     let isSubscribed = true;
     let prefetchTimer: ReturnType<typeof setTimeout> | null = null;
+    let slowNetworkTimer: ReturnType<typeof setTimeout> | null = null;
+
+    // Пошук останнього збереженого тижня цієї ж групи/викладача в localStorage,
+    // якщо для обраного тижня точного кешу ще немає (щоб пустити користувача при слабкому інтернеті)
+    const findFallbackScheduleFromStorage = (): { today: ScheduleResponse | null; week: ScheduleResponse[] } | null => {
+      try {
+        const prefix = `schedule:week:${targetKey}:`;
+        let bestDate = "";
+        let bestRaw: string | null = null;
+        for (let i = 0; i < window.localStorage.length; i++) {
+          const k = window.localStorage.key(i);
+          if (!k || !k.startsWith(prefix)) continue;
+          const m = k.match(/:(\d{4}-\d{2}-\d{2})(?::all)?$/);
+          const dStr = m?.[1] ?? "";
+          if (dStr >= bestDate) {
+            bestDate = dStr;
+            bestRaw = window.localStorage.getItem(k);
+          }
+        }
+        const cachedTodayRaw = window.localStorage.getItem(todayKey);
+        const parsedToday = cachedTodayRaw ? (JSON.parse(cachedTodayRaw) as ScheduleResponse) : null;
+
+        if (bestRaw) {
+          const parsedWeek = JSON.parse(bestRaw) as ScheduleResponse[];
+          if (Array.isArray(parsedWeek) && parsedWeek.length > 0) {
+            // Проєктуємо дати обраного тижня на основі збережених уроків (без разових переносів іншого тижня)
+            const remappedWeek: ScheduleResponse[] = parsedWeek.map((dayItem, idx) => {
+              const d = new Date(weekAnchorDate);
+              d.setDate(weekAnchorDate.getDate() + idx);
+              const mappedIso = formatDateKey(d);
+              return {
+                ...dayItem,
+                date: mappedIso,
+              };
+            });
+            return {
+              today: parsedToday ?? remappedWeek[0] ?? null,
+              week: remappedWeek,
+            };
+          }
+        }
+        if (parsedToday) {
+          return { today: parsedToday, week: [parsedToday] };
+        }
+      } catch {}
+      return null;
+    };
 
     // 3.2: Фоновий prefetch сусідніх тижнів (← та →) для миттєвого перемикання без скелетонів
     const prefetchAdjacentWeeks = (currentToday: ScheduleResponse) => {
@@ -197,15 +254,18 @@ export function useSchedule(weekAnchorDate: Date, includeCancelled = false) {
 
     const fetchSchedule = (forceNetwork = false) => {
       let hasCachedSchedule = false;
+      if (slowNetworkTimer) clearTimeout(slowNetworkTimer);
 
       // 5.1: Stale-While-Revalidate — спочатку миттєво показуємо дані з memoryCache або localStorage
       const memCached = memoryCache.get(memKey);
       if (memCached) {
         setToday(memCached.today);
         setWeek(memCached.week);
+        setIsUsingFallbackCache(false);
         setLoading(false);
         hasCachedSchedule = true;
         if (!forceNetwork && Date.now() - memCached.time < CACHE_TTL) {
+          setIsSlowNetwork(false);
           return;
         }
       } else {
@@ -215,6 +275,7 @@ export function useSchedule(weekAnchorDate: Date, includeCancelled = false) {
           if (cachedToday && cachedWeek) {
             setToday(JSON.parse(cachedToday) as ScheduleResponse);
             setWeek(JSON.parse(cachedWeek) as ScheduleResponse[]);
+            setIsUsingFallbackCache(false);
             setLoading(false);
             hasCachedSchedule = true;
           }
@@ -225,8 +286,33 @@ export function useSchedule(weekAnchorDate: Date, includeCancelled = false) {
       }
 
       if (!hasCachedSchedule) {
-        setLoading(true);
+        // Якщо для поточного тижня кешу немає, перевіряємо чи є збережений розклад минулих тижнів
+        const fallback = findFallbackScheduleFromStorage();
+        if (fallback) {
+          if (fallback.today) setToday(fallback.today);
+          setWeek(fallback.week);
+          setIsUsingFallbackCache(true);
+          setLoading(false);
+          hasCachedSchedule = true;
+        } else {
+          setLoading(true);
+          // Якщо інтернет слабкий і за 3.2 с відповіді немає — знімаємо блокуючий спінер і пускаємо в інтерфейс
+          slowNetworkTimer = setTimeout(() => {
+            if (!isSubscribed) return;
+            setIsSlowNetwork(true);
+            setLoading(false);
+          }, 3200);
+        }
       }
+
+      // Якщо ми вже показали fallback-кеш, але мережа відповідає повільно (> 2.2 с), показуємо індикатор фонового довантаження
+      if (hasCachedSchedule) {
+        slowNetworkTimer = setTimeout(() => {
+          if (!isSubscribed) return;
+          setIsSlowNetwork(true);
+        }, 2200);
+      }
+
       setError(null);
 
       const nowKyiv = new Date();
@@ -242,6 +328,9 @@ export function useSchedule(weekAnchorDate: Date, includeCancelled = false) {
 
           setToday(todayResponse);
           setWeek(weekResponse);
+          setIsUsingFallbackCache(false);
+          setIsSlowNetwork(false);
+          setError(null);
           try {
             window.localStorage.setItem(todayKey, JSON.stringify(todayResponse));
             window.localStorage.setItem(weekKey, JSON.stringify(weekResponse));
@@ -252,11 +341,14 @@ export function useSchedule(weekAnchorDate: Date, includeCancelled = false) {
           prefetchTimer = setTimeout(() => prefetchAdjacentWeeks(todayResponse), 350);
         })
         .catch(() => {
-          if (!hasCachedSchedule && isSubscribed) {
-            setError("Не вдалося завантажити розклад. Перевірте підключення до інтернету та спробуйте ще раз.");
+          if (!isSubscribed) return;
+          setIsSlowNetwork(false);
+          if (!hasCachedSchedule) {
+            setError("Слабке з'єднання з інтернетом. Не вдалося завантажити розклад із сервера.");
           }
         })
         .finally(() => {
+          if (slowNetworkTimer) clearTimeout(slowNetworkTimer);
           if (isSubscribed) setLoading(false);
         });
     };
@@ -277,6 +369,7 @@ export function useSchedule(weekAnchorDate: Date, includeCancelled = false) {
     return () => {
       isSubscribed = false;
       if (prefetchTimer) clearTimeout(prefetchTimer);
+      if (slowNetworkTimer) clearTimeout(slowNetworkTimer);
       window.removeEventListener("visibilitychange", handleVisibility);
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("schedule:refresh", handleScheduleRefresh);
@@ -323,7 +416,7 @@ export function useSchedule(weekAnchorDate: Date, includeCancelled = false) {
   const completeSetup = () => { window.localStorage.setItem("schedule:setupComplete", "1"); setIsSetupComplete(true); };
   const resetSetup = () => { window.localStorage.removeItem("schedule:setupComplete"); setIsSetupComplete(false); };
 
-  return { isSetupComplete, completeSetup, resetSetup, mode, toggleMode, teachers, teacherId, setTeacherId: updateTeacherId, groups, groupId, setGroupId: updateGroupId, today, week, semesterStart, loading, error, setToday, setWeek, updateLesson, removeLesson, addLesson };
+  return { isSetupComplete, completeSetup, resetSetup, mode, toggleMode, teachers, teacherId, setTeacherId: updateTeacherId, groups, groupId, setGroupId: updateGroupId, today, week, semesterStart, loading, isSlowNetwork, isUsingFallbackCache, error, setToday, setWeek, updateLesson, removeLesson, addLesson };
 }
 
 export function useIsStandalonePwa() {

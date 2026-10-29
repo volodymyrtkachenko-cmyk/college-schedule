@@ -52,10 +52,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                 var theme = (stored === 'light' || stored === 'dark') ? stored : (mql.matches ? 'dark' : 'light');
                 document.documentElement.classList.add(theme);
                 document.documentElement.setAttribute('data-theme', theme);
-                var storedAccent = localStorage.getItem('college_accent');
-                if (storedAccent) {
-                  document.documentElement.setAttribute('data-accent', storedAccent);
-                }
+                var storedAccent = localStorage.getItem('college_accent') || 'blue';
+                document.documentElement.setAttribute('data-accent', storedAccent);
               } catch (e) {}
             `,
           }}

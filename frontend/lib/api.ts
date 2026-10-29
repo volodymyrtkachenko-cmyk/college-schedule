@@ -418,10 +418,17 @@ async function rawRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
         headers.set("If-None-Match", cachedEtag.etag);
     }
 
+    const timeoutMs = method === "GET" ? 8500 : 15000;
+    const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+    const timeoutId = controller && !init.signal
+        ? setTimeout(() => controller.abort(), timeoutMs)
+        : null;
+
     try {
         const cacheMode = init.cache ?? (method === "GET" ? "no-cache" : "no-store");
         response = await fetch(`${API_URL}${path}`, {
             ...init,
+            signal: init.signal ?? controller?.signal,
             cache: cacheMode,
             next: { revalidate: 0 }, // Disable Vercel Data Cache completely
             credentials: "include",
@@ -429,6 +436,8 @@ async function rawRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
         });
     } catch {
         throw new ApiError(0, "Не вдалося з’єднатися із сервером. Перевірте підключення до інтернету та спробуйте ще раз.");
+    } finally {
+        if (timeoutId) clearTimeout(timeoutId);
     }
     if (response.status === 304 && cachedEtag) {
         return cachedEtag.data as T;

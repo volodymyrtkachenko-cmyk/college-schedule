@@ -11,16 +11,74 @@ export interface AccentOption {
   id: AccentColor;
   label: string;
   colorHex: string;
+  darkBgHex: string;
+  darkCardHex: string;
+  lightBgHex: string;
+  lightCardHex: string;
   dotBg: string;
 }
 
 export const ACCENT_OPTIONS: AccentOption[] = [
-  { id: "blue", label: "Океан", colorHex: "#3b82f6", dotBg: "bg-blue-500" },
-  { id: "emerald", label: "Смарагд", colorHex: "#10b981", dotBg: "bg-emerald-500" },
-  { id: "violet", label: "Фіолетовий", colorHex: "#a855f7", dotBg: "bg-purple-500" },
-  { id: "amber", label: "Бурштин", colorHex: "#f59e0b", dotBg: "bg-amber-500" },
-  { id: "rose", label: "Троянда", colorHex: "#f43f5e", dotBg: "bg-rose-500" },
-  { id: "cyan", label: "Бірюза", colorHex: "#06b6d4", dotBg: "bg-cyan-500" },
+  {
+    id: "blue",
+    label: "Океан",
+    colorHex: "#3b82f6",
+    darkBgHex: "#080d18",
+    darkCardHex: "#101829",
+    lightBgHex: "#f2f6fd",
+    lightCardHex: "#dbeafe",
+    dotBg: "bg-blue-500",
+  },
+  {
+    id: "emerald",
+    label: "Смарагд",
+    colorHex: "#10b981",
+    darkBgHex: "#06120e",
+    darkCardHex: "#0d1f19",
+    lightBgHex: "#f0faf5",
+    lightCardHex: "#d1fae5",
+    dotBg: "bg-emerald-500",
+  },
+  {
+    id: "violet",
+    label: "Аметист",
+    colorHex: "#a855f7",
+    darkBgHex: "#0e0918",
+    darkCardHex: "#181129",
+    lightBgHex: "#f6f3ff",
+    lightCardHex: "#e9d5ff",
+    dotBg: "bg-purple-500",
+  },
+  {
+    id: "amber",
+    label: "Бурштин",
+    colorHex: "#f59e0b",
+    darkBgHex: "#130e07",
+    darkCardHex: "#21190d",
+    lightBgHex: "#fdf8ee",
+    lightCardHex: "#fee6b2",
+    dotBg: "bg-amber-500",
+  },
+  {
+    id: "rose",
+    label: "Сакура",
+    colorHex: "#f43f5e",
+    darkBgHex: "#14080e",
+    darkCardHex: "#24101a",
+    lightBgHex: "#fdf2f5",
+    lightCardHex: "#fecdd3",
+    dotBg: "bg-rose-500",
+  },
+  {
+    id: "cyan",
+    label: "Лагуна",
+    colorHex: "#06b6d4",
+    darkBgHex: "#061117",
+    darkCardHex: "#0c1e26",
+    lightBgHex: "#eef9fb",
+    lightCardHex: "#cffafe",
+    dotBg: "bg-cyan-500",
+  },
 ];
 
 interface ThemeContextType {
@@ -70,6 +128,14 @@ function getInitialResolvedTheme(): ResolvedTheme {
   }
 }
 
+function syncMetaThemeColor(effectiveTheme: ResolvedTheme, activeAccent: AccentColor) {
+  if (typeof document === "undefined") return;
+  const opt = ACCENT_OPTIONS.find((o) => o.id === activeAccent) ?? ACCENT_OPTIONS[0];
+  const bgHex = effectiveTheme === "dark" ? opt.darkBgHex : opt.lightBgHex;
+  const metas = document.querySelectorAll('meta[name="theme-color"]');
+  metas.forEach((meta) => meta.setAttribute("content", bgHex));
+}
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(getInitialTheme);
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(getInitialResolvedTheme);
@@ -79,6 +145,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setAccentState(newAccent);
     if (typeof document !== "undefined") {
       document.documentElement.setAttribute("data-accent", newAccent);
+      const currentResolved =
+        (document.documentElement.getAttribute("data-theme") as ResolvedTheme) || "dark";
+      syncMetaThemeColor(currentResolved, newAccent);
     }
   }, []);
 
@@ -106,11 +175,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       root.classList.add(effective);
       root.setAttribute("data-theme", effective);
 
-      // Update meta theme-color for mobile browser address bar and PWA
-      const metaThemeColor = document.querySelector('meta[name="theme-color"]');
-      if (metaThemeColor) {
-        metaThemeColor.setAttribute("content", effective === "dark" ? "#0a0d14" : "#f8fafc");
-      }
+      const currentAccent = (root.getAttribute("data-accent") as AccentColor) || getInitialAccent();
+      syncMetaThemeColor(effective, currentAccent);
     }
   }, []);
 

@@ -1117,7 +1117,7 @@ export const LessonCard = memo(function LessonCard({
       : lesson.is_cancelled
         ? "border-rose-500/40 border-dashed bg-rose-500/[0.04] opacity-80"
         : isLive
-          ? "border-sys-accent/60 ring-1 ring-sys-accent/50 bg-gradient-to-r from-sys-accent/[0.08] via-sys-card to-sys-card shadow-[0_0_20px_rgba(56,189,248,0.12)]"
+          ? "border-sys-accent/60 ring-1 ring-sys-accent/50 bg-gradient-to-r from-sys-accent/[0.12] via-sys-card to-sys-card shadow-[0_0_22px_rgb(var(--sys-accent)/0.18)]"
           : eventBadge
             ? eventBadge.cardClass
             : lesson.is_replacement
@@ -1125,8 +1125,8 @@ export const LessonCard = memo(function LessonCard({
               : isSelectedForMove
                 ? "border-emerald-400 ring-1 ring-emerald-400/70"
                 : (!isDay && isTodayTarget)
-                  ? "border-sys-accent/35 bg-sys-accent/[0.03] shadow-[0_0_12px_rgba(59,130,246,0.06)] hover:border-sys-accent/50"
-                  : "border-sys-border hover:border-sys-border/80";
+                  ? "border-sys-accent/40 bg-sys-accent/[0.05] shadow-[0_0_14px_rgb(var(--sys-accent)/0.1)] hover:border-sys-accent/60"
+                  : "border-sys-border hover:border-sys-elevatedBorder";
 
   const renderStatusBadge = (compact = false) => {
     const baseCls = compact

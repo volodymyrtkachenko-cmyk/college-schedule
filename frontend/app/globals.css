@@ -128,77 +128,181 @@ html[data-theme="light"] {
 }
 
 /* ==========================================================================
-   Dynamic Color Accent Overrides (Dark theme)
-   Preserves OLED background, border & surface tokens; overrides accents only.
+   Dynamic Color Theme Palettes (Dark mode)
+   Full palette tinting: page background, cards, surfaces, borders, tabs,
+   inputs, secondary text, and accents all harmonize with the selected theme.
    ========================================================================== */
 :root[data-accent="blue"],
 html.dark[data-accent="blue"],
 html[data-theme="dark"][data-accent="blue"] {
+  --page-bg: #080d18;
+  --bg: #080d18;
+  --surface: #101829;
+  --border: #1d2b45;
+  --border-chip: #283c61;
   --accent: #3b82f6;
   --accent-solid: #2563eb;
+  --sys-bg: 8 13 24;               /* #080d18 Deep Ocean */
+  --sys-card: 16 24 41;            /* #101829 */
+  --sys-surface: 16 24 41;         /* #101829 */
+  --sys-elevated: 23 35 58;        /* #17233a */
+  --sys-elevated-border: 40 60 97; /* #283c61 */
+  --sys-border: 29 43 69;          /* #1d2b45 */
+  --sys-input: 12 19 33;           /* #0c1321 */
+  --sys-tab-active: 25 39 66;      /* #192742 */
   --sys-accent: 59 130 246;
   --sys-accent-solid: 37 99 235;
   --sys-neon: 59 130 246;
+  --sys-text-secondary: 150 172 204;
+  --sys-text-muted: 118 140 173;
 }
 
 :root[data-accent="emerald"],
 html.dark[data-accent="emerald"],
 html[data-theme="dark"][data-accent="emerald"] {
+  --page-bg: #06120e;
+  --bg: #06120e;
+  --surface: #0d1f19;
+  --border: #18382d;
+  --border-chip: #234f40;
   --accent: #34d399;
   --accent-solid: #10b981;
+  --sys-bg: 6 18 14;               /* #06120e Deep Emerald Forest */
+  --sys-card: 13 31 25;            /* #0d1f19 */
+  --sys-surface: 13 31 25;         /* #0d1f19 */
+  --sys-elevated: 19 44 36;        /* #132c24 */
+  --sys-elevated-border: 35 79 64; /* #234f40 */
+  --sys-border: 24 56 45;          /* #18382d */
+  --sys-input: 9 23 18;            /* #091712 */
+  --sys-tab-active: 21 50 40;      /* #153228 */
   --sys-accent: 52 211 153;
   --sys-accent-solid: 16 185 129;
   --sys-neon: 52 211 153;
+  --sys-text-secondary: 152 189 175;
+  --sys-text-muted: 115 156 141;
 }
 
 :root[data-accent="violet"],
 html.dark[data-accent="violet"],
 html[data-theme="dark"][data-accent="violet"] {
+  --page-bg: #0e0918;
+  --bg: #0e0918;
+  --surface: #181129;
+  --border: #2c1f4a;
+  --border-chip: #3f2d69;
   --accent: #c084fc;
-  --accent-solid: #a855f7;
+  --accent-solid: #9333ea;
+  --sys-bg: 14 9 24;               /* #0e0918 Deep Amethyst */
+  --sys-card: 24 17 41;            /* #181129 */
+  --sys-surface: 24 17 41;         /* #181129 */
+  --sys-elevated: 34 24 58;        /* #22183a */
+  --sys-elevated-border: 63 45 105;/* #3f2d69 */
+  --sys-border: 44 31 74;          /* #2c1f4a */
+  --sys-input: 18 12 32;           /* #120c20 */
+  --sys-tab-active: 38 27 66;      /* #261b42 */
   --sys-accent: 192 132 252;
-  --sys-accent-solid: 168 85 247;
+  --sys-accent-solid: 147 51 234;
   --sys-neon: 192 132 252;
+  --sys-text-secondary: 177 162 206;
+  --sys-text-muted: 142 125 176;
 }
 
 :root[data-accent="amber"],
 html.dark[data-accent="amber"],
 html[data-theme="dark"][data-accent="amber"] {
+  --page-bg: #130e07;
+  --bg: #130e07;
+  --surface: #21190d;
+  --border: #3b2c17;
+  --border-chip: #543e21;
   --accent: #fbbf24;
-  --accent-solid: #f59e0b;
+  --accent-solid: #d97706;
+  --sys-bg: 19 14 7;               /* #130e07 Warm Espresso Amber */
+  --sys-card: 33 25 13;            /* #21190d */
+  --sys-surface: 33 25 13;         /* #21190d */
+  --sys-elevated: 46 35 18;        /* #2e2312 */
+  --sys-elevated-border: 84 62 33; /* #543e21 */
+  --sys-border: 59 44 23;          /* #3b2c17 */
+  --sys-input: 25 18 9;            /* #191209 */
+  --sys-tab-active: 52 39 20;      /* #342714 */
   --sys-accent: 251 191 36;
-  --sys-accent-solid: 245 158 11;
+  --sys-accent-solid: 217 119 6;
   --sys-neon: 251 191 36;
+  --sys-text-secondary: 196 178 151;
+  --sys-text-muted: 161 141 112;
 }
 
 :root[data-accent="rose"],
 html.dark[data-accent="rose"],
 html[data-theme="dark"][data-accent="rose"] {
+  --page-bg: #14080e;
+  --bg: #14080e;
+  --surface: #24101a;
+  --border: #401c2e;
+  --border-chip: #5c2842;
   --accent: #fb7185;
-  --accent-solid: #f43f5e;
+  --accent-solid: #e11d48;
+  --sys-bg: 20 8 14;               /* #14080e Deep Ruby Rose */
+  --sys-card: 36 16 26;            /* #24101a */
+  --sys-surface: 36 16 26;         /* #24101a */
+  --sys-elevated: 50 22 36;        /* #321624 */
+  --sys-elevated-border: 92 40 66; /* #5c2842 */
+  --sys-border: 64 28 46;          /* #401c2e */
+  --sys-input: 27 11 19;           /* #1b0b13 */
+  --sys-tab-active: 56 25 41;      /* #381929 */
   --sys-accent: 251 113 133;
-  --sys-accent-solid: 244 63 94;
+  --sys-accent-solid: 225 29 72;
   --sys-neon: 251 113 133;
+  --sys-text-secondary: 201 163 178;
+  --sys-text-muted: 166 124 141;
 }
 
 :root[data-accent="cyan"],
 html.dark[data-accent="cyan"],
 html[data-theme="dark"][data-accent="cyan"] {
+  --page-bg: #061117;
+  --bg: #061117;
+  --surface: #0c1e26;
+  --border: #163645;
+  --border-chip: #204e63;
   --accent: #22d3ee;
-  --accent-solid: #06b6d4;
+  --accent-solid: #0891b2;
+  --sys-bg: 6 17 23;               /* #061117 Deep Lagoon Cyan */
+  --sys-card: 12 30 38;            /* #0c1e26 */
+  --sys-surface: 12 30 38;         /* #0c1e26 */
+  --sys-elevated: 18 43 54;        /* #122b36 */
+  --sys-elevated-border: 32 78 99; /* #204e63 */
+  --sys-border: 22 54 69;          /* #163645 */
+  --sys-input: 9 23 30;            /* #09171e */
+  --sys-tab-active: 20 49 62;      /* #14313e */
   --sys-accent: 34 211 238;
-  --sys-accent-solid: 6 182 212;
+  --sys-accent-solid: 8 145 178;
   --sys-neon: 34 211 238;
+  --sys-text-secondary: 150 186 199;
+  --sys-text-muted: 114 152 166;
 }
 
 /* ==========================================================================
-   Dynamic Color Accent Overrides (Light theme)
-   Deep, saturated hues for WCAG AA (>= 4.5:1) contrast against #ffffff / #f8fafc
+   Dynamic Color Theme Palettes (Light mode)
+   Soft pastel-tinted backgrounds, crisp cards, tinted borders & WCAG AA accents
    ========================================================================== */
 html.light[data-accent="blue"],
 html[data-theme="light"][data-accent="blue"] {
+  --page-bg: #f2f6fd;
+  --bg: #f2f6fd;
+  --surface: #ffffff;
+  --border: #d5e2f6;
+  --border-chip: #b8cef0;
   --accent: #2563eb;
   --accent-solid: #1d4ed8;
+  --sys-bg: 242 246 253;           /* #f2f6fd Soft Ice Blue */
+  --sys-card: 255 255 255;         /* #ffffff */
+  --sys-surface: 248 251 255;      /* #f8fbff */
+  --sys-elevated: 235 243 254;     /* #ebf3fe */
+  --sys-elevated-border: 184 206 240; /* #b8cef0 */
+  --sys-border: 213 226 246;       /* #d5e2f6 */
+  --sys-input: 237 244 253;        /* #edf4fd */
+  --sys-tab-active: 219 234 254;   /* #dbeafe */
   --sys-accent: 37 99 235;
   --sys-accent-solid: 29 78 216;
   --sys-neon: 37 99 235;
@@ -206,8 +310,21 @@ html[data-theme="light"][data-accent="blue"] {
 
 html.light[data-accent="emerald"],
 html[data-theme="light"][data-accent="emerald"] {
+  --page-bg: #f0faf5;
+  --bg: #f0faf5;
+  --surface: #ffffff;
+  --border: #cceadd;
+  --border-chip: #a7dcc5;
   --accent: #059669;
   --accent-solid: #047857;
+  --sys-bg: 240 250 245;           /* #f0faf5 Soft Mint Emerald */
+  --sys-card: 255 255 255;         /* #ffffff */
+  --sys-surface: 247 253 250;      /* #f7fdfa */
+  --sys-elevated: 230 247 238;     /* #e6f7ee */
+  --sys-elevated-border: 167 220 197; /* #a7dcc5 */
+  --sys-border: 204 234 221;       /* #cceadd */
+  --sys-input: 233 247 240;        /* #e9f7f0 */
+  --sys-tab-active: 209 250 229;   /* #d1fae5 */
   --sys-accent: 5 150 105;
   --sys-accent-solid: 4 120 87;
   --sys-neon: 5 150 105;
@@ -215,8 +332,21 @@ html[data-theme="light"][data-accent="emerald"] {
 
 html.light[data-accent="violet"],
 html[data-theme="light"][data-accent="violet"] {
+  --page-bg: #f6f3ff;
+  --bg: #f6f3ff;
+  --surface: #ffffff;
+  --border: #dfd6fa;
+  --border-chip: #c8b8f6;
   --accent: #7c3aed;
   --accent-solid: #6d28d9;
+  --sys-bg: 246 243 255;           /* #f6f3ff Soft Lavender */
+  --sys-card: 255 255 255;         /* #ffffff */
+  --sys-surface: 251 249 255;      /* #fbf9ff */
+  --sys-elevated: 239 233 254;     /* #efe9fe */
+  --sys-elevated-border: 200 184 246; /* #c8b8f6 */
+  --sys-border: 223 214 250;       /* #dfd6fa */
+  --sys-input: 241 236 254;        /* #f1ecfe */
+  --sys-tab-active: 233 213 255;   /* #e9d5ff */
   --sys-accent: 124 58 237;
   --sys-accent-solid: 109 40 217;
   --sys-neon: 124 58 237;
@@ -224,8 +354,21 @@ html[data-theme="light"][data-accent="violet"] {
 
 html.light[data-accent="amber"],
 html[data-theme="light"][data-accent="amber"] {
+  --page-bg: #fdf8ee;
+  --bg: #fdf8ee;
+  --surface: #ffffff;
+  --border: #f3e2c3;
+  --border-chip: #e8cb96;
   --accent: #d97706;
   --accent-solid: #b45309;
+  --sys-bg: 253 248 238;           /* #fdf8ee Warm Cream Amber */
+  --sys-card: 255 255 255;         /* #ffffff */
+  --sys-surface: 255 252 245;      /* #fffcf5 */
+  --sys-elevated: 251 241 220;     /* #fbf1dc */
+  --sys-elevated-border: 232 203 150; /* #e8cb96 */
+  --sys-border: 243 226 195;       /* #f3e2c3 */
+  --sys-input: 250 242 225;        /* #faf2e1 */
+  --sys-tab-active: 254 230 178;   /* #fee6b2 */
   --sys-accent: 217 119 6;
   --sys-accent-solid: 180 83 9;
   --sys-neon: 217 119 6;
@@ -233,8 +376,21 @@ html[data-theme="light"][data-accent="amber"] {
 
 html.light[data-accent="rose"],
 html[data-theme="light"][data-accent="rose"] {
+  --page-bg: #fdf2f5;
+  --bg: #fdf2f5;
+  --surface: #ffffff;
+  --border: #f5d2dc;
+  --border-chip: #ecb3c4;
   --accent: #e11d48;
   --accent-solid: #be123c;
+  --sys-bg: 253 242 245;           /* #fdf2f5 Soft Sakura Rose */
+  --sys-card: 255 255 255;         /* #ffffff */
+  --sys-surface: 255 248 250;      /* #fff8fa */
+  --sys-elevated: 251 231 237;     /* #fbe7ed */
+  --sys-elevated-border: 236 179 196; /* #ecb3c4 */
+  --sys-border: 245 210 220;       /* #f5d2dc */
+  --sys-input: 250 234 239;        /* #faeaef */
+  --sys-tab-active: 254 205 211;   /* #fecdd3 */
   --sys-accent: 225 29 72;
   --sys-accent-solid: 190 18 60;
   --sys-neon: 225 29 72;
@@ -242,8 +398,21 @@ html[data-theme="light"][data-accent="rose"] {
 
 html.light[data-accent="cyan"],
 html[data-theme="light"][data-accent="cyan"] {
+  --page-bg: #eef9fb;
+  --bg: #eef9fb;
+  --surface: #ffffff;
+  --border: #c9e8ef;
+  --border-chip: #a3d7e4;
   --accent: #0891b2;
   --accent-solid: #0e7490;
+  --sys-bg: 238 249 251;           /* #eef9fb Soft Aqua Cyan */
+  --sys-card: 255 255 255;         /* #ffffff */
+  --sys-surface: 246 252 254;      /* #f6fcfe */
+  --sys-elevated: 226 244 248;     /* #e2f4f8 */
+  --sys-elevated-border: 163 215 228; /* #a3d7e4 */
+  --sys-border: 201 232 239;       /* #c9e8ef */
+  --sys-input: 231 245 249;        /* #e7f5f9 */
+  --sys-tab-active: 207 250 254;   /* #cffafe */
   --sys-accent: 8 145 178;
   --sys-accent-solid: 14 116 144;
   --sys-neon: 8 145 178;
@@ -267,13 +436,17 @@ html[data-theme="light"][data-accent="cyan"] {
   html {
     min-height: 100%;
     scroll-behavior: smooth;
-    background: var(--page-bg);
+    background-color: var(--page-bg);
   }
 
   body {
     min-height: 100vh;
     margin: 0;
-    background: var(--page-bg);
+    background-color: var(--page-bg);
+    background-image:
+      radial-gradient(ellipse 85% 50% at 50% -10%, rgb(var(--sys-accent) / 0.14), transparent 70%),
+      radial-gradient(ellipse 60% 40% at 90% 100%, rgb(var(--sys-accent) / 0.06), transparent 65%);
+    background-attachment: fixed;
     color: rgb(var(--sys-text-primary));
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;

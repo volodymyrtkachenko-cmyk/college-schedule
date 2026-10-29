@@ -86,7 +86,7 @@ export default function HomePage() {
     });
   };
 
-  const { isSetupComplete, completeSetup, mode, toggleMode, teachers, teacherId, setTeacherId, groups, groupId, setGroupId, today, week, semesterStart, loading, error } = useSchedule(weekAnchorDate);
+  const { isSetupComplete, completeSetup, mode, toggleMode, teachers, teacherId, setTeacherId, groups, groupId, setGroupId, today, week, semesterStart, loading, isSlowNetwork, isUsingFallbackCache, error } = useSchedule(weekAnchorDate);
   const selectedTeacher = useMemo(() => teachers.find((t) => t.id === teacherId) || null, [teachers, teacherId]);
   const { user, loading: authLoading, logout } = useAuth();
   
@@ -1040,13 +1040,13 @@ export default function HomePage() {
   }
 
   return (
-    <main className="min-h-screen bg-sys-bg pb-6 text-sys-text-primary md:pb-8">
+    <main className="min-h-screen bg-transparent pb-6 text-sys-text-primary md:pb-8">
       <SplashScreen isLoading={loading} />
-      <OfflineIndicator />
+      <OfflineIndicator isSlowNetwork={isSlowNetwork} isUsingFallbackCache={isUsingFallbackCache} />
       <InstallPrompt />
 
       {/* Desktop Toolbar (>= 1024px) */}
-      <header className="sticky top-0 z-40 hidden lg:block h-14 border-b border-sys-border bg-sys-card">
+      <header className="sticky top-0 z-40 hidden lg:block h-14 border-b border-sys-border bg-sys-card/90 backdrop-blur-md">
         <div className="mx-auto grid grid-cols-[1fr_auto_1fr] h-full max-w-[1800px] items-center px-6">
           {/* Left Zone: Brand + Context Selector */}
           <div className="flex items-center gap-3 min-w-0 justify-self-start">
@@ -1622,19 +1622,40 @@ export default function HomePage() {
                         className="flex items-start gap-4 rounded-xl border border-sys-border/60 bg-sys-card/70 p-4 animate-pulse"
                       >
                         <div className="flex w-12 shrink-0 flex-col gap-1.5">
-                          <div className="h-5 w-6 rounded bg-slate-200 dark:bg-slate-700/70" />
-                          <div className="h-3 w-10 rounded bg-slate-100 dark:bg-slate-800" />
+                          <div className="h-5 w-6 rounded bg-sys-elevated" />
+                          <div className="h-3 w-10 rounded bg-sys-elevated/60" />
                         </div>
                         <div className="flex flex-1 flex-col gap-2.5">
-                          <div className="h-4 w-3/5 rounded bg-slate-200 dark:bg-slate-700/70" />
-                          <div className="h-3.5 w-2/5 rounded bg-slate-100 dark:bg-slate-800" />
+                          <div className="h-4 w-3/5 rounded bg-sys-elevated" />
+                          <div className="h-3.5 w-2/5 rounded bg-sys-elevated/60" />
                         </div>
                       </div>
                     ))}
                   </div>
                 ) : error ? (
-                  <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-6 text-center text-sm text-rose-700 dark:text-rose-200">
-                    {error}
+                  <div className="rounded-2xl border border-sys-border bg-sys-card p-6 text-center space-y-3">
+                    <p className="text-sm font-medium text-sys-text-primary">{error}</p>
+                    <p className="text-xs text-sys-text-secondary">
+                      Ви можете обрати іншу збережену групу у шапці або спробувати оновити дані.
+                    </p>
+                    <div className="flex items-center justify-center gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => invalidateScheduleCache()}
+                        className="rounded-xl bg-sys-accent px-4 py-2 text-xs font-semibold text-white hover:opacity-90 active:scale-95 transition-all cursor-pointer"
+                      >
+                        Спробувати ще раз
+                      </button>
+                      {returnTarget && (
+                        <button
+                          type="button"
+                          onClick={handleReturnBack}
+                          className="rounded-xl border border-sys-border bg-sys-bg px-3.5 py-2 text-xs font-semibold text-sys-text-primary hover:border-sys-accent/50 transition-colors cursor-pointer"
+                        >
+                          ← До {returnTarget.label}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ) : view === "today" ? (
                   <DayPager
@@ -1710,18 +1731,41 @@ export default function HomePage() {
                 className="flex items-start gap-4 rounded-xl border border-sys-border/60 bg-sys-card/70 p-4 animate-pulse"
               >
                 <div className="flex w-12 shrink-0 flex-col gap-1.5">
-                  <div className="h-5 w-6 rounded bg-slate-200 dark:bg-slate-700/70" />
-                  <div className="h-3 w-10 rounded bg-slate-100 dark:bg-slate-800" />
+                  <div className="h-5 w-6 rounded bg-sys-elevated" />
+                  <div className="h-3 w-10 rounded bg-sys-elevated/60" />
                 </div>
                 <div className="flex flex-1 flex-col gap-2.5">
-                  <div className="h-4 w-3/5 rounded bg-slate-200 dark:bg-slate-700/70" />
-                  <div className="h-3.5 w-2/5 rounded bg-slate-100 dark:bg-slate-800" />
+                  <div className="h-4 w-3/5 rounded bg-sys-elevated" />
+                  <div className="h-3.5 w-2/5 rounded bg-sys-elevated/60" />
                 </div>
               </div>
             ))}
           </div>
         ) : error ? (
-          <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-8 text-center text-rose-700 dark:text-rose-200">{error}</div>
+          <div className="rounded-2xl border border-sys-border bg-sys-card p-8 text-center space-y-3 max-w-xl mx-auto">
+            <p className="text-base font-semibold text-sys-text-primary">{error}</p>
+            <p className="text-xs sm:text-sm text-sys-text-secondary">
+              Ви можете обрати іншу збережену групу у верхній панелі або повторити спробу.
+            </p>
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => invalidateScheduleCache()}
+                className="rounded-xl bg-sys-accent px-4 py-2 text-xs font-semibold text-white hover:opacity-90 active:scale-95 transition-all cursor-pointer"
+              >
+                Спробувати ще раз
+              </button>
+              {returnTarget && (
+                <button
+                  type="button"
+                  onClick={handleReturnBack}
+                  className="rounded-xl border border-sys-border bg-sys-bg px-4 py-2 text-xs font-semibold text-sys-text-primary hover:border-sys-accent/50 transition-colors cursor-pointer"
+                >
+                  ← Повернутися до {returnTarget.label}
+                </button>
+              )}
+            </div>
+          </div>
         ) : (
           <AnimatePresence mode="wait" initial={false}>
             <motion.div

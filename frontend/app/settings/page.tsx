@@ -363,16 +363,16 @@ export default function SettingsPage() {
           <div className="space-y-2.5">
             <div className="flex items-center justify-between">
               <span className="font-semibold text-xs sm:text-sm text-sys-text-primary">
-                Колір акценту
+                Кольорова палітра
               </span>
               <span className="text-xs font-semibold text-sys-accent">
                 {ACCENT_OPTIONS.find((opt) => opt.id === accent)?.label ?? "Океан"}
               </span>
             </div>
             <p className="text-xs text-sys-text-secondary leading-relaxed">
-              Змінює відтінок кнопок, позначок та активних елементів розкладу.
+              Тонує фон сторінки, картки розкладу, рамки, шапку та активні елементи.
             </p>
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 pt-1">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-1">
               {ACCENT_OPTIONS.map((opt) => {
                 const isSelected = accent === opt.id;
                 return (
@@ -380,25 +380,33 @@ export default function SettingsPage() {
                     key={opt.id}
                     type="button"
                     onClick={() => setAccent(opt.id)}
-                    className={`flex flex-col items-center gap-1.5 p-2 rounded-xl border transition-all duration-fast ease-smooth cursor-pointer ${
+                    className={`flex items-center gap-3 p-2.5 rounded-xl border text-left transition-all duration-fast ease-smooth cursor-pointer ${
                       isSelected
-                        ? "border-sys-accent bg-sys-accent/10 shadow-xs ring-1 ring-sys-accent"
-                        : "border-sys-border bg-sys-bg hover:border-sys-border/80 text-sys-text-secondary"
+                        ? "border-sys-accent bg-sys-accent/15 shadow-xs ring-1 ring-sys-accent"
+                        : "border-sys-border bg-sys-bg hover:border-sys-elevatedBorder text-sys-text-secondary"
                     }`}
                   >
-                    <div className="relative flex items-center justify-center">
+                    {/* Mini Theme Swatch Preview */}
+                    <span
+                      className="relative flex h-9 w-11 shrink-0 items-center justify-center rounded-lg border border-black/10 dark:border-white/15 overflow-hidden shadow-xs"
+                      style={{ backgroundColor: opt.darkBgHex }}
+                    >
                       <span
-                        className="h-6 w-6 rounded-full shadow-xs flex items-center justify-center transition-transform hover:scale-110"
+                        className="absolute inset-x-1.5 bottom-1 top-2.5 rounded-md border border-white/10"
+                        style={{ backgroundColor: opt.darkCardHex }}
+                      />
+                      <span
+                        className="relative z-10 h-4 w-4 rounded-full flex items-center justify-center shadow-xs"
                         style={{ backgroundColor: opt.colorHex }}
                       >
                         {isSelected && (
                           <svg
-                            width="14"
-                            height="14"
+                            width="10"
+                            height="10"
                             viewBox="0 0 24 24"
                             fill="none"
                             stroke="#ffffff"
-                            strokeWidth="3"
+                            strokeWidth="3.5"
                             strokeLinecap="round"
                             strokeLinejoin="round"
                           >
@@ -406,10 +414,26 @@ export default function SettingsPage() {
                           </svg>
                         )}
                       </span>
-                    </div>
-                    <span className={`text-[11px] font-medium leading-tight ${isSelected ? "text-sys-text-primary font-bold" : "text-sys-text-secondary"}`}>
-                      {opt.label}
                     </span>
+                    <div className="min-w-0 flex-1">
+                      <div className={`text-xs leading-tight truncate ${isSelected ? "text-sys-text-primary font-bold" : "text-sys-text-primary font-medium"}`}>
+                        {opt.label}
+                      </div>
+                      <div className="mt-1 flex items-center gap-1">
+                        <span
+                          className="h-2 w-2 rounded-full"
+                          style={{ backgroundColor: opt.colorHex }}
+                        />
+                        <span
+                          className="h-2 w-2 rounded-full border border-black/15"
+                          style={{ backgroundColor: opt.lightCardHex }}
+                        />
+                        <span
+                          className="h-2 w-2 rounded-full border border-white/15"
+                          style={{ backgroundColor: opt.darkCardHex }}
+                        />
+                      </div>
+                    </div>
                   </button>
                 );
               })}

@@ -54,15 +54,25 @@ export function SplashScreen({ isLoading }: SplashScreenProps) {
     }
   }, [isVisible, isLoading, isFadingOut, isDismissed]);
 
+  useEffect(() => {
+    if (!isVisible || isDismissed) return;
+    // Safety watchdog: never block the user on splash screen for more than 3.2s on weak connections
+    const maxTimer = setTimeout(() => {
+      setIsFadingOut(true);
+      setTimeout(() => setIsDismissed(true), 200);
+    }, 3200);
+    return () => clearTimeout(maxTimer);
+  }, [isVisible, isDismissed]);
+
   if (isDismissed || !isVisible) {
     return null;
   }
 
   return (
     <div
-      className={`fixed inset-0 z-[100] flex flex-col items-center justify-center select-none transition-opacity duration-200 ease-smooth will-change-[opacity] ${
-        isDark ? "bg-[#0a0d14] text-white" : "bg-[#f8fafc] text-slate-900"
-      } ${isFadingOut ? "opacity-0 pointer-events-none" : "opacity-100 pointer-events-auto"}`}
+      className={`fixed inset-0 z-[100] flex flex-col items-center justify-center select-none transition-opacity duration-200 ease-smooth will-change-[opacity] bg-sys-bg text-sys-text-primary ${
+        isFadingOut ? "opacity-0 pointer-events-none" : "opacity-100 pointer-events-auto"
+      }`}
       aria-label="Завантаження розкладу"
       role="status"
     >
@@ -71,8 +81,8 @@ export function SplashScreen({ isLoading }: SplashScreenProps) {
         className="absolute inset-0 pointer-events-none"
         style={{
           background: isDark
-            ? "radial-gradient(circle at 50% 45%, rgba(56, 189, 248, 0.08) 0%, rgba(99, 102, 241, 0.04) 40%, transparent 70%)"
-            : "radial-gradient(circle at 50% 45%, rgba(56, 189, 248, 0.12) 0%, rgba(99, 102, 241, 0.05) 40%, transparent 70%)",
+            ? "radial-gradient(circle at 50% 45%, rgb(var(--sys-accent) / 0.14) 0%, rgb(var(--sys-accent) / 0.04) 40%, transparent 70%)"
+            : "radial-gradient(circle at 50% 45%, rgb(var(--sys-accent) / 0.16) 0%, rgb(var(--sys-accent) / 0.05) 40%, transparent 70%)",
         }}
       />
 
@@ -81,20 +91,14 @@ export function SplashScreen({ isLoading }: SplashScreenProps) {
         {/* Modern App Icon Frame */}
         <div className="relative mb-6">
           {/* Subtle static gradient accent border */}
-          <div
-            className={`absolute -inset-1 rounded-[28px] pointer-events-none ${
-              isDark
-                ? "bg-gradient-to-tr from-sky-500/20 via-cyan-400/10 to-indigo-500/20"
-                : "bg-gradient-to-tr from-sky-500/25 via-cyan-400/20 to-indigo-500/25"
-            }`}
-          />
+          <div className="absolute -inset-1 rounded-[28px] pointer-events-none bg-gradient-to-tr from-sys-accent/25 via-sys-accent/10 to-sys-accent/25" />
 
           {/* Squircle Icon Container */}
           <div
-            className={`relative h-24 w-24 sm:h-28 sm:w-28 overflow-hidden rounded-[26px] p-1.5 transition-colors ${
+            className={`relative h-24 w-24 sm:h-28 sm:w-28 overflow-hidden rounded-[26px] p-1.5 transition-colors border border-sys-accent/30 bg-sys-card ${
               isDark
-                ? "border border-sky-400/25 bg-[#0f1422] shadow-2xl shadow-black/70 ring-1 ring-white/10"
-                : "border border-sky-300/40 bg-white shadow-xl shadow-slate-300/50 ring-1 ring-slate-900/5"
+                ? "shadow-2xl shadow-black/70 ring-1 ring-white/10"
+                : "shadow-xl shadow-slate-300/50 ring-1 ring-slate-900/5"
             }`}
           >
             <Image
@@ -111,39 +115,17 @@ export function SplashScreen({ isLoading }: SplashScreenProps) {
         {/* Brand Title */}
         <div className="space-y-1.5 mb-8">
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight flex items-center justify-center gap-2">
-            <span className={isDark ? "text-white" : "text-slate-900"}>ДФКР</span>
-            <span
-              className={
-                isDark
-                  ? "bg-gradient-to-r from-sky-400 via-cyan-300 to-indigo-400 bg-clip-text text-transparent"
-                  : "bg-gradient-to-r from-sky-600 via-cyan-600 to-indigo-600 bg-clip-text text-transparent"
-              }
-            >
-              Розклад
-            </span>
+            <span className="text-sys-text-primary">ДФКР</span>
+            <span className="text-sys-accent">Розклад</span>
           </h1>
-          <p
-            className={`text-xs sm:text-sm font-medium tracking-wide max-w-[280px] sm:max-w-sm ${
-              isDark ? "text-slate-400" : "text-slate-500"
-            }`}
-          >
+          <p className="text-xs sm:text-sm font-medium tracking-wide max-w-[280px] sm:max-w-sm text-sys-text-secondary">
             Дніпровський Фаховий коледж радіоелектроніки
           </p>
         </div>
 
         {/* Ultra-lightweight Hardware-Accelerated Progress Track */}
-        <div
-          className={`relative h-1 w-36 sm:w-44 overflow-hidden rounded-full ${
-            isDark ? "bg-slate-800/80 ring-1 ring-white/5" : "bg-slate-200 ring-1 ring-slate-900/5"
-          }`}
-        >
-          <div
-            className={`absolute inset-y-0 w-1/2 rounded-full animate-splash-beam ${
-              isDark
-                ? "bg-gradient-to-r from-sky-500 via-cyan-300 to-indigo-500"
-                : "bg-gradient-to-r from-sky-500 via-cyan-500 to-indigo-600"
-            }`}
-          />
+        <div className="relative h-1 w-36 sm:w-44 overflow-hidden rounded-full bg-sys-elevated ring-1 ring-sys-border">
+          <div className="absolute inset-y-0 w-1/2 rounded-full animate-splash-beam bg-sys-accent" />
         </div>
       </div>
     </div>
