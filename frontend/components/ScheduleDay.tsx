@@ -5,10 +5,9 @@ import { motion } from "framer-motion";
 import { ScheduleResponse, Lesson } from "../lib/api";
 import { buildTelegramShareText } from "../lib/format";
 import { useToast } from "./ToastProvider";
-import { LessonCard, QuickJumpTarget } from "./LessonCard";
+import { LessonCard, QuickJumpTarget, getKyivNow, subscribeKyivNow } from "./LessonCard";
 import { SchedulePeriodCard, CompactSchedulePeriodCard } from "./SchedulePeriodCard";
 import { useTheme } from "../lib/useTheme";
-import { KYIV_DATE_FMT, KYIV_TIME_FMT } from "../lib/date";
 
 const fmt = (value: string, options: Intl.DateTimeFormatOptions) =>
   new Intl.DateTimeFormat("uk-UA", options).format(new Date(`${value}T12:00:00`));
@@ -64,16 +63,8 @@ export function ScheduleDay({
   const [kyivNow, setKyivNow] = useState<{ dateIso: string; minutes: number } | null>(null);
 
   useEffect(() => {
-    const update = () => {
-      const now = new Date();
-      setKyivNow({
-        dateIso: KYIV_DATE_FMT.format(now),
-        minutes: parseMin(KYIV_TIME_FMT.format(now)) ?? 0,
-      });
-    };
-    update();
-    const id = setInterval(update, 30_000);
-    return () => clearInterval(id);
+    setKyivNow(getKyivNow());
+    return subscribeKyivNow(setKyivNow);
   }, []);
 
   const handleShareDay = async () => {

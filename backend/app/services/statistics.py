@@ -9,6 +9,7 @@ from app.models import (
     Curriculum,
     Group,
     Schedule,
+    ScheduleOverride,
     SchedulePeriod,
     SchedulePeriodSlot,
     ImportedScheduleChange,
@@ -187,14 +188,28 @@ async def _scheduled_hours(
             )
         )
     ).unique().all()
+    teacher_groups = {s.group_id for s in schedules} if teacher_id is not None else set()
+
+    imp_conds = [
+        ImportedScheduleChange.date >= semester_start,
+        ImportedScheduleChange.date <= through_date,
+        ImportedScheduleChange.is_published.is_(True),
+    ]
+    if group_id is not None:
+        imp_conds.append(ImportedScheduleChange.group_id == group_id)
+    elif teacher_id is not None:
+        t_imp_filters = [
+            ImportedScheduleChange.teacher_id == teacher_id,
+            ImportedScheduleChange.second_teacher_id == teacher_id,
+        ]
+        if teacher_groups:
+            t_imp_filters.append(ImportedScheduleChange.group_id.in_(teacher_groups))
+        imp_conds.append(or_(*t_imp_filters))
+
     imported_changes = (
         await db.scalars(
             select(ImportedScheduleChange)
-            .where(
-                ImportedScheduleChange.date >= semester_start,
-                ImportedScheduleChange.date <= through_date,
-                ImportedScheduleChange.is_published.is_(True),
-            )
+            .where(*imp_conds)
             .options(
                 joinedload(ImportedScheduleChange.group),
                 joinedload(ImportedScheduleChange.subject),
@@ -210,6 +225,52 @@ async def _scheduled_hours(
         if current is None or item.version > current.version:
             latest_changes[key] = item
 
+    ovr_conds = [
+        ScheduleOverride.date >= semester_start,
+        ScheduleOverride.date <= through_date,
+    ]
+    if group_id is not None:
+        ovr_conds.append(ScheduleOverride.group_id == group_id)
+    elif teacher_id is not None:
+        t_ovr_filters = [
+            ScheduleOverride.teacher_id == teacher_id,
+            ScheduleOverride.second_teacher_id == teacher_id,
+        ]
+        if teacher_groups:
+            t_ovr_filters.append(ScheduleOverride.group_id.in_(teacher_groups))
+        ovr_conds.append(or_(*t_ovr_filters))
+
+    manual_overrides = (
+        await db.scalars(
+            select(ScheduleOverride)
+            .where(*ovr_conds)
+            .options(
+                joinedload(ScheduleOverride.group),
+                joinedload(ScheduleOverride.subject),
+                joinedload(ScheduleOverride.teacher),
+                joinedload(ScheduleOverride.second_teacher),
+            )
+        )
+    ).unique().all()
+    overrides_by_cell: dict[tuple[date, int, int], ScheduleOverride] = {
+        (ovr.date, ovr.group_id, ovr.lesson_number): ovr
+        for ovr in manual_overrides
+        if ovr.lesson_number is not None
+    }
+
+    schedules_by_dow: dict[int, list[Schedule]] = defaultdict(list)
+    for s in schedules:
+        if s.day_of_week is not None:
+            schedules_by_dow[s.day_of_week].append(s)
+
+    changes_by_date: dict[date, list[ImportedScheduleChange]] = defaultdict(list)
+    for ch in latest_changes.values():
+        changes_by_date[ch.date].append(ch)
+
+    overrides_by_date: dict[date, list[ScheduleOverride]] = defaultdict(list)
+    for ovr in overrides_by_cell.values():
+        overrides_by_date[ovr.date].append(ovr)
+
     from app.models.entities import ScheduleVersion
     active_versions = (await db.scalars(select(ScheduleVersion).where(ScheduleVersion.is_active.is_(True)).order_by(ScheduleVersion.valid_from.desc()))).all()
 
@@ -219,7 +280,8 @@ async def _scheduled_hours(
     unique_subject_lessons: set[tuple] = set()
     current_date = semester_start
     while current_date <= through_date:
-        if current_date.isoweekday() <= 5:
+        weekday = current_date.isoweekday()
+        if weekday <= 5:
             week_type = get_week_type(current_date, semester_start)
             active_periods = [
                 period
@@ -237,21 +299,20 @@ async def _scheduled_hours(
                 practice_group_ids = {
                     item.id for period in practice_periods for item in period.groups
                 }
+                blocked_ids = holiday_group_ids | practice_group_ids
                 active_version_id = None
                 for v in active_versions:
                     if v.valid_from <= current_date <= v.valid_until:
                         active_version_id = v.id
                         break
 
-                for item in schedules:
-                    imported_change = latest_changes.get(
-                        (current_date, item.group_id, item.lesson_number)
-                    )
+                for item in schedules_by_dow.get(weekday, ()):
+                    cell_key = (current_date, item.group_id, item.lesson_number)
                     if (
-                        item.day_of_week != current_date.isoweekday()
-                        or item.week_type not in ("both", week_type)
-                        or item.group_id in holiday_group_ids | practice_group_ids
-                        or imported_change is not None
+                        item.week_type not in ("both", week_type)
+                        or item.group_id in blocked_ids
+                        or cell_key in latest_changes
+                        or cell_key in overrides_by_cell
                         or item.version_id != active_version_id
                     ):
                         continue
@@ -272,12 +333,14 @@ async def _scheduled_hours(
                         unique_subject_lessons=unique_subject_lessons,
                     )
 
-                for change in latest_changes.values():
+                for change in changes_by_date.get(current_date, ()):
+                    cell_key = (current_date, change.group_id, change.lesson_number)
+                    if cell_key in overrides_by_cell:
+                        continue
                     if (
-                        change.date != current_date
-                        or change.kind != "substitution"
+                        change.kind != "substitution"
                         or change.subject_id is None
-                        or change.group_id in holiday_group_ids | practice_group_ids
+                        or change.group_id in blocked_ids
                         or (group_id is not None and change.group_id != group_id)
                         or (
                             teacher_id is not None
@@ -304,12 +367,13 @@ async def _scheduled_hours(
                         unique_subject_lessons=unique_subject_lessons,
                     )
 
-
-                for change in latest_changes.values():
+                for change in changes_by_date.get(current_date, ()):
+                    cell_key = (current_date, change.group_id, change.lesson_number)
+                    if cell_key in overrides_by_cell:
+                        continue
                     if (
-                        change.date != current_date
-                        or change.kind != "cancelled"
-                        or change.group_id in holiday_group_ids | practice_group_ids
+                        change.kind != "cancelled"
+                        or change.group_id in blocked_ids
                         or (group_id is not None and change.group_id != group_id)
                         or (
                             teacher_id is not None
@@ -336,10 +400,41 @@ async def _scheduled_hours(
                             unique_subject_lessons=unique_subject_lessons,
                         )
 
+                for ovr in overrides_by_date.get(current_date, ()):
+                    if (
+                        ovr.group_id in blocked_ids
+                        or ovr.subject_id is None
+                        or ovr.group is None
+                        or ovr.subject is None
+                        or (group_id is not None and ovr.group_id != group_id)
+                        or (
+                            teacher_id is not None
+                            and teacher_id not in (ovr.teacher_id, ovr.second_teacher_id)
+                        )
+                    ):
+                        continue
+                    _record_lesson(
+                        result,
+                        unique_lessons,
+                        ovr.group_id,
+                        ovr.group.name,
+                        ovr.subject_id,
+                        ovr.subject.name,
+                        current_date,
+                        ovr.lesson_number,
+                        ovr.id,
+                        ovr.stream_id,
+                        teacher_id is not None,
+                        replaced=not ovr.cancelled,
+                        cancelled=ovr.cancelled,
+                        teacher_subjects=teacher_subjects,
+                        unique_subject_lessons=unique_subject_lessons,
+                    )
+
                 for period in practice_periods:
                     for slot in period.slots:
                         if (
-                            slot.day_of_week != current_date.isoweekday()
+                            slot.day_of_week != weekday
                             or slot.group_id in holiday_group_ids
                             or (
                                 teacher_id is not None

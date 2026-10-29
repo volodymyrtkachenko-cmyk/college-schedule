@@ -131,7 +131,9 @@ async def cancel_dated_lesson(
         await db.delete(existing)
         await db.commit()
         from app.services.projection import invalidate_projection_cache
+        from app.services import cache_rev
         invalidate_projection_cache(payload.group_id)
+        cache_rev.bump([payload.group_id])
         return {"status": "removed"}
 
     if existing:
@@ -147,7 +149,9 @@ async def cancel_dated_lesson(
         )
     await db.commit()
     from app.services.projection import invalidate_projection_cache
+    from app.services import cache_rev
     invalidate_projection_cache(payload.group_id)
+    cache_rev.bump([payload.group_id])
     return {"status": "cancelled"}
 
 
@@ -186,7 +190,9 @@ async def restore_dated_lesson(
             existing.moved_to_lesson = None
         await db.commit()
     from app.services.projection import invalidate_projection_cache
+    from app.services import cache_rev
     invalidate_projection_cache(payload.group_id)
+    cache_rev.bump([payload.group_id])
     return {"status": "restored"}
 
 
@@ -247,7 +253,9 @@ async def replace_dated_lesson(
 
     await db.commit()
     from app.services.projection import invalidate_projection_cache
+    from app.services import cache_rev
     invalidate_projection_cache(payload.group_id)
+    cache_rev.bump([payload.group_id])
     return {"status": "replaced"}
 
 
@@ -301,7 +309,7 @@ async def remove_dated_replacement(
     imported_list = (await db.scalars(
         select(ImportedScheduleChange).where(
             ImportedScheduleChange.group_id == payload.group_id,
-            ImportedScheduleChange.date == payload.date,
+            ScheduleOverride.date == payload.date if False else ImportedScheduleChange.date == payload.date,
             ImportedScheduleChange.lesson_number == payload.lesson_number,
             ImportedScheduleChange.is_published.is_(True),
         )
@@ -311,7 +319,9 @@ async def remove_dated_replacement(
 
     await db.commit()
     from app.services.projection import invalidate_projection_cache
+    from app.services import cache_rev
     invalidate_projection_cache(payload.group_id)
+    cache_rev.bump([payload.group_id])
     return {"status": "removed"}
 
 
@@ -384,6 +394,12 @@ async def move_dated_lesson(
     except Exception:
         await db.rollback()
         raise HTTPException(409, "Помилка перенесення: конфлікт збереження")
+    from app.services.projection import invalidate_projection_cache
+    from app.services import cache_rev
+    invalidate_projection_cache(payload.source_group_id)
+    if payload.target_group_id != payload.source_group_id:
+        invalidate_projection_cache(payload.target_group_id)
+    cache_rev.bump({payload.source_group_id, payload.target_group_id})
     return {"status": "moved"}
 
 
@@ -465,6 +481,10 @@ async def copy_dated_lesson(
     except Exception:
         await db.rollback()
         raise HTTPException(409, "Помилка копіювання: конфлікт збереження")
+    from app.services.projection import invalidate_projection_cache
+    from app.services import cache_rev
+    invalidate_projection_cache(payload.target_group_id)
+    cache_rev.bump([payload.target_group_id])
     return {"status": "copied"}
 
 
@@ -586,6 +606,12 @@ async def swap_dated_lessons(
     except Exception:
         await db.rollback()
         raise HTTPException(409, "Помилка обміну: конфлікт збереження")
+    from app.services.projection import invalidate_projection_cache
+    from app.services import cache_rev
+    invalidate_projection_cache(payload.first_group_id)
+    if payload.second_group_id != payload.first_group_id:
+        invalidate_projection_cache(payload.second_group_id)
+    cache_rev.bump({payload.first_group_id, payload.second_group_id})
     return {"status": "swapped"}
 
 
@@ -597,14 +623,26 @@ async def batch_dated_lessons(
 ):
     await lock_versions(db)
     succeeded = 0
+    verified_groups: set[int] = set()
+    affected_groups: set[int] = set()
+    projection_memo: dict[tuple[int, date], list] = {}
+
+    async def get_cached_proj(g_id: int, d: date) -> list:
+        key = (g_id, d)
+        if key not in projection_memo:
+            projection_memo[key] = await build_projection(db, d, group_id=g_id)
+        return projection_memo[key]
 
     for item in payload.items:
-        await authorize_group(db, actor, item.source_group_id)
-        if item.source_group_id != item.target_group_id:
+        if item.source_group_id not in verified_groups:
+            await authorize_group(db, actor, item.source_group_id)
+            verified_groups.add(item.source_group_id)
+        if item.target_group_id not in verified_groups:
             await authorize_group(db, actor, item.target_group_id)
+            verified_groups.add(item.target_group_id)
 
-        source_proj = await build_projection(db, item.source_date, group_id=item.source_group_id)
-        target_proj = await build_projection(db, item.target_date, group_id=item.target_group_id)
+        source_proj = await get_cached_proj(item.source_group_id, item.source_date)
+        target_proj = await get_cached_proj(item.target_group_id, item.target_date)
 
         source_matches = [l for l in source_proj if l.lesson_number == item.source_lesson_number and not getattr(l, 'is_cancelled', False)]
         target_matches = [l for l in target_proj if l.lesson_number == item.target_lesson_number and not getattr(l, 'is_cancelled', False)]
@@ -650,6 +688,8 @@ async def batch_dated_lessons(
                     cancelled=False
                 )
             )
+        projection_memo.pop((item.target_group_id, item.target_date), None)
+        affected_groups.add(item.target_group_id)
 
         # If move, cancel source
         if payload.action == "move":
@@ -675,6 +715,8 @@ async def batch_dated_lessons(
                         moved_to_lesson=item.target_lesson_number,
                     )
                 )
+            projection_memo.pop((item.source_group_id, item.source_date), None)
+            affected_groups.add(item.source_group_id)
 
         # Handle notes
         note = await active_note(db, item.source_group_id, item.source_date, item.source_lesson_number)
@@ -712,6 +754,13 @@ async def batch_dated_lessons(
     except Exception:
         await db.rollback()
         raise HTTPException(409, "Помилка пакетної операції: конфлікт збереження")
+
+    from app.services.projection import invalidate_projection_cache
+    from app.services import cache_rev
+    for gid in affected_groups:
+        invalidate_projection_cache(gid)
+    if affected_groups:
+        cache_rev.bump(affected_groups)
 
     return {
         "status": "ok",

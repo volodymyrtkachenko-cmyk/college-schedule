@@ -538,12 +538,10 @@ def solve(
         model.AddAbsEquality(week_imbalance, week_difference)
         group_week_imbalance_vars.append(week_imbalance)
 
-    for d in range(DAY_IDXS):
-        for s in range(SLOTS):
-            for curr_list in group_curriculums.values():
-                model.AddAtMostOne([X[(c.id, d, s)] for c in curr_list])
-
-            for curr_list in teacher_curriculums.values():
+    teacher_slot_vars: dict[tuple[int, int, int], list] = {}
+    for teacher_id, curr_list in teacher_curriculums.items():
+        for d in range(DAY_IDXS):
+            for s in range(SLOTS):
                 unique_vars, seen_streams = [], set()
                 for c in curr_list:
                     if c.is_stream and c.stream_id:
@@ -551,7 +549,15 @@ def solve(
                             continue
                         seen_streams.add(c.stream_id)
                     unique_vars.append(X[(c.id, d, s)])
-                model.AddAtMostOne(unique_vars)
+                teacher_slot_vars[(teacher_id, d, s)] = unique_vars
+
+    for d in range(DAY_IDXS):
+        for s in range(SLOTS):
+            for curr_list in group_curriculums.values():
+                model.AddAtMostOne([X[(c.id, d, s)] for c in curr_list])
+
+            for teacher_id in teacher_curriculums:
+                model.AddAtMostOne(teacher_slot_vars[(teacher_id, d, s)])
 
             for curr_list in streams.values():
                 if len(curr_list) > 1:
@@ -634,18 +640,11 @@ def solve(
 
     # Teacher gaps are preferences, not hard constraints. Stream copies are
     # counted once because they use one teacher slot.
-    for teacher_id, curr_list in teacher_curriculums.items():
+    for teacher_id in teacher_curriculums:
         for d in range(DAY_IDXS):
             active = []
             for s in range(SLOTS):
-                unique_vars = []
-                seen_streams = set()
-                for c in curr_list:
-                    if c.is_stream and c.stream_id:
-                        if c.stream_id in seen_streams:
-                            continue
-                        seen_streams.add(c.stream_id)
-                    unique_vars.append(X[(c.id, d, s)])
+                unique_vars = teacher_slot_vars[(teacher_id, d, s)]
                 teacher_active = model.NewBoolVar(f"active_t{teacher_id}_d{d}_s{s}")
                 model.Add(sum(unique_vars) == teacher_active)
                 active.append(teacher_active)

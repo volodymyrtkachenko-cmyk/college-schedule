@@ -740,6 +740,15 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
 
         semaphore = asyncio.Semaphore(5)
 
+        def _parse_html_sync(raw_html: str):
+            p_hash = hashlib.sha256(raw_html.encode("utf-8")).hexdigest()
+            parsed_obj = parser.parse(raw_html)
+            from selectolax.parser import HTMLParser
+            tree = HTMLParser(raw_html)
+            next_week_node = tree.css_first("a[aria-label='Наступний тиждень']")
+            next_href = next_week_node.attributes.get("href") if next_week_node else None
+            return p_hash, parsed_obj, next_href
+
         async def fetch_and_parse(client, g_id):
             async with semaphore:
                 parsed_results = []
@@ -765,26 +774,17 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
                                     await asyncio.sleep(0.5 * (attempt + 1))
                         if html is None:
                             raise last_error or RuntimeError("Unable to fetch import page")
-                        page_hash = hashlib.sha256(html.encode("utf-8")).hexdigest()
+                        page_hash, parsed, href = await asyncio.to_thread(_parse_html_sync, html)
                         if page_hash in visited_hashes:
                             logger.warning("Skipping repeated import page hash for group %s: %s", g_id, url)
                             break
                         visited_hashes.add(page_hash)
-                        parsed = parser.parse(html)
                         parsed_results.append((parsed, url, page_hash))
 
-                        # Find next week link
-                        from selectolax.parser import HTMLParser
-                        tree = HTMLParser(html)
-                        next_week_node = tree.css_first("a[aria-label='Наступний тиждень']")
-                        if next_week_node:
-                            href = next_week_node.attributes.get("href")
-                            if href:
-                                if not href.startswith("http"):
-                                    href = "https://kre.dp.ua" + (href if href.startswith("/") else f"/{href}")
-                                url = href
-                            else:
-                                break
+                        if href:
+                            if not href.startswith("http"):
+                                href = "https://kre.dp.ua" + (href if href.startswith("/") else f"/{href}")
+                            url = href
                         else:
                             break
                     except Exception as e:

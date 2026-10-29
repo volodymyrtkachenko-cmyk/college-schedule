@@ -122,7 +122,7 @@ const KYIV_TIME_FMT = new Intl.DateTimeFormat("en-GB", {
   hour12: false,
 });
 
-function getKyivNow() {
+export function getKyivNow() {
   const now = new Date();
   return {
     dateIso: KYIV_DATE_FMT.format(now),
@@ -464,12 +464,12 @@ function findFullTaskMetaByUrl(url: string): { title?: string; teacher?: string 
   return _taskMetaMapCache.get(url) ?? null;
 }
 
-type KyivNowSnapshot = { dateIso: string; minutes: number };
+export type KyivNowSnapshot = { dateIso: string; minutes: number };
 let _sharedKyivNow: KyivNowSnapshot | null = null;
 let _sharedKyivTimer: ReturnType<typeof setInterval> | null = null;
 const _kyivNowSubscribers = new Set<(now: KyivNowSnapshot) => void>();
 
-function subscribeKyivNow(cb: (now: KyivNowSnapshot) => void) {
+export function subscribeKyivNow(cb: (now: KyivNowSnapshot) => void) {
   _kyivNowSubscribers.add(cb);
   if (_kyivNowSubscribers.size === 1 && typeof window !== "undefined") {
     _sharedKyivNow = getKyivNow();

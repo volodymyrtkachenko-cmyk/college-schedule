@@ -86,7 +86,7 @@ export function useSchedule(weekAnchorDate: Date, includeCancelled = false) {
       }
     }
     
-    Promise.all([api.groups(), api.directory.teachers()]).then(([items, ts]) => {
+    Promise.all([api.directory.groups(), api.directory.teachers()]).then(([items, ts]) => {
         if (user && user.role === "editor") {
             setTeachers([]);
             const allowed = items.filter((g: any) => (user.allowed_groups || []).includes(g.id));
@@ -127,6 +127,9 @@ export function useSchedule(weekAnchorDate: Date, includeCancelled = false) {
   };
 
   useEffect(() => {
+    if (!isSetupComplete && window.localStorage.getItem("schedule:setupComplete") !== "1") {
+      return;
+    }
     if (mode === "student" && !groupId) { setWeek([]); setToday(null); return; }
     if (mode === "teacher" && !teacherId) { setWeek([]); setToday(null); return; }
 
@@ -279,7 +282,7 @@ export function useSchedule(weekAnchorDate: Date, includeCancelled = false) {
       window.removeEventListener("schedule:refresh", handleScheduleRefresh);
       window.removeEventListener("teacher-access-changed", handleScheduleRefresh);
     };
-  }, [mode, groupId, teacherId, weekAnchorDate, includeCancelled]);
+  }, [isSetupComplete, mode, groupId, teacherId, weekAnchorDate, includeCancelled]);
 
   useEffect(() => {
     let active = true;

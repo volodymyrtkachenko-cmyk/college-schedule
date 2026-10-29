@@ -25,14 +25,22 @@ _WEEK_PROJ_CACHE: dict[tuple, tuple[float, str, Dict[int, List["EffectiveLesson"
 _WEEK_PROJ_TTL = 45.0
 _WEEK_PROJ_MAX = 256
 
+_DAY_PROJ_CACHE: dict[tuple, tuple[float, List["EffectiveLesson"]]] = {}
+_DAY_PROJ_TTL = 30.0
+_DAY_PROJ_MAX = 256
+
 
 def invalidate_projection_cache(group_id: Optional[int] = None) -> None:
     if group_id is None:
         _WEEK_PROJ_CACHE.clear()
+        _DAY_PROJ_CACHE.clear()
         return
-    stale = [k for k in _WEEK_PROJ_CACHE if k[1] == group_id or k[1] is None]
-    for k in stale:
+    stale_week = [k for k in _WEEK_PROJ_CACHE if k[1] == group_id or k[1] is None]
+    for k in stale_week:
         _WEEK_PROJ_CACHE.pop(k, None)
+    stale_day = [k for k in _DAY_PROJ_CACHE if k[1] == group_id or k[1] is None]
+    for k in stale_day:
+        _DAY_PROJ_CACHE.pop(k, None)
 
 
 class EffectiveLesson:
@@ -196,6 +204,14 @@ async def build_projection(
     teacher_id: Optional[int] = None,
     include_cancelled: bool = False,
 ) -> List[EffectiveLesson]:
+    can_use_cache = not db.new and not db.dirty and not db.deleted
+    cache_key = (target_date, group_id, teacher_id, include_cancelled)
+    now_mono = _time.monotonic()
+    if can_use_cache:
+        cached_day = _DAY_PROJ_CACHE.get(cache_key)
+        if cached_day is not None and (now_mono - cached_day[0]) < _DAY_PROJ_TTL:
+            return list(cached_day[1])
+
     # 1. Fetch active version and week type
     semester_start = await settings_service.get_semester_start(db)
     week_type = get_week_type(target_date, semester_start)
@@ -523,7 +539,13 @@ async def build_projection(
     from app.models.lesson_notes import LessonOccurrenceNote
     # ... logic to attach notes ...
 
-    return sorted(results, key=lambda x: x.lesson_number)
+    sorted_results = sorted(results, key=lambda x: x.lesson_number)
+    if can_use_cache:
+        if len(_DAY_PROJ_CACHE) >= _DAY_PROJ_MAX:
+            oldest_day_key = min(_DAY_PROJ_CACHE, key=lambda k: _DAY_PROJ_CACHE[k][0])
+            _DAY_PROJ_CACHE.pop(oldest_day_key, None)
+        _DAY_PROJ_CACHE[cache_key] = (now_mono, list(sorted_results))
+    return sorted_results
 
 
 async def build_week_projection(
@@ -537,7 +559,7 @@ async def build_week_projection(
     now_mono = _time.monotonic()
     cached = _WEEK_PROJ_CACHE.get(cache_key)
     if cached is not None and (now_mono - cached[0]) < _WEEK_PROJ_TTL:
-        return cached[1], copy.deepcopy(cached[2])
+        return cached[1], {k: list(v) for k, v in cached[2].items()}
 
     """Batch-load 5 weekdays (Mon..Fri) in 5 queries instead of 25."""
     end_date = start_date + timedelta(days=4)
@@ -961,6 +983,6 @@ async def build_week_projection(
     if len(_WEEK_PROJ_CACHE) >= _WEEK_PROJ_MAX:
         oldest_key = min(_WEEK_PROJ_CACHE, key=lambda k: _WEEK_PROJ_CACHE[k][0])
         _WEEK_PROJ_CACHE.pop(oldest_key, None)
-    _WEEK_PROJ_CACHE[cache_key] = (now_mono, week_type, copy.deepcopy(lessons_by_day))
+    _WEEK_PROJ_CACHE[cache_key] = (now_mono, week_type, {k: list(v) for k, v in lessons_by_day.items()})
 
     return week_type, lessons_by_day

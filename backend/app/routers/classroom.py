@@ -594,25 +594,31 @@ async def _save_link_to_slot(
     lesson,
     url_line: str,
     matched_prefix: Optional[str] = None,
+    notes_by_slot: Optional[dict] = None,
 ) -> None:
     if not lesson or not getattr(lesson, "subject_id", None):
         return
     if not (1 <= getattr(lesson, "lesson_number", 0) <= 4):
         return
 
-    active_row = (
-        await db.scalars(
-            select(LessonOccurrenceNote)
-            .where(
-                LessonOccurrenceNote.note_date == target_date,
-                LessonOccurrenceNote.group_id == group_id,
-                LessonOccurrenceNote.lesson_number == lesson.lesson_number,
-                LessonOccurrenceNote.archived.is_(False),
+    slot_key = (target_date, lesson.lesson_number)
+    if notes_by_slot is not None:
+        cached_row = notes_by_slot.get(slot_key)
+        active_row = cached_row if (cached_row is not None and not cached_row.archived) else None
+    else:
+        active_row = (
+            await db.scalars(
+                select(LessonOccurrenceNote)
+                .where(
+                    LessonOccurrenceNote.note_date == target_date,
+                    LessonOccurrenceNote.group_id == group_id,
+                    LessonOccurrenceNote.lesson_number == lesson.lesson_number,
+                    LessonOccurrenceNote.archived.is_(False),
+                )
+                .order_by(LessonOccurrenceNote.id.desc())
+                .limit(1)
             )
-            .order_by(LessonOccurrenceNote.id.desc())
-            .limit(1)
-        )
-    ).first()
+        ).first()
 
     if active_row:
         raw_lines = [l.strip() for l in active_row.note.split("\n") if l.strip()]
@@ -646,21 +652,26 @@ async def _save_link_to_slot(
         active_row.subject_name = (lesson.subject_name or active_row.subject_name)[:255]
         active_row.revision += 1
         active_row.updated_at = datetime.now(timezone.utc)
-        await db.flush()
+        if notes_by_slot is None:
+            await db.flush()
     else:
-        existing_row = (
-            await db.scalars(
-                select(LessonOccurrenceNote)
-                .where(
-                    LessonOccurrenceNote.note_date == target_date,
-                    LessonOccurrenceNote.group_id == group_id,
-                    LessonOccurrenceNote.lesson_number == lesson.lesson_number,
-                    LessonOccurrenceNote.archived.is_(True),
+        if notes_by_slot is not None:
+            cached_row = notes_by_slot.get(slot_key)
+            existing_row = cached_row if (cached_row is not None and cached_row.archived) else None
+        else:
+            existing_row = (
+                await db.scalars(
+                    select(LessonOccurrenceNote)
+                    .where(
+                        LessonOccurrenceNote.note_date == target_date,
+                        LessonOccurrenceNote.group_id == group_id,
+                        LessonOccurrenceNote.lesson_number == lesson.lesson_number,
+                        LessonOccurrenceNote.archived.is_(True),
+                    )
+                    .order_by(LessonOccurrenceNote.id.desc())
+                    .limit(1)
                 )
-                .order_by(LessonOccurrenceNote.id.desc())
-                .limit(1)
-            )
-        ).first()
+            ).first()
 
         if existing_row:
             existing_row.note = url_line[:9500]
@@ -669,23 +680,26 @@ async def _save_link_to_slot(
             existing_row.archived = False
             existing_row.revision += 1
             existing_row.updated_at = datetime.now(timezone.utc)
-            await db.flush()
+            if notes_by_slot is None:
+                await db.flush()
         else:
-            db.add(
-                LessonOccurrenceNote(
-                    note_date=target_date,
-                    group_id=group_id,
-                    lesson_number=lesson.lesson_number,
-                    subject_id=lesson.subject_id,
-                    subject_name=(lesson.subject_name or "")[:255],
-                    note=url_line[:9500],
-                    revision=1,
-                    archived=False,
-                    origin_kind="classroom",
-                    origin_id=0,
-                )
+            new_row = LessonOccurrenceNote(
+                note_date=target_date,
+                group_id=group_id,
+                lesson_number=lesson.lesson_number,
+                subject_id=lesson.subject_id,
+                subject_name=(lesson.subject_name or "")[:255],
+                note=url_line[:9500],
+                revision=1,
+                archived=False,
+                origin_kind="classroom",
+                origin_id=0,
             )
-            await db.flush()
+            db.add(new_row)
+            if notes_by_slot is not None:
+                notes_by_slot[slot_key] = new_row
+            else:
+                await db.flush()
 
 
 async def _upsert_task_line(
@@ -695,6 +709,7 @@ async def _upsert_task_line(
     lesson,
     task_line: str,
     unique_link: str,
+    notes_by_slot: Optional[dict] = None,
 ) -> bool:
     if not lesson or not getattr(lesson, "subject_id", None):
         return False
@@ -702,20 +717,25 @@ async def _upsert_task_line(
         return False
 
     task_line = re.sub(r"[\r\n]+", " ", task_line).strip()
+    slot_key = (target_date, lesson.lesson_number)
 
-    existing = (
-        await db.scalars(
-            select(LessonOccurrenceNote)
-            .where(
-                LessonOccurrenceNote.note_date == target_date,
-                LessonOccurrenceNote.group_id == group_id,
-                LessonOccurrenceNote.lesson_number == lesson.lesson_number,
-                LessonOccurrenceNote.archived.is_(False),
+    if notes_by_slot is not None:
+        cached_row = notes_by_slot.get(slot_key)
+        existing = cached_row if (cached_row is not None and not cached_row.archived) else None
+    else:
+        existing = (
+            await db.scalars(
+                select(LessonOccurrenceNote)
+                .where(
+                    LessonOccurrenceNote.note_date == target_date,
+                    LessonOccurrenceNote.group_id == group_id,
+                    LessonOccurrenceNote.lesson_number == lesson.lesson_number,
+                    LessonOccurrenceNote.archived.is_(False),
+                )
+                .order_by(LessonOccurrenceNote.id.desc())
+                .limit(1)
             )
-            .order_by(LessonOccurrenceNote.id.desc())
-            .limit(1)
-        )
-    ).first()
+        ).first()
 
     if existing:
         clean_note = "\n".join(
@@ -730,23 +750,28 @@ async def _upsert_task_line(
             existing.subject_name = (lesson.subject_name or existing.subject_name)[:255]
             existing.revision += 1
             existing.updated_at = datetime.now(timezone.utc)
-            await db.flush()
+            if notes_by_slot is None:
+                await db.flush()
             return True
         return False
     else:
-        archived_row = (
-            await db.scalars(
-                select(LessonOccurrenceNote)
-                .where(
-                    LessonOccurrenceNote.note_date == target_date,
-                    LessonOccurrenceNote.group_id == group_id,
-                    LessonOccurrenceNote.lesson_number == lesson.lesson_number,
-                    LessonOccurrenceNote.archived.is_(True),
+        if notes_by_slot is not None:
+            cached_row = notes_by_slot.get(slot_key)
+            archived_row = cached_row if (cached_row is not None and cached_row.archived) else None
+        else:
+            archived_row = (
+                await db.scalars(
+                    select(LessonOccurrenceNote)
+                    .where(
+                        LessonOccurrenceNote.note_date == target_date,
+                        LessonOccurrenceNote.group_id == group_id,
+                        LessonOccurrenceNote.lesson_number == lesson.lesson_number,
+                        LessonOccurrenceNote.archived.is_(True),
+                    )
+                    .order_by(LessonOccurrenceNote.id.desc())
+                    .limit(1)
                 )
-                .order_by(LessonOccurrenceNote.id.desc())
-                .limit(1)
-            )
-        ).first()
+            ).first()
 
         if archived_row:
             archived_row.note = task_line[:9500]
@@ -755,24 +780,27 @@ async def _upsert_task_line(
             archived_row.archived = False
             archived_row.revision += 1
             archived_row.updated_at = datetime.now(timezone.utc)
-            await db.flush()
+            if notes_by_slot is None:
+                await db.flush()
             return True
         else:
-            db.add(
-                LessonOccurrenceNote(
-                    note_date=target_date,
-                    group_id=group_id,
-                    lesson_number=lesson.lesson_number,
-                    subject_id=lesson.subject_id,
-                    subject_name=(lesson.subject_name or "")[:255],
-                    note=task_line[:9500],
-                    revision=1,
-                    archived=False,
-                    origin_kind="classroom",
-                    origin_id=0,
-                )
+            new_row = LessonOccurrenceNote(
+                note_date=target_date,
+                group_id=group_id,
+                lesson_number=lesson.lesson_number,
+                subject_id=lesson.subject_id,
+                subject_name=(lesson.subject_name or "")[:255],
+                note=task_line[:9500],
+                revision=1,
+                archived=False,
+                origin_kind="classroom",
+                origin_id=0,
             )
-            await db.flush()
+            db.add(new_row)
+            if notes_by_slot is not None:
+                notes_by_slot[slot_key] = new_row
+            else:
+                await db.flush()
             return True
 
 
@@ -836,6 +864,8 @@ async def perform_course_sync(
     group_course_id: Optional[str] = None,
     week_start: Optional[date] = None,
     skip_course_ids: Optional[set[str]] = None,
+    prefetched_user_email: Optional[str] = None,
+    prefetched_google_user_id: Optional[str] = None,
 ) -> dict:
     headers = {"Authorization": f"Bearer {access_token}"}
     synced_links = 0
@@ -867,14 +897,14 @@ async def perform_course_sync(
     # КРОК 1: Розумне очищення старих авто-посилань та старих [TASK]
     # Завдання інших підгруп/курсів (наприклад, іншої підгрупи англійської мови),
     # яких немає у поточному списку курсів користувача, дбайливо ЗБЕРІГАЮТЬСЯ (Smart Merge)!
-    all_group_notes = (
+    all_group_notes_all = (
         await db.scalars(
-            select(LessonOccurrenceNote).where(
-                LessonOccurrenceNote.group_id == group.id,
-                LessonOccurrenceNote.archived.is_(False),
-            )
+            select(LessonOccurrenceNote)
+            .where(LessonOccurrenceNote.group_id == group.id)
+            .order_by(LessonOccurrenceNote.id.asc())
         )
     ).all()
+    all_group_notes = [gn for gn in all_group_notes_all if not gn.archived]
 
     for gn in all_group_notes:
         manual_lines = []
@@ -972,19 +1002,20 @@ async def perform_course_sync(
     teacher_tokens_by_uid: dict[str, list[str]] = {}
 
     async with httpx.AsyncClient(timeout=15.0) as client:
-        user_email: Optional[str] = None
-        google_user_id: Optional[str] = None
-        try:
-            me_resp = await client.get(
-                "https://classroom.googleapis.com/v1/userProfiles/me",
-                headers=headers,
-            )
-            if me_resp.status_code == 200:
-                me_data = me_resp.json()
-                user_email = me_data.get("emailAddress")
-                google_user_id = (me_data.get("id") or "").strip() or None
-        except Exception as e:
-            logger.warning(f"Could not fetch user profile: {_sanitize_error_msg(str(e))}")
+        user_email: Optional[str] = prefetched_user_email
+        google_user_id: Optional[str] = prefetched_google_user_id
+        if not user_email and not google_user_id:
+            try:
+                me_resp = await client.get(
+                    "https://classroom.googleapis.com/v1/userProfiles/me",
+                    headers=headers,
+                )
+                if me_resp.status_code == 200:
+                    me_data = me_resp.json()
+                    user_email = me_data.get("emailAddress")
+                    google_user_id = (me_data.get("id") or "").strip() or None
+            except Exception as e:
+                logger.warning(f"Could not fetch user profile: {_sanitize_error_msg(str(e))}")
 
         all_active_groups = (await db.scalars(select(Group).where(Group.is_active.is_(True)))).all()
         target_group_courses = []
@@ -1678,6 +1709,13 @@ async def perform_course_sync(
             gn.updated_at = datetime.now(timezone.utc)
     await db.flush()
 
+    notes_by_slot: dict[tuple[date, int], LessonOccurrenceNote] = {}
+    for gn in all_group_notes_all:
+        slot_k = (gn.note_date, gn.lesson_number)
+        prev = notes_by_slot.get(slot_k)
+        if prev is None or (prev.archived and not gn.archived) or (prev.archived == gn.archived):
+            notes_by_slot[slot_k] = gn
+
     # КРОК 4: Прикріплюємо ДЗ (за правилами 13.1, 13.2 та 13.3)
     sorted_horizon_dates = sorted(
         d for d in horizon_lessons_by_date.keys()
@@ -1802,18 +1840,22 @@ async def perform_course_sync(
             lesson=target_lesson,
             task_line=task_line,
             unique_link=alt_link,
+            notes_by_slot=notes_by_slot,
         )
         if added:
             synced_tasks += 1
 
     # Очищуємо застарілі примітки [TASKS_COMPLETED], оскільки стан здачі є персональним
     # лише для студента, який прив'язав свою пошту в браузері
-    await db.execute(
-        delete(LessonOccurrenceNote).where(
-            LessonOccurrenceNote.group_id == group.id,
-            LessonOccurrenceNote.note.like("%[TASKS_COMPLETED]%"),
-        )
-    )
+    for slot_k, note_obj in list(notes_by_slot.items()):
+        if not note_obj.archived and "[TASKS_COMPLETED]" in (note_obj.note or ""):
+            cleaned_lines = [l for l in note_obj.note.split("\n") if l.strip() and not l.strip().startswith("[TASKS_COMPLETED]")]
+            if cleaned_lines:
+                note_obj.note = "\n".join(cleaned_lines)
+                note_obj.revision += 1
+            else:
+                note_obj.archived = True
+                note_obj.revision += 1
 
     # КРОК 5: Ставимо розпізнані посилання Meet / Zoom СТРОГО на відповідні пари поточного тижня
     parsed_announcements.sort(key=lambda x: x["created_dt"])
@@ -1868,9 +1910,11 @@ async def perform_course_sync(
                     url_line = f"{matched_prefix}: {url_line}"
 
                 await _save_link_to_slot(
-                    db, c_date, group.id, matched_lesson, url_line, matched_prefix
+                    db, c_date, group.id, matched_lesson, url_line, matched_prefix, notes_by_slot=notes_by_slot
                 )
                 synced_links += 1
+
+    await db.flush()
 
     _latest_unmapped_tasks[group.id] = unmapped_tasks
 
@@ -2112,6 +2156,8 @@ async def sync_from_classroom(
             access_token,
             group_course_id=binding.course_id,
             week_start=payload.week_start,
+            prefetched_user_email=profile_email,
+            prefetched_google_user_id=google_user_id,
         )
 
         effective_user_id = (

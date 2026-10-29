@@ -50,12 +50,28 @@ async def lifespan(_: FastAPI):
                 "ON schedule (version_id, is_active, day_of_week, group_id)"
             ))
             await conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_schedule_second_teacher_day "
+                "ON schedule (second_teacher_id, day_of_week)"
+            ))
+            await conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_schedule_subject_id "
+                "ON schedule (subject_id)"
+            ))
+            await conn.execute(text(
                 "CREATE INDEX IF NOT EXISTS ix_imp_changes_lookup "
                 "ON imported_schedule_changes (date, is_published, group_id, lesson_number, version DESC)"
             ))
             await conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_imp_changes_teacher "
+                "ON imported_schedule_changes (date, is_published, teacher_id, second_teacher_id)"
+            ))
+            await conn.execute(text(
                 "CREATE INDEX IF NOT EXISTS ix_override_date_group "
                 "ON schedule_override (date, group_id, lesson_number)"
+            ))
+            await conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_override_teacher "
+                "ON schedule_override (date, teacher_id, second_teacher_id)"
             ))
             await conn.execute(text(
                 "CREATE INDEX IF NOT EXISTS ix_notes_week_lookup "
