@@ -1,3 +1,4 @@
+import logging
 import time
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status, Request
@@ -8,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
+logger = logging.getLogger(__name__)
 limiter = Limiter(key_func=get_remote_address)
 
 from app.config import settings
@@ -53,13 +55,14 @@ class TokenResponse(BaseModel):
 
 
 def set_refresh_cookie(response: Response, token: str) -> None:
+    is_secure = settings.is_cookie_secure
     response.set_cookie(
         key=settings.auth_cookie_name,
         value=token,
         max_age=settings.refresh_token_expire_days * 86400,
         httponly=True,
-        secure=settings.auth_cookie_secure,
-        samesite="none" if settings.auth_cookie_secure else "lax",
+        secure=is_secure,
+        samesite="none" if is_secure else "lax",
         path="/",
     )
 
@@ -73,8 +76,15 @@ async def _cleanup_expired_blocklist(db: AsyncSession) -> None:
     if now_ts - _last_blocklist_cleanup < CLEANUP_INTERVAL_SECONDS:
         return
     _last_blocklist_cleanup = now_ts
-    cutoff = datetime.now(timezone.utc) - timedelta(days=settings.refresh_token_expire_days + 1)
-    await db.execute(delete(TokenBlocklist).where(TokenBlocklist.created_at < cutoff))
+    try:
+        cutoff_aware = datetime.now(timezone.utc) - timedelta(days=settings.refresh_token_expire_days + 1)
+        cutoff_naive = cutoff_aware.replace(tzinfo=None)
+        try:
+            await db.execute(delete(TokenBlocklist).where(TokenBlocklist.created_at < cutoff_aware))
+        except Exception:
+            await db.execute(delete(TokenBlocklist).where(TokenBlocklist.created_at < cutoff_naive))
+    except Exception as exc:
+        logger.warning("Token blocklist cleanup skipped: %s", exc)
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -104,56 +114,127 @@ async def refresh(
     refresh_cookie: str | None = Cookie(default=None, alias=settings.auth_cookie_name),
     db: AsyncSession = Depends(get_db),
 ):
-    token = refresh_cookie or (payload.refresh_token if payload else None)
-    if not token:
-        raise HTTPException(status_code=401, detail="Потрібна авторизація")
-    claims = decode_token(token, "refresh")
-    jti = claims.get("jti")
-    
     try:
-        user_id = int(claims["sub"])
-    except (TypeError, ValueError) as exc:
-        raise HTTPException(status_code=401, detail="Некоректний токен") from exc
-        
-    user = await db.scalar(select(User).where(User.id == user_id).options(selectinload(User.allowed_groups)))
-    if user is None or not user.is_active:
-        raise HTTPException(status_code=401, detail="Користувач не активний або не існує")
-        
-    already_blocked = False
-    if jti:
-        is_blocked = await db.scalar(select(TokenBlocklist).where(TokenBlocklist.jti == jti))
-        if is_blocked:
-            already_blocked = True
-            blocked_at = getattr(is_blocked, "created_at", None)
-            if blocked_at is not None and blocked_at.tzinfo is None:
-                blocked_at = blocked_at.replace(tzinfo=timezone.utc)
-            now_utc = datetime.now(timezone.utc)
-            # Allow a 60-second grace window for page reloads / network retries
-            if blocked_at is None or (now_utc - blocked_at).total_seconds() > 60:
-                user.session_version = getattr(user, "session_version", 1) + 1
-                await db.commit()
-                raise HTTPException(status_code=401, detail="Виявлено спробу компрометації. Усі ваші сеанси завершено. Увійдіть знову.")
+        candidates: list[str] = []
+        if payload and payload.refresh_token:
+            candidates.append(payload.refresh_token)
+        if refresh_cookie and refresh_cookie not in candidates:
+            candidates.append(refresh_cookie)
+        if not candidates:
+            raise HTTPException(status_code=401, detail="Потрібна авторизація")
 
-    if claims.get("session_version") and claims.get("session_version") != getattr(user, "session_version", 1):
-        raise HTTPException(status_code=401, detail="Сесія відкликана. Будь ласка, увійдіть знову.")
-        
-    # Valid refresh token. Consume it by adding to blocklist.
-    if jti and not already_blocked:
-        db.add(TokenBlocklist(jti=jti))
-        
-    new_refresh = create_refresh_token(user)
-    set_refresh_cookie(response, new_refresh)
-    await _cleanup_expired_blocklist(db)
-    await db.commit()
-    
-    return TokenResponse(
-        access_token=create_access_token(user),
-        refresh_token=new_refresh,
-        user=UserResponse(
-            id=user.id, username=user.username, email=user.email, name=user.name, role=user.role, is_active=user.is_active,
-            allowed_groups=[g.id for g in user.allowed_groups] if user.allowed_groups else []
-        ),
-    )
+        selected_user: User | None = None
+        selected_jti: str | None = None
+        already_blocked: bool = False
+        last_exception: Exception | None = None
+
+        for candidate_token in candidates:
+            try:
+                claims = decode_token(candidate_token, "refresh")
+                jti = claims.get("jti")
+                try:
+                    user_id = int(claims["sub"])
+                except (TypeError, ValueError) as exc:
+                    raise HTTPException(status_code=401, detail="Некоректний токен") from exc
+
+                user = await db.scalar(
+                    select(User).where(User.id == user_id).options(selectinload(User.allowed_groups))
+                )
+                if user is None or not user.is_active:
+                    raise HTTPException(status_code=401, detail="Користувач не активний або не існує")
+
+                token_already_blocked = False
+                if jti:
+                    is_blocked = await db.scalar(select(TokenBlocklist).where(TokenBlocklist.jti == jti))
+                    if is_blocked:
+                        token_already_blocked = True
+                        blocked_at = getattr(is_blocked, "created_at", None)
+                        if blocked_at is not None and blocked_at.tzinfo is None:
+                            blocked_at = blocked_at.replace(tzinfo=timezone.utc)
+                        now_utc = datetime.now(timezone.utc)
+                        # Grace window for network retries and parallel client requests
+                        if blocked_at is None or (now_utc - blocked_at).total_seconds() > 60:
+                            if len(candidates) > 1 and candidate_token != candidates[-1]:
+                                continue
+                            user.session_version = getattr(user, "session_version", 1) + 1
+                            try:
+                                await db.commit()
+                            except Exception:
+                                await db.rollback()
+                            raise HTTPException(
+                                status_code=401,
+                                detail="Виявлено спробу компрометації. Усі ваші сеанси завершено. Увійдіть знову.",
+                            )
+
+                if claims.get("session_version") and claims.get("session_version") != getattr(user, "session_version", 1):
+                    if len(candidates) > 1 and candidate_token != candidates[-1]:
+                        continue
+                    raise HTTPException(status_code=401, detail="Сесія відкликана. Будь ласка, увійдіть знову.")
+
+                selected_user = user
+                selected_jti = jti
+                already_blocked = token_already_blocked
+                break
+            except HTTPException as http_exc:
+                last_exception = http_exc
+                continue
+
+        if selected_user is None:
+            if last_exception:
+                raise last_exception
+            raise HTTPException(status_code=401, detail="Потрібна авторизація")
+
+        # Consume the old refresh token by recording it into blocklist
+        if selected_jti and not already_blocked:
+            try:
+                dialect = db.get_bind().dialect.name
+                if dialect == "postgresql":
+                    from sqlalchemy.dialects.postgresql import insert
+                    statement = insert(TokenBlocklist).values(jti=selected_jti)
+                    await db.execute(statement.on_conflict_do_nothing(index_elements=["jti"]))
+                elif dialect == "sqlite":
+                    from sqlalchemy.dialects.sqlite import insert
+                    statement = insert(TokenBlocklist).values(jti=selected_jti)
+                    await db.execute(statement.on_conflict_do_nothing(index_elements=["jti"]))
+                else:
+                    db.add(TokenBlocklist(jti=selected_jti))
+            except Exception:
+                db.add(TokenBlocklist(jti=selected_jti))
+
+        new_refresh = create_refresh_token(selected_user)
+        set_refresh_cookie(response, new_refresh)
+
+        try:
+            await _cleanup_expired_blocklist(db)
+            await db.commit()
+        except Exception as commit_exc:
+            await db.rollback()
+            logger.warning("Commit failed during token refresh, attempting fallback: %s", commit_exc)
+            try:
+                await db.commit()
+            except Exception:
+                await db.rollback()
+
+        return TokenResponse(
+            access_token=create_access_token(selected_user),
+            refresh_token=new_refresh,
+            user=UserResponse(
+                id=selected_user.id,
+                username=selected_user.username,
+                email=selected_user.email,
+                name=selected_user.name,
+                role=selected_user.role,
+                is_active=selected_user.is_active,
+                allowed_groups=[g.id for g in selected_user.allowed_groups] if selected_user.allowed_groups else [],
+            ),
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Unexpected error in /refresh endpoint")
+        raise HTTPException(
+            status_code=401, detail="Не вдалося оновити сесію. Будь ласка, увійдіть знову."
+        ) from exc
 
 
 

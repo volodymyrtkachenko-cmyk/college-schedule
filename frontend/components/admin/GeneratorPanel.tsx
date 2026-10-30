@@ -160,12 +160,12 @@ export function GeneratorPanel() {
   }, [isGeneratingActive]);
 
   useEffect(() => {
-    if (!isGeneratingActive) return;
+    if (!isGeneratingActive || showGenModal) return;
     const interval = setInterval(() => {
       loadDrafts(false);
-    }, 3000);
+    }, 6000);
     return () => clearInterval(interval);
-  }, [isGeneratingActive]);
+  }, [isGeneratingActive, showGenModal]);
 
   async function loadDrafts(includeSettings: boolean = false) {
     try {
@@ -250,7 +250,7 @@ export function GeneratorPanel() {
     try {
       setGenerating(true);
       setShowGenModal(true);
-      const session = await api.auth.ensureAuthenticated();
+      let session = await api.auth.ensureAuthenticated();
       const job = await api.generator.generate(
         session.access_token,
         formSettings.max_time_seconds,
@@ -259,10 +259,22 @@ export function GeneratorPanel() {
       setGeneratingJob({ id: job.id, startedAt: Date.now() });
       const startedAt = Date.now();
       let completed = job;
+      let consecutiveErrors = 0;
       const pollTimeoutMs = Math.max(12 * 60 * 1000, (formSettings.max_time_seconds + formSettings.optimization_time_seconds + 60) * 1000);
       while (completed.status === "GENERATING" && Date.now() - startedAt < pollTimeoutMs) {
         await new Promise(resolve => setTimeout(resolve, 3000));
-        completed = await api.generator.getDraft(job.id, session.access_token);
+        try {
+          const freshSession = await api.auth.ensureAuthenticated().catch(() => session);
+          if (freshSession) session = freshSession;
+          completed = await api.generator.getDraft(job.id, session.access_token);
+          consecutiveErrors = 0;
+        } catch (pollErr) {
+          consecutiveErrors++;
+          // Allow transient network or token refresh pauses without closing modal
+          if (consecutiveErrors >= 6) {
+            throw pollErr;
+          }
+        }
       }
       if (completed.status === "TIMEOUT") {
         throw new Error("Не вдалося створити розклад за відведений час. Перевірте навчальне навантаження або збільшіть час пошуку в налаштуваннях.");
@@ -283,6 +295,7 @@ export function GeneratorPanel() {
       setShowGenModal(false);
       setGeneratingJob(null);
       await loadDrafts();
+      await loadSlots(completed);
     } catch(err: any) {
       setToast(err.message, "error");
       setShowGenModal(false);

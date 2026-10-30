@@ -37,11 +37,28 @@ class SettingsService:
         return value if value is not None else default
 
     async def set(self, db: AsyncSession, key: str, value: str) -> None:
-        setting = await db.get(Setting, key)
-        if setting is None:
-            db.add(Setting(key=key, value=value))
-        else:
-            setting.value = value
+        try:
+            dialect = db.get_bind().dialect.name
+            if dialect == "postgresql":
+                from sqlalchemy.dialects.postgresql import insert
+                statement = insert(Setting).values(key=key, value=value)
+                await db.execute(statement.on_conflict_do_update(index_elements=["key"], set_={"value": value}))
+            elif dialect == "sqlite":
+                from sqlalchemy.dialects.sqlite import insert
+                statement = insert(Setting).values(key=key, value=value)
+                await db.execute(statement.on_conflict_do_update(index_elements=["key"], set_={"value": value}))
+            else:
+                setting = await db.get(Setting, key)
+                if setting is None:
+                    db.add(Setting(key=key, value=value))
+                else:
+                    setting.value = value
+        except Exception:
+            setting = await db.get(Setting, key)
+            if setting is None:
+                db.add(Setting(key=key, value=value))
+            else:
+                setting.value = value
         await db.commit()
         self.invalidate_cache()
         from app.services import cache_rev

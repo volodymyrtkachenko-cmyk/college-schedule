@@ -44,6 +44,16 @@ class Settings(BaseSettings):
         return self
 
     @property
+    def is_cookie_secure(self) -> bool:
+        import os
+        return (
+            self.auth_cookie_secure
+            or self.environment.lower() == "production"
+            or bool(os.environ.get("FLY_APP_NAME"))
+            or bool(os.environ.get("FLY_ALLOC_ID"))
+        )
+
+    @property
     def cors_origins(self) -> list[str]:
         origins = [origin.strip() for origin in self.backend_cors_origins.split(",") if origin.strip() and origin.strip() != "*"]
         if not origins:
