@@ -1657,6 +1657,7 @@ async def import_data_cron(
 
 class MigrateRequest(BaseModel):
     neon_url: str
+    wipe_supabase: bool = True
 
 @router.post("/migrate-from-neon")
 async def migrate_from_neon(
@@ -1677,53 +1678,61 @@ async def migrate_from_neon(
     remote_engine = create_async_engine(neon_url)
     stats = {}
 
-    try:
-        async with remote_engine.connect() as remote_conn:
-            tables_to_check = [
-                "faculties",
-                "teachers",
-                "groups",
-                "subjects",
-                "users",
-                "user_group_access",
-                "entity_aliases",
-                "settings",
-                "token_blocklist",
-                "bell_schedule",
-                "schedule_versions",
-                "schedule_periods",
-                "schedule_period_groups",
-                "schedule_period_slots",
-                "schedule_slots",
-                "schedule",
-                "curriculums",
-                "schedule_drafts",
-                "teacher_constraints",
-                "schedule_publications",
-                "schedule_publication_snapshots",
-                "imported_schedule_changes",
-                "schedule_override",
-                "lesson_occurrence_notes",
-                "lesson_note_revisions",
-                "classroom_credentials",
-                "group_students",
-                "classroom_group_bindings",
-                "schedule_events",
-                "academic_events",
-                "feedback",
-            ]
+    tables_to_check = [
+        "faculties",
+        "teachers",
+        "groups",
+        "subjects",
+        "users",
+        "user_group_access",
+        "entity_aliases",
+        "settings",
+        "token_blocklist",
+        "bell_schedule",
+        "schedule_versions",
+        "schedule_periods",
+        "schedule_period_groups",
+        "schedule_period_slots",
+        "schedule_slots",
+        "schedule_drafts",
+        "teacher_constraints",
+        "schedule_publications",
+        "curriculums",
+        "schedule",
+        "schedule_publication_snapshots",
+        "imported_schedule_changes",
+        "schedule_override",
+        "lesson_occurrence_notes",
+        "lesson_note_revisions",
+        "classroom_credentials",
+        "group_students",
+        "classroom_group_bindings",
+        "schedule_events",
+        "academic_events",
+        "feedback",
+    ]
 
+    try:
+        # Step 1: Wipe existing Supabase data if requested
+        if payload.wipe_supabase:
+            logger.info("Wiping all Supabase application tables before migration...")
+            reversed_tables = list(reversed(tables_to_check))
+            truncate_stmt = f"TRUNCATE TABLE {', '.join(reversed_tables)} CASCADE;"
+            try:
+                await db.execute(text(truncate_stmt))
+                await db.commit()
+                stats["wiped"] = True
+                logger.info("Supabase application tables successfully truncated.")
+            except Exception as w_err:
+                logger.error(f"Failed to truncate tables: {w_err}")
+                await db.rollback()
+                return {"status": "error", "error": f"Truncate failed: {w_err}"}
+
+        async with remote_engine.connect() as remote_conn:
             try:
                 await db.execute(text("SET session_replication_role = 'replica'"))
             except Exception:
                 pass
-
-            # Pre-load existing schedule version IDs in Supabase
-            try:
-                neon_vers = (await remote_conn.execute(text("SELECT * FROM schedule_versions"))).mappings().all()
-                stats["neon_versions"] = [dict(v) for v in neon_vers]
-            except Exception as e:
-                stats["neon_versions_err"] = str(e)
 
             for tbl in tables_to_check:
                 try:
@@ -1751,46 +1760,58 @@ async def migrate_from_neon(
                     table_obj = Base.metadata.tables.get(tbl)
                     chunk_size = 200
 
-                    # Special handling for schedule_versions to avoid exclusion constraint conflict
-                    if tbl == "schedule_versions":
-                        await db.execute(text("UPDATE schedule_versions SET is_active = false"))
-                        await db.commit()
-
-                    # Pre-fetch valid foreign keys for dependent tables
-                    valid_version_ids = set((await db.execute(text("SELECT id FROM schedule_versions"))).scalars().all()) if tbl == "schedule" else set()
-                    valid_subject_ids = list((await db.execute(text("SELECT id FROM subjects"))).scalars().all()) if tbl in ("lesson_occurrence_notes", "curriculums", "imported_schedule_changes", "schedule_override") else []
+                    # Dynamically inspect existing parent IDs for FK validation
+                    valid_group_ids = set((await db.execute(text("SELECT id FROM groups"))).scalars().all()) if tbl in ("teachers", "group_students", "classroom_group_bindings", "curriculums", "lesson_occurrence_notes", "schedule_publication_snapshots", "imported_schedule_changes", "schedule_override", "schedule", "schedule_slots", "schedule_period_groups") else set()
+                    valid_subject_ids = list((await db.execute(text("SELECT id FROM subjects"))).scalars().all()) if tbl in ("curriculums", "schedule", "schedule_slots", "lesson_occurrence_notes", "imported_schedule_changes", "schedule_override", "academic_events") else []
+                    valid_subject_ids_set = set(valid_subject_ids)
                     fallback_subject = valid_subject_ids[0] if valid_subject_ids else 1
-                    valid_group_ids = set((await db.execute(text("SELECT id FROM groups"))).scalars().all()) if tbl in ("group_students", "classroom_group_bindings", "curriculums", "lesson_occurrence_notes", "schedule_publication_snapshots", "imported_schedule_changes", "schedule_override") else set()
-                    valid_note_ids = set((await db.execute(text("SELECT id FROM lesson_occurrence_notes"))).scalars().all()) if tbl == "lesson_note_revisions" else set()
+
+                    valid_teacher_ids = set((await db.execute(text("SELECT id FROM teachers"))).scalars().all()) if tbl in ("curriculums", "schedule", "schedule_slots", "imported_schedule_changes", "schedule_override", "academic_events", "teacher_constraints") else set()
+                    valid_version_ids = set((await db.execute(text("SELECT id FROM schedule_versions"))).scalars().all()) if tbl in ("schedule",) else set()
                     valid_pub_ids = set((await db.execute(text("SELECT id FROM schedule_publications"))).scalars().all()) if tbl in ("schedule_publication_snapshots", "imported_schedule_changes") else set()
-                    valid_teacher_ids = set((await db.execute(text("SELECT id FROM teachers"))).scalars().all()) if tbl in ("imported_schedule_changes", "schedule_override", "curriculums") else set()
-                    valid_draft_ids = set((await db.execute(text("SELECT id FROM schedule_drafts"))).scalars().all()) if tbl == "imported_schedule_changes" else set()
+                    valid_draft_ids = set((await db.execute(text("SELECT id FROM schedule_drafts"))).scalars().all()) if tbl in ("imported_schedule_changes",) else set()
+                    valid_note_ids = set((await db.execute(text("SELECT id FROM lesson_occurrence_notes"))).scalars().all()) if tbl in ("lesson_note_revisions",) else set()
+                    valid_cred_ids = set((await db.execute(text("SELECT id FROM classroom_credentials"))).scalars().all()) if tbl in ("classroom_group_bindings",) else set()
 
                     for i in range(0, len(rows), chunk_size):
                         batch = rows[i:i + chunk_size]
                         clean_batch = []
                         for r in batch:
                             item = {k: v for k, v in dict(r).items() if k in dest_cols}
-                            if tbl == "schedule" and item.get("version_id") not in valid_version_ids:
-                                item["version_id"] = None
-                            if tbl == "lesson_occurrence_notes":
-                                if item.get("subject_id") not in valid_subject_ids:
-                                    item["subject_id"] = fallback_subject
+
+                            if tbl == "schedule":
+                                if item.get("version_id") and item.get("version_id") not in valid_version_ids:
+                                    item["version_id"] = None
                                 if item.get("group_id") not in valid_group_ids:
                                     continue
-                            if tbl == "lesson_note_revisions":
+                                if item.get("subject_id") and item.get("subject_id") not in valid_subject_ids_set:
+                                    item["subject_id"] = fallback_subject
+                                if item.get("teacher_id") and item.get("teacher_id") not in valid_teacher_ids:
+                                    item["teacher_id"] = None
+                                if item.get("second_teacher_id") and item.get("second_teacher_id") not in valid_teacher_ids:
+                                    item["second_teacher_id"] = None
+
+                            elif tbl == "lesson_occurrence_notes":
+                                if item.get("group_id") not in valid_group_ids:
+                                    continue
+                                if item.get("subject_id") not in valid_subject_ids_set:
+                                    item["subject_id"] = fallback_subject
+
+                            elif tbl == "lesson_note_revisions":
                                 if item.get("note_id") not in valid_note_ids:
                                     continue
-                            if tbl in ("group_students", "classroom_group_bindings"):
-                                if item.get("group_id") not in valid_group_ids:
+
+                            elif tbl == "curriculums":
+                                if item.get("group_id") not in valid_group_ids or item.get("subject_id") not in valid_subject_ids_set:
                                     continue
-                            if tbl == "curriculums":
-                                if item.get("group_id") not in valid_group_ids or item.get("subject_id") not in valid_subject_ids:
-                                    continue
-                            if tbl == "schedule_publication_snapshots":
+                                if item.get("teacher_id") and item.get("teacher_id") not in valid_teacher_ids:
+                                    item["teacher_id"] = None
+
+                            elif tbl == "schedule_publication_snapshots":
                                 if item.get("group_id") not in valid_group_ids or item.get("publication_id") not in valid_pub_ids:
                                     continue
-                            if tbl == "imported_schedule_changes":
+
+                            elif tbl == "imported_schedule_changes":
                                 if item.get("group_id") not in valid_group_ids:
                                     continue
                                 if item.get("publication_id") and item.get("publication_id") not in valid_pub_ids:
@@ -1801,17 +1822,29 @@ async def migrate_from_neon(
                                     item["teacher_id"] = None
                                 if item.get("second_teacher_id") and item.get("second_teacher_id") not in valid_teacher_ids:
                                     item["second_teacher_id"] = None
-                                if item.get("subject_id") and item.get("subject_id") not in valid_subject_ids:
+                                if item.get("subject_id") and item.get("subject_id") not in valid_subject_ids_set:
                                     item["subject_id"] = fallback_subject
-                            if tbl == "schedule_override":
+
+                            elif tbl == "schedule_override":
                                 if item.get("group_id") not in valid_group_ids:
                                     continue
                                 if item.get("teacher_id") and item.get("teacher_id") not in valid_teacher_ids:
                                     item["teacher_id"] = None
                                 if item.get("second_teacher_id") and item.get("second_teacher_id") not in valid_teacher_ids:
                                     item["second_teacher_id"] = None
-                                if item.get("subject_id") and item.get("subject_id") not in valid_subject_ids:
+                                if item.get("subject_id") and item.get("subject_id") not in valid_subject_ids_set:
                                     item["subject_id"] = fallback_subject
+
+                            elif tbl in ("group_students",):
+                                if item.get("group_id") not in valid_group_ids:
+                                    continue
+
+                            elif tbl == "classroom_group_bindings":
+                                if item.get("group_id") not in valid_group_ids:
+                                    continue
+                                if item.get("credential_id") and item.get("credential_id") not in valid_cred_ids:
+                                    continue
+
                             clean_batch.append(item)
 
                         if clean_batch:
@@ -1825,7 +1858,7 @@ async def migrate_from_neon(
                                     param_names = ", ".join(f":{c}" for c in cols)
                                     stmt = text(f"INSERT INTO {tbl} ({col_names}) VALUES ({param_names}) ON CONFLICT DO NOTHING")
                                     await db.execute(stmt, item)
-                                
+
                     await db.commit()
                 except Exception as tbl_e:
                     logger.warning(f"Error migrating table {tbl}: {tbl_e}")
