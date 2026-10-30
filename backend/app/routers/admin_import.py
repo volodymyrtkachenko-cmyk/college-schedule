@@ -1740,6 +1740,14 @@ async def migrate_from_neon(
                     if not rows:
                         continue
 
+                    # Fetch actual columns in the destination PostgreSQL table
+                    dest_cols = set(
+                        (await db.execute(
+                            text("SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = :t"),
+                            {"t": tbl}
+                        )).scalars().all()
+                    )
+
                     table_obj = Base.metadata.tables.get(tbl)
                     chunk_size = 200
 
@@ -1748,33 +1756,47 @@ async def migrate_from_neon(
                         await db.execute(text("UPDATE schedule_versions SET is_active = false"))
                         await db.commit()
 
-                    # Pre-fetch valid version_ids for schedule table
-                    valid_version_ids = set()
-                    if tbl == "schedule":
-                        valid_version_ids = set((await db.scalars(select(ScheduleVersion.id))).all())
+                    # Pre-fetch valid foreign keys for dependent tables
+                    valid_version_ids = set((await db.execute(text("SELECT id FROM schedule_versions"))).scalars().all()) if tbl == "schedule" else set()
+                    valid_subject_ids = list((await db.execute(text("SELECT id FROM subjects"))).scalars().all()) if tbl in ("lesson_occurrence_notes", "curriculums") else []
+                    fallback_subject = valid_subject_ids[0] if valid_subject_ids else 1
+                    valid_group_ids = set((await db.execute(text("SELECT id FROM groups"))).scalars().all()) if tbl in ("group_students", "classroom_group_bindings", "curriculums", "lesson_occurrence_notes") else set()
+                    valid_note_ids = set((await db.execute(text("SELECT id FROM lesson_occurrence_notes"))).scalars().all()) if tbl == "lesson_note_revisions" else set()
 
                     for i in range(0, len(rows), chunk_size):
                         batch = rows[i:i + chunk_size]
-                        if table_obj is not None:
-                            valid_cols = set(table_obj.c.keys())
-                            clean_batch = []
-                            for r in batch:
-                                item = {k: v for k, v in dict(r).items() if k in valid_cols}
-                                if tbl == "schedule" and item.get("version_id") not in valid_version_ids:
-                                    item["version_id"] = None
-                                clean_batch.append(item)
+                        clean_batch = []
+                        for r in batch:
+                            item = {k: v for k, v in dict(r).items() if k in dest_cols}
+                            if tbl == "schedule" and item.get("version_id") not in valid_version_ids:
+                                item["version_id"] = None
+                            if tbl == "lesson_occurrence_notes":
+                                if item.get("subject_id") not in valid_subject_ids:
+                                    item["subject_id"] = fallback_subject
+                                if item.get("group_id") not in valid_group_ids:
+                                    continue
+                            if tbl == "lesson_note_revisions":
+                                if item.get("note_id") not in valid_note_ids:
+                                    continue
+                            if tbl in ("group_students", "classroom_group_bindings"):
+                                if item.get("group_id") not in valid_group_ids:
+                                    continue
+                            if tbl == "curriculums":
+                                if item.get("group_id") not in valid_group_ids or item.get("subject_id") not in valid_subject_ids:
+                                    continue
+                            clean_batch.append(item)
 
-                            if clean_batch:
+                        if clean_batch:
+                            if table_obj is not None:
                                 stmt = pg_insert(table_obj).values(clean_batch).on_conflict_do_nothing()
                                 await db.execute(stmt)
-                        else:
-                            for r in batch:
-                                cols = list(r.keys())
-                                vals = dict(r)
-                                col_names = ", ".join(cols)
-                                param_names = ", ".join(f":{c}" for c in cols)
-                                stmt = text(f"INSERT INTO {tbl} ({col_names}) VALUES ({param_names}) ON CONFLICT DO NOTHING")
-                                await db.execute(stmt, vals)
+                            else:
+                                for item in clean_batch:
+                                    cols = list(item.keys())
+                                    col_names = ", ".join(cols)
+                                    param_names = ", ".join(f":{c}" for c in cols)
+                                    stmt = text(f"INSERT INTO {tbl} ({col_names}) VALUES ({param_names}) ON CONFLICT DO NOTHING")
+                                    await db.execute(stmt, item)
                                 
                     await db.commit()
                 except Exception as tbl_e:
