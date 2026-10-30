@@ -12,6 +12,7 @@ from sqlalchemy import text, delete, select, func, update
 from sqlalchemy.orm import joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
 from types import SimpleNamespace
+from pydantic import BaseModel
 from app.database import get_db, engine, async_session_factory
 from app.services.import_lock import import_mutex
 from app.routers.auth import limiter
@@ -1664,39 +1665,58 @@ async def migrate_from_neon(
     _: object = Depends(require_roles("admin")),
 ):
     from sqlalchemy.ext.asyncio import create_async_engine
+    from sqlalchemy.dialects.postgresql import insert as pg_insert
+    from app.database import Base
+
     neon_url = payload.neon_url.strip()
     if neon_url.startswith("postgresql://"):
         neon_url = neon_url.replace("postgresql://", "postgresql+psycopg://", 1)
+    elif neon_url.startswith("postgres://"):
+        neon_url = neon_url.replace("postgres://", "postgresql+psycopg://", 1)
 
-    remote_engine = create_async_engine(neon_url, connect_args={"sslmode": "require"})
+    remote_engine = create_async_engine(neon_url)
     stats = {}
 
     try:
         async with remote_engine.connect() as remote_conn:
             tables_to_check = [
+                "faculties",
+                "teachers",
+                "groups",
+                "subjects",
                 "users",
+                "user_group_access",
+                "entity_aliases",
                 "settings",
+                "token_blocklist",
+                "bell_schedule",
                 "schedule_versions",
                 "schedule_periods",
                 "schedule_period_groups",
                 "schedule_period_slots",
-                "lesson_occurrence_notes",
-                "lesson_note_revisions",
-                "schedule_override",
+                "schedule_slots",
+                "schedule",
+                "curriculums",
+                "schedule_drafts",
                 "teacher_constraints",
                 "schedule_publications",
                 "schedule_publication_snapshots",
+                "imported_schedule_changes",
+                "schedule_override",
+                "lesson_occurrence_notes",
+                "lesson_note_revisions",
                 "classroom_credentials",
                 "group_students",
                 "classroom_group_bindings",
-                "academic_events",
                 "schedule_events",
+                "academic_events",
+                "feedback",
             ]
 
             for tbl in tables_to_check:
                 try:
                     exists = await remote_conn.scalar(
-                        text("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = :t)"),
+                        text("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = :t)"),
                         {"t": tbl}
                     )
                     if not exists:
@@ -1708,15 +1728,21 @@ async def migrate_from_neon(
                     if not rows:
                         continue
 
-                    # Insert into current db with ON CONFLICT DO NOTHING
+                    table_obj = Base.metadata.tables.get(tbl)
                     for row in rows:
-                        cols = list(row.keys())
-                        vals = dict(row)
-                        col_names = ", ".join(cols)
-                        param_names = ", ".join(f":{c}" for c in cols)
-                        stmt = text(f"INSERT INTO {tbl} ({col_names}) VALUES ({param_names}) ON CONFLICT DO NOTHING")
                         try:
-                            await db.execute(stmt, vals)
+                            async with db.begin_nested():
+                                if table_obj is not None:
+                                    vals = {k: v for k, v in dict(row).items() if k in table_obj.c}
+                                    stmt = pg_insert(table_obj).values(vals).on_conflict_do_nothing()
+                                    await db.execute(stmt)
+                                else:
+                                    cols = list(row.keys())
+                                    vals = dict(row)
+                                    col_names = ", ".join(cols)
+                                    param_names = ", ".join(f":{c}" for c in cols)
+                                    stmt = text(f"INSERT INTO {tbl} ({col_names}) VALUES ({param_names}) ON CONFLICT DO NOTHING")
+                                    await db.execute(stmt, vals)
                         except Exception as row_e:
                             logger.warning(f"Error migrating row in {tbl}: {row_e}")
                             
@@ -1727,7 +1753,7 @@ async def migrate_from_neon(
             # Fix sequences in postgres
             for tbl in tables_to_check:
                 try:
-                    await db.execute(text(f"SELECT setval(pg_get_serial_sequence('{tbl}', 'id'), COALESCE(MAX(id), 1)) FROM {tbl}"))
+                    await db.execute(text(f"SELECT setval(pg_get_serial_sequence('{tbl}', 'id'), COALESCE((SELECT MAX(id) FROM {tbl}), 1))"))
                     await db.commit()
                 except Exception:
                     pass
@@ -1738,6 +1764,7 @@ async def migrate_from_neon(
         return {"status": "error", "error": str(e), "stats": stats}
     finally:
         await remote_engine.dispose()
+
 
 
 
