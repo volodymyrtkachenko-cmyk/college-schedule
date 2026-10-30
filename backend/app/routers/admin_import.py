@@ -1713,6 +1713,11 @@ async def migrate_from_neon(
                 "feedback",
             ]
 
+            try:
+                await db.execute(text("SET session_replication_role = 'replica'"))
+            except Exception:
+                pass
+
             for tbl in tables_to_check:
                 try:
                     exists = await remote_conn.scalar(
@@ -1729,26 +1734,36 @@ async def migrate_from_neon(
                         continue
 
                     table_obj = Base.metadata.tables.get(tbl)
-                    for row in rows:
-                        try:
-                            async with db.begin_nested():
-                                if table_obj is not None:
-                                    vals = {k: v for k, v in dict(row).items() if k in table_obj.c}
-                                    stmt = pg_insert(table_obj).values(vals).on_conflict_do_nothing()
-                                    await db.execute(stmt)
-                                else:
-                                    cols = list(row.keys())
-                                    vals = dict(row)
-                                    col_names = ", ".join(cols)
-                                    param_names = ", ".join(f":{c}" for c in cols)
-                                    stmt = text(f"INSERT INTO {tbl} ({col_names}) VALUES ({param_names}) ON CONFLICT DO NOTHING")
-                                    await db.execute(stmt, vals)
-                        except Exception as row_e:
-                            logger.warning(f"Error migrating row in {tbl}: {row_e}")
-                            
+                    chunk_size = 200
+                    for i in range(0, len(rows), chunk_size):
+                        batch = rows[i:i + chunk_size]
+                        if table_obj is not None:
+                            valid_cols = set(table_obj.c.keys())
+                            clean_batch = [
+                                {k: v for k, v in dict(r).items() if k in valid_cols}
+                                for r in batch
+                            ]
+                            if clean_batch:
+                                stmt = pg_insert(table_obj).values(clean_batch).on_conflict_do_nothing()
+                                await db.execute(stmt)
+                        else:
+                            for r in batch:
+                                cols = list(r.keys())
+                                vals = dict(r)
+                                col_names = ", ".join(cols)
+                                param_names = ", ".join(f":{c}" for c in cols)
+                                stmt = text(f"INSERT INTO {tbl} ({col_names}) VALUES ({param_names}) ON CONFLICT DO NOTHING")
+                                await db.execute(stmt, vals)
+                                
                     await db.commit()
                 except Exception as tbl_e:
+                    logger.warning(f"Error migrating table {tbl}: {tbl_e}")
                     stats[f"{tbl}_error"] = str(tbl_e)
+
+            try:
+                await db.execute(text("SET session_replication_role = 'origin'"))
+            except Exception:
+                pass
 
             # Fix sequences in postgres
             for tbl in tables_to_check:
