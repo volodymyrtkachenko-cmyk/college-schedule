@@ -50,22 +50,45 @@ def upgrade():
                 batch_op.drop_column("term_id")
             except Exception:
                 pass
+
+        try:
+            op.drop_table("academic_terms")
+        except Exception:
+            pass
     else:
-        op.execute("""
-            ALTER TABLE curriculums DROP CONSTRAINT IF EXISTS uq_curriculum_assignment;
-            ALTER TABLE curriculums ADD CONSTRAINT uq_curriculum_assignment UNIQUE (group_id, subject_id, teacher_id, second_teacher_id, is_stream, stream_id);
-            ALTER TABLE curriculums DROP COLUMN IF EXISTS term_id;
-
-            ALTER TABLE teacher_constraints DROP CONSTRAINT IF EXISTS uq_teacher_constraint_slot;
-            ALTER TABLE teacher_constraints ADD CONSTRAINT uq_teacher_constraint_slot UNIQUE (teacher_id, day_of_week, lesson_number);
-            ALTER TABLE teacher_constraints DROP COLUMN IF EXISTS term_id;
-            DROP TABLE IF EXISTS academic_terms CASCADE;
-        """)
-
-    try:
-        op.drop_table("academic_terms")
-    except Exception:
-        pass
+        statements = [
+            "ALTER TABLE curriculums DROP CONSTRAINT IF EXISTS uq_curriculum_assignment",
+            """
+            DELETE FROM curriculums c1
+            USING curriculums c2
+            WHERE c1.id > c2.id
+              AND c1.group_id = c2.group_id
+              AND c1.subject_id = c2.subject_id
+              AND c1.teacher_id = c2.teacher_id
+              AND (c1.second_teacher_id IS NOT DISTINCT FROM c2.second_teacher_id)
+              AND c1.is_stream = c2.is_stream
+              AND (c1.stream_id IS NOT DISTINCT FROM c2.stream_id)
+            """,
+            "ALTER TABLE curriculums ADD CONSTRAINT uq_curriculum_assignment UNIQUE (group_id, subject_id, teacher_id, second_teacher_id, is_stream, stream_id)",
+            "ALTER TABLE curriculums DROP COLUMN IF EXISTS term_id CASCADE",
+            "ALTER TABLE teacher_constraints DROP CONSTRAINT IF EXISTS uq_teacher_constraint_slot",
+            """
+            DELETE FROM teacher_constraints tc1
+            USING teacher_constraints tc2
+            WHERE tc1.id > tc2.id
+              AND tc1.teacher_id = tc2.teacher_id
+              AND tc1.day_of_week = tc2.day_of_week
+              AND (tc1.lesson_number IS NOT DISTINCT FROM tc2.lesson_number)
+            """,
+            "ALTER TABLE teacher_constraints ADD CONSTRAINT uq_teacher_constraint_slot UNIQUE (teacher_id, day_of_week, lesson_number)",
+            "ALTER TABLE teacher_constraints DROP COLUMN IF EXISTS term_id CASCADE",
+            "DROP TABLE IF EXISTS academic_terms CASCADE",
+        ]
+        for stmt in statements:
+            try:
+                op.execute(stmt)
+            except Exception:
+                pass
 
 
 def downgrade():
