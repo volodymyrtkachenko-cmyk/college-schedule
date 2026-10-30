@@ -777,85 +777,12 @@ export default function HomePage() {
     return subscribeKyivNow(setKyivNow);
   }, []);
 
-  const liveHeaderTimer = useMemo(() => {
-    if (!kyivNow) return null;
-    const todaySchedule =
-      week?.find((d) => d.date === kyivNow.dateIso) ??
-      (today?.date === kyivNow.dateIso ? today : null);
-    if (!todaySchedule?.lessons || todaySchedule.lessons.length === 0) return null;
-
-    const parseMin = (t?: string) => {
-      if (!t) return null;
-      const [h, m] = t.trim().split(":").map(Number);
-      return Number.isNaN(h) || Number.isNaN(m) ? null : h * 60 + m;
-    };
-
-    const slots = todaySchedule.lessons
-      .filter((l) => !l.is_cancelled)
-      .map((l) => {
-        const rawTime = l.time || DEFAULT_LESSON_TIMES[l.lesson_number] || "";
-        const [startStr, endStr] = rawTime.split(/[–-]/);
-        const startMin = parseMin(startStr);
-        const endMin = parseMin(endStr);
-        return {
-          lessonNumber: l.lesson_number,
-          subject: normalizeSubjectName(l.subject_name || l.subject || "Пара"),
-          room: l.room || null,
-          startMin,
-          endMin,
-        };
-      })
-      .filter((s): s is typeof s & { startMin: number; endMin: number } => s.startMin !== null && s.endMin !== null)
-      .sort((a, b) => a.startMin - b.startMin);
-
-    if (slots.length === 0) return null;
-
-    const nowMin = kyivNow.minutes;
-    const active = slots.find((s) => nowMin >= s.startMin && nowMin < s.endMin);
-    if (active) {
-      const remainingMin = Math.max(1, active.endMin - nowMin);
-      return {
-        kind: "lesson" as const,
-        lessonNumber: active.lessonNumber,
-        remainingMin,
-        subject: active.subject,
-        room: active.room,
-        shortText: `${active.lessonNumber} пара · ще ${remainingMin} хв`,
-        mobileText: `${active.lessonNumber} пара · ${remainingMin} хв`,
-        titlePrefix: `[ще ${remainingMin} хв · ${active.lessonNumber} пара]`,
-      };
-    }
-
-    const next = slots.find((s) => s.startMin > nowMin);
-    if (next) {
-      const diff = next.startMin - nowMin;
-      const hasPrevEnded = slots.some((s) => s.endMin <= nowMin);
-      if (hasPrevEnded || diff <= 60) {
-        return {
-          kind: "break" as const,
-          lessonNumber: next.lessonNumber,
-          remainingMin: diff,
-          subject: next.subject,
-          room: next.room,
-          shortText: `${ hasPrevEnded ? "Перерва · " : "" }${next.lessonNumber} пара через ${diff} хв`,
-          mobileText: `До ${next.lessonNumber} пари ${diff} хв`,
-          titlePrefix: `[через ${diff} хв · ${next.lessonNumber} пара]`,
-        };
-      }
-    }
-
-    return null;
-  }, [kyivNow, week, today]);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
     const owner = currentName ? `${currentName} — ` : "";
-    if (liveHeaderTimer) {
-      document.title = `${liveHeaderTimer.titlePrefix} ${owner}Розклад ДФКР`;
-    } else {
-      document.title = `${owner}Розклад занять | ДФКР`;
-    }
-  }, [liveHeaderTimer, currentName]);
+    document.title = `${owner}Розклад занять | ДФКР`;
+  }, [currentName]);
 
   const dayTasks = useMemo(() => {
     if (!selectedDaySchedule?.lessons) return [];
@@ -1195,27 +1122,6 @@ export default function HomePage() {
                 {headerLearningMode === "offline" ? "Очно" : "Дистанційно"}
               </span>
             )}
-            {liveHeaderTimer && (
-              <button
-                type="button"
-                onClick={handleJumpToToday}
-                title={`${liveHeaderTimer.subject}${liveHeaderTimer.room ? ` (${liveHeaderTimer.room})` : ""} — натисніть, щоб перейти до сьогоднішнього розкладу`}
-                className={`shrink-0 inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors cursor-pointer active:scale-95 ${
-                  liveHeaderTimer.kind === "lesson"
-                    ? "border-emerald-500/35 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/15"
-                    : "border-amber-500/35 bg-amber-500/10 text-amber-800 dark:text-amber-300 hover:bg-amber-500/15"
-                }`}
-              >
-                <span
-                  className={`h-2 w-2 rounded-full ${
-                    liveHeaderTimer.kind === "lesson"
-                      ? "bg-emerald-500 animate-pulse"
-                      : "bg-amber-500"
-                  }`}
-                />
-                <span>{liveHeaderTimer.shortText}</span>
-              </button>
-            )}
           </div>
 
           {/* Right Zone: Favorites, Classroom, Action menu */}
@@ -1406,25 +1312,6 @@ export default function HomePage() {
                     {(currentWeekNumber || weekType !== "both" || headerLearningMode) && <span className="shrink-0">·</span>}
                     <span className="font-semibold text-violet-400 shrink-0">
                       {activeWeekPeriodMeta.icon} {activeWeekPeriodMeta.shortLabel}
-                    </span>
-                  </>
-                )}
-                {liveHeaderTimer && (
-                  <>
-                    {(currentWeekNumber || weekType !== "both" || headerLearningMode || activeWeekPeriodMeta) && <span className="shrink-0">·</span>}
-                    <span
-                      className={`inline-flex items-center gap-1 font-semibold shrink-0 ${
-                        liveHeaderTimer.kind === "lesson"
-                          ? "text-emerald-600 dark:text-emerald-400"
-                          : "text-amber-600 dark:text-amber-400"
-                      }`}
-                    >
-                      <span
-                        className={`h-1.5 w-1.5 rounded-full ${
-                          liveHeaderTimer.kind === "lesson" ? "bg-emerald-500 animate-pulse" : "bg-amber-500"
-                        }`}
-                      />
-                      {liveHeaderTimer.mobileText}
                     </span>
                   </>
                 )}

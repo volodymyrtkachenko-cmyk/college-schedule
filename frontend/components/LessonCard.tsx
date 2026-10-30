@@ -609,7 +609,7 @@ function getMeetingBtnStyle(platform?: string | null, isLiveOrSoon?: boolean, si
     if (size === "compact" || size === "tiny") {
       return "bg-emerald-600 text-white border-emerald-500 shadow-xs hover:bg-emerald-500";
     }
-    return "bg-emerald-600 text-white border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.35)] hover:bg-emerald-500 animate-pulse";
+    return "bg-emerald-600 text-white border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.35)] hover:bg-emerald-500";
   }
   if (platform === "zoom") {
     return "border-sky-400/60 dark:border-sky-500/50 bg-sky-100/80 dark:bg-sky-500/20 text-sky-900 dark:text-sky-200 shadow-xs hover:border-sky-500 dark:hover:border-sky-400 hover:text-sky-950 dark:hover:text-sky-100 hover:bg-sky-200/90 dark:hover:bg-sky-500/30";
