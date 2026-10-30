@@ -1758,10 +1758,13 @@ async def migrate_from_neon(
 
                     # Pre-fetch valid foreign keys for dependent tables
                     valid_version_ids = set((await db.execute(text("SELECT id FROM schedule_versions"))).scalars().all()) if tbl == "schedule" else set()
-                    valid_subject_ids = list((await db.execute(text("SELECT id FROM subjects"))).scalars().all()) if tbl in ("lesson_occurrence_notes", "curriculums") else []
+                    valid_subject_ids = list((await db.execute(text("SELECT id FROM subjects"))).scalars().all()) if tbl in ("lesson_occurrence_notes", "curriculums", "imported_schedule_changes", "schedule_override") else []
                     fallback_subject = valid_subject_ids[0] if valid_subject_ids else 1
-                    valid_group_ids = set((await db.execute(text("SELECT id FROM groups"))).scalars().all()) if tbl in ("group_students", "classroom_group_bindings", "curriculums", "lesson_occurrence_notes") else set()
+                    valid_group_ids = set((await db.execute(text("SELECT id FROM groups"))).scalars().all()) if tbl in ("group_students", "classroom_group_bindings", "curriculums", "lesson_occurrence_notes", "schedule_publication_snapshots", "imported_schedule_changes", "schedule_override") else set()
                     valid_note_ids = set((await db.execute(text("SELECT id FROM lesson_occurrence_notes"))).scalars().all()) if tbl == "lesson_note_revisions" else set()
+                    valid_pub_ids = set((await db.execute(text("SELECT id FROM schedule_publications"))).scalars().all()) if tbl in ("schedule_publication_snapshots", "imported_schedule_changes") else set()
+                    valid_teacher_ids = set((await db.execute(text("SELECT id FROM teachers"))).scalars().all()) if tbl in ("imported_schedule_changes", "schedule_override", "curriculums") else set()
+                    valid_draft_ids = set((await db.execute(text("SELECT id FROM schedule_drafts"))).scalars().all()) if tbl == "imported_schedule_changes" else set()
 
                     for i in range(0, len(rows), chunk_size):
                         batch = rows[i:i + chunk_size]
@@ -1784,6 +1787,31 @@ async def migrate_from_neon(
                             if tbl == "curriculums":
                                 if item.get("group_id") not in valid_group_ids or item.get("subject_id") not in valid_subject_ids:
                                     continue
+                            if tbl == "schedule_publication_snapshots":
+                                if item.get("group_id") not in valid_group_ids or item.get("publication_id") not in valid_pub_ids:
+                                    continue
+                            if tbl == "imported_schedule_changes":
+                                if item.get("group_id") not in valid_group_ids:
+                                    continue
+                                if item.get("publication_id") and item.get("publication_id") not in valid_pub_ids:
+                                    item["publication_id"] = None
+                                if item.get("draft_id") and item.get("draft_id") not in valid_draft_ids:
+                                    item["draft_id"] = None
+                                if item.get("teacher_id") and item.get("teacher_id") not in valid_teacher_ids:
+                                    item["teacher_id"] = None
+                                if item.get("second_teacher_id") and item.get("second_teacher_id") not in valid_teacher_ids:
+                                    item["second_teacher_id"] = None
+                                if item.get("subject_id") and item.get("subject_id") not in valid_subject_ids:
+                                    item["subject_id"] = fallback_subject
+                            if tbl == "schedule_override":
+                                if item.get("group_id") not in valid_group_ids:
+                                    continue
+                                if item.get("teacher_id") and item.get("teacher_id") not in valid_teacher_ids:
+                                    item["teacher_id"] = None
+                                if item.get("second_teacher_id") and item.get("second_teacher_id") not in valid_teacher_ids:
+                                    item["second_teacher_id"] = None
+                                if item.get("subject_id") and item.get("subject_id") not in valid_subject_ids:
+                                    item["subject_id"] = fallback_subject
                             clean_batch.append(item)
 
                         if clean_batch:
