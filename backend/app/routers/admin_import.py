@@ -1858,7 +1858,17 @@ async def migrate_from_neon(
 
                         if clean_batch:
                             if table_obj is not None:
-                                stmt = pg_insert(table_obj).values(clean_batch).on_conflict_do_nothing()
+                                if tbl == "curriculums":
+                                    ins = pg_insert(table_obj).values(clean_batch)
+                                    stmt = ins.on_conflict_do_update(
+                                        index_elements=["id"],
+                                        set_={
+                                            "strict_day": ins.excluded.strict_day,
+                                            "strict_lesson": ins.excluded.strict_lesson,
+                                        }
+                                    )
+                                else:
+                                    stmt = pg_insert(table_obj).values(clean_batch).on_conflict_do_nothing()
                                 await db.execute(stmt)
                             else:
                                 for item in clean_batch:
