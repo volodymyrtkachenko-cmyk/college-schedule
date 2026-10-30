@@ -1654,6 +1654,93 @@ async def import_data_cron(
     return await execute_import_logic(db, 2, actor_id=None)
 
 
+class MigrateRequest(BaseModel):
+    neon_url: str
+
+@router.post("/migrate-from-neon")
+async def migrate_from_neon(
+    payload: MigrateRequest,
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_roles("admin")),
+):
+    from sqlalchemy.ext.asyncio import create_async_engine
+    neon_url = payload.neon_url.strip()
+    if neon_url.startswith("postgresql://"):
+        neon_url = neon_url.replace("postgresql://", "postgresql+psycopg://", 1)
+
+    remote_engine = create_async_engine(neon_url, connect_args={"sslmode": "require"})
+    stats = {}
+
+    try:
+        async with remote_engine.connect() as remote_conn:
+            tables_to_check = [
+                "users",
+                "settings",
+                "schedule_versions",
+                "schedule_periods",
+                "schedule_period_groups",
+                "schedule_period_slots",
+                "lesson_occurrence_notes",
+                "lesson_note_revisions",
+                "schedule_override",
+                "teacher_constraints",
+                "schedule_publications",
+                "schedule_publication_snapshots",
+                "classroom_credentials",
+                "group_students",
+                "classroom_group_bindings",
+                "academic_events",
+                "schedule_events",
+            ]
+
+            for tbl in tables_to_check:
+                try:
+                    exists = await remote_conn.scalar(
+                        text("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = :t)"),
+                        {"t": tbl}
+                    )
+                    if not exists:
+                        continue
+
+                    rows = (await remote_conn.execute(text(f"SELECT * FROM {tbl}"))).mappings().all()
+                    stats[tbl] = len(rows)
+
+                    if not rows:
+                        continue
+
+                    # Insert into current db with ON CONFLICT DO NOTHING
+                    for row in rows:
+                        cols = list(row.keys())
+                        vals = dict(row)
+                        col_names = ", ".join(cols)
+                        param_names = ", ".join(f":{c}" for c in cols)
+                        stmt = text(f"INSERT INTO {tbl} ({col_names}) VALUES ({param_names}) ON CONFLICT DO NOTHING")
+                        try:
+                            await db.execute(stmt, vals)
+                        except Exception as row_e:
+                            logger.warning(f"Error migrating row in {tbl}: {row_e}")
+                            
+                    await db.commit()
+                except Exception as tbl_e:
+                    stats[f"{tbl}_error"] = str(tbl_e)
+
+            # Fix sequences in postgres
+            for tbl in tables_to_check:
+                try:
+                    await db.execute(text(f"SELECT setval(pg_get_serial_sequence('{tbl}', 'id'), COALESCE(MAX(id), 1)) FROM {tbl}"))
+                    await db.commit()
+                except Exception:
+                    pass
+
+        return {"status": "success", "migrated_stats": stats}
+    except Exception as e:
+        logger.error(f"Migration error: {e}", exc_info=True)
+        return {"status": "error", "error": str(e), "stats": stats}
+    finally:
+        await remote_engine.dispose()
+
+
+
 async def schedule_auto_import_loop() -> None:
     """Фоновий цикл: періодично перевіряє сайт коледжу та автоматично імпортує заміни/розклад."""
     await asyncio.sleep(5)  # Перша перевірка через 5 секунд після старту сервера
