@@ -67,8 +67,9 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@master
         if: steps.head.outputs.current == 'true'
       - run: |
-          flyctl secrets set DATABASE_URL="postgresql+psycopg://postgres:MsSSsKRoHP5aIIW1@db.zvnbcjvbnpupegrmpkgf.supabase.co:5432/postgres?sslmode=require" --stage
-          flyctl deploy --remote-only
+          flyctl apps restart backend-agile-driftwood-8589 || true
+          sleep 5
+          flyctl deploy --remote-only --wait-timeout 300
         if: steps.head.outputs.current == 'true'
         working-directory: backend
         env:
