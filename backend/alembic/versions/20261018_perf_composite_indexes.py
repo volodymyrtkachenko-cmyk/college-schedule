@@ -47,6 +47,47 @@ def upgrade():
         "WHERE teacher_id IS NOT NULL"
     )
     # 5. schedule_events: group and teacher event lookups
+    bind = op.get_bind()
+    if bind.dialect.name == "sqlite":
+        op.execute(
+            """
+            CREATE TABLE IF NOT EXISTS schedule_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+                subject_id INTEGER REFERENCES subjects(id) ON DELETE SET NULL,
+                teacher_id INTEGER REFERENCES teachers(id) ON DELETE SET NULL,
+                title VARCHAR(200),
+                custom_subject VARCHAR(200),
+                event_type VARCHAR(32) NOT NULL DEFAULT 'exam',
+                event_date DATE NOT NULL,
+                lesson_number INTEGER,
+                start_time VARCHAR(10) NOT NULL DEFAULT '09:00',
+                end_time VARCHAR(10),
+                room VARCHAR(50),
+                note VARCHAR(500)
+            );
+            """
+        )
+    else:
+        op.execute(
+            """
+            CREATE TABLE IF NOT EXISTS schedule_events (
+                id SERIAL PRIMARY KEY,
+                group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+                subject_id INTEGER REFERENCES subjects(id) ON DELETE SET NULL,
+                teacher_id INTEGER REFERENCES teachers(id) ON DELETE SET NULL,
+                title VARCHAR(200),
+                custom_subject VARCHAR(200),
+                event_type VARCHAR(32) NOT NULL DEFAULT 'exam',
+                event_date DATE NOT NULL,
+                lesson_number INTEGER,
+                start_time VARCHAR(10) NOT NULL DEFAULT '09:00',
+                end_time VARCHAR(10),
+                room VARCHAR(50),
+                note VARCHAR(500)
+            );
+            """
+        )
     op.execute(
         "CREATE INDEX IF NOT EXISTS ix_events_group_date "
         "ON schedule_events (group_id, event_date)"
