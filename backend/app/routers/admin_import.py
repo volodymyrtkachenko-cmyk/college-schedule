@@ -1718,6 +1718,13 @@ async def migrate_from_neon(
             except Exception:
                 pass
 
+            # Pre-load existing schedule version IDs in Supabase
+            try:
+                neon_vers = (await remote_conn.execute(text("SELECT * FROM schedule_versions"))).mappings().all()
+                stats["neon_versions"] = [dict(v) for v in neon_vers]
+            except Exception as e:
+                stats["neon_versions_err"] = str(e)
+
             for tbl in tables_to_check:
                 try:
                     exists = await remote_conn.scalar(
@@ -1735,14 +1742,28 @@ async def migrate_from_neon(
 
                     table_obj = Base.metadata.tables.get(tbl)
                     chunk_size = 200
+
+                    # Special handling for schedule_versions to avoid exclusion constraint conflict
+                    if tbl == "schedule_versions":
+                        await db.execute(text("UPDATE schedule_versions SET is_active = false"))
+                        await db.commit()
+
+                    # Pre-fetch valid version_ids for schedule table
+                    valid_version_ids = set()
+                    if tbl == "schedule":
+                        valid_version_ids = set((await db.scalars(select(ScheduleVersion.id))).all())
+
                     for i in range(0, len(rows), chunk_size):
                         batch = rows[i:i + chunk_size]
                         if table_obj is not None:
                             valid_cols = set(table_obj.c.keys())
-                            clean_batch = [
-                                {k: v for k, v in dict(r).items() if k in valid_cols}
-                                for r in batch
-                            ]
+                            clean_batch = []
+                            for r in batch:
+                                item = {k: v for k, v in dict(r).items() if k in valid_cols}
+                                if tbl == "schedule" and item.get("version_id") not in valid_version_ids:
+                                    item["version_id"] = None
+                                clean_batch.append(item)
+
                             if clean_batch:
                                 stmt = pg_insert(table_obj).values(clean_batch).on_conflict_do_nothing()
                                 await db.execute(stmt)
@@ -1759,6 +1780,7 @@ async def migrate_from_neon(
                 except Exception as tbl_e:
                     logger.warning(f"Error migrating table {tbl}: {tbl_e}")
                     stats[f"{tbl}_error"] = str(tbl_e)
+                    await db.rollback()
 
             try:
                 await db.execute(text("SET session_replication_role = 'origin'"))
