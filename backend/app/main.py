@@ -133,8 +133,21 @@ app = FastAPI(
 )
 
 from app.routers.auth import limiter
+from fastapi.responses import JSONResponse
+import traceback
+import logging
+
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    trace = traceback.format_exc()
+    logging.getLogger("app").error(f"Unhandled exception on {request.method} {request.url}: {exc}\n{trace}")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": {"msg": f"Unhandled server error: {exc}", "trace": trace.splitlines()[-10:]}},
+    )
 
 app.add_middleware(
     GZipMiddleware,

@@ -186,78 +186,85 @@ async def schedule(request: Request = None,
                    include_cancelled: bool = Query(False),
                    has_access: bool | None = None,
                    db: AsyncSession = Depends(get_db)):
-    target_date = target_date or today_local()
-    week_type, lessons = await fetch_schedule(
-        db=db,
-        target_date=target_date,
-        group_id=group_id,
-        teacher_id=teacher_id,
-        day_of_week=day_of_week,
-        include_cancelled=include_cancelled,
-    )
-    shortened_dates = await settings_service.get_shortened_dates_set(db)
-    is_shortened = target_date in shortened_dates
-    bell_t = SHORTENED_BELL_TIMES if is_shortened else await get_bell_times(db)
-    learning_mode, learning_mode_override = await resolve_group_learning_mode_detail(db, group_id, target_date)
-    serialized_items = await attach_notes(db, target_date, serialize_schedule_items(lessons, week_type, target_date, bell_t))
-
-    from app.services.classroom_access import check_classroom_group_access, check_teacher_access, sanitize_note_for_guest, sanitize_room_for_guest, MEETING_URL_RE
-
-    is_teacher_auth = False
-    group_access_cache: dict[int, bool] = {}
-
-    if teacher_id and not group_id:
-        if has_access is True:
-            is_teacher_auth = True
-        else:
-            is_teacher_auth = await check_teacher_access(db, request)
-    else:
-        if has_access is None:
-            has_access = await check_classroom_group_access(db, group_id, request)
-
-    for item in serialized_items:
-        has_meeting = bool(
-            (item.note and MEETING_URL_RE.search(item.note))
-            or (item.room and MEETING_URL_RE.search(item.room))
-            or (item.teacher_room and MEETING_URL_RE.search(item.teacher_room))
-            or (item.second_teacher_room and MEETING_URL_RE.search(item.second_teacher_room))
+    try:
+        target_date = target_date or today_local()
+        week_type, lessons = await fetch_schedule(
+            db=db,
+            target_date=target_date,
+            group_id=group_id,
+            teacher_id=teacher_id,
+            day_of_week=day_of_week,
+            include_cancelled=include_cancelled,
         )
-        if has_meeting:
-            item.is_online = True
+        shortened_dates = await settings_service.get_shortened_dates_set(db)
+        is_shortened = target_date in shortened_dates
+        bell_t = SHORTENED_BELL_TIMES if is_shortened else await get_bell_times(db)
+        learning_mode, learning_mode_override = await resolve_group_learning_mode_detail(db, group_id, target_date)
+        serialized_items = await attach_notes(db, target_date, serialize_schedule_items(lessons, week_type, target_date, bell_t))
+
+        from app.services.classroom_access import check_classroom_group_access, check_teacher_access, sanitize_note_for_guest, sanitize_room_for_guest, MEETING_URL_RE
+
+        is_teacher_auth = False
+        group_access_cache: dict[int, bool] = {}
 
         if teacher_id and not group_id:
-            if is_teacher_auth:
-                item_has_access = True
-            elif item.group_id:
-                if item.group_id not in group_access_cache:
-                    group_access_cache[item.group_id] = await check_classroom_group_access(db, item.group_id, request)
-                item_has_access = group_access_cache[item.group_id]
+            if has_access is True:
+                is_teacher_auth = True
             else:
-                item_has_access = False
+                is_teacher_auth = await check_teacher_access(db, request)
         else:
-            item_has_access = bool(has_access)
+            if has_access is None:
+                has_access = await check_classroom_group_access(db, group_id, request)
 
-        if not item_has_access:
+        for item in serialized_items:
+            has_meeting = bool(
+                (item.note and MEETING_URL_RE.search(item.note))
+                or (item.room and MEETING_URL_RE.search(item.room))
+                or (item.teacher_room and MEETING_URL_RE.search(item.teacher_room))
+                or (item.second_teacher_room and MEETING_URL_RE.search(item.second_teacher_room))
+            )
             if has_meeting:
-                item.has_protected_link = True
-            item.note, _ = sanitize_note_for_guest(item.note)
-            item.room, _ = sanitize_room_for_guest(item.room)
-            item.teacher_room, _ = sanitize_room_for_guest(item.teacher_room)
-            item.second_teacher_room, _ = sanitize_room_for_guest(item.second_teacher_room)
-            item.room_override, _ = sanitize_room_for_guest(item.room_override)
+                item.is_online = True
 
-    active_periods = await _active_periods(db, target_date)
-    period_info = resolve_active_period_info(active_periods, target_date, group_id)
+            if teacher_id and not group_id:
+                if is_teacher_auth:
+                    item_has_access = True
+                elif item.group_id:
+                    if item.group_id not in group_access_cache:
+                        group_access_cache[item.group_id] = await check_classroom_group_access(db, item.group_id, request)
+                    item_has_access = group_access_cache[item.group_id]
+                else:
+                    item_has_access = False
+            else:
+                item_has_access = bool(has_access)
 
-    return ScheduleResponse(
-        date=target_date,
-        week_type=week_type,
-        lessons=serialized_items,
-        learning_mode=learning_mode,
-        learning_mode_override=learning_mode_override,
-        is_shortened_day=is_shortened,
-        period_info=period_info,
-    )
+            if not item_has_access:
+                if has_meeting:
+                    item.has_protected_link = True
+                item.note, _ = sanitize_note_for_guest(item.note)
+                item.room, _ = sanitize_room_for_guest(item.room)
+                item.teacher_room, _ = sanitize_room_for_guest(item.teacher_room)
+                item.second_teacher_room, _ = sanitize_room_for_guest(item.second_teacher_room)
+                item.room_override, _ = sanitize_room_for_guest(item.room_override)
+
+        active_periods = await _active_periods(db, target_date)
+        period_info = resolve_active_period_info(active_periods, target_date, group_id)
+
+        return ScheduleResponse(
+            date=target_date,
+            week_type=week_type,
+            lessons=serialized_items,
+            learning_mode=learning_mode,
+            learning_mode_override=learning_mode_override,
+            is_shortened_day=is_shortened,
+            period_info=period_info,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in /schedule: {e}", exc_info=True)
+        import traceback
+        raise HTTPException(status_code=500, detail={"msg": f"Schedule error: {e}", "trace": traceback.format_exc().splitlines()[-10:]})
 
 @router.get("/schedule/today", response_model=ScheduleResponse)
 async def today(

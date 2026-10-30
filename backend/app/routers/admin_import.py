@@ -1627,7 +1627,8 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
         raise
     except Exception as e:
         logger.error(f"Import error [{error_id}]: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail={"msg": "Внутрішня помилка імпорту. Зверніться до підтримки.", "error_id": error_id})
+        import traceback
+        raise HTTPException(status_code=500, detail={"msg": f"Внутрішня помилка імпорту: {e}", "error_id": error_id, "trace": traceback.format_exc().splitlines()[-10:]})
     finally:
         set_active_jobs(0)
 
