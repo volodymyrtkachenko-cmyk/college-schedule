@@ -1714,19 +1714,26 @@ async def migrate_from_neon(
 
     try:
         # Step 1: Wipe existing Supabase data if requested
+        existing_dest_tables = set(
+            (await db.execute(
+                text("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'")
+            )).scalars().all()
+        )
+
         if payload.wipe_supabase:
             logger.info("Wiping all Supabase application tables before migration...")
-            reversed_tables = list(reversed(tables_to_check))
-            truncate_stmt = f"TRUNCATE TABLE {', '.join(reversed_tables)} CASCADE;"
-            try:
-                await db.execute(text(truncate_stmt))
-                await db.commit()
-                stats["wiped"] = True
-                logger.info("Supabase application tables successfully truncated.")
-            except Exception as w_err:
-                logger.error(f"Failed to truncate tables: {w_err}")
-                await db.rollback()
-                return {"status": "error", "error": f"Truncate failed: {w_err}"}
+            tables_to_truncate = [t for t in reversed(tables_to_check) if t in existing_dest_tables]
+            if tables_to_truncate:
+                truncate_stmt = f"TRUNCATE TABLE {', '.join(tables_to_truncate)} CASCADE;"
+                try:
+                    await db.execute(text(truncate_stmt))
+                    await db.commit()
+                    stats["wiped"] = True
+                    logger.info("Supabase application tables successfully truncated.")
+                except Exception as w_err:
+                    logger.error(f"Failed to truncate tables: {w_err}")
+                    await db.rollback()
+                    return {"status": "error", "error": f"Truncate failed: {w_err}"}
 
         async with remote_engine.connect() as remote_conn:
             try:
@@ -1735,6 +1742,8 @@ async def migrate_from_neon(
                 pass
 
             for tbl in tables_to_check:
+                if tbl not in existing_dest_tables:
+                    continue
                 try:
                     exists = await remote_conn.scalar(
                         text("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = :t)"),
