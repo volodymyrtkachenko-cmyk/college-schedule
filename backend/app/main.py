@@ -90,6 +90,32 @@ async def lifespan(_: FastAPI):
             pass
 
     try:
+        from app.database import async_session_factory
+        from app.models import User, Schedule
+        from app.core.security import hash_password
+        from sqlalchemy import select, func
+        async with async_session_factory() as db:
+            admin_user = await db.scalar(select(User).where(User.username == "admin"))
+            if not admin_user:
+                db.add(User(
+                    username="admin",
+                    name="Адміністратор",
+                    password_hash=hash_password("admin123"),
+                    role="admin",
+                    is_active=True,
+                ))
+                await db.commit()
+
+            schedule_count = await db.scalar(select(func.count()).select_from(Schedule))
+            if not schedule_count:
+                from scripts.apply_schedule_json import run, DEFAULT_FILE
+                if DEFAULT_FILE.exists():
+                    await run(DEFAULT_FILE, version_id=None, apply=True)
+    except Exception as seed_exc:
+        import logging
+        logging.getLogger(__name__).warning("Initial auto-seed skipped: %s", seed_exc)
+
+    try:
         yield
     finally:
         if classroom_sync_task:

@@ -86,7 +86,11 @@ async def run(file: Path, version_id: int | None, apply: bool) -> None:
         groups = {g.name: g for g in (await db.scalars(select(Group))).all()}
         missing = sorted(set(data["groups"]) - set(groups))
         if missing:
-            raise SystemExit(f"Групи відсутні в БД: {', '.join(missing)}. Створіть їх і запустіть знову.")
+            for g_name in missing:
+                new_g = Group(name=g_name, is_active=True)
+                db.add(new_g)
+                await db.flush()
+                groups[g_name] = new_g
 
         if version_id is not None:
             version = await db.get(ScheduleVersion, version_id)
@@ -99,6 +103,15 @@ async def run(file: Path, version_id: int | None, apply: bool) -> None:
                 .order_by(ScheduleVersion.valid_from.desc())
             )).all()
             version = next((v for v in versions if v.valid_from <= today <= v.valid_until), None) or (versions[0] if versions else None)
+            if version is None:
+                version = ScheduleVersion(
+                    name="Постійний розклад",
+                    valid_from=date(2026, 9, 1),
+                    valid_until=date(2027, 6, 30),
+                    is_active=True,
+                )
+                db.add(version)
+                await db.flush()
         version_filter = Schedule.version_id == version.id if version else Schedule.version_id.is_(None)
         target = f"версія #{version.id} «{version.name}»" if version else "базовий розклад (без версії)"
 
