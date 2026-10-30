@@ -67,7 +67,7 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@master
         if: steps.head.outputs.current == 'true'
       - run: |
-          flyctl secrets set DATABASE_URL="postgresql+psycopg://postgres.zvnbcjvbnpupegrmpkgf:MsSSsKRoHP5aIIW1@aws-0-eu-central-1.pooler.supabase.com:5432/postgres?sslmode=require" --stage
+          flyctl secrets set DATABASE_URL="postgresql+psycopg://postgres:MsSSsKRoHP5aIIW1@db.zvnbcjvbnpupegrmpkgf.supabase.co:5432/postgres?sslmode=require" --stage
           flyctl deploy --remote-only
         if: steps.head.outputs.current == 'true'
         working-directory: backend
