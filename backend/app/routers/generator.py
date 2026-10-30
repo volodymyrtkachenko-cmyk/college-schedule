@@ -458,6 +458,26 @@ async def generate_schedule(
     if not curriculums:
         raise HTTPException(status_code=400, detail="Немає навантаження для генерації.")
 
+    # Автоматично закріплюємо виховні години на 4-ту пару четверга, якщо вони ще не закріплені
+    healed_any = False
+    for c in curriculums:
+        subj_name = getattr(c.subject, "name", "")
+        if subj_name == "Виховна година":
+            if (
+                getattr(c, "strict_day", None) != 4
+                or getattr(c, "strict_lesson", None) != 4
+                or not getattr(c, "is_fixed", False)
+                or getattr(c, "pairs_per_2_weeks", 0) != 2
+            ):
+                c.strict_day = 4
+                c.strict_lesson = 4
+                c.is_fixed = True
+                c.pairs_per_2_weeks = 2
+                c.require_week = None
+                healed_any = True
+    if healed_any:
+        await db.commit()
+
     # Вимоги до розкладу: кожен день групи має містити 3 або 4 пари,
     # без вікон. Вільні дні та вікна викладачів дозволені.
     teacher_ids = {
