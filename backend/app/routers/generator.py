@@ -187,7 +187,13 @@ async def _load_db_hints(
                 hints.add((sl.curriculum_id, d_base + solver.DAYS, s_idx))
         if hints:
             draft_quality = solver.evaluate_quality(curriculums, (), hints)
-            if draft_quality.get("symmetry_percent", 0) >= 60:
+            # Do not seed a new run from a visibly weak previous draft.
+            # A 60% draft can keep the optimizer trapped around the same
+            # numerator/denominator misalignment across repeated runs.
+            if (
+                draft_quality.get("symmetry_percent", 0) >= 75
+                and draft_quality.get("first_lesson_start_percent", 0) >= 75
+            ):
                 return list(hints)
             hints.clear()
 
