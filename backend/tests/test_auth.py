@@ -86,3 +86,19 @@ async def test_login_errors_and_roles(auth_client):
     with pytest.raises(HTTPException) as error:
         await require_roles("admin")(viewer)
     assert error.value.status_code == 403
+
+
+@pytest.mark.anyio
+async def test_logout_always_succeeds(auth_client):
+    # Logout without any session or cookies should succeed and delete cookie
+    resp1 = await auth_client.post("/api/auth/logout")
+    assert resp1.status_code == 200
+    assert resp1.json() == {"status": "ok"}
+
+    # Logout after login should also succeed and clear cookie
+    login = await auth_client.post("/api/auth/login", json={"username": "admin", "password": "correct horse"})
+    assert login.status_code == 200
+    token = login.json()["access_token"]
+    resp2 = await auth_client.post("/api/auth/logout", headers={"Authorization": f"Bearer {token}"})
+    assert resp2.status_code == 200
+    assert resp2.json() == {"status": "ok"}

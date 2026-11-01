@@ -251,6 +251,11 @@ export function AdminNav({ active }: { active: string }) {
       await logout();
     } catch (e: any) {
       setLogoutError(e.message || "Помилка виходу");
+      try {
+        localStorage.removeItem("schedule:has_admin_session");
+        localStorage.removeItem("schedule:admin_session_data");
+      } catch {}
+      window.location.href = "/login";
     } finally {
       logoutInFlight.current = false;
       setIsLoggingOut(false);

@@ -542,6 +542,13 @@ async function refresh(): Promise<AuthSession> {
             currentSession = session;
             saveStoredAdminSession(session, stored.refreshToken);
             return session;
+        }).catch((err) => {
+            if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+                if (generation === authGeneration) {
+                    api.auth.clear();
+                }
+            }
+            throw err;
         }).finally(() => {
             if (refreshPromise === promise) refreshPromise = null;
         });
@@ -1265,10 +1272,25 @@ export const api = {
             logoutPending = true;
             const generation = advanceAuthGeneration();
             try {
+                const stored = loadStoredAdminSession();
+                const tokenToRevoke = accessToken || stored.session?.access_token;
+                const refreshTokenToRevoke = stored.refreshToken;
+                const headers = new Headers();
+                if (tokenToRevoke) {
+                    headers.set("Authorization", "Bearer " + tokenToRevoke);
+                }
+                const bodyPayload = refreshTokenToRevoke
+                    ? JSON.stringify({ refresh_token: refreshTokenToRevoke })
+                    : undefined;
+
                 // Wait for earlier cookie-changing requests before revoking the cookie.
                 await authHttp(async () => {
                     assertAuthGeneration(generation);
-                    await rawRequest<{status: string}>("/api/auth/logout", { method: "POST" });
+                    await rawRequest<{status: string}>("/api/auth/logout", {
+                        method: "POST",
+                        headers,
+                        ...(bodyPayload ? { body: bodyPayload } : {}),
+                    });
                 });
                 if (generation === authGeneration) api.auth.clear();
                 return true;

@@ -101,19 +101,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   async function logout() {
-    let success = false;
     try {
-      success = await api.auth.logout();
+      await api.auth.logout();
     } catch (e) {
-      console.error("Logout error", e);
-    }
-    
-    if (success) {
+      console.warn("Logout error from server, clearing local session", e);
+      api.auth.clear();
+    } finally {
       try {
         if (typeof BroadcastChannel !== "undefined") {
-            const channel = new BroadcastChannel("auth_sync");
-            channel.postMessage("logout");
-            channel.close();
+          const channel = new BroadcastChannel("auth_sync");
+          channel.postMessage("logout");
+          channel.close();
         }
       } catch (e) {
         console.warn("BroadcastChannel not supported", e);
@@ -121,11 +119,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         localStorage.setItem("college-schedule:logout", `${Date.now()}:${Math.random()}`);
         localStorage.removeItem("schedule:has_admin_session");
+        localStorage.removeItem("schedule:admin_session_data");
       } catch { /* Storage may be disabled. */ }
       setUser(null);
       window.location.href = "/login";
-    } else {
-      throw new Error("Не вдалося вийти з системи. Сервер недоступний.");
     }
   }
 

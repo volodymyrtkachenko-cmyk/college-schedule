@@ -1,7 +1,9 @@
 import logging
 import time
 from datetime import datetime, timedelta, timezone
+import jwt
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status, Request
+from fastapi.security import HTTPAuthorizationCredentials
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select, delete
 from sqlalchemy.orm import selectinload
@@ -14,6 +16,7 @@ limiter = Limiter(key_func=get_remote_address)
 
 from app.config import settings
 from app.core.security import (
+    bearer_scheme,
     create_access_token,
     create_refresh_token,
     decode_token,
@@ -179,48 +182,48 @@ async def refresh(
                 raise last_exception
             raise HTTPException(status_code=401, detail="Потрібна авторизація")
 
-        # Consume the old refresh token by recording it into blocklist
-        if selected_jti and not already_blocked:
-            try:
-                dialect = db.get_bind().dialect.name
-                if dialect == "postgresql":
-                    from sqlalchemy.dialects.postgresql import insert
-                    statement = insert(TokenBlocklist).values(jti=selected_jti)
-                    await db.execute(statement.on_conflict_do_nothing(index_elements=["jti"]))
-                elif dialect == "sqlite":
-                    from sqlalchemy.dialects.sqlite import insert
-                    statement = insert(TokenBlocklist).values(jti=selected_jti)
-                    await db.execute(statement.on_conflict_do_nothing(index_elements=["jti"]))
-                else:
-                    db.add(TokenBlocklist(jti=selected_jti))
-            except Exception:
-                db.add(TokenBlocklist(jti=selected_jti))
+        # Snapshot user attributes immediately before any commits/rollbacks
+        user_id = selected_user.id
+        username = selected_user.username
+        email = selected_user.email
+        name = selected_user.name
+        role = selected_user.role
+        is_active = selected_user.is_active
+        allowed_groups = [g.id for g in (selected_user.allowed_groups or [])]
 
+        new_access = create_access_token(selected_user)
         new_refresh = create_refresh_token(selected_user)
         set_refresh_cookie(response, new_refresh)
+
+        # Consume the old refresh token safely
+        if selected_jti and not already_blocked:
+            try:
+                exists = await db.scalar(select(TokenBlocklist.id).where(TokenBlocklist.jti == selected_jti))
+                if not exists:
+                    db.add(TokenBlocklist(jti=selected_jti))
+                    await db.commit()
+            except Exception as blocklist_exc:
+                await db.rollback()
+                logger.warning("Token blocklist record skipped: %s", blocklist_exc)
 
         try:
             await _cleanup_expired_blocklist(db)
             await db.commit()
-        except Exception as commit_exc:
+        except Exception as cleanup_exc:
             await db.rollback()
-            logger.warning("Commit failed during token refresh, attempting fallback: %s", commit_exc)
-            try:
-                await db.commit()
-            except Exception:
-                await db.rollback()
+            logger.debug("Blocklist cleanup commit skipped: %s", cleanup_exc)
 
         return TokenResponse(
-            access_token=create_access_token(selected_user),
+            access_token=new_access,
             refresh_token=new_refresh,
             user=UserResponse(
-                id=selected_user.id,
-                username=selected_user.username,
-                email=selected_user.email,
-                name=selected_user.name,
-                role=selected_user.role,
-                is_active=selected_user.is_active,
-                allowed_groups=[g.id for g in selected_user.allowed_groups] if selected_user.allowed_groups else [],
+                id=user_id,
+                username=username,
+                email=email,
+                name=name,
+                role=role,
+                is_active=is_active,
+                allowed_groups=allowed_groups,
             ),
         )
     except HTTPException:
@@ -249,22 +252,34 @@ async def me(user: User = Depends(get_current_user), db: AsyncSession = Depends(
 @router.post("/logout")
 async def logout(
     response: Response,
+    payload: RefreshRequest | None = None,
     refresh_cookie: str | None = Cookie(default=None, alias=settings.auth_cookie_name),
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     db: AsyncSession = Depends(get_db),
 ):
+    token_candidate: str | None = None
+    token_type = "refresh"
+    if payload and payload.refresh_token:
+        token_candidate = payload.refresh_token
+    elif refresh_cookie:
+        token_candidate = refresh_cookie
+    elif isinstance(credentials, HTTPAuthorizationCredentials) and credentials.credentials:
+        token_candidate = credentials.credentials
+        token_type = "access"
+
     claims = None
-    if refresh_cookie:
+    if token_candidate:
         try:
-            claims = decode_token(refresh_cookie, "refresh")
+            claims = decode_token(token_candidate, token_type)
         except HTTPException as exc:
             if exc.status_code != 401:
                 raise
-            # An invalid/expired cookie can be removed without a DB write.
+            # An invalid/expired cookie or token can be removed without a DB write.
 
     if claims is not None:
         jti = claims.get("jti")
         if not isinstance(jti, str) or not jti:
-            raise HTTPException(401, "Некоректний refresh-токен")
+            raise HTTPException(401, "Некоректний токен")
         try:
             dialect = db.get_bind().dialect.name
             if dialect == "postgresql":
