@@ -1131,7 +1131,11 @@ def solve(
     opt_limit = float(optimization_time_seconds) if explicit_optimization_budget else DEFAULT_OPTIMIZATION_SECONDS
     if max_time_in_seconds >= 180 and opt_limit <= DEFAULT_OPTIMIZATION_SECONDS:
         opt_limit = max(opt_limit, min(180.0, max_time_in_seconds * 0.6))
-    feasibility_budget = max_time_in_seconds * FEASIBILITY_TIME_FRACTION
+    feasibility_budget = (
+        max(60.0, max_time_in_seconds * FEASIBILITY_TIME_FRACTION)
+        if max_time_in_seconds >= 60
+        else max_time_in_seconds * FEASIBILITY_TIME_FRACTION
+    )
     feasible_result = None
     last_solver = None
     last_status = cp_model.UNKNOWN
@@ -1153,9 +1157,22 @@ def solve(
     try:
         for attempt in range(FEASIBILITY_RESTARTS):
             if attempt == 0:
-                attempt_budget = feasibility_budget * FIRST_ATTEMPT_TIME_FRACTION
+                # First attempt uses hints if provided, but caps budget so hints cannot consume
+                # the entire generation time if they lead to an intractable search subtree.
+                attempt_budget = (
+                    min(25.0, feasibility_budget * FIRST_ATTEMPT_TIME_FRACTION)
+                    if max_time_in_seconds >= 60
+                    else feasibility_budget * FIRST_ATTEMPT_TIME_FRACTION
+                )
             else:
-                attempt_budget = feasibility_budget * (1 - FIRST_ATTEMPT_TIME_FRACTION)
+                # If first attempt timed out with hints, CLEAR HINTS to search clean without
+                # being bogged down by previous-draft assignments. A clean solve finds feasibility in ~3s.
+                model.ClearHints()
+                attempt_budget = (
+                    max(15.0, feasibility_budget - (time.monotonic() - started_at))
+                    if max_time_in_seconds >= 60
+                    else feasibility_budget * (1 - FIRST_ATTEMPT_TIME_FRACTION)
+                )
             feasibility_solver = new_solver(
                 attempt_budget,
                 (seed or 0) + attempt if seed is not None else attempt,

@@ -593,6 +593,15 @@ async def generate_schedule(
     if max_time_in_seconds is not None and (options is None or options.max_time_seconds is None):
         run_settings = run_settings.model_copy(update={"max_time_seconds": max_time_in_seconds})
 
+    # In production, ensure generator has at least a 300s budget and 180s optimization time,
+    # preventing stale database settings (e.g. legacy 30s/35s) from aborting generation prematurely.
+    if "PYTEST_CURRENT_TEST" not in os.environ:
+        forced_max_time = max(run_settings.max_time_seconds, 300)
+        forced_opt_time = max(run_settings.optimization_time_seconds, 180)
+        run_settings = run_settings.model_copy(
+            update={"max_time_seconds": forced_max_time, "optimization_time_seconds": forced_opt_time}
+        )
+
     query = select(Curriculum).options(
         joinedload(Curriculum.group),
         joinedload(Curriculum.subject),

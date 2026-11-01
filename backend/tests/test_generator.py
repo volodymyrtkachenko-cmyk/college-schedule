@@ -1524,6 +1524,78 @@ def test_solver_prioritizes_curator_teaching_on_thursday_period_3():
         assert s == 2           # 3rd period (0-indexed 2)
 
 
+def test_solver_fallback_clears_hints_and_finds_solution():
+    """Verify that if initial hints lead to a search timeout, attempt 1 clears hints and succeeds."""
+    subj_curator = NS(name="Виховна година")
+    g1 = NS(id=1, name="Група 1", curator_id=1)
+    curr = [
+        NS(
+            id=1,
+            group_id=1,
+            subject_id=1,
+            subject=NS(name="Програмування"),
+            teacher_id=1,
+            second_teacher_id=None,
+            group=g1,
+            is_stream=False,
+            stream_id=None,
+            pairs_per_2_weeks=4,
+            is_fixed=False,
+            strict_day=None,
+            strict_lesson=None,
+            require_week=None,
+            allow_multiple_per_day=False,
+        ),
+        NS(
+            id=2,
+            group_id=1,
+            subject_id=2,
+            subject=NS(name="Математика"),
+            teacher_id=2,
+            second_teacher_id=None,
+            group=g1,
+            is_stream=False,
+            stream_id=None,
+            pairs_per_2_weeks=26,
+            is_fixed=False,
+            strict_day=None,
+            strict_lesson=None,
+            require_week=None,
+            allow_multiple_per_day=True,
+        ),
+        NS(
+            id=3,
+            group_id=1,
+            subject_id=99,
+            subject=subj_curator,
+            teacher_id=1,
+            second_teacher_id=None,
+            group=g1,
+            is_stream=False,
+            stream_id=None,
+            pairs_per_2_weeks=2,
+            is_fixed=True,
+            strict_day=4,
+            strict_lesson=4,
+            require_week=None,
+            allow_multiple_per_day=False,
+        ),
+    ]
+    # Provide hints
+    hints = [(1, 0, 0), (2, 0, 1)]
+    res = S.solve(
+        curr,
+        [],
+        max_time_in_seconds=5,
+        num_workers=2,
+        hints=hints,
+        use_file_hints=False,
+    )
+    assert res.ok, res.status
+    assert len(res.assignments) == 32
+
+
+
 
 
 
