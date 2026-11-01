@@ -1264,8 +1264,8 @@ def solve(
         if opt_budget > 0.05:
             penalties = add_soft_preference_penalties()
             phases = [
-                ("symmetry", "Оптимізація симетрії тижнів"),
                 ("teacher", "Оптимізація компактності викладачів"),
+                ("symmetry", "Оптимізація симетрії тижнів"),
                 ("group", "Оптимізація стартів і балансу груп"),
                 ("secondary", "Фінальна оптимізація побажань і кабінетів"),
             ]
@@ -1276,9 +1276,9 @@ def solve(
                 total_solutions = 0
                 best_result = feasible_result
                 phase_shares = {
-                    "symmetry": 0.40,
-                    "teacher": 0.30,
-                    "group": 0.20,
+                    "teacher": 0.50,
+                    "symmetry": 0.25,
+                    "group": 0.15,
                     "secondary": 0.10,
                 }
                 share_total = sum(phase_shares[name] for name, _, _ in active_phases)
@@ -1331,12 +1331,20 @@ def solve(
                         # a candidate. Later phases cannot safely proceed
                         # without a solution from this phase.
                         break
-                    # Preserve the primary phase exactly. Teacher compactness
-                    # is intentionally allowed a small bounded relaxation
-                    # because it must not destroy already optimized symmetry.
+                    # Preserve teacher compactness exactly. Symmetry is
+                    # deliberately bounded rather than absolute: forcing
+                    # every weekly subject into the same slot can create
+                    # unusable teacher timetables with many windows.
                     phase_tolerance = (
-                        max(1, math.ceil(abs(phase_best_value) * 0.05))
-                        if phase_name == "teacher"
+                        max(
+                            0,
+                            math.ceil(
+                                len(phase_terms)
+                                * weights.subject_slot_symmetry
+                                * 0.15
+                            ),
+                        )
+                        if phase_name == "symmetry" and len(phase_terms) >= 100
                         else 0
                     )
                     model.Add(phase_expr <= phase_best_value + phase_tolerance)
