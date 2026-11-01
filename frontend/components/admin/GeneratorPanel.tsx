@@ -6,8 +6,6 @@ import {
   DraftRecord,
   DraftSlotRecord,
   DraftSubstitutionRecord,
-  GeneratorPriorities,
-  GeneratorSettings,
 } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 import { ConfirmModal } from "./ConfirmModal";
@@ -26,83 +24,33 @@ const draftStatusLabels: Record<string, string> = {
   INFEASIBLE: "Несумісні обмеження",
 };
 
-const DEFAULT_GENERATOR_SETTINGS: GeneratorSettings = {
-  max_time_seconds: 600,
-  optimization_time_seconds: 60,
-  hint_mode: "previous",
-  priorities: {
-    teacher_windows: 2,
-    late_start: 2,
-    three_consecutive_days: 2,
-    subject_week_balance: 2,
-    group_week_balance: 2,
-    soft_teacher_constraints: 2,
-  },
-};
-
-const PRIORITY_LEVELS: { value: number; label: string; short: string }[] = [
-  { value: 0, label: "Вимкнено", short: "Вимк." },
-  { value: 1, label: "Низький", short: "Низьк." },
-  { value: 2, label: "Звичайний", short: "Звич." },
-  { value: 3, label: "Високий", short: "Висок." },
-  { value: 4, label: "Максимальний", short: "Макс." },
-];
-
-const CRITERIA_CONFIG: {
-  key: keyof GeneratorPriorities;
-  label: string;
-  description: string;
-}[] = [
-  {
-    key: "teacher_windows",
-    label: "Мінімізація вікон викладачів",
-    description: "Уникати порожніх пар між заняттями викладача протягом одного дня",
-  },
-  {
-    key: "soft_teacher_constraints",
-    label: "М’які побажання викладачів",
-    description: "Уникати пар у слотах, позначених як «Небажано» в матриці доступності",
-  },
-  {
-    key: "late_start",
-    label: "Початок занять з 1-ї пари",
-    description: "Надавати перевагу розкладу груп з 1-ї пари замість 2–4 пар",
-  },
-  {
-    key: "three_consecutive_days",
-    label: "Без предмета 3 дні поспіль",
-    description: "Рівномірно розподіляти предмет протягом тижня замість трьох днів підряд",
-  },
-  {
-    key: "subject_week_balance",
-    label: "Баланс предмета між тижнями",
-    description: "Вирівнювати кількість пар кожного предмета між чисельником і знаменником",
-  },
-  {
-    key: "group_week_balance",
-    label: "Баланс тижневого навантаження групи",
-    description: "Однакове загальне навантаження групи в чисельнику та знаменнику",
-  },
-];
-
 const GENERATION_STAGES = [
-  { label: "Аналіз навантаження та груп", detail: "Зчитування годин, потоків і підгруп" },
-  { label: "Перевірка обмежень викладачів", detail: "Врахування зайнятості та кураторських годин" },
-  { label: "Математичний CP-SAT пошук", detail: "Паралельний портфельний розрахунок розкладу" },
-  { label: "Оптимізація вікон і пар", detail: "Мінімізація розривів та вирівнювання занять" },
+  {
+    key: "validating",
+    label: "Аналіз навантаження та перевірка даних",
+    detail: "Зчитування годин, потоків, груп та обмежень викладачів",
+  },
+  {
+    key: "feasibility",
+    label: "Пошук допустимого розкладу",
+    detail: "Математичний CP-SAT пошук розкладу без конфліктів і накладок",
+  },
+  {
+    key: "optimizing",
+    label: "Оптимізація якості розкладу",
+    detail: "Усунення «вікон», дисбалансу та врахування побажань викладачів",
+  },
+  {
+    key: "saving",
+    label: "Збереження чернетки розкладу",
+    detail: "Формування сітки занять та запис чернетки до бази даних",
+  },
 ];
 
 function formatTimer(sec: number): string {
   const m = Math.floor(sec / 60);
   const s = sec % 60;
   return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
-}
-
-function formatDurationShort(sec: number): string {
-  if (sec < 60) return `${sec} с`;
-  const m = Math.floor(sec / 60);
-  const rem = sec % 60;
-  return rem === 0 ? `${m} хв` : `${m} хв ${rem} с`;
 }
 
 export function GeneratorPanel() {
@@ -118,11 +66,6 @@ export function GeneratorPanel() {
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
-  const [savedSettings, setSavedSettings] = useState<GeneratorSettings>(DEFAULT_GENERATOR_SETTINGS);
-  const [formSettings, setFormSettings] = useState<GeneratorSettings>(DEFAULT_GENERATOR_SETTINGS);
-  const [showSettingsPanel, setShowSettingsPanel] = useState(false);
-  const [savingSettings, setSavingSettings] = useState(false);
-  
   const [activeDraft, setActiveDraft] = useState<DraftRecord | null>(null);
   const [bellTimes, setBellTimes] = useState<Record<number, string>>({1:"09:00–10:20", 2:"10:40–12:00", 3:"12:30–13:50", 4:"14:00–15:20"});
   const [slots, setSlots] = useState<DraftSlotRecord[]>([]);
@@ -142,10 +85,9 @@ export function GeneratorPanel() {
 
   const generatingDraft = drafts.find((d) => d.status === "GENERATING");
   const isGeneratingActive = generating || generatingDraft !== undefined;
-  const hasUnsavedChanges = JSON.stringify(formSettings) !== JSON.stringify(savedSettings);
 
   useEffect(() => {
-    loadDrafts(true);
+    loadDrafts();
   }, []);
 
   useEffect(() => {
@@ -162,26 +104,19 @@ export function GeneratorPanel() {
   useEffect(() => {
     if (!isGeneratingActive || showGenModal) return;
     const interval = setInterval(() => {
-      loadDrafts(false);
+      loadDrafts();
     }, 6000);
     return () => clearInterval(interval);
   }, [isGeneratingActive, showGenModal]);
 
-  async function loadDrafts(includeSettings: boolean = false) {
+  async function loadDrafts() {
     try {
       const session = await api.auth.ensureAuthenticated();
-      const [res, versionsRes, settingsRes] = await Promise.all([
+      const [res, versionsRes] = await Promise.all([
         api.generator.listDrafts(session.access_token),
         api.scheduleVersions.list(),
-        includeSettings
-          ? api.generator.getSettings(session.access_token).catch(() => null)
-          : Promise.resolve(null),
       ]);
       setVersions(versionsRes);
-      if (settingsRes) {
-        setSavedSettings(settingsRes);
-        setFormSettings(settingsRes);
-      }
       // Import reviews have their own workflow and must not appear as generated schedule drafts.
       setDrafts(res.filter(
         (draft) => draft.draft_type !== "import" && !draft.name.startsWith("Імпорт "),
@@ -191,35 +126,6 @@ export function GeneratorPanel() {
     } finally {
       setLoading(false);
     }
-  }
-
-  async function handleSaveSettings() {
-    try {
-      setSavingSettings(true);
-      const session = await api.auth.ensureAuthenticated();
-      const updated = await api.generator.updateSettings(formSettings, session.access_token);
-      setSavedSettings(updated);
-      setFormSettings(updated);
-      setToast("Налаштування генерації збережено в системі.", "success");
-    } catch (err: any) {
-      setToast(err.message || "Не вдалося зберегти налаштування", "error");
-    } finally {
-      setSavingSettings(false);
-    }
-  }
-
-  function handleResetDefaults() {
-    setFormSettings(DEFAULT_GENERATOR_SETTINGS);
-  }
-
-  function updatePriority(key: keyof GeneratorPriorities, level: number) {
-    setFormSettings((prev) => ({
-      ...prev,
-      priorities: {
-        ...prev.priorities,
-        [key]: level,
-      },
-    }));
   }
 
   async function loadSlots(d: DraftRecord) {
@@ -251,22 +157,23 @@ export function GeneratorPanel() {
       setGenerating(true);
       setShowGenModal(true);
       let session = await api.auth.ensureAuthenticated();
-      const job = await api.generator.generate(
-        session.access_token,
-        formSettings.max_time_seconds,
-        formSettings,
-      );
+      const job = await api.generator.generate(session.access_token);
       setGeneratingJob({ id: job.id, startedAt: Date.now() });
       const startedAt = Date.now();
       let completed = job;
       let consecutiveErrors = 0;
-      const pollTimeoutMs = Math.max(12 * 60 * 1000, (formSettings.max_time_seconds + formSettings.optimization_time_seconds + 60) * 1000);
+      const pollTimeoutMs = 10 * 60 * 1000;
       while (completed.status === "GENERATING" && Date.now() - startedAt < pollTimeoutMs) {
-        await new Promise(resolve => setTimeout(resolve, 3000));
+        await new Promise(resolve => setTimeout(resolve, 2000));
         try {
           const freshSession = await api.auth.ensureAuthenticated().catch(() => session);
           if (freshSession) session = freshSession;
           completed = await api.generator.getDraft(job.id, session.access_token);
+          setDrafts(prev => {
+            const exists = prev.some(d => d.id === completed.id);
+            if (exists) return prev.map(d => d.id === completed.id ? completed : d);
+            return [completed, ...prev];
+          });
           consecutiveErrors = 0;
         } catch (pollErr) {
           consecutiveErrors++;
@@ -277,7 +184,7 @@ export function GeneratorPanel() {
         }
       }
       if (completed.status === "TIMEOUT") {
-        throw new Error("Не вдалося створити розклад за відведений час. Перевірте навчальне навантаження або збільшіть час пошуку в налаштуваннях.");
+        throw new Error("Не вдалося створити розклад за відведений час. Спробуйте ще раз або перевірте навчальне навантаження.");
       }
       if (completed.status === "INFEASIBLE") {
         throw new Error("Не вдалося узгодити обмеження. Перевірте навчальне навантаження, закріплені заняття й доступність викладачів.");
@@ -614,19 +521,32 @@ export function GeneratorPanel() {
     );
   }
 
-  const activeStageIndex = elapsed < 4 ? 0 : elapsed < 9 ? 1 : elapsed < 28 ? 2 : 3;
-  const progressPercent = Math.min(
-    95,
-    Math.round(
-      elapsed < 4
-        ? 15 + elapsed * 5
-        : elapsed < 9
-        ? 35 + (elapsed - 4) * 4
-        : elapsed < 28
-        ? 55 + (elapsed - 9) * 1.5
-        : 83 + Math.min(11, (elapsed - 28) * 0.3)
-    )
-  );
+  const genInfo = generatingDraft?.generation ?? generatingDraft?.data?.generation;
+
+  const serverStartedAtMs = genInfo?.started_at ? new Date(genInfo.started_at).getTime() : null;
+  const currentElapsed = serverStartedAtMs && !isNaN(serverStartedAtMs)
+    ? Math.max(0, Math.floor((Date.now() - serverStartedAtMs) / 1000))
+    : elapsed;
+
+  const activePhase = genInfo?.phase;
+  let activeStageIndex = 0;
+  if (activePhase === "feasibility") activeStageIndex = 1;
+  else if (activePhase === "optimizing") activeStageIndex = 2;
+  else if (activePhase === "saving" || activePhase === "completed") activeStageIndex = 3;
+  else if (activePhase === "validating") activeStageIndex = 0;
+  else {
+    activeStageIndex = currentElapsed < 4 ? 0 : currentElapsed < 12 ? 1 : currentElapsed < 45 ? 2 : 3;
+  }
+
+  const rawBackendPercent = genInfo?.progress_percent;
+  const progressPercent = typeof rawBackendPercent === "number" && rawBackendPercent > 0
+    ? Math.min(100, rawBackendPercent)
+    : Math.min(95, Math.round(
+        currentElapsed < 4 ? 8 + currentElapsed * 2 :
+        currentElapsed < 12 ? 16 + (currentElapsed - 4) * 4 :
+        currentElapsed < 45 ? 48 + (currentElapsed - 12) * 1.2 :
+        88 + Math.min(6, (currentElapsed - 45) * 0.1)
+      ));
 
   return (
     <>
@@ -635,304 +555,27 @@ export function GeneratorPanel() {
         title="Генерація розкладу"
         description="Створює чернетку з навчального навантаження, доступності викладачів і практик. Після перевірки її можна опублікувати як розклад."
         actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setShowSettingsPanel((prev) => !prev)}
-              className={`shrink-0 rounded-lg border px-3.5 py-2 text-sm font-semibold transition-all flex items-center gap-2 ${
-                showSettingsPanel || hasUnsavedChanges
-                  ? "border-sys-accent/50 bg-sys-accent/15 text-sys-accent"
-                  : "border-sys-border bg-sys-card text-sys-text-primary hover:bg-slate-100 dark:hover:bg-white/5"
-              }`}
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-              </svg>
-              Налаштування
-              {hasUnsavedChanges && (
-                <span className="h-2 w-2 rounded-full bg-amber-400" title="Є незбережені зміни" />
-              )}
-            </button>
-
-            <button
-              onClick={handleGenerate}
-              disabled={isGeneratingActive}
-              className="shrink-0 rounded-lg bg-emerald-600 dark:bg-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow-xs hover:opacity-95 transition-all disabled:opacity-50 disabled:cursor-wait flex items-center gap-2"
-            >
-              {isGeneratingActive ? (
-                <>
-                  <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                  Створюємо розклад…
-                </>
-              ) : (
-                <>
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  Створити розклад
-                </>
-              )}
-            </button>
-          </div>
+          <button
+            onClick={handleGenerate}
+            disabled={isGeneratingActive}
+            className="shrink-0 rounded-lg bg-emerald-600 dark:bg-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow-xs hover:opacity-95 transition-all disabled:opacity-50 disabled:cursor-wait flex items-center gap-2"
+          >
+            {isGeneratingActive ? (
+              <>
+                <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                Створюємо розклад…
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Створити розклад
+              </>
+            )}
+          </button>
         }
       />
-
-      {/* Compact summary strip when settings panel is collapsed */}
-      {!showSettingsPanel && (
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-sys-border/70 bg-sys-card/70 px-4 py-2.5 text-xs text-sys-text-secondary">
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-            <span>
-              Режим:{" "}
-              <strong className="text-sys-text-primary">
-                {formSettings.hint_mode === "previous" ? "На основі попереднього" : "З нуля"}
-              </strong>
-            </span>
-            <span>
-              Час пошуку:{" "}
-              <strong className="text-sys-text-primary">
-                {formatDurationShort(formSettings.max_time_seconds)}
-              </strong>
-            </span>
-            <span>
-              Оптимізація якості:{" "}
-              <strong className="text-sys-text-primary">
-                {formSettings.optimization_time_seconds === 0
-                  ? "Вимкнено"
-                  : formatDurationShort(formSettings.optimization_time_seconds)}
-              </strong>
-            </span>
-            {hasUnsavedChanges && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-semibold text-amber-400">
-                ● Змінено для наступного запуску
-              </span>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={() => setShowSettingsPanel(true)}
-            className="text-xs font-semibold text-sys-accent hover:underline"
-          >
-            Змінити параметри →
-          </button>
-        </div>
-      )}
-
-      {/* Expandable Generator Settings Panel */}
-      {showSettingsPanel && (
-        <div className="surface-panel mt-4 p-4 sm:p-6 space-y-6 animate-in fade-in duration-150">
-          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 border-b border-sys-border/60 pb-4">
-            <div>
-              <h3 className="text-base font-bold text-sys-text-primary flex items-center gap-2">
-                Параметри генерації та оптимізації
-                {hasUnsavedChanges && (
-                  <span className="rounded-full bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-semibold text-amber-400 border border-amber-500/30">
-                    Не збережено глобально
-                  </span>
-                )}
-              </h3>
-              <p className="text-xs text-sys-text-secondary mt-0.5">
-                Зміни одразу застосовуються до кнопки «Створити розклад». Адміністратор може зберегти їх як стандартні для всієї системи.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowSettingsPanel(false)}
-              className="self-end sm:self-start rounded-lg px-2.5 py-1 text-xs font-semibold text-sys-text-secondary hover:bg-slate-100 dark:hover:bg-white/5 hover:text-sys-text-primary"
-            >
-              Згорнути ✕
-            </button>
-          </div>
-
-          {/* Row 1: Strategy & Time Budgets */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Strategy / Hint Mode */}
-            <div className="rounded-xl border border-sys-border bg-sys-bg/50 p-3.5 space-y-2">
-              <label className="block text-xs font-bold uppercase tracking-wider text-sys-text-secondary">
-                Початкова точка пошуку
-              </label>
-              <div className="grid grid-cols-2 gap-1.5 rounded-lg border border-sys-border bg-sys-card p-1">
-                <button
-                  type="button"
-                  onClick={() => setFormSettings((p) => ({ ...p, hint_mode: "previous" }))}
-                  className={`rounded-md px-2.5 py-1.5 text-xs font-semibold transition ${
-                    formSettings.hint_mode === "previous"
-                      ? "bg-sys-accent text-white shadow-xs"
-                      : "text-sys-text-secondary hover:text-sys-text-primary"
-                  }`}
-                >
-                  На основі попереднього
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFormSettings((p) => ({ ...p, hint_mode: "fresh" }))}
-                  className={`rounded-md px-2.5 py-1.5 text-xs font-semibold transition ${
-                    formSettings.hint_mode === "fresh"
-                      ? "bg-sys-accent text-white shadow-xs"
-                      : "text-sys-text-secondary hover:text-sys-text-primary"
-                  }`}
-                >
-                  З нуля
-                </button>
-              </div>
-              <p className="text-[11px] text-sys-text-muted leading-snug">
-                {formSettings.hint_mode === "previous"
-                  ? "Використовує останню чернетку або діючий розклад як підказку для швидшого пошуку та меншої кількості змін."
-                  : "Починає пошук без прив’язки до попереднього розкладу — корисно для пошуку принципово іншого варіанта."}
-              </p>
-            </div>
-
-            {/* Max Search Time */}
-            <div className="rounded-xl border border-sys-border bg-sys-bg/50 p-3.5 space-y-2">
-              <label htmlFor="gen-max-time" className="block text-xs font-bold uppercase tracking-wider text-sys-text-secondary">
-                Ліміт часу на пошук розкладу
-              </label>
-              <select
-                id="gen-max-time"
-                value={formSettings.max_time_seconds}
-                onChange={(e) => setFormSettings((p) => ({ ...p, max_time_seconds: Number(e.target.value) }))}
-                className="form-control w-full bg-sys-card text-sm font-semibold"
-              >
-                <option value={120}>2 хвилини (швидка перевірка)</option>
-                <option value={300}>5 хвилин</option>
-                <option value={600}>10 хвилин (рекомендовано)</option>
-                <option value={900}>15 хвилин</option>
-                <option value={1200}>20 хвилин</option>
-                <option value={1800}>30 хвилин (складне навантаження)</option>
-              </select>
-              <p className="text-[11px] text-sys-text-muted leading-snug">
-                Максимальний час на пошук допустимого розкладу без порушення жорстких обмежень.
-              </p>
-            </div>
-
-            {/* Optimization Budget */}
-            <div className="rounded-xl border border-sys-border bg-sys-bg/50 p-3.5 space-y-2">
-              <label htmlFor="gen-opt-time" className="block text-xs font-bold uppercase tracking-wider text-sys-text-secondary">
-                Час на покращення якості
-              </label>
-              <select
-                id="gen-opt-time"
-                value={formSettings.optimization_time_seconds}
-                onChange={(e) => setFormSettings((p) => ({ ...p, optimization_time_seconds: Number(e.target.value) }))}
-                className="form-control w-full bg-sys-card text-sm font-semibold"
-              >
-                <option value={0}>Вимкнено (перший знайдений)</option>
-                <option value={15}>15 секунд (швидко)</option>
-                <option value={30}>30 секунд</option>
-                <option value={60}>1 хвилина (рекомендовано)</option>
-                <option value={120}>2 хвилини (глибока оптимізація)</option>
-                <option value={300}>5 хвилин (максимальна якість)</option>
-              </select>
-              <p className="text-[11px] text-sys-text-muted leading-snug">
-                Додатковий час після знаходження розкладу для мінімізації вікон, дисбалансу та небажаних пар.
-              </p>
-            </div>
-          </div>
-
-          {/* Row 2: Soft Criteria Priorities */}
-          <div className="space-y-3">
-            <div>
-              <h4 className="text-xs font-bold uppercase tracking-wider text-sys-text-secondary">
-                Важливість критеріїв якості (м’які правила)
-              </h4>
-              <p className="text-xs text-sys-text-muted mt-0.5">
-                Визначає, чим генератор жертвуватиме в останню чергу під час оптимізації. «Вимкнено» повністю прибирає критерій.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-              {CRITERIA_CONFIG.map((item) => {
-                const currentLevel = formSettings.priorities[item.key];
-                return (
-                  <div
-                    key={item.key}
-                    className="flex flex-col justify-between gap-2.5 rounded-xl border border-sys-border bg-sys-bg/40 p-3.5"
-                  >
-                    <div>
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-sm font-semibold text-sys-text-primary">{item.label}</span>
-                        <span
-                          className={`rounded-md px-2 py-0.5 text-[11px] font-bold ${
-                            currentLevel === 0
-                              ? "bg-slate-500/15 text-sys-text-muted"
-                              : currentLevel >= 3
-                              ? "bg-emerald-500/15 text-emerald-400"
-                              : "bg-sys-accent/15 text-sys-accent"
-                          }`}
-                        >
-                          {PRIORITY_LEVELS[currentLevel]?.label ?? "Звичайний"}
-                        </span>
-                      </div>
-                      <p className="text-xs text-sys-text-secondary mt-0.5">{item.description}</p>
-                    </div>
-
-                    <div
-                      role="radiogroup"
-                      aria-label={item.label}
-                      className="grid grid-cols-5 gap-1 rounded-lg border border-sys-border bg-sys-card p-1"
-                    >
-                      {PRIORITY_LEVELS.map((lvl) => {
-                        const active = currentLevel === lvl.value;
-                        return (
-                          <button
-                            key={lvl.value}
-                            type="button"
-                            role="radio"
-                            aria-checked={active}
-                            onClick={() => updatePriority(item.key, lvl.value)}
-                            className={`rounded-md py-1 px-1 text-[11px] font-semibold transition ${
-                              active
-                                ? lvl.value === 0
-                                  ? "bg-slate-600 text-white shadow-xs"
-                                  : "bg-sys-accent text-white shadow-xs"
-                                : "text-sys-text-secondary hover:text-sys-text-primary"
-                            }`}
-                          >
-                            <span className="hidden sm:inline">{lvl.label}</span>
-                            <span className="sm:hidden">{lvl.short}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Actions Footer */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-sys-border/60 pt-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={handleResetDefaults}
-                className="rounded-lg border border-sys-border bg-sys-card px-3 py-1.5 text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary transition"
-              >
-                Скинути до стандартних
-              </button>
-              {hasUnsavedChanges && (
-                <button
-                  type="button"
-                  onClick={() => setFormSettings(savedSettings)}
-                  className="rounded-lg border border-sys-border bg-sys-card px-3 py-1.5 text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary transition"
-                >
-                  Повернути збережені
-                </button>
-              )}
-            </div>
-
-            {isAdmin && (
-              <button
-                type="button"
-                onClick={handleSaveSettings}
-                disabled={savingSettings || !hasUnsavedChanges}
-                className="rounded-lg bg-sys-accent px-4 py-2 text-xs font-semibold text-white shadow-xs hover:opacity-95 transition disabled:opacity-40"
-              >
-                {savingSettings ? "Збереження…" : "Зберегти як стандартні для системи"}
-              </button>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Persistent live banner when generation is active and modal is minimized */}
       {isGeneratingActive && !showGenModal && (
@@ -947,7 +590,7 @@ export function GeneratorPanel() {
                 <div className="font-semibold text-sm text-sys-text-primary flex items-center gap-2 flex-wrap">
                   <span>Створення розкладу #{generatingJob?.id ?? generatingDraft?.id ?? ""}</span>
                   <span className="font-mono text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold">
-                    {formatTimer(elapsed)}
+                    {formatTimer(currentElapsed)}
                   </span>
                   <span className="text-xs text-sys-text-muted font-normal hidden sm:inline">
                     · {GENERATION_STAGES[activeStageIndex]?.label}
@@ -1225,7 +868,7 @@ export function GeneratorPanel() {
               <div className="mt-4 flex items-center gap-2">
                 <span className="font-mono text-sm font-bold text-emerald-400 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 flex items-center gap-2 shadow-xs">
                   <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-                  {formatTimer(elapsed)}
+                  {formatTimer(currentElapsed)}
                 </span>
                 <span className="text-xs text-sys-text-muted">триває оптимізація</span>
               </div>
@@ -1282,6 +925,12 @@ export function GeneratorPanel() {
                       <p className="text-[11px] text-sys-text-secondary mt-0.5 leading-snug">
                         {st.detail}
                       </p>
+                      {idx === 2 && typeof genInfo?.solutions_found === "number" && genInfo.solutions_found > 0 && (
+                        <span className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-400 border border-emerald-500/25">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                          Знайдено покращень розкладу: {genInfo.solutions_found}
+                        </span>
+                      )}
                     </div>
                   </div>
                 );

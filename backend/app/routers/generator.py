@@ -1,15 +1,19 @@
 from app.core.time import today_local, now_local
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import asdict, dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import partial
+from pathlib import Path
 import asyncio
 import hashlib
+import inspect
 import json
 import logging
 import multiprocessing
 import os
+import tempfile
 import time
+import uuid
 import ortools
 from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -248,12 +252,27 @@ def _solver_input_diagnostics(curriculums, constraints) -> dict[str, int | str]:
 _generation_lock = asyncio.Lock()
 
 
-def _solver_kwargs(settings: GeneratorSettings) -> dict:
-    return {
+def _solver_kwargs(settings: GeneratorSettings, progress_path: str | None = None) -> dict:
+    kwargs = {
         "weights": settings.priorities.to_weights(),
         "optimization_time_seconds": settings.optimization_time_seconds,
         "use_file_hints": settings.hint_mode == "previous",
     }
+    if progress_path is not None:
+        kwargs["progress_path"] = progress_path
+    return kwargs
+
+
+def _filter_solver_kwargs(solve_fn, kwargs: dict) -> dict:
+    try:
+        sig = inspect.signature(solve_fn)
+        has_varkw = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values())
+        if not has_varkw:
+            valid_keys = set(sig.parameters.keys())
+            return {k: v for k, v in kwargs.items() if k in valid_keys}
+    except Exception:
+        pass
+    return kwargs
 
 
 async def _run_solver(
@@ -263,9 +282,13 @@ async def _run_solver(
     workers: int,
     hints: list[tuple[int, int, int]],
     settings: GeneratorSettings | None = None,
+    progress_path: str | None = None,
 ) -> solver.SolveResult:
     settings = settings or GeneratorSettings()
-    solver_kwargs = _solver_kwargs(settings)
+    solver_kwargs = _filter_solver_kwargs(
+        solver.solve,
+        _solver_kwargs(settings, progress_path=progress_path),
+    )
     use_subprocess = (
         solver.solve is _DEFAULT_SOLVE
         and "PYTEST_CURRENT_TEST" not in os.environ
@@ -311,15 +334,25 @@ def _generation_summary(
     elapsed: float,
     objective: float | None = None,
     hints_used: int = 0,
+    phase: str = "completed",
+    progress_percent: int = 100,
+    solutions_found: int = 0,
+    started_at: str | None = None,
 ) -> dict:
-    return {
+    data = {
         "settings": settings.model_dump(),
         "weights": asdict(settings.priorities.to_weights()),
         "status": status,
         "objective": objective,
         "elapsed_seconds": round(elapsed, 1),
         "hints_used": hints_used,
+        "phase": phase,
+        "progress_percent": progress_percent,
+        "solutions_found": solutions_found,
     }
+    if started_at is not None:
+        data["started_at"] = started_at
+    return data
 
 
 async def _complete_generation(
@@ -336,6 +369,36 @@ async def _complete_generation(
     diagnostics = _solver_input_diagnostics(curriculums, constraints)
     solve_started = time.monotonic()
     workers = solver.selected_worker_count()
+    progress_file = Path(tempfile.gettempdir()) / f"schedule_gen_{draft_id}_{uuid.uuid4().hex[:8]}.json"
+    done_event = asyncio.Event()
+
+    async def _poll_progress():
+        last_pct = 5
+        while not done_event.is_set():
+            await asyncio.sleep(0.8)
+            if progress_file.exists():
+                try:
+                    pdata = json.loads(progress_file.read_text(encoding="utf-8"))
+                    phase = pdata.get("phase", "feasibility")
+                    pct = max(last_pct, int(pdata.get("progress_percent", last_pct)))
+                    last_pct = pct
+                    solutions = pdata.get("solutions_found", 0)
+                    elapsed_cur = time.monotonic() - solve_started
+                    async with async_session_factory() as db:
+                        d = await db.get(ScheduleDraft, draft_id)
+                        if d and d.status == "GENERATING":
+                            gen = d.data.get("generation", {})
+                            gen["phase"] = phase
+                            gen["progress_percent"] = pct
+                            gen["solutions_found"] = solutions
+                            gen["elapsed_seconds"] = round(elapsed_cur, 1)
+                            d.data = {**(d.data or {}), "generation": gen}
+                            await db.commit()
+                except Exception:
+                    pass
+
+    progress_task = asyncio.create_task(_poll_progress())
+
     try:
         async with _generation_lock:
             result = await _run_solver(
@@ -345,22 +408,45 @@ async def _complete_generation(
                 workers,
                 hints or [],
                 settings,
+                progress_path=str(progress_file),
             )
-        elapsed = time.monotonic() - solve_started
-        summary = _generation_summary(
-            settings,
-            status=result.status,
-            elapsed=elapsed,
-            objective=result.objective,
-            hints_used=len(hints or []),
-        )
+    finally:
+        done_event.set()
+        await progress_task
+        try:
+            if progress_file.exists():
+                progress_file.unlink()
+        except OSError:
+            pass
+
+    elapsed = time.monotonic() - solve_started
+    try:
         async with async_session_factory() as db:
             draft = await db.get(ScheduleDraft, draft_id)
             if draft is None:
                 return
-            draft.data = {**(draft.data or {}), "generation": summary}
+
+            saved_started_at = (
+                draft.data.get("generation", {}).get("started_at")
+                if draft.data and isinstance(draft.data, dict)
+                else None
+            )
+
             if not result.ok:
                 draft.status = result.status
+                draft.data = {
+                    **(draft.data or {}),
+                    "generation": _generation_summary(
+                        settings,
+                        status=result.status,
+                        elapsed=elapsed,
+                        objective=result.objective,
+                        hints_used=len(hints or []),
+                        phase="failed",
+                        progress_percent=100,
+                        started_at=saved_started_at,
+                    ),
+                }
                 logger.warning(
                     "Schedule generation failed: status=%s curriculums=%s groups=%s "
                     "teacher_constraints=%s fingerprint=%s elapsed=%.1fs workers=%s ortools=%s",
@@ -376,6 +462,22 @@ async def _complete_generation(
                 await db.commit()
                 return
 
+            # Phase: saving
+            draft.data = {
+                **(draft.data or {}),
+                "generation": _generation_summary(
+                    settings,
+                    status="GENERATING",
+                    elapsed=elapsed,
+                    objective=result.objective,
+                    hints_used=len(hints or []),
+                    phase="saving",
+                    progress_percent=95,
+                    started_at=saved_started_at,
+                ),
+            }
+            await db.commit()
+
             db.add_all([
                 ScheduleSlot(
                     draft_id=draft.id,
@@ -387,6 +489,19 @@ async def _complete_generation(
                 for c_id, d, s in result.assignments
             ])
             draft.status = "DRAFT"
+            draft.data = {
+                **(draft.data or {}),
+                "generation": _generation_summary(
+                    settings,
+                    status=result.status,
+                    elapsed=time.monotonic() - solve_started,
+                    objective=result.objective,
+                    hints_used=len(hints or []),
+                    phase="completed",
+                    progress_percent=100,
+                    started_at=saved_started_at,
+                ),
+            }
             await db.commit()
     except Exception:
         logger.exception(
@@ -495,13 +610,21 @@ async def generate_schedule(
 
     hints = await _load_db_hints(db, curriculums) if run_settings.hint_mode == "previous" else []
 
+    started_at_iso = datetime.now(timezone.utc).isoformat()
     draft = ScheduleDraft(
         name=f"Генерація від {now_local().strftime('%d.%m %H:%M')}",
         draft_type="generated",
         status="GENERATING",
         data={
             "generation": _generation_summary(
-                run_settings, status="GENERATING", elapsed=0.0, hints_used=len(hints)
+                run_settings,
+                status="GENERATING",
+                elapsed=0.0,
+                hints_used=len(hints),
+                phase="validating",
+                progress_percent=5,
+                solutions_found=0,
+                started_at=started_at_iso,
             )
         },
     )

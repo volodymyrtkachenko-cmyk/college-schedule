@@ -351,8 +351,8 @@ def test_unknown_solver_status_is_reported_as_timeout(monkeypatch):
     ])
 
 
-def test_default_generator_search_budget_is_ten_minutes():
-    assert S.DEFAULT_SOLVE_TIME_SECONDS == 600
+def test_default_generator_search_budget_is_five_minutes():
+    assert S.DEFAULT_SOLVE_TIME_SECONDS == 300
 
 
 def test_worker_count_respects_container_cpu_quota(monkeypatch):
@@ -724,7 +724,7 @@ async def test_generator_settings_roundtrip_and_per_run_override(gen_client, mon
     get_resp = await client.get("/api/generator/settings", headers=headers)
     assert get_resp.status_code == 200
     defaults = get_resp.json()
-    assert defaults["max_time_seconds"] == 600
+    assert defaults["max_time_seconds"] == 300
     assert defaults["optimization_time_seconds"] == 60
     assert defaults["hint_mode"] == "previous"
     assert defaults["priorities"]["teacher_windows"] == 2

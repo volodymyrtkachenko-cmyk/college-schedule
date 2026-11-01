@@ -916,6 +916,10 @@ export interface DraftGenerationSummary {
   objective?: number | null;
   elapsed_seconds?: number;
   hints_used?: number;
+  phase?: "validating" | "feasibility" | "optimizing" | "saving" | "completed" | "failed" | string;
+  progress_percent?: number;
+  solutions_found?: number;
+  started_at?: string;
 }
 
 export interface DraftRecord {

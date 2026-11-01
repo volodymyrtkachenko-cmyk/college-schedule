@@ -52,7 +52,7 @@ class GeneratorPriorities(BaseModel):
 class GeneratorSettings(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    max_time_seconds: int = Field(default=600, ge=30, le=3600)
+    max_time_seconds: int = Field(default=300, ge=30, le=3600)
     optimization_time_seconds: int = Field(default=60, ge=0, le=1800)
     hint_mode: Literal["previous", "fresh"] = "previous"
     priorities: GeneratorPriorities = Field(default_factory=GeneratorPriorities)

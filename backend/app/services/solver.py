@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 import json
 import math
 import os
+import threading
 import time
 from pathlib import Path
 from typing import Iterable
@@ -23,13 +24,13 @@ MIN_PAIRS_PER_DAY = 3  # Kept for compatibility with diagnostics and callers.
 REDUCED_MIN_PAIRS_PER_DAY = 2  # Allowed for groups with total load < 32 pairs / 2 weeks.
 STANDARD_LOAD_THRESHOLD = 32   # Groups with < 32 pairs / 2 weeks may have 2-pair days.
 DEFAULT_NUM_WORKERS = 8
-DEFAULT_SOLVE_TIME_SECONDS = 600
+DEFAULT_SOLVE_TIME_SECONDS = 300
 FEASIBILITY_TIME_FRACTION = 0.9
 FEASIBILITY_RESTARTS = 2
 FIRST_ATTEMPT_TIME_FRACTION = 0.8
 # Upper bound for the preference-optimisation phase when callers do not
 # specify one explicitly (kept small for backwards-compatible behaviour).
-DEFAULT_OPTIMIZATION_SECONDS = 8.0
+DEFAULT_OPTIMIZATION_SECONDS = 60.0
 
 
 @dataclass(frozen=True)
@@ -409,6 +410,31 @@ def constraint_slot_indices(constraint) -> list[int]:
     return []
 
 
+def _report_progress(
+    progress_path: str | os.PathLike[str] | None,
+    phase: str,
+    progress_percent: int,
+    solutions_found: int = 0,
+    message: str = "",
+) -> None:
+    if not progress_path:
+        return
+    try:
+        p = Path(progress_path)
+        tmp_p = p.with_suffix(f".tmp_{os.getpid()}")
+        payload = json.dumps({
+            "phase": phase,
+            "progress_percent": progress_percent,
+            "solutions_found": solutions_found,
+            "message": message,
+            "timestamp": time.time(),
+        })
+        tmp_p.write_text(payload, encoding="utf-8")
+        tmp_p.replace(p)
+    except Exception:
+        pass
+
+
 def solve(
     curriculums: list,
     constraints: list,
@@ -422,6 +448,7 @@ def solve(
     weights: SolverWeights | dict | None = None,
     optimization_time_seconds: float | None = None,
     use_file_hints: bool = True,
+    progress_path: str | os.PathLike[str] | None = None,
 ) -> SolveResult:
     use_default_patterns = patterns is None
     patterns = VALID_PATTERNS if patterns is None else patterns
@@ -430,10 +457,13 @@ def solve(
     if optimization_time_seconds is None:
         optimization_time_seconds = DEFAULT_OPTIMIZATION_SECONDS
 
+    _report_progress(progress_path, "validating", 8, message="Перевірка навчального навантаження")
+
     # Avoid spending the entire search limit proving simple load contradictions.
     if patterns is VALID_PATTERNS:
         problems = precheck(curriculums, constraints)
         if problems:
+            _report_progress(progress_path, "validating", 100, message="Помилка перевірки")
             return SolveResult(status="INFEASIBLE")
 
     # (teacher_id, day_idx, slot_idx) недоступності. Обмеження діє в обидва тижні.
@@ -832,46 +862,123 @@ def solve(
         )
 
     started_at = time.monotonic()
-    # First find any valid timetable on the lean hard-constraint model without
-    # adding thousands of soft-preference variables.
+    _report_progress(progress_path, "feasibility", 15, message="Пошук допустимого розкладу")
+
+    opt_limit = float(optimization_time_seconds) if explicit_optimization_budget else DEFAULT_OPTIMIZATION_SECONDS
     feasibility_budget = max_time_in_seconds * FEASIBILITY_TIME_FRACTION
     feasible_result = None
     last_solver = None
     last_status = cp_model.UNKNOWN
-    for attempt in range(FEASIBILITY_RESTARTS):
-        if attempt == 0:
-            attempt_budget = feasibility_budget * FIRST_ATTEMPT_TIME_FRACTION
-        else:
-            attempt_budget = feasibility_budget * (1 - FIRST_ATTEMPT_TIME_FRACTION)
-        feasibility_solver = new_solver(
-            attempt_budget,
-            (seed or 0) + attempt if seed is not None else attempt,
-        )
-        feasibility_solver.parameters.stop_after_first_solution = True
-        feasibility_solver.parameters.randomize_search = True
-        status = feasibility_solver.Solve(model)
-        last_solver, last_status = feasibility_solver, status
-        if status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-            feasible_result = result_from(feasibility_solver, status, optimized=False)
-            break
-        if status != cp_model.UNKNOWN:
-            return SolveResult(status=feasibility_solver.StatusName(status))
+
+    feas_stop_event = threading.Event()
+
+    def feas_monitor():
+        while not feas_stop_event.wait(1.0):
+            elapsed_feas = time.monotonic() - started_at
+            frac = min(1.0, elapsed_feas / max(1.0, feasibility_budget))
+            pct = int(15 + frac * 35)  # 15% to 50%
+            _report_progress(progress_path, "feasibility", pct, message="Пошук допустимого розкладу")
+
+    feas_thread = threading.Thread(target=feas_monitor, daemon=True)
+    feas_thread.start()
+
+    try:
+        for attempt in range(FEASIBILITY_RESTARTS):
+            if attempt == 0:
+                attempt_budget = feasibility_budget * FIRST_ATTEMPT_TIME_FRACTION
+            else:
+                attempt_budget = feasibility_budget * (1 - FIRST_ATTEMPT_TIME_FRACTION)
+            feasibility_solver = new_solver(
+                attempt_budget,
+                (seed or 0) + attempt if seed is not None else attempt,
+            )
+            feasibility_solver.parameters.stop_after_first_solution = True
+            feasibility_solver.parameters.randomize_search = True
+            status = feasibility_solver.Solve(model)
+            last_solver, last_status = feasibility_solver, status
+            if status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+                feasible_result = result_from(feasibility_solver, status, optimized=False)
+                break
+            if status != cp_model.UNKNOWN:
+                _report_progress(progress_path, "failed", 100, message=f"Статус: {feasibility_solver.StatusName(status)}")
+                return SolveResult(status=feasibility_solver.StatusName(status))
+    finally:
+        feas_stop_event.set()
+        feas_thread.join(timeout=1.0)
 
     if feasible_result is not None:
-        if explicit_optimization_budget:
-            opt_budget = float(optimization_time_seconds)
-        else:
-            remaining = max_time_in_seconds - (time.monotonic() - started_at)
-            opt_budget = min(remaining, DEFAULT_OPTIMIZATION_SECONDS)
+        _report_progress(progress_path, "feasibility", 55, message="Базовий розклад знайдено")
+        remaining = max_time_in_seconds - (time.monotonic() - started_at)
+        opt_budget = min(remaining, opt_limit)
         if opt_budget > 0.05:
             penalties = add_soft_preference_penalties()
             if penalties:
+                _report_progress(progress_path, "optimizing", 55, message="Оптимізація якості розкладу...")
                 selected = set(feasible_result.assignments)
                 for key, var in X.items():
                     model.AddHint(var, int(key in selected))
                 model.Minimize(sum(penalties))
                 optimizer = new_solver(opt_budget, None if seed is None else seed + 1)
-                optimized_status = optimizer.Solve(model)
+
+                class OptimizationTracker(cp_model.CpSolverSolutionCallback):
+                    def __init__(self):
+                        super().__init__()
+                        self.solutions_count = 0
+                        self.last_time = time.monotonic()
+                        self.best_objective = None
+
+                    def on_solution_callback(self):
+                        now = time.monotonic()
+                        self.solutions_count += 1
+                        self.last_time = now
+                        self.best_objective = self.objective_value
+
+                cb = OptimizationTracker()
+                opt_stop_event = threading.Event()
+                opt_started = time.monotonic()
+                MAX_STAGNATION_SECONDS = 20.0
+
+                def opt_monitor():
+                    while not opt_stop_event.wait(0.5):
+                        now = time.monotonic()
+                        opt_elapsed = now - opt_started
+                        idle = now - cb.last_time
+                        time_frac = min(1.0, opt_elapsed / max(1.0, opt_budget))
+                        pct = int(55 + time_frac * 37)  # 55% to 92%
+                        msg = (
+                            f"Оптимізація якості (штраф: {int(cb.best_objective)})"
+                            if cb.best_objective is not None
+                            else "Оптимізація якості розкладу..."
+                        )
+                        _report_progress(
+                            progress_path,
+                            "optimizing",
+                            pct,
+                            solutions_found=cb.solutions_count,
+                            message=msg,
+                        )
+                        if cb.solutions_count > 0 and idle >= MAX_STAGNATION_SECONDS:
+                            optimizer.StopSearch()
+                            break
+
+                opt_thread = threading.Thread(target=opt_monitor, daemon=True)
+                opt_thread.start()
+                try:
+                    try:
+                        optimized_status = optimizer.Solve(model, cb)
+                    except TypeError:
+                        optimized_status = optimizer.Solve(model)
+                finally:
+                    opt_stop_event.set()
+                    opt_thread.join(timeout=1.0)
+
+                _report_progress(
+                    progress_path,
+                    "saving",
+                    95,
+                    solutions_found=cb.solutions_count,
+                    message="Збереження результату",
+                )
                 if optimized_status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
                     return result_from(optimizer, optimized_status, optimized=True)
         return feasible_result
@@ -881,5 +988,6 @@ def solve(
     name = last_solver.StatusName(last_status)
     if last_status == cp_model.UNKNOWN:
         name = "TIMEOUT"
+    _report_progress(progress_path, "failed", 100, message=f"Завершено зі статусом {name}")
     return SolveResult(status=name)
 
