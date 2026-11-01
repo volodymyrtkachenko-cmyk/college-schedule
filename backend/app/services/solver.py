@@ -1322,7 +1322,16 @@ def solve(
                         # a candidate. Later phases cannot safely proceed
                         # without a solution from this phase.
                         break
-                    model.Add(phase_expr <= phase_best_value)
+                    # Teacher compactness is the first priority, but locking
+                    # it to an approximate timeout result can make week
+                    # symmetry infeasible. Permit a small bounded relaxation
+                    # only for this first phase; later phases remain exact.
+                    phase_tolerance = (
+                        max(1, math.ceil(abs(phase_best_value) * 0.05))
+                        if phase_name == "teacher"
+                        else 0
+                    )
+                    model.Add(phase_expr <= phase_best_value + phase_tolerance)
                     best_result = SolveResult(
                         status="FEASIBLE",
                         objective=float(phase_best_value),
