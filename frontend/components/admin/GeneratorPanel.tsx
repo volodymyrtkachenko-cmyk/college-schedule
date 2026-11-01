@@ -175,13 +175,13 @@ export function GeneratorPanel() {
         priorities: {
           // Prefer compact teacher days and matching week slots over
           // distributing lessons across many isolated days.
-          teacher_windows: 3,
-          late_start: 4,
+          teacher_windows: 4,
+          late_start: 3,
           three_consecutive_days: 2,
-          subject_week_balance: 3,
-          group_week_balance: 3,
+          subject_week_balance: 2,
+          group_week_balance: 2,
           soft_teacher_constraints: 2,
-          teacher_active_day: 3,
+          teacher_active_day: 4,
           teacher_single_lesson_day: 4,
           teacher_four_lessons_day: 1,
           subject_slot_symmetry: 4,
