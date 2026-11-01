@@ -897,5 +897,200 @@ async def test_generator_live_progress_updates_persisted_in_db(gen_client, monke
     assert final_gen["phase"] == "completed"
     assert final_gen["progress_percent"] == 100
     assert final_gen["solutions_found"] == 3
+    assert "quality" in final_gen
+
+
+def test_solver_prefers_symmetric_slots_and_methodical_days():
+    curr = [
+        NS(
+            id=1,
+            group_id=1,
+            subject_id=1,
+            teacher_id=1,
+            second_teacher_id=None,
+            is_stream=False,
+            stream_id=None,
+            pairs_per_2_weeks=2,
+            is_fixed=False,
+            strict_day=None,
+            strict_lesson=None,
+            require_week=None,
+            allow_multiple_per_day=False,
+        ),
+        NS(
+            id=2,
+            group_id=1,
+            subject_id=2,
+            teacher_id=2,
+            second_teacher_id=None,
+            is_stream=False,
+            stream_id=None,
+            pairs_per_2_weeks=28,
+            is_fixed=False,
+            strict_day=None,
+            strict_lesson=None,
+            require_week=None,
+            allow_multiple_per_day=True,
+        ),
+    ]
+    res = S.solve(
+        curr,
+        [],
+        max_time_in_seconds=5,
+        num_workers=2,
+        optimization_time_seconds=2.0,
+        use_file_hints=False,
+    )
+    assert res.ok, res.status
+    c1_slots = [(d % S.DAYS, s) for cid, d, s in res.assignments if cid == 1]
+    assert len(c1_slots) == 2
+    assert c1_slots[0] == c1_slots[1]  # Identical weekday and lesson in both weeks
+
+    quality = S.evaluate_quality(curr, [], res.assignments)
+    assert quality["symmetry_percent"] == 100
+    assert quality["first_lesson_start_percent"] == 100
+    assert quality["teacher_windows"] == []
+
+
+def test_solver_avoids_shared_room_conflicts_and_double_windows():
+    curr = [
+        NS(
+            id=1,
+            group_id=1,
+            subject_id=1,
+            teacher_id=1,
+            second_teacher_id=None,
+            teacher_room="Лаб. 205",
+            is_stream=False,
+            stream_id=None,
+            pairs_per_2_weeks=4,
+            is_fixed=False,
+            strict_day=None,
+            strict_lesson=None,
+            require_week=None,
+            allow_multiple_per_day=False,
+        ),
+        NS(
+            id=2,
+            group_id=1,
+            subject_id=2,
+            teacher_id=3,
+            second_teacher_id=None,
+            is_stream=False,
+            stream_id=None,
+            pairs_per_2_weeks=26,
+            is_fixed=False,
+            strict_day=None,
+            strict_lesson=None,
+            require_week=None,
+            allow_multiple_per_day=True,
+        ),
+        NS(
+            id=3,
+            group_id=2,
+            subject_id=3,
+            teacher_id=2,
+            second_teacher_id=None,
+            teacher_room="Лаб. 205",
+            is_stream=False,
+            stream_id=None,
+            pairs_per_2_weeks=4,
+            is_fixed=False,
+            strict_day=None,
+            strict_lesson=None,
+            require_week=None,
+            allow_multiple_per_day=False,
+        ),
+        NS(
+            id=4,
+            group_id=2,
+            subject_id=4,
+            teacher_id=4,
+            second_teacher_id=None,
+            is_stream=False,
+            stream_id=None,
+            pairs_per_2_weeks=26,
+            is_fixed=False,
+            strict_day=None,
+            strict_lesson=None,
+            require_week=None,
+            allow_multiple_per_day=True,
+        ),
+    ]
+    res = S.solve(
+        curr,
+        [],
+        max_time_in_seconds=5,
+        num_workers=2,
+        optimization_time_seconds=2.5,
+        use_file_hints=False,
+    )
+    assert res.ok, res.status
+    quality = S.evaluate_quality(curr, [], res.assignments)
+    assert quality["room_conflicts"] == []
+    assert quality["teacher_windows"] == []
+
+
+@pytest.mark.anyio
+async def test_move_stream_slot_moves_all_stream_peers_synchronously(gen_client):
+    client, headers, sessions, fac = gen_client
+    async with sessions() as s:
+        t1 = Teacher(name="Викладач Потоку")
+        subj = Subject(name="Потокова Лекція")
+        g1 = Group(name="Гр-1", faculty_id=fac)
+        g2 = Group(name="Гр-2", faculty_id=fac)
+        s.add_all([t1, subj, g1, g2])
+        await s.flush()
+        c1 = Curriculum(
+            group_id=g1.id,
+            subject_id=subj.id,
+            teacher_id=t1.id,
+            pairs_per_2_weeks=2,
+            is_stream=True,
+            stream_id="stream_test_1",
+        )
+        c2 = Curriculum(
+            group_id=g2.id,
+            subject_id=subj.id,
+            teacher_id=t1.id,
+            pairs_per_2_weeks=2,
+            is_stream=True,
+            stream_id="stream_test_1",
+        )
+        draft = ScheduleDraft(name="Stream draft", draft_type="generated", status="DRAFT")
+        s.add_all([c1, c2, draft])
+        await s.flush()
+        sl1 = ScheduleSlot(
+            draft_id=draft.id,
+            curriculum_id=c1.id,
+            day_of_week=1,
+            lesson_number=1,
+            week_type="numerator",
+        )
+        sl2 = ScheduleSlot(
+            draft_id=draft.id,
+            curriculum_id=c2.id,
+            day_of_week=1,
+            lesson_number=1,
+            week_type="numerator",
+        )
+        s.add_all([sl1, sl2])
+        await s.commit()
+        slot1_id = sl1.id
+        draft_id = draft.id
+
+    move_resp = await client.patch(
+        f"/api/drafts/slots/{slot1_id}",
+        json={"day_of_week": 3, "lesson_number": 2, "week_type": "numerator"},
+        headers=headers,
+    )
+    assert move_resp.status_code == 200, move_resp.text
+
+    slots_resp = await client.get(f"/api/drafts/{draft_id}/slots", headers=headers)
+    assert slots_resp.status_code == 200
+    all_slots = slots_resp.json()
+    assert len(all_slots) == 2
+    assert all(sl["day_of_week"] == 3 and sl["lesson_number"] == 2 for sl in all_slots)
+
 
 

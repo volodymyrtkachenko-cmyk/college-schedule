@@ -47,6 +47,9 @@ class SolverWeights:
     subject_week_balance: int = 10_000    # дисбаланс предмета чисельник/знаменник
     group_week_balance: int = 100_000     # дисбаланс навантаження групи по тижнях
     soft_teacher_constraints: int = 500   # пара в небажаний для викладача слот
+    subject_slot_symmetry: int = 40       # симетрія предмета (той самий день і пара в обидва тижні)
+    teacher_active_day: int = 25          # компактність днів викладача («методичний день»)
+    shared_room_conflict: int = 1_500     # одночасне використання спільного кабінету/лабораторії
 
     @classmethod
     def coerce(cls, value: "SolverWeights | dict | None") -> "SolverWeights":
@@ -398,6 +401,23 @@ def precheck(
                 f"викладач {label}: {n} пар/2 тижні, але вільних слотів лише {free} — перевантаження на {n - free}"
             )
     return problems
+
+
+def _extract_curriculum_rooms(c) -> list[str]:
+    rooms: list[str] = []
+    for raw in (
+        getattr(c, "room", None),
+        getattr(c, "teacher_room", None),
+        getattr(getattr(c, "teacher", None), "room", None),
+        getattr(c, "second_teacher_room", None),
+        getattr(getattr(c, "second_teacher", None), "room", None),
+    ):
+        if raw and isinstance(raw, str):
+            norm = raw.strip().lower()
+            if norm and norm not in ("—", "-", "онлайн", "online", "дистанційно"):
+                if norm not in rooms:
+                    rooms.append(norm)
+    return rooms
 
 
 def constraint_slot_indices(constraint) -> list[int]:
@@ -828,25 +848,86 @@ def solve(
                 for var in teacher_slot_vars.get((teacher_id, d, s), ()):
                     soft_penalties.append(var * weights.soft_teacher_constraints)
 
-        # Teacher gaps are preferences, not hard constraints. Stream copies are
-        # counted once because they use one teacher slot.
-        for teacher_id in (teacher_curriculums if weights.teacher_windows else ()):
-            for d in range(DAY_IDXS):
-                active = []
-                for s in range(SLOTS):
-                    unique_vars = teacher_slot_vars[(teacher_id, d, s)]
-                    teacher_active = model.NewBoolVar(f"active_t{teacher_id}_d{d}_s{s}")
-                    model.Add(sum(unique_vars) == teacher_active)
-                    active.append(teacher_active)
-                for first in range(SLOTS - 2):
-                    window = model.NewBoolVar(f"window_t{teacher_id}_d{d}_{first}")
-                    model.Add(window <= active[first])
-                    model.Add(window <= active[first + 2])
-                    model.Add(window <= 1 - active[first + 1])
-                    model.Add(
-                        window >= active[first] + active[first + 2] - active[first + 1] - 1
-                    )
-                    soft_penalties.append(window * weights.teacher_windows)
+        # Teacher gaps and active-day compactness ("methodical day") are soft preferences.
+        # Stream copies are counted once because they use one teacher slot.
+        if weights.teacher_windows or weights.teacher_active_day:
+            for teacher_id in teacher_curriculums:
+                for d in range(DAY_IDXS):
+                    active = []
+                    for s in range(SLOTS):
+                        unique_vars = teacher_slot_vars[(teacher_id, d, s)]
+                        teacher_active = model.NewBoolVar(f"active_t{teacher_id}_d{d}_s{s}")
+                        model.Add(sum(unique_vars) == teacher_active)
+                        active.append(teacher_active)
+                    if weights.teacher_windows:
+                        for first in range(SLOTS - 2):
+                            window = model.NewBoolVar(f"window_t{teacher_id}_d{d}_{first}")
+                            model.Add(window <= active[first])
+                            model.Add(window <= active[first + 2])
+                            model.Add(window <= 1 - active[first + 1])
+                            model.Add(
+                                window >= active[first] + active[first + 2] - active[first + 1] - 1
+                            )
+                            soft_penalties.append(window * weights.teacher_windows)
+                        # Double window: [1, 0, 0, 1] (lessons 1 and 4 with lessons 2 and 3 empty)
+                        if SLOTS >= 4:
+                            double_window = model.NewBoolVar(f"double_window_t{teacher_id}_d{d}")
+                            model.Add(double_window <= active[0])
+                            model.Add(double_window <= active[3])
+                            model.Add(double_window <= 1 - active[1])
+                            model.Add(double_window <= 1 - active[2])
+                            model.Add(
+                                double_window >= active[0] + active[3] - active[1] - active[2] - 1
+                            )
+                            soft_penalties.append(double_window * (weights.teacher_windows * 3))
+                    if weights.teacher_active_day:
+                        day_busy = model.NewBoolVar(f"day_busy_t{teacher_id}_d{d}")
+                        model.AddMaxEquality(day_busy, active)
+                        soft_penalties.append(day_busy * weights.teacher_active_day)
+
+        # Slot symmetry between numerator and denominator for multi-pair subjects
+        if weights.subject_slot_symmetry:
+            seen_sym_streams: set[str] = set()
+            for c in curriculums:
+                if c.pairs_per_2_weeks < 2 or getattr(c, "require_week", None) is not None:
+                    continue
+                if c.is_stream and c.stream_id:
+                    if c.stream_id in seen_sym_streams:
+                        continue
+                    seen_sym_streams.add(c.stream_id)
+                for d in range(DAYS):
+                    for s in range(SLOTS):
+                        asym = model.NewBoolVar(f"asym_c{c.id}_d{d}_s{s}")
+                        model.Add(asym >= X[(c.id, d, s)] - X[(c.id, d + DAYS, s)])
+                        model.Add(asym >= X[(c.id, d + DAYS, s)] - X[(c.id, d, s)])
+                        soft_penalties.append(asym * weights.subject_slot_symmetry)
+
+        # Shared physical room conflict avoidance across different teachers
+        if weights.shared_room_conflict:
+            room_curriculums: dict[str, list] = {}
+            for c in curriculums:
+                for room_norm in _extract_curriculum_rooms(c):
+                    room_curriculums.setdefault(room_norm, []).append(c)
+            for room_idx, (room_norm, r_currs) in enumerate(sorted(room_curriculums.items())):
+                distinct_teachers = {c.teacher_id for c in r_currs}
+                if len(distinct_teachers) <= 1:
+                    continue
+                for d in range(DAY_IDXS):
+                    for s in range(SLOTS):
+                        room_vars = []
+                        seen_room_streams: set[str] = set()
+                        for c in r_currs:
+                            if c.is_stream and c.stream_id:
+                                if c.stream_id in seen_room_streams:
+                                    continue
+                                seen_room_streams.add(c.stream_id)
+                            room_vars.append(X[(c.id, d, s)])
+                        if len(room_vars) > 1:
+                            room_ov = model.NewIntVar(
+                                0, len(room_vars) - 1, f"room_ov_{room_idx}_d{d}_s{s}"
+                            )
+                            model.Add(room_ov >= sum(room_vars) - 1)
+                            soft_penalties.append(room_ov * weights.shared_room_conflict)
         return soft_penalties
 
     def result_from(instance: cp_model.CpSolver, status: int, *, optimized: bool) -> SolveResult:
@@ -1012,4 +1093,187 @@ def solve(
         name = "TIMEOUT"
     _report_progress(progress_path, "failed", 100, message=f"Завершено зі статусом {name}")
     return SolveResult(status=name)
+
+
+def evaluate_quality(
+    curriculums: Iterable,
+    constraints: Iterable = (),
+    assignments: Iterable[tuple[int, int, int]] = (),
+    teacher_names: dict[int, str] | None = None,
+) -> dict:
+    """Обчислює діагностичну оцінку якості згенерованого розкладу."""
+    curr_list = list(curriculums)
+    cons_list = list(constraints)
+    assign_set = set(assignments)
+    by_id = {c.id: c for c in curr_list}
+    t_names = dict(teacher_names or {})
+
+    for c in curr_list:
+        t_obj = getattr(c, "teacher", None)
+        if t_obj is not None and getattr(t_obj, "name", None):
+            t_names.setdefault(c.teacher_id, t_obj.name)
+        t2_obj = getattr(c, "second_teacher", None)
+        if c.second_teacher_id and t2_obj is not None and getattr(t2_obj, "name", None):
+            t_names.setdefault(c.second_teacher_id, t2_obj.name)
+
+    # 1. Symmetry between numerator and denominator
+    symmetric_slots = 0
+    total_paired_candidates = 0
+    for c in curr_list:
+        if c.pairs_per_2_weeks >= 2 and getattr(c, "require_week", None) is None:
+            for d in range(DAYS):
+                for s in range(SLOTS):
+                    in_num = (c.id, d, s) in assign_set
+                    in_den = (c.id, d + DAYS, s) in assign_set
+                    if in_num or in_den:
+                        total_paired_candidates += 1
+                        if in_num and in_den:
+                            symmetric_slots += 1
+    symmetry_percent = (
+        round((symmetric_slots / total_paired_candidates) * 100)
+        if total_paired_candidates > 0
+        else 100
+    )
+
+    # 2. Group day starts (1st pair vs 2nd pair)
+    group_names: dict[int, str] = {}
+    group_day_slots: dict[tuple[int, int], list[int]] = {}
+    for c in curr_list:
+        g_obj = getattr(c, "group", None)
+        if g_obj is not None and getattr(g_obj, "name", None):
+            group_names[c.group_id] = g_obj.name
+    for cid, d, s in assign_set:
+        c = by_id.get(cid)
+        if c is None:
+            continue
+        group_day_slots.setdefault((c.group_id, d), []).append(s)
+
+    total_group_days = 0
+    first_lesson_starts = 0
+    late_starts: list[dict] = []
+    for (g_id, d), s_list in sorted(group_day_slots.items()):
+        if not s_list:
+            continue
+        total_group_days += 1
+        first_s = min(s_list)
+        if first_s == 0:
+            first_lesson_starts += 1
+        else:
+            late_starts.append({
+                "group_id": g_id,
+                "group_name": group_names.get(g_id, f"Група #{g_id}"),
+                "day_of_week": (d % DAYS) + 1,
+                "week_type": "numerator" if d < DAYS else "denominator",
+                "start_lesson": first_s + 1,
+            })
+    first_lesson_start_percent = (
+        round((first_lesson_starts / total_group_days) * 100)
+        if total_group_days > 0
+        else 100
+    )
+
+    # 3. Teacher windows & methodical days
+    teacher_day_slots: dict[tuple[int, int], set[int]] = {}
+    all_teacher_ids: set[int] = set()
+    for c in curr_list:
+        if c.teacher_id:
+            all_teacher_ids.add(c.teacher_id)
+        if c.second_teacher_id:
+            all_teacher_ids.add(c.second_teacher_id)
+    for cid, d, s in assign_set:
+        c = by_id.get(cid)
+        if c is None:
+            continue
+        if c.teacher_id:
+            teacher_day_slots.setdefault((c.teacher_id, d), set()).add(s)
+        if c.second_teacher_id:
+            teacher_day_slots.setdefault((c.second_teacher_id, d), set()).add(s)
+
+    teacher_windows: list[dict] = []
+    methodical_days_count = 0
+    for t_id in sorted(all_teacher_ids):
+        for d in range(DAY_IDXS):
+            occupied = sorted(teacher_day_slots.get((t_id, d), set()))
+            if not occupied:
+                methodical_days_count += 1
+                continue
+            if len(occupied) >= 2:
+                first_s, last_s = occupied[0], occupied[-1]
+                empty = [s + 1 for s in range(first_s, last_s + 1) if s not in occupied]
+                if empty:
+                    teacher_windows.append({
+                        "teacher_id": t_id,
+                        "teacher_name": t_names.get(t_id, f"Викладач #{t_id}"),
+                        "day_of_week": (d % DAYS) + 1,
+                        "week_type": "numerator" if d < DAYS else "denominator",
+                        "empty_lessons": empty,
+                        "is_double": len(empty) >= 2,
+                    })
+
+    # 4. Soft constraint violations
+    soft_slots: set[tuple[int, int, int]] = set()
+    for con in cons_list:
+        if getattr(con, "is_hard_constraint", True):
+            continue
+        dow_idx = con.day_of_week - 1
+        if not 0 <= dow_idx < DAYS:
+            continue
+        for s_idx in constraint_slot_indices(con):
+            soft_slots.add((con.teacher_id, dow_idx, s_idx))
+            soft_slots.add((con.teacher_id, dow_idx + DAYS, s_idx))
+
+    soft_violations: list[dict] = []
+    for cid, d, s in sorted(assign_set):
+        c = by_id.get(cid)
+        if c is None:
+            continue
+        subj_obj = getattr(c, "subject", None)
+        subj_name = getattr(subj_obj, "name", None) or f"Предмет #{c.subject_id}"
+        for t_id in filter(None, (c.teacher_id, c.second_teacher_id)):
+            if (t_id, d, s) in soft_slots:
+                soft_violations.append({
+                    "teacher_id": t_id,
+                    "teacher_name": t_names.get(t_id, f"Викладач #{t_id}"),
+                    "group_id": c.group_id,
+                    "group_name": group_names.get(c.group_id, f"Група #{c.group_id}"),
+                    "subject_name": subj_name,
+                    "day_of_week": (d % DAYS) + 1,
+                    "week_type": "numerator" if d < DAYS else "denominator",
+                    "lesson_number": s + 1,
+                })
+
+    # 5. Shared room conflicts
+    room_usage: dict[tuple[str, int, int], list[tuple[str, str]]] = {}
+    for cid, d, s in sorted(assign_set):
+        c = by_id.get(cid)
+        if c is None:
+            continue
+        unit_key = f"stream:{c.stream_id}" if (c.is_stream and c.stream_id) else f"curr:{c.id}"
+        g_name = group_names.get(c.group_id, f"Група #{c.group_id}")
+        for r_norm in _extract_curriculum_rooms(c):
+            entries = room_usage.setdefault((r_norm, d, s), [])
+            if not any(u == unit_key for u, _ in entries):
+                entries.append((unit_key, g_name))
+
+    room_conflicts: list[dict] = []
+    for (r_norm, d, s), entries in sorted(room_usage.items()):
+        if len(entries) > 1:
+            room_conflicts.append({
+                "room": r_norm,
+                "day_of_week": (d % DAYS) + 1,
+                "week_type": "numerator" if d < DAYS else "denominator",
+                "lesson_number": s + 1,
+                "groups": [g for _, g in entries],
+            })
+
+    return {
+        "symmetry_percent": symmetry_percent,
+        "first_lesson_start_percent": first_lesson_start_percent,
+        "methodical_days_count": methodical_days_count,
+        "teacher_windows": teacher_windows,
+        "late_starts": late_starts,
+        "soft_constraint_violations": soft_violations,
+        "room_conflicts": room_conflicts,
+    }
+
 

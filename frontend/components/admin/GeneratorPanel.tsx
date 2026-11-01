@@ -3,9 +3,11 @@
 import { useEffect, useState } from "react";
 import {
   api,
+  DraftQualityReport,
   DraftRecord,
   DraftSlotRecord,
   DraftSubstitutionRecord,
+  TeacherConstraintRecord,
 } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 import { ConfirmModal } from "./ConfirmModal";
@@ -70,6 +72,8 @@ export function GeneratorPanel() {
   const [bellTimes, setBellTimes] = useState<Record<number, string>>({1:"09:00–10:20", 2:"10:40–12:00", 3:"12:30–13:50", 4:"14:00–15:20"});
   const [slots, setSlots] = useState<DraftSlotRecord[]>([]);
   const [subs, setSubs] = useState<DraftSubstitutionRecord[]>([]);
+  const [teacherConstraints, setTeacherConstraints] = useState<TeacherConstraintRecord[]>([]);
+  const [expandedQualityTab, setExpandedQualityTab] = useState<"windows" | "late" | "soft" | null>(null);
   const [filterMode, setFilterMode] = useState<"group" | "teacher">("group");
   const [filterGroupId, setFilterGroupId] = useState<number | null>(null);
   const [filterTeacherId, setFilterTeacherId] = useState<number | null>(null);
@@ -134,14 +138,19 @@ export function GeneratorPanel() {
     try {
       setLoading(true);
       const session = await api.auth.ensureAuthenticated();
-      const res = await api.generator.getSlots(d.id, session.access_token);
+      const [res, consRes] = await Promise.all([
+        api.generator.getSlots(d.id, session.access_token),
+        api.constraints.list(session.access_token).catch(() => [] as TeacherConstraintRecord[]),
+      ]);
       setSlots(res);
+      setTeacherConstraints(consRes);
       try {
         setSubs(await api.generator.getSubstitutions(d.id, session.access_token));
       } catch {
         setSubs([]);
       }
       setActiveDraft(d);
+      setExpandedQualityTab(null);
       setFilterMode("group");
       setFilterGroupId(null);
       setFilterTeacherId(null);
@@ -255,10 +264,33 @@ export function GeneratorPanel() {
     try {
       setMoving(true);
       const session = await api.auth.ensureAuthenticated();
+      const targetSlot = slots.find((s) => s.id === slotId);
       const updated = await api.generator.moveSlot(slotId, day, lesson, week, session.access_token);
-      setSlots(curr => curr.map(s => s.id === updated.id ? updated : s));
+      setSlots((curr) =>
+        curr.map((s) => {
+          if (s.id === updated.id) return updated;
+          if (
+            targetSlot &&
+            targetSlot.curriculum.is_stream &&
+            targetSlot.curriculum.stream_id &&
+            s.curriculum.is_stream &&
+            s.curriculum.stream_id === targetSlot.curriculum.stream_id &&
+            s.day_of_week === targetSlot.day_of_week &&
+            s.lesson_number === targetSlot.lesson_number &&
+            s.week_type === targetSlot.week_type
+          ) {
+            return { ...s, day_of_week: updated.day_of_week, lesson_number: updated.lesson_number, week_type: updated.week_type };
+          }
+          return s;
+        })
+      );
       setSelectedSlotId(null);
-      setToast("Заняття переміщено.", "success");
+      setToast(
+        targetSlot?.curriculum.is_stream && targetSlot?.curriculum.stream_id
+          ? "Потокове заняття синхронно переміщено."
+          : "Заняття переміщено.",
+        "success",
+      );
     } catch(err: any) {
       setToast(err.message, "error");
     } finally {
@@ -296,24 +328,363 @@ export function GeneratorPanel() {
     const fmtSubDate = (iso: string) => iso.split("-").reverse().slice(0, 2).join(".");
     const selectedSlot = slots.find((slot) => slot.id === selectedSlotId);
     const selectOptions = (filterMode === "group" ? groups : teachers).map(({ id, name }) => ({ id, name }));
-    const canMoveTo = (day: number, lesson: number) => {
-      if (!selectedSlot || (selectedSlot.day_of_week === day && selectedSlot.lesson_number === lesson)) return false;
 
-      const movingTeacherIds = new Set([
-        selectedSlot.curriculum.teacher.id,
-        ...(selectedSlot.curriculum.second_teacher ? [selectedSlot.curriculum.second_teacher.id] : []),
-      ]);
-      return !slots.some((slot) => {
-        if (slot.id === selectedSlot.id || slot.day_of_week !== day || slot.lesson_number !== lesson) return false;
-        if (slot.week_type !== "both" && slot.week_type !== activeWeek) return false;
-        if (slot.curriculum.group.id === selectedSlot.curriculum.group.id) return true;
+    // Determine whether a slot has an identical pair in the opposite week ("Щотижня")
+    const isSlotWeeklySymmetric = (slot: DraftSlotRecord) => {
+      if (slot.week_type === "both") return true;
+      const oppositeWeek = slot.week_type === "numerator" ? "denominator" : "numerator";
+      return slots.some(
+        (other) =>
+          other.id !== slot.id &&
+          other.curriculum.id === slot.curriculum.id &&
+          other.day_of_week === slot.day_of_week &&
+          other.lesson_number === slot.lesson_number &&
+          (other.week_type === oppositeWeek || other.week_type === "both"),
+      );
+    };
+
+    // Compute live quality report directly from current draft slots + constraints
+    const computeLiveQuality = (): DraftQualityReport => {
+      let symmetricCount = 0;
+      let pairedTotal = 0;
+      const seenPairKeys = new Set<string>();
+      for (const s of slots) {
+        if (s.curriculum.pairs_per_2_weeks >= 2 && !s.curriculum.require_week) {
+          const key = `${s.curriculum.id}:${s.day_of_week}:${s.lesson_number}`;
+          if (seenPairKeys.has(key)) continue;
+          seenPairKeys.add(key);
+          pairedTotal += 1;
+          if (isSlotWeeklySymmetric(s)) {
+            symmetricCount += 1;
+          }
+        }
+      }
+      const symmetry_percent = pairedTotal > 0 ? Math.round((symmetricCount / pairedTotal) * 100) : 100;
+
+      // Group day starts
+      const late_starts: DraftQualityReport["late_starts"] = [];
+      let totalGroupDays = 0;
+      let firstLessonStarts = 0;
+      for (const g of groups) {
+        for (const w of ["numerator", "denominator"] as const) {
+          for (const d of days) {
+            const dayLessons = slots
+              .filter(
+                (s) =>
+                  s.curriculum.group.id === g.id &&
+                  s.day_of_week === d &&
+                  (s.week_type === w || s.week_type === "both"),
+              )
+              .map((s) => s.lesson_number);
+            if (dayLessons.length === 0) continue;
+            totalGroupDays += 1;
+            const minL = Math.min(...dayLessons);
+            if (minL === 1) {
+              firstLessonStarts += 1;
+            } else {
+              late_starts.push({
+                group_id: g.id,
+                group_name: g.name,
+                day_of_week: d,
+                week_type: w,
+                start_lesson: minL,
+              });
+            }
+          }
+        }
+      }
+      const first_lesson_start_percent =
+        totalGroupDays > 0 ? Math.round((firstLessonStarts / totalGroupDays) * 100) : 100;
+
+      // Teacher windows & methodical days
+      const teacher_windows: DraftQualityReport["teacher_windows"] = [];
+      let methodical_days_count = 0;
+      for (const t of teachers) {
+        for (const w of ["numerator", "denominator"] as const) {
+          for (const d of days) {
+            const occupied = Array.from(
+              new Set(
+                slots
+                  .filter(
+                    (s) =>
+                      s.day_of_week === d &&
+                      (s.week_type === w || s.week_type === "both") &&
+                      (s.curriculum.teacher.id === t.id || s.curriculum.second_teacher?.id === t.id),
+                  )
+                  .map((s) => s.lesson_number),
+              ),
+            ).sort((a, b) => a - b);
+            if (occupied.length === 0) {
+              methodical_days_count += 1;
+              continue;
+            }
+            if (occupied.length >= 2) {
+              const firstL = occupied[0];
+              const lastL = occupied[occupied.length - 1];
+              const empty: number[] = [];
+              for (let l = firstL; l <= lastL; l++) {
+                if (!occupied.includes(l)) empty.push(l);
+              }
+              if (empty.length > 0) {
+                teacher_windows.push({
+                  teacher_id: t.id,
+                  teacher_name: t.name,
+                  day_of_week: d,
+                  week_type: w,
+                  empty_lessons: empty,
+                  is_double: empty.length >= 2,
+                });
+              }
+            }
+          }
+        }
+      }
+
+      // Soft constraint violations
+      const soft_constraint_violations: DraftQualityReport["soft_constraint_violations"] = [];
+      for (const s of slots) {
+        const slotTeachers = [
+          s.curriculum.teacher,
+          ...(s.curriculum.second_teacher ? [s.curriculum.second_teacher] : []),
+        ];
+        const weeksToCheck: Array<"numerator" | "denominator"> =
+          s.week_type === "both" ? ["numerator", "denominator"] : [s.week_type as "numerator" | "denominator"];
+        for (const t of slotTeachers) {
+          const hitSoft = teacherConstraints.some(
+            (con) =>
+              !con.is_hard_constraint &&
+              con.teacher_id === t.id &&
+              con.day_of_week === s.day_of_week &&
+              (!con.lesson_number || con.lesson_number === s.lesson_number),
+          );
+          if (hitSoft) {
+            for (const w of weeksToCheck) {
+              soft_constraint_violations.push({
+                teacher_id: t.id,
+                teacher_name: t.name,
+                group_id: s.curriculum.group.id,
+                group_name: s.curriculum.group.name,
+                subject_name: s.curriculum.subject.name,
+                day_of_week: s.day_of_week,
+                week_type: w,
+                lesson_number: s.lesson_number,
+              });
+            }
+          }
+        }
+      }
+
+      // Shared room conflicts
+      const roomMap = new Map<string, { room: string; day: number; week: "numerator" | "denominator"; lesson: number; units: Map<string, string> }>();
+      for (const s of slots) {
+        const rawRooms = [
+          s.room_override,
+          s.curriculum.teacher.room,
+          s.curriculum.second_teacher?.room,
+        ].filter((r): r is string => Boolean(r && r.trim()));
+        const unitKey =
+          s.curriculum.is_stream && s.curriculum.stream_id
+            ? `stream:${s.curriculum.stream_id}`
+            : `curr:${s.curriculum.id}`;
+        const weeksToCheck: Array<"numerator" | "denominator"> =
+          s.week_type === "both" ? ["numerator", "denominator"] : [s.week_type as "numerator" | "denominator"];
+        for (const r of rawRooms) {
+          const norm = r.trim().toLowerCase();
+          if (!norm || ["—", "-", "онлайн", "online", "дистанційно"].includes(norm)) continue;
+          for (const w of weeksToCheck) {
+            const key = `${norm}|${w}|${s.day_of_week}|${s.lesson_number}`;
+            const existing = roomMap.get(key) ?? {
+              room: r.trim(),
+              day: s.day_of_week,
+              week: w,
+              lesson: s.lesson_number,
+              units: new Map<string, string>(),
+            };
+            existing.units.set(unitKey, s.curriculum.group.name);
+            roomMap.set(key, existing);
+          }
+        }
+      }
+      const room_conflicts: DraftQualityReport["room_conflicts"] = [];
+      roomMap.forEach((val) => {
+        if (val.units.size > 1) {
+          room_conflicts.push({
+            room: val.room,
+            day_of_week: val.day,
+            week_type: val.week,
+            lesson_number: val.lesson,
+            groups: Array.from(val.units.values()),
+          });
+        }
+      });
+
+      return {
+        symmetry_percent,
+        first_lesson_start_percent,
+        methodical_days_count,
+        teacher_windows,
+        late_starts,
+        soft_constraint_violations,
+        room_conflicts,
+      };
+    };
+
+    const liveQuality = slots.length > 0 ? computeLiveQuality() : (activeDraft.generation?.quality ?? activeDraft.data?.generation?.quality ?? null);
+
+    // Smart evaluation of each cell when moving a selected slot
+    const evaluateMoveTarget = (
+      day: number,
+      lesson: number,
+    ): {
+      status: "none" | "current" | "ideal" | "warning" | "blocked";
+      label?: string;
+    } => {
+      if (!selectedSlot) return { status: "none" };
+      if (selectedSlot.day_of_week === day && selectedSlot.lesson_number === lesson) {
+        return { status: "current" };
+      }
+
+      // Include synchronized stream peer slots if this is a stream lesson
+      const movingSlots =
+        selectedSlot.curriculum.is_stream && selectedSlot.curriculum.stream_id
+          ? slots.filter(
+              (s) =>
+                s.curriculum.is_stream &&
+                s.curriculum.stream_id === selectedSlot.curriculum.stream_id &&
+                s.day_of_week === selectedSlot.day_of_week &&
+                s.lesson_number === selectedSlot.lesson_number &&
+                s.week_type === selectedSlot.week_type,
+            )
+          : [selectedSlot];
+
+      const movingSlotIds = new Set(movingSlots.map((s) => s.id));
+      const movingGroupIds = new Set(movingSlots.map((s) => s.curriculum.group.id));
+      const movingTeacherIds = new Set(
+        movingSlots.flatMap((s) => [
+          s.curriculum.teacher.id,
+          ...(s.curriculum.second_teacher ? [s.curriculum.second_teacher.id] : []),
+        ]),
+      );
+
+      // 1. Check group or teacher collision in target cell
+      for (const s of slots) {
+        if (movingSlotIds.has(s.id) || s.day_of_week !== day || s.lesson_number !== lesson) continue;
+        if (s.week_type !== "both" && s.week_type !== activeWeek) continue;
+
+        if (movingGroupIds.has(s.curriculum.group.id)) {
+          return {
+            status: "blocked",
+            label:
+              movingSlots.length > 1 && s.curriculum.group.id !== selectedSlot.curriculum.group.id
+                ? `Потік: зайнята ${s.curriculum.group.name}`
+                : "Група вже має пару",
+          };
+        }
 
         const targetTeacherIds = [
-          slot.curriculum.teacher.id,
-          ...(slot.curriculum.second_teacher ? [slot.curriculum.second_teacher.id] : []),
+          s.curriculum.teacher.id,
+          ...(s.curriculum.second_teacher ? [s.curriculum.second_teacher.id] : []),
         ];
-        return targetTeacherIds.some((teacherId) => movingTeacherIds.has(teacherId));
-      });
+        if (targetTeacherIds.some((tId) => movingTeacherIds.has(tId))) {
+          return {
+            status: "blocked",
+            label: `Викладач зайнятий (${s.curriculum.group.name})`,
+          };
+        }
+      }
+
+      // 2. Check Thursday 4th pair curator reservation
+      if (day === 4 && lesson === 4 && selectedSlot.curriculum.subject.name !== "Виховна година") {
+        return {
+          status: "blocked",
+          label: "Резерв під Виховну годину",
+        };
+      }
+
+      // 3. Check hard teacher constraint
+      const hardHit = teacherConstraints.find(
+        (con) =>
+          con.is_hard_constraint &&
+          movingTeacherIds.has(con.teacher_id) &&
+          con.day_of_week === day &&
+          (!con.lesson_number || con.lesson_number === lesson),
+      );
+      if (hardHit) {
+        return {
+          status: "blocked",
+          label: "Недоступність викладача",
+        };
+      }
+
+      // 4. Check soft warnings (group window, late start, or soft teacher preference)
+      const checkContiguous = (lessons: number[]) => {
+        if (lessons.length <= 1) return true;
+        const sorted = [...lessons].sort((a, b) => a - b);
+        return sorted[sorted.length - 1] - sorted[0] + 1 === sorted.length;
+      };
+
+      const targetDayGroupLessons = slots
+        .filter(
+          (s) =>
+            !movingSlotIds.has(s.id) &&
+            s.curriculum.group.id === selectedSlot.curriculum.group.id &&
+            s.day_of_week === day &&
+            (s.week_type === activeWeek || s.week_type === "both"),
+        )
+        .map((s) => s.lesson_number);
+      const newTargetLessons = Array.from(new Set([...targetDayGroupLessons, lesson])).sort((a, b) => a - b);
+
+      const sourceDayGroupLessons =
+        selectedSlot.day_of_week === day
+          ? newTargetLessons
+          : slots
+              .filter(
+                (s) =>
+                  !movingSlotIds.has(s.id) &&
+                  s.curriculum.group.id === selectedSlot.curriculum.group.id &&
+                  s.day_of_week === selectedSlot.day_of_week &&
+                  (s.week_type === activeWeek || s.week_type === "both"),
+              )
+              .map((s) => s.lesson_number)
+              .sort((a, b) => a - b);
+
+      if (!checkContiguous(newTargetLessons) || !checkContiguous(sourceDayGroupLessons)) {
+        return {
+          status: "warning",
+          label: "Утвориться вікно у групи",
+        };
+      }
+
+      const softHit = teacherConstraints.find(
+        (con) =>
+          !con.is_hard_constraint &&
+          movingTeacherIds.has(con.teacher_id) &&
+          con.day_of_week === day &&
+          (!con.lesson_number || con.lesson_number === lesson),
+      );
+      if (softHit) {
+        return {
+          status: "warning",
+          label: "Небажаний час викладача",
+        };
+      }
+
+      if (
+        (newTargetLessons.length > 0 && newTargetLessons[0] > 1) ||
+        (sourceDayGroupLessons.length > 0 && sourceDayGroupLessons[0] > 1)
+      ) {
+        return {
+          status: "warning",
+          label: "Старт дня не з 1-ї пари",
+        };
+      }
+
+      return { status: "ideal" };
+    };
+
+    const canMoveTo = (day: number, lesson: number) => {
+      const res = evaluateMoveTarget(day, lesson);
+      return res.status === "ideal" || res.status === "warning";
     };
     
     return (
@@ -338,6 +709,254 @@ export function GeneratorPanel() {
             />
           </div>
         </div>
+
+        {/* Оцінка якості чернетки */}
+        {liveQuality && slots.length > 0 && (
+          <div className="rounded-2xl border border-sys-border bg-sys-card/70 p-4 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+                <h3 className="text-xs font-bold uppercase tracking-wider text-sys-text-secondary">
+                  Оцінка якості чернетки
+                </h3>
+              </div>
+              <span className="text-xs text-sys-text-muted">
+                Вільних (методичних) днів у викладачів: <strong className="text-sys-text-primary">{liveQuality.methodical_days_count}</strong>
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
+              {/* 1. Стабільність тижнів */}
+              <div className="rounded-xl border border-sys-border/70 bg-sys-bg/50 p-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-sys-text-secondary">Симетрія тижнів</span>
+                  <span className={`text-sm font-bold ${liveQuality.symmetry_percent >= 70 ? "text-emerald-400" : "text-amber-300"}`}>
+                    {liveQuality.symmetry_percent}%
+                  </span>
+                </div>
+                <p className="mt-1 text-[11px] text-sys-text-muted leading-snug">
+                  Парні предмети на тому самому місці щотижня
+                </p>
+              </div>
+
+              {/* 2. Старт з 1-ї пари */}
+              <button
+                type="button"
+                onClick={() =>
+                  setExpandedQualityTab(
+                    expandedQualityTab === "late" ? null : liveQuality.late_starts.length > 0 ? "late" : null,
+                  )
+                }
+                className={`rounded-xl border p-3 text-left transition-colors ${
+                  expandedQualityTab === "late"
+                    ? "border-sys-accent bg-sys-accent/10"
+                    : "border-sys-border/70 bg-sys-bg/50 hover:border-sys-border"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-sys-text-secondary">Старт з 1-ї пари</span>
+                  <span className={`text-sm font-bold ${liveQuality.first_lesson_start_percent >= 90 ? "text-emerald-400" : "text-amber-300"}`}>
+                    {liveQuality.first_lesson_start_percent}%
+                  </span>
+                </div>
+                <p className="mt-1 text-[11px] text-sys-text-muted leading-snug">
+                  {liveQuality.late_starts.length === 0
+                    ? "✓ Усі дні починаються о 09:00"
+                    : `З 2-ї пари: ${liveQuality.late_starts.length} дн. (натисніть)`}
+                </p>
+              </button>
+
+              {/* 3. Вікна викладачів */}
+              <button
+                type="button"
+                onClick={() =>
+                  setExpandedQualityTab(
+                    expandedQualityTab === "windows" ? null : liveQuality.teacher_windows.length > 0 ? "windows" : null,
+                  )
+                }
+                className={`rounded-xl border p-3 text-left transition-colors ${
+                  expandedQualityTab === "windows"
+                    ? "border-sys-accent bg-sys-accent/10"
+                    : "border-sys-border/70 bg-sys-bg/50 hover:border-sys-border"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-sys-text-secondary">Вікна викладачів</span>
+                  <span className={`text-sm font-bold ${liveQuality.teacher_windows.length === 0 ? "text-emerald-400" : "text-amber-300"}`}>
+                    {liveQuality.teacher_windows.length}
+                  </span>
+                </div>
+                <p className="mt-1 text-[11px] text-sys-text-muted leading-snug">
+                  {liveQuality.teacher_windows.length === 0
+                    ? "✓ Жодного вікна у викладачів"
+                    : `Подвійних: ${liveQuality.teacher_windows.filter((w) => w.is_double).length} (натисніть для списку)`}
+                </p>
+              </button>
+
+              {/* 4. Побажання та аудиторії */}
+              <button
+                type="button"
+                onClick={() => {
+                  const totalIssues =
+                    liveQuality.soft_constraint_violations.length + liveQuality.room_conflicts.length;
+                  setExpandedQualityTab(
+                    expandedQualityTab === "soft" ? null : totalIssues > 0 ? "soft" : null,
+                  );
+                }}
+                className={`rounded-xl border p-3 text-left transition-colors ${
+                  expandedQualityTab === "soft"
+                    ? "border-sys-accent bg-sys-accent/10"
+                    : "border-sys-border/70 bg-sys-bg/50 hover:border-sys-border"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-sys-text-secondary">Побажання та кабінети</span>
+                  <span
+                    className={`text-sm font-bold ${
+                      liveQuality.soft_constraint_violations.length + liveQuality.room_conflicts.length === 0
+                        ? "text-emerald-400"
+                        : "text-amber-300"
+                    }`}
+                  >
+                    {liveQuality.soft_constraint_violations.length + liveQuality.room_conflicts.length === 0
+                      ? "100%"
+                      : liveQuality.soft_constraint_violations.length + liveQuality.room_conflicts.length}
+                  </span>
+                </div>
+                <p className="mt-1 text-[11px] text-sys-text-muted leading-snug">
+                  {liveQuality.soft_constraint_violations.length + liveQuality.room_conflicts.length === 0
+                    ? "✓ Усі побажання й кабінети враховано"
+                    : `Зауважень: ${liveQuality.soft_constraint_violations.length + liveQuality.room_conflicts.length} (натисніть)`}
+                </p>
+              </button>
+            </div>
+
+            {/* Розгорнутий список деталей */}
+            {expandedQualityTab === "windows" && liveQuality.teacher_windows.length > 0 && (
+              <div className="rounded-xl border border-sys-border/60 bg-sys-bg/70 p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-sys-text-primary">
+                    Викладачі з вікнами (натисніть для швидкого переходу):
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setExpandedQualityTab(null)}
+                    className="text-xs text-sys-text-muted hover:text-sys-text-primary"
+                  >
+                    Згорнути
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {liveQuality.teacher_windows.map((w, idx) => (
+                    <button
+                      key={`${w.teacher_id}-${w.week_type}-${w.day_of_week}-${idx}`}
+                      type="button"
+                      onClick={() => {
+                        setFilterMode("teacher");
+                        setFilterTeacherId(w.teacher_id);
+                        setActiveWeek(w.week_type);
+                      }}
+                      className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
+                        w.is_double
+                          ? "border-rose-500/40 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20"
+                          : "border-amber-500/30 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20"
+                      }`}
+                    >
+                      <span>{formatTeacherName(w.teacher_name)}</span>
+                      <span className="opacity-75">
+                        · {dayNames[w.day_of_week]} ({w.week_type === "numerator" ? "Чис." : "Знам."}, пара {w.empty_lessons.join(", ")})
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {expandedQualityTab === "late" && liveQuality.late_starts.length > 0 && (
+              <div className="rounded-xl border border-sys-border/60 bg-sys-bg/70 p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-sys-text-primary">
+                    Дні з початком не з 1-ї пари (натисніть для переходу до групи):
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setExpandedQualityTab(null)}
+                    className="text-xs text-sys-text-muted hover:text-sys-text-primary"
+                  >
+                    Згорнути
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {liveQuality.late_starts.map((item, idx) => (
+                    <button
+                      key={`${item.group_id}-${item.week_type}-${item.day_of_week}-${idx}`}
+                      type="button"
+                      onClick={() => {
+                        setFilterMode("group");
+                        setFilterGroupId(item.group_id);
+                        setActiveWeek(item.week_type);
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-200 hover:bg-amber-500/20 transition-colors"
+                    >
+                      <strong>{item.group_name}</strong>
+                      <span className="opacity-80">
+                        · {dayNames[item.day_of_week]} ({item.week_type === "numerator" ? "Чис." : "Знам."}, з {item.start_lesson}-ї пари)
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {expandedQualityTab === "soft" &&
+              (liveQuality.soft_constraint_violations.length > 0 || liveQuality.room_conflicts.length > 0) && (
+                <div className="rounded-xl border border-sys-border/60 bg-sys-bg/70 p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-sys-text-primary">
+                      Компроміси побажань та аудиторій:
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setExpandedQualityTab(null)}
+                      className="text-xs text-sys-text-muted hover:text-sys-text-primary"
+                    >
+                      Згорнути
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {liveQuality.soft_constraint_violations.map((v, idx) => (
+                      <button
+                        key={`soft-${v.teacher_id}-${v.week_type}-${v.day_of_week}-${v.lesson_number}-${idx}`}
+                        type="button"
+                        onClick={() => {
+                          setFilterMode("teacher");
+                          setFilterTeacherId(v.teacher_id);
+                          setActiveWeek(v.week_type);
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-200 hover:bg-amber-500/20 transition-colors"
+                      >
+                        <span>👨‍🏫 {formatTeacherName(v.teacher_name)}</span>
+                        <span className="opacity-80">
+                          · {v.group_name}, {dayNames[v.day_of_week]} ({v.lesson_number}-та пара)
+                        </span>
+                      </button>
+                    ))}
+                    {liveQuality.room_conflicts.map((rc, idx) => (
+                      <span
+                        key={`room-${rc.room}-${rc.week_type}-${rc.day_of_week}-${rc.lesson_number}-${idx}`}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-rose-500/30 bg-rose-500/10 px-2.5 py-1 text-xs font-medium text-rose-200"
+                      >
+                        <span>🚪 Каб. {rc.room}</span>
+                        <span className="opacity-80">
+                          · {dayNames[rc.day_of_week]} ({rc.lesson_number}-та пара: {rc.groups.join(", ")})
+                        </span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+          </div>
+        )}
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div role="tablist" aria-label="Тип тижня" className="flex w-full rounded-xl border border-sys-border bg-sys-card p-1 sm:w-fit">
@@ -380,9 +999,27 @@ export function GeneratorPanel() {
 
         {selectedSlot && (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-sys-accent/40 bg-sys-accent/10 px-4 py-3">
-            <p className="text-sm text-sys-text-primary">
-            Оберіть зелену клітинку, щоб перемістити заняття <strong>{selectedSlot.curriculum.group.name} · {selectedSlot.curriculum.subject.name}</strong>. Зелені клітинки — вільні місця.
-            </p>
+            <div className="space-y-1">
+              <p className="text-sm text-sys-text-primary">
+                Переміщення заняття: <strong>{selectedSlot.curriculum.group.name} · {selectedSlot.curriculum.subject.name}</strong>
+                {selectedSlot.curriculum.is_stream && selectedSlot.curriculum.stream_id && (
+                  <span className="ml-2 rounded bg-purple-500/20 px-2 py-0.5 text-xs font-semibold text-purple-300">
+                    🔗 Потокове заняття (переміститься синхронно)
+                  </span>
+                )}
+              </p>
+              <div className="flex flex-wrap items-center gap-3 text-xs text-sys-text-secondary">
+                <span className="inline-flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-emerald-400" /> Зелені — ідеальне місце
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-amber-400" /> Жовті — допустимо з попередженням
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-rose-400" /> Червоні — зайнято (вказана причина)
+                </span>
+              </div>
+            </div>
             <button type="button" onClick={() => setSelectedSlotId(null)} className="rounded-lg border border-sys-border px-3 py-1.5 text-sm font-medium text-sys-text-secondary hover:text-sys-text-primary">
               Скасувати
             </button>
@@ -409,7 +1046,8 @@ export function GeneratorPanel() {
               ...days.map((day) => {
                 const cellSlots = visibleSlots.filter((slot) => slot.day_of_week === day && slot.lesson_number === lesson);
                 const cellSubs = visibleSubs.filter((sub) => sub.day_of_week === day && sub.lesson_number === lesson);
-                const canChooseTarget = selectedSlot !== undefined && canMoveTo(day, lesson);
+                const targetEval = evaluateMoveTarget(day, lesson);
+                const canChooseTarget = targetEval.status === "ideal" || targetEval.status === "warning";
                 return (
                   <div
                     key={`${lesson}-${day}`}
@@ -420,7 +1058,13 @@ export function GeneratorPanel() {
                       if (slotId) void handleMove(slotId, day, lesson, activeWeek);
                     }}
                     className={`min-h-32 border-b border-r border-sys-border p-2 transition-colors ${
-                      canChooseTarget ? "bg-emerald-500/[0.08] ring-1 ring-inset ring-emerald-400/40" : "hover:bg-white/[0.02]"
+                      targetEval.status === "ideal"
+                        ? "bg-emerald-500/[0.08] ring-1 ring-inset ring-emerald-400/40"
+                        : targetEval.status === "warning"
+                          ? "bg-amber-500/[0.08] ring-1 ring-inset ring-amber-400/40"
+                          : targetEval.status === "blocked"
+                            ? "bg-rose-500/[0.04]"
+                            : "hover:bg-white/[0.02]"
                     }`}
                   >
                     {cellSubs.length > 0 && (
@@ -451,44 +1095,58 @@ export function GeneratorPanel() {
                     )}
                     {cellSlots.length > 0 && (
                       <div className="space-y-2">
-                        {cellSlots.map((slot) => (
-                          <article
-                            key={slot.id}
-                            draggable
-                            onDragStart={(event) => event.dataTransfer.setData("slot_id", slot.id.toString())}
-                            className={`rounded-lg border bg-sys-card p-2.5 text-sm shadow-sm ${
-                              selectedSlotId === slot.id ? "border-sys-accent ring-1 ring-sys-accent" : "border-sys-border"
-                            } cursor-grab active:cursor-grabbing`}
-                          >
-                            <div className="flex flex-wrap items-center justify-between gap-x-2">
-                              <span className="font-semibold text-sys-accent">{slot.curriculum.group.name}</span>
-                              {slot.week_type === "both" && <span className="rounded bg-sys-accent/10 px-1.5 py-0.5 text-[10px] font-semibold text-sys-accent">Щотижня</span>}
-                            </div>
-                            <p className="mt-1 font-medium leading-snug text-sys-text-primary">{slot.curriculum.subject.name}</p>
-                            <p className="mt-1 break-words text-xs leading-snug text-sys-text-secondary">
-                              {[
-                                [
-                                  formatTeacherName(slot.curriculum.teacher.name),
-                                  ...(slot.curriculum.second_teacher ? [formatTeacherName(slot.curriculum.second_teacher.name)] : []),
-                                ].join(" / "),
-                                slot.room_override || [
-                                  slot.curriculum.teacher.room,
-                                  slot.curriculum.second_teacher?.room,
-                                ].filter(Boolean).join(" / "),
-                              ].filter(Boolean).join(" · ")}
-                            </p>
-                            <button
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                setSelectedSlotId(selectedSlotId === slot.id ? null : slot.id);
-                              }}
-                              className="mt-2 rounded-md border border-sys-border px-2 py-1 text-xs font-medium text-sys-text-secondary transition-colors hover:border-sys-accent/50 hover:text-sys-accent"
+                        {cellSlots.map((slot) => {
+                          const isWeekly = isSlotWeeklySymmetric(slot);
+                          return (
+                            <article
+                              key={slot.id}
+                              draggable
+                              onDragStart={(event) => event.dataTransfer.setData("slot_id", slot.id.toString())}
+                              className={`rounded-lg border bg-sys-card p-2.5 text-sm shadow-sm ${
+                                selectedSlotId === slot.id ? "border-sys-accent ring-1 ring-sys-accent" : "border-sys-border"
+                              } cursor-grab active:cursor-grabbing`}
                             >
-                              {selectedSlotId === slot.id ? "Обрано для переміщення" : "Перемістити"}
-                            </button>
-                          </article>
-                        ))}
+                              <div className="flex flex-wrap items-center justify-between gap-1">
+                                <span className="font-semibold text-sys-accent">{slot.curriculum.group.name}</span>
+                                <div className="flex flex-wrap items-center gap-1">
+                                  {slot.curriculum.is_stream && slot.curriculum.stream_id && (
+                                    <span className="rounded bg-purple-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-purple-300">
+                                      Потік
+                                    </span>
+                                  )}
+                                  {isWeekly && (
+                                    <span className="rounded bg-sys-accent/10 px-1.5 py-0.5 text-[10px] font-semibold text-sys-accent">
+                                      Щотижня
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <p className="mt-1 font-medium leading-snug text-sys-text-primary">{slot.curriculum.subject.name}</p>
+                              <p className="mt-1 break-words text-xs leading-snug text-sys-text-secondary">
+                                {[
+                                  [
+                                    formatTeacherName(slot.curriculum.teacher.name),
+                                    ...(slot.curriculum.second_teacher ? [formatTeacherName(slot.curriculum.second_teacher.name)] : []),
+                                  ].join(" / "),
+                                  slot.room_override || [
+                                    slot.curriculum.teacher.room,
+                                    slot.curriculum.second_teacher?.room,
+                                  ].filter(Boolean).join(" / "),
+                                ].filter(Boolean).join(" · ")}
+                              </p>
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setSelectedSlotId(selectedSlotId === slot.id ? null : slot.id);
+                                }}
+                                className="mt-2 rounded-md border border-sys-border px-2 py-1 text-xs font-medium text-sys-text-secondary transition-colors hover:border-sys-accent/50 hover:text-sys-accent"
+                              >
+                                {selectedSlotId === slot.id ? "Обрано для переміщення" : "Перемістити"}
+                              </button>
+                            </article>
+                          );
+                        })}
                       </div>
                     )}
                     {canChooseTarget ? (
@@ -498,10 +1156,22 @@ export function GeneratorPanel() {
                         onClick={() => {
                           if (selectedSlot && !moving) void handleMove(selectedSlot.id, day, lesson, activeWeek);
                         }}
-                        disabled={moving} className="mt-2 flex min-h-10 w-full items-center justify-center rounded-lg border border-emerald-400/40 bg-emerald-500/10 px-2 py-2 text-xs font-semibold text-emerald-300 transition-colors hover:bg-emerald-500/20 disabled:opacity-50"
+                        disabled={moving}
+                        className={`mt-2 flex min-h-10 w-full flex-col items-center justify-center rounded-lg border px-2 py-2 text-xs font-semibold transition-colors disabled:opacity-50 ${
+                          targetEval.status === "warning"
+                            ? "border-amber-400/40 bg-amber-500/15 text-amber-200 hover:bg-amber-500/25"
+                            : "border-emerald-400/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"
+                        }`}
                       >
-                        Перемістити сюди
+                        <span>Перемістити сюди</span>
+                        {targetEval.status === "warning" && targetEval.label && (
+                          <span className="mt-0.5 text-[10px] font-normal opacity-90">⚠ {targetEval.label}</span>
+                        )}
                       </button>
+                    ) : targetEval.status === "blocked" && targetEval.label ? (
+                      <div className="mt-2 flex min-h-9 w-full items-center justify-center rounded-lg border border-rose-500/25 bg-rose-500/10 px-2 py-1.5 text-center text-[11px] font-medium text-rose-300/90">
+                        ⛔ {targetEval.label}
+                      </div>
                     ) : cellSlots.length === 0 && cellSubs.length === 0 ? (
                       <div className="flex min-h-28 items-center justify-center text-xs text-sys-text-muted">—</div>
                     ) : null}

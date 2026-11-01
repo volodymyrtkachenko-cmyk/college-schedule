@@ -72,6 +72,8 @@ class _CurriculumSnapshot:
     allow_multiple_per_day: bool
     group: _GroupSnapshot | None
     subject: _SubjectSnapshot | None
+    teacher_room: str | None = None
+    second_teacher_room: str | None = None
 
 
 @dataclass(slots=True)
@@ -133,6 +135,8 @@ def _snapshot_inputs(
                 if getattr(c, "subject", None) is not None
                 else None
             ),
+            teacher_room=getattr(getattr(c, "teacher", None), "room", None),
+            second_teacher_room=getattr(getattr(c, "second_teacher", None), "room", None),
         )
         for c in curriculums
     ]
@@ -339,6 +343,7 @@ def _generation_summary(
     progress_percent: int = 100,
     solutions_found: int = 0,
     started_at: str | None = None,
+    quality: dict | None = None,
 ) -> dict:
     data = {
         "settings": settings.model_dump(),
@@ -353,6 +358,8 @@ def _generation_summary(
     }
     if started_at is not None:
         data["started_at"] = started_at
+    if quality is not None:
+        data["quality"] = quality
     return data
 
 
@@ -507,6 +514,11 @@ async def _complete_generation(
                 )
                 for c_id, d, s in result.assignments
             ])
+            quality_report = solver.evaluate_quality(
+                curriculums,
+                constraints,
+                result.assignments,
+            )
             draft.status = "DRAFT"
             draft.data = {
                 **(draft.data or {}),
@@ -520,6 +532,7 @@ async def _complete_generation(
                     progress_percent=100,
                     solutions_found=last_solutions,
                     started_at=saved_started_at,
+                    quality=quality_report,
                 ),
             }
             flag_modified(draft, "data")
@@ -580,6 +593,8 @@ async def generate_schedule(
     query = select(Curriculum).options(
         joinedload(Curriculum.group),
         joinedload(Curriculum.subject),
+        joinedload(Curriculum.teacher),
+        joinedload(Curriculum.second_teacher),
     )
     if current_user.role == "editor":
         u = await db.scalar(select(User).options(selectinload(User.allowed_groups)).where(User.id == current_user.id))

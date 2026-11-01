@@ -285,36 +285,66 @@ async def move_slot(
         raise HTTPException(status_code=409, detail="Змінювати можна лише активну чернетку")
         
     c = slot.curriculum
+    # If this slot is part of a stream, locate all synchronized peer slots in the same draft
+    moving_slots = [slot]
+    if c.is_stream and c.stream_id:
+        peer_slots = (
+            await db.scalars(
+                select(ScheduleSlot)
+                .join(Curriculum)
+                .where(
+                    ScheduleSlot.draft_id == slot.draft_id,
+                    ScheduleSlot.day_of_week == slot.day_of_week,
+                    ScheduleSlot.lesson_number == slot.lesson_number,
+                    ScheduleSlot.week_type == slot.week_type,
+                    Curriculum.is_stream == True,
+                    Curriculum.stream_id == c.stream_id,
+                )
+                .options(selectinload(ScheduleSlot.curriculum))
+            )
+        ).all()
+        if peer_slots:
+            moving_slots = list(peer_slots)
+
+    moving_slot_ids = {s.id for s in moving_slots}
+    moving_group_ids = {s.curriculum.group_id for s in moving_slots}
+    moving_teacher_ids = {
+        t_id
+        for s in moving_slots
+        for t_id in (s.curriculum.teacher_id, s.curriculum.second_teacher_id)
+        if t_id is not None
+    }
+
     # Check for conflicts in the same draft at the target time
     # Week type overlap: if moving to 'numerator', check 'both' or 'numerator'.
     # If moving to 'both', check any.
     week_overlap = ["both", payload.week_type] if payload.week_type != "both" else ["numerator", "denominator", "both"]
-    
+
+    conflict_conditions = [Curriculum.group_id.in_(moving_group_ids)]
+    if moving_teacher_ids:
+        conflict_conditions.append(Curriculum.teacher_id.in_(moving_teacher_ids))
+        conflict_conditions.append(Curriculum.second_teacher_id.in_(moving_teacher_ids))
+
     conflict_query = (
         select(ScheduleSlot)
         .join(Curriculum)
         .where(
             ScheduleSlot.draft_id == slot.draft_id,
-            ScheduleSlot.id != slot_id,
+            ScheduleSlot.id.notin_(moving_slot_ids),
             ScheduleSlot.day_of_week == payload.day_of_week,
             ScheduleSlot.lesson_number == payload.lesson_number,
             ScheduleSlot.week_type.in_(week_overlap),
-            or_(
-                Curriculum.group_id == c.group_id,
-                Curriculum.teacher_id == c.teacher_id,
-                and_(c.second_teacher_id != None, Curriculum.teacher_id == c.second_teacher_id),
-                and_(Curriculum.second_teacher_id != None, Curriculum.second_teacher_id == c.teacher_id),
-                and_(c.second_teacher_id != None, Curriculum.second_teacher_id != None, Curriculum.second_teacher_id == c.second_teacher_id)
-            )
+            or_(*conflict_conditions),
         )
     )
     conflicts = (await db.scalars(conflict_query)).all()
     if conflicts:
         raise HTTPException(status_code=409, detail="Переміщення створює накладку для групи або викладача")
-        
-    slot.day_of_week = payload.day_of_week
-    slot.lesson_number = payload.lesson_number
-    slot.week_type = payload.week_type
+
+    for ms in moving_slots:
+        ms.day_of_week = payload.day_of_week
+        ms.lesson_number = payload.lesson_number
+        ms.week_type = payload.week_type
     draft.revision += 1
     await db.commit()
     await db.refresh(slot, ["curriculum"])

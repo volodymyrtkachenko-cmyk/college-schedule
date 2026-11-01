@@ -924,6 +924,44 @@ export interface GeneratorRunOptions {
   priorities?: Partial<GeneratorPriorities>;
 }
 
+export interface DraftQualityReport {
+  symmetry_percent: number;
+  first_lesson_start_percent: number;
+  methodical_days_count: number;
+  teacher_windows: Array<{
+    teacher_id: number;
+    teacher_name: string;
+    day_of_week: number;
+    week_type: "numerator" | "denominator";
+    empty_lessons: number[];
+    is_double: boolean;
+  }>;
+  late_starts: Array<{
+    group_id: number;
+    group_name: string;
+    day_of_week: number;
+    week_type: "numerator" | "denominator";
+    start_lesson: number;
+  }>;
+  soft_constraint_violations: Array<{
+    teacher_id: number;
+    teacher_name: string;
+    group_id: number;
+    group_name: string;
+    subject_name: string;
+    day_of_week: number;
+    week_type: "numerator" | "denominator";
+    lesson_number: number;
+  }>;
+  room_conflicts: Array<{
+    room: string;
+    day_of_week: number;
+    week_type: "numerator" | "denominator";
+    lesson_number: number;
+    groups: string[];
+  }>;
+}
+
 export interface DraftGenerationSummary {
   settings?: GeneratorSettings;
   weights?: Record<string, number>;
@@ -935,6 +973,7 @@ export interface DraftGenerationSummary {
   progress_percent?: number;
   solutions_found?: number;
   started_at?: string;
+  quality?: DraftQualityReport | null;
 }
 
 export interface DraftRecord {
