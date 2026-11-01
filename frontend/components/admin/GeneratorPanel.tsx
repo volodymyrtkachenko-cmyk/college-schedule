@@ -173,12 +173,19 @@ export function GeneratorPanel() {
         optimization_time_seconds: 180,
         hint_mode: "previous",
         priorities: {
-          teacher_windows: 2,
+          // Prefer compact teacher days and matching week slots over
+          // distributing lessons across many isolated days.
+          teacher_windows: 3,
           late_start: 2,
           three_consecutive_days: 2,
-          subject_week_balance: 2,
-          group_week_balance: 2,
+          subject_week_balance: 3,
+          group_week_balance: 3,
           soft_teacher_constraints: 2,
+          teacher_active_day: 3,
+          teacher_single_lesson_day: 4,
+          teacher_four_lessons_day: 1,
+          subject_slot_symmetry: 3,
+          curator_thursday_priority: 3,
         },
       });
       setGeneratingJob({ id: job.id, startedAt: Date.now() });
