@@ -347,18 +347,26 @@ export function GeneratorPanel() {
     const computeLiveQuality = (): DraftQualityReport => {
       let symmetricCount = 0;
       let pairedTotal = 0;
-      const seenPairKeys = new Set<string>();
+      const byCurr = new Map<number, { maxSym: number; symCells: Set<string> }>();
       for (const s of slots) {
         if (s.curriculum.pairs_per_2_weeks >= 2 && !s.curriculum.require_week) {
-          const key = `${s.curriculum.id}:${s.day_of_week}:${s.lesson_number}`;
-          if (seenPairKeys.has(key)) continue;
-          seenPairKeys.add(key);
-          pairedTotal += 1;
+          let entry = byCurr.get(s.curriculum.id);
+          if (!entry) {
+            entry = {
+              maxSym: Math.floor(s.curriculum.pairs_per_2_weeks / 2),
+              symCells: new Set<string>(),
+            };
+            byCurr.set(s.curriculum.id, entry);
+          }
           if (isSlotWeeklySymmetric(s)) {
-            symmetricCount += 1;
+            entry.symCells.add(`${s.day_of_week}:${s.lesson_number}`);
           }
         }
       }
+      byCurr.forEach((entry) => {
+        pairedTotal += entry.maxSym;
+        symmetricCount += Math.min(entry.maxSym, entry.symCells.size);
+      });
       const symmetry_percent = pairedTotal > 0 ? Math.round((symmetricCount / pairedTotal) * 100) : 100;
 
       // Group day starts
@@ -860,7 +868,7 @@ export function GeneratorPanel() {
                 <p className="mt-1 text-[11px] text-sys-text-muted leading-snug">
                   {liveQuality.soft_constraint_violations.length + liveQuality.room_conflicts.length === 0
                     ? "✓ Усі побажання й кабінети враховано"
-                    : `Зауважень: ${liveQuality.soft_constraint_violations.length + liveQuality.room_conflicts.length} (натисніть)`}
+                    : `Побажань: ${liveQuality.soft_constraint_violations.length} · Кабінетів: ${liveQuality.room_conflicts.length}`}
                 </p>
               </button>
             </div>
@@ -1148,9 +1156,13 @@ export function GeneratorPanel() {
                                       Потік
                                     </span>
                                   )}
-                                  {isWeekly && (
+                                  {isWeekly ? (
                                     <span className="rounded bg-sys-accent/10 px-1.5 py-0.5 text-[10px] font-semibold text-sys-accent">
                                       Щотижня
+                                    </span>
+                                  ) : (
+                                    <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-300/90">
+                                      {slot.week_type === "numerator" ? "Лише чис." : "Лише знам."}
                                     </span>
                                   )}
                                 </div>

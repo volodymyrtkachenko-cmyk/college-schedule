@@ -47,8 +47,8 @@ class SolverWeights:
     subject_week_balance: int = 10_000    # дисбаланс предмета чисельник/знаменник
     group_week_balance: int = 100_000     # дисбаланс навантаження групи по тижнях
     soft_teacher_constraints: int = 500   # пара в небажаний для викладача слот
-    subject_slot_symmetry: int = 250      # симетрія предмета (той самий день і пара в обидва тижні)
-    teacher_active_day: int = 10          # компактність днів викладача («методичний день»)
+    subject_slot_symmetry: int = 500      # симетрія предмета (той самий день і пара в обидва тижні)
+    teacher_active_day: int = 15          # компактність днів викладача («методичний день»)
     shared_room_conflict: int = 1_500     # одночасне використання спільного кабінету/лабораторії
 
     @classmethod
@@ -774,7 +774,7 @@ def solve(
                     model.Add(slots_active[0] + slots_active[2] >= 1)
                     model.Add(slots_active[3] <= slots_active[2])
                     if weights.late_start:
-                        day_pattern_penalties.append((1 - slots_active[0]) * (weights.late_start * 3))
+                        day_pattern_penalties.append((1 - slots_active[0]) * (weights.late_start * 8))
                 else:
                     # The three allowed patterns ((1,1,1,0), (1,1,1,1), (0,1,1,1))
                     # are equivalent to slots 2 and 3 always being occupied and at
@@ -783,7 +783,7 @@ def solve(
                     model.Add(slots_active[2] == 1)
                     model.Add(slots_active[0] + slots_active[3] >= 1)
                     if weights.late_start:
-                        day_pattern_penalties.append((1 - slots_active[0]) * (weights.late_start * 3))
+                        day_pattern_penalties.append((1 - slots_active[0]) * (weights.late_start * 8))
             else:
                 pattern_vars = []
                 for p_idx, (pat, pen) in enumerate(patterns):
@@ -854,6 +854,11 @@ def solve(
             soft_penalties.append(week_imbalance * weights.subject_week_balance)
 
         for c in (curriculums if weights.three_consecutive_days else ()):
+            req_w = getattr(c, "require_week", None)
+            # Предмет із 1–2 парами на 2 тижні (без прив'язки до одного тижня) має максимум 1 пару в тиждень —
+            # стояти 2 чи 3 дні поспіль в одному тижні він фізично не може.
+            if c.pairs_per_2_weeks <= 2 and req_w is None:
+                continue
             for week in range(WEEKS):
                 week_start = week * DAYS
                 daily_active = []
@@ -866,19 +871,34 @@ def solve(
                         [X[(c.id, week_start + weekday, slot)] for slot in range(SLOTS)],
                     )
                     daily_active.append(day_active)
-                for first_day in range(DAYS - 2):
-                    three_consecutive_days = model.NewBoolVar(
-                        f"three_consecutive_c{c.id}_w{week}_d{first_day}"
-                    )
-                    model.AddBoolAnd(
-                        daily_active[first_day:first_day + 3]
-                    ).OnlyEnforceIf(three_consecutive_days)
-                    model.AddBoolOr(
-                        [day.Not() for day in daily_active[first_day:first_day + 3]]
-                    ).OnlyEnforceIf(three_consecutive_days.Not())
-                    soft_penalties.append(
-                        three_consecutive_days * weights.three_consecutive_days
-                    )
+                # Для предметів із 2 парами на тиждень (3..4 пари за 2 тижні) м'яко уникаємо 2 днів поспіль (напр. Чт і Пт)
+                if c.pairs_per_2_weeks <= 4 and req_w is None:
+                    two_day_weight = max(1, weights.three_consecutive_days // 50)
+                    for first_day in range(DAYS - 1):
+                        two_consecutive_days = model.NewBoolVar(
+                            f"two_consecutive_c{c.id}_w{week}_d{first_day}"
+                        )
+                        model.AddBoolAnd(
+                            daily_active[first_day:first_day + 2]
+                        ).OnlyEnforceIf(two_consecutive_days)
+                        model.AddBoolOr(
+                            [day.Not() for day in daily_active[first_day:first_day + 2]]
+                        ).OnlyEnforceIf(two_consecutive_days.Not())
+                        soft_penalties.append(two_consecutive_days * two_day_weight)
+                else:
+                    for first_day in range(DAYS - 2):
+                        three_consecutive_days = model.NewBoolVar(
+                            f"three_consecutive_c{c.id}_w{week}_d{first_day}"
+                        )
+                        model.AddBoolAnd(
+                            daily_active[first_day:first_day + 3]
+                        ).OnlyEnforceIf(three_consecutive_days)
+                        model.AddBoolOr(
+                            [day.Not() for day in daily_active[first_day:first_day + 3]]
+                        ).OnlyEnforceIf(three_consecutive_days.Not())
+                        soft_penalties.append(
+                            three_consecutive_days * weights.three_consecutive_days
+                        )
 
         # Небажані слоти викладачів: кожна пара в такому слоті — штраф.
         if weights.soft_teacher_constraints:
@@ -906,7 +926,7 @@ def solve(
                             model.Add(
                                 window >= active[first] + active[first + 2] - active[first + 1] - 1
                             )
-                            soft_penalties.append(window * weights.teacher_windows)
+                            soft_penalties.append(window * (weights.teacher_windows * 2))
                         # Double window: [1, 0, 0, 1] (lessons 1 and 4 with lessons 2 and 3 empty)
                         if SLOTS >= 4:
                             double_window = model.NewBoolVar(f"double_window_t{teacher_id}_d{d}")
@@ -917,7 +937,7 @@ def solve(
                             model.Add(
                                 double_window >= active[0] + active[3] - active[1] - active[2] - 1
                             )
-                            soft_penalties.append(double_window * (weights.teacher_windows * 3))
+                            soft_penalties.append(double_window * (weights.teacher_windows * 6))
                     if weights.teacher_active_day:
                         day_busy = model.NewBoolVar(f"day_busy_t{teacher_id}_d{d}")
                         model.AddMaxEquality(day_busy, active)
@@ -1064,9 +1084,10 @@ def solve(
                     model.AddHint(var, int(key in selected))
                 model.Minimize(sum(penalties))
                 optimizer = new_solver(opt_budget, None if seed is None else seed + 1)
+                optimizer.parameters.num_search_workers = max(min(6, num_workers), actual_workers)
 
                 opt_started = time.monotonic()
-                MAX_STAGNATION_SECONDS = 20.0
+                MAX_STAGNATION_SECONDS = max(25.0, min(45.0, opt_budget * 0.75))
 
                 def _calc_opt_pct(now_ts: float, last_sol_ts: float) -> int:
                     opt_elapsed = max(0.0, now_ts - opt_started)
@@ -1178,18 +1199,22 @@ def evaluate_quality(
             t_names.setdefault(c.second_teacher_id, t2_obj.name)
 
     # 1. Symmetry between numerator and denominator
+    # Оцінюємо відносно максимально можливої кількості парних («Щотижня») занять предмета (pairs // 2),
+    # щоб предмети з непарною кількістю годин (напр. 3 або 5 пар/2 тижні) не занижували відсоток.
     symmetric_slots = 0
     total_paired_candidates = 0
-    for c in curr_list:
-        if c.pairs_per_2_weeks >= 2 and getattr(c, "require_week", None) is None:
-            for d in range(DAYS):
-                for s in range(SLOTS):
-                    in_num = (c.id, d, s) in assign_set
-                    in_den = (c.id, d + DAYS, s) in assign_set
-                    if in_num or in_den:
-                        total_paired_candidates += 1
-                        if in_num and in_den:
-                            symmetric_slots += 1
+    if assign_set:
+        for c in curr_list:
+            if c.pairs_per_2_weeks >= 2 and getattr(c, "require_week", None) is None:
+                max_sym = c.pairs_per_2_weeks // 2
+                actual_sym = sum(
+                    1
+                    for d in range(DAYS)
+                    for s in range(SLOTS)
+                    if (c.id, d, s) in assign_set and (c.id, d + DAYS, s) in assign_set
+                )
+                total_paired_candidates += max_sym
+                symmetric_slots += min(max_sym, actual_sym)
     symmetry_percent = (
         round((symmetric_slots / total_paired_candidates) * 100)
         if total_paired_candidates > 0

@@ -1234,5 +1234,74 @@ def test_solver_prevents_same_day_subject_duplicates_and_ignores_sports_hall_con
     assert quality["room_conflicts"] == []
 
 
+def test_solver_avoids_two_consecutive_days_for_four_pair_subjects_and_evaluates_odd_symmetry():
+    curr = [
+        NS(
+            id=1,
+            group_id=1,
+            subject_id=1,
+            teacher_id=1,
+            second_teacher_id=None,
+            is_stream=False,
+            stream_id=None,
+            pairs_per_2_weeks=4,
+            is_fixed=False,
+            strict_day=None,
+            strict_lesson=None,
+            require_week=None,
+            allow_multiple_per_day=False,
+        ),
+        NS(
+            id=2,
+            group_id=1,
+            subject_id=2,
+            teacher_id=2,
+            second_teacher_id=None,
+            is_stream=False,
+            stream_id=None,
+            pairs_per_2_weeks=3,
+            is_fixed=False,
+            strict_day=None,
+            strict_lesson=None,
+            require_week=None,
+            allow_multiple_per_day=False,
+        ),
+        NS(
+            id=3,
+            group_id=1,
+            subject_id=3,
+            teacher_id=3,
+            second_teacher_id=None,
+            is_stream=False,
+            stream_id=None,
+            pairs_per_2_weeks=23,
+            is_fixed=False,
+            strict_day=None,
+            strict_lesson=None,
+            require_week=None,
+            allow_multiple_per_day=True,
+        ),
+    ]
+    res = S.solve(
+        curr,
+        [],
+        max_time_in_seconds=5,
+        num_workers=4,
+        optimization_time_seconds=2.5,
+        use_file_hints=False,
+    )
+    assert res.ok, res.status
+    # Curriculum 1 (4 pairs/2 weeks = 2 pairs/week) should not be placed on consecutive weekdays
+    for w_offset in (0, S.DAYS):
+        w_days = sorted(d - w_offset for cid, d, _s in res.assignments if cid == 1 and w_offset <= d < w_offset + S.DAYS)
+        assert len(w_days) == 2
+        assert w_days[1] - w_days[0] >= 2
+
+    # Curriculum 2 has 3 pairs/2 weeks (1 paired + 1 odd); when its paired lesson matches, symmetry is 100%
+    quality = S.evaluate_quality(curr, [], res.assignments)
+    assert quality["symmetry_percent"] == 100
+
+
+
 
 

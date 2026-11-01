@@ -86,7 +86,7 @@ class _ConstraintSnapshot:
 
 def _init_solver_worker() -> None:
     try:
-        os.nice(15)
+        os.nice(5)
     except (AttributeError, OSError):
         pass
 
@@ -186,7 +186,10 @@ async def _load_db_hints(
             if sl.week_type in ("denominator", "both"):
                 hints.add((sl.curriculum_id, d_base + solver.DAYS, s_idx))
         if hints:
-            return list(hints)
+            draft_quality = solver.evaluate_quality(curriculums, (), hints)
+            if draft_quality.get("symmetry_percent", 0) >= 60:
+                return list(hints)
+            hints.clear()
 
     by_key: dict[tuple[int, int | None, int], list[int]] = {}
     for c in curriculums:

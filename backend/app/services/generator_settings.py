@@ -43,10 +43,21 @@ class GeneratorPriorities(BaseModel):
     soft_teacher_constraints: int = _level()
 
     def to_weights(self) -> SolverWeights:
-        return SolverWeights(**{
+        dumped = self.model_dump()
+        scaled = {
             name: int(round(getattr(_BASE_WEIGHTS, name) * PRIORITY_MULTIPLIERS[level]))
-            for name, level in self.model_dump().items()
-        })
+            for name, level in dumped.items()
+        }
+        scaled["subject_slot_symmetry"] = int(
+            round(_BASE_WEIGHTS.subject_slot_symmetry * max(1.0, PRIORITY_MULTIPLIERS[self.subject_week_balance]))
+        ) if self.subject_week_balance > 0 else _BASE_WEIGHTS.subject_slot_symmetry
+        scaled["teacher_active_day"] = int(
+            round(_BASE_WEIGHTS.teacher_active_day * max(1.0, PRIORITY_MULTIPLIERS[self.teacher_windows]))
+        ) if self.teacher_windows > 0 else 0
+        scaled["shared_room_conflict"] = int(
+            round(_BASE_WEIGHTS.shared_room_conflict * max(1.0, PRIORITY_MULTIPLIERS[self.soft_teacher_constraints]))
+        ) if self.soft_teacher_constraints > 0 else _BASE_WEIGHTS.shared_room_conflict
+        return SolverWeights(**scaled)
 
 
 class GeneratorSettings(BaseModel):
