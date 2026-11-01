@@ -981,10 +981,10 @@ export const apiGenerator = {
     }, true, true, token);
   },
   listDrafts: async (token: string): Promise<DraftRecord[]> => {
-    return request<DraftRecord[]>(`/api/drafts/`, {}, true, true, token);
+    return request<DraftRecord[]>(`/api/drafts/`, { cache: "no-store" }, true, true, token);
   },
   getDraft: async (id: number, token: string): Promise<DraftRecord> => {
-    return request<DraftRecord>(`/api/drafts/${id}`, {}, true, true, token);
+    return request<DraftRecord>(`/api/drafts/${id}`, { cache: "no-store" }, true, true, token);
   },
   deleteDraft: async (id: number, token: string): Promise<void> => {
     return request<void>(`/api/drafts/${id}`, { method: "DELETE" }, true, true, token);

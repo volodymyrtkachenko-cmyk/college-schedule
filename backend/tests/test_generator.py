@@ -805,3 +805,97 @@ async def test_generator_settings_roundtrip_and_per_run_override(gen_client, mon
     after_resp = await client.get("/api/generator/settings", headers=headers)
     assert after_resp.json() == updated_payload
 
+
+@pytest.mark.anyio
+async def test_generator_live_progress_updates_persisted_in_db(gen_client, monkeypatch):
+    import asyncio
+    import json
+    import time as _time
+    from pathlib import Path
+    from app.models.entities import ScheduleDraft
+    from app.routers.generator import _complete_generation
+    from app.services.generator_settings import GeneratorSettings
+
+    client, headers, sessions, _fac = gen_client
+    settings = GeneratorSettings()
+    async with sessions() as db_session:
+        draft = ScheduleDraft(
+            name="Тест прогресу",
+            draft_type="generated",
+            status="GENERATING",
+            data={
+                "generation": {
+                    "status": "GENERATING",
+                    "phase": "validating",
+                    "progress_percent": 5,
+                    "solutions_found": 0,
+                }
+            },
+        )
+        db_session.add(draft)
+        await db_session.commit()
+        await db_session.refresh(draft)
+        draft_id = draft.id
+
+    observed_snapshots: list[tuple[str, int, int]] = []
+
+    def slow_fake_solve(
+        curriculums,
+        constraints,
+        max_time_in_seconds=300,
+        num_workers=8,
+        patterns=None,
+        seed=None,
+        hint_path=None,
+        hints=None,
+        *,
+        weights=None,
+        optimization_time_seconds=None,
+        use_file_hints=True,
+        progress_path=None,
+    ):
+        assert progress_path is not None
+        p = Path(progress_path)
+        p.write_text(
+            json.dumps({
+                "phase": "optimizing",
+                "progress_percent": 72,
+                "solutions_found": 3,
+            }),
+            encoding="utf-8",
+        )
+        _time.sleep(0.8)
+        return S.SolveResult(status="OPTIMAL", objective=10.0, assignments=[])
+
+    monkeypatch.setattr(S, "solve", slow_fake_solve)
+
+    async def monitor_db():
+        for _ in range(12):
+            await asyncio.sleep(0.15)
+            resp = await client.get(f"/api/drafts/{draft_id}", headers=headers)
+            assert resp.status_code == 200
+            gen = resp.json().get("generation") or {}
+            observed_snapshots.append((
+                gen.get("phase"),
+                gen.get("progress_percent"),
+                gen.get("solutions_found"),
+            ))
+            if gen.get("phase") == "optimizing" and gen.get("progress_percent") == 72:
+                break
+
+    await asyncio.gather(
+        _complete_generation(draft_id, [], [], 300, [], settings),
+        monitor_db(),
+    )
+
+    assert ("optimizing", 72, 3) in observed_snapshots
+    final_resp = await client.get(f"/api/drafts/{draft_id}", headers=headers)
+    assert final_resp.status_code == 200
+    final_body = final_resp.json()
+    final_gen = final_body.get("generation") or {}
+    assert final_body["status"] == "DRAFT"
+    assert final_gen["phase"] == "completed"
+    assert final_gen["progress_percent"] == 100
+    assert final_gen["solutions_found"] == 3
+
+

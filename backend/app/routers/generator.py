@@ -19,6 +19,7 @@ from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, Qu
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload, joinedload
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.database import async_session_factory, get_db
 from app.models import Curriculum, TeacherConstraint, ScheduleDraft, ScheduleSlot, Schedule, Teacher
@@ -372,30 +373,41 @@ async def _complete_generation(
     progress_file = Path(tempfile.gettempdir()) / f"schedule_gen_{draft_id}_{uuid.uuid4().hex[:8]}.json"
     done_event = asyncio.Event()
 
+    last_solutions = 0
+
     async def _poll_progress():
+        nonlocal last_solutions
         last_pct = 5
         while not done_event.is_set():
-            await asyncio.sleep(0.8)
+            await asyncio.sleep(0.5)
+            elapsed_cur = time.monotonic() - solve_started
+            phase = "validating" if elapsed_cur < 1.2 else "feasibility"
+            pct = max(last_pct, min(14, 5 + int(elapsed_cur * 5)))
+            solutions = last_solutions
             if progress_file.exists():
                 try:
                     pdata = json.loads(progress_file.read_text(encoding="utf-8"))
-                    phase = pdata.get("phase", "feasibility")
-                    pct = max(last_pct, int(pdata.get("progress_percent", last_pct)))
-                    last_pct = pct
-                    solutions = pdata.get("solutions_found", 0)
-                    elapsed_cur = time.monotonic() - solve_started
-                    async with async_session_factory() as db:
-                        d = await db.get(ScheduleDraft, draft_id)
-                        if d and d.status == "GENERATING":
-                            gen = d.data.get("generation", {})
-                            gen["phase"] = phase
-                            gen["progress_percent"] = pct
-                            gen["solutions_found"] = solutions
-                            gen["elapsed_seconds"] = round(elapsed_cur, 1)
-                            d.data = {**(d.data or {}), "generation": gen}
-                            await db.commit()
+                    phase = pdata.get("phase", phase)
+                    pct = max(last_pct, int(pdata.get("progress_percent", pct)))
+                    solutions = int(pdata.get("solutions_found", solutions))
                 except Exception:
                     pass
+            last_pct = pct
+            last_solutions = solutions
+            try:
+                async with async_session_factory() as db:
+                    d = await db.get(ScheduleDraft, draft_id)
+                    if d and d.status == "GENERATING":
+                        gen = dict((d.data or {}).get("generation") or {})
+                        gen["phase"] = phase
+                        gen["progress_percent"] = pct
+                        gen["solutions_found"] = solutions
+                        gen["elapsed_seconds"] = round(elapsed_cur, 1)
+                        d.data = {**(d.data or {}), "generation": gen}
+                        flag_modified(d, "data")
+                        await db.commit()
+            except Exception:
+                pass
 
     progress_task = asyncio.create_task(_poll_progress())
 
@@ -415,6 +427,11 @@ async def _complete_generation(
         await progress_task
         try:
             if progress_file.exists():
+                try:
+                    pdata = json.loads(progress_file.read_text(encoding="utf-8"))
+                    last_solutions = max(last_solutions, int(pdata.get("solutions_found", 0)))
+                except Exception:
+                    pass
                 progress_file.unlink()
         except OSError:
             pass
@@ -473,9 +490,11 @@ async def _complete_generation(
                     hints_used=len(hints or []),
                     phase="saving",
                     progress_percent=95,
+                    solutions_found=last_solutions,
                     started_at=saved_started_at,
                 ),
             }
+            flag_modified(draft, "data")
             await db.commit()
 
             db.add_all([
@@ -499,9 +518,11 @@ async def _complete_generation(
                     hints_used=len(hints or []),
                     phase="completed",
                     progress_percent=100,
+                    solutions_found=last_solutions,
                     started_at=saved_started_at,
                 ),
             }
+            flag_modified(draft, "data")
             await db.commit()
     except Exception:
         logger.exception(

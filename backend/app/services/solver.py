@@ -496,6 +496,7 @@ def solve(
         for day in (3, 8)
     }
 
+    _report_progress(progress_path, "validating", 12, message="Побудова математичної моделі")
     model = cp_model.CpModel()
     X = {
         (c.id, d, s): model.NewBoolVar(f"X_{c.id}_{d}_{s}")
@@ -873,10 +874,12 @@ def solve(
     feas_stop_event = threading.Event()
 
     def feas_monitor():
-        while not feas_stop_event.wait(1.0):
+        while not feas_stop_event.wait(0.4):
             elapsed_feas = time.monotonic() - started_at
-            frac = min(1.0, elapsed_feas / max(1.0, feasibility_budget))
-            pct = int(15 + frac * 35)  # 15% to 50%
+            asymp_frac = 1.0 - math.exp(-elapsed_feas / 8.0)
+            budget_frac = min(1.0, elapsed_feas / max(1.0, feasibility_budget))
+            frac = max(asymp_frac * 0.9, budget_frac)
+            pct = min(50, max(15, int(15 + frac * 35)))  # 15% to 50%
             _report_progress(progress_path, "feasibility", pct, message="Пошук допустимого розкладу")
 
     feas_thread = threading.Thread(target=feas_monitor, daemon=True)
@@ -920,6 +923,21 @@ def solve(
                 model.Minimize(sum(penalties))
                 optimizer = new_solver(opt_budget, None if seed is None else seed + 1)
 
+                opt_started = time.monotonic()
+                MAX_STAGNATION_SECONDS = 20.0
+
+                def _calc_opt_pct(now_ts: float, last_sol_ts: float) -> int:
+                    opt_elapsed = max(0.0, now_ts - opt_started)
+                    idle = max(0.0, now_ts - last_sol_ts)
+                    stagnation_frac = min(1.0, idle / MAX_STAGNATION_SECONDS)
+                    asymp_time_frac = 1.0 - math.exp(-opt_elapsed / 12.0)
+                    budget_frac = min(1.0, opt_elapsed / max(1.0, opt_budget))
+                    combined_frac = min(
+                        1.0,
+                        max(budget_frac, stagnation_frac * 0.92, asymp_time_frac * 0.85),
+                    )
+                    return min(92, max(55, int(55 + combined_frac * 37)))
+
                 class OptimizationTracker(cp_model.CpSolverSolutionCallback):
                     def __init__(self):
                         super().__init__()
@@ -932,19 +950,23 @@ def solve(
                         self.solutions_count += 1
                         self.last_time = now
                         self.best_objective = self.objective_value
+                        pct = _calc_opt_pct(now, now)
+                        _report_progress(
+                            progress_path,
+                            "optimizing",
+                            pct,
+                            solutions_found=self.solutions_count,
+                            message=f"Оптимізація якості (штраф: {int(self.best_objective)})",
+                        )
 
                 cb = OptimizationTracker()
                 opt_stop_event = threading.Event()
-                opt_started = time.monotonic()
-                MAX_STAGNATION_SECONDS = 20.0
 
                 def opt_monitor():
-                    while not opt_stop_event.wait(0.5):
+                    while not opt_stop_event.wait(0.4):
                         now = time.monotonic()
-                        opt_elapsed = now - opt_started
                         idle = now - cb.last_time
-                        time_frac = min(1.0, opt_elapsed / max(1.0, opt_budget))
-                        pct = int(55 + time_frac * 37)  # 55% to 92%
+                        pct = _calc_opt_pct(now, cb.last_time)
                         msg = (
                             f"Оптимізація якості (штраф: {int(cb.best_objective)})"
                             if cb.best_objective is not None

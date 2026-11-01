@@ -83,8 +83,10 @@ export function GeneratorPanel() {
   
   const { showToast: setToast } = useToast();
 
-  const generatingDraft = drafts.find((d) => d.status === "GENERATING");
-  const isGeneratingActive = generating || generatingDraft !== undefined;
+  const generatingDraft =
+    drafts.find((d) => d.status === "GENERATING") ??
+    (generatingJob ? drafts.find((d) => d.id === generatingJob.id) : undefined);
+  const isGeneratingActive = generating || drafts.some((d) => d.status === "GENERATING");
 
   useEffect(() => {
     loadDrafts();
@@ -105,7 +107,7 @@ export function GeneratorPanel() {
     if (!isGeneratingActive || showGenModal) return;
     const interval = setInterval(() => {
       loadDrafts();
-    }, 6000);
+    }, 1500);
     return () => clearInterval(interval);
   }, [isGeneratingActive, showGenModal]);
 
@@ -159,12 +161,13 @@ export function GeneratorPanel() {
       let session = await api.auth.ensureAuthenticated();
       const job = await api.generator.generate(session.access_token);
       setGeneratingJob({ id: job.id, startedAt: Date.now() });
+      setDrafts(prev => [job, ...prev.filter(d => d.id !== job.id)]);
       const startedAt = Date.now();
       let completed = job;
       let consecutiveErrors = 0;
       const pollTimeoutMs = 10 * 60 * 1000;
       while (completed.status === "GENERATING" && Date.now() - startedAt < pollTimeoutMs) {
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise(resolve => setTimeout(resolve, 750));
         try {
           const freshSession = await api.auth.ensureAuthenticated().catch(() => session);
           if (freshSession) session = freshSession;
@@ -178,7 +181,7 @@ export function GeneratorPanel() {
         } catch (pollErr) {
           consecutiveErrors++;
           // Allow transient network or token refresh pauses without closing modal
-          if (consecutiveErrors >= 6) {
+          if (consecutiveErrors >= 8) {
             throw pollErr;
           }
         }
@@ -198,6 +201,7 @@ export function GeneratorPanel() {
       if (completed.status !== "DRAFT") {
         throw new Error("Створення не завершилося. Спробуйте ще раз або зверніться до адміністратора.");
       }
+      await new Promise(resolve => setTimeout(resolve, 450));
       setToast("Розклад створено.", "success");
       setShowGenModal(false);
       setGeneratingJob(null);
@@ -524,29 +528,35 @@ export function GeneratorPanel() {
   const genInfo = generatingDraft?.generation ?? generatingDraft?.data?.generation;
 
   const serverStartedAtMs = genInfo?.started_at ? new Date(genInfo.started_at).getTime() : null;
-  const currentElapsed = serverStartedAtMs && !isNaN(serverStartedAtMs)
+  const serverElapsed = typeof genInfo?.elapsed_seconds === "number" ? Math.floor(genInfo.elapsed_seconds) : 0;
+  const clockElapsed = serverStartedAtMs && !isNaN(serverStartedAtMs)
     ? Math.max(0, Math.floor((Date.now() - serverStartedAtMs) / 1000))
-    : elapsed;
+    : 0;
+  const currentElapsed = Math.max(elapsed, serverElapsed, clockElapsed);
 
+  const timeStageIndex = currentElapsed < 2 ? 0 : currentElapsed < 8 ? 1 : currentElapsed < 35 ? 2 : 3;
   const activePhase = genInfo?.phase;
-  let activeStageIndex = 0;
-  if (activePhase === "feasibility") activeStageIndex = 1;
+  let activeStageIndex = timeStageIndex;
+  if (activePhase === "completed") activeStageIndex = 4;
+  else if (activePhase === "saving") activeStageIndex = 3;
   else if (activePhase === "optimizing") activeStageIndex = 2;
-  else if (activePhase === "saving" || activePhase === "completed") activeStageIndex = 3;
-  else if (activePhase === "validating") activeStageIndex = 0;
-  else {
-    activeStageIndex = currentElapsed < 4 ? 0 : currentElapsed < 12 ? 1 : currentElapsed < 45 ? 2 : 3;
-  }
+  else if (activePhase === "feasibility") activeStageIndex = Math.max(1, timeStageIndex >= 2 && currentElapsed >= 12 ? 2 : 1);
+  else if (activePhase === "validating") activeStageIndex = currentElapsed >= 2 ? timeStageIndex : 0;
 
-  const rawBackendPercent = genInfo?.progress_percent;
-  const progressPercent = typeof rawBackendPercent === "number" && rawBackendPercent > 0
-    ? Math.min(100, rawBackendPercent)
-    : Math.min(95, Math.round(
-        currentElapsed < 4 ? 8 + currentElapsed * 2 :
-        currentElapsed < 12 ? 16 + (currentElapsed - 4) * 4 :
-        currentElapsed < 45 ? 48 + (currentElapsed - 12) * 1.2 :
-        88 + Math.min(6, (currentElapsed - 45) * 0.1)
-      ));
+  const timeBasedPercent = Math.min(92, Math.round(
+    currentElapsed < 2 ? 6 + currentElapsed * 4 :
+    currentElapsed < 8 ? 15 + (currentElapsed - 2) * 5.5 :
+    currentElapsed < 25 ? 48 + (currentElapsed - 8) * 2.2 :
+    85 + Math.min(7, (currentElapsed - 25) * 0.35)
+  ));
+  const rawBackendPercent = typeof genInfo?.progress_percent === "number" ? genInfo.progress_percent : 0;
+  const progressPercent = activePhase === "completed" || generatingDraft?.status === "DRAFT"
+    ? 100
+    : rawBackendPercent <= 8 && currentElapsed >= 2
+      ? Math.max(rawBackendPercent, timeBasedPercent)
+      : rawBackendPercent > 0
+        ? Math.min(99, Math.max(rawBackendPercent, Math.min(rawBackendPercent + 6, timeBasedPercent)))
+        : timeBasedPercent;
 
   return (
     <>
