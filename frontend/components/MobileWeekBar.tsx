@@ -28,7 +28,7 @@ export function MobileWeekBar({
   }, [weekType]);
 
   return (
-    <div className={`w-full border-b border-sys-border/60 bg-sys-card/90 backdrop-blur-xs px-2 ${isCurrentWeek ? "py-1 min-h-[44px] max-h-[48px]" : "py-1.5 min-h-[50px] max-h-[56px]"}`}>
+    <div className={`w-full border-b border-sys-border/60 bg-sys-card px-2 ${isCurrentWeek ? "py-1 min-h-[44px] max-h-[48px]" : "py-1.5 min-h-[50px] max-h-[56px]"}`}>
       <div className="flex items-center justify-between gap-1 max-w-md mx-auto">
         {/* Previous Week Button (tap area >= 44x44px) */}
         <button

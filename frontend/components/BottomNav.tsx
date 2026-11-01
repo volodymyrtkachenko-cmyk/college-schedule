@@ -28,7 +28,7 @@ export function BottomNav({
   return (
     <nav
       aria-label="Нижня навігація"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-sys-border bg-sys-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-sys-border bg-sys-card pb-[env(safe-area-inset-bottom)] lg:hidden"
     >
       <div className="mx-auto flex h-14 max-w-lg items-stretch justify-around px-2">
         {/* Tab 1: Schedule */}

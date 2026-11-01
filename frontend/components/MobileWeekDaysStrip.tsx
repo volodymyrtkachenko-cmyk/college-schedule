@@ -55,7 +55,7 @@ export function MobileWeekDaysStrip({
     <div
       role="tablist"
       aria-label="Дні тижня"
-      className="relative z-10 flex h-11 w-full border-b border-sys-border/60 bg-sys-card backdrop-blur-xs select-none"
+      className="relative z-10 flex h-11 w-full border-b border-sys-border/60 bg-sys-card select-none"
     >
       {/* Sliding indicator line at bottom */}
       <div

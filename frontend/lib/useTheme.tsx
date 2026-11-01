@@ -136,6 +136,26 @@ function syncMetaThemeColor(effectiveTheme: ResolvedTheme, activeAccent: AccentC
   metas.forEach((meta) => meta.setAttribute("content", bgHex));
 }
 
+function disableTransitionsTemporarily() {
+  if (typeof document === "undefined") return;
+  const css = document.createElement("style");
+  css.setAttribute("data-theme-transition-blocker", "true");
+  css.appendChild(
+    document.createTextNode(
+      `*, *::before, *::after { transition: none !important; }`
+    )
+  );
+  document.head.appendChild(css);
+  void window.getComputedStyle(document.body).opacity;
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      try {
+        document.head.removeChild(css);
+      } catch {}
+    });
+  });
+}
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(getInitialTheme);
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(getInitialResolvedTheme);
@@ -144,6 +164,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const applyAccent = useCallback((newAccent: AccentColor) => {
     setAccentState(newAccent);
     if (typeof document !== "undefined") {
+      disableTransitionsTemporarily();
       document.documentElement.setAttribute("data-accent", newAccent);
       const currentResolved =
         (document.documentElement.getAttribute("data-theme") as ResolvedTheme) || "dark";
@@ -232,6 +253,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
           applyTheme(newTheme);
         });
       } else {
+        disableTransitionsTemporarily();
         applyTheme(newTheme);
       }
     },

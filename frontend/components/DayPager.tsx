@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ScheduleResponse, Lesson } from "../lib/api";
 import { buildTelegramShareText } from "../lib/format";
 import { useToast } from "./ToastProvider";
-import { LessonCard, QuickJumpTarget } from "./LessonCard";
+import { LessonCard, QuickJumpTarget, getKyivNow, subscribeKyivNow } from "./LessonCard";
 import { SchedulePeriodCard } from "./SchedulePeriodCard";
 import { useTheme } from "../lib/useTheme";
 import { KYIV_DATE_FMT, KYIV_TIME_FMT, UKR_WEEKDAY_LONG_FMT, UKR_DAY_MONTH_LONG_FMT } from "../lib/date";
@@ -77,20 +77,11 @@ export function DayPager({
 }) {
   const { showToast } = useToast();
   const { resolvedTheme } = useTheme();
-  const [kyivNow, setKyivNow] = useState<{ dateIso: string; minutes: number } | null>(null);
+  const [kyivNow, setKyivNow] = useState<{ dateIso: string; minutes: number } | null>(() => getKyivNow());
   const [sharingImage, setSharingImage] = useState(false);
 
   useEffect(() => {
-    const update = () => {
-      const now = new Date();
-      setKyivNow({
-        dateIso: KYIV_DATE_FMT.format(now),
-        minutes: parseMin(KYIV_TIME_FMT.format(now)) ?? 0,
-      });
-    };
-    update();
-    const id = setInterval(update, 30_000);
-    return () => clearInterval(id);
+    return subscribeKyivNow(setKyivNow);
   }, []);
 
   const handleShareDay = async () => {
@@ -144,16 +135,11 @@ export function DayPager({
 
   const handleTouchStart = (e: React.TouchEvent) => {
     if (e.touches.length !== 1) return;
-    let isHoriz = false;
-    let curr = e.target as HTMLElement | null;
-    while (curr && curr !== e.currentTarget) {
-      const overflowX = window.getComputedStyle(curr).overflowX;
-      if ((overflowX === "auto" || overflowX === "scroll") && curr.scrollWidth > curr.clientWidth) {
-        isHoriz = true;
-        break;
-      }
-      curr = curr.parentElement;
-    }
+    const target = e.target as HTMLElement | null;
+    const scrollable = target?.closest?.(
+      '.overflow-x-auto, .overflow-x-scroll, [data-scroll-x]'
+    ) as HTMLElement | null;
+    const isHoriz = Boolean(scrollable && scrollable.scrollWidth > scrollable.clientWidth);
 
     touchStartRef.current = {
       x: e.touches[0].clientX,
@@ -341,9 +327,10 @@ export function DayPager({
           animate="center"
           exit="exit"
           transition={{
-            duration: shouldReduceMotion ? 0 : 0.12,
+            duration: shouldReduceMotion ? 0 : 0.09,
             ease: [0.2, 0, 0, 1],
           }}
+          style={{ willChange: "transform, opacity" }}
           className="flex flex-col flex-1 gap-3"
         >
           {orderedLessons.length > 0 ? (

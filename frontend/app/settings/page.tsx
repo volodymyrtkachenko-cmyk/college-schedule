@@ -100,7 +100,7 @@ export default function SettingsPage() {
   return (
     <div className="min-h-screen bg-sys-bg text-sys-text-primary transition-colors duration-200">
       {/* Top Bar with Return Link */}
-      <header className="sticky top-0 z-30 border-b border-sys-border/80 bg-sys-card/85 backdrop-blur-md px-4 sm:px-6 py-3.5">
+      <header className="sticky top-0 z-30 border-b border-sys-border bg-sys-card px-4 sm:px-6 py-3.5">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
           <Link
             href="/"

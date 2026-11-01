@@ -27,7 +27,7 @@ import { useTaskGroups, formatTaskWord, TaskFilterState, DEFAULT_TASK_FILTERS } 
 import { TaskFilters } from "../components/TaskFilters";
 import { SearchableSelect } from "../components/SearchableSelect";
 import { ClassroomSyncButton } from "../components/ClassroomSyncButton";
-import { extractClassroomTasks, parseTaskDeadline, sortTasksByDeadline, TaskDeadline, UKR_MONTHS_SHORT, pluralDays, getKyivNow, subscribeKyivNow, KyivNowSnapshot } from "../components/LessonCard";
+import { extractClassroomTasks, parseTaskDeadline, sortTasksByDeadline, TaskDeadline, UKR_MONTHS_SHORT, pluralDays } from "../components/LessonCard";
 import { DEFAULT_LESSON_TIMES } from "../lib/constants/lessons";
 import { useToast } from "../components/ToastProvider";
 import { QuickJumpTarget, findGroupIdByName, findTeacherIdByName } from "../lib/quickJump";
@@ -771,11 +771,7 @@ export default function HomePage() {
     return week.find((d) => d.learning_mode)?.learning_mode ?? null;
   }, [view, week, selectedDaySchedule, todayActualIso]);
 
-  const [kyivNow, setKyivNow] = useState<KyivNowSnapshot | null>(null);
-  useEffect(() => {
-    setKyivNow(getKyivNow());
-    return subscribeKyivNow(setKyivNow);
-  }, []);
+
 
 
   useEffect(() => {

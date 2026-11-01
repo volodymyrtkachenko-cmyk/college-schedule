@@ -1447,7 +1447,7 @@ export const LessonCard = memo(function LessonCard({
               </div>
               {isLive && (
                 <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-sys-accent/15 border border-sys-accent/30 px-2.5 py-0.5 text-xs font-bold text-sys-accent whitespace-nowrap">
-                  <span className="h-1.5 w-1.5 animate-ping rounded-full bg-sys-accent shrink-0" />
+                  <span className="h-2 w-2 rounded-full bg-sys-accent shrink-0" />
                   <span>ще {remainingMin} хв</span>
                 </div>
               )}
@@ -2006,7 +2006,7 @@ export const LessonCard = memo(function LessonCard({
                 </div>
               ) : isLive ? (
                 <div className="shrink-0 flex items-center gap-1.5 rounded-full bg-sys-accent/15 border border-sys-accent/30 px-2.5 py-0.5 text-xs font-bold text-sys-accent whitespace-nowrap ml-auto">
-                  <span className="h-1.5 w-1.5 animate-ping rounded-full bg-sys-accent shrink-0" />
+                  <span className="h-2 w-2 rounded-full bg-sys-accent shrink-0" />
                   <span>ще {remainingMin} хв</span>
                 </div>
               ) : !hasBothRoomAndMeet && (!isDualTeachers || isSingleSubgroupShown) ? (
@@ -2482,7 +2482,7 @@ export const LessonCard = memo(function LessonCard({
             </span>
             {isLive && (
               <span className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-sys-accent whitespace-nowrap">
-                <span className="h-1.5 w-1.5 shrink-0 animate-ping rounded-full bg-sys-accent" />
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-sys-accent" />
                 <span>{remainingMin}хв</span>
               </span>
             )}
