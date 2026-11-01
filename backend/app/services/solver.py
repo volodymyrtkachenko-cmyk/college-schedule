@@ -1264,8 +1264,8 @@ def solve(
         if opt_budget > 0.05:
             penalties = add_soft_preference_penalties()
             phases = [
-                ("teacher", "Оптимізація компактності викладачів"),
                 ("symmetry", "Оптимізація симетрії тижнів"),
+                ("teacher", "Оптимізація компактності викладачів"),
                 ("group", "Оптимізація стартів і балансу груп"),
                 ("secondary", "Фінальна оптимізація побажань і кабінетів"),
             ]
@@ -1275,13 +1275,22 @@ def solve(
                 opt_started = time.monotonic()
                 total_solutions = 0
                 best_result = feasible_result
-                phase_count = len(active_phases)
+                phase_shares = {
+                    "symmetry": 0.40,
+                    "teacher": 0.30,
+                    "group": 0.20,
+                    "secondary": 0.10,
+                }
+                share_total = sum(phase_shares[name] for name, _, _ in active_phases)
 
                 for phase_index, (phase_name, phase_message, phase_terms) in enumerate(active_phases):
                     remaining_opt = opt_budget - (time.monotonic() - opt_started)
                     if remaining_opt <= 0.05:
                         break
-                    phase_budget = remaining_opt / (phase_count - phase_index)
+                    phase_budget = min(
+                        remaining_opt,
+                        opt_budget * phase_shares[phase_name] / share_total,
+                    )
                     phase_started = time.monotonic()
                     phase_expr = sum(phase_terms)
                     model.Minimize(phase_expr)
@@ -1322,10 +1331,9 @@ def solve(
                         # a candidate. Later phases cannot safely proceed
                         # without a solution from this phase.
                         break
-                    # Teacher compactness is the first priority, but locking
-                    # it to an approximate timeout result can make week
-                    # symmetry infeasible. Permit a small bounded relaxation
-                    # only for this first phase; later phases remain exact.
+                    # Preserve the primary phase exactly. Teacher compactness
+                    # is intentionally allowed a small bounded relaxation
+                    # because it must not destroy already optimized symmetry.
                     phase_tolerance = (
                         max(1, math.ceil(abs(phase_best_value) * 0.05))
                         if phase_name == "teacher"
@@ -1340,7 +1348,7 @@ def solve(
                     _report_progress(
                         progress_path,
                         "optimizing",
-                        min(92, 55 + int(37 * (phase_index + 1) / phase_count)),
+                        min(92, 55 + int(37 * (phase_index + 1) / len(active_phases))),
                         solutions_found=total_solutions,
                         message=f"{phase_message}: {phase_best_value}",
                     )
