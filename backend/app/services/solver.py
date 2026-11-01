@@ -49,7 +49,7 @@ class SolverWeights:
     soft_teacher_constraints: int = 500   # пара в небажаний для викладача слот
     subject_slot_symmetry: int = 500      # симетрія предмета (той самий день і пара в обидва тижні)
     teacher_active_day: int = 15          # компактність днів викладача («методичний день»)
-    shared_room_conflict: int = 1_500     # одночасне використання спільного кабінету/лабораторії
+    shared_room_conflict: int = 80        # одночасне використання спільного кабінету/лабораторії
 
     @classmethod
     def coerce(cls, value: "SolverWeights | dict | None") -> "SolverWeights":
@@ -436,6 +436,35 @@ def _extract_curriculum_rooms(c) -> list[str]:
                 if norm not in rooms:
                     rooms.append(norm)
     return rooms
+
+
+# Якщо за однією базовою аудиторією у довіднику закріплено декількох викладачів
+# (кафедральна/циклова аудиторія, як-от 308 або 203), чиє сумарне навантаження перевищує
+# фізичний поріг одного кабінету (> 32 пар на 2 тижні при 38 доступних слотах),
+# така аудиторія фізично не може вмістити всі їхні пари по черзі й не повинна
+# блокувати оптимізацію розкладу або засмічувати звіт фальшивими конфліктами.
+_OVERLOADED_SHARED_ROOM_PAIR_THRESHOLD = 32
+
+
+def _overloaded_multi_teacher_rooms(curriculums: Iterable) -> set[str]:
+    room_pairs: dict[str, int] = {}
+    room_teachers: dict[str, set[int]] = {}
+    seen_streams: dict[str, set[str]] = {}
+    for c in curriculums:
+        for room_norm in _extract_curriculum_rooms(c):
+            for t_id in filter(None, (getattr(c, "teacher_id", None), getattr(c, "second_teacher_id", None))):
+                room_teachers.setdefault(room_norm, set()).add(t_id)
+            if getattr(c, "is_stream", False) and getattr(c, "stream_id", None):
+                s_set = seen_streams.setdefault(room_norm, set())
+                if c.stream_id in s_set:
+                    continue
+                s_set.add(c.stream_id)
+            room_pairs[room_norm] = room_pairs.get(room_norm, 0) + int(getattr(c, "pairs_per_2_weeks", 0) or 0)
+    return {
+        room_norm
+        for room_norm, total_pairs in room_pairs.items()
+        if len(room_teachers.get(room_norm, ())) >= 2 and total_pairs > _OVERLOADED_SHARED_ROOM_PAIR_THRESHOLD
+    }
 
 
 def constraint_slot_indices(constraint) -> list[int]:
@@ -962,9 +991,12 @@ def solve(
 
         # Shared physical room conflict avoidance across different teachers
         if weights.shared_room_conflict:
+            overloaded_rooms = _overloaded_multi_teacher_rooms(curriculums)
             room_curriculums: dict[str, list] = {}
             for c in curriculums:
                 for room_norm in _extract_curriculum_rooms(c):
+                    if room_norm in overloaded_rooms:
+                        continue
                     room_curriculums.setdefault(room_norm, []).append(c)
             for room_idx, (room_norm, r_currs) in enumerate(sorted(room_curriculums.items())):
                 distinct_teachers = {c.teacher_id for c in r_currs}
@@ -1027,6 +1059,8 @@ def solve(
     _report_progress(progress_path, "feasibility", 15, message="Пошук допустимого розкладу")
 
     opt_limit = float(optimization_time_seconds) if explicit_optimization_budget else DEFAULT_OPTIMIZATION_SECONDS
+    if max_time_in_seconds >= 180 and opt_limit <= DEFAULT_OPTIMIZATION_SECONDS:
+        opt_limit = max(opt_limit, min(180.0, max_time_in_seconds * 0.6))
     feasibility_budget = max_time_in_seconds * FEASIBILITY_TIME_FRACTION
     feasible_result = None
     last_solver = None
@@ -1087,17 +1121,18 @@ def solve(
                 optimizer.parameters.num_search_workers = max(min(6, num_workers), actual_workers)
 
                 opt_started = time.monotonic()
-                MAX_STAGNATION_SECONDS = max(25.0, min(45.0, opt_budget * 0.75))
+                MAX_STAGNATION_SECONDS = max(60.0, min(90.0, opt_budget * 0.75))
+                MIN_OPT_SECONDS_BEFORE_STAGNATION = min(45.0, opt_budget * 0.5)
 
                 def _calc_opt_pct(now_ts: float, last_sol_ts: float) -> int:
                     opt_elapsed = max(0.0, now_ts - opt_started)
                     idle = max(0.0, now_ts - last_sol_ts)
                     stagnation_frac = min(1.0, idle / MAX_STAGNATION_SECONDS)
-                    asymp_time_frac = 1.0 - math.exp(-opt_elapsed / 12.0)
+                    asymp_time_frac = 1.0 - math.exp(-opt_elapsed / 35.0)
                     budget_frac = min(1.0, opt_elapsed / max(1.0, opt_budget))
                     combined_frac = min(
                         1.0,
-                        max(budget_frac, stagnation_frac * 0.92, asymp_time_frac * 0.85),
+                        max(budget_frac, stagnation_frac * 0.9, asymp_time_frac * 0.85),
                     )
                     return min(92, max(55, int(55 + combined_frac * 37)))
 
@@ -1128,6 +1163,7 @@ def solve(
                 def opt_monitor():
                     while not opt_stop_event.wait(0.4):
                         now = time.monotonic()
+                        opt_elapsed = now - opt_started
                         idle = now - cb.last_time
                         pct = _calc_opt_pct(now, cb.last_time)
                         msg = (
@@ -1142,7 +1178,11 @@ def solve(
                             solutions_found=cb.solutions_count,
                             message=msg,
                         )
-                        if cb.solutions_count > 0 and idle >= MAX_STAGNATION_SECONDS:
+                        if (
+                            cb.solutions_count > 0
+                            and opt_elapsed >= MIN_OPT_SECONDS_BEFORE_STAGNATION
+                            and idle >= MAX_STAGNATION_SECONDS
+                        ):
                             optimizer.StopSearch()
                             break
 
@@ -1329,6 +1369,7 @@ def evaluate_quality(
                 })
 
     # 5. Shared room conflicts
+    overloaded_rooms = _overloaded_multi_teacher_rooms(curr_list)
     room_usage: dict[tuple[str, int, int], list[tuple[str, str]]] = {}
     for cid, d, s in sorted(assign_set):
         c = by_id.get(cid)
@@ -1337,6 +1378,8 @@ def evaluate_quality(
         unit_key = f"stream:{c.stream_id}" if (c.is_stream and c.stream_id) else f"curr:{c.id}"
         g_name = group_names.get(c.group_id, f"Група #{c.group_id}")
         for r_norm in _extract_curriculum_rooms(c):
+            if r_norm in overloaded_rooms:
+                continue
             entries = room_usage.setdefault((r_norm, d, s), [])
             if not any(u == unit_key for u, _ in entries):
                 entries.append((unit_key, g_name))

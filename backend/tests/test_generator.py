@@ -1302,6 +1302,59 @@ def test_solver_avoids_two_consecutive_days_for_four_pair_subjects_and_evaluates
     assert quality["symmetry_percent"] == 100
 
 
+def test_solver_ignores_overloaded_multi_teacher_department_rooms():
+    # Two teachers both registered in department room "308" with combined load 60 pairs (> 32 threshold)
+    curr = [
+        NS(
+            id=1,
+            group_id=1,
+            subject_id=1,
+            teacher_id=1,
+            second_teacher_id=None,
+            teacher_room="308",
+            is_stream=False,
+            stream_id=None,
+            pairs_per_2_weeks=30,
+            is_fixed=False,
+            strict_day=None,
+            strict_lesson=None,
+            require_week=None,
+            allow_multiple_per_day=True,
+        ),
+        NS(
+            id=2,
+            group_id=2,
+            subject_id=2,
+            teacher_id=2,
+            second_teacher_id=None,
+            teacher_room="308",
+            is_stream=False,
+            stream_id=None,
+            pairs_per_2_weeks=30,
+            is_fixed=False,
+            strict_day=None,
+            strict_lesson=None,
+            require_week=None,
+            allow_multiple_per_day=True,
+        ),
+    ]
+    assert "308" in S._overloaded_multi_teacher_rooms(curr)
+    res = S.solve(
+        curr,
+        [],
+        max_time_in_seconds=5,
+        num_workers=2,
+        optimization_time_seconds=2.0,
+        use_file_hints=False,
+    )
+    assert res.ok, res.status
+    quality = S.evaluate_quality(curr, [], res.assignments)
+    assert quality["room_conflicts"] == []
+    assert quality["symmetry_percent"] == 100
+    assert quality["first_lesson_start_percent"] == 100
+
+
+
 
 
 

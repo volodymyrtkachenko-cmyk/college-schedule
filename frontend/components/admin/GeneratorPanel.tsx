@@ -168,7 +168,19 @@ export function GeneratorPanel() {
       setGenerating(true);
       setShowGenModal(true);
       let session = await api.auth.ensureAuthenticated();
-      const job = await api.generator.generate(session.access_token);
+      const job = await api.generator.generate(session.access_token, 300, {
+        max_time_seconds: 300,
+        optimization_time_seconds: 180,
+        hint_mode: "previous",
+        priorities: {
+          teacher_windows: 2,
+          late_start: 2,
+          three_consecutive_days: 2,
+          subject_week_balance: 2,
+          group_week_balance: 2,
+          soft_teacher_constraints: 2,
+        },
+      });
       setGeneratingJob({ id: job.id, startedAt: Date.now() });
       setDrafts(prev => [job, ...prev.filter(d => d.id !== job.id)]);
       const startedAt = Date.now();
@@ -482,7 +494,58 @@ export function GeneratorPanel() {
         }
       }
 
-      // Shared room conflicts
+      // Shared room conflicts (excluding shared multi-group halls and overloaded multi-teacher department rooms > 32 pairs)
+      const sharedHallRooms = [
+        "—",
+        "-",
+        "онлайн",
+        "online",
+        "дистанційно",
+        "спортивний комплекс",
+        "спорткомплекс",
+        "спортзал",
+        "спортивна зала",
+        "актова зала",
+        "читальна зала",
+        "стадіон",
+        "тир",
+        "плац",
+      ];
+      const roomTeacherIds = new Map<string, Set<number>>();
+      const roomUnitCount = new Map<string, Set<string>>();
+      for (const s of slots) {
+        const rawRooms = [
+          s.room_override,
+          s.curriculum.teacher.room,
+          s.curriculum.second_teacher?.room,
+        ].filter((r): r is string => Boolean(r && r.trim()));
+        const unitKey =
+          s.curriculum.is_stream && s.curriculum.stream_id
+            ? `stream:${s.curriculum.stream_id}`
+            : `curr:${s.curriculum.id}`;
+        const weeksToCheck: Array<"numerator" | "denominator"> =
+          s.week_type === "both" ? ["numerator", "denominator"] : [s.week_type as "numerator" | "denominator"];
+        for (const r of rawRooms) {
+          const norm = r.trim().toLowerCase();
+          if (!norm || sharedHallRooms.includes(norm)) continue;
+          const tSet = roomTeacherIds.get(norm) ?? new Set<number>();
+          tSet.add(s.curriculum.teacher.id);
+          if (s.curriculum.second_teacher?.id) tSet.add(s.curriculum.second_teacher.id);
+          roomTeacherIds.set(norm, tSet);
+          const uSet = roomUnitCount.get(norm) ?? new Set<string>();
+          for (const w of weeksToCheck) {
+            uSet.add(`${unitKey}|${w}|${s.day_of_week}|${s.lesson_number}`);
+          }
+          roomUnitCount.set(norm, uSet);
+        }
+      }
+      const overloadedDeptRooms = new Set<string>();
+      roomUnitCount.forEach((uSet, norm) => {
+        if ((roomTeacherIds.get(norm)?.size ?? 0) >= 2 && uSet.size > 32) {
+          overloadedDeptRooms.add(norm);
+        }
+      });
+
       const roomMap = new Map<string, { room: string; day: number; week: "numerator" | "denominator"; lesson: number; units: Map<string, string> }>();
       for (const s of slots) {
         const rawRooms = [
@@ -498,25 +561,7 @@ export function GeneratorPanel() {
           s.week_type === "both" ? ["numerator", "denominator"] : [s.week_type as "numerator" | "denominator"];
         for (const r of rawRooms) {
           const norm = r.trim().toLowerCase();
-          if (
-            !norm ||
-            [
-              "—",
-              "-",
-              "онлайн",
-              "online",
-              "дистанційно",
-              "спортивний комплекс",
-              "спорткомплекс",
-              "спортзал",
-              "спортивна зала",
-              "актова зала",
-              "читальна зала",
-              "стадіон",
-              "тир",
-              "плац",
-            ].includes(norm)
-          )
+          if (!norm || sharedHallRooms.includes(norm) || overloadedDeptRooms.has(norm))
             continue;
           for (const w of weeksToCheck) {
             const key = `${norm}|${w}|${s.day_of_week}|${s.lesson_number}`;
@@ -979,20 +1024,29 @@ export function GeneratorPanel() {
                       >
                         <span>👨‍🏫 {formatTeacherName(v.teacher_name)}</span>
                         <span className="opacity-80">
-                          · {v.group_name}, {dayNames[v.day_of_week]} ({v.lesson_number}-та пара)
+                          · {v.group_name}, {dayNames[v.day_of_week]} ({v.week_type === "numerator" ? "Чис." : "Знам."}, {v.lesson_number}-та пара)
                         </span>
                       </button>
                     ))}
                     {liveQuality.room_conflicts.map((rc, idx) => (
-                      <span
+                      <button
                         key={`room-${rc.room}-${rc.week_type}-${rc.day_of_week}-${rc.lesson_number}-${idx}`}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-rose-500/30 bg-rose-500/10 px-2.5 py-1 text-xs font-medium text-rose-200"
+                        type="button"
+                        onClick={() => {
+                          const firstGroup = groups.find((g) => g.name === rc.groups[0]);
+                          if (firstGroup) {
+                            setFilterMode("group");
+                            setFilterGroupId(firstGroup.id);
+                          }
+                          setActiveWeek(rc.week_type);
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-rose-500/30 bg-rose-500/10 px-2.5 py-1 text-xs font-medium text-rose-200 hover:bg-rose-500/20 transition-colors"
                       >
                         <span>🚪 Каб. {rc.room}</span>
                         <span className="opacity-80">
-                          · {dayNames[rc.day_of_week]} ({rc.lesson_number}-та пара: {rc.groups.join(", ")})
+                          · {dayNames[rc.day_of_week]} ({rc.week_type === "numerator" ? "Чис." : "Знам."}, {rc.lesson_number}-та пара: {rc.groups.join(", ")})
                         </span>
-                      </span>
+                      </button>
                     ))}
                   </div>
                 </div>
