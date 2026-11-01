@@ -41,18 +41,18 @@ class SolverWeights:
     module-level and frozen, so it pickles cleanly into the solver subprocess.
     """
 
-    teacher_windows: int = 100            # «вікно» викладача між двома парами
+    teacher_windows: int = 250            # «вікно» викладача між двома парами
     late_start: int = 50                  # день групи починається з 2-ї пари
     three_consecutive_days: int = 2_000   # предмет три дні поспіль
     subject_week_balance: int = 10_000    # дисбаланс предмета чисельник/знаменник
     group_week_balance: int = 100_000     # дисбаланс навантаження групи по тижнях
     soft_teacher_constraints: int = 500   # пара в небажаний для викладача слот
     subject_slot_symmetry: int = 500      # симетрія предмета (той самий день і пара в обидва тижні)
-    teacher_active_day: int = 15          # компактність днів викладача («методичний день»)
-    shared_room_conflict: int = 80        # одночасне використання спільного кабінету/лабораторії
-    teacher_single_lesson_day: int = 600  # одна пара викладача в день (при навантаженні >= 2 пар на тиждень)
+    teacher_active_day: int = 120         # компактність днів викладача («методичний день»)
+    shared_room_conflict: int = 10        # одночасне використання спільного кабінету/лабораторії
+    teacher_single_lesson_day: int = 1200 # одна пара викладача в день (при навантаженні >= 2 пар на тиждень)
     teacher_four_lessons_day: int = 120   # 4 пари поспіль у викладача в один день без перерви
-    curator_thursday_priority: int = 400  # предмет куратора у своїй групі в четвер (пріоритет перед Виховною годиною)
+    curator_thursday_priority: int = 1000 # предмет куратора у своїй групі в четвер (пріоритет перед Виховною годиною)
 
 
     @classmethod
@@ -951,11 +951,18 @@ def solve(
             for teacher_id in teacher_curriculums:
                 t_currs = [c for c in teacher_curriculums[teacher_id] if not _is_curator_hour(c)]
                 total_t_pairs = sum(c.pairs_per_2_weeks for c in t_currs)
-                min_w1 = sum(c.pairs_per_2_weeks for c in t_currs if getattr(c, "require_week", None) == "numerator")
-                min_w2 = sum(c.pairs_per_2_weeks for c in t_currs if getattr(c, "require_week", None) == "denominator")
-                unpinned = sum(c.pairs_per_2_weeks for c in t_currs if getattr(c, "require_week", None) is None)
-                has_multi_w1 = (min_w1 + unpinned >= 2) and total_t_pairs >= 2
-                has_multi_w2 = (min_w2 + unpinned >= 2) and total_t_pairs >= 2
+                t_pairs_w1 = sum(
+                    c.pairs_per_2_weeks if getattr(c, "require_week", None) == "numerator"
+                    else (c.pairs_per_2_weeks // 2 if getattr(c, "require_week", None) is None else 0)
+                    for c in t_currs
+                )
+                t_pairs_w2 = sum(
+                    c.pairs_per_2_weeks if getattr(c, "require_week", None) == "denominator"
+                    else (c.pairs_per_2_weeks // 2 if getattr(c, "require_week", None) is None else 0)
+                    for c in t_currs
+                )
+                has_multi_w1 = t_pairs_w1 >= 2 and total_t_pairs >= 2
+                has_multi_w2 = t_pairs_w2 >= 2 and total_t_pairs >= 2
 
                 for d in range(DAY_IDXS):
                     active = []
@@ -989,7 +996,7 @@ def solve(
                             model.Add(
                                 double_window >= active[0] + active[3] - active[1] - active[2] - 1
                             )
-                            soft_penalties.append(double_window * (weights.teacher_windows * 6))
+                            soft_penalties.append(double_window * (weights.teacher_windows * 8))
 
                     if weights.teacher_single_lesson_day:
                         has_multi = has_multi_w1 if d < DAYS else has_multi_w2

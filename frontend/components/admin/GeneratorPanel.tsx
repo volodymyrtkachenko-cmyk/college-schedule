@@ -1548,9 +1548,10 @@ export function GeneratorPanel() {
                                     event.stopPropagation();
                                     setSelectedSlotId(slot.id);
                                   }}
-                                  className="mt-2 rounded-md border border-sys-border px-2 py-1 text-xs font-medium text-sys-text-secondary transition-colors hover:border-sys-accent/50 hover:text-sys-accent"
+                                  className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-sys-border bg-sys-elevated/50 px-2 py-1 text-xs font-semibold text-sys-text-secondary transition-all hover:border-sys-accent/60 hover:bg-sys-accent/10 hover:text-sys-accent"
                                 >
-                                  Перемістити
+                                  <span>⇄</span>
+                                  <span>Обміняти / Перенести</span>
                                 </button>
                               )}
                             </article>
@@ -1598,6 +1599,29 @@ export function GeneratorPanel() {
                 ? "У вибраної групи немає пар у цьому тижні."
                 : "У цьому тижні пар немає."}
           </p>
+        )}
+        {/* Floating sticky banner when a slot is selected for Swap / Move */}
+        {selectedSlot && (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex max-w-[92vw] items-center gap-3.5 rounded-2xl border border-sys-accent/40 bg-sys-card/95 px-5 py-3 shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-3 duration-200">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sys-accent/20 text-sys-accent font-bold text-base shadow-xs">
+              ⇄
+            </div>
+            <div className="min-w-0 pr-2">
+              <div className="truncate text-xs font-semibold text-sys-text-primary">
+                Вибрано: <span className="text-sys-accent">{selectedSlot.curriculum.group.name}</span> · {selectedSlot.curriculum.subject.name}
+              </div>
+              <div className="text-[11px] text-sys-text-secondary leading-snug">
+                Натисніть <strong className="text-sys-text-primary">«⇄ Поміняти місцями»</strong> на іншій парі або <strong className="text-sys-text-primary">«Перемістити сюди»</strong> у вільний слот
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSelectedSlotId(null)}
+              className="shrink-0 rounded-lg border border-sys-border bg-sys-elevated px-3 py-1.5 text-xs font-medium text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/40 transition-colors"
+            >
+              ✕ Скасувати
+            </button>
+          </div>
         )}
         
       </div>
