@@ -925,6 +925,7 @@ export interface GeneratorRunOptions {
 }
 
 export interface DraftQualityReport {
+  quality_score: number;
   symmetry_percent: number;
   first_lesson_start_percent: number;
   methodical_days_count: number;
@@ -1848,4 +1849,3 @@ export interface UserResource {
     is_active: boolean;
     allowed_groups: number[];
 }
-

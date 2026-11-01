@@ -617,7 +617,53 @@ export function GeneratorPanel() {
         }
       });
 
+      const activeTeacherDays = teachers.reduce((count, teacher) => {
+        return count + ["numerator", "denominator"].reduce((weekCount, week) => {
+          return weekCount + Array.from({ length: 5 }, (_, day) => {
+            const occupied = new Set(
+              slots
+                .filter(
+                  (slot) =>
+                    (slot.curriculum.teacher_id === teacher.id ||
+                      slot.curriculum.second_teacher_id === teacher.id) &&
+                    slot.week_type === week &&
+                    slot.day_of_week === day + 1,
+                )
+                .map((slot) => slot.lesson_number),
+            );
+            return occupied.size > 0 ? 1 : 0;
+          }).reduce<number>((sum, value) => sum + value, 0);
+        }, 0);
+      }, 0);
+      const windowPenalty = teacher_windows.reduce(
+        (sum, item) => sum + (item.is_double ? 2 : 1),
+        0,
+      );
+      const windowScore = Math.max(0, 1 - windowPenalty / Math.max(1, activeTeacherDays));
+      const singleDayScore = Math.max(
+        0,
+        1 - teacher_single_pair_days.length / Math.max(1, activeTeacherDays),
+      );
+      const softScore = Math.max(
+        0,
+        1 - soft_constraint_violations.length / Math.max(1, slots.length),
+      );
+      const roomScore = Math.max(
+        0,
+        1 - room_conflicts.length / Math.max(1, slots.length),
+      );
+      const quality_score = Math.round(
+        100 *
+          (0.3 * (symmetry_percent / 100) +
+            0.2 * (first_lesson_start_percent / 100) +
+            0.2 * windowScore +
+            0.15 * singleDayScore +
+            0.1 * softScore +
+            0.05 * roomScore),
+      );
+
       return {
+        quality_score,
         symmetry_percent,
         first_lesson_start_percent,
         methodical_days_count,
@@ -981,6 +1027,26 @@ export function GeneratorPanel() {
             </div>
 
             <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-5">
+              <div className="rounded-xl border border-sys-accent/40 bg-sys-accent/10 p-3 sm:col-span-2 lg:col-span-5">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-xs font-semibold text-sys-text-secondary">Зведена оцінка</span>
+                  <span
+                    className={`text-2xl font-black ${
+                      liveQuality.quality_score >= 85
+                        ? "text-emerald-400"
+                        : liveQuality.quality_score >= 70
+                          ? "text-amber-300"
+                          : "text-rose-400"
+                    }`}
+                  >
+                    {liveQuality.quality_score}/100
+                  </span>
+                </div>
+                <p className="mt-1 text-[11px] text-sys-text-muted">
+                  Підсумок симетрії тижнів, старту груп, вікон викладачів, одиночних днів,
+                  побажань і конфліктів кабінетів.
+                </p>
+              </div>
               {/* 1. Стабільність тижнів */}
               <div className="rounded-xl border border-sys-border/70 bg-sys-bg/50 p-3">
                 <div className="flex items-center justify-between">
@@ -2157,5 +2223,3 @@ export function GeneratorPanel() {
     </>
   );
 }
-
-

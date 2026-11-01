@@ -695,6 +695,32 @@ def test_solver_weights_can_disable_criteria():
     assert weights.group_week_balance == 400_000
 
 
+def test_quality_report_contains_bounded_composite_score():
+    curr = [
+        NS(
+            id=1,
+            group_id=1,
+            subject_id=1,
+            teacher_id=1,
+            second_teacher_id=None,
+            is_stream=False,
+            stream_id=None,
+            pairs_per_2_weeks=2,
+            is_fixed=False,
+            strict_day=None,
+            strict_lesson=None,
+            require_week=None,
+            allow_multiple_per_day=False,
+        )
+    ]
+    report = S.evaluate_quality(
+        curr,
+        assignments=[(1, 0, 0), (1, 5, 0)],
+    )
+    assert 0 <= report["quality_score"] <= 100
+    assert report["quality_score"] == 100
+
+
 def test_precheck_includes_teacher_name_when_provided():
     curr = [
         NS(
@@ -1593,10 +1619,6 @@ def test_solver_fallback_clears_hints_and_finds_solution():
     )
     assert res.ok, res.status
     assert len(res.assignments) == 32
-
-
-
-
 
 
 

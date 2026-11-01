@@ -1206,28 +1206,18 @@ def solve(
             penalties = add_soft_preference_penalties()
             if penalties:
                 _report_progress(progress_path, "optimizing", 55, message="Оптимізація якості розкладу...")
-                selected = set(feasible_result.assignments)
-                model.ClearHints()
-                for key, var in X.items():
-                    model.AddHint(var, int(key in selected))
                 model.Minimize(sum(penalties))
-                optimizer = new_solver(opt_budget, None if seed is None else seed + 1)
-                optimizer.parameters.num_search_workers = max(min(6, num_workers), actual_workers)
-
                 opt_started = time.monotonic()
-                MAX_STAGNATION_SECONDS = max(60.0, min(90.0, opt_budget * 0.75))
-                MIN_OPT_SECONDS_BEFORE_STAGNATION = min(45.0, opt_budget * 0.5)
+                restart_count = 2 if opt_budget >= 30.0 else 1
+                restart_budget = opt_budget / restart_count
+                best_result = None
+                total_solutions = 0
 
                 def _calc_opt_pct(now_ts: float, last_sol_ts: float) -> int:
                     opt_elapsed = max(0.0, now_ts - opt_started)
-                    idle = max(0.0, now_ts - last_sol_ts)
-                    stagnation_frac = min(1.0, idle / MAX_STAGNATION_SECONDS)
                     asymp_time_frac = 1.0 - math.exp(-opt_elapsed / 35.0)
                     budget_frac = min(1.0, opt_elapsed / max(1.0, opt_budget))
-                    combined_frac = min(
-                        1.0,
-                        max(budget_frac, stagnation_frac * 0.9, asymp_time_frac * 0.85),
-                    )
+                    combined_frac = min(1.0, max(budget_frac, asymp_time_frac * 0.85))
                     return min(92, max(55, int(55 + combined_frac * 37)))
 
                 class OptimizationTracker(cp_model.CpSolverSolutionCallback):
@@ -1235,6 +1225,7 @@ def solve(
                         super().__init__()
                         self.solutions_count = 0
                         self.last_time = time.monotonic()
+                        self.started_at = self.last_time
                         self.best_objective = None
 
                     def on_solution_callback(self):
@@ -1247,59 +1238,96 @@ def solve(
                             progress_path,
                             "optimizing",
                             pct,
-                            solutions_found=self.solutions_count,
-                            message=f"Оптимізація якості (штраф: {int(self.best_objective)})",
+                            solutions_found=total_solutions + self.solutions_count,
+                            message=(
+                                f"Оптимізація якості (прохід {current_restart + 1}/{restart_count}, "
+                                f"штраф: {int(self.best_objective)})"
+                            ),
                         )
 
-                cb = OptimizationTracker()
-                opt_stop_event = threading.Event()
+                for current_restart in range(restart_count):
+                    remaining_opt = opt_budget - (time.monotonic() - opt_started)
+                    if remaining_opt <= 0.05:
+                        break
+                    selected = set(
+                        (best_result or feasible_result).assignments
+                    )
+                    model.ClearHints()
+                    for key, var in X.items():
+                        model.AddHint(var, int(key in selected))
 
-                def opt_monitor():
-                    while not opt_stop_event.wait(0.4):
-                        now = time.monotonic()
-                        opt_elapsed = now - opt_started
-                        idle = now - cb.last_time
-                        pct = _calc_opt_pct(now, cb.last_time)
-                        msg = (
-                            f"Оптимізація якості (штраф: {int(cb.best_objective)})"
-                            if cb.best_objective is not None
-                            else "Оптимізація якості розкладу..."
-                        )
-                        _report_progress(
-                            progress_path,
-                            "optimizing",
-                            pct,
-                            solutions_found=cb.solutions_count,
-                            message=msg,
-                        )
-                        if (
-                            cb.solutions_count > 0
-                            and opt_elapsed >= MIN_OPT_SECONDS_BEFORE_STAGNATION
-                            and idle >= MAX_STAGNATION_SECONDS
-                        ):
-                            optimizer.StopSearch()
-                            break
+                    optimizer = new_solver(
+                        min(restart_budget, remaining_opt),
+                        None if seed is None else seed + current_restart + 1,
+                    )
+                    optimizer.parameters.num_search_workers = max(min(6, num_workers), actual_workers)
+                    cb = OptimizationTracker()
+                    max_stagnation = max(12.0, min(45.0, restart_budget * 0.75))
+                    min_before_stagnation = min(20.0, restart_budget * 0.5)
+                    opt_stop_event = threading.Event()
 
-                opt_thread = threading.Thread(target=opt_monitor, daemon=True)
-                opt_thread.start()
-                try:
+                    def opt_monitor():
+                        while not opt_stop_event.wait(0.4):
+                            now = time.monotonic()
+                            run_elapsed = now - cb.started_at
+                            idle = max(0.0, now - cb.last_time)
+                            pct = _calc_opt_pct(now, cb.last_time)
+                            msg = (
+                                f"Оптимізація якості (прохід {current_restart + 1}/{restart_count}, "
+                                f"штраф: {int(cb.best_objective)})"
+                                if cb.best_objective is not None
+                                else "Оптимізація якості розкладу..."
+                            )
+                            _report_progress(
+                                progress_path,
+                                "optimizing",
+                                pct,
+                                solutions_found=total_solutions + cb.solutions_count,
+                                message=msg,
+                            )
+                            if (
+                                cb.solutions_count > 0
+                                and run_elapsed >= min_before_stagnation
+                                and idle >= max_stagnation
+                            ):
+                                optimizer.StopSearch()
+                                break
+
+                    opt_thread = threading.Thread(target=opt_monitor, daemon=True)
+                    opt_thread.start()
                     try:
-                        optimized_status = optimizer.Solve(model, cb)
-                    except TypeError:
-                        optimized_status = optimizer.Solve(model)
-                finally:
-                    opt_stop_event.set()
-                    opt_thread.join(timeout=1.0)
+                        try:
+                            optimized_status = optimizer.Solve(model, cb)
+                        except TypeError:
+                            optimized_status = optimizer.Solve(model)
+                    finally:
+                        opt_stop_event.set()
+                        opt_thread.join(timeout=1.0)
+
+                    total_solutions += cb.solutions_count
+                    if optimized_status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+                        candidate = result_from(optimizer, optimized_status, optimized=True)
+                        if (
+                            best_result is None
+                            or (
+                                candidate.objective is not None
+                                and (
+                                    best_result.objective is None
+                                    or candidate.objective < best_result.objective
+                                )
+                            )
+                        ):
+                            best_result = candidate
 
                 _report_progress(
                     progress_path,
                     "saving",
                     95,
-                    solutions_found=cb.solutions_count,
+                    solutions_found=total_solutions,
                     message="Збереження результату",
                 )
-                if optimized_status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-                    return result_from(optimizer, optimized_status, optimized=True)
+                if best_result is not None:
+                    return best_result
         return feasible_result
 
     # CP-SAT UNKNOWN means the bounded search neither found a schedule nor
@@ -1501,7 +1529,40 @@ def evaluate_quality(
                 "groups": [g for _, g in entries],
             })
 
+    total_teacher_active_days = sum(
+        1 for occupied in teacher_day_slots.values() if occupied
+    )
+    window_penalty = sum(2 if item["is_double"] else 1 for item in teacher_windows)
+    window_score = max(
+        0.0,
+        1.0 - window_penalty / max(1, total_teacher_active_days),
+    )
+    single_day_score = max(
+        0.0,
+        1.0 - len(teacher_single_pair_days) / max(1, total_teacher_active_days),
+    )
+    soft_score = max(
+        0.0,
+        1.0 - len(soft_violations) / max(1, len(assign_set)),
+    )
+    room_score = max(
+        0.0,
+        1.0 - len(room_conflicts) / max(1, len(assign_set)),
+    )
+    quality_score = round(
+        100
+        * (
+            0.30 * (symmetry_percent / 100)
+            + 0.20 * (first_lesson_start_percent / 100)
+            + 0.20 * window_score
+            + 0.15 * single_day_score
+            + 0.10 * soft_score
+            + 0.05 * room_score
+        )
+    )
+
     return {
+        "quality_score": quality_score,
         "symmetry_percent": symmetry_percent,
         "first_lesson_start_percent": first_lesson_start_percent,
         "methodical_days_count": methodical_days_count,
@@ -1511,5 +1572,3 @@ def evaluate_quality(
         "soft_constraint_violations": soft_violations,
         "room_conflicts": room_conflicts,
     }
-
-
