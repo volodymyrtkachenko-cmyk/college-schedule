@@ -221,6 +221,44 @@ async def _load_db_hints(
     return list(hints)
 
 
+async def _load_locked_db_slots(
+    db: AsyncSession,
+    curriculums: list,
+) -> list[tuple[int, int, int]]:
+    curriculum_ids = {c.id for c in curriculums}
+    latest_draft_id = await db.scalar(
+        select(ScheduleDraft.id)
+        .where(
+            ScheduleDraft.draft_type == "generated",
+            ScheduleDraft.status.in_(("DRAFT", "PUBLISHED", "draft")),
+        )
+        .order_by(ScheduleDraft.id.desc())
+        .limit(1)
+    )
+    if latest_draft_id is None:
+        return []
+    slots = (
+        await db.scalars(
+            select(ScheduleSlot).where(
+                ScheduleSlot.draft_id == latest_draft_id,
+                ScheduleSlot.is_locked.is_(True),
+            )
+        )
+    ).all()
+    locked: list[tuple[int, int, int]] = []
+    for sl in slots:
+        if sl.curriculum_id not in curriculum_ids or not sl.day_of_week or not sl.lesson_number:
+            continue
+        day = int(sl.day_of_week) - 1
+        slot = int(sl.lesson_number) - 1
+        if 0 <= day < solver.DAYS and 0 <= slot < solver.SLOTS:
+            if sl.week_type in ("numerator", "both"):
+                locked.append((sl.curriculum_id, day, slot))
+            if sl.week_type in ("denominator", "both"):
+                locked.append((sl.curriculum_id, day + solver.DAYS, slot))
+    return locked
+
+
 def _solver_input_diagnostics(curriculums, constraints) -> dict[str, int | str]:
     curriculum_rows = [
         (
@@ -289,6 +327,7 @@ async def _run_solver(
     max_time_in_seconds: int,
     workers: int,
     hints: list[tuple[int, int, int]],
+    locked_assignments: list[tuple[int, int, int]] | None = None,
     settings: GeneratorSettings | None = None,
     progress_path: str | None = None,
 ) -> solver.SolveResult:
@@ -296,6 +335,11 @@ async def _run_solver(
     solver_kwargs = _filter_solver_kwargs(
         solver.solve,
         _solver_kwargs(settings, progress_path=progress_path),
+    )
+    locked_kwargs = (
+        {"locked_assignments": locked_assignments or []}
+        if "locked_assignments" in inspect.signature(solver.solve).parameters
+        else {}
     )
     use_subprocess = (
         solver.solve is _DEFAULT_SOLVE
@@ -314,6 +358,7 @@ async def _run_solver(
                     max_time_in_seconds,
                     workers,
                     hints=hints,
+                    **locked_kwargs,
                     **solver_kwargs,
                 ),
             )
@@ -330,6 +375,7 @@ async def _run_solver(
             max_time_in_seconds,
             workers,
             hints=hints,
+            **locked_kwargs,
             **solver_kwargs,
         )
     )
@@ -375,6 +421,7 @@ async def _complete_generation(
     constraints: list,
     max_time_in_seconds: int,
     hints: list[tuple[int, int, int]] | None = None,
+    locked_assignments: list[tuple[int, int, int]] | None = None,
     settings: GeneratorSettings | None = None,
 ) -> None:
     settings = settings or GeneratorSettings().model_copy(
@@ -432,6 +479,7 @@ async def _complete_generation(
                 max_time_in_seconds,
                 workers,
                 hints or [],
+                locked_assignments or [],
                 settings,
                 progress_path=str(progress_file),
             )
@@ -557,7 +605,7 @@ async def _complete_generation(
                 await db.commit()
 
 
-@router.get("/settings", response_model=GeneratorSettings)
+@router.get("/settings", response_model=GeneratorSettings, response_model_exclude_none=True)
 async def read_generator_settings(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_roles("admin", "editor")),
@@ -565,7 +613,7 @@ async def read_generator_settings(
     return await get_generator_settings(db)
 
 
-@router.put("/settings", response_model=GeneratorSettings)
+@router.put("/settings", response_model=GeneratorSettings, response_model_exclude_none=True)
 async def update_generator_settings(
     payload: GeneratorSettings,
     db: AsyncSession = Depends(get_db),
@@ -661,6 +709,7 @@ async def generate_schedule(
         )
 
     hints = await _load_db_hints(db, curriculums) if run_settings.hint_mode == "previous" else []
+    locked_assignments = await _load_locked_db_slots(db, curriculums)
 
     started_at_iso = datetime.now(timezone.utc).isoformat()
     draft = ScheduleDraft(
@@ -690,6 +739,7 @@ async def generate_schedule(
         list(constraints),
         run_settings.max_time_seconds,
         hints,
+        locked_assignments,
         run_settings,
     )
     return draft

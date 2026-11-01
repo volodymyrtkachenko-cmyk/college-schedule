@@ -328,6 +328,22 @@ export function GeneratorPanel() {
     } finally {
       setMoving(false);
     }
+
+  }
+
+  async function handleLock(slot: DraftSlotRecord) {
+    if (moving) return;
+    try {
+      setMoving(true);
+      const session = await api.auth.ensureAuthenticated();
+      const updated = await api.generator.lockSlot(slot.id, !slot.is_locked, session.access_token);
+      setSlots((curr) => curr.map((item) => item.id === updated.id ? updated : item));
+      setToast(updated.is_locked ? "Пару зафіксовано для наступної генерації." : "Фіксацію пари знято.", "success");
+    } catch (err: any) {
+      setToast(err.message, "error");
+    } finally {
+      setMoving(false);
+    }
   }
 
   if (activeDraft) {
@@ -1553,6 +1569,21 @@ export function GeneratorPanel() {
                                   ].filter(Boolean).join(" / "),
                                 ].filter(Boolean).join(" · ")}
                               </p>
+                              <button
+                                type="button"
+                                disabled={moving}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  void handleLock(slot);
+                                }}
+                                className={`mt-2 w-full rounded-md border px-2 py-1 text-[11px] font-semibold transition-colors disabled:opacity-50 ${
+                                  slot.is_locked
+                                    ? "border-amber-400/50 bg-amber-500/15 text-amber-700 dark:text-amber-200"
+                                    : "border-sys-border bg-sys-elevated text-sys-text-secondary hover:border-sys-accent/50 hover:text-sys-accent"
+                                }`}
+                              >
+                                {slot.is_locked ? "🔒 Зафіксовано · зняти" : "🔓 Зафіксувати пару"}
+                              </button>
                               {selectedSlotId === slot.id ? (
                                 <button
                                   type="button"

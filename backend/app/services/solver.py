@@ -516,6 +516,7 @@ def solve(
     seed: int | None = None,
     hint_path: str | os.PathLike[str] | None = None,
     hints: Iterable[tuple[int, int, int]] | None = None,
+    locked_assignments: Iterable[tuple[int, int, int]] | None = None,
     *,
     weights: SolverWeights | dict | None = None,
     optimization_time_seconds: float | None = None,
@@ -839,6 +840,10 @@ def solve(
     hint_assignments = _schedule_hint_assignments(
         curriculums, hint_path, hints, read_files=use_file_hints
     )
+    by_id = {c.id: c for c in curriculums}
+    for c_id, day, slot in locked_assignments or ():
+        if c_id in by_id and 0 <= day < DAY_IDXS and 0 <= slot < SLOTS:
+            model.Add(X[(c_id, day, slot)] == 1)
     for key, var in X.items():
         if key in hint_assignments:
             model.AddHint(var, 1)

@@ -883,6 +883,7 @@ export interface DraftSlotRecord {
   lesson_number: number;
   week_type: string;
   room_override: string | null;
+  is_locked: boolean;
   curriculum: CurriculumRecord;
 }
 
@@ -908,6 +909,12 @@ export interface GeneratorPriorities {
   subject_week_balance: number;
   group_week_balance: number;
   soft_teacher_constraints: number;
+  teacher_active_day: number;
+  teacher_single_lesson_day: number;
+  teacher_four_lessons_day: number;
+  subject_slot_symmetry: number;
+  shared_room_conflict: number;
+  curator_thursday_priority: number;
 }
 
 export interface GeneratorSettings {
@@ -1060,6 +1067,13 @@ export const apiGenerator = {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ slot_a_id: slotAId, slot_b_id: slotBId, week_type: weekType }),
+    }, true, true, token);
+  },
+  lockSlot: async (slotId: number, isLocked: boolean, token: string): Promise<DraftSlotRecord> => {
+    return request<DraftSlotRecord>(`/api/drafts/slots/${slotId}/lock`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ is_locked: isLocked }),
     }, true, true, token);
   },
   publish: async (

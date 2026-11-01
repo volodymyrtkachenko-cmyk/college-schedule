@@ -27,6 +27,7 @@ class ScheduleSlotBase(BaseModel):
     week_type: str
     room_override: Optional[str] = None
     is_substitution: Optional[bool] = False
+    is_locked: bool = False
 
 class ScheduleSlotResponse(ScheduleSlotBase):
     model_config = ConfigDict(from_attributes=True)
@@ -44,3 +45,5 @@ class SlotSwapRequest(BaseModel):
     slot_b_id: int
     week_type: Literal["numerator", "denominator"]
 
+class SlotLockRequest(BaseModel):
+    is_locked: bool

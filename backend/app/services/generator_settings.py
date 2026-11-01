@@ -41,29 +41,31 @@ class GeneratorPriorities(BaseModel):
     subject_week_balance: int = _level()
     group_week_balance: int = _level()
     soft_teacher_constraints: int = _level()
+    teacher_active_day: int | None = Field(default=None, ge=PRIORITY_LEVEL_MIN, le=PRIORITY_LEVEL_MAX)
+    teacher_single_lesson_day: int | None = Field(default=None, ge=PRIORITY_LEVEL_MIN, le=PRIORITY_LEVEL_MAX)
+    teacher_four_lessons_day: int | None = Field(default=None, ge=PRIORITY_LEVEL_MIN, le=PRIORITY_LEVEL_MAX)
+    subject_slot_symmetry: int | None = Field(default=None, ge=PRIORITY_LEVEL_MIN, le=PRIORITY_LEVEL_MAX)
+    shared_room_conflict: int | None = Field(default=None, ge=PRIORITY_LEVEL_MIN, le=PRIORITY_LEVEL_MAX)
+    curator_thursday_priority: int | None = Field(default=None, ge=PRIORITY_LEVEL_MIN, le=PRIORITY_LEVEL_MAX)
 
     def to_weights(self) -> SolverWeights:
         dumped = self.model_dump()
         scaled = {
-            name: int(round(getattr(_BASE_WEIGHTS, name) * PRIORITY_MULTIPLIERS[level]))
+            name: int(round(getattr(_BASE_WEIGHTS, name) * PRIORITY_MULTIPLIERS[level if level is not None else DEFAULT_PRIORITY_LEVEL]))
             for name, level in dumped.items()
         }
-        scaled["subject_slot_symmetry"] = int(
-            round(_BASE_WEIGHTS.subject_slot_symmetry * max(1.0, PRIORITY_MULTIPLIERS[self.subject_week_balance]))
-        ) if self.subject_week_balance > 0 else _BASE_WEIGHTS.subject_slot_symmetry
-        scaled["teacher_active_day"] = int(
-            round(_BASE_WEIGHTS.teacher_active_day * max(1.0, PRIORITY_MULTIPLIERS[self.teacher_windows]))
-        ) if self.teacher_windows > 0 else 0
-        scaled["shared_room_conflict"] = int(
-            round(_BASE_WEIGHTS.shared_room_conflict * max(1.0, PRIORITY_MULTIPLIERS[self.soft_teacher_constraints]))
-        ) if self.soft_teacher_constraints > 0 else _BASE_WEIGHTS.shared_room_conflict
-        scaled["teacher_single_lesson_day"] = int(
-            round(_BASE_WEIGHTS.teacher_single_lesson_day * max(1.0, PRIORITY_MULTIPLIERS[self.teacher_windows]))
-        ) if self.teacher_windows > 0 else 0
-        scaled["teacher_four_lessons_day"] = int(
-            round(_BASE_WEIGHTS.teacher_four_lessons_day * max(1.0, PRIORITY_MULTIPLIERS[self.teacher_windows]))
-        ) if self.teacher_windows > 0 else 0
-        scaled["curator_thursday_priority"] = _BASE_WEIGHTS.curator_thursday_priority
+        for name in (
+            "teacher_active_day",
+            "teacher_single_lesson_day",
+            "teacher_four_lessons_day",
+            "subject_slot_symmetry",
+            "shared_room_conflict",
+            "curator_thursday_priority",
+        ):
+            level = getattr(self, name)
+            if level is None:
+                level = DEFAULT_PRIORITY_LEVEL
+            scaled[name] = int(round(getattr(_BASE_WEIGHTS, name) * PRIORITY_MULTIPLIERS[level]))
         return SolverWeights(**scaled)
 
 
@@ -83,6 +85,12 @@ class GeneratorPrioritiesOverride(BaseModel):
     subject_week_balance: int | None = Field(default=None, ge=PRIORITY_LEVEL_MIN, le=PRIORITY_LEVEL_MAX)
     group_week_balance: int | None = Field(default=None, ge=PRIORITY_LEVEL_MIN, le=PRIORITY_LEVEL_MAX)
     soft_teacher_constraints: int | None = Field(default=None, ge=PRIORITY_LEVEL_MIN, le=PRIORITY_LEVEL_MAX)
+    teacher_active_day: int | None = Field(default=None, ge=PRIORITY_LEVEL_MIN, le=PRIORITY_LEVEL_MAX)
+    teacher_single_lesson_day: int | None = Field(default=None, ge=PRIORITY_LEVEL_MIN, le=PRIORITY_LEVEL_MAX)
+    teacher_four_lessons_day: int | None = Field(default=None, ge=PRIORITY_LEVEL_MIN, le=PRIORITY_LEVEL_MAX)
+    subject_slot_symmetry: int | None = Field(default=None, ge=PRIORITY_LEVEL_MIN, le=PRIORITY_LEVEL_MAX)
+    shared_room_conflict: int | None = Field(default=None, ge=PRIORITY_LEVEL_MIN, le=PRIORITY_LEVEL_MAX)
+    curator_thursday_priority: int | None = Field(default=None, ge=PRIORITY_LEVEL_MIN, le=PRIORITY_LEVEL_MAX)
 
 
 class GeneratorRunOptions(BaseModel):

@@ -15,7 +15,13 @@ from app.models import (
     Teacher,
     ImportedScheduleChange,
 )
-from app.schemas.draft import ScheduleDraftResponse, ScheduleSlotResponse, SlotMoveRequest, SlotSwapRequest
+from app.schemas.draft import (
+    ScheduleDraftResponse,
+    ScheduleSlotResponse,
+    SlotMoveRequest,
+    SlotSwapRequest,
+    SlotLockRequest,
+)
 from app.core.security import require_roles
 from app.services.settings import settings_service
 from app.services.week import get_week_type
@@ -283,6 +289,8 @@ async def move_slot(
     draft = await db.get(ScheduleDraft, slot.draft_id)
     if not draft or draft.status not in {"pending", "DRAFT", "draft"}:
         raise HTTPException(status_code=409, detail="Змінювати можна лише активну чернетку")
+    if slot.is_locked:
+        raise HTTPException(status_code=409, detail="Зафіксовану пару не можна переміщати")
         
     c = slot.curriculum
     # If this slot is part of a stream, locate all synchronized peer slots in the same draft
@@ -345,6 +353,7 @@ async def move_slot(
         ms.day_of_week = payload.day_of_week
         ms.lesson_number = payload.lesson_number
         ms.week_type = payload.week_type
+        ms.is_locked = True
     draft.revision += 1
     await db.commit()
     await db.refresh(slot, ["curriculum"])
@@ -358,6 +367,35 @@ async def move_slot(
             selectinload(ScheduleSlot.curriculum).selectinload(Curriculum.subject),
             selectinload(ScheduleSlot.curriculum).selectinload(Curriculum.teacher),
             selectinload(ScheduleSlot.curriculum).selectinload(Curriculum.second_teacher)
+        )
+    )).scalars().first()
+    return refreshed
+
+
+@router.patch("/slots/{slot_id}/lock", response_model=ScheduleSlotResponse)
+async def lock_slot(
+    slot_id: int,
+    payload: SlotLockRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(require_roles("admin", "editor")),
+):
+    slot = await db.get(ScheduleSlot, slot_id)
+    if not slot:
+        raise HTTPException(404, "Заняття в чернетці не знайдено")
+    draft = await db.get(ScheduleDraft, slot.draft_id)
+    if not draft or draft.status not in {"pending", "DRAFT", "draft"}:
+        raise HTTPException(status_code=409, detail="Фіксувати можна лише активну чернетку")
+    slot.is_locked = payload.is_locked
+    draft.revision += 1
+    await db.commit()
+    refreshed = (await db.execute(
+        select(ScheduleSlot)
+        .where(ScheduleSlot.id == slot_id)
+        .options(
+            selectinload(ScheduleSlot.curriculum).selectinload(Curriculum.group),
+            selectinload(ScheduleSlot.curriculum).selectinload(Curriculum.subject),
+            selectinload(ScheduleSlot.curriculum).selectinload(Curriculum.teacher),
+            selectinload(ScheduleSlot.curriculum).selectinload(Curriculum.second_teacher),
         )
     )).scalars().first()
     return refreshed
@@ -378,6 +416,8 @@ async def swap_slots(
     draft = await db.get(ScheduleDraft, slot_a.draft_id)
     if not draft or draft.status not in {"pending", "DRAFT", "draft"}:
         raise HTTPException(status_code=409, detail="Змінювати можна лише активну чернетку")
+    if slot_a.is_locked or slot_b.is_locked:
+        raise HTTPException(status_code=409, detail="Зафіксовані пари не можна міняти місцями")
 
     target_week = payload.week_type
     opposite_week = "denominator" if target_week == "numerator" else "numerator"
@@ -510,6 +550,7 @@ async def swap_slots(
         s_a.day_of_week = old_b_day
         s_a.lesson_number = old_b_lesson
         s_a.week_type = target_week
+        s_a.is_locked = True
 
     for s_b in moving_b:
         if s_b.week_type == "both":
@@ -525,6 +566,7 @@ async def swap_slots(
         s_b.day_of_week = old_a_day
         s_b.lesson_number = old_a_lesson
         s_b.week_type = target_week
+        s_b.is_locked = True
 
     draft.revision += 1
     await db.commit()
@@ -1025,4 +1067,3 @@ async def publish_draft(
     await db.commit()
     
     return {"status": "published", "publication_id": publication.id}
-
