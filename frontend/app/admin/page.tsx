@@ -351,7 +351,48 @@ function AdminContent() {
   }, [authLoading, activeResource, currentTab, user]);
 
   if (authLoading) return <main className="min-h-screen bg-sys-bg p-8 text-sys-text-secondary">Перевірка доступу…</main>;
-  if (!canAccessAdmin(user)) return <main className="flex min-h-screen items-center justify-center bg-sys-bg p-6 text-center text-sys-text-primary"><div><h1 className="text-2xl font-bold">Доступ заборонено</h1><p className="mt-2 text-sys-text-secondary">Цей розділ доступний лише адміністраторам.</p><a href="/" className="mt-5 inline-block text-sys-accent hover:underline">На головну</a></div></main>;
+  if (!user) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-sys-bg p-6 text-center text-sys-text-primary">
+        <div className="surface-panel w-full max-w-md p-8 shadow-xl text-center space-y-4">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-sys-accent/15 text-sys-accent text-xl font-black">
+            🔒
+          </div>
+          <h1 className="text-2xl font-bold">Потрібна авторизація</h1>
+          <p className="text-sm text-sys-text-secondary">
+            Для доступу до панелі керування розкладом необхідно увійти під обліковим записом адміністратора.
+          </p>
+          <div className="pt-2 flex flex-col sm:flex-row gap-3 justify-center">
+            <a
+              href="/login?redirect=/admin"
+              className="inline-flex items-center justify-center rounded-xl bg-sys-accent px-5 py-2.5 text-sm font-semibold text-white hover:bg-sys-accent/90 transition-colors shadow-sm"
+            >
+              Увійти в систему →
+            </a>
+            <a
+              href="/"
+              className="inline-flex items-center justify-center rounded-xl border border-sys-border/80 px-4 py-2.5 text-sm font-medium text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-card/50 transition-colors"
+            >
+              На головну
+            </a>
+          </div>
+        </div>
+      </main>
+    );
+  }
+  if (!canAccessAdmin(user)) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-sys-bg p-6 text-center text-sys-text-primary">
+        <div className="surface-panel w-full max-w-md p-8 shadow-xl text-center space-y-3">
+          <h1 className="text-2xl font-bold">Недостатньо прав</h1>
+          <p className="text-sm text-sys-text-secondary">Ваш обліковий запис (<span className="font-semibold">{user.username}</span>) не має прав адміністратора чи редактора.</p>
+          <div className="pt-2">
+            <a href="/" className="inline-flex items-center justify-center rounded-xl bg-sys-accent px-5 py-2.5 text-sm font-semibold text-white hover:bg-sys-accent/90 transition-colors">На головну</a>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   async function saveBulk() {
     if (!activeResource || parsedLines.length === 0) return;

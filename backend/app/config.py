@@ -19,8 +19,8 @@ class Settings(BaseSettings):
     # Stable only for local development; deployments must override this.
     jwt_secret_key: str = DEFAULT_DEV_JWT_SECRET
     jwt_algorithm: str = "HS256"
-    access_token_expire_minutes: int = 15
-    refresh_token_expire_days: int = 30
+    access_token_expire_minutes: int = 43200  # 30 days persistent admin session
+    refresh_token_expire_days: int = 60       # 60 days refresh window
     auth_cookie_secure: bool = False
     auth_cookie_name: str = "college_schedule_refresh"
     google_client_id: str = "1079868158360-ok75uv5l93pcql2iktfcple97sdu180b.apps.googleusercontent.com"

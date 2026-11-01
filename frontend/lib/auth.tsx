@@ -58,6 +58,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(session.user);
   }
 
+  // Proactive background silent refresh while active or when tab gains focus
+  useEffect(() => {
+    if (!user) return;
+    const handleActivity = () => {
+      api.auth.maybeSilentRefresh();
+    };
+    window.addEventListener("focus", handleActivity);
+    document.addEventListener("visibilitychange", handleActivity);
+    const interval = setInterval(handleActivity, 30 * 60 * 1000);
+    return () => {
+      window.removeEventListener("focus", handleActivity);
+      document.removeEventListener("visibilitychange", handleActivity);
+      clearInterval(interval);
+    };
+  }, [user]);
+
   useEffect(() => {
     const receiveLogout = () => {
       try { localStorage.removeItem("schedule:has_admin_session"); } catch {}

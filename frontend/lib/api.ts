@@ -552,11 +552,19 @@ async function refresh(): Promise<AuthSession> {
 
 async function bootstrap(): Promise<AuthSession> {
     if (logoutPending) throw new AuthSupersededError();
-    if (currentSession) return currentSession;
+    if (currentSession) {
+        if (!isJwtFresh(currentSession.access_token, 2 * 86400)) {
+            refresh().catch(() => {});
+        }
+        return currentSession;
+    }
     const stored = loadStoredAdminSession();
     if (stored.session && stored.isAccessFresh) {
         accessToken = stored.session.access_token;
         currentSession = stored.session;
+        if (!isJwtFresh(accessToken, 2 * 86400)) {
+            refresh().catch(() => {});
+        }
         return currentSession;
     }
     if (!bootstrapPromise) {
@@ -1236,6 +1244,14 @@ export const api = {
             return loadStoredAdminSession().session?.user ?? null;
         },
         refresh, bootstrap, ensureAuthenticated: getSession,
+        maybeSilentRefresh: async (): Promise<void> => {
+            if (logoutPending) return;
+            const token = currentSession?.access_token || loadStoredAdminSession().session?.access_token;
+            if (!token) return;
+            if (!isJwtFresh(token, 2 * 86400)) {
+                await refresh().catch(() => {});
+            }
+        },
         generation: () => authGeneration,
         isCurrentSession: (session: AuthSession) => currentSession === session,
         clear: () => {

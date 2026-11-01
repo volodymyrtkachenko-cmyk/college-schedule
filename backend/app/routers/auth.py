@@ -156,14 +156,9 @@ async def refresh(
                         if blocked_at is None or (now_utc - blocked_at).total_seconds() > 60:
                             if len(candidates) > 1 and candidate_token != candidates[-1]:
                                 continue
-                            user.session_version = getattr(user, "session_version", 1) + 1
-                            try:
-                                await db.commit()
-                            except Exception:
-                                await db.rollback()
                             raise HTTPException(
                                 status_code=401,
-                                detail="Виявлено спробу компрометації. Усі ваші сеанси завершено. Увійдіть знову.",
+                                detail="Термін дії сеансу завершився. Будь ласка, увійдіть знову.",
                             )
 
                 if claims.get("session_version") and claims.get("session_version") != getattr(user, "session_version", 1):
@@ -292,10 +287,11 @@ async def logout(
                 "error_id": error_id,
             })
 
+    is_secure = settings.is_cookie_secure
     response.delete_cookie(
         key=settings.auth_cookie_name,
-        secure=settings.auth_cookie_secure,
-        samesite="none" if settings.auth_cookie_secure else "lax",
+        secure=is_secure,
+        samesite="none" if is_secure else "lax",
         path="/",
     )
     return {"status": "ok"}
@@ -311,11 +307,12 @@ async def revoke_all(
     """
     user.session_version = getattr(user, "session_version", 1) + 1
     await db.commit()
+    is_secure = settings.is_cookie_secure
     response.delete_cookie(
         key=settings.auth_cookie_name,
-        secure=settings.auth_cookie_secure,
+        secure=is_secure,
         httponly=True,
-        samesite="none" if settings.auth_cookie_secure else "lax",
+        samesite="none" if is_secure else "lax",
         path="/",
     )
     return {"message": "Усі сеанси завершено"}
