@@ -211,7 +211,11 @@ export function GeneratorPanel() {
         throw new Error("Не вдалося створити розклад за відведений час. Спробуйте ще раз або перевірте навчальне навантаження.");
       }
       if (completed.status === "INFEASIBLE") {
-        throw new Error("Не вдалося узгодити обмеження. Перевірте навчальне навантаження, закріплені заняття й доступність викладачів.");
+        const diagnostics = completed.generation?.diagnostics ?? completed.data?.generation?.diagnostics ?? [];
+        const details = diagnostics.length > 0
+          ? `\n\n${diagnostics.map((item) => `• ${item}`).join("\n")}`
+          : "";
+        throw new Error(`Не вдалося узгодити обмеження. Перевірте навчальне навантаження, закріплені заняття й доступність викладачів.${details}`);
       }
       if (completed.status === "FAILED") {
         throw new Error("Не вдалося створити розклад. Перевірте дані та спробуйте ще раз.");
@@ -1835,6 +1839,9 @@ export function GeneratorPanel() {
                           {typeof gen.elapsed_seconds === "number" && gen.elapsed_seconds > 0 && (
                             <span>· {gen.elapsed_seconds} с</span>
                           )}
+                          {gen.diagnostics?.length ? (
+                            <span className="text-rose-400">· {gen.diagnostics.length} причин</span>
+                          ) : null}
                         </div>
                       )}
                     </td>
@@ -1914,6 +1921,9 @@ export function GeneratorPanel() {
                         {typeof gen.elapsed_seconds === "number" && gen.elapsed_seconds > 0 && (
                           <span>· {gen.elapsed_seconds} с</span>
                         )}
+                        {gen.diagnostics?.length ? (
+                          <span className="text-rose-400">· {gen.diagnostics.length} причин</span>
+                        ) : null}
                       </div>
                     )}
                   </div>

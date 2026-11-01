@@ -239,6 +239,8 @@ def test_underloaded_group_is_rejected_before_search():
     r = S.solve(curr, cons, max_time_in_seconds=3, num_workers=4)
     assert not r.ok
     assert r.status == "INFEASIBLE"
+    assert r.diagnostics
+    assert any("бракує" in message for message in r.diagnostics)
 
 
 def test_legacy_patterns_allowed_bad_days():
@@ -1619,7 +1621,6 @@ def test_solver_fallback_clears_hints_and_finds_solution():
     )
     assert res.ok, res.status
     assert len(res.assignments) == 32
-
 
 
 

@@ -347,6 +347,7 @@ def _generation_summary(
     solutions_found: int = 0,
     started_at: str | None = None,
     quality: dict | None = None,
+    diagnostics: list[str] | None = None,
 ) -> dict:
     data = {
         "settings": settings.model_dump(),
@@ -363,6 +364,8 @@ def _generation_summary(
         data["started_at"] = started_at
     if quality is not None:
         data["quality"] = quality
+    if diagnostics:
+        data["diagnostics"] = diagnostics
     return data
 
 
@@ -472,6 +475,7 @@ async def _complete_generation(
                         phase="failed",
                         progress_percent=100,
                         started_at=saved_started_at,
+                        diagnostics=result.diagnostics,
                     ),
                 }
                 logger.warning(

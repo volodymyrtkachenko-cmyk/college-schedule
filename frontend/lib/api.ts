@@ -981,6 +981,7 @@ export interface DraftGenerationSummary {
   progress_percent?: number;
   solutions_found?: number;
   started_at?: string;
+  diagnostics?: string[];
   quality?: DraftQualityReport | null;
 }
 

@@ -194,6 +194,7 @@ LEGACY_PATTERNS = [
 class SolveResult:
     status: str                                  # OPTIMAL / FEASIBLE / INFEASIBLE / ...
     objective: float | None = None
+    diagnostics: list[str] = field(default_factory=list)
     # (curriculum_id, day_idx 0..9, slot_idx 0..3)
     assignments: list[tuple[int, int, int]] = field(default_factory=list)
 
@@ -535,7 +536,7 @@ def solve(
         problems = precheck(curriculums, constraints)
         if problems:
             _report_progress(progress_path, "validating", 100, message="Помилка перевірки")
-            return SolveResult(status="INFEASIBLE")
+            return SolveResult(status="INFEASIBLE", diagnostics=problems)
 
     # (teacher_id, day_idx, slot_idx) недоступності. Обмеження діє в обидва тижні.
     invalid_teacher_slots: set[tuple[int, int, int]] = set()
@@ -1193,7 +1194,10 @@ def solve(
                 break
             if status != cp_model.UNKNOWN:
                 _report_progress(progress_path, "failed", 100, message=f"Статус: {feasibility_solver.StatusName(status)}")
-                return SolveResult(status=feasibility_solver.StatusName(status))
+                return SolveResult(
+                    status=feasibility_solver.StatusName(status),
+                    diagnostics=["Жорсткі обмеження не дозволяють побудувати допустимий розклад."],
+                )
     finally:
         feas_stop_event.set()
         feas_thread.join(timeout=1.0)
@@ -1336,7 +1340,14 @@ def solve(
     if last_status == cp_model.UNKNOWN:
         name = "TIMEOUT"
     _report_progress(progress_path, "failed", 100, message=f"Завершено зі статусом {name}")
-    return SolveResult(status=name)
+    return SolveResult(
+        status=name,
+        diagnostics=(
+            ["Пошук завершився без допустимого розкладу в заданій моделі."]
+            if name == "INFEASIBLE"
+            else []
+        ),
+    )
 
 
 def evaluate_quality(
