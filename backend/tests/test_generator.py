@@ -1093,4 +1093,146 @@ async def test_move_stream_slot_moves_all_stream_peers_synchronously(gen_client)
     assert all(sl["day_of_week"] == 3 and sl["lesson_number"] == 2 for sl in all_slots)
 
 
+def test_solver_optimizes_even_when_initial_hints_are_passed():
+    curr = [
+        NS(
+            id=1,
+            group_id=1,
+            subject_id=10,
+            teacher_id=1,
+            second_teacher_id=None,
+            is_stream=False,
+            stream_id=None,
+            pairs_per_2_weeks=2,
+            is_fixed=False,
+            strict_day=None,
+            strict_lesson=None,
+            require_week=None,
+            allow_multiple_per_day=False,
+        ),
+        NS(
+            id=2,
+            group_id=1,
+            subject_id=20,
+            teacher_id=2,
+            second_teacher_id=None,
+            is_stream=False,
+            stream_id=None,
+            pairs_per_2_weeks=28,
+            is_fixed=False,
+            strict_day=None,
+            strict_lesson=None,
+            require_week=None,
+            allow_multiple_per_day=True,
+        ),
+    ]
+    # Deliberately pass asymmetric, late-start hints so Phase 1 starts with them,
+    # and verify Phase 2 still runs (without MODEL_INVALID duplicate-hint error)
+    # and optimizes to 100% symmetry and 100% first-lesson start.
+    bad_hints = [(1, 0, 2), (1, 8, 3)]
+    res = S.solve(
+        curr,
+        [],
+        max_time_in_seconds=5,
+        num_workers=2,
+        hints=bad_hints,
+        optimization_time_seconds=2.5,
+        use_file_hints=False,
+    )
+    assert res.ok, res.status
+    assert res.objective is not None
+    quality = S.evaluate_quality(curr, [], res.assignments)
+    assert quality["symmetry_percent"] == 100
+    assert quality["first_lesson_start_percent"] == 100
+
+
+def test_solver_prevents_same_day_subject_duplicates_and_ignores_sports_hall_conflicts():
+    # Two separate Curriculum rows for the SAME (group_id=1, subject_id=101)
+    # plus shared "Спортивний комплекс" across two groups.
+    curr = [
+        NS(
+            id=1,
+            group_id=1,
+            subject_id=101,
+            teacher_id=1,
+            second_teacher_id=None,
+            teacher_room="303",
+            is_stream=False,
+            stream_id=None,
+            pairs_per_2_weeks=2,
+            is_fixed=False,
+            strict_day=None,
+            strict_lesson=None,
+            require_week=None,
+            allow_multiple_per_day=False,
+        ),
+        NS(
+            id=2,
+            group_id=1,
+            subject_id=101,
+            teacher_id=1,
+            second_teacher_id=None,
+            teacher_room="303",
+            is_stream=False,
+            stream_id=None,
+            pairs_per_2_weeks=2,
+            is_fixed=False,
+            strict_day=None,
+            strict_lesson=None,
+            require_week=None,
+            allow_multiple_per_day=False,
+        ),
+        NS(
+            id=3,
+            group_id=1,
+            subject_id=102,
+            teacher_id=2,
+            second_teacher_id=None,
+            teacher_room="Спортивний комплекс",
+            is_stream=False,
+            stream_id=None,
+            pairs_per_2_weeks=26,
+            is_fixed=False,
+            strict_day=None,
+            strict_lesson=None,
+            require_week=None,
+            allow_multiple_per_day=True,
+        ),
+        NS(
+            id=4,
+            group_id=2,
+            subject_id=103,
+            teacher_id=3,
+            second_teacher_id=None,
+            teacher_room="Спортивний комплекс",
+            is_stream=False,
+            stream_id=None,
+            pairs_per_2_weeks=30,
+            is_fixed=False,
+            strict_day=None,
+            strict_lesson=None,
+            require_week=None,
+            allow_multiple_per_day=True,
+        ),
+    ]
+    res = S.solve(
+        curr,
+        [],
+        max_time_in_seconds=5,
+        num_workers=2,
+        optimization_time_seconds=2.0,
+        use_file_hints=False,
+    )
+    assert res.ok, res.status
+    # Subject 101 (curriculum ids 1 and 2) must never appear twice on the same day
+    subj_101_days = [d for cid, d, _s in res.assignments if cid in (1, 2)]
+    assert len(subj_101_days) == 4
+    assert len(set(subj_101_days)) == 4
+
+    # Shared "Спортивний комплекс" must not be counted as a room conflict
+    quality = S.evaluate_quality(curr, [], res.assignments)
+    assert quality["room_conflicts"] == []
+
+
+
 

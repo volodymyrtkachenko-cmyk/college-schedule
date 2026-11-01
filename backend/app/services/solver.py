@@ -47,8 +47,8 @@ class SolverWeights:
     subject_week_balance: int = 10_000    # дисбаланс предмета чисельник/знаменник
     group_week_balance: int = 100_000     # дисбаланс навантаження групи по тижнях
     soft_teacher_constraints: int = 500   # пара в небажаний для викладача слот
-    subject_slot_symmetry: int = 40       # симетрія предмета (той самий день і пара в обидва тижні)
-    teacher_active_day: int = 25          # компактність днів викладача («методичний день»)
+    subject_slot_symmetry: int = 250      # симетрія предмета (той самий день і пара в обидва тижні)
+    teacher_active_day: int = 10          # компактність днів викладача («методичний день»)
     shared_room_conflict: int = 1_500     # одночасне використання спільного кабінету/лабораторії
 
     @classmethod
@@ -403,6 +403,24 @@ def precheck(
     return problems
 
 
+_SHARED_MULTI_GROUP_ROOMS = {
+    "—",
+    "-",
+    "онлайн",
+    "online",
+    "дистанційно",
+    "спортивний комплекс",
+    "спорткомплекс",
+    "спортзал",
+    "спортивна зала",
+    "актова зала",
+    "читальна зала",
+    "стадіон",
+    "тир",
+    "плац",
+}
+
+
 def _extract_curriculum_rooms(c) -> list[str]:
     rooms: list[str] = []
     for raw in (
@@ -414,7 +432,7 @@ def _extract_curriculum_rooms(c) -> list[str]:
     ):
         if raw and isinstance(raw, str):
             norm = raw.strip().lower()
-            if norm and norm not in ("—", "-", "онлайн", "online", "дистанційно"):
+            if norm and norm not in _SHARED_MULTI_GROUP_ROOMS:
                 if norm not in rooms:
                     rooms.append(norm)
     return rooms
@@ -524,10 +542,14 @@ def solve(
     }
 
     group_curriculums: dict[int, list] = {}
+    group_subject_curriculums: dict[tuple[int, int], list] = {}
     teacher_curriculums: dict[int, list] = {}
     streams: dict[str, list] = {}
     for c in curriculums:
         group_curriculums.setdefault(c.group_id, []).append(c)
+        subj_key = getattr(c, "subject_id", None)
+        if subj_key is not None:
+            group_subject_curriculums.setdefault((c.group_id, subj_key), []).append(c)
         teacher_curriculums.setdefault(c.teacher_id, []).append(c)
         if c.second_teacher_id:
             teacher_curriculums.setdefault(c.second_teacher_id, []).append(c)
@@ -655,6 +677,22 @@ def solve(
                 ):
                     model.Add(X[(c.id, d, s)] == 0)
 
+    # Якщо у групи є кілька рядків навантаження з тим самим subject_id (напр., лекції + лаби або дубль),
+    # не дозволяємо ставити їх в один і той самий день, якщо загальна кількість пар <= 8 і немає блоку.
+    for (_g_id, _subj_id), subj_currs in group_subject_curriculums.items():
+        if len(subj_currs) > 1:
+            total_subj_pairs = sum(sc.pairs_per_2_weeks for sc in subj_currs)
+            has_block_flag = any(
+                getattr(sc, "allow_multiple_per_day", False)
+                or (sc.is_fixed and sc.strict_lesson and sc.strict_lesson > 4)
+                for sc in subj_currs
+            )
+            if not has_block_flag and total_subj_pairs <= 8:
+                for d in range(DAY_IDXS):
+                    model.Add(
+                        sum(X[(sc.id, d, s)] for sc in subj_currs for s in range(SLOTS)) <= 1
+                    )
+
     unbalanced_groups = []
     for g_id, curr_list in group_curriculums.items():
         numerator_load = sum(
@@ -736,7 +774,7 @@ def solve(
                     model.Add(slots_active[0] + slots_active[2] >= 1)
                     model.Add(slots_active[3] <= slots_active[2])
                     if weights.late_start:
-                        day_pattern_penalties.append((1 - slots_active[0]) * weights.late_start)
+                        day_pattern_penalties.append((1 - slots_active[0]) * (weights.late_start * 3))
                 else:
                     # The three allowed patterns ((1,1,1,0), (1,1,1,1), (0,1,1,1))
                     # are equivalent to slots 2 and 3 always being occupied and at
@@ -745,7 +783,7 @@ def solve(
                     model.Add(slots_active[2] == 1)
                     model.Add(slots_active[0] + slots_active[3] >= 1)
                     if weights.late_start:
-                        day_pattern_penalties.append((1 - slots_active[0]) * weights.late_start)
+                        day_pattern_penalties.append((1 - slots_active[0]) * (weights.late_start * 3))
             else:
                 pattern_vars = []
                 for p_idx, (pat, pen) in enumerate(patterns):
@@ -928,6 +966,28 @@ def solve(
                             )
                             model.Add(room_ov >= sum(room_vars) - 1)
                             soft_penalties.append(room_ov * weights.shared_room_conflict)
+        # Якщо у предмета увімкнено allow_multiple_per_day (або кілька рядків того самого предмета),
+        # але загальне навантаження предмета <= 8 пар/2 тижні і це не фіксований блок (12, 1234),
+        # штрафуємо появу 2 пар одного предмета в один день і особливо розірвані пари (1-ша і 3-тя).
+        for c in curriculums:
+            if (
+                getattr(c, "allow_multiple_per_day", False)
+                and c.pairs_per_2_weeks <= 8
+                and not (c.is_fixed and c.strict_lesson and c.strict_lesson > 4)
+            ):
+                for d in range(DAY_IDXS):
+                    day_cnt = sum(X[(c.id, d, s)] for s in range(SLOTS))
+                    extra_same_day = model.NewIntVar(0, SLOTS - 1, f"extra_sameday_c{c.id}_d{d}")
+                    model.Add(extra_same_day >= day_cnt - 1)
+                    soft_penalties.append(extra_same_day * 2_500)
+                    # Додатковий штраф, якщо пари одного предмета розірвані іншим предметом (напр. 1-ша і 3-тя)
+                    for first in range(SLOTS - 2):
+                        split_subj = model.NewBoolVar(f"split_subj_c{c.id}_d{d}_{first}")
+                        model.Add(
+                            split_subj >= X[(c.id, d, first)] + X[(c.id, d, first + 2)] - X[(c.id, d, first + 1)] - 1
+                        )
+                        soft_penalties.append(split_subj * 5_000)
+
         return soft_penalties
 
     def result_from(instance: cp_model.CpSolver, status: int, *, optimized: bool) -> SolveResult:
@@ -999,6 +1059,7 @@ def solve(
             if penalties:
                 _report_progress(progress_path, "optimizing", 55, message="Оптимізація якості розкладу...")
                 selected = set(feasible_result.assignments)
+                model.ClearHints()
                 for key, var in X.items():
                     model.AddHint(var, int(key in selected))
                 model.Minimize(sum(penalties))

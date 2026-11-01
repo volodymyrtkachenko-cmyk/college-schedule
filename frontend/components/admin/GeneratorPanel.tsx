@@ -490,7 +490,26 @@ export function GeneratorPanel() {
           s.week_type === "both" ? ["numerator", "denominator"] : [s.week_type as "numerator" | "denominator"];
         for (const r of rawRooms) {
           const norm = r.trim().toLowerCase();
-          if (!norm || ["—", "-", "онлайн", "online", "дистанційно"].includes(norm)) continue;
+          if (
+            !norm ||
+            [
+              "—",
+              "-",
+              "онлайн",
+              "online",
+              "дистанційно",
+              "спортивний комплекс",
+              "спорткомплекс",
+              "спортзал",
+              "спортивна зала",
+              "актова зала",
+              "читальна зала",
+              "стадіон",
+              "тир",
+              "плац",
+            ].includes(norm)
+          )
+            continue;
           for (const w of weeksToCheck) {
             const key = `${norm}|${w}|${s.day_of_week}|${s.lesson_number}`;
             const existing = roomMap.get(key) ?? {
@@ -652,6 +671,21 @@ export function GeneratorPanel() {
         return {
           status: "warning",
           label: "Утвориться вікно у групи",
+        };
+      }
+
+      const sameSubjectInTargetDay = slots.some(
+        (s) =>
+          !movingSlotIds.has(s.id) &&
+          s.curriculum.group.id === selectedSlot.curriculum.group.id &&
+          s.curriculum.subject.id === selectedSlot.curriculum.subject.id &&
+          s.day_of_week === day &&
+          (s.week_type === activeWeek || s.week_type === "both"),
+      );
+      if (sameSubjectInTargetDay) {
+        return {
+          status: "warning",
+          label: "Цей предмет вже є в цей день",
         };
       }
 
