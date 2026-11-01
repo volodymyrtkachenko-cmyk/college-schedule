@@ -715,6 +715,16 @@ async def execute_import_logic(db: AsyncSession, weeks: int = 2, actor_id: int |
         })
 
 
+async def _sync_postgres_sequences(db: AsyncSession, tables: tuple[str, ...]) -> None:
+    for tbl in tables:
+        try:
+            await db.execute(text(
+                f"SELECT setval(pg_get_serial_sequence('{tbl}', 'id'), COALESCE((SELECT MAX(id) FROM {tbl}), 1))"
+            ))
+        except Exception:
+            pass
+
+
 async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int | None = None):
     fetcher = ScheduleFetcher()
     parser = KREParser()
@@ -1330,6 +1340,12 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
                 source_label = "manual" if actor_id is not None else "auto"
                 published_count = len(auto_publish_substitutions)
 
+                # Ensure postgres sequences are synced to MAX(id) to prevent duplicate key violations after DB migrations
+                await _sync_postgres_sequences(
+                    db,
+                    ("schedule_publications", "schedule_publication_snapshots", "imported_schedule_changes", "schedule_drafts", "schedule_slots", "schedule_override")
+                )
+
                 publication = SchedulePublication(
                     version_id=import_version_id,
                     actor_id=actor_id,
@@ -1502,6 +1518,8 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
                 settings_service.invalidate_cache()
         else:
             # Either auto_publish is False or an anomaly was detected: use draft model
+            await _sync_postgres_sequences(db, ("schedule_drafts", "schedule_slots"))
+
             async def archive_pending_import() -> None:
                 if not pending_draft:
                     return

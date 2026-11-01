@@ -88,6 +88,27 @@ async def lifespan(_: FastAPI):
                 "UPDATE schedule_drafts SET status = 'TIMEOUT' "
                 "WHERE status = 'GENERATING'"
             ))
+            # Sync postgres sequences to avoid duplicate key violations after database migrations/restores
+            seq_tables = (
+                "schedule_publications",
+                "schedule_publication_snapshots",
+                "imported_schedule_changes",
+                "schedule_drafts",
+                "schedule_slots",
+                "schedule_override",
+                "schedule",
+                "curriculums",
+                "groups",
+                "teachers",
+                "subjects",
+            )
+            for tbl in seq_tables:
+                try:
+                    await conn.execute(text(
+                        f"SELECT setval(pg_get_serial_sequence('{tbl}', 'id'), COALESCE((SELECT MAX(id) FROM {tbl}), 1))"
+                    ))
+                except Exception:
+                    pass
         except Exception:
             pass
 
