@@ -1217,9 +1217,14 @@ def solve(
                 _report_progress(progress_path, "optimizing", 55, message="Оптимізація якості розкладу...")
                 model.Minimize(sum(penalties))
                 opt_started = time.monotonic()
-                restart_count = 2 if opt_budget >= 30.0 else 1
+                # More independent starts improve the chance of escaping a
+                # locally good but quality-poor arrangement. Every other
+                # pass deliberately drops the previous hint to preserve
+                # search diversity.
+                restart_count = 4 if opt_budget >= 120.0 else 3 if opt_budget >= 60.0 else 1
                 restart_budget = opt_budget / restart_count
                 best_result = None
+                best_quality_score = -1
                 total_solutions = 0
 
                 def _calc_opt_pct(now_ts: float, last_sol_ts: float) -> int:
@@ -1258,18 +1263,18 @@ def solve(
                     remaining_opt = opt_budget - (time.monotonic() - opt_started)
                     if remaining_opt <= 0.05:
                         break
-                    selected = set(
-                        (best_result or feasible_result).assignments
-                    )
+                    selected = set((best_result or feasible_result).assignments)
                     model.ClearHints()
-                    for key, var in X.items():
-                        model.AddHint(var, int(key in selected))
+                    if current_restart % 2 == 0:
+                        for key, var in X.items():
+                            model.AddHint(var, int(key in selected))
 
                     optimizer = new_solver(
                         min(restart_budget, remaining_opt),
                         None if seed is None else seed + current_restart + 1,
                     )
                     optimizer.parameters.num_search_workers = max(min(6, num_workers), actual_workers)
+                    optimizer.parameters.randomize_search = True
                     cb = OptimizationTracker()
                     max_stagnation = max(12.0, min(45.0, restart_budget * 0.75))
                     min_before_stagnation = min(20.0, restart_budget * 0.5)
@@ -1316,10 +1321,20 @@ def solve(
                     total_solutions += cb.solutions_count
                     if optimized_status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
                         candidate = result_from(optimizer, optimized_status, optimized=True)
+                        try:
+                            candidate_quality = evaluate_quality(
+                                curriculums,
+                                constraints,
+                                candidate.assignments,
+                            ).get("quality_score", -1)
+                        except (AttributeError, KeyError, TypeError, ValueError):
+                            candidate_quality = -1
                         if (
                             best_result is None
+                            or candidate_quality > best_quality_score
                             or (
-                                candidate.objective is not None
+                                candidate_quality == best_quality_score
+                                and candidate.objective is not None
                                 and (
                                     best_result.objective is None
                                     or candidate.objective < best_result.objective
@@ -1327,6 +1342,7 @@ def solve(
                             )
                         ):
                             best_result = candidate
+                            best_quality_score = candidate_quality
 
                 _report_progress(
                     progress_path,
