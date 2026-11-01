@@ -956,6 +956,23 @@ def solve(
             all_curator_teacher_ids = set(filter(None, curator_ids_by_group.values()))
             for teacher_id in teacher_curriculums:
                 t_currs = [c for c in teacher_curriculums[teacher_id] if not _is_curator_hour(c)]
+                busy_days_by_week: dict[int, list] = {0: [], DAYS: []}
+                weekly_loads: dict[int, int] = {0: 0, DAYS: 0}
+                seen_load_streams: set[str] = set()
+                for curriculum in t_currs:
+                    stream_key = curriculum.stream_id if curriculum.is_stream and curriculum.stream_id else f"curr:{curriculum.id}"
+                    if stream_key in seen_load_streams:
+                        continue
+                    seen_load_streams.add(stream_key)
+                    pairs = max(0, int(curriculum.pairs_per_2_weeks or 0))
+                    required_week = getattr(curriculum, "require_week", None)
+                    if required_week == "numerator":
+                        weekly_loads[0] += pairs
+                    elif required_week == "denominator":
+                        weekly_loads[DAYS] += pairs
+                    else:
+                        weekly_loads[0] += (pairs + 1) // 2
+                        weekly_loads[DAYS] += pairs // 2
                 for d in range(DAY_IDXS):
                     active = []
                     teaching_active = []
@@ -1031,6 +1048,25 @@ def solve(
                         day_busy = model.NewBoolVar(f"day_busy_t{teacher_id}_d{d}")
                         model.AddMaxEquality(day_busy, teaching_active)
                         soft_penalties.append(day_busy * weights.teacher_active_day)
+                        busy_days_by_week[0 if d < DAYS else DAYS].append(day_busy)
+
+                # Penalize only days beyond the theoretical minimum needed for
+                # this teacher's weekly load. This targets scattered one-pair
+                # days while allowing a legitimate 2-day schedule for heavier
+                # teachers.
+                if weights.teacher_active_day:
+                    for week_start, busy_days in busy_days_by_week.items():
+                        minimum_days = math.ceil(weekly_loads[week_start] / SLOTS)
+                        excess_days = model.NewIntVar(
+                            0,
+                            DAYS,
+                            f"excess_active_days_t{teacher_id}_w{week_start}",
+                        )
+                        model.AddMaxEquality(
+                            excess_days,
+                            [0, sum(busy_days) - minimum_days],
+                        )
+                        soft_penalties.append(excess_days * weights.teacher_active_day)
 
         # Предмет куратора у своїй групі у четвер (пріоритет на 3-тю пару перед Виховною годиною)
         if weights.curator_thursday_priority:
