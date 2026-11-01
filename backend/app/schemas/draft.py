@@ -38,3 +38,9 @@ class SlotMoveRequest(BaseModel):
     day_of_week: int
     lesson_number: int
     week_type: str
+
+class SlotSwapRequest(BaseModel):
+    slot_a_id: int
+    slot_b_id: int
+    week_type: Literal["numerator", "denominator"]
+

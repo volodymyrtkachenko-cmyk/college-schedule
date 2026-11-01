@@ -15,7 +15,7 @@ from app.models import (
     Teacher,
     ImportedScheduleChange,
 )
-from app.schemas.draft import ScheduleDraftResponse, ScheduleSlotResponse, SlotMoveRequest
+from app.schemas.draft import ScheduleDraftResponse, ScheduleSlotResponse, SlotMoveRequest, SlotSwapRequest
 from app.core.security import require_roles
 from app.services.settings import settings_service
 from app.services.week import get_week_type
@@ -361,6 +361,186 @@ async def move_slot(
         )
     )).scalars().first()
     return refreshed
+
+
+@router.post("/slots/swap", response_model=list[ScheduleSlotResponse])
+async def swap_slots(
+    payload: SlotSwapRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(require_roles("admin", "editor")),
+):
+    slot_a = await db.get(ScheduleSlot, payload.slot_a_id, options=[selectinload(ScheduleSlot.curriculum)])
+    slot_b = await db.get(ScheduleSlot, payload.slot_b_id, options=[selectinload(ScheduleSlot.curriculum)])
+    if not slot_a or not slot_b:
+        raise HTTPException(404, "Одне або обидва заняття в чернетці не знайдено")
+    if slot_a.draft_id != slot_b.draft_id:
+        raise HTTPException(400, "Заняття належать різним чернеткам")
+    draft = await db.get(ScheduleDraft, slot_a.draft_id)
+    if not draft or draft.status not in {"pending", "DRAFT", "draft"}:
+        raise HTTPException(status_code=409, detail="Змінювати можна лише активну чернетку")
+
+    target_week = payload.week_type
+    opposite_week = "denominator" if target_week == "numerator" else "numerator"
+
+    old_a_day, old_a_lesson = slot_a.day_of_week, slot_a.lesson_number
+    old_b_day, old_b_lesson = slot_b.day_of_week, slot_b.lesson_number
+
+    # Знаходимо всі слоти, що рухаються разом зі слотом A (потоки)
+    cur_a = slot_a.curriculum
+    moving_a = [slot_a]
+    if cur_a.is_stream and cur_a.stream_id:
+        peers_a = (
+            await db.scalars(
+                select(ScheduleSlot)
+                .join(Curriculum)
+                .where(
+                    ScheduleSlot.draft_id == slot_a.draft_id,
+                    ScheduleSlot.day_of_week == old_a_day,
+                    ScheduleSlot.lesson_number == old_a_lesson,
+                    ScheduleSlot.week_type.in_([target_week, "both"]),
+                    Curriculum.is_stream == True,
+                    Curriculum.stream_id == cur_a.stream_id,
+                )
+                .options(selectinload(ScheduleSlot.curriculum))
+            )
+        ).all()
+        if peers_a:
+            moving_a = list(peers_a)
+
+    # Знаходимо всі слоти, що рухаються разом зі слотом B (потоки)
+    cur_b = slot_b.curriculum
+    moving_b = [slot_b]
+    if cur_b.is_stream and cur_b.stream_id:
+        peers_b = (
+            await db.scalars(
+                select(ScheduleSlot)
+                .join(Curriculum)
+                .where(
+                    ScheduleSlot.draft_id == slot_b.draft_id,
+                    ScheduleSlot.day_of_week == old_b_day,
+                    ScheduleSlot.lesson_number == old_b_lesson,
+                    ScheduleSlot.week_type.in_([target_week, "both"]),
+                    Curriculum.is_stream == True,
+                    Curriculum.stream_id == cur_b.stream_id,
+                )
+                .options(selectinload(ScheduleSlot.curriculum))
+            )
+        ).all()
+        if peers_b:
+            moving_b = list(peers_b)
+
+    all_moving_ids = {s.id for s in moving_a} | {s.id for s in moving_b}
+
+    teachers_a = {
+        t_id
+        for s in moving_a
+        for t_id in (s.curriculum.teacher_id, s.curriculum.second_teacher_id)
+        if t_id is not None
+    }
+    teachers_b = {
+        t_id
+        for s in moving_b
+        for t_id in (s.curriculum.teacher_id, s.curriculum.second_teacher_id)
+        if t_id is not None
+    }
+
+    week_overlap = ["both", target_week]
+    # Перевіряємо колізії в точці B для викладачів A
+    if teachers_a:
+        conflicts_in_b = (
+            await db.scalars(
+                select(ScheduleSlot)
+                .join(Curriculum)
+                .where(
+                    ScheduleSlot.draft_id == slot_a.draft_id,
+                    ScheduleSlot.id.notin_(all_moving_ids),
+                    ScheduleSlot.day_of_week == old_b_day,
+                    ScheduleSlot.lesson_number == old_b_lesson,
+                    ScheduleSlot.week_type.in_(week_overlap),
+                    or_(
+                        Curriculum.teacher_id.in_(teachers_a),
+                        Curriculum.second_teacher_id.in_(teachers_a),
+                    ),
+                )
+            )
+        ).all()
+        if conflicts_in_b:
+            raise HTTPException(
+                status_code=409,
+                detail="Викладач першої пари вже зайнятий у цей час в іншій групі",
+            )
+
+    # Перевіряємо колізії в точці A для викладачів B
+    if teachers_b:
+        conflicts_in_a = (
+            await db.scalars(
+                select(ScheduleSlot)
+                .join(Curriculum)
+                .where(
+                    ScheduleSlot.draft_id == slot_b.draft_id,
+                    ScheduleSlot.id.notin_(all_moving_ids),
+                    ScheduleSlot.day_of_week == old_a_day,
+                    ScheduleSlot.lesson_number == old_a_lesson,
+                    ScheduleSlot.week_type.in_(week_overlap),
+                    or_(
+                        Curriculum.teacher_id.in_(teachers_b),
+                        Curriculum.second_teacher_id.in_(teachers_b),
+                    ),
+                )
+            )
+        ).all()
+        if conflicts_in_a:
+            raise HTTPException(
+                status_code=409,
+                detail="Викладач другої пари вже зайнятий у цей час в іншій групі",
+            )
+
+    # Розщеплення 'both' та оновлення координат
+    for s_a in moving_a:
+        if s_a.week_type == "both":
+            split_copy = ScheduleSlot(
+                draft_id=s_a.draft_id,
+                curriculum_id=s_a.curriculum_id,
+                day_of_week=old_a_day,
+                lesson_number=old_a_lesson,
+                week_type=opposite_week,
+                room_override=s_a.room_override,
+            )
+            db.add(split_copy)
+        s_a.day_of_week = old_b_day
+        s_a.lesson_number = old_b_lesson
+        s_a.week_type = target_week
+
+    for s_b in moving_b:
+        if s_b.week_type == "both":
+            split_copy = ScheduleSlot(
+                draft_id=s_b.draft_id,
+                curriculum_id=s_b.curriculum_id,
+                day_of_week=old_b_day,
+                lesson_number=old_b_lesson,
+                week_type=opposite_week,
+                room_override=s_b.room_override,
+            )
+            db.add(split_copy)
+        s_b.day_of_week = old_a_day
+        s_b.lesson_number = old_a_lesson
+        s_b.week_type = target_week
+
+    draft.revision += 1
+    await db.commit()
+
+    query = (
+        select(ScheduleSlot)
+        .where(ScheduleSlot.draft_id == slot_a.draft_id)
+        .options(
+            selectinload(ScheduleSlot.curriculum).selectinload(Curriculum.group),
+            selectinload(ScheduleSlot.curriculum).selectinload(Curriculum.subject),
+            selectinload(ScheduleSlot.curriculum).selectinload(Curriculum.teacher),
+            selectinload(ScheduleSlot.curriculum).selectinload(Curriculum.second_teacher)
+        )
+    )
+    res = await db.execute(query)
+    return res.scalars().all()
 
 @router.post("/{id}/publish")
 async def publish_draft(

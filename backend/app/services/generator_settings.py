@@ -57,6 +57,13 @@ class GeneratorPriorities(BaseModel):
         scaled["shared_room_conflict"] = int(
             round(_BASE_WEIGHTS.shared_room_conflict * max(1.0, PRIORITY_MULTIPLIERS[self.soft_teacher_constraints]))
         ) if self.soft_teacher_constraints > 0 else _BASE_WEIGHTS.shared_room_conflict
+        scaled["teacher_single_lesson_day"] = int(
+            round(_BASE_WEIGHTS.teacher_single_lesson_day * max(1.0, PRIORITY_MULTIPLIERS[self.teacher_windows]))
+        ) if self.teacher_windows > 0 else 0
+        scaled["teacher_four_lessons_day"] = int(
+            round(_BASE_WEIGHTS.teacher_four_lessons_day * max(1.0, PRIORITY_MULTIPLIERS[self.teacher_windows]))
+        ) if self.teacher_windows > 0 else 0
+        scaled["curator_thursday_priority"] = _BASE_WEIGHTS.curator_thursday_priority
         return SolverWeights(**scaled)
 
 

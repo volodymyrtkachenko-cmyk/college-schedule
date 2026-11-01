@@ -50,6 +50,10 @@ class SolverWeights:
     subject_slot_symmetry: int = 500      # симетрія предмета (той самий день і пара в обидва тижні)
     teacher_active_day: int = 15          # компактність днів викладача («методичний день»)
     shared_room_conflict: int = 80        # одночасне використання спільного кабінету/лабораторії
+    teacher_single_lesson_day: int = 600  # одна пара викладача в день (при навантаженні >= 2 пар на тиждень)
+    teacher_four_lessons_day: int = 120   # 4 пари поспіль у викладача в один день без перерви
+    curator_thursday_priority: int = 400  # предмет куратора у своїй групі в четвер (пріоритет перед Виховною годиною)
+
 
     @classmethod
     def coerce(cls, value: "SolverWeights | dict | None") -> "SolverWeights":
@@ -937,15 +941,34 @@ def solve(
 
         # Teacher gaps and active-day compactness ("methodical day") are soft preferences.
         # Stream copies are counted once because they use one teacher slot.
-        if weights.teacher_windows or weights.teacher_active_day:
+        if (
+            weights.teacher_windows
+            or weights.teacher_active_day
+            or weights.teacher_single_lesson_day
+            or weights.teacher_four_lessons_day
+        ):
+            all_curator_teacher_ids = set(filter(None, curator_ids_by_group.values()))
             for teacher_id in teacher_curriculums:
+                t_currs = [c for c in teacher_curriculums[teacher_id] if not _is_curator_hour(c)]
+                total_t_pairs = sum(c.pairs_per_2_weeks for c in t_currs)
+                min_w1 = sum(c.pairs_per_2_weeks for c in t_currs if getattr(c, "require_week", None) == "numerator")
+                min_w2 = sum(c.pairs_per_2_weeks for c in t_currs if getattr(c, "require_week", None) == "denominator")
+                unpinned = sum(c.pairs_per_2_weeks for c in t_currs if getattr(c, "require_week", None) is None)
+                has_multi_w1 = (min_w1 + unpinned >= 2) and total_t_pairs >= 2
+                has_multi_w2 = (min_w2 + unpinned >= 2) and total_t_pairs >= 2
+
                 for d in range(DAY_IDXS):
                     active = []
+                    teaching_active = []
                     for s in range(SLOTS):
                         unique_vars = teacher_slot_vars[(teacher_id, d, s)]
                         teacher_active = model.NewBoolVar(f"active_t{teacher_id}_d{d}_s{s}")
                         model.Add(sum(unique_vars) == teacher_active)
                         active.append(teacher_active)
+                        is_curator_hr = (d in (3, 8) and s == 3 and teacher_id in all_curator_teacher_ids)
+                        if not is_curator_hr:
+                            teaching_active.append(teacher_active)
+
                     if weights.teacher_windows:
                         for first in range(SLOTS - 2):
                             window = model.NewBoolVar(f"window_t{teacher_id}_d{d}_{first}")
@@ -967,10 +990,57 @@ def solve(
                                 double_window >= active[0] + active[3] - active[1] - active[2] - 1
                             )
                             soft_penalties.append(double_window * (weights.teacher_windows * 6))
+
+                    if weights.teacher_single_lesson_day:
+                        has_multi = has_multi_w1 if d < DAYS else has_multi_w2
+                        if has_multi and teaching_active:
+                            single_day = model.NewBoolVar(f"single_day_t{teacher_id}_d{d}")
+                            model.Add(sum(teaching_active) == 1).OnlyEnforceIf(single_day)
+                            model.Add(sum(teaching_active) != 1).OnlyEnforceIf(single_day.Not())
+                            soft_penalties.append(single_day * weights.teacher_single_lesson_day)
+
+                    if weights.teacher_four_lessons_day:
+                        four_day = model.NewBoolVar(f"four_day_t{teacher_id}_d{d}")
+                        model.Add(sum(active) == 4).OnlyEnforceIf(four_day)
+                        model.Add(sum(active) != 4).OnlyEnforceIf(four_day.Not())
+                        soft_penalties.append(four_day * weights.teacher_four_lessons_day)
+
                     if weights.teacher_active_day:
                         day_busy = model.NewBoolVar(f"day_busy_t{teacher_id}_d{d}")
                         model.AddMaxEquality(day_busy, active)
                         soft_penalties.append(day_busy * weights.teacher_active_day)
+
+        # Предмет куратора у своїй групі у четвер (пріоритет на 3-тю пару перед Виховною годиною)
+        if weights.curator_thursday_priority:
+            for g_id, c_list in group_curriculums.items():
+                c_id = curator_ids_by_group.get(g_id)
+                if not c_id:
+                    continue
+                curator_teaching_currs = [
+                    c for c in c_list
+                    if not _is_curator_hour(c) and (c.teacher_id == c_id or c.second_teacher_id == c_id)
+                ]
+                if not curator_teaching_currs:
+                    continue
+                for d in (3, 8):
+                    w_name = "numerator" if d < DAYS else "denominator"
+                    valid_currs = [
+                        c for c in curator_teaching_currs
+                        if getattr(c, "require_week", None) in (None, w_name)
+                    ]
+                    if not valid_currs:
+                        continue
+                    p3_vars = [X[(c.id, d, 2)] for c in valid_currs]
+                    has_curator_p3 = model.NewBoolVar(f"curator_p3_g{g_id}_d{d}")
+                    model.Add(sum(p3_vars) >= 1).OnlyEnforceIf(has_curator_p3)
+                    model.Add(sum(p3_vars) == 0).OnlyEnforceIf(has_curator_p3.Not())
+                    soft_penalties.append((1 - has_curator_p3) * weights.curator_thursday_priority)
+
+                    p2_vars = [X[(c.id, d, 1)] for c in valid_currs]
+                    has_curator_p2 = model.NewBoolVar(f"curator_p2_g{g_id}_d{d}")
+                    model.Add(sum(p2_vars) >= 1).OnlyEnforceIf(has_curator_p2)
+                    model.Add(sum(p2_vars) == 0).OnlyEnforceIf(has_curator_p2.Not())
+                    soft_penalties.append((1 - has_curator_p2) * (weights.curator_thursday_priority // 3))
 
         # Slot symmetry between numerator and denominator for multi-pair subjects
         if weights.subject_slot_symmetry:
@@ -1316,13 +1386,25 @@ def evaluate_quality(
             teacher_day_slots.setdefault((c.second_teacher_id, d), set()).add(s)
 
     teacher_windows: list[dict] = []
+    teacher_single_pair_days: list[dict] = []
     methodical_days_count = 0
     for t_id in sorted(all_teacher_ids):
+        num_pairs = sum(len(teacher_day_slots.get((t_id, d), set())) for d in range(DAYS))
+        den_pairs = sum(len(teacher_day_slots.get((t_id, d), set())) for d in range(DAYS, DAY_IDXS))
         for d in range(DAY_IDXS):
             occupied = sorted(teacher_day_slots.get((t_id, d), set()))
             if not occupied:
                 methodical_days_count += 1
                 continue
+            week_load = num_pairs if d < DAYS else den_pairs
+            if len(occupied) == 1 and week_load >= 2:
+                teacher_single_pair_days.append({
+                    "teacher_id": t_id,
+                    "teacher_name": t_names.get(t_id, f"Викладач #{t_id}"),
+                    "day_of_week": (d % DAYS) + 1,
+                    "week_type": "numerator" if d < DAYS else "denominator",
+                    "lesson_number": occupied[0] + 1,
+                })
             if len(occupied) >= 2:
                 first_s, last_s = occupied[0], occupied[-1]
                 empty = [s + 1 for s in range(first_s, last_s + 1) if s not in occupied]
@@ -1400,6 +1482,7 @@ def evaluate_quality(
         "first_lesson_start_percent": first_lesson_start_percent,
         "methodical_days_count": methodical_days_count,
         "teacher_windows": teacher_windows,
+        "teacher_single_pair_days": teacher_single_pair_days,
         "late_starts": late_starts,
         "soft_constraint_violations": soft_violations,
         "room_conflicts": room_conflicts,

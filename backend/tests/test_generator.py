@@ -1354,6 +1354,177 @@ def test_solver_ignores_overloaded_multi_teacher_department_rooms():
     assert quality["first_lesson_start_percent"] == 100
 
 
+@pytest.mark.anyio
+async def test_swap_slots_splits_both_week_and_exchanges_positions(gen_client):
+    client, headers, sessions, fac = gen_client
+    async with sessions() as s:
+        t1 = Teacher(name="Викладач 1")
+        t2 = Teacher(name="Викладач 2")
+        subj1 = Subject(name="Предмет 1")
+        subj2 = Subject(name="Предмет 2")
+        g1 = Group(name="Гр-101", faculty_id=fac)
+        s.add_all([t1, t2, subj1, subj2, g1])
+        await s.flush()
+        c1 = Curriculum(group_id=g1.id, subject_id=subj1.id, teacher_id=t1.id, pairs_per_2_weeks=4)
+        c2 = Curriculum(group_id=g1.id, subject_id=subj2.id, teacher_id=t2.id, pairs_per_2_weeks=2)
+        draft = ScheduleDraft(name="Swap draft", draft_type="generated", status="DRAFT")
+        s.add_all([c1, c2, draft])
+        await s.flush()
+        # Slot 1 is weekly ("both"), Monday period 1
+        sl1 = ScheduleSlot(draft_id=draft.id, curriculum_id=c1.id, day_of_week=1, lesson_number=1, week_type="both")
+        # Slot 2 is numerator only, Monday period 2
+        sl2 = ScheduleSlot(draft_id=draft.id, curriculum_id=c2.id, day_of_week=1, lesson_number=2, week_type="numerator")
+        s.add_all([sl1, sl2])
+        await s.commit()
+        sl1_id, sl2_id, draft_id = sl1.id, sl2.id, draft.id
+
+    swap_resp = await client.post(
+        "/api/drafts/slots/swap",
+        json={"slot_a_id": sl1_id, "slot_b_id": sl2_id, "week_type": "numerator"},
+        headers=headers,
+    )
+    assert swap_resp.status_code == 200, swap_resp.text
+    all_slots = swap_resp.json()
+    # sl1 had week_type='both', so it should have been split into:
+    # 1) numerator at period 2
+    # 2) denominator at period 1
+    # sl2 had week_type='numerator', so it is now at period 1 (numerator)
+    assert len(all_slots) == 3
+    num_p1 = [s for s in all_slots if s["day_of_week"] == 1 and s["lesson_number"] == 1 and s["week_type"] == "numerator"]
+    num_p2 = [s for s in all_slots if s["day_of_week"] == 1 and s["lesson_number"] == 2 and s["week_type"] == "numerator"]
+    den_p1 = [s for s in all_slots if s["day_of_week"] == 1 and s["lesson_number"] == 1 and s["week_type"] == "denominator"]
+    assert len(num_p1) == 1 and num_p1[0]["curriculum"]["id"] == c2.id
+    assert len(num_p2) == 1 and num_p2[0]["curriculum"]["id"] == c1.id
+    assert len(den_p1) == 1 and den_p1[0]["curriculum"]["id"] == c1.id
+
+
+def test_solver_avoids_single_lesson_days_for_teachers():
+    # Teacher 1 has 4 pairs/2 weeks (2 pairs per week);
+    # with teacher_single_lesson_day penalty, they should be scheduled together on the same day (2 pairs in 1 day),
+    # rather than spread across 2 separate days (1 pair each day).
+    curr = [
+        NS(
+            id=1,
+            group_id=1,
+            subject_id=1,
+            teacher_id=1,
+            second_teacher_id=None,
+            is_stream=False,
+            stream_id=None,
+            pairs_per_2_weeks=4,
+            is_fixed=False,
+            strict_day=None,
+            strict_lesson=None,
+            require_week=None,
+            allow_multiple_per_day=True,
+        ),
+        NS(
+            id=2,
+            group_id=1,
+            subject_id=2,
+            teacher_id=2,
+            second_teacher_id=None,
+            is_stream=False,
+            stream_id=None,
+            pairs_per_2_weeks=26,
+            is_fixed=False,
+            strict_day=None,
+            strict_lesson=None,
+            require_week=None,
+            allow_multiple_per_day=True,
+        ),
+    ]
+    res = S.solve(
+        curr,
+        [],
+        max_time_in_seconds=5,
+        num_workers=2,
+        optimization_time_seconds=2.5,
+        use_file_hints=False,
+    )
+    assert res.ok, res.status
+    quality = S.evaluate_quality(curr, [], res.assignments)
+    # Teacher 1 should have 0 single-pair days
+    t1_single = [d for d in quality.get("teacher_single_pair_days", []) if d["teacher_id"] == 1]
+    assert t1_single == []
+
+
+def test_solver_prioritizes_curator_teaching_on_thursday_period_3():
+    # Teacher 1 is curator of Group 1 and teaches Subject 1 (2 pairs/2 weeks).
+    # Group 1 also has "Виховна година" on Thursday period 4 with Teacher 1.
+    g1 = NS(id=1, name="Гр-1", curator_id=1)
+    subj_curator = NS(name="Виховна година")
+    curr = [
+        NS(
+            id=1,
+            group_id=1,
+            subject_id=1,
+            subject=NS(name="Програмування"),
+            teacher_id=1,
+            second_teacher_id=None,
+            group=g1,
+            is_stream=False,
+            stream_id=None,
+            pairs_per_2_weeks=2,
+            is_fixed=False,
+            strict_day=None,
+            strict_lesson=None,
+            require_week=None,
+            allow_multiple_per_day=False,
+        ),
+        NS(
+            id=2,
+            group_id=1,
+            subject_id=2,
+            subject=NS(name="Математика"),
+            teacher_id=2,
+            second_teacher_id=None,
+            group=g1,
+            is_stream=False,
+            stream_id=None,
+            pairs_per_2_weeks=26,
+            is_fixed=False,
+            strict_day=None,
+            strict_lesson=None,
+            require_week=None,
+            allow_multiple_per_day=True,
+        ),
+        NS(
+            id=3,
+            group_id=1,
+            subject_id=99,
+            subject=subj_curator,
+            teacher_id=1,
+            second_teacher_id=None,
+            group=g1,
+            is_stream=False,
+            stream_id=None,
+            pairs_per_2_weeks=2,
+            is_fixed=True,
+            strict_day=4,
+            strict_lesson=4,
+            require_week=None,
+            allow_multiple_per_day=False,
+        ),
+    ]
+    res = S.solve(
+        curr,
+        [],
+        max_time_in_seconds=5,
+        num_workers=2,
+        optimization_time_seconds=2.5,
+        use_file_hints=False,
+    )
+    assert res.ok, res.status
+    # Curriculum 1 (the curator's subject) should be placed on Thursday period 3 (d in (3, 8), s == 2)
+    c1_assignments = [(d, s) for cid, d, s in res.assignments if cid == 1]
+    assert len(c1_assignments) == 2
+    for d, s in c1_assignments:
+        assert d % S.DAYS == 3  # Thursday
+        assert s == 2           # 3rd period (0-indexed 2)
+
+
+
 
 
 

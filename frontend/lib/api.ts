@@ -943,6 +943,13 @@ export interface DraftQualityReport {
     week_type: "numerator" | "denominator";
     start_lesson: number;
   }>;
+  teacher_single_pair_days?: Array<{
+    teacher_id: number;
+    teacher_name: string;
+    day_of_week: number;
+    week_type: "numerator" | "denominator";
+    lesson_number: number;
+  }>;
   soft_constraint_violations: Array<{
     teacher_id: number;
     teacher_name: string;
@@ -1039,6 +1046,18 @@ export const apiGenerator = {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ day_of_week: day, lesson_number: lesson, week_type: week })
+    }, true, true, token);
+  },
+  swapSlots: async (
+    slotAId: number,
+    slotBId: number,
+    weekType: "numerator" | "denominator",
+    token: string,
+  ): Promise<DraftSlotRecord[]> => {
+    return request<DraftSlotRecord[]>(`/api/drafts/slots/swap`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slot_a_id: slotAId, slot_b_id: slotBId, week_type: weekType }),
     }, true, true, token);
   },
   publish: async (

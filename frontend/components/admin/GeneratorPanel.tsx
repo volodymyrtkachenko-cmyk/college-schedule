@@ -73,7 +73,7 @@ export function GeneratorPanel() {
   const [slots, setSlots] = useState<DraftSlotRecord[]>([]);
   const [subs, setSubs] = useState<DraftSubstitutionRecord[]>([]);
   const [teacherConstraints, setTeacherConstraints] = useState<TeacherConstraintRecord[]>([]);
-  const [expandedQualityTab, setExpandedQualityTab] = useState<"windows" | "late" | "soft" | null>(null);
+  const [expandedQualityTab, setExpandedQualityTab] = useState<"windows" | "late" | "soft" | "single" | null>(null);
   const [filterMode, setFilterMode] = useState<"group" | "teacher">("group");
   const [filterGroupId, setFilterGroupId] = useState<number | null>(null);
   const [filterTeacherId, setFilterTeacherId] = useState<number | null>(null);
@@ -310,6 +310,22 @@ export function GeneratorPanel() {
     }
   }
 
+  async function handleSwap(slotAId: number, slotBId: number, week: "numerator" | "denominator") {
+    if (moving) return;
+    try {
+      setMoving(true);
+      const session = await api.auth.ensureAuthenticated();
+      const updatedSlots = await api.generator.swapSlots(slotAId, slotBId, week, session.access_token);
+      setSlots(updatedSlots);
+      setSelectedSlotId(null);
+      setToast("Пари успішно поміняно місцями.", "success");
+    } catch(err: any) {
+      setToast(err.message, "error");
+    } finally {
+      setMoving(false);
+    }
+  }
+
   if (activeDraft) {
     const days = [1,2,3,4,5];
     const dayNames: Record<number, string> = {1:"Понеділок", 2:"Вівторок", 3:"Середа", 4:"Четвер", 5:"П’ятниця"};
@@ -416,27 +432,38 @@ export function GeneratorPanel() {
       const first_lesson_start_percent =
         totalGroupDays > 0 ? Math.round((firstLessonStarts / totalGroupDays) * 100) : 100;
 
-      // Teacher windows & methodical days
+      // Teacher windows, single pair days & methodical days
       const teacher_windows: DraftQualityReport["teacher_windows"] = [];
+      const teacher_single_pair_days: NonNullable<DraftQualityReport["teacher_single_pair_days"]> = [];
       let methodical_days_count = 0;
       for (const t of teachers) {
         for (const w of ["numerator", "denominator"] as const) {
+          const weekOccurrences = slots.filter(
+            (s) =>
+              (s.week_type === w || s.week_type === "both") &&
+              (s.curriculum.teacher.id === t.id || s.curriculum.second_teacher?.id === t.id),
+          );
+          const weekLoad = weekOccurrences.length;
           for (const d of days) {
             const occupied = Array.from(
               new Set(
-                slots
-                  .filter(
-                    (s) =>
-                      s.day_of_week === d &&
-                      (s.week_type === w || s.week_type === "both") &&
-                      (s.curriculum.teacher.id === t.id || s.curriculum.second_teacher?.id === t.id),
-                  )
+                weekOccurrences
+                  .filter((s) => s.day_of_week === d)
                   .map((s) => s.lesson_number),
               ),
             ).sort((a, b) => a - b);
             if (occupied.length === 0) {
               methodical_days_count += 1;
               continue;
+            }
+            if (occupied.length === 1 && weekLoad >= 2) {
+              teacher_single_pair_days.push({
+                teacher_id: t.id,
+                teacher_name: t.name,
+                day_of_week: d,
+                week_type: w,
+                lesson_number: occupied[0],
+              });
             }
             if (occupied.length >= 2) {
               const firstL = occupied[0];
@@ -595,6 +622,7 @@ export function GeneratorPanel() {
         first_lesson_start_percent,
         methodical_days_count,
         teacher_windows,
+        teacher_single_pair_days,
         late_starts,
         soft_constraint_violations,
         room_conflicts,
@@ -773,6 +801,146 @@ export function GeneratorPanel() {
       const res = evaluateMoveTarget(day, lesson);
       return res.status === "ideal" || res.status === "warning";
     };
+
+    const evaluateSwapTarget = (
+      targetSlot: DraftSlotRecord,
+    ): {
+      status: "none" | "current" | "ideal" | "warning" | "blocked";
+      label?: string;
+    } => {
+      if (!selectedSlot) return { status: "none" };
+      if (selectedSlot.id === targetSlot.id) return { status: "current" };
+
+      const slotAMatchesWeek = selectedSlot.week_type === "both" || selectedSlot.week_type === activeWeek;
+      const slotBMatchesWeek = targetSlot.week_type === "both" || targetSlot.week_type === activeWeek;
+      if (!slotAMatchesWeek || !slotBMatchesWeek) {
+        return { status: "blocked", label: "Пара з іншого тижня" };
+      }
+
+      const dayA = selectedSlot.day_of_week;
+      const lessonA = selectedSlot.lesson_number;
+      const dayB = targetSlot.day_of_week;
+      const lessonB = targetSlot.lesson_number;
+
+      if (dayA === dayB && lessonA === lessonB) {
+        return { status: "current" };
+      }
+
+      if (
+        (dayB === 4 && lessonB === 4 && selectedSlot.curriculum.subject.name !== "Виховна година") ||
+        (dayA === 4 && lessonA === 4 && targetSlot.curriculum.subject.name !== "Виховна година")
+      ) {
+        return { status: "blocked", label: "Резерв під Виховну годину" };
+      }
+
+      const movingSlotsA =
+        selectedSlot.curriculum.is_stream && selectedSlot.curriculum.stream_id
+          ? slots.filter(
+              (s) =>
+                s.curriculum.is_stream &&
+                s.curriculum.stream_id === selectedSlot.curriculum.stream_id &&
+                s.day_of_week === dayA &&
+                s.lesson_number === lessonA &&
+                (s.week_type === activeWeek || s.week_type === "both"),
+            )
+          : [selectedSlot];
+
+      const movingSlotsB =
+        targetSlot.curriculum.is_stream && targetSlot.curriculum.stream_id
+          ? slots.filter(
+              (s) =>
+                s.curriculum.is_stream &&
+                s.curriculum.stream_id === targetSlot.curriculum.stream_id &&
+                s.day_of_week === dayB &&
+                s.lesson_number === lessonB &&
+                (s.week_type === activeWeek || s.week_type === "both"),
+            )
+          : [targetSlot];
+
+      const allMovingIds = new Set([...movingSlotsA.map((s) => s.id), ...movingSlotsB.map((s) => s.id)]);
+
+      const teachersA = new Set(
+        movingSlotsA.flatMap((s) => [
+          s.curriculum.teacher.id,
+          ...(s.curriculum.second_teacher ? [s.curriculum.second_teacher.id] : []),
+        ]),
+      );
+      const teachersB = new Set(
+        movingSlotsB.flatMap((s) => [
+          s.curriculum.teacher.id,
+          ...(s.curriculum.second_teacher ? [s.curriculum.second_teacher.id] : []),
+        ]),
+      );
+
+      for (const s of slots) {
+        if (allMovingIds.has(s.id)) continue;
+        if (s.day_of_week === dayB && s.lesson_number === lessonB && (s.week_type === "both" || s.week_type === activeWeek)) {
+          const sTeachers = [
+            s.curriculum.teacher.id,
+            ...(s.curriculum.second_teacher ? [s.curriculum.second_teacher.id] : []),
+          ];
+          if (sTeachers.some((tId) => teachersA.has(tId))) {
+            return {
+              status: "blocked",
+              label: `Викладач пари "${selectedSlot.curriculum.subject.name}" зайнятий (${s.curriculum.group.name})`,
+            };
+          }
+        }
+        if (s.day_of_week === dayA && s.lesson_number === lessonA && (s.week_type === "both" || s.week_type === activeWeek)) {
+          const sTeachers = [
+            s.curriculum.teacher.id,
+            ...(s.curriculum.second_teacher ? [s.curriculum.second_teacher.id] : []),
+          ];
+          if (sTeachers.some((tId) => teachersB.has(tId))) {
+            return {
+              status: "blocked",
+              label: `Викладач пари "${targetSlot.curriculum.subject.name}" зайнятий (${s.curriculum.group.name})`,
+            };
+          }
+        }
+      }
+
+      const hardHitA = teacherConstraints.find(
+        (con) =>
+          con.is_hard_constraint &&
+          teachersA.has(con.teacher_id) &&
+          con.day_of_week === dayB &&
+          (!con.lesson_number || con.lesson_number === lessonB),
+      );
+      if (hardHitA) {
+        return { status: "blocked", label: "Викладач першої пари недоступний у цей час" };
+      }
+      const hardHitB = teacherConstraints.find(
+        (con) =>
+          con.is_hard_constraint &&
+          teachersB.has(con.teacher_id) &&
+          con.day_of_week === dayA &&
+          (!con.lesson_number || con.lesson_number === lessonA),
+      );
+      if (hardHitB) {
+        return { status: "blocked", label: "Викладач другої пари недоступний у цей час" };
+      }
+
+      const softHitA = teacherConstraints.find(
+        (con) =>
+          !con.is_hard_constraint &&
+          teachersA.has(con.teacher_id) &&
+          con.day_of_week === dayB &&
+          (!con.lesson_number || con.lesson_number === lessonB),
+      );
+      const softHitB = teacherConstraints.find(
+        (con) =>
+          !con.is_hard_constraint &&
+          teachersB.has(con.teacher_id) &&
+          con.day_of_week === dayA &&
+          (!con.lesson_number || con.lesson_number === lessonA),
+      );
+      if (softHitA || softHitB) {
+        return { status: "warning", label: "Небажаний час одного з викладачів" };
+      }
+
+      return { status: "ideal" };
+    };
     
     return (
       <div className="flex flex-col gap-5">
@@ -812,7 +980,7 @@ export function GeneratorPanel() {
               </span>
             </div>
 
-            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-5">
               {/* 1. Стабільність тижнів */}
               <div className="rounded-xl border border-sys-border/70 bg-sys-bg/50 p-3">
                 <div className="flex items-center justify-between">
@@ -876,11 +1044,48 @@ export function GeneratorPanel() {
                 <p className="mt-1 text-[11px] text-sys-text-muted leading-snug">
                   {liveQuality.teacher_windows.length === 0
                     ? "✓ Жодного вікна у викладачів"
-                    : `Подвійних: ${liveQuality.teacher_windows.filter((w) => w.is_double).length} (натисніть для списку)`}
+                    : `Подвійних: ${liveQuality.teacher_windows.filter((w) => w.is_double).length} (натисніть)`}
                 </p>
               </button>
 
-              {/* 4. Побажання та аудиторії */}
+              {/* 4. По 1 парі в день у викладачів */}
+              <button
+                type="button"
+                onClick={() =>
+                  setExpandedQualityTab(
+                    expandedQualityTab === "single"
+                      ? null
+                      : (liveQuality.teacher_single_pair_days?.length ?? 0) > 0
+                        ? "single"
+                        : null,
+                  )
+                }
+                className={`rounded-xl border p-3 text-left transition-colors ${
+                  expandedQualityTab === "single"
+                    ? "border-sys-accent bg-sys-accent/10"
+                    : "border-sys-border/70 bg-sys-bg/50 hover:border-sys-border"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-sys-text-secondary">По 1 парі в день</span>
+                  <span
+                    className={`text-sm font-bold ${
+                      (liveQuality.teacher_single_pair_days?.length ?? 0) === 0
+                        ? "text-emerald-400"
+                        : "text-amber-300"
+                    }`}
+                  >
+                    {liveQuality.teacher_single_pair_days?.length ?? 0}
+                  </span>
+                </div>
+                <p className="mt-1 text-[11px] text-sys-text-muted leading-snug">
+                  {(liveQuality.teacher_single_pair_days?.length ?? 0) === 0
+                    ? "✓ Жодної одиночної пари"
+                    : `Одиночних: ${liveQuality.teacher_single_pair_days?.length} (натисніть)`}
+                </p>
+              </button>
+
+              {/* 5. Побажання та аудиторії */}
               <button
                 type="button"
                 onClick={() => {
@@ -988,6 +1193,42 @@ export function GeneratorPanel() {
                       <strong>{item.group_name}</strong>
                       <span className="opacity-80">
                         · {dayNames[item.day_of_week]} ({item.week_type === "numerator" ? "Чис." : "Знам."}, з {item.start_lesson}-ї пари)
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {expandedQualityTab === "single" && (liveQuality.teacher_single_pair_days?.length ?? 0) > 0 && (
+              <div className="rounded-xl border border-sys-border/60 bg-sys-bg/70 p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-sys-text-primary">
+                    Викладачі з 1 парою в день (натисніть для переходу до графіка):
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setExpandedQualityTab(null)}
+                    className="text-xs text-sys-text-muted hover:text-sys-text-primary"
+                  >
+                    Згорнути
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {liveQuality.teacher_single_pair_days!.map((item, idx) => (
+                    <button
+                      key={`single-${item.teacher_id}-${item.week_type}-${item.day_of_week}-${idx}`}
+                      type="button"
+                      onClick={() => {
+                        setFilterMode("teacher");
+                        setFilterTeacherId(item.teacher_id);
+                        setActiveWeek(item.week_type);
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-200 hover:bg-amber-500/20 transition-colors"
+                    >
+                      <span>👨‍🏫 {formatTeacherName(item.teacher_name)}</span>
+                      <span className="opacity-80">
+                        · {dayNames[item.day_of_week]} ({item.week_type === "numerator" ? "Чис." : "Знам."}, {item.lesson_number}-та пара)
                       </span>
                     </button>
                   ))}
@@ -1198,6 +1439,14 @@ export function GeneratorPanel() {
                               key={slot.id}
                               draggable
                               onDragStart={(event) => event.dataTransfer.setData("slot_id", slot.id.toString())}
+                              onDrop={(event) => {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                const droppedSlotId = Number(event.dataTransfer.getData("slot_id"));
+                                if (droppedSlotId && droppedSlotId !== slot.id) {
+                                  void handleSwap(droppedSlotId, slot.id, activeWeek);
+                                }
+                              }}
                               className={`rounded-lg border bg-sys-card p-2.5 text-sm shadow-sm ${
                                 selectedSlotId === slot.id ? "border-sys-accent ring-1 ring-sys-accent" : "border-sys-border"
                               } cursor-grab active:cursor-grabbing`}
@@ -1234,16 +1483,76 @@ export function GeneratorPanel() {
                                   ].filter(Boolean).join(" / "),
                                 ].filter(Boolean).join(" · ")}
                               </p>
-                              <button
-                                type="button"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  setSelectedSlotId(selectedSlotId === slot.id ? null : slot.id);
-                                }}
-                                className="mt-2 rounded-md border border-sys-border px-2 py-1 text-xs font-medium text-sys-text-secondary transition-colors hover:border-sys-accent/50 hover:text-sys-accent"
-                              >
-                                {selectedSlotId === slot.id ? "Обрано для переміщення" : "Перемістити"}
-                              </button>
+                              {selectedSlotId === slot.id ? (
+                                <button
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    setSelectedSlotId(null);
+                                  }}
+                                  className="mt-2 w-full rounded-md border border-sys-accent bg-sys-accent/15 px-2 py-1 text-xs font-semibold text-sys-accent transition-colors hover:bg-sys-accent/25"
+                                >
+                                  ✕ Скасувати вибір
+                                </button>
+                              ) : selectedSlot ? (
+                                (() => {
+                                  const swapEval = evaluateSwapTarget(slot);
+                                  if (swapEval.status === "ideal" || swapEval.status === "warning") {
+                                    return (
+                                      <button
+                                        type="button"
+                                        disabled={moving}
+                                        onClick={(event) => {
+                                          event.stopPropagation();
+                                          void handleSwap(selectedSlot.id, slot.id, activeWeek);
+                                        }}
+                                        className={`mt-2 flex w-full flex-col items-center justify-center rounded-md border px-2 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50 ${
+                                          swapEval.status === "warning"
+                                            ? "border-amber-400/50 bg-amber-500/15 text-amber-200 hover:bg-amber-500/25"
+                                            : "border-sys-accent/60 bg-sys-accent/15 text-sys-accent hover:bg-sys-accent/25"
+                                        }`}
+                                      >
+                                        <span className="flex items-center gap-1">
+                                          <span>⇄</span> Поміняти місцями
+                                        </span>
+                                        {swapEval.status === "warning" && swapEval.label && (
+                                          <span className="mt-0.5 text-[10px] font-normal opacity-90">⚠ {swapEval.label}</span>
+                                        )}
+                                      </button>
+                                    );
+                                  }
+                                  return (
+                                    <div className="mt-2 space-y-1">
+                                      {swapEval.status === "blocked" && swapEval.label && (
+                                        <div className="rounded border border-rose-500/20 bg-rose-500/10 px-1.5 py-1 text-center text-[10px] font-medium text-rose-300">
+                                          ⛔ {swapEval.label}
+                                        </div>
+                                      )}
+                                      <button
+                                        type="button"
+                                        onClick={(event) => {
+                                          event.stopPropagation();
+                                          setSelectedSlotId(slot.id);
+                                        }}
+                                        className="w-full rounded-md border border-sys-border px-2 py-0.5 text-[11px] font-medium text-sys-text-muted transition-colors hover:text-sys-text-primary"
+                                      >
+                                        Вибрати цю замість
+                                      </button>
+                                    </div>
+                                  );
+                                })()
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    setSelectedSlotId(slot.id);
+                                  }}
+                                  className="mt-2 rounded-md border border-sys-border px-2 py-1 text-xs font-medium text-sys-text-secondary transition-colors hover:border-sys-accent/50 hover:text-sys-accent"
+                                >
+                                  Перемістити
+                                </button>
+                              )}
                             </article>
                           );
                         })}
