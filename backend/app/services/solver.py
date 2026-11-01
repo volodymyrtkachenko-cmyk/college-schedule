@@ -956,20 +956,6 @@ def solve(
             all_curator_teacher_ids = set(filter(None, curator_ids_by_group.values()))
             for teacher_id in teacher_curriculums:
                 t_currs = [c for c in teacher_curriculums[teacher_id] if not _is_curator_hour(c)]
-                total_t_pairs = sum(c.pairs_per_2_weeks for c in t_currs)
-                t_pairs_w1 = sum(
-                    c.pairs_per_2_weeks if getattr(c, "require_week", None) == "numerator"
-                    else (c.pairs_per_2_weeks // 2 if getattr(c, "require_week", None) is None else 0)
-                    for c in t_currs
-                )
-                t_pairs_w2 = sum(
-                    c.pairs_per_2_weeks if getattr(c, "require_week", None) == "denominator"
-                    else (c.pairs_per_2_weeks // 2 if getattr(c, "require_week", None) is None else 0)
-                    for c in t_currs
-                )
-                has_multi_w1 = t_pairs_w1 >= 2 and total_t_pairs >= 2
-                has_multi_w2 = t_pairs_w2 >= 2 and total_t_pairs >= 2
-
                 for d in range(DAY_IDXS):
                     active = []
                     teaching_active = []
@@ -979,48 +965,71 @@ def solve(
                         model.Add(sum(unique_vars) == teacher_active)
                         active.append(teacher_active)
                         is_curator_hr = (d in (3, 8) and s == 3 and teacher_id in all_curator_teacher_ids)
-                        if not is_curator_hr:
+                        if is_curator_hr:
+                            teaching_active_var = model.NewBoolVar(
+                                f"teaching_active_t{teacher_id}_d{d}_s{s}"
+                            )
+                            model.Add(teaching_active_var == 0)
+                            teaching_active.append(teaching_active_var)
+                        else:
                             teaching_active.append(teacher_active)
 
                     if weights.teacher_windows:
                         for first in range(SLOTS - 2):
                             window = model.NewBoolVar(f"window_t{teacher_id}_d{d}_{first}")
-                            model.Add(window <= active[first])
-                            model.Add(window <= active[first + 2])
-                            model.Add(window <= 1 - active[first + 1])
+                            model.Add(window <= teaching_active[first])
+                            model.Add(window <= teaching_active[first + 2])
+                            model.Add(window <= 1 - teaching_active[first + 1])
                             model.Add(
-                                window >= active[first] + active[first + 2] - active[first + 1] - 1
+                                window >= teaching_active[first] + teaching_active[first + 2] - teaching_active[first + 1] - 1
                             )
                             soft_penalties.append(window * (weights.teacher_windows * 2))
                         # Double window: [1, 0, 0, 1] (lessons 1 and 4 with lessons 2 and 3 empty)
                         if SLOTS >= 4:
                             double_window = model.NewBoolVar(f"double_window_t{teacher_id}_d{d}")
-                            model.Add(double_window <= active[0])
-                            model.Add(double_window <= active[3])
-                            model.Add(double_window <= 1 - active[1])
-                            model.Add(double_window <= 1 - active[2])
+                            model.Add(double_window <= teaching_active[0])
+                            model.Add(double_window <= teaching_active[3])
+                            model.Add(double_window <= 1 - teaching_active[1])
+                            model.Add(double_window <= 1 - teaching_active[2])
                             model.Add(
-                                double_window >= active[0] + active[3] - active[1] - active[2] - 1
+                                double_window >= teaching_active[0] + teaching_active[3] - teaching_active[1] - teaching_active[2] - 1
                             )
                             soft_penalties.append(double_window * (weights.teacher_windows * 8))
 
                     if weights.teacher_single_lesson_day:
-                        has_multi = has_multi_w1 if d < DAYS else has_multi_w2
-                        if has_multi and teaching_active:
-                            single_day = model.NewBoolVar(f"single_day_t{teacher_id}_d{d}")
-                            model.Add(sum(teaching_active) == 1).OnlyEnforceIf(single_day)
-                            model.Add(sum(teaching_active) != 1).OnlyEnforceIf(single_day.Not())
-                            soft_penalties.append(single_day * weights.teacher_single_lesson_day)
+                        week_start = 0 if d < DAYS else DAYS
+                        # Reuse the already-created day variables when deciding
+                        # whether this teacher has at least two lessons that week.
+                        # The weekly load is intentionally based on actual model
+                        # variables; floor(pairs / 2) incorrectly disabled this
+                        # penalty for teachers teaching several one-pair subjects.
+                        week_load_expr = sum(
+                            sum(teacher_slot_vars[(teacher_id, week_day, week_slot)])
+                            for week_day in range(week_start, week_start + DAYS)
+                            for week_slot in range(SLOTS)
+                        )
+                        week_has_multi = model.NewBoolVar(
+                            f"week_has_multi_t{teacher_id}_{week_start}"
+                        )
+                        model.Add(week_load_expr >= 2).OnlyEnforceIf(week_has_multi)
+                        model.Add(week_load_expr <= 1).OnlyEnforceIf(week_has_multi.Not())
+                        day_single = model.NewBoolVar(f"single_candidate_t{teacher_id}_d{d}")
+                        model.Add(sum(teaching_active) == 1).OnlyEnforceIf(day_single)
+                        model.Add(sum(teaching_active) != 1).OnlyEnforceIf(day_single.Not())
+                        single_day = model.NewBoolVar(f"single_day_t{teacher_id}_d{d}")
+                        model.AddBoolAnd([day_single, week_has_multi]).OnlyEnforceIf(single_day)
+                        model.AddBoolOr([day_single.Not(), week_has_multi.Not()]).OnlyEnforceIf(single_day.Not())
+                        soft_penalties.append(single_day * weights.teacher_single_lesson_day)
 
                     if weights.teacher_four_lessons_day:
                         four_day = model.NewBoolVar(f"four_day_t{teacher_id}_d{d}")
-                        model.Add(sum(active) == 4).OnlyEnforceIf(four_day)
-                        model.Add(sum(active) != 4).OnlyEnforceIf(four_day.Not())
+                        model.Add(sum(teaching_active) == 4).OnlyEnforceIf(four_day)
+                        model.Add(sum(teaching_active) != 4).OnlyEnforceIf(four_day.Not())
                         soft_penalties.append(four_day * weights.teacher_four_lessons_day)
 
                     if weights.teacher_active_day:
                         day_busy = model.NewBoolVar(f"day_busy_t{teacher_id}_d{d}")
-                        model.AddMaxEquality(day_busy, active)
+                        model.AddMaxEquality(day_busy, teaching_active)
                         soft_penalties.append(day_busy * weights.teacher_active_day)
 
         # Предмет куратора у своїй групі у четвер (пріоритет на 3-тю пару перед Виховною годиною)
@@ -1463,6 +1472,8 @@ def evaluate_quality(
     for cid, d, s in assign_set:
         c = by_id.get(cid)
         if c is None:
+            continue
+        if _is_curator_hour(c):
             continue
         if c.teacher_id:
             teacher_day_slots.setdefault((c.teacher_id, d), set()).add(s)
