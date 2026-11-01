@@ -858,8 +858,13 @@ def solve(
             instance.parameters.random_seed = random_seed
         return instance
 
-    def add_soft_preference_penalties() -> list:
-        soft_penalties = list(day_pattern_penalties)
+    def add_soft_preference_penalties() -> dict[str, list]:
+        penalties = {
+            "teacher": [],
+            "symmetry": [],
+            "group": list(day_pattern_penalties),
+            "secondary": [],
+        }
         for g_id, group_load, numerator_load, denominator_load in (
             unbalanced_groups if weights.group_week_balance else ()
         ):
@@ -875,7 +880,7 @@ def solve(
             )
             model.Add(week_difference == numerator_load - denominator_load)
             model.AddAbsEquality(week_imbalance, week_difference)
-            soft_penalties.append(week_imbalance * weights.group_week_balance)
+            penalties["group"].append(week_imbalance * weights.group_week_balance)
 
         for c, w1, w2 in (unbalanced_curriculums if weights.subject_week_balance else ()):
             week_difference = model.NewIntVar(
@@ -890,7 +895,7 @@ def solve(
             )
             model.Add(week_difference == w1 - w2)
             model.AddAbsEquality(week_imbalance, week_difference)
-            soft_penalties.append(week_imbalance * weights.subject_week_balance)
+            penalties["group"].append(week_imbalance * weights.subject_week_balance)
 
         for c in (curriculums if weights.three_consecutive_days else ()):
             req_w = getattr(c, "require_week", None)
@@ -923,7 +928,7 @@ def solve(
                         model.AddBoolOr(
                             [day.Not() for day in daily_active[first_day:first_day + 2]]
                         ).OnlyEnforceIf(two_consecutive_days.Not())
-                        soft_penalties.append(two_consecutive_days * two_day_weight)
+                        penalties["secondary"].append(two_consecutive_days * two_day_weight)
                 else:
                     for first_day in range(DAYS - 2):
                         three_consecutive_days = model.NewBoolVar(
@@ -935,7 +940,7 @@ def solve(
                         model.AddBoolOr(
                             [day.Not() for day in daily_active[first_day:first_day + 3]]
                         ).OnlyEnforceIf(three_consecutive_days.Not())
-                        soft_penalties.append(
+                        penalties["secondary"].append(
                             three_consecutive_days * weights.three_consecutive_days
                         )
 
@@ -943,7 +948,7 @@ def solve(
         if weights.soft_teacher_constraints:
             for teacher_id, d, s in sorted(soft_teacher_slots):
                 for var in teacher_slot_vars.get((teacher_id, d, s), ()):
-                    soft_penalties.append(var * weights.soft_teacher_constraints)
+                    penalties["secondary"].append(var * weights.soft_teacher_constraints)
 
         # Teacher gaps and active-day compactness ("methodical day") are soft preferences.
         # Stream copies are counted once because they use one teacher slot.
@@ -1000,7 +1005,7 @@ def solve(
                             model.Add(
                                 window >= teaching_active[first] + teaching_active[first + 2] - teaching_active[first + 1] - 1
                             )
-                            soft_penalties.append(window * (weights.teacher_windows * 2))
+                            penalties["teacher"].append(window * (weights.teacher_windows * 2))
                         # Double window: [1, 0, 0, 1] (lessons 1 and 4 with lessons 2 and 3 empty)
                         if SLOTS >= 4:
                             double_window = model.NewBoolVar(f"double_window_t{teacher_id}_d{d}")
@@ -1011,7 +1016,7 @@ def solve(
                             model.Add(
                                 double_window >= teaching_active[0] + teaching_active[3] - teaching_active[1] - teaching_active[2] - 1
                             )
-                            soft_penalties.append(double_window * (weights.teacher_windows * 8))
+                            penalties["teacher"].append(double_window * (weights.teacher_windows * 8))
 
                     if weights.teacher_single_lesson_day:
                         week_start = 0 if d < DAYS else DAYS
@@ -1036,18 +1041,18 @@ def solve(
                         single_day = model.NewBoolVar(f"single_day_t{teacher_id}_d{d}")
                         model.AddBoolAnd([day_single, week_has_multi]).OnlyEnforceIf(single_day)
                         model.AddBoolOr([day_single.Not(), week_has_multi.Not()]).OnlyEnforceIf(single_day.Not())
-                        soft_penalties.append(single_day * weights.teacher_single_lesson_day)
+                        penalties["teacher"].append(single_day * weights.teacher_single_lesson_day)
 
                     if weights.teacher_four_lessons_day:
                         four_day = model.NewBoolVar(f"four_day_t{teacher_id}_d{d}")
                         model.Add(sum(teaching_active) == 4).OnlyEnforceIf(four_day)
                         model.Add(sum(teaching_active) != 4).OnlyEnforceIf(four_day.Not())
-                        soft_penalties.append(four_day * weights.teacher_four_lessons_day)
+                        penalties["teacher"].append(four_day * weights.teacher_four_lessons_day)
 
                     if weights.teacher_active_day:
                         day_busy = model.NewBoolVar(f"day_busy_t{teacher_id}_d{d}")
                         model.AddMaxEquality(day_busy, teaching_active)
-                        soft_penalties.append(day_busy * weights.teacher_active_day)
+                        penalties["teacher"].append(day_busy * weights.teacher_active_day)
                         busy_days_by_week[0 if d < DAYS else DAYS].append(day_busy)
 
                 # Penalize only days beyond the theoretical minimum needed for
@@ -1066,7 +1071,7 @@ def solve(
                             excess_days,
                             [0, sum(busy_days) - minimum_days],
                         )
-                        soft_penalties.append(excess_days * weights.teacher_active_day)
+                        penalties["teacher"].append(excess_days * weights.teacher_active_day)
 
         # Предмет куратора у своїй групі у четвер (пріоритет на 3-тю пару перед Виховною годиною)
         if weights.curator_thursday_priority:
@@ -1092,13 +1097,13 @@ def solve(
                     has_curator_p3 = model.NewBoolVar(f"curator_p3_g{g_id}_d{d}")
                     model.Add(sum(p3_vars) >= 1).OnlyEnforceIf(has_curator_p3)
                     model.Add(sum(p3_vars) == 0).OnlyEnforceIf(has_curator_p3.Not())
-                    soft_penalties.append((1 - has_curator_p3) * weights.curator_thursday_priority)
+                    penalties["secondary"].append((1 - has_curator_p3) * weights.curator_thursday_priority)
 
                     p2_vars = [X[(c.id, d, 1)] for c in valid_currs]
                     has_curator_p2 = model.NewBoolVar(f"curator_p2_g{g_id}_d{d}")
                     model.Add(sum(p2_vars) >= 1).OnlyEnforceIf(has_curator_p2)
                     model.Add(sum(p2_vars) == 0).OnlyEnforceIf(has_curator_p2.Not())
-                    soft_penalties.append((1 - has_curator_p2) * (weights.curator_thursday_priority // 3))
+                    penalties["secondary"].append((1 - has_curator_p2) * (weights.curator_thursday_priority // 3))
 
         # Slot symmetry between numerator and denominator for multi-pair subjects
         if weights.subject_slot_symmetry:
@@ -1115,7 +1120,7 @@ def solve(
                         asym = model.NewBoolVar(f"asym_c{c.id}_d{d}_s{s}")
                         model.Add(asym >= X[(c.id, d, s)] - X[(c.id, d + DAYS, s)])
                         model.Add(asym >= X[(c.id, d + DAYS, s)] - X[(c.id, d, s)])
-                        soft_penalties.append(asym * weights.subject_slot_symmetry)
+                        penalties["symmetry"].append(asym * weights.subject_slot_symmetry)
 
         # Shared physical room conflict avoidance across different teachers
         if weights.shared_room_conflict:
@@ -1145,7 +1150,7 @@ def solve(
                                 0, len(room_vars) - 1, f"room_ov_{room_idx}_d{d}_s{s}"
                             )
                             model.Add(room_ov >= sum(room_vars) - 1)
-                            soft_penalties.append(room_ov * weights.shared_room_conflict)
+                            penalties["secondary"].append(room_ov * weights.shared_room_conflict)
         # Якщо у предмета увімкнено allow_multiple_per_day (або кілька рядків того самого предмета),
         # але загальне навантаження предмета <= 8 пар/2 тижні і це не фіксований блок (12, 1234),
         # штрафуємо появу 2 пар одного предмета в один день і особливо розірвані пари (1-ша і 3-тя).
@@ -1159,16 +1164,16 @@ def solve(
                     day_cnt = sum(X[(c.id, d, s)] for s in range(SLOTS))
                     extra_same_day = model.NewIntVar(0, SLOTS - 1, f"extra_sameday_c{c.id}_d{d}")
                     model.Add(extra_same_day >= day_cnt - 1)
-                    soft_penalties.append(extra_same_day * 2_500)
+                    penalties["secondary"].append(extra_same_day * 2_500)
                     # Додатковий штраф, якщо пари одного предмета розірвані іншим предметом (напр. 1-ша і 3-тя)
                     for first in range(SLOTS - 2):
                         split_subj = model.NewBoolVar(f"split_subj_c{c.id}_d{d}_{first}")
                         model.Add(
                             split_subj >= X[(c.id, d, first)] + X[(c.id, d, first + 2)] - X[(c.id, d, first + 1)] - 1
                         )
-                        soft_penalties.append(split_subj * 5_000)
+                        penalties["secondary"].append(split_subj * 5_000)
 
-        return soft_penalties
+        return penalties
 
     def result_from(instance: cp_model.CpSolver, status: int, *, optimized: bool) -> SolveResult:
         assignments = [key for key, var in X.items() if instance.Value(var) == 1]
@@ -1258,136 +1263,78 @@ def solve(
         opt_budget = min(remaining, opt_limit)
         if opt_budget > 0.05:
             penalties = add_soft_preference_penalties()
-            if penalties:
-                _report_progress(progress_path, "optimizing", 55, message="Оптимізація якості розкладу...")
-                model.Minimize(sum(penalties))
+            phases = [
+                ("teacher", "Оптимізація компактності викладачів"),
+                ("symmetry", "Оптимізація симетрії тижнів"),
+                ("group", "Оптимізація стартів і балансу груп"),
+                ("secondary", "Фінальна оптимізація побажань і кабінетів"),
+            ]
+            active_phases = [(name, message, penalties[name]) for name, message in phases if penalties[name]]
+            if active_phases:
+                _report_progress(progress_path, "optimizing", 55, message="Багатофазна оптимізація якості...")
                 opt_started = time.monotonic()
-                # More independent starts improve the chance of escaping a
-                # locally good but quality-poor arrangement. Every other
-                # pass deliberately drops the previous hint to preserve
-                # search diversity.
-                restart_count = 4 if opt_budget >= 120.0 else 3 if opt_budget >= 60.0 else 1
-                restart_budget = opt_budget / restart_count
-                best_result = None
-                best_quality_score = -1
                 total_solutions = 0
+                best_result = feasible_result
+                phase_count = len(active_phases)
 
-                def _calc_opt_pct(now_ts: float, last_sol_ts: float) -> int:
-                    opt_elapsed = max(0.0, now_ts - opt_started)
-                    asymp_time_frac = 1.0 - math.exp(-opt_elapsed / 35.0)
-                    budget_frac = min(1.0, opt_elapsed / max(1.0, opt_budget))
-                    combined_frac = min(1.0, max(budget_frac, asymp_time_frac * 0.85))
-                    return min(92, max(55, int(55 + combined_frac * 37)))
-
-                class OptimizationTracker(cp_model.CpSolverSolutionCallback):
-                    def __init__(self):
-                        super().__init__()
-                        self.solutions_count = 0
-                        self.last_time = time.monotonic()
-                        self.started_at = self.last_time
-                        self.best_objective = None
-
-                    def on_solution_callback(self):
-                        now = time.monotonic()
-                        self.solutions_count += 1
-                        self.last_time = now
-                        self.best_objective = self.objective_value
-                        pct = _calc_opt_pct(now, now)
-                        _report_progress(
-                            progress_path,
-                            "optimizing",
-                            pct,
-                            solutions_found=total_solutions + self.solutions_count,
-                            message=(
-                                f"Оптимізація якості (прохід {current_restart + 1}/{restart_count}, "
-                                f"штраф: {int(self.best_objective)})"
-                            ),
-                        )
-
-                for current_restart in range(restart_count):
+                for phase_index, (phase_name, phase_message, phase_terms) in enumerate(active_phases):
                     remaining_opt = opt_budget - (time.monotonic() - opt_started)
                     if remaining_opt <= 0.05:
                         break
-                    selected = set((best_result or feasible_result).assignments)
-                    model.ClearHints()
-                    if current_restart % 2 == 0:
-                        for key, var in X.items():
-                            model.AddHint(var, int(key in selected))
+                    phase_budget = remaining_opt / (phase_count - phase_index)
+                    phase_started = time.monotonic()
+                    phase_expr = sum(phase_terms)
+                    model.Minimize(phase_expr)
+                    phase_best_value: int | None = None
+                    phase_best_assignments: list[tuple[int, int, int]] | None = None
+                    restart_count = 2 if phase_budget >= 30.0 else 1
+                    restart_budget = phase_budget / restart_count
 
-                    optimizer = new_solver(
-                        min(restart_budget, remaining_opt),
-                        None if seed is None else seed + current_restart + 1,
+                    for restart in range(restart_count):
+                        remaining_phase = phase_budget - (time.monotonic() - phase_started)
+                        if remaining_phase <= 0.05:
+                            break
+                        selected = set(best_result.assignments)
+                        model.ClearHints()
+                        if restart == 0:
+                            for key, var in X.items():
+                                model.AddHint(var, int(key in selected))
+                        optimizer = new_solver(
+                            min(restart_budget, remaining_phase),
+                            None if seed is None else seed + phase_index * 10 + restart + 1,
+                        )
+                        optimizer.parameters.num_search_workers = max(min(6, num_workers), actual_workers)
+                        optimizer.parameters.randomize_search = True
+                        status = optimizer.Solve(model)
+                        total_solutions += 1
+                        if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+                            continue
+                        value = sum(optimizer.Value(term) for term in phase_terms)
+                        if phase_best_value is None or value < phase_best_value:
+                            phase_best_value = value
+                            phase_best_assignments = [
+                                key for key, var in X.items() if optimizer.Value(var) == 1
+                            ]
+
+                    if phase_best_value is None or phase_best_assignments is None:
+                        # Preserve the last known feasible schedule when a
+                        # bounded optimization phase times out before finding
+                        # a candidate. Later phases cannot safely proceed
+                        # without a solution from this phase.
+                        break
+                    model.Add(phase_expr <= phase_best_value)
+                    best_result = SolveResult(
+                        status="FEASIBLE",
+                        objective=float(phase_best_value),
+                        assignments=phase_best_assignments,
                     )
-                    optimizer.parameters.num_search_workers = max(min(6, num_workers), actual_workers)
-                    optimizer.parameters.randomize_search = True
-                    cb = OptimizationTracker()
-                    max_stagnation = max(12.0, min(45.0, restart_budget * 0.75))
-                    min_before_stagnation = min(20.0, restart_budget * 0.5)
-                    opt_stop_event = threading.Event()
-
-                    def opt_monitor():
-                        while not opt_stop_event.wait(0.4):
-                            now = time.monotonic()
-                            run_elapsed = now - cb.started_at
-                            idle = max(0.0, now - cb.last_time)
-                            pct = _calc_opt_pct(now, cb.last_time)
-                            msg = (
-                                f"Оптимізація якості (прохід {current_restart + 1}/{restart_count}, "
-                                f"штраф: {int(cb.best_objective)})"
-                                if cb.best_objective is not None
-                                else "Оптимізація якості розкладу..."
-                            )
-                            _report_progress(
-                                progress_path,
-                                "optimizing",
-                                pct,
-                                solutions_found=total_solutions + cb.solutions_count,
-                                message=msg,
-                            )
-                            if (
-                                cb.solutions_count > 0
-                                and run_elapsed >= min_before_stagnation
-                                and idle >= max_stagnation
-                            ):
-                                optimizer.StopSearch()
-                                break
-
-                    opt_thread = threading.Thread(target=opt_monitor, daemon=True)
-                    opt_thread.start()
-                    try:
-                        try:
-                            optimized_status = optimizer.Solve(model, cb)
-                        except TypeError:
-                            optimized_status = optimizer.Solve(model)
-                    finally:
-                        opt_stop_event.set()
-                        opt_thread.join(timeout=1.0)
-
-                    total_solutions += cb.solutions_count
-                    if optimized_status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-                        candidate = result_from(optimizer, optimized_status, optimized=True)
-                        try:
-                            candidate_quality = evaluate_quality(
-                                curriculums,
-                                constraints,
-                                candidate.assignments,
-                            ).get("quality_score", -1)
-                        except (AttributeError, KeyError, TypeError, ValueError):
-                            candidate_quality = -1
-                        if (
-                            best_result is None
-                            or candidate_quality > best_quality_score
-                            or (
-                                candidate_quality == best_quality_score
-                                and candidate.objective is not None
-                                and (
-                                    best_result.objective is None
-                                    or candidate.objective < best_result.objective
-                                )
-                            )
-                        ):
-                            best_result = candidate
-                            best_quality_score = candidate_quality
+                    _report_progress(
+                        progress_path,
+                        "optimizing",
+                        min(92, 55 + int(37 * (phase_index + 1) / phase_count)),
+                        solutions_found=total_solutions,
+                        message=f"{phase_message}: {phase_best_value}",
+                    )
 
                 _report_progress(
                     progress_path,
