@@ -173,10 +173,9 @@ export function GeneratorPanel() {
         optimization_time_seconds: 180,
         hint_mode: "previous",
         priorities: {
-          // Prefer compact teacher days and matching week slots over
-          // distributing lessons across many isolated days.
+          // Prefer compact teacher days, high week symmetry, and 09:00 starts
           teacher_windows: 4,
-          late_start: 3,
+          late_start: 4,
           three_consecutive_days: 2,
           subject_week_balance: 1,
           group_week_balance: 1,
@@ -185,6 +184,7 @@ export function GeneratorPanel() {
           teacher_single_lesson_day: 4,
           teacher_four_lessons_day: 1,
           subject_slot_symmetry: 4,
+          shared_room_conflict: 0,
           curator_thursday_priority: 3,
         },
       });
@@ -1070,8 +1070,7 @@ export function GeneratorPanel() {
                   </span>
                 </div>
                 <p className="mt-1 text-[11px] text-sys-text-muted">
-                  Підсумок симетрії тижнів, старту груп, вікон викладачів, одиночних днів,
-                  побажань і конфліктів кабінетів.
+                  Підсумок симетрії тижнів, стартів груп о 09:00, вікон викладачів, одиночних днів і побажань.
                 </p>
               </div>
               {/* 1. Стабільність тижнів */}
@@ -1178,12 +1177,11 @@ export function GeneratorPanel() {
                 </p>
               </button>
 
-              {/* 5. Побажання та аудиторії */}
+              {/* 5. Побажання викладачів */}
               <button
                 type="button"
                 onClick={() => {
-                  const totalIssues =
-                    liveQuality.soft_constraint_violations.length + liveQuality.room_conflicts.length;
+                  const totalIssues = liveQuality.soft_constraint_violations.length;
                   setExpandedQualityTab(
                     expandedQualityTab === "soft" ? null : totalIssues > 0 ? "soft" : null,
                   );
@@ -1195,23 +1193,23 @@ export function GeneratorPanel() {
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-sys-text-secondary">Побажання та кабінети</span>
+                  <span className="text-xs text-sys-text-secondary">Побажання викладачів</span>
                   <span
                     className={`text-sm font-bold ${
-                      liveQuality.soft_constraint_violations.length + liveQuality.room_conflicts.length === 0
+                      liveQuality.soft_constraint_violations.length === 0
                         ? "text-emerald-400"
                         : "text-amber-300"
                     }`}
                   >
-                    {liveQuality.soft_constraint_violations.length + liveQuality.room_conflicts.length === 0
+                    {liveQuality.soft_constraint_violations.length === 0
                       ? "100%"
-                      : liveQuality.soft_constraint_violations.length + liveQuality.room_conflicts.length}
+                      : liveQuality.soft_constraint_violations.length}
                   </span>
                 </div>
                 <p className="mt-1 text-[11px] text-sys-text-muted leading-snug">
-                  {liveQuality.soft_constraint_violations.length + liveQuality.room_conflicts.length === 0
-                    ? "✓ Усі побажання й кабінети враховано"
-                    : `Побажань: ${liveQuality.soft_constraint_violations.length} · Кабінетів: ${liveQuality.room_conflicts.length}`}
+                  {liveQuality.soft_constraint_violations.length === 0
+                    ? "✓ Усі побажання викладачів враховано"
+                    : `Порушень: ${liveQuality.soft_constraint_violations.length} (натисніть)`}
                 </p>
               </button>
             </div>
@@ -1330,11 +1328,11 @@ export function GeneratorPanel() {
             )}
 
             {expandedQualityTab === "soft" &&
-              (liveQuality.soft_constraint_violations.length > 0 || liveQuality.room_conflicts.length > 0) && (
+              liveQuality.soft_constraint_violations.length > 0 && (
                 <div className="rounded-xl border border-sys-border/60 bg-sys-bg/70 p-3 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-sys-text-primary">
-                      Компроміси побажань та аудиторій:
+                      Небажані слоти викладачів:
                     </span>
                     <button
                       type="button"

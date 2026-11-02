@@ -41,18 +41,18 @@ class SolverWeights:
     module-level and frozen, so it pickles cleanly into the solver subprocess.
     """
 
-    teacher_windows: int = 250            # «вікно» викладача між двома парами
-    late_start: int = 50                  # день групи починається з 2-ї пари
+    teacher_windows: int = 1_000          # «вікно» викладача між двома парами
+    late_start: int = 500                 # день групи починається з 2-ї пари
     three_consecutive_days: int = 2_000   # предмет три дні поспіль
     subject_week_balance: int = 10_000    # дисбаланс предмета чисельник/знаменник
     group_week_balance: int = 100_000     # дисбаланс навантаження групи по тижнях
     soft_teacher_constraints: int = 500   # пара в небажаний для викладача слот
-    subject_slot_symmetry: int = 500      # симетрія предмета (той самий день і пара в обидва тижні)
-    teacher_active_day: int = 120         # компактність днів викладача («методичний день»)
-    shared_room_conflict: int = 10        # одночасне використання спільного кабінету/лабораторії
-    teacher_single_lesson_day: int = 1200 # одна пара викладача в день (при навантаженні >= 2 пар на тиждень)
-    teacher_four_lessons_day: int = 120   # 4 пари поспіль у викладача в один день без перерви
-    curator_thursday_priority: int = 1000 # предмет куратора у своїй групі в четвер (пріоритет перед Виховною годиною)
+    subject_slot_symmetry: int = 2_500    # симетрія предмета (той самий день і пара в обидва тижні)
+    teacher_active_day: int = 250         # компактність днів викладача («методичний день»)
+    shared_room_conflict: int = 0         # кабінети вимкнено (0 = не штрафувати за кабінети)
+    teacher_single_lesson_day: int = 2_000# одна пара викладача в день (при навантаженні >= 2 пар на тиждень)
+    teacher_four_lessons_day: int = 250   # 4 пари поспіль у викладача в один день без перерви
+    curator_thursday_priority: int = 1_000# предмет куратора у своїй групі в четвер (пріоритет перед Виховною годиною)
 
 
     @classmethod
@@ -1005,7 +1005,7 @@ def solve(
                             model.Add(
                                 window >= teaching_active[first] + teaching_active[first + 2] - teaching_active[first + 1] - 1
                             )
-                            penalties["teacher"].append(window * (weights.teacher_windows * 2))
+                            penalties["teacher"].append(window * (weights.teacher_windows * 3))
                         # Double window: [1, 0, 0, 1] (lessons 1 and 4 with lessons 2 and 3 empty)
                         if SLOTS >= 4:
                             double_window = model.NewBoolVar(f"double_window_t{teacher_id}_d{d}")
@@ -1016,7 +1016,7 @@ def solve(
                             model.Add(
                                 double_window >= teaching_active[0] + teaching_active[3] - teaching_active[1] - teaching_active[2] - 1
                             )
-                            penalties["teacher"].append(double_window * (weights.teacher_windows * 8))
+                            penalties["teacher"].append(double_window * (weights.teacher_windows * 15))
 
                     if weights.teacher_single_lesson_day:
                         week_start = 0 if d < DAYS else DAYS
@@ -1263,23 +1263,21 @@ def solve(
         opt_budget = min(remaining, opt_limit)
         if opt_budget > 0.05:
             penalties = add_soft_preference_penalties()
+            core_terms = penalties["symmetry"] + penalties["group"] + penalties["teacher"]
+            secondary_terms = penalties["secondary"]
             phases = [
-                ("teacher", "Оптимізація компактності викладачів"),
-                ("symmetry", "Оптимізація симетрії тижнів"),
-                ("group", "Оптимізація стартів і балансу груп"),
-                ("secondary", "Фінальна оптимізація побажань і кабінетів"),
+                ("core", "Оптимізація симетрії, стартів з 1-ї пари та викладачів", core_terms),
+                ("secondary", "Шліфування індивідуальних побажань і балансу", secondary_terms),
             ]
-            active_phases = [(name, message, penalties[name]) for name, message in phases if penalties[name]]
+            active_phases = [(name, message, terms) for name, message, terms in phases if terms]
             if active_phases:
-                _report_progress(progress_path, "optimizing", 55, message="Багатофазна оптимізація якості...")
+                _report_progress(progress_path, "optimizing", 55, message="Оптимізація якості розкладу...")
                 opt_started = time.monotonic()
                 total_solutions = 0
                 best_result = feasible_result
                 phase_shares = {
-                    "teacher": 0.50,
-                    "symmetry": 0.25,
-                    "group": 0.15,
-                    "secondary": 0.10,
+                    "core": 0.80,
+                    "secondary": 0.20,
                 }
                 share_total = sum(phase_shares[name] for name, _, _ in active_phases)
 
@@ -1331,20 +1329,11 @@ def solve(
                         # a candidate. Later phases cannot safely proceed
                         # without a solution from this phase.
                         break
-                    # Preserve teacher compactness exactly. Symmetry is
-                    # deliberately bounded rather than absolute: forcing
-                    # every weekly subject into the same slot can create
-                    # unusable teacher timetables with many windows.
+                    # Core phase achieves optimal synergy between week symmetry, 1st lesson starts,
+                    # and teacher compactness. Allow a narrow 5% tolerance for secondary tuning.
                     phase_tolerance = (
-                        max(
-                            0,
-                            math.ceil(
-                                len(phase_terms)
-                                * weights.subject_slot_symmetry
-                                * 0.15
-                            ),
-                        )
-                        if phase_name == "symmetry" and len(phase_terms) >= 100
+                        max(1, math.ceil(phase_best_value * 0.05))
+                        if phase_name == "core"
                         else 0
                     )
                     model.Add(phase_expr <= phase_best_value + phase_tolerance)
@@ -1596,19 +1585,15 @@ def evaluate_quality(
         0.0,
         1.0 - len(soft_violations) / max(1, len(assign_set)),
     )
-    room_score = max(
-        0.0,
-        1.0 - len(room_conflicts) / max(1, len(assign_set)),
-    )
+    # Кабінети вимкнено за вимогою користувача і не штрафують якість розкладу
     quality_score = round(
         100
         * (
-            0.30 * (symmetry_percent / 100)
-            + 0.20 * (first_lesson_start_percent / 100)
+            0.35 * (symmetry_percent / 100)
+            + 0.25 * (first_lesson_start_percent / 100)
             + 0.20 * window_score
             + 0.15 * single_day_score
-            + 0.10 * soft_score
-            + 0.05 * room_score
+            + 0.05 * soft_score
         )
     )
 

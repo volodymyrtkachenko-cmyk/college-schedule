@@ -44,8 +44,8 @@ class GeneratorPriorities(BaseModel):
     teacher_active_day: int | None = Field(default=None, ge=PRIORITY_LEVEL_MIN, le=PRIORITY_LEVEL_MAX)
     teacher_single_lesson_day: int | None = Field(default=None, ge=PRIORITY_LEVEL_MIN, le=PRIORITY_LEVEL_MAX)
     teacher_four_lessons_day: int | None = Field(default=None, ge=PRIORITY_LEVEL_MIN, le=PRIORITY_LEVEL_MAX)
-    subject_slot_symmetry: int | None = Field(default=None, ge=PRIORITY_LEVEL_MIN, le=PRIORITY_LEVEL_MAX)
-    shared_room_conflict: int | None = Field(default=None, ge=PRIORITY_LEVEL_MIN, le=PRIORITY_LEVEL_MAX)
+    subject_slot_symmetry: int | None = Field(default=PRIORITY_LEVEL_MAX, ge=PRIORITY_LEVEL_MIN, le=PRIORITY_LEVEL_MAX)
+    shared_room_conflict: int | None = Field(default=0, ge=PRIORITY_LEVEL_MIN, le=PRIORITY_LEVEL_MAX)
     curator_thursday_priority: int | None = Field(default=None, ge=PRIORITY_LEVEL_MIN, le=PRIORITY_LEVEL_MAX)
 
     def to_weights(self) -> SolverWeights:
@@ -88,8 +88,8 @@ class GeneratorPrioritiesOverride(BaseModel):
     teacher_active_day: int | None = Field(default=None, ge=PRIORITY_LEVEL_MIN, le=PRIORITY_LEVEL_MAX)
     teacher_single_lesson_day: int | None = Field(default=None, ge=PRIORITY_LEVEL_MIN, le=PRIORITY_LEVEL_MAX)
     teacher_four_lessons_day: int | None = Field(default=None, ge=PRIORITY_LEVEL_MIN, le=PRIORITY_LEVEL_MAX)
-    subject_slot_symmetry: int | None = Field(default=None, ge=PRIORITY_LEVEL_MIN, le=PRIORITY_LEVEL_MAX)
-    shared_room_conflict: int | None = Field(default=None, ge=PRIORITY_LEVEL_MIN, le=PRIORITY_LEVEL_MAX)
+    subject_slot_symmetry: int | None = Field(default=PRIORITY_LEVEL_MAX, ge=PRIORITY_LEVEL_MIN, le=PRIORITY_LEVEL_MAX)
+    shared_room_conflict: int | None = Field(default=0, ge=PRIORITY_LEVEL_MIN, le=PRIORITY_LEVEL_MAX)
     curator_thursday_priority: int | None = Field(default=None, ge=PRIORITY_LEVEL_MIN, le=PRIORITY_LEVEL_MAX)
 
 
