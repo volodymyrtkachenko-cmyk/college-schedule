@@ -3,7 +3,7 @@ from app.models.lesson_notes import LessonOccurrenceNote, LessonNoteRevision
 from app.models.entities import (
     Feedback, Faculty, Group, Schedule, Setting, Subject, Teacher, User,
     TokenBlocklist, BellSchedule, ScheduleOverride, SchedulePeriod, SchedulePeriodSlot,
-    ImportedScheduleChange, Curriculum, TeacherConstraint, ScheduleDraft,
+    ImportedScheduleChange, AcademicTerm, TermCourseSchedule, Curriculum, TeacherConstraint, ScheduleDraft,
     ScheduleSlot, ScheduleVersion, AcademicEvent, GroupStudent, ClassroomGroupBinding,
     ClassroomCredential,
 )
@@ -12,10 +12,8 @@ __all__ = [
     "User", "Faculty", "Group", "Teacher", "Subject", "Schedule",
     "Feedback", "Setting", "TokenBlocklist", "BellSchedule",
     "ScheduleOverride", "SchedulePeriod", "SchedulePeriodSlot",
-    "ImportedScheduleChange", "Curriculum", "TeacherConstraint",
+    "ImportedScheduleChange", "AcademicTerm", "TermCourseSchedule", "Curriculum", "TeacherConstraint",
     "ScheduleDraft", "ScheduleSlot", "ScheduleVersion", "AcademicEvent",
     "GroupStudent", "ClassroomGroupBinding", "ClassroomCredential",
 ]
 from . import bump_updated_at
-
-

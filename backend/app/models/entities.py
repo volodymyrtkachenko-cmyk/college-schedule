@@ -278,15 +278,67 @@ class ImportedScheduleChange(Base):
         return "both"
 
 
+class AcademicTerm(Base):
+    __tablename__ = "academic_terms"
+    __table_args__ = (
+        CheckConstraint("start_date < end_date", name="ck_academic_term_dates"),
+        CheckConstraint("length(trim(name)) > 0 AND length(name) <= 100", name="ck_academic_term_name"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(100))
+    academic_year: Mapped[str] = mapped_column(String(20), default="2025/2026")
+    semester_number: Mapped[int] = mapped_column(Integer, default=1)
+    start_date: Mapped[date] = mapped_column(Date, index=True)
+    end_date: Mapped[date] = mapped_column(Date, index=True)
+    total_weeks: Mapped[int] = mapped_column(Integer, default=17)
+    is_current: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    status: Mapped[str] = mapped_column(String(20), default="ACTIVE")  # ACTIVE, PLANNING, ARCHIVED
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    course_schedules: Mapped[list["TermCourseSchedule"]] = relationship(
+        back_populates="term", cascade="all, delete-orphan"
+    )
+    curriculums: Mapped[list["Curriculum"]] = relationship(
+        back_populates="term", cascade="all, delete-orphan"
+    )
+    teacher_constraints: Mapped[list["TeacherConstraint"]] = relationship(
+        back_populates="term", cascade="all, delete-orphan"
+    )
+    drafts: Mapped[list["ScheduleDraft"]] = relationship(back_populates="term")
+
+
+class TermCourseSchedule(Base):
+    __tablename__ = "term_course_schedules"
+    __table_args__ = (
+        UniqueConstraint("term_id", "course", name="uq_term_course_schedule"),
+        CheckConstraint("course BETWEEN 1 AND 4", name="ck_term_course_schedule_course"),
+        CheckConstraint("practice_weeks >= 0 AND practice_weeks <= total_weeks", name="ck_term_course_schedule_practice"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    term_id: Mapped[int] = mapped_column(ForeignKey("academic_terms.id", ondelete="CASCADE"), index=True)
+    course: Mapped[int] = mapped_column(Integer)
+    total_weeks: Mapped[int] = mapped_column(Integer, default=17)
+    practice_weeks: Mapped[int] = mapped_column(Integer, default=0)
+    practice_timing: Mapped[str] = mapped_column(String(20), default="NONE")  # START, MIDDLE, END, NONE
+    practice_start_week: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    practice_end_week: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    theory_weeks: Mapped[int] = mapped_column(Integer, default=17)
+
+    term: Mapped["AcademicTerm"] = relationship(back_populates="course_schedules")
+
+
 class Curriculum(Base):
     __tablename__ = "curriculums"
     __table_args__ = (
         UniqueConstraint(
-            "group_id", "subject_id", "teacher_id", "second_teacher_id",
+            "term_id", "group_id", "subject_id", "teacher_id", "second_teacher_id",
             "is_stream", "stream_id", name="uq_curriculum_assignment",
         ),
     )
     id: Mapped[int] = mapped_column(primary_key=True)
+    term_id: Mapped[Optional[int]] = mapped_column(ForeignKey("academic_terms.id", ondelete="CASCADE"), nullable=True, index=True)
     group_id: Mapped[int] = mapped_column(ForeignKey("groups.id"), index=True)
     subject_id: Mapped[int] = mapped_column(ForeignKey("subjects.id"))
     teacher_id: Mapped[int] = mapped_column(ForeignKey("teachers.id"))
@@ -301,6 +353,7 @@ class Curriculum(Base):
     allow_multiple_per_day: Mapped[bool] = mapped_column(default=False)
     is_fixed: Mapped[bool] = mapped_column(Boolean, default=False)
     
+    term: Mapped[Optional["AcademicTerm"]] = relationship(back_populates="curriculums")
     group: Mapped["Group"] = relationship(back_populates="curriculums")
     subject: Mapped["Subject"] = relationship(back_populates="curriculums")
     teacher: Mapped["Teacher"] = relationship(back_populates="curriculums", foreign_keys=[teacher_id])
@@ -310,19 +363,22 @@ class Curriculum(Base):
 class TeacherConstraint(Base):
     __tablename__ = "teacher_constraints"
     __table_args__ = (
-        UniqueConstraint("teacher_id", "day_of_week", "lesson_number", name="uq_teacher_constraint_slot"),
+        UniqueConstraint("term_id", "teacher_id", "day_of_week", "lesson_number", name="uq_teacher_constraint_slot"),
     )
     id: Mapped[int] = mapped_column(primary_key=True)
+    term_id: Mapped[Optional[int]] = mapped_column(ForeignKey("academic_terms.id", ondelete="CASCADE"), nullable=True, index=True)
     teacher_id: Mapped[int] = mapped_column(ForeignKey("teachers.id"), index=True)
     day_of_week: Mapped[int] = mapped_column(Integer)
     lesson_number: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     is_hard_constraint: Mapped[bool] = mapped_column(Boolean, default=True)
     
+    term: Mapped[Optional["AcademicTerm"]] = relationship(back_populates="teacher_constraints")
     teacher: Mapped["Teacher"] = relationship(back_populates="constraints")
 
 class ScheduleDraft(Base):
     __tablename__ = "schedule_drafts"
     id: Mapped[int] = mapped_column(primary_key=True)
+    term_id: Mapped[Optional[int]] = mapped_column(ForeignKey("academic_terms.id", ondelete="SET NULL"), nullable=True, index=True)
     name: Mapped[str] = mapped_column(String(255))
     draft_type: Mapped[str] = mapped_column(String(20), default="generated", server_default="generated")
     status: Mapped[str] = mapped_column(String(20), default="draft")
@@ -332,6 +388,7 @@ class ScheduleDraft(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     
+    term: Mapped[Optional["AcademicTerm"]] = relationship(back_populates="drafts")
     slots: Mapped[list["ScheduleSlot"]] = relationship(back_populates="draft")
 
 class ScheduleSlot(Base):
