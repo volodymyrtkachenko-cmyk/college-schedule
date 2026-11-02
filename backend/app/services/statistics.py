@@ -1,3 +1,4 @@
+from app.services.terms import get_active_term
 from collections import defaultdict
 from datetime import date, timedelta
 
@@ -25,10 +26,14 @@ async def group_statistics(
     semester_start: date,
     through_date: date,
 ) -> dict:
+    active_term = await get_active_term(db)
+    group_curr_filters = [Curriculum.group_id == group.id]
+    if active_term:
+        group_curr_filters.append(Curriculum.term_id == active_term.id)
     curricula = (
         await db.scalars(
             select(Curriculum)
-            .where(Curriculum.group_id == group.id)
+            .where(*group_curr_filters)
             .options(joinedload(Curriculum.subject))
         )
     ).unique().all()
@@ -128,11 +133,13 @@ async def teacher_statistics(
     ]
     subjects_list.sort(key=lambda item: item["completed_hours"], reverse=True)
 
+    active_term = await get_active_term(db)
+    teacher_curr_filters = [or_(Curriculum.teacher_id == teacher.id, Curriculum.second_teacher_id == teacher.id)]
+    if active_term:
+        teacher_curr_filters.append(Curriculum.term_id == active_term.id)
     curricula = (
         await db.scalars(
-            select(Curriculum).where(
-                or_(Curriculum.teacher_id == teacher.id, Curriculum.second_teacher_id == teacher.id)
-            )
+            select(Curriculum).where(*teacher_curr_filters)
         )
     ).all()
     planned_hours_val = sum(c.total_hours for c in curricula)

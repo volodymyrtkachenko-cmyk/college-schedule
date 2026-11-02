@@ -1,3 +1,4 @@
+from app.services.terms import get_active_term
 from app.core.time import today_local, now_local
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import asdict, dataclass

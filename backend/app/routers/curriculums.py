@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from uuid import uuid4
+from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import delete, select
 from sqlalchemy.orm import selectinload
@@ -8,6 +9,7 @@ from app.database import get_db
 from app.models import Curriculum, Group, ScheduleSlot, Subject, Teacher
 from app.schemas.curriculum import CurriculumCreate, CurriculumUpdate, CurriculumResponse
 from app.core.security import require_roles
+from app.services.terms import get_active_term
 
 router = APIRouter(prefix="/curriculums", tags=["Curriculums"])
 
@@ -42,9 +44,11 @@ async def _validate_stream_membership(
 
 
 @router.get("/", response_model=list[CurriculumResponse])
+@router.get("", response_model=list[CurriculumResponse])
 async def list_curriculums(
-    group_id: int = None,
-    teacher_id: int = None,
+    term_id: Optional[int] = Query(None),
+    group_id: Optional[int] = None,
+    teacher_id: Optional[int] = None,
     db: AsyncSession = Depends(get_db),
     admin=Depends(require_roles('admin'))
 ):
@@ -54,6 +58,14 @@ async def list_curriculums(
         selectinload(Curriculum.teacher),
         selectinload(Curriculum.second_teacher),
     )
+    target_term_id = term_id
+    if target_term_id is None:
+        active = await get_active_term(db)
+        if active:
+            target_term_id = active.id
+    if target_term_id is not None:
+        query = query.where(Curriculum.term_id == target_term_id)
+
     if group_id:
         query = query.where(Curriculum.group_id == group_id)
     if teacher_id:
@@ -62,12 +74,19 @@ async def list_curriculums(
     result = await db.execute(query)
     return result.scalars().all()
 
+
 @router.post("/", response_model=CurriculumResponse)
+@router.post("", response_model=CurriculumResponse)
 async def create_curriculum(
     payload: CurriculumCreate,
     db: AsyncSession = Depends(get_db),
     admin=Depends(require_roles('admin'))
 ):
+    # Default to active term if not specified
+    if payload.term_id is None:
+        active = await get_active_term(db)
+        payload.term_id = active.id if active else 1
+
     # Verify active relations and prevent duplicate assignments.
     for model, id_val, name in [
         (Group, payload.group_id, "Group"),
@@ -93,7 +112,7 @@ async def create_curriculum(
     group_curriculums = (await db.scalars(
         select(Curriculum)
         .options(selectinload(Curriculum.subject))
-        .where(Curriculum.group_id == payload.group_id)
+        .where(Curriculum.group_id == payload.group_id, Curriculum.term_id == payload.term_id)
     )).all()
     for existing in group_curriculums:
         existing_subj_key = name_key(existing.subject.name if existing.subject else "")
@@ -166,16 +185,21 @@ async def update_curriculum(
     if new_st and new_t == new_st:
         raise HTTPException(status_code=400, detail="Вчитель та другий вчитель не можуть бути однією особою")
 
+    new_term_id = update_data.get("term_id", db_item.term_id)
     new_group_id = update_data.get("group_id", db_item.group_id)
     new_subject_id = update_data.get("subject_id", db_item.subject_id)
-    if new_group_id != db_item.group_id or new_subject_id != db_item.subject_id:
+    if new_group_id != db_item.group_id or new_subject_id != db_item.subject_id or new_term_id != db_item.term_id:
         subj_entity = await db.get(Subject, new_subject_id)
         from app.services.importer.normalizer import name_key
         target_subj_key = name_key(subj_entity.name or "") if subj_entity else ""
         other_curriculums = (await db.scalars(
             select(Curriculum)
             .options(selectinload(Curriculum.subject))
-            .where(Curriculum.group_id == new_group_id, Curriculum.id != db_item.id)
+            .where(
+                Curriculum.group_id == new_group_id,
+                Curriculum.term_id == new_term_id,
+                Curriculum.id != db_item.id,
+            )
         )).all()
         for existing in other_curriculums:
             existing_subj_key = name_key(existing.subject.name if existing.subject else "")
@@ -221,16 +245,24 @@ async def update_curriculum(
     res = await db.execute(query)
     return res.scalars().first()
 
+
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_curriculum(
-    id: int,
+    id: int, 
     db: AsyncSession = Depends(get_db),
     admin=Depends(require_roles('admin'))
 ):
     db_item = await db.get(Curriculum, id)
     if not db_item:
         raise HTTPException(status_code=404, detail="Навчальне навантаження не знайдено")
-    await db.execute(delete(ScheduleSlot).where(ScheduleSlot.curriculum_id == id))
+        
+    # Check if there are generated slots linked
+    slots_count = await db.scalar(
+        select(ScheduleSlot).where(ScheduleSlot.curriculum_id == id)
+    )
+    if slots_count:
+        # Slots will cascade or we can let them cascade if FK configured, or delete them
+        await db.execute(delete(ScheduleSlot).where(ScheduleSlot.curriculum_id == id))
+        
     await db.delete(db_item)
     await db.commit()
-    return None
