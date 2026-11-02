@@ -662,8 +662,41 @@ export function invalidateDirectoryCache() {
     directoryCache.clear();
 }
 
+export interface TermCourseScheduleRecord {
+  id: number;
+  term_id: number;
+  course: number;
+  total_weeks: number;
+  practice_weeks: number;
+  practice_timing: "START" | "MIDDLE" | "END" | "NONE";
+  practice_start_week?: number | null;
+  practice_end_week?: number | null;
+  theory_weeks: number;
+}
+
+export interface AcademicTermRecord {
+  id: number;
+  name: string;
+  academic_year: string;
+  semester_number: number;
+  start_date: string;
+  end_date: string;
+  total_weeks: number;
+  is_current: boolean;
+  status: "ACTIVE" | "PLANNING" | "ARCHIVED";
+  created_at: string;
+  course_schedules: TermCourseScheduleRecord[];
+}
+
+export interface WorkloadCalculationResult {
+  theory_weeks: number;
+  total_hours: number;
+  pairs_per_2_weeks: number;
+}
+
 export interface CurriculumRecord {
   id: number;
+  term_id?: number | null;
   group_id: number;
   subject_id: number;
   teacher_id: number;
@@ -684,6 +717,7 @@ export interface CurriculumRecord {
 }
 
 export interface CurriculumMutation {
+  term_id?: number | null;
   group_id: number;
   subject_id: number;
   teacher_id: number;
@@ -785,10 +819,52 @@ export interface CurriculumDeduplicateResult {
   affected_groups: number;
 }
 
+export const apiTerms = {
+  list: async (): Promise<AcademicTermRecord[]> => {
+    return request<AcademicTermRecord[]>(`/api/terms`, {}, false, false);
+  },
+  active: async (): Promise<AcademicTermRecord> => {
+    return request<AcademicTermRecord>(`/api/terms/active`, {}, false, false);
+  },
+  get: async (id: number): Promise<AcademicTermRecord> => {
+    return request<AcademicTermRecord>(`/api/terms/${id}`, {}, false, false);
+  },
+  create: async (payload: Partial<AcademicTermRecord>, token: string): Promise<AcademicTermRecord> => {
+    return request<AcademicTermRecord>(`/api/terms`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }, true, true, token);
+  },
+  update: async (id: number, payload: Partial<AcademicTermRecord>, token: string): Promise<AcademicTermRecord> => {
+    return request<AcademicTermRecord>(`/api/terms/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }, true, true, token);
+  },
+  clone: async (id: number, sourceTermId: number, recalculateHours: boolean, token: string): Promise<{ message: string; cloned_curriculums: number; cloned_constraints: number }> => {
+    return request(`/api/terms/${id}/clone`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ source_term_id: sourceTermId, recalculate_hours: recalculateHours }),
+    }, true, true, token);
+  },
+  calculate: async (course: number, options: { termId?: number; totalHours?: number; pairsPer2Weeks?: number }): Promise<WorkloadCalculationResult> => {
+    const params = new URLSearchParams();
+    params.append("course", course.toString());
+    if (options.termId) params.append("term_id", options.termId.toString());
+    if (options.totalHours !== undefined) params.append("total_hours", options.totalHours.toString());
+    if (options.pairsPer2Weeks !== undefined) params.append("pairs_per_2_weeks", options.pairsPer2Weeks.toString());
+    return request<WorkloadCalculationResult>(`/api/terms/calculate?${params.toString()}`, {}, false, false);
+  },
+};
+
 export const apiCurriculums = {
-  list: async (token: string, groupId?: number, teacherId?: number): Promise<CurriculumRecord[]> => {
+  list: async (token: string, groupId?: number, teacherId?: number, termId?: number): Promise<CurriculumRecord[]> => {
     let url = `/api/curriculums/`;
     const params = new URLSearchParams();
+    if (termId) params.append("term_id", termId.toString());
     if (groupId) params.append("group_id", groupId.toString());
     if (teacherId) params.append("teacher_id", teacherId.toString());
     if (params.toString()) url += `?${params.toString()}`;
@@ -1301,6 +1377,7 @@ export const api = {
   importer: apiImporter,
   constraints: apiConstraints,
   generator: apiGenerator,
+  terms: apiTerms,
   curriculums: apiCurriculums,
   calendarPeriods: apiSchedulePeriods,
     auth: {

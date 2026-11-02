@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import {
   api,
+  AcademicTermRecord,
   DraftQualityReport,
   DraftRecord,
   DraftSlotRecord,
@@ -84,6 +85,8 @@ export function GeneratorPanel() {
   const [moving, setMoving] = useState(false);
   const [draftToPublish, setDraftToPublish] = useState<DraftRecord | null>(null);
   const [publishTargetVersionId, setPublishTargetVersionId] = useState<number | null>(null);
+  const [terms, setTerms] = useState<AcademicTermRecord[]>([]);
+  const [selectedGenTermId, setSelectedGenTermId] = useState<number | null>(null);
   
   const { showToast: setToast } = useToast();
 
@@ -118,11 +121,17 @@ export function GeneratorPanel() {
   async function loadDrafts() {
     try {
       const session = await api.auth.ensureAuthenticated();
-      const [res, versionsRes] = await Promise.all([
+      const [res, versionsRes, termsRes, activeTermRes] = await Promise.all([
         api.generator.listDrafts(session.access_token),
         api.scheduleVersions.list(),
+        api.terms.list(),
+        api.terms.active().catch(() => null),
       ]);
       setVersions(versionsRes);
+      setTerms(termsRes);
+      if (selectedGenTermId === null) {
+        setSelectedGenTermId(activeTermRes?.id ?? termsRes[0]?.id ?? null);
+      }
       // Import reviews have their own workflow and must not appear as generated schedule drafts.
       setDrafts(res.filter(
         (draft) => draft.draft_type !== "import" && !draft.name.startsWith("Імпорт "),
@@ -168,26 +177,31 @@ export function GeneratorPanel() {
       setGenerating(true);
       setShowGenModal(true);
       let session = await api.auth.ensureAuthenticated();
-      const job = await api.generator.generate(session.access_token, 300, {
-        max_time_seconds: 300,
-        optimization_time_seconds: 180,
-        hint_mode: "previous",
-        priorities: {
-          // Prefer compact teacher days, high week symmetry, and 09:00 starts
-          teacher_windows: 4,
-          late_start: 4,
-          three_consecutive_days: 2,
-          subject_week_balance: 1,
-          group_week_balance: 1,
-          soft_teacher_constraints: 2,
-          teacher_active_day: 4,
-          teacher_single_lesson_day: 4,
-          teacher_four_lessons_day: 1,
-          subject_slot_symmetry: 4,
-          shared_room_conflict: 0,
-          curator_thursday_priority: 3,
+      const job = await api.generator.generate(
+        session.access_token,
+        300,
+        {
+          max_time_seconds: 300,
+          optimization_time_seconds: 180,
+          hint_mode: "previous",
+          priorities: {
+            // Prefer compact teacher days, high week symmetry, and 09:00 starts
+            teacher_windows: 4,
+            late_start: 4,
+            three_consecutive_days: 2,
+            subject_week_balance: 1,
+            group_week_balance: 1,
+            soft_teacher_constraints: 2,
+            teacher_active_day: 4,
+            teacher_single_lesson_day: 4,
+            teacher_four_lessons_day: 1,
+            subject_slot_symmetry: 4,
+            shared_room_conflict: 0,
+            curator_thursday_priority: 3,
+          },
         },
-      });
+        selectedGenTermId ?? undefined
+      );
       setGeneratingJob({ id: job.id, startedAt: Date.now() });
       setDrafts(prev => [job, ...prev.filter(d => d.id !== job.id)]);
       const startedAt = Date.now();
@@ -1758,25 +1772,41 @@ export function GeneratorPanel() {
         title="Генерація розкладу"
         description="Створює чернетку з навчального навантаження, доступності викладачів і практик. Після перевірки її можна опублікувати як розклад."
         actions={
-          <button
-            onClick={handleGenerate}
-            disabled={isGeneratingActive}
-            className="shrink-0 rounded-lg bg-emerald-600 dark:bg-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow-xs hover:opacity-95 transition-all disabled:opacity-50 disabled:cursor-wait flex items-center gap-2"
-          >
-            {isGeneratingActive ? (
-              <>
-                <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                Створюємо розклад…
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                Створити розклад
-              </>
+          <div className="flex items-center gap-2.5 flex-wrap">
+            {terms.length > 0 && (
+              <select
+                value={selectedGenTermId || ""}
+                onChange={(e) => setSelectedGenTermId(Number(e.target.value))}
+                className="rounded-lg border border-sys-border bg-sys-card px-3 py-2 text-xs font-bold text-sys-text-primary focus:border-sys-accent outline-none cursor-pointer"
+                aria-label="Оберіть семестр для генерації"
+              >
+                {terms.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name} {t.is_current ? "🟢 (Поточний)" : `(${t.status})`}
+                  </option>
+                ))}
+              </select>
             )}
-          </button>
+            <button
+              onClick={handleGenerate}
+              disabled={isGeneratingActive}
+              className="shrink-0 rounded-lg bg-emerald-600 dark:bg-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow-xs hover:opacity-95 transition-all disabled:opacity-50 disabled:cursor-wait flex items-center gap-2"
+            >
+              {isGeneratingActive ? (
+                <>
+                  <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                  Створюємо розклад…
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  Створити розклад
+                </>
+              )}
+            </button>
+          </div>
         }
       />
 
