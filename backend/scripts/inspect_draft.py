@@ -23,9 +23,10 @@ async def main():
         for d in drafts:
             gen = d.data.get("generation", {}) if d.data else {}
             q = gen.get("quality", {})
-            print(f"Draft #{d.id}: status={d.status}, score={d.quality_score}, hints={gen.get('hints_used')}, time={d.generation_time_seconds}s")
+            print(f"Draft #{d.id}: status={d.status}, score={q.get('quality_score')}, hints={gen.get('hints_used')}, time={d.generation_time_seconds}s")
             print(f"   Quality: sym={q.get('symmetry_percent')}%, start1st={q.get('first_lesson_start_percent')}%, win={len(q.get('teacher_windows', []))}, single={len(q.get('teacher_single_pair_days', []))}")
 
 
 if __name__ == "__main__":
     asyncio.run(main())
+
