@@ -814,7 +814,7 @@ def solve(
                     model.Add(slots_active[0] + slots_active[2] >= 1)
                     model.Add(slots_active[3] <= slots_active[2])
                     if weights.late_start:
-                        day_pattern_penalties.append((1 - slots_active[0]) * (weights.late_start * 2000))
+                        day_pattern_penalties.append((1 - slots_active[0]) * (weights.late_start * 150))
                 else:
                     # The three allowed patterns ((1,1,1,0), (1,1,1,1), (0,1,1,1))
                     # are equivalent to slots 2 and 3 always being occupied and at
@@ -823,7 +823,7 @@ def solve(
                     model.Add(slots_active[2] == 1)
                     model.Add(slots_active[0] + slots_active[3] >= 1)
                     if weights.late_start:
-                        day_pattern_penalties.append((1 - slots_active[0]) * (weights.late_start * 2000))
+                        day_pattern_penalties.append((1 - slots_active[0]) * (weights.late_start * 150))
             else:
                 pattern_vars = []
                 for p_idx, (pat, pen) in enumerate(patterns):
@@ -1121,12 +1121,18 @@ def solve(
                     if c.stream_id in seen_sym_streams:
                         continue
                     seen_sym_streams.add(c.stream_id)
+                max_sym = c.pairs_per_2_weeks // 2
+                sym_slots = []
                 for d in range(DAYS):
                     for s in range(SLOTS):
-                        asym = model.NewBoolVar(f"asym_c{c.id}_d{d}_s{s}")
-                        model.Add(asym >= X[(c.id, d, s)] - X[(c.id, d + DAYS, s)])
-                        model.Add(asym >= X[(c.id, d + DAYS, s)] - X[(c.id, d, s)])
-                        penalties["symmetry"].append(asym * (weights.subject_slot_symmetry * 60))
+                        is_sym = model.NewBoolVar(f"is_sym_c{c.id}_d{d}_s{s}")
+                        model.Add(is_sym <= X[(c.id, d, s)])
+                        model.Add(is_sym <= X[(c.id, d + DAYS, s)])
+                        model.Add(is_sym >= X[(c.id, d, s)] + X[(c.id, d + DAYS, s)] - 1)
+                        sym_slots.append(is_sym)
+                missing_sym = model.NewIntVar(0, max_sym, f"missing_sym_c{c.id}")
+                model.Add(missing_sym >= max_sym - sum(sym_slots))
+                penalties["symmetry"].append(missing_sym * (weights.subject_slot_symmetry * 400))
 
         # Shared physical room conflict avoidance across different teachers
         if weights.shared_room_conflict:

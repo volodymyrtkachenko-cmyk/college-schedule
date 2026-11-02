@@ -194,7 +194,27 @@ async def _load_db_hints(
                 draft_quality.get("symmetry_percent", 0) >= 50
                 and draft_quality.get("first_lesson_start_percent", 0) >= 70
             ):
-                return list(hints)
+                num_slots: dict[int, list[tuple[int, int]]] = {}
+                other_hints: set[tuple[int, int, int]] = set()
+                for cid, d, s in hints:
+                    c = by_id.get(cid)
+                    if not c:
+                        continue
+                    if d < solver.DAYS:
+                        num_slots.setdefault(cid, []).append((d, s))
+                    else:
+                        if c.pairs_per_2_weeks in (2, 4, 6) and getattr(c, "require_week", None) is None:
+                            pass
+                        else:
+                            other_hints.add((cid, d, s))
+                symmetrized: set[tuple[int, int, int]] = set(other_hints)
+                for cid, s_list in num_slots.items():
+                    c = by_id.get(cid)
+                    for d, s in s_list:
+                        symmetrized.add((cid, d, s))
+                        if c and c.pairs_per_2_weeks in (2, 4, 6) and getattr(c, "require_week", None) is None:
+                            symmetrized.add((cid, d + solver.DAYS, s))
+                return list(symmetrized)
             hints.clear()
 
     by_key: dict[tuple[int, int | None, int], list[int]] = {}
