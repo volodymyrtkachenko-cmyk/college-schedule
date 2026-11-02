@@ -793,6 +793,7 @@ def solve(
 
     fixed4 = {g: fixed_4th_days(lst) for g, lst in group_curriculums.items()}
     day_pattern_penalties = []
+    group_slot_active = {}
     for g_id, curr_list in group_curriculums.items():
         group_load = sum(c.pairs_per_2_weeks for c in curr_list)
         allow_two_pair_days = group_load < STANDARD_LOAD_THRESHOLD
@@ -802,6 +803,7 @@ def solve(
                 a = model.NewBoolVar(f"active_g{g_id}_d{d}_s{s}")
                 model.Add(sum(X[(c.id, d, s)] for c in curr_list) == a)
                 slots_active.append(a)
+                group_slot_active[(g_id, d, s)] = a
 
             if use_default_patterns:
                 if allow_two_pair_days:
@@ -885,6 +887,28 @@ def solve(
             model.Add(week_difference == numerator_load - denominator_load)
             model.AddAbsEquality(week_imbalance, week_difference)
             penalties["group"].append(week_imbalance * weights.group_week_balance)
+
+        # Педагогічний розподіл навантаження за днями тижня (розвантаження Пн та Пт)
+        if weights.group_week_balance:
+            for g_id in group_curriculums:
+                for d in range(DAY_IDXS):
+                    weekday = d % DAYS
+                    if weekday == 4:  # П'ятниця (4-та пара)
+                        penalties["group"].append(group_slot_active[(g_id, d, 3)] * 20_000)
+                    elif weekday == 0:  # Понеділок (4-та пара)
+                        penalties["group"].append(group_slot_active[(g_id, d, 3)] * 10_000)
+
+        # Дзеркальне зшивання непарних пар у групах (симетрія структури дзвінків)
+        if weights.subject_slot_symmetry:
+            for g_id in group_curriculums:
+                for d in range(DAYS):
+                    for s in range(SLOTS):
+                        a_num = group_slot_active[(g_id, d, s)]
+                        a_den = group_slot_active[(g_id, d + DAYS, s)]
+                        slot_asym = model.NewBoolVar(f"group_asym_slot_g{g_id}_d{d}_s{s}")
+                        model.Add(slot_asym >= a_num - a_den)
+                        model.Add(slot_asym >= a_den - a_num)
+                        penalties["symmetry"].append(slot_asym * (weights.subject_slot_symmetry * 4))
 
         for c, w1, w2 in (unbalanced_curriculums if weights.subject_week_balance else ()):
             week_difference = model.NewIntVar(
