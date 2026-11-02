@@ -156,18 +156,23 @@ def _snapshot_inputs(
 async def _load_db_hints(
     db: AsyncSession,
     curriculums: list,
+    term_id: int | None = None,
 ) -> list[tuple[int, int, int]]:
     by_id = {c.id: c for c in curriculums}
     hints: set[tuple[int, int, int]] = set()
 
-    latest_draft_id = await db.scalar(
+    draft_query = (
         select(ScheduleDraft.id)
         .where(
             ScheduleDraft.draft_type == "generated",
             ScheduleDraft.status.in_(("DRAFT", "PUBLISHED")),
         )
-        .order_by(ScheduleDraft.id.desc())
-        .limit(1)
+    )
+    if term_id is not None:
+        draft_query = draft_query.where(ScheduleDraft.term_id == term_id)
+
+    latest_draft_id = await db.scalar(
+        draft_query.order_by(ScheduleDraft.id.desc()).limit(1)
     )
     if latest_draft_id is not None:
         slots = (
@@ -654,6 +659,7 @@ async def update_generator_settings(
 async def generate_schedule(
     background_tasks: BackgroundTasks,
     max_time_in_seconds: int | None = Query(default=None, gt=0),
+    term_id: int | None = Query(default=None),
     options: GeneratorRunOptions | None = Body(default=None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_roles("admin", "editor"))
@@ -682,12 +688,19 @@ async def generate_schedule(
             update={"max_time_seconds": forced_max_time, "optimization_time_seconds": forced_opt_time}
         )
 
+    from app.services.terms import get_active_term
+    active_term = await get_active_term(db)
+    effective_term_id = term_id or (active_term.id if active_term else None)
+
     query = select(Curriculum).options(
         joinedload(Curriculum.group),
         joinedload(Curriculum.subject),
         joinedload(Curriculum.teacher),
         joinedload(Curriculum.second_teacher),
     )
+    if effective_term_id:
+        query = query.where((Curriculum.term_id == effective_term_id) | (Curriculum.term_id.is_(None)))
+
     if current_user.role == "editor":
         u = await db.scalar(select(User).options(selectinload(User.allowed_groups)).where(User.id == current_user.id))
         user_groups = [g.id for g in u.allowed_groups] if u else []
@@ -696,7 +709,12 @@ async def generate_schedule(
         query = query.where(Curriculum.group_id.in_(user_groups))
         
     curriculums = (await db.scalars(query)).all()
-    constraints = (await db.scalars(select(TeacherConstraint))).all()
+    constraint_query = select(TeacherConstraint)
+    if effective_term_id:
+        constraint_query = constraint_query.where(
+            (TeacherConstraint.term_id == effective_term_id) | (TeacherConstraint.term_id.is_(None))
+        )
+    constraints = (await db.scalars(constraint_query)).all()
 
     if not curriculums:
         raise HTTPException(status_code=400, detail="Немає навантаження для генерації.")
@@ -736,7 +754,11 @@ async def generate_schedule(
             detail="Неможливо скласти розклад за заданими вимогами: " + "; ".join(problems),
         )
 
-    hints = await _load_db_hints(db, curriculums) if run_settings.hint_mode == "previous" else []
+    hints = (
+        await _load_db_hints(db, curriculums, effective_term_id)
+        if run_settings.hint_mode == "previous"
+        else []
+    )
     locked_assignments = await _load_locked_db_slots(db, curriculums)
 
     started_at_iso = datetime.now(timezone.utc).isoformat()
@@ -744,6 +766,7 @@ async def generate_schedule(
         name=f"Генерація від {now_local().strftime('%d.%m %H:%M')}",
         draft_type="generated",
         status="GENERATING",
+        term_id=effective_term_id,
         data={
             "generation": _generation_summary(
                 run_settings,

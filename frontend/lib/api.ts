@@ -674,6 +674,18 @@ export interface TermCourseScheduleRecord {
   theory_weeks: number;
 }
 
+export interface TermCourseScheduleInput {
+  id?: number;
+  term_id?: number;
+  course: number;
+  total_weeks: number;
+  practice_weeks: number;
+  practice_timing: "START" | "MIDDLE" | "END" | "NONE";
+  practice_start_week?: number | null;
+  practice_end_week?: number | null;
+  theory_weeks: number;
+}
+
 export interface AcademicTermRecord {
   id: number;
   name: string;
@@ -686,6 +698,18 @@ export interface AcademicTermRecord {
   status: "ACTIVE" | "PLANNING" | "ARCHIVED";
   created_at: string;
   course_schedules: TermCourseScheduleRecord[];
+}
+
+export interface AcademicTermMutation {
+  name?: string;
+  academic_year?: string;
+  semester_number?: number;
+  start_date?: string;
+  end_date?: string;
+  total_weeks?: number;
+  is_current?: boolean;
+  status?: "ACTIVE" | "PLANNING" | "ARCHIVED";
+  course_schedules?: TermCourseScheduleInput[];
 }
 
 export interface WorkloadCalculationResult {
@@ -829,14 +853,14 @@ export const apiTerms = {
   get: async (id: number): Promise<AcademicTermRecord> => {
     return request<AcademicTermRecord>(`/api/terms/${id}`, {}, false, false);
   },
-  create: async (payload: Partial<AcademicTermRecord>, token: string): Promise<AcademicTermRecord> => {
+  create: async (payload: AcademicTermMutation, token: string): Promise<AcademicTermRecord> => {
     return request<AcademicTermRecord>(`/api/terms`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     }, true, true, token);
   },
-  update: async (id: number, payload: Partial<AcademicTermRecord>, token: string): Promise<AcademicTermRecord> => {
+  update: async (id: number, payload: AcademicTermMutation, token: string): Promise<AcademicTermRecord> => {
     return request<AcademicTermRecord>(`/api/terms/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -1099,8 +1123,12 @@ export const apiGenerator = {
     token: string,
     max_time?: number,
     options?: GeneratorRunOptions,
+    termId?: number,
   ): Promise<DraftRecord> => {
-    const query = max_time !== undefined ? `?max_time_in_seconds=${max_time}` : "";
+    const params = new URLSearchParams();
+    if (max_time !== undefined) params.append("max_time_in_seconds", String(max_time));
+    if (termId !== undefined) params.append("term_id", String(termId));
+    const query = params.toString() ? `?${params.toString()}` : "";
     return request<DraftRecord>(`/api/generator${query}`, {
       method: "POST",
       ...(options

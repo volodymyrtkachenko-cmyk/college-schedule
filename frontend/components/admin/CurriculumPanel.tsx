@@ -962,13 +962,11 @@ export function CurriculumPanel() {
       <ConfirmModal
         isOpen={Boolean(itemToDelete)}
         title="Видалити навчальне навантаження?"
-        description={
+        message={
           itemToDelete
             ? `Ви впевнені, що хочете видалити «${itemToDelete.subject.name}» для групи «${itemToDelete.group.name}»?`
             : ""
         }
-        confirmText="Видалити"
-        isDestructive={true}
         onConfirm={remove}
         onCancel={() => setItemToDelete(null)}
       />

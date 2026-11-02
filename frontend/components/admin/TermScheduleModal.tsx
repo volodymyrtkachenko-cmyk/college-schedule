@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AcademicTermRecord, TermCourseScheduleRecord, api } from "../../lib/api";
+import { AcademicTermRecord, TermCourseScheduleInput, api } from "../../lib/api";
 import { useToast } from "../ToastProvider";
 
 interface TermScheduleModalProps {
@@ -19,7 +19,7 @@ export function TermScheduleModal({
   onSaved,
   onCreatedNextTerm,
 }: TermScheduleModalProps) {
-  const { showToast: setToast } = useToast();
+  const { showToast } = useToast();
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"schedule" | "new_term" | "clone">("schedule");
 
@@ -32,17 +32,7 @@ export function TermScheduleModal({
   const [isCurrent, setIsCurrent] = useState(term.is_current);
 
   // Schedules by course 1..4
-  const [courseSchedules, setCourseSchedules] = useState<
-    {
-      course: number;
-      total_weeks: number;
-      practice_weeks: number;
-      practice_timing: "START" | "MIDDLE" | "END" | "NONE";
-      practice_start_week: number | null;
-      practice_end_week: number | null;
-      theory_weeks: number;
-    }[]
-  >(() => {
+  const [courseSchedules, setCourseSchedules] = useState<TermCourseScheduleInput[]>(() => {
     const existingMap = new Map(term.course_schedules.map((cs) => [cs.course, cs]));
     return [1, 2, 3, 4].map((course) => {
       const ex = existingMap.get(course);
@@ -136,11 +126,11 @@ export function TermScheduleModal({
         },
         session.access_token
       );
-      setToast({ message: "Графік навчального процесу збережено", type: "success" });
+      showToast("Графік навчального процесу збережено", "success");
       onSaved(updated);
       onClose();
     } catch (e: any) {
-      setToast({ message: e.message || "Помилка збереження графіка", type: "error" });
+      showToast(e.message || "Помилка збереження графіка", "error");
     } finally {
       setLoading(false);
     }
@@ -168,16 +158,13 @@ export function TermScheduleModal({
         },
         session.access_token
       );
-      setToast({
-        message: `Семестр «${created.name}» створено в режимі планування`,
-        type: "success",
-      });
+      showToast(`Семестр «${created.name}» створено в режимі планування`, "success");
       if (onCreatedNextTerm) {
         onCreatedNextTerm(created);
       }
       onClose();
     } catch (e: any) {
-      setToast({ message: e.message || "Помилка створення семестру", type: "error" });
+      showToast(e.message || "Помилка створення семестру", "error");
     } finally {
       setLoading(false);
     }
@@ -194,14 +181,11 @@ export function TermScheduleModal({
         true,
         session.access_token
       );
-      setToast({
-        message: `Успішно скопійовано: ${res.cloned_curriculums} предметів та ${res.cloned_constraints} побажань`,
-        type: "success",
-      });
+      showToast(`Успішно скопійовано: ${res.cloned_curriculums} предметів та ${res.cloned_constraints} побажань`, "success");
       onSaved(term);
       onClose();
     } catch (e: any) {
-      setToast({ message: e.message || "Помилка копіювання", type: "error" });
+      showToast(e.message || "Помилка копіювання", "error");
     } finally {
       setLoading(false);
     }
