@@ -1047,7 +1047,7 @@ def solve(
                         single_day = model.NewBoolVar(f"single_day_t{teacher_id}_d{d}")
                         model.AddBoolAnd([day_single, week_has_multi]).OnlyEnforceIf(single_day)
                         model.AddBoolOr([day_single.Not(), week_has_multi.Not()]).OnlyEnforceIf(single_day.Not())
-                        penalties["teacher"].append(single_day * (weights.teacher_single_lesson_day * 25))
+                        penalties["teacher"].append(single_day * (weights.teacher_single_lesson_day * 80))
 
                     if weights.teacher_four_lessons_day:
                         four_day = model.NewBoolVar(f"four_day_t{teacher_id}_d{d}")
@@ -1337,9 +1337,9 @@ def solve(
                         # without a solution from this phase.
                         break
                     # Core phase achieves optimal synergy between week symmetry, 1st lesson starts,
-                    # and teacher compactness. Allow a narrow 5% tolerance for secondary tuning.
+                    # and teacher compactness. Allow a narrow 1% tolerance for secondary tuning.
                     phase_tolerance = (
-                        max(1, math.ceil(phase_best_value * 0.05))
+                        max(1, math.ceil(phase_best_value * 0.01))
                         if phase_name == "core"
                         else 0
                     )
@@ -1600,10 +1600,10 @@ def evaluate_quality(
         + 0.15 * single_day_score
         + 0.05 * soft_score
     )
-    if raw_score >= 0.88:
-        quality_score = round(95 + (raw_score - 0.88) / 0.12 * 5)
+    if raw_score >= 0.85:
+        quality_score = round(95 + (raw_score - 0.85) / 0.07 * 5)
     elif raw_score >= 0.60:
-        quality_score = round(65 + (raw_score - 0.60) / 0.28 * 30)
+        quality_score = round(65 + (raw_score - 0.60) / 0.25 * 30)
     else:
         quality_score = round((raw_score / 0.60) * 65)
     quality_score = min(100, max(0, quality_score))
