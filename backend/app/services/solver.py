@@ -814,7 +814,7 @@ def solve(
                     model.Add(slots_active[0] + slots_active[2] >= 1)
                     model.Add(slots_active[3] <= slots_active[2])
                     if weights.late_start:
-                        day_pattern_penalties.append((1 - slots_active[0]) * (weights.late_start * 100))
+                        day_pattern_penalties.append((1 - slots_active[0]) * (weights.late_start * 2000))
                 else:
                     # The three allowed patterns ((1,1,1,0), (1,1,1,1), (0,1,1,1))
                     # are equivalent to slots 2 and 3 always being occupied and at
@@ -823,7 +823,7 @@ def solve(
                     model.Add(slots_active[2] == 1)
                     model.Add(slots_active[0] + slots_active[3] >= 1)
                     if weights.late_start:
-                        day_pattern_penalties.append((1 - slots_active[0]) * (weights.late_start * 100))
+                        day_pattern_penalties.append((1 - slots_active[0]) * (weights.late_start * 2000))
             else:
                 pattern_vars = []
                 for p_idx, (pat, pen) in enumerate(patterns):
@@ -1011,7 +1011,7 @@ def solve(
                             model.Add(
                                 window >= teaching_active[first] + teaching_active[first + 2] - teaching_active[first + 1] - 1
                             )
-                            penalties["teacher"].append(window * (weights.teacher_windows * 50))
+                            penalties["teacher"].append(window * (weights.teacher_windows * 30))
                         # Double window: [1, 0, 0, 1] (lessons 1 and 4 with lessons 2 and 3 empty)
                         if SLOTS >= 4:
                             double_window = model.NewBoolVar(f"double_window_t{teacher_id}_d{d}")
@@ -1022,7 +1022,7 @@ def solve(
                             model.Add(
                                 double_window >= teaching_active[0] + teaching_active[3] - teaching_active[1] - teaching_active[2] - 1
                             )
-                            penalties["teacher"].append(double_window * (weights.teacher_windows * 250))
+                            penalties["teacher"].append(double_window * (weights.teacher_windows * 150))
 
                     if weights.teacher_single_lesson_day:
                         week_start = 0 if d < DAYS else DAYS
@@ -1047,7 +1047,7 @@ def solve(
                         single_day = model.NewBoolVar(f"single_day_t{teacher_id}_d{d}")
                         model.AddBoolAnd([day_single, week_has_multi]).OnlyEnforceIf(single_day)
                         model.AddBoolOr([day_single.Not(), week_has_multi.Not()]).OnlyEnforceIf(single_day.Not())
-                        penalties["teacher"].append(single_day * (weights.teacher_single_lesson_day * 4))
+                        penalties["teacher"].append(single_day * (weights.teacher_single_lesson_day * 25))
 
                     if weights.teacher_four_lessons_day:
                         four_day = model.NewBoolVar(f"four_day_t{teacher_id}_d{d}")
