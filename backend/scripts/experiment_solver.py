@@ -89,6 +89,27 @@ async def run_experiment():
             print(f"Teacher single-lesson days: {len(q.get('teacher_single_pair_days', []))}")
             print(f"Free teacher days: {q.get('methodical_days_count')}")
 
+            # Analyze asymmetry
+            assign_set = set(result.assignments)
+            asym_currs = []
+            for c in currs:
+                if c.pairs_per_2_weeks >= 2 and getattr(c, "require_week", None) is None:
+                    max_sym = c.pairs_per_2_weeks // 2
+                    actual_sym = sum(
+                        1
+                        for d in range(5)
+                        for s in range(4)
+                        if (c.id, d, s) in assign_set and (c.id, d + 5, s) in assign_set
+                    )
+                    if actual_sym < max_sym:
+                        g_name = getattr(c.group, "name", f"G#{c.group_id}")
+                        s_name = getattr(c.subject, "name", f"S#{c.subject_id}")
+                        t_name = getattr(c.teacher, "name", f"T#{c.teacher_id}")
+                        asym_currs.append(f"{g_name}: {s_name} ({t_name}) - pairs={c.pairs_per_2_weeks}, sym={actual_sym}/{max_sym}")
+            print(f"\nAsymmetric curriculums count: {len(asym_currs)} out of {len(currs)}")
+            for item in asym_currs[:15]:
+                print("  *", item)
+
 
 if __name__ == "__main__":
     asyncio.run(run_experiment())
