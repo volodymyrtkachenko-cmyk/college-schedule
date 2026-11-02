@@ -26,6 +26,26 @@ async def run_experiment():
         teachers = (await db.scalars(select(Teacher))).all()
         t_names = {t.id: t.name for t in teachers}
 
+        # Load hints from latest good draft (e.g. #233)
+        from app.models.entities import ScheduleSlot, ScheduleDraft
+        latest_good_draft = await db.scalar(
+            select(ScheduleDraft.id)
+            .where(
+                ScheduleDraft.draft_type == "generated",
+                ScheduleDraft.status.in_(("DRAFT", "PUBLISHED", "draft")),
+            )
+            .order_by(ScheduleDraft.id.desc())
+            .limit(1)
+        )
+        hints = []
+        if latest_good_draft:
+            slots = (await db.scalars(select(ScheduleSlot).where(ScheduleSlot.draft_id == latest_good_draft))).all()
+            for sl in slots:
+                if sl.curriculum_id and sl.day_of_week and sl.lesson_number:
+                    d_idx = (sl.day_of_week - 1) + (5 if getattr(sl, "week_type", "numerator") == "denominator" else 0)
+                    hints.append((sl.curriculum_id, d_idx, sl.lesson_number - 1))
+        print(f"Loaded: {len(currs)} curriculums, {len(cons)} constraints, {len(teachers)} teachers, {len(hints)} hints from draft #{latest_good_draft}")
+
         print(f"Loaded: {len(currs)} curriculums, {len(cons)} constraints, {len(teachers)} teachers")
 
         weights = SolverWeights(
@@ -52,6 +72,7 @@ async def run_experiment():
             optimization_time_seconds=50,
             num_workers=2,
             weights=weights,
+            hints=hints,
         )
         elapsed = time.time() - t0
         print(f"Status: {result.status}, Objective: {result.objective}, Elapsed: {elapsed:.1f}s")
