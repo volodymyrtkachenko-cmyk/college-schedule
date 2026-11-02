@@ -1121,6 +1121,13 @@ def solve(
                     if c.stream_id in seen_sym_streams:
                         continue
                     seen_sym_streams.add(c.stream_id)
+                # Блокова симетрія для предметів із парною кількістю годин (дзеркальний чисельник/знаменник)
+                if c.pairs_per_2_weeks % 2 == 0:
+                    sym_block = model.NewBoolVar(f"sym_block_c{c.id}")
+                    for d in range(DAYS):
+                        for s in range(SLOTS):
+                            model.Add(X[(c.id, d, s)] == X[(c.id, d + DAYS, s)]).OnlyEnforceIf(sym_block)
+                    penalties["symmetry"].append((1 - sym_block) * (weights.subject_slot_symmetry * 40))
                 for d in range(DAYS):
                     for s in range(SLOTS):
                         asym = model.NewBoolVar(f"asym_c{c.id}_d{d}_s{s}")
