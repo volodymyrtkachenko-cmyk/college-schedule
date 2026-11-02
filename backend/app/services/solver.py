@@ -888,28 +888,6 @@ def solve(
             model.AddAbsEquality(week_imbalance, week_difference)
             penalties["group"].append(week_imbalance * weights.group_week_balance)
 
-        # Педагогічний розподіл навантаження за днями тижня (розвантаження Пн та Пт)
-        if weights.group_week_balance:
-            for g_id in group_curriculums:
-                for d in range(DAY_IDXS):
-                    weekday = d % DAYS
-                    if weekday == 4:  # П'ятниця (4-та пара)
-                        penalties["group"].append(group_slot_active[(g_id, d, 3)] * 20_000)
-                    elif weekday == 0:  # Понеділок (4-та пара)
-                        penalties["group"].append(group_slot_active[(g_id, d, 3)] * 10_000)
-
-        # Дзеркальне зшивання непарних пар у групах (симетрія структури дзвінків)
-        if weights.subject_slot_symmetry:
-            for g_id in group_curriculums:
-                for d in range(DAYS):
-                    for s in range(SLOTS):
-                        a_num = group_slot_active[(g_id, d, s)]
-                        a_den = group_slot_active[(g_id, d + DAYS, s)]
-                        slot_asym = model.NewBoolVar(f"group_asym_slot_g{g_id}_d{d}_s{s}")
-                        model.Add(slot_asym >= a_num - a_den)
-                        model.Add(slot_asym >= a_den - a_num)
-                        penalties["symmetry"].append(slot_asym * (weights.subject_slot_symmetry * 4))
-
         for c, w1, w2 in (unbalanced_curriculums if weights.subject_week_balance else ()):
             week_difference = model.NewIntVar(
                 -c.pairs_per_2_weeks,
@@ -1148,7 +1126,7 @@ def solve(
                         asym = model.NewBoolVar(f"asym_c{c.id}_d{d}_s{s}")
                         model.Add(asym >= X[(c.id, d, s)] - X[(c.id, d + DAYS, s)])
                         model.Add(asym >= X[(c.id, d + DAYS, s)] - X[(c.id, d, s)])
-                        penalties["symmetry"].append(asym * (weights.subject_slot_symmetry * 10))
+                        penalties["symmetry"].append(asym * (weights.subject_slot_symmetry * 15))
 
         # Shared physical room conflict avoidance across different teachers
         if weights.shared_room_conflict:
@@ -1322,8 +1300,8 @@ def solve(
                     model.Minimize(phase_expr)
                     phase_best_value: int | None = None
                     phase_best_assignments: list[tuple[int, int, int]] | None = None
-                    restart_count = 2 if phase_budget >= 30.0 else 1
-                    restart_budget = phase_budget / restart_count
+                    restart_count = 1
+                    restart_budget = phase_budget
 
                     for restart in range(restart_count):
                         remaining_phase = phase_budget - (time.monotonic() - phase_started)

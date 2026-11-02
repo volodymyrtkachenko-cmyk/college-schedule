@@ -7,6 +7,7 @@ import time
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from sqlalchemy import select
+from sqlalchemy.orm import joinedload
 from app.database import async_session_factory
 from app.models.entities import Curriculum, TeacherConstraint, Group, Teacher
 from app.services.solver import solve, evaluate_quality, SolverWeights
@@ -14,36 +15,58 @@ from app.services.solver import solve, evaluate_quality, SolverWeights
 
 async def run_experiment():
     async with async_session_factory() as db:
-        currs = (await db.scalars(select(Curriculum))).all()
+        query = select(Curriculum).options(
+            joinedload(Curriculum.group),
+            joinedload(Curriculum.subject),
+            joinedload(Curriculum.teacher),
+            joinedload(Curriculum.second_teacher),
+        )
+        currs = (await db.scalars(query)).all()
         cons = (await db.scalars(select(TeacherConstraint))).all()
         teachers = (await db.scalars(select(Teacher))).all()
         t_names = {t.id: t.name for t in teachers}
 
-    print(f"Loaded: {len(currs)} curriculums, {len(cons)} constraints, {len(teachers)} teachers")
+        print(f"Loaded: {len(currs)} curriculums, {len(cons)} constraints, {len(teachers)} teachers")
 
-    # Test baseline vs configurations
-    print("\n--- Starting Solver Run (Budget: 45s) ---")
-    t0 = time.time()
-    result = solve(
-        currs,
-        cons,
-        max_time_in_seconds=60,
-        optimization_time_seconds=45,
-        num_workers=2,
-    )
-    elapsed = time.time() - t0
-    print(f"Status: {result.status}, Objective: {result.objective}, Elapsed: {elapsed:.1f}s")
+        weights = SolverWeights(
+            subject_slot_symmetry=8000,
+            late_start=50,
+            teacher_windows=4000,
+            teacher_single_lesson_day=2000,
+            teacher_active_day=500,
+            teacher_four_lessons_day=250,
+            group_week_balance=1000,
+            subject_week_balance=1000,
+            three_consecutive_days=200,
+            soft_teacher_constraints=3000,
+            shared_room_conflict=0,
+            curator_thursday_priority=1000,
+        )
 
-    if result.status in ("FEASIBLE", "OPTIMAL"):
-        q = evaluate_quality(currs, cons, result.assignments, teacher_names=t_names)
-        print("\n=== QUALITY EVALUATION ===")
-        print(f"Overall Quality Score: {q.get('quality_score')}/100")
-        print(f"Symmetry: {q.get('symmetry_percentage')}%")
-        print(f"Late starts (start 1st): {q.get('start_from_first_percentage')}% (Late starts count: {q.get('late_starts_count')})")
-        print(f"Teacher windows: {q.get('teacher_windows_count')} (Double: {q.get('teacher_double_windows_count')})")
-        print(f"Teacher single-lesson days: {q.get('teacher_single_lesson_days_count')}")
-        print(f"Curator Thursday: {q.get('curator_thursday_count')}")
-        print(f"Free teacher days: {q.get('teacher_free_days_count')}")
+        print("\n--- Starting Solver Run (Budget: 50s continuous) ---")
+        t0 = time.time()
+        result = solve(
+            currs,
+            cons,
+            max_time_in_seconds=70,
+            optimization_time_seconds=50,
+            num_workers=2,
+            weights=weights,
+        )
+        elapsed = time.time() - t0
+        print(f"Status: {result.status}, Objective: {result.objective}, Elapsed: {elapsed:.1f}s")
+
+        if result.status in ("FEASIBLE", "OPTIMAL"):
+            q = evaluate_quality(currs, cons, result.assignments, teacher_names=t_names)
+            print("\n=== QUALITY EVALUATION ===")
+            print(f"Overall Quality Score: {q.get('quality_score')}/100")
+            print(f"Symmetry: {q.get('symmetry_percent')}%")
+            print(f"Late starts (start 1st): {q.get('first_lesson_start_percent')}% (Late starts count: {len(q.get('late_starts', []))})")
+            tw = q.get('teacher_windows', [])
+            dtw = [w for w in tw if w.get('is_double')]
+            print(f"Teacher windows: {len(tw)} (Double: {len(dtw)})")
+            print(f"Teacher single-lesson days: {len(q.get('teacher_single_pair_days', []))}")
+            print(f"Free teacher days: {q.get('methodical_days_count')}")
 
 
 if __name__ == "__main__":
