@@ -44,8 +44,8 @@ class GeneratorPriorities(BaseModel):
     teacher_active_day: int | None = Field(default=None, ge=PRIORITY_LEVEL_MIN, le=PRIORITY_LEVEL_MAX)
     teacher_single_lesson_day: int | None = Field(default=None, ge=PRIORITY_LEVEL_MIN, le=PRIORITY_LEVEL_MAX)
     teacher_four_lessons_day: int | None = Field(default=None, ge=PRIORITY_LEVEL_MIN, le=PRIORITY_LEVEL_MAX)
-    subject_slot_symmetry: int | None = Field(default=PRIORITY_LEVEL_MAX, ge=PRIORITY_LEVEL_MIN, le=PRIORITY_LEVEL_MAX)
-    shared_room_conflict: int | None = Field(default=0, ge=PRIORITY_LEVEL_MIN, le=PRIORITY_LEVEL_MAX)
+    subject_slot_symmetry: int | None = Field(default=None, ge=PRIORITY_LEVEL_MIN, le=PRIORITY_LEVEL_MAX)
+    shared_room_conflict: int | None = Field(default=None, ge=PRIORITY_LEVEL_MIN, le=PRIORITY_LEVEL_MAX)
     curator_thursday_priority: int | None = Field(default=None, ge=PRIORITY_LEVEL_MIN, le=PRIORITY_LEVEL_MAX)
 
     def to_weights(self) -> SolverWeights:
@@ -64,7 +64,12 @@ class GeneratorPriorities(BaseModel):
         ):
             level = getattr(self, name)
             if level is None:
-                level = DEFAULT_PRIORITY_LEVEL
+                if name == "shared_room_conflict":
+                    level = 0
+                elif name == "subject_slot_symmetry":
+                    level = PRIORITY_LEVEL_MAX
+                else:
+                    level = DEFAULT_PRIORITY_LEVEL
             scaled[name] = int(round(getattr(_BASE_WEIGHTS, name) * PRIORITY_MULTIPLIERS[level]))
         return SolverWeights(**scaled)
 
@@ -88,8 +93,8 @@ class GeneratorPrioritiesOverride(BaseModel):
     teacher_active_day: int | None = Field(default=None, ge=PRIORITY_LEVEL_MIN, le=PRIORITY_LEVEL_MAX)
     teacher_single_lesson_day: int | None = Field(default=None, ge=PRIORITY_LEVEL_MIN, le=PRIORITY_LEVEL_MAX)
     teacher_four_lessons_day: int | None = Field(default=None, ge=PRIORITY_LEVEL_MIN, le=PRIORITY_LEVEL_MAX)
-    subject_slot_symmetry: int | None = Field(default=PRIORITY_LEVEL_MAX, ge=PRIORITY_LEVEL_MIN, le=PRIORITY_LEVEL_MAX)
-    shared_room_conflict: int | None = Field(default=0, ge=PRIORITY_LEVEL_MIN, le=PRIORITY_LEVEL_MAX)
+    subject_slot_symmetry: int | None = Field(default=None, ge=PRIORITY_LEVEL_MIN, le=PRIORITY_LEVEL_MAX)
+    shared_room_conflict: int | None = Field(default=None, ge=PRIORITY_LEVEL_MIN, le=PRIORITY_LEVEL_MAX)
     curator_thursday_priority: int | None = Field(default=None, ge=PRIORITY_LEVEL_MIN, le=PRIORITY_LEVEL_MAX)
 
 

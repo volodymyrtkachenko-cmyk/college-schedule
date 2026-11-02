@@ -41,18 +41,18 @@ class SolverWeights:
     module-level and frozen, so it pickles cleanly into the solver subprocess.
     """
 
-    teacher_windows: int = 1_000          # «вікно» викладача між двома парами
-    late_start: int = 500                 # день групи починається з 2-ї пари
+    teacher_windows: int = 250            # «вікно» викладача між двома парами
+    late_start: int = 50                  # день групи починається з 2-ї пари
     three_consecutive_days: int = 2_000   # предмет три дні поспіль
     subject_week_balance: int = 10_000    # дисбаланс предмета чисельник/знаменник
     group_week_balance: int = 100_000     # дисбаланс навантаження групи по тижнях
     soft_teacher_constraints: int = 500   # пара в небажаний для викладача слот
-    subject_slot_symmetry: int = 2_500    # симетрія предмета (той самий день і пара в обидва тижні)
-    teacher_active_day: int = 250         # компактність днів викладача («методичний день»)
-    shared_room_conflict: int = 0         # кабінети вимкнено (0 = не штрафувати за кабінети)
-    teacher_single_lesson_day: int = 2_000# одна пара викладача в день (при навантаженні >= 2 пар на тиждень)
-    teacher_four_lessons_day: int = 250   # 4 пари поспіль у викладача в один день без перерви
-    curator_thursday_priority: int = 1_000# предмет куратора у своїй групі в четвер (пріоритет перед Виховною годиною)
+    subject_slot_symmetry: int = 500      # симетрія предмета (той самий день і пара в обидва тижні)
+    teacher_active_day: int = 120         # компактність днів викладача («методичний день»)
+    shared_room_conflict: int = 10        # одночасне використання спільного кабінету/лабораторії
+    teacher_single_lesson_day: int = 1200 # одна пара викладача в день (при навантаженні >= 2 пар на тиждень)
+    teacher_four_lessons_day: int = 120   # 4 пари поспіль у викладача в один день без перерви
+    curator_thursday_priority: int = 1000 # предмет куратора у своїй групі в четвер (пріоритет перед Виховною годиною)
 
 
     @classmethod
@@ -812,7 +812,7 @@ def solve(
                     model.Add(slots_active[0] + slots_active[2] >= 1)
                     model.Add(slots_active[3] <= slots_active[2])
                     if weights.late_start:
-                        day_pattern_penalties.append((1 - slots_active[0]) * (weights.late_start * 8))
+                        day_pattern_penalties.append((1 - slots_active[0]) * (weights.late_start * 80))
                 else:
                     # The three allowed patterns ((1,1,1,0), (1,1,1,1), (0,1,1,1))
                     # are equivalent to slots 2 and 3 always being occupied and at
@@ -821,7 +821,7 @@ def solve(
                     model.Add(slots_active[2] == 1)
                     model.Add(slots_active[0] + slots_active[3] >= 1)
                     if weights.late_start:
-                        day_pattern_penalties.append((1 - slots_active[0]) * (weights.late_start * 8))
+                        day_pattern_penalties.append((1 - slots_active[0]) * (weights.late_start * 80))
             else:
                 pattern_vars = []
                 for p_idx, (pat, pen) in enumerate(patterns):
@@ -1009,7 +1009,7 @@ def solve(
                             model.Add(
                                 window >= teaching_active[first] + teaching_active[first + 2] - teaching_active[first + 1] - 1
                             )
-                            penalties["teacher"].append(window * (weights.teacher_windows * 3))
+                            penalties["teacher"].append(window * (weights.teacher_windows * 10))
                         # Double window: [1, 0, 0, 1] (lessons 1 and 4 with lessons 2 and 3 empty)
                         if SLOTS >= 4:
                             double_window = model.NewBoolVar(f"double_window_t{teacher_id}_d{d}")
@@ -1020,7 +1020,7 @@ def solve(
                             model.Add(
                                 double_window >= teaching_active[0] + teaching_active[3] - teaching_active[1] - teaching_active[2] - 1
                             )
-                            penalties["teacher"].append(double_window * (weights.teacher_windows * 15))
+                            penalties["teacher"].append(double_window * (weights.teacher_windows * 50))
 
                     if weights.teacher_single_lesson_day:
                         week_start = 0 if d < DAYS else DAYS
@@ -1124,7 +1124,7 @@ def solve(
                         asym = model.NewBoolVar(f"asym_c{c.id}_d{d}_s{s}")
                         model.Add(asym >= X[(c.id, d, s)] - X[(c.id, d + DAYS, s)])
                         model.Add(asym >= X[(c.id, d + DAYS, s)] - X[(c.id, d, s)])
-                        penalties["symmetry"].append(asym * weights.subject_slot_symmetry)
+                        penalties["symmetry"].append(asym * (weights.subject_slot_symmetry * 8))
 
         # Shared physical room conflict avoidance across different teachers
         if weights.shared_room_conflict:
