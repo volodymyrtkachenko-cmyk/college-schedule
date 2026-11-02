@@ -1,4 +1,4 @@
-name: Verified Fly Deploy
+name: CI Verification
 on:
   push:
     branches: [main]
@@ -9,7 +9,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: fly-deploy-${{ github.ref }}
+  group: ci-verification-${{ github.ref }}
   cancel-in-progress: false
 jobs:
   verify:
@@ -49,28 +49,3 @@ jobs:
         working-directory: frontend
       - run: npx tsc --noEmit && node --test tests/*.cjs
         working-directory: frontend
-  deploy:
-    needs: verify
-    name: Deploy verified app
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Skip an outdated commit
-        id: head
-        run: |
-          remote_head=$(git ls-remote origin refs/heads/main | cut -f1)
-          if [ "$remote_head" = "$GITHUB_SHA" ]; then
-            echo 'current=true' >> "$GITHUB_OUTPUT"
-          else
-            echo 'current=false' >> "$GITHUB_OUTPUT"
-          fi
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-        if: steps.head.outputs.current == 'true'
-      - run: |
-          flyctl apps restart backend-agile-driftwood-8589 || true
-          sleep 5
-          flyctl deploy --remote-only --wait-timeout 300
-        if: steps.head.outputs.current == 'true'
-        working-directory: backend
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

@@ -99,7 +99,10 @@ def effective_cpu_count() -> int:
 
 
 def selected_worker_count(requested: int = DEFAULT_NUM_WORKERS) -> int:
-    return max(min(2, requested), min(requested, effective_cpu_count()))
+    # У хмарних контейнерах (Heroku 512MB) обмежуємо воркери до 2.
+    # Запуск 6-8 воркерів дублює структури моделі і спричиняє OOM (Error R15).
+    # 2 воркери (SAT + LNS) забезпечують максимальну швидкість при пам'яті ~200MB.
+    return min(2, max(1, requested))
 
 # Preferred patterns retained as a public compatibility/diagnostic value.  The
 # default model now expresses their hard part directly with Boolean logic.
@@ -854,6 +857,7 @@ def solve(
         instance = cp_model.CpSolver()
         instance.parameters.max_time_in_seconds = max(0.01, time_limit)
         instance.parameters.num_search_workers = actual_workers
+        instance.parameters.max_memory_in_mb = 350
         if random_seed is not None:
             instance.parameters.random_seed = random_seed
         return instance
@@ -1310,7 +1314,8 @@ def solve(
                             min(restart_budget, remaining_phase),
                             None if seed is None else seed + phase_index * 10 + restart + 1,
                         )
-                        optimizer.parameters.num_search_workers = max(min(6, num_workers), actual_workers)
+                        optimizer.parameters.num_search_workers = actual_workers
+                        optimizer.parameters.max_memory_in_mb = 350
                         optimizer.parameters.randomize_search = True
                         status = optimizer.Solve(model)
                         total_solutions += 1
