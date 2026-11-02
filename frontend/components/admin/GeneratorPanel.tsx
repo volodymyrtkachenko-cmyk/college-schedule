@@ -1429,30 +1429,22 @@ export function GeneratorPanel() {
         </div>
 
         {selectedSlot && (
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-sys-accent/40 bg-sys-accent/10 px-4 py-3">
-            <div className="space-y-1">
-              <p className="text-sm text-sys-text-primary">
-                Переміщення заняття: <strong>{selectedSlot.curriculum.group.name} · {selectedSlot.curriculum.subject.name}</strong>
-                {selectedSlot.curriculum.is_stream && selectedSlot.curriculum.stream_id && (
-                  <span className="ml-2 rounded bg-purple-500/20 px-2 py-0.5 text-xs font-semibold text-purple-300">
-                    🔗 Потокове заняття (переміститься синхронно)
-                  </span>
-                )}
-              </p>
-              <div className="flex flex-wrap items-center gap-3 text-xs text-sys-text-secondary">
-                <span className="inline-flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-full bg-emerald-400" /> Зелені — ідеальне місце
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-sys-accent/40 bg-sys-accent/10 px-4 py-2.5">
+            <div className="flex flex-wrap items-center gap-2 text-sm text-sys-text-primary">
+              <span className="font-bold text-sys-accent">⇄ Переміщення:</span>
+              <span className="font-semibold">{selectedSlot.curriculum.group.name} · {selectedSlot.curriculum.subject.name}</span>
+              {selectedSlot.curriculum.is_stream && selectedSlot.curriculum.stream_id && (
+                <span className="rounded bg-purple-500/20 px-2 py-0.5 text-xs font-semibold text-purple-300">
+                  🔗 Потік (переміститься синхронно)
                 </span>
-                <span className="inline-flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-full bg-amber-400" /> Жовті — допустимо з попередженням
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-full bg-rose-400" /> Червоні — зайнято (вказана причина)
-                </span>
-              </div>
+              )}
             </div>
-            <button type="button" onClick={() => setSelectedSlotId(null)} className="rounded-lg border border-sys-border px-3 py-1.5 text-sm font-medium text-sys-text-secondary hover:text-sys-text-primary">
-              Скасувати
+            <button
+              type="button"
+              onClick={() => setSelectedSlotId(null)}
+              className="rounded-lg border border-sys-border bg-sys-card px-3 py-1.5 text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/40 transition-colors"
+            >
+              ✕ Скасувати вибір
             </button>
           </div>
         )}
@@ -1528,6 +1520,11 @@ export function GeneratorPanel() {
                       <div className="space-y-2">
                         {cellSlots.map((slot) => {
                           const isWeekly = isSlotWeeklySymmetric(slot);
+                          const isSelected = selectedSlotId === slot.id;
+                          const swapEval = selectedSlot && !isSelected ? evaluateSwapTarget(slot) : null;
+                          const canSwap = Boolean(swapEval && (swapEval.status === "ideal" || swapEval.status === "warning"));
+                          const isBlocked = Boolean(swapEval && swapEval.status === "blocked");
+
                           return (
                             <article
                               key={slot.id}
@@ -1541,31 +1538,71 @@ export function GeneratorPanel() {
                                   void handleSwap(droppedSlotId, slot.id, activeWeek);
                                 }
                               }}
-                              className={`rounded-lg border bg-sys-card p-2.5 text-sm shadow-sm ${
-                                selectedSlotId === slot.id ? "border-sys-accent ring-1 ring-sys-accent" : "border-sys-border"
-                              } cursor-grab active:cursor-grabbing`}
+                              onClick={() => {
+                                if (selectedSlot && canSwap) {
+                                  void handleSwap(selectedSlot.id, slot.id, activeWeek);
+                                } else {
+                                  setSelectedSlotId(isSelected ? null : slot.id);
+                                }
+                              }}
+                              className={`group relative rounded-xl border p-2.5 text-sm shadow-xs transition-all cursor-pointer ${
+                                isSelected
+                                  ? "border-sys-accent ring-2 ring-sys-accent bg-sys-accent/[0.08]"
+                                  : canSwap
+                                    ? swapEval?.status === "warning"
+                                      ? "border-amber-400/70 ring-1 ring-amber-400/50 bg-amber-500/[0.08] hover:bg-amber-500/[0.15]"
+                                      : "border-sys-accent ring-1 ring-sys-accent/60 bg-sys-accent/[0.08] hover:bg-sys-accent/[0.16]"
+                                    : isBlocked
+                                      ? "border-sys-border/50 bg-sys-card/50 opacity-40 hover:opacity-75"
+                                      : "border-sys-border bg-sys-card hover:border-sys-accent/50 hover:shadow-xs"
+                              }`}
                             >
-                              <div className="flex flex-wrap items-center justify-between gap-1">
-                                <span className="font-semibold text-sys-accent">{slot.curriculum.group.name}</span>
-                                <div className="flex flex-wrap items-center gap-1">
+                              {/* Верхній рядок: група, бейджі та компактна кнопка замка */}
+                              <div className="flex items-center justify-between gap-1">
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <span className="font-semibold text-sys-accent text-xs">{slot.curriculum.group.name}</span>
                                   {slot.curriculum.is_stream && slot.curriculum.stream_id && (
-                                    <span className="rounded bg-purple-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-purple-300">
+                                    <span className="rounded bg-purple-500/15 px-1.5 py-0.2 text-[10px] font-semibold text-purple-300">
                                       Потік
                                     </span>
                                   )}
                                   {isWeekly ? (
-                                    <span className="rounded bg-sys-accent/10 px-1.5 py-0.5 text-[10px] font-semibold text-sys-accent">
+                                    <span className="rounded bg-sys-accent/10 px-1.5 py-0.2 text-[10px] font-semibold text-sys-accent">
                                       Щотижня
                                     </span>
                                   ) : (
-                                    <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-300/90">
-                                      {slot.week_type === "numerator" ? "Лише чис." : "Лише знам."}
+                                    <span className="rounded bg-amber-500/10 px-1.5 py-0.2 text-[10px] font-medium text-amber-300/90">
+                                      {slot.week_type === "numerator" ? "Чис." : "Знам."}
                                     </span>
                                   )}
                                 </div>
+
+                                {/* Компактний замок у кутку */}
+                                <button
+                                  type="button"
+                                  title={slot.is_locked ? "Пара зафіксована (зняти замок)" : "Зафіксувати пару"}
+                                  disabled={moving}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    void handleLock(slot);
+                                  }}
+                                  className={`rounded p-0.5 text-xs transition-all ${
+                                    slot.is_locked
+                                      ? "text-amber-400 bg-amber-500/20 hover:bg-amber-500/30"
+                                      : "text-sys-text-muted opacity-0 group-hover:opacity-100 hover:text-sys-accent hover:bg-sys-accent/10"
+                                  }`}
+                                >
+                                  {slot.is_locked ? "🔒" : "🔓"}
+                                </button>
                               </div>
-                              <p className="mt-1 font-medium leading-snug text-sys-text-primary">{slot.curriculum.subject.name}</p>
-                              <p className="mt-1 break-words text-xs leading-snug text-sys-text-secondary">
+
+                              {/* Назва предмета */}
+                              <p className="mt-1 font-medium leading-snug text-sys-text-primary text-xs line-clamp-2">
+                                {slot.curriculum.subject.name}
+                              </p>
+
+                              {/* Викладач та аудиторія */}
+                              <p className="mt-1 break-words text-[11px] leading-snug text-sys-text-secondary">
                                 {[
                                   [
                                     formatTeacherName(slot.curriculum.teacher.name),
@@ -1577,123 +1614,67 @@ export function GeneratorPanel() {
                                   ].filter(Boolean).join(" / "),
                                 ].filter(Boolean).join(" · ")}
                               </p>
-                              <button
-                                type="button"
-                                disabled={moving}
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  void handleLock(slot);
-                                }}
-                                className={`mt-2 w-full rounded-md border px-2 py-1 text-[11px] font-semibold transition-colors disabled:opacity-50 ${
-                                  slot.is_locked
-                                    ? "border-amber-400/50 bg-amber-500/15 text-amber-700 dark:text-amber-200"
-                                    : "border-sys-border bg-sys-elevated text-sys-text-secondary hover:border-sys-accent/50 hover:text-sys-accent"
-                                }`}
-                              >
-                                {slot.is_locked ? "🔒 Зафіксовано · зняти" : "🔓 Зафіксувати пару"}
-                              </button>
-                              {selectedSlotId === slot.id ? (
-                                <button
-                                  type="button"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    setSelectedSlotId(null);
-                                  }}
-                                  className="mt-2 w-full rounded-md border border-sys-accent bg-sys-accent/15 px-2 py-1 text-xs font-semibold text-sys-accent transition-colors hover:bg-sys-accent/25"
+
+                              {/* Контекстний стан заміни/вибору */}
+                              {isSelected ? (
+                                <div className="mt-2 flex items-center justify-between border-t border-sys-accent/30 pt-1.5 text-[11px] font-semibold text-sys-accent">
+                                  <span>● Вибрано</span>
+                                  <span className="hover:underline">Скасувати ✕</span>
+                                </div>
+                              ) : canSwap ? (
+                                <div className="mt-2 flex items-center justify-center gap-1 rounded-md border border-sys-accent/60 bg-sys-accent/15 py-1 text-xs font-semibold text-sys-accent group-hover:bg-sys-accent group-hover:text-white transition-all shadow-xs">
+                                  <span>⇄ Поміняти місцями</span>
+                                  {swapEval?.status === "warning" && (
+                                    <span className="text-[10px] font-normal" title={swapEval.label}>⚠</span>
+                                  )}
+                                </div>
+                              ) : isBlocked ? (
+                                <div
+                                  className="mt-1.5 flex items-center gap-1 text-[10px] font-medium text-rose-300/80 truncate"
+                                  title={swapEval?.label}
                                 >
-                                  ✕ Скасувати вибір
-                                </button>
-                              ) : selectedSlot ? (
-                                (() => {
-                                  const swapEval = evaluateSwapTarget(slot);
-                                  if (swapEval.status === "ideal" || swapEval.status === "warning") {
-                                    return (
-                                      <button
-                                        type="button"
-                                        disabled={moving}
-                                        onClick={(event) => {
-                                          event.stopPropagation();
-                                          void handleSwap(selectedSlot.id, slot.id, activeWeek);
-                                        }}
-                                        className={`mt-2 flex w-full flex-col items-center justify-center rounded-md border px-2 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50 ${
-                                          swapEval.status === "warning"
-                                            ? "border-amber-400/50 bg-amber-500/15 text-amber-200 hover:bg-amber-500/25"
-                                            : "border-sys-accent/60 bg-sys-accent/15 text-sys-accent hover:bg-sys-accent/25"
-                                        }`}
-                                      >
-                                        <span className="flex items-center gap-1">
-                                          <span>⇄</span> Поміняти місцями
-                                        </span>
-                                        {swapEval.status === "warning" && swapEval.label && (
-                                          <span className="mt-0.5 text-[10px] font-normal opacity-90">⚠ {swapEval.label}</span>
-                                        )}
-                                      </button>
-                                    );
-                                  }
-                                  return (
-                                    <div className="mt-2 space-y-1">
-                                      {swapEval.status === "blocked" && swapEval.label && (
-                                        <div className="rounded border border-rose-500/20 bg-rose-500/10 px-1.5 py-1 text-center text-[10px] font-medium text-rose-300">
-                                          ⛔ {swapEval.label}
-                                        </div>
-                                      )}
-                                      <button
-                                        type="button"
-                                        onClick={(event) => {
-                                          event.stopPropagation();
-                                          setSelectedSlotId(slot.id);
-                                        }}
-                                        className="w-full rounded-md border border-sys-border px-2 py-0.5 text-[11px] font-medium text-sys-text-muted transition-colors hover:text-sys-text-primary"
-                                      >
-                                        Вибрати цю замість
-                                      </button>
-                                    </div>
-                                  );
-                                })()
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    setSelectedSlotId(slot.id);
-                                  }}
-                                  className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-sys-border bg-sys-elevated/50 px-2 py-1 text-xs font-semibold text-sys-text-secondary transition-all hover:border-sys-accent/60 hover:bg-sys-accent/10 hover:text-sys-accent"
-                                >
-                                  <span>⇄</span>
-                                  <span>Обміняти / Перенести</span>
-                                </button>
-                              )}
+                                  <span>⛔</span>
+                                  <span className="truncate">{swapEval?.label || "Зайнято"}</span>
+                                </div>
+                              ) : null}
                             </article>
                           );
                         })}
                       </div>
                     )}
-                    {canChooseTarget ? (
-                      <button
-                        type="button"
-                        aria-label={`Перемістити пару на ${dayNames[day]}, ${lesson}-ту пару`}
-                        onClick={() => {
-                          if (selectedSlot && !moving) void handleMove(selectedSlot.id, day, lesson, activeWeek);
-                        }}
-                        disabled={moving}
-                        className={`mt-2 flex min-h-10 w-full flex-col items-center justify-center rounded-lg border px-2 py-2 text-xs font-semibold transition-colors disabled:opacity-50 ${
-                          targetEval.status === "warning"
-                            ? "border-amber-400/40 bg-amber-500/15 text-amber-200 hover:bg-amber-500/25"
-                            : "border-emerald-400/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"
-                        }`}
-                      >
-                        <span>Перемістити сюди</span>
-                        {targetEval.status === "warning" && targetEval.label && (
-                          <span className="mt-0.5 text-[10px] font-normal opacity-90">⚠ {targetEval.label}</span>
-                        )}
-                      </button>
-                    ) : targetEval.status === "blocked" && targetEval.label ? (
-                      <div className="mt-2 flex min-h-9 w-full items-center justify-center rounded-lg border border-rose-500/25 bg-rose-500/10 px-2 py-1.5 text-center text-[11px] font-medium text-rose-300/90">
-                        ⛔ {targetEval.label}
-                      </div>
-                    ) : cellSlots.length === 0 && cellSubs.length === 0 ? (
-                      <div className="flex min-h-28 items-center justify-center text-xs text-sys-text-muted">—</div>
-                    ) : null}
+                    {cellSlots.length === 0 && cellSubs.length === 0 && (
+                      canChooseTarget ? (
+                        <button
+                          type="button"
+                          aria-label={`Перемістити пару на ${dayNames[day]}, ${lesson}-ту пару`}
+                          onClick={() => {
+                            if (selectedSlot && !moving) void handleMove(selectedSlot.id, day, lesson, activeWeek);
+                          }}
+                          disabled={moving}
+                          className={`flex min-h-24 w-full flex-col items-center justify-center rounded-xl border border-dashed p-2 text-xs font-semibold transition-all ${
+                            targetEval.status === "warning"
+                              ? "border-amber-400/50 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20"
+                              : "border-emerald-400/50 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"
+                          }`}
+                        >
+                          <span className="flex items-center gap-1 text-sm font-bold">
+                            <span>+</span> Перемістити сюди
+                          </span>
+                          {targetEval.status === "warning" && targetEval.label && (
+                            <span className="mt-1 text-[10px] font-normal opacity-90 text-center">⚠ {targetEval.label}</span>
+                          )}
+                        </button>
+                      ) : selectedSlot && targetEval.status === "blocked" && targetEval.label ? (
+                        <div
+                          className="flex min-h-24 items-center justify-center rounded-xl border border-dashed border-rose-500/20 bg-rose-500/[0.03] p-2 text-center text-xs text-rose-300/70"
+                          title={targetEval.label}
+                        >
+                          <span className="line-clamp-2">⛔ {targetEval.label}</span>
+                        </div>
+                      ) : (
+                        <div className="flex min-h-24 items-center justify-center text-xs text-sys-text-muted">—</div>
+                      )
+                    )}
                   </div>
                 );
               }),
