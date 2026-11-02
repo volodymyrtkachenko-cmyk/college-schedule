@@ -653,7 +653,7 @@ export function GeneratorPanel() {
                   (slot) =>
                     (slot.curriculum.teacher_id === teacher.id ||
                       slot.curriculum.second_teacher_id === teacher.id) &&
-                    slot.week_type === week &&
+                    (slot.week_type === week || slot.week_type === "both") &&
                     slot.day_of_week === day + 1,
                 )
                 .map((slot) => slot.lesson_number),
@@ -683,10 +683,10 @@ export function GeneratorPanel() {
         0.15 * singleDayScore +
         0.05 * softScore;
       let quality_score: number;
-      if (rawScore >= 0.88) {
-        quality_score = Math.round(95 + ((rawScore - 0.88) / 0.12) * 5);
+      if (rawScore >= 0.85) {
+        quality_score = Math.round(95 + ((rawScore - 0.85) / 0.07) * 5);
       } else if (rawScore >= 0.60) {
-        quality_score = Math.round(65 + ((rawScore - 0.60) / 0.28) * 30);
+        quality_score = Math.round(65 + ((rawScore - 0.60) / 0.25) * 30);
       } else {
         quality_score = Math.round((rawScore / 0.60) * 65);
       }
