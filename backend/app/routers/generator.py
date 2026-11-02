@@ -350,6 +350,7 @@ async def _run_solver(
     use_subprocess = (
         solver.solve is _DEFAULT_SOLVE
         and "PYTEST_CURRENT_TEST" not in os.environ
+        and os.environ.get("SOLVER_USE_SUBPROCESS", "").lower() in ("1", "true")
     )
     if use_subprocess:
         curr_snapshots, cons_snapshots = _snapshot_inputs(curriculums, constraints)

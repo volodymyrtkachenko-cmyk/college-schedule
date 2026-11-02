@@ -1009,7 +1009,7 @@ def solve(
                             model.Add(
                                 window >= teaching_active[first] + teaching_active[first + 2] - teaching_active[first + 1] - 1
                             )
-                            penalties["teacher"].append(window * (weights.teacher_windows * 10))
+                            penalties["teacher"].append(window * (weights.teacher_windows * 40))
                         # Double window: [1, 0, 0, 1] (lessons 1 and 4 with lessons 2 and 3 empty)
                         if SLOTS >= 4:
                             double_window = model.NewBoolVar(f"double_window_t{teacher_id}_d{d}")
@@ -1020,7 +1020,7 @@ def solve(
                             model.Add(
                                 double_window >= teaching_active[0] + teaching_active[3] - teaching_active[1] - teaching_active[2] - 1
                             )
-                            penalties["teacher"].append(double_window * (weights.teacher_windows * 50))
+                            penalties["teacher"].append(double_window * (weights.teacher_windows * 150))
 
                     if weights.teacher_single_lesson_day:
                         week_start = 0 if d < DAYS else DAYS
@@ -1045,13 +1045,13 @@ def solve(
                         single_day = model.NewBoolVar(f"single_day_t{teacher_id}_d{d}")
                         model.AddBoolAnd([day_single, week_has_multi]).OnlyEnforceIf(single_day)
                         model.AddBoolOr([day_single.Not(), week_has_multi.Not()]).OnlyEnforceIf(single_day.Not())
-                        penalties["teacher"].append(single_day * weights.teacher_single_lesson_day)
+                        penalties["teacher"].append(single_day * (weights.teacher_single_lesson_day * 5))
 
                     if weights.teacher_four_lessons_day:
                         four_day = model.NewBoolVar(f"four_day_t{teacher_id}_d{d}")
                         model.Add(sum(teaching_active) == 4).OnlyEnforceIf(four_day)
                         model.Add(sum(teaching_active) != 4).OnlyEnforceIf(four_day.Not())
-                        penalties["teacher"].append(four_day * weights.teacher_four_lessons_day)
+                        penalties["teacher"].append(four_day * (weights.teacher_four_lessons_day * 2))
 
                     if weights.teacher_active_day:
                         day_busy = model.NewBoolVar(f"day_busy_t{teacher_id}_d{d}")
@@ -1075,7 +1075,7 @@ def solve(
                             excess_days,
                             [0, sum(busy_days) - minimum_days],
                         )
-                        penalties["teacher"].append(excess_days * weights.teacher_active_day)
+                        penalties["teacher"].append(excess_days * (weights.teacher_active_day * 4))
 
         # Предмет куратора у своїй групі у четвер (пріоритет на 3-тю пару перед Виховною годиною)
         if weights.curator_thursday_priority:
@@ -1124,7 +1124,7 @@ def solve(
                         asym = model.NewBoolVar(f"asym_c{c.id}_d{d}_s{s}")
                         model.Add(asym >= X[(c.id, d, s)] - X[(c.id, d + DAYS, s)])
                         model.Add(asym >= X[(c.id, d + DAYS, s)] - X[(c.id, d, s)])
-                        penalties["symmetry"].append(asym * (weights.subject_slot_symmetry * 8))
+                        penalties["symmetry"].append(asym * (weights.subject_slot_symmetry * 3))
 
         # Shared physical room conflict avoidance across different teachers
         if weights.shared_room_conflict:

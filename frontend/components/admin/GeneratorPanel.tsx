@@ -675,18 +675,14 @@ export function GeneratorPanel() {
         0,
         1 - soft_constraint_violations.length / Math.max(1, slots.length),
       );
-      const roomScore = Math.max(
-        0,
-        1 - room_conflicts.length / Math.max(1, slots.length),
-      );
+      // Кабінети вимкнено за вимогою користувача і не штрафують якість розкладу
       const quality_score = Math.round(
         100 *
-          (0.3 * (symmetry_percent / 100) +
-            0.2 * (first_lesson_start_percent / 100) +
-            0.2 * windowScore +
+          (0.35 * (symmetry_percent / 100) +
+            0.25 * (first_lesson_start_percent / 100) +
+            0.20 * windowScore +
             0.15 * singleDayScore +
-            0.1 * softScore +
-            0.05 * roomScore),
+            0.05 * softScore),
       );
 
       return {
