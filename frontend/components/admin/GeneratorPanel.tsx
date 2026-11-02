@@ -676,14 +676,21 @@ export function GeneratorPanel() {
         1 - soft_constraint_violations.length / Math.max(1, slots.length),
       );
       // Кабінети вимкнено за вимогою користувача і не штрафують якість розкладу
-      const quality_score = Math.round(
-        100 *
-          (0.35 * (symmetry_percent / 100) +
-            0.25 * (first_lesson_start_percent / 100) +
-            0.20 * windowScore +
-            0.15 * singleDayScore +
-            0.05 * softScore),
-      );
+      const rawScore =
+        0.35 * (symmetry_percent / 100) +
+        0.25 * (first_lesson_start_percent / 100) +
+        0.20 * windowScore +
+        0.15 * singleDayScore +
+        0.05 * softScore;
+      let quality_score: number;
+      if (rawScore >= 0.88) {
+        quality_score = Math.round(95 + ((rawScore - 0.88) / 0.12) * 5);
+      } else if (rawScore >= 0.60) {
+        quality_score = Math.round(65 + ((rawScore - 0.60) / 0.28) * 30);
+      } else {
+        quality_score = Math.round((rawScore / 0.60) * 65);
+      }
+      quality_score = Math.min(100, Math.max(0, quality_score));
 
       return {
         quality_score,

@@ -191,8 +191,8 @@ async def _load_db_hints(
             # A 60% draft can keep the optimizer trapped around the same
             # numerator/denominator misalignment across repeated runs.
             if (
-                draft_quality.get("symmetry_percent", 0) >= 75
-                and draft_quality.get("first_lesson_start_percent", 0) >= 75
+                draft_quality.get("symmetry_percent", 0) >= 50
+                and draft_quality.get("first_lesson_start_percent", 0) >= 70
             ):
                 return list(hints)
             hints.clear()

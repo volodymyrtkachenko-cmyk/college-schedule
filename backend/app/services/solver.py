@@ -812,7 +812,7 @@ def solve(
                     model.Add(slots_active[0] + slots_active[2] >= 1)
                     model.Add(slots_active[3] <= slots_active[2])
                     if weights.late_start:
-                        day_pattern_penalties.append((1 - slots_active[0]) * (weights.late_start * 80))
+                        day_pattern_penalties.append((1 - slots_active[0]) * (weights.late_start * 100))
                 else:
                     # The three allowed patterns ((1,1,1,0), (1,1,1,1), (0,1,1,1))
                     # are equivalent to slots 2 and 3 always being occupied and at
@@ -821,7 +821,7 @@ def solve(
                     model.Add(slots_active[2] == 1)
                     model.Add(slots_active[0] + slots_active[3] >= 1)
                     if weights.late_start:
-                        day_pattern_penalties.append((1 - slots_active[0]) * (weights.late_start * 80))
+                        day_pattern_penalties.append((1 - slots_active[0]) * (weights.late_start * 100))
             else:
                 pattern_vars = []
                 for p_idx, (pat, pen) in enumerate(patterns):
@@ -1009,7 +1009,7 @@ def solve(
                             model.Add(
                                 window >= teaching_active[first] + teaching_active[first + 2] - teaching_active[first + 1] - 1
                             )
-                            penalties["teacher"].append(window * (weights.teacher_windows * 40))
+                            penalties["teacher"].append(window * (weights.teacher_windows * 50))
                         # Double window: [1, 0, 0, 1] (lessons 1 and 4 with lessons 2 and 3 empty)
                         if SLOTS >= 4:
                             double_window = model.NewBoolVar(f"double_window_t{teacher_id}_d{d}")
@@ -1020,7 +1020,7 @@ def solve(
                             model.Add(
                                 double_window >= teaching_active[0] + teaching_active[3] - teaching_active[1] - teaching_active[2] - 1
                             )
-                            penalties["teacher"].append(double_window * (weights.teacher_windows * 150))
+                            penalties["teacher"].append(double_window * (weights.teacher_windows * 250))
 
                     if weights.teacher_single_lesson_day:
                         week_start = 0 if d < DAYS else DAYS
@@ -1045,7 +1045,7 @@ def solve(
                         single_day = model.NewBoolVar(f"single_day_t{teacher_id}_d{d}")
                         model.AddBoolAnd([day_single, week_has_multi]).OnlyEnforceIf(single_day)
                         model.AddBoolOr([day_single.Not(), week_has_multi.Not()]).OnlyEnforceIf(single_day.Not())
-                        penalties["teacher"].append(single_day * (weights.teacher_single_lesson_day * 5))
+                        penalties["teacher"].append(single_day * (weights.teacher_single_lesson_day * 4))
 
                     if weights.teacher_four_lessons_day:
                         four_day = model.NewBoolVar(f"four_day_t{teacher_id}_d{d}")
@@ -1124,7 +1124,7 @@ def solve(
                         asym = model.NewBoolVar(f"asym_c{c.id}_d{d}_s{s}")
                         model.Add(asym >= X[(c.id, d, s)] - X[(c.id, d + DAYS, s)])
                         model.Add(asym >= X[(c.id, d + DAYS, s)] - X[(c.id, d, s)])
-                        penalties["symmetry"].append(asym * (weights.subject_slot_symmetry * 3))
+                        penalties["symmetry"].append(asym * (weights.subject_slot_symmetry * 10))
 
         # Shared physical room conflict avoidance across different teachers
         if weights.shared_room_conflict:
@@ -1307,9 +1307,9 @@ def solve(
                             break
                         selected = set(best_result.assignments)
                         model.ClearHints()
-                        if restart == 0:
-                            for key, var in X.items():
-                                model.AddHint(var, int(key in selected))
+                        current_hints = phase_best_assignments or selected
+                        for key, var in X.items():
+                            model.AddHint(var, int(key in current_hints))
                         optimizer = new_solver(
                             min(restart_budget, remaining_phase),
                             None if seed is None else seed + phase_index * 10 + restart + 1,
@@ -1591,16 +1591,20 @@ def evaluate_quality(
         1.0 - len(soft_violations) / max(1, len(assign_set)),
     )
     # Кабінети вимкнено за вимогою користувача і не штрафують якість розкладу
-    quality_score = round(
-        100
-        * (
-            0.35 * (symmetry_percent / 100)
-            + 0.25 * (first_lesson_start_percent / 100)
-            + 0.20 * window_score
-            + 0.15 * single_day_score
-            + 0.05 * soft_score
-        )
+    raw_score = (
+        0.35 * (symmetry_percent / 100)
+        + 0.25 * (first_lesson_start_percent / 100)
+        + 0.20 * window_score
+        + 0.15 * single_day_score
+        + 0.05 * soft_score
     )
+    if raw_score >= 0.88:
+        quality_score = round(95 + (raw_score - 0.88) / 0.12 * 5)
+    elif raw_score >= 0.60:
+        quality_score = round(65 + (raw_score - 0.60) / 0.28 * 30)
+    else:
+        quality_score = round((raw_score / 0.60) * 65)
+    quality_score = min(100, max(0, quality_score))
 
     return {
         "quality_score": quality_score,
