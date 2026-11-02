@@ -11,7 +11,7 @@ from sqlalchemy import select
 from app.analytics import track_request
 from app.config import settings
 from app.database import engine, async_session_factory
-from app.routers import schedule_versions, lesson_notes
+from app.routers import schedule_versions, lesson_notes, terms as terms_router
 from app.routers import (
     admin_import, aliases, auth, curriculums, directory, drafts, educational_process, generator,
     health, schedule, schedule_periods, statistics, settings as settings_router, teacher_constraints, users,
@@ -217,7 +217,7 @@ app.include_router(directory.admin_router, prefix="/api")
 app.include_router(auth.router, prefix="/api")
 app.include_router(users.router, prefix="/api")
 app.include_router(settings_router.router, prefix="/api")
-app.include_router(terms.router, prefix="/api")
+app.include_router(terms_router.router, prefix="/api")
 app.include_router(curriculums.router, prefix="/api")
 app.include_router(generator.router, prefix="/api")
 app.include_router(drafts.router, prefix="/api")
