@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/classroom", tags=["classroom"])
 KYIV_TZ = ZoneInfo("Europe/Kyiv")
 
-DEFAULT_GOOGLE_CLIENT_ID = ""
+DEFAULT_GOOGLE_CLIENT_ID = "1079868158360-ok75uv5l93pcql2iktfcple97sdu180b.apps.googleusercontent.com"
 
 
 def get_google_client_id() -> str:
