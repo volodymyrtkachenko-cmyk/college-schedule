@@ -28,57 +28,71 @@ from app.routers.admin_import import schedule_auto_import_loop
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     import os
+    import secrets
+    import logging
+    from sqlalchemy import text
+
+    logger = logging.getLogger("app")
     run_cron = os.environ.get("RUN_CRON", "true").strip().lower() not in ("false", "0", "no")
     classroom_sync_task = asyncio.create_task(classroom_auto_sync_loop()) if run_cron else None
     auto_import_task = asyncio.create_task(schedule_auto_import_loop()) if run_cron else None
+
+    # Schema bootstrap (DDL) is executed only if RUN_SCHEMA_BOOTSTRAP is explicitly enabled (dev / testing).
+    # Production schema must evolve exclusively via Alembic migrations.
+    run_bootstrap = settings.run_schema_bootstrap or os.environ.get("RUN_SCHEMA_BOOTSTRAP", "").strip().lower() in ("true", "1", "yes")
     async with engine.begin() as conn:
-        await conn.run_sync(AcademicEvent.__table__.create, checkfirst=True)
-        await conn.run_sync(GroupStudent.__table__.create, checkfirst=True)
-        await conn.run_sync(ClassroomGroupBinding.__table__.create, checkfirst=True)
-        await conn.run_sync(ClassroomCredential.__table__.create, checkfirst=True)
+        if run_bootstrap:
+            try:
+                await conn.run_sync(AcademicEvent.__table__.create, checkfirst=True)
+                await conn.run_sync(GroupStudent.__table__.create, checkfirst=True)
+                await conn.run_sync(ClassroomGroupBinding.__table__.create, checkfirst=True)
+                await conn.run_sync(ClassroomCredential.__table__.create, checkfirst=True)
+                await conn.execute(text("ALTER TABLE teachers ADD COLUMN IF NOT EXISTS full_name VARCHAR(150)"))
+                await conn.execute(text("ALTER TABLE teachers ADD COLUMN IF NOT EXISTS email VARCHAR(255)"))
+                await conn.execute(text("ALTER TABLE schedule_events ADD COLUMN IF NOT EXISTS lesson_number INTEGER"))
+                await conn.execute(text("ALTER TABLE schedule_events ADD COLUMN IF NOT EXISTS custom_subject VARCHAR(200)"))
+                await conn.execute(text("ALTER TABLE schedule_publications ADD COLUMN IF NOT EXISTS is_reverted BOOLEAN NOT NULL DEFAULT FALSE"))
+                await conn.execute(text("ALTER TABLE schedule_publications ALTER COLUMN actor_id DROP NOT NULL"))
+                await conn.execute(text("ALTER TABLE imported_schedule_changes ADD COLUMN IF NOT EXISTS change_type VARCHAR(20) DEFAULT 'substitution'"))
+                await conn.execute(text("ALTER TABLE imported_schedule_changes ADD COLUMN IF NOT EXISTS publication_id INTEGER REFERENCES schedule_publications(id) ON DELETE CASCADE"))
+                await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_imported_schedule_changes_publication_id ON imported_schedule_changes (publication_id)"))
+                await conn.execute(text(
+                    "CREATE INDEX IF NOT EXISTS ix_schedule_active_lookup "
+                    "ON schedule (version_id, is_active, day_of_week, group_id)"
+                ))
+                await conn.execute(text(
+                    "CREATE INDEX IF NOT EXISTS ix_schedule_second_teacher_day "
+                    "ON schedule (second_teacher_id, day_of_week)"
+                ))
+                await conn.execute(text(
+                    "CREATE INDEX IF NOT EXISTS ix_schedule_subject_id "
+                    "ON schedule (subject_id)"
+                ))
+                await conn.execute(text(
+                    "CREATE INDEX IF NOT EXISTS ix_imp_changes_lookup "
+                    "ON imported_schedule_changes (date, is_published, group_id, lesson_number, version DESC)"
+                ))
+                await conn.execute(text(
+                    "CREATE INDEX IF NOT EXISTS ix_imp_changes_teacher "
+                    "ON imported_schedule_changes (date, is_published, teacher_id, second_teacher_id)"
+                ))
+                await conn.execute(text(
+                    "CREATE INDEX IF NOT EXISTS ix_override_date_group "
+                    "ON schedule_override (date, group_id, lesson_number)"
+                ))
+                await conn.execute(text(
+                    "CREATE INDEX IF NOT EXISTS ix_override_teacher "
+                    "ON schedule_override (date, teacher_id, second_teacher_id)"
+                ))
+                await conn.execute(text(
+                    "CREATE INDEX IF NOT EXISTS ix_notes_week_lookup "
+                    "ON lesson_occurrence_notes (note_date, group_id, archived)"
+                ))
+            except Exception:
+                logger.warning("Schema bootstrap error during startup", exc_info=True)
+
+        # Operational data updates (always run)
         try:
-            from sqlalchemy import text
-            await conn.execute(text("ALTER TABLE teachers ADD COLUMN IF NOT EXISTS full_name VARCHAR(150)"))
-            await conn.execute(text("ALTER TABLE teachers ADD COLUMN IF NOT EXISTS email VARCHAR(255)"))
-            await conn.execute(text("ALTER TABLE schedule_events ADD COLUMN IF NOT EXISTS lesson_number INTEGER"))
-            await conn.execute(text("ALTER TABLE schedule_events ADD COLUMN IF NOT EXISTS custom_subject VARCHAR(200)"))
-            await conn.execute(text("ALTER TABLE schedule_publications ADD COLUMN IF NOT EXISTS is_reverted BOOLEAN NOT NULL DEFAULT FALSE"))
-            await conn.execute(text("ALTER TABLE schedule_publications ALTER COLUMN actor_id DROP NOT NULL"))
-            await conn.execute(text("ALTER TABLE imported_schedule_changes ADD COLUMN IF NOT EXISTS change_type VARCHAR(20) DEFAULT 'substitution'"))
-            await conn.execute(text("ALTER TABLE imported_schedule_changes ADD COLUMN IF NOT EXISTS publication_id INTEGER REFERENCES schedule_publications(id) ON DELETE CASCADE"))
-            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_imported_schedule_changes_publication_id ON imported_schedule_changes (publication_id)"))
-            await conn.execute(text(
-                "CREATE INDEX IF NOT EXISTS ix_schedule_active_lookup "
-                "ON schedule (version_id, is_active, day_of_week, group_id)"
-            ))
-            await conn.execute(text(
-                "CREATE INDEX IF NOT EXISTS ix_schedule_second_teacher_day "
-                "ON schedule (second_teacher_id, day_of_week)"
-            ))
-            await conn.execute(text(
-                "CREATE INDEX IF NOT EXISTS ix_schedule_subject_id "
-                "ON schedule (subject_id)"
-            ))
-            await conn.execute(text(
-                "CREATE INDEX IF NOT EXISTS ix_imp_changes_lookup "
-                "ON imported_schedule_changes (date, is_published, group_id, lesson_number, version DESC)"
-            ))
-            await conn.execute(text(
-                "CREATE INDEX IF NOT EXISTS ix_imp_changes_teacher "
-                "ON imported_schedule_changes (date, is_published, teacher_id, second_teacher_id)"
-            ))
-            await conn.execute(text(
-                "CREATE INDEX IF NOT EXISTS ix_override_date_group "
-                "ON schedule_override (date, group_id, lesson_number)"
-            ))
-            await conn.execute(text(
-                "CREATE INDEX IF NOT EXISTS ix_override_teacher "
-                "ON schedule_override (date, teacher_id, second_teacher_id)"
-            ))
-            await conn.execute(text(
-                "CREATE INDEX IF NOT EXISTS ix_notes_week_lookup "
-                "ON lesson_occurrence_notes (note_date, group_id, archived)"
-            ))
             # Archive stale pending import drafts older than 12 hours
             await conn.execute(text(
                 "UPDATE schedule_drafts SET status = 'archived' "
@@ -107,10 +121,10 @@ async def lifespan(_: FastAPI):
                     await conn.execute(text(
                         f"SELECT setval(pg_get_serial_sequence('{tbl}', 'id'), COALESCE((SELECT MAX(id) FROM {tbl}), 1))"
                     ))
-                except Exception:
-                    pass
+                except Exception as seq_err:
+                    logger.debug("Sequence sync skipped for table %s: %s", tbl, seq_err)
         except Exception:
-            pass
+            logger.warning("Data housekeeping error during startup", exc_info=True)
 
     try:
         from app.database import async_session_factory
@@ -120,14 +134,30 @@ async def lifespan(_: FastAPI):
         async with async_session_factory() as db:
             admin_user = await db.scalar(select(User).where(User.username == "admin"))
             if not admin_user:
-                db.add(User(
-                    username="admin",
-                    name="Адміністратор",
-                    password_hash=hash_password("admin123"),
-                    role="admin",
-                    is_active=True,
-                ))
-                await db.commit()
+                admin_pw = settings.admin_password or os.environ.get("ADMIN_PASSWORD")
+                if not admin_pw:
+                    if settings.environment.lower() == "production":
+                        logger.error(
+                            "ADMIN_PASSWORD is not set in production. Skipping default admin creation for security."
+                        )
+                        admin_pw = None
+                    else:
+                        admin_pw = secrets.token_urlsafe(16)
+                        logger.warning(
+                            "No ADMIN_PASSWORD provided. Generated temporary admin password for 'admin': %s",
+                            admin_pw,
+                        )
+
+                if admin_pw:
+                    db.add(User(
+                        username="admin",
+                        name="Адміністратор",
+                        password_hash=hash_password(admin_pw),
+                        role="admin",
+                        is_active=True,
+                    ))
+                    await db.commit()
+                    logger.info("Default admin user created successfully.")
 
             schedule_count = await db.scalar(select(func.count()).select_from(Schedule))
             if not schedule_count:
@@ -135,8 +165,7 @@ async def lifespan(_: FastAPI):
                 if DEFAULT_FILE.exists():
                     await run(DEFAULT_FILE, version_id=None, apply=True)
     except Exception as seed_exc:
-        import logging
-        logging.getLogger(__name__).warning("Initial auto-seed skipped: %s", seed_exc)
+        logger.warning("Initial auto-seed skipped: %s", seed_exc, exc_info=True)
 
     try:
         yield
@@ -165,11 +194,13 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
-    trace = traceback.format_exc()
-    logging.getLogger("app").error(f"Unhandled exception on {request.method} {request.url}: {exc}\n{trace}")
+    logging.getLogger("app").error(
+        f"Unhandled exception on {request.method} {request.url}",
+        exc_info=True,
+    )
     return JSONResponse(
         status_code=500,
-        content={"detail": {"msg": f"Unhandled server error: {exc}", "trace": trace.splitlines()[-10:]}},
+        content={"detail": "Внутрішня помилка сервера"},
     )
 
 app.add_middleware(

@@ -1,9 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException
+import secrets
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pydantic import BaseModel, Field
 from app.core.security import require_roles
 from app.database import get_db
+from app.routers.auth import limiter
 from app.schemas import (
     LearningModeConfig,
     SemesterDatesSetting,
@@ -101,12 +103,15 @@ class TeacherPinSetting(BaseModel):
 
 
 @router.post("/verify-teacher-pin", response_model=VerifyTeacherPinResponse)
+@limiter.limit("10/minute")
 async def verify_teacher_pin(
+    request: Request,
     payload: VerifyTeacherPinRequest,
     db: AsyncSession = Depends(get_db),
 ):
-    expected = await settings_service.get_teacher_pin(db)
-    is_valid = bool(payload.pin and payload.pin.strip() == expected.strip())
+    expected = (await settings_service.get_teacher_pin(db) or "").strip()
+    provided = (payload.pin or "").strip()
+    is_valid = bool(expected and provided and secrets.compare_digest(provided, expected))
     return VerifyTeacherPinResponse(valid=is_valid)
 
 

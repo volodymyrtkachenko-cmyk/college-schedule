@@ -1,5 +1,6 @@
 """Classroom access verification and schedule content sanitization."""
 import re
+import secrets
 from typing import Optional, Sequence
 from fastapi import Request
 from sqlalchemy import select, or_, func
@@ -60,8 +61,8 @@ async def check_teacher_access(
     )
     if provided_pin:
         from app.services.settings import settings_service
-        expected_pin = await settings_service.get_teacher_pin(db)
-        if provided_pin.strip() == expected_pin.strip():
+        expected_pin = (await settings_service.get_teacher_pin(db) or "").strip()
+        if expected_pin and secrets.compare_digest(provided_pin.strip(), expected_pin):
             return True
 
     return False
