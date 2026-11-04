@@ -819,8 +819,12 @@ async def _refresh_google_token_detailed(refresh_token: str) -> tuple[Optional[s
     plain_rt = decrypt_token(refresh_token)
     if not plain_rt:
         return None, "missing_or_corrupt_refresh_token", 400
+    if plain_rt.startswith("ya29."):
+        return None, "token_is_access_token_not_refresh_token", 400
     client_id = get_google_client_id()
-    if not client_id or not settings.google_client_secret:
+    if not client_id:
+        return None, "missing_client_id", 400
+    if not settings.google_client_secret:
         return None, "missing_client_secret", 400
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -2249,7 +2253,7 @@ async def sync_from_classroom(
                     ClassroomCredential.google_user_id == effective_user_id,
                 )
             )
-            token_to_store = encrypted_refresh or (encrypt_token(access_token) if access_token else "")
+            token_to_store = encrypted_refresh or ""
             if cred is None:
                 cred = ClassroomCredential(
                     group_id=detected_group.id,
@@ -2267,8 +2271,8 @@ async def sync_from_classroom(
                 )
                 db.add(cred)
             else:
-                if encrypted_refresh or not cred.refresh_token:
-                    cred.refresh_token = token_to_store
+                if encrypted_refresh:
+                    cred.refresh_token = encrypted_refresh
                 if final_email:
                     cred.email = final_email
                 if profile_name:
@@ -2503,11 +2507,14 @@ async def trigger_background_sync_if_needed(
                 if (now - oldest_ts).total_seconds() < 900:
                     return
 
-            selected_creds = active_creds[:max(1, max_accounts)]
+            synced_count = 0
             seen_course_ids: set[str] = set()
             any_synced = False
 
-            for cred in selected_creds:
+            for cred in active_creds:
+                if synced_count >= max(1, max_accounts):
+                    break
+
                 fresh_token, err_msg, status_code = await _refresh_google_token_detailed(cred.refresh_token)
                 if not fresh_token:
                     if err_msg and err_msg.startswith("invalid_grant"):
@@ -2520,6 +2527,16 @@ async def trigger_background_sync_if_needed(
                         _apply_credential_backoff(cred, err_msg or f"refresh_failed_{status_code}", now)
                     await db.flush()
                     continue
+
+                # Auto-upgrade token in DB if it was decrypted via a legacy fallback key
+                plain_rt = decrypt_token(cred.refresh_token)
+                if plain_rt and cred.refresh_token:
+                    try:
+                        get_fernet().decrypt(cred.refresh_token.strip().encode("utf-8"))
+                    except Exception:
+                        current_enc = encrypt_token(plain_rt)
+                        if current_enc:
+                            cred.refresh_token = current_enc
 
                 headers = {"Authorization": f"Bearer {fresh_token}"}
                 try:
@@ -2568,16 +2585,19 @@ async def trigger_background_sync_if_needed(
                 cred.last_error = None
                 cred.next_attempt_at = None
                 any_synced = True
+                synced_count += 1
                 await db.flush()
 
-            if any_synced and binding:
-                binding.last_synced_at = now
-            await db.commit()
             if any_synced:
+                if binding:
+                    binding.last_synced_at = now
+                await db.commit()
                 _sync_backoff_state.pop(group_id, None)
-            return
+                return
 
-        # 25.8.1: Фолбек на стару таблицю classroom_group_bindings, якщо у новій ще немає записів
+            await db.commit()
+
+        # 25.8.1: Фолбек на стару таблицю classroom_group_bindings, якщо у новій ще немає записів або всі акаунти зазнали помилки
         if not binding:
             return
 

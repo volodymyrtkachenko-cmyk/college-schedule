@@ -183,6 +183,7 @@ export function ClassroomSyncButton({
         client_id: GOOGLE_CLIENT_ID,
         scope: SCOPES,
         ux_mode: "popup",
+        prompt: "consent",
         callback: async (resp: any) => {
           if (resp.error || !resp.code) {
             setSyncing(false);

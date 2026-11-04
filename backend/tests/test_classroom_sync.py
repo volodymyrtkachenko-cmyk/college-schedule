@@ -1338,3 +1338,119 @@ async def test_shared_single_course_with_two_teachers_targets_specific_students(
             assert "Хочинська: https://meet.google.com/kho-shared-2" in eng_note_bg.note
             assert "[TASK] [Токарєва] ДЗ Підгрупа Токарєвої" in eng_note_bg.note
             assert "[TASK] [Хочинська] ДЗ Підгрупа Хочинської" in eng_note_bg.note
+
+
+@pytest.mark.anyio
+async def test_crypto_multi_key_fallback_decryption():
+    """Verify that tokens encrypted under previous dev/fallback secrets decrypt seamlessly."""
+    from app.core.crypto import encrypt_token, decrypt_token, LEGACY_DEV_KEY, LEGACY_FALLBACK_KEY
+
+    # Encrypted with dev default
+    tok_dev = encrypt_token("1//rt_legacy_dev", override_key=LEGACY_DEV_KEY)
+    assert tok_dev is not None
+    # Encrypted with legacy fallback
+    tok_fallback = encrypt_token("1//rt_legacy_fallback", override_key=LEGACY_FALLBACK_KEY)
+    assert tok_fallback is not None
+    # Encrypted with custom primary key
+    tok_primary = encrypt_token("1//rt_primary_prod", override_key="new-prod-super-secret-key-123")
+    assert tok_primary is not None
+
+    # Even with a different override key as primary, legacy tokens decrypt via candidates
+    assert decrypt_token(tok_dev, override_key="different-primary-secret") == "1//rt_legacy_dev"
+    assert decrypt_token(tok_fallback, override_key="different-primary-secret") == "1//rt_legacy_fallback"
+    assert decrypt_token(tok_primary, override_key="new-prod-super-secret-key-123") == "1//rt_primary_prod"
+
+
+@pytest.mark.anyio
+async def test_refresh_token_rejects_access_token():
+    """Access tokens (ya29.) stored as refresh tokens must be rejected without calling Google."""
+    from app.routers.classroom import _refresh_google_token_detailed
+    from app.core.crypto import encrypt_token
+
+    enc_access_token = encrypt_token("ya29.sample_acc_token_123")
+    assert enc_access_token is not None
+
+    tok, err, status = await _refresh_google_token_detailed(enc_access_token)
+    assert tok is None
+    assert err == "token_is_access_token_not_refresh_token"
+    assert status == 400
+
+
+@pytest.mark.anyio
+async def test_background_sync_skips_broken_account_and_syncs_healthy_one(classroom_db):
+    """
+    Ensure queue starvation is prevented: if the oldest account in active_creds
+    fails to refresh, the worker does NOT abort; it continues to the next ready
+    healthy account and successfully syncs the group.
+    """
+    from app.models import ClassroomCredential
+    from app.routers import classroom as classroom_router
+    from unittest.mock import patch
+    from sqlalchemy import select
+
+    client, state = classroom_db
+    group_id = state["group_id"]
+
+    # Two credentials: cred1 is older (last_synced earlier) but broken,
+    # cred2 is healthy.
+    async with state["sessions"]() as db:
+        c1 = ClassroomCredential(
+            group_id=group_id,
+            google_user_id="user_broken",
+            student_name="Студент Зламаний",
+            refresh_token="corrupt_cipher_that_fails_decryption",
+            last_synced_at=datetime(2026, 11, 1, 10, 0, tzinfo=timezone.utc),
+            is_active=True,
+        )
+        c2 = ClassroomCredential(
+            group_id=group_id,
+            google_user_id="user_healthy",
+            student_name="Студент Здоровий",
+            refresh_token="1//healthy_rt",
+            last_synced_at=datetime(2026, 11, 2, 10, 0, tzinfo=timezone.utc),
+            is_active=True,
+        )
+        db.add_all([c1, c2])
+        await db.commit()
+
+    def fake_courses_handler(request: httpx.Request):
+        url = str(request.url)
+        if "/v1/courses" in url and "pageSize" in url:
+            return httpx.Response(200, json={"courses": []})
+        return httpx.Response(404, json={})
+
+    transport = httpx.MockTransport(fake_courses_handler)
+    real_async_client = httpx.AsyncClient
+
+    def mocked_client(*args, **kwargs):
+        kwargs["transport"] = transport
+        return real_async_client(*args, **kwargs)
+
+    async def fake_refresh(rt: str):
+        if rt == "1//healthy_rt":
+            return "ya29.healthy_fresh_token", None, 200
+        return None, "missing_or_corrupt_refresh_token", 400
+
+    with patch("app.routers.classroom.httpx.AsyncClient", side_effect=mocked_client), \
+         patch("app.routers.classroom._refresh_google_token_detailed", side_effect=fake_refresh):
+
+        async with state["sessions"]() as db:
+            await classroom_router.trigger_background_sync_if_needed(db, group_id, force=True)
+
+        async with state["sessions"]() as db:
+            db_c1 = await db.scalar(select(ClassroomCredential).where(ClassroomCredential.google_user_id == "user_broken"))
+            db_c2 = await db.scalar(select(ClassroomCredential).where(ClassroomCredential.google_user_id == "user_healthy"))
+
+            assert db_c1 is not None
+            assert db_c1.fail_count == 1
+            assert db_c1.last_error == "missing_or_corrupt_refresh_token"
+
+            assert db_c2 is not None
+            assert db_c2.fail_count == 0
+            assert db_c2.last_error is None
+            # Verified that healthy account was actually processed and synced!
+            assert db_c2.last_synced_at is not None
+            assert db_c2.last_synced_at.year == 2026
+            c2_ts = db_c2.last_synced_at if db_c2.last_synced_at.tzinfo else db_c2.last_synced_at.replace(tzinfo=timezone.utc)
+            assert c2_ts > datetime(2026, 11, 2, tzinfo=timezone.utc)
+

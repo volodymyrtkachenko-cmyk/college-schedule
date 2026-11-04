@@ -146,6 +146,7 @@ export async function requestClassroomAuth(options: ClassroomAuthOptions = {}): 
           client_id: GOOGLE_CLIENT_ID,
           scope: CLASSROOM_SCOPES,
           ux_mode: "popup",
+          prompt: "consent",
           callback: async (resp: any) => {
             if (resp.error || !resp.code) {
               handleError(new Error(resp.error || "Авторизацію скасовано"));
