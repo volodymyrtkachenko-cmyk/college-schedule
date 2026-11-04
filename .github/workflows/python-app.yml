@@ -68,8 +68,17 @@ jobs:
         set -eu
         test -n "$HEROKU_API_KEY"
         test -n "$HEROKU_APP_NAME"
-        curl --fail-with-body --silent --show-error \
-          --url "https://api.heroku.com/apps/${HEROKU_APP_NAME}/logs?lines=200&source=app" \
+        session="$(
+          curl --fail-with-body --silent --show-error \
+            --request POST \
+            --url "https://api.heroku.com/apps/${HEROKU_APP_NAME}/log-sessions" \
+            --header "Accept: application/vnd.heroku+json; version=3" \
+            --header "Authorization: Bearer ${HEROKU_API_KEY}" \
+            --header "Content-Type: application/json" \
+            --data '{"source":"app","dyno":"worker","lines":200,"tail":false}' |
+          python -c 'import json, sys; print(json.load(sys.stdin)["logplex_url"])'
+        )"
+        curl --fail-with-body --silent --show-error "$session"
           --header "Accept: application/vnd.heroku+json; version=3" \
           --header "Authorization: Bearer ${HEROKU_API_KEY}"
 
