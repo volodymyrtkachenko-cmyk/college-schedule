@@ -2476,6 +2476,14 @@ async def trigger_background_sync_if_needed(
                 ClassroomGroupBinding.is_active.is_(True),
             )
         )
+        logger.info(
+            "Classroom sync group_id=%s: credentials=%d active=%d binding=%s refresh_tokens=%d",
+            group_id,
+            len(all_creds),
+            sum(1 for c in all_creds if c.is_active),
+            bool(binding),
+            sum(1 for c in all_creds if c.is_active and c.refresh_token),
+        )
 
         if all_creds:
             # 25.5: Беремо активні записи групи, для яких настав час спроби,
@@ -2490,6 +2498,7 @@ async def trigger_background_sync_if_needed(
 
             active_creds = [c for c in all_creds if _is_ready(c)]
             if not active_creds:
+                logger.warning("Classroom sync group_id=%s: no ready active credentials", group_id)
                 return
 
             def _cred_sort_key(c: ClassroomCredential):
@@ -2517,6 +2526,12 @@ async def trigger_background_sync_if_needed(
 
                 fresh_token, err_msg, status_code = await _refresh_google_token_detailed(cred.refresh_token)
                 if not fresh_token:
+                    logger.warning(
+                        "Classroom sync group_id=%s credential_id=%s token refresh failed: %s",
+                        group_id,
+                        cred.id,
+                        _sanitize_error_msg(err_msg or f"status_{status_code}"),
+                    )
                     if err_msg and err_msg.startswith("invalid_grant"):
                         # 25.5: Помилка invalid_grant деактивує лише цей запис і пише last_error
                         cred.is_active = False
@@ -2586,6 +2601,12 @@ async def trigger_background_sync_if_needed(
                 cred.next_attempt_at = None
                 any_synced = True
                 synced_count += 1
+                logger.info(
+                    "Classroom sync group_id=%s credential_id=%s synced courses=%d",
+                    group_id,
+                    cred.id,
+                    len(courses),
+                )
                 await db.flush()
 
             if any_synced:
@@ -2599,6 +2620,7 @@ async def trigger_background_sync_if_needed(
 
         # 25.8.1: Фолбек на стару таблицю classroom_group_bindings, якщо у новій ще немає записів або всі акаунти зазнали помилки
         if not binding:
+            logger.warning("Classroom sync group_id=%s: no active binding fallback", group_id)
             return
 
         if not force and binding.last_synced_at:
@@ -2619,6 +2641,7 @@ async def trigger_background_sync_if_needed(
                 return
 
         if not token:
+            logger.warning("Classroom sync group_id=%s: no usable access token", group_id)
             return
 
         headers = {"Authorization": f"Bearer {token}"}
@@ -2637,6 +2660,11 @@ async def trigger_background_sync_if_needed(
                     await db.commit()
                 return
             if courses_resp.status_code != 200:
+                logger.warning(
+                    "Classroom sync group_id=%s courses request failed: HTTP %s",
+                    group_id,
+                    courses_resp.status_code,
+                )
                 return
             courses = courses_resp.json().get("courses", [])
 
@@ -2649,6 +2677,7 @@ async def trigger_background_sync_if_needed(
             group_course_id=binding.course_id,
         )
         await db.commit()
+        logger.info("Classroom sync group_id=%s legacy binding synced courses=%d", group_id, len(courses))
         _sync_backoff_state.pop(group_id, None)
     except Exception as e:
         new_fails = failures + 1
@@ -3130,4 +3159,3 @@ async def classroom_auto_sync_loop() -> None:
 async def manual_trigger_sync_all():
     """Ендпоінт для примусового запуску автосинхронізації всіх груп (наприклад, із зовнішнього cron)."""
     return await sync_all_connected_groups_once(force=True)
-
