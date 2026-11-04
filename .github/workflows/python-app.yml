@@ -12,10 +12,18 @@ on:
         required: true
         default: "1"
         type: string
+      operation:
+        description: "Action to perform"
+        required: true
+        default: "scale"
+        type: choice
+        options:
+          - scale
+          - logs
 
 jobs:
   scale-heroku-worker:
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' && inputs.operation == 'scale'
     name: Scale Heroku Classroom worker
     runs-on: ubuntu-latest
     steps:
@@ -46,6 +54,24 @@ jobs:
           --header "Authorization: Bearer ${HEROKU_API_KEY}" \
           --header "Content-Type: application/json" \
           --data "{\"updates\":[{\"type\":\"worker\",\"quantity\":${WORKER_QUANTITY}}]}"
+
+  heroku-logs:
+    if: github.event_name == 'workflow_dispatch' && inputs.operation == 'logs'
+    name: Read Heroku worker logs
+    runs-on: ubuntu-latest
+    steps:
+    - name: Fetch recent logs
+      env:
+        HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+        HEROKU_APP_NAME: ${{ secrets.HEROKU_APP_NAME }}
+      run: |
+        set -eu
+        test -n "$HEROKU_API_KEY"
+        test -n "$HEROKU_APP_NAME"
+        curl --fail-with-body --silent --show-error \
+          --url "https://api.heroku.com/apps/${HEROKU_APP_NAME}/logs?lines=200&source=app" \
+          --header "Accept: application/vnd.heroku+json; version=3" \
+          --header "Authorization: Bearer ${HEROKU_API_KEY}"
 
   build:
     if: github.event_name != 'workflow_dispatch'
