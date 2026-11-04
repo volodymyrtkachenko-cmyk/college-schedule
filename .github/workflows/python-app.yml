@@ -33,10 +33,9 @@ jobs:
           ''|*[!0-9]*) echo "worker_quantity must be a non-negative integer" >&2; exit 1 ;;
         esac
 
-        backend_commit="$(git subtree split --prefix backend HEAD)"
         git push --force \
           "https://heroku:${HEROKU_API_KEY}@git.heroku.com/${HEROKU_APP_NAME}.git" \
-          "${backend_commit}:main"
+          "HEAD:main"
 
         curl --fail-with-body --silent --show-error \
           --request PATCH \
