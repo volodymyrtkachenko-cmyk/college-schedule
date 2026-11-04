@@ -2540,6 +2540,7 @@ async def trigger_background_sync_if_needed(
                         cred.next_attempt_at = None
                     else:
                         _apply_credential_backoff(cred, err_msg or f"refresh_failed_{status_code}", now)
+                    _latest_scope_missing[group_id] = True
                     await db.flush()
                     continue
 
@@ -2635,6 +2636,10 @@ async def trigger_background_sync_if_needed(
                 token = fresh
                 binding.access_token = encrypt_token(fresh)[:512]
             elif not token:
+                logger.warning(
+                    "Classroom sync group_id=%s legacy binding refresh failed: no usable token",
+                    group_id,
+                )
                 new_fails = failures + 1
                 delay = min(14400.0, 900.0 * (2 ** min(new_fails, 4)))
                 _sync_backoff_state[group_id] = (new_fails, _time.monotonic() + delay)
@@ -2701,6 +2706,15 @@ async def _build_group_accounts_summary(db: AsyncSession, group_id: int) -> dict
 
     active_creds = [c for c in creds if c.is_active]
     active_count = len(active_creds)
+    reconnect_errors = {
+        "missing_or_corrupt_refresh_token",
+        "token_is_access_token_not_refresh_token",
+    }
+    needs_reconnect = bool(active_creds) and all(
+        (c.last_error or "").split(":", 1)[0] in reconnect_errors
+        or (c.last_error or "").startswith("invalid_grant")
+        for c in active_creds
+    )
 
     # Перевіряємо, чи має група пари з поділом на підгрупи (2 викладачі: second_teacher_id IS NOT NULL)
     subgroup_lessons_count = await db.scalar(
@@ -2769,6 +2783,7 @@ async def _build_group_accounts_summary(db: AsyncSession, group_id: int) -> dict
         "has_subgroups": has_subgroups,
         "subgroup_warning": subgroup_warning,
         "latest_cred_synced_at": latest_sync_dt.isoformat() if latest_sync_dt else None,
+        "needs_reconnect": needs_reconnect,
         "accounts": account_items,
     }
 
