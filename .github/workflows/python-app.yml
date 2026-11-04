@@ -78,7 +78,7 @@ jobs:
             --data '{"source":"app","dyno":"worker","lines":200,"tail":false}' |
           python -c 'import json, sys; print(json.load(sys.stdin)["logplex_url"])'
         )"
-        curl --fail-with-body --silent --show-error "$session"
+        curl --fail-with-body --silent --show-error "$session" \
           --header "Accept: application/vnd.heroku+json; version=3" \
           --header "Authorization: Bearer ${HEROKU_API_KEY}"
 

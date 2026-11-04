@@ -3089,9 +3089,16 @@ async def sync_all_connected_groups_once(force: bool = False) -> dict:
             ).all()
         )
         group_ids = sorted(cred_group_ids | binding_group_ids)
+    logger.info(
+        "Classroom auto-sync: found %d connected group(s), force=%s, groups=%s",
+        len(group_ids),
+        force,
+        group_ids,
+    )
 
     for gid in group_ids:
         try:
+            logger.info("Classroom auto-sync: processing group_id=%s", gid)
             async with async_session_factory() as db:
                 await trigger_background_sync_if_needed(db, gid, force=force)
                 synced_groups.append(gid)
@@ -3099,11 +3106,13 @@ async def sync_all_connected_groups_once(force: bool = False) -> dict:
         except Exception as e:
             logger.warning(f"Auto-sync skipped for group {gid}: {_sanitize_error_msg(str(e))}")
 
+    logger.info("Classroom auto-sync: cycle complete, processed=%s", synced_groups)
     return {"checked_groups": len(group_ids), "processed": synced_groups}
 
 
 async def classroom_auto_sync_loop() -> None:
     """Нескінченний фоновий цикл: автоматично парсить Classroom кожні 10 хвилин."""
+    logger.info("Classroom auto-sync worker started; first cycle in 45 seconds")
     await asyncio.sleep(45)  # Перший запуск через 45 секунд після старту сервера (після стартового автоімпорту розкладу)
     first_cycle = True
     while True:
@@ -3121,5 +3130,4 @@ async def classroom_auto_sync_loop() -> None:
 async def manual_trigger_sync_all():
     """Ендпоінт для примусового запуску автосинхронізації всіх груп (наприклад, із зовнішнього cron)."""
     return await sync_all_connected_groups_once(force=True)
-
 
