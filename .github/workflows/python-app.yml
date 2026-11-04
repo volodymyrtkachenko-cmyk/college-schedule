@@ -5,9 +5,42 @@ on:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+  workflow_dispatch:
+    inputs:
+      worker_quantity:
+        description: "Number of Heroku worker dynos"
+        required: true
+        default: "1"
+        type: string
 
 jobs:
+  scale-heroku-worker:
+    if: github.event_name == 'workflow_dispatch'
+    name: Scale Heroku Classroom worker
+    runs-on: ubuntu-latest
+    steps:
+    - name: Scale worker dyno
+      env:
+        HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+        HEROKU_APP_NAME: ${{ secrets.HEROKU_APP_NAME }}
+        WORKER_QUANTITY: ${{ inputs.worker_quantity }}
+      run: |
+        set -eu
+        test -n "$HEROKU_API_KEY"
+        test -n "$HEROKU_APP_NAME"
+        case "$WORKER_QUANTITY" in
+          ''|*[!0-9]*) echo "worker_quantity must be a non-negative integer" >&2; exit 1 ;;
+        esac
+        curl --fail-with-body --silent --show-error \
+          --request PATCH \
+          --url "https://api.heroku.com/apps/${HEROKU_APP_NAME}/formation" \
+          --header "Accept: application/vnd.heroku+json; version=3" \
+          --header "Authorization: Bearer ${HEROKU_API_KEY}" \
+          --header "Content-Type: application/json" \
+          --data "{\"updates\":[{\"type\":\"worker\",\"quantity\":${WORKER_QUANTITY}}]}"
+
   build:
+    if: github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
