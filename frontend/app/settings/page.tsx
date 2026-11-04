@@ -28,7 +28,7 @@ export default function SettingsPage() {
   const [isLinkingClassroom, setIsLinkingClassroom] = useState(false);
 
   const [scheduleMode, setScheduleMode] = useState<"student" | "teacher">("student");
-  const { setHideTasksTab, setScheduleMode: setNavScheduleMode } = useMobileNav();
+  const { setHideTasksTab, setScheduleMode: setNavScheduleMode, setHomeTab } = useMobileNav();
 
   useEffect(() => {
     setHideTasksTab(scheduleMode === "teacher");
@@ -113,7 +113,8 @@ export default function SettingsPage() {
       <header className="sticky top-0 z-30 border-b border-sys-border bg-sys-card px-4 sm:px-6 py-3.5">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
           <Link
-            href="/"
+            href={scheduleMode === "teacher" ? "/?mode=teacher" : "/"}
+            onClick={() => setHomeTab("schedule")}
             className="inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 -ml-2 text-xs sm:text-sm font-semibold text-sys-text-secondary hover:text-sys-accent hover:bg-sys-accent/10 transition-colors"
           >
             <svg

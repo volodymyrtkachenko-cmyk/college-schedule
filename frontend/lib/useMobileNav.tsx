@@ -41,6 +41,38 @@ export function MobileNavProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // When pathname is "/", sync homeTab with the current URL query params (?tab=tasks vs none):
+  // If navigating from other routes (e.g. /settings, /statistics) or clicking links to "/",
+  // respect whether ?tab=tasks is present in the URL. If absent, default to "schedule".
+  useEffect(() => {
+    if (pathname === "/" && typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get("tab");
+      if (tab === "tasks") {
+        setHomeTabState("tasks");
+      } else {
+        setHomeTabState("schedule");
+      }
+    }
+  }, [pathname]);
+
+  // Handle browser back/forward history navigation (popstate)
+  useEffect(() => {
+    const handlePopState = () => {
+      if (pathname === "/" && typeof window !== "undefined") {
+        const params = new URLSearchParams(window.location.search);
+        const tab = params.get("tab");
+        if (tab === "tasks") {
+          setHomeTabState("tasks");
+        } else {
+          setHomeTabState("schedule");
+        }
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [pathname]);
+
   const setHomeTab = useCallback((tab: "schedule" | "tasks") => {
     setHomeTabState(tab);
     if (typeof window !== "undefined") {

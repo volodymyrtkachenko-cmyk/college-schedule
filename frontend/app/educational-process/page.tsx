@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { api } from "../../lib/api";
+import { useMobileNav } from "../../lib/useMobileNav";
 
 interface CellInfo {
   week_number: number;
@@ -133,6 +134,7 @@ function mergeCells(cells: CellInfo[], weeks: WeekInfo[]): MergedPeriod[] {
 }
 
 export default function EducationalProcessPage() {
+  const { setHomeTab } = useMobileNav();
   const [matrix, setMatrix] = useState<EducationalProcessMatrix | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -202,6 +204,7 @@ export default function EducationalProcessPage() {
           </Link>
           <Link
             href="/"
+            onClick={() => setHomeTab("schedule")}
             className="flex items-center gap-1 rounded-lg border border-sys-border bg-sys-bg px-2.5 py-1 text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary active:scale-[0.98] transition-colors"
           >
             ← До розкладу
@@ -230,6 +233,7 @@ export default function EducationalProcessPage() {
           </div>
           <Link
             href="/"
+            onClick={() => setHomeTab("schedule")}
             className="flex items-center gap-1.5 rounded-xl border border-sys-border bg-sys-bg px-4 py-2 text-sm font-semibold text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/40 active:scale-[0.98] transition-colors"
           >
             ← До розкладу занять

@@ -6,6 +6,7 @@ import { SearchableSelect } from "../../components/SearchableSelect";
 import { api, ReferenceRecord, StatisticsResponse, TeacherGroupDetail, TeacherSubjectEntry } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 import { getProgressPercentage } from "../../lib/format";
+import { useMobileNav } from "../../lib/useMobileNav";
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "long", year: "numeric" })
@@ -14,6 +15,7 @@ function formatDate(value: string) {
 
 export default function StatisticsPage() {
   const { user } = useAuth();
+  const { setHomeTab } = useMobileNav();
   const [mode, setMode] = useState<"student" | "teacher">("student");
   const [teacherView, setTeacherView] = useState<"subjects" | "groups">("subjects");
   const [groups, setGroups] = useState<ReferenceRecord[]>([]);
@@ -170,7 +172,11 @@ export default function StatisticsPage() {
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-sys-accent">ДФКР</p>
             <h1 className="mt-1 text-xl font-bold tracking-tight sm:text-2xl">Статистика занять ДФКР</h1>
           </div>
-          <Link href="/" className="shrink-0 rounded-lg border border-sys-border px-3 py-2 text-sm font-medium text-sys-text-secondary transition-colors hover:bg-sys-hover hover:text-sys-text-primary">
+          <Link
+            href={mode === "teacher" ? "/?mode=teacher" : "/"}
+            onClick={() => setHomeTab("schedule")}
+            className="shrink-0 rounded-lg border border-sys-border px-3 py-2 text-sm font-medium text-sys-text-secondary transition-colors hover:bg-sys-hover hover:text-sys-text-primary"
+          >
             До розкладу
           </Link>
         </div>
