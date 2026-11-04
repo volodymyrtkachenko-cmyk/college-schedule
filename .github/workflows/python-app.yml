@@ -19,6 +19,7 @@ jobs:
     name: Scale Heroku Classroom worker
     runs-on: ubuntu-latest
     steps:
+    - uses: actions/checkout@v4
     - name: Scale worker dyno
       env:
         HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
@@ -31,6 +32,12 @@ jobs:
         case "$WORKER_QUANTITY" in
           ''|*[!0-9]*) echo "worker_quantity must be a non-negative integer" >&2; exit 1 ;;
         esac
+
+        backend_commit="$(git subtree split --prefix backend HEAD)"
+        git push --force \
+          "https://heroku:${HEROKU_API_KEY}@git.heroku.com/${HEROKU_APP_NAME}.git" \
+          "${backend_commit}:main"
+
         curl --fail-with-body --silent --show-error \
           --request PATCH \
           --url "https://api.heroku.com/apps/${HEROKU_APP_NAME}/formation" \
