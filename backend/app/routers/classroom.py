@@ -2415,9 +2415,18 @@ _latest_group_tasks: dict[int, list[dict]] = {}
 _latest_scope_missing: dict[int, bool] = {}
 _SYNC_LOCK_GROUPS: set[int] = set()
 
-# In-memory throttle for request-triggered syncs: avoids opening a DB session
-# (and a second pooled connection) on every public schedule GET.
-_REQUEST_TRIGGER_INTERVAL = 900.0
+# Classroom background synchronization timings:
+# Sync loop cycle: settings.classroom_sync_interval_minutes (default 10 min)
+# Min sync gap: slightly less than the loop cycle (e.g. 510s for 10m) to allow reliable periodic
+# runs without skipping due to sleep/execution jitter, while preventing duplicate spam.
+def _get_classroom_sync_interval_seconds() -> int:
+    return getattr(settings, "classroom_sync_interval_minutes", 10) * 60
+
+
+def _get_classroom_min_sync_gap_seconds() -> float:
+    return max(120.0, _get_classroom_sync_interval_seconds() - 90.0)
+
+
 _last_request_trigger: dict[int, float] = {}
 
 
@@ -2428,7 +2437,8 @@ def should_trigger_background_sync(group_id: Optional[int]) -> bool:
     now_mono = _time.monotonic()
     if now_mono < _sync_backoff_state.get(group_id, (0, 0.0))[1]:
         return False
-    if now_mono - _last_request_trigger.get(group_id, -_REQUEST_TRIGGER_INTERVAL) < _REQUEST_TRIGGER_INTERVAL:
+    min_gap = _get_classroom_min_sync_gap_seconds()
+    if now_mono - _last_request_trigger.get(group_id, -min_gap) < min_gap:
         return False
     _last_request_trigger[group_id] = now_mono
     return True
@@ -2509,11 +2519,18 @@ async def trigger_background_sync_if_needed(
 
             active_creds.sort(key=_cred_sort_key)
 
-            # Якщо навіть найстаріший акаунт синхронізувався менше 15 хв тому (і не force) — пропускаємо
+            # Якщо навіть найстаріший акаунт синхронізувався менше min_gap тому (і не force) — пропускаємо
             oldest = active_creds[0]
             if not force and oldest.last_synced_at is not None:
                 oldest_ts = oldest.last_synced_at if oldest.last_synced_at.tzinfo else oldest.last_synced_at.replace(tzinfo=timezone.utc)
-                if (now - oldest_ts).total_seconds() < 900:
+                min_gap = _get_classroom_min_sync_gap_seconds()
+                if (now - oldest_ts).total_seconds() < min_gap:
+                    logger.debug(
+                        "Classroom sync group_id=%s skipped: last synced %.0fs ago (min gap %.0fs)",
+                        group_id,
+                        (now - oldest_ts).total_seconds(),
+                        min_gap,
+                    )
                     return
 
             synced_count = 0
@@ -2626,7 +2643,14 @@ async def trigger_background_sync_if_needed(
 
         if not force and binding.last_synced_at:
             b_ts = binding.last_synced_at if binding.last_synced_at.tzinfo else binding.last_synced_at.replace(tzinfo=timezone.utc)
-            if (now - b_ts).total_seconds() < 900:
+            min_gap = _get_classroom_min_sync_gap_seconds()
+            if (now - b_ts).total_seconds() < min_gap:
+                logger.debug(
+                    "Classroom sync group_id=%s legacy skipped: last synced %.0fs ago (min gap %.0fs)",
+                    group_id,
+                    (now - b_ts).total_seconds(),
+                    min_gap,
+                )
                 return
 
         token = decrypt_token(binding.access_token) if binding.access_token else None
@@ -3155,8 +3179,13 @@ async def sync_all_connected_groups_once(force: bool = False) -> dict:
 
 
 async def classroom_auto_sync_loop() -> None:
-    """Нескінченний фоновий цикл: автоматично парсить Classroom кожні 10 хвилин."""
-    logger.info("Classroom auto-sync worker started; first cycle in 45 seconds")
+    """Нескінченний фоновий цикл: автоматично парсить Classroom за налаштованим інтервалом (кожні 10 хвилин)."""
+    interval_seconds = _get_classroom_sync_interval_seconds()
+    logger.info(
+        "Classroom auto-sync worker started; interval=%ds (%d min), first cycle in 45 seconds",
+        interval_seconds,
+        interval_seconds // 60,
+    )
     await asyncio.sleep(45)  # Перший запуск через 45 секунд після старту сервера (після стартового автоімпорту розкладу)
     first_cycle = True
     while True:
@@ -3167,7 +3196,8 @@ async def classroom_auto_sync_loop() -> None:
             break
         except Exception as e:
             logger.error(f"Classroom auto-sync loop error: {_sanitize_error_msg(str(e))}")
-        await asyncio.sleep(600)  # Перевірка кожні 10 хвилин
+        interval_seconds = _get_classroom_sync_interval_seconds()
+        await asyncio.sleep(interval_seconds)
 
 
 @router.post("/sync-all")

@@ -1454,3 +1454,74 @@ async def test_background_sync_skips_broken_account_and_syncs_healthy_one(classr
             c2_ts = db_c2.last_synced_at if db_c2.last_synced_at.tzinfo else db_c2.last_synced_at.replace(tzinfo=timezone.utc)
             assert c2_ts > datetime(2026, 11, 2, tzinfo=timezone.utc)
 
+
+@pytest.mark.anyio
+async def test_classroom_sync_interval_and_gap_allows_10_min_cycles(classroom_db):
+    """
+    Ensure that when 10 minutes have passed since last_synced_at, background sync with
+    force=False executes without being skipped, while recent syncs (< min_gap) are throttled.
+    """
+    from datetime import timedelta
+    from app.models import ClassroomCredential
+    from app.routers import classroom as classroom_router
+    from unittest.mock import patch
+    from sqlalchemy import select
+
+    client, state = classroom_db
+    group_id = state["group_id"]
+
+    assert classroom_router._get_classroom_sync_interval_seconds() == 600
+    assert classroom_router._get_classroom_min_sync_gap_seconds() == 510.0
+
+    # 1. Credential synced 11 minutes ago (> min_gap)
+    eleven_mins_ago = datetime.now(timezone.utc) - timedelta(minutes=11)
+    async with state["sessions"]() as db:
+        c = ClassroomCredential(
+            group_id=group_id,
+            google_user_id="user_10min_test",
+            student_name="Студент 10хв",
+            refresh_token="1//valid_rt_10min",
+            last_synced_at=eleven_mins_ago,
+            is_active=True,
+        )
+        db.add(c)
+        await db.commit()
+
+    def fake_courses_handler(request: httpx.Request):
+        url = str(request.url)
+        if "/v1/courses" in url and "pageSize" in url:
+            return httpx.Response(200, json={"courses": []})
+        return httpx.Response(404, json={})
+
+    transport = httpx.MockTransport(fake_courses_handler)
+    real_async_client = httpx.AsyncClient
+
+    def mocked_client(*args, **kwargs):
+        kwargs["transport"] = transport
+        return real_async_client(*args, **kwargs)
+
+    async def fake_refresh(rt: str):
+        return "ya29.token_for_10min", None, 200
+
+    with patch("app.routers.classroom.httpx.AsyncClient", side_effect=mocked_client), \
+         patch("app.routers.classroom._refresh_google_token_detailed", side_effect=fake_refresh):
+
+        # Trigger background sync with force=False (simulating the cron loop on subsequent cycles)
+        async with state["sessions"]() as db:
+            await classroom_router.trigger_background_sync_if_needed(db, group_id, force=False)
+
+        # Check that it did NOT skip: last_synced_at was updated to now!
+        async with state["sessions"]() as db:
+            db_c = await db.scalar(select(ClassroomCredential).where(ClassroomCredential.google_user_id == "user_10min_test"))
+            assert db_c is not None
+            c_ts = db_c.last_synced_at if db_c.last_synced_at.tzinfo else db_c.last_synced_at.replace(tzinfo=timezone.utc)
+            assert c_ts > eleven_mins_ago
+
+        # Now try to sync AGAIN immediately (0 minutes passed < min_gap)
+        with patch.object(classroom_router, "perform_course_sync") as mock_perform:
+            async with state["sessions"]() as db:
+                await classroom_router.trigger_background_sync_if_needed(db, group_id, force=False)
+            # Should be skipped due to min_gap throttling!
+            mock_perform.assert_not_called()
+
+

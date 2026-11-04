@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     run_schema_bootstrap: bool = True
     auto_import_enabled: bool = True
     auto_import_interval_minutes: int = 30
+    classroom_sync_interval_minutes: int = 10
 
     model_config = SettingsConfigDict(
         env_file=(".env", "../.env"),
