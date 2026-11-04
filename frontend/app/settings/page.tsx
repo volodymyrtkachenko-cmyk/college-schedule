@@ -9,6 +9,7 @@ import { useTeacherAccess } from "../../lib/useTeacherAccess";
 import { useAuth } from "../../lib/auth";
 import { useToast } from "../../components/ToastProvider";
 import { requestClassroomAuth } from "../../lib/classroomAuth";
+import { BottomNav } from "../../components/BottomNav";
 
 const ROLE_NAMES: Record<string, string> = {
   admin: "Адміністратор",
@@ -125,7 +126,7 @@ export default function SettingsPage() {
       </header>
 
       {/* Main Settings Container */}
-      <main className="max-w-2xl mx-auto px-4 py-6 sm:py-8 space-y-6 pb-24">
+      <main className="max-w-2xl mx-auto px-4 py-6 sm:py-8 space-y-6 pb-28 lg:pb-12">
         {/* Title */}
         <div>
           <div className="flex items-center justify-between gap-3">
@@ -614,6 +615,13 @@ export default function SettingsPage() {
           )}
         </section>
       </main>
+
+      {/* Mobile Bottom Navigation */}
+      <BottomNav
+        activeTab="settings"
+        hideTasksTab={scheduleMode === "teacher"}
+        scheduleMode={scheduleMode}
+      />
     </div>
   );
 }

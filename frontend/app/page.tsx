@@ -166,6 +166,18 @@ export default function HomePage() {
   const isFocusEffective = isFocusMode || mode === "teacher";
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get("tab");
+      if (tab === "tasks" && mode !== "teacher") {
+        setMobileTab("tasks");
+      } else if (tab === "schedule") {
+        setMobileTab("schedule");
+      }
+    }
+  }, [mode]);
+
+  useEffect(() => {
     if (mode === "teacher" && mobileTab === "tasks") {
       setMobileTab("schedule");
     }
@@ -964,6 +976,9 @@ export default function HomePage() {
 
   return (
     <main className="min-h-screen bg-transparent pb-6 text-sys-text-primary md:pb-8">
+      <h1 className="sr-only">
+        Розклад занять Дніпровського фахового коледжу радіоелектроніки (ДФКР)
+      </h1>
       <SplashScreen isLoading={loading} />
       <OfflineIndicator isSlowNetwork={isSlowNetwork} isUsingFallbackCache={isUsingFallbackCache} />
       <InstallPrompt />
@@ -2388,7 +2403,20 @@ export default function HomePage() {
       {/* Mobile Bottom Navigation */}
       <BottomNav
         activeTab={mobileTab}
-        onTabChange={(tab) => setMobileTab(tab)}
+        onTabChange={(tab) => {
+          if (tab === "schedule" || tab === "tasks") {
+            setMobileTab(tab);
+            if (typeof window !== "undefined") {
+              const url = new URL(window.location.href);
+              if (tab === "tasks") {
+                url.searchParams.set("tab", "tasks");
+              } else {
+                url.searchParams.delete("tab");
+              }
+              window.history.replaceState({}, "", url.pathname + url.search);
+            }
+          }
+        }}
         overdueCount={isLinked ? overdueCount : 0}
         hideTasksTab={mode === "teacher"}
         scheduleMode={mode}
@@ -2490,6 +2518,61 @@ export default function HomePage() {
         semesterStartIso={semesterStart}
         onSelectDate={handleDatePickerSelect}
       />
+
+      {/* Semantic SEO & College Information Section (Visible to Crawlers & Users) */}
+      <footer className="mt-12 border-t border-sys-border/60 bg-sys-card/50 py-8 px-4 text-xs text-sys-text-secondary sm:px-6">
+        <div className="mx-auto max-w-[1800px] space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <div className="font-bold text-sm text-sys-text-primary flex items-center gap-2">
+                <span>Дніпровський фаховий коледж радіоелектроніки</span>
+                <span className="rounded bg-sys-accent/15 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-sys-accent border border-sys-accent/20">ДФКР</span>
+              </div>
+              <p className="mt-1 text-sys-text-muted">
+                Офіційний веб-застосунок розкладу занять, дзвінків та завдань Google Classroom для студентів і викладачів.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-4 text-xs">
+              <Link href="/educational-process" className="hover:text-sys-accent transition-colors">
+                Графік навчального процесу
+              </Link>
+              <Link href="/statistics" className="hover:text-sys-accent transition-colors">
+                Статистика занять
+              </Link>
+              <Link href="/settings" className="hover:text-sys-accent transition-colors">
+                Налаштування
+              </Link>
+              <a
+                href="https://kre.dp.ua/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-sys-accent transition-colors font-medium text-sys-accent"
+              >
+                kre.dp.ua ↗
+              </a>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t border-sys-border/40 text-[11px]">
+            <div>
+              <span className="font-semibold text-sys-text-primary block">1 пара</span>
+              <span className="text-sys-text-muted">09:00 – 10:20 (перерва 20 хв)</span>
+            </div>
+            <div>
+              <span className="font-semibold text-sys-text-primary block">2 пара</span>
+              <span className="text-sys-text-muted">10:40 – 12:00 (перерва 30 хв)</span>
+            </div>
+            <div>
+              <span className="font-semibold text-sys-text-primary block">3 пара</span>
+              <span className="text-sys-text-muted">12:30 – 13:50 (перерва 10 хв)</span>
+            </div>
+            <div>
+              <span className="font-semibold text-sys-text-primary block">4 пара</span>
+              <span className="text-sys-text-muted">14:00 – 15:20</span>
+            </div>
+          </div>
+        </div>
+      </footer>
     </main>
   );
 }

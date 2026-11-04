@@ -1007,7 +1007,7 @@ function AdminContent() {
                                   {acc.photo_url ? (
                                     <img
                                       src={acc.photo_url}
-                                      alt=""
+                                      alt={acc.student_name || "Аватар користувача"}
                                       className="h-8 w-8 rounded-full object-cover shrink-0 border border-sys-border/50"
                                     />
                                   ) : (
@@ -1259,7 +1259,7 @@ function AdminContent() {
                                         {st.photo_url ? (
                                           <img
                                             src={st.photo_url}
-                                            alt=""
+                                            alt={st.full_name || "Аватар студента"}
                                             className="h-7 w-7 rounded-full object-cover shrink-0 border border-sys-border/40"
                                           />
                                         ) : (

@@ -6,14 +6,70 @@ import { ToastProvider } from "../components/ToastProvider";
 import { ThemeProvider } from "../lib/useTheme";
 import { MotionConfigProvider } from "../components/MotionConfigProvider";
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://college-schedule-flame.vercel.app";
+
 export const metadata: Metadata = {
-  title: "Розклад занять | ДФКР",
-  description: "Актуальний розклад занять ДФКР для студентів і викладачів.",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: "Розклад занять ДФКР | Дніпровський фаховий коледж",
+    template: "%s | ДФКР",
+  },
+  description: "Актуальний розклад занять ДФКР для студентів та викладачів: жива пара, розклад дзвінків, аудиторії та інтеграція із Google Classroom.",
+  keywords: [
+    "ДФКР",
+    "розклад занять",
+    "Дніпровський фаховий коледж радіоелектроніки",
+    "розклад ДФКР",
+    "студентський розклад",
+    "Google Classroom",
+    "розклад дзвінків",
+    "коледж радіоелектроніки Дніпро",
+    "пари ДФКР",
+  ],
+  authors: [{ name: "ДФКР" }],
+  creator: "ДФКР",
+  publisher: "Дніпровський фаховий коледж радіоелектроніки",
+  alternates: {
+    canonical: "/",
+  },
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Розклад",
+    title: "Розклад ДФКР",
+  },
+  openGraph: {
+    type: "website",
+    locale: "uk_UA",
+    url: "/",
+    siteName: "Розклад занять ДФКР",
+    title: "Розклад занять ДФКР | Дніпровський фаховий коледж",
+    description: "Актуальний розклад занять ДФКР для студентів та викладачів: жива пара, розклад дзвінків, аудиторії та Google Classroom.",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Розклад занять Дніпровського фахового коледжу радіоелектроніки",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Розклад занять ДФКР | Дніпровський фаховий коледж",
+    description: "Актуальний розклад занять ДФКР: жива пара, дзвінки, аудиторії та завдання Google Classroom.",
+    images: ["/og-image.png"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
   },
   icons: {
     icon: [
@@ -37,12 +93,58 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": `${SITE_URL}/#website`,
+      "url": `${SITE_URL}/`,
+      "name": "Розклад занять ДФКР",
+      "description": "Актуальний розклад занять Дніпровського фахового коледжу радіоелектроніки",
+      "inLanguage": "uk-UA",
+    },
+    {
+      "@type": "WebApplication",
+      "@id": `${SITE_URL}/#webapp`,
+      "name": "College Schedule ДФКР",
+      "url": `${SITE_URL}/`,
+      "applicationCategory": "EducationalApplication",
+      "operatingSystem": "All",
+      "browserRequirements": "Requires JavaScript. Requires HTML5.",
+      "description": "Сучасний веб-застосунок (PWA) розкладу занять та завдань Google Classroom для студентів і викладачів ДФКР.",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "UAH",
+      },
+    },
+    {
+      "@type": "EducationalOrganization",
+      "@id": "https://kre.dp.ua/#organization",
+      "name": "Дніпровський фаховий коледж радіоелектроніки",
+      "alternateName": "ДФКР",
+      "url": "https://kre.dp.ua/",
+      "logo": `${SITE_URL}/icon-512.png`,
+      "address": {
+        "@type": "PostalAddress",
+        "addressLocality": "Дніпро",
+        "addressCountry": "UA",
+      },
+    },
+  ],
+};
+
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="uk" suppressHydrationWarning>
       <head>
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -60,6 +162,28 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         />
       </head>
       <body>
+        <noscript>
+          <div style={{ padding: "24px", maxWidth: "800px", margin: "0 auto", fontFamily: "system-ui, sans-serif" }}>
+            <h1>Розклад занять Дніпровського фахового коледжу радіоелектроніки (ДФКР)</h1>
+            <p>Актуальний розклад занять для студентів та викладачів коледжу.</p>
+            <h2>Розклад дзвінків</h2>
+            <ul>
+              <li><strong>1 пара:</strong> 09:00 – 10:20 (перерва 20 хв)</li>
+              <li><strong>2 пара:</strong> 10:40 – 12:00 (перерва 30 хв)</li>
+              <li><strong>3 пара:</strong> 12:30 – 13:50 (перерва 10 хв)</li>
+              <li><strong>4 пара:</strong> 14:00 – 15:20</li>
+            </ul>
+            <h2>Розділи застосунку</h2>
+            <ul>
+              <li><a href="/">Розклад занять на сьогодні та тиждень</a></li>
+              <li><a href="/educational-process">Графік освітнього процесу</a></li>
+              <li><a href="/statistics">Статистика занять та навантаження</a></li>
+              <li><a href="/settings">Налаштування розкладу</a></li>
+              <li><a href="https://kre.dp.ua/" target="_blank" rel="noopener noreferrer">Офіційний сайт ДФКР</a></li>
+            </ul>
+            <p>Для повноцінної роботи PWA-застосунку, відстеження живої пари та синхронізації Classroom, будь ласка, увімкніть JavaScript у браузері.</p>
+          </div>
+        </noscript>
         <ThemeProvider>
           <MotionConfigProvider>
             <AuthProvider>

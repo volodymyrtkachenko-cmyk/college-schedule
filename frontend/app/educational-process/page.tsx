@@ -196,9 +196,9 @@ export default function EducationalProcessPage() {
             <span className="rounded bg-sys-accent/15 px-1.5 py-0.5 text-xs font-extrabold uppercase tracking-wider text-sys-accent">
               ДФКР
             </span>
-            <span className="text-sm font-bold tracking-tight text-sys-text-primary">
-              Графік процесу
-            </span>
+            <h1 className="text-sm font-bold tracking-tight text-sys-text-primary">
+              Графік освітнього процесу
+            </h1>
           </Link>
           <Link
             href="/"
