@@ -9,7 +9,7 @@ import { useTeacherAccess } from "../../lib/useTeacherAccess";
 import { useAuth } from "../../lib/auth";
 import { useToast } from "../../components/ToastProvider";
 import { requestClassroomAuth } from "../../lib/classroomAuth";
-import { BottomNav } from "../../components/BottomNav";
+import { useMobileNav } from "../../lib/useMobileNav";
 
 const ROLE_NAMES: Record<string, string> = {
   admin: "Адміністратор",
@@ -28,6 +28,15 @@ export default function SettingsPage() {
   const [isLinkingClassroom, setIsLinkingClassroom] = useState(false);
 
   const [scheduleMode, setScheduleMode] = useState<"student" | "teacher">("student");
+  const { setHideTasksTab, setScheduleMode: setNavScheduleMode } = useMobileNav();
+
+  useEffect(() => {
+    setHideTasksTab(scheduleMode === "teacher");
+  }, [scheduleMode, setHideTasksTab]);
+
+  useEffect(() => {
+    setNavScheduleMode(scheduleMode);
+  }, [scheduleMode, setNavScheduleMode]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -615,13 +624,6 @@ export default function SettingsPage() {
           )}
         </section>
       </main>
-
-      {/* Mobile Bottom Navigation */}
-      <BottomNav
-        activeTab="settings"
-        hideTasksTab={scheduleMode === "teacher"}
-        scheduleMode={scheduleMode}
-      />
     </div>
   );
 }

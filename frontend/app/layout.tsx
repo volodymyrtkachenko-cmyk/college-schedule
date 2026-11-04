@@ -5,6 +5,8 @@ import { Heartbeat } from "../components/Heartbeat";
 import { ToastProvider } from "../components/ToastProvider";
 import { ThemeProvider } from "../lib/useTheme";
 import { MotionConfigProvider } from "../components/MotionConfigProvider";
+import { MobileNavProvider } from "../lib/useMobileNav";
+import { BottomNav } from "../components/BottomNav";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://college-schedule-flame.vercel.app";
 
@@ -191,8 +193,11 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           <MotionConfigProvider>
             <AuthProvider>
               <ToastProvider>
-                <Heartbeat />
-                {children}
+                <MobileNavProvider>
+                  <Heartbeat />
+                  {children}
+                  <BottomNav />
+                </MobileNavProvider>
               </ToastProvider>
             </AuthProvider>
           </MotionConfigProvider>

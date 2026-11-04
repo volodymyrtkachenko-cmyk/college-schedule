@@ -238,7 +238,7 @@ export default function EducationalProcessPage() {
       </header>
 
       {/* Page Content */}
-      <main className="mx-auto max-w-[1200px] px-3 py-4 sm:px-6 sm:py-6">
+      <main className="mx-auto max-w-[1200px] px-3 py-4 sm:px-6 sm:py-6 pb-24 lg:pb-6">
         {/* Group Filter Pills */}
         <div className="mb-6 rounded-2xl border border-sys-border bg-sys-card p-4 shadow-sm">
           <div className="mb-3 flex items-center justify-between">
