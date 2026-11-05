@@ -881,42 +881,105 @@ export function StudentGuideModal({ isOnboarding = false, onClose, onComplete }:
                   </div>
 
                   {/* Interactive Connect Button for Onboarding */}
-                  {isOnboarding && (
-                    <div className="rounded-2xl border border-sys-border/80 bg-sys-bg p-4 space-y-3 shadow-xs">
-                      {isLinked || classroomSuccess ? (
-                        <div className="flex items-center gap-3 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-emerald-400 font-bold text-xs sm:text-sm">
-                          <span className="text-lg">✅</span>
-                          <div>
-                            <div>Google Classroom успішно підключено!</div>
-                            <div className="text-xs font-normal text-emerald-300/80">
-                              {linkedEmail || "Студентський акаунт активний"}
+                  {isOnboarding ? (
+                    <div className="space-y-3">
+                      <div className="rounded-2xl border border-sys-border/80 bg-sys-bg p-4 space-y-3 shadow-xs">
+                        {isLinked || classroomSuccess ? (
+                          <div className="flex items-center gap-3 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-emerald-400 font-bold text-xs sm:text-sm">
+                            <span className="text-lg">✅</span>
+                            <div>
+                              <div>Google Classroom успішно підключено!</div>
+                              <div className="text-xs font-normal text-emerald-300/80">
+                                {linkedEmail || "Студентський акаунт активний"}
+                              </div>
                             </div>
                           </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <button
+                              type="button"
+                              onClick={handleClassroomAuth}
+                              disabled={isLinkingClassroom}
+                              className="w-full flex items-center justify-center gap-2 rounded-xl bg-sys-accent px-4 py-2.5 text-xs sm:text-sm font-bold text-slate-900 hover:opacity-95 active:scale-95 transition-all shadow-xs disabled:opacity-50"
+                            >
+                              <span>🔗</span>
+                              <span>{isLinkingClassroom ? "Підключення..." : "Підключити студентську пошту Classroom"}</span>
+                            </button>
+                            {classroomError && (
+                              <p className="text-xs text-rose-400 text-center">{classroomError}</p>
+                            )}
+                            <p className="text-[11px] text-sys-text-muted text-center">
+                              Це необов'язково. Ви можете підключити Classroom пізніше в налаштуваннях.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Direct Toggle for Homework Badges on Lesson Cards */}
+                      <div className="flex items-center justify-between rounded-2xl border border-sys-border/80 bg-sys-bg p-3.5 shadow-xs">
+                        <div className="space-y-0.5 pr-3 min-w-0">
+                          <div className="text-xs sm:text-sm font-bold text-sys-text-primary">
+                            Показувати завдання (ДЗ) на парах
+                          </div>
+                          <div className="text-[11px] text-sys-text-secondary leading-snug">
+                            {settings.showHomeworkBadges
+                              ? "Увімкнено: мітки ДЗ з дедлайнами відображаються прямо в картці пари."
+                              : "Вимкнено: картки пар чисті, а всі ДЗ доступні у вкладці «Завдання»."}
+                          </div>
                         </div>
-                      ) : (
-                        <div className="space-y-2">
-                          <button
-                            type="button"
-                            onClick={handleClassroomAuth}
-                            disabled={isLinkingClassroom}
-                            className="w-full flex items-center justify-center gap-2 rounded-xl bg-sys-accent px-4 py-2.5 text-xs sm:text-sm font-bold text-slate-900 hover:opacity-95 active:scale-95 transition-all shadow-xs disabled:opacity-50"
-                          >
-                            <span>🔗</span>
-                            <span>{isLinkingClassroom ? "Підключення..." : "Підключити студентську пошту Classroom"}</span>
-                          </button>
-                          {classroomError && (
-                            <p className="text-xs text-rose-400 text-center">{classroomError}</p>
-                          )}
-                          <p className="text-[11px] text-sys-text-muted text-center">
-                            Це необов'язково. Ви можете підключити Classroom пізніше в налаштуваннях.
-                          </p>
-                        </div>
-                      )}
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={settings.showHomeworkBadges}
+                          onClick={() => updateSetting("showHomeworkBadges", !settings.showHomeworkBadges)}
+                          className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                            settings.showHomeworkBadges ? "bg-sys-accent" : "bg-slate-700"
+                          }`}
+                        >
+                          <span
+                            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                              settings.showHomeworkBadges ? "translate-x-5" : "translate-x-0"
+                            }`}
+                          />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2 text-xs sm:text-sm text-sys-text-secondary">
+                      <div className="flex items-start gap-2">
+                        <span className="text-sys-accent font-bold mt-0.5">✦</span>
+                        <span>
+                          <strong>ДЗ на картці:</strong> активні завдання з дедлайнами відображаються прямо під назвою предмета.
+                        </span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="text-sys-accent font-bold mt-0.5">✦</span>
+                        <span>
+                          <strong>Оцінки:</strong> після здачі роботи плашка стає зеленою (<span className="font-semibold text-emerald-400">Усе здано</span>), де можна побачити оцінку викладача.
+                        </span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="text-sys-accent font-bold mt-0.5">✦</span>
+                        <span>
+                          <strong>Вимкнення завдань на парах:</strong> якщо ви бажаєте чистий розклад без блоків ДЗ, показ завдань на парах можна вимкнути в <em>Налаштуваннях</em> (тумблер «Показувати завдання (ДЗ) на парах»). Самі завдання залишаться у вкладці «Завдання».
+                        </span>
+                      </div>
                     </div>
                   )}
 
                   {/* Accordion Demo */}
                   <div className="rounded-2xl border border-sys-border bg-sys-bg p-4 space-y-2.5 shadow-lg">
+                    <div className="flex items-center justify-between pb-0.5">
+                      <span className="text-xs font-bold text-sys-text-secondary">Прев'ю пари з ДЗ:</span>
+                      <button
+                        type="button"
+                        onClick={() => updateSetting("showHomeworkBadges", !settings.showHomeworkBadges)}
+                        className="text-[11px] font-bold text-sys-accent hover:underline"
+                      >
+                        {settings.showHomeworkBadges ? "Спробувати приховати ДЗ на картці" : "Увімкнути показ ДЗ"}
+                      </button>
+                    </div>
+
                     <div className="rounded-2xl border border-sys-border bg-sys-card p-4 space-y-2.5">
                       <div className="flex items-center justify-between text-xs font-bold text-sys-text-secondary">
                         <span>3 · 12:30–13:50</span>
@@ -924,41 +987,50 @@ export function StudentGuideModal({ isOnboarding = false, onClose, onComplete }:
                       </div>
                       <div className="font-bold text-base text-sys-text-primary">Операційні системи</div>
 
-                      {/* Active tasks accordion */}
-                      <button
-                        type="button"
-                        onClick={() => setDemoActiveHwOpen((prev) => !prev)}
-                        className="w-full flex items-center justify-between rounded-xl border border-purple-500/30 bg-purple-500/10 px-3 py-2 text-xs font-bold text-purple-400 hover:bg-purple-500/15 transition-colors"
-                      >
-                        <span>2 завдання · Сьогодні</span>
-                        <span>{demoActiveHwOpen ? "▴" : "▾"}</span>
-                      </button>
-                      {demoActiveHwOpen && (
-                        <div className="rounded-xl border border-sys-border bg-sys-bg p-2 space-y-1 text-xs animate-in fade-in">
-                          <div className="flex justify-between py-0.5">
-                            <span className="text-sys-text-secondary">Практична робота №4</span>
-                            <span className="text-amber-400 font-bold">Сьогодні ↗</span>
-                          </div>
-                          <div className="flex justify-between py-0.5">
-                            <span className="text-sys-text-secondary">Тест: процеси та потоки</span>
-                            <span className="text-purple-300">до 28 жовт. ↗</span>
-                          </div>
-                        </div>
-                      )}
+                      {settings.showHomeworkBadges ? (
+                        <>
+                          {/* Active tasks accordion */}
+                          <button
+                            type="button"
+                            onClick={() => setDemoActiveHwOpen((prev) => !prev)}
+                            className="w-full flex items-center justify-between rounded-xl border border-purple-500/30 bg-purple-500/10 px-3 py-2 text-xs font-bold text-purple-400 hover:bg-purple-500/15 transition-colors"
+                          >
+                            <span>2 завдання · Сьогодні</span>
+                            <span>{demoActiveHwOpen ? "▴" : "▾"}</span>
+                          </button>
+                          {demoActiveHwOpen && (
+                            <div className="rounded-xl border border-sys-border bg-sys-bg p-2 space-y-1 text-xs animate-in fade-in">
+                              <div className="flex justify-between py-0.5">
+                                <span className="text-sys-text-secondary">Практична робота №4</span>
+                                <span className="text-amber-400 font-bold">Сьогодні ↗</span>
+                              </div>
+                              <div className="flex justify-between py-0.5">
+                                <span className="text-sys-text-secondary">Тест: процеси та потоки</span>
+                                <span className="text-purple-300">до 28 жовт. ↗</span>
+                              </div>
+                            </div>
+                          )}
 
-                      {/* Completed tasks accordion */}
-                      <button
-                        type="button"
-                        onClick={() => setDemoDoneHwOpen((prev) => !prev)}
-                        className="w-full flex items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-400 hover:bg-emerald-500/15 transition-colors"
-                      >
-                        <span>✓ Здано: 1 завдання</span>
-                        <span>{demoDoneHwOpen ? "▴" : "▾"}</span>
-                      </button>
-                      {demoDoneHwOpen && (
-                        <div className="rounded-xl border border-sys-border bg-sys-bg p-2 text-xs flex justify-between animate-in fade-in">
-                          <span className="text-sys-text-secondary">Лабораторна робота №3</span>
-                          <span className="text-emerald-400 font-bold">Оцінка: 12/12 ↗</span>
+                          {/* Completed tasks accordion */}
+                          <button
+                            type="button"
+                            onClick={() => setDemoDoneHwOpen((prev) => !prev)}
+                            className="w-full flex items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-400 hover:bg-emerald-500/15 transition-colors"
+                          >
+                            <span>✓ Здано: 1 завдання</span>
+                            <span>{demoDoneHwOpen ? "▴" : "▾"}</span>
+                          </button>
+                          {demoDoneHwOpen && (
+                            <div className="rounded-xl border border-sys-border bg-sys-bg p-2 text-xs flex justify-between animate-in fade-in">
+                              <span className="text-sys-text-secondary">Лабораторна робота №3</span>
+                              <span className="text-emerald-400 font-bold">Оцінка: 12/12 ↗</span>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <div className="rounded-xl border border-dashed border-sys-border bg-sys-bg/60 p-3 text-center text-xs text-sys-text-muted space-y-1 animate-in fade-in">
+                          <div className="font-semibold text-sys-text-secondary">Блоки завдань на парах приховано</div>
+                          <p className="text-[11px]">Розклад залишається чистим і компактним, а всі ДЗ доступні на окремому екрані «Завдання»</p>
                         </div>
                       )}
                     </div>
