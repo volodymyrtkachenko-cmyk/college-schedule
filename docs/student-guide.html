@@ -1,0 +1,1443 @@
+<!DOCTYPE html>
+<html lang="uk" data-theme="dark" data-palette="ocean">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Гід для студента — Розклад занять ДФКР</title>
+  <style>
+    :root,
+    [data-theme="dark"] {
+      --bg: #0f172a;
+      --bg-elevated: #131c31;
+      --card: #1e293b;
+      --border: #334155;
+      --text-primary: #f8fafc;
+      --text-secondary: #cbd5e1;
+      --text-muted: #94a3b8;
+      --shadow: 0 10px 30px -10px rgba(2, 6, 23, 0.65);
+    }
+
+    [data-theme="light"] {
+      --bg: #f8fafc;
+      --bg-elevated: #f1f5f9;
+      --card: #ffffff;
+      --border: #e2e8f0;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --text-muted: #64748b;
+      --shadow: 0 10px 25px -10px rgba(15, 23, 42, 0.12);
+    }
+
+    :root,
+    [data-palette="ocean"] {
+      --accent: #38bdf8;
+      --accent-soft: rgba(56, 189, 248, 0.15);
+      --accent-border: rgba(56, 189, 248, 0.4);
+      --accent-text: #0284c7;
+    }
+    [data-theme="dark"][data-palette="ocean"] {
+      --accent-text: #38bdf8;
+    }
+
+    [data-palette="emerald"] {
+      --accent: #10b981;
+      --accent-soft: rgba(16, 185, 129, 0.15);
+      --accent-border: rgba(16, 185, 129, 0.4);
+      --accent-text: #059669;
+    }
+    [data-theme="dark"][data-palette="emerald"] {
+      --accent-text: #34d399;
+    }
+
+    [data-palette="amethyst"] {
+      --accent: #a855f7;
+      --accent-soft: rgba(168, 85, 247, 0.15);
+      --accent-border: rgba(168, 85, 247, 0.4);
+      --accent-text: #7e22ce;
+    }
+    [data-theme="dark"][data-palette="amethyst"] {
+      --accent-text: #c084fc;
+    }
+
+    [data-palette="amber"] {
+      --accent: #f59e0b;
+      --accent-soft: rgba(245, 158, 11, 0.15);
+      --accent-border: rgba(245, 158, 11, 0.4);
+      --accent-text: #d97706;
+    }
+    [data-theme="dark"][data-palette="amber"] {
+      --accent-text: #fbbf24;
+    }
+
+    [data-palette="sakura"] {
+      --accent: #f43f5e;
+      --accent-soft: rgba(244, 63, 94, 0.15);
+      --accent-border: rgba(244, 63, 94, 0.4);
+      --accent-text: #e11d48;
+    }
+    [data-theme="dark"][data-palette="sakura"] {
+      --accent-text: #fb7185;
+    }
+
+    [data-palette="lagoon"] {
+      --accent: #14b8a6;
+      --accent-soft: rgba(20, 184, 166, 0.15);
+      --accent-border: rgba(20, 184, 166, 0.4);
+      --accent-text: #0d9488;
+    }
+    [data-theme="dark"][data-palette="lagoon"] {
+      --accent-text: #2dd4bf;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text-primary);
+      line-height: 1.5;
+      min-height: 100vh;
+      padding-bottom: 96px;
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
+
+    button, select {
+      font-family: inherit;
+      font-size: inherit;
+      color: inherit;
+    }
+
+    .container {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+
+    /* Top Bar */
+    .top-bar {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 16px;
+      backdrop-filter: blur(12px);
+    }
+
+    .top-bar-inner {
+      max-width: 680px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .brand-badge {
+      width: 32px;
+      height: 32px;
+      border-radius: 9px;
+      background: var(--accent-soft);
+      border: 1px solid var(--accent-border);
+      color: var(--accent-text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 13px;
+    }
+
+    .brand-title {
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-ghost {
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      padding: 5px 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .btn-ghost:hover {
+      border-color: var(--accent-border);
+      color: var(--text-primary);
+    }
+
+    /* Progress */
+    .progress-wrap {
+      margin: 12px 0 16px 0;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px 14px;
+      box-shadow: var(--shadow);
+    }
+
+    .progress-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-size: 12px;
+    }
+
+    .progress-label {
+      font-weight: 700;
+      color: var(--accent-text);
+    }
+
+    .progress-track {
+      width: 100%;
+      height: 5px;
+      background: var(--bg-elevated);
+      border-radius: 999px;
+      overflow: hidden;
+      margin-bottom: 10px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 999px;
+      transition: width 0.25s ease;
+    }
+
+    .step-dots {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 4px;
+    }
+
+    .step-dot {
+      border: 1px solid var(--border);
+      background: var(--bg-elevated);
+      color: var(--text-muted);
+      border-radius: 8px;
+      padding: 5px 2px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .step-dot.active {
+      background: var(--accent-soft);
+      border-color: var(--accent-border);
+      color: var(--accent-text);
+      font-weight: 700;
+    }
+
+    /* Step Card */
+    .step-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px;
+      box-shadow: var(--shadow);
+      display: none;
+      animation: fadeIn 0.2s ease;
+    }
+
+    .step-card.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(3px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .step-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      border: 1px solid var(--accent-border);
+      color: var(--accent-text);
+      font-size: 11px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .step-title {
+      font-size: 19px;
+      font-weight: 800;
+      margin-bottom: 6px;
+      line-height: 1.25;
+    }
+
+    .step-lead {
+      color: var(--text-secondary);
+      font-size: 13px;
+      margin-bottom: 14px;
+    }
+
+    .action-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .action-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 9px;
+    }
+
+    .action-num {
+      width: 18px;
+      height: 18px;
+      border-radius: 5px;
+      background: var(--accent-soft);
+      color: var(--accent-text);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 800;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .ui-chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 1px 6px;
+      border-radius: 5px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .note-box {
+      margin-top: 12px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    /* Demo Area */
+    .demo-box {
+      margin-top: 14px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px;
+    }
+
+    .demo-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .demo-tag {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--accent-text);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .demo-note {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .controls-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .segmented {
+      display: inline-flex;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 2px;
+      gap: 2px;
+    }
+
+    .segmented button {
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .segmented button.active {
+      background: var(--accent-soft);
+      color: var(--accent-text);
+      font-weight: 700;
+    }
+
+    .select-ui {
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      padding: 4px 8px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    /* Mock Lesson Card */
+    .mock-lesson {
+      position: relative;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+    }
+
+    .mock-lesson.live {
+      border-color: var(--accent-border);
+      box-shadow: 0 0 14px var(--accent-soft);
+      padding-bottom: 16px;
+    }
+
+    .mock-lesson-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 4px;
+      font-size: 11px;
+    }
+
+    .mock-time {
+      font-weight: 700;
+      color: var(--text-secondary);
+    }
+
+    .live-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 1px 6px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      border: 1px solid var(--accent-border);
+      color: var(--accent-text);
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .live-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+
+    .mock-subject {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 4px;
+      color: var(--text-primary);
+    }
+
+    .mock-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      flex-wrap: wrap;
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .subgroup-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      padding: 3px 0;
+      width: 100%;
+    }
+
+    .sub-badge {
+      padding: 2px 5px;
+      border-radius: 5px;
+      font-size: 10px;
+      font-weight: 700;
+      border: 1px solid var(--border);
+      background: var(--bg-elevated);
+      cursor: pointer;
+    }
+
+    .sub-badge.active-1 {
+      background: rgba(56, 189, 248, 0.2);
+      color: #38bdf8;
+      border-color: rgba(56, 189, 248, 0.45);
+    }
+
+    .sub-badge.active-2 {
+      background: rgba(99, 102, 241, 0.2);
+      color: #818cf8;
+      border-color: rgba(99, 102, 241, 0.45);
+    }
+
+    .room-pill {
+      padding: 2px 6px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    .meet-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      border: 1px solid rgba(16, 185, 129, 0.45);
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+    }
+
+    [data-theme="light"] .meet-btn {
+      color: #047857;
+    }
+
+    .meet-btn.locked {
+      border-color: var(--border);
+      background: var(--bg-elevated);
+      color: var(--text-muted);
+    }
+
+    .live-progress {
+      position: absolute;
+      left: 10px;
+      right: 10px;
+      bottom: 5px;
+      height: 2px;
+      background: rgba(56, 189, 248, 0.2);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .live-progress-bar {
+      width: 60%;
+      height: 100%;
+      background: var(--accent);
+      border-radius: 999px;
+    }
+
+    /* Days */
+    .days-strip {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 4px;
+      margin-bottom: 10px;
+    }
+
+    .day-tab {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 2px;
+      text-align: center;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .day-tab.active {
+      background: var(--accent-soft);
+      border-color: var(--accent-border);
+      color: var(--accent-text);
+    }
+
+    /* Homework Accordion */
+    .hw-trigger {
+      width: 100%;
+      margin-top: 6px;
+      padding: 6px 8px;
+      border-radius: 8px;
+      border: 1px solid rgba(168, 85, 247, 0.35);
+      background: rgba(168, 85, 247, 0.1);
+      color: #c084fc;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    [data-theme="light"] .hw-trigger {
+      color: #6b21a8;
+    }
+
+    .hw-trigger.done {
+      border-color: rgba(16, 185, 129, 0.35);
+      background: rgba(16, 185, 129, 0.1);
+      color: #34d399;
+    }
+
+    [data-theme="light"] .hw-trigger.done {
+      color: #047857;
+    }
+
+    .hw-list {
+      margin-top: 4px;
+      padding: 6px;
+      border-radius: 8px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      display: none;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .hw-list.open {
+      display: flex;
+    }
+
+    .hw-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      padding: 4px 6px;
+      border-radius: 6px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      font-size: 11px;
+    }
+
+    .toast-feedback {
+      margin-top: 8px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: var(--card);
+      border: 1px solid var(--accent-border);
+      color: var(--text-primary);
+      font-size: 11px;
+      font-weight: 600;
+      display: none;
+    }
+
+    .toast-feedback.visible {
+      display: block;
+    }
+
+    /* Palette */
+    .palette-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .palette-btn {
+      padding: 6px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .palette-btn.active {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      color: var(--accent-text);
+    }
+
+    .swatch-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    /* Bottom Bar */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 40;
+      background: var(--card);
+      border-top: 1px solid var(--border);
+      padding: 10px 16px;
+    }
+
+    .bottom-nav-inner {
+      max-width: 680px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .btn-nav {
+      padding: 8px 16px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+    }
+
+    .btn-nav:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+
+    .btn-nav.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #0f172a;
+    }
+
+    .step-counter {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-muted);
+    }
+
+    @media (min-width: 768px) {
+      .for-mobile { display: none !important; }
+      .for-desktop { display: inline !important; }
+      li.for-desktop, div.for-desktop { display: flex !important; }
+    }
+    @media (max-width: 767px) {
+      .for-desktop { display: none !important; }
+      .for-mobile { display: inline !important; }
+      li.for-mobile, div.for-mobile { display: flex !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Bar -->
+  <header class="top-bar">
+    <div class="top-bar-inner">
+      <div class="brand">
+        <div class="brand-badge">ДФКР</div>
+        <div>
+          <div class="brand-title">Розклад ДФКР · Гід студента</div>
+          <div class="for-mobile" style="font-size:11px; color:var(--text-muted);">📱 Версія для смартфона</div>
+          <div class="for-desktop" style="font-size:11px; color:var(--text-muted);">💻 Версія для комп'ютера</div>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button type="button" class="btn-ghost" id="themeToggleBtn">🌙 Темна</button>
+        <button type="button" class="btn-ghost" id="resetGuideBtn">Почати спочатку</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Progress -->
+    <section class="progress-wrap" aria-label="Прогрес інструкції">
+      <div class="progress-top">
+        <span class="progress-label" id="progressStepTitle">Крок 1 із 6</span>
+        <span class="demo-note" id="progressPercentLabel">17%</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" id="progressBarFill" style="width: 16.66%;"></div>
+      </div>
+      <div class="step-dots" id="stepDotsContainer">
+        <button type="button" class="step-dot active" data-step="0">1. Група</button>
+        <button type="button" class="step-dot" data-step="1">2. Розклад</button>
+        <button type="button" class="step-dot" data-step="2">3. Онлайн</button>
+        <button type="button" class="step-dot" data-step="3">4. Завдання</button>
+        <button type="button" class="step-dot" data-step="4">5. Налаштування</button>
+        <button type="button" class="step-dot" data-step="5">6. Додаток</button>
+      </div>
+    </section>
+
+    <!-- STEP 1 -->
+    <article class="step-card active" data-step-index="0">
+      <div class="step-badge">Крок 1 із 6</div>
+      <h1 class="step-title">Перший вхід та вибір групи</h1>
+      <p class="step-lead">
+        Застосунок запам'ятовує твою групу з першого разу — вибирати її щодня не потрібно.
+      </p>
+
+      <ul class="action-list">
+        <li>
+          <span class="action-num">1</span>
+          <div>
+            <strong>Перший вхід:</strong> на екрані <span class="ui-chip">Вітаємо в ДФКР</span> натисни <span class="ui-chip">Студент</span> та обери свою групу зі списку або через пошук.
+          </div>
+        </li>
+        <li>
+          <span class="action-num">2</span>
+          <div>
+            <span class="for-mobile"><strong>Зміна розкладу:</strong> щоб переглянути іншу групу або розклад викладача, натисни на назву групи <span class="ui-chip">[Назва групи ▼]</span> у центрі шапки.</span>
+            <span class="for-desktop"><strong>Перемикання та закріплення:</strong> у лівому кутку шапки є селектор <span class="ui-chip">Група: [Назва] ▼</span> із пошуком груп, викладачів та кнопкою закріплення групи.</span>
+          </div>
+        </li>
+        <li>
+          <span class="action-num">3</span>
+          <div>
+            <strong>Підгрупи на парі:</strong> якщо предмет ділиться на підгрупи, натискай <span class="ui-chip">1 підгр.</span> або <span class="ui-chip">2 підгр.</span> прямо в картці пари, щоб бачити лише свого викладача.
+          </div>
+        </li>
+      </ul>
+
+      <!-- Demo 1 -->
+      <div class="demo-box">
+        <div class="demo-header">
+          <span class="demo-tag">Спробуй · Вибір підгрупи</span>
+          <span class="demo-note">Клікай на кнопки підгруп</span>
+        </div>
+        <div class="controls-row">
+          <div class="segmented">
+            <button type="button" class="sub-filter-btn active" data-sub="all">Обидві</button>
+            <button type="button" class="sub-filter-btn" data-sub="1">1 підгр.</button>
+            <button type="button" class="sub-filter-btn" data-sub="2">2 підгр.</button>
+          </div>
+        </div>
+        <div class="mock-lesson">
+          <div class="mock-lesson-top">
+            <span class="mock-time">1 · 09:00–10:20</span>
+            <span class="demo-note">Група [приклад]</span>
+          </div>
+          <div class="mock-subject">[Назва предмета з підгрупами — приклад]</div>
+          <div id="demoSubgroupContainer">
+            <div class="subgroup-row" id="demoSubRow1">
+              <div>
+                <button type="button" class="sub-badge active-1" data-click-sub="1">1 підгр.</button>
+                <span style="margin-left: 5px;">[Викладач 1 — приклад]</span>
+              </div>
+              <span class="room-pill">ауд. [1]</span>
+            </div>
+            <div class="subgroup-row" id="demoSubRow2">
+              <div>
+                <button type="button" class="sub-badge active-2" data-click-sub="2">2 підгр.</button>
+                <span style="margin-left: 5px;">[Викладач 2 — приклад]</span>
+              </div>
+              <span class="room-pill">ауд. [2]</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- STEP 2 -->
+    <article class="step-card" data-step-index="1">
+      <div class="step-badge">Крок 2 із 6</div>
+      <h1 class="step-title">Дні, тижні та «жива» пара</h1>
+      <p class="step-lead">
+        Розклад підлаштовується під реальний час за Києвом, показує зміни та дзвінки.
+      </p>
+
+      <ul class="action-list">
+        <li>
+          <span class="action-num">1</span>
+          <div>
+            <span class="for-mobile"><strong>Дні та тижні:</strong> гортай дні свайпами вліво/вправо або кнопками <span class="ui-chip">Пн</span>–<span class="ui-chip">Пт</span>. Стрілки <span class="ui-chip">‹</span> та <span class="ui-chip">›</span> перемикають тиждень.</span>
+            <span class="for-desktop"><strong>Вигляд «День» або «Тиждень»:</strong> перемикайся тумблером <span class="ui-chip">День</span> | <span class="ui-chip">Тиждень</span> між одним днем і повною сіткою 5 днів одразу.</span>
+          </div>
+        </li>
+        <li>
+          <span class="action-num">2</span>
+          <div>
+            <strong>Дзвінки та жива пара:</strong> стандартні пари йдуть о 09:00, 10:40, 12:30 та 14:00 (у скорочений день — бейдж <span class="ui-chip">50 хв</span>). Поточна пара підсвічується плашкою <span class="ui-chip">ще N хв</span>.
+          </div>
+        </li>
+        <li>
+          <span class="action-num">3</span>
+          <div>
+            <strong>Зміни та шеринг:</strong> заміни та скасування позначені бейджами <span class="ui-chip">Заміна</span> або <span class="ui-chip">Скасовано</span>. Кнопки <span class="ui-chip">Зберегти картинку</span> та <span class="ui-chip">Поділитися</span> копіюють розклад для одногрупників.
+          </div>
+        </li>
+      </ul>
+
+      <!-- Demo 2 -->
+      <div class="demo-box">
+        <div class="demo-header">
+          <span class="demo-tag">Спробуй · Перемикання днів</span>
+          <span class="demo-note">Обери день</span>
+        </div>
+        <div class="days-strip" id="demoDaysStrip">
+          <button type="button" class="day-tab active" data-day="Пн">Пн</button>
+          <button type="button" class="day-tab" data-day="Вт">Вт</button>
+          <button type="button" class="day-tab" data-day="Ср">Ср</button>
+          <button type="button" class="day-tab" data-day="Чт">Чт</button>
+          <button type="button" class="day-tab" data-day="Пт">Пт</button>
+        </div>
+        <div id="demoDayScheduleContent"></div>
+      </div>
+    </article>
+
+    <!-- STEP 3 -->
+    <article class="step-card" data-step-index="2">
+      <div class="step-badge">Крок 3 із 6</div>
+      <h1 class="step-title">Онлайн-пари та розблокування посилань</h1>
+      <p class="step-lead">
+        Посилання на пари (Google Meet, Zoom) відкриті лише для студентів своєї групи.
+      </p>
+
+      <ul class="action-list">
+        <li>
+          <span class="action-num">1</span>
+          <div>
+            <strong>Чому на кнопці замок:</strong> доки студентську пошту не прив'язано, відображається захищена кнопка <span class="ui-chip">🔒 Meet</span> або <span class="ui-chip">🔒 Zoom</span>.
+          </div>
+        </li>
+        <li>
+          <span class="action-num">2</span>
+          <div>
+            <strong>Як розблокувати:</strong> натисни на <span class="ui-chip">🔒 Meet</span> або на кнопку <span class="ui-chip">Прив'язати Classroom</span> у шапці та увійди через свій студентський Google-акаунт.
+          </div>
+        </li>
+        <li>
+          <span class="action-num">3</span>
+          <div>
+            <strong>Вхід на пару в один клік:</strong> після прив'язки кнопки стають активними (<span class="ui-chip">Meet ↗</span> / <span class="ui-chip">Zoom ↗</span>), і дзвінок відкривається миттєво.
+          </div>
+        </li>
+      </ul>
+
+      <!-- Demo 3 -->
+      <div class="demo-box">
+        <div class="demo-header">
+          <span class="demo-tag">Спробуй · Розблокування</span>
+          <span class="demo-note">Перемкни статус акаунта</span>
+        </div>
+        <div class="controls-row">
+          <div class="segmented">
+            <button type="button" class="auth-state-btn active" data-linked="0">Не прив'язано (🔒)</button>
+            <button type="button" class="auth-state-btn" data-linked="1">Classroom прив'язано (✓)</button>
+          </div>
+        </div>
+        <div class="mock-lesson live">
+          <div class="mock-lesson-top">
+            <span class="mock-time">2 · 10:40–12:00</span>
+            <span class="live-pill"><span class="live-dot"></span> ще 35 хв</span>
+          </div>
+          <div class="mock-subject">[Назва предмета — приклад]</div>
+          <div class="mock-meta">
+            <span>[Викладач — приклад]</span>
+            <div id="demoOnlineActionSlot">
+              <button type="button" class="meet-btn locked" id="demoMeetBtn">🔒 Meet</button>
+            </div>
+          </div>
+          <div class="live-progress"><div class="live-progress-bar"></div></div>
+        </div>
+        <div class="toast-feedback" id="demoOnlineToast"></div>
+      </div>
+    </article>
+
+    <!-- STEP 4 -->
+    <article class="step-card" data-step-index="3">
+      <div class="step-badge">Крок 4 із 6</div>
+      <h1 class="step-title">Домашні завдання з Google Classroom</h1>
+      <p class="step-lead">
+        Завдання підтягуються з Classroom автоматично — вручну ставити галочки не потрібно.
+      </p>
+
+      <ul class="action-list">
+        <li>
+          <span class="action-num">1</span>
+          <div>
+            <strong>ДЗ на картці пари:</strong> активні завдання видно прямо під предметом. Якщо завдань кілька, натисни <span class="ui-chip">2 завдання ▾</span>, щоб розгорнути список.
+          </div>
+        </li>
+        <li>
+          <span class="action-num">2</span>
+          <div>
+            <strong>Здані роботи та оцінки:</strong> коли робота здана, плашка стає зеленою — <span class="ui-chip">Усе здано</span> або <span class="ui-chip">Здано: N завдання ▾</span>. Клікни по ній, щоб подивитися виставлений бал.
+          </div>
+        </li>
+        <li>
+          <span class="action-num">3</span>
+          <div>
+            <span class="for-mobile"><strong>Вкладка «Завдання»:</strong> у нижньому меню є повний список завдань із фільтрами та вкладкою <span class="ui-chip">📊 Оцінки</span>.</span>
+            <span class="for-desktop"><strong>Бічна панель завдань:</strong> праворуч від розкладу завжди відкритий список ДЗ із секціями <span class="ui-chip">Прострочено</span>, <span class="ui-chip">Активні</span> та вкладкою <span class="ui-chip">Оцінки</span>.</span>
+          </div>
+        </li>
+      </ul>
+
+      <div class="note-box">
+        <strong>Синхронізація:</strong> статус оновлюється автоматично, коли ти повертаєшся у вкладку розкладу, або кожні 15 хвилин у фоні (а також миттєво за кнопкою <span class="ui-chip">Classroom</span> у шапці). Також доступна вкладка <span class="ui-chip">📊 Оцінки</span> із середнім балом.
+      </div>
+
+      <!-- Demo 4 -->
+      <div class="demo-box">
+        <div class="demo-header">
+          <span class="demo-tag">Спробуй · Розгортання завдань</span>
+          <span class="demo-note">Натискай на плашки</span>
+        </div>
+        <div class="mock-lesson">
+          <div class="mock-lesson-top">
+            <span class="mock-time">3 · 12:30–13:50</span>
+            <span class="room-pill">ауд. [101]</span>
+          </div>
+          <div class="mock-subject">[Назва предмета — приклад]</div>
+
+          <button type="button" class="hw-trigger" id="demoActiveHwBtn" aria-expanded="false">
+            <span>2 завдання · Сьогодні</span>
+            <span id="demoActiveHwArrow">▾</span>
+          </button>
+          <div class="hw-list" id="demoActiveHwList">
+            <div class="hw-item">
+              <span>[Практична №4 — приклад]</span>
+              <span style="color: #fbbf24; font-weight: 700;">Сьогодні ↗</span>
+            </div>
+            <div class="hw-item">
+              <span>[Тест — приклад]</span>
+              <span style="color: #c084fc; font-weight: 600;">до 28 жовт. ↗</span>
+            </div>
+          </div>
+
+          <button type="button" class="hw-trigger done" id="demoDoneHwBtn" aria-expanded="false">
+            <span>✓ Здано: 1 завдання</span>
+            <span id="demoDoneHwArrow">▾</span>
+          </button>
+          <div class="hw-list" id="demoDoneHwList">
+            <div class="hw-item">
+              <span>[Практична №3 — приклад]</span>
+              <span style="color: #34d399; font-weight: 700;">Оцінка: 11/12 ↗</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- STEP 5 -->
+    <article class="step-card" data-step-index="4">
+      <div class="step-badge">Крок 5 із 6</div>
+      <h1 class="step-title">Налаштування та теми</h1>
+      <p class="step-lead">
+        У вкладці <strong>«Налаштування»</strong> (іконка шестерні) можна налаштувати зручний вигляд під себе.
+      </p>
+
+      <ul class="action-list">
+        <li>
+          <span class="action-num">1</span>
+          <div>
+            <strong>Закріплення підгрупи:</strong> обери <span class="ui-chip">Моя підгрупа</span> (<span class="ui-chip">1 підгрупа</span> чи <span class="ui-chip">2 підгрупа</span>), щоб розклад одразу фільтрував потрібні пари.
+          </div>
+        </li>
+        <li>
+          <span class="action-num">2</span>
+          <div>
+            <strong>Тема та кольори:</strong> вибирай темний або світлий режим і один із 6 колірних акцентів (<span class="ui-chip">Океан</span>, <span class="ui-chip">Смарагд</span> тощо).
+          </div>
+        </li>
+        <li>
+          <span class="action-num">3</span>
+          <div>
+            <strong>Додатково:</strong> у розділі «Корисні посилання» можна відкрити статистику вичитаних годин та графік навчальних сесій і канікул.
+          </div>
+        </li>
+      </ul>
+
+      <!-- Demo 5 -->
+      <div class="demo-box">
+        <div class="demo-header">
+          <span class="demo-tag">Спробуй · Зміна теми і кольору</span>
+          <span class="demo-note">Обирай палітру</span>
+        </div>
+        <div class="palette-grid">
+          <button type="button" class="palette-btn active" data-set-palette="ocean">
+            <span class="swatch-dot" style="background: #38bdf8;"></span> Океан
+          </button>
+          <button type="button" class="palette-btn" data-set-palette="emerald">
+            <span class="swatch-dot" style="background: #10b981;"></span> Смарагд
+          </button>
+          <button type="button" class="palette-btn" data-set-palette="amethyst">
+            <span class="swatch-dot" style="background: #a855f7;"></span> Аметист
+          </button>
+          <button type="button" class="palette-btn" data-set-palette="amber">
+            <span class="swatch-dot" style="background: #f59e0b;"></span> Бурштин
+          </button>
+          <button type="button" class="palette-btn" data-set-palette="sakura">
+            <span class="swatch-dot" style="background: #f43f5e;"></span> Сакура
+          </button>
+          <button type="button" class="palette-btn" data-set-palette="lagoon">
+            <span class="swatch-dot" style="background: #14b8a6;"></span> Лагуна
+          </button>
+        </div>
+      </div>
+    </article>
+
+    <!-- STEP 6 -->
+    <article class="step-card" data-step-index="5">
+      <div class="step-badge">Крок 6 із 6</div>
+      <h1 class="step-title">Встановлення на телефон та робота офлайн</h1>
+      <p class="step-lead">
+        Застосунок працює як швидкий додаток (PWA) на Android, iPhone та комп'ютері.
+      </p>
+
+      <ul class="action-list">
+        <li>
+          <span class="action-num">1</span>
+          <div>
+            <strong>Робота без інтернету:</strong> зберігаються дні та тижні, які ти вже переглядав з інтернетом (застосунок також фоново завантажує наступний тиждень). Без зв'язку зверху світиться плашка <span class="ui-chip">📡 Немає підключення до інтернету · показано збережений розклад.</span>.
+          </div>
+        </li>
+        <li>
+          <span class="action-num">2</span>
+          <div>
+            <span class="for-mobile"><strong>Встановлення на телефон:</strong> на Android натисни кнопку <span class="ui-chip">Встановити</span> на банері або в меню Chrome. На iPhone у Safari натисни кнопку <span class="ui-chip">Поділитися</span> ⎋, а потім — <span class="ui-chip">На початковий екран</span> ⊞.</span>
+            <span class="for-desktop"><strong>Комп'ютер (Chrome / Edge):</strong> натисни на іконку встановлення додатка справа в адресному рядку браузера — розклад закріпиться на панелі завдань окремим вікном.</span>
+          </div>
+        </li>
+      </ul>
+
+      <!-- Demo 6 -->
+      <div class="demo-box">
+        <div class="demo-header">
+          <span class="demo-tag">Підказка · Встановлення</span>
+          <span class="demo-note">Обери пристрій</span>
+        </div>
+        <div class="controls-row">
+          <div class="segmented">
+            <button type="button" class="device-tab-btn active" data-device="android">Android</button>
+            <button type="button" class="device-tab-btn" data-device="iphone">iPhone</button>
+            <button type="button" class="device-tab-btn" data-device="desktop">Комп'ютер</button>
+          </div>
+        </div>
+        <div class="note-box" id="deviceInstructionsBox" style="margin-top: 0; margin-bottom: 10px;"></div>
+        <button type="button" class="btn-nav primary" id="pwaInstallActionBtn" style="width: 100%;">
+          Встановити
+        </button>
+        <div class="toast-feedback" id="pwaInstallFeedback"></div>
+      </div>
+    </article>
+  </main>
+
+  <!-- Bottom Navigation -->
+  <nav class="bottom-nav" aria-label="Навігація">
+    <div class="bottom-nav-inner">
+      <button type="button" class="btn-nav" id="prevStepBtn">Назад</button>
+      <span class="step-counter" id="bottomStepCounter">1 / 6</span>
+      <button type="button" class="btn-nav primary" id="nextStepBtn">Далі</button>
+    </div>
+  </nav>
+
+  <script>
+    (function () {
+      var STORAGE_KEY = "student-guide:step";
+      var TOTAL_STEPS = 6;
+      var currentStep = 0;
+
+      function readSavedStep() {
+        try {
+          var raw = window.localStorage.getItem(STORAGE_KEY);
+          if (raw !== null) {
+            var parsed = parseInt(raw, 10);
+            if (!isNaN(parsed) && parsed >= 0 && parsed < TOTAL_STEPS) return parsed;
+          }
+        } catch (e) {}
+        return 0;
+      }
+
+      function saveCurrentStep(idx) {
+        try { window.localStorage.setItem(STORAGE_KEY, String(idx)); } catch (e) {}
+      }
+
+      function clearSavedStep() {
+        try { window.localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+      }
+
+      var stepCards = document.querySelectorAll(".step-card");
+      var stepDots = document.querySelectorAll(".step-dot");
+      var progressStepTitle = document.getElementById("progressStepTitle");
+      var progressPercentLabel = document.getElementById("progressPercentLabel");
+      var progressBarFill = document.getElementById("progressBarFill");
+      var prevStepBtn = document.getElementById("prevStepBtn");
+      var nextStepBtn = document.getElementById("nextStepBtn");
+      var bottomStepCounter = document.getElementById("bottomStepCounter");
+      var resetGuideBtn = document.getElementById("resetGuideBtn");
+
+      function renderStep(idx) {
+        currentStep = Math.max(0, Math.min(TOTAL_STEPS - 1, idx));
+        for (var i = 0; i < stepCards.length; i++) {
+          stepCards[i].classList.toggle("active", i === currentStep);
+        }
+        for (var j = 0; j < stepDots.length; j++) {
+          stepDots[j].classList.toggle("active", j === currentStep);
+        }
+
+        var pct = Math.round(((currentStep + 1) / TOTAL_STEPS) * 100);
+        progressStepTitle.textContent = "Крок " + (currentStep + 1) + " із " + TOTAL_STEPS;
+        progressPercentLabel.textContent = pct + "%";
+        progressBarFill.style.width = pct + "%";
+        bottomStepCounter.textContent = (currentStep + 1) + " / " + TOTAL_STEPS;
+
+        prevStepBtn.disabled = currentStep === 0;
+
+        // On last step, don't confusingly loop with "Далі"
+        if (currentStep === TOTAL_STEPS - 1) {
+          nextStepBtn.textContent = "Почати спочатку";
+          nextStepBtn.classList.remove("primary");
+        } else {
+          nextStepBtn.textContent = "Далі";
+          nextStepBtn.classList.add("primary");
+        }
+
+        saveCurrentStep(currentStep);
+      }
+
+      prevStepBtn.addEventListener("click", function () {
+        if (currentStep > 0) {
+          renderStep(currentStep - 1);
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+      });
+
+      nextStepBtn.addEventListener("click", function () {
+        if (currentStep < TOTAL_STEPS - 1) {
+          renderStep(currentStep + 1);
+        } else {
+          renderStep(0);
+        }
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
+
+      resetGuideBtn.addEventListener("click", function () {
+        clearSavedStep();
+        renderStep(0);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
+
+      for (var d = 0; d < stepDots.length; d++) {
+        stepDots[d].addEventListener("click", function () {
+          var target = parseInt(this.getAttribute("data-step"), 10);
+          if (!isNaN(target)) renderStep(target);
+        });
+      }
+
+      // Demo 1
+      var subFilterBtns = document.querySelectorAll(".sub-filter-btn");
+      var demoSubRow1 = document.getElementById("demoSubRow1");
+      var demoSubRow2 = document.getElementById("demoSubRow2");
+      function updateSubDemo(sub) {
+        for (var i = 0; i < subFilterBtns.length; i++) {
+          subFilterBtns[i].classList.toggle("active", subFilterBtns[i].getAttribute("data-sub") === sub);
+        }
+        demoSubRow1.style.display = (sub === "all" || sub === "1") ? "flex" : "none";
+        demoSubRow2.style.display = (sub === "all" || sub === "2") ? "flex" : "none";
+      }
+      for (var s = 0; s < subFilterBtns.length; s++) {
+        subFilterBtns[s].addEventListener("click", function () {
+          updateSubDemo(this.getAttribute("data-sub"));
+        });
+      }
+      var clickSubBadges = document.querySelectorAll("[data-click-sub]");
+      for (var cs = 0; cs < clickSubBadges.length; cs++) {
+        clickSubBadges[cs].addEventListener("click", function () {
+          updateSubDemo(this.getAttribute("data-click-sub"));
+        });
+      }
+
+      // Demo 2
+      var daySchedules = {
+        "Пн": [{ num: "1", time: "09:00–10:20", live: true, rem: "ще 25 хв", badge: null }, { num: "2", time: "10:40–12:00", live: false, rem: null, badge: null }],
+        "Вт": [{ num: "1", time: "09:00–10:20", live: false, rem: null, badge: "Заміна" }],
+        "Ср": [{ num: "2", time: "10:40–12:00", live: false, rem: null, badge: null }],
+        "Чт": [{ num: "1", time: "09:00–09:50", live: false, rem: null, badge: "50 хв" }],
+        "Пт": []
+      };
+      var dayTabs = document.querySelectorAll(".day-tab");
+      var demoDayContent = document.getElementById("demoDayScheduleContent");
+      function renderDayDemo(dayKey) {
+        for (var i = 0; i < dayTabs.length; i++) {
+          dayTabs[i].classList.toggle("active", dayTabs[i].getAttribute("data-day") === dayKey);
+        }
+        var list = daySchedules[dayKey] || [];
+        if (list.length === 0) {
+          demoDayContent.innerHTML = '<div class="note-box" style="text-align:center;"><strong>Пар немає</strong><br/>Розклад вільний</div>';
+          return;
+        }
+        var html = "";
+        for (var k = 0; k < list.length; k++) {
+          var item = list[k];
+          html += '<div class="mock-lesson ' + (item.live ? "live" : "") + '">';
+          html += '<div class="mock-lesson-top"><span class="mock-time">' + item.num + ' · ' + item.time + '</span>';
+          if (item.live) html += '<span class="live-pill"><span class="live-dot"></span> ' + item.rem + '</span>';
+          else if (item.badge) html += '<span class="ui-chip">' + item.badge + '</span>';
+          else html += '<span class="room-pill">ауд. [102]</span>';
+          html += '</div><div class="mock-subject">[Назва предмета — приклад]</div></div>';
+        }
+        demoDayContent.innerHTML = html;
+      }
+      for (var dt = 0; dt < dayTabs.length; dt++) {
+        dayTabs[dt].addEventListener("click", function () { renderDayDemo(this.getAttribute("data-day")); });
+      }
+      renderDayDemo("Пн");
+
+      // Demo 3
+      var authStateBtns = document.querySelectorAll(".auth-state-btn");
+      var demoOnlineSlot = document.getElementById("demoOnlineActionSlot");
+      var demoOnlineToast = document.getElementById("demoOnlineToast");
+      function renderOnlineDemo(linked) {
+        for (var i = 0; i < authStateBtns.length; i++) {
+          authStateBtns[i].classList.toggle("active", (authStateBtns[i].getAttribute("data-linked") === "1") === linked);
+        }
+        demoOnlineToast.classList.remove("visible");
+        if (linked) {
+          demoOnlineSlot.innerHTML = '<button type="button" class="meet-btn" id="demoMeetActiveBtn">Meet ↗</button>';
+          document.getElementById("demoMeetActiveBtn").addEventListener("click", function () {
+            demoOnlineToast.textContent = "Відеоконференція Google Meet відкривається у новій вкладці.";
+            demoOnlineToast.classList.add("visible");
+          });
+        } else {
+          demoOnlineSlot.innerHTML = '<button type="button" class="meet-btn locked" id="demoMeetLockedBtn">🔒 Meet</button>';
+          document.getElementById("demoMeetLockedBtn").addEventListener("click", function () {
+            demoOnlineToast.textContent = "Для перегляду онлайн-пари прив'яжіть Google Classroom цієї групи";
+            demoOnlineToast.classList.add("visible");
+          });
+        }
+      }
+      for (var a = 0; a < authStateBtns.length; a++) {
+        authStateBtns[a].addEventListener("click", function () {
+          renderOnlineDemo(this.getAttribute("data-linked") === "1");
+        });
+      }
+      renderOnlineDemo(false);
+
+      // Demo 4
+      var demoActiveHwBtn = document.getElementById("demoActiveHwBtn");
+      var demoActiveHwList = document.getElementById("demoActiveHwList");
+      var demoActiveHwArrow = document.getElementById("demoActiveHwArrow");
+      var demoDoneHwBtn = document.getElementById("demoDoneHwBtn");
+      var demoDoneHwList = document.getElementById("demoDoneHwList");
+      var demoDoneHwArrow = document.getElementById("demoDoneHwArrow");
+
+      demoActiveHwBtn.addEventListener("click", function () {
+        var open = demoActiveHwList.classList.toggle("open");
+        demoActiveHwArrow.textContent = open ? "▴" : "▾";
+      });
+      demoDoneHwBtn.addEventListener("click", function () {
+        var open = demoDoneHwList.classList.toggle("open");
+        demoDoneHwArrow.textContent = open ? "▴" : "▾";
+      });
+
+      // Demo 5
+      var themeToggleBtn = document.getElementById("themeToggleBtn");
+      var paletteBtns = document.querySelectorAll(".palette-btn");
+      themeToggleBtn.addEventListener("click", function () {
+        var cur = document.documentElement.getAttribute("data-theme") || "dark";
+        var next = cur === "dark" ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", next);
+        themeToggleBtn.textContent = next === "dark" ? "🌙 Темна" : "☀️ Світла";
+      });
+      for (var p = 0; p < paletteBtns.length; p++) {
+        paletteBtns[p].addEventListener("click", function () {
+          var pal = this.getAttribute("data-set-palette");
+          document.documentElement.setAttribute("data-palette", pal);
+          for (var i = 0; i < paletteBtns.length; i++) paletteBtns[i].classList.toggle("active", paletteBtns[i] === this);
+        });
+      }
+
+      // Demo 6 (PWA)
+      var deferredPrompt = null;
+      window.addEventListener("beforeinstallprompt", function (e) {
+        e.preventDefault();
+        deferredPrompt = e;
+      });
+      var deviceTabBtns = document.querySelectorAll(".device-tab-btn");
+      var deviceBox = document.getElementById("deviceInstructionsBox");
+      var pwaBtn = document.getElementById("pwaInstallActionBtn");
+      var pwaFeedback = document.getElementById("pwaInstallFeedback");
+      var curDevice = "android";
+
+      var deviceTexts = {
+        android: "<strong>Android (Chrome):</strong> натисни кнопку «Встановити» або відкрий меню браузера <strong>⋮</strong> → <strong>«Встановити додаток»</strong>.",
+        iphone: "<strong>iPhone (Safari):</strong> натисни <strong>«Поділитися» ⎋</strong> у нижній панелі Safari, а потім — <strong>«На початковий екран» ⊞</strong>.",
+        desktop: "<strong>Комп'ютер (Chrome / Edge):</strong> натисни на іконку встановлення справа в адресному рядку браузера."
+      };
+      function renderDevice(dev) {
+        curDevice = dev;
+        for (var i = 0; i < deviceTabBtns.length; i++) {
+          deviceTabBtns[i].classList.toggle("active", deviceTabBtns[i].getAttribute("data-device") === dev);
+        }
+        deviceBox.innerHTML = deviceTexts[dev] || deviceTexts.android;
+        pwaFeedback.classList.remove("visible");
+      }
+      for (var dv = 0; dv < deviceTabBtns.length; dv++) {
+        deviceTabBtns[dv].addEventListener("click", function () { renderDevice(this.getAttribute("data-device")); });
+      }
+      renderDevice("android");
+
+      pwaBtn.addEventListener("click", function () {
+        if (deferredPrompt) {
+          deferredPrompt.prompt();
+          deferredPrompt = null;
+        } else {
+          if (curDevice === "iphone") {
+            pwaFeedback.textContent = "На iPhone натисніть «Поділитися» ⎋, а потім — «На початковий екран» ⊞.";
+          } else {
+            pwaFeedback.textContent = "Відкрийте розклад у браузері та натисніть «Встановити» на банері або в меню браузера (⋮).";
+          }
+          pwaFeedback.classList.add("visible");
+        }
+      });
+
+      renderStep(readSavedStep());
+    })();
+  </script>
+</body>
+</html>

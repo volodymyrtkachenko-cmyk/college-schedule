@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ReferenceRecord } from "../lib/api";
+import { StudentGuideModal } from "./StudentGuideModal";
 
 interface WelcomeScreenProps {
   groups: ReferenceRecord[];
@@ -12,6 +13,8 @@ interface WelcomeScreenProps {
 export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: WelcomeScreenProps) {
   const [step, setStep] = useState(1);
   const [direction, setDirection] = useState(0);
+  const [selectedStudentGroupId, setSelectedStudentGroupId] = useState<number | null>(null);
+  const [showStudentGuide, setShowStudentGuide] = useState(false);
 
   const variants = {
     enter: (dir: number) => ({
@@ -121,7 +124,14 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
                 {filtered.map((item) => (
                   <button
                     key={item.id}
-                    onClick={() => onComplete(mode, item.id)}
+                    onClick={() => {
+                      if (mode === "student") {
+                        setSelectedStudentGroupId(item.id);
+                        setShowStudentGuide(true);
+                      } else {
+                        onComplete(mode, item.id);
+                      }
+                    }}
                     className="w-full rounded-lg border border-transparent bg-sys-card/50 p-4 text-left font-medium text-sys-text-primary transition-all hover:border-sys-border hover:bg-sys-card active:scale-[0.98]"
                   >
                     {item.name}
@@ -138,6 +148,15 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
           </motion.div>
         )}
       </AnimatePresence>
+
+      {showStudentGuide && selectedStudentGroupId !== null && (
+        <StudentGuideModal
+          isOnboarding={true}
+          onClose={() => onComplete("student", selectedStudentGroupId)}
+          onComplete={() => onComplete("student", selectedStudentGroupId)}
+        />
+      )}
+
       <style dangerouslySetInnerHTML={{__html: `
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
