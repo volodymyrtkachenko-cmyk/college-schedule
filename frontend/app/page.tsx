@@ -1104,7 +1104,7 @@ export default function HomePage() {
 
       {/* Desktop Toolbar (>= 1024px) */}
       <header className="sticky top-0 z-40 hidden lg:block h-14 border-b border-sys-border bg-sys-card/90 backdrop-blur-md">
-        <div className="mx-auto grid grid-cols-[1fr_auto_1fr] h-full max-w-[1800px] items-center px-6">
+        <div className="mx-auto grid grid-cols-[1fr_auto_1fr] gap-x-4 h-full max-w-[1800px] items-center px-6">
           {/* Left Zone: Brand + Context Selector */}
           <div className="flex items-center gap-3 min-w-0 justify-self-start">
             <a
@@ -1137,25 +1137,6 @@ export default function HomePage() {
               </span>
               <span className="text-sys-text-muted text-xs ml-auto shrink-0">▼</span>
             </button>
-
-            {mode === "teacher" && !isTeacherUnlocked && (
-              <button
-                type="button"
-                onClick={() => {
-                  setTeacherPinTargetGroup(null);
-                  setTeacherPinModalOpen(true);
-                }}
-                className="flex h-10 items-center gap-1.5 px-3 rounded-xl text-xs font-semibold border border-sys-border bg-sys-bg/80 text-sys-text-secondary hover:border-sys-accent/40 hover:text-sys-accent transition-colors duration-fast ease-smooth active:scale-95"
-                title="Вхід для викладача (PIN)"
-              >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                  <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
-                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                </svg>
-                <span>Вхід викладача</span>
-              </button>
-            )}
-
           </div>
 
           {/* Center Zone: Date Navigator + View Mode */}
@@ -1290,6 +1271,25 @@ export default function HomePage() {
                   }
                 }}
               />
+            )}
+
+            {/* Teacher PIN Access button */}
+            {mode === "teacher" && !isTeacherUnlocked && (
+              <button
+                type="button"
+                onClick={() => {
+                  setTeacherPinTargetGroup(null);
+                  setTeacherPinModalOpen(true);
+                }}
+                className="flex h-10 items-center gap-1.5 px-3 rounded-xl text-xs font-semibold border border-sys-border bg-sys-bg text-sys-text-secondary hover:border-sys-accent/40 hover:text-sys-accent transition-colors duration-fast ease-smooth active:scale-95 cursor-pointer"
+                title="Вхід для викладача (PIN)"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-accent">
+                  <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+                <span>Вхід викладача</span>
+              </button>
             )}
 
 
