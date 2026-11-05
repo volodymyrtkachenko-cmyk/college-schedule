@@ -101,8 +101,14 @@ export function Heartbeat() {
         };
     }, []);
 
+    const isFirstUserRender = useRef(true);
+
     // Immediately notify server when user logs in or out
     useEffect(() => {
+        if (isFirstUserRender.current) {
+            isFirstUserRender.current = false;
+            return;
+        }
         let clientId = "";
         let tabId = "";
         try {

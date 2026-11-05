@@ -284,12 +284,16 @@ export default function HomePage() {
   }, [groupId, fetchClassroomTasks]);
 
   useEffect(() => {
+    let lastClassroomVisibilitySync = 0;
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
-        if (groupId) {
-          void fetchClassroomTasks(groupId);
+        const now = Date.now();
+        if (now - lastClassroomVisibilitySync >= 60_000) {
+          lastClassroomVisibilitySync = now;
+          if (groupId) {
+            void fetchClassroomTasks(groupId);
+          }
         }
-        invalidateScheduleCache();
       }
     };
     document.addEventListener("visibilitychange", handleVisibilityChange);

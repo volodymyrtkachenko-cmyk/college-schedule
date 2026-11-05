@@ -231,6 +231,7 @@ export function useSchedule(weekAnchorDate: Date, includeCancelled = false) {
     // 3.2: Фоновий prefetch сусідніх тижнів (← та →) для миттєвого перемикання без скелетонів
     const prefetchAdjacentWeeks = (currentToday: ScheduleResponse) => {
       if (typeof navigator !== "undefined" && !navigator.onLine) return;
+      if (typeof navigator !== "undefined" && (navigator as any).connection?.saveData) return;
       for (const offsetDays of [-7, 7]) {
         const adjDate = new Date(weekAnchorDate);
         adjDate.setDate(adjDate.getDate() + offsetDays);
@@ -240,6 +241,12 @@ export function useSchedule(weekAnchorDate: Date, includeCancelled = false) {
 
         const existingMem = memoryCache.get(adjMemKey);
         if (existingMem && Date.now() - existingMem.time < CACHE_TTL) continue;
+
+        try {
+          if (typeof window !== "undefined" && window.localStorage.getItem(adjWeekKey)) {
+            continue;
+          }
+        } catch {}
 
         api.week(targetGroupId, targetTeacherId, adjDate, includeCancelled)
           .then((adjWeek) => {
@@ -338,7 +345,7 @@ export function useSchedule(weekAnchorDate: Date, includeCancelled = false) {
           memoryCache.set(memKey, { time: Date.now(), today: todayResponse, week: weekResponse });
 
           if (prefetchTimer) clearTimeout(prefetchTimer);
-          prefetchTimer = setTimeout(() => prefetchAdjacentWeeks(todayResponse), 350);
+          prefetchTimer = setTimeout(() => prefetchAdjacentWeeks(todayResponse), 1500);
         })
         .catch(() => {
           if (!isSubscribed) return;
@@ -355,8 +362,16 @@ export function useSchedule(weekAnchorDate: Date, includeCancelled = false) {
 
     fetchSchedule();
 
+    let lastVisibilityRevalidate = 0;
     const handleVisibility = () => {
-      if (document.visibilityState === "visible") fetchSchedule();
+      if (document.visibilityState === "visible") {
+        const now = Date.now();
+        if (now - lastVisibilityRevalidate >= 60_000) {
+          lastVisibilityRevalidate = now;
+          memoryCache.clear();
+          fetchSchedule();
+        }
+      }
     };
     const handleOnline = () => fetchSchedule(true);
     const handleScheduleRefresh = () => fetchSchedule(true);
