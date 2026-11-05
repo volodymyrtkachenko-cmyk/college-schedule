@@ -301,8 +301,22 @@ async def today(
     variant = f"today:{target.isoformat()}:{int(include_cancelled)}:{int(is_auth)}:{cred_tag}"
     etag = cache_rev.schedule_etag(group_id=group_id, teacher_id=teacher_id, variant=variant)
     response.headers["ETag"] = etag
-    response.headers["Cache-Control"] = "public, max-age=0, s-maxage=15, stale-while-revalidate=300"
-    response.headers["Vary"] = "Date, Origin, Accept-Encoding, X-Classroom-User-Id, X-Classroom-Email, X-Teacher-Pin, Authorization"
+    has_auth_context = False
+    if request:
+        has_auth_context = bool(
+            request.headers.get("authorization")
+            or request.headers.get("x-teacher-pin")
+            or request.headers.get("x-classroom-user-id")
+            or request.headers.get("x-classroom-email")
+            or request.query_params.get("teacher_pin")
+            or request.query_params.get("classroom_user_id")
+            or request.query_params.get("classroom_email")
+        )
+    if has_auth_context:
+        response.headers["Cache-Control"] = "private, max-age=0, must-revalidate"
+    else:
+        response.headers["Cache-Control"] = "public, max-age=0, s-maxage=15, stale-while-revalidate=300"
+    response.headers["Vary"] = "Origin, Accept-Encoding, X-Classroom-User-Id, X-Classroom-Email, X-Teacher-Pin, Authorization"
 
     if cache_rev.etag_matches(request.headers.get("if-none-match"), etag):
         return Response(status_code=304, headers=dict(response.headers))
@@ -380,8 +394,22 @@ async def week(
     variant = f"week:{start.isoformat()}:{int(include_cancelled)}:{int(is_auth)}:{cred_tag}"
     etag = cache_rev.schedule_etag(group_id=group_id, teacher_id=teacher_id, variant=variant)
     response.headers["ETag"] = etag
-    response.headers["Cache-Control"] = "public, max-age=0, s-maxage=15, stale-while-revalidate=300"
-    response.headers["Vary"] = "Date, Origin, Accept-Encoding, X-Classroom-User-Id, X-Classroom-Email, X-Teacher-Pin, Authorization"
+    has_auth_context = False
+    if request:
+        has_auth_context = bool(
+            request.headers.get("authorization")
+            or request.headers.get("x-teacher-pin")
+            or request.headers.get("x-classroom-user-id")
+            or request.headers.get("x-classroom-email")
+            or request.query_params.get("teacher_pin")
+            or request.query_params.get("classroom_user_id")
+            or request.query_params.get("classroom_email")
+        )
+    if has_auth_context:
+        response.headers["Cache-Control"] = "private, max-age=0, must-revalidate"
+    else:
+        response.headers["Cache-Control"] = "public, max-age=0, s-maxage=15, stale-while-revalidate=300"
+    response.headers["Vary"] = "Origin, Accept-Encoding, X-Classroom-User-Id, X-Classroom-Email, X-Teacher-Pin, Authorization"
 
     if cache_rev.etag_matches(request.headers.get("if-none-match"), etag):
         return Response(status_code=304, headers=dict(response.headers))
