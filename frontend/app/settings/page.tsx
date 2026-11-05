@@ -645,7 +645,16 @@ export default function SettingsPage() {
         </section>
 
         {showGuideModal && (
-          <StudentGuideModal onClose={() => setShowGuideModal(false)} />
+          <StudentGuideModal
+            groupId={
+              typeof window !== "undefined"
+                ? Number(localStorage.getItem("schedule:groupId")) ||
+                  Number(localStorage.getItem("schedule:classroom_linked_group_id")) ||
+                  undefined
+                : undefined
+            }
+            onClose={() => setShowGuideModal(false)}
+          />
         )}
       </main>
     </div>

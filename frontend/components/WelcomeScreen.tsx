@@ -152,6 +152,7 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
       {showStudentGuide && selectedStudentGroupId !== null && (
         <StudentGuideModal
           isOnboarding={true}
+          groupId={selectedStudentGroupId}
           onClose={() => onComplete("student", selectedStudentGroupId)}
           onComplete={() => onComplete("student", selectedStudentGroupId)}
         />

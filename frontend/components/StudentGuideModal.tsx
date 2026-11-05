@@ -1,14 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useUserSettings } from "../lib/useUserSettings";
 import { useTheme, ACCENT_OPTIONS, AccentColor } from "../lib/useTheme";
 import { useClassroomSubmissions } from "../lib/useClassroomSubmissions";
 import { requestClassroomAuth } from "../lib/classroomAuth";
+import { api, Lesson, ScheduleResponse } from "../lib/api";
+import { extractOnlineMeetings, formatRoom, MeetingInfo } from "../lib/format";
+import { parseLessonTeachers } from "../lib/quickJump";
 
 export interface StudentGuideModalProps {
   isOnboarding?: boolean;
+  groupId?: number | null;
   onClose: () => void;
   onComplete?: () => void;
 }
@@ -104,10 +108,316 @@ const GUIDE_STEPS: StepItem[] = [
   },
 ];
 
-export function StudentGuideModal({ isOnboarding = false, onClose, onComplete }: StudentGuideModalProps) {
+interface ExtractedDemoData {
+  subgroupLesson: {
+    lessonNumber: number;
+    time: string;
+    subjectName: string;
+    teacher1Name: string;
+    teacher1Room: string;
+    teacher2Name: string;
+    teacher2Room: string;
+  };
+  scheduleDays: {
+    day: "Пн" | "Вт" | "Ср" | "Чт" | "Пт";
+    hasLessons: boolean;
+    lessonNumber: number;
+    time: string;
+    subjectName: string;
+    teacher: string;
+    room: string;
+  }[];
+  onlineLesson: {
+    lessonNumber: number;
+    time: string;
+    subjectName: string;
+    teacher: string;
+    platform: "Meet" | "Zoom" | "Teams" | "Онлайн";
+    url: string;
+    hasRealLink: boolean;
+  };
+  homeworkLesson: {
+    lessonNumber: number;
+    time: string;
+    subjectName: string;
+    room: string;
+  };
+}
+
+function safeFormatRoom(room?: string | null, fallback = "ауд. 101"): string {
+  if (!room || !room.trim()) return fallback;
+  return formatRoom(room.trim());
+}
+
+function extractDemoData(weekSchedule: ScheduleResponse[]): ExtractedDemoData {
+  const allLessons: Lesson[] = [];
+  weekSchedule.forEach((day) => {
+    if (Array.isArray(day?.lessons)) {
+      allLessons.push(...day.lessons);
+    }
+  });
+
+  const uniqueSubjects = Array.from(
+    new Set(allLessons.map((l) => l.subject_name?.trim()).filter(Boolean))
+  );
+
+  // 1. Subgroup Lesson: look for lesson with 2 teachers or split
+  const dualLesson = allLessons.find(
+    (l) =>
+      !l.is_cancelled &&
+      (l.second_teacher_id != null ||
+        (l.teacher_name && (l.teacher_name.includes(",") || l.teacher_name.includes("/"))) ||
+        (l.teacher_room && l.second_teacher_room))
+  );
+
+  let subgroupDemo: ExtractedDemoData["subgroupLesson"];
+  if (dualLesson) {
+    const parsedTeachers = parseLessonTeachers(dualLesson);
+    const t1 = parsedTeachers[0]?.name || dualLesson.teacher_name?.split(/[,/]/)[0]?.trim() || "Токарєва О.В.";
+    const t2 = parsedTeachers[1]?.name || dualLesson.teacher_name?.split(/[,/]/)[1]?.trim() || "Хочинська В.В.";
+    subgroupDemo = {
+      lessonNumber: dualLesson.lesson_number || 1,
+      time: dualLesson.time || "09:00–10:20",
+      subjectName: dualLesson.subject_name,
+      teacher1Name: t1,
+      teacher1Room: safeFormatRoom(dualLesson.teacher_room || dualLesson.room, "ауд. 101"),
+      teacher2Name: t2,
+      teacher2Room: safeFormatRoom(dualLesson.second_teacher_room || dualLesson.room, "ауд. 102"),
+    };
+  } else if (allLessons.length > 0) {
+    const firstLesson = allLessons.find((l) => !l.is_cancelled && l.teacher_name) || allLessons[0];
+    const otherTeacherLesson = allLessons.find(
+      (l) => !l.is_cancelled && l.teacher_name && l.teacher_name !== firstLesson.teacher_name
+    );
+    subgroupDemo = {
+      lessonNumber: firstLesson.lesson_number || 1,
+      time: firstLesson.time || "09:00–10:20",
+      subjectName: firstLesson.subject_name,
+      teacher1Name: firstLesson.teacher_name || "Токарєва О.В.",
+      teacher1Room: safeFormatRoom(firstLesson.room, "ауд. 101"),
+      teacher2Name: otherTeacherLesson?.teacher_name || "Хочинська В.В.",
+      teacher2Room: "ауд. 102",
+    };
+  } else {
+    subgroupDemo = {
+      lessonNumber: 1,
+      time: "09:00–10:20",
+      subjectName: "Комп'ютерні мережі",
+      teacher1Name: "Токарєва О.В.",
+      teacher1Room: "ауд. 101",
+      teacher2Name: "Хочинська В.В.",
+      teacher2Room: "ауд. 102",
+    };
+  }
+
+  // 2. Online Lesson: look for lesson with meeting link
+  let foundOnline: { lesson: Lesson; meeting: MeetingInfo } | null = null;
+  for (const l of allLessons) {
+    if (l.is_cancelled) continue;
+    const meetings = extractOnlineMeetings(
+      l.note,
+      l.room,
+      l.teacher_name,
+      l.subject_name,
+      l.teacher_room,
+      l.second_teacher_room
+    );
+    if (meetings && meetings.length > 0 && meetings[0].url) {
+      foundOnline = { lesson: l, meeting: meetings[0] };
+      break;
+    }
+  }
+
+  let onlineDemo: ExtractedDemoData["onlineLesson"];
+  if (foundOnline) {
+    const plat = foundOnline.meeting.platform;
+    const platName: "Meet" | "Zoom" | "Teams" | "Онлайн" =
+      plat === "zoom" ? "Zoom" : plat === "meet" ? "Meet" : plat === "teams" ? "Teams" : "Онлайн";
+    onlineDemo = {
+      lessonNumber: foundOnline.lesson.lesson_number || 2,
+      time: foundOnline.lesson.time || "10:40–12:00",
+      subjectName: foundOnline.lesson.subject_name,
+      teacher: foundOnline.lesson.teacher_name || "Викладач",
+      platform: platName,
+      url: foundOnline.meeting.url,
+      hasRealLink: true,
+    };
+  } else if (allLessons.length > 0) {
+    // If no lesson has an online link, take a real lesson and attach a fixed Meet badge!
+    const target = allLessons.find((l) => !l.is_cancelled && l.subject_name !== subgroupDemo.subjectName) || allLessons[0];
+    onlineDemo = {
+      lessonNumber: target.lesson_number || 2,
+      time: target.time || "10:40–12:00",
+      subjectName: `${target.subject_name} (Онлайн)`,
+      teacher: target.teacher_name || "Хочинська В.В.",
+      platform: "Meet",
+      url: "",
+      hasRealLink: false,
+    };
+  } else {
+    onlineDemo = {
+      lessonNumber: 2,
+      time: "10:40–12:00",
+      subjectName: "Комп'ютерна графіка (Онлайн)",
+      teacher: "Хочинська В.В.",
+      platform: "Meet",
+      url: "",
+      hasRealLink: false,
+    };
+  }
+
+  // 3. Schedule Days ("Пн", "Вт", "Ср", "Чт", "Пт")
+  const dayNames: ("Пн" | "Вт" | "Ср" | "Чт" | "Пт")[] = ["Пн", "Вт", "Ср", "Чт", "Пт"];
+  const scheduleDays = dayNames.map((dayName, idx) => {
+    const dayData = weekSchedule[idx];
+    const dayLessons = (dayData?.lessons || []).filter((l) => !l.is_cancelled);
+    if (dayLessons.length > 0) {
+      const l = dayLessons[0];
+      return {
+        day: dayName,
+        hasLessons: true,
+        lessonNumber: l.lesson_number || (idx + 1),
+        time: l.time || (idx === 3 ? "09:00–09:50" : "09:00–10:20"),
+        subjectName: l.subject_name,
+        teacher: l.teacher_name || "Викладач",
+        room: safeFormatRoom(l.room, `ауд. ${100 + (idx + 1) * 10}`),
+      };
+    }
+    if (idx === 4) {
+      return {
+        day: dayName,
+        hasLessons: false,
+        lessonNumber: 1,
+        time: "09:00–10:20",
+        subjectName: "",
+        teacher: "",
+        room: "",
+      };
+    }
+    const fallbackSubj =
+      uniqueSubjects[idx] ||
+      (idx === 0
+        ? "Програмування та алгоритми"
+        : idx === 1
+        ? "Бази даних та SQL"
+        : idx === 2
+        ? "Вища математика"
+        : "Комп'ютерні системи");
+    return {
+      day: dayName,
+      hasLessons: true,
+      lessonNumber: 1,
+      time: idx === 3 ? "09:00–09:50" : "09:00–10:20",
+      subjectName: fallbackSubj,
+      teacher:
+        idx === 0
+          ? "Іванов І.І."
+          : idx === 1
+          ? "Петренко П.П."
+          : idx === 2
+          ? "Сидоренко С.С."
+          : "Ковальчук К.К.",
+      room: safeFormatRoom(idx === 0 ? "201" : idx === 1 ? "305" : idx === 2 ? "104" : "101", "ауд. 101"),
+    };
+  });
+
+  // 4. Homework demo lesson: pick a real subject from schedule
+  const hwLesson =
+    allLessons.find(
+      (l) =>
+        !l.is_cancelled &&
+        l.subject_name !== subgroupDemo.subjectName &&
+        l.subject_name !== onlineDemo.subjectName
+    ) || allLessons[0];
+
+  const homeworkDemo = hwLesson
+    ? {
+        lessonNumber: hwLesson.lesson_number || 3,
+        time: hwLesson.time || "12:30–13:50",
+        subjectName: hwLesson.subject_name,
+        room: safeFormatRoom(hwLesson.room, "ауд. 101"),
+      }
+    : {
+        lessonNumber: 3,
+        time: "12:30–13:50",
+        subjectName: uniqueSubjects[2] || "Операційні системи",
+        room: "ауд. 101",
+      };
+
+  return {
+    subgroupLesson: subgroupDemo,
+    scheduleDays,
+    onlineLesson: onlineDemo,
+    homeworkLesson: homeworkDemo,
+  };
+}
+
+export function StudentGuideModal({ isOnboarding = false, groupId, onClose, onComplete }: StudentGuideModalProps) {
   const { settings, updateSetting } = useUserSettings();
   const { theme, resolvedTheme, setTheme, accent, setAccent } = useTheme();
   const { isLinked, linkedEmail } = useClassroomSubmissions();
+
+  const effectiveGroupId =
+    groupId ??
+    (typeof window !== "undefined"
+      ? Number(localStorage.getItem("schedule:groupId")) ||
+        Number(localStorage.getItem("schedule:classroom_linked_group_id")) ||
+        null
+      : null);
+
+  const [weekSchedule, setWeekSchedule] = useState<ScheduleResponse[]>(() => {
+    if (typeof window === "undefined" || !effectiveGroupId) return [];
+    try {
+      const targetPrefix = `schedule:week:groupId:${effectiveGroupId}:`;
+      for (let i = 0; i < window.localStorage.length; i++) {
+        const k = window.localStorage.key(i);
+        if (k && k.startsWith(targetPrefix)) {
+          const raw = window.localStorage.getItem(k);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+          }
+        }
+      }
+      const todayRaw = window.localStorage.getItem(`schedule:today:groupId:${effectiveGroupId}`);
+      if (todayRaw) {
+        const parsedToday = JSON.parse(todayRaw);
+        if (parsedToday && parsedToday.lessons) return [parsedToday];
+      }
+    } catch {}
+    return [];
+  });
+
+  useEffect(() => {
+    let isCancelled = false;
+    if (effectiveGroupId) {
+      api.week(effectiveGroupId)
+        .then((data) => {
+          if (!isCancelled && Array.isArray(data) && data.length > 0) {
+            setWeekSchedule(data);
+          }
+        })
+        .catch(() => {});
+    } else {
+      api.directory.groups().then((grps) => {
+        if (!isCancelled && grps && grps.length > 0) {
+          api.week(grps[0].id).then((data) => {
+            if (!isCancelled && Array.isArray(data) && data.length > 0) {
+              setWeekSchedule(data);
+            }
+          }).catch(() => {});
+        }
+      }).catch(() => {});
+    }
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [effectiveGroupId]);
+
+  const demoData = useMemo(() => {
+    return extractDemoData(weekSchedule);
+  }, [weekSchedule]);
 
   const steps = isOnboarding ? ONBOARDING_STEPS : GUIDE_STEPS;
   const totalSteps = steps.length;
@@ -472,15 +782,21 @@ export function StudentGuideModal({ isOnboarding = false, onClose, onComplete }:
                     <div className="flex items-start justify-between gap-4">
                       {/* Time Column */}
                       <div className="flex flex-col items-start pr-3 border-r border-sys-border/50 shrink-0">
-                        <span className="text-2xl font-black leading-none text-sys-text-primary">1</span>
-                        <span className="text-xs font-bold text-sys-text-primary mt-1">09:00</span>
-                        <span className="text-[11px] text-sys-text-muted">10:20</span>
+                        <span className="text-2xl font-black leading-none text-sys-text-primary">
+                          {demoData.subgroupLesson.lessonNumber}
+                        </span>
+                        <span className="text-xs font-bold text-sys-text-primary mt-1">
+                          {demoData.subgroupLesson.time.split(/[-–]/)[0]?.trim() || "09:00"}
+                        </span>
+                        <span className="text-[11px] text-sys-text-muted">
+                          {demoData.subgroupLesson.time.split(/[-–]/)[1]?.trim() || "10:20"}
+                        </span>
                       </div>
 
                       {/* Main Info */}
                       <div className="flex-1 min-w-0 space-y-2">
                         <div className="font-bold text-base text-sys-text-primary leading-tight">
-                          Комп'ютерні мережі
+                          {demoData.subgroupLesson.subjectName}
                         </div>
 
                         {/* Dual Teachers List exactly as in LessonCard.tsx */}
@@ -505,11 +821,11 @@ export function StudentGuideModal({ isOnboarding = false, onClose, onComplete }:
                                   <circle cx="12" cy="7" r="4" />
                                 </svg>
                                 <span className="text-xs sm:text-sm font-medium text-sys-text-secondary truncate">
-                                  Токарєва О.В.
+                                  {demoData.subgroupLesson.teacher1Name}
                                 </span>
                               </div>
                               <span className="shrink-0 rounded-md border border-sys-border bg-sys-card px-2 py-1 text-xs font-semibold text-sys-text-secondary">
-                                ауд. 101
+                                {demoData.subgroupLesson.teacher1Room}
                               </span>
                             </div>
                           )}
@@ -534,11 +850,11 @@ export function StudentGuideModal({ isOnboarding = false, onClose, onComplete }:
                                   <circle cx="12" cy="7" r="4" />
                                 </svg>
                                 <span className="text-xs sm:text-sm font-medium text-sys-text-secondary truncate">
-                                  Хочинська В.В.
+                                  {demoData.subgroupLesson.teacher2Name}
                                 </span>
                               </div>
                               <span className="shrink-0 rounded-md border border-sys-border bg-sys-card px-2 py-1 text-xs font-semibold text-sys-text-secondary">
-                                ауд. 102
+                                {demoData.subgroupLesson.teacher2Room}
                               </span>
                             </div>
                           )}
@@ -722,14 +1038,20 @@ export function StudentGuideModal({ isOnboarding = false, onClose, onComplete }:
                     {demoDay === "Пн" && (
                       <div className="relative rounded-2xl border border-sys-accent/60 bg-gradient-to-r from-sys-accent/10 via-sys-card to-sys-card p-4 space-y-2 shadow-[0_0_20px_rgba(56,189,248,0.12)]">
                         <div className="flex items-center justify-between text-xs">
-                          <span className="font-black text-sys-accent">1 · 09:00–10:20</span>
+                          <span className="font-black text-sys-accent">
+                            {demoData.scheduleDays[0].lessonNumber} · {demoData.scheduleDays[0].time}
+                          </span>
                           <span className="inline-flex items-center gap-1.5 rounded-full bg-sys-accent/20 border border-sys-accent/40 px-2.5 py-0.5 text-xs font-bold text-sys-accent">
                             <span className="h-2 w-2 rounded-full bg-sys-accent animate-pulse" />
                             ще 25 хв
                           </span>
                         </div>
-                        <div className="font-bold text-base text-sys-text-primary">Програмування та алгоритми</div>
-                        <div className="text-xs text-sys-text-secondary">Іванов І.І. · ауд. 201</div>
+                        <div className="font-bold text-base text-sys-text-primary">
+                          {demoData.scheduleDays[0].subjectName}
+                        </div>
+                        <div className="text-xs text-sys-text-secondary">
+                          {demoData.scheduleDays[0].teacher} {demoData.scheduleDays[0].room ? `· ${demoData.scheduleDays[0].room}` : ""}
+                        </div>
                         <div className="h-1 w-full rounded-full bg-sys-accent/20 overflow-hidden mt-1">
                           <div className="h-full bg-sys-accent rounded-full w-3/5" />
                         </div>
@@ -739,40 +1061,83 @@ export function StudentGuideModal({ isOnboarding = false, onClose, onComplete }:
                     {demoDay === "Вт" && (
                       <div className="rounded-2xl border border-sys-border bg-sys-card p-4 space-y-1.5">
                         <div className="flex items-center justify-between text-xs">
-                          <span className="font-bold text-sys-text-secondary">1 · 09:00–10:20</span>
+                          <span className="font-bold text-sys-text-secondary">
+                            {demoData.scheduleDays[1].lessonNumber} · {demoData.scheduleDays[1].time}
+                          </span>
                           <span className="rounded-md bg-amber-500/20 text-amber-400 font-bold px-2 py-0.5 text-xs">Заміна</span>
                         </div>
-                        <div className="font-bold text-base text-sys-text-primary">Бази даних та SQL</div>
-                        <div className="text-xs text-sys-text-secondary">Петренко П.П. · ауд. 305</div>
+                        <div className="font-bold text-base text-sys-text-primary">
+                          {demoData.scheduleDays[1].subjectName}
+                        </div>
+                        <div className="text-xs text-sys-text-secondary">
+                          {demoData.scheduleDays[1].teacher} {demoData.scheduleDays[1].room ? `· ${demoData.scheduleDays[1].room}` : ""}
+                        </div>
                       </div>
                     )}
 
                     {demoDay === "Ср" && (
                       <div className="rounded-2xl border border-sys-border bg-sys-card p-4 space-y-1.5">
                         <div className="flex items-center justify-between text-xs">
-                          <span className="font-bold text-sys-text-secondary">2 · 10:40–12:00</span>
-                          <span className="text-xs font-semibold text-sys-text-muted">ауд. 104</span>
+                          <span className="font-bold text-sys-text-secondary">
+                            {demoData.scheduleDays[2].lessonNumber} · {demoData.scheduleDays[2].time}
+                          </span>
+                          {demoData.scheduleDays[2].room && (
+                            <span className="text-xs font-semibold text-sys-text-muted">
+                              {demoData.scheduleDays[2].room}
+                            </span>
+                          )}
                         </div>
-                        <div className="font-bold text-base text-sys-text-primary">Вища математика</div>
-                        <div className="text-xs text-sys-text-secondary">Сидоренко С.С.</div>
+                        <div className="font-bold text-base text-sys-text-primary">
+                          {demoData.scheduleDays[2].subjectName}
+                        </div>
+                        <div className="text-xs text-sys-text-secondary">
+                          {demoData.scheduleDays[2].teacher}
+                        </div>
                       </div>
                     )}
 
                     {demoDay === "Чт" && (
                       <div className="rounded-2xl border border-sys-border bg-sys-card p-4 space-y-1.5">
                         <div className="flex items-center justify-between text-xs">
-                          <span className="font-bold text-sys-text-secondary">1 · 09:00–09:50</span>
+                          <span className="font-bold text-sys-text-secondary">
+                            {demoData.scheduleDays[3].lessonNumber} · 09:00–09:50
+                          </span>
                           <span className="rounded-md bg-blue-500/20 text-blue-400 font-bold px-2 py-0.5 text-xs">⏱ 50 хв</span>
                         </div>
-                        <div className="font-bold text-base text-sys-text-primary">Скорочений день занять</div>
-                        <div className="text-xs text-sys-text-secondary">Ковальчук К.К. · ауд. 101</div>
+                        <div className="font-bold text-base text-sys-text-primary">
+                          {demoData.scheduleDays[3].subjectName}
+                        </div>
+                        <div className="text-xs text-sys-text-secondary">
+                          {demoData.scheduleDays[3].teacher} {demoData.scheduleDays[3].room ? `· ${demoData.scheduleDays[3].room}` : ""}
+                        </div>
                       </div>
                     )}
 
                     {demoDay === "Пт" && (
-                      <div className="py-6 text-center text-sys-text-muted text-xs font-semibold">
-                        🎉 Пар немає · Розклад на цей день вільний
-                      </div>
+                      demoData.scheduleDays[4].hasLessons ? (
+                        <div className="rounded-2xl border border-sys-border bg-sys-card p-4 space-y-1.5">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-bold text-sys-text-secondary">
+                              {demoData.scheduleDays[4].lessonNumber} · {demoData.scheduleDays[4].time}
+                            </span>
+                            {demoData.scheduleDays[4].room && (
+                              <span className="text-xs font-semibold text-sys-text-muted">
+                                {demoData.scheduleDays[4].room}
+                              </span>
+                            )}
+                          </div>
+                          <div className="font-bold text-base text-sys-text-primary">
+                            {demoData.scheduleDays[4].subjectName}
+                          </div>
+                          <div className="text-xs text-sys-text-secondary">
+                            {demoData.scheduleDays[4].teacher}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="py-6 text-center text-sys-text-muted text-xs font-semibold">
+                          🎉 Пар немає · Розклад на цей день вільний
+                        </div>
+                      )
                     )}
                   </div>
                 </motion.div>
@@ -830,14 +1195,22 @@ export function StudentGuideModal({ isOnboarding = false, onClose, onComplete }:
 
                     <div className="rounded-2xl border border-sys-border bg-sys-card p-4 space-y-2.5">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="font-bold text-sys-text-secondary">2 · 10:40–12:00</span>
+                        <span className="font-bold text-sys-text-secondary">
+                          {demoData.onlineLesson.lessonNumber} · {demoData.onlineLesson.time}
+                        </span>
                         {demoLinked ? (
                           <button
                             type="button"
-                            onClick={() => setDemoToast("Відеоконференція Google Meet відкривається у новій вкладці.")}
+                            onClick={() => {
+                              if (demoData.onlineLesson.url) {
+                                setDemoToast(`Відеоконференція ${demoData.onlineLesson.platform} (${demoData.onlineLesson.url}) відкривається у новій вкладці.`);
+                              } else {
+                                setDemoToast(`Відеоконференція Google ${demoData.onlineLesson.platform} відкривається у новій вкладці.`);
+                              }
+                            }}
                             className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/40 px-3 py-1 text-xs font-bold text-emerald-400 hover:bg-emerald-500/25 active:scale-95 transition-all shadow-xs"
                           >
-                            Meet ↗
+                            {demoData.onlineLesson.platform} ↗
                           </button>
                         ) : (
                           <button
@@ -845,12 +1218,16 @@ export function StudentGuideModal({ isOnboarding = false, onClose, onComplete }:
                             onClick={() => setDemoToast("Для перегляду онлайн-пари прив'яжіть Google Classroom цієї групи")}
                             className="inline-flex items-center gap-1.5 rounded-xl bg-sys-bg border border-sys-border px-3 py-1 text-xs font-bold text-sys-text-muted hover:border-sys-accent/40 active:scale-95 transition-all"
                           >
-                            🔒 Meet
+                            🔒 {demoData.onlineLesson.platform}
                           </button>
                         )}
                       </div>
-                      <div className="font-bold text-base text-sys-text-primary">Комп'ютерна графіка (Онлайн)</div>
-                      <div className="text-xs text-sys-text-secondary">Хочинська В.В.</div>
+                      <div className="font-bold text-base text-sys-text-primary">
+                        {demoData.onlineLesson.subjectName}
+                      </div>
+                      <div className="text-xs text-sys-text-secondary">
+                        {demoData.onlineLesson.teacher}
+                      </div>
 
                       {demoToast && (
                         <div className="rounded-xl border border-sys-border bg-sys-bg p-2.5 text-xs text-sys-text-primary font-medium animate-in fade-in">
@@ -982,10 +1359,12 @@ export function StudentGuideModal({ isOnboarding = false, onClose, onComplete }:
 
                     <div className="rounded-2xl border border-sys-border bg-sys-card p-4 space-y-2.5">
                       <div className="flex items-center justify-between text-xs font-bold text-sys-text-secondary">
-                        <span>3 · 12:30–13:50</span>
-                        <span className="text-sys-text-muted font-normal">ауд. 101</span>
+                        <span>{demoData.homeworkLesson.lessonNumber} · {demoData.homeworkLesson.time}</span>
+                        <span className="text-sys-text-muted font-normal">{demoData.homeworkLesson.room}</span>
                       </div>
-                      <div className="font-bold text-base text-sys-text-primary">Операційні системи</div>
+                      <div className="font-bold text-base text-sys-text-primary">
+                        {demoData.homeworkLesson.subjectName}
+                      </div>
 
                       {settings.showHomeworkBadges ? (
                         <>
