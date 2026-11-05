@@ -284,7 +284,7 @@ export function AdminNav({ active }: { active: string }) {
       }
     };
     fetchMetrics();
-    const interval = setInterval(fetchMetrics, 5_000);
+    const interval = setInterval(fetchMetrics, 25_000);
     document.addEventListener("visibilitychange", fetchMetrics);
     return () => {
       clearInterval(interval);
@@ -307,7 +307,7 @@ export function AdminNav({ active }: { active: string }) {
       }
     };
     void checkImportStatus();
-    const interval = setInterval(checkImportStatus, 20_000);
+    const interval = setInterval(checkImportStatus, 60_000);
     document.addEventListener("visibilitychange", checkImportStatus);
     return () => {
       cancelled = true;

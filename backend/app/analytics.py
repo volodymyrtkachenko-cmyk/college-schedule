@@ -7,9 +7,9 @@ from fastapi import Request
 # {"last_seen": float, "role": str, "username": str, "name": str}
 _active_users: dict[str, dict] = {}
 
-# With a frontend ping interval of 15 seconds, a 35-second window
+# With a frontend ping interval of 45 seconds, a 95-second window
 # provides instant detection while tolerating minor network latency.
-ACTIVE_WINDOW = 35
+ACTIVE_WINDOW = 95
 
 MAX_TRACKED_USERS = 5000
 

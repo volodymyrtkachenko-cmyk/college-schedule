@@ -458,3 +458,158 @@ async def test_auto_import_skips_publication_when_no_changes_compared_to_previou
 
     pub_count_final = await db.scalar(select(func.count(SchedulePublication.id)))
     assert pub_count_final == 2
+
+
+def test_next_auto_import_schedule():
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    kyiv = ZoneInfo("Europe/Kyiv")
+
+    # 1. Неділя 15:00 -> наступний слот у неділю о 20:00 (перед робочим понеділком)
+    dt_sun_afternoon = datetime(2026, 10, 18, 15, 0, 0, tzinfo=kyiv)
+    target = admin_import.get_next_auto_import_target(dt_sun_afternoon)
+    assert target.weekday() == 6  # Неділя
+    assert target.hour == 20
+    assert target.minute == 0
+    assert admin_import.get_next_auto_import_delay_seconds(dt_sun_afternoon) == 5 * 3600
+
+    # 2. Неділя 20:30 -> наступний слот у понеділок о 05:00 ранку (перед парами)
+    dt_sun_night = datetime(2026, 10, 18, 20, 30, 0, tzinfo=kyiv)
+    target = admin_import.get_next_auto_import_target(dt_sun_night)
+    assert target.weekday() == 0  # Понеділок
+    assert target.hour == 5
+    assert target.minute == 0
+
+    # 3. Понеділок 05:10 -> наступний слот у понеділок о 20:00
+    dt_mon_morning = datetime(2026, 10, 19, 5, 10, 0, tzinfo=kyiv)
+    target = admin_import.get_next_auto_import_target(dt_mon_morning)
+    assert target.weekday() == 0  # Понеділок
+    assert target.hour == 20
+
+    # 4. П'ятниця 05:10 -> наступний слот у неділю о 20:00 (вихідні пропускаються, бо в суботу немає пар)
+    dt_fri_morning = datetime(2026, 10, 23, 5, 10, 0, tzinfo=kyiv)
+    target = admin_import.get_next_auto_import_target(dt_fri_morning)
+    assert target.weekday() == 6  # Неділя
+    assert target.hour == 20
+
+    # 5. Субота 12:00 -> наступний слот у неділю о 20:00
+    dt_sat_noon = datetime(2026, 10, 24, 12, 0, 0, tzinfo=kyiv)
+    target = admin_import.get_next_auto_import_target(dt_sat_noon)
+    assert target.weekday() == 6  # Неділя
+    assert target.hour == 20
+
+
+@pytest.mark.anyio
+async def test_main_page_hash_fast_exit(ctx, monkeypatch):
+    db, ids = ctx
+    setup_kre_mock(monkeypatch, ids)
+
+    # Встановлюємо збережений хеш головної сторінки
+    test_hash = "abc123fixedhash"
+    await settings_service.set(db, "import_last_main_page_hash", test_hash)
+    await db.commit()
+
+    # Мокаємо fetcher щоб повертав такий самий хеш
+    fetcher_mock = Mock()
+    fetcher_mock.base_url = "https://kre.dp.ua"
+    fetcher_mock.fetch_html = AsyncMock(return_value="<html>test</html>")
+    fetcher_mock.get_all_group_ids = AsyncMock(return_value=["test-grp"])
+    fetcher_mock.last_main_page_hash = test_hash
+    monkeypatch.setattr(admin_import, "ScheduleFetcher", lambda: fetcher_mock)
+
+    # 1. Автоімпорт (actor_id=None): сторінка не змінилася -> повертає unchanged=True без парсингу груп
+    res = await admin_import._do_import(db, 2, "hash-test", actor_id=None)
+    assert res["status"] == "success"
+    assert res["meta"]["unchanged"] is True
+    assert res["meta"]["reason"] == "main_page_unchanged"
+
+    # 2. Ручний імпорт (actor_id=ids["admin_user_id"]): швидкий вихід НЕ застосовується, йде повна перевірка
+    res_manual = await admin_import._do_import(db, 2, "hash-manual-test", actor_id=ids["admin_user_id"])
+    assert res_manual["status"] == "success"
+    assert res_manual["meta"]["reason"] != "main_page_unchanged"
+
+
+@pytest.mark.anyio
+async def test_prune_stale_data(ctx):
+    db, ids = ctx
+    from datetime import datetime, timezone, timedelta
+    from app.models import ScheduleDraft, TokenBlocklist
+    from app.models.entities import SchedulePublication, SchedulePublicationSnapshot
+
+    now_utc = datetime.now(timezone.utc)
+
+    # 1. Створюємо чернетки: стару (> 45 днів, discarded) та нову (pending)
+    old_draft = ScheduleDraft(
+        name="Стара чернетка",
+        draft_type="import",
+        status="discarded",
+        created_at=now_utc - timedelta(days=50),
+    )
+    fresh_draft = ScheduleDraft(
+        name="Свіжа чернетка",
+        draft_type="import",
+        status="pending",
+        created_at=now_utc - timedelta(days=1),
+    )
+    db.add_all([old_draft, fresh_draft])
+
+    # 2. Створюємо токени: старий (> 7 днів) та свіжий
+    old_token = TokenBlocklist(jti="old-token-jti", created_at=now_utc - timedelta(days=10))
+    fresh_token = TokenBlocklist(jti="fresh-token-jti", created_at=now_utc - timedelta(days=2))
+    db.add_all([old_token, fresh_token])
+
+    # 3. Створюємо зміну розкладу: стару неопубліковану (> 60 днів)
+    old_change = ImportedScheduleChange(
+        date=(now_utc - timedelta(days=70)).date(),
+        kind="substitution",
+        group_id=ids["group_id"],
+        subject_id=ids["subject_id"],
+        teacher_id=ids["teacher_id"],
+        lesson_number=1,
+        is_published=False,
+    )
+    fresh_change = ImportedScheduleChange(
+        date=(now_utc - timedelta(days=5)).date(),
+        kind="substitution",
+        group_id=ids["group_id"],
+        subject_id=ids["subject_id"],
+        teacher_id=ids["teacher_id"],
+        lesson_number=1,
+        is_published=True,
+    )
+    db.add_all([old_change, fresh_change])
+
+    # 4. Створюємо 6 публікацій, щоб найстаріша могла бути очищена
+    pubs = []
+    for i in range(6):
+        p = SchedulePublication(
+            version_id=ids["version_id"],
+            scope_manifest="{}",
+            timestamp=now_utc - timedelta(days=70 - i),
+        )
+        db.add(p)
+        pubs.append(p)
+    await db.commit()
+
+    # Додаємо знімок до найстарішої публікації
+    snap = SchedulePublicationSnapshot(
+        publication_id=pubs[0].id,
+        group_id=ids["group_id"],
+        lesson_number=1,
+    )
+    db.add(snap)
+    await db.commit()
+
+    # Запускаємо очищення
+    stats = await admin_import.prune_stale_data(db)
+
+    assert stats["pruned_drafts"] == 1
+    assert stats["pruned_tokens"] == 1
+    assert stats["pruned_changes"] == 1
+    assert stats["pruned_snapshots"] == 1
+
+    # Перевіряємо що свіжі сутності лишилися
+    remaining_draft = await db.get(ScheduleDraft, fresh_draft.id)
+    assert remaining_draft is not None
+    remaining_token = await db.scalar(select(TokenBlocklist).where(TokenBlocklist.jti == "fresh-token-jti"))
+    assert remaining_token is not None

@@ -107,9 +107,15 @@ export function ImportPanel() {
   useEffect(() => {
     void loadStatus();
     const interval = window.setInterval(() => {
-      void loadStatus();
-    }, 30000);
-    const onFocus = () => void loadStatus();
+      if (document.visibilityState === "visible") {
+        void loadStatus();
+      }
+    }, 45000);
+    const onFocus = () => {
+      if (document.visibilityState === "visible") {
+        void loadStatus();
+      }
+    };
     window.addEventListener("focus", onFocus);
     return () => {
       window.clearInterval(interval);

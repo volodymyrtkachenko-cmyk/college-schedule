@@ -70,12 +70,12 @@ export function Heartbeat() {
         // Immediate ping on page load
         ping();
 
-        // Heartbeat every 15 seconds while visible
+        // Heartbeat every 45 seconds while visible (reduces server ping traffic by ~67%)
         const interval = setInterval(() => {
             if (document.visibilityState === "visible") {
                 ping();
             }
-        }, 15_000);
+        }, 45_000);
 
         // Immediate ping when returning to tab
         const handleVisibilityChange = () => {
