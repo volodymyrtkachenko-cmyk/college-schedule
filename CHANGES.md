@@ -226,7 +226,7 @@
    - *Фактично в `backend/app/models/entities.py:177`*: Колонка називається `date` (а поля перенесення — `moved_to_date` та `moved_to_lesson`).
    - *Рішення*: Індекс створено точно за існуючими в моделі колонками: `(group_id, moved_to_date, moved_to_lesson)`.
 
-3. **Назви функцій хешування паролів у `security.py`**:
-   - *У завданні було*: `get_password_hash_async`
-   - *Фактично в `backend/app/core/security.py:20`*: Синхронна функція називається `hash_password(password: str) -> str`.
-   - *Рішення*: Додано обидві функції `hash_password_async` та аліас `get_password_hash_async` для повної сумісності.
+4. **Відсутність імпорту `Optional` у `admin_import.py` (помилка на Python 3.12 CI)**:
+   - *Проблема*: У `backend/app/routers/admin_import.py:1975,2007` було використано тип `now_kyiv: Optional[datetime] = None`, проте імпорт `from typing import Optional` у файлі був відсутній.
+   - *Чому не проявлялося локально*: Локальне середовище використовує Python 3.14 (PEP 649 з відкладеною ініціалізацією анотацій типів), де анотації не обчислюються під час визначення функцій. Натомість у CI на GitHub Actions (`.github/workflows/python-app.yml`) використовується Python 3.12, де анотації обчислюються під час імпорту модуля, що спричиняло `NameError: name 'Optional' is not defined` на етапі pytest collection для всіх 17 тестових файлів, які імпортують `app.main`.
+   - *Рішення (`коміт b805230`)*: Додано `from typing import Optional, Any` на початку `backend/app/routers/admin_import.py`. Повний AST-скан підтвердив 0 помилок у всіх файлах проекту.
