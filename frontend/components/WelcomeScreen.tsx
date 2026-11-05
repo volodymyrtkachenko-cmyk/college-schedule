@@ -53,12 +53,14 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
             exit="exit"
             className="w-full max-w-md space-y-8 relative z-10"
           >
-            <div className="text-center space-y-3">
-              <div className="mx-auto w-16 h-16 rounded-2xl bg-sys-card border border-sys-border flex items-center justify-center mb-6 shadow-lg shadow-sys-bg">
+            <div className="text-center space-y-2.5">
+              <div className="mx-auto w-16 h-16 rounded-2xl bg-sys-card border border-sys-border flex items-center justify-center mb-5 shadow-lg shadow-sys-bg">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-sys-accent"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"></path></svg>
               </div>
-              <h2 className="text-3xl font-bold tracking-tight text-sys-text-primary">Вітаємо в ДФКР</h2>
-              <p className="text-sys-text-secondary text-lg">Оберіть, для кого показувати розклад.</p>
+              <h2 className="text-3xl font-bold tracking-tight text-sys-text-primary">Розклад ДФКР</h2>
+              <p className="text-sys-text-secondary text-sm sm:text-base">
+                Дніпровський фаховий коледж радіоелектроніки · Оберіть свій профіль
+              </p>
             </div>
             
             <div className="grid grid-cols-1 gap-4">
