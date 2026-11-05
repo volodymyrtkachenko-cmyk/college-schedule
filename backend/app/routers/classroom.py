@@ -7,7 +7,7 @@ from typing import Any, Optional
 from zoneinfo import ZoneInfo
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from pydantic import BaseModel
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -197,6 +197,14 @@ class ClassroomSyncRequest(BaseModel):
 class ClassroomDisconnectRequest(BaseModel):
     group_id: Optional[int] = None
     google_user_id: Optional[str] = None
+    access_token: Optional[str] = None
+    refresh_token: Optional[str] = None
+
+
+class ClassroomUserSubmissionsRequest(BaseModel):
+    group_id: Optional[int] = None
+    google_user_id: Optional[str] = None
+    email: Optional[str] = None
     access_token: Optional[str] = None
     refresh_token: Optional[str] = None
 
@@ -2447,6 +2455,284 @@ async def disconnect_classroom_account(
         "deleted_credentials": deleted_count,
         "revoked": revoked,
     }
+
+
+async def _fetch_user_submissions(
+    db: AsyncSession,
+    group_id: Optional[int] = None,
+    google_user_id: Optional[str] = None,
+    email: Optional[str] = None,
+    access_token: Optional[str] = None,
+    refresh_token: Optional[str] = None,
+) -> dict[str, Any]:
+    eff_user_id = (google_user_id or "").strip() or None
+    eff_email = (email or "").strip() or None
+    if eff_email == "підключено":
+        eff_email = None
+    token = (access_token or "").strip() or None
+    plain_rt = decrypt_token(refresh_token) if refresh_token else ""
+    cred = None
+    refreshed_access_token: Optional[str] = None
+
+    if token and not token.startswith("ya29."):
+        token = None
+
+    if not token and plain_rt:
+        fresh_tok, _, _ = await _refresh_google_token_detailed(plain_rt)
+        if fresh_tok:
+            token = fresh_tok
+            refreshed_access_token = fresh_tok
+
+    if not token and (eff_user_id or eff_email):
+        query = select(ClassroomCredential).where(ClassroomCredential.is_active.is_(True))
+        if eff_user_id:
+            query = query.where(ClassroomCredential.google_user_id == eff_user_id)
+        elif eff_email:
+            query = query.where(func.lower(ClassroomCredential.email) == eff_email.lower())
+        if group_id:
+            query = query.where(ClassroomCredential.group_id == group_id)
+        query = query.order_by(ClassroomCredential.last_synced_at.desc().nullslast())
+        cred = await db.scalar(query)
+
+        if not cred and eff_email and group_id:
+            cred = await db.scalar(
+                select(ClassroomCredential)
+                .where(
+                    ClassroomCredential.is_active.is_(True),
+                    func.lower(ClassroomCredential.email) == eff_email.lower(),
+                )
+                .order_by(ClassroomCredential.last_synced_at.desc().nullslast())
+            )
+
+        if cred and cred.refresh_token:
+            fresh_tok, _, _ = await _refresh_google_token_detailed(cred.refresh_token)
+            if fresh_tok:
+                token = fresh_tok
+                refreshed_access_token = fresh_tok
+
+    if not token:
+        return {
+            "connected": False,
+            "submissions": {},
+            "tasks": [],
+            "reason": "unauthenticated",
+        }
+
+    try:
+        headers = {"Authorization": f"Bearer {token}"}
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            courses_resp = await client.get(
+                "https://classroom.googleapis.com/v1/courses",
+                params={"courseStates": "ACTIVE", "pageSize": 50},
+                headers=headers,
+            )
+            if courses_resp.status_code == 401:
+                rt_to_try = cred.refresh_token if cred else plain_rt
+                if rt_to_try:
+                    fresh_tok, _, _ = await _refresh_google_token_detailed(rt_to_try)
+                    if fresh_tok:
+                        token = fresh_tok
+                        refreshed_access_token = fresh_tok
+                        headers = {"Authorization": f"Bearer {token}"}
+                        courses_resp = await client.get(
+                            "https://classroom.googleapis.com/v1/courses",
+                            params={"courseStates": "ACTIVE", "pageSize": 50},
+                            headers=headers,
+                        )
+
+            if courses_resp.status_code != 200:
+                return {
+                    "connected": False,
+                    "submissions": {},
+                    "tasks": [],
+                    "reason": f"courses_error_{courses_resp.status_code}",
+                }
+
+            all_courses = courses_resp.json().get("courses", [])
+            if not all_courses:
+                return {
+                    "connected": True,
+                    "user_email": cred.email if cred else eff_email,
+                    "submissions": {},
+                    "tasks": [],
+                    "access_token": refreshed_access_token or token,
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                }
+
+            all_active_groups = (await db.scalars(select(Group).where(Group.is_active.is_(True)))).all()
+            target_group = await db.get(Group, group_id) if group_id else None
+
+            relevant_courses = []
+            for c in all_courses:
+                full_title = f"{c.get('name', '')} {c.get('section', '')} {c.get('descriptionHeading', '')}".strip()
+                matched_g = _extract_group_from_course_name(full_title, all_active_groups)
+                if matched_g:
+                    if target_group and matched_g.id == target_group.id:
+                        relevant_courses.append(c)
+                else:
+                    relevant_courses.append(c)
+
+            if not relevant_courses:
+                relevant_courses = all_courses[:25]
+            else:
+                relevant_courses = relevant_courses[:25]
+
+            sem = asyncio.Semaphore(5)
+
+            async def fetch_bundle(course: dict):
+                c_id = course["id"]
+                async with sem:
+                    cw_task = client.get(
+                        f"https://classroom.googleapis.com/v1/courses/{c_id}/courseWork",
+                        params={"pageSize": 100},
+                        headers=headers,
+                    )
+                    sub_task = client.get(
+                        f"https://classroom.googleapis.com/v1/courses/{c_id}/courseWork/-/studentSubmissions",
+                        params={"userId": "me", "pageSize": 100},
+                        headers=headers,
+                    )
+                    return course, await asyncio.gather(cw_task, sub_task, return_exceptions=True)
+
+            results = await asyncio.gather(*(fetch_bundle(c) for c in relevant_courses))
+
+            submissions_map: dict[str, dict] = {}
+            tasks_list: list[dict] = []
+
+            for course, bundle_items in results:
+                if not isinstance(bundle_items, (list, tuple)) or len(bundle_items) < 2:
+                    continue
+                cw_resp, sub_resp = bundle_items[:2]
+                c_id = course["id"]
+                c_title = f"{course.get('name', '')} {course.get('section', '')}".strip()
+                c_clean = re.sub(
+                    r"\s*[\(\[]\s*(?:гр(?:упа|\.)?\s*)?\d{1,3}[\s\-_–—]?(?:[А-Яа-яA-Za-z]+)?\s*[\)\]]",
+                    "",
+                    c_title,
+                    flags=re.IGNORECASE,
+                ).strip() or c_title
+
+                subs_by_cw: dict[str, dict] = {}
+                if not isinstance(sub_resp, Exception) and getattr(sub_resp, "status_code", 0) == 200:
+                    for sub in sub_resp.json().get("studentSubmissions", []):
+                        cw_id = sub.get("courseWorkId")
+                        if cw_id:
+                            st = sub.get("state") or "NEW"
+                            assigned_g = sub.get("assignedGrade")
+                            draft_g = sub.get("draftGrade")
+                            grade_val = assigned_g if assigned_g is not None else draft_g
+                            subs_by_cw[cw_id] = {
+                                "state": st,
+                                "grade": grade_val,
+                            }
+
+                if not isinstance(cw_resp, Exception) and getattr(cw_resp, "status_code", 0) == 200:
+                    for cw in cw_resp.json().get("courseWork", []):
+                        cw_id = cw.get("id")
+                        alt_link = cw.get("alternateLink")
+                        if not cw_id or not alt_link:
+                            continue
+                        sub_info = subs_by_cw.get(cw_id)
+                        state = sub_info["state"] if sub_info else "NEW"
+                        grade = sub_info["grade"] if sub_info else None
+                        max_pts = cw.get("maxPoints")
+
+                        due = cw.get("dueDate")
+                        due_iso = None
+                        if due and due.get("year") and due.get("month") and due.get("day"):
+                            try:
+                                due_iso = f"{int(due['year']):04d}-{int(due['month']):02d}-{int(due['day']):02d}"
+                            except Exception:
+                                due_iso = None
+
+                        title = re.sub(r"\s+", " ", (cw.get("title") or "").replace("|", "/")).strip() or "Без назви"
+
+                        task_obj = {
+                            "id": cw_id,
+                            "course_id": c_id,
+                            "course_name": c_clean,
+                            "title": title,
+                            "subject": c_clean,
+                            "url": alt_link,
+                            "alternate_link": alt_link,
+                            "state": state,
+                            "grade": grade,
+                            "max_points": max_pts,
+                            "due_date": due_iso,
+                        }
+                        tasks_list.append(task_obj)
+
+                        sub_obj = {
+                            "state": state,
+                            "grade": grade,
+                            "maxPoints": max_pts,
+                        }
+                        submissions_map[alt_link] = sub_obj
+                        key = f"{c_id}_{cw_id}"
+                        submissions_map[key] = sub_obj
+
+            return {
+                "connected": True,
+                "user_email": cred.email if cred else eff_email,
+                "google_user_id": cred.google_user_id if cred else eff_user_id,
+                "submissions": submissions_map,
+                "tasks": tasks_list,
+                "access_token": refreshed_access_token or token,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }
+    except Exception as exc:
+        logger.error(f"User submissions fetch error: {_sanitize_error_msg(str(exc))}")
+        return {
+            "connected": False,
+            "submissions": {},
+            "tasks": [],
+            "reason": "network_error",
+        }
+
+
+@router.post("/user-submissions")
+async def get_user_submissions_post(
+    payload: Optional[ClassroomUserSubmissionsRequest] = None,
+    x_classroom_user_id: Optional[str] = Header(None, alias="X-Classroom-User-Id"),
+    x_classroom_email: Optional[str] = Header(None, alias="X-Classroom-Email"),
+    db: AsyncSession = Depends(get_db),
+):
+    eff_group_id = payload.group_id if payload else None
+    eff_user_id = (payload.google_user_id if payload else None) or x_classroom_user_id
+    eff_email = (payload.email if payload else None) or x_classroom_email
+    eff_access_token = payload.access_token if payload else None
+    eff_refresh_token = payload.refresh_token if payload else None
+    return await _fetch_user_submissions(
+        db,
+        group_id=eff_group_id,
+        google_user_id=eff_user_id,
+        email=eff_email,
+        access_token=eff_access_token,
+        refresh_token=eff_refresh_token,
+    )
+
+
+@router.get("/user-submissions")
+async def get_user_submissions_get(
+    group_id: Optional[int] = Query(None),
+    google_user_id: Optional[str] = Query(None),
+    email: Optional[str] = Query(None),
+    access_token: Optional[str] = Query(None),
+    refresh_token: Optional[str] = Query(None),
+    x_classroom_user_id: Optional[str] = Header(None, alias="X-Classroom-User-Id"),
+    x_classroom_email: Optional[str] = Header(None, alias="X-Classroom-Email"),
+    db: AsyncSession = Depends(get_db),
+):
+    eff_user_id = google_user_id or x_classroom_user_id
+    eff_email = email or x_classroom_email
+    return await _fetch_user_submissions(
+        db,
+        group_id=group_id,
+        google_user_id=eff_user_id,
+        email=eff_email,
+        access_token=access_token,
+        refresh_token=refresh_token,
+    )
 
 
 async def run_background_sync_task(group_id: int) -> None:

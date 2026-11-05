@@ -1903,6 +1903,45 @@ export const api = {
                 method: "POST",
                 body: JSON.stringify(payload),
             }),
+        userSubmissions: (payload?: {
+            group_id?: number;
+            google_user_id?: string | null;
+            email?: string | null;
+            access_token?: string | null;
+            refresh_token?: string | null;
+        }) => {
+            const body = {
+                group_id: payload?.group_id,
+                google_user_id: payload?.google_user_id ?? (typeof window !== "undefined" ? localStorage.getItem("schedule:classroom_google_user_id") || undefined : undefined),
+                email: payload?.email ?? (typeof window !== "undefined" ? localStorage.getItem("schedule:classroom_linked_email") || undefined : undefined),
+                access_token: payload?.access_token ?? (typeof window !== "undefined" ? localStorage.getItem("schedule:classroom_access_token") || undefined : undefined),
+                refresh_token: payload?.refresh_token ?? (typeof window !== "undefined" ? localStorage.getItem("schedule:classroom_refresh_token") || undefined : undefined),
+            };
+            return rawRequest<{
+                connected: boolean;
+                user_email?: string | null;
+                google_user_id?: string | null;
+                submissions?: Record<string, { state: string; grade?: number | null; maxPoints?: number | null }>;
+                tasks?: Array<{
+                    id: string;
+                    course_id: string;
+                    course_name?: string;
+                    title: string;
+                    subject?: string;
+                    url: string;
+                    alternate_link: string;
+                    state: string;
+                    grade?: number | null;
+                    max_points?: number | null;
+                    due_date?: string | null;
+                }>;
+                access_token?: string | null;
+                updated_at?: string;
+            }>("/api/classroom/user-submissions", {
+                method: "POST",
+                body: JSON.stringify(body),
+            });
+        },
         groupStudents: (groupId: number) =>
             authenticatedRequest<{
                 course_name: string | null;

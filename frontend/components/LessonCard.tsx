@@ -936,6 +936,21 @@ export const LessonCard = memo(function LessonCard({
     });
   }, [rawTasks, isLinked, submissions, personalTeachers, effectiveSubgroup]);
 
+  const allOwnTasks = useMemo(() => {
+    return rawTasks.filter((t) =>
+      isOwnTask(isLinked, submissions, t.url, t.teacher, personalTeachers, t.title, effectiveSubgroup)
+    );
+  }, [rawTasks, isLinked, submissions, personalTeachers, effectiveSubgroup]);
+
+  const hasAllTasksCompleted = useMemo(() => {
+    if (!isLinked || allOwnTasks.length === 0) return false;
+    return allOwnTasks.every((t) => {
+      const key = extractClassroomTaskKey(t.url);
+      const sub = submissions[t.url] || (key ? submissions[key] : null);
+      return sub && (sub.state === "TURNED_IN" || sub.state === "RETURNED");
+    });
+  }, [isLinked, allOwnTasks, submissions]);
+
   const nearestDated = useMemo(() => {
     return tasks.find((t) => t.deadline.formattedDate || (t.deadline.day && t.deadline.month)) || null;
   }, [tasks]);
@@ -1740,6 +1755,21 @@ export const LessonCard = memo(function LessonCard({
               </div>
             </div>
 
+            {/* All Tasks Completed: Outline badge according to Section 16 */}
+            {showHw && tasks.length === 0 && hasAllTasksCompleted && (
+              <div className="flex w-full items-center justify-between rounded-xl bg-emerald-500/10 border border-emerald-500/30 px-3.5 py-2 text-xs text-emerald-800 dark:text-emerald-300 font-semibold shadow-xs select-none">
+                <div className="flex items-center gap-2">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-600 dark:text-emerald-400">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  <span>Усе здано</span>
+                </div>
+                <span className="text-[11px] text-emerald-700/80 dark:text-emerald-300/80 font-normal">
+                  {allOwnTasks.length} {allOwnTasks.length === 1 ? "завдання" : "завдань"}
+                </span>
+              </div>
+            )}
+
             {/* 1 Task: Entire strip is a direct link with ↗ (no accordion) */}
             {showHw && tasks.length === 1 && (
               <a
@@ -2306,6 +2336,21 @@ export const LessonCard = memo(function LessonCard({
             </div>
           )}
 
+          {/* All Tasks Completed: Outline badge according to Section 16 */}
+          {showHw && tasks.length === 0 && hasAllTasksCompleted && (
+            <div className="flex w-full items-center justify-between rounded-xl bg-emerald-500/10 border border-emerald-500/30 px-3.5 py-2 text-xs text-emerald-800 dark:text-emerald-300 font-semibold shadow-xs select-none">
+              <div className="flex items-center gap-2">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-600 dark:text-emerald-400">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span>Усе здано</span>
+              </div>
+              <span className="text-[11px] text-emerald-700/80 dark:text-emerald-300/80 font-normal">
+                {allOwnTasks.length} {allOwnTasks.length === 1 ? "завдання" : "завдань"}
+              </span>
+            </div>
+          )}
+
           {/* Row 4: Full-width HW strip (44px min-height) */}
           {showHw && tasks.length === 1 && (
             <a
@@ -2754,6 +2799,18 @@ export const LessonCard = memo(function LessonCard({
                   </a>
                 )
               ))}
+
+              {showHw && tasks.length === 0 && hasAllTasksCompleted && (
+                <span
+                  title={`${allOwnTasks.length} ДЗ здано`}
+                  className="inline-flex h-6 min-h-[24px] items-center gap-1 rounded-md border border-emerald-500/40 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300 select-none"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-600 dark:text-emerald-400 shrink-0">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  <span>Усе здано</span>
+                </span>
+              )}
 
               {showHw && tasks.length > 0 && (
                 <button

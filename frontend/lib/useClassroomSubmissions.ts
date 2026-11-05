@@ -416,5 +416,50 @@ export function useClassroomSubmissions() {
     personalSubgroup: snapshot.personalSubgroup,
     unlink: unlinkClassroomEmail,
     reload: notifyClassroomChange,
+    syncSubmissions: syncPersonalSubmissions,
   };
+}
+
+let _isSyncingPersonalSubmissions = false;
+
+export async function syncPersonalSubmissions(groupId?: number | null): Promise<boolean> {
+  if (typeof window === "undefined" || _isSyncingPersonalSubmissions) return false;
+  const email = getLinkedEmail();
+  if (!email) return false;
+
+  const googleUserId = localStorage.getItem(GOOGLE_USER_ID_KEY);
+  const { accessToken, refreshToken } = getClassroomSilentAuth();
+  const gId = groupId ?? getLinkedGroupId();
+
+  _isSyncingPersonalSubmissions = true;
+  try {
+    const res = await api.classroom.userSubmissions({
+      group_id: gId ?? undefined,
+      google_user_id: googleUserId ?? undefined,
+      email: email !== "підключено" ? email : undefined,
+      access_token: accessToken ?? undefined,
+      refresh_token: refreshToken ?? undefined,
+    });
+
+    if (res?.connected && res?.tasks) {
+      const personalTeachers = getPersonalTeachers();
+      const personalSubgroup = getPersonalSubgroup();
+      saveClassroomSyncData(
+        res.user_email || email,
+        res.tasks,
+        res.access_token ?? accessToken,
+        refreshToken,
+        res.google_user_id || googleUserId,
+        gId,
+        personalTeachers,
+        personalSubgroup ? [personalSubgroup] : null
+      );
+      return true;
+    }
+  } catch {
+    // ignore network errors silently
+  } finally {
+    _isSyncingPersonalSubmissions = false;
+  }
+  return false;
 }

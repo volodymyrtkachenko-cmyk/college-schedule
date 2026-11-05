@@ -8,6 +8,7 @@ import {
   clearClassroomAccessToken,
   getClassroomSilentAuth,
   saveClassroomSyncData,
+  syncPersonalSubmissions,
   useClassroomSubmissions,
 } from "../lib/useClassroomSubmissions";
 
@@ -248,8 +249,17 @@ export function ClassroomSyncButton({
       sessionStorage.setItem(throttleKey, String(now));
     } catch {}
 
-    // Використовуємо збережений у браузері токен або серверний refresh_token
-    // без виклику google.accounts.oauth2.initTokenClient у фоні (щоб не миготіло popup-вікно Google)
+    // 1. Спочатку пробуємо тихо оновити персональні здачі студента через легкий endpoint (без спливаючих вікон)
+    try {
+      const personalOk = await syncPersonalSubmissions(currentGroupId);
+      if (personalOk) {
+        const data = await api.classroom.groupStatus(currentGroupId);
+        if (data?.last_synced_at) setLastSyncedAt(data.last_synced_at);
+        return;
+      }
+    } catch {}
+
+    // 2. Якщо є збережений токен, пробуємо синхронізацію Classroom
     const { accessToken, refreshToken } = getClassroomSilentAuth();
     if (accessToken || refreshToken) {
       try {

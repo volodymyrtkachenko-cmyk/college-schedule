@@ -1432,7 +1432,8 @@ async def test_background_sync_skips_broken_account_and_syncs_healthy_one(classr
         return None, "missing_or_corrupt_refresh_token", 400
 
     with patch("app.routers.classroom.httpx.AsyncClient", side_effect=mocked_client), \
-         patch("app.routers.classroom._refresh_google_token_detailed", side_effect=fake_refresh):
+         patch("app.routers.classroom._refresh_google_token_detailed", side_effect=fake_refresh), \
+         patch("app.routers.classroom._get_classroom_min_sync_gap_seconds", return_value=510.0):
 
         async with state["sessions"]() as db:
             await classroom_router.trigger_background_sync_if_needed(db, group_id, force=True)
@@ -1504,7 +1505,8 @@ async def test_classroom_sync_interval_and_gap_allows_10_min_cycles(classroom_db
         return "ya29.token_for_10min", None, 200
 
     with patch("app.routers.classroom.httpx.AsyncClient", side_effect=mocked_client), \
-         patch("app.routers.classroom._refresh_google_token_detailed", side_effect=fake_refresh):
+         patch("app.routers.classroom._refresh_google_token_detailed", side_effect=fake_refresh), \
+         patch("app.routers.classroom._get_classroom_min_sync_gap_seconds", return_value=510.0):
 
         # Trigger background sync with force=False (simulating the cron loop on subsequent cycles)
         async with state["sessions"]() as db:
@@ -1668,6 +1670,105 @@ async def test_students_sync_throttling_and_caching(classroom_db):
             assert students_api_calls == 2  # оновлено примусово!
             assert teachers_api_calls == 2  # оновлено примусово!
             assert topics_api_calls == 2    # оновлено примусово!
+
+
+@pytest.mark.anyio
+async def test_user_submissions_endpoint(classroom_db):
+    """Перевіряє роботу легкого ендпоінту /api/classroom/user-submissions для автосинхронізації здач."""
+    from app.models import ClassroomCredential
+    from unittest.mock import patch
+
+    client, state = classroom_db
+    group_id = state["group_id"]
+
+    # 1. Запит без токенів і без акаунта в БД -> connected: False
+    resp = await client.get("/api/classroom/user-submissions")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["connected"] is False
+    assert data["submissions"] == {}
+
+    # 2. Додаємо акаунт студента з refresh_token в БД
+    async with state["sessions"]() as db:
+        c = ClassroomCredential(
+            group_id=group_id,
+            google_user_id="user_sub_test_123",
+            email="student123@kre.dp.ua",
+            student_name="Тестовий Студент",
+            refresh_token="1//refresh_token_test_123",
+            is_active=True,
+        )
+        db.add(c)
+        await db.commit()
+
+    def fake_classroom_api(request: httpx.Request):
+        url = str(request.url)
+        if "/v1/courses" in url and "pageSize" in url and "courseWork" not in url:
+            return httpx.Response(200, json={
+                "courses": [{
+                    "id": "c_math_1",
+                    "name": "Вища математика",
+                    "section": "Група 85",
+                }]
+            })
+        if "/courseWork" in url and "studentSubmissions" not in url:
+            return httpx.Response(200, json={
+                "courseWork": [{
+                    "id": "cw_math_101",
+                    "title": "Практична робота №1",
+                    "alternateLink": "https://classroom.google.com/c/c_math_1/a/cw_math_101/details",
+                    "maxPoints": 12,
+                }]
+            })
+        if "studentSubmissions" in url:
+            return httpx.Response(200, json={
+                "studentSubmissions": [{
+                    "courseWorkId": "cw_math_101",
+                    "state": "TURNED_IN",
+                    "assignedGrade": 11,
+                }]
+            })
+        return httpx.Response(404, json={})
+
+    transport = httpx.MockTransport(fake_classroom_api)
+    real_async_client = httpx.AsyncClient
+
+    def mocked_client(*args, **kwargs):
+        kwargs["transport"] = transport
+        return real_async_client(*args, **kwargs)
+
+    async def fake_refresh(rt: str):
+        return "ya29.refreshed_access_token_123", None, 200
+
+    with patch("app.routers.classroom.httpx.AsyncClient", side_effect=mocked_client), \
+         patch("app.routers.classroom._refresh_google_token_detailed", side_effect=fake_refresh):
+
+        # Запит через POST з X-Classroom-User-Id заголовком (як надсилає фронтенд)
+        res_post = await client.post(
+            "/api/classroom/user-submissions",
+            headers={"X-Classroom-User-Id": "user_sub_test_123"},
+            json={"group_id": group_id},
+        )
+        assert res_post.status_code == 200
+        p_data = res_post.json()
+        assert p_data["connected"] is True
+        assert p_data["access_token"] == "ya29.refreshed_access_token_123"
+        assert len(p_data["tasks"]) == 1
+        assert p_data["tasks"][0]["state"] == "TURNED_IN"
+        assert p_data["tasks"][0]["grade"] == 11
+        assert p_data["tasks"][0]["max_points"] == 12
+
+        # Перевіряємо ключ у submissions map
+        assert "https://classroom.google.com/c/c_math_1/a/cw_math_101/details" in p_data["submissions"]
+        sub_entry = p_data["submissions"]["https://classroom.google.com/c/c_math_1/a/cw_math_101/details"]
+        assert sub_entry["state"] == "TURNED_IN"
+        assert sub_entry["grade"] == 11
+        assert sub_entry["maxPoints"] == 12
+
+        # Також за ключем c_math_1_cw_math_101
+        assert "c_math_1_cw_math_101" in p_data["submissions"]
+        assert p_data["submissions"]["c_math_1_cw_math_101"]["state"] == "TURNED_IN"
+
 
 
 

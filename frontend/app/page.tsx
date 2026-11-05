@@ -31,7 +31,7 @@ import { extractClassroomTasks, parseTaskDeadline, sortTasksByDeadline, TaskDead
 import { DEFAULT_LESSON_TIMES } from "../lib/constants/lessons";
 import { useToast } from "../components/ToastProvider";
 import { QuickJumpTarget, findGroupIdByName, findTeacherIdByName } from "../lib/quickJump";
-import { extractClassroomTaskKey, isOwnTask, useClassroomSubmissions } from "../lib/useClassroomSubmissions";
+import { extractClassroomTaskKey, isOwnTask, syncPersonalSubmissions, useClassroomSubmissions } from "../lib/useClassroomSubmissions";
 import { useTeacherAccess } from "../lib/useTeacherAccess";
 import { TeacherPinModal } from "../components/TeacherPinModal";
 import { useTheme } from "../lib/useTheme";
@@ -265,7 +265,10 @@ export default function HomePage() {
     } catch {
       // Ignore background fetch error
     }
-  }, []);
+    if (isLinked) {
+      void syncPersonalSubmissions(gid);
+    }
+  }, [isLinked]);
 
   useEffect(() => {
     if (groupId) {
