@@ -288,7 +288,7 @@ export function StudentGuideModal({ isOnboarding = false, onClose, onComplete }:
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-2 sm:p-5 backdrop-blur-md overflow-hidden animate-in fade-in duration-150">
-      <div className="relative flex flex-col w-full max-w-4xl max-h-[94vh] sm:max-h-[88vh] rounded-3xl border border-sys-border bg-sys-card text-sys-text-primary shadow-2xl overflow-hidden">
+      <div className="relative flex flex-col w-full max-w-4xl h-[92vh] sm:h-[620px] max-h-[720px] rounded-3xl border border-sys-border bg-sys-card text-sys-text-primary shadow-2xl overflow-hidden">
         
         {/* Top Header */}
         <header className="flex items-center justify-between border-b border-sys-border/50 px-4 sm:px-6 py-3.5 bg-sys-card shrink-0">
@@ -348,7 +348,7 @@ export function StudentGuideModal({ isOnboarding = false, onClose, onComplete }:
         </div>
 
         {/* Main Body Area: Sidebar (Desktop) + Content (Right) */}
-        <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 flex overflow-hidden min-h-0">
           
           {/* Desktop Left Sidebar: Direct Clickable Sections */}
           <aside className="hidden md:flex flex-col w-60 border-r border-sys-border/50 bg-sys-bg/40 p-3 space-y-1 shrink-0 overflow-y-auto">
@@ -375,20 +375,22 @@ export function StudentGuideModal({ isOnboarding = false, onClose, onComplete }:
             })}
           </aside>
 
-          {/* Right Content Area */}
-          <main className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar flex flex-col justify-between">
-            <AnimatePresence mode="wait">
-              
-              {/* STEP: SUBGROUPS */}
-              {currentStepData.id === "subgroups" && (
-                <motion.div
-                  key="subgroups"
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  transition={{ duration: 0.15 }}
-                  className="space-y-4"
-                >
+          {/* Right Column: Scrollable Content + Stationary Bottom Footer */}
+          <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+            
+            {/* Scrollable Content Area */}
+            <main className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar">
+              <AnimatePresence initial={false}>
+                
+                {/* STEP: SUBGROUPS */}
+                {currentStepData.id === "subgroups" && (
+                  <motion.div
+                    key="subgroups"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.12 }}
+                    className="space-y-4"
+                  >
                   <div>
                     <h3 className="text-xl sm:text-2xl font-black text-sys-text-primary tracking-tight">
                       {currentStepData.fullTitle}
@@ -565,10 +567,9 @@ export function StudentGuideModal({ isOnboarding = false, onClose, onComplete }:
               {currentStepData.id === "appearance" && (
                 <motion.div
                   key="appearance"
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  transition={{ duration: 0.15 }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.12 }}
                   className="space-y-4"
                 >
                   <div>
@@ -664,10 +665,9 @@ export function StudentGuideModal({ isOnboarding = false, onClose, onComplete }:
               {currentStepData.id === "schedule" && (
                 <motion.div
                   key="schedule"
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  transition={{ duration: 0.15 }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.12 }}
                   className="space-y-4"
                 >
                   <div>
@@ -782,10 +782,9 @@ export function StudentGuideModal({ isOnboarding = false, onClose, onComplete }:
               {currentStepData.id === "online" && (
                 <motion.div
                   key="online"
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  transition={{ duration: 0.15 }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.12 }}
                   className="space-y-4"
                 >
                   <div>
@@ -867,10 +866,9 @@ export function StudentGuideModal({ isOnboarding = false, onClose, onComplete }:
               {(currentStepData.id === "classroom" || currentStepData.id === "homework") && (
                 <motion.div
                   key="classroom"
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  transition={{ duration: 0.15 }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.12 }}
                   className="space-y-4"
                 >
                   <div>
@@ -972,10 +970,9 @@ export function StudentGuideModal({ isOnboarding = false, onClose, onComplete }:
               {currentStepData.id === "install" && (
                 <motion.div
                   key="install"
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  transition={{ duration: 0.15 }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.12 }}
                   className="space-y-4"
                 >
                   <div>
@@ -1045,37 +1042,39 @@ export function StudentGuideModal({ isOnboarding = false, onClose, onComplete }:
               )}
 
             </AnimatePresence>
-
-            {/* Bottom Step Navigation Bar */}
-            <footer className="flex items-center justify-between border-t border-sys-border/50 pt-4 mt-6 shrink-0">
-              <button
-                type="button"
-                onClick={handlePrev}
-                disabled={currentStep === 0}
-                className="rounded-xl border border-sys-border bg-sys-bg px-4 py-2 text-xs sm:text-sm font-bold text-sys-text-secondary hover:text-sys-text-primary disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
-              >
-                ← Назад
-              </button>
-
-              <span className="text-xs font-bold text-sys-text-muted">
-                {currentStep + 1} з {totalSteps}
-              </span>
-
-              <button
-                type="button"
-                onClick={handleNext}
-                className="rounded-xl bg-sys-accent px-5 py-2 text-xs sm:text-sm font-bold text-slate-900 hover:opacity-95 active:scale-95 transition-all shadow-md"
-              >
-                {currentStep === totalSteps - 1
-                  ? (isOnboarding ? "🚀 Перейти до розкладу" : "Зрозуміло ✓")
-                  : "Далі →"}
-              </button>
-            </footer>
           </main>
+
+          {/* Stationary Persistent Bottom Navigation Footer */}
+          <footer className="flex items-center justify-between border-t border-sys-border/50 px-4 sm:px-6 py-3.5 bg-sys-card shrink-0">
+            <button
+              type="button"
+              onClick={handlePrev}
+              disabled={currentStep === 0}
+              className="rounded-xl border border-sys-border bg-sys-bg px-4 py-2 text-xs sm:text-sm font-bold text-sys-text-secondary hover:text-sys-text-primary disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
+            >
+              ← Назад
+            </button>
+
+            <span className="text-xs font-bold text-sys-text-muted">
+              {currentStep + 1} з {totalSteps}
+            </span>
+
+            <button
+              type="button"
+              onClick={handleNext}
+              className="rounded-xl bg-sys-accent px-5 py-2 text-xs sm:text-sm font-bold text-slate-900 hover:opacity-95 active:scale-95 transition-all shadow-md"
+            >
+              {currentStep === totalSteps - 1
+                ? (isOnboarding ? "🚀 Перейти до розкладу" : "Зрозуміло ✓")
+                : "Далі →"}
+            </button>
+          </footer>
 
         </div>
 
       </div>
+
     </div>
-  );
+  </div>
+);
 }
