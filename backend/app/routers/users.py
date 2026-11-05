@@ -5,7 +5,7 @@ from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.security import require_roles, hash_password
+from app.core.security import require_roles, hash_password, hash_password_async
 from app.database import get_db
 from app.models import User, Group
 
@@ -68,7 +68,7 @@ async def create_user(payload: UserCreate, db: AsyncSession = Depends(get_db), _
     new_user = User(
         username=payload.username,
         name=payload.name,
-        password_hash=hash_password(payload.password),
+        password_hash=await hash_password_async(payload.password),
         role=payload.role
     )
     if payload.role != "editor" and payload.allowed_groups:
@@ -98,7 +98,7 @@ async def update_user(user_id: int, payload: UserUpdate, db: AsyncSession = Depe
     if payload.name is not None:
         user.name = payload.name
     if payload.password:
-        user.password_hash = hash_password(payload.password)
+        user.password_hash = await hash_password_async(payload.password)
         user.session_version = getattr(user, "session_version", 1) + 1
     if payload.role is not None:
         user.role = payload.role

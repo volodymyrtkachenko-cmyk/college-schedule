@@ -22,6 +22,7 @@ from app.core.security import (
     decode_token,
     get_current_user,
     verify_password,
+    verify_password_async,
 )
 from app.database import get_db
 from app.models import User, TokenBlocklist
@@ -94,7 +95,7 @@ async def _cleanup_expired_blocklist(db: AsyncSession) -> None:
 @limiter.limit("5/minute")
 async def login(request: Request, payload: LoginRequest, response: Response, db: AsyncSession = Depends(get_db)):
     user = await db.scalar(select(User).where(User.username == payload.username).options(selectinload(User.allowed_groups)))
-    if user is None or not user.password_hash or not verify_password(payload.password, user.password_hash):
+    if user is None or not user.password_hash or not await verify_password_async(payload.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Неправильне ім'я користувача або пароль")
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Обліковий запис неактивний")

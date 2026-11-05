@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import uuid4
@@ -23,6 +24,18 @@ def hash_password(password: str) -> str:
 
 def verify_password(password: str, hashed_password: str) -> bool:
     return password_hash.verify(password, hashed_password)
+
+
+async def hash_password_async(password: str) -> str:
+    return await asyncio.to_thread(password_hash.hash, password)
+
+
+async def get_password_hash_async(password: str) -> str:
+    return await asyncio.to_thread(password_hash.hash, password)
+
+
+async def verify_password_async(password: str, hashed_password: str) -> bool:
+    return await asyncio.to_thread(password_hash.verify, password, hashed_password)
 
 
 def create_token(user: User, *, token_type: str, expires_delta: timedelta) -> str:
