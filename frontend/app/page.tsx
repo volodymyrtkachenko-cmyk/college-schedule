@@ -12,7 +12,7 @@ import { DayPager } from "../components/DayPager";
 import { MobileWeekBar } from "../components/MobileWeekBar";
 import { MobileWeekDaysStrip } from "../components/MobileWeekDaysStrip";
 import { WeekTypeBadge } from "../components/WeekTypeBadge";
-import { ScheduleResponse, api } from "../lib/api";
+import { ScheduleResponse, LearningMode, LearningModeOverride, api } from "../lib/api";
 import { useSchedule, useIsStandalonePwa, downloadForOffline, invalidateScheduleCache } from "../lib/hooks";
 import { useAuth, canAccessAdmin } from "../lib/auth";
 import { getMondayOf, getKyivInitialWeekAnchor, getKyivTomorrowDateIso, KYIV_DATE_FMT, KYIV_TIME_FMT, UKR_WEEKDAY_LONG_FMT, UKR_DAY_MONTH_SHORT_FMT, UKR_MONTH_SHORT_FMT } from "../lib/date";
@@ -778,15 +778,68 @@ export default function HomePage() {
   };
 
 
-  const headerLearningMode = useMemo(() => {
+  const headerLearningModeData = useMemo(() => {
+    let mode: LearningMode | null = null;
+    let override: LearningModeOverride | null = null;
+
     if (view !== "week") {
-      return selectedDaySchedule?.learning_mode ?? null;
+      mode = selectedDaySchedule?.learning_mode ?? null;
+      override = selectedDaySchedule?.learning_mode_override ?? null;
+      if (override?.mode) {
+        mode = override.mode;
+      }
+    } else {
+      if (week && week.length > 0) {
+        const todayInWeek = week.find((d) => d.date === todayActualIso);
+        override =
+          todayInWeek?.learning_mode_override ??
+          selectedDaySchedule?.learning_mode_override ??
+          week.find((d) => Boolean(d.learning_mode_override))?.learning_mode_override ??
+          null;
+
+        if (override?.mode) {
+          mode = override.mode;
+        } else {
+          mode =
+            todayInWeek?.learning_mode ??
+            selectedDaySchedule?.learning_mode ??
+            week.find((d) => Boolean(d.learning_mode))?.learning_mode ??
+            null;
+        }
+      }
     }
-    if (!week || week.length === 0) return null;
-    const todayInWeek = week.find((d) => d.date === todayActualIso);
-    if (todayInWeek?.learning_mode) return todayInWeek.learning_mode;
-    if (selectedDaySchedule?.learning_mode) return selectedDaySchedule.learning_mode;
-    return week.find((d) => d.learning_mode)?.learning_mode ?? null;
+
+    if (!mode) return null;
+
+    const baseLabel = mode === "offline" ? "Очно" : "Дистанційно";
+
+    let dateRangeStr: string | null = null;
+    if (override?.start && override?.end) {
+      const fmtShort = (iso: string) => {
+        const [y, m, d] = iso.split("-").map(Number);
+        return new Date(y, m - 1, d).toLocaleDateString("uk-UA", { day: "numeric", month: "short" });
+      };
+      dateRangeStr =
+        override.start === override.end
+          ? fmtShort(override.start)
+          : `${fmtShort(override.start)} – ${fmtShort(override.end)}`;
+    }
+
+    const fullLabel = dateRangeStr ? `${baseLabel} · ${dateRangeStr}` : baseLabel;
+
+    const title = override
+      ? `${mode === "offline" ? "Очне" : "Дистанційне"} навчання${dateRangeStr ? ` (${dateRangeStr})` : ""}${
+          override.reason ? `: ${override.reason}` : ""
+        }`
+      : `${mode === "offline" ? "Очне" : "Дистанційне"} навчання`;
+
+    return {
+      mode,
+      override,
+      baseLabel,
+      fullLabel,
+      title,
+    };
   }, [view, week, selectedDaySchedule, todayActualIso]);
 
 
@@ -1137,10 +1190,27 @@ export default function HomePage() {
                 Тиждень
               </button>
             </div>
-            {headerLearningMode && (
-              <span className="shrink-0 inline-flex items-center justify-center gap-1.5 w-[124px] rounded-full border border-sys-border bg-sys-surface/80 px-2.5 py-1 text-xs font-semibold text-sys-text-secondary">
-                <span className={`h-1.5 w-1.5 rounded-full ${headerLearningMode === "offline" ? "bg-sys-accent" : "bg-slate-400"}`} />
-                {headerLearningMode === "offline" ? "Очно" : "Дистанційно"}
+            {headerLearningModeData && (
+              <span
+                title={headerLearningModeData.title}
+                className={`shrink-0 inline-flex items-center justify-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
+                  headerLearningModeData.override
+                    ? headerLearningModeData.mode === "offline"
+                      ? "border-sys-accent/40 bg-sys-accent/10 text-sys-accent"
+                      : "border-amber-500/35 bg-amber-500/10 text-amber-900 dark:text-amber-200"
+                    : "border-sys-border bg-sys-surface/80 text-sys-text-secondary"
+                }`}
+              >
+                <span
+                  className={`h-1.5 w-1.5 rounded-full ${
+                    headerLearningModeData.mode === "offline"
+                      ? "bg-sys-accent"
+                      : headerLearningModeData.override
+                      ? "bg-amber-500 dark:bg-amber-400"
+                      : "bg-slate-400 dark:bg-slate-500"
+                  }`}
+                />
+                <span>{headerLearningModeData.fullLabel}</span>
               </span>
             )}
           </div>
@@ -1320,17 +1390,17 @@ export default function HomePage() {
                     <span className="text-[10px] shrink-0">ⓘ</span>
                   </>
                 )}
-                {headerLearningMode && (
+                {headerLearningModeData && (
                   <>
                     {(currentWeekNumber || weekType !== "both") && <span className="shrink-0">·</span>}
                     <span className="font-semibold text-sys-text-secondary shrink-0">
-                      {headerLearningMode === "offline" ? "Очно" : "Дистанційно"}
+                      {headerLearningModeData.baseLabel}
                     </span>
                   </>
                 )}
                 {activeWeekPeriodMeta && (
                   <>
-                    {(currentWeekNumber || weekType !== "both" || headerLearningMode) && <span className="shrink-0">·</span>}
+                    {(currentWeekNumber || weekType !== "both" || headerLearningModeData) && <span className="shrink-0">·</span>}
                     <span className="font-semibold text-violet-400 shrink-0">
                       {activeWeekPeriodMeta.icon} {activeWeekPeriodMeta.shortLabel}
                     </span>

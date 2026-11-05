@@ -229,11 +229,6 @@ export function ScheduleWeekGrid({
     return week.length > 0 && week.every((d) => Boolean(d.period_info) && d.lessons.length === 0);
   }, [week]);
 
-  const hasAnyOverride = useMemo(
-    () => week.some((d) => Boolean(d.learning_mode_override)),
-    [week]
-  );
-
   return (
     <div className="w-full pb-4">
       {/* Desktop (>= 1024px): 5-column synchronized CSS Grid by lesson numbers */}
@@ -300,52 +295,6 @@ export function ScheduleWeekGrid({
           );
         })}
 
-        {/* Optional Exception Row in Desktop Week Grid */}
-        {hasAnyOverride &&
-          week.map((day, dIdx) => {
-            const ov = day.learning_mode_override;
-            if (!ov) {
-              return <div key={`desktop-override-${day.date}`} style={{ gridColumn: dIdx + 1 }} className="hidden lg:block" />;
-            }
-            return (
-              <div
-                key={`desktop-override-${day.date}`}
-                style={{ gridColumn: dIdx + 1 }}
-                className={`flex items-start gap-2 rounded-2xl border px-3 py-2 text-xs shadow-xs ${
-                  ov.mode === "offline"
-                    ? "border-sys-accent/35 bg-sys-accent/10 text-sys-text-primary"
-                    : "border-sys-warning/35 bg-sys-warning/10 text-sys-text-primary"
-                }`}
-              >
-                <span
-                  className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
-                    ov.mode === "offline"
-                      ? "bg-sys-accent/20 text-sys-accent"
-                      : "bg-sys-warning/20 text-sys-warning"
-                  }`}
-                >
-                  !
-                </span>
-                <div className="min-w-0 flex-1 whitespace-normal break-words leading-snug">
-                  <div
-                    className={`font-bold ${
-                      ov.mode === "offline" ? "text-sys-accent" : "text-sys-warning"
-                    }`}
-                  >
-                    {ov.mode === "offline"
-                      ? "Очне навчання"
-                      : "Дистанційне навчання"}
-                  </div>
-                  {ov.reason && (
-                    <p className="mt-0.5 text-[11px] text-sys-text-secondary whitespace-normal break-words">
-                      {ov.reason}
-                    </p>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-
         {/* Rows 1..N: Lesson Slots (1 row per lesson number, synchronized across all 5 days) */}
         {allLessonNumbers.map((num, numIdx) =>
           weekDaysMeta.map(({ day, slots, firstLessonNum, lastLessonNum }, dIdx) => {
@@ -361,7 +310,7 @@ export function ScheduleWeekGrid({
                     key={`desktop-slot-${num}-${day.date}`}
                     style={{
                       gridColumn: dIdx + 1,
-                      gridRow: `${hasAnyOverride ? 3 : 2} / span ${allLessonNumbers.length}`,
+                      gridRow: `2 / span ${allLessonNumbers.length}`,
                     }}
                     className={`flex flex-col h-full transition-opacity ${
                       isPast && !isToday ? "opacity-80 hover:opacity-100" : ""

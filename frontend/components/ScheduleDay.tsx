@@ -220,51 +220,6 @@ export function ScheduleDay({
       </header>
       )}
 
-      {/* Оголошення про виняток режиму навчання */}
-      {schedule.learning_mode_override && (
-        <div
-          className={`mb-3 flex items-start gap-3 rounded-2xl border px-3.5 py-3 text-xs sm:text-sm shadow-xs ${
-            schedule.learning_mode_override.mode === "offline"
-              ? "border-sys-accent/35 bg-sys-accent/10 text-sys-text-primary"
-              : "border-sys-warning/35 bg-sys-warning/10 text-sys-text-primary"
-          }`}
-        >
-          <span
-            className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-              schedule.learning_mode_override.mode === "offline"
-                ? "bg-sys-accent/20 text-sys-accent"
-                : "bg-sys-warning/20 text-sys-warning"
-            }`}
-          >
-            !
-          </span>
-          <div className="min-w-0 flex-1 whitespace-normal break-words leading-relaxed">
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-              <span
-                className={`font-bold ${
-                  schedule.learning_mode_override.mode === "offline"
-                    ? "text-sys-accent"
-                    : "text-sys-warning"
-                }`}
-              >
-                {schedule.learning_mode_override.mode === "offline"
-                  ? "Очне навчання"
-                  : "Дистанційне навчання"}
-              </span>
-              <span className="text-xs text-sys-text-secondary">
-                {schedule.learning_mode_override.start === schedule.learning_mode_override.end
-                  ? fmt(schedule.learning_mode_override.start, { day: "numeric", month: "long" })
-                  : `${fmt(schedule.learning_mode_override.start, { day: "numeric", month: "short" })} – ${fmt(schedule.learning_mode_override.end, { day: "numeric", month: "short" })}`}
-              </span>
-            </div>
-            {schedule.learning_mode_override.reason && (
-              <p className="mt-1 text-xs sm:text-[13px] text-sys-text-secondary whitespace-normal break-words">
-                {schedule.learning_mode_override.reason}
-              </p>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Morning pre-lesson indicator */}
       {isBeforeDayStart && (
