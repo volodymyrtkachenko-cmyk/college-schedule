@@ -49,6 +49,10 @@ def reset() -> None:
     group_rev.clear()
 
 
+def get_schedule_cache_rev() -> int:
+    return any_rev
+
+
 def schedule_etag(*, group_id: int | None, teacher_id: int | None, variant: str) -> str:
     """Weak ETag for a public schedule response.
 

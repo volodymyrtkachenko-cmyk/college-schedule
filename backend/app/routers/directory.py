@@ -14,6 +14,8 @@ from app.schemas import (
     SubjectResource, SubjectUpdate, TeacherCreate, TeacherResource, TeacherUpdate,
 )
 
+from typing import Any
+
 router = APIRouter(tags=["directory"])
 admin_router = APIRouter(
     prefix="/admin",
@@ -22,7 +24,7 @@ admin_router = APIRouter(
 )
 
 
-_DIR_CACHE: dict[tuple[type, int], list] = {}
+_DIR_CACHE: dict[tuple[Any, int], Any] = {}
 
 
 def invalidate_directory_cache() -> None:
@@ -155,33 +157,47 @@ admin_or_editor = Depends(require_roles("admin", "editor"))
 
 
 @router.get("/teacher-subjects", response_model=dict[int, list[int]])
-async def teacher_subjects(db: AsyncSession = Depends(get_db)):
+async def teacher_subjects(response: Response, db: AsyncSession = Depends(get_db)):
     from sqlalchemy import select, and_, or_
     from app.models.entities import Schedule
-    
+    from app.services.cache_rev import get_schedule_cache_rev
+
+    response.headers["Cache-Control"] = "public, max-age=60"
+
+    rev = get_schedule_cache_rev()
+    cache_key = ("teacher-subjects", rev)
+    cached = _DIR_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
+
     query1 = select(Schedule.teacher_id, Schedule.subject_id).where(
         and_(Schedule.is_active.is_(True), Schedule.teacher_id.is_not(None))
     ).distinct()
-    
+
     query2 = select(Schedule.second_teacher_id, Schedule.subject_id).where(
         and_(Schedule.is_active.is_(True), Schedule.second_teacher_id.is_not(None))
     ).distinct()
-    
+
     result1 = await db.execute(query1)
     result2 = await db.execute(query2)
-    
+
     mapping: dict[int, set[int]] = {}
     for t_id, s_id in result1.all():
         if t_id not in mapping:
             mapping[t_id] = set()
         mapping[t_id].add(s_id)
-        
+
     for t_id, s_id in result2.all():
         if t_id not in mapping:
             mapping[t_id] = set()
         mapping[t_id].add(s_id)
-        
-    return {k: list(v) for k, v in mapping.items()}
+
+    result = {k: list(v) for k, v in mapping.items()}
+    stale = [k for k in _DIR_CACHE if isinstance(k, tuple) and len(k) == 2 and k[0] == "teacher-subjects" and k[1] != rev]
+    for k in stale:
+        _DIR_CACHE.pop(k, None)
+    _DIR_CACHE[cache_key] = result
+    return result
 
 @admin_router.post("/faculties", response_model=FacultyResource, status_code=201)
 
