@@ -2964,7 +2964,6 @@ async def trigger_background_sync_if_needed(
                         cred.next_attempt_at = None
                     else:
                         _apply_credential_backoff(cred, err_msg or f"refresh_failed_{status_code}", now)
-                    _latest_scope_missing[group_id] = True
                     await db.flush()
                     continue
 
@@ -3539,8 +3538,8 @@ async def get_classroom_group_status(
         "unmapped_tasks": _latest_unmapped_tasks.get(group_id, []) if has_access else [],
         "tasks": tasks if tasks is not None else [],
         "requires_auth": not has_access,
-        "needs_reconnect": _latest_scope_missing.get(group_id, False),
         **accounts_summary,
+        "needs_reconnect": False,
     }
 
 

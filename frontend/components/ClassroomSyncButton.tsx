@@ -37,7 +37,6 @@ export function ClassroomSyncButton({
 }) {
   const [syncing, setSyncing] = useState(false);
   const [hasClientSecret, setHasClientSecret] = useState<boolean>(false);
-  const [needsReconnect, setNeedsReconnect] = useState<boolean>(false);
   const { showToast } = useToast();
   const { linkedEmail, linkedGroupId } = useClassroomSubmissions();
 
@@ -57,7 +56,6 @@ export function ClassroomSyncButton({
   useEffect(() => {
     if (!currentGroupId) {
       setLastSyncedAt(null);
-      setNeedsReconnect(false);
       return;
     }
     api.classroom
@@ -67,20 +65,9 @@ export function ClassroomSyncButton({
         if (data && typeof data.has_client_secret === "boolean") {
           setHasClientSecret(data.has_client_secret);
         }
-        if (data && typeof data.needs_reconnect === "boolean") {
-          setNeedsReconnect(data.needs_reconnect);
-        }
       })
       .catch(() => {});
   }, [currentGroupId, syncing]);
-
-  const syncFreshness = (() => {
-    if (!lastSyncedAt) return null;
-    const diffMin = Math.floor((Date.now() - new Date(lastSyncedAt).getTime()) / 60000);
-    if (diffMin < 60) return { dot: "bg-emerald-400", text: `Оновлено ${Math.max(1, diffMin)} хв тому` };
-    if (diffMin < 360) return { dot: "bg-amber-400", text: `Оновлено ${Math.floor(diffMin / 60)} год тому` };
-    return { dot: "bg-rose-400", text: "Давно не оновлювалось" };
-  })();
 
   const loadGsiScript = (): Promise<void> =>
     new Promise((resolve, reject) => {
@@ -126,9 +113,6 @@ export function ClassroomSyncButton({
     onSynced(isSilent ? (currentGroupId ?? res.group_id) : res.group_id, res.tasks, res.last_synced_at, isSilent);
     window.dispatchEvent(new CustomEvent("classroom-synced", { detail: res }));
 
-    if (typeof res?.needs_reconnect === "boolean") {
-      setNeedsReconnect(res.needs_reconnect);
-    }
     if (!isSilent) {
       const parts = [`підтягнуто ${res.synced_links} онлайн-пар`];
       if (res.synced_tasks > 0) parts.push(`${res.synced_tasks} завдань`);
@@ -368,16 +352,12 @@ export function ClassroomSyncButton({
       disabled={syncing}
       aria-label={isLinked ? "Classroom прив'язано" : "Прив'язати Classroom"}
       title={
-        needsReconnect
-          ? "Потрібно надати доступ до завдань — натисніть, щоб перепідключити Classroom. Сервер лише читає ваші завдання з Classroom і нічого не змінює"
-          : isLinked
-            ? `Classroom (прив'язано ${linkedEmail}) — натисніть для синхронізації`
-            : "Прив'язати Google Classroom. Сервер лише читає ваші завдання з Classroom і нічого не змінює"
+        isLinked
+          ? `Classroom (прив'язано ${linkedEmail}) — натисніть для синхронізації`
+          : "Прив'язати Google Classroom. Сервер лише читає ваші завдання з Classroom і нічого не змінює"
       }
       className={
-        needsReconnect
-          ? "inline-flex h-8 sm:h-9 items-center gap-1.5 rounded-lg border border-amber-500/50 bg-amber-50 dark:bg-amber-500/15 px-2.5 sm:px-3 text-xs font-semibold text-amber-800 dark:text-amber-300 transition-colors hover:bg-amber-100 dark:hover:bg-amber-500/25 disabled:opacity-50"
-          : isLinked
+        isLinked
           ? "inline-flex h-8 sm:h-9 items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-50 dark:bg-emerald-500/10 px-2.5 sm:px-3 text-xs font-semibold text-emerald-800 dark:text-emerald-300 transition-colors hover:bg-emerald-100 dark:hover:bg-emerald-500/20 disabled:opacity-50"
           : "inline-flex h-8 sm:h-9 items-center gap-1.5 rounded-lg border border-sky-500/40 bg-sky-50 dark:bg-sky-500/10 px-2.5 sm:px-3 text-xs font-semibold text-sky-800 dark:text-sky-300 transition-colors hover:bg-sky-100 dark:hover:bg-sky-500/20 disabled:opacity-50"
       }
@@ -389,15 +369,11 @@ export function ClassroomSyncButton({
       <span className="hidden sm:inline">
         {syncing
           ? "Синхронізація..."
-          : needsReconnect
-            ? "Перепідключити Classroom"
-            : isLinked
-              ? "Classroom"
-              : "Прив'язати Classroom"}
+          : isLinked
+            ? "Classroom"
+            : "Прив'язати Classroom"}
       </span>
-      {needsReconnect && !syncing ? (
-        <span className="h-2 w-2 rounded-full shrink-0 bg-amber-400 animate-pulse" />
-      ) : isLinked && !syncing ? (
+      {isLinked && !syncing ? (
         <span
           title={`Classroom прив'язано (${linkedEmail})`}
           className="h-2 w-2 rounded-full shrink-0 bg-emerald-400"
