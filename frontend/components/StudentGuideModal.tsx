@@ -465,8 +465,27 @@ export function StudentGuideModal({ isOnboarding = false, groupId, onClose, onCo
     return baseSteps.filter((s) => groupHasSubgroups || s.id !== "subgroups");
   }, [baseSteps, groupHasSubgroups]);
   const totalSteps = steps.length;
-  const [currentStep, setCurrentStep] = useState(0);
-  const safeCurrentStep = Math.min(currentStep, Math.max(0, totalSteps - 1));
+  const [activeStepId, setActiveStepId] = useState<string>("");
+
+  const effectiveStepId = useMemo(() => {
+    if (activeStepId && steps.some((s) => s.id === activeStepId)) {
+      return activeStepId;
+    }
+    return steps[0]?.id || "";
+  }, [activeStepId, steps]);
+
+  const safeCurrentStep = useMemo(() => {
+    const idx = steps.findIndex((s) => s.id === effectiveStepId);
+    return idx !== -1 ? idx : 0;
+  }, [steps, effectiveStepId]);
+
+  const goToStep = (idx: number) => {
+    const clamped = Math.max(0, Math.min(idx, totalSteps - 1));
+    const target = steps[clamped];
+    if (target) {
+      setActiveStepId(target.id);
+    }
+  };
 
   // Responsive state
   const [isDesktop, setIsDesktop] = useState(false);
@@ -558,7 +577,7 @@ export function StudentGuideModal({ isOnboarding = false, groupId, onClose, onCo
 
   const handleNext = () => {
     if (safeCurrentStep < totalSteps - 1) {
-      setCurrentStep(safeCurrentStep + 1);
+      goToStep(safeCurrentStep + 1);
     } else {
       handleFinish();
     }
@@ -566,7 +585,7 @@ export function StudentGuideModal({ isOnboarding = false, groupId, onClose, onCo
 
   const handlePrev = () => {
     if (safeCurrentStep > 0) {
-      setCurrentStep(safeCurrentStep - 1);
+      goToStep(safeCurrentStep - 1);
     }
   };
 
@@ -602,6 +621,7 @@ export function StudentGuideModal({ isOnboarding = false, groupId, onClose, onCo
           setIsLinkingClassroom(false);
           setClassroomSuccess(true);
           setDemoLinked(true);
+          setActiveStepId(isOnboarding ? "classroom" : "homework");
 
           if (res?.group_id) {
             const detectedId = Number(res.group_id);
@@ -620,6 +640,7 @@ export function StudentGuideModal({ isOnboarding = false, groupId, onClose, onCo
             api.week(detectedId).then((data) => {
               if (Array.isArray(data) && data.length > 0) {
                 setWeekSchedule(data);
+                setActiveStepId(isOnboarding ? "classroom" : "homework");
               }
             }).catch(() => {});
           }
@@ -709,21 +730,24 @@ export function StudentGuideModal({ isOnboarding = false, groupId, onClose, onCo
 
         {/* Mobile Horizontal Section Tabs Strip (scrollable) */}
         <div className="md:hidden flex items-center gap-1.5 overflow-x-auto px-4 py-2 border-b border-sys-border/40 bg-sys-bg/60 shrink-0 no-scrollbar">
-          {steps.map((step, idx) => (
-            <button
-              key={step.id}
-              type="button"
-              onClick={() => setCurrentStep(idx)}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
-                safeCurrentStep === idx
-                  ? "bg-sys-accent text-slate-900 shadow-xs font-bold"
-                  : "bg-sys-card border border-sys-border text-sys-text-secondary hover:text-sys-text-primary"
-              }`}
-            >
-              <span>{step.icon}</span>
-              <span>{step.shortTitle}</span>
-            </button>
-          ))}
+          {steps.map((step) => {
+            const isActive = step.id === effectiveStepId;
+            return (
+              <button
+                key={step.id}
+                type="button"
+                onClick={() => setActiveStepId(step.id)}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+                  isActive
+                    ? "bg-sys-accent text-slate-900 shadow-xs font-bold"
+                    : "bg-sys-card border border-sys-border text-sys-text-secondary hover:text-sys-text-primary"
+                }`}
+              >
+                <span>{step.icon}</span>
+                <span>{step.shortTitle}</span>
+              </button>
+            );
+          })}
         </div>
 
         {/* Main Body Area: Sidebar (Desktop) + Content (Right) */}
@@ -734,13 +758,13 @@ export function StudentGuideModal({ isOnboarding = false, groupId, onClose, onCo
             <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-sys-text-muted">
               {isOnboarding ? "Кроки налаштування" : "Розділи гіда"}
             </div>
-            {steps.map((step, idx) => {
-              const isActive = safeCurrentStep === idx;
+            {steps.map((step) => {
+              const isActive = step.id === effectiveStepId;
               return (
                 <button
                   key={step.id}
                   type="button"
-                  onClick={() => setCurrentStep(idx)}
+                  onClick={() => setActiveStepId(step.id)}
                   className={`flex items-center gap-2.5 w-full text-left px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
                     isActive
                       ? "bg-sys-accent/15 text-sys-accent font-bold border border-sys-accent/40 shadow-xs"
