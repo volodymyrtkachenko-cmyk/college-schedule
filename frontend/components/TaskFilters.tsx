@@ -42,7 +42,7 @@ export function TaskFilters({
   const isActive = value.status !== "all" || subjectValue !== "";
 
   return (
-    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+    <search aria-label="Фільтрація завдань" className="flex flex-col gap-2 sm:flex-row sm:items-center">
       <select
         aria-label="Фільтр за статусом"
         value={value.status}
@@ -76,6 +76,6 @@ export function TaskFilters({
           Скинути
         </button>
       )}
-    </div>
+    </search>
   );
 }

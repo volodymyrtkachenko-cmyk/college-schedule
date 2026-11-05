@@ -20,7 +20,7 @@ export function LessonNote({ lesson, date }: { lesson: Lesson; date: string }) {
 
   return (
     <p className="mt-1 flex items-center gap-1.5 text-xs text-sys-text-secondary/90 [overflow-wrap:anywhere] italic border-t border-sys-border/20 pt-1">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-text-muted">
+      <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-text-muted">
         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
       </svg>
       <span>{visibleNote}</span>
@@ -136,12 +136,13 @@ export function LessonNoteModal({
       <div
         role="dialog"
         aria-modal="true"
+        aria-labelledby="lesson-note-modal-title"
         className="flex max-h-[92dvh] w-full max-w-md flex-col rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card shadow-2xl overflow-hidden pb-safe animate-in slide-in-from-bottom-6 sm:slide-in-from-bottom-2 duration-200"
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-sys-border/50 px-5 py-4">
           <div>
-            <h3 className="text-base font-bold text-sys-text-primary">
+            <h3 id="lesson-note-modal-title" className="text-base font-bold text-sys-text-primary">
               {mode === "edit" ? "Примітка до пари" : "Історія змін примітки"}
             </h3>
             <p className="text-xs text-sys-text-secondary mt-0.5">
@@ -185,7 +186,7 @@ export function LessonNoteModal({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+        <div className="flex-1 overflow-y-auto overscroll-contain custom-scrollbar p-5 space-y-4">
           {mode === "edit" ? (
             <form
               id="lesson-note-form"

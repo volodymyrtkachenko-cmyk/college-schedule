@@ -31,6 +31,17 @@ export function TeacherPinModal({
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -62,6 +73,9 @@ export function TeacherPinModal({
       onClick={onClose}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="teacher-pin-modal-title"
         className="surface-panel w-full max-w-sm rounded-2xl border border-sys-border bg-sys-card p-6 shadow-2xl relative overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
@@ -74,18 +88,18 @@ export function TeacherPinModal({
                 : "bg-sky-500/15 border-sky-500/30 text-sky-600 dark:text-sky-400"
             }`}>
               {isTeacherUnlocked ? (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M20 6 9 17l-5-5" />
                 </svg>
               ) : (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
                   <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                 </svg>
               )}
             </div>
             <div>
-              <h3 className="text-base font-bold text-sys-text-primary leading-tight">
+              <h3 id="teacher-pin-modal-title" className="text-base font-bold text-sys-text-primary leading-tight">
                 {isTeacherUnlocked ? "Режим викладача активний" : "Вхід для викладача"}
               </h3>
               <p className="text-xs text-sys-text-secondary mt-0.5">
@@ -96,6 +110,7 @@ export function TeacherPinModal({
           <button
             type="button"
             onClick={onClose}
+            aria-label="Закрити"
             className="w-8 h-8 rounded-lg flex items-center justify-center text-sys-text-muted hover:text-sys-text-primary hover:bg-sys-bg transition-colors -mr-1 -mt-1"
           >
             ✕

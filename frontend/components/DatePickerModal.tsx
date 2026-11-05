@@ -207,7 +207,7 @@ export function DatePickerModal({
               title="Попередній місяць"
               className="flex h-8 w-8 items-center justify-center rounded-lg border border-sys-border/60 bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/40 active:scale-95 transition-colors"
             >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="m15 18-6-6 6-6" />
               </svg>
             </button>
@@ -218,7 +218,7 @@ export function DatePickerModal({
               title="Наступний місяць"
               className="flex h-8 w-8 items-center justify-center rounded-lg border border-sys-border/60 bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/40 active:scale-95 transition-colors"
             >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="m9 18 6-6-6-6" />
               </svg>
             </button>
@@ -228,7 +228,7 @@ export function DatePickerModal({
               aria-label="Закрити календар"
               className="flex h-8 w-8 items-center justify-center rounded-lg text-sys-text-muted hover:text-sys-text-primary hover:bg-sys-bg transition-colors ml-1"
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18" />
                 <line x1="6" y1="6" x2="18" y2="18" />
               </svg>
@@ -263,7 +263,7 @@ export function DatePickerModal({
                 key={`${item.dateIso}-${idx}`}
                 type="button"
                 onClick={() => handleSelect(item.dateObj)}
-                className={`relative flex h-10 w-full items-center justify-center rounded-xl text-xs sm:text-[13px] transition-all duration-fast ease-smooth focus:outline-none focus:ring-2 focus:ring-sys-accent active:scale-95 ${
+                className={`relative flex h-10 w-full items-center justify-center rounded-xl text-xs sm:text-[13px] transition-[color,background-color,transform] duration-fast ease-smooth focus:outline-none focus:ring-2 focus:ring-sys-accent active:scale-95 ${
                   isSelected
                     ? "bg-sys-accent text-white font-black shadow-sm"
                     : isToday
@@ -306,7 +306,7 @@ export function DatePickerModal({
             onClick={handleJumpToToday}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-sys-border/80 bg-sys-bg hover:border-sys-accent/60 hover:text-sys-accent text-xs font-semibold text-sys-text-primary active:scale-95 transition-colors"
           >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
               <line x1="16" y1="2" x2="16" y2="6" />
               <line x1="8" y1="2" x2="8" y2="6" />

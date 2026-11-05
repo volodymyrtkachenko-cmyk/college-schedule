@@ -55,7 +55,7 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
           >
             <div className="text-center space-y-2.5">
               <div className="mx-auto w-16 h-16 rounded-2xl bg-sys-card border border-sys-border flex items-center justify-center mb-5 shadow-lg shadow-sys-bg">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-sys-accent"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"></path></svg>
+                <svg aria-hidden="true" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-sys-accent"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"></path></svg>
               </div>
               <h2 className="text-3xl font-bold tracking-tight text-sys-text-primary">Розклад ДФКР</h2>
               <p className="text-sys-text-secondary text-sm sm:text-base">
@@ -66,10 +66,10 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
             <div className="grid grid-cols-1 gap-4">
               <button 
                 onClick={() => { setMode("student"); setDirection(1); setStep(2); }}
-                className="group relative flex items-center gap-4 rounded-xl border border-sys-border bg-sys-card p-5 text-left transition-all hover:border-sys-accent/50 hover:bg-sys-card/80 active:scale-[0.98]"
+                className="group relative flex items-center gap-4 rounded-xl border border-sys-border bg-sys-card p-5 text-left transition-[border-color,background-color,transform] duration-fast ease-smooth hover:border-sys-accent/50 hover:bg-sys-card/80 active:scale-[0.98]"
               >
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-500/10 text-blue-400 group-hover:bg-blue-500/20 transition-colors">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+                  <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
                 </div>
                 <div>
                   <h3 className="font-semibold text-lg text-sys-text-primary">Студент</h3>
@@ -79,10 +79,10 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
               
               <button 
                 onClick={() => { setMode("teacher"); setDirection(1); setStep(2); }}
-                className="group relative flex items-center gap-4 rounded-xl border border-sys-border bg-sys-card p-5 text-left transition-all hover:border-sys-accent/50 hover:bg-sys-card/80 active:scale-[0.98]"
+                className="group relative flex items-center gap-4 rounded-xl border border-sys-border bg-sys-card p-5 text-left transition-[border-color,background-color,transform] duration-fast ease-smooth hover:border-sys-accent/50 hover:bg-sys-card/80 active:scale-[0.98]"
               >
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-400 group-hover:bg-emerald-500/20 transition-colors">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                  <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                 </div>
                 <div>
                   <h3 className="font-semibold text-lg text-sys-text-primary">Викладач</h3>
@@ -99,18 +99,18 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
             initial="enter"
             animate="center"
             exit="exit"
-            className="w-full max-w-md flex flex-col h-[85vh] relative z-10"
+            className="w-full max-w-md flex flex-col h-[85dvh] relative z-10"
           >
              <div className="mb-6">
                 <button onClick={() => { setDirection(-1); setStep(1); setSearch(""); }} className="mb-4 flex items-center gap-2 text-sm text-sys-text-secondary hover:text-sys-text-primary transition-colors">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                  <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
                   Назад
                 </button>
                 <h2 className="text-2xl font-bold text-sys-text-primary mb-2">Оберіть {mode === "student" ? "групу" : "викладача"}</h2>
              </div>
              
-             <div className="relative mb-4 shrink-0">
-               <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-sys-text-secondary" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+             <search className="relative mb-4 shrink-0 block">
+               <svg aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-sys-text-secondary pointer-events-none" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
                <input 
                  autoFocus
                  type="search"
@@ -120,9 +120,9 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
                  onChange={(e) => setSearch(e.target.value)}
                  className="form-control w-full py-3 pl-10 pr-4"
                />
-             </div>
+             </search>
              
-             <div className="flex-1 overflow-y-auto min-h-0 pr-2 space-y-2 custom-scrollbar pb-6">
+             <div className="flex-1 overflow-y-auto overscroll-contain min-h-0 pr-2 space-y-2 custom-scrollbar pb-6">
                 {filtered.map((item) => (
                   <button
                     key={item.id}
@@ -134,7 +134,7 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
                         onComplete(mode, item.id);
                       }
                     }}
-                    className="w-full rounded-lg border border-transparent bg-sys-card/50 p-4 text-left font-medium text-sys-text-primary transition-all hover:border-sys-border hover:bg-sys-card active:scale-[0.98]"
+                    className="w-full rounded-lg border border-transparent bg-sys-card/50 p-4 text-left font-medium text-sys-text-primary transition-[border-color,background-color,transform] duration-fast ease-smooth hover:border-sys-border hover:bg-sys-card active:scale-[0.98]"
                   >
                     {item.name}
                   </button>
@@ -159,13 +159,6 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
           onComplete={(finalGroupId) => onComplete("student", finalGroupId ?? selectedStudentGroupId)}
         />
       )}
-
-      <style dangerouslySetInnerHTML={{__html: `
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #1e2a42; border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #2a3b5a; }
-      `}} />
     </div>
   );
 }

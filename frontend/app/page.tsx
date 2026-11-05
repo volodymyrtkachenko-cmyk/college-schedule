@@ -1037,7 +1037,7 @@ export default function HomePage() {
   const showWelcome = !loading && !isSetupComplete;
 
   return (
-    <main className="min-h-screen bg-transparent pb-6 text-sys-text-primary md:pb-8">
+    <main id="main-content" tabIndex={-1} className="min-h-dvh bg-transparent pb-6 text-sys-text-primary md:pb-8 outline-none">
       <h1 className="sr-only">
         Розклад ДФКР — Розклад занять Дніпровського фахового коледжу радіоелектроніки
       </h1>
@@ -1396,7 +1396,7 @@ export default function HomePage() {
                   aria-label="Попередній тиждень"
                   className="flex h-8 w-8 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg active:scale-90 transition-colors duration-fast ease-smooth shrink-0"
                 >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="m15 18-6-6 6-6" />
                   </svg>
                 </button>
@@ -1411,7 +1411,7 @@ export default function HomePage() {
                   <span className="text-xs sm:text-[13px] font-bold text-sys-text-primary block truncate leading-tight">
                     {compactWeekRange}
                   </span>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-accent opacity-90">
+                  <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-accent opacity-90">
                     <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
                     <line x1="16" y1="2" x2="16" y2="6" />
                     <line x1="8" y1="2" x2="8" y2="6" />
@@ -1425,7 +1425,7 @@ export default function HomePage() {
                   aria-label="Наступний тиждень"
                   className="flex h-8 w-8 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg active:scale-90 transition-colors duration-fast ease-smooth shrink-0"
                 >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="m9 18 6-6-6-6" />
                   </svg>
                 </button>
@@ -1516,6 +1516,9 @@ export default function HomePage() {
           >
             <motion.div
               key="contextModalBox"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="context-modal-title"
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -1523,6 +1526,9 @@ export default function HomePage() {
               className="w-full max-w-md rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >
+              <h2 id="context-modal-title" className="sr-only">
+                Оберіть групу або викладача
+              </h2>
               {/* Header with tabs */}
               <div className="flex items-center justify-between gap-2 pb-3 border-b border-sys-border/60">
                 <div className="flex rounded-xl border border-sys-border bg-sys-bg p-1 flex-1">
@@ -1548,6 +1554,7 @@ export default function HomePage() {
                 <button
                   type="button"
                   onClick={() => setContextModalOpen(false)}
+                  aria-label="Закрити"
                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-sys-border text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg transition-colors"
                 >
                   ✕
@@ -1555,19 +1562,20 @@ export default function HomePage() {
               </div>
 
               {/* Search Input */}
-              <div className="mt-3 relative">
+              <search className="mt-3 relative block">
                 <input
                   ref={searchInputRef}
-                  type="text"
+                  type="search"
+                  aria-label={modalTab === "student" ? "Пошук групи" : "Пошук викладача"}
                   value={modalSearch}
                   onChange={(e) => setModalSearch(e.target.value)}
                   placeholder={modalTab === "student" ? "Пошук групи (наприклад 85)..." : "Пошук викладача..."}
                   className="w-full h-10 rounded-xl border border-sys-border bg-sys-bg px-3.5 text-sm text-sys-text-primary placeholder:text-sys-text-muted focus:border-sys-accent focus:ring-2 focus:ring-sys-accent focus:outline-none"
                 />
-              </div>
+              </search>
 
               {/* List of items */}
-              <div className="mt-3 max-h-72 overflow-y-auto space-y-1 pr-1">
+              <div className="mt-3 max-h-72 overflow-y-auto overscroll-contain custom-scrollbar space-y-1 pr-1">
                 {filteredModalOptions.map((opt) => {
                   const isSelected = modalTab === "student" ? opt.id === groupId : opt.id === teacherId;
                   return (
@@ -2549,6 +2557,9 @@ export default function HomePage() {
           >
             <motion.div
               key="weekTypeContent"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="week-type-sheet-title"
               initial={{ y: "100%" }}
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
@@ -2557,12 +2568,13 @@ export default function HomePage() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between pb-3 border-b border-sys-border/60">
-                <h3 className="text-base font-bold text-sys-text-primary">
+                <h3 id="week-type-sheet-title" className="text-base font-bold text-sys-text-primary">
                   Тип тижня за графіком
                 </h3>
                 <button
                   type="button"
                   onClick={() => setWeekTypeSheetOpen(false)}
+                  aria-label="Закрити"
                   className="flex h-8 w-8 items-center justify-center rounded-xl border border-sys-border text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg transition-colors"
                 >
                   ✕

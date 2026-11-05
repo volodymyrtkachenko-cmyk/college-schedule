@@ -250,7 +250,7 @@ export function ScheduleWeekGrid({
                 }
               }}
               style={{ gridColumn: dIdx + 1 }}
-              className={`flex flex-col justify-center min-h-[64px] px-3.5 py-2.5 rounded-2xl border transition-all duration-fast ease-smooth ${
+              className={`flex flex-col justify-center min-h-[64px] px-3.5 py-2.5 rounded-2xl border transition-[border-color,background-color,opacity] duration-fast ease-smooth ${
                 onSelectDay ? "cursor-pointer hover:border-sys-accent/60" : ""
               } ${
                 isToday
@@ -379,7 +379,7 @@ export function ScheduleWeekGrid({
       </div>
 
       {/* Tablet (640px – 1023px): horizontal scroll with snap-start */}
-      <div className="hidden sm:flex lg:hidden items-start gap-3 overflow-x-auto snap-x snap-mandatory pb-4" style={{ scrollbarWidth: "thin" }}>
+      <div className="hidden sm:flex lg:hidden items-start gap-3 overflow-x-auto overscroll-x-contain custom-scrollbar snap-x snap-mandatory pb-4">
         {weekDaysMeta.map(({ day, slots, firstLessonNum, lastLessonNum, periodMeta }, dIdx) => {
           const isToday = day.date === kyivTodayIso;
           const isPast = day.date < kyivTodayIso;

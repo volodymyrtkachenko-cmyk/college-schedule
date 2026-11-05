@@ -597,6 +597,20 @@ export function StudentGuideModal({ isOnboarding = false, groupId, onClose, onCo
     }
   };
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (isOnboarding && onComplete) {
+          onComplete(activeGroupId);
+        } else {
+          onClose();
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOnboarding, onComplete, onClose, activeGroupId]);
+
   const handleSubgroupSelect = (subgroup: 1 | 2 | null) => {
     setChosenSubgroup(subgroup);
     setDemoSubgroup(subgroup);
@@ -688,16 +702,21 @@ export function StudentGuideModal({ isOnboarding = false, groupId, onClose, onCo
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-2 sm:p-5 backdrop-blur-md overflow-hidden animate-in fade-in duration-150">
-      <div className="relative flex flex-col w-full max-w-4xl h-[92vh] sm:h-[620px] max-h-[720px] rounded-3xl border border-sys-border bg-sys-card text-sys-text-primary shadow-2xl overflow-hidden">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="student-guide-title"
+        className="relative flex flex-col w-full max-w-4xl h-[92dvh] sm:h-[620px] max-h-[720px] rounded-3xl border border-sys-border bg-sys-card text-sys-text-primary shadow-2xl overflow-hidden"
+      >
         
         {/* Top Header */}
         <header className="flex items-center justify-between border-b border-sys-border/50 px-4 sm:px-6 py-3.5 bg-sys-card shrink-0">
           <div className="flex items-center gap-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-sys-accent/15 text-lg shadow-xs">
+            <span aria-hidden="true" className="flex h-9 w-9 items-center justify-center rounded-xl bg-sys-accent/15 text-lg shadow-xs">
               {isOnboarding ? "✨" : "🎓"}
             </span>
             <div>
-              <h2 className="text-sm sm:text-base font-bold leading-tight text-sys-text-primary">
+              <h2 id="student-guide-title" className="text-sm sm:text-base font-bold leading-tight text-sys-text-primary">
                 {isOnboarding ? "Швидке налаштування розкладу" : "Гід студента"}
               </h2>
               <p className="text-[11px] text-sys-text-secondary">
@@ -729,7 +748,7 @@ export function StudentGuideModal({ isOnboarding = false, groupId, onClose, onCo
         </header>
 
         {/* Mobile Horizontal Section Tabs Strip (scrollable) */}
-        <div className="md:hidden flex items-center gap-1.5 overflow-x-auto px-4 py-2 border-b border-sys-border/40 bg-sys-bg/60 shrink-0 no-scrollbar">
+        <div className="md:hidden flex items-center gap-1.5 overflow-x-auto overscroll-x-contain px-4 py-2 border-b border-sys-border/40 bg-sys-bg/60 shrink-0 no-scrollbar">
           {steps.map((step) => {
             const isActive = step.id === effectiveStepId;
             return (
@@ -737,13 +756,13 @@ export function StudentGuideModal({ isOnboarding = false, groupId, onClose, onCo
                 key={step.id}
                 type="button"
                 onClick={() => setActiveStepId(step.id)}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors duration-fast ease-smooth ${
                   isActive
                     ? "bg-sys-accent text-slate-900 shadow-xs font-bold"
                     : "bg-sys-card border border-sys-border text-sys-text-secondary hover:text-sys-text-primary"
                 }`}
               >
-                <span>{step.icon}</span>
+                <span aria-hidden="true">{step.icon}</span>
                 <span>{step.shortTitle}</span>
               </button>
             );
@@ -754,7 +773,7 @@ export function StudentGuideModal({ isOnboarding = false, groupId, onClose, onCo
         <div className="flex-1 flex overflow-hidden min-h-0">
           
           {/* Desktop Left Sidebar: Direct Clickable Sections */}
-          <aside className="hidden md:flex flex-col w-60 border-r border-sys-border/50 bg-sys-bg/40 p-3 space-y-1 shrink-0 overflow-y-auto">
+          <aside className="hidden md:flex flex-col w-60 border-r border-sys-border/50 bg-sys-bg/40 p-3 space-y-1 shrink-0 overflow-y-auto overscroll-contain custom-scrollbar">
             <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-sys-text-muted">
               {isOnboarding ? "Кроки налаштування" : "Розділи гіда"}
             </div>
@@ -765,13 +784,13 @@ export function StudentGuideModal({ isOnboarding = false, groupId, onClose, onCo
                   key={step.id}
                   type="button"
                   onClick={() => setActiveStepId(step.id)}
-                  className={`flex items-center gap-2.5 w-full text-left px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                  className={`flex items-center gap-2.5 w-full text-left px-3 py-2.5 rounded-xl text-xs font-semibold transition-colors duration-fast ease-smooth ${
                     isActive
                       ? "bg-sys-accent/15 text-sys-accent font-bold border border-sys-accent/40 shadow-xs"
                       : "text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-card/70 border border-transparent"
                   }`}
                 >
-                  <span className="text-base shrink-0">{step.icon}</span>
+                  <span aria-hidden="true" className="text-base shrink-0">{step.icon}</span>
                   <span className="truncate">{step.shortTitle}</span>
                 </button>
               );
@@ -782,7 +801,7 @@ export function StudentGuideModal({ isOnboarding = false, groupId, onClose, onCo
           <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
             
             {/* Scrollable Content Area */}
-            <main className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar">
+            <main className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 custom-scrollbar">
               <AnimatePresence initial={false}>
                 
                 {/* STEP: SUBGROUPS */}
@@ -1611,7 +1630,7 @@ export function StudentGuideModal({ isOnboarding = false, groupId, onClose, onCo
             <button
               type="button"
               onClick={handleNext}
-              className="rounded-xl bg-sys-accent px-5 py-2 text-xs sm:text-sm font-bold text-slate-900 hover:opacity-95 active:scale-95 transition-all shadow-md"
+              className="rounded-xl bg-sys-accent px-5 py-2 text-xs sm:text-sm font-bold text-slate-900 hover:opacity-95 active:scale-95 transition-[opacity,transform] duration-fast ease-smooth shadow-md"
             >
               {safeCurrentStep === totalSteps - 1
                 ? (isOnboarding ? "🚀 Перейти до розкладу" : "Зрозуміло ✓")
