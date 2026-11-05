@@ -1034,23 +1034,73 @@ export default function HomePage() {
 
 
 
-  if (!loading && !isSetupComplete) {
-    return <WelcomeScreen groups={groups} teachers={teachers} initialMode={mode} onComplete={(m, id) => {
-        toggleMode(m);
-        if (m === "student") setGroupId(id);
-        else setTeacherId(id);
-        completeSetup();
-    }} />;
-  }
+  const showWelcome = !loading && !isSetupComplete;
 
   return (
     <main className="min-h-screen bg-transparent pb-6 text-sys-text-primary md:pb-8">
       <h1 className="sr-only">
-        Розклад занять Дніпровського фахового коледжу радіоелектроніки (ДФКР)
+        Розклад занять ДФКР (КРЕ) — Дніпровський фаховий коледж радіоелектроніки
       </h1>
-      <SplashScreen isLoading={loading} />
-      <OfflineIndicator isSlowNetwork={isSlowNetwork} isUsingFallbackCache={isUsingFallbackCache} />
-      <InstallPrompt />
+
+      <section aria-label="Інформація про електронний розклад ДФКР (КРЕ)" className="sr-only">
+        <h2>Електронний розклад занять для студентів та викладачів ДФКР (КРЕ, ДКРЕ)</h2>
+        <p>
+          Актуальний онлайн-розклад занять Дніпровського фахового коледжу радіоелектроніки (ДФКР, КРЕ, ДКРЕ, kre.dp.ua)
+          на сьогодні та на тиждень (чисельник і знаменник) для всіх навчальних груп 1–4 курсів та викладачів коледжу.
+          Веб-застосунок підтримує відстеження поточної живої пари в реальному часі, номери аудиторій, посилання на
+          онлайн-заняття Google Meet і Zoom, а також автоматичну синхронізацію домашніх завдань та оцінок із Google Classroom.
+        </p>
+
+        <h2>Розклад дзвінків ДФКР (КРЕ)</h2>
+        <ul>
+          <li>1 пара: 09:00 – 10:20 (перерва 20 хвилин)</li>
+          <li>2 пара: 10:40 – 12:00 (велика перерва 30 хвилин)</li>
+          <li>3 пара: 12:30 – 13:50 (перерва 10 хвилин)</li>
+          <li>4 пара: 14:00 – 15:20</li>
+          <li>Скорочені дні: початок о 09:00, тривалість кожної пари 50 хвилин, перерви по 10 хвилин.</li>
+        </ul>
+
+        {groups.length > 0 && (
+          <div>
+            <h2>Навчальні групи ДФКР</h2>
+            <p>Розклад занять для груп: {groups.map((g) => g.name).join(", ")}.</p>
+          </div>
+        )}
+
+        {teachers.length > 0 && (
+          <div>
+            <h2>Викладачі ДФКР</h2>
+            <p>Розклад викладачів коледжу: {teachers.map((t) => t.name).join(", ")}.</p>
+          </div>
+        )}
+
+        <nav aria-label="Розділи розкладу ДФКР">
+          <ul>
+            <li><a href="/">Розклад занять ДФКР на сьогодні та тиждень</a></li>
+            <li><a href="/educational-process">Графік освітнього процесу ДФКР (семестри, сесії, практики, канікули)</a></li>
+            <li><a href="/statistics">Статистика занять та навчального навантаження викладачів ДФКР</a></li>
+            <li><a href="https://kre.dp.ua/" rel="noopener noreferrer">Офіційний сайт Дніпровського фахового коледжу радіоелектроніки (kre.dp.ua)</a></li>
+          </ul>
+        </nav>
+      </section>
+
+      {showWelcome ? (
+        <WelcomeScreen
+          groups={groups}
+          teachers={teachers}
+          initialMode={mode}
+          onComplete={(m, id) => {
+            toggleMode(m);
+            if (m === "student") setGroupId(id);
+            else setTeacherId(id);
+            completeSetup();
+          }}
+        />
+      ) : (
+        <>
+          <SplashScreen isLoading={loading} />
+          <OfflineIndicator isSlowNetwork={isSlowNetwork} isUsingFallbackCache={isUsingFallbackCache} />
+          <InstallPrompt />
 
       {/* Desktop Toolbar (>= 1024px) */}
       <header className="sticky top-0 z-40 hidden lg:block h-14 border-b border-sys-border bg-sys-card/90 backdrop-blur-md">
@@ -2582,6 +2632,8 @@ export default function HomePage() {
         semesterStartIso={semesterStart}
         onSelectDate={handleDatePickerSelect}
       />
+        </>
+      )}
     </main>
   );
 }

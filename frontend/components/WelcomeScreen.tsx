@@ -57,7 +57,7 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
               <div className="mx-auto w-16 h-16 rounded-2xl bg-sys-card border border-sys-border flex items-center justify-center mb-6 shadow-lg shadow-sys-bg">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-sys-accent"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"></path></svg>
               </div>
-              <h1 className="text-3xl font-bold tracking-tight text-sys-text-primary">Вітаємо в ДФКР</h1>
+              <h2 className="text-3xl font-bold tracking-tight text-sys-text-primary">Вітаємо в ДФКР</h2>
               <p className="text-sys-text-secondary text-lg">Оберіть, для кого показувати розклад.</p>
             </div>
             
