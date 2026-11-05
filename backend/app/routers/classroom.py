@@ -3,7 +3,7 @@ import logging
 import re
 import traceback
 from datetime import date, datetime, timedelta, timezone
-from typing import Optional
+from typing import Any, Optional
 from zoneinfo import ZoneInfo
 
 import httpx
@@ -863,6 +863,10 @@ async def _refresh_google_token(refresh_token: str) -> Optional[str]:
 
 
 MAX_ACCOUNTS_PER_CYCLE = 2
+CACHE_TTL_TEACHERS_TOPICS = 12 * 3600  # 12 годин TTL для статичних метаданих курсів (викладачі та теми)
+_last_students_synced_at: dict[int, datetime] = {}
+_course_teachers_cache: dict[str, tuple[float, Any]] = {}
+_course_topics_cache: dict[str, tuple[float, Any]] = {}
 
 
 async def perform_course_sync(
@@ -875,6 +879,7 @@ async def perform_course_sync(
     skip_course_ids: Optional[set[str]] = None,
     prefetched_user_email: Optional[str] = None,
     prefetched_google_user_id: Optional[str] = None,
+    force: bool = False,
 ) -> dict:
     headers = {"Authorization": f"Bearer {access_token}"}
     synced_links = 0
@@ -1053,141 +1058,181 @@ async def perform_course_sync(
         if not relevant_courses and not skipped_ids:
             relevant_courses = target_group_courses
 
-        # 1. Синхронізація списку студентів
-        students_by_user_id: dict[str, dict] = {}
-        for gc in target_group_courses:
-            c_id = gc.get("id")
-            if not c_id:
-                continue
-            try:
-                page_token = None
-                while True:
-                    params = {"pageSize": 100}
-                    if page_token:
-                        params["pageToken"] = page_token
-                    s_resp = await client.get(
-                        f"https://classroom.googleapis.com/v1/courses/{c_id}/students",
-                        params=params,
-                        headers=headers,
-                    )
-                    if s_resp.status_code != 200:
-                        break
-                    s_data = s_resp.json()
-                    for s_item in s_data.get("students", []):
-                        uid = (s_item.get("userId") or "").strip()
-                        prof = s_item.get("profile", {})
-                        s_name = prof.get("name", {}).get("fullName", "").strip()
-                        if not s_name or not uid:
-                            continue
-                        photo = prof.get("photoUrl")
-                        if photo and photo.startswith("//"):
-                            photo = f"https:{photo}"
-                        email = (prof.get("emailAddress") or "").strip()
+        # 1. Розумна синхронізація списку студентів (1 раз на добу або при force=True)
+        now_utc = datetime.now(timezone.utc)
+        last_stud_sync = _last_students_synced_at.get(group.id)
+        should_sync_students = (
+            force
+            or (last_stud_sync is None)
+            or ((now_utc - last_stud_sync).total_seconds() >= 24 * 3600)
+        )
 
-                        if uid not in students_by_user_id:
-                            students_by_user_id[uid] = {
-                                "classroom_user_id": uid[:64],
-                                "full_name": s_name[:150],
-                                "email": email[:150] or None,
-                                "photo_url": photo[:500] if photo else None,
-                            }
-                        else:
-                            if not students_by_user_id[uid]["email"] and email:
-                                students_by_user_id[uid]["email"] = email[:150]
-                            if not students_by_user_id[uid]["photo_url"] and photo:
-                                students_by_user_id[uid]["photo_url"] = photo[:500]
-
-                    page_token = s_data.get("nextPageToken")
-                    if not page_token:
-                        break
-            except Exception as e:
-                logger.warning(f"Could not sync students for course {c_id}: {_sanitize_error_msg(str(e))}")
-
-        # Пошук одногрупників через Google People Directory API (@kre.dp.ua)
-        if target_group_courses:
-            try:
-                search_queries = [group.name]
-                for gc in target_group_courses:
-                    c_name = (gc.get("name") or "").strip()
-                    if c_name and c_name not in search_queries:
-                        search_queries.append(c_name)
-
-                for sq in search_queries[:2]:
-                    people_resp = await client.get(
-                        "https://people.googleapis.com/v1/people:searchDirectoryPeople",
-                        params={
-                            "query": sq,
-                            "readMask": "names,emailAddresses,photos,organizations",
-                            "sources": ["DIRECTORY_SOURCE_TYPE_DOMAIN_PROFILE"],
-                            "pageSize": 100,
-                        },
-                        headers=headers,
-                    )
-                    if people_resp.status_code == 200:
-                        for person in people_resp.json().get("people", []):
-                            names = person.get("names", [])
-                            full_name = names[0].get("displayName", "").strip() if names else ""
-                            emails = person.get("emailAddresses", [])
-                            email = emails[0].get("value", "").strip() if emails else ""
-                            photos = person.get("photos", [])
-                            photo = photos[0].get("url") if photos else None
-
-                            if not full_name:
+        if should_sync_students:
+            students_by_user_id: dict[str, dict] = {}
+            for gc in target_group_courses:
+                c_id = gc.get("id")
+                if not c_id:
+                    continue
+                try:
+                    page_token = None
+                    while True:
+                        params = {"pageSize": 100}
+                        if page_token:
+                            params["pageToken"] = page_token
+                        s_resp = await client.get(
+                            f"https://classroom.googleapis.com/v1/courses/{c_id}/students",
+                            params=params,
+                            headers=headers,
+                        )
+                        if s_resp.status_code != 200:
+                            break
+                        s_data = s_resp.json()
+                        for s_item in s_data.get("students", []):
+                            uid = (s_item.get("userId") or "").strip()
+                            prof = s_item.get("profile", {})
+                            s_name = prof.get("name", {}).get("fullName", "").strip()
+                            if not s_name or not uid:
                                 continue
+                            photo = prof.get("photoUrl")
+                            if photo and photo.startswith("//"):
+                                photo = f"https:{photo}"
+                            email = (prof.get("emailAddress") or "").strip()
 
-                            p_uid = f"dir_{abs(hash(email or full_name)) % (10**12)}"
-                            if p_uid not in students_by_user_id:
-                                students_by_user_id[p_uid] = {
-                                    "classroom_user_id": p_uid[:64],
-                                    "full_name": full_name[:150],
+                            if uid not in students_by_user_id:
+                                students_by_user_id[uid] = {
+                                    "classroom_user_id": uid[:64],
+                                    "full_name": s_name[:150],
                                     "email": email[:150] or None,
                                     "photo_url": photo[:500] if photo else None,
                                 }
-            except Exception as e:
-                logger.warning(f"People API directory search skipped: {_sanitize_error_msg(str(e))}")
+                            else:
+                                if not students_by_user_id[uid]["email"] and email:
+                                    students_by_user_id[uid]["email"] = email[:150]
+                                if not students_by_user_id[uid]["photo_url"] and photo:
+                                    students_by_user_id[uid]["photo_url"] = photo[:500]
 
-        existing_students = (
-            await db.scalars(
-                select(GroupStudent).where(GroupStudent.group_id == group.id)
-            )
-        ).all()
-        existing_by_uid = {s.classroom_user_id: s for s in existing_students if s.classroom_user_id}
-        existing_by_name = {_norm(s.full_name): s for s in existing_students}
+                        page_token = s_data.get("nextPageToken")
+                        if not page_token:
+                            break
+                except Exception as e:
+                    logger.warning(f"Could not sync students for course {c_id}: {_sanitize_error_msg(str(e))}")
 
-        for uid, s_info in students_by_user_id.items():
-            norm_name = _norm(s_info["full_name"])
-            target_row = existing_by_uid.get(uid) or existing_by_name.get(norm_name)
-            if target_row:
-                if uid and not target_row.classroom_user_id.startswith("manual_"):
-                    target_row.classroom_user_id = uid
-                target_row.full_name = s_info["full_name"]
-                if s_info["email"]:
-                    target_row.email = s_info["email"]
-                if s_info["photo_url"]:
-                    target_row.photo_url = s_info["photo_url"]
-            else:
-                db.add(
-                    GroupStudent(
-                        group_id=group.id,
-                        classroom_user_id=s_info["classroom_user_id"],
-                        full_name=s_info["full_name"],
-                        email=s_info["email"],
-                        photo_url=s_info["photo_url"],
-                    )
+            # Пошук одногрупників через Google People Directory API (@kre.dp.ua)
+            if target_group_courses:
+                try:
+                    search_queries = [group.name]
+                    for gc in target_group_courses:
+                        c_name = (gc.get("name") or "").strip()
+                        if c_name and c_name not in search_queries:
+                            search_queries.append(c_name)
+
+                    for sq in search_queries[:2]:
+                        people_resp = await client.get(
+                            "https://people.googleapis.com/v1/people:searchDirectoryPeople",
+                            params={
+                                "query": sq,
+                                "readMask": "names,emailAddresses,photos,organizations",
+                                "sources": ["DIRECTORY_SOURCE_TYPE_DOMAIN_PROFILE"],
+                                "pageSize": 100,
+                            },
+                            headers=headers,
+                        )
+                        if people_resp.status_code == 200:
+                            for person in people_resp.json().get("people", []):
+                                names = person.get("names", [])
+                                full_name = names[0].get("displayName", "").strip() if names else ""
+                                emails = person.get("emailAddresses", [])
+                                email = emails[0].get("value", "").strip() if emails else ""
+                                photos = person.get("photos", [])
+                                photo = photos[0].get("url") if photos else None
+
+                                if not full_name:
+                                    continue
+
+                                p_uid = f"dir_{abs(hash(email or full_name)) % (10**12)}"
+                                if p_uid not in students_by_user_id:
+                                    students_by_user_id[p_uid] = {
+                                        "classroom_user_id": p_uid[:64],
+                                        "full_name": full_name[:150],
+                                        "email": email[:150] or None,
+                                        "photo_url": photo[:500] if photo else None,
+                                    }
+                except Exception as e:
+                    logger.warning(f"People API directory search skipped: {_sanitize_error_msg(str(e))}")
+
+            existing_students = (
+                await db.scalars(
+                    select(GroupStudent).where(GroupStudent.group_id == group.id)
                 )
-                synced_students += 1
-        await db.flush()
+            ).all()
+            existing_by_uid = {s.classroom_user_id: s for s in existing_students if s.classroom_user_id}
+            existing_by_name = {_norm(s.full_name): s for s in existing_students}
 
-        # 2. ПАРАЛЕЛЬНЕ сканування курсів (прискорює синхронізацію в 5-6 разів)
+            for uid, s_info in students_by_user_id.items():
+                norm_name = _norm(s_info["full_name"])
+                target_row = existing_by_uid.get(uid) or existing_by_name.get(norm_name)
+                if target_row:
+                    if uid and not target_row.classroom_user_id.startswith("manual_"):
+                        target_row.classroom_user_id = uid
+                    target_row.full_name = s_info["full_name"]
+                    if s_info["email"]:
+                        target_row.email = s_info["email"]
+                    if s_info["photo_url"]:
+                        target_row.photo_url = s_info["photo_url"]
+                else:
+                    db.add(
+                        GroupStudent(
+                            group_id=group.id,
+                            classroom_user_id=s_info["classroom_user_id"],
+                            full_name=s_info["full_name"],
+                            email=s_info["email"],
+                            photo_url=s_info["photo_url"],
+                        )
+                    )
+                    synced_students += 1
+            await db.flush()
+            _last_students_synced_at[group.id] = now_utc
+        else:
+            logger.debug(
+                "Classroom sync group_id=%s: skipping students sync (already synced within 24h at %s)",
+                group.id,
+                last_stud_sync.isoformat() if last_stud_sync else None,
+            )
+
+        # 2. ПАРАЛЕЛЬНЕ сканування курсів з кешуванням статичних teachers та topics (TTL 12 годин)
         sem = asyncio.Semaphore(4)
+        now_mono = _time.monotonic()
 
         async def fetch_course_bundle(course: dict):
             c_id = course["id"]
             async with sem:
-                t_task = client.get(
-                    f"https://classroom.googleapis.com/v1/courses/{c_id}/teachers",
-                    headers=headers,
-                )
+                async def _get_teachers():
+                    if not force and c_id in _course_teachers_cache:
+                        ts, resp = _course_teachers_cache[c_id]
+                        if now_mono - ts < CACHE_TTL_TEACHERS_TOPICS:
+                            return resp
+                    resp = await client.get(
+                        f"https://classroom.googleapis.com/v1/courses/{c_id}/teachers",
+                        headers=headers,
+                    )
+                    if getattr(resp, "status_code", 0) == 200:
+                        _course_teachers_cache[c_id] = (now_mono, resp)
+                    return resp
+
+                async def _get_topics():
+                    if not force and c_id in _course_topics_cache:
+                        ts, resp = _course_topics_cache[c_id]
+                        if now_mono - ts < CACHE_TTL_TEACHERS_TOPICS:
+                            return resp
+                    resp = await client.get(
+                        f"https://classroom.googleapis.com/v1/courses/{c_id}/topics",
+                        params={"pageSize": 50},
+                        headers=headers,
+                    )
+                    if getattr(resp, "status_code", 0) == 200:
+                        _course_topics_cache[c_id] = (now_mono, resp)
+                    return resp
+
                 a_task = client.get(
                     f"https://classroom.googleapis.com/v1/courses/{c_id}/announcements",
                     params={"pageSize": 100},
@@ -1196,11 +1241,6 @@ async def perform_course_sync(
                 cw_task = client.get(
                     f"https://classroom.googleapis.com/v1/courses/{c_id}/courseWork",
                     params={"pageSize": 100},
-                    headers=headers,
-                )
-                top_task = client.get(
-                    f"https://classroom.googleapis.com/v1/courses/{c_id}/topics",
-                    params={"pageSize": 50},
                     headers=headers,
                 )
                 mat_task = client.get(
@@ -1213,7 +1253,9 @@ async def perform_course_sync(
                     params={"userId": "me", "pageSize": 100},
                     headers=headers,
                 )
-                return course, await asyncio.gather(t_task, a_task, cw_task, top_task, mat_task, sub_task, return_exceptions=True)
+                return course, await asyncio.gather(
+                    _get_teachers(), a_task, cw_task, _get_topics(), mat_task, sub_task, return_exceptions=True
+                )
 
         bundles = await asyncio.gather(*(fetch_course_bundle(c) for c in relevant_courses[:30]))
 
@@ -2230,6 +2272,7 @@ async def sync_from_classroom(
             week_start=payload.week_start,
             prefetched_user_email=profile_email,
             prefetched_google_user_id=google_user_id,
+            force=True,
         )
 
         effective_user_id = (
@@ -2422,15 +2465,77 @@ _latest_scope_missing: dict[int, bool] = {}
 _SYNC_LOCK_GROUPS: set[int] = set()
 
 # Classroom background synchronization timings:
-# Sync loop cycle: settings.classroom_sync_interval_minutes (default 10 min)
-# Min sync gap: slightly less than the loop cycle (e.g. 510s for 10m) to allow reliable periodic
-# runs without skipping due to sleep/execution jitter, while preventing duplicate spam.
-def _get_classroom_sync_interval_seconds() -> int:
+# Adaptive scheduling aligns with college classes (09:00 - 15:30):
+# - Peak classes & prep (Mon-Fri 08:30 - 16:00): 10 min
+# - Post-class homework (Mon-Fri 16:00 - 21:30): 35 min
+# - Late evening (Mon-Fri 21:30 - 23:30): 60 min
+# - Night sleep (daily 23:30 - 08:30): sleep until 08:30 morning
+# - Weekend day (Sat-Sun 10:00 - 20:00): 90 min
+# - Weekend night (Sat-Sun 20:00 - 10:00): sleep mode
+def get_adaptive_classroom_sync_interval_seconds(now_kyiv: Optional[datetime] = None) -> int:
+    """
+    Розраховує адаптивний інтервал фонової автосинхронізації Classroom на основі реального графіку пар:
+    - Будні (Пн-Пт) 08:30–16:00 (підготовка та розпал пар 09:00–15:30): 10 хвилин (600 с або settings.classroom_sync_interval_minutes)
+    - Будні (Пн-Пт) 16:00–21:30 (після пар / виконання ДЗ): 35 хвилин (2100 с)
+    - Будні (Пн-Пт) 21:30–23:30 (пізній вечір): 60 хвилин (3600 с)
+    - Щодня 23:30–08:30 (нічний сон коледжу): сон до 08:30 ранку (до 4 годин за цикл)
+    - Вихідні (Сб-Нд) 10:00–20:00 (денний економ-режим): 90 хвилин (5400 с)
+    - Вихідні (Сб-Нд) 20:00–10:00 (ніч на вихідних): сон до ранку (до 4 годин за цикл)
+    """
+    if now_kyiv is None:
+        now_kyiv = datetime.now(KYIV_TZ)
+
+    weekday = now_kyiv.weekday()  # 0=Monday .. 4=Friday, 5=Saturday, 6=Sunday
+    is_weekend = weekday in (5, 6)
+    total_minutes = now_kyiv.hour * 60 + now_kyiv.minute
+
+    if is_weekend:
+        # Вихідні дні (Сб-Нд)
+        if 10 * 60 <= total_minutes < 20 * 60:
+            return 90 * 60  # 1.5 години
+
+        # Ніч на вихідних: до 10:00 (у суботу/неділю) або до 08:30 понеділка
+        target_hour = 8 if (weekday == 6 and total_minutes >= 20 * 60) else 10
+        target_minute = 30 if target_hour == 8 else 0
+        target = now_kyiv.replace(hour=target_hour, minute=target_minute, second=0, microsecond=0)
+        if total_minutes >= 20 * 60:
+            target += timedelta(days=1)
+        secs = int((target - now_kyiv).total_seconds())
+        return max(600, min(secs, 4 * 3600))
+
+    # Будні дні (Пн-Пт)
+    # 1. Підготовка та розпал занять (пари йдуть 09:00–15:30): 08:30 - 16:00
+    if 8 * 60 + 30 <= total_minutes < 16 * 60:
+        base_mins = getattr(settings, "classroom_sync_interval_minutes", 10) or 10
+        return max(300, base_mins * 60)
+
+    # 2. Після занять (виконання ДЗ студентами): 16:00 - 21:30
+    if 16 * 60 <= total_minutes < 21 * 60 + 30:
+        return 35 * 60
+
+    # 3. Пізній вечір: 21:30 - 23:30
+    if 21 * 60 + 30 <= total_minutes < 23 * 60 + 30:
+        return 60 * 60
+
+    # 4. Нічний час: 23:30 - 08:30 (коледж спить)
+    target_morning = now_kyiv.replace(hour=8, minute=30, second=0, microsecond=0)
+    if total_minutes >= 23 * 60 + 30:
+        target_morning += timedelta(days=1)
+    secs = int((target_morning - now_kyiv).total_seconds())
+    return max(600, min(secs, 4 * 3600))
+
+
+def _get_classroom_sync_interval_seconds(now_kyiv: Optional[datetime] = None) -> int:
+    """Повертає адаптивний інтервал синхронізації Classroom.
+    Якщо now_kyiv не передано, повертає базовий налаштований інтервал (для сумісності з тестами)."""
+    if now_kyiv is not None:
+        return get_adaptive_classroom_sync_interval_seconds(now_kyiv)
     return getattr(settings, "classroom_sync_interval_minutes", 10) * 60
 
 
-def _get_classroom_min_sync_gap_seconds() -> float:
-    return max(120.0, _get_classroom_sync_interval_seconds() - 90.0)
+def _get_classroom_min_sync_gap_seconds(now_kyiv: Optional[datetime] = None) -> float:
+    interval = _get_classroom_sync_interval_seconds(now_kyiv)
+    return max(120.0, float(interval) - 90.0)
 
 
 _last_request_trigger: dict[int, float] = {}
@@ -2443,7 +2548,8 @@ def should_trigger_background_sync(group_id: Optional[int]) -> bool:
     now_mono = _time.monotonic()
     if now_mono < _sync_backoff_state.get(group_id, (0, 0.0))[1]:
         return False
-    min_gap = _get_classroom_min_sync_gap_seconds()
+    now_kyiv = datetime.now(KYIV_TZ)
+    min_gap = _get_classroom_min_sync_gap_seconds(now_kyiv)
     if now_mono - _last_request_trigger.get(group_id, -min_gap) < min_gap:
         return False
     _last_request_trigger[group_id] = now_mono
@@ -2537,7 +2643,8 @@ async def trigger_background_sync_if_needed(
             oldest = active_creds[0]
             if not force and oldest.last_synced_at is not None:
                 oldest_ts = oldest.last_synced_at if oldest.last_synced_at.tzinfo else oldest.last_synced_at.replace(tzinfo=timezone.utc)
-                min_gap = _get_classroom_min_sync_gap_seconds()
+                now_kyiv = now.astimezone(KYIV_TZ)
+                min_gap = _get_classroom_min_sync_gap_seconds(now_kyiv)
                 if (now - oldest_ts).total_seconds() < min_gap:
                     logger.debug(
                         "Classroom sync group_id=%s skipped: last synced %.0fs ago (min gap %.0fs)",
@@ -2623,6 +2730,7 @@ async def trigger_background_sync_if_needed(
                     fresh_token,
                     group_course_id=binding.course_id if binding else None,
                     skip_course_ids=seen_course_ids,
+                    force=force,
                 )
                 for cid in sync_res.get("deduplicable_course_ids", sync_res.get("synced_course_ids", [])):
                     seen_course_ids.add(str(cid))
@@ -2657,7 +2765,8 @@ async def trigger_background_sync_if_needed(
 
         if not force and binding.last_synced_at:
             b_ts = binding.last_synced_at if binding.last_synced_at.tzinfo else binding.last_synced_at.replace(tzinfo=timezone.utc)
-            min_gap = _get_classroom_min_sync_gap_seconds()
+            now_kyiv = now.astimezone(KYIV_TZ)
+            min_gap = _get_classroom_min_sync_gap_seconds(now_kyiv)
             if (now - b_ts).total_seconds() < min_gap:
                 logger.debug(
                     "Classroom sync group_id=%s legacy skipped: last synced %.0fs ago (min gap %.0fs)",
@@ -2718,6 +2827,7 @@ async def trigger_background_sync_if_needed(
             courses,
             token,
             group_course_id=binding.course_id,
+            force=force,
         )
         await db.commit()
         logger.info("Classroom sync group_id=%s legacy binding synced courses=%d", group_id, len(courses))
@@ -3193,12 +3303,14 @@ async def sync_all_connected_groups_once(force: bool = False) -> dict:
 
 
 async def classroom_auto_sync_loop() -> None:
-    """Нескінченний фоновий цикл: автоматично парсить Classroom за налаштованим інтервалом (кожні 10 хвилин)."""
-    interval_seconds = _get_classroom_sync_interval_seconds()
+    """Нескінченний фоновий цикл: розумно парсить Classroom за адаптивним інтервалом (під час пар 09:00–15:30 — кожні 10 хв, вечір — 35 хв, ніч — глибокий сон)."""
+    now_k = datetime.now(KYIV_TZ)
+    interval_seconds = _get_classroom_sync_interval_seconds(now_k)
     logger.info(
-        "Classroom auto-sync worker started; interval=%ds (%d min), first cycle in 45 seconds",
+        "Classroom smart auto-sync worker started; adaptive interval=%ds (%.1f min) [Kyiv time: %s], first cycle in 45 seconds",
         interval_seconds,
-        interval_seconds // 60,
+        interval_seconds / 60.0,
+        now_k.strftime("%H:%M"),
     )
     await asyncio.sleep(45)  # Перший запуск через 45 секунд після старту сервера (після стартового автоімпорту розкладу)
     first_cycle = True
@@ -3210,7 +3322,14 @@ async def classroom_auto_sync_loop() -> None:
             break
         except Exception as e:
             logger.error(f"Classroom auto-sync loop error: {_sanitize_error_msg(str(e))}")
-        interval_seconds = _get_classroom_sync_interval_seconds()
+        now_k = datetime.now(KYIV_TZ)
+        interval_seconds = _get_classroom_sync_interval_seconds(now_k)
+        logger.info(
+            "Classroom smart auto-sync sleeping for %ds (%.1f min) until next cycle [Kyiv time: %s]",
+            interval_seconds,
+            interval_seconds / 60.0,
+            now_k.strftime("%H:%M"),
+        )
         await asyncio.sleep(interval_seconds)
 
 

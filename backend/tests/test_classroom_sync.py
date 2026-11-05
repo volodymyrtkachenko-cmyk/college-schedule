@@ -1525,3 +1525,149 @@ async def test_classroom_sync_interval_and_gap_allows_10_min_cycles(classroom_db
             mock_perform.assert_not_called()
 
 
+@pytest.mark.anyio
+async def test_adaptive_classroom_sync_timings():
+    """Перевіряє коректність адаптивних інтервалів синхронізації під розклад занять (09:00 - 15:30)."""
+    from zoneinfo import ZoneInfo
+    from app.routers.classroom import (
+        KYIV_TZ,
+        get_adaptive_classroom_sync_interval_seconds,
+        _get_classroom_sync_interval_seconds,
+        _get_classroom_min_sync_gap_seconds,
+    )
+
+    # 1. Розпал пар та підготовка (будні 08:30 - 16:00) -> 600 секунд (10 хвилин)
+    wed_prep = datetime(2026, 11, 4, 8, 30, tzinfo=KYIV_TZ)
+    assert get_adaptive_classroom_sync_interval_seconds(wed_prep) == 600
+    assert _get_classroom_sync_interval_seconds(wed_prep) == 600
+    assert _get_classroom_min_sync_gap_seconds(wed_prep) == 510.0
+
+    wed_midday = datetime(2026, 11, 4, 12, 0, tzinfo=KYIV_TZ)
+    assert get_adaptive_classroom_sync_interval_seconds(wed_midday) == 600
+
+    fri_last_pair = datetime(2026, 11, 6, 15, 20, tzinfo=KYIV_TZ)
+    assert get_adaptive_classroom_sync_interval_seconds(fri_last_pair) == 600
+
+    # 2. Після занять (будні 16:00 - 21:30) -> 2100 секунд (35 хвилин)
+    tue_evening = datetime(2026, 11, 3, 17, 30, tzinfo=KYIV_TZ)
+    assert get_adaptive_classroom_sync_interval_seconds(tue_evening) == 2100
+    assert _get_classroom_min_sync_gap_seconds(tue_evening) == 2010.0
+
+    # 3. Пізній вечір (будні 21:30 - 23:30) -> 3600 секунд (60 хвилин)
+    thu_late = datetime(2026, 11, 5, 22, 0, tzinfo=KYIV_TZ)
+    assert get_adaptive_classroom_sync_interval_seconds(thu_late) == 3600
+
+    # 4. Нічний сон (будні 23:30 - 08:30) -> сон до 08:30
+    wed_night = datetime(2026, 11, 4, 23, 45, tzinfo=KYIV_TZ)
+    assert get_adaptive_classroom_sync_interval_seconds(wed_night) == 14400  # clamp 4 години
+
+    thu_early = datetime(2026, 11, 5, 5, 0, tzinfo=KYIV_TZ)
+    # З 05:00 до 08:30 рівно 3.5 години (12600 секунд)
+    assert get_adaptive_classroom_sync_interval_seconds(thu_early) == 12600
+
+    thu_morning_30m = datetime(2026, 11, 5, 8, 0, tzinfo=KYIV_TZ)
+    # З 08:00 до 08:30 рівно 30 хвилин (1800 секунд)
+    assert get_adaptive_classroom_sync_interval_seconds(thu_morning_30m) == 1800
+
+    # 5. Вихідні дні (Сб-Нд)
+    sat_day = datetime(2026, 11, 7, 14, 0, tzinfo=KYIV_TZ)
+    assert get_adaptive_classroom_sync_interval_seconds(sat_day) == 5400  # 90 хвилин
+
+    sun_night = datetime(2026, 11, 8, 23, 0, tzinfo=KYIV_TZ)
+    # У неділю о 23:00 сон до ранку понеділка 08:30 (clamp 4 год = 14400 с)
+    assert get_adaptive_classroom_sync_interval_seconds(sun_night) == 14400
+
+
+@pytest.mark.anyio
+async def test_students_sync_throttling_and_caching(classroom_db):
+    """Перевіряє, що список студентів оновлюється раз на добу, а викладачі та теми кешуються на 12 годин."""
+    from app.models import Group, GroupStudent
+    from app.routers import classroom as classroom_router
+    from unittest.mock import patch, MagicMock
+
+    client, state = classroom_db
+    group_id = state["group_id"]
+
+    # Очищуємо кеші перед тестом
+    classroom_router._last_students_synced_at.clear()
+    classroom_router._course_teachers_cache.clear()
+    classroom_router._course_topics_cache.clear()
+
+    course_obj = {
+        "id": "course_cache_test_101",
+        "name": "Група 85 Тестова Дисципліна",
+        "section": "1 підгрупа",
+    }
+
+    students_api_calls = 0
+    teachers_api_calls = 0
+    topics_api_calls = 0
+
+    def mock_transport_handler(request: httpx.Request):
+        nonlocal students_api_calls, teachers_api_calls, topics_api_calls
+        url = str(request.url)
+        if "/students" in url:
+            students_api_calls += 1
+            return httpx.Response(200, json={
+                "students": [
+                    {"userId": "user_s1", "profile": {"name": {"fullName": "Студент Тестовий 1"}}}
+                ]
+            })
+        if "/teachers" in url:
+            teachers_api_calls += 1
+            return httpx.Response(200, json={
+                "teachers": [
+                    {"userId": "teacher_t1", "profile": {"name": {"fullName": "Викладач 1"}}}
+                ]
+            })
+        if "/topics" in url:
+            topics_api_calls += 1
+            return httpx.Response(200, json={
+                "topic": [{"topicId": "top_1", "name": "Тема 1"}]
+            })
+        if "/announcements" in url:
+            return httpx.Response(200, json={"announcements": []})
+        if "/courseWorkMaterials" in url:
+            return httpx.Response(200, json={"courseWorkMaterial": []})
+        if "/studentSubmissions" in url:
+            return httpx.Response(200, json={"studentSubmissions": []})
+        if "/courseWork" in url:
+            return httpx.Response(200, json={"courseWork": []})
+        return httpx.Response(404, json={})
+
+    transport = httpx.MockTransport(mock_transport_handler)
+    real_async_client = httpx.AsyncClient
+
+    def mocked_client(*args, **kwargs):
+        kwargs["transport"] = transport
+        return real_async_client(*args, **kwargs)
+
+    with patch("app.routers.classroom.httpx.AsyncClient", side_effect=mocked_client):
+        async with state["sessions"]() as db:
+            grp = await db.get(Group, group_id)
+            # 1-й виклик: кеші порожні -> робимо запити до students, teachers, topics
+            res1 = await classroom_router.perform_course_sync(
+                db, grp, [course_obj], "dummy_tok", force=False
+            )
+            assert students_api_calls == 1
+            assert teachers_api_calls == 1
+            assert topics_api_calls == 1
+
+            # 2-й виклик одразу: force=False -> students, teachers, topics НЕ повинні викликатися!
+            res2 = await classroom_router.perform_course_sync(
+                db, grp, [course_obj], "dummy_tok", force=False
+            )
+            assert students_api_calls == 1  # не збільшилося!
+            assert teachers_api_calls == 1  # використано кеш!
+            assert topics_api_calls == 1    # використано кеш!
+
+            # 3-й виклик з force=True -> обхід кешів
+            res3 = await classroom_router.perform_course_sync(
+                db, grp, [course_obj], "dummy_tok", force=True
+            )
+            assert students_api_calls == 2  # оновлено примусово!
+            assert teachers_api_calls == 2  # оновлено примусово!
+            assert topics_api_calls == 2    # оновлено примусово!
+
+
+
