@@ -40,6 +40,10 @@ def get_google_client_id() -> str:
     return (settings.google_client_id or "").strip() or DEFAULT_GOOGLE_CLIENT_ID
 
 
+def get_google_client_secret() -> str:
+    return (settings.google_client_secret or "").strip()
+
+
 URL_RE = re.compile(
     r"https?://(?:meet\.google\.com|[a-z0-9.-]*zoom\.us)/[^\s<>\"')|]+",
     re.IGNORECASE,
@@ -824,7 +828,8 @@ async def _refresh_google_token_detailed(refresh_token: str) -> tuple[Optional[s
     client_id = get_google_client_id()
     if not client_id:
         return None, "missing_client_id", 400
-    if not settings.google_client_secret:
+    client_secret = get_google_client_secret()
+    if not client_secret:
         return None, "missing_client_secret", 400
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -832,7 +837,7 @@ async def _refresh_google_token_detailed(refresh_token: str) -> tuple[Optional[s
                 "https://oauth2.googleapis.com/token",
                 data={
                     "client_id": client_id,
-                    "client_secret": settings.google_client_secret,
+                    "client_secret": client_secret,
                     "refresh_token": plain_rt,
                     "grant_type": "refresh_token",
                 },
@@ -2066,11 +2071,12 @@ async def sync_from_classroom(
 
         if payload.code:
             client_id = get_google_client_id()
-            if not client_id or not settings.google_client_secret:
+            client_secret = get_google_client_secret()
+            if not client_id or not client_secret:
                 logger.warning("Google OAuth code exchange requested, but GOOGLE_CLIENT_SECRET is missing in backend settings.")
                 raise HTTPException(
                     status_code=400,
-                    detail="GOOGLE_CLIENT_SECRET не налаштовано на сервері для отримання refresh_token. Використайте пряму синхронізацію або додайте GOOGLE_CLIENT_SECRET у fly secrets.",
+                    detail="GOOGLE_CLIENT_SECRET не налаштовано на сервері для отримання refresh_token. Використайте пряму синхронізацію або додайте GOOGLE_CLIENT_SECRET у змінні середовища.",
                 )
             async with httpx.AsyncClient(timeout=10.0) as client:
                 token_resp = await client.post(
@@ -2078,7 +2084,7 @@ async def sync_from_classroom(
                     data={
                         "code": payload.code,
                         "client_id": client_id,
-                        "client_secret": settings.google_client_secret,
+                        "client_secret": client_secret,
                         "redirect_uri": "postmessage",
                         "grant_type": "authorization_code",
                     },
@@ -2496,6 +2502,14 @@ async def trigger_background_sync_if_needed(
         )
 
         if all_creds:
+            # Auto-unblock credentials that failed solely due to missing client secret now that it's present
+            if get_google_client_secret():
+                for c in all_creds:
+                    if c.is_active and c.last_error and "missing_client_secret" in c.last_error:
+                        c.last_error = None
+                        c.fail_count = 0
+                        c.next_attempt_at = None
+
             # 25.5: Беремо активні записи групи, для яких настав час спроби,
             # відсортовані за last_synced_at (найстаріший першим, NULLS FIRST).
             def _is_ready(c: ClassroomCredential) -> bool:
@@ -3029,7 +3043,7 @@ async def clear_all_classroom_data(
 @router.get("/status")
 async def get_classroom_status():
     return {
-        "has_client_secret": bool(settings.google_client_secret),
+        "has_client_secret": bool(get_google_client_secret()),
         "client_id": get_google_client_id(),
     }
 
@@ -3125,7 +3139,7 @@ async def get_classroom_group_status(
         "connected": bool(binding) or has_active_creds,
         "last_synced_at": last_synced,
         "has_refresh_token": bool(binding and binding.refresh_token) or has_active_creds,
-        "has_client_secret": bool(settings.google_client_secret),
+        "has_client_secret": bool(get_google_client_secret()),
         "unmapped_tasks": _latest_unmapped_tasks.get(group_id, []) if has_access else [],
         "tasks": tasks if tasks is not None else [],
         "requires_auth": not has_access,
