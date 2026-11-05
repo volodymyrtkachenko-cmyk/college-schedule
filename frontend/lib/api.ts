@@ -466,11 +466,11 @@ async function rawRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
             if (teacherPin && !headers.has("X-Teacher-Pin")) {
                 headers.set("X-Teacher-Pin", teacherPin);
             }
-            const classroomUid = localStorage.getItem("schedule_classroom_google_user_id");
+            const classroomUid = localStorage.getItem("schedule:classroom_google_user_id") || localStorage.getItem("schedule_classroom_google_user_id");
             if (classroomUid && !headers.has("X-Classroom-User-Id")) {
                 headers.set("X-Classroom-User-Id", classroomUid);
             }
-            const classroomEmail = localStorage.getItem("schedule_classroom_linked_email");
+            const classroomEmail = localStorage.getItem("schedule:classroom_linked_email") || localStorage.getItem("schedule_classroom_linked_email");
             if (classroomEmail && !headers.has("X-Classroom-Email")) {
                 headers.set("X-Classroom-Email", classroomEmail);
             }
