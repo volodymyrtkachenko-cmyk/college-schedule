@@ -273,6 +273,25 @@ export function formatRoomsList(rooms: string[]): string {
   return formatRoom(rooms[0]);
 }
 
+export function checkScheduleHasSubgroups(lessons: Array<{
+  second_teacher_id?: number | null;
+  teacher_name?: string | null;
+  teacher_room?: string | null;
+  second_teacher_room?: string | null;
+  note?: string | null;
+  is_cancelled?: boolean;
+}>): boolean {
+  if (!Array.isArray(lessons) || lessons.length === 0) return false;
+  return lessons.some(
+    (l) =>
+      !l.is_cancelled &&
+      (l.second_teacher_id != null ||
+        (l.teacher_name && (l.teacher_name.includes(",") || l.teacher_name.includes("/"))) ||
+        (Boolean(l.teacher_room) && Boolean(l.second_teacher_room)) ||
+        (l.note && /(?:1|2)\s*підгр/i.test(l.note)))
+  );
+}
+
 export interface MeetingInfo {
   url: string;
   platform: "meet" | "zoom" | "teams" | "link";

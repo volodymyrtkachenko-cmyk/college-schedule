@@ -11,6 +11,8 @@ import { useToast } from "../../components/ToastProvider";
 import { requestClassroomAuth } from "../../lib/classroomAuth";
 import { useMobileNav } from "../../lib/useMobileNav";
 import { StudentGuideModal } from "../../components/StudentGuideModal";
+import { api } from "../../lib/api";
+import { checkScheduleHasSubgroups } from "../../lib/format";
 
 const ROLE_NAMES: Record<string, string> = {
   admin: "Адміністратор",
@@ -28,6 +30,52 @@ export default function SettingsPage() {
   const { showToast } = useToast();
   const [isLinkingClassroom, setIsLinkingClassroom] = useState(false);
   const [showGuideModal, setShowGuideModal] = useState(false);
+
+  const [groupHasSubgroups, setGroupHasSubgroups] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    const gid =
+      Number(localStorage.getItem("schedule:groupId")) ||
+      Number(localStorage.getItem("schedule:classroom_linked_group_id"));
+    if (!gid) return false;
+    const cachedFlag = localStorage.getItem(`schedule:has_subgroups:${gid}`);
+    if (cachedFlag !== null) return cachedFlag === "1";
+    const prefix = `schedule:week:groupId:${gid}:`;
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const k = window.localStorage.key(i);
+      if (k && k.startsWith(prefix)) {
+        const raw = window.localStorage.getItem(k);
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              const lessons = parsed.flatMap((d: any) => d.lessons || []);
+              if (lessons.length > 0) return checkScheduleHasSubgroups(lessons);
+            }
+          } catch {}
+        }
+      }
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    const gid =
+      Number(localStorage.getItem("schedule:groupId")) ||
+      Number(localStorage.getItem("schedule:classroom_linked_group_id"));
+    if (!gid) return;
+    api.week(gid)
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          const allLessons = data.flatMap((d) => d.lessons || []);
+          const has = checkScheduleHasSubgroups(allLessons);
+          setGroupHasSubgroups(has);
+          try {
+            localStorage.setItem(`schedule:has_subgroups:${gid}`, has ? "1" : "0");
+          } catch {}
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const [scheduleMode, setScheduleMode] = useState<"student" | "teacher">("student");
   const { setHideTasksTab, setScheduleMode: setNavScheduleMode, setHomeTab } = useMobileNav();
@@ -93,6 +141,23 @@ export default function SettingsPage() {
           if (res.synced_tasks > 0) parts.push(`${res.synced_tasks} завдань`);
           const groupPrefix = res.group_name ? `Група ${res.group_name}: ` : "";
           showToast(`${groupPrefix}Classroom успішно прив'язано (${parts.join(", ")})!`, "success");
+
+          if (res.group_id) {
+            const newGid = Number(res.group_id);
+            if (cachedGroupId && newGid !== cachedGroupId) {
+              showToast(`Групу автоматично визначено як «${res.group_name || newGid}» за курсами Classroom`, "info");
+            }
+            api.week(newGid).then((data) => {
+              if (Array.isArray(data) && data.length > 0) {
+                const allLessons = data.flatMap((d) => d.lessons || []);
+                const has = checkScheduleHasSubgroups(allLessons);
+                setGroupHasSubgroups(has);
+                try {
+                  localStorage.setItem(`schedule:has_subgroups:${newGid}`, has ? "1" : "0");
+                } catch {}
+              }
+            }).catch(() => {});
+          }
         },
         onError: (err) => {
           showToast(err.message || "Не вдалося прив'язати Classroom", "error");
@@ -167,7 +232,7 @@ export default function SettingsPage() {
           </div>
 
           {/* 1.1 Setting: Моя підгрупа (для студентів або при показі всіх параметрів) */}
-          {isStudent && (
+          {isStudent && groupHasSubgroups && (
             <>
               <div className="space-y-2 py-1">
                 <span className="font-semibold text-xs sm:text-sm text-sys-text-primary">

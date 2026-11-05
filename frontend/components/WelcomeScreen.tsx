@@ -154,7 +154,7 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
           isOnboarding={true}
           groupId={selectedStudentGroupId}
           onClose={() => onComplete("student", selectedStudentGroupId)}
-          onComplete={() => onComplete("student", selectedStudentGroupId)}
+          onComplete={(finalGroupId) => onComplete("student", finalGroupId ?? selectedStudentGroupId)}
         />
       )}
 

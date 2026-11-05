@@ -93,9 +93,8 @@ export async function requestClassroomAuth(options: ClassroomAuthOptions = {}): 
 
       if (res.group_id && typeof window !== "undefined") {
         try {
-          if (!localStorage.getItem("schedule:groupId")) {
-            localStorage.setItem("schedule:groupId", String(res.group_id));
-          }
+          localStorage.setItem("schedule:groupId", String(res.group_id));
+          localStorage.setItem("schedule:classroom_linked_group_id", String(res.group_id));
         } catch {}
       }
 

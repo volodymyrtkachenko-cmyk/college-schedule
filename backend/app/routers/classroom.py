@@ -2203,25 +2203,31 @@ async def sync_from_classroom(
             except Exception as exc:
                 logger.warning(f"Failed to read userProfiles/me during sync: {_sanitize_error_msg(str(exc))}")
 
-        courses_by_group_id: dict[int, tuple[Group, dict]] = {}
+        courses_by_group_id: dict[int, list[tuple[Group, dict]]] = {}
         for c in courses:
             full_title = f"{c.get('name', '')} {c.get('section', '')} {c.get('descriptionHeading', '')}".strip()
             g = _extract_group_from_course_name(full_title, all_groups)
-            if g and g.id not in courses_by_group_id:
-                courses_by_group_id[g.id] = (g, c)
+            if g:
+                courses_by_group_id.setdefault(g.id, []).append((g, c))
 
         detected_group: Optional[Group] = None
         matched_course = None
 
-        if len(courses_by_group_id) == 1:
-            # У студента курси лише однієї групи -> ігноруємо чужу відкриту вкладку і беремо його реальну групу!
-            detected_group, matched_course = next(iter(courses_by_group_id.values()))
-        elif len(courses_by_group_id) > 1:
-            # У викладача курси кількох груп -> якщо відкрита вкладка є серед його курсів, синхронізуємо її
-            if payload.group_id and payload.group_id in courses_by_group_id:
-                detected_group, matched_course = courses_by_group_id[payload.group_id]
+        if courses_by_group_id:
+            sorted_by_count = sorted(
+                courses_by_group_id.items(),
+                key=lambda item: len(item[1]),
+                reverse=True,
+            )
+            top_group_id, top_group_courses = sorted_by_count[0]
+            top_count = len(top_group_courses)
+            payload_count = len(courses_by_group_id.get(payload.group_id, [])) if payload.group_id else 0
+
+            # Якщо відкрита група має стільки ж або більше курсів (наприклад, викладач веде кілька груп)
+            if payload.group_id and payload.group_id in courses_by_group_id and payload_count >= top_count:
+                detected_group, matched_course = courses_by_group_id[payload.group_id][0]
             else:
-                detected_group, matched_course = next(iter(courses_by_group_id.values()))
+                detected_group, matched_course = top_group_courses[0]
 
         if not detected_group:
             raise HTTPException(

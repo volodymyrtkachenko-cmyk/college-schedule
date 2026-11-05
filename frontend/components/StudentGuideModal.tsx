@@ -7,14 +7,14 @@ import { useTheme, ACCENT_OPTIONS, AccentColor } from "../lib/useTheme";
 import { useClassroomSubmissions } from "../lib/useClassroomSubmissions";
 import { requestClassroomAuth } from "../lib/classroomAuth";
 import { api, Lesson, ScheduleResponse } from "../lib/api";
-import { extractOnlineMeetings, formatRoom, MeetingInfo } from "../lib/format";
+import { extractOnlineMeetings, formatRoom, MeetingInfo, checkScheduleHasSubgroups } from "../lib/format";
 import { parseLessonTeachers } from "../lib/quickJump";
 
 export interface StudentGuideModalProps {
   isOnboarding?: boolean;
   groupId?: number | null;
   onClose: () => void;
-  onComplete?: () => void;
+  onComplete?: (finalGroupId?: number | null) => void;
 }
 
 interface StepItem {
@@ -365,6 +365,13 @@ export function StudentGuideModal({ isOnboarding = false, groupId, onClose, onCo
         null
       : null);
 
+  const [activeGroupId, setActiveGroupId] = useState<number | null>(effectiveGroupId);
+  const [groupSwitchInfo, setGroupSwitchInfo] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (groupId) setActiveGroupId(groupId);
+  }, [groupId]);
+
   const [weekSchedule, setWeekSchedule] = useState<ScheduleResponse[]>(() => {
     if (typeof window === "undefined" || !effectiveGroupId) return [];
     try {
@@ -390,8 +397,8 @@ export function StudentGuideModal({ isOnboarding = false, groupId, onClose, onCo
 
   useEffect(() => {
     let isCancelled = false;
-    if (effectiveGroupId) {
-      api.week(effectiveGroupId)
+    if (activeGroupId) {
+      api.week(activeGroupId)
         .then((data) => {
           if (!isCancelled && Array.isArray(data) && data.length > 0) {
             setWeekSchedule(data);
@@ -413,15 +420,53 @@ export function StudentGuideModal({ isOnboarding = false, groupId, onClose, onCo
     return () => {
       isCancelled = true;
     };
-  }, [effectiveGroupId]);
+  }, [activeGroupId]);
 
   const demoData = useMemo(() => {
     return extractDemoData(weekSchedule);
   }, [weekSchedule]);
 
-  const steps = isOnboarding ? ONBOARDING_STEPS : GUIDE_STEPS;
+  const groupHasSubgroups = useMemo(() => {
+    if (weekSchedule && weekSchedule.length > 0) {
+      const allLessons = weekSchedule.flatMap((day) => day.lessons || []);
+      const has = checkScheduleHasSubgroups(allLessons);
+      if (typeof window !== "undefined" && activeGroupId) {
+        try {
+          localStorage.setItem(`schedule:has_subgroups:${activeGroupId}`, has ? "1" : "0");
+        } catch {}
+      }
+      return has;
+    }
+    if (typeof window !== "undefined" && activeGroupId) {
+      const cached = localStorage.getItem(`schedule:has_subgroups:${activeGroupId}`);
+      if (cached !== null) return cached === "1";
+      const targetPrefix = `schedule:week:groupId:${activeGroupId}:`;
+      for (let i = 0; i < window.localStorage.length; i++) {
+        const k = window.localStorage.key(i);
+        if (k && k.startsWith(targetPrefix)) {
+          const raw = window.localStorage.getItem(k);
+          if (raw) {
+            try {
+              const parsed = JSON.parse(raw);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                const lessons = parsed.flatMap((d: any) => d.lessons || []);
+                if (lessons.length > 0) return checkScheduleHasSubgroups(lessons);
+              }
+            } catch {}
+          }
+        }
+      }
+    }
+    return false;
+  }, [weekSchedule, activeGroupId]);
+
+  const baseSteps = isOnboarding ? ONBOARDING_STEPS : GUIDE_STEPS;
+  const steps = useMemo(() => {
+    return baseSteps.filter((s) => groupHasSubgroups || s.id !== "subgroups");
+  }, [baseSteps, groupHasSubgroups]);
   const totalSteps = steps.length;
   const [currentStep, setCurrentStep] = useState(0);
+  const safeCurrentStep = Math.min(currentStep, Math.max(0, totalSteps - 1));
 
   // Responsive state
   const [isDesktop, setIsDesktop] = useState(false);
@@ -512,22 +557,22 @@ export function StudentGuideModal({ isOnboarding = false, groupId, onClose, onCo
   }, []);
 
   const handleNext = () => {
-    if (currentStep < totalSteps - 1) {
-      setCurrentStep((prev) => prev + 1);
+    if (safeCurrentStep < totalSteps - 1) {
+      setCurrentStep(safeCurrentStep + 1);
     } else {
       handleFinish();
     }
   };
 
   const handlePrev = () => {
-    if (currentStep > 0) {
-      setCurrentStep((prev) => prev - 1);
+    if (safeCurrentStep > 0) {
+      setCurrentStep(safeCurrentStep - 1);
     }
   };
 
   const handleFinish = () => {
     if (isOnboarding && onComplete) {
-      onComplete();
+      onComplete(activeGroupId);
     } else {
       onClose();
     }
@@ -543,19 +588,43 @@ export function StudentGuideModal({ isOnboarding = false, groupId, onClose, onCo
     if (isLinkingClassroom) return;
     setIsLinkingClassroom(true);
     setClassroomError("");
+    setGroupSwitchInfo(null);
     try {
-      const cachedGroupId = typeof window !== "undefined"
-        ? (Number(localStorage.getItem("schedule:groupId")) || Number(localStorage.getItem("schedule:classroom_linked_group_id")) || undefined)
-        : undefined;
+      const cachedGroupId = activeGroupId ?? (
+        typeof window !== "undefined"
+          ? (Number(localStorage.getItem("schedule:groupId")) || Number(localStorage.getItem("schedule:classroom_linked_group_id")) || undefined)
+          : undefined
+      );
 
       await requestClassroomAuth({
         groupId: cachedGroupId,
-        onSuccess: () => {
+        onSuccess: (res: any) => {
           setIsLinkingClassroom(false);
           setClassroomSuccess(true);
           setDemoLinked(true);
+
+          if (res?.group_id) {
+            const detectedId = Number(res.group_id);
+            if (activeGroupId && detectedId !== activeGroupId) {
+              setGroupSwitchInfo(
+                `Твою реальну групу визначено як «${res.group_name || detectedId}» за курсами Classroom.`
+              );
+            }
+            setActiveGroupId(detectedId);
+            if (typeof window !== "undefined") {
+              try {
+                localStorage.setItem("schedule:groupId", String(detectedId));
+                localStorage.setItem("schedule:classroom_linked_group_id", String(detectedId));
+              } catch {}
+            }
+            api.week(detectedId).then((data) => {
+              if (Array.isArray(data) && data.length > 0) {
+                setWeekSchedule(data);
+              }
+            }).catch(() => {});
+          }
         },
-        onError: (err) => {
+        onError: (err: any) => {
           setIsLinkingClassroom(false);
           setClassroomError(err.message || "Не вдалося підключити Google Classroom.");
         },
@@ -594,7 +663,7 @@ export function StudentGuideModal({ isOnboarding = false, groupId, onClose, onCo
     }
   };
 
-  const currentStepData = steps[currentStep] || steps[0];
+  const currentStepData = steps[safeCurrentStep] || steps[0];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-2 sm:p-5 backdrop-blur-md overflow-hidden animate-in fade-in duration-150">
@@ -646,7 +715,7 @@ export function StudentGuideModal({ isOnboarding = false, groupId, onClose, onCo
               type="button"
               onClick={() => setCurrentStep(idx)}
               className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
-                currentStep === idx
+                safeCurrentStep === idx
                   ? "bg-sys-accent text-slate-900 shadow-xs font-bold"
                   : "bg-sys-card border border-sys-border text-sys-text-secondary hover:text-sys-text-primary"
               }`}
@@ -666,7 +735,7 @@ export function StudentGuideModal({ isOnboarding = false, groupId, onClose, onCo
               {isOnboarding ? "Кроки налаштування" : "Розділи гіда"}
             </div>
             {steps.map((step, idx) => {
-              const isActive = currentStep === idx;
+              const isActive = safeCurrentStep === idx;
               return (
                 <button
                   key={step.id}
@@ -1269,6 +1338,11 @@ export function StudentGuideModal({ isOnboarding = false, groupId, onClose, onCo
                               <div className="text-xs font-normal text-emerald-300/80">
                                 {linkedEmail || "Студентський акаунт активний"}
                               </div>
+                              {groupSwitchInfo && (
+                                <div className="text-xs font-semibold text-amber-300 mt-1">
+                                  {groupSwitchInfo}
+                                </div>
+                              )}
                             </div>
                           </div>
                         ) : (
@@ -1500,14 +1574,14 @@ export function StudentGuideModal({ isOnboarding = false, groupId, onClose, onCo
             <button
               type="button"
               onClick={handlePrev}
-              disabled={currentStep === 0}
+              disabled={safeCurrentStep === 0}
               className="rounded-xl border border-sys-border bg-sys-bg px-4 py-2 text-xs sm:text-sm font-bold text-sys-text-secondary hover:text-sys-text-primary disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
             >
               ← Назад
             </button>
 
             <span className="text-xs font-bold text-sys-text-muted">
-              {currentStep + 1} з {totalSteps}
+              {safeCurrentStep + 1} з {totalSteps}
             </span>
 
             <button
@@ -1515,7 +1589,7 @@ export function StudentGuideModal({ isOnboarding = false, groupId, onClose, onCo
               onClick={handleNext}
               className="rounded-xl bg-sys-accent px-5 py-2 text-xs sm:text-sm font-bold text-slate-900 hover:opacity-95 active:scale-95 transition-all shadow-md"
             >
-              {currentStep === totalSteps - 1
+              {safeCurrentStep === totalSteps - 1
                 ? (isOnboarding ? "🚀 Перейти до розкладу" : "Зрозуміло ✓")
                 : "Далі →"}
             </button>

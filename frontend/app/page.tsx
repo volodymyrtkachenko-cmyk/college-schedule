@@ -307,6 +307,9 @@ export default function HomePage() {
     const handleClassroomSynced = (e: Event) => {
       const customEvent = e as CustomEvent;
       const detail = customEvent?.detail;
+      if (detail?.group_id && detail.group_id !== groupId) {
+        setGroupId(detail.group_id);
+      }
       if (detail?.tasks && Array.isArray(detail.tasks) && detail.tasks.length > 0) {
         setClassroomTasks(detail.tasks);
         try {
@@ -322,7 +325,7 @@ export default function HomePage() {
     };
     window.addEventListener("classroom-synced", handleClassroomSynced);
     return () => window.removeEventListener("classroom-synced", handleClassroomSynced);
-  }, [groupId, fetchClassroomTasks]);
+  }, [groupId, fetchClassroomTasks, setGroupId]);
 
 
   // Context search modal state
