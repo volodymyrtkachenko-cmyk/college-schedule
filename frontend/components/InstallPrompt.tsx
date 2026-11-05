@@ -50,16 +50,31 @@ export function InstallPrompt() {
 
     if (isStandalone) return;
 
+    if (typeof window !== "undefined" && (window as any).__pwaInstallEvent) {
+      setInstallEvent((window as any).__pwaInstallEvent as InstallPromptEvent);
+    }
+
     const onBeforeInstallPrompt = (event: Event) => {
       event.preventDefault();
+      (window as any).__pwaInstallEvent = event;
       setInstallEvent(event as InstallPromptEvent);
     };
 
     const isIos = /iphone|ipod/i.test(navigator.userAgent);
     setIsIosPhone(isIos);
 
+    const onInstallReady = (e: any) => {
+      if (e.detail) {
+        setInstallEvent(e.detail as InstallPromptEvent);
+      }
+    };
+
     window.addEventListener("beforeinstallprompt", onBeforeInstallPrompt);
-    return () => window.removeEventListener("beforeinstallprompt", onBeforeInstallPrompt);
+    window.addEventListener("pwa-install-ready", onInstallReady);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onBeforeInstallPrompt);
+      window.removeEventListener("pwa-install-ready", onInstallReady);
+    };
   }, []);
 
   const handleDismiss = () => {

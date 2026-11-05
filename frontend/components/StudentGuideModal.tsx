@@ -2,6 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useUserSettings } from "../lib/useUserSettings";
+import { useTheme, ACCENT_OPTIONS, AccentColor } from "../lib/useTheme";
+import { useClassroomSubmissions } from "../lib/useClassroomSubmissions";
+import { requestClassroomAuth } from "../lib/classroomAuth";
 
 export interface StudentGuideModalProps {
   isOnboarding?: boolean;
@@ -17,66 +21,185 @@ interface StepItem {
   subtitle: string;
 }
 
-const STEPS: StepItem[] = [
+const ONBOARDING_STEPS: StepItem[] = [
+  {
+    id: "subgroups",
+    shortTitle: "Підгрупа",
+    icon: "👥",
+    fullTitle: "Обери свою підгрупу",
+    subtitle: "Якщо предмет ділиться на підгрупи, розклад показуватиме твого викладача.",
+  },
+  {
+    id: "appearance",
+    shortTitle: "Оформлення",
+    icon: "🎨",
+    fullTitle: "Тема та улюблений колір",
+    subtitle: "Обирай світлу або темну тему та свій улюблений кольоровий акцент.",
+  },
+  {
+    id: "schedule",
+    shortTitle: "Дзвінки та пари",
+    icon: "⏱️",
+    fullTitle: "Розклад дзвінків та «жива» пара",
+    subtitle: "Як влаштовані 4 пари та швидке підключення до відеоуроків.",
+  },
+  {
+    id: "classroom",
+    shortTitle: "Classroom",
+    icon: "📋",
+    fullTitle: "Google Classroom та оцінки",
+    subtitle: "Синхронізація завдань, перегляд дедлайнів та особистих оцінок.",
+  },
+  {
+    id: "install",
+    shortTitle: "Додаток PWA",
+    icon: "📲",
+    fullTitle: "Встановлення на пристрій",
+    subtitle: "Додай розклад на екран смартфона чи ПК для роботи без інтернету.",
+  },
+];
+
+const GUIDE_STEPS: StepItem[] = [
   {
     id: "subgroups",
     shortTitle: "Група і підгрупи",
     icon: "👥",
     fullTitle: "Твоя група та підгрупи",
-    subtitle: "Розклад одразу налаштовується під твою групу та фільтрує потрібні пари.",
+    subtitle: "Як налаштувати показ потрібних викладачів та перемикати групи.",
   },
   {
     id: "schedule",
     shortTitle: "Розклад і дзвінки",
     icon: "⏱️",
     fullTitle: "Дні тижня та «жива» пара",
-    subtitle: "Застосунок відстежує київський час і підсвічує пару, яка триває зараз.",
+    subtitle: "Розклад дзвінків, відстеження поточної пари та скорочені дні.",
   },
   {
     id: "online",
     shortTitle: "Онлайн-пари",
     icon: "💻",
-    fullTitle: "Дистанційні пари та Meet",
-    subtitle: "Прямі посилання на відеодзвінки захищені й доступні студентам своєї групи.",
+    fullTitle: "Відеодзвінки та Meet / Zoom",
+    subtitle: "Захищені посилання на онлайн-пари та перехід в один клік.",
   },
   {
     id: "homework",
-    shortTitle: "Завдання Classroom",
+    shortTitle: "Classroom і ДЗ",
     icon: "📋",
     fullTitle: "Домашні завдання та оцінки",
-    subtitle: "Завдання синхронізуються з Classroom автоматично без ручних позначок.",
+    subtitle: "Автоматична синхронізація дедлайнів, статус здачі та бали.",
   },
   {
-    id: "personalization",
+    id: "appearance",
     shortTitle: "Теми і кольори",
     icon: "🎨",
-    fullTitle: "Налаштування та кольори",
-    subtitle: "Підбирай світлий/темний режим та один із 6 колірних акцентів під настрій.",
+    fullTitle: "Теми та колірні акценти",
+    subtitle: "Зміна світлого/темного режиму та вибір однієї з 6 колірних тем.",
   },
   {
     id: "install",
     shortTitle: "Встановлення PWA",
     icon: "📲",
     fullTitle: "Додаток та робота офлайн",
-    subtitle: "Розклад зберігається на пристрої й відкривається навіть без доступу до інтернету.",
+    subtitle: "Як встановити розклад на смартфон чи ПК та переглядати пари офлайн.",
   },
 ];
 
 export function StudentGuideModal({ isOnboarding = false, onClose, onComplete }: StudentGuideModalProps) {
+  const { settings, updateSetting } = useUserSettings();
+  const { theme, resolvedTheme, setTheme, accent, setAccent } = useTheme();
+  const { isLinked, linkedEmail } = useClassroomSubmissions();
+
+  const steps = isOnboarding ? ONBOARDING_STEPS : GUIDE_STEPS;
+  const totalSteps = steps.length;
   const [currentStep, setCurrentStep] = useState(0);
+
+  // Responsive state
   const [isDesktop, setIsDesktop] = useState(false);
 
-  // Auto-detect screen size
+  // Subgroup selection
+  const initialSubgroup: 1 | 2 | null =
+    settings.defaultSubgroup === 1 || settings.defaultSubgroup === 2
+      ? settings.defaultSubgroup
+      : null;
+  const [chosenSubgroup, setChosenSubgroup] = useState<1 | 2 | null>(initialSubgroup);
+  const [demoSubgroup, setDemoSubgroup] = useState<1 | 2 | null>(initialSubgroup);
+
+  // Schedule demo
+  const [demoDay, setDemoDay] = useState<"Пн" | "Вт" | "Ср" | "Чт" | "Пт">("Пн");
+
+  // Online meet demo
+  const [demoLinked, setDemoLinked] = useState(isLinked);
+  const [demoToast, setDemoToast] = useState("");
+
+  // Classroom demo
+  const [demoActiveHwOpen, setDemoActiveHwOpen] = useState(false);
+  const [demoDoneHwOpen, setDemoDoneHwOpen] = useState(false);
+  const [isLinkingClassroom, setIsLinkingClassroom] = useState(false);
+  const [classroomSuccess, setClassroomSuccess] = useState(false);
+  const [classroomError, setClassroomError] = useState("");
+
+  // PWA Install state
+  const [pwaPrompt, setPwaPrompt] = useState<any>(null);
+  const [isStandalone, setIsStandalone] = useState(false);
+  const [isIos, setIsIos] = useState(false);
+  const [pwaFeedback, setPwaFeedback] = useState("");
+
+  // Initialize PWA and screen detection
   useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const checkStandalone = () => {
+      const standalone =
+        ("standalone" in window.navigator && (window.navigator as any).standalone === true) ||
+        window.matchMedia("(display-mode: standalone)").matches;
+      setIsStandalone(standalone);
+    };
+    checkStandalone();
+
+    const ios = /iphone|ipad|ipod/i.test(navigator.userAgent || "");
+    setIsIos(ios);
+
     const checkScreen = () => {
       setIsDesktop(window.innerWidth >= 768);
     };
     checkScreen();
     window.addEventListener("resize", checkScreen);
-    return () => window.removeEventListener("resize", checkScreen);
-  }, []);
 
-  const totalSteps = STEPS.length;
+    // Capture saved prompt event from head script if available
+    if ((window as any).__pwaInstallEvent) {
+      setPwaPrompt((window as any).__pwaInstallEvent);
+    }
+
+    const onInstallReady = (e: any) => {
+      setPwaPrompt(e.detail || (window as any).__pwaInstallEvent);
+    };
+
+    const onBeforeInstall = (e: any) => {
+      e.preventDefault();
+      (window as any).__pwaInstallEvent = e;
+      setPwaPrompt(e);
+    };
+
+    const onAppInstalled = () => {
+      setIsStandalone(true);
+      setPwaPrompt(null);
+      if (typeof window !== "undefined") (window as any).__pwaInstallEvent = null;
+      setPwaFeedback("✅ Додаток успішно встановлено!");
+    };
+
+    window.addEventListener("pwa-install-ready", onInstallReady);
+    window.addEventListener("beforeinstallprompt", onBeforeInstall);
+    window.addEventListener("appinstalled", onAppInstalled);
+    window.addEventListener("pwa-installed", onAppInstalled);
+
+    return () => {
+      window.removeEventListener("resize", checkScreen);
+      window.removeEventListener("pwa-install-ready", onInstallReady);
+      window.removeEventListener("beforeinstallprompt", onBeforeInstall);
+      window.removeEventListener("appinstalled", onAppInstalled);
+      window.removeEventListener("pwa-installed", onAppInstalled);
+    };
+  }, []);
 
   const handleNext = () => {
     if (currentStep < totalSteps - 1) {
@@ -100,66 +223,58 @@ export function StudentGuideModal({ isOnboarding = false, onClose, onComplete }:
     }
   };
 
-  // Demo 1 State (Subgroup: null = both, 1 = 1st, 2 = 2nd)
-  const [demoSubgroup, setDemoSubgroup] = useState<null | 1 | 2>(null);
+  const handleSubgroupSelect = (subgroup: 1 | 2 | null) => {
+    setChosenSubgroup(subgroup);
+    setDemoSubgroup(subgroup);
+    updateSetting("defaultSubgroup", subgroup);
+  };
 
-  // Demo 2 State (Day tabs)
-  const [demoDay, setDemoDay] = useState<"Пн" | "Вт" | "Ср" | "Чт" | "Пт">("Пн");
+  const handleClassroomAuth = async () => {
+    if (isLinkingClassroom) return;
+    setIsLinkingClassroom(true);
+    setClassroomError("");
+    try {
+      const cachedGroupId = typeof window !== "undefined"
+        ? (Number(localStorage.getItem("schedule:groupId")) || Number(localStorage.getItem("schedule:classroom_linked_group_id")) || undefined)
+        : undefined;
 
-  // Demo 3 State (Online meet link)
-  const [demoLinked, setDemoLinked] = useState(false);
-  const [demoToast, setDemoToast] = useState("");
-
-  // Demo 4 State (Homework accordion)
-  const [demoActiveHwOpen, setDemoActiveHwOpen] = useState(false);
-  const [demoDoneHwOpen, setDemoDoneHwOpen] = useState(false);
-
-  // Demo 5 State (Accent preview)
-  const [demoAccent, setDemoAccent] = useState<"ocean" | "emerald" | "amethyst" | "amber" | "sakura" | "lagoon">("ocean");
-
-  // Demo 6 State (Real PWA Install Prompt)
-  const [pwaPrompt, setPwaPrompt] = useState<any>(null);
-  const [isStandalone, setIsStandalone] = useState(false);
-  const [isIos, setIsIos] = useState(false);
-  const [pwaFeedback, setPwaFeedback] = useState("");
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const standalone =
-      ("standalone" in window.navigator && (window.navigator as any).standalone === true) ||
-      window.matchMedia("(display-mode: standalone)").matches;
-    setIsStandalone(standalone);
-
-    const ios = /iphone|ipad|ipod/i.test(navigator.userAgent || "");
-    setIsIos(ios);
-
-    const handleBeforeInstall = (e: any) => {
-      e.preventDefault();
-      setPwaPrompt(e);
-      (window as any).__pwaInstallEvent = e;
-    };
-
-    if ((window as any).__pwaInstallEvent) {
-      setPwaPrompt((window as any).__pwaInstallEvent);
+      await requestClassroomAuth({
+        groupId: cachedGroupId,
+        onSuccess: () => {
+          setIsLinkingClassroom(false);
+          setClassroomSuccess(true);
+          setDemoLinked(true);
+        },
+        onError: (err) => {
+          setIsLinkingClassroom(false);
+          setClassroomError(err.message || "Не вдалося підключити Google Classroom.");
+        },
+      });
+    } catch (err: any) {
+      setIsLinkingClassroom(false);
+      setClassroomError(err.message || "Помилка підключення Google Classroom.");
     }
-
-    window.addEventListener("beforeinstallprompt", handleBeforeInstall);
-    return () => window.removeEventListener("beforeinstallprompt", handleBeforeInstall);
-  }, []);
+  };
 
   const handleInstallClick = async () => {
-    if (pwaPrompt) {
+    const promptToUse = pwaPrompt || (typeof window !== "undefined" ? (window as any).__pwaInstallEvent : null);
+    if (promptToUse && typeof promptToUse.prompt === "function") {
       try {
-        await pwaPrompt.prompt();
-        setPwaPrompt(null);
-        (window as any).__pwaInstallEvent = null;
-        setPwaFeedback("Дякуємо за встановлення! Додаток додано на ваш пристрій.");
+        await promptToUse.prompt();
+        const choice = await promptToUse.userChoice;
+        if (choice?.outcome === "accepted") {
+          setIsStandalone(true);
+          setPwaPrompt(null);
+          if (typeof window !== "undefined") (window as any).__pwaInstallEvent = null;
+          setPwaFeedback("✅ Чудово! Додаток додано на ваш пристрій.");
+        } else {
+          setPwaFeedback("Встановлення відкладено. Ви завжди можете встановити додаток пізніше в налаштуваннях.");
+        }
       } catch (err) {
         console.error("Install prompt error:", err);
       }
     } else if (isStandalone) {
-      setPwaFeedback("Застосунок уже встановлено на цьому пристрої! 👍");
+      setPwaFeedback("✅ Застосунок уже встановлено на цьому пристрої! 👍");
     } else if (isIos) {
       setPwaFeedback("На iPhone натисніть «Поділитися» ⎋ у нижній панелі Safari, а потім — «На початковий екран» ⊞.");
     } else if (isDesktop) {
@@ -169,14 +284,7 @@ export function StudentGuideModal({ isOnboarding = false, onClose, onComplete }:
     }
   };
 
-  const accentColors = {
-    ocean: { text: "text-sky-400", border: "border-sky-500/40", soft: "bg-sky-500/15" },
-    emerald: { text: "text-emerald-400", border: "border-emerald-500/40", soft: "bg-emerald-500/15" },
-    amethyst: { text: "text-purple-400", border: "border-purple-500/40", soft: "bg-purple-500/15" },
-    amber: { text: "text-amber-400", border: "border-amber-500/40", soft: "bg-amber-500/15" },
-    sakura: { text: "text-rose-400", border: "border-rose-500/40", soft: "bg-rose-500/15" },
-    lagoon: { text: "text-teal-400", border: "border-teal-500/40", soft: "bg-teal-500/15" },
-  };
+  const currentStepData = steps[currentStep] || steps[0];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-2 sm:p-5 backdrop-blur-md overflow-hidden animate-in fade-in duration-150">
@@ -184,16 +292,16 @@ export function StudentGuideModal({ isOnboarding = false, onClose, onComplete }:
         
         {/* Top Header */}
         <header className="flex items-center justify-between border-b border-sys-border/50 px-4 sm:px-6 py-3.5 bg-sys-card shrink-0">
-          <div className="flex items-center gap-2.5">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-sys-accent/15 text-lg">
-              🎓
+          <div className="flex items-center gap-3">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-sys-accent/15 text-lg shadow-xs">
+              {isOnboarding ? "✨" : "🎓"}
             </span>
             <div>
               <h2 className="text-sm sm:text-base font-bold leading-tight text-sys-text-primary">
-                Гід студента
+                {isOnboarding ? "Швидке налаштування розкладу" : "Гід студента"}
               </h2>
               <p className="text-[11px] text-sys-text-secondary">
-                Розклад занять ДФКР
+                {isOnboarding ? "Персоналізуй розклад під себе" : "Довідник та підказки щодо розкладу"}
               </p>
             </div>
           </div>
@@ -212,7 +320,7 @@ export function StudentGuideModal({ isOnboarding = false, onClose, onComplete }:
                 type="button"
                 onClick={onClose}
                 aria-label="Закрити"
-                className="flex h-8 w-8 items-center justify-center rounded-xl text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg transition-colors font-bold"
+                className="flex h-8 w-8 items-center justify-center rounded-xl text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg transition-colors font-bold text-sm"
               >
                 ✕
               </button>
@@ -220,9 +328,9 @@ export function StudentGuideModal({ isOnboarding = false, onClose, onComplete }:
           </div>
         </header>
 
-        {/* Mobile Horizontal Section Tabs Strip (scrollable on small screens) */}
+        {/* Mobile Horizontal Section Tabs Strip (scrollable) */}
         <div className="md:hidden flex items-center gap-1.5 overflow-x-auto px-4 py-2 border-b border-sys-border/40 bg-sys-bg/60 shrink-0 no-scrollbar">
-          {STEPS.map((step, idx) => (
+          {steps.map((step, idx) => (
             <button
               key={step.id}
               type="button"
@@ -239,15 +347,15 @@ export function StudentGuideModal({ isOnboarding = false, onClose, onComplete }:
           ))}
         </div>
 
-        {/* Main Body Area: Sidebar (Desktop) + Content/Preview (Right) */}
+        {/* Main Body Area: Sidebar (Desktop) + Content (Right) */}
         <div className="flex-1 flex overflow-hidden">
           
           {/* Desktop Left Sidebar: Direct Clickable Sections */}
           <aside className="hidden md:flex flex-col w-60 border-r border-sys-border/50 bg-sys-bg/40 p-3 space-y-1 shrink-0 overflow-y-auto">
             <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-sys-text-muted">
-              Розділи інструкції
+              {isOnboarding ? "Кроки налаштування" : "Розділи гіда"}
             </div>
-            {STEPS.map((step, idx) => {
+            {steps.map((step, idx) => {
               const isActive = currentStep === idx;
               return (
                 <button
@@ -267,13 +375,14 @@ export function StudentGuideModal({ isOnboarding = false, onClose, onComplete }:
             })}
           </aside>
 
-          {/* Right Content Area: Explanation & Interactive Preview */}
+          {/* Right Content Area */}
           <main className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar flex flex-col justify-between">
             <AnimatePresence mode="wait">
-              {/* STEP 0: Subgroups & Group */}
-              {currentStep === 0 && (
+              
+              {/* STEP: SUBGROUPS */}
+              {currentStepData.id === "subgroups" && (
                 <motion.div
-                  key="step0"
+                  key="subgroups"
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -6 }}
@@ -282,28 +391,79 @@ export function StudentGuideModal({ isOnboarding = false, onClose, onComplete }:
                 >
                   <div>
                     <h3 className="text-xl sm:text-2xl font-black text-sys-text-primary tracking-tight">
-                      {STEPS[0].fullTitle}
+                      {currentStepData.fullTitle}
                     </h3>
                     <p className="text-xs sm:text-sm text-sys-text-secondary mt-1">
-                      {STEPS[0].subtitle}
+                      {currentStepData.subtitle}
                     </p>
                   </div>
 
-                  {/* Bullet points */}
-                  <div className="space-y-2 text-xs sm:text-sm text-sys-text-secondary">
-                    <div className="flex items-start gap-2">
-                      <span className="text-sys-accent font-bold mt-0.5">✦</span>
-                      <span>
-                        <strong>Фільтрація підгрупи:</strong> натискай кнопку <span className="font-semibold text-sky-400">1 підгр.</span> або <span className="font-semibold text-indigo-400">2 підгр.</span> прямо в картці пари — чужий викладач та аудиторія зникнуть.
-                      </span>
+                  {/* Onboarding Mode: Real Setting Selector */}
+                  {isOnboarding ? (
+                    <div className="rounded-2xl border border-sys-border/80 bg-sys-bg p-4 space-y-3 shadow-xs">
+                      <div className="text-xs font-bold text-sys-text-primary">
+                        Обери свою підгрупу:
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleSubgroupSelect(1)}
+                          className={`rounded-xl py-2.5 px-3 text-xs sm:text-sm font-bold border transition-all ${
+                            chosenSubgroup === 1
+                              ? "bg-sys-accent text-slate-900 border-sys-accent shadow-sm scale-[1.02]"
+                              : "bg-sys-card border-sys-border text-sys-text-secondary hover:text-sys-text-primary"
+                          }`}
+                        >
+                          1 підгрупа
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSubgroupSelect(2)}
+                          className={`rounded-xl py-2.5 px-3 text-xs sm:text-sm font-bold border transition-all ${
+                            chosenSubgroup === 2
+                              ? "bg-sys-accent text-slate-900 border-sys-accent shadow-sm scale-[1.02]"
+                              : "bg-sys-card border-sys-border text-sys-text-secondary hover:text-sys-text-primary"
+                          }`}
+                        >
+                          2 підгрупа
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSubgroupSelect(null)}
+                          className={`rounded-xl py-2.5 px-3 text-xs sm:text-sm font-bold border transition-all ${
+                            chosenSubgroup === null
+                              ? "bg-sys-accent text-slate-900 border-sys-accent shadow-sm scale-[1.02]"
+                              : "bg-sys-card border-sys-border text-sys-text-secondary hover:text-sys-text-primary"
+                          }`}
+                        >
+                          Обидві
+                        </button>
+                      </div>
+                      <div className="text-[11px] text-sys-text-muted flex items-center gap-1.5 pt-0.5">
+                        <span className="text-sys-accent font-bold">✓</span>
+                        <span>
+                          {chosenSubgroup
+                            ? `Налаштовано: показуватиметься тільки ${chosenSubgroup}-а підгрупа.`
+                            : "Налаштовано: показуватимуться всі викладачі обох підгруп."}
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex items-start gap-2">
-                      <span className="text-sys-accent font-bold mt-0.5">✦</span>
-                      <span>
-                        <strong>Зміна групи або викладача:</strong> натисни на назву групи в шапці зверху, щоб відкрити пошук інших груп чи викладачів.
-                      </span>
+                  ) : (
+                    <div className="space-y-2 text-xs sm:text-sm text-sys-text-secondary">
+                      <div className="flex items-start gap-2">
+                        <span className="text-sys-accent font-bold mt-0.5">✦</span>
+                        <span>
+                          <strong>Фільтрація підгрупи:</strong> натискай кнопки <span className="font-semibold text-sky-400">1 підгр.</span> або <span className="font-semibold text-indigo-400">2 підгр.</span> прямо в картці пари — чужий викладач та аудиторія зникнуть.
+                        </span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="text-sys-accent font-bold mt-0.5">✦</span>
+                        <span>
+                          <strong>Зміна групи або викладача:</strong> у верхньому кутку є вибір групи з миттєвим пошуком та закріпленням (📌).
+                        </span>
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Preview Card matching real LessonCard.tsx */}
                   <div className="rounded-2xl border border-sys-border bg-sys-bg p-4 sm:p-5 shadow-lg space-y-3">
@@ -391,7 +551,7 @@ export function StudentGuideModal({ isOnboarding = false, onClose, onComplete }:
                           onClick={() => setDemoSubgroup(null)}
                           className="text-sys-accent underline hover:opacity-80"
                         >
-                          Скинути фільтр і показати обидві підгрупи
+                          Скинути фільтр у картці й показати обидві підгрупи
                         </button>
                       ) : (
                         "👆 Натискай на кнопки «1 підгр.» чи «2 підгр.» прямо на картці"
@@ -401,10 +561,10 @@ export function StudentGuideModal({ isOnboarding = false, onClose, onComplete }:
                 </motion.div>
               )}
 
-              {/* STEP 1: Live Lesson & Bell Schedule */}
-              {currentStep === 1 && (
+              {/* STEP: APPEARANCE (THEME & ACCENT) */}
+              {currentStepData.id === "appearance" && (
                 <motion.div
-                  key="step1"
+                  key="appearance"
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -6 }}
@@ -413,10 +573,109 @@ export function StudentGuideModal({ isOnboarding = false, onClose, onComplete }:
                 >
                   <div>
                     <h3 className="text-xl sm:text-2xl font-black text-sys-text-primary tracking-tight">
-                      {STEPS[1].fullTitle}
+                      {currentStepData.fullTitle}
                     </h3>
                     <p className="text-xs sm:text-sm text-sys-text-secondary mt-1">
-                      {STEPS[1].subtitle}
+                      {currentStepData.subtitle}
+                    </p>
+                  </div>
+
+                  {/* Theme Mode Switcher */}
+                  <div className="rounded-2xl border border-sys-border/80 bg-sys-bg p-4 space-y-3 shadow-xs">
+                    <div className="text-xs font-bold text-sys-text-primary">
+                      Режим теми:
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setTheme("dark")}
+                        className={`flex items-center justify-center gap-2 rounded-xl py-2.5 px-3 text-xs sm:text-sm font-bold border transition-all ${
+                          resolvedTheme === "dark"
+                            ? "bg-sys-accent text-slate-900 border-sys-accent shadow-xs scale-[1.02]"
+                            : "bg-sys-card border-sys-border text-sys-text-secondary hover:text-sys-text-primary"
+                        }`}
+                      >
+                        <span>🌙</span>
+                        <span>Темна</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTheme("light")}
+                        className={`flex items-center justify-center gap-2 rounded-xl py-2.5 px-3 text-xs sm:text-sm font-bold border transition-all ${
+                          resolvedTheme === "light"
+                            ? "bg-sys-accent text-slate-900 border-sys-accent shadow-xs scale-[1.02]"
+                            : "bg-sys-card border-sys-border text-sys-text-secondary hover:text-sys-text-primary"
+                        }`}
+                      >
+                        <span>☀️</span>
+                        <span>Світла</span>
+                      </button>
+                    </div>
+
+                    {/* Accent Colors Palette */}
+                    <div className="pt-2">
+                      <div className="text-xs font-bold text-sys-text-primary mb-2">
+                        Колірний акцент:
+                      </div>
+                      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                        {ACCENT_OPTIONS.map((opt) => {
+                          const isSelected = accent === opt.id;
+                          return (
+                            <button
+                              key={opt.id}
+                              type="button"
+                              onClick={() => setAccent(opt.id as AccentColor)}
+                              className={`flex flex-col items-center gap-1.5 rounded-xl p-2.5 border transition-all ${
+                                isSelected
+                                  ? "border-sys-accent bg-sys-accent/15 shadow-xs scale-105"
+                                  : "border-sys-border bg-sys-card hover:border-sys-border/80 text-sys-text-secondary"
+                              }`}
+                            >
+                              <span
+                                className="h-5 w-5 rounded-full shadow-xs"
+                                style={{ backgroundColor: opt.colorHex }}
+                              />
+                              <span className="text-[11px] font-bold truncate">
+                                {opt.label}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Real-time Theme Preview Card */}
+                  <div className="rounded-2xl border border-sys-accent/50 bg-sys-card p-4 space-y-2 shadow-lg">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-sys-accent">Прев'ю інтерфейсу</span>
+                      <span className="rounded-full bg-sys-accent/20 text-sys-accent px-2 py-0.5 text-[10px] font-bold">
+                        Активний стиль
+                      </span>
+                    </div>
+                    <div className="text-xs text-sys-text-secondary">
+                      Інтерфейс розкладу, кнопок та карток автоматично застосовує твої налаштування.
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* STEP: SCHEDULE & LIVE LESSON */}
+              {currentStepData.id === "schedule" && (
+                <motion.div
+                  key="schedule"
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.15 }}
+                  className="space-y-4"
+                >
+                  <div>
+                    <h3 className="text-xl sm:text-2xl font-black text-sys-text-primary tracking-tight">
+                      {currentStepData.fullTitle}
+                    </h3>
+                    <p className="text-xs sm:text-sm text-sys-text-secondary mt-1">
+                      {currentStepData.subtitle}
                     </p>
                   </div>
 
@@ -424,13 +683,19 @@ export function StudentGuideModal({ isOnboarding = false, onClose, onComplete }:
                     <div className="flex items-start gap-2">
                       <span className="text-sys-accent font-bold mt-0.5">✦</span>
                       <span>
-                        <strong>Жива пара:</strong> заняття, яке триває зараз, підсвічується плашкою <span className="font-semibold text-sys-accent">ще N хв</span> та лінією часу внизу картки.
+                        <strong>4 пари на день:</strong> 1 пара (09:00), 2 пара (10:40), 3 пара (12:30), 4 пара (14:00).
                       </span>
                     </div>
                     <div className="flex items-start gap-2">
                       <span className="text-sys-accent font-bold mt-0.5">✦</span>
                       <span>
-                        <strong>Статуси:</strong> заміни позначаються помаранчевим бейджем <span className="font-semibold text-amber-400">Заміна</span>, а скорочені пари — <span className="font-semibold text-blue-400">⏱ 50 хв</span>.
+                        <strong>«Жива» пара:</strong> заняття, яке триває зараз, підсвічується плашкою <span className="font-semibold text-sys-accent">● ще N хв</span> та лінією часу внизу.
+                      </span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="text-sys-accent font-bold mt-0.5">✦</span>
+                      <span>
+                        <strong>Відеоуроки:</strong> якщо пара дистанційна, у картці з'являється пряме посилання на відеоконференцію.
                       </span>
                     </div>
                   </div>
@@ -513,10 +778,10 @@ export function StudentGuideModal({ isOnboarding = false, onClose, onComplete }:
                 </motion.div>
               )}
 
-              {/* STEP 2: Online Meetings */}
-              {currentStep === 2 && (
+              {/* STEP: ONLINE MEETINGS (GUIDE ONLY) */}
+              {currentStepData.id === "online" && (
                 <motion.div
-                  key="step2"
+                  key="online"
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -6 }}
@@ -525,10 +790,10 @@ export function StudentGuideModal({ isOnboarding = false, onClose, onComplete }:
                 >
                   <div>
                     <h3 className="text-xl sm:text-2xl font-black text-sys-text-primary tracking-tight">
-                      {STEPS[2].fullTitle}
+                      {currentStepData.fullTitle}
                     </h3>
                     <p className="text-xs sm:text-sm text-sys-text-secondary mt-1">
-                      {STEPS[2].subtitle}
+                      {currentStepData.subtitle}
                     </p>
                   </div>
 
@@ -536,13 +801,13 @@ export function StudentGuideModal({ isOnboarding = false, onClose, onComplete }:
                     <div className="flex items-start gap-2">
                       <span className="text-sys-accent font-bold mt-0.5">✦</span>
                       <span>
-                        <strong>Захист посилань:</strong> без підключеного Google Classroom замість лінка відображається замок <span className="font-semibold text-slate-300">🔒 Meet</span>.
+                        <strong>Захист посилань:</strong> студенти своєї групи переходять на відеоуроки через пряму кнопку <span className="font-semibold text-emerald-400">Meet ↗</span> або <span className="font-semibold text-blue-400">Zoom ↗</span>.
                       </span>
                     </div>
                     <div className="flex items-start gap-2">
                       <span className="text-sys-accent font-bold mt-0.5">✦</span>
                       <span>
-                        <strong>Розблокування в 1 клік:</strong> натисни на кнопку <span className="font-semibold text-sys-accent">Прив'язати Classroom</span> у шапці — кнопки стануть зеленими <span className="font-semibold text-emerald-400">Meet ↗</span>.
+                        <strong>Для гостей:</strong> посилання захищені позначкою <span className="font-semibold text-slate-300">🔒 Meet</span> для безпеки навчального процесу.
                       </span>
                     </div>
                   </div>
@@ -598,10 +863,10 @@ export function StudentGuideModal({ isOnboarding = false, onClose, onComplete }:
                 </motion.div>
               )}
 
-              {/* STEP 3: Homework & Classroom */}
-              {currentStep === 3 && (
+              {/* STEP: CLASSROOM (ONBOARDING & GUIDE) */}
+              {(currentStepData.id === "classroom" || currentStepData.id === "homework") && (
                 <motion.div
-                  key="step3"
+                  key="classroom"
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -6 }}
@@ -610,29 +875,49 @@ export function StudentGuideModal({ isOnboarding = false, onClose, onComplete }:
                 >
                   <div>
                     <h3 className="text-xl sm:text-2xl font-black text-sys-text-primary tracking-tight">
-                      {STEPS[3].fullTitle}
+                      {currentStepData.fullTitle}
                     </h3>
                     <p className="text-xs sm:text-sm text-sys-text-secondary mt-1">
-                      {STEPS[3].subtitle}
+                      {currentStepData.subtitle}
                     </p>
                   </div>
 
-                  <div className="space-y-2 text-xs sm:text-sm text-sys-text-secondary">
-                    <div className="flex items-start gap-2">
-                      <span className="text-sys-accent font-bold mt-0.5">✦</span>
-                      <span>
-                        <strong>ДЗ на картці:</strong> активні завдання з дедлайнами відображаються прямо під назвою предмета.
-                      </span>
+                  {/* Interactive Connect Button for Onboarding */}
+                  {isOnboarding && (
+                    <div className="rounded-2xl border border-sys-border/80 bg-sys-bg p-4 space-y-3 shadow-xs">
+                      {isLinked || classroomSuccess ? (
+                        <div className="flex items-center gap-3 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-emerald-400 font-bold text-xs sm:text-sm">
+                          <span className="text-lg">✅</span>
+                          <div>
+                            <div>Google Classroom успішно підключено!</div>
+                            <div className="text-xs font-normal text-emerald-300/80">
+                              {linkedEmail || "Студентський акаунт активний"}
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <button
+                            type="button"
+                            onClick={handleClassroomAuth}
+                            disabled={isLinkingClassroom}
+                            className="w-full flex items-center justify-center gap-2 rounded-xl bg-sys-accent px-4 py-2.5 text-xs sm:text-sm font-bold text-slate-900 hover:opacity-95 active:scale-95 transition-all shadow-xs disabled:opacity-50"
+                          >
+                            <span>🔗</span>
+                            <span>{isLinkingClassroom ? "Підключення..." : "Підключити студентську пошту Classroom"}</span>
+                          </button>
+                          {classroomError && (
+                            <p className="text-xs text-rose-400 text-center">{classroomError}</p>
+                          )}
+                          <p className="text-[11px] text-sys-text-muted text-center">
+                            Це необов'язково. Ви можете підключити Classroom пізніше в налаштуваннях.
+                          </p>
+                        </div>
+                      )}
                     </div>
-                    <div className="flex items-start gap-2">
-                      <span className="text-sys-accent font-bold mt-0.5">✦</span>
-                      <span>
-                        <strong>Оцінки:</strong> після здачі роботи плашка стає зеленою (<span className="font-semibold text-emerald-400">Усе здано</span>), де можна побачити оцінку викладача.
-                      </span>
-                    </div>
-                  </div>
+                  )}
 
-                  {/* Card with Accordions */}
+                  {/* Accordion Demo */}
                   <div className="rounded-2xl border border-sys-border bg-sys-bg p-4 space-y-2.5 shadow-lg">
                     <div className="rounded-2xl border border-sys-border bg-sys-card p-4 space-y-2.5">
                       <div className="flex items-center justify-between text-xs font-bold text-sys-text-secondary">
@@ -683,10 +968,10 @@ export function StudentGuideModal({ isOnboarding = false, onClose, onComplete }:
                 </motion.div>
               )}
 
-              {/* STEP 4: Personalization & Themes */}
-              {currentStep === 4 && (
+              {/* STEP: PWA INSTALLATION */}
+              {currentStepData.id === "install" && (
                 <motion.div
-                  key="step4"
+                  key="install"
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -6 }}
@@ -695,10 +980,10 @@ export function StudentGuideModal({ isOnboarding = false, onClose, onComplete }:
                 >
                   <div>
                     <h3 className="text-xl sm:text-2xl font-black text-sys-text-primary tracking-tight">
-                      {STEPS[4].fullTitle}
+                      {currentStepData.fullTitle}
                     </h3>
                     <p className="text-xs sm:text-sm text-sys-text-secondary mt-1">
-                      {STEPS[4].subtitle}
+                      {currentStepData.subtitle}
                     </p>
                   </div>
 
@@ -706,90 +991,13 @@ export function StudentGuideModal({ isOnboarding = false, onClose, onComplete }:
                     <div className="flex items-start gap-2">
                       <span className="text-sys-accent font-bold mt-0.5">✦</span>
                       <span>
-                        <strong>Постійна підгрупа:</strong> обери свою підгрупу один раз у налаштуваннях, і розклад завжди відкриватиметься тільки з твоїми викладачами.
+                        <strong>Офлайн-режим:</strong> уже відкритий розклад зберігається на пристрої й відкривається навіть без підключення до інтернету.
                       </span>
                     </div>
                     <div className="flex items-start gap-2">
                       <span className="text-sys-accent font-bold mt-0.5">✦</span>
                       <span>
-                        <strong>Палітри оформлення:</strong> перемикай тему оформления прямо в налаштуваннях застосунку.
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-sys-border bg-sys-bg p-4 space-y-3 shadow-lg">
-                    <div className="grid grid-cols-3 gap-2">
-                      {(
-                        [
-                          { id: "ocean", name: "Океан", color: "#38bdf8" },
-                          { id: "emerald", name: "Смарагд", color: "#10b981" },
-                          { id: "amethyst", name: "Аметист", color: "#a855f7" },
-                          { id: "amber", name: "Бурштин", color: "#f59e0b" },
-                          { id: "sakura", name: "Сакура", color: "#f43f5e" },
-                          { id: "lagoon", name: "Лагуна", color: "#14b8a6" },
-                        ] as const
-                      ).map((pal) => (
-                        <button
-                          key={pal.id}
-                          type="button"
-                          onClick={() => setDemoAccent(pal.id)}
-                          className={`flex items-center gap-2 rounded-xl p-2.5 text-xs font-bold border transition-all ${
-                            demoAccent === pal.id
-                              ? `${accentColors[pal.id].soft} ${accentColors[pal.id].border} ${accentColors[pal.id].text}`
-                              : "bg-sys-card border-sys-border text-sys-text-secondary hover:border-sys-accent/40"
-                          }`}
-                        >
-                          <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: pal.color }} />
-                          <span>{pal.name}</span>
-                        </button>
-                      ))}
-                    </div>
-
-                    <div className={`rounded-2xl border ${accentColors[demoAccent].border} bg-sys-card p-3.5 space-y-1 transition-colors duration-200`}>
-                      <div className="flex items-center justify-between text-xs">
-                        <span className={`font-black ${accentColors[demoAccent].text}`}>Прев'ю теми</span>
-                        <span className={`rounded-full ${accentColors[demoAccent].soft} ${accentColors[demoAccent].text} px-2 py-0.5 text-[10px] font-bold`}>
-                          Акцент
-                        </span>
-                      </div>
-                      <div className="text-xs text-sys-text-secondary">
-                        Усі кнопки та активні елементи розкладу змінять колір.
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-
-              {/* STEP 5: PWA & Offline */}
-              {currentStep === 5 && (
-                <motion.div
-                  key="step5"
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  transition={{ duration: 0.15 }}
-                  className="space-y-4"
-                >
-                  <div>
-                    <h3 className="text-xl sm:text-2xl font-black text-sys-text-primary tracking-tight">
-                      {STEPS[5].fullTitle}
-                    </h3>
-                    <p className="text-xs sm:text-sm text-sys-text-secondary mt-1">
-                      {STEPS[5].subtitle}
-                    </p>
-                  </div>
-
-                  <div className="space-y-2 text-xs sm:text-sm text-sys-text-secondary">
-                    <div className="flex items-start gap-2">
-                      <span className="text-sys-accent font-bold mt-0.5">✦</span>
-                      <span>
-                        <strong>Офлайн-режим:</strong> відкритий розклад автоматично кешується на пристрої й відкривається навіть без інтернету.
-                      </span>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <span className="text-sys-accent font-bold mt-0.5">✦</span>
-                      <span>
-                        <strong>Встановлення:</strong> додай застосунок на робочий стіл, щоб запускати його в один клік як справжній додаток.
+                        <strong>Швидкий запуск:</strong> розклад запускається як окремий додаток без адресної панелі браузера.
                       </span>
                     </div>
                   </div>
@@ -835,6 +1043,7 @@ export function StudentGuideModal({ isOnboarding = false, onClose, onComplete }:
                   </div>
                 </motion.div>
               )}
+
             </AnimatePresence>
 
             {/* Bottom Step Navigation Bar */}
@@ -858,7 +1067,7 @@ export function StudentGuideModal({ isOnboarding = false, onClose, onComplete }:
                 className="rounded-xl bg-sys-accent px-5 py-2 text-xs sm:text-sm font-bold text-slate-900 hover:opacity-95 active:scale-95 transition-all shadow-md"
               >
                 {currentStep === totalSteps - 1
-                  ? (isOnboarding ? "Перейти до розкладу" : "Зрозуміло")
+                  ? (isOnboarding ? "🚀 Перейти до розкладу" : "Зрозуміло ✓")
                   : "Далі →"}
               </button>
             </footer>

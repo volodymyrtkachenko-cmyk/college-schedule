@@ -162,6 +162,18 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                 var storedAccent = localStorage.getItem('college_accent') || 'blue';
                 document.documentElement.setAttribute('data-accent', storedAccent);
               } catch (e) {}
+
+              try {
+                window.addEventListener('beforeinstallprompt', function(e) {
+                  e.preventDefault();
+                  window.__pwaInstallEvent = e;
+                  window.dispatchEvent(new CustomEvent('pwa-install-ready', { detail: e }));
+                });
+                window.addEventListener('appinstalled', function() {
+                  window.__pwaInstallEvent = null;
+                  window.dispatchEvent(new CustomEvent('pwa-installed'));
+                });
+              } catch (e) {}
             `,
           }}
         />
