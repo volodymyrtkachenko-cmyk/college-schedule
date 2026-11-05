@@ -1,5 +1,5 @@
 "use client";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { api, LearningMode, LearningModeConfig, LearningModeOverride } from "../../lib/api";
 import { invalidateScheduleCache } from "../../lib/hooks";
 import { PageHeader } from "./PageHeader";
@@ -25,13 +25,29 @@ function toggle<T>(list: T[], value: T): T[] {
   return list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
 }
 
+function formatOverrideDatesUk(startIso: string, endIso: string): string {
+  if (!startIso) return "";
+  const [sy, sm, sd] = startIso.split("-").map(Number);
+  const startDt = new Date(sy, sm - 1, sd);
+  const sFmt = startDt.toLocaleDateString("uk-UA", { day: "numeric", month: "short" });
+  if (!endIso || startIso === endIso) {
+    return sFmt;
+  }
+  const [ey, em, ed] = endIso.split("-").map(Number);
+  const endDt = new Date(ey, em - 1, ed);
+  const eFmt = endDt.toLocaleDateString("uk-UA", { day: "numeric", month: "short" });
+  return `${sFmt} – ${eFmt}`;
+}
+
 export function LearningModePanel() {
   const [config, setConfig] = useState<LearningModeConfig>(EMPTY_CONFIG);
   const [draftOverride, setDraftOverride] = useState<LearningModeOverride>(EMPTY_OVERRIDE);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
     let active = true;
@@ -71,24 +87,34 @@ export function LearningModePanel() {
       setError("Вкажіть дату початку циклу.");
       return;
     }
-    let next = config;
-    if (draftOverride.start && draftOverride.end && draftOverride.end >= draftOverride.start) {
-      next = {
-        ...config,
-        overrides: [
-          ...config.overrides,
-          {
-            ...draftOverride,
-            reason: draftOverride.reason?.trim() || null,
-          },
-        ],
-      };
-      setDraftOverride(EMPTY_OVERRIDE);
-    }
-    void persist(next, "Цикл збережено.");
+    void persist(config, "Цикл збережено.");
   }
 
-  function addOverride(event: FormEvent<HTMLFormElement>) {
+  function startEditing(index: number) {
+    const target = config.overrides[index];
+    if (!target) return;
+    setEditingIndex(index);
+    setDraftOverride({
+      start: target.start,
+      end: target.end,
+      mode: target.mode,
+      courses: [...target.courses],
+      reason: target.reason ?? "",
+    });
+    setError(null);
+    setSuccess(null);
+    setTimeout(() => {
+      formRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 50);
+  }
+
+  function cancelEditing() {
+    setEditingIndex(null);
+    setDraftOverride(EMPTY_OVERRIDE);
+    setError(null);
+  }
+
+  function saveOverride(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const start = draftOverride.start.trim();
     const end = (draftOverride.end || draftOverride.start).trim();
@@ -107,12 +133,32 @@ export function LearningModePanel() {
       courses: [...draftOverride.courses].sort((a, b) => a - b),
       reason: draftOverride.reason?.trim() || null,
     };
-    const next = { ...config, overrides: [...config.overrides, normalized] };
+
+    let next: LearningModeConfig;
+    let message: string;
+
+    if (editingIndex !== null && editingIndex >= 0 && editingIndex < config.overrides.length) {
+      const updated = [...config.overrides];
+      updated[editingIndex] = normalized;
+      next = { ...config, overrides: updated };
+      message = "Виняток успішно змінено.";
+    } else {
+      next = { ...config, overrides: [...config.overrides, normalized] };
+      message = "Виняток успішно додано.";
+    }
+
     setDraftOverride(EMPTY_OVERRIDE);
-    void persist(next, "Виняток додано.");
+    setEditingIndex(null);
+    void persist(next, message);
   }
 
   function removeOverride(index: number) {
+    if (editingIndex === index) {
+      setEditingIndex(null);
+      setDraftOverride(EMPTY_OVERRIDE);
+    } else if (editingIndex !== null && index < editingIndex) {
+      setEditingIndex(editingIndex - 1);
+    }
     const next = { ...config, overrides: config.overrides.filter((_, i) => i !== index) };
     void persist(next, "Виняток видалено.");
   }
@@ -270,49 +316,117 @@ export function LearningModePanel() {
                 </div>
               ) : (
                 <ul className="space-y-2.5 max-h-[300px] overflow-y-auto pr-1">
-                  {config.overrides.map((override, index) => (
-                    <li key={`${override.start}-${override.end}-${index}`} className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-sys-border bg-sys-bg/60 p-3 text-sm">
-                      <div className="flex flex-col gap-1 min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2 text-sys-text-primary">
-                          <span className="font-semibold text-xs sm:text-sm">
-                            {override.start === override.end ? override.start : `${override.start} – ${override.end}`}
-                          </span>
-                          <span
-                            className={`rounded-full border px-2 py-0.5 text-[11px] font-bold ${
-                              override.mode === "offline"
-                                ? "border-sys-accent/30 bg-sys-accent/10 text-sys-accent"
-                                : "border-sys-warning/30 bg-sys-warning/10 text-sys-warning"
-                            }`}
-                          >
-                            {override.mode === "offline" ? "Очно" : "Дистанційно"}
-                          </span>
-                          <span className="text-xs text-sys-text-secondary">
-                            {override.courses.length ? override.courses.map((c) => `${c} курс`).join(", ") : "усі курси"}
-                          </span>
-                        </div>
-                        {override.reason && (
-                          <p className="text-xs text-sys-text-secondary whitespace-normal break-words">
-                            {override.reason}
-                          </p>
-                        )}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => removeOverride(index)}
-                        disabled={saving}
-                        className="min-h-[32px] px-2 text-xs font-semibold text-rose-400 hover:text-rose-300 hover:underline disabled:opacity-50 shrink-0 cursor-pointer"
+                  {config.overrides.map((override, index) => {
+                    const isEditing = editingIndex === index;
+                    return (
+                      <li
+                        key={`${override.start}-${override.end}-${index}`}
+                        className={`flex flex-wrap items-start justify-between gap-3 rounded-xl border p-3 text-sm transition-all ${
+                          isEditing
+                            ? "border-sys-accent bg-sys-accent/10 ring-2 ring-sys-accent/40 shadow-xs"
+                            : "border-sys-border bg-sys-bg/60 hover:border-sys-border/90"
+                        }`}
                       >
-                        Видалити
-                      </button>
-                    </li>
-                  ))}
+                        <div className="flex flex-col gap-1 min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2 text-sys-text-primary">
+                            <span className="font-semibold text-xs sm:text-sm">
+                              {formatOverrideDatesUk(override.start, override.end)}
+                            </span>
+                            <span className="text-[11px] text-sys-text-muted font-mono">
+                              ({override.start === override.end ? override.start : `${override.start} – ${override.end}`})
+                            </span>
+                            <span
+                              className={`rounded-full border px-2 py-0.5 text-[11px] font-bold ${
+                                override.mode === "offline"
+                                  ? "border-sys-accent/30 bg-sys-accent/10 text-sys-accent"
+                                  : "border-sys-warning/30 bg-sys-warning/10 text-sys-warning"
+                              }`}
+                            >
+                              {override.mode === "offline" ? "Очно" : "Дистанційно"}
+                            </span>
+                            <span className="text-xs text-sys-text-secondary">
+                              {override.courses.length ? override.courses.map((c) => `${c} курс`).join(", ") : "усі курси"}
+                            </span>
+                            {isEditing && (
+                              <span className="rounded-full bg-sys-accent/20 border border-sys-accent/40 px-2 py-0.5 text-[11px] font-bold text-sys-accent">
+                                ✏️ Редагується
+                              </span>
+                            )}
+                          </div>
+                          {override.reason && (
+                            <p className="text-xs text-sys-text-secondary whitespace-normal break-words">
+                              {override.reason}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {isEditing ? (
+                            <button
+                              type="button"
+                              onClick={cancelEditing}
+                              disabled={saving}
+                              className="min-h-[32px] px-2.5 py-1 rounded-lg border border-sys-border text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg disabled:opacity-50 cursor-pointer transition-colors"
+                            >
+                              Скасувати
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => startEditing(index)}
+                              disabled={saving}
+                              className="min-h-[32px] px-2.5 py-1 rounded-lg border border-sys-border/80 text-xs font-semibold text-sys-accent hover:border-sys-accent/50 hover:bg-sys-accent/10 disabled:opacity-50 cursor-pointer transition-colors"
+                            >
+                              ✏️ Змінити
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => removeOverride(index)}
+                            disabled={saving}
+                            className="min-h-[32px] px-2 text-xs font-semibold text-rose-400 hover:text-rose-300 hover:underline disabled:opacity-50 cursor-pointer"
+                          >
+                            Видалити
+                          </button>
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
 
-              <form onSubmit={addOverride} className="space-y-3.5 rounded-xl border border-sys-border/80 bg-sys-bg/40 p-4">
-                <span className="text-xs font-bold text-sys-text-primary block">
-                  + Додати новий виняток
-                </span>
+              <form
+                ref={formRef}
+                onSubmit={saveOverride}
+                className={`space-y-3.5 rounded-xl border p-4 transition-colors ${
+                  editingIndex !== null
+                    ? "border-sys-accent/50 bg-sys-accent/5 ring-1 ring-sys-accent/20"
+                    : "border-sys-border/80 bg-sys-bg/40"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-sys-text-primary flex items-center gap-1.5">
+                    {editingIndex !== null ? (
+                      <>
+                        <span className="text-sys-accent">✏️</span>
+                        <span>Редагувати виняток #{editingIndex + 1}</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>+</span>
+                        <span>Додати новий виняток</span>
+                      </>
+                    )}
+                  </span>
+                  {editingIndex !== null && (
+                    <button
+                      type="button"
+                      onClick={cancelEditing}
+                      className="text-xs text-sys-text-muted hover:text-sys-text-primary hover:underline cursor-pointer"
+                    >
+                      Скасувати редагування
+                    </button>
+                  )}
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <label className="block">
                     <span className="form-label text-sys-text-secondary text-xs">Початок (З)</span>
@@ -409,13 +523,23 @@ export function LearningModePanel() {
                     className="form-control mt-1 shadow-sm bg-sys-bg w-full text-sm"
                   />
                 </label>
-                <div className="flex justify-end pt-1">
+                <div className="flex items-center justify-end gap-2.5 pt-1">
+                  {editingIndex !== null && (
+                    <button
+                      type="button"
+                      onClick={cancelEditing}
+                      disabled={saving}
+                      className="rounded-lg border border-sys-border px-4 py-2 min-h-[38px] text-xs font-semibold text-sys-text-secondary hover:bg-sys-bg hover:text-sys-text-primary disabled:opacity-50 transition-colors cursor-pointer"
+                    >
+                      Скасувати
+                    </button>
+                  )}
                   <button
                     type="submit"
                     disabled={saving || !draftOverride.start || !draftOverride.end}
                     className="rounded-lg bg-sys-accent px-4 py-2 min-h-[38px] text-xs font-semibold text-white shadow-xs hover:opacity-95 disabled:opacity-50 transition-colors cursor-pointer"
                   >
-                    + Додати виняток
+                    {saving ? "Збереження…" : editingIndex !== null ? "Зберегти зміни" : "+ Додати виняток"}
                   </button>
                 </div>
               </form>
