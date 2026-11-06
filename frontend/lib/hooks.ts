@@ -300,31 +300,43 @@ export function useSchedule(
       }
 
       if (!hasCachedSchedule) {
-        // Якщо для поточного тижня кешу немає, перевіряємо чи є збережений розклад минулих тижнів
-        const fallback = findFallbackScheduleFromStorage();
-        if (fallback) {
-          if (fallback.today) setToday(fallback.today);
-          setWeek(fallback.week);
-          setIsUsingFallbackCache(true);
-          setLoading(false);
-          hasCachedSchedule = true;
-        } else {
+        // Якщо клієнт уже знає, що офлайн — підставляємо збережений розклад із кешу
+        const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
+        if (isOffline) {
+          const fallback = findFallbackScheduleFromStorage();
+          if (fallback) {
+            if (fallback.today) setToday(fallback.today);
+            setWeek(fallback.week);
+            setIsUsingFallbackCache(true);
+            setLoading(false);
+            hasCachedSchedule = true;
+          }
+        }
+
+        if (!hasCachedSchedule) {
+          // У звичайному режимі онлайн — чекаємо відповіді сервера зі стандартним станом завантаження,
+          // БЕЗ передчасного показу повідомлення "сервер тимчасово недоступний"
           setLoading(true);
-          // Якщо інтернет слабкий і за 3.2 с відповіді немає — знімаємо блокуючий спінер і пускаємо в інтерфейс
+          setIsUsingFallbackCache(false);
+          // Лише якщо сервер не відповідає понад 2.5 с — активуємо fallback-кеш
           slowNetworkTimer = setTimeout(() => {
             if (!isSubscribed) return;
+            const fallback = findFallbackScheduleFromStorage();
+            if (fallback) {
+              if (fallback.today) setToday(fallback.today);
+              setWeek(fallback.week);
+              setIsUsingFallbackCache(true);
+            }
             setIsSlowNetwork(true);
             setLoading(false);
-          }, 3200);
+          }, 2500);
         }
-      }
-
-      // Якщо ми вже показали fallback-кеш, але мережа відповідає повільно (> 2.2 с), показуємо індикатор фонового довантаження
-      if (hasCachedSchedule) {
+      } else {
+        // Якщо точний кеш обраного тижня вже є, але фонове оновлення триває > 2.5 с — м'яко показуємо індикатор
         slowNetworkTimer = setTimeout(() => {
           if (!isSubscribed) return;
           setIsSlowNetwork(true);
-        }, 2200);
+        }, 2500);
       }
 
       setError(null);
@@ -352,13 +364,23 @@ export function useSchedule(
           memoryCache.set(memKey, { time: Date.now(), today: todayResponse, week: weekResponse });
 
           if (prefetchTimer) clearTimeout(prefetchTimer);
-          prefetchTimer = setTimeout(() => prefetchAdjacentWeeks(todayResponse), 1500);
+          prefetchTimer = setTimeout(() => prefetchAdjacentWeeks(todayResponse), 350);
         })
         .catch(() => {
           if (!isSubscribed) return;
           setIsSlowNetwork(false);
           if (!hasCachedSchedule) {
-            setError("Слабке з'єднання з інтернетом. Не вдалося завантажити розклад із сервера.");
+            const fallback = findFallbackScheduleFromStorage();
+            if (fallback) {
+              if (fallback.today) setToday(fallback.today);
+              setWeek(fallback.week);
+              setIsUsingFallbackCache(true);
+              setLoading(false);
+            } else {
+              setError("Слабке з'єднання з інтернетом. Не вдалося завантажити розклад із сервера.");
+            }
+          } else {
+            setIsUsingFallbackCache(true);
           }
         })
         .finally(() => {
