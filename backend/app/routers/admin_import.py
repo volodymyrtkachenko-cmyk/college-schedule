@@ -230,17 +230,135 @@ def _cancellation_matches_schedule(cancellation: dict, schedules: list[Schedule]
     )
 
 
+def _is_valid_pos_int(val: Any) -> bool:
+    return isinstance(val, int) and not isinstance(val, bool) and val > 0
+
+
+def _is_valid_lesson_number(val: Any) -> bool:
+    return isinstance(val, int) and not isinstance(val, bool) and 1 <= val <= 4
+
+
+def _is_valid_iso_weekday_date(val: Any) -> bool:
+    if not isinstance(val, str):
+        return False
+    try:
+        d = date.fromisoformat(val)
+        return d.isoweekday() in range(1, 6)
+    except ValueError:
+        return False
+
+
+def validate_and_sanitize_import_items(
+    substitutions: list[dict],
+    cancelled: list[dict],
+    base_slots: list[dict],
+) -> tuple[list[dict], list[dict], list[dict]]:
+    """
+    Validates and sanitizes imported schedule items before diffing/persistence:
+    - Filters out malformed records (invalid dates, weekends, lesson_number outside 1..4, non-positive IDs)
+    - Truncates room strings to 100 chars and normalizes whitespace
+    - Normalizes week_type to ('numerator', 'denominator', 'both')
+    - Clears duplicate second_teacher_id when identical to teacher_id
+    """
+    valid_weeks = {"numerator", "denominator", "both"}
+    clean_subs: list[dict] = []
+    for item in substitutions:
+        if not isinstance(item, dict):
+            continue
+        if not _is_valid_iso_weekday_date(item.get("date")):
+            continue
+        if not _is_valid_lesson_number(item.get("lesson_number")):
+            continue
+        if not _is_valid_pos_int(item.get("group_id")) or not _is_valid_pos_int(item.get("subject_id")):
+            continue
+        t1 = item.get("teacher_id")
+        t2 = item.get("second_teacher_id")
+        if t1 is not None and not _is_valid_pos_int(t1):
+            t1 = None
+        if t2 is not None and (not _is_valid_pos_int(t2) or t2 == t1):
+            t2 = None
+        room_raw = item.get("room")
+        room_clean = _normalize_room(room_raw)[:100] if isinstance(room_raw, str) else ""
+        w_type = item.get("week_type", "both")
+        if w_type not in valid_weeks:
+            w_type = "both"
+        clean_subs.append({
+            **item,
+            "teacher_id": t1,
+            "second_teacher_id": t2,
+            "room": room_clean or None,
+            "week_type": w_type,
+        })
+
+    clean_canc: list[dict] = []
+    for item in cancelled:
+        if not isinstance(item, dict):
+            continue
+        if not _is_valid_iso_weekday_date(item.get("date")):
+            continue
+        if not _is_valid_lesson_number(item.get("lesson_number")):
+            continue
+        if not _is_valid_pos_int(item.get("group_id")):
+            continue
+        w_type = item.get("week_type", "both")
+        if w_type not in valid_weeks:
+            w_type = "both"
+        clean_canc.append({
+            **item,
+            "week_type": w_type,
+        })
+
+    clean_base: list[dict] = []
+    for slot in base_slots:
+        if not isinstance(slot, dict):
+            continue
+        if not _is_valid_pos_int(slot.get("group_id")) or not _is_valid_pos_int(slot.get("subject_id")):
+            continue
+        if not _is_valid_lesson_number(slot.get("lesson_number")):
+            continue
+        dow = slot.get("day_of_week")
+        d_str = slot.get("date")
+        if d_str is not None:
+            if not _is_valid_iso_weekday_date(d_str):
+                continue
+            dow = date.fromisoformat(d_str).isoweekday()
+        if not (isinstance(dow, int) and not isinstance(dow, bool) and 1 <= dow <= 5):
+            continue
+        t1 = slot.get("teacher_id")
+        t2 = slot.get("second_teacher_id")
+        if t1 is not None and not _is_valid_pos_int(t1):
+            t1 = None
+        if t2 is not None and (not _is_valid_pos_int(t2) or t2 == t1):
+            t2 = None
+        room_raw = slot.get("room")
+        room_clean = _normalize_room(room_raw)[:100] if isinstance(room_raw, str) else ""
+        w_type = slot.get("week_type", "both")
+        if w_type not in valid_weeks:
+            w_type = "both"
+        clean_base.append({
+            **slot,
+            "day_of_week": dow,
+            "teacher_id": t1,
+            "second_teacher_id": t2,
+            "room": room_clean or None,
+            "week_type": w_type,
+        })
+
+    return clean_subs, clean_canc, clean_base
+
+
 def _deduplicate_import_changes(
     substitutions: list[dict],
     cancelled: list[dict],
 ) -> tuple[list[dict], list[dict]]:
+    substitutions, cancelled, _ = validate_and_sanitize_import_items(substitutions, cancelled, [])
     substitution_by_cell: dict[tuple[str, int, int], dict] = {}
     for item in substitutions:
         key = (item["date"], item["group_id"], item["lesson_number"])
         current = substitution_by_cell.get(key)
         candidate = {
             **item,
-            "room": _normalize_room(item.get("room")),
+            "room": _normalize_room(item.get("room"))[:100],
             "week_type": item.get("week_type", "both"),
         }
         if current is None or json.dumps(candidate, sort_keys=True, default=str) < json.dumps(
@@ -968,6 +1086,11 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
             .options(joinedload(Schedule.subject), joinedload(Schedule.teacher), joinedload(Schedule.second_teacher), joinedload(Schedule.group))
         )).all()
 
+        aggregated_substitutions, aggregated_cancelled, aggregated_base_slots = validate_and_sanitize_import_items(
+            aggregated_substitutions,
+            aggregated_cancelled,
+            aggregated_base_slots,
+        )
         aggregated_substitutions, aggregated_cancelled = _deduplicate_import_changes(
             aggregated_substitutions,
             aggregated_cancelled,

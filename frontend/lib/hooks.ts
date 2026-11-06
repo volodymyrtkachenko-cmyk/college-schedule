@@ -39,14 +39,19 @@ export function useOnlineStatus() {
   return online;
 }
 
-export function useSchedule(weekAnchorDate: Date, includeCancelled = false) {
+export function useSchedule(
+  weekAnchorDate: Date,
+  includeCancelled = false,
+  initialGroups: import("./api").ReferenceRecord[] = [],
+  initialTeachers: import("./api").ReferenceRecord[] = []
+) {
   const { user } = useAuth();
   const [isSetupComplete, setIsSetupComplete] = useState(false);
   const [mode, setMode] = useState<"student" | "teacher">("student");
-  const [groups, setGroups] = useState<import("./api").ReferenceRecord[]>([]);
-  const [teachers, setTeachers] = useState<import("./api").ReferenceRecord[]>([]);
-  const [groupId, setGroupId] = useState<number | null>(null);
-  const [teacherId, setTeacherId] = useState<number | null>(null);
+  const [groups, setGroups] = useState<import("./api").ReferenceRecord[]>(initialGroups);
+  const [teachers, setTeachers] = useState<import("./api").ReferenceRecord[]>(initialTeachers);
+  const [groupId, setGroupId] = useState<number | null>(initialGroups[0]?.id ?? null);
+  const [teacherId, setTeacherId] = useState<number | null>(initialTeachers[0]?.id ?? null);
   const [today, setToday] = useState<ScheduleResponse | null>(null);
   const [week, setWeek] = useState<ScheduleResponse[]>([]);
   const [semesterStart, setSemesterStart] = useState<string | null>(null);
@@ -123,7 +128,9 @@ export function useSchedule(weekAnchorDate: Date, includeCancelled = false) {
         }
     })
       .catch(() => {
-        if (!cachedGroups) setError("Не вдалося завантажити список груп. Перевірте підключення до інтернету та спробуйте ще раз.");
+        if (!cachedGroups && initialGroups.length === 0) {
+          setError("Не вдалося завантажити список груп. Перевірте підключення до інтернету та спробуйте ще раз.");
+        }
       })
       .finally(() => {
         clearTimeout(dirSlowTimer);

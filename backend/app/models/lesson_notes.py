@@ -18,6 +18,7 @@ class LessonOccurrenceNote(Base):
         Index("uq_occurrence_note_active", "group_id", "note_date", "lesson_number", unique=True,
               postgresql_where=(column('archived') == False),
               sqlite_where=(column('archived') == False)),
+        Index("ix_notes_week_lookup", "note_date", "group_id", "archived"),
     )
     id: Mapped[int] = mapped_column(primary_key=True)
     group_id: Mapped[int] = mapped_column(ForeignKey("groups.id", ondelete="RESTRICT"), index=True)

@@ -1,10 +1,6 @@
-name: Backend CI
+name: Heroku Manual Operations
 
 on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
   workflow_dispatch:
     inputs:
       worker_quantity:
@@ -81,44 +77,3 @@ jobs:
         curl --fail-with-body --silent --show-error "$session" \
           --header "Accept: application/vnd.heroku+json; version=3" \
           --header "Authorization: Bearer ${HEROKU_API_KEY}"
-
-  build:
-    if: github.event_name != 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python 3.12
-      uses: actions/setup-python@v5
-      with:
-        python-version: "3.12"
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r backend/requirements.txt
-    - name: Test with pytest
-      run: |
-        cd backend
-        pytest
-
-  deploy:
-    needs: build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    name: Deploy to Heroku
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-    - name: Deploy to Heroku
-      env:
-        HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
-        HEROKU_APP_NAME: ${{ secrets.HEROKU_APP_NAME }}
-      run: |
-        set -eu
-        if [ -n "${HEROKU_API_KEY:-}" ] && [ -n "${HEROKU_APP_NAME:-}" ]; then
-          git push --force \
-            "https://heroku:${HEROKU_API_KEY}@git.heroku.com/${HEROKU_APP_NAME}.git" \
-            "HEAD:main"
-        else
-          echo "Heroku credentials not configured; skipping deployment."
-        fi

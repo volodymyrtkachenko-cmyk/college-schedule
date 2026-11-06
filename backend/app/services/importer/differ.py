@@ -7,6 +7,20 @@ from app.models import Schedule, Subject, Teacher, Group
 from app.services.importer.parsers.kre_parser import ParsedWeek
 from app.services.importer.normalizer import EntityNormalizer, clean_name
 
+MAX_GROUP_NAME_LEN = 100
+MAX_SUBJECT_NAME_LEN = 255
+MAX_TEACHER_NAME_LEN = 255
+MAX_ROOM_LEN = 100
+VALID_WEEK_TYPES = {"numerator", "denominator", "both"}
+
+
+def sanitize_room(room: str | None) -> str | None:
+    if not isinstance(room, str):
+        return None
+    cleaned = clean_name(room)[:MAX_ROOM_LEN]
+    return cleaned or None
+
+
 class ScheduleDiffer:
     def __init__(self, db: AsyncSession, normalizer: EntityNormalizer):
         self.db = db
@@ -19,30 +33,38 @@ class ScheduleDiffer:
         cancelled = []
         base_schedule_slots = []
         skipped_base_slots = []
-        
+        week_type = parsed_week.week_type if parsed_week.week_type in VALID_WEEK_TYPES else "both"
+
         # --- Auto-create missing entities ---
         for lesson in parsed_week.lessons:
-            if lesson.group_name and not self.normalizer.normalize_group(lesson.group_name):
-                new_group = Group(name=clean_name(lesson.group_name), is_active=True)
-                self.db.add(new_group)
-                await self.db.flush()
-                self.normalizer.remember("group", lesson.group_name, new_group.id)
-                self.unresolved_entities.append({"type": "group", "raw": lesson.group_name, "actual_id": new_group.id})
-            
-            if lesson.subject_name and not self.normalizer.normalize_subject(lesson.subject_name):
-                new_subj = Subject(name=clean_name(lesson.subject_name), is_active=True)
-                self.db.add(new_subj)
-                await self.db.flush()
-                self.normalizer.remember("subject", lesson.subject_name, new_subj.id)
-                self.unresolved_entities.append({"type": "subject", "raw": lesson.subject_name, "actual_id": new_subj.id})
-                
+            if lesson.group_name:
+                cleaned_group = clean_name(lesson.group_name)[:MAX_GROUP_NAME_LEN]
+                if cleaned_group and not self.normalizer.normalize_group(cleaned_group):
+                    new_group = Group(name=cleaned_group, is_active=True)
+                    self.db.add(new_group)
+                    await self.db.flush()
+                    self.normalizer.remember("group", lesson.group_name, new_group.id)
+                    self.normalizer.remember("group", cleaned_group, new_group.id)
+                    self.unresolved_entities.append({"type": "group", "raw": cleaned_group, "actual_id": new_group.id})
+
+            if lesson.subject_name:
+                cleaned_subj = clean_name(lesson.subject_name)[:MAX_SUBJECT_NAME_LEN]
+                if cleaned_subj and not self.normalizer.normalize_subject(cleaned_subj):
+                    new_subj = Subject(name=cleaned_subj, is_active=True)
+                    self.db.add(new_subj)
+                    await self.db.flush()
+                    self.normalizer.remember("subject", lesson.subject_name, new_subj.id)
+                    self.normalizer.remember("subject", cleaned_subj, new_subj.id)
+                    self.unresolved_entities.append({"type": "subject", "raw": cleaned_subj, "actual_id": new_subj.id})
+
             if lesson.teacher_name:
                 for t in lesson.teacher_name.split("/"):
-                    t_name = t.strip()
+                    t_name = clean_name(t)[:MAX_TEACHER_NAME_LEN]
                     if t_name and not self.normalizer.normalize_teacher(t_name):
-                        new_teacher = Teacher(name=clean_name(t_name), is_active=True)
+                        new_teacher = Teacher(name=t_name, is_active=True)
                         self.db.add(new_teacher)
                         await self.db.flush()
+                        self.normalizer.remember("teacher", t.strip(), new_teacher.id)
                         self.normalizer.remember("teacher", t_name, new_teacher.id)
                         self.unresolved_entities.append({"type": "teacher", "raw": t_name, "actual_id": new_teacher.id})
 
@@ -51,27 +73,34 @@ class ScheduleDiffer:
         await self.db.flush()
 
         for lesson in parsed_week.lessons:
-            if lesson.lesson_number is None or not (1 <= lesson.lesson_number <= 4):
+            if not isinstance(lesson.date, date):
+                continue
+            if lesson.date.isoweekday() not in range(1, 6):
+                continue
+            if not isinstance(lesson.lesson_number, int) or isinstance(lesson.lesson_number, bool) or not (1 <= lesson.lesson_number <= 4):
                 continue
 
             group_id = None
             if lesson.group_name:
-                group_id = self.normalizer.normalize_group(lesson.group_name)
-            
+                group_id = self.normalizer.normalize_group(clean_name(lesson.group_name)[:MAX_GROUP_NAME_LEN])
+
             subject_id = None
             if lesson.subject_name:
-                subject_id = self.normalizer.normalize_subject(lesson.subject_name)
-            
+                subject_id = self.normalizer.normalize_subject(clean_name(lesson.subject_name)[:MAX_SUBJECT_NAME_LEN])
+
             teacher_id = None
             second_teacher_id = None
-            
+
             if lesson.teacher_name:
-                t_names = [t.strip() for t in lesson.teacher_name.split("/")]
+                t_names = [clean_name(t)[:MAX_TEACHER_NAME_LEN] for t in lesson.teacher_name.split("/")]
                 if len(t_names) > 0 and t_names[0]:
                     teacher_id = self.normalizer.normalize_teacher(t_names[0])
                 if len(t_names) > 1 and t_names[1]:
                     second_teacher_id = self.normalizer.normalize_teacher(t_names[1])
+                if second_teacher_id is not None and second_teacher_id == teacher_id:
+                    second_teacher_id = None
 
+            sanitized_room = sanitize_room(lesson.room)
             teacher_unresolved = bool(lesson.teacher_name) and (teacher_id is None)
 
             if getattr(lesson, "is_cancelled", False):
@@ -80,7 +109,7 @@ class ScheduleDiffer:
                         "date": lesson.date.isoformat(),
                         "lesson_number": lesson.lesson_number,
                         "group_id": group_id,
-                        "week_type": parsed_week.week_type,
+                        "week_type": week_type,
                     })
                 continue
 
@@ -92,18 +121,18 @@ class ScheduleDiffer:
                         "subject_id": subject_id,
                         "teacher_id": teacher_id,
                         "second_teacher_id": second_teacher_id,
-                        "room": lesson.room,
+                        "room": sanitized_room,
                         "group_id": group_id,
-                        "week_type": parsed_week.week_type,
+                        "week_type": week_type,
                         "is_explicit_substitution": True,
                     })
                 else:
                     unresolved_substitutions.append({
                         "date": lesson.date.isoformat(),
                         "lesson_number": lesson.lesson_number,
-                        "group": lesson.group_name,
-                        "subject": lesson.subject_name,
-                        "teacher": lesson.teacher_name
+                        "group": clean_name(lesson.group_name or "")[:MAX_GROUP_NAME_LEN] or None,
+                        "subject": clean_name(lesson.subject_name or "")[:MAX_SUBJECT_NAME_LEN] or None,
+                        "teacher": clean_name(lesson.teacher_name or "")[:MAX_TEACHER_NAME_LEN] or None,
                     })
             else:
                 if subject_id and group_id and not teacher_unresolved:
@@ -115,17 +144,17 @@ class ScheduleDiffer:
                         "subject_id": subject_id,
                         "teacher_id": teacher_id,
                         "second_teacher_id": second_teacher_id,
-                        "room": lesson.room,
-                        "week_type": parsed_week.week_type,
+                        "room": sanitized_room,
+                        "week_type": week_type,
                         "is_explicit_substitution": False,
                     })
                 elif subject_id and group_id and teacher_unresolved:
                     skipped_base_slots.append({
                         "date": lesson.date.isoformat(),
                         "lesson_number": lesson.lesson_number,
-                        "group": lesson.group_name,
-                        "subject": lesson.subject_name,
-                        "teacher": lesson.teacher_name,
+                        "group": clean_name(lesson.group_name or "")[:MAX_GROUP_NAME_LEN] or None,
+                        "subject": clean_name(lesson.subject_name or "")[:MAX_SUBJECT_NAME_LEN] or None,
+                        "teacher": clean_name(lesson.teacher_name or "")[:MAX_TEACHER_NAME_LEN] or None,
                     })
 
         return {

@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     classroom_fernet_key: str = ""
     teacher_pin: str = "dfkr2026"
     admin_password: str | None = "admin123"
-    run_schema_bootstrap: bool = True
+    run_schema_bootstrap: bool = False
     auto_import_enabled: bool = True
     auto_import_interval_minutes: int = 30
     classroom_sync_interval_minutes: int = 10

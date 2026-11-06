@@ -115,6 +115,7 @@ class Schedule(Base):
         Index("ix_schedule_group_day", "group_id", "day_of_week"),
         Index("ix_schedule_teacher_day", "teacher_id", "day_of_week"),
         Index("ix_schedule_second_teacher_day", "second_teacher_id", "day_of_week"),
+        Index("ix_schedule_active_lookup", "version_id", "is_active", "day_of_week", "group_id"),
     )
     id: Mapped[int] = mapped_column(primary_key=True)
     group_id: Mapped[int] = mapped_column(ForeignKey("groups.id"), index=True)
@@ -170,7 +171,12 @@ class BellSchedule(Base):
 
 class ScheduleOverride(Base):
     __tablename__ = "schedule_override"
-    __table_args__ = (UniqueConstraint("group_id", "date", "lesson_number", name="uq_schedule_override_cell"),)
+    __table_args__ = (
+        UniqueConstraint("group_id", "date", "lesson_number", name="uq_schedule_override_cell"),
+        Index("ix_override_date_group", "date", "group_id", "lesson_number"),
+        Index("ix_override_teacher", "date", "teacher_id", "second_teacher_id"),
+        Index("ix_override_group_moved", "group_id", "moved_to_date", "moved_to_lesson"),
+    )
     id: Mapped[int] = mapped_column(primary_key=True)
     schedule_id: Mapped[Optional[int]] = mapped_column(ForeignKey("schedule.id", ondelete="SET NULL"), index=True)
     group_id: Mapped[int] = mapped_column(ForeignKey("groups.id", ondelete="CASCADE"), index=True)
@@ -249,6 +255,8 @@ class ImportedScheduleChange(Base):
         CheckConstraint("kind IN ('substitution', 'cancelled')", name="ck_imported_schedule_change_kind"),
         CheckConstraint("lesson_number BETWEEN 1 AND 4", name="ck_imported_schedule_change_lesson"),
         Index("ix_imported_change_group_date_pub", "group_id", "date", "is_published"),
+        Index("ix_imp_changes_lookup", "date", "is_published", "group_id", "lesson_number", sa.desc("version")),
+        Index("ix_imp_changes_teacher", "date", "is_published", "teacher_id", "second_teacher_id"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)

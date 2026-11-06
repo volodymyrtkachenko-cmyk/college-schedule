@@ -2,6 +2,7 @@
 
 import { api } from "./api";
 import { invalidateScheduleCache } from "./hooks";
+import { SITE_HOST, SITE_URL } from "./site";
 import { saveClassroomSyncData } from "./useClassroomSubmissions";
 
 export const GOOGLE_CLIENT_ID =
@@ -51,11 +52,11 @@ export async function requestClassroomAuth(options: ClassroomAuthOptions = {}): 
   // Friendly alert if user is trying to auth from an arbitrary temporary Vercel preview deployment
   if (typeof window !== "undefined") {
     const host = window.location.hostname;
-    const isVercelPreview = host.endsWith(".vercel.app") && !host.startsWith("college-schedule-flame");
+    const isVercelPreview = host.endsWith(".vercel.app") && host !== SITE_HOST && !host.startsWith("college-schedule-flame");
     if (isVercelPreview) {
-      const prodUrl = "https://college-schedule-flame.vercel.app/settings?mode=student";
+      const prodUrl = `${SITE_URL}/settings?mode=student`;
       const err = new Error(
-        `Вхід через Google працює лише на основному сайті: college-schedule-flame.vercel.app (поточна адреса — тимчасове прев'ю). Перейдіть на: ${prodUrl}`
+        `Вхід через Google працює лише на основному сайті: ${SITE_HOST} (поточна адреса — тимчасове прев'ю). Перейдіть на: ${prodUrl}`
       );
       options.onError?.(err);
       return Promise.reject(err);

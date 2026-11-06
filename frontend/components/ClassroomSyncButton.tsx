@@ -11,20 +11,11 @@ import {
   syncPersonalSubmissions,
   useClassroomSubmissions,
 } from "../lib/useClassroomSubmissions";
-
-const GOOGLE_CLIENT_ID =
-  process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
-  "1079868158360-ok75uv5l93pcql2iktfcple97sdu180b.apps.googleusercontent.com";
-const SCOPES = [
-  "https://www.googleapis.com/auth/classroom.courses.readonly",
-  "https://www.googleapis.com/auth/classroom.announcements.readonly",
-  "https://www.googleapis.com/auth/classroom.rosters.readonly",
-  "https://www.googleapis.com/auth/classroom.coursework.me.readonly",
-  "https://www.googleapis.com/auth/classroom.student-submissions.me.readonly",
-  "https://www.googleapis.com/auth/classroom.coursework.students.readonly",
-  "https://www.googleapis.com/auth/classroom.courseworkmaterials.readonly",
-  "https://www.googleapis.com/auth/directory.readonly",
-].join(" ");
+import {
+  CLASSROOM_SCOPES as SCOPES,
+  GOOGLE_CLIENT_ID,
+  loadGsiScript,
+} from "../lib/classroomAuth";
 
 export function ClassroomSyncButton({
   currentGroupId,
@@ -68,17 +59,6 @@ export function ClassroomSyncButton({
       })
       .catch(() => {});
   }, [currentGroupId, syncing]);
-
-  const loadGsiScript = (): Promise<void> =>
-    new Promise((resolve, reject) => {
-      if ((window as any).google?.accounts?.oauth2) return resolve();
-      const script = document.createElement("script");
-      script.src = "https://accounts.google.com/gsi/client";
-      script.async = true;
-      script.onload = () => resolve();
-      script.onerror = () => reject(new Error("Не вдалося завантажити Google OAuth"));
-      document.body.appendChild(script);
-    });
 
   const handleSyncSuccess = (
     res: any,

@@ -17,7 +17,6 @@ from app.routers import (
     health, schedule, schedule_periods, statistics, settings as settings_router, teacher_constraints, users,
     schedule_dated, schedule_template,
 )
-from app.models import AcademicEvent, GroupStudent, ClassroomGroupBinding, ClassroomCredential
 from app.routers.classroom import router as classroom_router
 from app.routers.events import router as events_router
 from app.routers.schedule_now import router as schedule_now_router
@@ -37,92 +36,59 @@ async def lifespan(_: FastAPI):
     classroom_sync_task = asyncio.create_task(classroom_auto_sync_loop()) if run_cron else None
     auto_import_task = asyncio.create_task(schedule_auto_import_loop()) if run_cron else None
 
-    # Schema bootstrap (DDL) is executed only if RUN_SCHEMA_BOOTSTRAP is explicitly enabled (dev / testing).
-    # Production schema must evolve exclusively via Alembic migrations.
+    # Schema evolution is managed exclusively via Alembic migrations (`alembic upgrade head`).
+    # Optional table bootstrap is supported only for ephemeral in-memory test databases when RUN_SCHEMA_BOOTSTRAP=true.
     run_bootstrap = settings.run_schema_bootstrap or os.environ.get("RUN_SCHEMA_BOOTSTRAP", "").strip().lower() in ("true", "1", "yes")
     async with engine.begin() as conn:
         if run_bootstrap:
             try:
-                await conn.run_sync(AcademicEvent.__table__.create, checkfirst=True)
-                await conn.run_sync(GroupStudent.__table__.create, checkfirst=True)
-                await conn.run_sync(ClassroomGroupBinding.__table__.create, checkfirst=True)
-                await conn.run_sync(ClassroomCredential.__table__.create, checkfirst=True)
-                await conn.execute(text("ALTER TABLE teachers ADD COLUMN IF NOT EXISTS full_name VARCHAR(150)"))
-                await conn.execute(text("ALTER TABLE teachers ADD COLUMN IF NOT EXISTS email VARCHAR(255)"))
-                await conn.execute(text("ALTER TABLE schedule_events ADD COLUMN IF NOT EXISTS lesson_number INTEGER"))
-                await conn.execute(text("ALTER TABLE schedule_events ADD COLUMN IF NOT EXISTS custom_subject VARCHAR(200)"))
-                await conn.execute(text("ALTER TABLE schedule_publications ADD COLUMN IF NOT EXISTS is_reverted BOOLEAN NOT NULL DEFAULT FALSE"))
-                await conn.execute(text("ALTER TABLE schedule_publications ALTER COLUMN actor_id DROP NOT NULL"))
-                await conn.execute(text("ALTER TABLE imported_schedule_changes ADD COLUMN IF NOT EXISTS change_type VARCHAR(20) DEFAULT 'substitution'"))
-                await conn.execute(text("ALTER TABLE imported_schedule_changes ADD COLUMN IF NOT EXISTS publication_id INTEGER REFERENCES schedule_publications(id) ON DELETE CASCADE"))
-                await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_imported_schedule_changes_publication_id ON imported_schedule_changes (publication_id)"))
-                await conn.execute(text(
-                    "CREATE INDEX IF NOT EXISTS ix_schedule_active_lookup "
-                    "ON schedule (version_id, is_active, day_of_week, group_id)"
-                ))
-                await conn.execute(text(
-                    "CREATE INDEX IF NOT EXISTS ix_schedule_second_teacher_day "
-                    "ON schedule (second_teacher_id, day_of_week)"
-                ))
-                await conn.execute(text(
-                    "CREATE INDEX IF NOT EXISTS ix_schedule_subject_id "
-                    "ON schedule (subject_id)"
-                ))
-                await conn.execute(text(
-                    "CREATE INDEX IF NOT EXISTS ix_imp_changes_lookup "
-                    "ON imported_schedule_changes (date, is_published, group_id, lesson_number, version DESC)"
-                ))
-                await conn.execute(text(
-                    "CREATE INDEX IF NOT EXISTS ix_imp_changes_teacher "
-                    "ON imported_schedule_changes (date, is_published, teacher_id, second_teacher_id)"
-                ))
-                await conn.execute(text(
-                    "CREATE INDEX IF NOT EXISTS ix_override_date_group "
-                    "ON schedule_override (date, group_id, lesson_number)"
-                ))
-                await conn.execute(text(
-                    "CREATE INDEX IF NOT EXISTS ix_override_teacher "
-                    "ON schedule_override (date, teacher_id, second_teacher_id)"
-                ))
-                await conn.execute(text(
-                    "CREATE INDEX IF NOT EXISTS ix_notes_week_lookup "
-                    "ON lesson_occurrence_notes (note_date, group_id, archived)"
-                ))
+                from app.database import Base
+                await conn.run_sync(Base.metadata.create_all, checkfirst=True)
             except Exception:
                 logger.warning("Schema bootstrap error during startup", exc_info=True)
 
         # Operational data updates (always run)
         try:
-            # Archive stale pending import drafts older than 12 hours
-            await conn.execute(text(
-                "UPDATE schedule_drafts SET status = 'archived' "
-                "WHERE draft_type = 'import' AND status = 'pending' AND created_at < NOW() - INTERVAL '12 hours'"
-            ))
+            if conn.dialect.name == "postgresql":
+                # Archive stale pending import drafts older than 12 hours
+                await conn.execute(text(
+                    "UPDATE schedule_drafts SET status = 'archived' "
+                    "WHERE draft_type = 'import' AND status = 'pending' AND created_at < NOW() - INTERVAL '12 hours'"
+                ))
             await conn.execute(text(
                 "UPDATE schedule_drafts SET status = 'TIMEOUT' "
                 "WHERE status = 'GENERATING'"
             ))
-            # Sync postgres sequences to avoid duplicate key violations after database migrations/restores
-            seq_tables = (
-                "schedule_publications",
-                "schedule_publication_snapshots",
-                "imported_schedule_changes",
-                "schedule_drafts",
-                "schedule_slots",
-                "schedule_override",
-                "schedule",
-                "curriculums",
-                "groups",
-                "teachers",
-                "subjects",
-            )
-            for tbl in seq_tables:
-                try:
-                    await conn.execute(text(
-                        f"SELECT setval(pg_get_serial_sequence('{tbl}', 'id'), COALESCE((SELECT MAX(id) FROM {tbl}), 1))"
-                    ))
-                except Exception as seq_err:
-                    logger.debug("Sequence sync skipped for table %s: %s", tbl, seq_err)
+            # Sync postgres sequences in a single round-trip to avoid duplicate key violations after migrations/restores
+            if conn.dialect.name == "postgresql":
+                await conn.execute(text("""
+                    DO $$
+                    DECLARE
+                        tbl text;
+                        seq_name text;
+                        max_id bigint;
+                    BEGIN
+                        FOREACH tbl IN ARRAY ARRAY[
+                            'schedule_publications',
+                            'schedule_publication_snapshots',
+                            'imported_schedule_changes',
+                            'schedule_drafts',
+                            'schedule_slots',
+                            'schedule_override',
+                            'schedule',
+                            'curriculums',
+                            'groups',
+                            'teachers',
+                            'subjects'
+                        ] LOOP
+                            seq_name := pg_get_serial_sequence(tbl, 'id');
+                            IF seq_name IS NOT NULL THEN
+                                EXECUTE format('SELECT COALESCE(MAX(id), 1) FROM %I', tbl) INTO max_id;
+                                PERFORM setval(seq_name, max_id);
+                            END IF;
+                        END LOOP;
+                    END $$;
+                """))
         except Exception:
             logger.warning("Data housekeeping error during startup", exc_info=True)
 

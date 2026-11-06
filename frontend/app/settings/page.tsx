@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useTheme, ACCENT_OPTIONS } from "../../lib/useTheme";
 import { useUserSettings } from "../../lib/useUserSettings";
 import { useClassroomSubmissions } from "../../lib/useClassroomSubmissions";
@@ -10,9 +11,13 @@ import { useAuth } from "../../lib/auth";
 import { useToast } from "../../components/ToastProvider";
 import { requestClassroomAuth } from "../../lib/classroomAuth";
 import { useMobileNav } from "../../lib/useMobileNav";
-import { StudentGuideModal } from "../../components/StudentGuideModal";
 import { api } from "../../lib/api";
 import { checkScheduleHasSubgroups } from "../../lib/format";
+
+const StudentGuideModal = dynamic(
+  () => import("../../components/StudentGuideModal").then((m) => m.StudentGuideModal),
+  { ssr: false }
+);
 
 const ROLE_NAMES: Record<string, string> = {
   admin: "Адміністратор",

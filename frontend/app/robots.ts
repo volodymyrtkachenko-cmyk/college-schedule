@@ -1,7 +1,8 @@
 import type { MetadataRoute } from "next";
+import { SITE_URL } from "../lib/site";
 
 export default function robots(): MetadataRoute.Robots {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://college-schedule-flame.vercel.app";
+  const siteUrl = SITE_URL;
 
   return {
     rules: [
@@ -17,7 +18,6 @@ export default function robots(): MetadataRoute.Robots {
           "/admin",
           "/admin/*",
           "/login",
-          "/settings",
           "/~offline",
           "/api/*",
         ],
@@ -34,7 +34,6 @@ export default function robots(): MetadataRoute.Robots {
           "/admin",
           "/admin/*",
           "/login",
-          "/settings",
           "/~offline",
           "/api/*",
         ],

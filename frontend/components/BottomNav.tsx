@@ -149,6 +149,7 @@ export function BottomNav() {
         {/* Tab 3: Settings */}
         <Link
           href={settingsHref}
+          prefetch={false}
           onClick={handleSettingsClick}
           aria-label="Налаштування"
           aria-pressed={activeTab === "settings"}

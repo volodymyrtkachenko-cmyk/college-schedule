@@ -6,6 +6,12 @@ on:
       - 'backend/**'
       - 'frontend/**'
       - '.github/workflows/fly-deploy.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - '.github/workflows/fly-deploy.yml'
   workflow_dispatch:
     inputs:
       worker_quantity:

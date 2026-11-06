@@ -31,12 +31,12 @@
 ## 🛠 Технологічний стек
 
 ### Backend
-- **Python 3.12 / 3.14** + **FastAPI**
+- **Python 3.12** + **FastAPI**
 - **SQLAlchemy 2.0 (Async)** + **Alembic** (міграції бази даних)
-- **PostgreSQL (Neon)** з підтримкою пулу з'єднань і транзакційних advisory locks
+- **PostgreSQL** з підтримкою пулу з'єднань і транзакційних advisory locks
 - **Google OR-Tools (CP-SAT Solver)** для вирішення задач оптимізації розкладу
 - **Pydantic v2** для суворої валідації схем
-- **Pytest** (понад 190 автоматизованих тестів)
+- **Pytest** (понад 300 автоматизованих тестів)
 
 ### Frontend
 - **Next.js 14 (App Router)** + **React 18** + **TypeScript**
@@ -120,3 +120,9 @@ python3 scripts/db_backup.py --dir /data/backups
 - [Чекліст готовності та критерії приймання (ACCEPTANCE.md)](docs/ACCEPTANCE.md)
 - [Архітектура нотаток та ревізій (group2B-notes-foundation.md)](docs/group2B-notes-foundation.md)
 - [Технічне завдання на редизайн UI/UX (REDESIGN_SPEC.md)](docs/REDESIGN_SPEC.md)
+
+---
+
+## 📄 Ліцензія
+
+Проєкт розповсюджується на умовах ліцензії [MIT License](LICENSE).

@@ -18,6 +18,9 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  experimental: {
+    optimizePackageImports: ["framer-motion"],
+  },
 };
 
 export default withPwa(nextConfig);
