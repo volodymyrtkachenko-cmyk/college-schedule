@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { ClassroomTaskItem, getTaskStatusText } from "./LessonCard";
 import { ClassroomSyncButton } from "./ClassroomSyncButton";
 import { useClassroomSubmissions } from "../lib/useClassroomSubmissions";
@@ -174,15 +174,24 @@ export function MobileTasksView({
         </button>
       </div>
 
-      {viewMode === "grades" ? (
-        <GradesView
-          tasks={tasks}
-          isLinked={isLinked}
-          onSyncClassroom={() =>
-            window.dispatchEvent(new CustomEvent("trigger-classroom-sync"))
-          }
-        />
-      ) : !hasAccess ? (
+      <AnimatePresence mode="popLayout" initial={false}>
+        <motion.div
+          key={viewMode}
+          initial={{ opacity: 0, scale: 0.985 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.985 }}
+          transition={{ type: "spring", stiffness: 290, damping: 30, mass: 0.85 }}
+          className="w-full"
+        >
+          {viewMode === "grades" ? (
+            <GradesView
+              tasks={tasks}
+              isLinked={isLinked}
+              onSyncClassroom={() =>
+                window.dispatchEvent(new CustomEvent("trigger-classroom-sync"))
+              }
+            />
+          ) : !hasAccess ? (
         <div className="rounded-2xl border border-sky-500/20 bg-sky-500/5 p-6 text-center mt-6">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-500/10 text-sky-700 dark:text-sky-400 border border-sky-500/20">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -368,11 +377,21 @@ export function MobileTasksView({
                   {pastWeekOpen || filters.status === "overdue" || Boolean(filters.subject) ? "Згорнути ▴" : "Показати ▾"}
                 </span>
               </button>
-              {(pastWeekOpen || filters.status === "overdue" || Boolean(filters.subject)) && (
-                <div className="space-y-2 animate-in fade-in duration-150">
-                  {pastWeekTasks.map((t, idx) => renderTaskCard(t, `past-${idx}`, isLinked))}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateRows: (pastWeekOpen || filters.status === "overdue" || Boolean(filters.subject)) ? "1fr" : "0fr",
+                  transition: "grid-template-rows 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.22s ease",
+                  opacity: (pastWeekOpen || filters.status === "overdue" || Boolean(filters.subject)) ? 1 : 0,
+                }}
+                className="w-full overflow-hidden"
+              >
+                <div className="min-h-0 overflow-hidden">
+                  <div className="space-y-2">
+                    {pastWeekTasks.map((t, idx) => renderTaskCard(t, `past-${idx}`, isLinked))}
+                  </div>
                 </div>
-              )}
+              </div>
             </section>
           )}
 
@@ -405,11 +424,21 @@ export function MobileTasksView({
                   {overdueOpen || filters.status === "overdue" || Boolean(filters.subject) ? "Згорнути ▴" : "Показати ▾"}
                 </span>
               </button>
-              {(overdueOpen || filters.status === "overdue" || Boolean(filters.subject)) && (
-                <div className="space-y-2 animate-in fade-in duration-150">
-                  {overdueTasks.map((t, idx) => renderTaskCard(t, `overdue-${idx}`, isLinked))}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateRows: (overdueOpen || filters.status === "overdue" || Boolean(filters.subject)) ? "1fr" : "0fr",
+                  transition: "grid-template-rows 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.22s ease",
+                  opacity: (overdueOpen || filters.status === "overdue" || Boolean(filters.subject)) ? 1 : 0,
+                }}
+                className="w-full overflow-hidden"
+              >
+                <div className="min-h-0 overflow-hidden">
+                  <div className="space-y-2">
+                    {overdueTasks.map((t, idx) => renderTaskCard(t, `overdue-${idx}`, isLinked))}
+                  </div>
                 </div>
-              )}
+              </div>
             </section>
           )}
 
@@ -432,11 +461,21 @@ export function MobileTasksView({
                   {activeOpen ? "Згорнути ▴" : "Показати ▾"}
                 </span>
               </button>
-              {activeOpen && (
-                <div className="space-y-2 animate-in fade-in duration-150">
-                  {activeTasks.map((t, idx) => renderTaskCard(t, `active-${idx}`, isLinked))}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateRows: activeOpen ? "1fr" : "0fr",
+                  transition: "grid-template-rows 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.22s ease",
+                  opacity: activeOpen ? 1 : 0,
+                }}
+                className="w-full overflow-hidden"
+              >
+                <div className="min-h-0 overflow-hidden">
+                  <div className="space-y-2">
+                    {activeTasks.map((t, idx) => renderTaskCard(t, `active-${idx}`, isLinked))}
+                  </div>
                 </div>
-              )}
+              </div>
             </section>
           )}
 
@@ -459,11 +498,21 @@ export function MobileTasksView({
                   {noDateOpen || (filters.status === "pending" && activeTasks.length === 0) || Boolean(filters.subject) ? "Згорнути ▴" : "Показати ▾"}
                 </span>
               </button>
-              {(noDateOpen || (filters.status === "pending" && activeTasks.length === 0) || Boolean(filters.subject)) && (
-                <div className="space-y-2 animate-in fade-in duration-150">
-                  {noDateTasks.map((t, idx) => renderTaskCard(t, `nodate-${idx}`, isLinked))}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateRows: (noDateOpen || (filters.status === "pending" && activeTasks.length === 0) || Boolean(filters.subject)) ? "1fr" : "0fr",
+                  transition: "grid-template-rows 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.22s ease",
+                  opacity: (noDateOpen || (filters.status === "pending" && activeTasks.length === 0) || Boolean(filters.subject)) ? 1 : 0,
+                }}
+                className="w-full overflow-hidden"
+              >
+                <div className="min-h-0 overflow-hidden">
+                  <div className="space-y-2">
+                    {noDateTasks.map((t, idx) => renderTaskCard(t, `nodate-${idx}`, isLinked))}
+                  </div>
                 </div>
-              )}
+              </div>
             </section>
           )}
 
@@ -498,17 +547,29 @@ export function MobileTasksView({
                   {turnedInOpen || filters.status === "done" ? "Згорнути ▴" : "Показати ▾"}
                 </span>
               </button>
-              {(turnedInOpen || filters.status === "done") && (
-                <div className="space-y-2 animate-in fade-in duration-150">
-                  {turnedInTasks.map((t, idx) => renderTaskCard(t, `done-${idx}`, isLinked))}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateRows: (turnedInOpen || filters.status === "done") ? "1fr" : "0fr",
+                  transition: "grid-template-rows 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.22s ease",
+                  opacity: (turnedInOpen || filters.status === "done") ? 1 : 0,
+                }}
+                className="w-full overflow-hidden"
+              >
+                <div className="min-h-0 overflow-hidden">
+                  <div className="space-y-2">
+                    {turnedInTasks.map((t, idx) => renderTaskCard(t, `done-${idx}`, isLinked))}
+                  </div>
                 </div>
-              )}
+              </div>
             </section>
           )}
         </div>
       )}
         </>
       )}
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 }

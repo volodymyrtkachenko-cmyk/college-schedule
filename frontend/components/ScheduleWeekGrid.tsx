@@ -244,9 +244,9 @@ export function ScheduleWeekGrid({
       {renderDesktop && (
         <motion.div
           key={`desktop-week-${week[0]?.date ?? "week"}`}
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+          initial={{ opacity: 0, scale: 0.988, y: 8 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ type: "spring", stiffness: 290, damping: 30, mass: 0.85 }}
           className="hidden lg:grid lg:grid-cols-5 gap-3 xl:gap-3.5 pb-4"
         >
         {/* Row 0: Column Headers */}
@@ -399,9 +399,9 @@ export function ScheduleWeekGrid({
       {renderTablet && (
         <motion.div
           key={`tablet-week-${week[0]?.date ?? "week"}`}
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+          initial={{ opacity: 0, scale: 0.988, y: 8 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ type: "spring", stiffness: 290, damping: 30, mass: 0.85 }}
           className="hidden sm:flex lg:hidden items-start gap-3 overflow-x-auto overscroll-x-contain custom-scrollbar snap-x snap-mandatory pb-4"
         >
         {weekDaysMeta.map(({ day, slots, firstLessonNum, lastLessonNum, periodMeta }, dIdx) => {

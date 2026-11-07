@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { getMondayOf, KYIV_DATE_FMT } from "../lib/date";
 
 interface DatePickerModalProps {
@@ -174,21 +175,31 @@ export function DatePickerModal({
     onClose();
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Вибір дати розкладу"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200"
-      onClick={onClose}
-    >
-      <div
-        className="surface-panel w-full max-w-[340px] sm:max-w-sm rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-2xl relative select-none"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header: Month & Year Navigator */}
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          key="date-picker-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Вибір дати розкладу"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs"
+          onClick={onClose}
+        >
+          <motion.div
+            key="date-picker-dialog"
+            initial={{ opacity: 0, scale: 0.94, y: 16 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.94, y: 16 }}
+            transition={{ type: "spring", stiffness: 350, damping: 28 }}
+            className="surface-panel w-full max-w-[340px] sm:max-w-sm rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-2xl relative select-none"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header: Month & Year Navigator */}
         <div className="flex items-center justify-between gap-2 mb-3.5 pb-2.5 border-b border-sys-border/60">
           <div className="flex items-center gap-1.5">
             <span className="text-base font-bold text-sys-text-primary tracking-tight">
@@ -315,7 +326,9 @@ export function DatePickerModal({
             <span>Сьогодні</span>
           </button>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
+  )}
+</AnimatePresence>
   );
 }

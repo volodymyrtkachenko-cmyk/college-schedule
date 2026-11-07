@@ -437,7 +437,8 @@ export function GradesView({ tasks, isLinked, onSyncClassroom }: GradesViewProps
                   style={{
                     display: "grid",
                     gridTemplateRows: isExpanded ? "1fr" : "0fr",
-                    transition: "grid-template-rows 0.22s cubic-bezier(0.16, 1, 0.3, 1)",
+                    transition: "grid-template-rows 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.22s ease",
+                    opacity: isExpanded ? 1 : 0,
                   }}
                   className="overflow-hidden"
                 >

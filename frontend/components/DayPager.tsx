@@ -26,6 +26,26 @@ function formatDayParts(dateStr?: string): { weekday: string; dayMonth: string }
   };
 }
 
+const dayCarouselVariants = {
+  enter: (dir: number) => ({
+    x: dir > 0 ? 54 : dir < 0 ? -54 : 0,
+    opacity: 0,
+    scale: 0.985,
+  }),
+  center: {
+    x: 0,
+    opacity: 1,
+    scale: 1,
+    transition: { type: "spring" as const, stiffness: 300, damping: 30, mass: 0.85 },
+  },
+  exit: (dir: number) => ({
+    x: dir > 0 ? -54 : dir < 0 ? 54 : 0,
+    opacity: 0,
+    scale: 0.985,
+    transition: { type: "spring" as const, stiffness: 300, damping: 30, mass: 0.85 },
+  }),
+};
+
 export function DayPager({
   schedule,
   todayDate,
@@ -363,19 +383,16 @@ export function DayPager({
       )}
 
       {/* Animated Day Schedule List */}
-      <motion.div
-        key={schedule.date}
-        initial={{
-          opacity: 0,
-          x: shouldReduceMotion ? 0 : daySlideDir > 0 ? 32 : daySlideDir < 0 ? -32 : 0,
-        }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{
-          duration: shouldReduceMotion ? 0 : 0.22,
-          ease: [0.16, 1, 0.3, 1],
-        }}
-        className="flex flex-col flex-1 gap-3"
-      >
+      <AnimatePresence mode="popLayout" initial={false} custom={shouldReduceMotion ? 0 : daySlideDir}>
+        <motion.div
+          key={`${scheduleMode}-${schedule.date}`}
+          custom={shouldReduceMotion ? 0 : daySlideDir}
+          variants={dayCarouselVariants}
+          initial="enter"
+          animate="center"
+          exit="exit"
+          className="flex flex-col flex-1 gap-3 w-full"
+        >
           {orderedLessons.length > 0 ? (
             orderedLessons.map((lesson, idx) => {
               const lessonKey = `${lesson.id}-${lesson.lesson_number}`;
@@ -396,11 +413,11 @@ export function DayPager({
               return (
                 <motion.div
                   key={lessonKey}
-                  initial={shouldReduceMotion ? false : { opacity: 0, y: 8 }}
+                  initial={shouldReduceMotion ? false : { opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{
-                    duration: shouldReduceMotion ? 0 : 0.2,
-                    delay: shouldReduceMotion ? 0 : Math.min(idx * 0.035, 0.14),
+                    duration: shouldReduceMotion ? 0 : 0.24,
+                    delay: shouldReduceMotion ? 0 : Math.min(idx * 0.025, 0.1),
                     ease: [0.16, 1, 0.3, 1],
                   }}
                   className="flex flex-col gap-2.5"
@@ -447,6 +464,7 @@ export function DayPager({
             </div>
           )}
         </motion.div>
+      </AnimatePresence>
     </div>
   );
 }

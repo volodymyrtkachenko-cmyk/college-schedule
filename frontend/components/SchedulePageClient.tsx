@@ -54,6 +54,26 @@ export interface SchedulePageClientProps {
   initialTeachers?: ReferenceRecord[];
 }
 
+const dayCarouselVariants = {
+  enter: (dir: number) => ({
+    x: dir > 0 ? 54 : dir < 0 ? -54 : 0,
+    opacity: 0,
+    scale: 0.985,
+  }),
+  center: {
+    x: 0,
+    opacity: 1,
+    scale: 1,
+    transition: { type: "spring" as const, stiffness: 300, damping: 30, mass: 0.85 },
+  },
+  exit: (dir: number) => ({
+    x: dir > 0 ? -54 : dir < 0 ? 54 : 0,
+    opacity: 0,
+    scale: 0.985,
+    transition: { type: "spring" as const, stiffness: 300, damping: 30, mass: 0.85 },
+  }),
+};
+
 export function SchedulePageClient({
   initialGroups = [],
   initialTeachers = [],
@@ -1682,6 +1702,7 @@ export function SchedulePageClient({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
             className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4"
             onClick={() => setContextModalOpen(false)}
           >
@@ -1690,10 +1711,10 @@ export function SchedulePageClient({
               role="dialog"
               aria-modal="true"
               aria-labelledby="context-modal-title"
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              initial={{ opacity: 0, scale: 0.94, y: 16 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              transition={{ duration: 0.15 }}
+              exit={{ opacity: 0, scale: 0.94, y: 16 }}
+              transition={{ type: "spring", stiffness: 350, damping: 28 }}
               className="w-full max-w-md rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >
@@ -1805,15 +1826,17 @@ export function SchedulePageClient({
           </div>
         )}
 
-        <AnimatePresence mode="wait" initial={false}>
+        <AnimatePresence mode="popLayout" initial={false}>
           <motion.div
             key={mobileTab === "tasks" ? "tasks" : view}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+            initial={{ opacity: 0, scale: shouldReduceMotion ? 1 : 0.985 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: shouldReduceMotion ? 1 : 0.985 }}
             transition={{
-              duration: shouldReduceMotion ? 0 : 0.12,
-              ease: [0.2, 0, 0, 1],
+              type: "spring",
+              stiffness: 290,
+              damping: 30,
+              mass: 0.85,
             }}
           >
             {mobileTab === "tasks" ? (
@@ -1989,15 +2012,17 @@ export function SchedulePageClient({
             </div>
           </div>
         ) : (
-          <AnimatePresence mode="wait" initial={false}>
+          <AnimatePresence mode="popLayout" initial={false}>
             <motion.div
               key={view}
-              initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 4 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: shouldReduceMotion ? 0 : -4 }}
+              initial={{ opacity: 0, scale: shouldReduceMotion ? 1 : 0.985 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: shouldReduceMotion ? 1 : 0.985 }}
               transition={{
-                duration: shouldReduceMotion ? 0 : 0.15,
-                ease: [0.16, 1, 0.3, 1],
+                type: "spring",
+                stiffness: 290,
+                damping: 30,
+                mass: 0.85,
               }}
             >
               {view === "today" ? (
@@ -2121,27 +2146,29 @@ export function SchedulePageClient({
                         </div>
                       )}
 
-                      <motion.div
-                        key={selectedDaySchedule?.date ?? today?.date ?? "day"}
-                        initial={{
-                          opacity: 0,
-                          x: shouldReduceMotion ? 0 : daySlideDir > 0 ? 20 : daySlideDir < 0 ? -20 : 0,
-                        }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: shouldReduceMotion ? 0 : 0.18, ease: [0.16, 1, 0.3, 1] }}
-                      >
-                        <ScheduleDay
-                          schedule={selectedDaySchedule ?? today!}
-                          isToday={selectedDaySchedule?.date === todayActualIso && !isWeekend}
-                          scheduleMode={mode}
-                          onQuickJump={handleQuickJump}
-                          hideHeaderOnMobile={false}
-                          weekNumber={currentWeekNumber}
-                          hideDayTitle={isFocusEffective}
-                          currentTeacherId={mode === "teacher" ? teacherId : null}
-                          currentTeacherName={mode === "teacher" ? (selectedTeacher?.name ?? null) : null}
-                        />
-                      </motion.div>
+                      <AnimatePresence mode="popLayout" initial={false} custom={shouldReduceMotion ? 0 : daySlideDir}>
+                        <motion.div
+                          key={`${mode}-${mode === "student" ? groupId : teacherId}-${selectedDaySchedule?.date ?? today?.date ?? "day"}`}
+                          custom={shouldReduceMotion ? 0 : daySlideDir}
+                          variants={dayCarouselVariants}
+                          initial="enter"
+                          animate="center"
+                          exit="exit"
+                          className="w-full"
+                        >
+                          <ScheduleDay
+                            schedule={selectedDaySchedule ?? today!}
+                            isToday={selectedDaySchedule?.date === todayActualIso && !isWeekend}
+                            scheduleMode={mode}
+                            onQuickJump={handleQuickJump}
+                            hideHeaderOnMobile={false}
+                            weekNumber={currentWeekNumber}
+                            hideDayTitle={isFocusEffective}
+                            currentTeacherId={mode === "teacher" ? teacherId : null}
+                            currentTeacherName={mode === "teacher" ? (selectedTeacher?.name ?? null) : null}
+                          />
+                        </motion.div>
+                      </AnimatePresence>
                     </motion.div>
 
                     {/* Right Column: Week Info & Classroom Widget (360px, slides out to right on focus mode) */}
@@ -2868,14 +2895,16 @@ export function SchedulePageClient({
         onSelectDate={handleDatePickerSelect}
       />
 
-      {guideHubOpen && (
-        <GuideHubModal
-          groupId={groupId}
-          teacherId={teacherId}
-          mode={mode}
-          onClose={() => setGuideHubOpen(false)}
-        />
-      )}
+      <AnimatePresence>
+        {guideHubOpen && (
+          <GuideHubModal
+            groupId={groupId}
+            teacherId={teacherId}
+            mode={mode}
+            onClose={() => setGuideHubOpen(false)}
+          />
+        )}
+      </AnimatePresence>
         </>
       )}
     </div>

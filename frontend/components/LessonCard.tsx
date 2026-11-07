@@ -2,6 +2,7 @@
 
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
+import { motion, AnimatePresence } from "framer-motion";
 import { LessonNote } from "./LessonNote";
 const LessonNoteModal = dynamic(() => import("./LessonNote").then((m) => m.LessonNoteModal), { ssr: false });
 import { EditIcon, MoveIcon } from "./LessonIcons";
@@ -1930,99 +1931,109 @@ export const LessonCard = memo(function LessonCard({
                   </div>
                 </div>
 
-                {isHwOpen && (
-                  <div className="flex flex-col gap-2 p-3 border-t border-sys-border/60 bg-sys-bg/40 animate-in fade-in duration-150">
-                    {groupedTasks.map((group, gIdx) => (
-                      <div key={gIdx} className="flex flex-col gap-1.5">
-                        {group.teacher && (
-                          <span className="text-xs font-bold text-sys-text-secondary px-1 pt-0.5">
-                            {group.teacher}:
-                          </span>
-                        )}
-                        {group.items.map((task, idx) => (
-                          <a
-                            key={idx}
-                            href={task.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              vibrateTap(10);
-                            }}
-                            className="group flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-xs hover:bg-sys-card transition-colors"
-                          >
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span className="font-semibold text-sys-text-primary group-hover:text-sys-accent transition-colors truncate">
-                                {task.title || "Завдання"}
-                              </span>
-                              {!group.teacher && task.teacher && (
-                                <span className="text-sys-text-muted text-xs truncate">({task.teacher})</span>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                              {task.deadline.statusText ? (
-                                <span className={`text-xs font-medium ${getTaskDeadlineTextColor(task.deadline.badgeTone, isLinked)}`}>
-                                  {getTaskStatusText(task.deadline, isLinked)}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateRows: isHwOpen ? "1fr" : "0fr",
+                    transition: "grid-template-rows 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.22s ease",
+                    opacity: isHwOpen ? 1 : 0,
+                  }}
+                  className="w-full overflow-hidden"
+                >
+                  <div className="min-h-0 overflow-hidden">
+                    <div className="flex flex-col gap-2 p-3 border-t border-sys-border/60 bg-sys-bg/40">
+                      {groupedTasks.map((group, gIdx) => (
+                        <div key={gIdx} className="flex flex-col gap-1.5">
+                          {group.teacher && (
+                            <span className="text-xs font-bold text-sys-text-secondary px-1 pt-0.5">
+                              {group.teacher}:
+                            </span>
+                          )}
+                          {group.items.map((task, idx) => (
+                            <a
+                              key={idx}
+                              href={task.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                vibrateTap(10);
+                              }}
+                              className="group flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-xs hover:bg-sys-card transition-colors"
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="font-semibold text-sys-text-primary group-hover:text-sys-accent transition-colors truncate">
+                                  {task.title || "Завдання"}
                                 </span>
-                              ) : null}
-                              <span className="text-sys-text-muted group-hover:text-sys-text-primary transition-colors text-xs">↗</span>
-                            </div>
-                          </a>
-                        ))}
-                      </div>
-                    ))}
-
-                    {completedTasks.length > 0 && (
-                      <div className="pt-2 mt-1 border-t border-sys-border/40 flex flex-col gap-1.5">
-                        <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 px-1">
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="20 6 9 17 4 12" />
-                          </svg>
-                          <span>Здані завдання ({completedTasks.length})</span>
+                                {!group.teacher && task.teacher && (
+                                  <span className="text-sys-text-muted text-xs truncate">({task.teacher})</span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                {task.deadline.statusText ? (
+                                  <span className={`text-xs font-medium ${getTaskDeadlineTextColor(task.deadline.badgeTone, isLinked)}`}>
+                                    {getTaskStatusText(task.deadline, isLinked)}
+                                  </span>
+                                ) : null}
+                                <span className="text-sys-text-muted group-hover:text-sys-text-primary transition-colors text-xs">↗</span>
+                              </div>
+                            </a>
+                          ))}
                         </div>
-                        {groupedCompletedTasks.map((group, gIdx) => (
-                          <div key={gIdx} className="flex flex-col gap-1.5">
-                            {group.teacher && (
-                              <span className="text-xs font-bold text-sys-text-secondary px-1 pt-0.5">
-                                {group.teacher}:
-                              </span>
-                            )}
-                            {group.items.map((task, idx) => {
-                              const key = extractClassroomTaskKey(task.url);
-                              const sub = submissions[task.url] || (key ? submissions[key] : null);
-                              const isGraded = sub?.state === "RETURNED" && sub?.grade != null;
-                              return (
-                                <a
-                                  key={`dt-cm-${idx}`}
-                                  href={task.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  onClick={(e) => { e.stopPropagation(); vibrateTap(10); }}
-                                  className="group flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-xs hover:bg-emerald-500/10 transition-colors bg-emerald-500/[0.03] border border-emerald-500/20"
-                                >
-                                  <div className="flex items-center gap-2 min-w-0">
-                                    <span className="font-semibold text-sys-text-primary group-hover:text-sys-accent transition-colors truncate">
-                                      {task.title || "Завдання"}
-                                    </span>
-                                    {!group.teacher && task.teacher && (
-                                      <span className="text-sys-text-muted text-xs truncate">({task.teacher})</span>
-                                    )}
-                                  </div>
-                                  <div className="flex items-center gap-2 shrink-0">
-                                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded-md">
-                                      {isGraded ? `Оцінка: ${sub.grade}/${sub.maxPoints || 100}` : "Здано"}
-                                    </span>
-                                    <span className="text-sys-text-muted group-hover:text-sys-text-primary transition-colors text-xs">↗</span>
-                                  </div>
-                                </a>
-                              );
-                            })}
+                      ))}
+
+                      {completedTasks.length > 0 && (
+                        <div className="pt-2 mt-1 border-t border-sys-border/40 flex flex-col gap-1.5">
+                          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 px-1">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                            <span>Здані завдання ({completedTasks.length})</span>
                           </div>
-                        ))}
-                      </div>
-                    )}
+                          {groupedCompletedTasks.map((group, gIdx) => (
+                            <div key={gIdx} className="flex flex-col gap-1.5">
+                              {group.teacher && (
+                                <span className="text-xs font-bold text-sys-text-secondary px-1 pt-0.5">
+                                  {group.teacher}:
+                                </span>
+                              )}
+                              {group.items.map((task, idx) => {
+                                const key = extractClassroomTaskKey(task.url);
+                                const sub = submissions[task.url] || (key ? submissions[key] : null);
+                                const isGraded = sub?.state === "RETURNED" && sub?.grade != null;
+                                return (
+                                  <a
+                                    key={`dt-cm-${idx}`}
+                                    href={task.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => { e.stopPropagation(); vibrateTap(10); }}
+                                    className="group flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-xs hover:bg-emerald-500/10 transition-colors bg-emerald-500/[0.03] border border-emerald-500/20"
+                                  >
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <span className="font-semibold text-sys-text-primary group-hover:text-sys-accent transition-colors truncate">
+                                        {task.title || "Завдання"}
+                                      </span>
+                                      {!group.teacher && task.teacher && (
+                                        <span className="text-sys-text-muted text-xs truncate">({task.teacher})</span>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-2 shrink-0">
+                                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded-md">
+                                        {isGraded ? `Оцінка: ${sub.grade}/${sub.maxPoints || 100}` : "Здано"}
+                                      </span>
+                                      <span className="text-sys-text-muted group-hover:text-sys-text-primary transition-colors text-xs">↗</span>
+                                    </div>
+                                  </a>
+                                );
+                              })}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                )}
+                </div>
               </div>
             )}
 
@@ -2549,99 +2560,109 @@ export const LessonCard = memo(function LessonCard({
                 </div>
               </div>
 
-              {isHwOpen && (
-                <div className="flex flex-col gap-2 p-3 border-t border-sys-border/60 bg-sys-bg/40 animate-in fade-in duration-150">
-                  {groupedTasks.map((group, gIdx) => (
-                    <div key={gIdx} className="flex flex-col gap-1.5">
-                      {group.teacher && (
-                        <span className="text-xs font-bold text-sys-text-secondary px-1 pt-0.5">
-                          {group.teacher}:
-                        </span>
-                      )}
-                      {group.items.map((task, idx) => (
-                        <a
-                          key={idx}
-                          href={task.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            vibrateTap(10);
-                          }}
-                          className="group flex min-h-[44px] items-center justify-between gap-3 rounded-lg px-3 py-2 text-xs hover:bg-sys-card transition-colors"
-                        >
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="font-semibold text-sys-text-primary group-hover:text-sys-accent transition-colors truncate">
-                              {task.title || "Завдання"}
-                            </span>
-                            {!group.teacher && task.teacher && (
-                              <span className="text-sys-text-muted text-xs truncate">({task.teacher})</span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            {task.deadline.statusText ? (
-                              <span className={`text-xs font-medium ${getTaskDeadlineTextColor(task.deadline.badgeTone, isLinked)}`}>
-                                {getTaskStatusText(task.deadline, isLinked)}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateRows: isHwOpen ? "1fr" : "0fr",
+                  transition: "grid-template-rows 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.22s ease",
+                  opacity: isHwOpen ? 1 : 0,
+                }}
+                className="w-full overflow-hidden"
+              >
+                <div className="min-h-0 overflow-hidden">
+                  <div className="flex flex-col gap-2 p-3 border-t border-sys-border/60 bg-sys-bg/40">
+                    {groupedTasks.map((group, gIdx) => (
+                      <div key={gIdx} className="flex flex-col gap-1.5">
+                        {group.teacher && (
+                          <span className="text-xs font-bold text-sys-text-secondary px-1 pt-0.5">
+                            {group.teacher}:
+                          </span>
+                        )}
+                        {group.items.map((task, idx) => (
+                          <a
+                            key={idx}
+                            href={task.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              vibrateTap(10);
+                            }}
+                            className="group flex min-h-[44px] items-center justify-between gap-3 rounded-lg px-3 py-2 text-xs hover:bg-sys-card transition-colors"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="font-semibold text-sys-text-primary group-hover:text-sys-accent transition-colors truncate">
+                                {task.title || "Завдання"}
                               </span>
-                            ) : null}
-                            <span className="text-sys-text-muted group-hover:text-sys-text-primary transition-colors text-xs">↗</span>
-                          </div>
-                        </a>
-                      ))}
-                    </div>
-                  ))}
-
-                  {completedTasks.length > 0 && (
-                    <div className="pt-2 mt-1 border-t border-sys-border/40 flex flex-col gap-1.5">
-                      <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 px-1">
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="20 6 9 17 4 12" />
-                        </svg>
-                        <span>Здані завдання ({completedTasks.length})</span>
+                              {!group.teacher && task.teacher && (
+                                <span className="text-sys-text-muted text-xs truncate">({task.teacher})</span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {task.deadline.statusText ? (
+                                <span className={`text-xs font-medium ${getTaskDeadlineTextColor(task.deadline.badgeTone, isLinked)}`}>
+                                  {getTaskStatusText(task.deadline, isLinked)}
+                                </span>
+                              ) : null}
+                              <span className="text-sys-text-muted group-hover:text-sys-text-primary transition-colors text-xs">↗</span>
+                            </div>
+                          </a>
+                        ))}
                       </div>
-                      {groupedCompletedTasks.map((group, gIdx) => (
-                        <div key={gIdx} className="flex flex-col gap-1.5">
-                          {group.teacher && (
-                            <span className="text-xs font-bold text-sys-text-secondary px-1 pt-0.5">
-                              {group.teacher}:
-                            </span>
-                          )}
-                          {group.items.map((task, idx) => {
-                            const key = extractClassroomTaskKey(task.url);
-                            const sub = submissions[task.url] || (key ? submissions[key] : null);
-                            const isGraded = sub?.state === "RETURNED" && sub?.grade != null;
-                            return (
-                              <a
-                                key={`mb-cm-${idx}`}
-                                href={task.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => { e.stopPropagation(); vibrateTap(10); }}
-                                className="group flex items-start justify-between gap-2 rounded-lg p-2 text-xs hover:bg-emerald-500/10 transition-colors bg-emerald-500/[0.03] border border-emerald-500/20"
-                              >
-                                <div className="flex flex-col min-w-0 flex-1">
-                                  <span className="font-semibold text-sys-text-primary group-hover:text-sys-accent transition-colors line-clamp-2 break-words leading-tight">
-                                    {task.title || "Завдання"}
-                                  </span>
-                                  {!group.teacher && task.teacher && (
-                                    <span className="text-sys-text-muted text-[11px] mt-0.5 truncate">({task.teacher})</span>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-1.5 shrink-0 ml-1.5 mt-0.5">
-                                  <span className="inline-flex items-center text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-500/15 px-1.5 py-0.5 rounded">
-                                    {isGraded ? `Оцінка: ${sub.grade}/${sub.maxPoints || 100}` : "Здано"}
-                                  </span>
-                                  <span className="text-sys-text-muted group-hover:text-sys-text-primary text-xs">↗</span>
-                                </div>
-                              </a>
-                            );
-                          })}
+                    ))}
+
+                    {completedTasks.length > 0 && (
+                      <div className="pt-2 mt-1 border-t border-sys-border/40 flex flex-col gap-1.5">
+                        <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 px-1">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                          <span>Здані завдання ({completedTasks.length})</span>
                         </div>
-                      ))}
-                    </div>
-                  )}
+                        {groupedCompletedTasks.map((group, gIdx) => (
+                          <div key={gIdx} className="flex flex-col gap-1.5">
+                            {group.teacher && (
+                              <span className="text-xs font-bold text-sys-text-secondary px-1 pt-0.5">
+                                {group.teacher}:
+                              </span>
+                            )}
+                            {group.items.map((task, idx) => {
+                              const key = extractClassroomTaskKey(task.url);
+                              const sub = submissions[task.url] || (key ? submissions[key] : null);
+                              const isGraded = sub?.state === "RETURNED" && sub?.grade != null;
+                              return (
+                                <a
+                                  key={`mb-cm-${idx}`}
+                                  href={task.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => { e.stopPropagation(); vibrateTap(10); }}
+                                  className="group flex items-start justify-between gap-2 rounded-lg p-2 text-xs hover:bg-emerald-500/10 transition-colors bg-emerald-500/[0.03] border border-emerald-500/20"
+                                >
+                                  <div className="flex flex-col min-w-0 flex-1">
+                                    <span className="font-semibold text-sys-text-primary group-hover:text-sys-accent transition-colors line-clamp-2 break-words leading-tight">
+                                      {task.title || "Завдання"}
+                                    </span>
+                                    {!group.teacher && task.teacher && (
+                                      <span className="text-sys-text-muted text-[11px] mt-0.5 truncate">({task.teacher})</span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-1.5 shrink-0 ml-1.5 mt-0.5">
+                                    <span className="inline-flex items-center text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-500/15 px-1.5 py-0.5 rounded">
+                                      {isGraded ? `Оцінка: ${sub.grade}/${sub.maxPoints || 100}` : "Здано"}
+                                    </span>
+                                    <span className="text-sys-text-muted group-hover:text-sys-text-primary text-xs">↗</span>
+                                  </div>
+                                </a>
+                              );
+                            })}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              )}
+              </div>
             </div>
           )}
 
@@ -3060,14 +3081,20 @@ export const LessonCard = memo(function LessonCard({
           </div>
 
           {/* Week mode tasks popover floating over grid without stretching table rows */}
-          {showHw && tasks.length > 0 && isHwOpen && (
-            <div
-              id={`hw-list-${lesson.id}-${lesson.lesson_number}`}
-              onClick={(e) => e.stopPropagation()}
-              className={`absolute left-0 right-0 ${
-                lesson.lesson_number >= 3 ? "bottom-full mb-1" : "top-full mt-1"
-              } z-40 max-h-60 overflow-y-auto rounded-xl border border-sys-border bg-sys-card p-2.5 shadow-2xl animate-in fade-in duration-150`}
-            >
+          <AnimatePresence>
+            {showHw && tasks.length > 0 && isHwOpen && (
+              <motion.div
+                key={`hw-list-${lesson.id}-${lesson.lesson_number}`}
+                id={`hw-list-${lesson.id}-${lesson.lesson_number}`}
+                onClick={(e) => e.stopPropagation()}
+                initial={{ opacity: 0, scale: 0.95, y: lesson.lesson_number >= 3 ? 6 : -6 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: lesson.lesson_number >= 3 ? 6 : -6 }}
+                transition={{ type: "spring", stiffness: 350, damping: 28 }}
+                className={`absolute left-0 right-0 ${
+                  lesson.lesson_number >= 3 ? "bottom-full mb-1" : "top-full mt-1"
+                } z-40 max-h-60 overflow-y-auto rounded-xl border border-sys-border bg-sys-card p-2.5 shadow-2xl`}
+              >
               <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-sys-border/60 text-xs font-semibold text-sys-text-secondary">
                 <span className="flex items-center gap-1.5 truncate">
                   <span className="font-bold text-sys-text-primary">{formatTaskCount(tasks.length)}</span>
@@ -3178,8 +3205,9 @@ export const LessonCard = memo(function LessonCard({
                   </div>
                 )}
               </div>
-            </div>
+            </motion.div>
           )}
+        </AnimatePresence>
 
           {/* User note (compact text under badges) */}
           {visibleNoteText && (

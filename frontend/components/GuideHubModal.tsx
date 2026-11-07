@@ -1359,14 +1359,24 @@ export function GuideHubModal({ groupId, teacherId, mode, onClose }: GuideHubMod
   }, [activeSlide, total, demoNavDay, slides, onClose]);
 
   return (
-    <div
+    <motion.div
+      key="guide-hub-backdrop"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-5 backdrop-blur-md overflow-hidden animate-in fade-in duration-150"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-5 backdrop-blur-md overflow-hidden"
     >
-      <div
+      <motion.div
+        key="guide-hub-dialog"
         role="dialog"
         aria-modal="true"
         aria-labelledby="guide-title"
+        initial={{ opacity: 0, scale: 0.94, y: 16 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.94, y: 16 }}
+        transition={{ type: "spring", stiffness: 350, damping: 28 }}
         onClick={(e) => e.stopPropagation()}
         className="relative flex flex-col w-full max-w-[480px] h-[565px] max-h-[94vh] rounded-3xl border border-sys-border bg-sys-card text-sys-text-primary shadow-2xl overflow-hidden"
       >
@@ -1515,7 +1525,7 @@ export function GuideHubModal({ groupId, teacherId, mode, onClose }: GuideHubMod
             {activeSlide === total - 1 ? "Зрозуміло ✓" : "Далі →"}
           </button>
         </footer>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

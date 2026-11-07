@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useTeacherAccess } from "../lib/useTeacherAccess";
 
 interface TeacherPinModalProps {
@@ -42,8 +43,6 @@ export function TeacherPinModal({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!pin.trim()) {
@@ -68,18 +67,30 @@ export function TeacherPinModal({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 sm:backdrop-blur-xs animate-in fade-in duration-200"
-      onClick={onClose}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="teacher-pin-modal-title"
-        className="surface-panel w-full max-w-sm rounded-2xl border border-sys-border bg-sys-card p-6 shadow-2xl relative overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header Icon & Title */}
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          key="teacher-pin-backdrop"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 sm:backdrop-blur-xs"
+          onClick={onClose}
+        >
+          <motion.div
+            key="teacher-pin-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="teacher-pin-modal-title"
+            initial={{ opacity: 0, scale: 0.94, y: 16 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.94, y: 16 }}
+            transition={{ type: "spring", stiffness: 350, damping: 28 }}
+            className="surface-panel w-full max-w-sm rounded-2xl border border-sys-border bg-sys-card p-6 shadow-2xl relative overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header Icon & Title */}
         <div className="flex items-start justify-between gap-3 mb-4">
           <div className="flex items-center gap-3">
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${
@@ -201,7 +212,9 @@ export function TeacherPinModal({
             </div>
           </form>
         )}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
+  )}
+</AnimatePresence>
   );
 }

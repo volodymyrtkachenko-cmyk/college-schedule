@@ -243,7 +243,7 @@ export function ScheduleDay({
           animate="visible"
           variants={{
             hidden: { opacity: 1 },
-            visible: { opacity: 1, transition: { staggerChildren: 0.03, delayChildren: 0.01 } },
+            visible: { opacity: 1, transition: { staggerChildren: 0.025, delayChildren: 0.01 } },
           }}
           className="flex flex-col gap-3"
         >
@@ -269,8 +269,8 @@ export function ScheduleDay({
               <motion.div
                 key={lessonKey}
                 variants={{
-                  hidden: { opacity: 0, y: 8 },
-                  visible: { opacity: 1, y: 0, transition: { duration: 0.22, ease: [0.16, 1, 0.3, 1] } },
+                  hidden: { opacity: 0.7, y: 6 },
+                  visible: { opacity: 1, y: 0, transition: { duration: 0.24, ease: [0.16, 1, 0.3, 1] } },
                 }}
                 className="flex flex-col gap-2.5"
               >
