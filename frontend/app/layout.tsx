@@ -24,7 +24,10 @@ export const metadata: Metadata = {
   },
   manifest: "/manifest.webmanifest",
   verification: {
-    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || "googlec5560073f40db86d",
+    google: [
+      "-m7HP31Px4meRbaw-1zbMKXBsj_0JY7",
+      process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || "googlec5560073f40db86d",
+    ],
   },
   appleWebApp: {
     capable: true,
