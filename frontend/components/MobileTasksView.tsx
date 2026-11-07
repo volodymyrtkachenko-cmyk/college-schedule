@@ -9,7 +9,7 @@ import { useClassroomSubmissions } from "../lib/useClassroomSubmissions";
 import { useTaskGroups, formatTaskWord, TaskFilterState, DEFAULT_TASK_FILTERS } from "../lib/useTaskGroups";
 import { TaskFilters } from "./TaskFilters";
 import { formatTaskGradeDisplay } from "../lib/useGradesSummary";
-import { FullTaskItem, renderTaskCard } from "./TaskCardItem";
+import { FullTaskItem, renderTaskCard, TaskCardItem } from "./TaskCardItem";
 
 const GradesView = dynamic(() => import("./GradesView").then((m) => m.GradesView), { ssr: false });
 
@@ -132,55 +132,41 @@ export function MobileTasksView({
         )}
       </div>
 
-      {/* Segmented Switch: Завдання vs Оцінки */}
+      {/* Segmented Switch: Завдання vs Оцінки (Pure CSS, 0 JS thread blocking) */}
       <div className="relative mb-4 grid grid-cols-2 gap-1 rounded-xl border border-sys-border bg-sys-card p-1 text-xs font-semibold shadow-xs">
         <button
           type="button"
           onClick={() => setViewMode("tasks")}
-          className={`relative isolate z-10 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-colors duration-fast ease-smooth cursor-pointer ${
+          className={`relative flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-colors duration-fast ease-smooth cursor-pointer ${
             viewMode === "tasks"
-              ? "text-white font-bold"
+              ? "bg-sys-accentSolid text-white font-bold shadow-xs"
               : "text-sys-text-secondary hover:text-sys-text-primary"
           }`}
         >
-          {viewMode === "tasks" && (
-            <motion.div
-              layoutId="mobile-view-mode-pill"
-              className="absolute inset-0 rounded-lg bg-sys-accentSolid shadow-xs -z-10"
-              transition={{ type: "spring", stiffness: 480, damping: 36 }}
-            />
-          )}
           <span>📋</span>
           <span>Завдання ({totalCount})</span>
         </button>
         <button
           type="button"
           onClick={() => setViewMode("grades")}
-          className={`relative isolate z-10 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-colors duration-fast ease-smooth cursor-pointer ${
+          className={`relative flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-colors duration-fast ease-smooth cursor-pointer ${
             viewMode === "grades"
-              ? "text-white font-bold"
+              ? "bg-sys-accentSolid text-white font-bold shadow-xs"
               : "text-sys-text-secondary hover:text-sys-text-primary"
           }`}
         >
-          {viewMode === "grades" && (
-            <motion.div
-              layoutId="mobile-view-mode-pill"
-              className="absolute inset-0 rounded-lg bg-sys-accentSolid shadow-xs -z-10"
-              transition={{ type: "spring", stiffness: 480, damping: 36 }}
-            />
-          )}
           <span>📊</span>
           <span>Оцінки</span>
         </button>
       </div>
 
-      <AnimatePresence mode="popLayout" initial={false}>
+      <AnimatePresence mode="wait" initial={false}>
         <motion.div
           key={viewMode}
-          initial={{ opacity: 0, y: 4 }}
+          initial={{ opacity: 0, y: 3 }}
           animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -4 }}
-          transition={{ duration: 0.16, ease: "easeOut" }}
+          exit={{ opacity: 0, y: -3 }}
+          transition={{ duration: 0.12, ease: "easeOut" }}
           className="w-full"
         >
           {viewMode === "grades" ? (
@@ -251,42 +237,28 @@ export function MobileTasksView({
               )}
             </div>
 
-            {/* Scope Segment [Цей тиждень | Усі] */}
+            {/* Scope Segment [Цей тиждень | Усі] (Pure CSS, instant tap) */}
             <div className="relative inline-flex items-center rounded-xl border border-sys-border bg-sys-card p-0.5 text-xs shadow-xs">
               <button
                 type="button"
                 onClick={() => setScope("week")}
-                className={`relative isolate z-10 rounded-lg px-2.5 py-1 font-semibold transition-colors duration-fast ease-smooth cursor-pointer ${
+                className={`relative rounded-lg px-2.5 py-1 font-semibold transition-colors duration-fast ease-smooth cursor-pointer ${
                   scope === "week"
-                    ? "text-white font-bold"
+                    ? "bg-sys-accentSolid text-white font-bold shadow-xs"
                     : "text-sys-text-secondary hover:text-sys-text-primary"
                 }`}
               >
-                {scope === "week" && (
-                  <motion.div
-                    layoutId="mobile-tasks-scope-pill"
-                    className="absolute inset-0 rounded-lg bg-sys-accentSolid shadow-xs -z-10"
-                    transition={{ type: "spring", stiffness: 480, damping: 36 }}
-                  />
-                )}
                 Цей тиждень
               </button>
               <button
                 type="button"
                 onClick={() => setScope("all")}
-                className={`relative isolate z-10 rounded-lg px-2.5 py-1 font-semibold transition-colors duration-fast ease-smooth cursor-pointer ${
+                className={`relative rounded-lg px-2.5 py-1 font-semibold transition-colors duration-fast ease-smooth cursor-pointer ${
                   scope === "all"
-                    ? "text-white font-bold"
+                    ? "bg-sys-accentSolid text-white font-bold shadow-xs"
                     : "text-sys-text-secondary hover:text-sys-text-primary"
                 }`}
               >
-                {scope === "all" && (
-                  <motion.div
-                    layoutId="mobile-tasks-scope-pill"
-                    className="absolute inset-0 rounded-lg bg-sys-accentSolid shadow-xs -z-10"
-                    transition={{ type: "spring", stiffness: 480, damping: 36 }}
-                  />
-                )}
                 Усі
               </button>
             </div>
@@ -331,9 +303,9 @@ export function MobileTasksView({
           <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-sys-card border border-sys-border text-sys-text-muted shadow-xs">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
-              <line x1="16" x2="16" y1="2" y2="6" />
-              <line x1="8" x2="8" y1="2" y2="6" />
-              <line x1="3" x2="21" y1="10" y2="10" />
+              <line x1="16" y1="2" y2="6" />
+              <line x1="8" y1="2" y2="6" />
+              <line x1="3" y1="2" y2="10" />
             </svg>
           </div>
           <p className="text-sm font-semibold text-sys-text-primary">
@@ -381,14 +353,16 @@ export function MobileTasksView({
                 style={{
                   display: "grid",
                   gridTemplateRows: (pastWeekOpen || filters.status === "overdue" || Boolean(filters.subject)) ? "1fr" : "0fr",
-                  transition: "grid-template-rows 0.20s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.16s ease",
+                  transition: "grid-template-rows 0.18s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.14s ease",
                   opacity: (pastWeekOpen || filters.status === "overdue" || Boolean(filters.subject)) ? 1 : 0,
                 }}
-                className="w-full overflow-hidden"
+                className="w-full overflow-hidden transform-gpu will-change-[grid-template-rows,opacity]"
               >
                 <div className="min-h-0 overflow-hidden">
                   <div className="space-y-2">
-                    {pastWeekTasks.map((t, idx) => renderTaskCard(t, `past-${idx}`, isLinked))}
+                    {pastWeekTasks.map((t) => (
+                      <TaskCardItem key={t.id || t.url} task={t} isLinked={isLinked} />
+                    ))}
                   </div>
                 </div>
               </div>
@@ -428,14 +402,16 @@ export function MobileTasksView({
                 style={{
                   display: "grid",
                   gridTemplateRows: (overdueOpen || filters.status === "overdue" || Boolean(filters.subject)) ? "1fr" : "0fr",
-                  transition: "grid-template-rows 0.20s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.16s ease",
+                  transition: "grid-template-rows 0.18s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.14s ease",
                   opacity: (overdueOpen || filters.status === "overdue" || Boolean(filters.subject)) ? 1 : 0,
                 }}
-                className="w-full overflow-hidden"
+                className="w-full overflow-hidden transform-gpu will-change-[grid-template-rows,opacity]"
               >
                 <div className="min-h-0 overflow-hidden">
                   <div className="space-y-2">
-                    {overdueTasks.map((t, idx) => renderTaskCard(t, `overdue-${idx}`, isLinked))}
+                    {overdueTasks.map((t) => (
+                      <TaskCardItem key={t.id || t.url} task={t} isLinked={isLinked} />
+                    ))}
                   </div>
                 </div>
               </div>
@@ -465,14 +441,16 @@ export function MobileTasksView({
                 style={{
                   display: "grid",
                   gridTemplateRows: activeOpen ? "1fr" : "0fr",
-                  transition: "grid-template-rows 0.20s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.16s ease",
+                  transition: "grid-template-rows 0.18s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.14s ease",
                   opacity: activeOpen ? 1 : 0,
                 }}
-                className="w-full overflow-hidden"
+                className="w-full overflow-hidden transform-gpu will-change-[grid-template-rows,opacity]"
               >
                 <div className="min-h-0 overflow-hidden">
                   <div className="space-y-2">
-                    {activeTasks.map((t, idx) => renderTaskCard(t, `active-${idx}`, isLinked))}
+                    {activeTasks.map((t) => (
+                      <TaskCardItem key={t.id || t.url} task={t} isLinked={isLinked} />
+                    ))}
                   </div>
                 </div>
               </div>
@@ -502,14 +480,16 @@ export function MobileTasksView({
                 style={{
                   display: "grid",
                   gridTemplateRows: (noDateOpen || (filters.status === "pending" && activeTasks.length === 0) || Boolean(filters.subject)) ? "1fr" : "0fr",
-                  transition: "grid-template-rows 0.20s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.16s ease",
+                  transition: "grid-template-rows 0.18s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.14s ease",
                   opacity: (noDateOpen || (filters.status === "pending" && activeTasks.length === 0) || Boolean(filters.subject)) ? 1 : 0,
                 }}
-                className="w-full overflow-hidden"
+                className="w-full overflow-hidden transform-gpu will-change-[grid-template-rows,opacity]"
               >
                 <div className="min-h-0 overflow-hidden">
                   <div className="space-y-2">
-                    {noDateTasks.map((t, idx) => renderTaskCard(t, `nodate-${idx}`, isLinked))}
+                    {noDateTasks.map((t) => (
+                      <TaskCardItem key={t.id || t.url} task={t} isLinked={isLinked} />
+                    ))}
                   </div>
                 </div>
               </div>
@@ -551,14 +531,16 @@ export function MobileTasksView({
                 style={{
                   display: "grid",
                   gridTemplateRows: (turnedInOpen || filters.status === "done") ? "1fr" : "0fr",
-                  transition: "grid-template-rows 0.20s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.16s ease",
+                  transition: "grid-template-rows 0.18s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.14s ease",
                   opacity: (turnedInOpen || filters.status === "done") ? 1 : 0,
                 }}
-                className="w-full overflow-hidden"
+                className="w-full overflow-hidden transform-gpu will-change-[grid-template-rows,opacity]"
               >
                 <div className="min-h-0 overflow-hidden">
                   <div className="space-y-2">
-                    {turnedInTasks.map((t, idx) => renderTaskCard(t, `done-${idx}`, isLinked))}
+                    {turnedInTasks.map((t) => (
+                      <TaskCardItem key={t.id || t.url} task={t} isLinked={isLinked} />
+                    ))}
                   </div>
                 </div>
               </div>

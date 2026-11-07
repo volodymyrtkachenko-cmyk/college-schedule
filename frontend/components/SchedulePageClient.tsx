@@ -1832,14 +1832,14 @@ export function SchedulePageClient({
           </div>
         )}
 
-        <AnimatePresence mode="popLayout" initial={false}>
+        <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={mobileTab === "tasks" ? "tasks" : view}
-            initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 4 }}
+            initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 3 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: shouldReduceMotion ? 0 : -4 }}
+            exit={{ opacity: 0, y: shouldReduceMotion ? 0 : -3 }}
             transition={{
-              duration: shouldReduceMotion ? 0 : 0.16,
+              duration: shouldReduceMotion ? 0 : 0.12,
               ease: "easeOut",
             }}
           >

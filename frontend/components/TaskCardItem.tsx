@@ -1,5 +1,6 @@
 "use client";
 
+import React, { memo } from "react";
 import { ClassroomTaskItem, getTaskStatusText } from "./LessonCard";
 import { formatTaskGradeDisplay } from "../lib/useGradesSummary";
 
@@ -18,7 +19,15 @@ export interface FullTaskItem {
   isBoundToWeek?: boolean;
 }
 
-export function renderTaskCard(t: FullTaskItem, key: string, isLinked: boolean = false) {
+export interface TaskCardItemProps {
+  task: FullTaskItem;
+  isLinked?: boolean;
+}
+
+export const TaskCardItem = memo(function TaskCardItem({
+  task: t,
+  isLinked = false,
+}: TaskCardItemProps) {
   const isGenericTitle = !t.title || t.title === "Домашнє завдання" || t.title === "Завдання";
   const titleLine = isGenericTitle ? t.subject : t.title;
   const teacherLine = isGenericTitle ? (t.teacher || null) : `${t.subject}${t.teacher ? ` · ${t.teacher}` : ""}`;
@@ -61,21 +70,22 @@ export function renderTaskCard(t: FullTaskItem, key: string, isLinked: boolean =
     dotColorClass = "bg-amber-600 dark:bg-amber-400";
   }
 
+  const borderAccentStyle = isDone
+    ? "inset 3px 0 0 #10b981"
+    : isOverdue && isLinked
+    ? "inset 3px 0 0 #ef4444"
+    : isUrgent
+    ? "inset 3px 0 0 #f59e0b"
+    : undefined;
+
   return (
     <a
-      key={key}
       href={t.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="group block min-h-[76px] rounded-xl bg-sys-card border border-sys-border p-3.5 transition-colors duration-fast ease-smooth hover:border-sys-border-elevated hover:bg-sys-bg/60 cursor-pointer shadow-xs text-left active:scale-[0.99] overflow-hidden"
+      className="group block min-h-[76px] rounded-xl bg-sys-card border border-sys-border p-3.5 transition-colors duration-fast ease-smooth hover:border-sys-border-elevated hover:bg-sys-bg/60 cursor-pointer shadow-xs text-left active:scale-[0.99] overflow-hidden transform-gpu [content-visibility:auto] [contain-intrinsic-size:78px]"
       style={{
-        boxShadow: isDone
-          ? "inset 3px 0 0 #10b981"
-          : isOverdue && isLinked
-          ? "inset 3px 0 0 #ef4444"
-          : isUrgent
-          ? "inset 3px 0 0 #f59e0b"
-          : undefined,
+        boxShadow: borderAccentStyle,
       }}
     >
       <div className="flex items-start justify-between gap-2">
@@ -101,4 +111,8 @@ export function renderTaskCard(t: FullTaskItem, key: string, isLinked: boolean =
       ) : null}
     </a>
   );
+});
+
+export function renderTaskCard(t: FullTaskItem, key: string, isLinked: boolean = false) {
+  return <TaskCardItem key={t.id || t.url || key} task={t} isLinked={isLinked} />;
 }

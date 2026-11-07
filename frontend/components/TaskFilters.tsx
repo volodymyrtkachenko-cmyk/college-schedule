@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, memo } from "react";
 import { FullTaskItem } from "./MobileTasksView";
 import { TaskFilterState, DEFAULT_TASK_FILTERS } from "../lib/useTaskGroups";
 import { normalizeSubjectName, isSubjectMatch } from "../lib/format";
@@ -8,7 +8,7 @@ import { normalizeSubjectName, isSubjectMatch } from "../lib/format";
 const selectClass =
   "w-full h-9 min-w-0 rounded-lg border border-sys-border bg-sys-card px-2.5 text-xs text-sys-text-primary focus:border-sys-accent focus:outline-none focus:ring-1 focus:ring-sys-accent cursor-pointer";
 
-export function TaskFilters({
+export const TaskFilters = memo(function TaskFilters({
   tasks,
   value,
   onChange,
@@ -78,4 +78,4 @@ export function TaskFilters({
       )}
     </search>
   );
-}
+});
