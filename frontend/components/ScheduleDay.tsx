@@ -242,8 +242,8 @@ export function ScheduleDay({
           initial="hidden"
           animate="visible"
           variants={{
-            hidden: { opacity: 0 },
-            visible: { transition: { staggerChildren: 0.035, delayChildren: 0.02 } },
+            hidden: { opacity: 1 },
+            visible: { opacity: 1, transition: { staggerChildren: 0.03, delayChildren: 0.01 } },
           }}
           className="flex flex-col gap-3"
         >

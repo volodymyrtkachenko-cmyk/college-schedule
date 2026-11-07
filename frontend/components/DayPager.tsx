@@ -179,21 +179,30 @@ export function DayPager({
     const elapsed = Date.now() - start.time;
     touchStartRef.current = null;
 
-    if (containerRef.current) {
-      containerRef.current.style.transition = "transform 0.22s cubic-bezier(0.16, 1, 0.3, 1)";
-      containerRef.current.style.transform = "translate3d(0, 0, 0)";
-    }
-
-    // Velocity-aware swipe: either a fast flick (<280ms and >25px) or standard distance (>40px)
     const isHorizontal = Math.abs(diffX) > Math.abs(diffY) * 1.35;
     const isFlick = elapsed < 280 && Math.abs(diffX) > 25;
     const isDrag = Math.abs(diffX) > 40;
 
     if (isHorizontal && (isFlick || isDrag)) {
+      if (containerRef.current) {
+        containerRef.current.style.transition = "";
+        containerRef.current.style.transform = "";
+      }
       if (diffX < 0) {
         onNextDay?.();
       } else {
         onPrevDay?.();
+      }
+    } else {
+      if (containerRef.current) {
+        containerRef.current.style.transition = "transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)";
+        containerRef.current.style.transform = "translate3d(0, 0, 0)";
+        setTimeout(() => {
+          if (containerRef.current) {
+            containerRef.current.style.transition = "";
+            containerRef.current.style.transform = "";
+          }
+        }, 220);
       }
     }
   };
@@ -201,8 +210,14 @@ export function DayPager({
   const handleTouchCancel = () => {
     touchStartRef.current = null;
     if (containerRef.current) {
-      containerRef.current.style.transition = "transform 0.22s cubic-bezier(0.16, 1, 0.3, 1)";
+      containerRef.current.style.transition = "transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)";
       containerRef.current.style.transform = "translate3d(0, 0, 0)";
+      setTimeout(() => {
+        if (containerRef.current) {
+          containerRef.current.style.transition = "";
+          containerRef.current.style.transform = "";
+        }
+      }, 220);
     }
   };
 

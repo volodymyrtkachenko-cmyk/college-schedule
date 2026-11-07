@@ -79,7 +79,7 @@ export function BottomNav() {
           onClick={handleScheduleClick}
           aria-label="Розклад"
           aria-pressed={activeTab === "schedule"}
-          className={`relative flex flex-1 min-h-[48px] flex-col items-center justify-center gap-0.5 rounded-xl transition-colors duration-fast ease-smooth active:scale-95 ${
+          className={`relative isolate flex flex-1 min-h-[48px] flex-col items-center justify-center gap-0.5 rounded-xl transition-colors duration-fast ease-smooth active:scale-95 ${
             activeTab === "schedule"
               ? "font-bold text-sys-accent"
               : "text-sys-text-secondary hover:text-sys-text-primary font-medium"
@@ -88,7 +88,7 @@ export function BottomNav() {
           {activeTab === "schedule" && (
             <motion.div
               layoutId="bottom-nav-pill"
-              className="absolute inset-1 rounded-xl bg-sys-accent/10 -z-10"
+              className="absolute inset-1 rounded-xl bg-sys-accent/15 -z-10"
               transition={{ type: "spring", stiffness: 450, damping: 35 }}
             />
           )}
@@ -117,7 +117,7 @@ export function BottomNav() {
             onClick={handleTasksClick}
             aria-label={`Завдання${overdueCount > 0 ? `, прострочено ${overdueCount}` : ""}`}
             aria-pressed={activeTab === "tasks"}
-            className={`relative flex flex-1 min-h-[48px] flex-col items-center justify-center gap-0.5 rounded-xl transition-colors duration-fast ease-smooth active:scale-95 ${
+            className={`relative isolate flex flex-1 min-h-[48px] flex-col items-center justify-center gap-0.5 rounded-xl transition-colors duration-fast ease-smooth active:scale-95 ${
               activeTab === "tasks"
                 ? "font-bold text-sys-accent"
                 : "text-sys-text-secondary hover:text-sys-text-primary font-medium"
@@ -126,7 +126,7 @@ export function BottomNav() {
             {activeTab === "tasks" && (
               <motion.div
                 layoutId="bottom-nav-pill"
-                className="absolute inset-1 rounded-xl bg-sys-accent/10 -z-10"
+                className="absolute inset-1 rounded-xl bg-sys-accent/15 -z-10"
                 transition={{ type: "spring", stiffness: 450, damping: 35 }}
               />
             )}
@@ -167,7 +167,7 @@ export function BottomNav() {
           onClick={handleSettingsClick}
           aria-label="Налаштування"
           aria-pressed={activeTab === "settings"}
-          className={`relative flex flex-1 min-h-[48px] flex-col items-center justify-center gap-0.5 rounded-xl transition-colors duration-fast ease-smooth active:scale-95 ${
+          className={`relative isolate flex flex-1 min-h-[48px] flex-col items-center justify-center gap-0.5 rounded-xl transition-colors duration-fast ease-smooth active:scale-95 ${
             activeTab === "settings"
               ? "font-bold text-sys-accent"
               : "text-sys-text-secondary hover:text-sys-text-primary font-medium"
@@ -176,7 +176,7 @@ export function BottomNav() {
           {activeTab === "settings" && (
             <motion.div
               layoutId="bottom-nav-pill"
-              className="absolute inset-1 rounded-xl bg-sys-accent/10 -z-10"
+              className="absolute inset-1 rounded-xl bg-sys-accent/15 -z-10"
               transition={{ type: "spring", stiffness: 450, damping: 35 }}
             />
           )}

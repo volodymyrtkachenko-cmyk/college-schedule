@@ -722,6 +722,7 @@ export function SchedulePageClient({
   };
 
   const handleSelectDayFromWeek = (targetDate: string, dayIdx: number) => {
+    setDaySlideDir(0);
     startTransition(() => {
       setSelectedDayIndex(dayIdx);
       setView("today");
@@ -1358,7 +1359,7 @@ export function SchedulePageClient({
               <button
                 type="button"
                 onClick={() => handleViewChange("today")}
-                className={`relative z-10 h-8 px-3.5 rounded-lg font-semibold transition-colors duration-fast ease-smooth ${
+                className={`relative isolate z-10 h-8 px-3.5 rounded-lg font-semibold transition-colors duration-fast ease-smooth ${
                   view === "today"
                     ? "text-white"
                     : "text-sys-text-secondary hover:text-sys-text-primary"
@@ -1367,7 +1368,7 @@ export function SchedulePageClient({
                 {view === "today" && (
                   <motion.div
                     layoutId="desktop-view-pill"
-                    className="absolute inset-0 rounded-lg bg-sys-accent shadow-xs -z-10"
+                    className="absolute inset-0 rounded-lg bg-sys-accentSolid shadow-xs -z-10"
                     transition={{ type: "spring", stiffness: 480, damping: 36 }}
                   />
                 )}
@@ -1376,7 +1377,7 @@ export function SchedulePageClient({
               <button
                 type="button"
                 onClick={() => handleViewChange("week")}
-                className={`relative z-10 h-8 px-3.5 rounded-lg font-semibold transition-colors duration-fast ease-smooth ${
+                className={`relative isolate z-10 h-8 px-3.5 rounded-lg font-semibold transition-colors duration-fast ease-smooth ${
                   view === "week"
                     ? "text-white"
                     : "text-sys-text-secondary hover:text-sys-text-primary"
@@ -1385,7 +1386,7 @@ export function SchedulePageClient({
                 {view === "week" && (
                   <motion.div
                     layoutId="desktop-view-pill"
-                    className="absolute inset-0 rounded-lg bg-sys-accent shadow-xs -z-10"
+                    className="absolute inset-0 rounded-lg bg-sys-accentSolid shadow-xs -z-10"
                     transition={{ type: "spring", stiffness: 480, damping: 36 }}
                   />
                 )}
@@ -1991,11 +1992,11 @@ export function SchedulePageClient({
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={view}
-              initial={{ opacity: 0, scale: shouldReduceMotion ? 1 : 0.99 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: shouldReduceMotion ? 1 : 0.99 }}
+              initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: shouldReduceMotion ? 0 : -4 }}
               transition={{
-                duration: shouldReduceMotion ? 0 : 0.22,
+                duration: shouldReduceMotion ? 0 : 0.15,
                 ease: [0.16, 1, 0.3, 1],
               }}
             >
@@ -2071,7 +2072,7 @@ export function SchedulePageClient({
                                   key={d.iso}
                                   type="button"
                                   onClick={() => handleSelectDayIndex(d.index)}
-                                  className={`relative z-10 flex flex-col items-center justify-center h-15 rounded-xl transition-colors duration-fast ease-smooth cursor-pointer active:scale-95 ${
+                                  className={`relative isolate z-10 flex flex-col items-center justify-center h-15 rounded-xl transition-colors duration-fast ease-smooth cursor-pointer active:scale-95 ${
                                     isActive
                                       ? "text-white font-black"
                                       : "border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-elevated-border font-medium"
@@ -2080,7 +2081,7 @@ export function SchedulePageClient({
                                   {isActive && (
                                     <motion.div
                                       layoutId="desktop-focus-day-pill"
-                                      className="absolute inset-0 rounded-xl bg-sys-accent shadow-md ring-2 ring-sys-accent/60 -z-10"
+                                      className="absolute inset-0 rounded-xl bg-sys-accentSolid shadow-md ring-2 ring-sys-accent/60 -z-10"
                                       transition={{ type: "spring", stiffness: 480, damping: 36 }}
                                     />
                                   )}
@@ -2120,33 +2121,27 @@ export function SchedulePageClient({
                         </div>
                       )}
 
-                      <AnimatePresence mode="wait" initial={false}>
-                        <motion.div
-                          key={selectedDaySchedule?.date ?? today?.date ?? "day"}
-                          initial={{
-                            opacity: 0,
-                            x: shouldReduceMotion ? 0 : daySlideDir > 0 ? 24 : daySlideDir < 0 ? -24 : 0,
-                          }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{
-                            opacity: 0,
-                            x: shouldReduceMotion ? 0 : daySlideDir > 0 ? -24 : daySlideDir < 0 ? 24 : 0,
-                          }}
-                          transition={{ duration: shouldReduceMotion ? 0 : 0.22, ease: [0.16, 1, 0.3, 1] }}
-                        >
-                          <ScheduleDay
-                            schedule={selectedDaySchedule ?? today!}
-                            isToday={selectedDaySchedule?.date === todayActualIso && !isWeekend}
-                            scheduleMode={mode}
-                            onQuickJump={handleQuickJump}
-                            hideHeaderOnMobile={false}
-                            weekNumber={currentWeekNumber}
-                            hideDayTitle={isFocusEffective}
-                            currentTeacherId={mode === "teacher" ? teacherId : null}
-                            currentTeacherName={mode === "teacher" ? (selectedTeacher?.name ?? null) : null}
-                          />
-                        </motion.div>
-                      </AnimatePresence>
+                      <motion.div
+                        key={selectedDaySchedule?.date ?? today?.date ?? "day"}
+                        initial={{
+                          opacity: 0,
+                          x: shouldReduceMotion ? 0 : daySlideDir > 0 ? 20 : daySlideDir < 0 ? -20 : 0,
+                        }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: shouldReduceMotion ? 0 : 0.18, ease: [0.16, 1, 0.3, 1] }}
+                      >
+                        <ScheduleDay
+                          schedule={selectedDaySchedule ?? today!}
+                          isToday={selectedDaySchedule?.date === todayActualIso && !isWeekend}
+                          scheduleMode={mode}
+                          onQuickJump={handleQuickJump}
+                          hideHeaderOnMobile={false}
+                          weekNumber={currentWeekNumber}
+                          hideDayTitle={isFocusEffective}
+                          currentTeacherId={mode === "teacher" ? teacherId : null}
+                          currentTeacherName={mode === "teacher" ? (selectedTeacher?.name ?? null) : null}
+                        />
+                      </motion.div>
                     </motion.div>
 
                     {/* Right Column: Week Info & Classroom Widget (360px, slides out to right on focus mode) */}
@@ -2227,7 +2222,7 @@ export function SchedulePageClient({
                                   key={d.iso}
                                   type="button"
                                   onClick={() => handleSelectDayIndex(d.index)}
-                                  className={`relative z-10 flex flex-col items-center justify-center h-16 rounded-xl transition-colors duration-fast ease-smooth cursor-pointer active:scale-95 ${
+                                  className={`relative isolate z-10 flex flex-col items-center justify-center h-16 rounded-xl transition-colors duration-fast ease-smooth cursor-pointer active:scale-95 ${
                                     isActive
                                       ? "text-white font-black"
                                       : "border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-elevated-border font-medium"
@@ -2236,7 +2231,7 @@ export function SchedulePageClient({
                                   {isActive && (
                                     <motion.div
                                       layoutId="desktop-sidebar-day-pill"
-                                      className="absolute inset-0 rounded-xl bg-sys-accent shadow-md ring-2 ring-sys-accent/60 -z-10"
+                                      className="absolute inset-0 rounded-xl bg-sys-accentSolid shadow-md ring-2 ring-sys-accent/60 -z-10"
                                       transition={{ type: "spring", stiffness: 480, damping: 36 }}
                                     />
                                   )}
@@ -2276,7 +2271,7 @@ export function SchedulePageClient({
                               <button
                                 type="button"
                                 onClick={() => setDesktopSidebarTab("tasks")}
-                                className={`relative z-10 rounded-md px-2 py-0.5 font-semibold transition-colors duration-fast ease-smooth cursor-pointer ${
+                                className={`relative isolate z-10 rounded-md px-2 py-0.5 font-semibold transition-colors duration-fast ease-smooth cursor-pointer ${
                                   desktopSidebarTab === "tasks"
                                     ? "text-white font-bold"
                                     : "text-sys-text-secondary hover:text-sys-text-primary"
@@ -2285,7 +2280,7 @@ export function SchedulePageClient({
                                 {desktopSidebarTab === "tasks" && (
                                   <motion.div
                                     layoutId="sidebar-classroom-tab-pill"
-                                    className="absolute inset-0 rounded-md bg-sys-accent shadow-xs -z-10"
+                                    className="absolute inset-0 rounded-md bg-sys-accentSolid shadow-xs -z-10"
                                     transition={{ type: "spring", stiffness: 480, damping: 36 }}
                                   />
                                 )}
@@ -2294,7 +2289,7 @@ export function SchedulePageClient({
                               <button
                                 type="button"
                                 onClick={() => setDesktopSidebarTab("grades")}
-                                className={`relative z-10 rounded-md px-2 py-0.5 font-semibold transition-colors duration-fast ease-smooth cursor-pointer ${
+                                className={`relative isolate z-10 rounded-md px-2 py-0.5 font-semibold transition-colors duration-fast ease-smooth cursor-pointer ${
                                   desktopSidebarTab === "grades"
                                     ? "text-white font-bold"
                                     : "text-sys-text-secondary hover:text-sys-text-primary"
@@ -2303,7 +2298,7 @@ export function SchedulePageClient({
                                 {desktopSidebarTab === "grades" && (
                                   <motion.div
                                     layoutId="sidebar-classroom-tab-pill"
-                                    className="absolute inset-0 rounded-md bg-sys-accent shadow-xs -z-10"
+                                    className="absolute inset-0 rounded-md bg-sys-accentSolid shadow-xs -z-10"
                                     transition={{ type: "spring", stiffness: 480, damping: 36 }}
                                   />
                                 )}
@@ -2361,7 +2356,7 @@ export function SchedulePageClient({
                                 <button
                                   type="button"
                                   onClick={() => setTasksScope("week")}
-                                  className={`relative z-10 rounded-lg px-2 py-0.5 font-semibold transition-colors duration-fast ease-smooth cursor-pointer ${
+                                  className={`relative isolate z-10 rounded-lg px-2 py-0.5 font-semibold transition-colors duration-fast ease-smooth cursor-pointer ${
                                     tasksScope === "week"
                                       ? "text-white font-bold"
                                       : "text-sys-text-secondary hover:text-sys-text-primary"
@@ -2370,7 +2365,7 @@ export function SchedulePageClient({
                                   {tasksScope === "week" && (
                                     <motion.div
                                       layoutId="sidebar-tasks-scope-pill"
-                                      className="absolute inset-0 rounded-lg bg-sys-accent shadow-xs -z-10"
+                                      className="absolute inset-0 rounded-lg bg-sys-accentSolid shadow-xs -z-10"
                                       transition={{ type: "spring", stiffness: 480, damping: 36 }}
                                     />
                                   )}
@@ -2379,7 +2374,7 @@ export function SchedulePageClient({
                                 <button
                                   type="button"
                                   onClick={() => setTasksScope("all")}
-                                  className={`relative z-10 rounded-lg px-2 py-0.5 font-semibold transition-colors duration-fast ease-smooth cursor-pointer ${
+                                  className={`relative isolate z-10 rounded-lg px-2 py-0.5 font-semibold transition-colors duration-fast ease-smooth cursor-pointer ${
                                     tasksScope === "all"
                                       ? "text-white font-bold"
                                       : "text-sys-text-secondary hover:text-sys-text-primary"
@@ -2388,7 +2383,7 @@ export function SchedulePageClient({
                                   {tasksScope === "all" && (
                                     <motion.div
                                       layoutId="sidebar-tasks-scope-pill"
-                                      className="absolute inset-0 rounded-lg bg-sys-accent shadow-xs -z-10"
+                                      className="absolute inset-0 rounded-lg bg-sys-accentSolid shadow-xs -z-10"
                                       transition={{ type: "spring", stiffness: 480, damping: 36 }}
                                     />
                                   )}

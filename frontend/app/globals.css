@@ -658,7 +658,9 @@ html[data-theme="light"][data-accent="cyan"] {
 /* Unlayered contrast rules: must reside outside @layer so they supersede @tailwind utilities */
 .bg-sys-accent.text-white,
 .bg-sys-accent.text-sys-onAccent,
-.bg-sys-accent:has(> .text-white) {
+.bg-sys-accent:has(> .text-white),
+.text-white > .bg-sys-accent,
+.text-white .bg-sys-accent {
   background-color: rgb(var(--sys-accent-solid));
   color: #ffffff;
 }

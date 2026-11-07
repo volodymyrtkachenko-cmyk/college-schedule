@@ -137,7 +137,7 @@ export function MobileTasksView({
         <button
           type="button"
           onClick={() => setViewMode("tasks")}
-          className={`relative z-10 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-colors duration-fast ease-smooth cursor-pointer ${
+          className={`relative isolate z-10 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-colors duration-fast ease-smooth cursor-pointer ${
             viewMode === "tasks"
               ? "text-white font-bold"
               : "text-sys-text-secondary hover:text-sys-text-primary"
@@ -146,7 +146,7 @@ export function MobileTasksView({
           {viewMode === "tasks" && (
             <motion.div
               layoutId="mobile-view-mode-pill"
-              className="absolute inset-0 rounded-lg bg-sys-accent shadow-xs -z-10"
+              className="absolute inset-0 rounded-lg bg-sys-accentSolid shadow-xs -z-10"
               transition={{ type: "spring", stiffness: 480, damping: 36 }}
             />
           )}
@@ -156,7 +156,7 @@ export function MobileTasksView({
         <button
           type="button"
           onClick={() => setViewMode("grades")}
-          className={`relative z-10 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-colors duration-fast ease-smooth cursor-pointer ${
+          className={`relative isolate z-10 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-colors duration-fast ease-smooth cursor-pointer ${
             viewMode === "grades"
               ? "text-white font-bold"
               : "text-sys-text-secondary hover:text-sys-text-primary"
@@ -165,7 +165,7 @@ export function MobileTasksView({
           {viewMode === "grades" && (
             <motion.div
               layoutId="mobile-view-mode-pill"
-              className="absolute inset-0 rounded-lg bg-sys-accent shadow-xs -z-10"
+              className="absolute inset-0 rounded-lg bg-sys-accentSolid shadow-xs -z-10"
               transition={{ type: "spring", stiffness: 480, damping: 36 }}
             />
           )}
@@ -247,7 +247,7 @@ export function MobileTasksView({
               <button
                 type="button"
                 onClick={() => setScope("week")}
-                className={`relative z-10 rounded-lg px-2.5 py-1 font-semibold transition-colors duration-fast ease-smooth cursor-pointer ${
+                className={`relative isolate z-10 rounded-lg px-2.5 py-1 font-semibold transition-colors duration-fast ease-smooth cursor-pointer ${
                   scope === "week"
                     ? "text-white font-bold"
                     : "text-sys-text-secondary hover:text-sys-text-primary"
@@ -256,7 +256,7 @@ export function MobileTasksView({
                 {scope === "week" && (
                   <motion.div
                     layoutId="mobile-tasks-scope-pill"
-                    className="absolute inset-0 rounded-lg bg-sys-accent shadow-xs -z-10"
+                    className="absolute inset-0 rounded-lg bg-sys-accentSolid shadow-xs -z-10"
                     transition={{ type: "spring", stiffness: 480, damping: 36 }}
                   />
                 )}
@@ -265,7 +265,7 @@ export function MobileTasksView({
               <button
                 type="button"
                 onClick={() => setScope("all")}
-                className={`relative z-10 rounded-lg px-2.5 py-1 font-semibold transition-colors duration-fast ease-smooth cursor-pointer ${
+                className={`relative isolate z-10 rounded-lg px-2.5 py-1 font-semibold transition-colors duration-fast ease-smooth cursor-pointer ${
                   scope === "all"
                     ? "text-white font-bold"
                     : "text-sys-text-secondary hover:text-sys-text-primary"
@@ -274,7 +274,7 @@ export function MobileTasksView({
                 {scope === "all" && (
                   <motion.div
                     layoutId="mobile-tasks-scope-pill"
-                    className="absolute inset-0 rounded-lg bg-sys-accent shadow-xs -z-10"
+                    className="absolute inset-0 rounded-lg bg-sys-accentSolid shadow-xs -z-10"
                     transition={{ type: "spring", stiffness: 480, damping: 36 }}
                   />
                 )}
