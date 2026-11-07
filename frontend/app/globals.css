@@ -702,11 +702,7 @@ html[data-theme="light"][data-accent="cyan"] {
   }
 }
 
-/* Performance & Layout Containment */
-.contain-layout-style {
-  contain: layout style;
-}
-
+/* Performance & Rendering Optimization */
 .defer-render-day {
   content-visibility: auto;
   contain-intrinsic-size: auto none auto 260px;

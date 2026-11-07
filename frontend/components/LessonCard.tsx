@@ -1511,6 +1511,7 @@ export const LessonCard = memo(function LessonCard({
   return (
     <article
       data-live={isLive ? "true" : undefined}
+      data-open={isHwOpen || moreOpen ? "true" : undefined}
       draggable={canMove}
       onDragStart={(event) => {
         if (!canMove) {
@@ -1526,6 +1527,8 @@ export const LessonCard = memo(function LessonCard({
         }
       }}
       className={`group relative flex min-w-0 flex-col rounded-2xl border bg-sys-card shadow-sm transition-[transform,box-shadow,border-color,background-color] duration-base ease-smooth hover:border-sys-border/90 hover:shadow-md sm:hover:-translate-y-[1.5px] active:scale-[0.99] ${
+        isHwOpen || moreOpen ? "z-40 !translate-y-0" : ""
+      } ${
         isDay
           ? isLive
             ? "p-4 pb-6 sm:p-6 sm:pb-8 lg:px-7 lg:py-7 lg:pb-9 sm:min-h-[140px]"
@@ -3107,18 +3110,31 @@ export const LessonCard = memo(function LessonCard({
           {/* Week mode tasks popover floating over grid without stretching table rows */}
           <AnimatePresence>
             {showHw && tasks.length > 0 && isHwOpen && (
-              <motion.div
-                key={`hw-list-${lesson.id}-${lesson.lesson_number}`}
-                id={`hw-list-${lesson.id}-${lesson.lesson_number}`}
-                onClick={(e) => e.stopPropagation()}
-                initial={{ opacity: 0, scale: 0.95, y: lesson.lesson_number >= 3 ? 6 : -6 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: lesson.lesson_number >= 3 ? 6 : -6 }}
-                transition={{ type: "spring", stiffness: 350, damping: 28 }}
-                className={`absolute left-0 right-0 ${
-                  lesson.lesson_number >= 3 ? "bottom-full mb-1" : "top-full mt-1"
-                } z-40 max-h-60 overflow-y-auto rounded-xl border border-sys-border bg-sys-card p-2.5 shadow-2xl`}
-              >
+              <>
+                <motion.div
+                  key="hw-list-backdrop"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                  className="fixed inset-0 z-40"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsHwOpen(false);
+                  }}
+                />
+                <motion.div
+                  key={`hw-list-${lesson.id}-${lesson.lesson_number}`}
+                  id={`hw-list-${lesson.id}-${lesson.lesson_number}`}
+                  onClick={(e) => e.stopPropagation()}
+                  initial={{ opacity: 0, scale: 0.95, y: lesson.lesson_number >= 3 ? 6 : -6 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: lesson.lesson_number >= 3 ? 6 : -6 }}
+                  transition={{ type: "spring", stiffness: 350, damping: 28 }}
+                  className={`absolute left-0 right-0 ${
+                    lesson.lesson_number >= 3 ? "bottom-full mb-1.5" : "top-full mt-1.5"
+                  } z-50 max-h-64 overflow-y-auto rounded-xl border border-sys-border bg-sys-card p-2.5 shadow-2xl min-w-[220px]`}
+                >
               <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-sys-border/60 text-xs font-semibold text-sys-text-secondary">
                 <span className="flex items-center gap-1.5 truncate">
                   <span className="font-bold text-sys-text-primary">{formatTaskCount(tasks.length)}</span>
@@ -3230,8 +3246,9 @@ export const LessonCard = memo(function LessonCard({
                 )}
               </div>
             </motion.div>
-          )}
-        </AnimatePresence>
+          </>
+        )}
+      </AnimatePresence>
 
           {/* User note (compact text under badges) */}
           {visibleNoteText && (

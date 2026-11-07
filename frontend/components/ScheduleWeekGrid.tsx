@@ -346,7 +346,7 @@ export function ScheduleWeekGrid({
               <div
                 key={`desktop-slot-${num}-${day.date}`}
                 style={{ gridColumn: dIdx + 1 }}
-                className={`flex flex-col min-h-[92px] transition-opacity contain-layout-style ${
+                className={`flex flex-col min-h-[92px] transition-opacity relative has-[[data-open]]:z-50 has-[[data-open]]:opacity-100 ${
                   isPast && !isToday ? "opacity-80 hover:opacity-100" : ""
                 }`}
               >
@@ -411,7 +411,7 @@ export function ScheduleWeekGrid({
           return (
             <div
               key={`tablet-${day.date}`}
-              className={`snap-start min-w-[240px] md:min-w-[260px] flex-1 shrink-0 flex flex-col gap-2.5 ${
+              className={`snap-start min-w-[240px] md:min-w-[260px] flex-1 shrink-0 flex flex-col gap-2.5 relative has-[[data-open]]:z-50 has-[[data-open]]:opacity-100 ${
                 isPast && !isToday ? "opacity-60" : ""
               }`}
             >
@@ -508,7 +508,7 @@ export function ScheduleWeekGrid({
 
                   if (lessonsForSlot.length > 0) {
                     return (
-                      <div key={`tablet-slot-${num}-${day.date}`} className="flex flex-col gap-2">
+                      <div key={`tablet-slot-${num}-${day.date}`} className="flex flex-col gap-2 relative has-[[data-open]]:z-50">
                         {lessonsForSlot.map((lesson) => (
                           <LessonCard
                             key={`${lesson.id}-${lesson.lesson_number}`}

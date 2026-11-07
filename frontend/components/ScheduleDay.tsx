@@ -272,7 +272,7 @@ export function ScheduleDay({
                   hidden: { opacity: 0.7, y: 6 },
                   visible: { opacity: 1, y: 0, transition: { duration: 0.24, ease: [0.16, 1, 0.3, 1] } },
                 }}
-                className="flex flex-col gap-2.5"
+                className="flex flex-col gap-2.5 relative has-[[data-open]]:z-50"
               >
                 {isBreakNow && (
                   <div className="flex items-center justify-center gap-2 rounded-xl border border-sys-border bg-sys-card/60 px-3 py-1.5 text-xs font-semibold text-sys-text-secondary">

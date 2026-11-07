@@ -309,7 +309,7 @@ export function ScheduleEditGrid({
                   event.preventDefault();
                   drop();
                 }}
-                className={`border-b border-r border-sys-border p-1.5 transition-colors self-stretch min-h-[96px] flex flex-col justify-start ${
+                className={`border-b border-r border-sys-border p-1.5 transition-colors self-stretch min-h-[96px] flex flex-col justify-start relative has-[[data-open]]:z-50 ${
                   isPast && (movingLesson || swapSourceLesson)
                     ? "opacity-40 bg-black/10 cursor-not-allowed"
                     : canChooseTarget
