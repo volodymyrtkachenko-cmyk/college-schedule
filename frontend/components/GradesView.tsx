@@ -433,79 +433,88 @@ export function GradesView({ tasks, isLinked, onSyncClassroom }: GradesViewProps
                 </button>
 
                 {/* Expanded Detailed Tasks */}
-                {isExpanded && (
-                  <div className="px-3 sm:px-4 pb-3.5 pt-1 border-t border-sys-border/50 bg-sys-bg/40 space-y-2">
-                    <div className="text-[11px] font-semibold uppercase tracking-wider text-sys-text-muted pt-2 pb-0.5">
-                      Деталізація оцінок
-                    </div>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateRows: isExpanded ? "1fr" : "0fr",
+                    transition: "grid-template-rows 0.22s cubic-bezier(0.16, 1, 0.3, 1)",
+                  }}
+                  className="overflow-hidden"
+                >
+                  <div className="min-h-0">
+                    <div className="px-3 sm:px-4 pb-3.5 pt-1 border-t border-sys-border/50 bg-sys-bg/40 space-y-2">
+                      <div className="text-[11px] font-semibold uppercase tracking-wider text-sys-text-muted pt-2 pb-0.5">
+                        Деталізація оцінок
+                      </div>
 
-                    <div className="space-y-1.5">
-                      {subj.grades.map((grade: GradeItem) => (
-                        <div
-                          key={grade.id}
-                          className="flex items-start justify-between gap-2 p-2.5 rounded-xl border border-sys-border/60 bg-sys-card text-xs"
-                        >
-                          <div className="space-y-0.5 min-w-0 pr-1 flex-1">
-                            <span className="font-semibold text-sys-text-primary break-words leading-tight block">
-                              {grade.title}
-                            </span>
-
-                            {grade.date && (
-                              <p className="text-[10px] text-sys-text-muted">
-                                {new Date(grade.date).toLocaleDateString("uk-UA", {
-                                  day: "numeric",
-                                  month: "short",
-                                  year: "numeric",
-                                })}
-                              </p>
-                            )}
-                          </div>
-
-                          <div className="flex items-center gap-2 shrink-0 pt-0.5">
-                            <div className="text-right">
-                              <div className="flex items-baseline justify-end gap-0.5 font-bold">
-                                <span className="text-sm text-sys-text-primary">
-                                  {grade.rawGrade}
-                                </span>
-                                <span className="text-[10px] text-sys-text-secondary">
-                                  /{grade.maxPoints} б.
-                                </span>
-                              </div>
-                              <span className="text-[10px] text-sys-text-muted block">
-                                {grade.grade5} за 5-б. ({grade.percentage}%)
+                      <div className="space-y-1.5">
+                        {subj.grades.map((grade: GradeItem) => (
+                          <div
+                            key={grade.id}
+                            className="flex items-start justify-between gap-2 p-2.5 rounded-xl border border-sys-border/60 bg-sys-card text-xs"
+                          >
+                            <div className="space-y-0.5 min-w-0 pr-1 flex-1">
+                              <span className="font-semibold text-sys-text-primary break-words leading-tight block">
+                                {grade.title}
                               </span>
+
+                              {grade.date && (
+                                <p className="text-[10px] text-sys-text-muted">
+                                  {new Date(grade.date).toLocaleDateString("uk-UA", {
+                                    day: "numeric",
+                                    month: "short",
+                                    year: "numeric",
+                                  })}
+                                </p>
+                              )}
                             </div>
 
-                            {grade.url && (
-                              <a
-                                href={grade.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="p-1.5 rounded-lg text-sys-text-secondary hover:text-sys-accent hover:bg-sys-accent/10 transition-colors"
-                                title="Відкрити завдання в Google Classroom"
-                              >
-                                <svg
-                                  width="14"
-                                  height="14"
-                                  viewBox="0 0 24 24"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth="2"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
+                            <div className="flex items-center gap-2 shrink-0 pt-0.5">
+                              <div className="text-right">
+                                <div className="flex items-baseline justify-end gap-0.5 font-bold">
+                                  <span className="text-sm text-sys-text-primary">
+                                    {grade.rawGrade}
+                                  </span>
+                                  <span className="text-[10px] text-sys-text-secondary">
+                                    /{grade.maxPoints} б.
+                                  </span>
+                                </div>
+                                <span className="text-[10px] text-sys-text-muted block">
+                                  {grade.grade5} за 5-б. ({grade.percentage}%)
+                                </span>
+                              </div>
+
+                              {grade.url && (
+                                <a
+                                  href={grade.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="p-1.5 rounded-lg text-sys-text-secondary hover:text-sys-accent hover:bg-sys-accent/10 transition-colors"
+                                  title="Відкрити завдання в Google Classroom"
                                 >
-                                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                                  <polyline points="15 3 21 3 21 9" />
-                                  <line x1="10" y1="14" x2="21" y2="3" />
-                                </svg>
-                              </a>
-                            )}
+                                  <svg
+                                    width="14"
+                                    height="14"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  >
+                                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                                    <polyline points="15 3 21 3 21 9" />
+                                    <line x1="10" y1="14" x2="21" y2="3" />
+                                  </svg>
+                                </a>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
                   </div>
-                )}
+                </div>
               </div>
             );
           })}

@@ -130,7 +130,8 @@ export function DayPager({
     }
   };
 
-  // Touch swipe handling that respects horizontal overflow elements
+  // Touch swipe handling with live finger tracking and velocity detection
+  const containerRef = useRef<HTMLDivElement>(null);
   const touchStartRef = useRef<{ x: number; y: number; time: number; isHoriz: boolean } | null>(null);
 
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -149,14 +150,39 @@ export function DayPager({
     };
   };
 
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchStartRef.current || touchStartRef.current.isHoriz || e.touches.length === 0) return;
+    const diffX = e.touches[0].clientX - touchStartRef.current.x;
+    const diffY = e.touches[0].clientY - touchStartRef.current.y;
+
+    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 12) {
+      if (containerRef.current) {
+        const dampedX = diffX * 0.42;
+        containerRef.current.style.transform = `translate3d(${dampedX}px, 0, 0)`;
+        containerRef.current.style.transition = "none";
+      }
+    }
+  };
+
   const handleTouchEnd = (e: React.TouchEvent) => {
-    if (!touchStartRef.current || touchStartRef.current.isHoriz || e.changedTouches.length === 0) return;
+    if (!touchStartRef.current || touchStartRef.current.isHoriz || e.changedTouches.length === 0) {
+      if (containerRef.current) {
+        containerRef.current.style.transition = "transform 0.22s cubic-bezier(0.16, 1, 0.3, 1)";
+        containerRef.current.style.transform = "translate3d(0, 0, 0)";
+      }
+      return;
+    }
     const start = touchStartRef.current;
     const touch = e.changedTouches[0];
     const diffX = touch.clientX - start.x;
     const diffY = touch.clientY - start.y;
     const elapsed = Date.now() - start.time;
     touchStartRef.current = null;
+
+    if (containerRef.current) {
+      containerRef.current.style.transition = "transform 0.22s cubic-bezier(0.16, 1, 0.3, 1)";
+      containerRef.current.style.transform = "translate3d(0, 0, 0)";
+    }
 
     // Velocity-aware swipe: either a fast flick (<280ms and >25px) or standard distance (>40px)
     const isHorizontal = Math.abs(diffX) > Math.abs(diffY) * 1.35;
@@ -169,6 +195,14 @@ export function DayPager({
       } else {
         onPrevDay?.();
       }
+    }
+  };
+
+  const handleTouchCancel = () => {
+    touchStartRef.current = null;
+    if (containerRef.current) {
+      containerRef.current.style.transition = "transform 0.22s cubic-bezier(0.16, 1, 0.3, 1)";
+      containerRef.current.style.transform = "translate3d(0, 0, 0)";
     }
   };
 
@@ -206,9 +240,12 @@ export function DayPager({
 
   return (
     <div
+      ref={containerRef}
       id="day-pager-content"
       onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchCancel}
       className="w-full min-w-0 touch-pan-y flex flex-col flex-1 min-h-[calc(100vh-10rem)]"
     >
       {/* Top context banners: weekend or tomorrow */}
@@ -314,12 +351,12 @@ export function DayPager({
       <motion.div
         key={schedule.date}
         initial={{
-          opacity: 0.8,
-          x: shouldReduceMotion ? 0 : daySlideDir > 0 ? 14 : daySlideDir < 0 ? -14 : 0,
+          opacity: 0,
+          x: shouldReduceMotion ? 0 : daySlideDir > 0 ? 32 : daySlideDir < 0 ? -32 : 0,
         }}
         animate={{ opacity: 1, x: 0 }}
         transition={{
-          duration: shouldReduceMotion ? 0 : 0.1,
+          duration: shouldReduceMotion ? 0 : 0.22,
           ease: [0.16, 1, 0.3, 1],
         }}
         className="flex flex-col flex-1 gap-3"
@@ -342,7 +379,17 @@ export function DayPager({
               const breakLeft = isBreakNow && currStart !== null && kyivNow ? currStart - kyivNow.minutes : 0;
 
               return (
-                <div key={lessonKey} className="flex flex-col gap-2.5">
+                <motion.div
+                  key={lessonKey}
+                  initial={shouldReduceMotion ? false : { opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{
+                    duration: shouldReduceMotion ? 0 : 0.2,
+                    delay: shouldReduceMotion ? 0 : Math.min(idx * 0.035, 0.14),
+                    ease: [0.16, 1, 0.3, 1],
+                  }}
+                  className="flex flex-col gap-2.5"
+                >
                   {isBreakNow && (
                     <div className="flex items-center justify-center gap-2 rounded-xl border border-sys-border bg-sys-card/60 px-3 py-1.5 text-xs font-semibold text-sys-text-secondary">
                       <span>☕ Перерва{breakDuration > 0 ? ` ${breakDuration} хв` : ""}</span>
@@ -367,7 +414,7 @@ export function DayPager({
                     currentTeacherId={currentTeacherId}
                     currentTeacherName={currentTeacherName}
                   />
-                </div>
+                </motion.div>
               );
             })
           ) : schedule.period_info ? (

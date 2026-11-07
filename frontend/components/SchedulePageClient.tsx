@@ -1354,27 +1354,41 @@ export function SchedulePageClient({
             </button>
 
             {/* Segmented Switcher: [ День | Тиждень ] */}
-            <div role="group" aria-label="Режим відображення" className="flex rounded-xl border border-sys-border bg-sys-bg p-1 text-xs">
+            <div role="group" aria-label="Режим відображення" className="relative flex rounded-xl border border-sys-border bg-sys-bg p-1 text-xs">
               <button
                 type="button"
                 onClick={() => handleViewChange("today")}
-                className={`h-8 px-3.5 rounded-lg font-semibold transition-colors duration-fast ease-smooth ${
+                className={`relative z-10 h-8 px-3.5 rounded-lg font-semibold transition-colors duration-fast ease-smooth ${
                   view === "today"
-                    ? "bg-sys-accent text-white shadow-xs"
+                    ? "text-white"
                     : "text-sys-text-secondary hover:text-sys-text-primary"
                 }`}
               >
+                {view === "today" && (
+                  <motion.div
+                    layoutId="desktop-view-pill"
+                    className="absolute inset-0 rounded-lg bg-sys-accent shadow-xs -z-10"
+                    transition={{ type: "spring", stiffness: 480, damping: 36 }}
+                  />
+                )}
                 День
               </button>
               <button
                 type="button"
                 onClick={() => handleViewChange("week")}
-                className={`h-8 px-3.5 rounded-lg font-semibold transition-colors duration-fast ease-smooth ${
+                className={`relative z-10 h-8 px-3.5 rounded-lg font-semibold transition-colors duration-fast ease-smooth ${
                   view === "week"
-                    ? "bg-sys-accent text-white shadow-xs"
+                    ? "text-white"
                     : "text-sys-text-secondary hover:text-sys-text-primary"
                 }`}
               >
+                {view === "week" && (
+                  <motion.div
+                    layoutId="desktop-view-pill"
+                    className="absolute inset-0 rounded-lg bg-sys-accent shadow-xs -z-10"
+                    transition={{ type: "spring", stiffness: 480, damping: 36 }}
+                  />
+                )}
                 Тиждень
               </button>
             </div>
@@ -1977,12 +1991,12 @@ export function SchedulePageClient({
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={view}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              initial={{ opacity: 0, scale: shouldReduceMotion ? 1 : 0.99 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: shouldReduceMotion ? 1 : 0.99 }}
               transition={{
-                duration: shouldReduceMotion ? 0 : 0.12,
-                ease: [0.2, 0, 0, 1],
+                duration: shouldReduceMotion ? 0 : 0.22,
+                ease: [0.16, 1, 0.3, 1],
               }}
             >
               {view === "today" ? (
@@ -2057,12 +2071,19 @@ export function SchedulePageClient({
                                   key={d.iso}
                                   type="button"
                                   onClick={() => handleSelectDayIndex(d.index)}
-                                  className={`flex flex-col items-center justify-center h-15 rounded-xl transition-colors duration-fast ease-smooth relative cursor-pointer active:scale-95 ${
+                                  className={`relative z-10 flex flex-col items-center justify-center h-15 rounded-xl transition-colors duration-fast ease-smooth cursor-pointer active:scale-95 ${
                                     isActive
-                                      ? "bg-sys-accent text-white font-black shadow-md ring-2 ring-sys-accent/60"
+                                      ? "text-white font-black"
                                       : "border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-elevated-border font-medium"
                                   }`}
                                 >
+                                  {isActive && (
+                                    <motion.div
+                                      layoutId="desktop-focus-day-pill"
+                                      className="absolute inset-0 rounded-xl bg-sys-accent shadow-md ring-2 ring-sys-accent/60 -z-10"
+                                      transition={{ type: "spring", stiffness: 480, damping: 36 }}
+                                    />
+                                  )}
                                   <div className="flex items-center gap-1.5">
                                     <span className="text-xs uppercase font-semibold opacity-90">{d.name}</span>
                                     {isToday && (
@@ -2102,10 +2123,16 @@ export function SchedulePageClient({
                       <AnimatePresence mode="wait" initial={false}>
                         <motion.div
                           key={selectedDaySchedule?.date ?? today?.date ?? "day"}
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                          transition={{ duration: shouldReduceMotion ? 0 : 0.12, ease: [0.2, 0, 0, 1] }}
+                          initial={{
+                            opacity: 0,
+                            x: shouldReduceMotion ? 0 : daySlideDir > 0 ? 24 : daySlideDir < 0 ? -24 : 0,
+                          }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{
+                            opacity: 0,
+                            x: shouldReduceMotion ? 0 : daySlideDir > 0 ? -24 : daySlideDir < 0 ? 24 : 0,
+                          }}
+                          transition={{ duration: shouldReduceMotion ? 0 : 0.22, ease: [0.16, 1, 0.3, 1] }}
                         >
                           <ScheduleDay
                             schedule={selectedDaySchedule ?? today!}
@@ -2200,12 +2227,19 @@ export function SchedulePageClient({
                                   key={d.iso}
                                   type="button"
                                   onClick={() => handleSelectDayIndex(d.index)}
-                                  className={`flex flex-col items-center justify-center h-16 rounded-xl transition-colors duration-fast ease-smooth relative cursor-pointer active:scale-95 ${
+                                  className={`relative z-10 flex flex-col items-center justify-center h-16 rounded-xl transition-colors duration-fast ease-smooth cursor-pointer active:scale-95 ${
                                     isActive
-                                      ? "bg-sys-accent text-white font-black shadow-md ring-2 ring-sys-accent/60"
+                                      ? "text-white font-black"
                                       : "border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-elevated-border font-medium"
                                   }`}
                                 >
+                                  {isActive && (
+                                    <motion.div
+                                      layoutId="desktop-sidebar-day-pill"
+                                      className="absolute inset-0 rounded-xl bg-sys-accent shadow-md ring-2 ring-sys-accent/60 -z-10"
+                                      transition={{ type: "spring", stiffness: 480, damping: 36 }}
+                                    />
+                                  )}
                                   <div className="flex items-center gap-1.5">
                                     <span className="text-xs uppercase font-semibold opacity-90">{d.name}</span>
                                     {isToday && (
@@ -2238,27 +2272,41 @@ export function SchedulePageClient({
                             </div>
 
                             {/* Desktop Segmented Toggle: Завдання vs Оцінки */}
-                            <div className="inline-flex items-center rounded-lg border border-sys-border bg-sys-bg p-0.5 text-xs shadow-xs">
+                            <div className="relative inline-flex items-center rounded-lg border border-sys-border bg-sys-bg p-0.5 text-xs shadow-xs">
                               <button
                                 type="button"
                                 onClick={() => setDesktopSidebarTab("tasks")}
-                                className={`rounded-md px-2 py-0.5 font-semibold transition-colors duration-fast ease-smooth cursor-pointer ${
+                                className={`relative z-10 rounded-md px-2 py-0.5 font-semibold transition-colors duration-fast ease-smooth cursor-pointer ${
                                   desktopSidebarTab === "tasks"
-                                    ? "bg-sys-accent text-white shadow-xs font-bold"
+                                    ? "text-white font-bold"
                                     : "text-sys-text-secondary hover:text-sys-text-primary"
                                 }`}
                               >
+                                {desktopSidebarTab === "tasks" && (
+                                  <motion.div
+                                    layoutId="sidebar-classroom-tab-pill"
+                                    className="absolute inset-0 rounded-md bg-sys-accent shadow-xs -z-10"
+                                    transition={{ type: "spring", stiffness: 480, damping: 36 }}
+                                  />
+                                )}
                                 Завдання
                               </button>
                               <button
                                 type="button"
                                 onClick={() => setDesktopSidebarTab("grades")}
-                                className={`rounded-md px-2 py-0.5 font-semibold transition-colors duration-fast ease-smooth cursor-pointer ${
+                                className={`relative z-10 rounded-md px-2 py-0.5 font-semibold transition-colors duration-fast ease-smooth cursor-pointer ${
                                   desktopSidebarTab === "grades"
-                                    ? "bg-sys-accent text-white shadow-xs font-bold"
+                                    ? "text-white font-bold"
                                     : "text-sys-text-secondary hover:text-sys-text-primary"
                                 }`}
                               >
+                                {desktopSidebarTab === "grades" && (
+                                  <motion.div
+                                    layoutId="sidebar-classroom-tab-pill"
+                                    className="absolute inset-0 rounded-md bg-sys-accent shadow-xs -z-10"
+                                    transition={{ type: "spring", stiffness: 480, damping: 36 }}
+                                  />
+                                )}
                                 Оцінки
                               </button>
                             </div>
@@ -2309,27 +2357,41 @@ export function SchedulePageClient({
                                 </button>
                               </div>
 
-                              <div className="inline-flex items-center rounded-xl border border-sys-border bg-sys-bg p-0.5 text-xs shadow-xs">
+                              <div className="relative inline-flex items-center rounded-xl border border-sys-border bg-sys-bg p-0.5 text-xs shadow-xs">
                                 <button
                                   type="button"
                                   onClick={() => setTasksScope("week")}
-                                  className={`rounded-lg px-2 py-0.5 font-semibold transition-colors duration-fast ease-smooth cursor-pointer ${
+                                  className={`relative z-10 rounded-lg px-2 py-0.5 font-semibold transition-colors duration-fast ease-smooth cursor-pointer ${
                                     tasksScope === "week"
-                                      ? "bg-sys-accent text-white shadow-xs"
+                                      ? "text-white font-bold"
                                       : "text-sys-text-secondary hover:text-sys-text-primary"
                                   }`}
                                 >
+                                  {tasksScope === "week" && (
+                                    <motion.div
+                                      layoutId="sidebar-tasks-scope-pill"
+                                      className="absolute inset-0 rounded-lg bg-sys-accent shadow-xs -z-10"
+                                      transition={{ type: "spring", stiffness: 480, damping: 36 }}
+                                    />
+                                  )}
                                   Цей тиждень
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => setTasksScope("all")}
-                                  className={`rounded-lg px-2 py-0.5 font-semibold transition-colors duration-fast ease-smooth cursor-pointer ${
+                                  className={`relative z-10 rounded-lg px-2 py-0.5 font-semibold transition-colors duration-fast ease-smooth cursor-pointer ${
                                     tasksScope === "all"
-                                      ? "bg-sys-accent text-white shadow-xs"
+                                      ? "text-white font-bold"
                                       : "text-sys-text-secondary hover:text-sys-text-primary"
                                   }`}
                                 >
+                                  {tasksScope === "all" && (
+                                    <motion.div
+                                      layoutId="sidebar-tasks-scope-pill"
+                                      className="absolute inset-0 rounded-lg bg-sys-accent shadow-xs -z-10"
+                                      transition={{ type: "spring", stiffness: 480, damping: 36 }}
+                                    />
+                                  )}
                                   Усі
                                 </button>
                               </div>

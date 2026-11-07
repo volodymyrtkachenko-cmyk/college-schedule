@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import dynamic from "next/dynamic";
+import { motion } from "framer-motion";
 import { Lesson, ScheduleResponse } from "../lib/api";
 import { canMoveLesson } from "../lib/scheduleMove";
 import { ScheduleDay } from "./ScheduleDay";
@@ -241,7 +242,12 @@ export function ScheduleWeekGrid({
     <div className="w-full pb-4">
       {/* Desktop (>= 1024px): 5-column synchronized CSS Grid by lesson numbers */}
       {renderDesktop && (
-        <div className="hidden lg:grid lg:grid-cols-5 gap-3 xl:gap-3.5 pb-4">
+        <motion.div
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+          className="hidden lg:grid lg:grid-cols-5 gap-3 xl:gap-3.5 pb-4"
+        >
         {/* Row 0: Column Headers */}
         {weekDaysMeta.map(({ day, periodMeta }, dIdx) => {
           const isToday = day.date === kyivTodayIso;
@@ -385,12 +391,17 @@ export function ScheduleWeekGrid({
             <span>{summaryText}</span>
           </div>
         ))}
-        </div>
+        </motion.div>
       )}
 
       {/* Tablet (640px – 1023px): horizontal scroll with snap-start */}
       {renderTablet && (
-        <div className="hidden sm:flex lg:hidden items-start gap-3 overflow-x-auto overscroll-x-contain custom-scrollbar snap-x snap-mandatory pb-4">
+        <motion.div
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+          className="hidden sm:flex lg:hidden items-start gap-3 overflow-x-auto overscroll-x-contain custom-scrollbar snap-x snap-mandatory pb-4"
+        >
         {weekDaysMeta.map(({ day, slots, firstLessonNum, lastLessonNum, periodMeta }, dIdx) => {
           const isToday = day.date === kyivTodayIso;
           const isPast = day.date < kyivTodayIso;
@@ -530,7 +541,7 @@ export function ScheduleWeekGrid({
             </div>
           );
         })}
-        </div>
+        </motion.div>
       )}
 
       {/* Mobile (< 640px): Day list with day headers */}

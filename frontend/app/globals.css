@@ -59,11 +59,14 @@ html[data-theme="dark"] {
   --sys-status-neutral-bg: 148 163 184;
 
   /* B1. Motion Tokens */
-  --duration-fast: 120ms;
-  --duration-base: 200ms;
-  --duration-slow: 280ms;
-  --ease-smooth: cubic-bezier(0.2, 0, 0, 1);
-  --ease-out: cubic-bezier(0.4, 0, 1, 1);
+  --duration-fast: 150ms;
+  --duration-base: 240ms;
+  --duration-slow: 320ms;
+  --duration-page: 280ms;
+  --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  interpolate-size: allow-keywords;
 }
 
 html.light,
@@ -122,11 +125,14 @@ html[data-theme="light"] {
   --sys-status-neutral-bg: 100 116 139;
 
   /* B1. Motion Tokens */
-  --duration-fast: 120ms;
-  --duration-base: 200ms;
-  --duration-slow: 280ms;
-  --ease-smooth: cubic-bezier(0.2, 0, 0, 1);
-  --ease-out: cubic-bezier(0.4, 0, 1, 1);
+  --duration-fast: 150ms;
+  --duration-base: 240ms;
+  --duration-slow: 320ms;
+  --duration-page: 280ms;
+  --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  interpolate-size: allow-keywords;
 }
 
 /* ==========================================================================
@@ -532,10 +538,25 @@ html[data-theme="light"][data-accent="cyan"] {
   }
 
   /* View Transitions API (where supported: 240ms, instant elsewhere) */
-  ::view-transition-old(root),
-  ::view-transition-new(root) {
+  ::view-transition-group(root) {
     animation-duration: 0.24s;
-    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  ::view-transition-old(root) {
+    animation: 0.18s cubic-bezier(0.4, 0, 1, 1) both fade-out;
+  }
+  ::view-transition-new(root) {
+    animation: 0.24s cubic-bezier(0.16, 1, 0.3, 1) both fade-in;
+  }
+
+  @keyframes fade-out {
+    from { opacity: 1; }
+    to { opacity: 0; }
+  }
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
 
   :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
+import { motion } from "framer-motion";
 import { ClassroomTaskItem, getTaskStatusText } from "./LessonCard";
 import { ClassroomSyncButton } from "./ClassroomSyncButton";
 import { useClassroomSubmissions } from "../lib/useClassroomSubmissions";
@@ -132,28 +133,42 @@ export function MobileTasksView({
       </div>
 
       {/* Segmented Switch: Завдання vs Оцінки */}
-      <div className="mb-4 grid grid-cols-2 gap-1 rounded-xl border border-sys-border bg-sys-card p-1 text-xs font-semibold shadow-xs">
+      <div className="relative mb-4 grid grid-cols-2 gap-1 rounded-xl border border-sys-border bg-sys-card p-1 text-xs font-semibold shadow-xs">
         <button
           type="button"
           onClick={() => setViewMode("tasks")}
-          className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-colors duration-fast ease-smooth cursor-pointer ${
+          className={`relative z-10 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-colors duration-fast ease-smooth cursor-pointer ${
             viewMode === "tasks"
-              ? "bg-sys-accent text-white shadow-xs font-bold"
+              ? "text-white font-bold"
               : "text-sys-text-secondary hover:text-sys-text-primary"
           }`}
         >
+          {viewMode === "tasks" && (
+            <motion.div
+              layoutId="mobile-view-mode-pill"
+              className="absolute inset-0 rounded-lg bg-sys-accent shadow-xs -z-10"
+              transition={{ type: "spring", stiffness: 480, damping: 36 }}
+            />
+          )}
           <span>📋</span>
           <span>Завдання ({totalCount})</span>
         </button>
         <button
           type="button"
           onClick={() => setViewMode("grades")}
-          className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-colors duration-fast ease-smooth cursor-pointer ${
+          className={`relative z-10 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-colors duration-fast ease-smooth cursor-pointer ${
             viewMode === "grades"
-              ? "bg-sys-accent text-white shadow-xs font-bold"
+              ? "text-white font-bold"
               : "text-sys-text-secondary hover:text-sys-text-primary"
           }`}
         >
+          {viewMode === "grades" && (
+            <motion.div
+              layoutId="mobile-view-mode-pill"
+              className="absolute inset-0 rounded-lg bg-sys-accent shadow-xs -z-10"
+              transition={{ type: "spring", stiffness: 480, damping: 36 }}
+            />
+          )}
           <span>📊</span>
           <span>Оцінки</span>
         </button>
@@ -228,27 +243,41 @@ export function MobileTasksView({
             </div>
 
             {/* Scope Segment [Цей тиждень | Усі] */}
-            <div className="inline-flex items-center rounded-xl border border-sys-border bg-sys-card p-0.5 text-xs shadow-xs">
+            <div className="relative inline-flex items-center rounded-xl border border-sys-border bg-sys-card p-0.5 text-xs shadow-xs">
               <button
                 type="button"
                 onClick={() => setScope("week")}
-                className={`rounded-lg px-2.5 py-1 font-semibold transition-colors duration-fast ease-smooth cursor-pointer ${
+                className={`relative z-10 rounded-lg px-2.5 py-1 font-semibold transition-colors duration-fast ease-smooth cursor-pointer ${
                   scope === "week"
-                    ? "bg-sys-accent text-white shadow-xs"
+                    ? "text-white font-bold"
                     : "text-sys-text-secondary hover:text-sys-text-primary"
                 }`}
               >
+                {scope === "week" && (
+                  <motion.div
+                    layoutId="mobile-tasks-scope-pill"
+                    className="absolute inset-0 rounded-lg bg-sys-accent shadow-xs -z-10"
+                    transition={{ type: "spring", stiffness: 480, damping: 36 }}
+                  />
+                )}
                 Цей тиждень
               </button>
               <button
                 type="button"
                 onClick={() => setScope("all")}
-                className={`rounded-lg px-2.5 py-1 font-semibold transition-colors duration-fast ease-smooth cursor-pointer ${
+                className={`relative z-10 rounded-lg px-2.5 py-1 font-semibold transition-colors duration-fast ease-smooth cursor-pointer ${
                   scope === "all"
-                    ? "bg-sys-accent text-white shadow-xs"
+                    ? "text-white font-bold"
                     : "text-sys-text-secondary hover:text-sys-text-primary"
                 }`}
               >
+                {scope === "all" && (
+                  <motion.div
+                    layoutId="mobile-tasks-scope-pill"
+                    className="absolute inset-0 rounded-lg bg-sys-accent shadow-xs -z-10"
+                    transition={{ type: "spring", stiffness: 480, damping: 36 }}
+                  />
+                )}
                 Усі
               </button>
             </div>

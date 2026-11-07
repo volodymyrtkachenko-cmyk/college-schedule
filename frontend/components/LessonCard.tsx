@@ -1500,7 +1500,7 @@ export const LessonCard = memo(function LessonCard({
           onMoveSelect?.(lesson);
         }
       }}
-      className={`group relative flex min-w-0 flex-col rounded-2xl border bg-sys-card shadow-sm transition-colors duration-base ease-smooth ${
+      className={`group relative flex min-w-0 flex-col rounded-2xl border bg-sys-card shadow-sm transition-[transform,box-shadow,border-color,background-color] duration-base ease-smooth hover:border-sys-border/90 hover:shadow-md sm:hover:-translate-y-[1.5px] active:scale-[0.99] ${
         isDay
           ? isLive
             ? "p-4 pb-6 sm:p-6 sm:pb-8 lg:px-7 lg:py-7 lg:pb-9 sm:min-h-[140px]"
