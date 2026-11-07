@@ -198,6 +198,22 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
     return () => window.removeEventListener("resize", updateModality);
   }, []);
 
+  // Prevent background scrolling and scrollbar-toggle layout shifts while modal is open
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const prevOverflow = document.body.style.overflow;
+    const prevPaddingRight = document.body.style.paddingRight;
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+    if (scrollbarWidth > 0) {
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+    }
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.body.style.paddingRight = prevPaddingRight;
+    };
+  }, []);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     const storedName = localStorage.getItem("schedule:groupName");
@@ -577,77 +593,59 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
 
           {/* Top 2 summary hero cards identical to real /statistics */}
           <div className="grid grid-cols-2 gap-2 text-center">
-            <div className="rounded-xl border border-sys-border bg-sys-bg p-2.5 flex flex-col justify-center items-center">
+            <div className="rounded-xl border border-sys-border bg-sys-bg p-2 flex flex-col justify-center items-center">
               <span className="text-[10px] font-bold uppercase tracking-wider text-sys-text-secondary">
                 Вивчено
               </span>
-              <span className="mt-1 text-2xl font-black text-sys-accent leading-none">
+              <span className="mt-0.5 text-xl font-black text-sys-accent leading-none">
                 164
               </span>
-              <span className="mt-1 text-[10px] text-sys-text-muted">
+              <span className="mt-0.5 text-[10px] text-sys-text-muted">
                 акад. год · 82 пари
               </span>
             </div>
-            <div className="rounded-xl border border-sys-border bg-sys-bg p-2.5 flex flex-col justify-center items-center">
+            <div className="rounded-xl border border-sys-border bg-sys-bg p-2 flex flex-col justify-center items-center">
               <span className="text-[10px] font-bold uppercase tracking-wider text-sys-text-secondary">
                 Дисциплін
               </span>
-              <span className="mt-1 text-2xl font-black text-sys-text-primary leading-none">
+              <span className="mt-0.5 text-xl font-black text-sys-text-primary leading-none">
                 {demoData.distinctCount}
               </span>
-              <span className="mt-1 text-[10px] text-sys-text-muted">
+              <span className="mt-0.5 text-[10px] text-sys-text-muted">
                 у поточному семестрі
               </span>
             </div>
           </div>
 
-          {/* Distribution by subjects with radial circles identical to /statistics */}
-          <div className="space-y-1.5 pt-0.5">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-sys-text-secondary px-0.5">
-              Розподіл за предметами
+          {/* Key subject preview with radial progress circle */}
+          <div className="rounded-xl border border-sys-border bg-sys-bg p-2 flex items-center gap-3">
+            <div className="relative w-9 h-9 shrink-0 flex items-center justify-center">
+              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 44 44">
+                <circle
+                  cx="22" cy="22" r="18"
+                  stroke="currentColor" strokeWidth="3.5" fill="none"
+                  className="text-sys-border/70"
+                />
+                <circle
+                  cx="22" cy="22" r="18"
+                  stroke="currentColor" strokeWidth="3.5" fill="none"
+                  strokeDasharray={2 * Math.PI * 18}
+                  strokeDashoffset={2 * Math.PI * 18 - (demoData.statSubjects[0].percent / 100) * (2 * Math.PI * 18)}
+                  className="text-sys-accent transition-all duration-700"
+                  strokeLinecap="round"
+                />
+              </svg>
+              <span className="absolute text-[10px] font-bold text-sys-text-primary">
+                {demoData.statSubjects[0].percent}%
+              </span>
             </div>
-            <div className="space-y-1.5">
-              {demoData.statSubjects.map((sub, idx) => {
-                const circumference = 2 * Math.PI * 18;
-                const strokeDashoffset = circumference - (sub.percent / 100) * circumference;
-                const colorClass = idx === 0 ? "text-sys-accent" : "text-purple-600 dark:text-purple-400";
-
-                return (
-                  <div
-                    key={sub.name}
-                    className="rounded-xl border border-sys-border bg-sys-bg p-2 flex items-center gap-3"
-                  >
-                    <div className="relative w-10 h-10 shrink-0 flex items-center justify-center">
-                      <svg className="w-full h-full transform -rotate-90" viewBox="0 0 44 44">
-                        <circle
-                          cx="22" cy="22" r="18"
-                          stroke="currentColor" strokeWidth="3.5" fill="none"
-                          className="text-sys-border/70"
-                        />
-                        <circle
-                          cx="22" cy="22" r="18"
-                          stroke="currentColor" strokeWidth="3.5" fill="none"
-                          strokeDasharray={circumference}
-                          strokeDashoffset={strokeDashoffset}
-                          className={`${colorClass} transition-all duration-700`}
-                          strokeLinecap="round"
-                        />
-                      </svg>
-                      <span className="absolute text-[10px] font-bold text-sys-text-primary">
-                        {sub.percent}%
-                      </span>
-                    </div>
-                    <div className="flex-1 min-w-0 text-left">
-                      <div className="font-semibold text-xs text-sys-text-primary truncate">
-                        {sub.name}
-                      </div>
-                      <div className="text-[10px] text-sys-text-secondary">
-                        {sub.hours} з {sub.plannedHours} акад. год · {Math.round(sub.hours / 2)} пар
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="flex-1 min-w-0 text-left">
+              <div className="font-semibold text-xs text-sys-text-primary truncate">
+                {demoData.statSubjects[0].name}
+              </div>
+              <div className="text-[10px] text-sys-text-secondary">
+                {demoData.statSubjects[0].hours} з {demoData.statSubjects[0].plannedHours} акад. год · {Math.round(demoData.statSubjects[0].hours / 2)} пар
+              </div>
             </div>
           </div>
 
@@ -655,7 +653,7 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
           <Link
             href="/statistics"
             onClick={onClose}
-            className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-sys-accent px-4 py-2 text-xs font-bold text-white shadow-sm hover:opacity-95 active:scale-95 transition-all"
+            className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-sys-accent px-4 py-2 text-xs font-bold text-white shadow-xs hover:opacity-95 active:scale-95 transition-colors duration-fast ease-smooth"
           >
             <span>Відкрити детальну статистику</span>
             <span>↗</span>
@@ -789,12 +787,16 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
   }, [activeSlide, total, demoNavDay, slides, onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-5 backdrop-blur-md overflow-hidden animate-in fade-in duration-150">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-5 backdrop-blur-md overflow-hidden animate-in fade-in duration-150"
+    >
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="guide-title"
-        className="relative flex flex-col w-full max-w-lg rounded-3xl border border-sys-border bg-sys-card text-sys-text-primary shadow-2xl overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+        className="relative flex flex-col w-full max-w-[480px] h-[550px] max-h-[92vh] rounded-3xl border border-sys-border bg-sys-card text-sys-text-primary shadow-2xl overflow-hidden"
       >
         {/* Top Header: Story Pills + Close */}
         <header className="px-5 pt-4 pb-2 bg-sys-card shrink-0 space-y-3">
@@ -844,30 +846,30 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
           onTouchStart={onTouchStartHandler}
           onTouchMove={onTouchMoveHandler}
           onTouchEnd={onTouchEndHandler}
-          className="p-5 sm:p-6 flex-1 flex flex-col justify-between min-h-[380px] select-none"
+          className="px-5 py-3 sm:px-6 flex-1 w-full flex flex-col justify-center overflow-hidden select-none relative"
         >
-          <AnimatePresence mode="wait">
+          <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={current.id}
-              initial={{ opacity: 0, scale: 0.98, x: 15 }}
-              animate={{ opacity: 1, scale: 1, x: 0 }}
-              exit={{ opacity: 0, scale: 0.98, x: -15 }}
-              transition={{ duration: 0.2 }}
-              className="space-y-4 my-auto"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.16, ease: "easeOut" }}
+              className="w-full space-y-3 my-auto"
             >
               {/* Slide Title */}
               <div className="flex items-center gap-2">
-                <span className="text-xl">{current.icon}</span>
-                <h3 className="font-black text-base sm:text-lg text-sys-text-primary tracking-tight">
+                <span className="text-xl shrink-0">{current.icon}</span>
+                <h3 className="font-black text-base sm:text-lg text-sys-text-primary tracking-tight truncate">
                   {current.title}
                 </h3>
               </div>
 
               {/* Visual Mockup */}
-              <div className="py-1">{current.render()}</div>
+              <div className="py-0.5 w-full">{current.render()}</div>
 
               {/* 1-2 Clear Sentences */}
-              <p className="text-xs sm:text-sm text-sys-text-secondary leading-relaxed pt-1">
+              <p className="text-xs sm:text-sm text-sys-text-secondary leading-relaxed">
                 {current.caption}
               </p>
             </motion.div>
