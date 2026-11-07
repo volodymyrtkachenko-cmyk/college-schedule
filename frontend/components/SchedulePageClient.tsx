@@ -271,7 +271,8 @@ export function SchedulePageClient({
       if (res?.tasks && res.tasks.length > 0) {
         setClassroomTasks(res.tasks);
         try {
-          localStorage.setItem(`schedule:classroom_tasks:${gid}`, JSON.stringify(res.tasks));
+          localStorage.setItem(`schedule:classroom_group_tasks:${gid}`, JSON.stringify(res.tasks));
+          localStorage.removeItem(`schedule:classroom_tasks:${gid}`);
         } catch {}
       }
       if (res?.last_synced_at) {
@@ -298,7 +299,8 @@ export function SchedulePageClient({
     if (groupId) {
       let restoredCached = false;
       try {
-        const cached = localStorage.getItem(`schedule:classroom_tasks:${groupId}`);
+        localStorage.removeItem(`schedule:classroom_tasks:${groupId}`);
+        const cached = localStorage.getItem(`schedule:classroom_group_tasks:${groupId}`);
         if (cached) {
           const parsed = JSON.parse(cached);
           if (Array.isArray(parsed)) {
@@ -349,7 +351,10 @@ export function SchedulePageClient({
         }
         try {
           const gid = detail.group_id ?? groupId;
-          if (gid) localStorage.setItem(`schedule:classroom_tasks:${gid}`, JSON.stringify(detail.tasks));
+          if (gid) {
+            localStorage.setItem(`schedule:classroom_group_tasks:${gid}`, JSON.stringify(detail.tasks));
+            localStorage.removeItem(`schedule:classroom_tasks:${gid}`);
+          }
         } catch {}
       }
       if (detail?.last_synced_at) {

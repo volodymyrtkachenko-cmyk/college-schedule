@@ -1641,12 +1641,26 @@ async def perform_course_sync(
                         course_title,
                         flags=re.IGNORECASE,
                     ).strip()
+                    initial_subj = course_clean or course.get("name", "") or course_title
+                    for d_lessons in horizon_lessons_by_date.values():
+                        matched_l = next(
+                            (
+                                l_obj for l_obj in d_lessons
+                                if getattr(l_obj, "subject_name", None)
+                                and _matches_lesson(l_obj, combined_cw_text, "", task_author_tokens)
+                            ),
+                            None,
+                        )
+                        if matched_l:
+                            initial_subj = matched_l.subject_name
+                            break
+
                     task_entry = {
                         "id": cw_id,
                         "course_id": course_id,
-                        "course_name": course_clean or course_title,
+                        "course_name": initial_subj,
                         "title": title_raw,
-                        "subject": course_clean or course.get("name", "") or course_title,
+                        "subject": initial_subj,
                         "teacher": resolved_t_name or None,
                         "due_date": due_date.isoformat() if due_date else None,
                         "created_at": created_dt.isoformat(),
@@ -1659,41 +1673,14 @@ async def perform_course_sync(
                     }
                     all_classroom_tasks.append(task_entry)
 
-                    # Якщо у спільному курсі викладач іншої підгрупи випадково опублікував ДЗ "для всіх студентів",
-                    # відсікаємо його з персонального списку студента, зберігаючи в загальній базі групи.
-                    is_english_or_split = any(
-                        sub_tok in course_title_norm
-                        for sub_tok in ("іноземн", "англ", "english", "foreign")
-                    ) or (
-                        any("токар" in tok for tok in task_author_tokens)
-                        or any("хочин" in tok for tok in task_author_tokens)
-                    )
-
-                    is_other_coteacher_task = False
-                    if is_english_or_split:
-                        user_is_sub1 = any("токар" in tok for tok in synced_teacher_tokens) or 1 in synced_subgroups
-                        user_is_sub2 = any("хочин" in tok for tok in synced_teacher_tokens) or 2 in synced_subgroups
-                        task_is_sub1 = any("токар" in tok for tok in task_author_tokens) or (
-                            bool(matched_teacher_name) and "токар" in matched_teacher_name.lower()
-                        )
-                        task_is_sub2 = any("хочин" in tok for tok in task_author_tokens) or (
-                            bool(matched_teacher_name) and "хочин" in matched_teacher_name.lower()
-                        )
-
-                        if user_is_sub1 and not user_is_sub2 and task_is_sub2:
-                            is_other_coteacher_task = True
-                        elif user_is_sub2 and not user_is_sub1 and task_is_sub1:
-                            is_other_coteacher_task = True
-
                     assigned_cws = course_student_cw_ids.get(course_id)
                     # Якщо у цьому курсі Google Classroom повернув studentSubmissions:
-                    # показуємо лише завдання, які призначені саме цьому конкретному студенту (userId="me").
-                    # Завдання, які викладач призначив тільки окремим іншим студентам, не додаються.
+                    # показуємо всі завдання, які є в Classroom цього студента (userId="me"), незалежно від підгрупи.
                     is_assigned_to_student = True
                     if assigned_cws:
                         is_assigned_to_student = cw_id in assigned_cws
 
-                    if is_assigned_to_student and not is_other_coteacher_task:
+                    if is_assigned_to_student:
                         personal_classroom_tasks.append(task_entry)
 
                     # 13.3: Усі опубліковані завдання записуються в загальну базу розкладу групи,
@@ -2607,6 +2594,35 @@ async def _fetch_user_submissions(
 
             submissions_map: dict[str, dict] = {}
             tasks_list: list[dict] = []
+            eff_gid = detected_group_id or group_id
+            mapped_by_url: dict[str, dict] = {
+                str(gt.get("url") or gt.get("alternate_link")): gt
+                for gt in (_latest_group_tasks.get(eff_gid) or [])
+                if eff_gid and (gt.get("url") or gt.get("alternate_link"))
+            }
+            if eff_gid:
+                db_notes = (
+                    await db.scalars(
+                        select(LessonOccurrenceNote).where(
+                            LessonOccurrenceNote.group_id == eff_gid,
+                            LessonOccurrenceNote.archived.is_(False),
+                            LessonOccurrenceNote.note.like("%[TASK%"),
+                        )
+                    )
+                ).all()
+                for n_row in db_notes:
+                    if not n_row.subject_name:
+                        continue
+                    for l_line in (n_row.note or "").split("\n"):
+                        l_line = l_line.strip()
+                        if not l_line.startswith("[TASK"):
+                            continue
+                        u_match = URL_RE.search(l_line)
+                        if u_match and u_match.group(0) not in mapped_by_url:
+                            mapped_by_url[u_match.group(0)] = {
+                                "subject": n_row.subject_name,
+                                "course_name": n_row.subject_name,
+                            }
 
             for course, bundle_items in results:
                 if not isinstance(bundle_items, (list, tuple)) or len(bundle_items) < 2:
@@ -2656,12 +2672,17 @@ async def _fetch_user_submissions(
 
                         title = re.sub(r"\s+", " ", (cw.get("title") or "").replace("|", "/")).strip() or "Без назви"
 
+                        mapped_gt = mapped_by_url.get(alt_link) or {}
+                        resolved_subj = mapped_gt.get("subject") or mapped_gt.get("course_name") or c_clean
+                        resolved_teacher = mapped_gt.get("teacher")
+
                         task_obj = {
                             "id": cw_id,
                             "course_id": c_id,
-                            "course_name": c_clean,
+                            "course_name": resolved_subj,
                             "title": title,
-                            "subject": c_clean,
+                            "subject": resolved_subj,
+                            "teacher": resolved_teacher,
                             "url": alt_link,
                             "alternate_link": alt_link,
                             "state": state,

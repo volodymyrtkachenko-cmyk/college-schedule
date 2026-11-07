@@ -121,75 +121,21 @@ export function extractClassroomTaskKey(url?: string | null): string | null {
   return url.split("?")[0].split("#")[0].replace(/\/details\/?$/i, "").replace(/\/+$/, "");
 }
 
-// Користувач, який не залогінився (гість), бачить ВСІ посилання та ДЗ обох підгруп.
-// Користувач, який прив'язав Classroom (залогінений), бачить ТІЛЬКИ свою підгрупу та своє ДЗ.
-// Загальні предмети групи (математика, схемотехніка, електроніка, філософія тощо) бачать усі студенти!
+// Завдання, які є в Google Classroom у студента, відображаються всі незалежно від обраної підгрупи!
 export function isOwnTask(
   isLinked: boolean,
   submissions: Record<string, PersonalSubmission>,
   url: string | null | undefined,
-  taskTeacher?: string | null,
-  personalTeachers?: string[],
-  taskTitle?: string | null,
-  explicitSubgroup?: number | null
+  _taskTeacher?: string | null,
+  _personalTeachers?: string[],
+  _taskTitle?: string | null,
+  _explicitSubgroup?: number | null
 ): boolean {
-  let userSubgroup: number | null = explicitSubgroup ?? (isLinked ? getPersonalSubgroup() : null);
-  if (!userSubgroup && typeof window !== "undefined") {
-    try {
-      const sel = localStorage.getItem("schedule_selected_subgroup");
-      if (sel === "1" || sel === "2") userSubgroup = parseInt(sel, 10);
-    } catch {}
-  }
-  if (!userSubgroup && isLinked) {
-    const pJoined = (personalTeachers || []).join(" ").toLowerCase();
-    if (pJoined.includes("токар") && !pJoined.includes("хочин")) {
-      userSubgroup = 1;
-    } else if (pJoined.includes("хочин") && !pJoined.includes("токар")) {
-      userSubgroup = 2;
-    }
-  }
-
-  if (userSubgroup === 1 || userSubgroup === 2) {
-    const tLow = (taskTeacher || "").toLowerCase();
-    const titleLow = (taskTitle || "").toLowerCase();
-
-    const isSub1Task =
-      tLow.includes("токар") ||
-      titleLow.includes("токар") ||
-      tLow.includes("1 підгр") ||
-      tLow.includes("1-ша підгр") ||
-      tLow.includes("1-а підгр") ||
-      tLow.includes("1 підгрупа") ||
-      titleLow.includes("1 підгр") ||
-      titleLow.includes("1-ша підгр") ||
-      titleLow.includes("1-а підгр") ||
-      titleLow.includes("1 підгрупа");
-
-    const isSub2Task =
-      tLow.includes("хочин") ||
-      titleLow.includes("хочин") ||
-      tLow.includes("2 підгр") ||
-      tLow.includes("2-га підгр") ||
-      tLow.includes("2-а підгр") ||
-      tLow.includes("2 підгрупа") ||
-      titleLow.includes("2 підгр") ||
-      titleLow.includes("2-га підгр") ||
-      titleLow.includes("2-а підгр") ||
-      titleLow.includes("2 підгрупа");
-
-    if (isSub1Task && isSub2Task) {
-      return true;
-    }
-
-    if (userSubgroup === 1 && isSub2Task && !isSub1Task) return false;
-    if (userSubgroup === 2 && isSub1Task && !isSub2Task) return false;
-  }
-
   if (!isLinked) return true;
 
   // Якщо користувач прив'язав акаунт і в нього є завантажені персональні завдання:
-  // якщо викладач показав роботу не для всіх (індивідуально чи іншій підгрупі),
-  // показуємо ТІЛЬКИ ті завдання, які призначені саме цьому студенту!
+  // показуємо ВСІ завдання, які є в Classroom цього студента (призначені йому в Google Classroom),
+  // незалежно від вибраної підгрупи у розкладі!
   const hasSubmissions = Object.keys(submissions).length > 0;
   if (hasSubmissions && url) {
     const key = extractClassroomTaskKey(url);
@@ -199,7 +145,6 @@ export function isOwnTask(
     }
   }
 
-  // Усі загальні предмети та завдання своєї підгрупи завжди відображаються
   return true;
 }
 
@@ -468,13 +413,6 @@ export async function syncPersonalSubmissions(groupId?: number | null): Promise<
         personalTeachers,
         personalSubgroup ? [personalSubgroup] : null
       );
-      if (Array.isArray(res.tasks) && res.tasks.length > 0 && resolvedGroupId) {
-        window.dispatchEvent(
-          new CustomEvent("classroom-synced", {
-            detail: { group_id: resolvedGroupId, tasks: res.tasks, is_silent: true },
-          })
-        );
-      }
       return true;
     }
   } catch {
