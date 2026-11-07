@@ -6,7 +6,7 @@ import { TaskFilterState, DEFAULT_TASK_FILTERS } from "../lib/useTaskGroups";
 import { normalizeSubjectName, isSubjectMatch } from "../lib/format";
 
 const selectClass =
-  "w-full h-9 min-w-0 rounded-lg border border-sys-border bg-sys-card px-2.5 text-xs text-sys-text-primary focus:border-sys-accent focus:outline-none focus:ring-1 focus:ring-sys-accent cursor-pointer";
+  "w-full h-9 min-w-0 appearance-none rounded-lg border border-sys-border bg-sys-card pl-3 pr-8 text-xs text-sys-text-primary focus:border-sys-accent focus:outline-none focus:ring-1 focus:ring-sys-accent cursor-pointer";
 
 export const TaskFilters = memo(function TaskFilters({
   tasks,
@@ -43,30 +43,66 @@ export const TaskFilters = memo(function TaskFilters({
 
   return (
     <search aria-label="Фільтрація завдань" className="flex flex-col gap-2 sm:flex-row sm:items-center">
-      <select
-        aria-label="Фільтр за статусом"
-        value={value.status}
-        onChange={(e) => onChange({ ...value, status: e.target.value as TaskFilterState["status"] })}
-        className={selectClass}
-      >
-        <option value="all">Усі статуси</option>
-        <option value="pending">Активні</option>
-        <option value="overdue">{isLinked ? "Прострочені" : "Термін минув"}</option>
-        {isLinked && <option value="done">Здані</option>}
-      </select>
-      <select
-        aria-label="Фільтр за предметом"
-        value={subjectValue}
-        onChange={(e) => onChange({ ...value, subject: e.target.value })}
-        className={selectClass}
-      >
-        <option value="">Усі предмети</option>
-        {subjects.map((s) => (
-          <option key={s} value={s}>
-            {s}
-          </option>
-        ))}
-      </select>
+      {/* Filter by Status */}
+      <div className="relative flex-1 min-w-0">
+        <select
+          aria-label="Фільтр за статусом"
+          value={value.status}
+          onChange={(e) => onChange({ ...value, status: e.target.value as TaskFilterState["status"] })}
+          className={selectClass}
+        >
+          <option value="all">Усі статуси</option>
+          <option value="pending">Активні</option>
+          <option value="overdue">{isLinked ? "Прострочені" : "Термін минув"}</option>
+          {isLinked && <option value="done">Здані</option>}
+        </select>
+        <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sys-text-muted">
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </div>
+      </div>
+
+      {/* Filter by Subject */}
+      <div className="relative flex-1 min-w-0">
+        <select
+          aria-label="Фільтр за предметом"
+          value={subjectValue}
+          onChange={(e) => onChange({ ...value, subject: e.target.value })}
+          className={selectClass}
+        >
+          <option value="">Усі предмети</option>
+          {subjects.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </select>
+        <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sys-text-muted">
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </div>
+      </div>
+
       {isActive && (
         <button
           type="button"
