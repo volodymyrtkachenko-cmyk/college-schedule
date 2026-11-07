@@ -131,29 +131,43 @@ export function MobileTasksView({
         )}
       </div>
 
-      {/* Segmented Switch: Завдання vs Оцінки (Pure CSS, 0 JS thread blocking) */}
+      {/* Segmented Switch: Завдання vs Оцінки (Smooth sliding pill) */}
       <div className="relative mb-4 grid grid-cols-2 gap-1 rounded-xl border border-sys-border bg-sys-card p-1 text-xs font-semibold shadow-xs">
         <button
           type="button"
           onClick={() => setViewMode("tasks")}
-          className={`relative flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-colors duration-fast ease-smooth cursor-pointer ${
+          className={`relative isolate z-10 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-colors duration-fast ease-smooth cursor-pointer active:scale-[0.98] ${
             viewMode === "tasks"
-              ? "bg-sys-accentSolid text-white font-bold shadow-xs"
+              ? "text-white font-bold"
               : "text-sys-text-secondary hover:text-sys-text-primary"
           }`}
         >
+          {viewMode === "tasks" && (
+            <motion.div
+              layoutId="mobile-view-mode-pill"
+              className="absolute inset-0 rounded-lg bg-sys-accentSolid shadow-xs -z-10"
+              transition={{ type: "tween", duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            />
+          )}
           <span>📋</span>
           <span>Завдання ({totalCount})</span>
         </button>
         <button
           type="button"
           onClick={() => setViewMode("grades")}
-          className={`relative flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-colors duration-fast ease-smooth cursor-pointer ${
+          className={`relative isolate z-10 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-colors duration-fast ease-smooth cursor-pointer active:scale-[0.98] ${
             viewMode === "grades"
-              ? "bg-sys-accentSolid text-white font-bold shadow-xs"
+              ? "text-white font-bold"
               : "text-sys-text-secondary hover:text-sys-text-primary"
           }`}
         >
+          {viewMode === "grades" && (
+            <motion.div
+              layoutId="mobile-view-mode-pill"
+              className="absolute inset-0 rounded-lg bg-sys-accentSolid shadow-xs -z-10"
+              transition={{ type: "tween", duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            />
+          )}
           <span>📊</span>
           <span>Оцінки</span>
         </button>
@@ -235,28 +249,42 @@ export function MobileTasksView({
               )}
             </div>
 
-            {/* Scope Segment [Цей тиждень | Усі] (Pure CSS, instant tap) */}
+            {/* Scope Segment [Цей тиждень | Усі] (Smooth sliding pill) */}
             <div className="relative inline-flex items-center rounded-xl border border-sys-border bg-sys-card p-0.5 text-xs shadow-xs">
               <button
                 type="button"
                 onClick={() => setScope("week")}
-                className={`relative rounded-lg px-2.5 py-1 font-semibold transition-colors duration-fast ease-smooth cursor-pointer ${
+                className={`relative isolate z-10 rounded-lg px-2.5 py-1 font-semibold transition-colors duration-fast ease-smooth cursor-pointer active:scale-[0.97] ${
                   scope === "week"
-                    ? "bg-sys-accentSolid text-white font-bold shadow-xs"
+                    ? "text-white font-bold"
                     : "text-sys-text-secondary hover:text-sys-text-primary"
                 }`}
               >
+                {scope === "week" && (
+                  <motion.div
+                    layoutId="mobile-tasks-scope-pill"
+                    className="absolute inset-0 rounded-lg bg-sys-accentSolid shadow-xs -z-10"
+                    transition={{ type: "tween", duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                  />
+                )}
                 Цей тиждень
               </button>
               <button
                 type="button"
                 onClick={() => setScope("all")}
-                className={`relative rounded-lg px-2.5 py-1 font-semibold transition-colors duration-fast ease-smooth cursor-pointer ${
+                className={`relative isolate z-10 rounded-lg px-2.5 py-1 font-semibold transition-colors duration-fast ease-smooth cursor-pointer active:scale-[0.97] ${
                   scope === "all"
-                    ? "bg-sys-accentSolid text-white font-bold shadow-xs"
+                    ? "text-white font-bold"
                     : "text-sys-text-secondary hover:text-sys-text-primary"
                 }`}
               >
+                {scope === "all" && (
+                  <motion.div
+                    layoutId="mobile-tasks-scope-pill"
+                    className="absolute inset-0 rounded-lg bg-sys-accentSolid shadow-xs -z-10"
+                    transition={{ type: "tween", duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                  />
+                )}
                 Усі
               </button>
             </div>
