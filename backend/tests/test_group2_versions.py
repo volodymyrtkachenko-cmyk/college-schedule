@@ -141,3 +141,55 @@ async def test_clone_into_empty_target_copies_without_deleting_source(client_and
         targets=list((await db.scalars(select(Schedule).where(Schedule.version_id==target['id']))).all())
         assert len(targets)==1
         assert targets[0].id!=source_id
+
+@pytest.mark.anyio
+async def test_force_delete_active_version_allowed(client_and_sessions):
+    client,_=client_and_sessions
+    item=(await client.post('/api/schedule-versions',json=BASE)).json()
+    # Plain delete blocked
+    assert (await client.delete(f"/api/schedule-versions/{item['id']}")).status_code==409
+    # Force delete succeeds
+    assert (await client.delete(f"/api/schedule-versions/{item['id']}?force=true")).status_code==204
+
+@pytest.mark.anyio
+async def test_clear_version_schedule_and_lessons_count(client_and_sessions):
+    from app.models import Group,Subject,Schedule
+    client,sessions=client_and_sessions
+    item=(await client.post('/api/schedule-versions',json={**BASE,'is_active':False})).json()
+    async with sessions() as db:
+        group=Group(name='Test G');subject=Subject(name='Test S')
+        db.add_all([group,subject]);await db.flush()
+        db.add(Schedule(group_id=group.id,subject_id=subject.id,day_of_week=1,lesson_number=1,week_type='both',version_id=item['id']))
+        await db.commit()
+    # Verify lessons_count
+    versions=(await client.get('/api/schedule-versions')).json()
+    v=[x for x in versions if x['id']==item['id']][0]
+    assert v['lessons_count']==1
+    # Clear schedule
+    clear_resp=await client.post(f"/api/schedule-versions/{item['id']}/clear-schedule")
+    assert clear_resp.status_code==200
+    assert clear_resp.json()['count']==1
+    # Verify count is 0
+    versions2=(await client.get('/api/schedule-versions')).json()
+    v2=[x for x in versions2 if x['id']==item['id']][0]
+    assert v2['lessons_count']==0
+
+@pytest.mark.anyio
+async def test_clone_overwrite_clears_target_first(client_and_sessions):
+    from app.models import Group,Subject,Schedule
+    client,sessions=client_and_sessions
+    target=(await client.post('/api/schedule-versions',json={**BASE,'is_active':False})).json()
+    source=(await client.post('/api/schedule-versions',json={**BASE,'is_active':False,'name':'Source'})).json()
+    async with sessions() as db:
+        group=Group(name='Test G2');subject=Subject(name='Test S2')
+        db.add_all([group,subject]);await db.flush()
+        db.add(Schedule(group_id=group.id,subject_id=subject.id,day_of_week=1,lesson_number=1,week_type='both',version_id=target['id']))
+        db.add(Schedule(group_id=group.id,subject_id=subject.id,day_of_week=2,lesson_number=1,week_type='both',version_id=source['id']))
+        await db.commit()
+    # Clone without overwrite fails 409
+    assert (await client.post(f"/api/schedule-versions/{target['id']}/clone-from/{source['id']}")).status_code==409
+    # Clone with overwrite succeeds
+    res=await client.post(f"/api/schedule-versions/{target['id']}/clone-from/{source['id']}?overwrite=true")
+    assert res.status_code==200
+    assert res.json()['count']==1
+

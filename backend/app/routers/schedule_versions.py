@@ -45,6 +45,7 @@ class ScheduleVersionUpdate(BaseModel):
 
 class ScheduleVersionResponse(ScheduleVersionBase):
     id: int
+    lessons_count: int = 0
     model_config = ConfigDict(from_attributes=True)
 
 async def lock_versions(db: AsyncSession):
@@ -74,9 +75,24 @@ async def commit_version_change(db: AsyncSession):
 
 @router.get("", response_model=list[ScheduleVersionResponse])
 async def list_versions(db: AsyncSession = Depends(get_db)):
-    return list((await db.scalars(select(ScheduleVersion).order_by(
-        ScheduleVersion.valid_from.desc(), ScheduleVersion.id.desc()
-    ))).all())
+    subq = (
+        select(Schedule.version_id, func.count(Schedule.id).label("count"))
+        .where(Schedule.version_id.is_not(None))
+        .group_by(Schedule.version_id)
+        .subquery()
+    )
+    stmt = (
+        select(ScheduleVersion, func.coalesce(subq.c.count, 0))
+        .outerjoin(subq, ScheduleVersion.id == subq.c.version_id)
+        .order_by(ScheduleVersion.valid_from.desc(), ScheduleVersion.id.desc())
+    )
+    rows = (await db.execute(stmt)).all()
+    results = []
+    for version, count in rows:
+        resp = ScheduleVersionResponse.model_validate(version)
+        resp.lessons_count = int(count)
+        results.append(resp)
+    return results
 
 @router.post("", response_model=ScheduleVersionResponse, status_code=201)
 async def create_version(data: ScheduleVersionCreate, db: AsyncSession = Depends(get_db),
@@ -87,7 +103,9 @@ async def create_version(data: ScheduleVersionCreate, db: AsyncSession = Depends
     db.add(version)
     await commit_version_change(db)
     await db.refresh(version)
-    return version
+    resp = ScheduleVersionResponse.model_validate(version)
+    resp.lessons_count = 0
+    return resp
 
 @router.patch("/{version_id}", response_model=ScheduleVersionResponse)
 async def update_version(version_id: int, data: ScheduleVersionUpdate,
@@ -110,16 +128,21 @@ async def update_version(version_id: int, data: ScheduleVersionUpdate,
         setattr(version, key, value)
     await commit_version_change(db)
     await db.refresh(version)
-    return version
+    target_count = await db.scalar(
+        select(func.count()).select_from(Schedule).where(Schedule.version_id == version_id)
+    )
+    resp = ScheduleVersionResponse.model_validate(version)
+    resp.lessons_count = int(target_count or 0)
+    return resp
 
 @router.delete("/{version_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_version(version_id: int, db: AsyncSession = Depends(get_db),
+async def delete_version(version_id: int, force: bool = False, db: AsyncSession = Depends(get_db),
                          _: User = Depends(require_roles("admin"))):
     await lock_versions(db)
     version = await db.get(ScheduleVersion, version_id)
     if version is None:
         raise HTTPException(404, "Версію розкладу не знайдено")
-    if version.is_active:
+    if version.is_active and not force:
         raise HTTPException(409, detail={
             "code": "version_delete_requires_data_policy",
             "msg": "Активну версію розкладу не можна видалити цією операцією. Спочатку деактивуйте її або призначте активною іншу версію.",
@@ -135,8 +158,27 @@ async def delete_version(version_id: int, db: AsyncSession = Depends(get_db),
     await db.delete(version)
     await commit_version_change(db)
 
+@router.post("/{version_id}/clear-schedule")
+async def clear_version_schedule(version_id: int, db: AsyncSession = Depends(get_db),
+                                 _: User = Depends(require_roles("admin"))):
+    await lock_versions(db)
+    version = await db.get(ScheduleVersion, version_id)
+    if version is None:
+        raise HTTPException(404, "Версію розкладу не знайдено")
+    schedule_subquery = select(Schedule.id).where(Schedule.version_id == version_id)
+    await db.execute(
+        update(ScheduleOverride)
+        .where(ScheduleOverride.schedule_id.in_(schedule_subquery))
+        .values(schedule_id=None)
+    )
+    res = await db.execute(delete(Schedule).where(Schedule.version_id == version_id))
+    deleted_count = res.rowcount
+    await commit_version_change(db)
+    return {"status": "cleared", "count": deleted_count}
+
 @router.post("/{version_id}/clone-from/{source_version_id}")
 async def clone_version_schedule(version_id: int, source_version_id: int,
+                                 overwrite: bool = False,
                                  db: AsyncSession = Depends(get_db),
                                  _: User = Depends(require_roles("admin"))):
     if source_version_id < 0:
@@ -150,7 +192,7 @@ async def clone_version_schedule(version_id: int, source_version_id: int,
     if source_version_id != 0 and await db.get(ScheduleVersion, source_version_id) is None:
         raise HTTPException(404, "Версію-джерело не знайдено")
     target_count = await db.scalar(select(func.count()).select_from(Schedule).where(Schedule.version_id == version_id))
-    if target_count:
+    if target_count and not overwrite:
         raise HTTPException(409, detail={
             "code": "clone_target_not_empty",
             "msg": "Ціль містить заняття. Перезапис потребує preview та mapping ручних змін; мовчазне очищення заборонено.",
@@ -159,6 +201,14 @@ async def clone_version_schedule(version_id: int, source_version_id: int,
     rows = list((await db.scalars(select(Schedule).where(source_filter))).all())
     if not rows:
         raise HTTPException(409, detail={"code": "clone_source_empty"})
+    if target_count and overwrite:
+        schedule_subquery = select(Schedule.id).where(Schedule.version_id == version_id)
+        await db.execute(
+            update(ScheduleOverride)
+            .where(ScheduleOverride.schedule_id.in_(schedule_subquery))
+            .values(schedule_id=None)
+        )
+        await db.execute(delete(Schedule).where(Schedule.version_id == version_id))
     fields = ("group_id", "teacher_id", "second_teacher_id", "subject_id", "stream_id",
               "day_of_week", "lesson_number", "week_type", "is_active", "is_replacement", "room_override")
     values = [{**{key: getattr(row, key) for key in fields}, "version_id": version_id} for row in rows]

@@ -12,8 +12,10 @@ export function ScheduleVersionsPanel() {
   const [versions, setVersions] = useState<ScheduleVersion[]>([]);
   const [draft, setDraft] = useState<VersionDraft | null>(null);
   const [versionToDelete, setVersionToDelete] = useState<ScheduleVersion | null>(null);
+  const [versionToClear, setVersionToClear] = useState<ScheduleVersion | null>(null);
   const [cloneTarget, setCloneTarget] = useState<ScheduleVersion | null>(null);
   const [cloneSourceId, setCloneSourceId] = useState<string>("");
+  const [cloneOverwrite, setCloneOverwrite] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
@@ -39,6 +41,7 @@ export function ScheduleVersionsPanel() {
           name: draft.name,
           valid_from: draft.valid_from,
           valid_until: draft.valid_until,
+          is_active: draft.is_active ?? true,
         });
         setVersions(versions.map(v => v.id === draft.id ? updated : v));
       } else {
@@ -46,6 +49,7 @@ export function ScheduleVersionsPanel() {
           name: draft.name,
           valid_from: draft.valid_from,
           valid_until: draft.valid_until,
+          is_active: draft.is_active ?? true,
         });
         setVersions([created, ...versions].sort((a, b) => b.valid_from.localeCompare(a.valid_from)));
       }
@@ -58,15 +62,54 @@ export function ScheduleVersionsPanel() {
     }
   }
 
+  async function toggleActive(version: ScheduleVersion) {
+    try {
+      const updated = await api.scheduleVersions.update(version.id, {
+        is_active: !version.is_active,
+      });
+      setVersions(versions.map(v => v.id === version.id ? { ...v, is_active: updated.is_active } : v));
+    } catch (e) {
+      console.error(e);
+      alert(e instanceof Error ? e.message : "Не вдалося змінити статус версії");
+    }
+  }
+
   async function deleteVersion() {
     if (!versionToDelete) return;
+    setIsSubmitting(true);
     try {
-      await api.scheduleVersions.remove(versionToDelete.id);
+      // If version is marked active in DB, deactivate first to satisfy safety constraint
+      if (versionToDelete.is_active) {
+        try {
+          await api.scheduleVersions.update(versionToDelete.id, { is_active: false });
+        } catch {
+          // Continue with forced removal
+        }
+      }
+      await api.scheduleVersions.remove(versionToDelete.id, true);
       setVersions(versions.filter(v => v.id !== versionToDelete.id));
       setVersionToDelete(null);
     } catch (e) {
       console.error(e);
       alert(e instanceof Error ? e.message : "Не вдалося видалити версію");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function clearSchedule() {
+    if (!versionToClear) return;
+    setIsSubmitting(true);
+    try {
+      const res = await api.scheduleVersions.clearSchedule(versionToClear.id);
+      setVersions(versions.map(v => v.id === versionToClear.id ? { ...v, lessons_count: 0 } : v));
+      alert(`Розклад очищено! Видалено занять: ${res.count}`);
+      setVersionToClear(null);
+    } catch (e) {
+      console.error(e);
+      alert(e instanceof Error ? e.message : "Не вдалося очистити розклад");
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -74,10 +117,16 @@ export function ScheduleVersionsPanel() {
     if (!cloneTarget || !cloneSourceId) return;
     setIsSubmitting(true);
     try {
-      const res = await api.scheduleVersions.clone(cloneTarget.id, parseInt(cloneSourceId, 10));
-      alert(`Успішно склоновано ${res.count} пар!`);
+      const res = await api.scheduleVersions.clone(
+        cloneTarget.id,
+        parseInt(cloneSourceId, 10),
+        cloneOverwrite
+      );
+      alert(`Успішно скопійовано ${res.count} занять!`);
+      setVersions(versions.map(v => v.id === cloneTarget.id ? { ...v, lessons_count: res.count } : v));
       setCloneTarget(null);
       setCloneSourceId("");
+      setCloneOverwrite(false);
     } catch (e) {
       console.error(e);
       alert(e instanceof Error ? e.message : "Помилка клонування");
@@ -116,7 +165,7 @@ export function ScheduleVersionsPanel() {
         description="Керуйте періодами дії різних шаблонів розкладу та копіюйте розклад між ними."
         actions={
           <button
-            onClick={() => setDraft({ key: Date.now().toString(), name: "", valid_from: "", valid_until: "" })}
+            onClick={() => setDraft({ key: Date.now().toString(), name: "", valid_from: "", valid_until: "", is_active: true })}
             className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-sys-accent px-4 py-2 text-sm font-semibold text-white shadow-xs hover:opacity-95 active:scale-95 transition-all"
           >
             + Додати версію
@@ -136,24 +185,41 @@ export function ScheduleVersionsPanel() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {sortedVersions.map((version) => {
             const isActiveNow = version.is_active && version.valid_from <= todayIso && version.valid_until >= todayIso;
+            const lessonsCount = version.lessons_count ?? 0;
             return (
               <div key={version.id} className={`group flex flex-col justify-between rounded-2xl border p-5 transition-all duration-300 hover:shadow-lg ${isActiveNow ? 'border-sys-accent/40 bg-gradient-to-b from-white/5 to-sys-bg shadow-[0_0_15px_rgba(14,165,233,0.1)]' : 'border-sys-border/60 bg-sys-card hover:border-sys-border hover:bg-sys-card/80'}`}>
                 <div>
                   <div className="flex items-start justify-between gap-2">
                     <h3 className="font-semibold text-sys-text-primary text-lg leading-tight line-clamp-2">{version.name}</h3>
-                    {isActiveNow && (
+                    {isActiveNow ? (
                       <span className="shrink-0 flex items-center gap-1.5 text-[10px] uppercase font-bold text-sys-accent bg-sys-accent/15 px-2.5 py-1 rounded-full border border-sys-accent/20">
                         <span className="w-1.5 h-1.5 rounded-full bg-sys-accent animate-pulse"></span>
                         Діє зараз
                       </span>
-                    )}
+                    ) : !version.is_active ? (
+                      <span className="shrink-0 flex items-center gap-1.5 text-[10px] uppercase font-bold text-sys-text-secondary bg-slate-500/10 px-2.5 py-1 rounded-full border border-sys-border">
+                        ⚪ Чернетка
+                      </span>
+                    ) : null}
                   </div>
                   
-                  <div className="mt-4 flex items-center gap-2 text-sm text-sys-text-secondary bg-sys-bg/50 rounded-lg p-2.5 border border-sys-border/30">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-text-secondary/70"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
-                    <div className="flex flex-col">
-                      <span className="text-xs text-sys-text-secondary/70 uppercase font-semibold tracking-wider">Період дії</span>
-                      <span className="font-medium text-sys-text-primary">{formatDate(version.valid_from)} — {formatDate(version.valid_until)}</span>
+                  <div className="mt-4 space-y-2">
+                    <div className="flex items-center gap-2 text-sm text-sys-text-secondary bg-sys-bg/50 rounded-lg p-2.5 border border-sys-border/30">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-text-secondary/70"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-[11px] text-sys-text-secondary/70 uppercase font-semibold tracking-wider">Період дії</span>
+                        <span className="font-medium text-sys-text-primary text-xs sm:text-sm truncate">{formatDate(version.valid_from)} — {formatDate(version.valid_until)}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-sm text-sys-text-secondary bg-sys-bg/50 rounded-lg p-2.5 border border-sys-border/30">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sys-text-secondary/70"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10"/><path d="M6 10h10"/></svg>
+                      <div className="flex flex-col">
+                        <span className="text-[11px] text-sys-text-secondary/70 uppercase font-semibold tracking-wider">Розклад</span>
+                        <span className="font-medium text-sys-text-primary text-xs sm:text-sm">
+                          {lessonsCount > 0 ? `${lessonsCount} занять` : "Порожній розклад"}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -179,7 +245,7 @@ export function ScheduleVersionsPanel() {
                     {openMenuId === version.id && (
                       <>
                         <div className="fixed inset-0 z-30" onClick={() => setOpenMenuId(null)} />
-                        <div className="absolute right-0 bottom-full mb-2 z-40 w-44 rounded-xl border border-sys-border bg-sys-elevated shadow-2xl p-1 animate-in fade-in zoom-in-95 duration-100">
+                        <div className="absolute right-0 bottom-full mb-2 z-40 w-48 rounded-xl border border-sys-border bg-sys-elevated shadow-2xl p-1 animate-in fade-in zoom-in-95 duration-100">
                           <button
                             type="button"
                             onClick={() => { setOpenMenuId(null); setDraft({ ...version, key: version.id.toString() }); }}
@@ -190,12 +256,30 @@ export function ScheduleVersionsPanel() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => { setOpenMenuId(null); setCloneTarget(version); }}
+                            onClick={() => { setOpenMenuId(null); setCloneTarget(version); setCloneOverwrite(false); }}
                             className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg text-sky-700 dark:text-sky-300 hover:bg-sky-500/10 transition-colors"
                           >
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
                             Клонувати
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => { setOpenMenuId(null); toggleActive(version); }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg text-sys-text-primary hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" x2="12" y1="2" y2="12"/></svg>
+                            {version.is_active ? "Зробити чернеткою" : "Зробити активною"}
+                          </button>
+                          {lessonsCount > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => { setOpenMenuId(null); setVersionToClear(version); }}
+                              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 transition-colors"
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                              Очистити розклад
+                            </button>
+                          )}
                           <div className="my-1 border-t border-sys-border/40" />
                           <button
                             type="button"
@@ -203,7 +287,7 @@ export function ScheduleVersionsPanel() {
                             className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg text-rose-700 dark:text-rose-400 hover:bg-rose-500/15 transition-colors"
                           >
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                            Видалити
+                            Видалити версію
                           </button>
                         </div>
                       </>
@@ -254,7 +338,7 @@ export function ScheduleVersionsPanel() {
               <div>
                 <label className="form-label text-sys-text-secondary">
                   <span>Назва версії</span>
-                  <input required type="text" placeholder="напр. Осінній семестр" value={draft.name || ""} onChange={e => setDraft({...draft, name: e.target.value})} className="form-control mt-1 shadow-sm bg-sys-bg w-full" />
+                  <input required type="text" placeholder="напр. 2 семестр" value={draft.name || ""} onChange={e => setDraft({...draft, name: e.target.value})} className="form-control mt-1 shadow-sm bg-sys-bg w-full" />
                 </label>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
@@ -270,6 +354,23 @@ export function ScheduleVersionsPanel() {
                     <input required type="date" value={draft.valid_until || ""} onChange={e => setDraft({...draft, valid_until: e.target.value})} className="form-control mt-1 shadow-sm bg-sys-bg w-full" />
                   </label>
                 </div>
+              </div>
+
+              <div className="pt-2 border-t border-sys-border/30">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={draft.is_active ?? true}
+                    onChange={(e) => setDraft({ ...draft, is_active: e.target.checked })}
+                    className="mt-1 w-4 h-4 rounded text-sys-accent focus:ring-sys-accent/30"
+                  />
+                  <div className="flex flex-col">
+                    <span className="text-sm font-semibold text-sys-text-primary">Активна версія (публікується)</span>
+                    <span className="text-xs text-sys-text-secondary mt-0.5">
+                      Якщо вимкнено — версія зберігається як чернетка і не відображається студентам.
+                    </span>
+                  </div>
+                </label>
               </div>
             </div>
 
@@ -334,22 +435,45 @@ export function ScheduleVersionsPanel() {
             </div>
             
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-              <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs sm:text-sm text-amber-800 dark:text-amber-200">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 mt-0.5"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
-                <p>Увага! Це повністю перезапише існуючий розклад у вибраній версії.</p>
-              </div>
-              
               <div>
                 <label className="form-label text-sys-text-secondary">
                   <span>З якої версії скопіювати заняття?</span>
                   <select value={cloneSourceId} onChange={e => setCloneSourceId(e.target.value)} className="form-control mt-1 shadow-sm bg-sys-bg w-full">
                     <option value="" disabled>Оберіть версію-джерело...</option>
                     {versions.filter(v => v.id !== cloneTarget.id).map(v => (
-                      <option key={v.id} value={v.id}>{v.name} ({formatDate(v.valid_from)})</option>
+                      <option key={v.id} value={v.id}>{v.name} ({formatDate(v.valid_from)} — {v.lessons_count ?? 0} занять)</option>
                     ))}
                   </select>
                 </label>
               </div>
+
+              {(cloneTarget.lessons_count ?? 0) > 0 ? (
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 space-y-2">
+                  <div className="flex items-start gap-2.5 text-xs sm:text-sm text-amber-800 dark:text-amber-200">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 mt-0.5"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
+                    <div>
+                      <p className="font-semibold">У версії «{cloneTarget.name}» вже є {cloneTarget.lessons_count} занять.</p>
+                      <p className="mt-0.5 opacity-90">Щоб скопіювати сюди новий розклад, підтвердіть заміну існуючих занять.</p>
+                    </div>
+                  </div>
+                  <label className="flex items-center gap-2.5 pt-1 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={cloneOverwrite}
+                      onChange={(e) => setCloneOverwrite(e.target.checked)}
+                      className="w-4 h-4 rounded text-sys-accent focus:ring-sys-accent/30"
+                    />
+                    <span className="text-xs sm:text-sm font-semibold text-sys-text-primary">
+                      Очистити поточні {cloneTarget.lessons_count} занять та перезаписати
+                    </span>
+                  </label>
+                </div>
+              ) : (
+                <div className="flex items-start gap-3 rounded-lg border border-sky-500/30 bg-sky-500/10 p-3 text-xs sm:text-sm text-sky-800 dark:text-sky-200">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 mt-0.5"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="16" y2="12"/><line x1="12" x2="12.01" y1="8" y2="8"/></svg>
+                  <p>Ця версія порожня. Усі заняття з обраного джерела будуть скопійовані сюди як базовий розклад.</p>
+                </div>
+              )}
             </div>
 
             <div className="sticky bottom-0 z-10 flex flex-col-reverse sm:flex-row justify-end gap-2.5 border-t border-sys-border/50 bg-sys-bg/80 backdrop-blur-xs px-5 py-3.5">
@@ -363,7 +487,7 @@ export function ScheduleVersionsPanel() {
               <button
                 type="button"
                 onClick={handleClone}
-                disabled={!cloneSourceId || isSubmitting}
+                disabled={!cloneSourceId || isSubmitting || ((cloneTarget.lessons_count ?? 0) > 0 && !cloneOverwrite)}
                 className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] flex items-center justify-center gap-2 rounded-lg bg-sys-accent px-6 py-2 text-sm font-semibold text-white shadow-xs hover:opacity-95 active:scale-[0.98] disabled:opacity-50 transition-all"
               >
                 {isSubmitting ? (
@@ -380,11 +504,27 @@ export function ScheduleVersionsPanel() {
         </div>
       )}
 
+      {versionToClear && (
+        <ConfirmModal
+          isOpen={true}
+          title={`Очистити розклад версії «${versionToClear.name}»?`}
+          message={`Ви впевнені, що хочете очистити всі ${versionToClear.lessons_count ?? 0} занять у версії «${versionToClear.name}»? Сама версія та її період дії залишаться, і ви зможете заповнити її наново або скопіювати з іншого семестру.`}
+          onConfirm={clearSchedule}
+          onCancel={() => setVersionToClear(null)}
+        />
+      )}
+
       {versionToDelete && (
         <ConfirmModal
           isOpen={true}
-          title="Видалити версію?"
-          message={`Ви впевнені, що хочете видалити версію "${versionToDelete.name}"? Усі шаблони розкладу для неї будуть втрачені!`}
+          title={`Видалити версію «${versionToDelete.name}»?`}
+          message={
+            versionToDelete.is_active && versionToDelete.valid_from <= todayIso && versionToDelete.valid_until >= todayIso
+              ? `⚠️ УВАГА: Ця версія діє прямо зараз як поточний розклад коледжу! Видалення призведе до того, що коледж залишиться без діючого розкладу на сьогодні. Усі ${versionToDelete.lessons_count ?? 0} занять будуть безповоротно видалені.`
+              : (versionToDelete.lessons_count ?? 0) > 0
+              ? `Ви впевнені, що хочете видалити версію «${versionToDelete.name}»? Разом із нею буде безповоротно видалено всі ${versionToDelete.lessons_count} занять із бази даних.`
+              : `Ви впевнені, що хочете видалити порожню версію «${versionToDelete.name}»?`
+          }
           onConfirm={deleteVersion}
           onCancel={() => setVersionToDelete(null)}
         />

@@ -6,6 +6,7 @@ export interface ScheduleVersion {
   valid_from: string;
   valid_until: string;
   is_active: boolean;
+  lessons_count?: number;
 }
 
 export interface ScheduleVersionMutation {
@@ -1588,8 +1589,9 @@ export const api = {
             method: "PATCH",
             body: JSON.stringify(payload)
         }),
-        remove: (id: number) => authenticatedRequest<void>(`/api/schedule-versions/${id}`, { method: "DELETE" }),
-        clone: (id: number, sourceId: number) => authenticatedRequest<{status: string; count: number}>(`/api/schedule-versions/${id}/clone-from/${sourceId}`, { method: "POST" }),
+        remove: (id: number, force: boolean = true) => authenticatedRequest<void>(`/api/schedule-versions/${id}${force ? '?force=true' : ''}`, { method: "DELETE" }),
+        clearSchedule: (id: number) => authenticatedRequest<{ status: string; count: number }>(`/api/schedule-versions/${id}/clear-schedule`, { method: "POST" }),
+        clone: (id: number, sourceId: number, overwrite: boolean = false) => authenticatedRequest<{status: string; count: number}>(`/api/schedule-versions/${id}/clone-from/${sourceId}${overwrite ? '?overwrite=true' : ''}`, { method: "POST" }),
     },
     lessons: {
         create: (payload: LessonMutation) => authenticatedRequest<Lesson>("/api/schedule", {
