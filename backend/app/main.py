@@ -178,7 +178,7 @@ app.add_middleware(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
-    allow_origin_regex=r"https://college-schedule.*\.vercel\.app",
+    allow_origin_regex=r"https://(college-schedule.*\.vercel\.app|(www\.)?rozklad-dfkr\.pp\.ua)",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
