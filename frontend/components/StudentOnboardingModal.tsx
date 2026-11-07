@@ -36,10 +36,12 @@ export function StudentOnboardingModal({
   const [hasSubgroups, setHasSubgroups] = useState<boolean>(true);
 
   // Subgroup selection
-  const [chosenSubgroup, setChosenSubgroup] = useState<1 | 2 | null>(
+  const [chosenSubgroup, setChosenSubgroup] = useState<1 | 2 | "all" | null>(
     settings.defaultSubgroup === 1 || settings.defaultSubgroup === 2
       ? settings.defaultSubgroup
-      : null
+      : settings.defaultSubgroup === "all"
+        ? "all"
+        : null
   );
 
   const subgroupHints = useMemo(() => {
@@ -109,9 +111,9 @@ export function StudentOnboardingModal({
 
   const currentStep = steps[currentStepIndex] || steps[0];
 
-  const handleSubgroupSelect = (val: 1 | 2 | null) => {
+  const handleSubgroupSelect = (val: 1 | 2 | "all" | null) => {
     setChosenSubgroup(val);
-    updateSetting("defaultSubgroup", val);
+    updateSetting("defaultSubgroup", val ?? "all");
   };
 
   const handleClassroomAuth = async () => {
@@ -274,20 +276,20 @@ export function StudentOnboardingModal({
 
                   <button
                     type="button"
-                    onClick={() => handleSubgroupSelect(null)}
+                    onClick={() => handleSubgroupSelect("all")}
                     className={`flex items-center justify-between rounded-2xl py-3 px-4 border text-left transition-all ${
-                      chosenSubgroup === null
+                      chosenSubgroup === "all" || chosenSubgroup === null
                         ? "bg-sys-accent text-white border-sys-accent shadow-md scale-[1.01]"
                         : "bg-sys-bg border-sys-border text-sys-text-primary hover:border-sys-accent/40"
                     }`}
                   >
                     <div className="min-w-0 pr-2">
                       <div className="font-bold text-sm">Обидві підгрупи</div>
-                      <div className={`text-xs mt-0.5 ${chosenSubgroup === null ? "text-white/90 font-medium" : "text-sys-text-secondary"}`}>
+                      <div className={`text-xs mt-0.5 ${chosenSubgroup === "all" || chosenSubgroup === null ? "text-white/90 font-medium" : "text-sys-text-secondary"}`}>
                         Показувати викладачів обох підгруп паралельно
                       </div>
                     </div>
-                    {chosenSubgroup === null && <span className="font-bold text-white shrink-0">✓</span>}
+                    {(chosenSubgroup === "all" || chosenSubgroup === null) && <span className="font-bold text-white shrink-0">✓</span>}
                   </button>
                 </div>
 

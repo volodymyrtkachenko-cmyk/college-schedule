@@ -825,7 +825,7 @@ export function SchedulePageClient({
         return;
       }
       if (e.key === "0") {
-        updateSetting("defaultSubgroup", null);
+        updateSetting("defaultSubgroup", "all");
         return;
       }
 

@@ -954,6 +954,9 @@ export const LessonCard = memo(function LessonCard({
     if (selectedSubgroup === 1 || selectedSubgroup === 2) {
       return selectedSubgroup;
     }
+    if (selectedSubgroup === "all") {
+      return null;
+    }
     if (!isDualTeachers) return null;
     if (!isLinked) return null;
     if (personalSubgroup === 1 || personalSubgroup === 2) return personalSubgroup;
@@ -973,9 +976,17 @@ export const LessonCard = memo(function LessonCard({
     return null;
   }, [selectedSubgroup, isDualTeachers, isLinked, personalSubgroup, secondaryItems, personalTeachers]);
 
-  const handleSubgroupToggle = (subIdx: number) => {
-    const nextVal = effectiveSubgroup === subIdx ? null : subIdx;
-    updateSetting("defaultSubgroup", nextVal);
+  const handleSubgroupToggle = (target: 1 | 2 | "all") => {
+    vibrateTap(10);
+    if (target === "all") {
+      updateSetting("defaultSubgroup", "all");
+      return;
+    }
+    if (effectiveSubgroup === target) {
+      updateSetting("defaultSubgroup", "all");
+    } else {
+      updateSetting("defaultSubgroup", target);
+    }
   };
 
   const startMin = parseMinutes(startT);
@@ -1570,17 +1581,46 @@ export const LessonCard = memo(function LessonCard({
                 <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm text-sys-text-secondary mt-0.5">
                   {isDualTeachers ? (
                     isSingleSubgroupShown ? (
-                      <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleSubgroupToggle(singleSubgroupIdx + 1); }}
-                          title={`Ваша підгрупа ${singleSubgroupIdx + 1} (натисніть, щоб скинути або перемкнути)`}
-                          aria-label={`Ваша підгрупа ${singleSubgroupIdx + 1} (натисніть, щоб скинути або перемкнути)`}
-                          className="inline-flex shrink-0 items-center gap-1.5 h-6 px-2 rounded-md border border-sys-accent/35 bg-sys-accent/15 text-xs font-semibold text-sys-accent whitespace-nowrap active:scale-95 transition-colors duration-fast ease-smooth shadow-2xs hover:bg-sys-accent/25"
-                        >
-                          <span className="h-1.5 w-1.5 rounded-full bg-sys-accent shrink-0" aria-hidden="true" />
-                          <span>{singleSubgroupIdx + 1} підгр.</span>
-                        </button>
+                      <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                        <div className="inline-flex items-center rounded-lg border border-sys-border bg-sys-bg/90 p-0.5 text-xs shadow-2xs">
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleSubgroupToggle(1); }}
+                            title={effectiveSubgroup === 1 ? "1 підгрупа (активна, натисніть для перемикання)" : "Обрати 1 підгрупу"}
+                            aria-label="Обрати 1 підгрупу"
+                            className={`inline-flex items-center gap-1.5 h-6 px-2.5 rounded-md font-semibold text-xs active:scale-95 transition-colors duration-fast ease-smooth cursor-pointer ${
+                              effectiveSubgroup === 1
+                                ? "bg-sys-accent/20 border border-sys-accent/40 text-sys-accent shadow-xs"
+                                : "text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-card"
+                            }`}
+                          >
+                            <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${effectiveSubgroup === 1 ? "bg-sys-accent" : "bg-sys-text-muted/60"}`} aria-hidden="true" />
+                            <span>1 підгр.</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleSubgroupToggle(2); }}
+                            title={effectiveSubgroup === 2 ? "2 підгрупа (активна, натисніть для перемикання)" : "Обрати 2 підгрупу"}
+                            aria-label="Обрати 2 підгрупу"
+                            className={`inline-flex items-center gap-1.5 h-6 px-2.5 rounded-md font-semibold text-xs active:scale-95 transition-colors duration-fast ease-smooth cursor-pointer ${
+                              effectiveSubgroup === 2
+                                ? "bg-sys-accent/20 border border-sys-accent/40 text-sys-accent shadow-xs"
+                                : "text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-card"
+                            }`}
+                          >
+                            <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${effectiveSubgroup === 2 ? "bg-sys-accent" : "bg-sys-text-muted/60"}`} aria-hidden="true" />
+                            <span>2 підгр.</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleSubgroupToggle("all"); }}
+                            title="Показати обох викладачів (обидві підгрупи)"
+                            aria-label="Показати обидві підгрупи"
+                            className="inline-flex items-center h-6 px-2 rounded-md text-xs font-medium text-sys-text-muted hover:text-sys-text-primary hover:bg-sys-card active:scale-95 transition-colors cursor-pointer"
+                          >
+                            Обидві
+                          </button>
+                        </div>
                         <svg
                           width="13"
                           height="13"
@@ -1614,11 +1654,11 @@ export const LessonCard = memo(function LessonCard({
                     ) : (
                       <div className="flex flex-col gap-2 w-full max-w-[520px]">
                         {secondaryItems.map((item, idx) => {
-                          const subNum = idx + 1;
+                          const subNum = (idx === 0 ? 1 : 2) as 1 | 2;
                           if (effectiveSubgroup !== null && effectiveSubgroup !== subNum) {
                             return null;
                           }
-                          const isFaded = selectedSubgroup !== null && selectedSubgroup !== subNum;
+                          const isFaded = selectedSubgroup !== null && selectedSubgroup !== "all" && selectedSubgroup !== subNum;
                           const ownMeeting = teacherMeetings[idx];
                           const ownRoom = (idx === 0 ? lesson.teacher_room : lesson.second_teacher_room) || rooms[idx] || null;
                           return (
@@ -2213,17 +2253,46 @@ export const LessonCard = memo(function LessonCard({
           <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm text-sys-text-secondary">
             {isDualTeachers ? (
               isSingleSubgroupShown ? (
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleSubgroupToggle(singleSubgroupIdx + 1); }}
-                    title={`Ваша підгрупа ${singleSubgroupIdx + 1} (натисніть, щоб скинути або перемкнути)`}
-                    aria-label={`Ваша підгрупа ${singleSubgroupIdx + 1} (натисніть, щоб скинути або перемкнути)`}
-                    className="inline-flex shrink-0 items-center gap-1.5 h-6 px-2 rounded-md border border-sys-accent/35 bg-sys-accent/15 text-xs font-semibold text-sys-accent whitespace-nowrap active:scale-95 transition-colors duration-fast ease-smooth shadow-2xs hover:bg-sys-accent/25"
-                  >
-                    <span className="h-1.5 w-1.5 rounded-full bg-sys-accent shrink-0" aria-hidden="true" />
-                    <span>{singleSubgroupIdx + 1} підгр.</span>
-                  </button>
+                <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                  <div className="inline-flex items-center rounded-lg border border-sys-border bg-sys-bg/90 p-0.5 text-xs shadow-2xs">
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleSubgroupToggle(1); }}
+                      title={effectiveSubgroup === 1 ? "1 підгрупа (активна, натисніть для перемикання)" : "Обрати 1 підгрупу"}
+                      aria-label="Обрати 1 підгрупу"
+                      className={`inline-flex items-center gap-1.5 h-6 px-2 rounded-md font-semibold text-xs active:scale-95 transition-colors duration-fast ease-smooth cursor-pointer ${
+                        effectiveSubgroup === 1
+                          ? "bg-sys-accent/20 border border-sys-accent/40 text-sys-accent shadow-xs"
+                          : "text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-card"
+                      }`}
+                    >
+                      <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${effectiveSubgroup === 1 ? "bg-sys-accent" : "bg-sys-text-muted/60"}`} aria-hidden="true" />
+                      <span>1 підгр.</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleSubgroupToggle(2); }}
+                      title={effectiveSubgroup === 2 ? "2 підгрупа (активна, натисніть для перемикання)" : "Обрати 2 підгрупу"}
+                      aria-label="Обрати 2 підгрупу"
+                      className={`inline-flex items-center gap-1.5 h-6 px-2 rounded-md font-semibold text-xs active:scale-95 transition-colors duration-fast ease-smooth cursor-pointer ${
+                        effectiveSubgroup === 2
+                          ? "bg-sys-accent/20 border border-sys-accent/40 text-sys-accent shadow-xs"
+                          : "text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-card"
+                      }`}
+                    >
+                      <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${effectiveSubgroup === 2 ? "bg-sys-accent" : "bg-sys-text-muted/60"}`} aria-hidden="true" />
+                      <span>2 підгр.</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleSubgroupToggle("all"); }}
+                      title="Показати обох викладачів (обидві підгрупи)"
+                      aria-label="Показати обидві підгрупи"
+                      className="inline-flex items-center h-6 px-1.5 rounded-md text-[11px] font-medium text-sys-text-muted hover:text-sys-text-primary hover:bg-sys-card active:scale-95 transition-colors cursor-pointer"
+                    >
+                      Обидві
+                    </button>
+                  </div>
                   <svg
                     width="13"
                     height="13"
@@ -2257,11 +2326,11 @@ export const LessonCard = memo(function LessonCard({
               ) : (
                 <div className="flex flex-col gap-2 w-full">
                   {secondaryItems.map((item, idx) => {
-                    const subNum = idx + 1;
+                    const subNum = (idx === 0 ? 1 : 2) as 1 | 2;
                     if (effectiveSubgroup !== null && effectiveSubgroup !== subNum) {
                       return null;
                     }
-                    const isFaded = selectedSubgroup !== null && selectedSubgroup !== subNum;
+                    const isFaded = selectedSubgroup !== null && selectedSubgroup !== "all" && selectedSubgroup !== subNum;
                     const ownMeeting = teacherMeetings[idx];
                     const ownRoom = (idx === 0 ? lesson.teacher_room : lesson.second_teacher_room) || rooms[idx] || null;
                     return (
@@ -2735,17 +2804,46 @@ export const LessonCard = memo(function LessonCard({
           {/* Row 2: Teacher(s) - compressed into single lines for week view */}
           {isDualTeachers ? (
             isSingleSubgroupShown ? (
-              <div className="flex items-center gap-1.5 min-w-0 text-xs text-sys-text-secondary mt-0.5">
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleSubgroupToggle(singleSubgroupIdx + 1); }}
-                  title={`Ваша підгрупа ${singleSubgroupIdx + 1} (натисніть, щоб скинути або перемкнути)`}
-                  aria-label={`Ваша підгрупа ${singleSubgroupIdx + 1} (натисніть, щоб скинути або перемкнути)`}
-                  className="inline-flex shrink-0 items-center gap-1.5 h-5.5 px-2 rounded-md border border-sys-accent/35 bg-sys-accent/15 text-[11px] font-semibold text-sys-accent whitespace-nowrap active:scale-95 transition-colors duration-fast ease-smooth shadow-2xs hover:bg-sys-accent/25"
-                >
-                  <span className="h-1.5 w-1.5 rounded-full bg-sys-accent shrink-0" aria-hidden="true" />
-                  <span>{singleSubgroupIdx + 1} підгр.</span>
-                </button>
+              <div className="flex items-center gap-1.5 min-w-0 text-xs text-sys-text-secondary mt-0.5 flex-wrap">
+                <div className="inline-flex items-center rounded-md border border-sys-border bg-sys-bg/90 p-0.5 text-xs shadow-2xs shrink-0">
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleSubgroupToggle(1); }}
+                    title={effectiveSubgroup === 1 ? "1 підгр. (активна, натисніть для 2-ї)" : "Обрати 1 підгрупу"}
+                    aria-label="Обрати 1 підгрупу"
+                    className={`inline-flex items-center gap-1 h-5 px-1.5 rounded font-semibold text-[11px] active:scale-95 transition-colors duration-fast ease-smooth cursor-pointer ${
+                      effectiveSubgroup === 1
+                        ? "bg-sys-accent/20 border border-sys-accent/40 text-sys-accent"
+                        : "text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-card"
+                    }`}
+                  >
+                    <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${effectiveSubgroup === 1 ? "bg-sys-accent" : "bg-sys-text-muted/60"}`} aria-hidden="true" />
+                    <span>1</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleSubgroupToggle(2); }}
+                    title={effectiveSubgroup === 2 ? "2 підгр. (активна, натисніть для 1-ї)" : "Обрати 2 підгрупу"}
+                    aria-label="Обрати 2 підгрупу"
+                    className={`inline-flex items-center gap-1 h-5 px-1.5 rounded font-semibold text-[11px] active:scale-95 transition-colors duration-fast ease-smooth cursor-pointer ${
+                      effectiveSubgroup === 2
+                        ? "bg-sys-accent/20 border border-sys-accent/40 text-sys-accent"
+                        : "text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-card"
+                    }`}
+                  >
+                    <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${effectiveSubgroup === 2 ? "bg-sys-accent" : "bg-sys-text-muted/60"}`} aria-hidden="true" />
+                    <span>2</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleSubgroupToggle("all"); }}
+                    title="Показати обох викладачів (обидві підгрупи)"
+                    aria-label="Показати обидві підгрупи"
+                    className="inline-flex items-center h-5 px-1 rounded text-[10px] font-medium text-sys-text-muted hover:text-sys-text-primary hover:bg-sys-card active:scale-95 transition-colors cursor-pointer"
+                  >
+                    Всі
+                  </button>
+                </div>
                 <svg
                   width="12"
                   height="12"
@@ -2779,11 +2877,11 @@ export const LessonCard = memo(function LessonCard({
             ) : (
               <div className="flex flex-col gap-2 text-xs text-sys-text-secondary w-full mt-1">
                 {secondaryItems.map((item, idx) => {
-                  const subNum = idx + 1;
+                  const subNum = (idx === 0 ? 1 : 2) as 1 | 2;
                   if (effectiveSubgroup !== null && effectiveSubgroup !== subNum) {
                     return null;
                   }
-                  const isFaded = selectedSubgroup !== null && selectedSubgroup !== subNum;
+                  const isFaded = selectedSubgroup !== null && selectedSubgroup !== "all" && selectedSubgroup !== subNum;
                   const ownMeeting = teacherMeetings[idx];
                   const ownRoom = (idx === 0 ? lesson.teacher_room : lesson.second_teacher_room) || rooms[idx] || null;
                   return (

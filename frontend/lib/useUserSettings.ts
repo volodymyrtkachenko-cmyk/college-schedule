@@ -4,7 +4,7 @@ import { useSyncExternalStore, useCallback } from "react";
 
 export interface UserSettings {
   showHomeworkBadges: boolean;
-  defaultSubgroup: number | null; // 1, 2, or null (обидві/авто)
+  defaultSubgroup: 1 | 2 | "all" | null; // 1, 2, "all" (обидві), or null (авто)
   defaultViewDesktop: "week" | "today";
 }
 
@@ -33,12 +33,14 @@ function readSettingsFromStorage(): UserSettings {
     if (val !== null) showHomeworkBadges = val !== "false";
   } catch {}
 
-  let defaultSubgroup: number | null = null;
+  let defaultSubgroup: 1 | 2 | "all" | null = null;
   try {
     const val = localStorage.getItem(SUBGROUP_KEY);
     if (val === "1" || val === "2") {
-      defaultSubgroup = parseInt(val, 10);
-    } else if (val === "all" || val === "null" || val === "0") {
+      defaultSubgroup = parseInt(val, 10) as 1 | 2;
+    } else if (val === "all") {
+      defaultSubgroup = "all";
+    } else if (val === "null" || val === "0") {
       defaultSubgroup = null;
     }
   } catch {}
@@ -101,7 +103,7 @@ export function useUserSettings() {
         localStorage.setItem(HW_BADGES_KEY, String(value));
       } else if (key === "defaultSubgroup") {
         if (value === null) {
-          localStorage.setItem(SUBGROUP_KEY, "all");
+          localStorage.removeItem(SUBGROUP_KEY);
         } else {
           localStorage.setItem(SUBGROUP_KEY, String(value));
         }

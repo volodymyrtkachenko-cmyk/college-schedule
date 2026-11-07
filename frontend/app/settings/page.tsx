@@ -317,15 +317,15 @@ export default function SettingsPage() {
 
                   <button
                     type="button"
-                    onClick={() => updateSetting("defaultSubgroup", null)}
+                    onClick={() => updateSetting("defaultSubgroup", "all")}
                     className={`p-3 rounded-xl border text-left transition-colors cursor-pointer ${
-                      settings.defaultSubgroup === null
+                      settings.defaultSubgroup === "all" || settings.defaultSubgroup === null
                         ? "bg-sys-accent text-white border-sys-accent shadow-xs"
                         : "bg-sys-bg border-sys-border text-sys-text-primary hover:border-sys-accent/40"
                     }`}
                   >
                     <div className="text-xs font-bold">Обидві підгрупи</div>
-                    <div className={`text-[11px] mt-0.5 truncate ${settings.defaultSubgroup === null ? "text-white/90 font-medium" : "text-sys-text-secondary"}`}>
+                    <div className={`text-[11px] mt-0.5 truncate ${settings.defaultSubgroup === "all" || settings.defaultSubgroup === null ? "text-white/90 font-medium" : "text-sys-text-secondary"}`}>
                       Показувати викладачів обох підгруп
                     </div>
                   </button>
