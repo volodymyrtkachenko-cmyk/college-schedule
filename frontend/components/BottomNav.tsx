@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { motion } from "framer-motion";
 import { useMobileNav, MobileTab } from "../lib/useMobileNav";
 
 export type { MobileTab };
@@ -67,31 +66,40 @@ export function BottomNav() {
   const tasksHref = scheduleMode === "teacher" ? "/?tab=tasks&mode=teacher" : "/?tab=tasks";
   const settingsHref = scheduleMode === "teacher" ? "/settings?mode=teacher" : "/settings";
 
+  const totalTabs = hideTasksTab ? 2 : 3;
+  const tabIndex = activeTab === "schedule" ? 0 : activeTab === "tasks" ? 1 : hideTasksTab ? 1 : 2;
+
   return (
     <nav
       aria-label="Нижня навігація"
       className="fixed inset-x-0 bottom-0 z-40 border-t border-sys-border bg-sys-card pb-[env(safe-area-inset-bottom)] lg:hidden isolate select-none"
     >
-      <div className="mx-auto flex h-14 max-w-lg items-stretch justify-around px-2">
+      <div className="relative mx-auto flex h-14 max-w-lg items-stretch justify-around px-2">
+        {/* Pure Horizontal Sliding Pill Indicator (Locked to X-axis, never jumps vertically) */}
+        <div
+          aria-hidden="true"
+          className="absolute top-1 bottom-1 pointer-events-none transition-transform duration-fast ease-smooth transform-gpu z-0"
+          style={{
+            left: "8px",
+            width: `calc((100% - 16px) / ${totalTabs})`,
+            transform: `translate3d(calc(${tabIndex} * 100%), 0, 0)`,
+          }}
+        >
+          <div className="mx-1 h-full rounded-xl bg-sys-accent/15 shadow-xs" />
+        </div>
+
         {/* Tab 1: Schedule */}
         <Link
           href={scheduleHref}
           onClick={handleScheduleClick}
           aria-label="Розклад"
           aria-pressed={activeTab === "schedule"}
-          className={`relative isolate flex flex-1 min-h-[48px] flex-col items-center justify-center gap-0.5 rounded-xl transition-colors duration-fast ease-smooth active:scale-95 ${
+          className={`relative z-10 flex flex-1 min-h-[48px] flex-col items-center justify-center gap-0.5 rounded-xl transition-colors duration-fast ease-smooth active:scale-95 ${
             activeTab === "schedule"
               ? "font-bold text-sys-accent"
               : "text-sys-text-secondary hover:text-sys-text-primary font-medium"
           }`}
         >
-          {activeTab === "schedule" && (
-            <motion.div
-              layoutId="bottom-nav-pill"
-              className="absolute inset-1 rounded-xl bg-sys-accent/15 -z-10"
-              transition={{ type: "spring", stiffness: 450, damping: 35 }}
-            />
-          )}
           <svg
             width="20"
             height="20"
@@ -117,19 +125,12 @@ export function BottomNav() {
             onClick={handleTasksClick}
             aria-label={`Завдання${overdueCount > 0 ? `, прострочено ${overdueCount}` : ""}`}
             aria-pressed={activeTab === "tasks"}
-            className={`relative isolate flex flex-1 min-h-[48px] flex-col items-center justify-center gap-0.5 rounded-xl transition-colors duration-fast ease-smooth active:scale-95 ${
+            className={`relative z-10 flex flex-1 min-h-[48px] flex-col items-center justify-center gap-0.5 rounded-xl transition-colors duration-fast ease-smooth active:scale-95 ${
               activeTab === "tasks"
                 ? "font-bold text-sys-accent"
                 : "text-sys-text-secondary hover:text-sys-text-primary font-medium"
             }`}
           >
-            {activeTab === "tasks" && (
-              <motion.div
-                layoutId="bottom-nav-pill"
-                className="absolute inset-1 rounded-xl bg-sys-accent/15 -z-10"
-                transition={{ type: "spring", stiffness: 450, damping: 35 }}
-              />
-            )}
             <div className="relative">
               <svg
                 width="20"
@@ -167,19 +168,12 @@ export function BottomNav() {
           onClick={handleSettingsClick}
           aria-label="Налаштування"
           aria-pressed={activeTab === "settings"}
-          className={`relative isolate flex flex-1 min-h-[48px] flex-col items-center justify-center gap-0.5 rounded-xl transition-colors duration-fast ease-smooth active:scale-95 ${
+          className={`relative z-10 flex flex-1 min-h-[48px] flex-col items-center justify-center gap-0.5 rounded-xl transition-colors duration-fast ease-smooth active:scale-95 ${
             activeTab === "settings"
               ? "font-bold text-sys-accent"
               : "text-sys-text-secondary hover:text-sys-text-primary font-medium"
           }`}
         >
-          {activeTab === "settings" && (
-            <motion.div
-              layoutId="bottom-nav-pill"
-              className="absolute inset-1 rounded-xl bg-sys-accent/15 -z-10"
-              transition={{ type: "spring", stiffness: 450, damping: 35 }}
-            />
-          )}
           <svg
             width="20"
             height="20"
