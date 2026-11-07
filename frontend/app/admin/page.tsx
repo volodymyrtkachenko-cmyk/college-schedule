@@ -763,7 +763,7 @@ function AdminContent() {
               disabled={bulkSaving}
             />
 
-            {bulkError && <p className="text-xs text-rose-400">{bulkError}</p>}
+            {bulkError && <p className="text-xs text-rose-600 dark:text-rose-400">{bulkError}</p>}
 
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
               <span className="text-xs text-sys-text-secondary">
@@ -857,11 +857,11 @@ function AdminContent() {
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="text-base font-bold text-white truncate">
+                          <h3 className="text-base font-bold text-sys-text-primary truncate">
                             Група {rosterGroup.name}
                           </h3>
                           {rosterData?.course_name && (
-                            <span className="text-xs text-emerald-400 font-medium truncate max-w-[200px] sm:max-w-[320px]">
+                            <span className="text-xs text-emerald-700 dark:text-emerald-400 font-medium truncate max-w-[200px] sm:max-w-[320px]">
                               · {rosterData.course_name}
                             </span>
                           )}
@@ -877,7 +877,7 @@ function AdminContent() {
                       type="button"
                       onClick={() => setRosterGroup(null)}
                       aria-label="Закрити"
-                      className="w-8 h-8 flex items-center justify-center rounded-lg text-sys-text-secondary hover:text-white hover:bg-sys-bg/60 transition-colors shrink-0"
+                      className="w-8 h-8 flex items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg/60 transition-colors shrink-0"
                     >
                       ✕
                     </button>
@@ -893,8 +893,8 @@ function AdminContent() {
                       }}
                       className={`flex items-center gap-2 rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all ${
                         rosterTab === "students"
-                          ? "bg-sys-tabActive text-white shadow-sm border border-sys-border/80"
-                          : "text-sys-text-secondary hover:text-white hover:bg-sys-bg/40"
+                          ? "bg-sys-tabActive text-sys-text-primary shadow-sm border border-sys-border/80"
+                          : "text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg/40"
                       }`}
                     >
                       <span>👥 Студенти</span>
@@ -902,7 +902,7 @@ function AdminContent() {
                         <span
                           className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
                             rosterTab === "students"
-                              ? "bg-emerald-500/20 text-emerald-300"
+                              ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300"
                               : "bg-sys-bg text-sys-text-muted"
                           }`}
                         >
@@ -919,8 +919,8 @@ function AdminContent() {
                       }}
                       className={`flex items-center gap-2 rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all ${
                         rosterTab === "classroom"
-                          ? "bg-sys-tabActive text-white shadow-sm border border-sys-border/80"
-                          : "text-sys-text-secondary hover:text-white hover:bg-sys-bg/40"
+                          ? "bg-sys-tabActive text-sys-text-primary shadow-sm border border-sys-border/80"
+                          : "text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg/40"
                       }`}
                     >
                       <span>🎓 Classroom-акаунти</span>
@@ -928,8 +928,8 @@ function AdminContent() {
                         <span
                           className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
                             rosterData.connected_accounts_count > 0
-                              ? "bg-sky-500/20 text-sky-300"
-                              : "bg-amber-500/20 text-amber-300"
+                              ? "bg-sky-500/20 text-sky-800 dark:text-sky-300"
+                              : "bg-amber-500/20 text-amber-800 dark:text-amber-300"
                           }`}
                         >
                           {rosterData.connected_accounts_count}
@@ -962,11 +962,11 @@ function AdminContent() {
 
                     {/* Попередження, якщо для підгрупи немає жодного активного акаунта */}
                     {rosterData?.subgroup_warning && (
-                      <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3.5 py-2.5 text-xs text-amber-200 flex items-start gap-2.5">
-                        <span className="text-amber-400 font-bold shrink-0 text-sm">⚠</span>
+                      <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3.5 py-2.5 text-xs text-amber-800 dark:text-amber-200 flex items-start gap-2.5">
+                        <span className="text-amber-700 dark:text-amber-400 font-bold shrink-0 text-sm">⚠</span>
                         <div>
-                          <p className="font-semibold text-amber-300">Попередження щодо підгруп</p>
-                          <p className="text-amber-200/90 text-[11px] leading-relaxed mt-0.5">
+                          <p className="font-semibold text-amber-900 dark:text-amber-300">Попередження щодо підгруп</p>
+                          <p className="text-amber-800/90 dark:text-amber-200/90 text-[11px] leading-relaxed mt-0.5">
                             {rosterData.subgroup_warning}
                           </p>
                         </div>
@@ -1022,7 +1022,7 @@ function AdminContent() {
                                         {displayName}
                                       </span>
                                       {acc.subgroup ? (
-                                        <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold bg-sky-500/15 text-sky-300 border border-sky-500/30">
+                                        <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold bg-sky-500/15 text-sky-800 dark:text-sky-300 border border-sky-500/30">
                                           {acc.subgroup} підгр.
                                         </span>
                                       ) : null}
@@ -1039,10 +1039,10 @@ function AdminContent() {
                                     <div className="flex items-center sm:justify-end gap-1.5 text-[11px]">
                                       <span
                                         className={`h-2 w-2 rounded-full shrink-0 ${
-                                          acc.is_active ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]" : "bg-rose-400"
+                                          acc.is_active ? "bg-emerald-500 dark:bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]" : "bg-rose-500 dark:bg-rose-400"
                                         }`}
                                       />
-                                      <span className={acc.is_active ? "text-emerald-400 font-medium" : "text-rose-400 font-medium"}>
+                                      <span className={acc.is_active ? "text-emerald-700 dark:text-emerald-400 font-medium" : "text-rose-700 dark:text-rose-400 font-medium"}>
                                         {acc.is_active ? "Активний" : "Неактивний"}
                                       </span>
                                     </div>
@@ -1056,7 +1056,7 @@ function AdminContent() {
                                   <button
                                     type="button"
                                     onClick={() => handleDeleteClassroomAccount(acc.id, displayName)}
-                                    className="rounded-lg p-1.5 text-sys-text-muted hover:bg-rose-500/10 hover:text-rose-400 transition-colors"
+                                    className="rounded-lg p-1.5 text-sys-text-muted hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
                                     title="Відключити цей акаунт"
                                   >
                                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1066,7 +1066,7 @@ function AdminContent() {
                                 </div>
 
                                 {acc.last_error && (
-                                  <div className="w-full text-rose-400 text-[11px] bg-rose-500/10 border border-rose-500/20 rounded-lg p-2 mt-1 truncate" title={acc.last_error}>
+                                  <div className="w-full text-rose-700 dark:text-rose-400 text-[11px] bg-rose-500/10 border border-rose-500/20 rounded-lg p-2 mt-1 truncate" title={acc.last_error}>
                                     ⚠ Помилка доступу: {acc.last_error}
                                   </div>
                                 )}
@@ -1088,13 +1088,13 @@ function AdminContent() {
                           <button
                             type="button"
                             onClick={() => setBulkStudentOpen(false)}
-                            className="flex items-center gap-1.5 text-xs font-semibold text-sys-text-secondary hover:text-white transition-colors"
+                            className="flex items-center gap-1.5 text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary transition-colors"
                           >
                             ← Назад до списку студентів
                           </button>
                         </div>
                         <div className="rounded-xl border border-sys-border/60 bg-sys-bg/40 p-3 text-xs text-sys-text-secondary">
-                          💡 <strong className="text-white">Швидкий імпорт:</strong> відкрийте вкладку <em>«Пользователи» (або «Люди»)</em> у своєму курсі Google Classroom, виділіть список одногрупників (Ctrl+A / мишкою), скопіюйте (Ctrl+C) та вставте сюди. Також підходить копіювання з Excel або відомості. Розумний парсер сам прибере номери та зайві слова.
+                          💡 <strong className="text-sys-text-primary">Швидкий імпорт:</strong> відкрийте вкладку <em>«Пользователи» (або «Люди»)</em> у своєму курсі Google Classroom, виділіть список одногрупників (Ctrl+A / мишкою), скопіюйте (Ctrl+C) та вставте сюди. Також підходить копіювання з Excel або відомості. Розумний парсер сам прибере номери та зайві слова.
                         </div>
                         <div>
                           <textarea
@@ -1119,7 +1119,7 @@ function AdminContent() {
                             <button
                               type="button"
                               onClick={() => setBulkStudentOpen(false)}
-                              className="min-h-[44px] sm:min-h-[36px] flex items-center justify-center rounded-lg border border-sys-border px-3.5 py-1.5 text-xs text-sys-text-secondary hover:text-white"
+                              className="min-h-[44px] sm:min-h-[36px] flex items-center justify-center rounded-lg border border-sys-border px-3.5 py-1.5 text-xs text-sys-text-secondary hover:text-sys-text-primary"
                             >
                               Скасувати
                             </button>
@@ -1156,8 +1156,8 @@ function AdminContent() {
                               onClick={() => setStudentSortBy((prev) => (prev === "surname" ? "name" : "surname"))}
                               className={`min-h-[36px] flex items-center justify-center rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors whitespace-nowrap ${
                                 studentSortBy === "surname"
-                                  ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-400"
-                                  : "border-sys-border bg-sys-card text-sys-text-secondary hover:text-white"
+                                  ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                                  : "border-sys-border bg-sys-card text-sys-text-secondary hover:text-sys-text-primary"
                               }`}
                               title="Перемкнути: сортування за прізвищем чи за повним ім'ям"
                             >
@@ -1166,7 +1166,7 @@ function AdminContent() {
                             <button
                               type="button"
                               onClick={() => setStudentSortOrder((prev) => (prev === "asc" ? "desc" : "asc"))}
-                              className="min-h-[36px] flex items-center justify-center gap-1 rounded-lg border border-sys-border/80 bg-sys-card px-2 py-1 text-xs font-semibold text-sys-text-secondary hover:border-emerald-500/50 hover:text-white transition-colors whitespace-nowrap"
+                              className="min-h-[36px] flex items-center justify-center gap-1 rounded-lg border border-sys-border/80 bg-sys-card px-2 py-1 text-xs font-semibold text-sys-text-secondary hover:border-emerald-500/50 hover:text-sys-text-primary transition-colors whitespace-nowrap"
                               title="Змінити напрямок сортування (А-Я / Я-А)"
                             >
                               <span>{studentSortOrder === "asc" ? "🔤 А → Я" : "🔤 Я → А"}</span>
@@ -1186,7 +1186,7 @@ function AdminContent() {
                                   void navigator.clipboard.writeText(text);
                                   setToast(`Скопійовано список (${sorted.length} студентів)`, "success");
                                 }}
-                                className="min-h-[36px] flex items-center rounded-lg border border-sky-500/40 bg-sky-500/10 px-2.5 py-1 text-xs font-semibold text-sky-300 hover:bg-sky-500/20 transition-colors whitespace-nowrap"
+                                className="min-h-[36px] flex items-center rounded-lg border border-sky-500/40 bg-sky-500/10 px-2.5 py-1 text-xs font-semibold text-sky-800 dark:text-sky-300 hover:bg-sky-500/20 transition-colors whitespace-nowrap"
                                 title="Скопіювати нумерований список групи у буфер обміну"
                               >
                                 📄 Копіювати
@@ -1196,7 +1196,7 @@ function AdminContent() {
                             <button
                               type="button"
                               onClick={() => setBulkStudentOpen(true)}
-                              className="min-h-[36px] flex items-center rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/20 transition-colors whitespace-nowrap"
+                              className="min-h-[36px] flex items-center rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20 transition-colors whitespace-nowrap"
                               title="Швидкий імпорт списку"
                             >
                               📋 Вставити
@@ -1281,7 +1281,7 @@ function AdminContent() {
                                       <button
                                         type="button"
                                         onClick={() => handleDeleteStudent(st.id, st.full_name)}
-                                        className="rounded-lg p-1.5 text-sys-text-muted hover:bg-rose-500/10 hover:text-rose-400 transition-colors shrink-0"
+                                        className="rounded-lg p-1.5 text-sys-text-muted hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400 transition-colors shrink-0"
                                         title={`Видалити ${st.full_name} зі списку групи`}
                                       >
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

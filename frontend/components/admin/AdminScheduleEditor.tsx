@@ -894,9 +894,9 @@ export function AdminScheduleEditor() {
         <div className="hidden sm:flex flex-row flex-wrap items-center gap-2.5 w-full lg:w-auto">
           {teachers.length > 0 && (
           <div role="tablist" aria-label="Режим перегляду" className="flex w-full sm:w-auto rounded-lg border border-sys-border bg-sys-card p-1 text-sm relative">
-            <div className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-sys-accent rounded-md shadow-sm transition-all duration-300 ease-out z-0" style={{ left: mode === 'student' ? '4px' : '50%' }}></div>
-            <button role="tab" aria-selected={mode === 'student'} type="button" onClick={() => startTransition(() => toggleMode('student'))} className={`relative z-10 flex-1 sm:flex-none sm:w-28 text-center rounded-md px-3 py-2 sm:py-1.5 transition-colors ${mode === 'student' ? 'text-white font-semibold' : 'text-sys-text-secondary hover:text-sys-text-primary'}`}>Група</button>
-            <button role="tab" aria-selected={mode === 'teacher'} type="button" onClick={() => startTransition(() => toggleMode('teacher'))} className={`relative z-10 flex-1 sm:flex-none sm:w-28 text-center rounded-md px-3 py-2 sm:py-1.5 transition-colors ${mode === 'teacher' ? 'text-white font-semibold' : 'text-sys-text-secondary hover:text-sys-text-primary'}`}>Викладач</button>
+            <div className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-sys-accentSolid rounded-md shadow-sm transition-all duration-300 ease-out z-0" style={{ left: mode === 'student' ? '4px' : '50%' }}></div>
+            <button role="tab" aria-selected={mode === 'student'} type="button" onClick={() => startTransition(() => toggleMode('student'))} className={`relative z-10 flex-1 sm:flex-none sm:w-28 text-center rounded-md px-3 py-2 sm:py-1.5 transition-colors ${mode === 'student' ? 'text-sys-onAccent font-semibold' : 'text-sys-text-secondary hover:text-sys-text-primary'}`}>Група</button>
+            <button role="tab" aria-selected={mode === 'teacher'} type="button" onClick={() => startTransition(() => toggleMode('teacher'))} className={`relative z-10 flex-1 sm:flex-none sm:w-28 text-center rounded-md px-3 py-2 sm:py-1.5 transition-colors ${mode === 'teacher' ? 'text-sys-onAccent font-semibold' : 'text-sys-text-secondary hover:text-sys-text-primary'}`}>Викладач</button>
           </div>
           )}
           {mode === 'student' && groups.length > 0 && (
@@ -955,7 +955,7 @@ export function AdminScheduleEditor() {
       {loading ? (
         <div className="rounded-2xl border border-sys-border bg-sys-card/50 p-12 text-center text-sys-text-secondary">Завантаження розкладу…</div>
       ) : error ? (
-        <div className="rounded-2xl border border-rose-400/20 bg-rose-400/5 p-8 text-center text-rose-200">{error}</div>
+        <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-8 text-center text-rose-700 dark:text-rose-300">{error}</div>
       ) : week ? (
         <div className="w-full min-w-0">
 
@@ -965,7 +965,7 @@ export function AdminScheduleEditor() {
               <svg width="1.2em" height="1.2em" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-sys-accent shrink-0"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
               <span className="shrink-0 whitespace-nowrap font-semibold">{weekRange}</span>
               <div className="shrink-0 whitespace-nowrap"><WeekTypeBadge weekType={weekType} /></div>
-              <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30 whitespace-nowrap">
+              <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30 whitespace-nowrap">
                 Разова зміна
               </span>
             </div>
@@ -1564,7 +1564,7 @@ export function AdminScheduleEditor() {
                 {isAdmin && (
                   <a
                     href={`/admin?resource=permanent-schedule${activeVersion ? `&version_id=${activeVersion.id}` : ""}`}
-                    className="flex items-center gap-3 w-full rounded-xl border border-indigo-500/30 bg-indigo-500/10 p-3 text-left text-sm font-semibold text-indigo-300 hover:bg-indigo-500/20"
+                    className="flex items-center gap-3 w-full rounded-xl border border-indigo-500/30 bg-indigo-500/10 p-3 text-left text-sm font-semibold text-indigo-800 dark:text-indigo-300 hover:bg-indigo-500/20"
                   >
                     <span className="text-base">📅</span>
                     <span>Постійний розклад</span>

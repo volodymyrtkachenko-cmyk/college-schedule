@@ -262,7 +262,7 @@ export function LessonEditor({
               type="button"
               onClick={onClose}
               aria-label="Закрити панель"
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-sys-text-secondary hover:text-white hover:bg-sys-bg transition-colors"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg transition-colors"
             >
               ✕
             </button>
@@ -270,7 +270,7 @@ export function LessonEditor({
 
           {/* Warning Banner: One-off substitution */}
           {isOneOff && weekRangeText && (
-            <div className="mt-2.5 flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-300">
+            <div className="mt-2.5 flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-800 dark:text-amber-300">
               <span className="text-sm shrink-0">⚠️</span>
               <span className="truncate">Разова зміна — лише {weekRangeText}</span>
             </div>
@@ -395,7 +395,7 @@ export function LessonEditor({
             />
             <p className="mt-1 text-xs text-sys-text-secondary">Якщо порожнє, використовується аудиторія викладача.</p>
             {roomConflictInfo && (
-              <p className="mt-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs text-amber-300">
+              <p className="mt-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs text-amber-800 dark:text-amber-300">
                 ⚠️ У цей час аудиторія зайнята: <strong>{roomConflictInfo}</strong>
               </p>
             )}
@@ -413,7 +413,7 @@ export function LessonEditor({
             </label>
           )}
 
-          {error && <p role="alert" className="text-sm text-rose-300 rounded-lg border border-rose-500/30 bg-rose-500/10 p-3">{error}</p>}
+          {error && <p role="alert" className="text-sm text-rose-700 dark:text-rose-300 rounded-lg border border-rose-500/30 bg-rose-500/10 p-3">{error}</p>}
         </form>
 
         {/* Sticky Action Footer */}
@@ -424,7 +424,7 @@ export function LessonEditor({
                 type="button"
                 disabled={busy}
                 onClick={remove}
-                className="h-10 rounded-xl border border-sys-border bg-sys-bg px-3.5 text-xs font-semibold text-sys-text-secondary hover:border-rose-500/40 hover:bg-rose-500/10 hover:text-rose-400 active:scale-[0.98] transition-colors disabled:opacity-50"
+                className="h-10 rounded-xl border border-sys-border bg-sys-bg px-3.5 text-xs font-semibold text-sys-text-secondary hover:border-rose-500/40 hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400 active:scale-[0.98] transition-colors disabled:opacity-50"
               >
                 Видалити
               </button>

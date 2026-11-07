@@ -98,7 +98,7 @@ function LoginForm() {
               />
             </div>
           </div>
-          {error && <p className="text-sm text-rose-400 text-center">{error}</p>}
+          {error && <p className="text-sm text-rose-600 dark:text-rose-400 text-center font-medium">{error}</p>}
           <div className="space-y-3">
             <button
               type="submit"

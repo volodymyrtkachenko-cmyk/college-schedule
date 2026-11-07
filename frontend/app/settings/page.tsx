@@ -276,19 +276,19 @@ export default function SettingsPage() {
                   <button
                     type="button"
                     onClick={() => updateSetting("defaultSubgroup", 1)}
-                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                    className={`p-3 rounded-xl border text-left transition-colors cursor-pointer ${
                       settings.defaultSubgroup === 1
-                        ? "bg-sys-accent text-slate-900 border-sys-accent shadow-xs"
+                        ? "bg-sys-accent text-white border-sys-accent shadow-xs"
                         : "bg-sys-bg border-sys-border text-sys-text-primary hover:border-sys-accent/40"
                     }`}
                   >
                     <div className="text-xs font-bold">1 підгрупа</div>
                     {subgroupHints.sub1.length > 0 ? (
-                      <div className={`text-[11px] mt-0.5 truncate ${settings.defaultSubgroup === 1 ? "text-slate-800 font-medium" : "text-sys-text-secondary"}`}>
+                      <div className={`text-[11px] mt-0.5 truncate ${settings.defaultSubgroup === 1 ? "text-white/90 font-medium" : "text-sys-text-secondary"}`}>
                         {subgroupHints.sub1.map((h) => `${h.teacher} (${h.subject})`).join(" • ")}
                       </div>
                     ) : (
-                      <div className={`text-[11px] mt-0.5 ${settings.defaultSubgroup === 1 ? "text-slate-800 font-medium" : "text-sys-text-muted"}`}>
+                      <div className={`text-[11px] mt-0.5 ${settings.defaultSubgroup === 1 ? "text-white/90 font-medium" : "text-sys-text-muted"}`}>
                         Перша половина групи
                       </div>
                     )}
@@ -297,19 +297,19 @@ export default function SettingsPage() {
                   <button
                     type="button"
                     onClick={() => updateSetting("defaultSubgroup", 2)}
-                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                    className={`p-3 rounded-xl border text-left transition-colors cursor-pointer ${
                       settings.defaultSubgroup === 2
-                        ? "bg-sys-accent text-slate-900 border-sys-accent shadow-xs"
+                        ? "bg-sys-accent text-white border-sys-accent shadow-xs"
                         : "bg-sys-bg border-sys-border text-sys-text-primary hover:border-sys-accent/40"
                     }`}
                   >
                     <div className="text-xs font-bold">2 підгрупа</div>
                     {subgroupHints.sub2.length > 0 ? (
-                      <div className={`text-[11px] mt-0.5 truncate ${settings.defaultSubgroup === 2 ? "text-slate-800 font-medium" : "text-sys-text-secondary"}`}>
+                      <div className={`text-[11px] mt-0.5 truncate ${settings.defaultSubgroup === 2 ? "text-white/90 font-medium" : "text-sys-text-secondary"}`}>
                         {subgroupHints.sub2.map((h) => `${h.teacher} (${h.subject})`).join(" • ")}
                       </div>
                     ) : (
-                      <div className={`text-[11px] mt-0.5 ${settings.defaultSubgroup === 2 ? "text-slate-800 font-medium" : "text-sys-text-muted"}`}>
+                      <div className={`text-[11px] mt-0.5 ${settings.defaultSubgroup === 2 ? "text-white/90 font-medium" : "text-sys-text-muted"}`}>
                         Друга половина групи
                       </div>
                     )}
@@ -318,14 +318,14 @@ export default function SettingsPage() {
                   <button
                     type="button"
                     onClick={() => updateSetting("defaultSubgroup", null)}
-                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                    className={`p-3 rounded-xl border text-left transition-colors cursor-pointer ${
                       settings.defaultSubgroup === null
-                        ? "bg-sys-accent text-slate-900 border-sys-accent shadow-xs"
+                        ? "bg-sys-accent text-white border-sys-accent shadow-xs"
                         : "bg-sys-bg border-sys-border text-sys-text-primary hover:border-sys-accent/40"
                     }`}
                   >
                     <div className="text-xs font-bold">Обидві підгрупи</div>
-                    <div className={`text-[11px] mt-0.5 truncate ${settings.defaultSubgroup === null ? "text-slate-800 font-medium" : "text-sys-text-secondary"}`}>
+                    <div className={`text-[11px] mt-0.5 truncate ${settings.defaultSubgroup === null ? "text-white/90 font-medium" : "text-sys-text-secondary"}`}>
                       Показувати викладачів обох підгруп
                     </div>
                   </button>
@@ -526,7 +526,7 @@ export default function SettingsPage() {
                     key={opt.id}
                     type="button"
                     onClick={() => setAccent(opt.id)}
-                    className={`flex items-center gap-3 p-2.5 rounded-xl border text-left transition-all duration-fast ease-smooth cursor-pointer ${
+                    className={`flex items-center gap-3 p-2.5 rounded-xl border text-left transition-colors duration-fast ease-smooth cursor-pointer ${
                       isSelected
                         ? "border-sys-accent bg-sys-accent/15 shadow-xs ring-1 ring-sys-accent"
                         : "border-sys-border bg-sys-bg hover:border-sys-elevatedBorder text-sys-text-secondary"
@@ -712,7 +712,7 @@ export default function SettingsPage() {
                 <span className="text-base">📊</span>
                 <span>Статистика занять</span>
               </span>
-              <span className="text-purple-400 group-hover:translate-x-0.5 transition-transform">↗</span>
+              <span className="text-purple-600 dark:text-purple-400 group-hover:translate-x-0.5 transition-transform">↗</span>
             </Link>
 
             <Link
@@ -723,7 +723,7 @@ export default function SettingsPage() {
                 <span className="text-base">📅</span>
                 <span>Графік навчального процесу</span>
               </span>
-              <span className="text-indigo-400 group-hover:translate-x-0.5 transition-transform">↗</span>
+              <span className="text-indigo-600 dark:text-indigo-400 group-hover:translate-x-0.5 transition-transform">↗</span>
             </Link>
           </div>
         </section>

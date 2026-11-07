@@ -92,7 +92,7 @@ export function TeacherPinAdminCard({ onNotify }: TeacherPinAdminCardProps) {
     <div className="surface-panel rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-xs space-y-3.5 mb-5 w-full">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-sys-border/60">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-400 flex items-center justify-center shrink-0">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 2l-2 2m-1.5 1.5L16 7l-1.5-1.5L13 7l-2-2-1 1 2 2-3 3-1-1-1 1 1 1-2 2 1 1-1 1 2 2 3-3 2 2 7-7" />
               <circle cx="7.5" cy="15.5" r="5.5" />
@@ -129,7 +129,7 @@ export function TeacherPinAdminCard({ onNotify }: TeacherPinAdminCardProps) {
           <span>Завантаження поточного PIN-коду…</span>
         </div>
       ) : error ? (
-        <div className="flex items-center justify-between p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300">
+        <div className="flex items-center justify-between p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-700 dark:text-rose-300">
           <span>{error}</span>
           <button
             type="button"
@@ -203,7 +203,7 @@ export function TeacherPinAdminCard({ onNotify }: TeacherPinAdminCardProps) {
           </div>
 
           {editError && (
-            <p className="text-xs text-rose-400 font-medium animate-in fade-in duration-150">
+            <p className="text-xs text-rose-700 dark:text-rose-400 font-medium animate-in fade-in duration-150">
               {editError}
             </p>
           )}
@@ -248,10 +248,10 @@ export function TeacherPinAdminCard({ onNotify }: TeacherPinAdminCardProps) {
           >
             {copied ? (
               <>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-400">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-600 dark:text-emerald-400">
                   <path d="M20 6 9 17l-5-5" />
                 </svg>
-                <span className="text-emerald-400 font-bold">Скопійовано!</span>
+                <span className="text-emerald-600 dark:text-emerald-400 font-bold">Скопійовано!</span>
               </>
             ) : (
               <>

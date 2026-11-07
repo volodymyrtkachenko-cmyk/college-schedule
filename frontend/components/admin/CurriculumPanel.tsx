@@ -348,7 +348,7 @@ export function CurriculumPanel() {
                 type="button"
                 onClick={handleDeduplicate}
                 disabled={deduplicating}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3.5 py-2 text-sm font-semibold text-amber-300 hover:bg-amber-500/20 disabled:opacity-50 transition-colors"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3.5 py-2 text-sm font-semibold text-amber-800 dark:text-amber-300 hover:bg-amber-500/20 disabled:opacity-50 transition-colors"
               >
                 {deduplicating ? "Очищення…" : `Прибрати дублі предметів (${duplicateCount})`}
               </button>
@@ -393,7 +393,7 @@ export function CurriculumPanel() {
           </select>
 
           {selectedTerm?.status === "PLANNING" && (
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30 flex items-center gap-1">
               <span>📝</span> Режим планування (ізольовано від поточної статистики)
             </span>
           )}
@@ -459,7 +459,7 @@ export function CurriculumPanel() {
           </div>
         </div>
       ) : error ? (
-        <div className="p-4 rounded-xl border border-rose-500/20 bg-rose-500/10 text-rose-300 text-sm">
+        <div className="p-4 rounded-xl border border-rose-500/20 bg-rose-500/10 text-rose-700 dark:text-rose-300 text-sm">
           {error}
         </div>
       ) : (
@@ -495,7 +495,7 @@ export function CurriculumPanel() {
                       {item.second_teacher ? item.second_teacher.name : <span className="text-sys-text-muted">—</span>}
                     </td>
                     <td className="px-5 py-3 text-center">
-                      <span className="font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded text-xs">
+                      <span className="font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded text-xs">
                         {item.pairs_per_2_weeks}
                       </span>
                     </td>
@@ -515,7 +515,7 @@ export function CurriculumPanel() {
                           </span>
                         )}
                         {item.require_week && (
-                          <span className="rounded bg-blue-500/15 px-2 py-0.5 text-xs text-blue-400 border border-blue-500/30">
+                          <span className="rounded bg-blue-500/15 px-2 py-0.5 text-xs text-blue-700 dark:text-blue-400 border border-blue-500/30">
                             {item.require_week === "numerator" ? "Чисельник" : "Знаменник"}
                           </span>
                         )}
@@ -539,7 +539,7 @@ export function CurriculumPanel() {
                         </button>
                         <button
                           onClick={() => setItemToDelete(item)}
-                          className="h-9 w-9 flex items-center justify-center rounded-lg text-sys-text-secondary hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                          className="h-9 w-9 flex items-center justify-center rounded-lg text-sys-text-secondary hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
                           title="Видалити"
                           aria-label={`Видалити навантаження`}
                         >
@@ -593,7 +593,7 @@ export function CurriculumPanel() {
                 </div>
                 <div className="flex items-center justify-between pt-1 border-t border-sys-border/50 text-xs text-sys-text-muted">
                   <div>
-                    <span className="text-emerald-400 font-bold">{item.pairs_per_2_weeks}</span> пар/2 тиж. •{" "}
+                    <span className="text-emerald-700 dark:text-emerald-400 font-bold">{item.pairs_per_2_weeks}</span> пар/2 тиж. •{" "}
                     <span className="text-sys-text-secondary">{item.total_hours} год.</span>
                   </div>
                   <div className="flex items-center gap-1">
@@ -610,7 +610,7 @@ export function CurriculumPanel() {
                     </button>
                     <button
                       onClick={() => setItemToDelete(item)}
-                      className="h-9 w-9 flex items-center justify-center rounded-lg text-sys-text-secondary hover:text-rose-400 hover:bg-rose-500/10 active:scale-95 transition-all"
+                      className="h-9 w-9 flex items-center justify-center rounded-lg text-sys-text-secondary hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10 active:scale-95 transition-all"
                       title="Видалити"
                       aria-label={`Видалити ${item.subject.name}`}
                     >
@@ -766,7 +766,7 @@ export function CurriculumPanel() {
                         required
                         value={editor.pairs_per_2_weeks || 0}
                         onChange={(e) => handlePairsChange(parseInt(e.target.value))}
-                        className="w-full rounded-lg border border-sys-accent/50 bg-sys-card px-3 py-2.5 text-base font-black text-emerald-400 text-center shadow-inner outline-none focus:border-sys-accent focus:ring-1 focus:ring-sys-accent"
+                        className="w-full rounded-lg border border-sys-accent/50 bg-sys-card px-3 py-2.5 text-base font-black text-emerald-700 dark:text-emerald-400 text-center shadow-inner outline-none focus:border-sys-accent focus:ring-1 focus:ring-sys-accent"
                       />
                     </div>
                     <div className="space-y-1">
@@ -801,9 +801,9 @@ export function CurriculumPanel() {
                         type="checkbox"
                         checked={editor.is_fixed || false}
                         onChange={(e) => setEditor({ ...editor, is_fixed: e.target.checked })}
-                        className="peer appearance-none w-5 h-5 border border-sys-border rounded bg-sys-card checked:bg-sys-accent checked:border-sys-accent transition-colors"
+                        className="peer appearance-none w-5 h-5 border border-sys-border rounded bg-sys-card checked:bg-sys-accentSolid checked:border-sys-accentSolid transition-colors"
                       />
-                      <svg className="absolute w-3.5 h-3.5 text-white opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <svg className="absolute w-3.5 h-3.5 text-sys-onAccent opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M5 12l5 5l10 -10"/>
                       </svg>
                     </div>
@@ -826,9 +826,9 @@ export function CurriculumPanel() {
                           onChange={(e) =>
                             setEditor({ ...editor, allow_multiple_per_day: e.target.checked })
                           }
-                          className="peer appearance-none w-5 h-5 border border-sys-border rounded bg-sys-card checked:bg-sys-accent checked:border-sys-accent transition-colors"
+                          className="peer appearance-none w-5 h-5 border border-sys-border rounded bg-sys-card checked:bg-sys-accentSolid checked:border-sys-accentSolid transition-colors"
                         />
-                        <svg className="absolute inset-0 w-full h-full p-[2px] opacity-0 peer-checked:opacity-100 text-white pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <svg className="absolute inset-0 w-full h-full p-[2px] opacity-0 peer-checked:opacity-100 text-sys-onAccent pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                           <polyline points="20 6 9 17 4 12"/>
                         </svg>
                       </div>

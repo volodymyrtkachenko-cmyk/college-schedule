@@ -402,7 +402,7 @@ export function SchedulePeriodsPanel() {
               type="button"
               onClick={() => setDraft(null)}
               aria-label="Закрити"
-              className="w-9 h-9 flex items-center justify-center rounded-lg text-sys-text-secondary hover:bg-white/5 hover:text-white text-lg transition-colors"
+              className="w-9 h-9 flex items-center justify-center rounded-lg text-sys-text-secondary hover:bg-slate-100 dark:hover:bg-white/5 hover:text-sys-text-primary text-lg transition-colors"
             >
               ✕
             </button>
@@ -575,7 +575,7 @@ export function SchedulePeriodsPanel() {
       )}
 
       {error ? (
-        <p role="alert" className="rounded-xl border border-rose-400/20 bg-rose-400/5 p-5 text-sm text-rose-200">{error}</p>
+        <p role="alert" className="rounded-xl border border-rose-400/20 bg-rose-400/5 p-5 text-sm text-rose-700 dark:text-rose-200">{error}</p>
       ) : loading ? (
         <p className="py-8 text-center text-sm text-sys-text-secondary">Завантаження календаря…</p>
       ) : filteredPeriods.length ? (
@@ -587,15 +587,15 @@ export function SchedulePeriodsPanel() {
                 <div className="min-w-0 flex-1 pr-10 sm:pr-0">
                   <div className="flex flex-wrap items-center gap-2 mb-1.5">
                     <span className={`rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wider font-bold ${
-                      period.period_type === "practice" ? "bg-orange-500/10 text-orange-400" :
-                      period.period_type === "theory" ? "bg-blue-500/10 text-blue-400" :
-                      period.period_type === "holiday" ? "bg-green-500/10 text-green-400" :
-                      "bg-purple-500/10 text-purple-400"
+                      period.period_type === "practice" ? "bg-orange-500/10 text-orange-700 dark:text-orange-400" :
+                      period.period_type === "theory" ? "bg-blue-500/10 text-blue-700 dark:text-blue-400" :
+                      period.period_type === "holiday" ? "bg-green-500/10 text-green-700 dark:text-green-400" :
+                      "bg-purple-500/10 text-purple-700 dark:text-purple-400"
                     }`}>
                       {periodTypeLabels[period.period_type] || "Інше"}
                     </span>
                     <span className={`rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wider font-bold ${
-                      state === "Триває" ? "bg-emerald-500/10 text-emerald-400" : state === "Завершено" ? "bg-slate-500/10 text-slate-400" : "bg-blue-500/10 text-blue-400"
+                      state === "Триває" ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" : state === "Завершено" ? "bg-slate-500/10 text-slate-700 dark:text-slate-400" : "bg-blue-500/10 text-blue-700 dark:text-blue-400"
                     }`}>
                       {state}
                     </span>
@@ -663,7 +663,7 @@ export function SchedulePeriodsPanel() {
                   onClick={() => setPeriodToDelete(period)}
                   title="Видалити період"
                   aria-label={`Видалити період ${period.name}`}
-                  className="sm:hidden absolute top-3 right-3 w-9 h-9 flex items-center justify-center rounded-lg text-sys-text-secondary hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                  className="sm:hidden absolute top-3 right-3 w-9 h-9 flex items-center justify-center rounded-lg text-sys-text-secondary hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                 </button>
@@ -681,7 +681,7 @@ export function SchedulePeriodsPanel() {
                     onClick={() => setPeriodToDelete(period)}
                     title="Видалити період"
                     aria-label={`Видалити період ${period.name}`}
-                    className="hidden sm:flex w-9 h-9 items-center justify-center rounded-lg text-sys-text-secondary hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                    className="hidden sm:flex w-9 h-9 items-center justify-center rounded-lg text-sys-text-secondary hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                   </button>

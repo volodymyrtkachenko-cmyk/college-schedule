@@ -83,7 +83,7 @@ export function UsersPanel() {
     if (error && !editor) {
         return (
             <div className="surface-panel max-w-2xl space-y-4 p-6">
-                <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200">{error}</div>
+                <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-700 dark:text-rose-200">{error}</div>
                 <button type="button" onClick={() => void load()} className="rounded-lg bg-sys-accent px-4 py-2 font-semibold text-white shadow-xs">Повторити</button>
             </div>
         );
@@ -100,7 +100,7 @@ export function UsersPanel() {
             className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-[rgba(5,8,16,0.76)] p-0 sm:p-6 backdrop-blur-sm overflow-y-auto"
         >
             <form onSubmit={save} className="surface-panel w-full sm:max-w-md max-h-[92dvh] rounded-t-2xl sm:rounded-2xl space-y-5 p-5 sm:p-7 relative shadow-2xl overflow-y-auto pb-safe">
-                {error && <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-200">{error}</div>}
+                {error && <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-700 dark:text-rose-200">{error}</div>}
                 <div className="flex items-center justify-between">
                     <div>
                         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sys-accent">Доступ</p>
@@ -223,7 +223,7 @@ export function UsersPanel() {
                                     <div className="text-xs text-sys-text-secondary font-mono mt-0.5">@{u.username}</div>
                                 </td>
                                 <td className="py-3 px-4">
-                                    <span className={`px-2.5 py-1 rounded-md text-xs font-semibold ${u.role === 'admin' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>
+                                    <span className={`px-2.5 py-1 rounded-md text-xs font-semibold ${u.role === 'admin' ? 'bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20' : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20'}`}>
                                         {u.role === 'admin' ? 'Адміністратор' : 'Редактор'}
                                     </span>
                                 </td>
@@ -232,7 +232,7 @@ export function UsersPanel() {
                                         <span className="text-xs text-sys-text-secondary">Усі групи (повний доступ)</span>
                                     ) : (
                                         <div className="flex flex-wrap gap-1">
-                                            {u.allowed_groups.length === 0 ? <span className="text-xs text-rose-400">Немає доступу</span> : null}
+                                            {u.allowed_groups.length === 0 ? <span className="text-xs text-rose-700 dark:text-rose-400">Немає доступу</span> : null}
                                             {u.allowed_groups.slice(0, 5).map(gid => {
                                                 const gName = groups.find(g => g.id === gid)?.name;
                                                 return gName ? <span key={gid} className="bg-sys-bg border border-sys-border px-1.5 py-0.5 rounded text-xs text-sys-text-secondary truncate max-w-[80px]">{gName}</span> : null;
@@ -245,7 +245,7 @@ export function UsersPanel() {
                                 </td>
                                 <td className="py-3 px-4 text-right space-x-2">
                                     <button onClick={() => setEditor(u)} className="text-sys-accent hover:underline text-xs font-semibold p-1">Редагувати</button>
-                                    <button onClick={() => remove(u.id)} disabled={u.id === currentUser?.id || u.id === 1} className="text-rose-400 hover:underline text-xs font-semibold p-1 disabled:opacity-30 disabled:hover:no-underline">Видалити</button>
+                                    <button onClick={() => remove(u.id)} disabled={u.id === currentUser?.id || u.id === 1} className="text-rose-700 dark:text-rose-400 hover:underline text-xs font-semibold p-1 disabled:opacity-30 disabled:hover:no-underline">Видалити</button>
                                 </td>
                             </tr>
                         ))}
@@ -267,7 +267,7 @@ export function UsersPanel() {
                                 <h4 className="font-semibold text-sm text-sys-text-primary">{u.name}</h4>
                                 <span className="text-xs text-sys-text-muted font-mono">@{u.username}</span>
                             </div>
-                            <span className={`px-2 py-0.5 rounded text-xs font-semibold ${u.role === 'admin' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>
+                            <span className={`px-2 py-0.5 rounded text-xs font-semibold ${u.role === 'admin' ? 'bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20' : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20'}`}>
                                 {u.role === 'admin' ? 'Адміністратор' : 'Редактор'}
                             </span>
                         </div>
@@ -278,7 +278,7 @@ export function UsersPanel() {
                                 <div>
                                     <span className="text-sys-text-muted mr-1">Доступ до:</span>
                                     {u.allowed_groups.length === 0 ? (
-                                        <span className="text-rose-400">Немає доступу</span>
+                                        <span className="text-rose-700 dark:text-rose-400">Немає доступу</span>
                                     ) : (
                                         <span>{u.allowed_groups.map(gid => groups.find(g => g.id === gid)?.name).filter(Boolean).join(", ")}</span>
                                     )}
@@ -288,7 +288,7 @@ export function UsersPanel() {
                         <div className="flex items-center justify-end gap-2 pt-2 border-t border-sys-border/40 text-xs font-semibold">
                             <button onClick={() => setEditor(u)} className="min-h-[40px] px-3.5 rounded-lg border border-sys-border bg-sys-bg/60 text-sys-accent hover:bg-sys-bg flex items-center justify-center">Редагувати</button>
                             {u.id !== currentUser?.id && u.id !== 1 && (
-                                <button onClick={() => remove(u.id)} className="min-h-[40px] px-3.5 rounded-lg border border-rose-500/20 bg-rose-500/5 text-rose-400 hover:bg-rose-500/15 flex items-center justify-center">Видалити</button>
+                                <button onClick={() => remove(u.id)} className="min-h-[40px] px-3.5 rounded-lg border border-rose-500/20 bg-rose-500/5 text-rose-700 dark:text-rose-400 hover:bg-rose-500/15 flex items-center justify-center">Видалити</button>
                             )}
                         </div>
                     </div>

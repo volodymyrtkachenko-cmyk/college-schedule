@@ -172,12 +172,12 @@ export function LearningModePanel() {
       />
 
       {error && (
-        <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-500/20 bg-rose-500/10 p-3.5 text-sm text-rose-300">
+        <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-500/20 bg-rose-500/10 p-3.5 text-sm text-rose-700 dark:text-rose-300">
           <p>{error}</p>
         </div>
       )}
       {success && (
-        <div role="status" className="flex items-start gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3.5 text-sm text-emerald-300">
+        <div role="status" className="flex items-start gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3.5 text-sm text-emerald-700 dark:text-emerald-300">
           <p>{success}</p>
         </div>
       )}
@@ -383,7 +383,7 @@ export function LearningModePanel() {
                             type="button"
                             onClick={() => removeOverride(index)}
                             disabled={saving}
-                            className="min-h-[32px] px-2 text-xs font-semibold text-rose-400 hover:text-rose-300 hover:underline disabled:opacity-50 cursor-pointer"
+                            className="min-h-[32px] px-2 text-xs font-semibold text-rose-700 dark:text-rose-400 hover:text-rose-800 dark:hover:text-rose-300 hover:underline disabled:opacity-50 cursor-pointer"
                           >
                             Видалити
                           </button>

@@ -11,31 +11,31 @@ const EVENT_META: Record<
   exam: {
     label: "Екзамен",
     icon: "📝",
-    badgeClass: "bg-rose-500/15 text-rose-300 border-rose-500/30",
+    badgeClass: "bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30",
     borderClass: "border-rose-500/40 bg-gradient-to-r from-rose-500/[0.06] to-sys-card",
   },
   consultation: {
     label: "Консультація",
     icon: "💬",
-    badgeClass: "bg-sky-500/15 text-sky-300 border-sky-500/30",
+    badgeClass: "bg-sky-500/15 text-sky-800 dark:text-sky-300 border-sky-500/30",
     borderClass: "border-sky-500/30 bg-sys-card",
   },
   credit: {
     label: "Залік",
     icon: "✅",
-    badgeClass: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+    badgeClass: "bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border-emerald-500/30",
     borderClass: "border-emerald-500/30 bg-sys-card",
   },
   defense: {
     label: "Захист",
     icon: "🎓",
-    badgeClass: "bg-purple-500/15 text-purple-300 border-purple-500/30",
+    badgeClass: "bg-purple-500/15 text-purple-800 dark:text-purple-300 border-purple-500/30",
     borderClass: "border-purple-500/35 bg-gradient-to-r from-purple-500/[0.06] to-sys-card",
   },
   general: {
     label: "Подія",
     icon: "📌",
-    badgeClass: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+    badgeClass: "bg-amber-500/15 text-amber-800 dark:text-amber-300 border-amber-500/30",
     borderClass: "border-amber-500/30 bg-sys-card",
   },
 };
@@ -152,10 +152,10 @@ export function EventsTimeline({
                   <span
                     className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
                       diffDays === 0
-                        ? "bg-rose-500/20 text-rose-300"
+                        ? "bg-rose-500/20 text-rose-700 dark:text-rose-300"
                         : diffDays === 1
-                          ? "bg-amber-500/20 text-amber-300"
-                          : "bg-white/5 text-sys-text-secondary"
+                          ? "bg-amber-500/20 text-amber-800 dark:text-amber-300"
+                          : "bg-sys-elevated text-sys-text-secondary"
                     }`}
                   >
                     {countdownLabel}

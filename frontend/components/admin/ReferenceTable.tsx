@@ -52,7 +52,7 @@ export function ReferenceTable({
 
   if (error) {
     return (
-      <div role="alert" className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-6 text-rose-400">
+      <div role="alert" className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-6 text-rose-700 dark:text-rose-300">
         {error}
       </div>
     );
@@ -138,7 +138,7 @@ export function ReferenceTable({
                       <button
                         type="button"
                         onClick={() => onOpenRoster({ id: item.id, name: item.name })}
-                        className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-2.5 py-1 text-xs font-semibold text-sky-300 hover:bg-sky-500/20 mr-1"
+                        className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-2.5 py-1 text-xs font-semibold text-sky-700 dark:text-sky-300 hover:bg-sky-500/20 mr-1"
                       >
                         👥 Студенти
                       </button>
@@ -160,7 +160,7 @@ export function ReferenceTable({
                         aria-label={`Видалити ${item.name}`}
                         title="Видалити"
                         onClick={() => onDelete(item)}
-                        className="w-10 h-10 flex items-center justify-center rounded-lg text-sys-text-secondary hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                        className="w-10 h-10 flex items-center justify-center rounded-lg text-sys-text-secondary hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
                       >
                         <TrashIcon />
                       </button>
@@ -190,7 +190,7 @@ export function ReferenceTable({
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 {resource === "groups" ? (
-                  <span className="inline-block px-2.5 py-1 rounded-md bg-white/5 border border-sys-border/60 text-sys-text-primary font-bold text-base">
+                  <span className="inline-block px-2.5 py-1 rounded-md bg-slate-100 dark:bg-white/5 border border-sys-border/60 text-sys-text-primary font-bold text-base">
                     {item.name}
                   </span>
                 ) : (
@@ -227,7 +227,7 @@ export function ReferenceTable({
                     type="button"
                     aria-label={`Видалити ${item.name}`}
                     onClick={() => onDelete(item)}
-                    className="w-11 h-11 flex items-center justify-center rounded-lg border border-rose-500/30 bg-rose-500/10 text-rose-400 active:bg-rose-500/20"
+                    className="w-11 h-11 flex items-center justify-center rounded-lg border border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-400 active:bg-rose-500/20"
                   >
                     <TrashIcon />
                   </button>
@@ -253,7 +253,7 @@ export function ReferenceTable({
                   <button
                     type="button"
                     onClick={() => onOpenRoster({ id: item.id, name: item.name })}
-                    className="mt-2 w-full flex items-center justify-center gap-2 rounded-lg border border-sky-500/30 bg-sky-500/10 py-2.5 text-xs font-semibold text-sky-300 active:bg-sky-500/20"
+                    className="mt-2 w-full flex items-center justify-center gap-2 rounded-lg border border-sky-500/30 bg-sky-500/10 py-2.5 text-xs font-semibold text-sky-700 dark:text-sky-300 active:bg-sky-500/20"
                   >
                     👥 Студенти групи
                   </button>

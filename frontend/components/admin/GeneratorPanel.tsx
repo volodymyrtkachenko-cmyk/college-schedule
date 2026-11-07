@@ -1038,7 +1038,7 @@ export function GeneratorPanel() {
           <div className="min-w-0">
             <button onClick={() => setActiveDraft(null)} className="mb-2 text-sm font-medium text-sys-accent hover:underline">← До списку</button>
             <h2 className="truncate text-xl font-bold">{activeDraft.name}</h2>
-            <span className="mt-1 inline-block rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-300">
+            <span className="mt-1 inline-block rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:text-amber-300">
               {draftStatusLabels[activeDraft.status] ?? "Невідомий статус"}
             </span>
           </div>
@@ -1077,10 +1077,10 @@ export function GeneratorPanel() {
                   <span
                     className={`text-2xl font-black ${
                       liveQuality.quality_score >= 85
-                        ? "text-emerald-400"
+                        ? "text-emerald-600 dark:text-emerald-400"
                         : liveQuality.quality_score >= 70
-                          ? "text-amber-300"
-                          : "text-rose-400"
+                          ? "text-amber-700 dark:text-amber-300"
+                          : "text-rose-600 dark:text-rose-400"
                     }`}
                   >
                     {liveQuality.quality_score}/100
@@ -1094,7 +1094,7 @@ export function GeneratorPanel() {
               <div className="rounded-xl border border-sys-border/70 bg-sys-bg/50 p-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-sys-text-secondary">Симетрія тижнів</span>
-                  <span className={`text-sm font-bold ${liveQuality.symmetry_percent >= 70 ? "text-emerald-400" : "text-amber-300"}`}>
+                  <span className={`text-sm font-bold ${liveQuality.symmetry_percent >= 70 ? "text-emerald-600 dark:text-emerald-400" : "text-amber-700 dark:text-amber-300"}`}>
                     {liveQuality.symmetry_percent}%
                   </span>
                 </div>
@@ -1119,7 +1119,7 @@ export function GeneratorPanel() {
               >
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-sys-text-secondary">Старт з 1-ї пари</span>
-                  <span className={`text-sm font-bold ${liveQuality.first_lesson_start_percent >= 90 ? "text-emerald-400" : "text-amber-300"}`}>
+                  <span className={`text-sm font-bold ${liveQuality.first_lesson_start_percent >= 90 ? "text-emerald-600 dark:text-emerald-400" : "text-amber-700 dark:text-amber-300"}`}>
                     {liveQuality.first_lesson_start_percent}%
                   </span>
                 </div>
@@ -1146,7 +1146,7 @@ export function GeneratorPanel() {
               >
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-sys-text-secondary">Вікна викладачів</span>
-                  <span className={`text-sm font-bold ${liveQuality.teacher_windows.length === 0 ? "text-emerald-400" : "text-amber-300"}`}>
+                  <span className={`text-sm font-bold ${liveQuality.teacher_windows.length === 0 ? "text-emerald-600 dark:text-emerald-400" : "text-amber-700 dark:text-amber-300"}`}>
                     {liveQuality.teacher_windows.length}
                   </span>
                 </div>
@@ -1180,8 +1180,8 @@ export function GeneratorPanel() {
                   <span
                     className={`text-sm font-bold ${
                       (liveQuality.teacher_single_pair_days?.length ?? 0) === 0
-                        ? "text-emerald-400"
-                        : "text-amber-300"
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : "text-amber-700 dark:text-amber-300"
                     }`}
                   >
                     {liveQuality.teacher_single_pair_days?.length ?? 0}
@@ -1214,8 +1214,8 @@ export function GeneratorPanel() {
                   <span
                     className={`text-sm font-bold ${
                       liveQuality.soft_constraint_violations.length === 0
-                        ? "text-emerald-400"
-                        : "text-amber-300"
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : "text-amber-700 dark:text-amber-300"
                     }`}
                   >
                     {liveQuality.soft_constraint_violations.length === 0
@@ -1258,8 +1258,8 @@ export function GeneratorPanel() {
                       }}
                       className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
                         w.is_double
-                          ? "border-rose-500/40 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20"
-                          : "border-amber-500/30 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20"
+                          ? "border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-300 hover:bg-rose-500/20"
+                          : "border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-200 hover:bg-amber-500/20"
                       }`}
                     >
                       <span>{formatTeacherName(w.teacher_name)}</span>
@@ -1296,7 +1296,7 @@ export function GeneratorPanel() {
                         setFilterGroupId(item.group_id);
                         setActiveWeek(item.week_type);
                       }}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-200 hover:bg-amber-500/20 transition-colors"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-800 dark:text-amber-200 hover:bg-amber-500/20 transition-colors"
                     >
                       <strong>{item.group_name}</strong>
                       <span className="opacity-80">
@@ -1332,7 +1332,7 @@ export function GeneratorPanel() {
                         setFilterTeacherId(item.teacher_id);
                         setActiveWeek(item.week_type);
                       }}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-200 hover:bg-amber-500/20 transition-colors"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-800 dark:text-amber-200 hover:bg-amber-500/20 transition-colors"
                     >
                       <span>👨‍🏫 {formatTeacherName(item.teacher_name)}</span>
                       <span className="opacity-80">
@@ -1369,7 +1369,7 @@ export function GeneratorPanel() {
                           setFilterTeacherId(v.teacher_id);
                           setActiveWeek(v.week_type);
                         }}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-200 hover:bg-amber-500/20 transition-colors"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-800 dark:text-amber-200 hover:bg-amber-500/20 transition-colors"
                       >
                         <span>👨‍🏫 {formatTeacherName(v.teacher_name)}</span>
                         <span className="opacity-80">
@@ -1389,7 +1389,7 @@ export function GeneratorPanel() {
                           }
                           setActiveWeek(rc.week_type);
                         }}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-rose-500/30 bg-rose-500/10 px-2.5 py-1 text-xs font-medium text-rose-200 hover:bg-rose-500/20 transition-colors"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-rose-500/30 bg-rose-500/10 px-2.5 py-1 text-xs font-medium text-rose-700 dark:text-rose-200 hover:bg-rose-500/20 transition-colors"
                       >
                         <span>🚪 Каб. {rc.room}</span>
                         <span className="opacity-80">
@@ -1433,7 +1433,7 @@ export function GeneratorPanel() {
                   setSelectedSlotId(null);
                 }}
                 className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition-colors sm:flex-none ${
-                  filterMode === mode ? "bg-white/10 text-sys-text-primary" : "text-sys-text-secondary hover:text-sys-text-primary"
+                  filterMode === mode ? "bg-slate-200 dark:bg-white/10 text-sys-text-primary" : "text-sys-text-secondary hover:text-sys-text-primary"
                 }`}
               >
                 {mode === "group" ? "За групами" : "За викладачами"}
@@ -1448,7 +1448,7 @@ export function GeneratorPanel() {
               <span className="font-bold text-sys-accent">⇄ Переміщення:</span>
               <span className="font-semibold">{selectedSlot.curriculum.group.name} · {selectedSlot.curriculum.subject.name}</span>
               {selectedSlot.curriculum.is_stream && selectedSlot.curriculum.stream_id && (
-                <span className="rounded bg-purple-500/20 px-2 py-0.5 text-xs font-semibold text-purple-300">
+                <span className="rounded bg-purple-500/20 px-2 py-0.5 text-xs font-semibold text-purple-700 dark:text-purple-300">
                   🔗 Потік (переміститься синхронно)
                 </span>
               )}
@@ -1512,7 +1512,7 @@ export function GeneratorPanel() {
                               <span className="font-semibold text-sys-text-muted text-xs">
                                 {sub.lesson_number}-та пара · {sub.group_name} · {fmtSubDate(sub.date)}
                               </span>
-                              <span className={`inline-block px-1.5 py-0.5 text-[0.65rem] font-bold rounded leading-none ${sub.kind === "cancelled" ? "bg-rose-500/20 text-rose-300" : "bg-sys-accent text-white"}`}>
+                              <span className={`inline-block px-1.5 py-0.5 text-[0.65rem] font-bold rounded leading-none ${sub.kind === "cancelled" ? "bg-rose-500/20 text-rose-700 dark:text-rose-300" : "bg-sys-accent text-white"}`}>
                                 {sub.kind === "cancelled" ? "Скасовано" : "Заміна"}
                               </span>
                             </div>
@@ -1576,7 +1576,7 @@ export function GeneratorPanel() {
                                 <div className="flex items-center gap-1.5 min-w-0">
                                   <span className="font-semibold text-sys-accent text-xs">{slot.curriculum.group.name}</span>
                                   {slot.curriculum.is_stream && slot.curriculum.stream_id && (
-                                    <span className="rounded bg-purple-500/15 px-1.5 py-0.2 text-[10px] font-semibold text-purple-300">
+                                    <span className="rounded bg-purple-500/15 px-1.5 py-0.2 text-[10px] font-semibold text-purple-700 dark:text-purple-300">
                                       Потік
                                     </span>
                                   )}
@@ -1585,7 +1585,7 @@ export function GeneratorPanel() {
                                       Щотижня
                                     </span>
                                   ) : (
-                                    <span className="rounded bg-amber-500/10 px-1.5 py-0.2 text-[10px] font-medium text-amber-300/90">
+                                    <span className="rounded bg-amber-500/10 px-1.5 py-0.2 text-[10px] font-medium text-amber-800 dark:text-amber-300/90">
                                       {slot.week_type === "numerator" ? "Чис." : "Знам."}
                                     </span>
                                   )}
@@ -1602,7 +1602,7 @@ export function GeneratorPanel() {
                                   }}
                                   className={`rounded p-0.5 text-xs transition-all ${
                                     slot.is_locked
-                                      ? "text-amber-400 bg-amber-500/20 hover:bg-amber-500/30"
+                                      ? "text-amber-700 dark:text-amber-400 bg-amber-500/20 hover:bg-amber-500/30"
                                       : "text-sys-text-muted opacity-0 group-hover:opacity-100 hover:text-sys-accent hover:bg-sys-accent/10"
                                   }`}
                                 >
@@ -1644,7 +1644,7 @@ export function GeneratorPanel() {
                                 </div>
                               ) : isBlocked ? (
                                 <div
-                                  className="mt-1.5 flex items-center gap-1 text-[10px] font-medium text-rose-300/80 truncate"
+                                  className="mt-1.5 flex items-center gap-1 text-[10px] font-medium text-rose-700 dark:text-rose-300/80 truncate"
                                   title={swapEval?.label}
                                 >
                                   <span>⛔</span>
@@ -1667,8 +1667,8 @@ export function GeneratorPanel() {
                           disabled={moving}
                           className={`flex min-h-24 w-full flex-col items-center justify-center rounded-xl border border-dashed p-2 text-xs font-semibold transition-all ${
                             targetEval.status === "warning"
-                              ? "border-amber-400/50 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20"
-                              : "border-emerald-400/50 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"
+                              ? "border-amber-400/50 bg-amber-500/10 text-amber-800 dark:text-amber-200 hover:bg-amber-500/20"
+                              : "border-emerald-400/50 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-500/20"
                           }`}
                         >
                           <span className="flex items-center gap-1 text-sm font-bold">
@@ -1680,7 +1680,7 @@ export function GeneratorPanel() {
                         </button>
                       ) : selectedSlot && targetEval.status === "blocked" && targetEval.label ? (
                         <div
-                          className="flex min-h-24 items-center justify-center rounded-xl border border-dashed border-rose-500/20 bg-rose-500/[0.03] p-2 text-center text-xs text-rose-300/70"
+                          className="flex min-h-24 items-center justify-center rounded-xl border border-dashed border-rose-500/20 bg-rose-500/[0.03] p-2 text-center text-xs text-rose-700 dark:text-rose-300/70"
                           title={targetEval.label}
                         >
                           <span className="line-clamp-2">⛔ {targetEval.label}</span>
@@ -1822,7 +1822,7 @@ export function GeneratorPanel() {
               <div className="min-w-0">
                 <div className="font-semibold text-sm text-sys-text-primary flex items-center gap-2 flex-wrap">
                   <span>Створення розкладу #{generatingJob?.id ?? generatingDraft?.id ?? ""}</span>
-                  <span className="font-mono text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold">
+                  <span className="font-mono text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 font-bold">
                     {formatTimer(currentElapsed)}
                   </span>
                   <span className="text-xs text-sys-text-muted font-normal hidden sm:inline">
@@ -1836,7 +1836,7 @@ export function GeneratorPanel() {
             </div>
             <button
               onClick={() => setShowGenModal(true)}
-              className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 transition flex items-center justify-center gap-1.5 shrink-0"
+              className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-500/30 transition flex items-center justify-center gap-1.5 shrink-0"
             >
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
@@ -1890,14 +1890,14 @@ export function GeneratorPanel() {
                             <span>· {gen.elapsed_seconds} с</span>
                           )}
                           {gen.diagnostics?.length ? (
-                            <span className="text-rose-400">· {gen.diagnostics.length} причин</span>
+                            <span className="text-rose-600 dark:text-rose-400">· {gen.diagnostics.length} причин</span>
                           ) : null}
                         </div>
                       )}
                     </td>
                     <td className="px-5 py-3">
                       {d.status === "GENERATING" ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 animate-pulse shadow-xs">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 animate-pulse shadow-xs">
                           <span className="relative flex h-2 w-2">
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                             <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
@@ -1906,10 +1906,10 @@ export function GeneratorPanel() {
                         </span>
                       ) : (
                         <span className={`px-2 py-0.5 rounded text-xs font-bold tracking-wider ${
-                          d.status === 'published' ? 'bg-emerald-500/10 text-emerald-400' :
-                          (d.status === 'DRAFT' || d.status === 'pending') ? 'bg-amber-500/10 text-amber-400' :
-                          (d.status === 'FAILED' || d.status === 'TIMEOUT' || d.status === 'INFEASIBLE') ? 'bg-rose-500/10 text-rose-400' :
-                          'bg-gray-500/10 text-gray-400'
+                          d.status === 'published' ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' :
+                          (d.status === 'DRAFT' || d.status === 'pending') ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400' :
+                          (d.status === 'FAILED' || d.status === 'TIMEOUT' || d.status === 'INFEASIBLE') ? 'bg-rose-500/10 text-rose-700 dark:text-rose-400' :
+                          'bg-gray-500/10 text-gray-700 dark:text-gray-400'
                         }`}>
                           {draftStatusLabels[d.status] ?? "Невідомий статус"}
                         </span>
@@ -1920,7 +1920,7 @@ export function GeneratorPanel() {
                         {d.status === "GENERATING" ? (
                           <button
                             onClick={() => setShowGenModal(true)}
-                            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 transition flex items-center gap-1.5"
+                            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/25 transition flex items-center gap-1.5"
                           >
                             <span className="relative flex h-1.5 w-1.5">
                               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -1932,10 +1932,10 @@ export function GeneratorPanel() {
                           <button onClick={() => loadSlots(d)} className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-sys-accent/10 text-sys-accent hover:bg-sys-accent/20 transition">Переглянути</button>
                         )}
                         {d.status === 'DRAFT' && (
-                           <button onClick={() => { setDraftToPublish(d); setPublishTargetVersionId(targetVersionId); }} className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 transition">Опублікувати</button>
+                           <button onClick={() => { setDraftToPublish(d); setPublishTargetVersionId(targetVersionId); }} className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/25 transition">Опублікувати</button>
                         )}
                         {d.status !== 'published' && d.status !== 'GENERATING' && (
-                          <button onClick={() => setDraftToDelete(d)} title="Видалити" aria-label="Видалити чернетку" className="p-1.5 rounded-lg text-sys-text-secondary hover:text-rose-400 hover:bg-rose-500/10 transition">
+                          <button onClick={() => setDraftToDelete(d)} title="Видалити" aria-label="Видалити чернетку" className="p-1.5 rounded-lg text-sys-text-secondary hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10 transition">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                           </button>
                         )}
@@ -1972,23 +1972,23 @@ export function GeneratorPanel() {
                           <span>· {gen.elapsed_seconds} с</span>
                         )}
                         {gen.diagnostics?.length ? (
-                          <span className="text-rose-400">· {gen.diagnostics.length} причин</span>
+                          <span className="text-rose-600 dark:text-rose-400">· {gen.diagnostics.length} причин</span>
                         ) : null}
                       </div>
                     )}
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     {d.status === "GENERATING" ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold tracking-wider bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 animate-pulse">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold tracking-wider bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 animate-pulse">
                         <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping" />
                         Створюється…
                       </span>
                     ) : (
                       <span className={`px-2 py-0.5 rounded text-[11px] font-bold tracking-wider ${
-                        d.status === 'published' ? 'bg-emerald-500/10 text-emerald-400' :
-                        (d.status === 'DRAFT' || d.status === 'pending') ? 'bg-amber-500/10 text-amber-400' :
-                        (d.status === 'FAILED' || d.status === 'TIMEOUT' || d.status === 'INFEASIBLE') ? 'bg-rose-500/10 text-rose-400' :
-                        'bg-gray-500/10 text-gray-400'
+                        d.status === 'published' ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' :
+                        (d.status === 'DRAFT' || d.status === 'pending') ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400' :
+                        (d.status === 'FAILED' || d.status === 'TIMEOUT' || d.status === 'INFEASIBLE') ? 'bg-rose-500/10 text-rose-700 dark:text-rose-400' :
+                        'bg-gray-500/10 text-gray-700 dark:text-gray-400'
                       }`}>
                         {draftStatusLabels[d.status] ?? "Невідомий статус"}
                       </span>
@@ -1998,7 +1998,7 @@ export function GeneratorPanel() {
                         onClick={() => setDraftToDelete(d)}
                         title="Видалити"
                         aria-label="Видалити чернетку"
-                        className="w-8 h-8 flex items-center justify-center rounded-lg text-sys-text-secondary hover:text-rose-400 hover:bg-rose-500/10 transition"
+                        className="w-8 h-8 flex items-center justify-center rounded-lg text-sys-text-secondary hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10 transition"
                       >
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                       </button>
@@ -2009,7 +2009,7 @@ export function GeneratorPanel() {
                   {d.status === "GENERATING" ? (
                     <button
                       onClick={() => setShowGenModal(true)}
-                      className="flex-1 min-h-[44px] px-3 py-2 text-xs font-semibold rounded-lg bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 transition flex items-center justify-center gap-2"
+                      className="flex-1 min-h-[44px] px-3 py-2 text-xs font-semibold rounded-lg bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/25 transition flex items-center justify-center gap-2"
                     >
                       <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
                       Переглянути анімацію
@@ -2025,7 +2025,7 @@ export function GeneratorPanel() {
                   {d.status === 'DRAFT' && (
                     <button
                       onClick={() => { setDraftToPublish(d); setPublishTargetVersionId(targetVersionId); }}
-                      className="flex-1 min-h-[44px] px-3 py-2 text-xs font-semibold rounded-lg bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 transition flex items-center justify-center"
+                      className="flex-1 min-h-[44px] px-3 py-2 text-xs font-semibold rounded-lg bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/25 transition flex items-center justify-center"
                     >
                       Опублікувати
                     </button>
@@ -2059,7 +2059,7 @@ export function GeneratorPanel() {
             {/* Header: Title and Close/Minimize */}
             <div className="flex items-start justify-between gap-3">
               <div>
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping" />
                   Штучний інтелект & CP-SAT
                 </span>
@@ -2074,7 +2074,7 @@ export function GeneratorPanel() {
                 type="button"
                 onClick={() => setShowGenModal(false)}
                 title="Згорнути у фон"
-                className="rounded-lg px-2.5 py-1 text-sys-text-secondary hover:bg-white/5 hover:text-sys-text-primary transition-colors text-xs font-semibold flex items-center gap-1 border border-sys-border/50"
+                className="rounded-lg px-2.5 py-1 text-sys-text-secondary hover:bg-slate-100 dark:hover:bg-white/5 hover:text-sys-text-primary transition-colors text-xs font-semibold flex items-center gap-1 border border-sys-border/50"
               >
                 Згорнути ✕
               </button>
@@ -2105,7 +2105,7 @@ export function GeneratorPanel() {
 
               {/* Timer badge */}
               <div className="mt-4 flex items-center gap-2">
-                <span className="font-mono text-sm font-bold text-emerald-400 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 flex items-center gap-2 shadow-xs">
+                <span className="font-mono text-sm font-bold text-emerald-700 dark:text-emerald-400 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 flex items-center gap-2 shadow-xs">
                   <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
                   {formatTimer(currentElapsed)}
                 </span>
@@ -2117,9 +2117,9 @@ export function GeneratorPanel() {
             <div className="space-y-1.5">
               <div className="flex justify-between text-xs text-sys-text-secondary">
                 <span>Прогрес генерації</span>
-                <span className="font-mono font-semibold text-emerald-400">{progressPercent}%</span>
+                <span className="font-mono font-semibold text-emerald-700 dark:text-emerald-400">{progressPercent}%</span>
               </div>
-              <div className="relative h-2 w-full overflow-hidden rounded-full bg-slate-800 dark:bg-slate-900">
+              <div className="relative h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-900">
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-400 transition-all duration-700 ease-out"
                   style={{ width: `${progressPercent}%` }}
@@ -2158,14 +2158,14 @@ export function GeneratorPanel() {
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className={`text-xs font-semibold leading-tight ${isCurrent ? "text-emerald-400" : isDone ? "text-sys-text-primary" : "text-sys-text-muted"}`}>
+                      <p className={`text-xs font-semibold leading-tight ${isCurrent ? "text-emerald-700 dark:text-emerald-400" : isDone ? "text-sys-text-primary" : "text-sys-text-muted"}`}>
                         {st.label}
                       </p>
                       <p className="text-[11px] text-sys-text-secondary mt-0.5 leading-snug">
                         {st.detail}
                       </p>
                       {idx === 2 && typeof genInfo?.solutions_found === "number" && genInfo.solutions_found > 0 && (
-                        <span className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-400 border border-emerald-500/25">
+                        <span className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-400 border border-emerald-500/25">
                           <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
                           Знайдено покращень розкладу: {genInfo.solutions_found}
                         </span>
@@ -2184,7 +2184,7 @@ export function GeneratorPanel() {
               <button
                 type="button"
                 onClick={() => setShowGenModal(false)}
-                className="w-full sm:w-auto shrink-0 px-4 py-2 rounded-lg text-xs font-semibold border border-sys-border bg-sys-card hover:bg-white/5 text-sys-text-primary transition-colors"
+                className="w-full sm:w-auto shrink-0 px-4 py-2 rounded-lg text-xs font-semibold border border-sys-border bg-sys-card hover:bg-slate-100 dark:hover:bg-white/5 text-sys-text-primary transition-colors"
               >
                 Працювати у фоні
               </button>
@@ -2209,7 +2209,7 @@ export function GeneratorPanel() {
           >
             <div className="flex items-center justify-between border-b border-sys-border/50 bg-sys-card px-5 py-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-400">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-700 dark:text-emerald-400">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
                 </div>
                 <div>

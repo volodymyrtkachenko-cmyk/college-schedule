@@ -197,7 +197,7 @@ export function SemesterSettingsPanel() {
                 <div className="flex items-center justify-between gap-2 pt-1">
                   <div className="text-sm font-medium text-sys-text-primary">
                     {preview.isBefore ? (
-                      <span className="text-amber-400">Семестр ще не розпочався</span>
+                      <span className="text-amber-700 dark:text-amber-400">Семестр ще не розпочався</span>
                     ) : preview.isAfter ? (
                       <span className="text-sys-text-muted">Семестр вже завершився</span>
                     ) : (
@@ -206,8 +206,8 @@ export function SemesterSettingsPanel() {
                   </div>
                   <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
                     preview.weekType === "numerator"
-                      ? "bg-amber-400/15 text-amber-300 border border-amber-400/20"
-                      : "bg-emerald-400/15 text-emerald-300 border border-emerald-400/20"
+                      ? "bg-amber-400/15 text-amber-800 dark:text-amber-300 border border-amber-400/20"
+                      : "bg-emerald-400/15 text-emerald-800 dark:text-emerald-300 border border-emerald-400/20"
                   }`}>
                     {preview.weekType === "numerator" ? "Чисельник" : "Знаменник"}
                   </span>
@@ -216,14 +216,14 @@ export function SemesterSettingsPanel() {
             )}
 
             {error && (
-              <div className="flex items-start gap-2 rounded-lg border border-rose-500/20 bg-rose-500/10 p-3 text-sm text-rose-400">
+              <div className="flex items-start gap-2 rounded-lg border border-rose-500/20 bg-rose-500/10 p-3 text-sm text-rose-700 dark:text-rose-400">
                 <svg className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
                 <p>{error}</p>
               </div>
             )}
             
             {success && (
-              <div className="flex items-start gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3 text-sm text-emerald-400">
+              <div className="flex items-start gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3 text-sm text-emerald-700 dark:text-emerald-400">
                 <svg className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                 <p>{success}</p>
               </div>
@@ -321,7 +321,7 @@ export function SemesterSettingsPanel() {
                         onClick={() => void handleDeleteShortenedDay(item.date)}
                         aria-label={`Видалити скорочений день ${item.date}`}
                         title="Скасувати скорочений день"
-                        className="p-1.5 rounded-lg text-sys-text-muted hover:text-rose-400 hover:bg-rose-500/10 transition-colors disabled:opacity-50"
+                        className="p-1.5 rounded-lg text-sys-text-muted hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10 transition-colors disabled:opacity-50"
                       >
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <polyline points="3 6 5 6 21 6" />
@@ -359,12 +359,12 @@ export function SemesterSettingsPanel() {
             </div>
 
             {shortenedError && (
-              <div className="flex items-start gap-2 rounded-lg border border-rose-500/20 bg-rose-500/10 p-2.5 text-xs text-rose-400">
+              <div className="flex items-start gap-2 rounded-lg border border-rose-500/20 bg-rose-500/10 p-2.5 text-xs text-rose-700 dark:text-rose-400">
                 <p>{shortenedError}</p>
               </div>
             )}
             {shortenedSuccess && (
-              <div className="flex items-start gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-2.5 text-xs text-emerald-400">
+              <div className="flex items-start gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-2.5 text-xs text-emerald-700 dark:text-emerald-400">
                 <p>{shortenedSuccess}</p>
               </div>
             )}
@@ -372,7 +372,7 @@ export function SemesterSettingsPanel() {
             <button
               type="submit"
               disabled={shortenedActionLoading || !newShortenedDate}
-              className="w-full flex items-center justify-center gap-2 rounded-lg border border-sys-border bg-white/5 px-4 py-2 text-xs font-semibold text-sys-text-primary hover:bg-white/10 active:scale-[0.99] transition-all disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-2 rounded-lg border border-sys-border bg-slate-100 dark:bg-white/5 px-4 py-2 text-xs font-semibold text-sys-text-primary hover:bg-slate-200 dark:hover:bg-white/10 active:scale-[0.99] transition-all disabled:opacity-50"
             >
               + Додати скорочений день
             </button>

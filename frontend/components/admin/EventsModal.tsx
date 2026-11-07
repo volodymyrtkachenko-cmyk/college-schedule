@@ -219,7 +219,7 @@ export function EventsModal({
             type="button"
             onClick={onClose}
             aria-label="Закрити"
-            className="w-9 h-9 flex items-center justify-center rounded-lg text-sys-text-secondary hover:bg-white/5 hover:text-white text-lg transition-colors"
+            className="w-9 h-9 flex items-center justify-center rounded-lg text-sys-text-secondary hover:bg-sys-bg hover:text-sys-text-primary text-lg transition-colors"
           >
             ✕
           </button>
@@ -400,7 +400,7 @@ export function EventsModal({
                       onClose();
                     }
                   }}
-                  className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-lg border border-rose-500/40 bg-rose-500/10 px-4 py-2 text-xs sm:text-sm font-bold text-rose-400 transition-colors hover:bg-rose-500/20 active:scale-[0.98] disabled:opacity-50"
+                  className="w-full sm:w-auto min-h-[44px] sm:min-h-[40px] rounded-lg border border-rose-500/40 bg-rose-500/10 px-4 py-2 text-xs sm:text-sm font-bold text-rose-700 dark:text-rose-400 transition-colors hover:bg-rose-500/20 active:scale-[0.98] disabled:opacity-50"
                 >
                   Видалити подію
                 </button>
@@ -460,7 +460,7 @@ export function EventsModal({
                     >
                       <div className="space-y-0.5 min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-bold text-white">{ev.event_date}</span>
+                          <span className="font-bold text-sys-text-primary">{ev.event_date}</span>
                           <span className="rounded bg-sys-bg px-1.5 py-0.5 font-mono text-[11px] text-sys-accent">
                             {ev.lesson_number ? `${ev.lesson_number} пара` : ""} {ev.start_time}
                           </span>
@@ -474,13 +474,13 @@ export function EventsModal({
                           )}
                           {ev.teacher_name && <span>• {ev.teacher_name}</span>}
                           {ev.room && <span>• ауд. {ev.room}</span>}
-                          {ev.note && <span className="text-amber-300/80">• {ev.note}</span>}
+                          {ev.note && <span className="text-amber-800 dark:text-amber-300/80">• {ev.note}</span>}
                         </div>
                       </div>
                       <button
                         type="button"
                         onClick={() => void handleDelete(ev.id)}
-                        className="self-end sm:self-center rounded-md px-3 py-1.5 text-rose-400 transition-colors hover:bg-rose-500/10 hover:text-rose-300 font-semibold min-h-[36px] flex items-center"
+                        className="self-end sm:self-center rounded-md px-3 py-1.5 text-rose-700 dark:text-rose-400 transition-colors hover:bg-rose-500/10 hover:text-rose-800 dark:hover:text-rose-300 font-semibold min-h-[36px] flex items-center"
                       >
                         Видалити
                       </button>

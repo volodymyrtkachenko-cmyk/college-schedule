@@ -472,22 +472,22 @@ export function PermanentScheduleEditor() {
 
       {/* Prominent warning if editing a version not valid today */}
       {selectedVersion && !isSelectedVersionCurrentlyValid && (
-        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-amber-800 dark:text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
           <div className="flex items-center gap-3">
             <span className="text-2xl">⚠️</span>
             <div>
-              <p className="font-bold text-sm text-amber-100">
+              <p className="font-bold text-sm text-amber-900 dark:text-amber-100">
                 Ви редагуєте версію, яка зараз не діє!
               </p>
-              <p className="text-xs text-amber-300/90 mt-0.5">
+              <p className="text-xs text-amber-800 dark:text-amber-300/90 mt-0.5">
                 Версія «{selectedVersion.name}» діє з {selectedVersion.valid_from} до {selectedVersion.valid_until}. Сьогодні розклад за цією версією не використовується.
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <span className="text-xs text-amber-300 font-medium">Перемкнути версію:</span>
+            <span className="text-xs text-amber-800 dark:text-amber-300 font-medium">Перемкнути версію:</span>
             <select
-              className="form-control text-xs py-1.5 px-3 bg-black/60 border-amber-500/50 text-amber-100 rounded-lg font-semibold"
+              className="form-control text-xs py-1.5 px-3 bg-white dark:bg-black/60 border-amber-500/50 text-amber-900 dark:text-amber-100 rounded-lg font-semibold"
               value={selectedVersionId ?? ""}
               onChange={(e) => setSelectedVersionId(Number(e.target.value))}
               aria-label="Швидкий вибір версії"
@@ -526,7 +526,7 @@ export function PermanentScheduleEditor() {
           {/* Group / Teacher Toggle */}
           <div role="tablist" aria-label="Режим перегляду" className="flex w-full sm:w-auto rounded-lg border border-sys-border bg-sys-card p-1 text-sm relative">
             <div
-              className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-sys-accent rounded-md shadow-sm transition-all duration-300 ease-out z-0"
+              className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-sys-accentSolid rounded-md shadow-sm transition-all duration-300 ease-out z-0"
               style={{ left: mode === "student" ? "4px" : "50%" }}
             />
             <button
@@ -535,7 +535,7 @@ export function PermanentScheduleEditor() {
               type="button"
               onClick={() => startTransition(() => setMode("student"))}
               className={`relative z-10 flex-1 sm:flex-none sm:w-28 text-center rounded-md px-3 py-2 sm:py-1.5 transition-colors ${
-                mode === "student" ? "text-white font-semibold" : "text-sys-text-secondary hover:text-sys-text-primary"
+                mode === "student" ? "text-sys-onAccent font-semibold" : "text-sys-text-secondary hover:text-sys-text-primary"
               }`}
             >
               Група
@@ -546,7 +546,7 @@ export function PermanentScheduleEditor() {
               type="button"
               onClick={() => startTransition(() => setMode("teacher"))}
               className={`relative z-10 flex-1 sm:flex-none sm:w-28 text-center rounded-md px-3 py-2 sm:py-1.5 transition-colors ${
-                mode === "teacher" ? "text-white font-semibold" : "text-sys-text-secondary hover:text-sys-text-primary"
+                mode === "teacher" ? "text-sys-onAccent font-semibold" : "text-sys-text-secondary hover:text-sys-text-primary"
               }`}
             >
               Викладач
@@ -618,9 +618,9 @@ export function PermanentScheduleEditor() {
       </div>
 
       {/* Distinct Permanent Schedule Banner */}
-      <div className="rounded-xl border-2 border-indigo-500/40 bg-indigo-950/25 p-3.5 shadow-sm backdrop-blur-xs flex flex-wrap items-center justify-between gap-3">
+      <div className="rounded-xl border-2 border-indigo-500/40 bg-indigo-500/10 dark:bg-indigo-950/25 p-3.5 shadow-sm backdrop-blur-xs flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2.5 flex-wrap min-w-0">
-          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-black uppercase tracking-wider bg-indigo-500 text-white">
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-black uppercase tracking-wider bg-indigo-600 dark:bg-indigo-500 text-white">
             ПОСТІЙНИЙ РОЗКЛАД
           </span>
           <p className="text-xs sm:text-sm font-semibold text-sys-text-primary break-words">
@@ -631,7 +631,7 @@ export function PermanentScheduleEditor() {
 
       {/* Affected Future Overrides Alert Banner */}
       {affectedNotice && affectedNotice.length > 0 && (
-        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3.5 text-xs text-amber-200 flex flex-wrap items-center justify-between gap-2 shadow-sm animate-in fade-in duration-200">
+        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3.5 text-xs text-amber-800 dark:text-amber-200 flex flex-wrap items-center justify-between gap-2 shadow-sm animate-in fade-in duration-200">
           <div className="flex items-center gap-2 flex-wrap min-w-0">
             <span className="text-base shrink-0">⚠️</span>
             <span>
@@ -642,7 +642,7 @@ export function PermanentScheduleEditor() {
                 <a
                   key={d}
                   href={`/admin?resource=schedule&date=${d}`}
-                  className="rounded bg-amber-500/20 px-2 py-0.5 font-bold text-amber-300 underline hover:bg-amber-500/30 transition-colors"
+                  className="rounded bg-amber-500/20 px-2 py-0.5 font-bold text-amber-900 dark:text-amber-300 underline hover:bg-amber-500/30 transition-colors"
                 >
                   {d}
                 </a>
@@ -652,7 +652,7 @@ export function PermanentScheduleEditor() {
           <button
             type="button"
             onClick={() => setAffectedNotice(null)}
-            className="text-amber-400 hover:text-white text-base px-1"
+            className="text-amber-700 dark:text-amber-400 hover:text-sys-text-primary text-base px-1"
             aria-label="Закрити повідомлення"
           >
             ✕
@@ -731,7 +731,7 @@ export function PermanentScheduleEditor() {
           Завантаження постійного розкладу…
         </div>
       ) : error ? (
-        <div className="rounded-2xl border border-rose-400/20 bg-rose-400/5 p-8 text-center text-rose-200">
+        <div className="rounded-2xl border border-rose-400/20 bg-rose-400/5 p-8 text-center text-rose-700 dark:text-rose-200">
           {error}
         </div>
       ) : templateData ? (
@@ -751,7 +751,7 @@ export function PermanentScheduleEditor() {
                       <button
                         type="button"
                         aria-label={`Дії для дня ${name}`}
-                        className="w-7 h-7 flex items-center justify-center rounded-lg text-sys-text-muted hover:text-sys-text-primary hover:bg-white/5 text-base"
+                        className="w-7 h-7 flex items-center justify-center rounded-lg text-sys-text-muted hover:text-sys-text-primary hover:bg-slate-100 dark:hover:bg-white/5 text-base"
                       >
                         ⋮
                       </button>
@@ -776,7 +776,7 @@ export function PermanentScheduleEditor() {
                           <button
                             type="button"
                             onClick={() => handlePasteDay(day)}
-                            className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-bold text-indigo-400 bg-indigo-500/10 hover:bg-indigo-500/20 text-left"
+                            className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-500/10 hover:bg-indigo-500/20 text-left"
                           >
                             <span>📥</span>
                             <span>Вставити день сюди</span>
@@ -831,7 +831,7 @@ export function PermanentScheduleEditor() {
                                 <button
                                   type="button"
                                   onClick={() => handlePasteToSlot(day, slotNum)}
-                                  className="w-full rounded-lg border border-dashed border-indigo-500/50 bg-indigo-500/10 py-1.5 text-xs font-bold text-indigo-300 hover:bg-indigo-500/20 transition-colors"
+                                  className="w-full rounded-lg border border-dashed border-indigo-500/50 bg-indigo-500/10 py-1.5 text-xs font-bold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-500/20 transition-colors"
                                 >
                                   📥 {buffer.mode === "copy" ? "Вставити сюди" : "Перемістити сюди"}
                                 </button>
@@ -839,7 +839,7 @@ export function PermanentScheduleEditor() {
                                 <button
                                   type="button"
                                   onClick={() => setEditor({ day_of_week: day, lesson_number: slotNum })}
-                                  className="w-full rounded-lg border border-dashed border-sys-border/60 bg-white/5 py-1 text-xs font-medium text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/60 transition-colors"
+                                  className="w-full rounded-lg border border-dashed border-sys-border/60 bg-slate-100 dark:bg-white/5 py-1 text-xs font-medium text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/60 transition-colors"
                                 >
                                   + Додати
                                 </button>
@@ -866,7 +866,7 @@ export function PermanentScheduleEditor() {
               {/* Sliding indicator line at bottom */}
               <div
                 aria-hidden="true"
-                className="absolute bottom-0 left-0 h-[2.5px] bg-indigo-500 transition-transform duration-180 ease-smooth motion-reduce:transition-none"
+                className="absolute bottom-0 left-0 h-[2.5px] bg-indigo-600 dark:bg-indigo-500 transition-transform duration-180 ease-smooth motion-reduce:transition-none"
                 style={{
                   width: "20%",
                   transform: `translateX(${selectedMobileDayIndex * 100}%)`,
@@ -891,7 +891,7 @@ export function PermanentScheduleEditor() {
                     }}
                     className={`relative flex h-full w-1/5 flex-col items-center justify-center py-1 transition-colors duration-150 active:scale-[0.96] motion-reduce:transition-none focus:outline-none ${
                       isSelected
-                        ? "text-indigo-400 font-bold"
+                        ? "text-indigo-700 dark:text-indigo-400 font-bold"
                         : "text-sys-text-secondary hover:text-sys-text-primary"
                     }`}
                   >
@@ -899,7 +899,7 @@ export function PermanentScheduleEditor() {
                       {short}
                     </span>
                     <div className="flex items-center gap-0.5 mt-0.5">
-                      <span className={`text-[11px] leading-tight ${isSelected ? "font-bold text-indigo-400" : "text-sys-text-muted font-medium"}`}>
+                      <span className={`text-[11px] leading-tight ${isSelected ? "font-bold text-indigo-700 dark:text-indigo-400" : "text-sys-text-muted font-medium"}`}>
                         {count > 0 ? `${count} ${count === 1 ? "пара" : count < 5 ? "пари" : "пар"}` : "—"}
                       </span>
                     </div>
@@ -1015,7 +1015,7 @@ export function PermanentScheduleEditor() {
                                     <button
                                       type="button"
                                       onClick={() => handlePasteToSlot(currentDayDef.day, slotNum)}
-                                      className="flex-1 sm:flex-none min-h-[38px] px-3 rounded-lg border border-dashed border-indigo-500/50 bg-indigo-500/10 text-xs font-bold text-indigo-300 hover:bg-indigo-500/20"
+                                      className="flex-1 sm:flex-none min-h-[38px] px-3 rounded-lg border border-dashed border-indigo-500/50 bg-indigo-500/10 text-xs font-bold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-500/20"
                                     >
                                       📥 {buffer.mode === "copy" ? "Вставити сюди" : "Перемістити сюди"}
                                     </button>
@@ -1023,7 +1023,7 @@ export function PermanentScheduleEditor() {
                                     <button
                                       type="button"
                                       onClick={() => setEditor({ day_of_week: currentDayDef.day, lesson_number: slotNum })}
-                                      className="flex-1 sm:flex-none min-h-[38px] px-3 rounded-lg border border-dashed border-sys-border bg-white/5 text-xs font-medium text-sys-text-secondary hover:text-sys-text-primary"
+                                      className="flex-1 sm:flex-none min-h-[38px] px-3 rounded-lg border border-dashed border-sys-border bg-slate-100 dark:bg-white/5 text-xs font-medium text-sys-text-secondary hover:text-sys-text-primary"
                                     >
                                       + Додати пару
                                     </button>
@@ -1133,7 +1133,7 @@ export function PermanentScheduleEditor() {
                       setMobileActionsDay(null);
                       handlePasteDay(d);
                     }}
-                    className="flex items-center gap-3 w-full rounded-xl border border-indigo-500/40 bg-indigo-500/15 p-3 text-left text-sm font-bold text-indigo-400 hover:bg-indigo-500/25"
+                    className="flex items-center gap-3 w-full rounded-xl border border-indigo-500/40 bg-indigo-500/15 p-3 text-left text-sm font-bold text-indigo-700 dark:text-indigo-400 hover:bg-indigo-500/25"
                   >
                     <span className="text-base">📥</span>
                     <span>Вставити день у цей день</span>

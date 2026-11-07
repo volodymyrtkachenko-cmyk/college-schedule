@@ -84,40 +84,45 @@ function blend(fg, bg, alpha) {
   };
 }
 
-// 2. Parse globals.css tokens
+// 2. Parse globals.css tokens (base + all 12 accent themes)
 function parseTokensFromGlobals() {
   const cssPath = path.join(rootDir, "app", "globals.css");
   const content = fs.readFileSync(cssPath, "utf-8");
 
-  const darkTokens = {};
-  const lightTokens = {};
+  function extractVars(block) {
+    const vars = {};
+    for (const line of block.split("\n")) {
+      const m = line.match(/--([a-zA-Z0-9_-]+)\s*:\s*([^;]+);/);
+      if (m) {
+        const val = m[2].replace(/\/\*.*?\*\//g, "").trim();
+        vars[`--${m[1]}`] = val;
+      }
+    }
+    return vars;
+  }
 
-  // Extract dark section
+  let darkBase = {};
+  let lightBase = {};
+  const darkAccents = { blue: {} };
+  const lightAccents = { blue: {} };
+
   const darkMatch = content.match(/(?::root|html\.dark|html\[data-theme="dark"\])\s*\{([^}]+)\}/);
-  if (darkMatch) {
-    for (const line of darkMatch[1].split("\n")) {
-      const m = line.match(/--([a-zA-Z0-9_-]+)\s*:\s*([^;]+);/);
-      if (m) {
-        // Strip trailing inline comment e.g. /* #121722 */
-        const val = m[2].replace(/\/\*.*?\*\//g, "").trim();
-        darkTokens[`--${m[1]}`] = val;
-      }
-    }
-  }
+  if (darkMatch) darkBase = extractVars(darkMatch[1]);
 
-  // Extract light section
   const lightMatch = content.match(/(?:html\.light|html\[data-theme="light"\])\s*\{([^}]+)\}/);
-  if (lightMatch) {
-    for (const line of lightMatch[1].split("\n")) {
-      const m = line.match(/--([a-zA-Z0-9_-]+)\s*:\s*([^;]+);/);
-      if (m) {
-        const val = m[2].replace(/\/\*.*?\*\//g, "").trim();
-        lightTokens[`--${m[1]}`] = val;
-      }
-    }
+  if (lightMatch) lightBase = extractVars(lightMatch[1]);
+
+  for (const accent of ["emerald", "violet", "amber", "rose", "cyan"]) {
+    const dRe = new RegExp(`html\\.dark\\[data-accent="${accent}"\\][^{]*\\{([^}]+)\\}`);
+    const dM = content.match(dRe);
+    if (dM) darkAccents[accent] = extractVars(dM[1]);
+
+    const lRe = new RegExp(`html\\.light\\[data-accent="${accent}"\\][^{]*\\{([^}]+)\\}`);
+    const lM = content.match(lRe);
+    if (lM) lightAccents[accent] = extractVars(lM[1]);
   }
 
-  return { dark: darkTokens, light: lightTokens };
+  return { dark: darkBase, light: lightBase, darkAccents, lightAccents };
 }
 
 function resolveColor(desc, tokens, baseBgRgb) {
@@ -159,7 +164,7 @@ function runContrastChecks() {
   console.log("=======================================================\n");
 
   for (const themeName of ["dark", "light"]) {
-    console.log(`--- Theme: ${themeName.toUpperCase()} ---`);
+    console.log(`--- Theme: ${themeName.toUpperCase()} (Base / Blue) ---`);
     const themeConfig = themes[themeName];
     const themeTokens = tokens[themeName];
     const baseBgRgb = parseColorToRgb(themeConfig.baseBg);
@@ -185,18 +190,72 @@ function runContrastChecks() {
       }
     }
     console.log("");
+
+    // Also audit all 6 accent variants for this mode
+    const accentMap = themeName === "dark" ? tokens.darkAccents : tokens.lightAccents;
+    for (const [accentName, overrides] of Object.entries(accentMap)) {
+      const merged = { ...themeTokens, ...overrides };
+      const bgRgb = parseColorToRgb(merged["--sys-bg"]);
+      const surfaces = ["--sys-bg", "--sys-card", "--sys-elevated", "--sys-input", "--sys-tab-active"];
+      for (const sKey of surfaces) {
+        const sRgb = parseColorToRgb(merged[sKey]);
+        const checks = [
+          ["--sys-text-primary", 7.0],
+          ["--sys-text-secondary", 4.5],
+          ["--sys-text-muted", 4.5],
+          ["--sys-accent", 4.5],
+        ];
+        for (const [fgKey, minCr] of checks) {
+          totalChecked++;
+          const fgRgb = parseColorToRgb(merged[fgKey]);
+          const cr = contrastRatio(fgRgb, sRgb);
+          if (cr < minCr) {
+            failedCount++;
+            console.log(`  ❌ FAIL [${themeName}:${accentName}]: ${fgKey} on ${sKey} -> ${cr.toFixed(2)}:1 (< ${minCr}:1)`);
+          }
+        }
+      }
+      // Solid button contrast check
+      totalChecked++;
+      const solidBg = parseColorToRgb(merged["--sys-accent-solid"]);
+      const onAccent = parseColorToRgb(merged["--sys-on-accent"]);
+      const solidCr = contrastRatio(onAccent, solidBg);
+      if (solidCr < 4.5) {
+        failedCount++;
+        console.log(`  ❌ FAIL [${themeName}:${accentName}]: --sys-on-accent on --sys-accent-solid -> ${solidCr.toFixed(2)}:1 (< 4.5:1)`);
+      }
+    }
   }
+  console.log("  ✓ Checked all 12 theme × accent combinations across all surfaces and solid buttons.\n");
 
   return { failedCount, totalChecked };
 }
 
-// 4. Audit Public Files for Legacy Unadapted Single-Theme Palette Classes
+function getAllTsxFiles(dir, baseDir = dir) {
+  let results = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      results = results.concat(getAllTsxFiles(full, baseDir));
+    } else if (entry.name.endsWith(".tsx")) {
+      results.push(path.relative(baseDir, full));
+    }
+  }
+  return results;
+}
+
+// 4. Audit All TSX Files for Unadapted Single-Theme Pastel Text Classes
 function auditLegacyClasses() {
   console.log("-------------------------------------------------------");
-  console.log("       AUDIT OF UNADAPTED PALETTE CLASSES IN PUBLIC FILES");
+  console.log("       AUDIT OF UNADAPTED PALETTE CLASSES IN ALL TSX FILES");
   console.log("-------------------------------------------------------\n");
 
-  const publicFiles = [
+  const allTsxFiles = [
+    ...getAllTsxFiles(path.join(rootDir, "app"), rootDir),
+    ...getAllTsxFiles(path.join(rootDir, "components"), rootDir),
+  ];
+
+  const publicNoTransitionAll = new Set([
     "components/WeekTypeBadge.tsx",
     "components/LessonCard.tsx",
     "components/ScheduleDay.tsx",
@@ -209,43 +268,48 @@ function auditLegacyClasses() {
     "components/TeacherPinModal.tsx",
     "app/page.tsx",
     "app/settings/page.tsx",
-  ];
+  ]);
 
   let violationCount = 0;
 
-  // Patterns that indicate unadapted single-theme classes that lack dark: alternative on the element
-  // or problematic transition-all in public files
-  for (const relPath of publicFiles) {
+  const COLOR_RE = /\btext-(slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-(100|200|300|400)(?:\/[0-9]+)?\b/g;
+
+  for (const relPath of allTsxFiles) {
     const fullPath = path.join(rootDir, relPath);
     if (!fs.existsSync(fullPath)) continue;
 
     const content = fs.readFileSync(fullPath, "utf-8");
     const lines = content.split("\n");
 
-  lines.forEach((line, idx) => {
-      // Check for legacy washed-out text classes without dark: variant
-      const classMatches = line.match(/(?<![a-zA-Z0-9_\-:])(text-(?:amber|rose|emerald|sky|purple)-(?:200|300))\b/g);
-      if (classMatches) {
-        for (const cls of classMatches) {
-          if (!line.includes("dark:text-") && !line.includes("dark:text[")) {
-            console.log(`  ⚠️ [${relPath}:${idx + 1}] Legacy single-theme color without dark: variant -> ${cls}`);
-            violationCount++;
-          }
+    lines.forEach((line, idx) => {
+      let match;
+      COLOR_RE.lastIndex = 0;
+      while ((match = COLOR_RE.exec(line)) !== null) {
+        const fullMatch = match[0];
+        const prefix = line.slice(Math.max(0, match.index - 12), match.index);
+        if (prefix.endsWith("dark:") || prefix.endsWith("dark:hover:") || prefix.endsWith("dark:group-hover:")) continue;
+        // Skip intentional dark badge surface in OfficialPrintSheet
+        if (line.includes("bg-slate-900") && line.includes("print:")) continue;
+
+        const hasLightCounterpart = /\btext-(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-(?:600|700|800|900|950)\b/.test(line)
+          || line.includes("dark:text-");
+        if (!hasLightCounterpart) {
+          console.log(`  ⚠️ [${relPath}:${idx + 1}] Unadapted pastel text class without light-mode counterpart -> ${fullMatch}`);
+          violationCount++;
         }
       }
 
-      // Check for transition-all in public files
-      if (line.match(/(?<![a-zA-Z0-9_\-:])transition-all\b/)) {
-        console.log(`  ⚠️ [${relPath}:${idx + 1}] Found unoptimized transition-all in public file`);
+      if (publicNoTransitionAll.has(relPath) && line.match(/(?<![a-zA-Z0-9_\-:])transition-all\b/)) {
+        console.log(`  ⚠️ [${relPath}:${idx + 1}] Found unoptimized transition-all in core public file`);
         violationCount++;
       }
     });
   }
 
   if (violationCount === 0) {
-    console.log("  ✓ No unadapted single-theme palette classes or transition-all found in public files! (0 violations)\n");
+    console.log(`  ✓ Audited ${allTsxFiles.length} TSX files: 0 unadapted pastel text classes found!\n`);
   } else {
-    console.log(`\n  ⚠️ Total violations in public files: ${violationCount}\n`);
+    console.log(`\n  ⚠️ Total violations: ${violationCount}\n`);
   }
 
   return violationCount;

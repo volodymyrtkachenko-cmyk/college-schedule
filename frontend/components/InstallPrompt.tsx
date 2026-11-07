@@ -91,14 +91,14 @@ export function InstallPrompt() {
 
   if (installEvent) {
     return (
-      <div className="md:hidden mx-auto mt-3 flex max-w-[1800px] items-center justify-between gap-2.5 rounded-xl border border-cyan-400/25 bg-cyan-950/40 backdrop-blur-sm px-3.5 py-2.5 text-xs sm:text-sm text-cyan-100 shadow-sm">
+      <div className="md:hidden mx-auto mt-3 flex max-w-[1800px] items-center justify-between gap-2.5 rounded-xl border border-sys-accent/35 bg-sys-elevated px-3.5 py-2.5 text-xs sm:text-sm text-sys-text-primary shadow-sm">
         <span className="flex-1 pr-1 font-medium leading-snug">
           Встановіть розклад, щоб швидко відкривати його без інтернету.
         </span>
         <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
-            className="rounded-lg bg-cyan-400 px-3 py-1.5 text-xs font-bold text-slate-950 shadow-xs active:scale-95 transition-transform"
+            className="rounded-lg bg-sys-accent px-3 py-1.5 text-xs font-bold text-white shadow-xs active:scale-95 transition-transform"
             onClick={async () => {
               await installEvent.prompt();
               handleDismiss();
@@ -111,7 +111,7 @@ export function InstallPrompt() {
             onClick={handleDismiss}
             aria-label="Закрити сповіщення про встановлення"
             title="Закрити"
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-cyan-300 hover:bg-cyan-400/15 hover:text-cyan-100 active:scale-90 transition-colors"
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-sys-text-secondary hover:bg-sys-accent/15 hover:text-sys-text-primary active:scale-90 transition-colors"
           >
             ✕
           </button>
@@ -123,7 +123,7 @@ export function InstallPrompt() {
   if (!isIosPhone) return null;
 
   return (
-    <div className="md:hidden mx-auto mt-3 flex max-w-[1800px] items-center justify-between gap-2 rounded-xl border border-slate-700/50 bg-slate-900/60 backdrop-blur-sm px-3 py-2 text-xs text-slate-300 shadow-sm">
+    <div className="md:hidden mx-auto mt-3 flex max-w-[1800px] items-center justify-between gap-2 rounded-xl border border-sys-border bg-sys-elevated px-3 py-2 text-xs text-sys-text-primary shadow-sm">
       <span className="flex-1">
         На iPhone натисніть «Поділитися» <span className="opacity-75">⎋</span>, а потім — «На початковий екран» ⊞.
       </span>
@@ -132,7 +132,7 @@ export function InstallPrompt() {
         onClick={handleDismiss}
         aria-label="Закрити підказку"
         title="Закрити"
-        className="flex h-6 w-6 items-center justify-center rounded text-slate-400 hover:text-slate-200 active:scale-90 transition-colors"
+        className="flex h-6 w-6 items-center justify-center rounded text-sys-text-secondary hover:text-sys-text-primary active:scale-90 transition-colors"
       >
         ✕
       </button>

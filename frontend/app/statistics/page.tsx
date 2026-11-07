@@ -192,7 +192,7 @@ export default function StatisticsPage() {
               <button
                 type="button"
                 onClick={() => changeMode("student")}
-                className={`relative z-10 flex-1 w-32 rounded-full px-6 py-2 text-sm font-semibold transition-colors ${mode === "student" ? "text-white" : "text-sys-text-secondary hover:text-sys-text-primary"}`}
+                className={`relative z-10 flex-1 w-32 rounded-full px-6 py-2 text-sm font-semibold transition-colors ${mode === "student" ? (teachers.length === 0 ? "bg-sys-accent text-white" : "text-sys-onAccent") : "text-sys-text-secondary hover:text-sys-text-primary"}`}
               >
                 Групам
               </button>
@@ -200,7 +200,7 @@ export default function StatisticsPage() {
                 <button
                   type="button"
                   onClick={() => changeMode("teacher")}
-                  className={`relative z-10 flex-1 w-32 rounded-full px-6 py-2 text-sm font-semibold transition-colors ${mode === "teacher" ? "text-white" : "text-sys-text-secondary hover:text-sys-text-primary"}`}
+                  className={`relative z-10 flex-1 w-32 rounded-full px-6 py-2 text-sm font-semibold transition-colors ${mode === "teacher" ? "text-sys-onAccent" : "text-sys-text-secondary hover:text-sys-text-primary"}`}
                 >
                   Викладачам
                 </button>
@@ -244,7 +244,7 @@ export default function StatisticsPage() {
             </div>
           </div>
         ) : error ? (
-          <div role="alert" className="rounded-2xl border border-rose-400/20 bg-rose-400/5 p-6 text-center text-rose-200">
+          <div role="alert" className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-6 text-center text-rose-700 dark:text-rose-300">
             {error}
           </div>
         ) : !selectedName ? (

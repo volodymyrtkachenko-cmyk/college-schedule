@@ -206,7 +206,7 @@ export function ConstraintsPanel() {
             <button
               type="button"
               onClick={clearAllTeacherConstraints}
-              className="h-10 px-3.5 rounded-xl border border-sys-border bg-sys-card text-xs font-semibold text-sys-text-secondary hover:border-rose-500/40 hover:bg-rose-500/10 hover:text-rose-400 active:scale-95 transition-all"
+              className="h-10 px-3.5 rounded-xl border border-sys-border bg-sys-card text-xs font-semibold text-sys-text-secondary hover:border-rose-500/40 hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400 active:scale-95 transition-all"
             >
               Очистити все
             </button>
@@ -288,12 +288,12 @@ export function ConstraintsPanel() {
                           ) : isHard ? (
                             <>
                               <span className="text-sm">⛔</span>
-                              <span className="text-[11px] font-bold text-rose-400 mt-0.5">Недоступний</span>
+                              <span className="text-[11px] font-bold text-rose-700 dark:text-rose-400 mt-0.5">Недоступний</span>
                             </>
                           ) : isSoft ? (
                             <>
                               <span className="text-sm">⚠️</span>
-                              <span className="text-[11px] font-bold text-amber-400 mt-0.5">Небажано</span>
+                              <span className="text-[11px] font-bold text-amber-800 dark:text-amber-400 mt-0.5">Небажано</span>
                             </>
                           ) : (
                             <>

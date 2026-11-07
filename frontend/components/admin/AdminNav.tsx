@@ -603,7 +603,7 @@ export function AdminNav({ active }: { active: string }) {
               type="button"
               disabled={isLoggingOut}
               onClick={() => void handleLogout()}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-sys-border text-sys-text-secondary hover:border-rose-500/40 hover:bg-rose-500/10 hover:text-rose-400 transition-colors disabled:opacity-50"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-sys-border text-sys-text-secondary hover:border-rose-500/40 hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400 transition-colors disabled:opacity-50"
               title="Вийти з системи"
               aria-label="Вийти з системи"
             >
@@ -615,7 +615,7 @@ export function AdminNav({ active }: { active: string }) {
             </button>
           </div>
           {logoutError && (
-            <div role="alert" className="text-rose-400 text-[10px] text-center font-medium mt-1">
+            <div role="alert" className="text-rose-600 dark:text-rose-400 text-[10px] text-center font-medium mt-1">
               {logoutError}
             </div>
           )}

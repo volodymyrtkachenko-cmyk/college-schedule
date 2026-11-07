@@ -209,7 +209,7 @@ export function LessonNoteModal({
                 className="form-control w-full p-3 text-sm text-sys-text-primary"
               />
               {error && (
-                <div role="alert" className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-2.5 text-xs text-rose-400">
+                <div role="alert" className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-2.5 text-xs text-rose-700 dark:text-rose-400">
                   {error}
                 </div>
               )}
@@ -227,7 +227,7 @@ export function LessonNoteModal({
                     </div>
                     <p className="text-sys-text-primary whitespace-pre-wrap">{row.snapshot.note}</p>
                     {row.snapshot.archived && (
-                      <span className="inline-block text-xs text-rose-400 uppercase font-semibold">Архівовано</span>
+                      <span className="inline-block text-xs text-rose-700 dark:text-rose-400 uppercase font-semibold">Архівовано</span>
                     )}
                   </div>
                 ))
@@ -251,7 +251,7 @@ export function LessonNoteModal({
                       void saveNote(true);
                     }
                   }}
-                  className="w-full sm:w-auto min-h-[44px] sm:min-h-[38px] px-3.5 py-2 text-xs sm:text-sm font-semibold text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors border border-rose-500/20 active:scale-[0.98]"
+                  className="w-full sm:w-auto min-h-[44px] sm:min-h-[38px] px-3.5 py-2 text-xs sm:text-sm font-semibold text-rose-700 dark:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors border border-rose-500/20 active:scale-[0.98]"
                 >
                   Видалити
                 </button>

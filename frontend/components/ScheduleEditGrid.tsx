@@ -151,7 +151,7 @@ export function ScheduleEditGrid({
                       {longWeekday(day.date)}
                     </h3>
                     {day.is_shortened_day && (
-                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/15 text-amber-300 border border-amber-500/30" title="Скорочений день: пари по 50 хв, перерви 10 хв">
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30" title="Скорочений день: пари по 50 хв, перерви 10 хв">
                         ⏱ 50 хв
                       </span>
                     )}
@@ -356,8 +356,8 @@ export function ScheduleEditGrid({
                     aria-label={`Перемістити пару на ${longWeekday(day.date)}, ${lessonNumber}-ту пару`}
                     className={`flex flex-1 min-h-[50px] w-full items-center justify-center rounded-lg border px-2 py-2 text-xs font-semibold transition-colors ${
                       hasReplacement
-                        ? "border-amber-400/40 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20"
-                        : "border-emerald-400/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"
+                        ? "border-amber-400/40 bg-amber-500/10 text-amber-800 dark:text-amber-300 hover:bg-amber-500/20"
+                        : "border-emerald-400/40 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-500/20"
                     }`}
                   >
                     Перемістити сюди

@@ -397,20 +397,20 @@ export function ImportPanel() {
 
         {/* Anomaly / Cancellation draft warning banner */}
         {importStatus?.pending_anomaly_draft && (
-          <div className="mb-6 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-amber-200 animate-in fade-in">
+          <div className="mb-6 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-amber-800 dark:text-amber-200 animate-in fade-in">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-start gap-2.5">
-                <svg className="w-5 h-5 shrink-0 text-amber-400 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-5 h-5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
                 <div>
-                  <div className="font-bold text-sm text-amber-300">
+                  <div className="font-bold text-sm text-amber-900 dark:text-amber-300">
                     {importStatus.pending_anomaly_draft.auto_publish_skipped_reason === "cancellations_require_review"
                       ? `Автоімпорт виявив скасування пар (${importStatus.pending_anomaly_draft.changes_count}). Перевірте й підтвердіть`
                       : `Автоімпорт знайшов багато змін (${importStatus.pending_anomaly_draft.changes_count}). Перевірте й опублікуйте`}
                   </div>
                   {importStatus.pending_anomaly_draft.auto_publish_skipped_reason && (
-                    <div className="text-xs font-medium text-amber-300/90 mt-0.5">
+                    <div className="text-xs font-medium text-amber-800 dark:text-amber-300/90 mt-0.5">
                       Причина:{" "}
                       {importStatus.pending_anomaly_draft.auto_publish_skipped_reason === "cancellations_require_review"
                         ? "заміни опубліковано автоматично; скасування пар вимагають підтвердження"
@@ -422,7 +422,7 @@ export function ImportPanel() {
                     </div>
                   )}
                   {importStatus.pending_anomaly_draft.anomaly_reasons?.length > 0 && (
-                    <p className="text-xs text-amber-200/80 mt-1">
+                    <p className="text-xs text-amber-700 dark:text-amber-200/80 mt-1">
                       {importStatus.pending_anomaly_draft.anomaly_reasons.join(" • ")}
                     </p>
                   )}
@@ -441,7 +441,7 @@ export function ImportPanel() {
                       console.error("Failed to dismiss draft", e);
                     }
                   }}
-                  className="rounded-lg border border-sys-border bg-white/5 hover:bg-white/10 text-sys-text-secondary hover:text-white px-3 py-1.5 text-xs font-semibold transition-colors"
+                  className="rounded-lg border border-sys-border bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-sys-text-secondary hover:text-sys-text-primary px-3 py-1.5 text-xs font-semibold transition-colors"
                 >
                   Відхилити
                 </button>
@@ -451,7 +451,7 @@ export function ImportPanel() {
                     setDraftId(importStatus.pending_anomaly_draft!.id);
                     setStatus("ready");
                   }}
-                  className="rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/30 px-3.5 py-1.5 text-xs font-semibold transition-colors"
+                  className="rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-800 dark:text-amber-200 border border-amber-500/30 px-3.5 py-1.5 text-xs font-semibold transition-colors"
                 >
                   Перевірити та опублікувати
                 </button>
@@ -461,7 +461,7 @@ export function ImportPanel() {
         )}
         
         {error && (
-            <div className="mb-4 bg-red-500/10 border border-red-500/30 text-rose-300 p-3 rounded-lg text-sm">
+            <div className="mb-4 bg-red-500/10 border border-red-500/30 text-rose-700 dark:text-rose-300 p-3 rounded-lg text-sm">
                 {error}
             </div>
         )}
@@ -494,7 +494,7 @@ export function ImportPanel() {
             <div className="animate-in fade-in slide-in-from-bottom-2">
                 {report.unresolved.length > 0 && (
                     <>
-                        <div className="bg-yellow-500/10 border border-yellow-500/30 text-amber-300 p-4 rounded-lg text-sm mb-6">
+                        <div className="bg-yellow-500/10 border border-yellow-500/30 text-amber-800 dark:text-amber-300 p-4 rounded-lg text-sm mb-6">
                     <h3 className="font-bold flex items-center gap-2 mb-1">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
                         Знайдено нові записи
@@ -545,29 +545,29 @@ export function ImportPanel() {
                                 {item.is_swap ? "Перестановка пар" : item.is_move ? "Перенесення пари" : "Заміна заняття"}
                               </span>
                               {item.is_swap && item.swap_with_lesson && (
-                                <span className="rounded-full bg-purple-500/15 border border-purple-500/30 px-2 py-0.5 text-[11px] font-semibold text-purple-300 flex items-center gap-1">
+                                <span className="rounded-full bg-purple-500/15 border border-purple-500/30 px-2 py-0.5 text-[11px] font-semibold text-purple-700 dark:text-purple-300 flex items-center gap-1">
                                   🔀 Пара {item.lesson_number} ↔ Пара {item.swap_with_lesson}
                                 </span>
                               )}
                               {item.is_move && item.moved_from_lesson && (
-                                <span className="rounded-full bg-blue-500/15 border border-blue-500/30 px-2 py-0.5 text-[11px] font-semibold text-blue-300 flex items-center gap-1">
+                                <span className="rounded-full bg-blue-500/15 border border-blue-500/30 px-2 py-0.5 text-[11px] font-semibold text-blue-700 dark:text-blue-300 flex items-center gap-1">
                                   ➡️ Перенесено з {item.moved_from_lesson}-ї пари
                                 </span>
                               )}
                               {item.is_explicit_substitution && (
-                                <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-[11px] font-semibold text-emerald-300">
+                                <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
                                   🏷️ Позначка заміни
                                 </span>
                               )}
                               {item.is_equal_to_base && (
-                                <span className="rounded-full bg-gray-500/15 border border-gray-500/30 px-2 py-0.5 text-[11px] font-semibold text-gray-400">
+                                <span className="rounded-full bg-gray-500/15 border border-gray-500/30 px-2 py-0.5 text-[11px] font-semibold text-gray-700 dark:text-gray-400">
                                   ⚠️ Відповідає основному розкладу
                                 </span>
                               )}
                             </div>
                             <div className="mt-1 text-xs text-sys-text-muted">Зміна на {formatChangeDate(item.date)}, {item.lesson_number}-та пара</div>
                           </div>
-                          <button type="button" onClick={() => setSubstitutions(current => current.filter((value) => value !== item))} className="rounded-lg border border-rose-400/20 px-2.5 py-1.5 text-xs font-medium text-rose-300 transition hover:bg-rose-500/10" aria-label={`Видалити заміну ${index + 1}`}>
+                          <button type="button" onClick={() => setSubstitutions(current => current.filter((value) => value !== item))} className="rounded-lg border border-rose-400/20 px-2.5 py-1.5 text-xs font-medium text-rose-700 dark:text-rose-300 transition hover:bg-rose-500/10" aria-label={`Видалити заміну ${index + 1}`}>
                             Видалити
                           </button>
                         </div>
@@ -640,16 +640,16 @@ export function ImportPanel() {
                         <h3 className="font-semibold">Скасовані пари</h3>
                         <p className="mt-1 text-xs text-sys-text-muted">Вкажіть день і пару, яка не відбудеться.</p>
                       </div>
-                      <span className="rounded-full bg-rose-500/10 px-2.5 py-1 text-xs font-semibold text-rose-300">{cancelled.filter(c => (c as any).is_new !== false).length} нових</span>
+                      <span className="rounded-full bg-rose-500/10 px-2.5 py-1 text-xs font-semibold text-rose-700 dark:text-rose-300">{cancelled.filter(c => (c as any).is_new !== false).length} нових</span>
                     </div>
                     {cancelled.filter(c => (c as any).is_new !== false).map((item, index) => (
                       <div key={`${item.date}-${item.group_id}-${item.lesson_number}-${index}`} className="min-w-0 overflow-hidden rounded-2xl border border-rose-500/25 bg-rose-500/[0.04] p-4 shadow-sm">
                         <div className="mb-4 flex items-start justify-between gap-3">
                           <div>
-                            <div className="text-sm font-semibold text-rose-100">Скасування {index + 1}</div>
-                            <div className="mt-1 text-xs text-rose-200/70">{formatChangeDate(item.date)} · {item.lesson_number}-та пара</div>
+                            <div className="text-sm font-semibold text-rose-800 dark:text-rose-100">Скасування {index + 1}</div>
+                            <div className="mt-1 text-xs text-rose-700/80 dark:text-rose-200/70">{formatChangeDate(item.date)} · {item.lesson_number}-та пара</div>
                           </div>
-                          <button type="button" onClick={() => setCancelled(current => current.filter((value) => value !== item))} className="rounded-lg border border-rose-400/20 px-2.5 py-1.5 text-xs font-medium text-rose-300 transition hover:bg-rose-500/10" aria-label={`Видалити скасування ${index + 1}`}>
+                          <button type="button" onClick={() => setCancelled(current => current.filter((value) => value !== item))} className="rounded-lg border border-rose-400/20 px-2.5 py-1.5 text-xs font-medium text-rose-700 dark:text-rose-300 transition hover:bg-rose-500/10" aria-label={`Видалити скасування ${index + 1}`}>
                             Видалити
                           </button>
                         </div>
@@ -684,14 +684,14 @@ export function ImportPanel() {
                     <button onClick={handlePrimaryAction} disabled={loading} className="w-full sm:w-auto bg-sys-accent text-white font-semibold shadow-xs hover:opacity-95 py-2.5 px-6 rounded-lg disabled:opacity-50">
                         {loading ? "Зберігаємо…" : report.unresolved.length > 0 ? "Зберегти відповідності та продовжити" : "Зберегти зміни"}
                     </button>
-                    <button onClick={() => void cancelImport()} className="w-full sm:w-auto py-2.5 px-4 text-center rounded-lg border border-sys-border sm:border-0 bg-white/5 sm:bg-transparent text-sys-text-secondary hover:text-white" disabled={loading}>Скасувати імпорт</button>
+                    <button onClick={() => void cancelImport()} className="w-full sm:w-auto py-2.5 px-4 text-center rounded-lg border border-sys-border sm:border-0 bg-slate-100 dark:bg-white/5 sm:bg-transparent text-sys-text-secondary hover:text-sys-text-primary" disabled={loading}>Скасувати імпорт</button>
                 </div>
             </div>
         )}
         
         {status === "ready" && (
             <div className="animate-in fade-in text-center p-4 sm:py-8 bg-amber-500/5 border border-amber-500/20 rounded-2xl">
-                <h3 className="text-xl sm:text-2xl font-bold text-amber-200 mb-2">Імпорт готовий до публікації</h3>
+                <h3 className="text-xl sm:text-2xl font-bold text-amber-900 dark:text-amber-200 mb-2">Імпорт готовий до публікації</h3>
                 <p className="text-sys-text-secondary max-w-lg mx-auto mb-6 text-xs sm:text-sm">
                   Оберіть режим публікації: опублікувати тільки зміни без скасувань, тільки пари з позначкою заміни або повний імпорт.
                 </p>
@@ -699,27 +699,27 @@ export function ImportPanel() {
                 {/* Counters */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6 max-w-2xl mx-auto text-sm">
                   <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-center flex flex-col justify-center">
-                    <div className="text-[11px] sm:text-xs text-amber-300 truncate">Заміни та перестановки</div>
-                    <div className="text-base sm:text-lg font-bold text-amber-200 mt-0.5">
+                    <div className="text-[11px] sm:text-xs text-amber-800 dark:text-amber-300 truncate">Заміни та перестановки</div>
+                    <div className="text-base sm:text-lg font-bold text-amber-900 dark:text-amber-200 mt-0.5">
                       {substitutions.filter(s => !s.is_equal_to_base).length}
                     </div>
                     {substitutions.filter(s => s.is_swap).length > 0 && (
-                      <div className="text-[10px] text-purple-300 font-medium mt-0.5">
+                      <div className="text-[10px] text-purple-700 dark:text-purple-300 font-medium mt-0.5">
                         {substitutions.filter(s => s.is_swap).length} перестановок
                       </div>
                     )}
                   </div>
 
                   <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-center flex flex-col justify-center">
-                    <div className="text-[11px] sm:text-xs text-emerald-300 truncate">З позначкою заміни</div>
-                    <div className="text-base sm:text-lg font-bold text-emerald-200 mt-0.5">
+                    <div className="text-[11px] sm:text-xs text-emerald-800 dark:text-emerald-300 truncate">З позначкою заміни</div>
+                    <div className="text-base sm:text-lg font-bold text-emerald-900 dark:text-emerald-200 mt-0.5">
                       {substitutions.filter(s => s.is_explicit_substitution && !s.is_equal_to_base).length}
                     </div>
                   </div>
 
                   <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-3 text-center flex flex-col justify-center">
-                    <div className="text-[11px] sm:text-xs text-rose-300 truncate">Скасування</div>
-                    <div className="text-base sm:text-lg font-bold text-rose-200 mt-0.5">{cancelled.length}</div>
+                    <div className="text-[11px] sm:text-xs text-rose-800 dark:text-rose-300 truncate">Скасування</div>
+                    <div className="text-base sm:text-lg font-bold text-rose-900 dark:text-rose-200 mt-0.5">{cancelled.length}</div>
                   </div>
 
                   <div className="rounded-xl border border-sys-border bg-sys-card p-3 text-center flex flex-col justify-center">
@@ -747,7 +747,7 @@ export function ImportPanel() {
                     type="button"
                     onClick={() => void publishImportMode("explicit_only")}
                     disabled={loading || !draftId}
-                    className="flex-1 bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-bold py-2.5 px-4 rounded-xl disabled:opacity-50 hover:bg-emerald-500/25 active:scale-98 transition-all flex flex-col items-center justify-center text-xs sm:text-sm"
+                    className="flex-1 bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30 font-bold py-2.5 px-4 rounded-xl disabled:opacity-50 hover:bg-emerald-500/25 active:scale-98 transition-all flex flex-col items-center justify-center text-xs sm:text-sm"
                   >
                     <span>Тільки з позначкою заміни</span>
                     <span className="text-[10px] font-normal opacity-85">(із сайту kre.dp.ua)</span>
@@ -757,7 +757,7 @@ export function ImportPanel() {
                     type="button"
                     onClick={() => void publishImportMode("all", true)}
                     disabled={loading || !draftId}
-                    className="w-full sm:w-auto py-2.5 px-4 rounded-xl border border-sys-border bg-white/5 text-sys-text-secondary hover:text-sys-text-primary hover:bg-white/10 active:scale-98 transition-all text-xs sm:text-sm"
+                    className="w-full sm:w-auto py-2.5 px-4 rounded-xl border border-sys-border bg-slate-100 dark:bg-white/5 text-sys-text-secondary hover:text-sys-text-primary hover:bg-slate-200 dark:hover:bg-white/10 active:scale-98 transition-all text-xs sm:text-sm"
                   >
                     Опублікувати все (зі скасуваннями)
                   </button>
@@ -766,7 +766,7 @@ export function ImportPanel() {
                     type="button"
                     onClick={() => void cancelImport()}
                     disabled={loading}
-                    className="w-full sm:w-auto py-2.5 px-4 rounded-xl border border-rose-500/20 bg-rose-500/5 text-rose-300 hover:bg-rose-500/10 active:scale-98 transition-all text-xs sm:text-sm"
+                    className="w-full sm:w-auto py-2.5 px-4 rounded-xl border border-rose-500/20 bg-rose-500/5 text-rose-700 dark:text-rose-300 hover:bg-rose-500/10 active:scale-98 transition-all text-xs sm:text-sm"
                   >
                     Скасувати імпорт
                   </button>
@@ -791,7 +791,7 @@ export function ImportPanel() {
 
         {status === "success" && report && (
             <div className="animate-in zoom-in-95 fade-in text-center py-10 bg-emerald-500/5 border border-emerald-500/20 rounded-2xl">
-                <div className="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-4">
+                <div className="w-16 h-16 bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-4">
                     <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
                 </div>
                 <h3 className="text-2xl font-bold text-emerald-600 dark:text-emerald-300 mb-2">Імпорт опубліковано успішно!</h3>

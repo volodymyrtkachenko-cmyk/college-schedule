@@ -334,11 +334,11 @@ html[data-theme="light"][data-accent="blue"] {
   --sys-tab-active: 219 234 254;    /* #dbeafe */
   --sys-accent: 29 78 216;          /* #1d4ed8 (Contrast 6.7:1 on white) */
   --sys-accent-solid: 37 99 235;    /* #2563eb (White text contrast 5.17:1) */
-  --sys-neon: 37 99 235;
+  --sys-neon: 29 78 216;
   --sys-text-subject: 10 22 46;     /* #0a162e */
   --sys-text-primary: 15 26 51;     /* #0f1a33 */
-  --sys-text-secondary: 46 64 97;   /* #2e4061 (Contrast 9.6:1) */
-  --sys-text-muted: 74 95 130;      /* #4a5f82 (Contrast 5.9:1) */
+  --sys-text-secondary: 38 52 79;   /* #26344f (Contrast >10.5:1) */
+  --sys-text-muted: 64 81 112;      /* #405170 (Contrast >6.8:1) */
 }
 
 html.light[data-accent="emerald"],
@@ -348,7 +348,7 @@ html[data-theme="light"][data-accent="emerald"] {
   --surface: #ffffff;
   --border: #b8e0cd;
   --border-chip: #92ceb2;
-  --accent: #047857;
+  --accent: #065f46;
   --accent-solid: #047857;
   --sys-bg: 235 247 241;            /* #ebf7f1 Soft Mint Emerald */
   --sys-card: 255 255 255;          /* #ffffff */
@@ -358,13 +358,13 @@ html[data-theme="light"][data-accent="emerald"] {
   --sys-border: 184 224 205;        /* #b8e0cd */
   --sys-input: 230 245 237;         /* #e6f5ed */
   --sys-tab-active: 209 250 229;    /* #d1fae5 */
-  --sys-accent: 4 120 87;           /* #047857 (Contrast 5.48:1 on white) */
+  --sys-accent: 6 95 70;            /* #065f46 (Contrast 7.67:1 on white, 6.2:1 on tabActive) */
   --sys-accent-solid: 4 120 87;     /* #047857 (White text contrast 5.48:1) */
-  --sys-neon: 4 120 87;
+  --sys-neon: 6 95 70;
   --sys-text-subject: 6 28 20;      /* #061c14 */
   --sys-text-primary: 11 36 27;     /* #0b241b */
-  --sys-text-secondary: 36 74 59;   /* #244a3b (Contrast 9.5:1) */
-  --sys-text-muted: 63 105 88;      /* #3f6958 (Contrast 5.8:1) */
+  --sys-text-secondary: 28 64 49;   /* #1c4031 (Contrast >10.5:1) */
+  --sys-text-muted: 50 89 73;       /* #325949 (Contrast >6.8:1) */
 }
 
 html.light[data-accent="violet"],
@@ -374,8 +374,8 @@ html[data-theme="light"][data-accent="violet"] {
   --surface: #ffffff;
   --border: #d2c4f7;
   --border-chip: #b8a3f0;
-  --accent: #6d28d9;
-  --accent-solid: #7c3aed;
+  --accent: #5b21b6;
+  --accent-solid: #6d28d9;
   --sys-bg: 243 239 254;            /* #f3effe Soft Lavender */
   --sys-card: 255 255 255;          /* #ffffff */
   --sys-surface: 250 248 255;       /* #faf8ff */
@@ -384,13 +384,13 @@ html[data-theme="light"][data-accent="violet"] {
   --sys-border: 210 196 247;        /* #d2c4f7 */
   --sys-input: 239 233 254;         /* #efe9fe */
   --sys-tab-active: 233 213 255;    /* #e9d5ff */
-  --sys-accent: 109 40 217;         /* #6d28d9 (Contrast 7.0:1 on white) */
-  --sys-accent-solid: 124 58 237;   /* #7c3aed (White text contrast 5.70:1) */
-  --sys-neon: 109 40 217;
+  --sys-accent: 91 33 182;          /* #5b21b6 (Contrast 8.4:1 on white, 6.4:1 on tabActive) */
+  --sys-accent-solid: 109 40 217;   /* #6d28d9 (White text contrast 7.0:1) */
+  --sys-neon: 91 33 182;
   --sys-text-subject: 22 11 46;     /* #160b2e */
   --sys-text-primary: 29 18 56;     /* #1d1238 */
-  --sys-text-secondary: 65 48 102;  /* #413066 (Contrast 9.4:1) */
-  --sys-text-muted: 96 76 138;      /* #604c8a (Contrast 5.7:1) */
+  --sys-text-secondary: 55 38 92;   /* #37265c (Contrast >10.5:1) */
+  --sys-text-muted: 80 61 120;      /* #503d78 (Contrast >6.7:1) */
   --sys-status-denom-text: 157 23 77; /* #9d174d */
   --sys-status-denom-bg: 219 39 119;
 }
@@ -402,8 +402,8 @@ html[data-theme="light"][data-accent="amber"] {
   --surface: #ffffff;
   --border: #e8cf9d;
   --border-chip: #dbb670;
-  --accent: #b45309;
-  --accent-solid: #b45309;
+  --accent: #92400e;
+  --accent-solid: #a1470b;
   --sys-bg: 251 244 230;            /* #fbf4e6 Warm Cream Amber */
   --sys-card: 255 255 255;          /* #ffffff */
   --sys-surface: 254 250 242;       /* #fefaf2 */
@@ -412,13 +412,13 @@ html[data-theme="light"][data-accent="amber"] {
   --sys-border: 232 207 157;        /* #e8cf9d */
   --sys-input: 248 238 216;         /* #f8eed8 */
   --sys-tab-active: 253 224 161;    /* #fde0a1 */
-  --sys-accent: 180 83 9;           /* #b45309 (Contrast 5.02:1 on white) */
-  --sys-accent-solid: 180 83 9;     /* #b45309 (White text contrast 5.02:1) */
-  --sys-neon: 180 83 9;
+  --sys-accent: 146 64 14;          /* #92400e (Contrast 7.05:1 on white, 5.6:1 on tabActive) */
+  --sys-accent-solid: 161 71 11;    /* #a1470b (White text contrast 5.95:1) */
+  --sys-neon: 146 64 14;
   --sys-text-subject: 36 20 5;      /* #241405 */
   --sys-text-primary: 43 26 8;      /* #2b1a08 */
-  --sys-text-secondary: 87 58 26;   /* #573a1a (Contrast 9.2:1) */
-  --sys-text-muted: 120 85 45;      /* #78552d (Contrast 5.7:1) */
+  --sys-text-secondary: 74 47 18;   /* #4a2f12 (Contrast >10.5:1) */
+  --sys-text-muted: 102 70 33;      /* #664621 (Contrast >6.8:1) */
   --sys-status-warn-text: 154 52 18;/* #9a3412 */
   --sys-status-warn-bg: 234 88 12;
 }
@@ -430,7 +430,7 @@ html[data-theme="light"][data-accent="rose"] {
   --surface: #ffffff;
   --border: #edbbc9;
   --border-chip: #e096ac;
-  --accent: #be123c;
+  --accent: #9f1239;
   --accent-solid: #be123c;
   --sys-bg: 251 238 242;            /* #fbeef2 Soft Sakura Rose */
   --sys-card: 255 255 255;          /* #ffffff */
@@ -440,13 +440,13 @@ html[data-theme="light"][data-accent="rose"] {
   --sys-border: 237 187 201;        /* #edbbc9 */
   --sys-input: 249 229 235;         /* #f9e5eb */
   --sys-tab-active: 254 205 211;    /* #fecdd3 */
-  --sys-accent: 190 18 60;          /* #be123c (Contrast 6.30:1 on white) */
+  --sys-accent: 159 18 57;          /* #9f1239 (Contrast 7.87:1 on white, 5.75:1 on tabActive) */
   --sys-accent-solid: 190 18 60;    /* #be123c (White text contrast 6.30:1) */
-  --sys-neon: 190 18 60;
+  --sys-neon: 159 18 57;
   --sys-text-subject: 38 9 19;      /* #260913 */
   --sys-text-primary: 46 14 25;     /* #2e0e19 */
-  --sys-text-secondary: 94 40 58;   /* #5e283a (Contrast 9.3:1) */
-  --sys-text-muted: 128 65 86;      /* #804156 (Contrast 5.7:1) */
+  --sys-text-secondary: 82 31 48;   /* #521f30 (Contrast >10.5:1) */
+  --sys-text-muted: 112 52 72;      /* #703448 (Contrast >6.7:1) */
   --sys-status-danger-text: 153 27 27; /* #991b1b */
   --sys-status-danger-bg: 220 38 38;
 }
@@ -458,7 +458,7 @@ html[data-theme="light"][data-accent="cyan"] {
   --surface: #ffffff;
   --border: #b3dce6;
   --border-chip: #8bc7d6;
-  --accent: #0e7490;
+  --accent: #0b5e75;
   --accent-solid: #0e7490;
   --sys-bg: 234 246 249;            /* #eaf6f9 Soft Aqua Cyan */
   --sys-card: 255 255 255;          /* #ffffff */
@@ -468,13 +468,13 @@ html[data-theme="light"][data-accent="cyan"] {
   --sys-border: 179 220 230;        /* #b3dce6 */
   --sys-input: 227 243 247;         /* #e3f3f7 */
   --sys-tab-active: 207 250 254;    /* #cffafe */
-  --sys-accent: 14 116 144;         /* #0e7490 (Contrast 5.36:1 on white) */
+  --sys-accent: 11 94 117;          /* #0b5e75 (Contrast 7.21:1 on white, 5.9:1 on tabActive) */
   --sys-accent-solid: 14 116 144;   /* #0e7490 (White text contrast 5.36:1) */
-  --sys-neon: 14 116 144;
+  --sys-neon: 11 94 117;
   --sys-text-subject: 7 27 36;      /* #071b24 */
   --sys-text-primary: 12 35 46;     /* #0c232e */
-  --sys-text-secondary: 36 73 92;   /* #24495c (Contrast 9.4:1) */
-  --sys-text-muted: 64 104 125;     /* #40687d (Contrast 5.8:1) */
+  --sys-text-secondary: 28 62 80;   /* #1c3e50 (Contrast >10.5:1) */
+  --sys-text-muted: 52 89 109;      /* #34596d (Contrast >6.8:1) */
 }
 
 @media (min-width: 1024px) {
@@ -529,16 +529,6 @@ html[data-theme="light"][data-accent="cyan"] {
         radial-gradient(ellipse 60% 40% at 90% 100%, rgb(var(--sys-accent) / 0.05), transparent 65%);
       background-attachment: fixed;
     }
-  }
-
-  /* Guarantee WCAG AA contrast whenever solid bg-sys-accent is paired with white text */
-  .bg-sys-accent.text-white {
-    background-color: rgb(var(--sys-accent-solid));
-    color: #ffffff;
-  }
-
-  .bg-sys-accent.text-white:hover {
-    background-color: rgb(var(--sys-accent-solid) / 0.9);
   }
 
   /* View Transitions API (where supported: 240ms, instant elsewhere) */
@@ -642,6 +632,33 @@ html[data-theme="light"][data-accent="cyan"] {
 .animate-splash-beam {
   animation: splash-beam 1.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
   will-change: transform;
+}
+
+/* Unlayered contrast rules: must reside outside @layer so they supersede @tailwind utilities */
+.bg-sys-accent.text-white,
+.bg-sys-accent.text-sys-onAccent,
+.bg-sys-accent:has(> .text-white) {
+  background-color: rgb(var(--sys-accent-solid));
+  color: #ffffff;
+}
+
+.bg-sys-accent\/90.text-white,
+.bg-sys-accent\/80.text-white {
+  background-color: rgb(var(--sys-accent-solid) / 0.92);
+  color: #ffffff;
+}
+
+.bg-sys-accent.text-white:hover,
+.bg-sys-accent.text-sys-onAccent:hover,
+.bg-sys-accent.hover\:bg-sys-accent\/90.text-white:hover,
+.bg-sys-accent.hover\:bg-sys-accent-hover.text-white:hover {
+  background-color: rgb(var(--sys-accent-solid) / 0.9);
+}
+
+.hover\:bg-sys-accent.hover\:text-white:hover,
+.hover\:bg-sys-accent.text-white:hover {
+  background-color: rgb(var(--sys-accent-solid));
+  color: #ffffff;
 }
 
 @media (prefers-reduced-motion: reduce) {

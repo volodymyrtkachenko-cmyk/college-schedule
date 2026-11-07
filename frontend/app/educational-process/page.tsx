@@ -50,30 +50,30 @@ interface PeriodStyle {
 function getPeriodStyle(periodType: string, name: string | null): PeriodStyle {
   if (periodType === "practice") {
     return {
-      badgeClass: "border-amber-500/40 bg-amber-500/15 text-amber-300",
-      dotClass: "bg-amber-400",
+      badgeClass: "border-amber-500/40 bg-amber-500/15 text-amber-800 dark:text-amber-300",
+      dotClass: "bg-amber-500 dark:bg-amber-400",
     };
   }
   switch (periodType) {
     case "session":
       return {
-        badgeClass: "border-rose-500/40 bg-rose-500/15 text-rose-300",
-        dotClass: "bg-rose-400",
+        badgeClass: "border-rose-500/40 bg-rose-500/15 text-rose-700 dark:text-rose-300",
+        dotClass: "bg-rose-500 dark:bg-rose-400",
       };
     case "holiday":
       return {
-        badgeClass: "border-emerald-500/40 bg-emerald-500/15 text-emerald-300",
-        dotClass: "bg-emerald-400",
+        badgeClass: "border-emerald-500/40 bg-emerald-500/15 text-emerald-800 dark:text-emerald-300",
+        dotClass: "bg-emerald-500 dark:bg-emerald-400",
       };
     case "diploma":
       return {
-        badgeClass: "border-purple-500/40 bg-purple-500/15 text-purple-300",
-        dotClass: "bg-purple-400",
+        badgeClass: "border-purple-500/40 bg-purple-500/15 text-purple-800 dark:text-purple-300",
+        dotClass: "bg-purple-500 dark:bg-purple-400",
       };
     case "attestation":
       return {
-        badgeClass: "border-sky-500/40 bg-sky-500/15 text-sky-300",
-        dotClass: "bg-sky-400",
+        badgeClass: "border-sky-500/40 bg-sky-500/15 text-sky-800 dark:text-sky-300",
+        dotClass: "bg-sky-500 dark:bg-sky-400",
       };
     case "theory":
     default:
@@ -304,7 +304,7 @@ export default function EducationalProcessPage() {
             ))}
           </div>
         ) : error ? (
-          <div className="rounded-2xl border border-rose-400/20 bg-rose-400/5 p-8 text-center text-sm text-rose-200">
+          <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-8 text-center text-sm text-rose-700 dark:text-rose-300">
             {error}
           </div>
         ) : !matrix || filteredCourses.length === 0 ? (

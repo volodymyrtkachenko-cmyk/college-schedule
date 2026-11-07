@@ -361,7 +361,7 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
                 onClick={() => setDemoNavDay(d)}
                 className={`py-1.5 rounded-xl border text-xs font-bold transition-all ${
                   demoNavDay === d
-                    ? "bg-sys-accent text-slate-900 border-sys-accent shadow-xs scale-105"
+                    ? "bg-sys-accent text-white border-sys-accent shadow-xs scale-105"
                     : "bg-sys-bg border-sys-border text-sys-text-secondary hover:text-sys-text-primary"
                 }`}
               >
@@ -525,24 +525,24 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
         >
           <div className="flex items-center justify-between text-xs">
             <span className="font-bold text-sys-text-secondary">{demoData.hwSubject}</span>
-            <span className="text-emerald-400 font-bold text-[11px]">Classroom ✓</span>
+            <span className="text-emerald-700 dark:text-emerald-400 font-bold text-[11px]">Classroom ✓</span>
           </div>
           <div className="space-y-2">
             <div className="flex items-center justify-between rounded-xl border border-purple-500/30 bg-purple-500/10 p-2.5 text-xs">
               <div>
                 <div className="font-bold text-sys-text-primary">Практична робота №3</div>
-                <div className="text-purple-300 text-[11px]">Термін: сьогодні до 23:59 ↗</div>
+                <div className="text-purple-700 dark:text-purple-300 text-[11px]">Термін: сьогодні до 23:59 ↗</div>
               </div>
-              <span className="rounded-md bg-amber-500/20 text-amber-300 font-bold px-2 py-0.5 text-[10px]">
+              <span className="rounded-md bg-amber-500/20 text-amber-800 dark:text-amber-300 font-bold px-2 py-0.5 text-[10px]">
                 Дедлайн
               </span>
             </div>
             <div className="flex items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-2.5 text-xs">
               <div>
                 <div className="font-bold text-sys-text-primary">Лабораторна робота №2</div>
-                <div className="text-emerald-300 text-[11px]">Роботу перевірено ✓</div>
+                <div className="text-emerald-700 dark:text-emerald-300 text-[11px]">Роботу перевірено ✓</div>
               </div>
-              <span className="rounded-md bg-emerald-500/20 text-emerald-400 font-bold px-2 py-0.5 text-xs">
+              <span className="rounded-md bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 font-bold px-2 py-0.5 text-xs">
                 12 / 12
               </span>
             </div>
@@ -608,7 +608,7 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
               {demoData.statSubjects.map((sub, idx) => {
                 const circumference = 2 * Math.PI * 18;
                 const strokeDashoffset = circumference - (sub.percent / 100) * circumference;
-                const colorClass = idx === 0 ? "text-sys-accent" : "text-purple-400";
+                const colorClass = idx === 0 ? "text-sys-accent" : "text-purple-600 dark:text-purple-400";
 
                 return (
                   <div
@@ -653,7 +653,7 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
           <Link
             href="/statistics"
             onClick={onClose}
-            className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-sys-accent px-4 py-2 text-xs font-bold text-slate-900 shadow-sm hover:opacity-95 active:scale-95 transition-all"
+            className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-sys-accent px-4 py-2 text-xs font-bold text-white shadow-sm hover:opacity-95 active:scale-95 transition-all"
           >
             <span>Відкрити детальну статистику</span>
             <span>↗</span>
@@ -708,7 +708,7 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
                   setPwaFeedback("Відкрийте меню браузера (⋮) → «Встановити додаток».");
                 }
               }}
-              className="w-full rounded-xl bg-sys-accent py-2.5 text-xs sm:text-sm font-bold text-slate-900 shadow-md active:scale-95 transition-all"
+              className="w-full rounded-xl bg-sys-accent py-2.5 text-xs sm:text-sm font-bold text-white shadow-md active:scale-95 transition-all"
             >
               📲 Додати розклад на екран
             </button>
@@ -896,7 +896,7 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
                 onClose();
               }
             }}
-            className="rounded-xl bg-sys-accent px-5 py-2 text-xs sm:text-sm font-bold text-slate-900 hover:opacity-95 active:scale-95 transition-all shadow-md"
+            className="rounded-xl bg-sys-accent px-5 py-2 text-xs sm:text-sm font-bold text-white hover:opacity-95 active:scale-95 transition-all shadow-md"
           >
             {activeSlide === total - 1 ? "Зрозуміло ✓" : "Далі →"}
           </button>

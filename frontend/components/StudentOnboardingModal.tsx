@@ -229,23 +229,23 @@ export function StudentOnboardingModal({
                     onClick={() => handleSubgroupSelect(1)}
                     className={`flex items-center justify-between rounded-2xl py-3 px-4 border text-left transition-all ${
                       chosenSubgroup === 1
-                        ? "bg-sys-accent text-slate-900 border-sys-accent shadow-md scale-[1.01]"
+                        ? "bg-sys-accent text-white border-sys-accent shadow-md scale-[1.01]"
                         : "bg-sys-bg border-sys-border text-sys-text-primary hover:border-sys-accent/40"
                     }`}
                   >
                     <div className="min-w-0 pr-2">
                       <div className="font-bold text-sm">1 підгрупа</div>
                       {subgroupHints.sub1.length > 0 ? (
-                        <div className={`text-xs mt-0.5 truncate ${chosenSubgroup === 1 ? "text-slate-800 font-medium" : "text-sys-text-secondary"}`}>
+                        <div className={`text-xs mt-0.5 truncate ${chosenSubgroup === 1 ? "text-white/90 font-medium" : "text-sys-text-secondary"}`}>
                           {subgroupHints.sub1.map((h) => `${h.teacher} (${h.subject})`).join(" • ")}
                         </div>
                       ) : (
-                        <div className={`text-xs mt-0.5 ${chosenSubgroup === 1 ? "text-slate-800 font-medium" : "text-sys-text-muted"}`}>
+                        <div className={`text-xs mt-0.5 ${chosenSubgroup === 1 ? "text-white/90 font-medium" : "text-sys-text-muted"}`}>
                           Перша половина списку групи
                         </div>
                       )}
                     </div>
-                    {chosenSubgroup === 1 && <span className="font-bold text-slate-900 shrink-0">✓</span>}
+                    {chosenSubgroup === 1 && <span className="font-bold text-white shrink-0">✓</span>}
                   </button>
 
                   <button
@@ -253,23 +253,23 @@ export function StudentOnboardingModal({
                     onClick={() => handleSubgroupSelect(2)}
                     className={`flex items-center justify-between rounded-2xl py-3 px-4 border text-left transition-all ${
                       chosenSubgroup === 2
-                        ? "bg-sys-accent text-slate-900 border-sys-accent shadow-md scale-[1.01]"
+                        ? "bg-sys-accent text-white border-sys-accent shadow-md scale-[1.01]"
                         : "bg-sys-bg border-sys-border text-sys-text-primary hover:border-sys-accent/40"
                     }`}
                   >
                     <div className="min-w-0 pr-2">
                       <div className="font-bold text-sm">2 підгрупа</div>
                       {subgroupHints.sub2.length > 0 ? (
-                        <div className={`text-xs mt-0.5 truncate ${chosenSubgroup === 2 ? "text-slate-800 font-medium" : "text-sys-text-secondary"}`}>
+                        <div className={`text-xs mt-0.5 truncate ${chosenSubgroup === 2 ? "text-white/90 font-medium" : "text-sys-text-secondary"}`}>
                           {subgroupHints.sub2.map((h) => `${h.teacher} (${h.subject})`).join(" • ")}
                         </div>
                       ) : (
-                        <div className={`text-xs mt-0.5 ${chosenSubgroup === 2 ? "text-slate-800 font-medium" : "text-sys-text-muted"}`}>
+                        <div className={`text-xs mt-0.5 ${chosenSubgroup === 2 ? "text-white/90 font-medium" : "text-sys-text-muted"}`}>
                           Друга половина списку групи
                         </div>
                       )}
                     </div>
-                    {chosenSubgroup === 2 && <span className="font-bold text-slate-900 shrink-0">✓</span>}
+                    {chosenSubgroup === 2 && <span className="font-bold text-white shrink-0">✓</span>}
                   </button>
 
                   <button
@@ -277,17 +277,17 @@ export function StudentOnboardingModal({
                     onClick={() => handleSubgroupSelect(null)}
                     className={`flex items-center justify-between rounded-2xl py-3 px-4 border text-left transition-all ${
                       chosenSubgroup === null
-                        ? "bg-sys-accent text-slate-900 border-sys-accent shadow-md scale-[1.01]"
+                        ? "bg-sys-accent text-white border-sys-accent shadow-md scale-[1.01]"
                         : "bg-sys-bg border-sys-border text-sys-text-primary hover:border-sys-accent/40"
                     }`}
                   >
                     <div className="min-w-0 pr-2">
                       <div className="font-bold text-sm">Обидві підгрупи</div>
-                      <div className={`text-xs mt-0.5 ${chosenSubgroup === null ? "text-slate-800 font-medium" : "text-sys-text-secondary"}`}>
+                      <div className={`text-xs mt-0.5 ${chosenSubgroup === null ? "text-white/90 font-medium" : "text-sys-text-secondary"}`}>
                         Показувати викладачів обох підгруп паралельно
                       </div>
                     </div>
-                    {chosenSubgroup === null && <span className="font-bold text-slate-900 shrink-0">✓</span>}
+                    {chosenSubgroup === null && <span className="font-bold text-white shrink-0">✓</span>}
                   </button>
                 </div>
 
@@ -324,7 +324,7 @@ export function StudentOnboardingModal({
                     onClick={() => setTheme("dark")}
                     className={`flex items-center justify-center gap-2 rounded-2xl py-3 px-3 text-xs sm:text-sm font-bold border transition-all ${
                       resolvedTheme === "dark"
-                        ? "bg-sys-accent text-slate-900 border-sys-accent shadow-md scale-[1.02]"
+                        ? "bg-sys-accent text-white border-sys-accent shadow-md scale-[1.02]"
                         : "bg-sys-bg border-sys-border text-sys-text-secondary hover:text-sys-text-primary"
                     }`}
                   >
@@ -336,7 +336,7 @@ export function StudentOnboardingModal({
                     onClick={() => setTheme("light")}
                     className={`flex items-center justify-center gap-2 rounded-2xl py-3 px-3 text-xs sm:text-sm font-bold border transition-all ${
                       resolvedTheme === "light"
-                        ? "bg-sys-accent text-slate-900 border-sys-accent shadow-md scale-[1.02]"
+                        ? "bg-sys-accent text-white border-sys-accent shadow-md scale-[1.02]"
                         : "bg-sys-bg border-sys-border text-sys-text-secondary hover:text-sys-text-primary"
                     }`}
                   >
@@ -398,15 +398,15 @@ export function StudentOnboardingModal({
 
                 <div className="rounded-2xl border border-sys-border bg-sys-bg p-4 space-y-3 shadow-xs">
                   {isLinked || classroomSuccess ? (
-                    <div className="flex items-center gap-3 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-emerald-400 font-bold text-xs sm:text-sm">
+                    <div className="flex items-center gap-3 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-emerald-700 dark:text-emerald-400 font-bold text-xs sm:text-sm">
                       <span className="text-xl">✅</span>
                       <div>
                         <div>Classroom успішно підключено!</div>
-                        <div className="text-xs font-normal text-emerald-300/80">
+                        <div className="text-xs font-normal text-emerald-700/80 dark:text-emerald-300/80">
                           {linkedEmail || "Студентський акаунт синхронізовано"}
                         </div>
                         {groupSwitchNotice && (
-                          <div className="text-xs font-semibold text-amber-300 mt-1">
+                          <div className="text-xs font-semibold text-amber-800 dark:text-amber-300 mt-1">
                             {groupSwitchNotice}
                           </div>
                         )}
@@ -418,13 +418,13 @@ export function StudentOnboardingModal({
                         type="button"
                         onClick={handleClassroomAuth}
                         disabled={isLinkingClassroom}
-                        className="w-full flex items-center justify-center gap-2 rounded-xl bg-sys-accent px-4 py-3 text-xs sm:text-sm font-bold text-slate-900 hover:opacity-95 active:scale-95 transition-all shadow-md disabled:opacity-50"
+                        className="w-full flex items-center justify-center gap-2 rounded-xl bg-sys-accent px-4 py-3 text-xs sm:text-sm font-bold text-white hover:opacity-95 active:scale-95 transition-all shadow-md disabled:opacity-50"
                       >
                         <span>🔗</span>
                         <span>{isLinkingClassroom ? "Підключення..." : "Підключити студентську пошту"}</span>
                       </button>
                       {classroomError && (
-                        <p className="text-xs text-rose-400 text-center font-medium">{classroomError}</p>
+                        <p className="text-xs text-rose-600 dark:text-rose-400 text-center font-medium">{classroomError}</p>
                       )}
                       <p className="text-[11px] text-sys-text-muted text-center leading-relaxed">
                         Необов'язково зараз. Розклад чудово працює і без пошти, а підключитися можна в будь-який момент у Налаштуваннях.
@@ -465,7 +465,7 @@ export function StudentOnboardingModal({
           <button
             type="button"
             onClick={handleNext}
-            className="rounded-xl bg-sys-accent px-5 py-2 text-xs sm:text-sm font-bold text-slate-900 hover:opacity-95 active:scale-95 transition-all shadow-md"
+            className="rounded-xl bg-sys-accent px-5 py-2 text-xs sm:text-sm font-bold text-white hover:opacity-95 active:scale-95 transition-all shadow-md"
           >
             {currentStepIndex === steps.length - 1 ? "🚀 До розкладу" : "Далі →"}
           </button>

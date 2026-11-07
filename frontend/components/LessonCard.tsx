@@ -1241,7 +1241,7 @@ export const LessonCard = memo(function LessonCard({
                     setMoreOpen(false);
                     onCopySelect(lesson);
                   }}
-                  className="w-full flex items-center gap-2 px-2.5 py-2 sm:py-1.5 rounded-lg text-left text-sys-text-primary hover:bg-sky-500/10 hover:text-sky-400 transition-colors"
+                  className="w-full flex items-center gap-2 px-2.5 py-2 sm:py-1.5 rounded-lg text-left text-sys-text-primary hover:bg-sky-500/10 hover:text-sky-600 dark:hover:text-sky-400 transition-colors"
                 >
                   <CopyIcon />
                   <span>Копіювати</span>
@@ -1255,7 +1255,7 @@ export const LessonCard = memo(function LessonCard({
                     setMoreOpen(false);
                     onMoveSelect(lesson);
                   }}
-                  className="w-full flex items-center gap-2 px-2.5 py-2 sm:py-1.5 rounded-lg text-left text-sys-text-primary hover:bg-emerald-500/10 hover:text-emerald-400 transition-colors"
+                  className="w-full flex items-center gap-2 px-2.5 py-2 sm:py-1.5 rounded-lg text-left text-sys-text-primary hover:bg-emerald-500/10 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
                 >
                   <MoveIcon />
                   <span>Перемістити</span>
@@ -1269,7 +1269,7 @@ export const LessonCard = memo(function LessonCard({
                     setMoreOpen(false);
                     onSwapSelect(lesson);
                   }}
-                  className="w-full flex items-center gap-2 px-2.5 py-2 sm:py-1.5 rounded-lg text-left text-sys-text-primary hover:bg-amber-500/10 hover:text-amber-400 transition-colors"
+                  className="w-full flex items-center gap-2 px-2.5 py-2 sm:py-1.5 rounded-lg text-left text-sys-text-primary hover:bg-amber-500/10 hover:text-amber-600 dark:hover:text-amber-400 transition-colors"
                 >
                   <SwapIcon />
                   <span>Поміняти місцями</span>
@@ -1288,7 +1288,7 @@ export const LessonCard = memo(function LessonCard({
                       onDeleteTemplate(lesson);
                     }
                   }}
-                  className="w-full flex items-center gap-2 px-2.5 py-2 sm:py-1.5 rounded-lg text-left text-rose-400 hover:bg-rose-500/10 transition-colors"
+                  className="w-full flex items-center gap-2 px-2.5 py-2 sm:py-1.5 rounded-lg text-left text-rose-700 dark:text-rose-400 hover:bg-rose-500/10 transition-colors"
                 >
                   <TrashIcon />
                   <span>Видалити</span>
@@ -1304,7 +1304,7 @@ export const LessonCard = memo(function LessonCard({
                     setMoreOpen(false);
                     onMoveSelect?.(lesson);
                   }}
-                  className="w-full flex items-center gap-2 px-2.5 py-2 sm:py-1.5 rounded-lg text-left text-sys-text-primary hover:bg-emerald-500/10 hover:text-emerald-400 transition-colors"
+                  className="w-full flex items-center gap-2 px-2.5 py-2 sm:py-1.5 rounded-lg text-left text-sys-text-primary hover:bg-emerald-500/10 hover:text-emerald-700 dark:hover:text-emerald-400 transition-colors"
                 >
                   <MoveIcon />
                   <span>Перенести</span>
@@ -1318,7 +1318,7 @@ export const LessonCard = memo(function LessonCard({
                     setMoreOpen(false);
                     onSwapSelect(lesson);
                   }}
-                  className="w-full flex items-center gap-2 px-2.5 py-2 sm:py-1.5 rounded-lg text-left text-sys-text-primary hover:bg-amber-500/10 hover:text-amber-400 transition-colors"
+                  className="w-full flex items-center gap-2 px-2.5 py-2 sm:py-1.5 rounded-lg text-left text-sys-text-primary hover:bg-amber-500/10 hover:text-amber-700 dark:hover:text-amber-400 transition-colors"
                 >
                   <SwapIcon />
                   <span>Поміняти місцями</span>
@@ -1338,7 +1338,7 @@ export const LessonCard = memo(function LessonCard({
                         onRemoveReplacement(lesson, targetDate);
                       }
                     }}
-                    className="w-full flex items-center gap-2 px-2.5 py-2 sm:py-1.5 rounded-lg text-left text-amber-400 hover:bg-amber-500/10 transition-colors"
+                    className="w-full flex items-center gap-2 px-2.5 py-2 sm:py-1.5 rounded-lg text-left text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 transition-colors"
                   >
                     <span>↩</span>
                     <span>Прибрати заміну</span>
@@ -1357,7 +1357,7 @@ export const LessonCard = memo(function LessonCard({
                         onCancelDated(lesson, targetDate);
                       }
                     }}
-                    className="w-full flex items-center gap-2 px-2.5 py-2 sm:py-1.5 rounded-lg text-left text-rose-400 hover:bg-rose-500/10 transition-colors"
+                    className="w-full flex items-center gap-2 px-2.5 py-2 sm:py-1.5 rounded-lg text-left text-rose-700 dark:text-rose-400 hover:bg-rose-500/10 transition-colors"
                   >
                     <CalendarOffIcon />
                     <span>Скасувати</span>
@@ -1495,8 +1495,8 @@ export const LessonCard = memo(function LessonCard({
                           aria-label={`Ваша підгрупа ${singleSubgroupIdx + 1} (натисніть, щоб скинути або перемкнути)`}
                           className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold border ${
                             singleSubgroupIdx === 0
-                              ? "bg-sky-500/20 text-sky-400 font-bold border-sky-500/40"
-                              : "bg-indigo-500/20 text-indigo-400 font-bold border-indigo-500/40"
+                              ? "bg-sky-500/20 text-sky-800 dark:text-sky-300 font-bold border-sky-500/40"
+                              : "bg-indigo-500/20 text-indigo-800 dark:text-indigo-300 font-bold border-indigo-500/40"
                           }`}
                         >
                           {singleSubgroupIdx + 1} підгр.
@@ -1557,11 +1557,11 @@ export const LessonCard = memo(function LessonCard({
                                   className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold transition-colors ${
                                     effectiveSubgroup === subNum
                                       ? subNum === 1
-                                        ? "bg-sky-500/20 text-sky-400 font-bold border border-sky-500/40"
-                                        : "bg-indigo-500/20 text-indigo-400 font-bold border border-indigo-500/40"
+                                        ? "bg-sky-500/20 text-sky-800 dark:text-sky-300 font-bold border border-sky-500/40"
+                                        : "bg-indigo-500/20 text-indigo-800 dark:text-indigo-300 font-bold border border-indigo-500/40"
                                       : subNum === 1
-                                        ? "bg-sys-card border border-sys-border text-slate-400 hover:text-slate-200 hover:border-sky-500/40"
-                                        : "bg-sys-card border border-sys-border text-slate-400 hover:text-slate-200 hover:border-indigo-500/40"
+                                        ? "bg-sys-card border border-sys-border text-sys-text-secondary hover:text-sys-text-primary hover:border-sky-500/40"
+                                        : "bg-sys-card border border-sys-border text-sys-text-secondary hover:text-sys-text-primary hover:border-indigo-500/40"
                                   }`}
                                 >
                                   {subNum} підгр.
@@ -1703,7 +1703,7 @@ export const LessonCard = memo(function LessonCard({
                               }}
                               title={lesson.moved_to_date ? "Скасувати перенесення та відновити пару" : `Відновити пару на ${targetDate}`}
                               aria-label={lesson.moved_to_date ? "Скасувати перенесення та відновити пару" : `Відновити пару на ${targetDate}`}
-                              className="inline-flex h-8 items-center justify-center rounded-lg border border-emerald-500/50 bg-emerald-500/15 px-2.5 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/25 active:scale-[0.98] transition-colors whitespace-nowrap"
+                              className="inline-flex h-8 items-center justify-center rounded-lg border border-emerald-500/50 bg-emerald-500/15 px-2.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/25 active:scale-[0.98] transition-colors whitespace-nowrap"
                             >
                               Відновити
                             </button>
@@ -1836,26 +1836,10 @@ export const LessonCard = memo(function LessonCard({
                   <div className="flex items-center gap-2 min-w-0 justify-end ml-auto">
                     {highlightTask?.deadline.statusText ? (
                       <span
-                        className="inline-flex items-center gap-1.5 font-medium text-xs min-w-0"
-                        style={{
-                          color:
-                            highlightTask.deadline.badgeTone === "overdue"
-                              ? isLinked ? "#f87171" : "#a1a1aa"
-                              : highlightTask.deadline.badgeTone === "urgent"
-                              ? "#fbbf24"
-                              : "#a1a1aa",
-                        }}
+                        className={`inline-flex items-center gap-1.5 font-medium text-xs min-w-0 ${getTaskDeadlineTextColor(highlightTask.deadline.badgeTone, isLinked)}`}
                       >
                         <span
-                          className="h-1.5 w-1.5 rounded-full shrink-0"
-                          style={{
-                            backgroundColor:
-                              highlightTask.deadline.badgeTone === "overdue"
-                                ? isLinked ? "#ef4444" : "#71717a"
-                                : highlightTask.deadline.badgeTone === "urgent"
-                                ? "#f59e0b"
-                                : "#71717a",
-                          }}
+                          className={`h-1.5 w-1.5 rounded-full shrink-0 ${getTaskDeadlineDotColor(highlightTask.deadline.badgeTone, isLinked)}`}
                         />
                         <span className="truncate">{getTaskStatusText(highlightTask.deadline, isLinked)}</span>
                       </span>
@@ -2006,7 +1990,7 @@ export const LessonCard = memo(function LessonCard({
                           }}
                           title={lesson.moved_to_date ? "Скасувати перенесення та відновити пару" : `Відновити пару на ${targetDate}`}
                           aria-label={lesson.moved_to_date ? "Скасувати перенесення та відновити пару" : `Відновити пару на ${targetDate}`}
-                          className="inline-flex h-9 items-center justify-center rounded-lg border border-emerald-500/50 bg-emerald-500/15 px-3 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/25 active:scale-[0.98] transition-colors whitespace-nowrap"
+                          className="inline-flex h-9 items-center justify-center rounded-lg border border-emerald-500/50 bg-emerald-500/15 px-3 text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/25 active:scale-[0.98] transition-colors whitespace-nowrap"
                         >
                           Відновити
                         </button>
@@ -2070,7 +2054,7 @@ export const LessonCard = memo(function LessonCard({
                   {displayRooms.length > 0 && (
                     <div
                       title={roomsLabel}
-                      className="inline-flex h-8 px-2.5 items-center gap-1 rounded-lg border border-[#3f3f46] bg-sys-bg text-sys-text-secondary font-medium text-xs shadow-xs max-w-[160px] truncate whitespace-nowrap"
+                      className="inline-flex h-8 px-2.5 items-center gap-1 rounded-lg border border-sys-border bg-sys-bg text-sys-text-secondary font-medium text-xs shadow-xs max-w-[160px] truncate whitespace-nowrap"
                     >
                       <span className="truncate">{roomsLabel}</span>
                     </div>
@@ -2125,8 +2109,8 @@ export const LessonCard = memo(function LessonCard({
                     aria-label={`Ваша підгрупа ${singleSubgroupIdx + 1} (натисніть, щоб скинути або перемкнути)`}
                     className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold border ${
                       singleSubgroupIdx === 0
-                        ? "bg-sky-500/20 text-sky-400 font-bold border-sky-500/40"
-                        : "bg-indigo-500/20 text-indigo-400 font-bold border-indigo-500/40"
+                        ? "bg-sky-500/20 text-sky-800 dark:text-sky-300 font-bold border-sky-500/40"
+                        : "bg-indigo-500/20 text-indigo-800 dark:text-indigo-300 font-bold border-indigo-500/40"
                     }`}
                   >
                     {singleSubgroupIdx + 1} підгр.
@@ -2187,11 +2171,11 @@ export const LessonCard = memo(function LessonCard({
                             className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold transition-colors ${
                               effectiveSubgroup === subNum
                                 ? subNum === 1
-                                  ? "bg-sky-500/20 text-sky-400 font-bold border border-sky-500/40"
-                                  : "bg-indigo-500/20 text-indigo-400 font-bold border border-indigo-500/40"
+                                  ? "bg-sky-500/20 text-sky-800 dark:text-sky-300 font-bold border border-sky-500/40"
+                                  : "bg-indigo-500/20 text-indigo-800 dark:text-indigo-300 font-bold border border-indigo-500/40"
                                 : subNum === 1
-                                  ? "bg-sys-card border border-sys-border text-slate-400 hover:text-slate-200 hover:border-sky-500/40"
-                                  : "bg-sys-card border border-sys-border text-slate-400 hover:text-slate-200 hover:border-indigo-500/40"
+                                  ? "bg-sys-card border border-sys-border text-sys-text-secondary hover:text-sys-text-primary hover:border-sky-500/40"
+                                  : "bg-sys-card border border-sys-border text-sys-text-secondary hover:text-sys-text-primary hover:border-indigo-500/40"
                             }`}
                           >
                             {subNum} підгр.
@@ -2436,7 +2420,7 @@ export const LessonCard = memo(function LessonCard({
               >
                 <div className="flex items-center gap-2 shrink-0">
                   {highlightTask?.deadline.badgeTone === "overdue" && isLinked ? (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-rose-400 shrink-0">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-rose-600 dark:text-rose-400 shrink-0">
                       <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
                       <line x1="12" y1="9" x2="12" y2="13" />
                       <line x1="12" y1="17" x2="12.01" y2="17" />
@@ -2618,8 +2602,8 @@ export const LessonCard = memo(function LessonCard({
                   aria-label={`Ваша підгрупа ${singleSubgroupIdx + 1} (натисніть, щоб скинути або перемкнути)`}
                   className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-bold border ${
                     singleSubgroupIdx === 0
-                      ? "bg-sky-500/20 text-sky-400 border-sky-500/40"
-                      : "bg-indigo-500/20 text-indigo-400 border-indigo-500/40"
+                      ? "bg-sky-500/20 text-sky-800 dark:text-sky-300 border-sky-500/40"
+                      : "bg-indigo-500/20 text-indigo-800 dark:text-indigo-300 border-indigo-500/40"
                   }`}
                 >
                   {singleSubgroupIdx + 1} підгр.
@@ -2680,11 +2664,11 @@ export const LessonCard = memo(function LessonCard({
                           className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-semibold transition-colors ${
                             effectiveSubgroup === subNum
                               ? subNum === 1
-                                ? "bg-sky-500/20 text-sky-400 font-bold border border-sky-500/40"
-                                : "bg-indigo-500/20 text-indigo-400 font-bold border border-indigo-500/40"
+                                ? "bg-sky-500/20 text-sky-800 dark:text-sky-300 font-bold border border-sky-500/40"
+                                : "bg-indigo-500/20 text-indigo-800 dark:text-indigo-300 font-bold border border-indigo-500/40"
                               : subNum === 1
-                                ? "bg-sys-card border border-sys-border text-slate-400 hover:text-slate-200 hover:border-sky-500/40"
-                                : "bg-sys-card border border-sys-border text-slate-400 hover:text-slate-200 hover:border-indigo-500/40"
+                                ? "bg-sys-card border border-sys-border text-sys-text-secondary hover:text-sys-text-primary hover:border-sky-500/40"
+                                : "bg-sys-card border border-sys-border text-sys-text-secondary hover:text-sys-text-primary hover:border-indigo-500/40"
                           }`}
                         >
                           {subNum} підгр.
@@ -2907,7 +2891,7 @@ export const LessonCard = memo(function LessonCard({
                         }}
                         title={lesson.moved_to_date ? "Скасувати перенесення та відновити пару" : `Відновити пару на ${targetDate}`}
                         aria-label={lesson.moved_to_date ? "Скасувати перенесення та відновити пару" : `Відновити пару на ${targetDate}`}
-                        className="inline-flex min-h-[44px] min-w-[44px] sm:min-h-[32px] items-center justify-center rounded-md border border-emerald-500/50 bg-emerald-500/15 px-2.5 py-1 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/25 active:scale-[0.98] transition-colors whitespace-nowrap"
+                        className="inline-flex min-h-[44px] min-w-[44px] sm:min-h-[32px] items-center justify-center rounded-md border border-emerald-500/50 bg-emerald-500/15 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/25 active:scale-[0.98] transition-colors whitespace-nowrap"
                         style={{ whiteSpace: "nowrap" }}
                       >
                         Відновити

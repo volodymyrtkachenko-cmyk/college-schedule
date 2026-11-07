@@ -532,7 +532,7 @@ export function OfficialPrintModal({
       {/* Панель керування (ховається під час друку) */}
       <div className="print-hide flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 border-b border-sys-border bg-sys-card p-4 sm:px-6">
         <div className="flex items-center justify-between gap-2">
-          <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2 min-w-0">
+          <h2 className="text-base sm:text-lg font-bold text-sys-text-primary flex items-center gap-2 min-w-0">
             <span className="shrink-0">🖨️</span>
             <span className="truncate">Офіційний розклад (формат адміністрації)</span>
           </h2>
@@ -540,7 +540,7 @@ export function OfficialPrintModal({
             type="button"
             onClick={onClose}
             aria-label="Закрити"
-            className="md:hidden w-8 h-8 shrink-0 flex items-center justify-center rounded-lg text-sys-text-secondary hover:text-white text-base"
+            className="md:hidden w-8 h-8 shrink-0 flex items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary text-base"
           >
             ✕
           </button>
@@ -572,7 +572,7 @@ export function OfficialPrintModal({
           <button
             type="button"
             onClick={onClose}
-            className="hidden md:inline-flex min-h-[40px] items-center rounded-lg border border-sys-border px-3.5 py-1.5 text-sm text-sys-text-secondary hover:text-white transition-colors"
+            className="hidden md:inline-flex min-h-[40px] items-center rounded-lg border border-sys-border px-3.5 py-1.5 text-sm text-sys-text-secondary hover:text-sys-text-primary transition-colors"
           >
             Закрити
           </button>

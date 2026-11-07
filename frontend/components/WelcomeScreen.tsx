@@ -68,7 +68,7 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
                 onClick={() => { setMode("student"); setDirection(1); setStep(2); }}
                 className="group relative flex items-center gap-4 rounded-xl border border-sys-border bg-sys-card p-5 text-left transition-[border-color,background-color,transform] duration-fast ease-smooth hover:border-sys-accent/50 hover:bg-sys-card/80 active:scale-[0.98]"
               >
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-500/10 text-blue-400 group-hover:bg-blue-500/20 transition-colors">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 group-hover:bg-blue-500/20 transition-colors">
                   <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
                 </div>
                 <div>
@@ -81,7 +81,7 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
                 onClick={() => { setMode("teacher"); setDirection(1); setStep(2); }}
                 className="group relative flex items-center gap-4 rounded-xl border border-sys-border bg-sys-card p-5 text-left transition-[border-color,background-color,transform] duration-fast ease-smooth hover:border-sys-accent/50 hover:bg-sys-card/80 active:scale-[0.98]"
               >
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-400 group-hover:bg-emerald-500/20 transition-colors">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 group-hover:bg-emerald-500/20 transition-colors">
                   <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                 </div>
                 <div>

@@ -344,8 +344,8 @@ export function TermScheduleModal({
                           <span
                             className={`px-2 py-0.5 rounded text-xs font-bold ${
                               isPract
-                                ? "bg-amber-500/20 text-amber-300"
-                                : "bg-emerald-500/20 text-emerald-300"
+                                ? "bg-amber-500/20 text-amber-800 dark:text-amber-300"
+                                : "bg-emerald-500/20 text-emerald-800 dark:text-emerald-300"
                             }`}
                           >
                             {cs.theory_weeks} тижнів теорії
@@ -390,7 +390,7 @@ export function TermScheduleModal({
                         </div>
 
                         {isPract && (
-                          <div className="mt-2.5 pt-2 border-t border-amber-500/20 flex items-center justify-between text-xs text-amber-300/90">
+                          <div className="mt-2.5 pt-2 border-t border-amber-500/20 flex items-center justify-between text-xs text-amber-800 dark:text-amber-300/90">
                             <span>
                               Період практики: {cs.practice_start_week ?? "?"}–{cs.practice_end_week ?? "?"} тиждень
                             </span>
