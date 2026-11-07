@@ -1068,7 +1068,11 @@ function AdminContent() {
 
                                 {acc.last_error && (
                                   <div className="w-full text-rose-700 dark:text-rose-400 text-[11px] bg-rose-500/10 border border-rose-500/20 rounded-lg p-2 mt-1 truncate" title={acc.last_error}>
-                                    ⚠ Помилка доступу: {acc.last_error}
+                                    ⚠ {acc.last_error.includes("missing_or_corrupt_refresh_token")
+                                      ? "Потрібне повторне підключення (відсутній токен фонового оновлення)"
+                                      : acc.last_error.includes("invalid_grant")
+                                      ? "Доступ скасовано у Google — потрібна повторна прив'язка"
+                                      : `Помилка доступу: ${acc.last_error}`}
                                   </div>
                                 )}
                               </div>
