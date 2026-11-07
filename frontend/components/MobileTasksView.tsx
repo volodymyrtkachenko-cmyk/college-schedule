@@ -509,14 +509,10 @@ export function renderTaskCard(t: FullTaskItem, key: string, isLinked: boolean =
   let statusText = getTaskStatusText(t.deadline, isLinked);
   let statusColorClass = "text-sys-text-secondary";
   let dotColorClass = "bg-slate-400";
-  let gradeTooltip: string | undefined = undefined;
 
   if (isReturned) {
     const gradeInfo = formatTaskGradeDisplay(t.assignedGrade, t.maxPoints, t.subject);
     statusText = gradeInfo ? gradeInfo.text : "Перевірено";
-    if (gradeInfo?.isCorrected && gradeInfo.originalMax) {
-      gradeTooltip = `У Google Classroom встановлено ${gradeInfo.originalMax} б.`;
-    }
     statusColorClass = "text-emerald-700 dark:text-emerald-400";
     dotColorClass = "bg-emerald-600 dark:bg-emerald-400";
   } else if (isTurnedIn) {
@@ -575,7 +571,7 @@ export function renderTaskCard(t: FullTaskItem, key: string, isLinked: boolean =
       {statusText ? (
         <div className={`mt-2 flex items-center gap-1.5 text-xs font-medium ${statusColorClass}`}>
           <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${dotColorClass}`} />
-          <span title={gradeTooltip}>{statusText}</span>
+          <span>{statusText}</span>
         </div>
       ) : null}
     </a>
