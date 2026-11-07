@@ -2568,11 +2568,14 @@ async def _fetch_user_submissions(
             all_active_groups = (await db.scalars(select(Group).where(Group.is_active.is_(True)))).all()
             target_group = await db.get(Group, group_id) if group_id else None
 
+            detected_group_id: Optional[int] = cred.group_id if cred else None
             relevant_courses = []
             for c in all_courses:
                 full_title = f"{c.get('name', '')} {c.get('section', '')} {c.get('descriptionHeading', '')}".strip()
                 matched_g = _extract_group_from_course_name(full_title, all_active_groups)
                 if matched_g:
+                    if not detected_group_id:
+                        detected_group_id = matched_g.id
                     if target_group and matched_g.id == target_group.id:
                         relevant_courses.append(c)
                 else:
@@ -2679,6 +2682,7 @@ async def _fetch_user_submissions(
 
             return {
                 "connected": True,
+                "group_id": detected_group_id,
                 "user_email": cred.email if cred else eff_email,
                 "google_user_id": cred.google_user_id if cred else eff_user_id,
                 "submissions": submissions_map,

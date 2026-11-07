@@ -236,6 +236,7 @@ export function unlinkClassroomEmail(): void {
       localStorage.removeItem("schedule_selected_subgroup");
     } catch {}
     window.dispatchEvent(new Event(EVENT_NAME));
+    window.dispatchEvent(new Event("classroom-access-changed"));
     window.dispatchEvent(new Event("storage"));
   } catch {}
 }
@@ -252,6 +253,10 @@ export function saveClassroomSyncData(
 ): void {
   if (typeof window === "undefined") return;
   try {
+    const prevEmail = localStorage.getItem(LINKED_EMAIL_KEY);
+    const prevGroupId = localStorage.getItem(LINKED_GROUP_ID_KEY);
+    const prevUid = localStorage.getItem(GOOGLE_USER_ID_KEY);
+
     if (userEmail) {
       localStorage.setItem(LINKED_EMAIL_KEY, userEmail);
     } else if (!localStorage.getItem(LINKED_EMAIL_KEY)) {
@@ -318,7 +323,14 @@ export function saveClassroomSyncData(
       } catch {}
     }
 
+    const nextEmail = localStorage.getItem(LINKED_EMAIL_KEY);
+    const nextGroupId = localStorage.getItem(LINKED_GROUP_ID_KEY);
+    const nextUid = localStorage.getItem(GOOGLE_USER_ID_KEY);
+
     window.dispatchEvent(new Event(EVENT_NAME));
+    if (prevEmail !== nextEmail || prevGroupId !== nextGroupId || prevUid !== nextUid) {
+      window.dispatchEvent(new Event("classroom-access-changed"));
+    }
     window.dispatchEvent(new Event("storage"));
   } catch {}
 }
@@ -444,16 +456,25 @@ export async function syncPersonalSubmissions(groupId?: number | null): Promise<
     if (res?.connected && res?.tasks) {
       const personalTeachers = getPersonalTeachers();
       const personalSubgroup = getPersonalSubgroup();
+      const existingLinkedGid = getLinkedGroupId();
+      const resolvedGroupId = res.group_id ?? existingLinkedGid ?? gId;
       saveClassroomSyncData(
         res.user_email || email,
         res.tasks,
         res.access_token ?? accessToken,
         refreshToken,
         res.google_user_id || googleUserId,
-        gId,
+        resolvedGroupId,
         personalTeachers,
         personalSubgroup ? [personalSubgroup] : null
       );
+      if (Array.isArray(res.tasks) && res.tasks.length > 0 && resolvedGroupId) {
+        window.dispatchEvent(
+          new CustomEvent("classroom-synced", {
+            detail: { group_id: resolvedGroupId, tasks: res.tasks, is_silent: true },
+          })
+        );
+      }
       return true;
     }
   } catch {

@@ -1919,6 +1919,7 @@ export const api = {
             };
             return rawRequest<{
                 connected: boolean;
+                group_id?: number | null;
                 user_email?: string | null;
                 google_user_id?: string | null;
                 submissions?: Record<string, { state: string; grade?: number | null; maxPoints?: number | null }>;

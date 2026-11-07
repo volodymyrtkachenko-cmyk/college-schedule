@@ -275,23 +275,40 @@ export function SchedulePageClient({
       if (res?.last_synced_at) {
         setClassroomLastSyncedAt(res.last_synced_at);
       }
+      if (isLinked && res && res.requires_auth === false && !isLinkedToGroup(gid)) {
+        try {
+          localStorage.setItem("schedule:classroom_linked_group_id", String(gid));
+          window.dispatchEvent(new Event("classroom-linked-change"));
+          window.dispatchEvent(new Event("classroom-access-changed"));
+        } catch {}
+        void syncPersonalSubmissions(gid);
+        return;
+      }
     } catch {
       // Ignore background fetch error
     }
     if (isLinked) {
       void syncPersonalSubmissions(gid);
     }
-  }, [isLinked]);
+  }, [isLinked, isLinkedToGroup]);
 
   useEffect(() => {
     if (groupId) {
+      let restoredCached = false;
       try {
         const cached = localStorage.getItem(`schedule:classroom_tasks:${groupId}`);
         if (cached) {
           const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed)) setClassroomTasks(parsed);
+          if (Array.isArray(parsed)) {
+            setClassroomTasks(parsed);
+            restoredCached = true;
+          }
         }
       } catch {}
+      if (!restoredCached) {
+        setClassroomTasks([]);
+        setClassroomLastSyncedAt(null);
+      }
       void fetchClassroomTasks(groupId);
     } else {
       setClassroomTasks([]);
@@ -320,11 +337,14 @@ export function SchedulePageClient({
     const handleClassroomSynced = (e: Event) => {
       const customEvent = e as CustomEvent;
       const detail = customEvent?.detail;
-      if (detail?.group_id && detail.group_id !== groupId) {
+      const isSilent = Boolean(detail?.is_silent);
+      if (!isSilent && detail?.group_id && detail.group_id !== groupId) {
         setGroupId(detail.group_id);
       }
       if (detail?.tasks && Array.isArray(detail.tasks) && detail.tasks.length > 0) {
-        setClassroomTasks(detail.tasks);
+        if (!isSilent || !detail?.group_id || detail.group_id === groupId) {
+          setClassroomTasks(detail.tasks);
+        }
         try {
           const gid = detail.group_id ?? groupId;
           if (gid) localStorage.setItem(`schedule:classroom_tasks:${gid}`, JSON.stringify(detail.tasks));
@@ -332,7 +352,7 @@ export function SchedulePageClient({
       }
       if (detail?.last_synced_at) {
         setClassroomLastSyncedAt(detail.last_synced_at);
-      } else if (groupId) {
+      } else if (!isSilent && groupId) {
         void fetchClassroomTasks(groupId);
       }
     };

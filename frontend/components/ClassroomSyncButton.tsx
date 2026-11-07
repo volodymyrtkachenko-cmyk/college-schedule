@@ -71,9 +71,7 @@ export function ClassroomSyncButton({
       ...(res.synced_teacher_names || []),
       ...(res.synced_teacher_tokens || []),
     ];
-    const targetGroupId = isSilent && currentGroupId !== res.group_id
-      ? (linkedGroupId ?? res.group_id)
-      : (res.group_id ?? currentGroupId ?? null);
+    const targetGroupId = res.group_id ?? linkedGroupId ?? currentGroupId ?? null;
 
     saveClassroomSyncData(
       res.user_email,
@@ -91,7 +89,7 @@ export function ClassroomSyncButton({
     }
     // On silent background sync, NEVER switch the viewed group
     onSynced(isSilent ? (currentGroupId ?? res.group_id) : res.group_id, res.tasks, res.last_synced_at, isSilent);
-    window.dispatchEvent(new CustomEvent("classroom-synced", { detail: res }));
+    window.dispatchEvent(new CustomEvent("classroom-synced", { detail: { ...res, is_silent: isSilent } }));
 
     if (!isSilent) {
       const parts = [`підтягнуто ${res.synced_links} онлайн-пар`];
@@ -193,6 +191,13 @@ export function ClassroomSyncButton({
       try {
         const data = await api.classroom.groupStatus(currentGroupId);
         if (data?.last_synced_at) setLastSyncedAt(data.last_synced_at);
+        if (data?.requires_auth === false) {
+          try {
+            localStorage.setItem("schedule:classroom_linked_group_id", String(currentGroupId));
+            window.dispatchEvent(new Event("classroom-linked-change"));
+            window.dispatchEvent(new Event("classroom-access-changed"));
+          } catch {}
+        }
         if (data?.tasks && Array.isArray(data.tasks)) {
           onSynced(currentGroupId, data.tasks, data.last_synced_at ?? null, true);
         }
@@ -219,6 +224,9 @@ export function ClassroomSyncButton({
       if (personalOk) {
         const data = await api.classroom.groupStatus(currentGroupId);
         if (data?.last_synced_at) setLastSyncedAt(data.last_synced_at);
+        if (data?.tasks && Array.isArray(data.tasks) && data.tasks.length > 0) {
+          onSynced(currentGroupId, data.tasks, data.last_synced_at ?? null, true);
+        }
         return;
       }
     } catch {}

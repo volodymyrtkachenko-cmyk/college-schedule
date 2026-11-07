@@ -181,9 +181,22 @@ export function useSchedule(
     const todayKey = `schedule:today:${targetKey}${cancelSuffix}`;
     const weekKey = `schedule:week:${targetKey}:${dateKey}${cancelSuffix}`;
 
+    const getAuthSignature = () => {
+      if (typeof window === "undefined") return "guest";
+      try {
+        const uid = window.localStorage.getItem("schedule:classroom_google_user_id") || "";
+        const email = window.localStorage.getItem("schedule:classroom_linked_email") || "";
+        const linkedGid = window.localStorage.getItem("schedule:classroom_linked_group_id") || "";
+        const pin = window.localStorage.getItem("college_schedule_teacher_pin") ? "pin" : "";
+        return `${uid}:${email}:${linkedGid}:${pin}`;
+      } catch {
+        return "guest";
+      }
+    };
+
     const targetGroupId = mode === "student" ? (groupId as number) : undefined;
     const targetTeacherId = mode === "teacher" ? (teacherId as number) : undefined;
-    const memKey = `${todayKey}|${weekKey}`;
+    const getMemKey = (wKey = weekKey) => `${todayKey}|${wKey}|${getAuthSignature()}`;
 
     let isSubscribed = true;
     let prefetchTimer: ReturnType<typeof setTimeout> | null = null;
@@ -244,7 +257,7 @@ export function useSchedule(
         adjDate.setDate(adjDate.getDate() + offsetDays);
         const adjDateKey = formatDateKey(adjDate);
         const adjWeekKey = `schedule:week:${targetKey}:${adjDateKey}${cancelSuffix}`;
-        const adjMemKey = `${todayKey}|${adjWeekKey}`;
+        const adjMemKey = getMemKey(adjWeekKey);
 
         const existingMem = memoryCache.get(adjMemKey);
         if (existingMem && Date.now() - existingMem.time < CACHE_TTL) continue;
@@ -269,9 +282,10 @@ export function useSchedule(
     const fetchSchedule = (forceNetwork = false) => {
       let hasCachedSchedule = false;
       if (slowNetworkTimer) clearTimeout(slowNetworkTimer);
+      const currentMemKey = getMemKey();
 
       // 5.1: Stale-While-Revalidate — спочатку миттєво показуємо дані з memoryCache або localStorage
-      const memCached = memoryCache.get(memKey);
+      const memCached = memoryCache.get(currentMemKey);
       if (memCached) {
         setToday(memCached.today);
         setWeek(memCached.week);
@@ -361,7 +375,7 @@ export function useSchedule(
             window.localStorage.setItem(todayKey, JSON.stringify(todayResponse));
             window.localStorage.setItem(weekKey, JSON.stringify(weekResponse));
           } catch {}
-          memoryCache.set(memKey, { time: Date.now(), today: todayResponse, week: weekResponse });
+          memoryCache.set(getMemKey(), { time: Date.now(), today: todayResponse, week: weekResponse });
 
           if (prefetchTimer) clearTimeout(prefetchTimer);
           prefetchTimer = setTimeout(() => prefetchAdjacentWeeks(todayResponse), 350);
@@ -404,11 +418,18 @@ export function useSchedule(
     };
     const handleOnline = () => fetchSchedule(true);
     const handleScheduleRefresh = () => fetchSchedule(true);
+    const handleClassroomAccessChange = () => {
+      memoryCache.clear();
+      invalidateEtagCache();
+      invalidateGroupStatusCache();
+      fetchSchedule(true);
+    };
 
     window.addEventListener("visibilitychange", handleVisibility);
     window.addEventListener("online", handleOnline);
     window.addEventListener("schedule:refresh", handleScheduleRefresh);
     window.addEventListener("teacher-access-changed", handleScheduleRefresh);
+    window.addEventListener("classroom-access-changed", handleClassroomAccessChange);
 
     return () => {
       isSubscribed = false;
@@ -418,6 +439,7 @@ export function useSchedule(
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("schedule:refresh", handleScheduleRefresh);
       window.removeEventListener("teacher-access-changed", handleScheduleRefresh);
+      window.removeEventListener("classroom-access-changed", handleClassroomAccessChange);
     };
   }, [isSetupComplete, mode, groupId, teacherId, weekAnchorDate, includeCancelled]);
 
