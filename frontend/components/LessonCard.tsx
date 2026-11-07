@@ -771,7 +771,6 @@ export const LessonCard = memo(function LessonCard({
   const [startT, endT] = lesson.time.split("-");
 
   const [isHwOpen, setIsHwOpen] = useState(false);
-  const [isDoneHwOpen, setIsDoneHwOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [noteModalMode, setNoteModalMode] = useState<"edit" | "history" | null>(null);
   const { settings, updateSetting } = useUserSettings();
@@ -782,12 +781,6 @@ export const LessonCard = memo(function LessonCard({
     e.stopPropagation();
     vibrateTap(10);
     setIsHwOpen((prev) => !prev);
-  };
-
-  const toggleDoneHw = (e: React.MouseEvent | React.KeyboardEvent) => {
-    e.stopPropagation();
-    vibrateTap(10);
-    setIsDoneHwOpen((prev) => !prev);
   };
 
   const [nowState, setNowState] = useState<KyivNowSnapshot | null>(() => _sharedKyivNow);
@@ -948,15 +941,6 @@ export const LessonCard = memo(function LessonCard({
       isOwnTask(isLinked, submissions, t.url, t.teacher, personalTeachers, t.title, effectiveSubgroup)
     );
   }, [rawTasks, isLinked, submissions, personalTeachers, effectiveSubgroup]);
-
-  const hasAllTasksCompleted = useMemo(() => {
-    if (!isLinked || allOwnTasks.length === 0) return false;
-    return allOwnTasks.every((t) => {
-      const key = extractClassroomTaskKey(t.url);
-      const sub = submissions[t.url] || (key ? submissions[key] : null);
-      return sub && (sub.state === "TURNED_IN" || sub.state === "RETURNED");
-    });
-  }, [isLinked, allOwnTasks, submissions]);
 
   const completedTasks = useMemo(() => {
     if (!isLinked) return [];
@@ -1771,86 +1755,6 @@ export const LessonCard = memo(function LessonCard({
               </div>
             </div>
 
-            {/* All Tasks Completed: Expandable accordion according to Section 16 */}
-            {showHw && tasks.length === 0 && hasAllTasksCompleted && (
-              <div className="w-full rounded-xl bg-emerald-500/5 border border-emerald-500/30 overflow-hidden shadow-xs transition-colors">
-                <div
-                  onClick={toggleDoneHw}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") toggleDoneHw(e);
-                  }}
-                  className="flex w-full items-center justify-between px-3.5 py-2.5 cursor-pointer select-none gap-2 hover:bg-emerald-500/10 transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-600 dark:text-emerald-400 shrink-0">
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                    <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300">
-                      Усе здано
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-[11px] text-emerald-700/80 dark:text-emerald-300/80 font-normal">
-                      {completedTasks.length} {completedTasks.length === 1 ? "завдання" : "завдань"}
-                    </span>
-                    <svg
-                      width="15"
-                      height="15"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className={`text-emerald-600 dark:text-emerald-400 transition-transform duration-200 shrink-0 ${isDoneHwOpen ? "rotate-180" : ""}`}
-                    >
-                      <path d="m6 9 6 6 6-6" />
-                    </svg>
-                  </div>
-                </div>
-
-                {isDoneHwOpen && (
-                  <div className="flex flex-col gap-1.5 p-3 border-t border-emerald-500/20 bg-emerald-500/[0.03] animate-in fade-in duration-150">
-                    {completedTasks.map((task, idx) => {
-                      const key = extractClassroomTaskKey(task.url);
-                      const sub = submissions[task.url] || (key ? submissions[key] : null);
-                      const isGraded = sub?.state === "RETURNED" && sub?.grade != null;
-                      return (
-                        <a
-                          key={idx}
-                          href={task.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            vibrateTap(10);
-                          }}
-                          className="group flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-xs hover:bg-emerald-500/10 transition-colors"
-                        >
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="font-semibold text-sys-text-primary group-hover:text-sys-accent transition-colors truncate">
-                              {task.title || "Завдання"}
-                            </span>
-                            {task.teacher && (
-                              <span className="text-sys-text-muted text-xs truncate">({task.teacher})</span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded-md">
-                              {isGraded ? `Оцінка: ${sub.grade}/${sub.maxPoints || 100}` : "Здано"}
-                            </span>
-                            <span className="text-sys-text-muted group-hover:text-sys-text-primary transition-colors text-xs">↗</span>
-                          </div>
-                        </a>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
-
             {/* 1 Task: Entire strip is a direct link with ↗ (no accordion) */}
             {showHw && tasks.length === 1 && (
               <a
@@ -1896,54 +1800,6 @@ export const LessonCard = memo(function LessonCard({
                   <span className="text-sys-text-muted group-hover:text-sys-text-primary transition-colors text-xs ml-1">↗</span>
                 </div>
               </a>
-            )}
-
-            {/* 1 Active Task + Completed Tasks */}
-            {showHw && tasks.length === 1 && completedTasks.length > 0 && (
-              <div className="w-full rounded-xl bg-emerald-500/5 border border-emerald-500/25 overflow-hidden shadow-xs mt-1 transition-colors">
-                <button
-                  type="button"
-                  onClick={toggleDoneHw}
-                  aria-expanded={isDoneHwOpen}
-                  className="flex w-full items-center justify-between px-3 py-1.5 cursor-pointer select-none text-xs text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10 transition-colors"
-                >
-                  <span className="flex items-center gap-1.5 font-medium">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-600 dark:text-emerald-400">
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                    <span>Здано: {completedTasks.length} {completedTasks.length === 1 ? "завдання" : "завдань"}</span>
-                  </span>
-                  <span className={`text-[10px] text-emerald-600/70 dark:text-emerald-400/70 transition-transform duration-150 ${isDoneHwOpen ? "rotate-180" : ""}`}>
-                    ▾
-                  </span>
-                </button>
-                {isDoneHwOpen && (
-                  <div className="flex flex-col gap-1 p-2 border-t border-emerald-500/20 bg-emerald-500/[0.03]">
-                    {completedTasks.map((task, idx) => {
-                      const key = extractClassroomTaskKey(task.url);
-                      const sub = submissions[task.url] || (key ? submissions[key] : null);
-                      const isGraded = sub?.state === "RETURNED" && sub?.grade != null;
-                      return (
-                        <a
-                          key={`c1-${idx}`}
-                          href={task.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => { e.stopPropagation(); vibrateTap(10); }}
-                          className="group flex items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-xs hover:bg-emerald-500/10 transition-colors"
-                        >
-                          <span className="truncate font-medium text-sys-text-primary group-hover:text-sys-accent">
-                            {task.title || "Завдання"}
-                          </span>
-                          <span className="inline-flex items-center text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 shrink-0">
-                            {isGraded ? `Оцінка: ${sub.grade}/${sub.maxPoints || 100}` : "Здано"} ↗
-                          </span>
-                        </a>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
             )}
 
             {/* 2+ Tasks: Accordion container with rotating chevron */}
@@ -2506,86 +2362,6 @@ export const LessonCard = memo(function LessonCard({
             </div>
           )}
 
-          {/* All Tasks Completed: Expandable accordion according to Section 16 */}
-          {showHw && tasks.length === 0 && hasAllTasksCompleted && (
-            <div className="w-full rounded-xl bg-emerald-500/5 border border-emerald-500/30 overflow-hidden shadow-xs mt-1 transition-colors">
-              <div
-                onClick={toggleDoneHw}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") toggleDoneHw(e);
-                }}
-                className="flex min-h-[44px] w-full items-center justify-between px-3.5 py-2.5 cursor-pointer select-none gap-2 hover:bg-emerald-500/10 transition-colors"
-              >
-                <div className="flex items-center gap-2 shrink-0">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-600 dark:text-emerald-400 shrink-0">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                  <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300">
-                    Усе здано
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-[11px] text-emerald-700/80 dark:text-emerald-300/80 font-normal">
-                    {completedTasks.length} {completedTasks.length === 1 ? "завдання" : "завдань"}
-                  </span>
-                  <svg
-                    width="15"
-                    height="15"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className={`text-emerald-600 dark:text-emerald-400 transition-transform duration-200 shrink-0 ${isDoneHwOpen ? "rotate-180" : ""}`}
-                  >
-                    <path d="m6 9 6 6 6-6" />
-                  </svg>
-                </div>
-              </div>
-
-              {isDoneHwOpen && (
-                <div className="flex flex-col gap-1.5 p-2.5 border-t border-emerald-500/20 bg-emerald-500/[0.03] animate-in fade-in duration-150">
-                  {completedTasks.map((task, idx) => {
-                    const key = extractClassroomTaskKey(task.url);
-                    const sub = submissions[task.url] || (key ? submissions[key] : null);
-                    const isGraded = sub?.state === "RETURNED" && sub?.grade != null;
-                    return (
-                      <a
-                        key={idx}
-                        href={task.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          vibrateTap(10);
-                        }}
-                        className="group flex items-start justify-between gap-2 rounded-lg p-2 text-xs hover:bg-emerald-500/10 transition-colors"
-                      >
-                        <div className="flex flex-col min-w-0 flex-1">
-                          <span className="font-semibold text-sys-text-primary group-hover:text-sys-accent transition-colors line-clamp-2 break-words leading-tight">
-                            {task.title || "Завдання"}
-                          </span>
-                          {task.teacher && (
-                            <span className="text-sys-text-muted text-[11px] mt-0.5 truncate">({task.teacher})</span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1.5 shrink-0 ml-1.5 mt-0.5">
-                          <span className="inline-flex items-center text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-500/15 px-1.5 py-0.5 rounded">
-                            {isGraded ? `Оцінка: ${sub.grade}/${sub.maxPoints || 100}` : "Здано"}
-                          </span>
-                          <span className="text-sys-text-muted group-hover:text-sys-text-primary text-xs">↗</span>
-                        </div>
-                      </a>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-
           {/* Row 4: Full-width HW strip (44px min-height) */}
           {showHw && tasks.length === 1 && (
             <a
@@ -2635,62 +2411,6 @@ export const LessonCard = memo(function LessonCard({
                 <span className="text-sys-text-muted group-hover:text-sys-text-primary transition-colors text-xs">↗</span>
               </div>
             </a>
-          )}
-
-          {/* 1 Active Task + Completed Tasks */}
-          {showHw && tasks.length === 1 && completedTasks.length > 0 && (
-            <div className="w-full rounded-xl bg-emerald-500/5 border border-emerald-500/25 overflow-hidden shadow-xs mt-1 transition-colors">
-              <button
-                type="button"
-                onClick={toggleDoneHw}
-                aria-expanded={isDoneHwOpen}
-                className="flex min-h-[38px] w-full items-center justify-between px-3.5 py-2 cursor-pointer select-none text-xs text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10 transition-colors"
-              >
-                <span className="flex items-center gap-1.5 font-medium">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-600 dark:text-emerald-400">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                  <span>Здано: {completedTasks.length} {completedTasks.length === 1 ? "завдання" : "завдань"}</span>
-                </span>
-                <span className={`text-[10px] text-emerald-600/70 dark:text-emerald-400/70 transition-transform duration-150 ${isDoneHwOpen ? "rotate-180" : ""}`}>
-                  ▾
-                </span>
-              </button>
-              {isDoneHwOpen && (
-                <div className="flex flex-col gap-1 p-2 border-t border-emerald-500/20 bg-emerald-500/[0.03]">
-                  {completedTasks.map((task, idx) => {
-                    const key = extractClassroomTaskKey(task.url);
-                    const sub = submissions[task.url] || (key ? submissions[key] : null);
-                    const isGraded = sub?.state === "RETURNED" && sub?.grade != null;
-                    return (
-                      <a
-                        key={`mc1-${idx}`}
-                        href={task.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => { e.stopPropagation(); vibrateTap(10); }}
-                        className="group flex items-start justify-between gap-2 rounded-lg p-2 text-xs hover:bg-emerald-500/10 transition-colors"
-                      >
-                        <div className="flex flex-col min-w-0 flex-1">
-                          <span className="font-semibold text-sys-text-primary group-hover:text-sys-accent transition-colors line-clamp-2 break-words leading-tight">
-                            {task.title || "Завдання"}
-                          </span>
-                          {task.teacher && (
-                            <span className="text-sys-text-muted text-[11px] mt-0.5 truncate">({task.teacher})</span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1.5 shrink-0 ml-1.5 mt-0.5">
-                          <span className="inline-flex items-center text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-500/15 px-1.5 py-0.5 rounded">
-                            {isGraded ? `Оцінка: ${sub.grade}/${sub.maxPoints || 100}` : "Здано"}
-                          </span>
-                          <span className="text-sys-text-muted group-hover:text-sys-text-primary text-xs">↗</span>
-                        </div>
-                      </a>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
           )}
 
           {showHw && tasks.length > 1 && (
@@ -3132,24 +2852,6 @@ export const LessonCard = memo(function LessonCard({
                 )
               ))}
 
-              {showHw && tasks.length === 0 && hasAllTasksCompleted && (
-                <button
-                  type="button"
-                  onClick={toggleDoneHw}
-                  aria-expanded={isDoneHwOpen}
-                  title={isDoneHwOpen ? "Згорнути здані завдання" : `${completedTasks.length} ДЗ здано`}
-                  className="inline-flex h-6 min-h-[24px] items-center gap-1 rounded-md border border-emerald-500/40 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300 hover:border-emerald-500/60 transition-colors duration-fast ease-smooth active:scale-95 cursor-pointer select-none"
-                >
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-600 dark:text-emerald-400 shrink-0">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                  <span>Усе здано</span>
-                  <span className={`text-[10px] text-emerald-600/70 dark:text-emerald-400/70 transition-transform duration-150 ${isDoneHwOpen ? "rotate-180" : ""}`}>
-                    ▾
-                  </span>
-                </button>
-              )}
-
               {showHw && tasks.length > 0 && (
                 <button
                   type="button"
@@ -3371,66 +3073,6 @@ export const LessonCard = memo(function LessonCard({
                     })}
                   </div>
                 )}
-              </div>
-            </div>
-          )}
-
-          {/* Week mode completed tasks popover */}
-          {showHw && tasks.length === 0 && hasAllTasksCompleted && isDoneHwOpen && (
-            <div
-              id={`hw-done-list-${lesson.id}-${lesson.lesson_number}`}
-              onClick={(e) => e.stopPropagation()}
-              className={`absolute left-0 right-0 ${
-                lesson.lesson_number >= 3 ? "bottom-full mb-1" : "top-full mt-1"
-              } z-40 max-h-60 overflow-y-auto rounded-xl border border-emerald-500/30 bg-sys-card p-2.5 shadow-2xl animate-in fade-in duration-150`}
-            >
-              <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-sys-border/60 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
-                <span className="flex items-center gap-1.5 truncate">
-                  <span className="font-bold">✓ Здані завдання ({completedTasks.length})</span>
-                </span>
-                <button
-                  type="button"
-                  onClick={toggleDoneHw}
-                  aria-label="Закрити"
-                  className="rounded p-0.5 text-sys-text-muted hover:text-sys-text-primary hover:bg-sys-bg transition-colors shrink-0 ml-1 cursor-pointer"
-                >
-                  ✕
-                </button>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                {completedTasks.map((task, idx) => {
-                  const key = extractClassroomTaskKey(task.url);
-                  const sub = submissions[task.url] || (key ? submissions[key] : null);
-                  const isGraded = sub?.state === "RETURNED" && sub?.grade != null;
-                  return (
-                    <a
-                      key={idx}
-                      href={task.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        vibrateTap(10);
-                      }}
-                      className="group flex items-center justify-between gap-2 rounded-lg p-2 text-xs hover:bg-emerald-500/10 transition-colors bg-emerald-500/[0.04] border border-emerald-500/20"
-                    >
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="font-medium text-sys-text-primary group-hover:text-sys-accent transition-colors truncate">
-                          {task.title || "Завдання"}
-                        </span>
-                        {task.teacher && (
-                          <span className="text-sys-text-muted text-[11px] truncate">({task.teacher})</span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-500/15 px-1.5 py-0.5 rounded">
-                          {isGraded ? `Оцінка: ${sub.grade}/${sub.maxPoints || 100}` : "Здано"}
-                        </span>
-                        <span className="text-sys-text-muted group-hover:text-sys-text-primary text-xs">↗</span>
-                      </div>
-                    </a>
-                  );
-                })}
               </div>
             </div>
           )}
