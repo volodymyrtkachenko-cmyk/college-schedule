@@ -443,7 +443,12 @@ function findFullTaskMetaByUrl(url: string): { title?: string; teacher?: string 
     try {
       for (let i = 0; i < window.localStorage.length; i++) {
         const k = window.localStorage.key(i);
-        if (!k || !k.startsWith("schedule:classroom_tasks:")) continue;
+        if (
+          !k ||
+          (!k.startsWith("schedule:classroom_tasks:") && !k.startsWith("schedule:classroom_group_tasks:"))
+        ) {
+          continue;
+        }
         const raw = window.localStorage.getItem(k);
         if (!raw) continue;
         const list = JSON.parse(raw);
@@ -544,11 +549,13 @@ export function extractClassroomTasks(note?: string | null): ClassroomTaskItem[]
       const label = dueMatch ? dueMatch[0].replace(/[()]/g, "").trim() : "";
       let title = rest.replace(/\(до\s+\d{1,2}\.\d{1,2}\)/i, "").trim() || "Завдання";
 
-      // Якщо рядок був розірваний (без префікса [TASK]), відновлюємо повну назву та викладача з кешу завдань
-      if (!line.startsWith("[TASK]")) {
+      // Якщо в рядку немає викладача або рядок був розірваний (без префікса [TASK]), відновлюємо з метаданих
+      if (!teacher || !line.startsWith("[TASK]")) {
         const meta = findFullTaskMetaByUrl(urlPart);
-        if (meta?.title) title = meta.title;
-        if (!teacher && meta?.teacher) teacher = meta.teacher;
+        if (!line.startsWith("[TASK]") && meta?.title) title = meta.title;
+        if (!teacher && meta?.teacher) {
+          teacher = meta.teacher.replace(/^\[|\]$/g, "").trim();
+        }
       }
 
       const deadline = parseTaskDeadline(label);
@@ -706,6 +713,84 @@ function LockedMeetingBadge({
       <span>{label}</span>
     </button>
   );
+}
+
+function groupDualTeacherTasks(
+  items: ClassroomTaskItem[],
+  secondaryItems: { name: string; displayName: string }[],
+  effectiveSubgroup: number | null
+): { teacher: string | null; items: ClassroomTaskItem[] }[] {
+  if (items.length === 0) return [];
+  if (!secondaryItems || secondaryItems.length < 2) {
+    return [{ teacher: null, items }];
+  }
+
+  const s0 = secondaryItems[0]?.name ? secondaryItems[0].name.split(/[\s.]+/)[0].trim().toLowerCase() : "";
+  const s1 = secondaryItems[1]?.name ? secondaryItems[1].name.split(/[\s.]+/)[0].trim().toLowerCase() : "";
+
+  const matchItem = (t: ClassroomTaskItem, surname: string, subNum: number): boolean => {
+    const tTeacher = (t.teacher || "").trim().toLowerCase();
+    if (tTeacher) {
+      if (surname && (tTeacher.includes(surname) || surname.includes(tTeacher))) return true;
+      if (
+        tTeacher.includes(`${subNum} підгр`) ||
+        tTeacher.includes(`підгрупа ${subNum}`) ||
+        tTeacher.includes(`підгр. ${subNum}`) ||
+        tTeacher === `${subNum}` ||
+        tTeacher === `${subNum} підгрупа`
+      ) {
+        return true;
+      }
+    }
+    const tTitle = (t.title || "").toLowerCase();
+    if (surname && tTitle.includes(surname)) return true;
+    if (tTitle.includes(`(${subNum} підгр`) || tTitle.includes(`[${subNum} підгр`)) return true;
+    return false;
+  };
+
+  const g0: ClassroomTaskItem[] = [];
+  const g1: ClassroomTaskItem[] = [];
+  const others: ClassroomTaskItem[] = [];
+
+  for (const t of items) {
+    const m0 = matchItem(t, s0, 1);
+    const m1 = matchItem(t, s1, 2);
+    if (m0 && !m1) {
+      g0.push(t);
+    } else if (m1 && !m0) {
+      g1.push(t);
+    } else {
+      others.push(t);
+    }
+  }
+
+  const label0 = /підгр/i.test(secondaryItems[0].displayName)
+    ? secondaryItems[0].displayName
+    : `${secondaryItems[0].displayName} (1 підгр.)`;
+  const label1 = /підгр/i.test(secondaryItems[1].displayName)
+    ? secondaryItems[1].displayName
+    : `${secondaryItems[1].displayName} (2 підгр.)`;
+
+  const res: { teacher: string | null; items: ClassroomTaskItem[] }[] = [];
+
+  const first = effectiveSubgroup === 2 ? { label: label1, list: g1 } : { label: label0, list: g0 };
+  const second = effectiveSubgroup === 2 ? { label: label0, list: g0 } : { label: label1, list: g1 };
+
+  if (first.list.length > 0) {
+    res.push({ teacher: first.label, items: first.list });
+  }
+  if (second.list.length > 0) {
+    res.push({ teacher: second.label, items: second.list });
+  }
+
+  if (others.length > 0) {
+    if (res.length === 0) {
+      return [{ teacher: null, items: others }];
+    }
+    res.push({ teacher: "Інші завдання", items: others });
+  }
+
+  return res.length > 0 ? res : [{ teacher: null, items }];
 }
 
 export const LessonCard = memo(function LessonCard({
@@ -1105,35 +1190,15 @@ export const LessonCard = memo(function LessonCard({
     if (!isDualTeachers || tasks.length === 0) {
       return [{ teacher: null, items: tasks }];
     }
-    if (effectiveSubgroup !== null) {
-      const myIdx = effectiveSubgroup - 1;
-      const myTeacher = secondaryItems[myIdx]?.displayName || null;
-      return [{ teacher: myTeacher, items: tasks }];
+    return groupDualTeacherTasks(tasks, secondaryItems, effectiveSubgroup);
+  }, [isDualTeachers, tasks, secondaryItems, effectiveSubgroup]);
+
+  const groupedCompletedTasks = useMemo(() => {
+    if (!isDualTeachers || completedTasks.length === 0) {
+      return [{ teacher: null, items: completedTasks }];
     }
-    const s0 = secondaryItems[0].name.split(/[\s.]+/)[0].toLowerCase();
-    const s1 = secondaryItems[1].name.split(/[\s.]+/)[0].toLowerCase();
-
-    const g0: typeof tasks = [];
-    const g1: typeof tasks = [];
-    const others: typeof tasks = [];
-
-    for (const t of tasks) {
-      const teacherStr = (t.teacher || "").toLowerCase();
-      if (teacherStr.includes(s0) || s0.includes(teacherStr)) {
-        g0.push(t);
-      } else if (teacherStr.includes(s1) || s1.includes(teacherStr)) {
-        g1.push(t);
-      } else {
-        others.push(t);
-      }
-    }
-
-    const res: { teacher: string | null; items: typeof tasks }[] = [];
-    if (g0.length > 0) res.push({ teacher: secondaryItems[0].displayName, items: g0 });
-    if (g1.length > 0) res.push({ teacher: secondaryItems[1].displayName, items: g1 });
-    if (others.length > 0) res.push({ teacher: res.length > 0 ? "Інші завдання" : null, items: others });
-    return res.length > 0 ? res : [{ teacher: null, items: tasks }];
-  }, [isDualTeachers, secondaryItems, tasks, effectiveSubgroup]);
+    return groupDualTeacherTasks(completedTasks, secondaryItems, effectiveSubgroup);
+  }, [isDualTeachers, completedTasks, secondaryItems, effectiveSubgroup]);
 
   const eventBadge = useMemo(
     () => getEventBadge(lesson.event_type, lesson.event_title),
@@ -1785,7 +1850,7 @@ export const LessonCard = memo(function LessonCard({
                   </svg>
                   <span className="font-semibold text-sys-text-primary group-hover:text-sys-accent transition-colors truncate">
                     {tasks[0].title && tasks[0].title !== "Домашнє завдання" && tasks[0].title !== "Завдання"
-                      ? tasks[0].title
+                      ? `${tasks[0].title}${isDualTeachers && tasks[0].teacher ? ` (${tasks[0].teacher})` : ""}`
                       : `${lesson.subject_name}${tasks[0].teacher ? ` · ${tasks[0].teacher}` : ""}`}
                   </span>
                 </div>
@@ -1862,36 +1927,45 @@ export const LessonCard = memo(function LessonCard({
                 </div>
 
                 {isHwOpen && (
-                  <div className="flex flex-col gap-1.5 p-3 border-t border-sys-border/60 bg-sys-bg/40 animate-in fade-in duration-150">
-                    {tasks.map((task, idx) => (
-                      <a
-                        key={idx}
-                        href={task.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          vibrateTap(10);
-                        }}
-                        className="group flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-xs hover:bg-sys-card transition-colors"
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className="font-semibold text-sys-text-primary group-hover:text-sys-accent transition-colors truncate">
-                            {task.title || "Завдання"}
+                  <div className="flex flex-col gap-2 p-3 border-t border-sys-border/60 bg-sys-bg/40 animate-in fade-in duration-150">
+                    {groupedTasks.map((group, gIdx) => (
+                      <div key={gIdx} className="flex flex-col gap-1.5">
+                        {group.teacher && (
+                          <span className="text-xs font-bold text-sys-text-secondary px-1 pt-0.5">
+                            {group.teacher}:
                           </span>
-                          {task.teacher && (
-                            <span className="text-sys-text-muted text-xs truncate">({task.teacher})</span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          {task.deadline.statusText ? (
-                            <span className={`text-xs font-medium ${getTaskDeadlineTextColor(task.deadline.badgeTone, isLinked)}`}>
-                              {getTaskStatusText(task.deadline, isLinked)}
-                            </span>
-                          ) : null}
-                          <span className="text-sys-text-muted group-hover:text-sys-text-primary transition-colors text-xs">↗</span>
-                        </div>
-                      </a>
+                        )}
+                        {group.items.map((task, idx) => (
+                          <a
+                            key={idx}
+                            href={task.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              vibrateTap(10);
+                            }}
+                            className="group flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-xs hover:bg-sys-card transition-colors"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="font-semibold text-sys-text-primary group-hover:text-sys-accent transition-colors truncate">
+                                {task.title || "Завдання"}
+                              </span>
+                              {!group.teacher && task.teacher && (
+                                <span className="text-sys-text-muted text-xs truncate">({task.teacher})</span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {task.deadline.statusText ? (
+                                <span className={`text-xs font-medium ${getTaskDeadlineTextColor(task.deadline.badgeTone, isLinked)}`}>
+                                  {getTaskStatusText(task.deadline, isLinked)}
+                                </span>
+                              ) : null}
+                              <span className="text-sys-text-muted group-hover:text-sys-text-primary transition-colors text-xs">↗</span>
+                            </div>
+                          </a>
+                        ))}
+                      </div>
                     ))}
 
                     {completedTasks.length > 0 && (
@@ -1902,36 +1976,45 @@ export const LessonCard = memo(function LessonCard({
                           </svg>
                           <span>Здані завдання ({completedTasks.length})</span>
                         </div>
-                        {completedTasks.map((task, idx) => {
-                          const key = extractClassroomTaskKey(task.url);
-                          const sub = submissions[task.url] || (key ? submissions[key] : null);
-                          const isGraded = sub?.state === "RETURNED" && sub?.grade != null;
-                          return (
-                            <a
-                              key={`dt-cm-${idx}`}
-                              href={task.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(e) => { e.stopPropagation(); vibrateTap(10); }}
-                              className="group flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-xs hover:bg-emerald-500/10 transition-colors bg-emerald-500/[0.03] border border-emerald-500/20"
-                            >
-                              <div className="flex items-center gap-2 min-w-0">
-                                <span className="font-semibold text-sys-text-primary group-hover:text-sys-accent transition-colors truncate">
-                                  {task.title || "Завдання"}
-                                </span>
-                                {task.teacher && (
-                                  <span className="text-sys-text-muted text-xs truncate">({task.teacher})</span>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-2 shrink-0">
-                                <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded-md">
-                                  {isGraded ? `Оцінка: ${sub.grade}/${sub.maxPoints || 100}` : "Здано"}
-                                </span>
-                                <span className="text-sys-text-muted group-hover:text-sys-text-primary transition-colors text-xs">↗</span>
-                              </div>
-                            </a>
-                          );
-                        })}
+                        {groupedCompletedTasks.map((group, gIdx) => (
+                          <div key={gIdx} className="flex flex-col gap-1.5">
+                            {group.teacher && (
+                              <span className="text-xs font-bold text-sys-text-secondary px-1 pt-0.5">
+                                {group.teacher}:
+                              </span>
+                            )}
+                            {group.items.map((task, idx) => {
+                              const key = extractClassroomTaskKey(task.url);
+                              const sub = submissions[task.url] || (key ? submissions[key] : null);
+                              const isGraded = sub?.state === "RETURNED" && sub?.grade != null;
+                              return (
+                                <a
+                                  key={`dt-cm-${idx}`}
+                                  href={task.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => { e.stopPropagation(); vibrateTap(10); }}
+                                  className="group flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-xs hover:bg-emerald-500/10 transition-colors bg-emerald-500/[0.03] border border-emerald-500/20"
+                                >
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span className="font-semibold text-sys-text-primary group-hover:text-sys-accent transition-colors truncate">
+                                      {task.title || "Завдання"}
+                                    </span>
+                                    {!group.teacher && task.teacher && (
+                                      <span className="text-sys-text-muted text-xs truncate">({task.teacher})</span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded-md">
+                                      {isGraded ? `Оцінка: ${sub.grade}/${sub.maxPoints || 100}` : "Здано"}
+                                    </span>
+                                    <span className="text-sys-text-muted group-hover:text-sys-text-primary transition-colors text-xs">↗</span>
+                                  </div>
+                                </a>
+                              );
+                            })}
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
@@ -2378,7 +2461,7 @@ export const LessonCard = memo(function LessonCard({
                 <div className="flex flex-col min-w-0 flex-1 pr-1">
                   <span className="font-semibold text-sys-text-primary group-hover:text-sys-accent transition-colors line-clamp-2 break-words leading-tight">
                     {tasks[0].title && tasks[0].title !== "Домашнє завдання" && tasks[0].title !== "Завдання"
-                      ? tasks[0].title
+                      ? `${tasks[0].title}${isDualTeachers && tasks[0].teacher ? ` (${tasks[0].teacher})` : ""}`
                       : `${lesson.subject_name}${tasks[0].teacher ? ` · ${tasks[0].teacher}` : ""}`}
                   </span>
                   {tasks[0].deadline.statusText ? (
@@ -2463,36 +2546,45 @@ export const LessonCard = memo(function LessonCard({
               </div>
 
               {isHwOpen && (
-                <div className="flex flex-col gap-1.5 p-3 border-t border-sys-border/60 bg-sys-bg/40 animate-in fade-in duration-150">
-                  {tasks.map((task, idx) => (
-                    <a
-                      key={idx}
-                      href={task.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        vibrateTap(10);
-                      }}
-                      className="group flex min-h-[44px] items-center justify-between gap-3 rounded-lg px-3 py-2 text-xs hover:bg-sys-card transition-colors"
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="font-semibold text-sys-text-primary group-hover:text-sys-accent transition-colors truncate">
-                          {task.title || "Завдання"}
+                <div className="flex flex-col gap-2 p-3 border-t border-sys-border/60 bg-sys-bg/40 animate-in fade-in duration-150">
+                  {groupedTasks.map((group, gIdx) => (
+                    <div key={gIdx} className="flex flex-col gap-1.5">
+                      {group.teacher && (
+                        <span className="text-xs font-bold text-sys-text-secondary px-1 pt-0.5">
+                          {group.teacher}:
                         </span>
-                        {task.teacher && (
-                          <span className="text-sys-text-muted text-xs truncate">({task.teacher})</span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        {task.deadline.statusText ? (
-                          <span className={`text-xs font-medium ${getTaskDeadlineTextColor(task.deadline.badgeTone, isLinked)}`}>
-                            {getTaskStatusText(task.deadline, isLinked)}
-                          </span>
-                        ) : null}
-                        <span className="text-sys-text-muted group-hover:text-sys-text-primary transition-colors text-xs">↗</span>
-                      </div>
-                    </a>
+                      )}
+                      {group.items.map((task, idx) => (
+                        <a
+                          key={idx}
+                          href={task.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            vibrateTap(10);
+                          }}
+                          className="group flex min-h-[44px] items-center justify-between gap-3 rounded-lg px-3 py-2 text-xs hover:bg-sys-card transition-colors"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="font-semibold text-sys-text-primary group-hover:text-sys-accent transition-colors truncate">
+                              {task.title || "Завдання"}
+                            </span>
+                            {!group.teacher && task.teacher && (
+                              <span className="text-sys-text-muted text-xs truncate">({task.teacher})</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {task.deadline.statusText ? (
+                              <span className={`text-xs font-medium ${getTaskDeadlineTextColor(task.deadline.badgeTone, isLinked)}`}>
+                                {getTaskStatusText(task.deadline, isLinked)}
+                              </span>
+                            ) : null}
+                            <span className="text-sys-text-muted group-hover:text-sys-text-primary transition-colors text-xs">↗</span>
+                          </div>
+                        </a>
+                      ))}
+                    </div>
                   ))}
 
                   {completedTasks.length > 0 && (
@@ -2503,36 +2595,45 @@ export const LessonCard = memo(function LessonCard({
                         </svg>
                         <span>Здані завдання ({completedTasks.length})</span>
                       </div>
-                      {completedTasks.map((task, idx) => {
-                        const key = extractClassroomTaskKey(task.url);
-                        const sub = submissions[task.url] || (key ? submissions[key] : null);
-                        const isGraded = sub?.state === "RETURNED" && sub?.grade != null;
-                        return (
-                          <a
-                            key={`mb-cm-${idx}`}
-                            href={task.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => { e.stopPropagation(); vibrateTap(10); }}
-                            className="group flex items-start justify-between gap-2 rounded-lg p-2 text-xs hover:bg-emerald-500/10 transition-colors bg-emerald-500/[0.03] border border-emerald-500/20"
-                          >
-                            <div className="flex flex-col min-w-0 flex-1">
-                              <span className="font-semibold text-sys-text-primary group-hover:text-sys-accent transition-colors line-clamp-2 break-words leading-tight">
-                                {task.title || "Завдання"}
-                              </span>
-                              {task.teacher && (
-                                <span className="text-sys-text-muted text-[11px] mt-0.5 truncate">({task.teacher})</span>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-1.5 shrink-0 ml-1.5 mt-0.5">
-                              <span className="inline-flex items-center text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-500/15 px-1.5 py-0.5 rounded">
-                                {isGraded ? `Оцінка: ${sub.grade}/${sub.maxPoints || 100}` : "Здано"}
-                              </span>
-                              <span className="text-sys-text-muted group-hover:text-sys-text-primary text-xs">↗</span>
-                            </div>
-                          </a>
-                        );
-                      })}
+                      {groupedCompletedTasks.map((group, gIdx) => (
+                        <div key={gIdx} className="flex flex-col gap-1.5">
+                          {group.teacher && (
+                            <span className="text-xs font-bold text-sys-text-secondary px-1 pt-0.5">
+                              {group.teacher}:
+                            </span>
+                          )}
+                          {group.items.map((task, idx) => {
+                            const key = extractClassroomTaskKey(task.url);
+                            const sub = submissions[task.url] || (key ? submissions[key] : null);
+                            const isGraded = sub?.state === "RETURNED" && sub?.grade != null;
+                            return (
+                              <a
+                                key={`mb-cm-${idx}`}
+                                href={task.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => { e.stopPropagation(); vibrateTap(10); }}
+                                className="group flex items-start justify-between gap-2 rounded-lg p-2 text-xs hover:bg-emerald-500/10 transition-colors bg-emerald-500/[0.03] border border-emerald-500/20"
+                              >
+                                <div className="flex flex-col min-w-0 flex-1">
+                                  <span className="font-semibold text-sys-text-primary group-hover:text-sys-accent transition-colors line-clamp-2 break-words leading-tight">
+                                    {task.title || "Завдання"}
+                                  </span>
+                                  {!group.teacher && task.teacher && (
+                                    <span className="text-sys-text-muted text-[11px] mt-0.5 truncate">({task.teacher})</span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1.5 shrink-0 ml-1.5 mt-0.5">
+                                  <span className="inline-flex items-center text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-500/15 px-1.5 py-0.5 rounded">
+                                    {isGraded ? `Оцінка: ${sub.grade}/${sub.maxPoints || 100}` : "Здано"}
+                                  </span>
+                                  <span className="text-sys-text-muted group-hover:text-sys-text-primary text-xs">↗</span>
+                                </div>
+                              </a>
+                            );
+                          })}
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
@@ -3006,6 +3107,9 @@ export const LessonCard = memo(function LessonCard({
                           <span className="font-semibold text-sys-text-primary truncate text-xs group-hover:text-sys-accent transition-colors">
                             {task.title || "Завдання"}
                           </span>
+                          {!group.teacher && task.teacher && (
+                            <span className="text-[11px] text-sys-text-muted truncate">({task.teacher})</span>
+                          )}
                           {task.deadline.statusText ? (
                             <span className={`text-xs ${getTaskDeadlineTextColor(task.deadline.badgeTone, isLinked)}`}>
                               {getTaskStatusText(task.deadline, isLinked)}
@@ -3028,36 +3132,45 @@ export const LessonCard = memo(function LessonCard({
                       </svg>
                       <span>Здані завдання ({completedTasks.length})</span>
                     </div>
-                    {completedTasks.map((task, idx) => {
-                      const key = extractClassroomTaskKey(task.url);
-                      const sub = submissions[task.url] || (key ? submissions[key] : null);
-                      const isGraded = sub?.state === "RETURNED" && sub?.grade != null;
-                      return (
-                        <a
-                          key={`wk-cm-${idx}`}
-                          href={task.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => { e.stopPropagation(); vibrateTap(10); }}
-                          className="group flex items-center justify-between gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.04] px-2.5 py-1.5 text-xs text-sys-text-primary hover:bg-emerald-500/10 transition-colors"
-                        >
-                          <div className="flex min-w-0 flex-col">
-                            <span className="font-semibold text-sys-text-primary truncate text-xs group-hover:text-sys-accent transition-colors">
-                              {task.title || "Завдання"}
-                            </span>
-                            {task.teacher && (
-                              <span className="text-[11px] text-sys-text-muted truncate">({task.teacher})</span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-1.5 shrink-0 ml-1">
-                            <span className="inline-flex items-center text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-500/15 px-1.5 py-0.5 rounded">
-                              {isGraded ? `Оцінка: ${sub.grade}/${sub.maxPoints || 100}` : "Здано"}
-                            </span>
-                            <span className="text-sys-text-muted group-hover:text-sys-text-primary text-xs">↗</span>
-                          </div>
-                        </a>
-                      );
-                    })}
+                    {groupedCompletedTasks.map((group, gIdx) => (
+                      <div key={gIdx} className="flex flex-col gap-1">
+                        {group.teacher && (
+                          <span className="text-xs font-bold text-sys-text-secondary pt-0.5">
+                            {group.teacher}:
+                          </span>
+                        )}
+                        {group.items.map((task, idx) => {
+                          const key = extractClassroomTaskKey(task.url);
+                          const sub = submissions[task.url] || (key ? submissions[key] : null);
+                          const isGraded = sub?.state === "RETURNED" && sub?.grade != null;
+                          return (
+                            <a
+                              key={`wk-cm-${idx}`}
+                              href={task.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => { e.stopPropagation(); vibrateTap(10); }}
+                              className="group flex items-center justify-between gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.04] px-2.5 py-1.5 text-xs text-sys-text-primary hover:bg-emerald-500/10 transition-colors"
+                            >
+                              <div className="flex min-w-0 flex-col">
+                                <span className="font-semibold text-sys-text-primary truncate text-xs group-hover:text-sys-accent transition-colors">
+                                  {task.title || "Завдання"}
+                                </span>
+                                {!group.teacher && task.teacher && (
+                                  <span className="text-[11px] text-sys-text-muted truncate">({task.teacher})</span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0 ml-1">
+                                <span className="inline-flex items-center text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-500/15 px-1.5 py-0.5 rounded">
+                                  {isGraded ? `Оцінка: ${sub.grade}/${sub.maxPoints || 100}` : "Здано"}
+                                </span>
+                                <span className="text-sys-text-muted group-hover:text-sys-text-primary text-xs">↗</span>
+                              </div>
+                            </a>
+                          );
+                        })}
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
