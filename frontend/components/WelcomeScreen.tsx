@@ -2,6 +2,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ReferenceRecord } from "../lib/api";
 import { StudentOnboardingModal } from "./StudentOnboardingModal";
+import { TeacherOnboardingModal } from "./TeacherOnboardingModal";
 
 interface WelcomeScreenProps {
   groups: ReferenceRecord[];
@@ -15,6 +16,8 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
   const [direction, setDirection] = useState(0);
   const [selectedStudentGroupId, setSelectedStudentGroupId] = useState<number | null>(null);
   const [showStudentGuide, setShowStudentGuide] = useState(false);
+  const [selectedTeacherId, setSelectedTeacherId] = useState<number | null>(null);
+  const [showTeacherGuide, setShowTeacherGuide] = useState(false);
 
   const variants = {
     enter: (dir: number) => ({
@@ -131,7 +134,8 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
                         setSelectedStudentGroupId(item.id);
                         setShowStudentGuide(true);
                       } else {
-                        onComplete(mode, item.id);
+                        setSelectedTeacherId(item.id);
+                        setShowTeacherGuide(true);
                       }
                     }}
                     className="w-full rounded-lg border border-transparent bg-sys-card/50 p-4 text-left font-medium text-sys-text-primary transition-[border-color,background-color,transform] duration-fast ease-smooth hover:border-sys-border hover:bg-sys-card active:scale-[0.98]"
@@ -156,6 +160,15 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
           groupId={selectedStudentGroupId}
           onClose={() => onComplete("student", selectedStudentGroupId)}
           onComplete={(finalGroupId) => onComplete("student", finalGroupId ?? selectedStudentGroupId)}
+        />
+      )}
+
+      {showTeacherGuide && selectedTeacherId !== null && (
+        <TeacherOnboardingModal
+          teacherId={selectedTeacherId}
+          teacherName={teachers.find((t) => t.id === selectedTeacherId)?.name}
+          onClose={() => onComplete("teacher", selectedTeacherId)}
+          onComplete={(finalTeacherId) => onComplete("teacher", finalTeacherId ?? selectedTeacherId)}
         />
       )}
     </div>
