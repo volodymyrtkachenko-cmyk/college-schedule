@@ -32,6 +32,8 @@ import { extractClassroomTaskKey, isOwnTask, syncPersonalSubmissions, useClassro
 import { useTeacherAccess } from "../lib/useTeacherAccess";
 import { useTheme } from "../lib/useTheme";
 import { normalizeSubjectName, formatFullWeekRange, extractTeacherFromSubject, formatTeachers, isValidTeacherName } from "../lib/format";
+import { useRecentSelections } from "../lib/useRecentSelections";
+import { RecentSelectionsChips } from "./RecentSelectionsChips";
 
 const WelcomeScreen = dynamic(() => import("./WelcomeScreen").then((m) => m.WelcomeScreen), { ssr: false });
 const DatePickerModal = dynamic(() => import("./DatePickerModal").then((m) => m.DatePickerModal), { ssr: false });
@@ -367,6 +369,22 @@ export function SchedulePageClient({
   const [modalSearch, setModalSearch] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
 
+  // Останні вибори груп та викладачів (до 3 збережених елементів, без порожніх комірок)
+  const { recentGroupIds, recentTeacherIds, recordRecentGroup, recordRecentTeacher } = useRecentSelections();
+
+  // Автоматично ініціалізуємо поточний вибір, якщо історія ще порожня
+  useEffect(() => {
+    if (groupId && recentGroupIds.length === 0) {
+      recordRecentGroup(groupId);
+    }
+  }, [groupId, recentGroupIds.length, recordRecentGroup]);
+
+  useEffect(() => {
+    if (teacherId && recentTeacherIds.length === 0) {
+      recordRecentTeacher(teacherId);
+    }
+  }, [teacherId, recentTeacherIds.length, recordRecentTeacher]);
+
   useEffect(() => {
     if (contextModalOpen) {
       setModalTab(mode);
@@ -374,6 +392,21 @@ export function SchedulePageClient({
       setTimeout(() => searchInputRef.current?.focus(), 50);
     }
   }, [contextModalOpen, mode]);
+
+  const handleSelectContextOption = useCallback(
+    (tab: "student" | "teacher", id: number) => {
+      toggleMode(tab);
+      if (tab === "student") {
+        setGroupId(id);
+        recordRecentGroup(id);
+      } else {
+        setTeacherId(id);
+        recordRecentTeacher(id);
+      }
+      setContextModalOpen(false);
+    },
+    [toggleMode, setGroupId, setTeacherId, recordRecentGroup, recordRecentTeacher],
+  );
 
   const filteredModalOptions = useMemo(() => {
     const list = modalTab === "student" ? groups : teachers;
@@ -424,17 +457,27 @@ export function SchedulePageClient({
       setReturnTarget({ mode, id: currentId, label: currentLabel });
     }
     toggleMode(target.mode);
-    if (target.mode === "student") setGroupId(targetId);
-    else setTeacherId(targetId);
-  }, [groups, teachers, mode, groupId, teacherId, setToast, toggleMode, setGroupId, setTeacherId]);
+    if (target.mode === "student") {
+      setGroupId(targetId);
+      recordRecentGroup(targetId);
+    } else {
+      setTeacherId(targetId);
+      recordRecentTeacher(targetId);
+    }
+  }, [groups, teachers, mode, groupId, teacherId, setToast, toggleMode, setGroupId, setTeacherId, recordRecentGroup, recordRecentTeacher]);
 
   const handleReturnBack = useCallback(() => {
     if (!returnTarget) return;
     toggleMode(returnTarget.mode);
-    if (returnTarget.mode === "student") setGroupId(returnTarget.id);
-    else setTeacherId(returnTarget.id);
+    if (returnTarget.mode === "student") {
+      setGroupId(returnTarget.id);
+      recordRecentGroup(returnTarget.id);
+    } else {
+      setTeacherId(returnTarget.id);
+      recordRecentTeacher(returnTarget.id);
+    }
     setReturnTarget(null);
-  }, [returnTarget, toggleMode, setGroupId, setTeacherId]);
+  }, [returnTarget, toggleMode, setGroupId, setTeacherId, recordRecentGroup, recordRecentTeacher]);
 
   const currentName =
     mode === "student"
@@ -1136,8 +1179,13 @@ export function SchedulePageClient({
           initialMode={mode}
           onComplete={(m, id) => {
             toggleMode(m);
-            if (m === "student") setGroupId(id);
-            else setTeacherId(id);
+            if (m === "student") {
+              setGroupId(id);
+              recordRecentGroup(id);
+            } else {
+              setTeacherId(id);
+              recordRecentTeacher(id);
+            }
             completeSetup();
           }}
         />
@@ -1621,6 +1669,17 @@ export function SchedulePageClient({
                 />
               </search>
 
+              {/* Recent selections (відображаються лише коли пошук порожній; якщо 1 вибір - рівно 1 кнопка без пустих рамок) */}
+              {!modalSearch.trim() && (
+                <RecentSelectionsChips
+                  mode={modalTab}
+                  currentId={modalTab === "student" ? groupId : teacherId}
+                  recentIds={modalTab === "student" ? recentGroupIds : recentTeacherIds}
+                  options={modalTab === "student" ? groups : teachers}
+                  onSelect={(id) => handleSelectContextOption(modalTab, id)}
+                />
+              )}
+
               {/* List of items */}
               <div className="mt-3 max-h-72 overflow-y-auto overscroll-contain custom-scrollbar space-y-1 pr-1">
                 {filteredModalOptions.map((opt) => {
@@ -1629,12 +1688,7 @@ export function SchedulePageClient({
                     <button
                       key={`${modalTab}-${opt.id}`}
                       type="button"
-                      onClick={() => {
-                        toggleMode(modalTab);
-                        if (modalTab === "student") setGroupId(opt.id);
-                        else setTeacherId(opt.id);
-                        setContextModalOpen(false);
-                      }}
+                      onClick={() => handleSelectContextOption(modalTab, opt.id)}
                       className={`w-full text-left px-3.5 py-2.5 rounded-xl text-sm transition-colors flex items-center justify-between ${
                         isSelected
                           ? "bg-sys-accent/15 text-sys-accent font-semibold border border-sys-accent/30"

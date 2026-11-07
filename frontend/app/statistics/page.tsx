@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { SearchableSelect } from "../../components/SearchableSelect";
+import { RecentSelectionsChips } from "../../components/RecentSelectionsChips";
+import { useRecentSelections } from "../../lib/useRecentSelections";
 import { api, ReferenceRecord, StatisticsResponse, TeacherGroupDetail, TeacherSubjectEntry } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 import { getProgressPercentage } from "../../lib/format";
@@ -26,6 +28,8 @@ export default function StatisticsPage() {
   const [stats, setStats] = useState<StatisticsResponse | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const { recentGroupIds, recentTeacherIds, recordRecentGroup, recordRecentTeacher } = useRecentSelections();
 
   useEffect(() => {
     let active = true;
@@ -156,12 +160,18 @@ export default function StatisticsPage() {
 
   const changeGroup = (id: number | null) => {
     setGroupId(id);
-    if (id !== null) window.localStorage.setItem("schedule:groupId", String(id));
+    if (id !== null) {
+      window.localStorage.setItem("schedule:groupId", String(id));
+      recordRecentGroup(id);
+    }
   };
 
   const changeTeacher = (id: number | null) => {
     setTeacherId(id);
-    if (id !== null) window.localStorage.setItem("schedule:teacherId", String(id));
+    if (id !== null) {
+      window.localStorage.setItem("schedule:teacherId", String(id));
+      recordRecentTeacher(id);
+    }
   };
 
   return (
@@ -216,6 +226,17 @@ export default function StatisticsPage() {
               ariaLabel={mode === "student" ? "Обрати групу" : "Обрати викладача"}
               placeholder={mode === "student" ? "🔍 Знайти групу..." : "🔍 Знайти викладача..."}
               emptyLabel="Очистити вибір"
+            />
+            <RecentSelectionsChips
+              mode={mode}
+              currentId={mode === "student" ? groupId : teacherId}
+              recentIds={mode === "student" ? recentGroupIds : recentTeacherIds}
+              options={mode === "student" ? groups : teachers}
+              onSelect={(id) => {
+                if (mode === "student") changeGroup(id);
+                else changeTeacher(id);
+              }}
+              className="mt-1"
             />
             {stats && (
               <p className="mt-3 text-center text-xs text-sys-text-muted">
