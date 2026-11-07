@@ -7,7 +7,7 @@ import { useTheme, ACCENT_OPTIONS, AccentColor } from "../lib/useTheme";
 import { useClassroomSubmissions } from "../lib/useClassroomSubmissions";
 import { requestClassroomAuth } from "../lib/classroomAuth";
 import { api, ScheduleResponse } from "../lib/api";
-import { checkScheduleHasSubgroups } from "../lib/format";
+import { checkScheduleHasSubgroups, extractSubgroupTeacherHints } from "../lib/format";
 
 export interface StudentOnboardingModalProps {
   groupId: number;
@@ -39,8 +39,13 @@ export function StudentOnboardingModal({
   const [chosenSubgroup, setChosenSubgroup] = useState<1 | 2 | null>(
     settings.defaultSubgroup === 1 || settings.defaultSubgroup === 2
       ? settings.defaultSubgroup
-      : 1
+      : null
   );
+
+  const subgroupHints = useMemo(() => {
+    const allLessons = weekSchedule.flatMap((day) => day.lessons || []);
+    return extractSubgroupTeacherHints(allLessons);
+  }, [weekSchedule]);
 
   // Classroom auth
   const [isLinkingClassroom, setIsLinkingClassroom] = useState(false);
@@ -218,39 +223,71 @@ export function StudentOnboardingModal({
                   </p>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2.5 pt-1">
+                <div className="flex flex-col gap-2 pt-1">
                   <button
                     type="button"
                     onClick={() => handleSubgroupSelect(1)}
-                    className={`rounded-2xl py-3.5 px-3 text-xs sm:text-sm font-bold border transition-all ${
+                    className={`flex items-center justify-between rounded-2xl py-3 px-4 border text-left transition-all ${
                       chosenSubgroup === 1
-                        ? "bg-sys-accent text-slate-900 border-sys-accent shadow-md scale-[1.02]"
-                        : "bg-sys-bg border-sys-border text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/40"
+                        ? "bg-sys-accent text-slate-900 border-sys-accent shadow-md scale-[1.01]"
+                        : "bg-sys-bg border-sys-border text-sys-text-primary hover:border-sys-accent/40"
                     }`}
                   >
-                    1 підгрупа
+                    <div className="min-w-0 pr-2">
+                      <div className="font-bold text-sm">1 підгрупа</div>
+                      {subgroupHints.sub1.length > 0 ? (
+                        <div className={`text-xs mt-0.5 truncate ${chosenSubgroup === 1 ? "text-slate-800 font-medium" : "text-sys-text-secondary"}`}>
+                          {subgroupHints.sub1.map((h) => `${h.teacher} (${h.subject})`).join(" • ")}
+                        </div>
+                      ) : (
+                        <div className={`text-xs mt-0.5 ${chosenSubgroup === 1 ? "text-slate-800 font-medium" : "text-sys-text-muted"}`}>
+                          Перша половина списку групи
+                        </div>
+                      )}
+                    </div>
+                    {chosenSubgroup === 1 && <span className="font-bold text-slate-900 shrink-0">✓</span>}
                   </button>
+
                   <button
                     type="button"
                     onClick={() => handleSubgroupSelect(2)}
-                    className={`rounded-2xl py-3.5 px-3 text-xs sm:text-sm font-bold border transition-all ${
+                    className={`flex items-center justify-between rounded-2xl py-3 px-4 border text-left transition-all ${
                       chosenSubgroup === 2
-                        ? "bg-sys-accent text-slate-900 border-sys-accent shadow-md scale-[1.02]"
-                        : "bg-sys-bg border-sys-border text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/40"
+                        ? "bg-sys-accent text-slate-900 border-sys-accent shadow-md scale-[1.01]"
+                        : "bg-sys-bg border-sys-border text-sys-text-primary hover:border-sys-accent/40"
                     }`}
                   >
-                    2 підгрупа
+                    <div className="min-w-0 pr-2">
+                      <div className="font-bold text-sm">2 підгрупа</div>
+                      {subgroupHints.sub2.length > 0 ? (
+                        <div className={`text-xs mt-0.5 truncate ${chosenSubgroup === 2 ? "text-slate-800 font-medium" : "text-sys-text-secondary"}`}>
+                          {subgroupHints.sub2.map((h) => `${h.teacher} (${h.subject})`).join(" • ")}
+                        </div>
+                      ) : (
+                        <div className={`text-xs mt-0.5 ${chosenSubgroup === 2 ? "text-slate-800 font-medium" : "text-sys-text-muted"}`}>
+                          Друга половина списку групи
+                        </div>
+                      )}
+                    </div>
+                    {chosenSubgroup === 2 && <span className="font-bold text-slate-900 shrink-0">✓</span>}
                   </button>
+
                   <button
                     type="button"
                     onClick={() => handleSubgroupSelect(null)}
-                    className={`rounded-2xl py-3.5 px-3 text-xs sm:text-sm font-bold border transition-all ${
+                    className={`flex items-center justify-between rounded-2xl py-3 px-4 border text-left transition-all ${
                       chosenSubgroup === null
-                        ? "bg-sys-accent text-slate-900 border-sys-accent shadow-md scale-[1.02]"
-                        : "bg-sys-bg border-sys-border text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/40"
+                        ? "bg-sys-accent text-slate-900 border-sys-accent shadow-md scale-[1.01]"
+                        : "bg-sys-bg border-sys-border text-sys-text-primary hover:border-sys-accent/40"
                     }`}
                   >
-                    Обидві
+                    <div className="min-w-0 pr-2">
+                      <div className="font-bold text-sm">Обидві підгрупи</div>
+                      <div className={`text-xs mt-0.5 ${chosenSubgroup === null ? "text-slate-800 font-medium" : "text-sys-text-secondary"}`}>
+                        Показувати викладачів обох підгруп паралельно
+                      </div>
+                    </div>
+                    {chosenSubgroup === null && <span className="font-bold text-slate-900 shrink-0">✓</span>}
                   </button>
                 </div>
 

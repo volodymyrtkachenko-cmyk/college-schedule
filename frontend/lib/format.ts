@@ -292,6 +292,57 @@ export function checkScheduleHasSubgroups(lessons: Array<{
   );
 }
 
+export interface SubgroupTeacherHint {
+  subgroup: 1 | 2;
+  teacher: string;
+  subject: string;
+}
+
+export function extractSubgroupTeacherHints(lessons: Array<{
+  teacher_id?: number | null;
+  second_teacher_id?: number | null;
+  teacher_name?: string | null;
+  subject_name?: string | null;
+  teacher_room?: string | null;
+  second_teacher_room?: string | null;
+  is_cancelled?: boolean;
+}>): { sub1: SubgroupTeacherHint[]; sub2: SubgroupTeacherHint[] } {
+  const sub1List: SubgroupTeacherHint[] = [];
+  const sub2List: SubgroupTeacherHint[] = [];
+  const seen1 = new Set<string>();
+  const seen2 = new Set<string>();
+
+  if (!Array.isArray(lessons)) return { sub1: [], sub2: [] };
+
+  for (const l of lessons) {
+    if (l.is_cancelled || !l.teacher_name) continue;
+    const hasSplit =
+      l.second_teacher_id != null ||
+      /[,/]/.test(l.teacher_name) ||
+      Boolean(l.teacher_room && l.second_teacher_room);
+    if (!hasSplit) continue;
+
+    const parts = l.teacher_name.split(/\s*[,/]\s*/).map((s) => s.trim()).filter(Boolean);
+    if (parts.length >= 2) {
+      const subj = l.subject_name?.trim() || "";
+      const t1 = formatTeacherName(parts[0]);
+      const t2 = formatTeacherName(parts[1]);
+      const key1 = `${t1}__${subj}`;
+      const key2 = `${t2}__${subj}`;
+      if (!seen1.has(key1)) {
+        seen1.add(key1);
+        sub1List.push({ subgroup: 1, teacher: t1, subject: subj });
+      }
+      if (!seen2.has(key2)) {
+        seen2.add(key2);
+        sub2List.push({ subgroup: 2, teacher: t2, subject: subj });
+      }
+    }
+  }
+
+  return { sub1: sub1List, sub2: sub2List };
+}
+
 export interface MeetingInfo {
   url: string;
   platform: "meet" | "zoom" | "teams" | "link";

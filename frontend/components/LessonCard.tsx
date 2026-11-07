@@ -891,7 +891,7 @@ export const LessonCard = memo(function LessonCard({
   }, [selectedSubgroup, isDualTeachers, isLinked, personalSubgroup, secondaryItems, personalTeachers]);
 
   const handleSubgroupToggle = (subIdx: number) => {
-    const nextVal = effectiveSubgroup === subIdx ? (subIdx === 1 ? 2 : 1) : subIdx;
+    const nextVal = effectiveSubgroup === subIdx ? null : subIdx;
     updateSetting("defaultSubgroup", nextVal);
   };
 

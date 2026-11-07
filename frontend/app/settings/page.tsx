@@ -12,7 +12,7 @@ import { useToast } from "../../components/ToastProvider";
 import { requestClassroomAuth } from "../../lib/classroomAuth";
 import { useMobileNav } from "../../lib/useMobileNav";
 import { api } from "../../lib/api";
-import { checkScheduleHasSubgroups } from "../../lib/format";
+import { checkScheduleHasSubgroups, extractSubgroupTeacherHints, SubgroupTeacherHint } from "../../lib/format";
 
 const GuideHubModal = dynamic(
   () => import("../../components/GuideHubModal").then((m) => m.GuideHubModal),
@@ -63,6 +63,31 @@ export default function SettingsPage() {
     return false;
   });
 
+  const [subgroupHints, setSubgroupHints] = useState<{ sub1: SubgroupTeacherHint[]; sub2: SubgroupTeacherHint[] }>(() => {
+    if (typeof window === "undefined") return { sub1: [], sub2: [] };
+    const gid =
+      Number(localStorage.getItem("schedule:groupId")) ||
+      Number(localStorage.getItem("schedule:classroom_linked_group_id"));
+    if (!gid) return { sub1: [], sub2: [] };
+    const prefix = `schedule:week:groupId:${gid}:`;
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const k = window.localStorage.key(i);
+      if (k && k.startsWith(prefix)) {
+        const raw = window.localStorage.getItem(k);
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              const lessons = parsed.flatMap((d: any) => d.lessons || []);
+              if (lessons.length > 0) return extractSubgroupTeacherHints(lessons);
+            }
+          } catch {}
+        }
+      }
+    }
+    return { sub1: [], sub2: [] };
+  });
+
   useEffect(() => {
     const gid =
       Number(localStorage.getItem("schedule:groupId")) ||
@@ -74,6 +99,7 @@ export default function SettingsPage() {
           const allLessons = data.flatMap((d) => d.lessons || []);
           const has = checkScheduleHasSubgroups(allLessons);
           setGroupHasSubgroups(has);
+          setSubgroupHints(extractSubgroupTeacherHints(allLessons));
           try {
             localStorage.setItem(`schedule:has_subgroups:${gid}`, has ? "1" : "0");
           } catch {}
@@ -246,28 +272,62 @@ export default function SettingsPage() {
                 <p className="text-xs text-sys-text-secondary leading-relaxed">
                   Автоматично обирається для пар із поділом на підгрупи; на картці пари її можна змінити.
                 </p>
-                <div className="grid grid-cols-2 gap-1.5 rounded-xl border border-sys-border bg-sys-bg p-1 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <button
                     type="button"
                     onClick={() => updateSetting("defaultSubgroup", 1)}
-                    className={`py-1.5 px-2 rounded-lg font-semibold text-center transition-colors duration-fast ease-smooth cursor-pointer ${
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
                       settings.defaultSubgroup === 1
-                        ? "bg-sys-accent text-white shadow-xs"
-                        : "text-sys-text-secondary hover:text-sys-text-primary"
+                        ? "bg-sys-accent text-slate-900 border-sys-accent shadow-xs"
+                        : "bg-sys-bg border-sys-border text-sys-text-primary hover:border-sys-accent/40"
                     }`}
                   >
-                    1 підгрупа
+                    <div className="text-xs font-bold">1 підгрупа</div>
+                    {subgroupHints.sub1.length > 0 ? (
+                      <div className={`text-[11px] mt-0.5 truncate ${settings.defaultSubgroup === 1 ? "text-slate-800 font-medium" : "text-sys-text-secondary"}`}>
+                        {subgroupHints.sub1.map((h) => `${h.teacher} (${h.subject})`).join(" • ")}
+                      </div>
+                    ) : (
+                      <div className={`text-[11px] mt-0.5 ${settings.defaultSubgroup === 1 ? "text-slate-800 font-medium" : "text-sys-text-muted"}`}>
+                        Перша половина групи
+                      </div>
+                    )}
                   </button>
+
                   <button
                     type="button"
                     onClick={() => updateSetting("defaultSubgroup", 2)}
-                    className={`py-1.5 px-2 rounded-lg font-semibold text-center transition-colors duration-fast ease-smooth cursor-pointer ${
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
                       settings.defaultSubgroup === 2
-                        ? "bg-sys-accent text-white shadow-xs"
-                        : "text-sys-text-secondary hover:text-sys-text-primary"
+                        ? "bg-sys-accent text-slate-900 border-sys-accent shadow-xs"
+                        : "bg-sys-bg border-sys-border text-sys-text-primary hover:border-sys-accent/40"
                     }`}
                   >
-                    2 підгрупа
+                    <div className="text-xs font-bold">2 підгрупа</div>
+                    {subgroupHints.sub2.length > 0 ? (
+                      <div className={`text-[11px] mt-0.5 truncate ${settings.defaultSubgroup === 2 ? "text-slate-800 font-medium" : "text-sys-text-secondary"}`}>
+                        {subgroupHints.sub2.map((h) => `${h.teacher} (${h.subject})`).join(" • ")}
+                      </div>
+                    ) : (
+                      <div className={`text-[11px] mt-0.5 ${settings.defaultSubgroup === 2 ? "text-slate-800 font-medium" : "text-sys-text-muted"}`}>
+                        Друга половина групи
+                      </div>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => updateSetting("defaultSubgroup", null)}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                      settings.defaultSubgroup === null
+                        ? "bg-sys-accent text-slate-900 border-sys-accent shadow-xs"
+                        : "bg-sys-bg border-sys-border text-sys-text-primary hover:border-sys-accent/40"
+                    }`}
+                  >
+                    <div className="text-xs font-bold">Обидві підгрупи</div>
+                    <div className={`text-[11px] mt-0.5 truncate ${settings.defaultSubgroup === null ? "text-slate-800 font-medium" : "text-sys-text-secondary"}`}>
+                      Показувати викладачів обох підгруп
+                    </div>
                   </button>
                 </div>
               </div>

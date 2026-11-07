@@ -15,7 +15,7 @@ const SETTINGS_CHANGE_EVENT = "schedule-settings-change";
 
 const DEFAULT_SERVER_SETTINGS: UserSettings = {
   showHomeworkBadges: true,
-  defaultSubgroup: 1,
+  defaultSubgroup: null,
   defaultViewDesktop: "today",
 };
 
@@ -33,10 +33,14 @@ function readSettingsFromStorage(): UserSettings {
     if (val !== null) showHomeworkBadges = val !== "false";
   } catch {}
 
-  let defaultSubgroup: number | null = 1;
+  let defaultSubgroup: number | null = null;
   try {
     const val = localStorage.getItem(SUBGROUP_KEY);
-    if (val === "1" || val === "2") defaultSubgroup = parseInt(val, 10);
+    if (val === "1" || val === "2") {
+      defaultSubgroup = parseInt(val, 10);
+    } else if (val === "all" || val === "null" || val === "0") {
+      defaultSubgroup = null;
+    }
   } catch {}
 
   let defaultViewDesktop: "week" | "today" = "today";
@@ -97,7 +101,7 @@ export function useUserSettings() {
         localStorage.setItem(HW_BADGES_KEY, String(value));
       } else if (key === "defaultSubgroup") {
         if (value === null) {
-          localStorage.removeItem(SUBGROUP_KEY);
+          localStorage.setItem(SUBGROUP_KEY, "all");
         } else {
           localStorage.setItem(SUBGROUP_KEY, String(value));
         }
