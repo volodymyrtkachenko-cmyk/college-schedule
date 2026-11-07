@@ -39,6 +39,7 @@ const TeacherPinModal = dynamic(() => import("./TeacherPinModal").then((m) => m.
 const MobileTasksView = dynamic(() => import("./MobileTasksView").then((m) => m.MobileTasksView), { ssr: false });
 const ScheduleWeekGrid = dynamic(() => import("./ScheduleWeekGrid").then((m) => m.ScheduleWeekGrid), { ssr: false });
 const GradesView = dynamic(() => import("./GradesView").then((m) => m.GradesView), { ssr: false });
+const GuideHubModal = dynamic(() => import("./GuideHubModal").then((m) => m.GuideHubModal), { ssr: false });
 
 const EN_KYIV_DOW_FMT = new Intl.DateTimeFormat("en-US", {
   timeZone: "Europe/Kyiv",
@@ -221,6 +222,7 @@ export function SchedulePageClient({
   const { isTeacherUnlocked } = useTeacherAccess();
   const [teacherPinModalOpen, setTeacherPinModalOpen] = useState(false);
   const [teacherPinTargetGroup, setTeacherPinTargetGroup] = useState<string | null>(null);
+  const [guideHubOpen, setGuideHubOpen] = useState(false);
   const hasGroupTaskAccess = mode !== "student" || isLinkedToGroup(groupId);
   const [tasksScope, setTasksScope] = useState<"week" | "all">("week");
   const [desktopSidebarTab, setDesktopSidebarTab] = useState<"tasks" | "grades">("tasks");
@@ -1285,6 +1287,17 @@ export function SchedulePageClient({
               )}
             </button>
 
+            {/* Guide & Help Hub Button 💡 */}
+            <button
+              type="button"
+              onClick={() => setGuideHubOpen(true)}
+              aria-label="Гід та довідник можливостей"
+              title="Гід та довідник можливостей"
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-sys-border bg-sys-bg text-sys-accent hover:border-sys-accent/60 hover:bg-sys-accent/10 active:scale-95 transition-colors duration-fast ease-smooth focus:outline-none focus:ring-2 focus:ring-sys-accent cursor-pointer text-base"
+            >
+              💡
+            </button>
+
             {/* Settings Link ⚙️ */}
             <Link
               href={`/settings?mode=${mode}`}
@@ -1432,28 +1445,39 @@ export function SchedulePageClient({
             </div>
           )}
 
-          {/* Right: Settings Link ⚙️ */}
-          <Link
-            href={`/settings?mode=${mode}`}
-            aria-label="Налаштування застосунку"
-            title="Налаштування"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-elevated-border active:scale-95 transition-colors duration-fast ease-smooth"
-          >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
+          {/* Right: Guide 💡 & Settings Link ⚙️ */}
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={() => setGuideHubOpen(true)}
+              aria-label="Гід та довідник можливостей"
+              title="Гід та довідник"
+              className="flex h-10 w-9 items-center justify-center rounded-xl border border-sys-border bg-sys-bg/90 text-sys-accent hover:border-sys-accent/60 active:scale-95 transition-colors text-sm"
             >
-              <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-              <circle cx="12" cy="12" r="3" />
-            </svg>
-          </Link>
+              💡
+            </button>
+            <Link
+              href={`/settings?mode=${mode}`}
+              aria-label="Налаштування застосунку"
+              title="Налаштування"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-elevated-border active:scale-95 transition-colors duration-fast ease-smooth"
+            >
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+            </Link>
+          </div>
         </div>
 
         {/* Tier 2 (h-11): Sticky Day tabs Пн• Вт Ср Чт Пт */}
@@ -2610,6 +2634,13 @@ export function SchedulePageClient({
         semesterStartIso={semesterStart}
         onSelectDate={handleDatePickerSelect}
       />
+
+      {guideHubOpen && (
+        <GuideHubModal
+          groupId={groupId}
+          onClose={() => setGuideHubOpen(false)}
+        />
+      )}
         </>
       )}
     </div>

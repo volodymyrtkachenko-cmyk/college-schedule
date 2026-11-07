@@ -14,8 +14,8 @@ import { useMobileNav } from "../../lib/useMobileNav";
 import { api } from "../../lib/api";
 import { checkScheduleHasSubgroups } from "../../lib/format";
 
-const StudentGuideModal = dynamic(
-  () => import("../../components/StudentGuideModal").then((m) => m.StudentGuideModal),
+const GuideHubModal = dynamic(
+  () => import("../../components/GuideHubModal").then((m) => m.GuideHubModal),
   { ssr: false }
 );
 
@@ -629,22 +629,20 @@ export default function SettingsPage() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-            {isStudent && (
-              <button
-                type="button"
-                onClick={() => setShowGuideModal(true)}
-                className="sm:col-span-2 flex items-center justify-between rounded-xl border border-sys-accent/30 bg-sys-accent/10 p-3 hover:border-sys-accent/60 hover:bg-sys-accent/15 transition-colors duration-fast ease-smooth group text-left"
-              >
-                <span className="flex items-center gap-2.5">
-                  <span className="text-base">📖</span>
-                  <span className="flex flex-col">
-                    <span className="font-semibold text-sys-text-primary text-xs sm:text-sm">Гід для студента</span>
-                    <span className="text-[11px] text-sys-text-secondary">Як користуватися розкладом, підгрупами та Classroom</span>
-                  </span>
+            <button
+              type="button"
+              onClick={() => setShowGuideModal(true)}
+              className="sm:col-span-2 flex items-center justify-between rounded-xl border border-sys-accent/30 bg-sys-accent/10 p-3 hover:border-sys-accent/60 hover:bg-sys-accent/15 transition-colors duration-fast ease-smooth group text-left"
+            >
+              <span className="flex items-center gap-2.5">
+                <span className="text-base">💡</span>
+                <span className="flex flex-col">
+                  <span className="font-semibold text-sys-text-primary text-xs sm:text-sm">Гід та довідник можливостей</span>
+                  <span className="text-[11px] text-sys-text-secondary">Усі фішки, підказки, офлайн-режим, дзвінки та робота з Classroom</span>
                 </span>
-                <span className="text-sys-accent group-hover:translate-x-0.5 transition-transform text-xs font-bold shrink-0">Відкрити →</span>
-              </button>
-            )}
+              </span>
+              <span className="text-sys-accent group-hover:translate-x-0.5 transition-transform text-xs font-bold shrink-0">Відкрити →</span>
+            </button>
 
             <Link
               href="/statistics"
@@ -715,7 +713,7 @@ export default function SettingsPage() {
         </section>
 
         {showGuideModal && (
-          <StudentGuideModal
+          <GuideHubModal
             groupId={
               typeof window !== "undefined"
                 ? Number(localStorage.getItem("schedule:groupId")) ||

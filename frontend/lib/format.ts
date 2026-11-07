@@ -308,8 +308,13 @@ export function extractOnlineMeetings(
   teacherRoom?: string | null,
   secondTeacherRoom?: string | null
 ): MeetingInfo[] {
-  const isForeignLang = Boolean(
-    (subjectName && /іноземн|англ/i.test(subjectName)) ||
+  const teacherTokens = (teacherName || "")
+    .split(/[,/]/)
+    .map((t) => t.trim())
+    .filter(Boolean);
+
+  const isLegacy85ForeignLang = Boolean(
+    (subjectName && /іноземн|англ/i.test(subjectName)) &&
     (teacherName && /токарєв|хочинськ/i.test(teacherName))
   );
 
@@ -373,8 +378,12 @@ export function extractOnlineMeetings(
           }
         }
 
-        if (!label && isForeignLang) {
-          label = isMeet ? "Токарєва" : "Хочинська";
+        if (!label) {
+          if (isLegacy85ForeignLang) {
+            label = isMeet ? "Токарєва" : "Хочинська";
+          } else if (teacherTokens.length === 2) {
+            label = isMeet ? teacherTokens[0] : teacherTokens[1];
+          }
         }
 
         const platform: MeetingInfo["platform"] = isMeet
@@ -419,8 +428,12 @@ export function extractOnlineMeetings(
           }
         }
 
-        if (!label && isForeignLang) {
-          label = platform === "meet" ? "Токарєва" : "Хочинська";
+        if (!label) {
+          if (isLegacy85ForeignLang) {
+            label = platform === "meet" ? "Токарєва" : "Хочинська";
+          } else if (teacherTokens.length === 2) {
+            label = platform === "meet" ? teacherTokens[0] : teacherTokens[1];
+          }
         }
 
         results.push({
@@ -443,7 +456,7 @@ export function extractOnlineMeetings(
     });
   }
 
-  if (isForeignLang && results.length > 0) {
+  if (isLegacy85ForeignLang && results.length > 0) {
     for (const r of results) {
       if (!r.label) {
         r.label = r.platform === "meet" ? "Токарєва" : "Хочинська";

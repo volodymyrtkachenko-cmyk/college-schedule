@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ReferenceRecord } from "../lib/api";
-import { StudentGuideModal } from "./StudentGuideModal";
+import { StudentOnboardingModal } from "./StudentOnboardingModal";
 
 interface WelcomeScreenProps {
   groups: ReferenceRecord[];
@@ -152,8 +152,7 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
       </AnimatePresence>
 
       {showStudentGuide && selectedStudentGroupId !== null && (
-        <StudentGuideModal
-          isOnboarding={true}
+        <StudentOnboardingModal
           groupId={selectedStudentGroupId}
           onClose={() => onComplete("student", selectedStudentGroupId)}
           onComplete={(finalGroupId) => onComplete("student", finalGroupId ?? selectedStudentGroupId)}
