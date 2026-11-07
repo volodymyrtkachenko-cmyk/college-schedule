@@ -377,18 +377,18 @@ export function SchedulePageClient({
   // Останні вибори груп та викладачів (до 3 збережених елементів, без порожніх комірок)
   const { recentGroupIds, recentTeacherIds, recordRecentGroup, recordRecentTeacher } = useRecentSelections();
 
-  // Автоматично ініціалізуємо поточний вибір, якщо історія ще порожня
+  // Автоматично зберігаємо поточний вибір групи та викладача в історію
   useEffect(() => {
-    if (groupId && recentGroupIds.length === 0) {
+    if (groupId) {
       recordRecentGroup(groupId);
     }
-  }, [groupId, recentGroupIds.length, recordRecentGroup]);
+  }, [groupId, recordRecentGroup]);
 
   useEffect(() => {
-    if (teacherId && recentTeacherIds.length === 0) {
+    if (teacherId) {
       recordRecentTeacher(teacherId);
     }
-  }, [teacherId, recentTeacherIds.length, recordRecentTeacher]);
+  }, [teacherId, recordRecentTeacher]);
 
   useEffect(() => {
     if (contextModalOpen) {
