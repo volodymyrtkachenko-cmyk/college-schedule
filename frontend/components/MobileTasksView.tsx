@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { ClassroomTaskItem, getTaskStatusText } from "./LessonCard";
 import { ClassroomSyncButton } from "./ClassroomSyncButton";
 import { useClassroomSubmissions } from "../lib/useClassroomSubmissions";
@@ -92,35 +92,34 @@ export function MobileTasksView({
 
   return (
     <div className="w-full min-w-0 pb-20 px-4 pt-3">
-      {/* Header */}
-      <div className="mb-3 flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-bold tracking-tight text-sys-text-primary">
-            {viewMode === "grades" ? "Оцінки" : "Завдання Classroom"}
-          </h2>
+      {/* Header - Fixed stable height and top-aligned so title never jumps */}
+      <div className="mb-3 flex items-start justify-between min-h-[48px]">
+        <div className="min-w-0 flex-1 pr-2">
+          <div className="h-7 flex items-center">
+            <h2 className="text-xl font-bold tracking-tight text-sys-text-primary leading-none truncate">
+              {viewMode === "grades" ? "Оцінки" : "Завдання Classroom"}
+            </h2>
+          </div>
           {hasAccess && (
-            <div className="flex items-center gap-2 mt-0.5">
-              <p className="text-xs text-sys-text-secondary">
+            <div className="flex items-center gap-1.5 mt-0.5 h-4 text-xs text-sys-text-secondary min-w-0">
+              <span className="truncate">
                 {viewMode === "grades"
-                  ? "Середній бал та успішність з Classroom"
+                  ? "Середній бал та успішність"
                   : scope === "week"
                   ? `${totalCount} ${formatTaskWord(totalCount)} на цьому тижні`
                   : `${totalCount} ${formatTaskWord(totalCount)} загалом`}
-              </p>
+              </span>
               {formattedSyncTime && (
-                <>
-                  <span className="text-slate-600 text-xs">•</span>
-                  <span className="text-xs text-sys-text-muted">
-                    дані від {formattedSyncTime}
-                  </span>
-                </>
+                <span className="shrink-0 text-sys-text-muted">
+                  • {formattedSyncTime}
+                </span>
               )}
             </div>
           )}
         </div>
 
         {groupId && (
-          <div className="shrink-0">
+          <div className="shrink-0 pt-0.5">
             <ClassroomSyncButton
               currentGroupId={groupId}
               weekStart={weekStart}
@@ -160,12 +159,11 @@ export function MobileTasksView({
         </button>
       </div>
 
-      <AnimatePresence mode="wait" initial={false}>
+      <div className="w-full">
         <motion.div
           key={viewMode}
-          initial={{ opacity: 0, y: 3 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -3 }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
           transition={{ duration: 0.12, ease: "easeOut" }}
           className="w-full"
         >
@@ -551,7 +549,7 @@ export function MobileTasksView({
         </>
       )}
         </motion.div>
-      </AnimatePresence>
+      </div>
     </div>
   );
 }
