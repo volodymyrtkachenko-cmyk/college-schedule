@@ -2754,6 +2754,8 @@ export function SchedulePageClient({
       {guideHubOpen && (
         <GuideHubModal
           groupId={groupId}
+          teacherId={teacherId}
+          mode={mode}
           onClose={() => setGuideHubOpen(false)}
         />
       )}

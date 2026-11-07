@@ -11,10 +11,12 @@ import { DEFAULT_LESSON_TIMES } from "../lib/constants/lessons";
 
 export interface GuideHubModalProps {
   groupId?: number | null;
+  teacherId?: number | null;
+  mode?: "student" | "teacher";
   onClose: () => void;
 }
 
-interface DemoData {
+interface StudentDemoData {
   subgroupSubject: string;
   teacher1: string;
   teacher1Room: string;
@@ -39,6 +41,30 @@ interface DemoData {
   distinctCount: number;
 }
 
+interface TeacherDemoData {
+  teacherName: string;
+  liveSubject: string;
+  liveGroup: string;
+  liveRoom: string;
+  daysPreview: {
+    day: "Пн" | "Вт" | "Ср" | "Чт" | "Пт";
+    lessonNumber: number;
+    time: string;
+    subject: string;
+    group: string;
+    room: string;
+  }[];
+  groupsList: string[];
+  statSubjects: {
+    name: string;
+    hours: number;
+    plannedHours: number;
+    percent: number;
+  }[];
+  totalHours: number;
+  totalLessons: number;
+}
+
 const DEFAULT_DAYS: ("Пн" | "Вт" | "Ср" | "Чт" | "Пт")[] = ["Пн", "Вт", "Ср", "Чт", "Пт"];
 const FALLBACK_SUBJECTS = [
   "Комп'ютерні мережі",
@@ -48,7 +74,7 @@ const FALLBACK_SUBJECTS = [
   "Операційні системи",
 ];
 
-function extractGuideData(weekSchedule: ScheduleResponse[]): DemoData {
+function extractStudentGuideData(weekSchedule: ScheduleResponse[]): StudentDemoData {
   const allLessons: Lesson[] = [];
   weekSchedule.forEach((day) => {
     if (Array.isArray(day?.lessons)) {
@@ -122,7 +148,6 @@ function extractGuideData(weekSchedule: ScheduleResponse[]): DemoData {
     };
   });
 
-  // Distinct subjects for realistic statistics demo
   const uniqueSubjects = Array.from(
     new Set(allLessons.map((l) => l.subject_name).filter(Boolean))
   );
@@ -148,7 +173,80 @@ function extractGuideData(weekSchedule: ScheduleResponse[]): DemoData {
   };
 }
 
-export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
+function extractTeacherGuideData(weekSchedule: ScheduleResponse[], currentTeacherName?: string): TeacherDemoData {
+  const allLessons: Lesson[] = [];
+  weekSchedule.forEach((day) => {
+    if (Array.isArray(day?.lessons)) {
+      allLessons.push(...day.lessons);
+    }
+  });
+
+  const validLessons = allLessons.filter((l) => !l.is_cancelled && l.subject_name);
+
+  const firstL = validLessons[0];
+  const liveSubject = firstL?.subject_name || "Комп'ютерні мережі";
+  const liveGroup = firstL?.group_name || "85 ДФКР";
+  const liveRoom = formatRoom(firstL?.teacher_room || firstL?.room || "309");
+
+  // Distinct groups
+  const uniqueGroups = Array.from(
+    new Set(validLessons.map((l) => l.group_name).filter(Boolean) as string[])
+  );
+  if (uniqueGroups.length === 0) {
+    uniqueGroups.push("85 ДФКР", "86 ДФКР");
+  } else if (uniqueGroups.length === 1) {
+    uniqueGroups.push("86 ДФКР");
+  }
+
+  // Days preview
+  const daysPreview = DEFAULT_DAYS.map((d, idx) => {
+    const dayData = weekSchedule[idx];
+    const dayLessons = (dayData?.lessons || []).filter((l) => !l.is_cancelled);
+    if (dayLessons.length > 0) {
+      const l = dayLessons[0];
+      return {
+        day: d,
+        lessonNumber: l.lesson_number || 1,
+        time: l.time || DEFAULT_LESSON_TIMES[1],
+        subject: l.subject_name,
+        group: l.group_name || uniqueGroups[0] || "85 ДФКР",
+        room: formatRoom(l.teacher_room || l.room || "309"),
+      };
+    }
+    return {
+      day: d,
+      lessonNumber: 1,
+      time: DEFAULT_LESSON_TIMES[1],
+      subject: FALLBACK_SUBJECTS[idx] || "Спеціальна дисципліна",
+      group: uniqueGroups[idx % uniqueGroups.length] || "85 ДФКР",
+      room: `ауд. ${300 + (idx + 1) * 2}`,
+    };
+  });
+
+  const uniqueSubjects = Array.from(
+    new Set(validLessons.map((l) => l.subject_name).filter(Boolean))
+  );
+  const sub1 = uniqueSubjects[0] || "Комп'ютерні мережі";
+  const sub2 = uniqueSubjects[1] || "Бази даних та SQL";
+  const statSubjects = [
+    { name: sub1, hours: 44, plannedHours: 60, percent: 73 },
+    { name: sub2, hours: 28, plannedHours: 40, percent: 70 },
+  ];
+
+  return {
+    teacherName: currentTeacherName || firstL?.teacher_name || "Викладач коледжу",
+    liveSubject,
+    liveGroup,
+    liveRoom,
+    daysPreview,
+    groupsList: uniqueGroups.slice(0, 3),
+    statSubjects,
+    totalHours: 72,
+    totalLessons: 36,
+  };
+}
+
+export function GuideHubModal({ groupId, teacherId, mode, onClose }: GuideHubModalProps) {
   const { updateSetting } = useUserSettings();
 
   const effectiveGroupId =
@@ -159,16 +257,38 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
         null
       : null);
 
+  const effectiveTeacherId =
+    teacherId ??
+    (typeof window !== "undefined"
+      ? Number(localStorage.getItem("schedule:teacherId")) || null
+      : null);
+
+  // Guide mode: student vs teacher
+  const [guideMode, setGuideMode] = useState<"student" | "teacher">(() => {
+    if (mode) return mode;
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("schedule:mode");
+      if (stored === "teacher") return "teacher";
+    }
+    return "student";
+  });
+
   const [groupName, setGroupName] = useState<string>("85 ДФКР");
-  const [weekSchedule, setWeekSchedule] = useState<ScheduleResponse[]>([]);
+  const [teacherName, setTeacherName] = useState<string>("Викладач коледжу");
+  const [studentWeekSchedule, setStudentWeekSchedule] = useState<ScheduleResponse[]>([]);
+  const [teacherWeekSchedule, setTeacherWeekSchedule] = useState<ScheduleResponse[]>([]);
   const [activeSlide, setActiveSlide] = useState(0);
 
   // Device type detection (desktop vs touch/mobile)
   const [isTouchDevice, setIsTouchDevice] = useState(false);
 
-  // Interactive demo states
+  // Interactive demo states (Student)
   const [demoNavDay, setDemoNavDay] = useState<"Пн" | "Вт" | "Ср" | "Чт" | "Пт">("Пн");
   const [demoSubgroup, setDemoSubgroup] = useState<1 | 2 | null>(null);
+
+  // Interactive demo states (Teacher)
+  const [demoPinUnlocked, setDemoPinUnlocked] = useState(false);
+  const [demoTeacherGroup, setDemoTeacherGroup] = useState<string>("85 ДФКР");
 
   // Touch tracking for demo card (prevents conflict with story slides)
   const [cardTouchStart, setCardTouchStart] = useState<number | null>(null);
@@ -214,6 +334,7 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
     };
   }, []);
 
+  // Fetch Student data
   useEffect(() => {
     if (typeof window === "undefined") return;
     const storedName = localStorage.getItem("schedule:groupName");
@@ -234,7 +355,7 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
     if (effectiveGroupId) {
       api.week(effectiveGroupId)
         .then((data) => {
-          if (isMounted && Array.isArray(data)) setWeekSchedule(data);
+          if (isMounted && Array.isArray(data)) setStudentWeekSchedule(data);
         })
         .catch(() => {});
     }
@@ -242,6 +363,33 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
       isMounted = false;
     };
   }, [effectiveGroupId]);
+
+  // Fetch Teacher data
+  useEffect(() => {
+    let isMounted = true;
+    api.directory.teachers()
+      .then((teachers) => {
+        if (!isMounted) return;
+        const found = effectiveTeacherId
+          ? teachers.find((t) => t.id === effectiveTeacherId)
+          : teachers[0];
+        if (found?.name) {
+          setTeacherName(found.name);
+        }
+        const tid = found?.id || effectiveTeacherId;
+        if (tid) {
+          api.week(undefined, tid)
+            .then((data) => {
+              if (isMounted && Array.isArray(data)) setTeacherWeekSchedule(data);
+            })
+            .catch(() => {});
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, [effectiveTeacherId]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -273,13 +421,18 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
     };
   }, []);
 
-  const demoData = useMemo(() => extractGuideData(weekSchedule), [weekSchedule]);
+  const studentDemoData = useMemo(() => extractStudentGuideData(studentWeekSchedule), [studentWeekSchedule]);
+  const teacherDemoData = useMemo(() => extractTeacherGuideData(teacherWeekSchedule, teacherName), [teacherWeekSchedule, teacherName]);
 
-  const activeNavLesson = useMemo(() => {
-    return demoData.daysPreview.find((d) => d.day === demoNavDay) || demoData.daysPreview[0];
-  }, [demoData, demoNavDay]);
+  const activeNavLessonStudent = useMemo(() => {
+    return studentDemoData.daysPreview.find((d) => d.day === demoNavDay) || studentDemoData.daysPreview[0];
+  }, [studentDemoData, demoNavDay]);
 
-  // Card swipe gesture handlers (swipes the lesson preview across days, NOT story slides)
+  const activeNavLessonTeacher = useMemo(() => {
+    return teacherDemoData.daysPreview.find((d) => d.day === demoNavDay) || teacherDemoData.daysPreview[0];
+  }, [teacherDemoData, demoNavDay]);
+
+  // Card swipe gesture handlers
   const handleCardTouchStart = (e: React.TouchEvent) => {
     e.stopPropagation();
     setCardTouchEnd(null);
@@ -296,13 +449,11 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
     if (cardTouchStart === null || cardTouchEnd === null) return;
     const diff = cardTouchStart - cardTouchEnd;
     if (diff > 35) {
-      // Swiped left -> next day
       const idx = DEFAULT_DAYS.indexOf(demoNavDay);
       if (idx < DEFAULT_DAYS.length - 1) {
         setDemoNavDay(DEFAULT_DAYS[idx + 1]);
       }
     } else if (diff < -35) {
-      // Swiped right -> prev day
       const idx = DEFAULT_DAYS.indexOf(demoNavDay);
       if (idx > 0) {
         setDemoNavDay(DEFAULT_DAYS[idx - 1]);
@@ -312,9 +463,10 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
     setCardTouchEnd(null);
   };
 
-  const slides = [
+  // Student Slides
+  const studentSlides = [
     {
-      id: "live",
+      id: "student-live",
       icon: "🔴",
       title: "«Жива» пара в реальному часі",
       caption: "Заняття, яке триває просто зараз, автоматично підсвічується акцентним кольором та показує точний таймер до перерви.",
@@ -333,10 +485,10 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
             </span>
           </div>
           <div className="font-bold text-base text-sys-text-primary">
-            {demoData.subgroupSubject}
+            {studentDemoData.subgroupSubject}
           </div>
           <div className="text-xs text-sys-text-secondary">
-            {demoData.teacher1} · {demoData.teacher1Room}
+            {studentDemoData.teacher1} · {studentDemoData.teacher1Room}
           </div>
           <div className="h-2 w-full rounded-full bg-sys-accent/20 overflow-hidden mt-1">
             <div className="h-full bg-sys-accent rounded-full w-2/3 transition-all duration-500" />
@@ -345,7 +497,7 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
       ),
     },
     {
-      id: "navigation",
+      id: "student-navigation",
       icon: isTouchDevice ? "📱" : "💻",
       title: isTouchDevice ? "Свайпи та швидкі дні тижня" : "Сітка тижня та швидкі дні",
       caption: isTouchDevice
@@ -356,7 +508,6 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
           onTouchStart={(e) => e.stopPropagation()}
           className="guide-interactive-demo rounded-2xl border border-sys-border bg-sys-card p-4 space-y-3 shadow-md"
         >
-          {/* Desktop badge or mobile mode header */}
           {!isTouchDevice ? (
             <div className="flex items-center justify-between text-xs border-b border-sys-border/50 pb-2">
               <span className="font-bold text-sys-text-primary flex items-center gap-1.5">
@@ -368,7 +519,6 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
             </div>
           ) : null}
 
-          {/* Days bar */}
           <div className="grid grid-cols-5 gap-1 text-center">
             {DEFAULT_DAYS.map((d) => (
               <button
@@ -386,7 +536,6 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
             ))}
           </div>
 
-          {/* Gesture / Keyboard guidance */}
           {isTouchDevice ? (
             <div className="flex items-center justify-between px-2 text-[11px] text-sys-text-muted">
               <button
@@ -424,7 +573,6 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
             </div>
           )}
 
-          {/* Day Card Preview with local swipe support */}
           <div
             onTouchStart={handleCardTouchStart}
             onTouchMove={handleCardTouchMove}
@@ -434,26 +582,26 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
             <div className="flex items-center justify-between text-xs">
               <span className="font-bold text-sys-text-secondary flex items-center gap-1.5">
                 <span className="rounded bg-sys-card border border-sys-border px-1.5 py-0.5 text-[10px] font-bold text-sys-accent">
-                  {activeNavLesson.day}
+                  {activeNavLessonStudent.day}
                 </span>
-                <span>{activeNavLesson.lessonNumber} пара · {activeNavLesson.time}</span>
+                <span>{activeNavLessonStudent.lessonNumber} пара · {activeNavLessonStudent.time}</span>
               </span>
               <span className="rounded-md border border-sys-border bg-sys-card px-2 py-0.5 text-[11px] font-semibold text-sys-text-secondary">
-                {activeNavLesson.room}
+                {activeNavLessonStudent.room}
               </span>
             </div>
             <div className="font-bold text-sm text-sys-text-primary truncate">
-              {activeNavLesson.subject}
+              {activeNavLessonStudent.subject}
             </div>
             <div className="text-xs text-sys-text-secondary truncate">
-              {activeNavLesson.teacher}
+              {activeNavLessonStudent.teacher}
             </div>
           </div>
         </div>
       ),
     },
     {
-      id: "subgroups",
+      id: "student-subgroups",
       icon: "👥",
       title: "Обидві підгрупи та швидкий фільтр",
       caption: "Розклад показує обох викладачів паралельно. Натискайте прямо на «1 підгр.» чи «2 підгр.», щоб залишити тільки свого викладача.",
@@ -469,7 +617,7 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
             </span>
           </div>
           <div className="font-bold text-sm sm:text-base text-sys-text-primary">
-            {demoData.subgroupSubject}
+            {studentDemoData.subgroupSubject}
           </div>
           <div className="space-y-2 pt-1">
             {(demoSubgroup === null || demoSubgroup === 1) && (
@@ -497,11 +645,11 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
                     <span>1 підгр.</span>
                   </button>
                   <span className="text-xs font-semibold text-sys-text-primary">
-                    {demoData.teacher1}
+                    {studentDemoData.teacher1}
                   </span>
                 </div>
                 <span className="text-xs font-medium text-sys-text-secondary">
-                  {demoData.teacher1Room}
+                  {studentDemoData.teacher1Room}
                 </span>
               </div>
             )}
@@ -530,11 +678,11 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
                     <span>2 підгр.</span>
                   </button>
                   <span className="text-xs font-semibold text-sys-text-primary">
-                    {demoData.teacher2}
+                    {studentDemoData.teacher2}
                   </span>
                 </div>
                 <span className="text-xs font-medium text-sys-text-secondary">
-                  {demoData.teacher2Room}
+                  {studentDemoData.teacher2Room}
                 </span>
               </div>
             )}
@@ -558,7 +706,7 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
       ),
     },
     {
-      id: "classroom",
+      id: "student-classroom",
       icon: "📋",
       title: "Classroom: дедлайни та оцінки",
       caption: "Усі завдання синхронізуються автоматично. Підключивши студентську пошту, ви бачите особистий статус здачі та оцінки викладачів.",
@@ -568,7 +716,7 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
           className="guide-interactive-demo rounded-2xl border border-sys-border bg-sys-card p-4 space-y-2.5 shadow-md"
         >
           <div className="flex items-center justify-between text-xs">
-            <span className="font-bold text-sys-text-secondary">{demoData.hwSubject}</span>
+            <span className="font-bold text-sys-text-secondary">{studentDemoData.hwSubject}</span>
             <span className="text-emerald-700 dark:text-emerald-400 font-bold text-[11px]">Classroom ✓</span>
           </div>
           <div className="space-y-2">
@@ -595,7 +743,7 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
       ),
     },
     {
-      id: "stats",
+      id: "student-stats",
       icon: "📊",
       title: "Статистика занять та графік семестру",
       caption: "Слідкуйте за академічним навантаженням групи, годинами за кожним предметом та семестровим планом у розділі «Статистика».",
@@ -604,7 +752,6 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
           onTouchStart={(e) => e.stopPropagation()}
           className="guide-interactive-demo rounded-2xl border border-sys-border bg-sys-card p-4 space-y-3 shadow-md"
         >
-          {/* Header identical to /statistics */}
           <div className="flex items-center justify-between text-xs border-b border-sys-border/50 pb-2">
             <div className="flex items-center gap-1.5">
               <span className="font-black text-sys-text-primary text-sm sm:text-base">{groupName}</span>
@@ -617,7 +764,6 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
             </span>
           </div>
 
-          {/* Top 2 summary hero cards identical to real /statistics */}
           <div className="grid grid-cols-2 gap-2 text-center">
             <div className="rounded-xl border border-sys-border bg-sys-bg p-2 flex flex-col justify-center items-center">
               <span className="text-[10px] font-bold uppercase tracking-wider text-sys-text-secondary">
@@ -635,7 +781,7 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
                 Дисциплін
               </span>
               <span className="mt-0.5 text-xl font-black text-sys-text-primary leading-none">
-                {demoData.distinctCount}
+                {studentDemoData.distinctCount}
               </span>
               <span className="mt-0.5 text-[10px] text-sys-text-muted">
                 у поточному семестрі
@@ -643,7 +789,6 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
             </div>
           </div>
 
-          {/* Key subject preview with radial progress circle */}
           <div className="rounded-xl border border-sys-border bg-sys-bg p-2 flex items-center gap-3">
             <div className="relative w-9 h-9 shrink-0 flex items-center justify-center">
               <svg className="w-full h-full transform -rotate-90" viewBox="0 0 44 44">
@@ -656,26 +801,25 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
                   cx="22" cy="22" r="18"
                   stroke="currentColor" strokeWidth="3.5" fill="none"
                   strokeDasharray={2 * Math.PI * 18}
-                  strokeDashoffset={2 * Math.PI * 18 - (demoData.statSubjects[0].percent / 100) * (2 * Math.PI * 18)}
+                  strokeDashoffset={2 * Math.PI * 18 - (studentDemoData.statSubjects[0].percent / 100) * (2 * Math.PI * 18)}
                   className="text-sys-accent transition-all duration-700"
                   strokeLinecap="round"
                 />
               </svg>
               <span className="absolute text-[10px] font-bold text-sys-text-primary">
-                {demoData.statSubjects[0].percent}%
+                {studentDemoData.statSubjects[0].percent}%
               </span>
             </div>
             <div className="flex-1 min-w-0 text-left">
               <div className="font-semibold text-xs text-sys-text-primary truncate">
-                {demoData.statSubjects[0].name}
+                {studentDemoData.statSubjects[0].name}
               </div>
               <div className="text-[10px] text-sys-text-secondary">
-                {demoData.statSubjects[0].hours} з {demoData.statSubjects[0].plannedHours} акад. год · {Math.round(demoData.statSubjects[0].hours / 2)} пар
+                {studentDemoData.statSubjects[0].hours} з {studentDemoData.statSubjects[0].plannedHours} акад. год · {Math.round(studentDemoData.statSubjects[0].hours / 2)} пар
               </div>
             </div>
           </div>
 
-          {/* Direct link button to /statistics */}
           <Link
             href="/statistics"
             onClick={onClose}
@@ -688,7 +832,7 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
       ),
     },
     {
-      id: "pwa",
+      id: "student-pwa",
       icon: "📲",
       title: "Працює без інтернету (PWA)",
       caption: "Розклад автоматично зберігається на вашому пристрої та відкривається навіть під час відключень зв'язку чи світла.",
@@ -749,10 +893,413 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
     },
   ];
 
-  const total = slides.length;
-  const current = slides[activeSlide];
+  // Teacher Slides
+  const teacherSlides = [
+    {
+      id: "teacher-live",
+      icon: "🔴",
+      title: "«Жива» пара та аудиторія",
+      caption: "Пара, яку ви ведете просто зараз, автоматично виділяється акцентним кольором. Ви одразу бачите номер аудиторії, групу студентів та точний таймер до дзвінка.",
+      render: () => (
+        <div
+          onTouchStart={(e) => e.stopPropagation()}
+          className="guide-interactive-demo relative rounded-2xl border border-sys-accent bg-gradient-to-br from-sys-accent/15 via-sys-card to-sys-card p-4 space-y-3 shadow-lg"
+        >
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-black text-sys-accent">
+              1 пара · 09:00–10:20
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-sys-accent/20 border border-sys-accent/40 px-2.5 py-0.5 text-xs font-bold text-sys-accent">
+              <span className="h-2 w-2 rounded-full bg-sys-accent animate-ping" />
+              ще 25 хв
+            </span>
+          </div>
+          <div className="font-bold text-base text-sys-text-primary truncate">
+            {teacherDemoData.liveSubject}
+          </div>
+          <div className="flex items-center justify-between text-xs">
+            <span className="inline-flex items-center gap-1.5 font-bold text-sys-text-primary">
+              <span className="h-2 w-2 rounded-full bg-sys-accent" />
+              Група: {teacherDemoData.liveGroup}
+            </span>
+            <span className="rounded-md border border-sys-border bg-sys-bg px-2 py-0.5 font-bold text-sys-text-secondary">
+              {teacherDemoData.liveRoom}
+            </span>
+          </div>
+          <div className="h-2 w-full rounded-full bg-sys-accent/20 overflow-hidden mt-1">
+            <div className="h-full bg-sys-accent rounded-full w-2/3 transition-all duration-500" />
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: "teacher-navigation",
+      icon: isTouchDevice ? "📱" : "💻",
+      title: isTouchDevice ? "Свайпи та робочі дні тижня" : "Тижнева сітка та робочі дні",
+      caption: isTouchDevice
+        ? "Гортайте робочі дні свайпами пальцем вліво або вправо, або швидко переходьте до потрібного дня у верхній панелі."
+        : "На комп'ютері розклад відкривається у повній сітці тижня (Пн–Пт). Швидко перемикайте дні кліком або стрілками ← / → на клавіатурі.",
+      render: () => (
+        <div
+          onTouchStart={(e) => e.stopPropagation()}
+          className="guide-interactive-demo rounded-2xl border border-sys-border bg-sys-card p-4 space-y-3 shadow-md"
+        >
+          {!isTouchDevice ? (
+            <div className="flex items-center justify-between text-xs border-b border-sys-border/50 pb-2">
+              <span className="font-bold text-sys-text-primary flex items-center gap-1.5">
+                <span>🖥️</span> Розклад викладача на ПК
+              </span>
+              <span className="rounded-md bg-sys-accent/15 border border-sys-accent/30 text-sys-accent font-semibold px-2 py-0.5 text-[10px]">
+                Тижнева сітка / День
+              </span>
+            </div>
+          ) : null}
 
-  // Story swipe handling (only when user swipes OUTSIDE interactive demo components)
+          <div className="grid grid-cols-5 gap-1 text-center">
+            {DEFAULT_DAYS.map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setDemoNavDay(d)}
+                className={`py-1.5 rounded-xl border text-xs font-bold transition-all ${
+                  demoNavDay === d
+                    ? "bg-sys-accent text-white border-sys-accent shadow-xs scale-105"
+                    : "bg-sys-bg border-sys-border text-sys-text-secondary hover:text-sys-text-primary"
+                }`}
+              >
+                {d}
+              </button>
+            ))}
+          </div>
+
+          {isTouchDevice ? (
+            <div className="flex items-center justify-between px-2 text-[11px] text-sys-text-muted">
+              <button
+                type="button"
+                onClick={() => {
+                  const idx = DEFAULT_DAYS.indexOf(demoNavDay);
+                  if (idx > 0) setDemoNavDay(DEFAULT_DAYS[idx - 1]);
+                }}
+                className="hover:text-sys-text-primary transition-colors font-semibold"
+              >
+                👈 Вчора
+              </button>
+              <span className="text-sys-accent font-medium">Свайпайте картку</span>
+              <button
+                type="button"
+                onClick={() => {
+                  const idx = DEFAULT_DAYS.indexOf(demoNavDay);
+                  if (idx < DEFAULT_DAYS.length - 1) setDemoNavDay(DEFAULT_DAYS[idx + 1]);
+                }}
+                className="hover:text-sys-text-primary transition-colors font-semibold"
+              >
+                Завтра 👉
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center gap-2 py-0.5 text-[11px] text-sys-text-muted">
+              <span className="inline-flex items-center gap-1 rounded bg-sys-bg border border-sys-border px-1.5 py-0.5 font-mono text-[10px] text-sys-text-secondary">
+                ←
+              </span>
+              <span>або</span>
+              <span className="inline-flex items-center gap-1 rounded bg-sys-bg border border-sys-border px-1.5 py-0.5 font-mono text-[10px] text-sys-text-secondary">
+                →
+              </span>
+              <span>на клавіатурі для швидкої зміни дня</span>
+            </div>
+          )}
+
+          <div
+            onTouchStart={handleCardTouchStart}
+            onTouchMove={handleCardTouchMove}
+            onTouchEnd={handleCardTouchEnd}
+            className="rounded-xl border border-sys-border/80 bg-sys-bg p-3.5 space-y-1.5 transition-all select-none cursor-grab active:cursor-grabbing"
+          >
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-bold text-sys-text-secondary flex items-center gap-1.5">
+                <span className="rounded bg-sys-card border border-sys-border px-1.5 py-0.5 text-[10px] font-bold text-sys-accent">
+                  {activeNavLessonTeacher.day}
+                </span>
+                <span>{activeNavLessonTeacher.lessonNumber} пара · {activeNavLessonTeacher.time}</span>
+              </span>
+              <span className="rounded-md border border-sys-border bg-sys-card px-2 py-0.5 text-[11px] font-semibold text-sys-text-secondary">
+                {activeNavLessonTeacher.room}
+              </span>
+            </div>
+            <div className="font-bold text-sm text-sys-text-primary truncate">
+              {activeNavLessonTeacher.subject}
+            </div>
+            <div className="flex items-center justify-between text-xs text-sys-text-secondary pt-0.5">
+              <span className="font-semibold text-sys-accent">Група: {activeNavLessonTeacher.group}</span>
+              <span className="text-[11px] text-sys-text-muted">{teacherDemoData.teacherName}</span>
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: "teacher-pin",
+      icon: "🔒",
+      title: "Захист онлайн-посилань та PIN-код",
+      caption: "Студенти бачать відкриті посилання лише для своєї групи. Ввівши персональний PIN-код викладача, ви розблоковуєте доступ до всіх своїх занять у Google Meet та Zoom.",
+      render: () => (
+        <div
+          onTouchStart={(e) => e.stopPropagation()}
+          className="guide-interactive-demo rounded-2xl border border-sys-border bg-sys-card p-4 space-y-3 shadow-md"
+        >
+          <div className="flex items-center justify-between text-xs border-b border-sys-border/50 pb-2">
+            <span className="font-bold text-sys-text-secondary">Онлайн-заняття · {teacherDemoData.liveGroup}</span>
+            <span className={`text-[11px] font-bold ${demoPinUnlocked ? "text-emerald-700 dark:text-emerald-400" : "text-amber-800 dark:text-amber-300"}`}>
+              {demoPinUnlocked ? "Розблоковано ✓" : "Потрібен PIN 🔒"}
+            </span>
+          </div>
+          <div className="font-bold text-sm text-sys-text-primary">
+            {teacherDemoData.liveSubject}
+          </div>
+          <div className="pt-1">
+            {demoPinUnlocked ? (
+              <div className="space-y-2">
+                <div className="w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-600 dark:bg-emerald-500 text-white py-2.5 px-3 text-xs font-bold shadow-md">
+                  <span>🎥</span>
+                  <span>Meet · Підключитися до пари</span>
+                </div>
+                <div className="flex items-center justify-between px-1 text-[11px]">
+                  <span className="text-emerald-700 dark:text-emerald-400 font-semibold">✓ Усі посилання відкрито</span>
+                  <button
+                    type="button"
+                    onClick={() => setDemoPinUnlocked(false)}
+                    className="text-sys-accent font-bold hover:underline"
+                  >
+                    Заблокувати назад ↺
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => setDemoPinUnlocked(true)}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 dark:text-amber-300 py-2.5 px-3 text-xs font-bold transition-all active:scale-95"
+                >
+                  <span>🔒</span>
+                  <span>Ввести PIN-код для відкриття Meet</span>
+                </button>
+                <p className="text-[11px] text-sys-text-muted text-center">
+                  👆 Натисніть кнопку вище для перевірки розблокування
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: "teacher-groups",
+      icon: "👥",
+      title: "Групи та аудиторії викладача",
+      caption: "У розкладі викладача чітко позначено, для якої групи проводиться заняття. Спільні лекційні потоки об'єднуються, а номер аудиторії вказується окремо для кожної пари.",
+      render: () => (
+        <div
+          onTouchStart={(e) => e.stopPropagation()}
+          className="guide-interactive-demo rounded-2xl border border-sys-border bg-sys-card p-4 space-y-3 shadow-md"
+        >
+          <div className="flex items-center justify-between text-xs border-b border-sys-border/50 pb-2">
+            <span className="font-bold text-sys-text-secondary">2 пара · 10:40–12:00</span>
+            <span className="rounded-full bg-sys-accent/15 text-sys-accent px-2 py-0.5 text-[10px] font-bold">
+              Розклад викладача
+            </span>
+          </div>
+          <div className="font-bold text-sm sm:text-base text-sys-text-primary">
+            {teacherDemoData.liveSubject}
+          </div>
+          <div className="flex items-center gap-2 pt-1">
+            <span className="text-xs text-sys-text-secondary font-medium">Закріплена група:</span>
+            <div className="flex gap-1.5">
+              {teacherDemoData.groupsList.slice(0, 2).map((grp) => (
+                <button
+                  key={grp}
+                  type="button"
+                  onClick={() => setDemoTeacherGroup(grp)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-all ${
+                    demoTeacherGroup === grp
+                      ? "bg-sys-accent text-white border-sys-accent shadow-xs"
+                      : "bg-sys-bg border-sys-border text-sys-text-secondary hover:text-sys-text-primary"
+                  }`}
+                >
+                  {grp}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="rounded-xl border border-sys-border bg-sys-bg p-2.5 flex items-center justify-between text-xs">
+            <span className="font-semibold text-sys-text-primary">
+              Аудиторія для групи {demoTeacherGroup}:
+            </span>
+            <span className="font-bold text-sys-accent">
+              {teacherDemoData.liveRoom}
+            </span>
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: "teacher-stats",
+      icon: "📊",
+      title: "Навантаження та години за семестр",
+      caption: "Слідкуйте за виконанням академічного навантаження, відпрацьованими годинами та парами за кожним закріпленим предметом і групою у розділі «Статистика».",
+      render: () => (
+        <div
+          onTouchStart={(e) => e.stopPropagation()}
+          className="guide-interactive-demo rounded-2xl border border-sys-border bg-sys-card p-4 space-y-3 shadow-md"
+        >
+          <div className="flex items-center justify-between text-xs border-b border-sys-border/50 pb-2">
+            <div className="flex items-center gap-1.5">
+              <span className="font-black text-sys-text-primary text-sm sm:text-base truncate max-w-[200px]">
+                {teacherDemoData.teacherName}
+              </span>
+              <span className="rounded-full bg-sys-accent/15 text-sys-accent px-2 py-0.5 font-bold text-[10px]">
+                Семестр 2
+              </span>
+            </div>
+            <span className="text-[10px] text-sys-text-muted">
+              Викладач
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 text-center">
+            <div className="rounded-xl border border-sys-border bg-sys-bg p-2 flex flex-col justify-center items-center">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-sys-text-secondary">
+                Вичитано
+              </span>
+              <span className="mt-0.5 text-xl font-black text-sys-accent leading-none">
+                {teacherDemoData.totalHours}
+              </span>
+              <span className="mt-0.5 text-[10px] text-sys-text-muted">
+                акад. год · {teacherDemoData.totalLessons} пар
+              </span>
+            </div>
+            <div className="rounded-xl border border-sys-border bg-sys-bg p-2 flex flex-col justify-center items-center">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-sys-text-secondary">
+                Дисциплін
+              </span>
+              <span className="mt-0.5 text-xl font-black text-sys-text-primary leading-none">
+                {teacherDemoData.statSubjects.length}
+              </span>
+              <span className="mt-0.5 text-[10px] text-sys-text-muted">
+                у поточному семестрі
+              </span>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-sys-border bg-sys-bg p-2 flex items-center gap-3">
+            <div className="relative w-9 h-9 shrink-0 flex items-center justify-center">
+              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 44 44">
+                <circle
+                  cx="22" cy="22" r="18"
+                  stroke="currentColor" strokeWidth="3.5" fill="none"
+                  className="text-sys-border/70"
+                />
+                <circle
+                  cx="22" cy="22" r="18"
+                  stroke="currentColor" strokeWidth="3.5" fill="none"
+                  strokeDasharray={2 * Math.PI * 18}
+                  strokeDashoffset={2 * Math.PI * 18 - (teacherDemoData.statSubjects[0].percent / 100) * (2 * Math.PI * 18)}
+                  className="text-sys-accent transition-all duration-700"
+                  strokeLinecap="round"
+                />
+              </svg>
+              <span className="absolute text-[10px] font-bold text-sys-text-primary">
+                {teacherDemoData.statSubjects[0].percent}%
+              </span>
+            </div>
+            <div className="flex-1 min-w-0 text-left">
+              <div className="font-semibold text-xs text-sys-text-primary truncate">
+                {teacherDemoData.statSubjects[0].name}
+              </div>
+              <div className="text-[10px] text-sys-text-secondary">
+                {teacherDemoData.statSubjects[0].hours} з {teacherDemoData.statSubjects[0].plannedHours} акад. год · {Math.round(teacherDemoData.statSubjects[0].hours / 2)} пар
+              </div>
+            </div>
+          </div>
+
+          <Link
+            href="/statistics"
+            onClick={onClose}
+            className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-sys-accent px-4 py-2 text-xs font-bold text-white shadow-xs hover:opacity-95 active:scale-95 transition-colors duration-fast ease-smooth"
+          >
+            <span>Відкрити статистику викладача</span>
+            <span>↗</span>
+          </Link>
+        </div>
+      ),
+    },
+    {
+      id: "teacher-pwa",
+      icon: "📲",
+      title: "Розклад завжди офлайн (PWA)",
+      caption: "Розклад викладача кешується безпосередньо у пам'ять телефону чи ноутбука. Він миттєво відкривається навіть під час блекаутів та відсутності зв'язку.",
+      render: () => (
+        <div
+          onTouchStart={(e) => e.stopPropagation()}
+          className="guide-interactive-demo rounded-2xl border border-sys-border bg-sys-card p-4 space-y-3 shadow-md"
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">⚡</span>
+            <div className="text-left">
+              <div className="font-bold text-xs sm:text-sm text-sys-text-primary">
+                {isStandalone ? "✓ Застосунок уже на вашому екрані" : "Встановлення на головний екран"}
+              </div>
+              <div className="text-[11px] text-sys-text-secondary">
+                Працює як рідний додаток викладача
+              </div>
+            </div>
+          </div>
+          <p className="text-xs text-sys-text-secondary text-left leading-relaxed">
+            {isStandalone
+              ? "Ви вже використовуєте автономну версію розкладу."
+              : isIos
+              ? "Натисніть кнопку «Поділитися» ⎋ у Safari, потім — «На початковий екран» ⊞."
+              : "Натисніть кнопку нижче або скористайтеся меню браузера (⋮) → «Встановити додаток»."}
+          </p>
+          {!isStandalone && (
+            <button
+              type="button"
+              onClick={async () => {
+                if (pwaPrompt && typeof pwaPrompt.prompt === "function") {
+                  try {
+                    await pwaPrompt.prompt();
+                    const choice = await pwaPrompt.userChoice;
+                    if (choice?.outcome === "accepted") {
+                      setIsStandalone(true);
+                      setPwaFeedback("✅ Додаток успішно встановлено!");
+                    }
+                  } catch {}
+                } else if (isIos) {
+                  setPwaFeedback("В Safari: «Поділитися» ⎋ → «На початковий екран» ⊞");
+                } else {
+                  setPwaFeedback("Відкрийте меню браузера (⋮) → «Встановити додаток».");
+                }
+              }}
+              className="w-full rounded-xl bg-sys-accent py-2.5 text-xs sm:text-sm font-bold text-white shadow-md active:scale-95 transition-all"
+            >
+              📲 Додати розклад викладача на екран
+            </button>
+          )}
+          {pwaFeedback && (
+            <div className="text-xs text-center text-sys-accent font-semibold pt-1">
+              {pwaFeedback}
+            </div>
+          )}
+        </div>
+      ),
+    },
+  ];
+
+  const slides = guideMode === "teacher" ? teacherSlides : studentSlides;
+  const total = slides.length;
+  const current = slides[activeSlide] || slides[0];
+
+  // Story swipe handling
   const minSwipeDistance = 50;
   const onTouchStartHandler = (e: React.TouchEvent) => {
     if ((e.target as HTMLElement).closest(".guide-interactive-demo")) {
@@ -786,8 +1333,7 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
         return;
       }
 
-      // If user is on slide with id "navigation", arrow keys change the demo day
-      if (slides[activeSlide]?.id === "navigation") {
+      if (slides[activeSlide]?.id.includes("nav")) {
         const currentIdx = DEFAULT_DAYS.indexOf(demoNavDay);
         if (e.key === "ArrowRight") {
           if (currentIdx < DEFAULT_DAYS.length - 1) {
@@ -822,10 +1368,10 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
         aria-modal="true"
         aria-labelledby="guide-title"
         onClick={(e) => e.stopPropagation()}
-        className="relative flex flex-col w-full max-w-[480px] h-[550px] max-h-[92vh] rounded-3xl border border-sys-border bg-sys-card text-sys-text-primary shadow-2xl overflow-hidden"
+        className="relative flex flex-col w-full max-w-[480px] h-[565px] max-h-[94vh] rounded-3xl border border-sys-border bg-sys-card text-sys-text-primary shadow-2xl overflow-hidden"
       >
-        {/* Top Header: Story Pills + Close */}
-        <header className="px-5 pt-4 pb-2 bg-sys-card shrink-0 space-y-3">
+        {/* Top Header: Title, Mode switcher, Close, Story Progress */}
+        <header className="px-5 pt-4 pb-2 bg-sys-card shrink-0 space-y-2.5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-lg">💡</span>
@@ -843,8 +1389,46 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
             </button>
           </div>
 
+          {/* Guide Mode Toggle: Student vs Teacher */}
+          <div className="flex items-center justify-between pt-0.5">
+            <div className="inline-flex items-center rounded-xl bg-sys-bg border border-sys-border p-0.5 text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => {
+                  setGuideMode("student");
+                  setActiveSlide(0);
+                }}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                  guideMode === "student"
+                    ? "bg-sys-accent text-white shadow-xs"
+                    : "text-sys-text-secondary hover:text-sys-text-primary"
+                }`}
+              >
+                🎓 Студент
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setGuideMode("teacher");
+                  setActiveSlide(0);
+                }}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                  guideMode === "teacher"
+                    ? "bg-sys-accent text-white shadow-xs"
+                    : "text-sys-text-secondary hover:text-sys-text-primary"
+                }`}
+              >
+                👨‍🏫 Викладач
+              </button>
+            </div>
+
+            <span className="text-[11px] font-semibold text-sys-text-muted truncate max-w-[160px]">
+              {guideMode === "student" ? groupName : teacherDemoData.teacherName}
+            </span>
+          </div>
+
           {/* Story Progress Bars */}
-          <div className="flex items-center gap-1.5 pt-1">
+          <div className="flex items-center gap-1.5 pt-0.5">
             {slides.map((s, idx) => (
               <button
                 key={s.id}
@@ -872,16 +1456,16 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
           onTouchStart={onTouchStartHandler}
           onTouchMove={onTouchMoveHandler}
           onTouchEnd={onTouchEndHandler}
-          className="px-5 py-3 sm:px-6 flex-1 w-full flex flex-col justify-center overflow-hidden select-none relative"
+          className="px-5 py-2.5 sm:px-6 flex-1 w-full flex flex-col justify-center overflow-hidden select-none relative"
         >
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
-              key={current.id}
+              key={`${guideMode}-${current.id}`}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.16, ease: "easeOut" }}
-              className="w-full space-y-3 my-auto"
+              className="w-full space-y-2.5 my-auto"
             >
               {/* Slide Title */}
               <div className="flex items-center gap-2">

@@ -781,6 +781,16 @@ export default function SettingsPage() {
                   undefined
                 : undefined
             }
+            teacherId={
+              typeof window !== "undefined"
+                ? Number(localStorage.getItem("schedule:teacherId")) || undefined
+                : undefined
+            }
+            mode={
+              typeof window !== "undefined"
+                ? (localStorage.getItem("schedule:mode") as "student" | "teacher") || "student"
+                : "student"
+            }
             onClose={() => setShowGuideModal(false)}
           />
         )}

@@ -6,6 +6,8 @@ import { StudentOnboardingModal } from "./StudentOnboardingModal";
 export interface StudentGuideModalProps {
   isOnboarding?: boolean;
   groupId?: number | null;
+  teacherId?: number | null;
+  mode?: "student" | "teacher";
   onClose: () => void;
   onComplete?: (finalGroupId?: number | null) => void;
 }
@@ -13,6 +15,8 @@ export interface StudentGuideModalProps {
 export function StudentGuideModal({
   isOnboarding = false,
   groupId,
+  teacherId,
+  mode,
   onClose,
   onComplete,
 }: StudentGuideModalProps) {
@@ -26,7 +30,7 @@ export function StudentGuideModal({
     );
   }
 
-  return <GuideHubModal groupId={groupId} onClose={onClose} />;
+  return <GuideHubModal groupId={groupId} teacherId={teacherId} mode={mode} onClose={onClose} />;
 }
 
 export { GuideHubModal, StudentOnboardingModal };
