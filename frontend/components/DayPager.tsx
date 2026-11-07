@@ -203,7 +203,7 @@ export function DayPager({
       id="day-pager-content"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
-      className="w-full min-w-0 touch-pan-y flex flex-col flex-1 min-h-[calc(100dvh-10rem)]"
+      className="w-full min-w-0 touch-pan-y flex flex-col flex-1 min-h-[calc(100vh-10rem)]"
     >
       {/* Top context banners: weekend or tomorrow */}
       <AnimatePresence>
@@ -305,34 +305,20 @@ export function DayPager({
       )}
 
       {/* Animated Day Schedule List */}
-      <AnimatePresence mode="wait" initial={false} custom={daySlideDir}>
-        <motion.div
-          key={schedule.date}
-          custom={daySlideDir}
-          variants={{
-            enter: (dir: number) => ({
-              x: dir > 0 ? 16 : dir < 0 ? -16 : 0,
-              opacity: 0,
-            }),
-            center: {
-              x: 0,
-              opacity: 1,
-            },
-            exit: (dir: number) => ({
-              x: dir > 0 ? -16 : dir < 0 ? 16 : 0,
-              opacity: 0,
-            }),
-          }}
-          initial="enter"
-          animate="center"
-          exit="exit"
-          transition={{
-            duration: shouldReduceMotion ? 0 : 0.09,
-            ease: [0.2, 0, 0, 1],
-          }}
-          style={{ willChange: "transform, opacity" }}
-          className="flex flex-col flex-1 gap-3"
-        >
+      <motion.div
+        key={schedule.date}
+        initial={{
+          opacity: 0.8,
+          x: shouldReduceMotion ? 0 : daySlideDir > 0 ? 14 : daySlideDir < 0 ? -14 : 0,
+        }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{
+          duration: shouldReduceMotion ? 0 : 0.1,
+          ease: [0.16, 1, 0.3, 1],
+        }}
+        style={{ willChange: "transform, opacity" }}
+        className="flex flex-col flex-1 gap-3"
+      >
           {orderedLessons.length > 0 ? (
             orderedLessons.map((lesson, idx) => {
               const lessonKey = `${lesson.id}-${lesson.lesson_number}`;
@@ -394,7 +380,6 @@ export function DayPager({
             </div>
           )}
         </motion.div>
-      </AnimatePresence>
     </div>
   );
 }

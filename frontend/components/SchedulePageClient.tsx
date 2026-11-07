@@ -530,7 +530,7 @@ export function SchedulePageClient({
   }, []);
 
   const resetScroll = () => {
-    if (typeof window !== "undefined") {
+    if (typeof window !== "undefined" && window.scrollY > 0) {
       window.scrollTo({ top: 0, behavior: "instant" });
     }
   };
