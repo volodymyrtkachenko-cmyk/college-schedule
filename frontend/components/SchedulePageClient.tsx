@@ -235,7 +235,7 @@ export function SchedulePageClient({
   const [weekTypeSheetOpen, setWeekTypeSheetOpen] = useState(false);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [sidebarTaskFilters, setSidebarTaskFilters] = useState<TaskFilterState>(DEFAULT_TASK_FILTERS);
-  const [sidebarFiltersOpen, setSidebarFiltersOpen] = useState(false);
+  const [sidebarFiltersOpen, setSidebarFiltersOpen] = useState(true);
   const sidebarFiltersActive = sidebarTaskFilters.status !== "all" || sidebarTaskFilters.subject !== "";
   const [classroomTasks, setClassroomTasks] = useState<Array<{
     id: string;
@@ -2508,19 +2508,19 @@ export function SchedulePageClient({
                             <button
                               type="button"
                               onClick={() => setSidebarFiltersOpen((v) => !v)}
-                              aria-expanded={sidebarFiltersOpen || sidebarFiltersActive}
+                              aria-expanded={sidebarFiltersOpen}
                               className="flex items-center gap-1.5 text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary cursor-pointer transition-colors"
                             >
                               Фільтри
                               {sidebarFiltersActive && <span className="h-1.5 w-1.5 rounded-full bg-sys-accent" />}
-                              <span>{sidebarFiltersOpen || sidebarFiltersActive ? "▴" : "▾"}</span>
+                              <span>{sidebarFiltersOpen ? "▴" : "▾"}</span>
                             </button>
                             <div
                               style={{
                                 display: "grid",
-                                gridTemplateRows: (sidebarFiltersOpen || sidebarFiltersActive) ? "1fr" : "0fr",
+                                gridTemplateRows: sidebarFiltersOpen ? "1fr" : "0fr",
                                 transition: "grid-template-rows 0.26s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease",
-                                opacity: (sidebarFiltersOpen || sidebarFiltersActive) ? 1 : 0,
+                                opacity: sidebarFiltersOpen ? 1 : 0,
                               }}
                               className="w-full overflow-hidden"
                             >
