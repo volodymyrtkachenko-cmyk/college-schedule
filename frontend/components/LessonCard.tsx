@@ -1286,22 +1286,33 @@ export const LessonCard = memo(function LessonCard({
   };
 
   const renderMoreMenu = (alignTop = true) => {
-    if (!moreOpen) return null;
     return (
-      <>
-        <div
-          className="fixed inset-0 z-40"
-          onClick={(e) => {
-            e.stopPropagation();
-            setMoreOpen(false);
-          }}
-        />
-        <div
-          onClick={(e) => e.stopPropagation()}
-          className={`absolute right-0 ${
-            alignTop ? "bottom-full mb-1" : "top-full mt-1"
-          } z-50 min-w-[200px] rounded-xl border border-sys-border bg-sys-card shadow-2xl p-1 text-xs space-y-0.5 animate-in fade-in zoom-in-95 duration-150`}
-        >
+      <AnimatePresence>
+        {moreOpen && (
+          <>
+            <motion.div
+              key="more-menu-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="fixed inset-0 z-40"
+              onClick={(e) => {
+                e.stopPropagation();
+                setMoreOpen(false);
+              }}
+            />
+            <motion.div
+              key="more-menu-popup"
+              initial={{ opacity: 0, scale: 0.95, y: alignTop ? 4 : -4 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: alignTop ? 4 : -4 }}
+              transition={{ type: "spring", stiffness: 420, damping: 28 }}
+              onClick={(e) => e.stopPropagation()}
+              className={`absolute right-0 ${
+                alignTop ? "bottom-full mb-1" : "top-full mt-1"
+              } z-50 min-w-[200px] rounded-xl border border-sys-border bg-sys-card shadow-2xl p-1 text-xs space-y-0.5`}
+            >
           {isTemplateMode ? (
             <>
               {onCopySelect && !movingLesson && (
@@ -1479,8 +1490,10 @@ export const LessonCard = memo(function LessonCard({
               )}
             </>
           )}
-        </div>
-      </>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     );
   };
 
@@ -1515,7 +1528,7 @@ export const LessonCard = memo(function LessonCard({
     >
       {/* Desktop/Tablet 3-Zone Horizontal Layout (for Day mode on screens >= sm) */}
       {isDay && showSmPlus && (
-        <div className="hidden sm:flex sm:items-stretch gap-4 w-full">
+        <div className="hidden sm:flex sm:items-stretch gap-4 w-full flex-1">
           {/* Zone 1: Timeline (100px - 110px) */}
           {!hideTimeColumn && (
             <div className="w-24 sm:w-28 shrink-0 self-start flex flex-col items-start pr-4 border-r border-sys-border/50 text-left pt-1">
@@ -2564,7 +2577,7 @@ export const LessonCard = memo(function LessonCard({
                 style={{
                   display: "grid",
                   gridTemplateRows: isHwOpen ? "1fr" : "0fr",
-                  transition: "grid-template-rows 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.22s ease",
+                  transition: "grid-template-rows 0.20s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.16s ease",
                   opacity: isHwOpen ? 1 : 0,
                 }}
                 className="w-full overflow-hidden"

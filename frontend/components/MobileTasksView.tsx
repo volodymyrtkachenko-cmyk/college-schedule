@@ -177,10 +177,10 @@ export function MobileTasksView({
       <AnimatePresence mode="popLayout" initial={false}>
         <motion.div
           key={viewMode}
-          initial={{ opacity: 0, scale: 0.985 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.985 }}
-          transition={{ type: "spring", stiffness: 290, damping: 30, mass: 0.85 }}
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -4 }}
+          transition={{ duration: 0.16, ease: "easeOut" }}
           className="w-full"
         >
           {viewMode === "grades" ? (
@@ -381,7 +381,7 @@ export function MobileTasksView({
                 style={{
                   display: "grid",
                   gridTemplateRows: (pastWeekOpen || filters.status === "overdue" || Boolean(filters.subject)) ? "1fr" : "0fr",
-                  transition: "grid-template-rows 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.22s ease",
+                  transition: "grid-template-rows 0.20s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.16s ease",
                   opacity: (pastWeekOpen || filters.status === "overdue" || Boolean(filters.subject)) ? 1 : 0,
                 }}
                 className="w-full overflow-hidden"
@@ -428,7 +428,7 @@ export function MobileTasksView({
                 style={{
                   display: "grid",
                   gridTemplateRows: (overdueOpen || filters.status === "overdue" || Boolean(filters.subject)) ? "1fr" : "0fr",
-                  transition: "grid-template-rows 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.22s ease",
+                  transition: "grid-template-rows 0.20s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.16s ease",
                   opacity: (overdueOpen || filters.status === "overdue" || Boolean(filters.subject)) ? 1 : 0,
                 }}
                 className="w-full overflow-hidden"
@@ -465,7 +465,7 @@ export function MobileTasksView({
                 style={{
                   display: "grid",
                   gridTemplateRows: activeOpen ? "1fr" : "0fr",
-                  transition: "grid-template-rows 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.22s ease",
+                  transition: "grid-template-rows 0.20s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.16s ease",
                   opacity: activeOpen ? 1 : 0,
                 }}
                 className="w-full overflow-hidden"
@@ -502,7 +502,7 @@ export function MobileTasksView({
                 style={{
                   display: "grid",
                   gridTemplateRows: (noDateOpen || (filters.status === "pending" && activeTasks.length === 0) || Boolean(filters.subject)) ? "1fr" : "0fr",
-                  transition: "grid-template-rows 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.22s ease",
+                  transition: "grid-template-rows 0.20s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.16s ease",
                   opacity: (noDateOpen || (filters.status === "pending" && activeTasks.length === 0) || Boolean(filters.subject)) ? 1 : 0,
                 }}
                 className="w-full overflow-hidden"
@@ -551,7 +551,7 @@ export function MobileTasksView({
                 style={{
                   display: "grid",
                   gridTemplateRows: (turnedInOpen || filters.status === "done") ? "1fr" : "0fr",
-                  transition: "grid-template-rows 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.22s ease",
+                  transition: "grid-template-rows 0.20s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.16s ease",
                   opacity: (turnedInOpen || filters.status === "done") ? 1 : 0,
                 }}
                 className="w-full overflow-hidden"

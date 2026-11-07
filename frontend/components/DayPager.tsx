@@ -28,21 +28,18 @@ function formatDayParts(dateStr?: string): { weekday: string; dayMonth: string }
 
 const dayCarouselVariants = {
   enter: (dir: number) => ({
-    x: dir > 0 ? 54 : dir < 0 ? -54 : 0,
+    x: dir > 0 ? 28 : dir < 0 ? -28 : 0,
     opacity: 0,
-    scale: 0.985,
   }),
   center: {
     x: 0,
     opacity: 1,
-    scale: 1,
-    transition: { type: "spring" as const, stiffness: 300, damping: 30, mass: 0.85 },
+    transition: { type: "spring" as const, stiffness: 380, damping: 32, mass: 0.75 },
   },
   exit: (dir: number) => ({
-    x: dir > 0 ? -54 : dir < 0 ? 54 : 0,
+    x: dir > 0 ? -28 : dir < 0 ? 28 : 0,
     opacity: 0,
-    scale: 0.985,
-    transition: { type: "spring" as const, stiffness: 300, damping: 30, mass: 0.85 },
+    transition: { type: "spring" as const, stiffness: 380, damping: 32, mass: 0.75 },
   }),
 };
 
@@ -383,16 +380,17 @@ export function DayPager({
       )}
 
       {/* Animated Day Schedule List */}
-      <AnimatePresence mode="popLayout" initial={false} custom={shouldReduceMotion ? 0 : daySlideDir}>
-        <motion.div
-          key={`${scheduleMode}-${schedule.date}`}
-          custom={shouldReduceMotion ? 0 : daySlideDir}
-          variants={dayCarouselVariants}
-          initial="enter"
-          animate="center"
-          exit="exit"
-          className="flex flex-col flex-1 gap-3 w-full"
-        >
+      <div className="relative flex-1 w-full flex flex-col">
+        <AnimatePresence mode="popLayout" initial={false} custom={shouldReduceMotion ? 0 : daySlideDir}>
+          <motion.div
+            key={`${scheduleMode}-${schedule.date}`}
+            custom={shouldReduceMotion ? 0 : daySlideDir}
+            variants={dayCarouselVariants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            className="flex flex-col flex-1 gap-3 w-full"
+          >
           {orderedLessons.length > 0 ? (
             orderedLessons.map((lesson, idx) => {
               const lessonKey = `${lesson.id}-${lesson.lesson_number}`;
@@ -411,17 +409,7 @@ export function DayPager({
               const breakLeft = isBreakNow && currStart !== null && kyivNow ? currStart - kyivNow.minutes : 0;
 
               return (
-                <motion.div
-                  key={lessonKey}
-                  initial={shouldReduceMotion ? false : { opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{
-                    duration: shouldReduceMotion ? 0 : 0.24,
-                    delay: shouldReduceMotion ? 0 : Math.min(idx * 0.025, 0.1),
-                    ease: [0.16, 1, 0.3, 1],
-                  }}
-                  className="flex flex-col gap-2.5"
-                >
+                <div key={lessonKey} className="flex flex-col gap-2.5">
                   {isBreakNow && (
                     <div className="flex items-center justify-center gap-2 rounded-xl border border-sys-border bg-sys-card/60 px-3 py-1.5 text-xs font-semibold text-sys-text-secondary">
                       <span>☕ Перерва{breakDuration > 0 ? ` ${breakDuration} хв` : ""}</span>
@@ -446,7 +434,7 @@ export function DayPager({
                     currentTeacherId={currentTeacherId}
                     currentTeacherName={currentTeacherName}
                   />
-                </motion.div>
+                </div>
               );
             })
           ) : schedule.period_info ? (
@@ -465,6 +453,7 @@ export function DayPager({
           )}
         </motion.div>
       </AnimatePresence>
+      </div>
     </div>
   );
 }

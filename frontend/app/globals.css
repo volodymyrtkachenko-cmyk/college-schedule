@@ -503,6 +503,7 @@ html[data-theme="light"][data-accent="cyan"] {
     scroll-behavior: smooth;
     background-color: var(--page-bg);
     accent-color: var(--accent);
+    scrollbar-gutter: stable;
   }
 
   body {
