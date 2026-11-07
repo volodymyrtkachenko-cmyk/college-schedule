@@ -43,15 +43,27 @@ export function useSchedule(
   weekAnchorDate: Date,
   includeCancelled = false,
   initialGroups: import("./api").ReferenceRecord[] = [],
-  initialTeachers: import("./api").ReferenceRecord[] = []
+  initialTeachers: import("./api").ReferenceRecord[] = [],
+  initialGroupId?: number | null,
+  initialTeacherId?: number | null,
+  initialMode?: "student" | "teacher"
 ) {
   const { user } = useAuth();
-  const [isSetupComplete, setIsSetupComplete] = useState(false);
-  const [mode, setMode] = useState<"student" | "teacher">("student");
+  const [isSetupComplete, setIsSetupComplete] = useState(() => {
+    if (initialGroupId || initialTeacherId) return true;
+    return false;
+  });
+  const [mode, setMode] = useState<"student" | "teacher">(initialMode ?? "student");
   const [groups, setGroups] = useState<import("./api").ReferenceRecord[]>(initialGroups);
-  const [teachers, setTeachers] = useState<import("./api").ReferenceRecord[]>(initialTeachers);
-  const [groupId, setGroupId] = useState<number | null>(initialGroups[0]?.id ?? null);
-  const [teacherId, setTeacherId] = useState<number | null>(initialTeachers[0]?.id ?? null);
+  const [teachers, setTeachers] = useState<import("./api").ReferenceRecord[]>(
+    initialTeachers.filter((t) => t.name && !t.name.includes("!"))
+  );
+  const [groupId, setGroupId] = useState<number | null>(
+    initialGroupId ?? (initialGroups[0]?.id ?? null)
+  );
+  const [teacherId, setTeacherId] = useState<number | null>(
+    initialTeacherId ?? (initialTeachers[0]?.id ?? null)
+  );
   const [today, setToday] = useState<ScheduleResponse | null>(null);
   const [week, setWeek] = useState<ScheduleResponse[]>([]);
   const [semesterStart, setSemesterStart] = useState<string | null>(null);
@@ -62,10 +74,10 @@ export function useSchedule(
 
   useEffect(() => {
     const cachedSetup = window.localStorage.getItem("schedule:setupComplete");
-    if (cachedSetup === "1") setIsSetupComplete(true);
+    if (cachedSetup === "1" || initialGroupId || initialTeacherId) setIsSetupComplete(true);
 
     const cachedMode = window.localStorage.getItem("schedule:mode") as "student" | "teacher" | null;
-    if (cachedMode) setMode(cachedMode);
+    if (!initialMode && cachedMode) setMode(cachedMode);
 
     const cachedGroupId = window.localStorage.getItem("schedule:groupId");
     const cachedTeacherId = window.localStorage.getItem("schedule:teacherId");
@@ -76,7 +88,9 @@ export function useSchedule(
       try {
         const items = JSON.parse(cachedGroups) as import("./api").ReferenceRecord[];
         setGroups(items);
-        setGroupId(cachedGroupId ? Number(cachedGroupId) : (items[0]?.id ?? null));
+        if (!initialGroupId) {
+          setGroupId(cachedGroupId ? Number(cachedGroupId) : (items[0]?.id ?? null));
+        }
         setLoading(false);
       } catch {
         window.localStorage.removeItem("schedule:groups");
@@ -85,9 +99,12 @@ export function useSchedule(
     
     if (cachedTeachers) {
       try {
-        const items = JSON.parse(cachedTeachers) as import("./api").ReferenceRecord[];
+        const rawItems = JSON.parse(cachedTeachers) as import("./api").ReferenceRecord[];
+        const items = rawItems.filter((t) => t.name && !t.name.includes("!"));
         setTeachers(items);
-        setTeacherId(cachedTeacherId ? Number(cachedTeacherId) : (items[0]?.id ?? null));
+        if (!initialTeacherId) {
+          setTeacherId(cachedTeacherId ? Number(cachedTeacherId) : (items[0]?.id ?? null));
+        }
       } catch {
         window.localStorage.removeItem("schedule:teachers");
       }
@@ -98,12 +115,15 @@ export function useSchedule(
       setIsSlowNetwork(true);
     }, 3200);
     
-    Promise.all([api.directory.groups(), api.directory.teachers()]).then(([items, ts]) => {
+    Promise.all([api.directory.groups(), api.directory.teachers()]).then(([items, rawTs]) => {
+        const ts = (rawTs || []).filter((t: any) => t.name && !t.name.includes("!"));
         if (user && user.role === "editor") {
             setTeachers([]);
             const allowed = items.filter((g: any) => (user.allowed_groups || []).includes(g.id));
             setGroups(allowed);
-            if (!cachedGroupId && allowed.length > 0) {
+            if (initialGroupId && allowed.some((g: any) => g.id === initialGroupId)) {
+                setGroupId(initialGroupId);
+            } else if (!cachedGroupId && allowed.length > 0) {
                 setGroupId(allowed[0].id);
             } else if (cachedGroupId) {
                 setGroupId(Number(cachedGroupId));
@@ -112,17 +132,29 @@ export function useSchedule(
             setTeachers(ts);
             setGroups(items);
             
-            if (!cachedTeacherId && ts.length > 0) {
+            if (initialTeacherId) {
+                setTeacherId(initialTeacherId);
+                window.localStorage.setItem("schedule:teacherId", String(initialTeacherId));
+            } else if (!cachedTeacherId && ts.length > 0) {
                 setTeacherId(ts[0].id);
             } else if (cachedTeacherId) {
                 setTeacherId(Number(cachedTeacherId));
             }
             
-            if (!cachedGroupId && items.length > 0) {
+            if (initialGroupId) {
+                setGroupId(initialGroupId);
+                window.localStorage.setItem("schedule:groupId", String(initialGroupId));
+            } else if (!cachedGroupId && items.length > 0) {
                 setGroupId(items[0].id);
             } else if (cachedGroupId) {
                 setGroupId(Number(cachedGroupId));
             }
+
+            if (initialMode) {
+                setMode(initialMode);
+                window.localStorage.setItem("schedule:mode", initialMode);
+            }
+
             window.localStorage.setItem("schedule:groups", JSON.stringify(items));
             window.localStorage.setItem("schedule:teachers", JSON.stringify(ts));
         }
@@ -136,7 +168,7 @@ export function useSchedule(
         clearTimeout(dirSlowTimer);
         setLoading(false);
       });
-  }, []);
+  }, [initialGroupId, initialTeacherId, initialMode]);
 
   const toggleMode = (newMode: "student" | "teacher") => {
     setMode(newMode);
@@ -144,7 +176,12 @@ export function useSchedule(
   };
 
   useEffect(() => {
-    if (!isSetupComplete && window.localStorage.getItem("schedule:setupComplete") !== "1") {
+    if (
+      !isSetupComplete &&
+      !initialGroupId &&
+      !initialTeacherId &&
+      window.localStorage.getItem("schedule:setupComplete") !== "1"
+    ) {
       return;
     }
     if (mode === "student" && !groupId) { setWeek([]); setToday(null); return; }

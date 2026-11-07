@@ -1,44 +1,12 @@
 import { SchedulePageClient } from "../components/SchedulePageClient";
-import type { ReferenceRecord } from "../lib/api";
+import { toTeacherSlug } from "../lib/slug";
+import { getGroupFullCode } from "../lib/groupInfo";
+import { fetchDirectoryForSsr } from "../lib/ssrApi";
 
 export const revalidate = 1800; // Revalidate directory data for SEO every 30 minutes
 
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ||
-  "https://backend-agile-driftwood-8589.fly.dev";
-
-async function fetchInitialDirectory(): Promise<{
-  groups: ReferenceRecord[];
-  teachers: ReferenceRecord[];
-}> {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3500);
-    const [groupsRes, teachersRes] = await Promise.all([
-      fetch(`${API_URL}/api/groups`, {
-        next: { revalidate: 1800 },
-        signal: controller.signal,
-      }),
-      fetch(`${API_URL}/api/teachers`, {
-        next: { revalidate: 1800 },
-        signal: controller.signal,
-      }),
-    ]);
-    clearTimeout(timeoutId);
-
-    const groups: ReferenceRecord[] = groupsRes.ok ? await groupsRes.json() : [];
-    const teachers: ReferenceRecord[] = teachersRes.ok ? await teachersRes.json() : [];
-    return {
-      groups: Array.isArray(groups) ? groups : [],
-      teachers: Array.isArray(teachers) ? teachers : [],
-    };
-  } catch {
-    return { groups: [], teachers: [] };
-  }
-}
-
 export default async function HomePage() {
-  const { groups, teachers } = await fetchInitialDirectory();
+  const { groups, teachers } = await fetchDirectoryForSsr();
 
   return (
     <main
@@ -63,6 +31,9 @@ export default async function HomePage() {
         </p>
 
         <h2>Розклад дзвінків ДФКР (КРЕ)</h2>
+        <p>
+          <a href="/bells">Детальний розклад дзвінків коледжу радіоелектроніки (стандартні пари та скорочені дні)</a>
+        </p>
         <ul>
           <li>1 пара: 09:00 – 10:20 (перерва 20 хвилин)</li>
           <li>2 пара: 10:40 – 12:00 (велика перерва 30 хвилин)</li>
@@ -73,21 +44,39 @@ export default async function HomePage() {
 
         {groups.length > 0 && (
           <div>
-            <h2>Навчальні групи ДФКР</h2>
-            <p>Розклад занять для груп: {groups.map((g) => g.name).join(", ")}.</p>
+            <h2 id="groups">Навчальні групи ДФКР (розклад по групах)</h2>
+            <ul>
+              {groups.map((g) => (
+                <li key={g.id}>
+                  <a href={`/group/${encodeURIComponent(g.name)}`}>
+                    Розклад групи {g.name} ({getGroupFullCode(g)})
+                  </a>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 
         {teachers.length > 0 && (
           <div>
-            <h2>Викладачі ДФКР</h2>
-            <p>Розклад викладачів коледжу: {teachers.map((t) => t.name).join(", ")}.</p>
+            <h2 id="teachers">Викладачі ДФКР (розклад викладачів)</h2>
+            <ul>
+              {teachers.map((t) => (
+                <li key={t.id}>
+                  <a href={`/teacher/${toTeacherSlug(t.name)}`}>
+                    Розклад викладача {t.name}
+                  </a>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 
         <nav aria-label="Розділи розкладу ДФКР">
+          <h2>Розділи сайту</h2>
           <ul>
             <li><a href="/">Розклад занять ДФКР на сьогодні та тиждень</a></li>
+            <li><a href="/bells">Розклад дзвінків ДФКР (пари, перерви, скорочені дні)</a></li>
             <li><a href="/educational-process">Графік освітнього процесу ДФКР (семестри, сесії, практики, канікули)</a></li>
             <li><a href="/statistics">Статистика занять та навчального навантаження викладачів ДФКР</a></li>
             <li><a href="https://kre.dp.ua/" rel="noopener noreferrer">Офіційний сайт Дніпровського фахового коледжу радіоелектроніки (kre.dp.ua)</a></li>

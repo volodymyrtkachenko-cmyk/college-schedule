@@ -60,7 +60,8 @@ async def groups(db: AsyncSession = Depends(get_db)):
 
 @router.get("/teachers", response_model=list[TeacherResource])
 async def teachers(db: AsyncSession = Depends(get_db)):
-    return await items(Teacher, db)
+    all_teachers = await items(Teacher, db)
+    return [t for t in all_teachers if t.name and "!" not in t.name]
 
 
 @router.get("/subjects", response_model=list[SubjectResource])

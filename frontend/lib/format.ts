@@ -806,7 +806,7 @@ export function isSubjectMatch(taskSubject?: string | null, filterSubject?: stri
 export function isValidTeacherName(name?: string | null): boolean {
   if (!name) return false;
   const clean = name.trim();
-  if (clean.length < 4) return false;
+  if (clean.length < 4 || clean.includes("!")) return false;
 
   // Виключаємо відомі не-викладацькі слова та навчальні теми
   if (

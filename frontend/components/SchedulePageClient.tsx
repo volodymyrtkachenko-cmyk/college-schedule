@@ -52,6 +52,9 @@ const EN_KYIV_DOW_FMT = new Intl.DateTimeFormat("en-US", {
 export interface SchedulePageClientProps {
   initialGroups?: ReferenceRecord[];
   initialTeachers?: ReferenceRecord[];
+  initialGroupId?: number;
+  initialTeacherId?: number;
+  initialMode?: "student" | "teacher";
 }
 
 const dayCarouselVariants = {
@@ -77,6 +80,9 @@ const dayCarouselVariants = {
 export function SchedulePageClient({
   initialGroups = [],
   initialTeachers = [],
+  initialGroupId,
+  initialTeacherId,
+  initialMode,
 }: SchedulePageClientProps) {
   const { theme, resolvedTheme, setTheme, toggleTheme } = useTheme();
   const { isMounted, isDesktop } = useViewportTier();
@@ -127,7 +133,7 @@ export function SchedulePageClient({
     });
   };
 
-  const { isSetupComplete, completeSetup, mode, toggleMode, teachers, teacherId, setTeacherId, groups, groupId, setGroupId, today, week, semesterStart, loading, isSlowNetwork, isUsingFallbackCache, error } = useSchedule(weekAnchorDate, false, initialGroups, initialTeachers);
+  const { isSetupComplete, completeSetup, mode, toggleMode, teachers, teacherId, setTeacherId, groups, groupId, setGroupId, today, week, semesterStart, loading, isSlowNetwork, isUsingFallbackCache, error } = useSchedule(weekAnchorDate, false, initialGroups, initialTeachers, initialGroupId, initialTeacherId, initialMode);
   const selectedTeacher = useMemo(() => teachers.find((t) => t.id === teacherId) || null, [teachers, teacherId]);
   const { user, loading: authLoading, logout } = useAuth();
   
@@ -1246,7 +1252,7 @@ export function SchedulePageClient({
 
 
 
-  const showWelcome = !loading && !isSetupComplete;
+  const showWelcome = !loading && !isSetupComplete && !initialGroupId && !initialTeacherId;
 
   return (
     <div className="min-h-dvh bg-transparent pb-6 text-sys-text-primary md:pb-8">
