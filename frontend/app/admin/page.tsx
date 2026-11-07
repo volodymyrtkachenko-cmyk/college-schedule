@@ -1022,21 +1022,8 @@ function AdminContent() {
                                         {displayName}
                                       </span>
                                       {acc.subgroup ? (
-                                        <span
-                                          className={`inline-flex shrink-0 items-center gap-1 h-5 px-1.5 rounded-md border text-[10px] font-semibold ${
-                                            acc.subgroup === 1
-                                              ? "border-sky-500/35 bg-sky-500/15 text-sky-800 dark:text-sky-300"
-                                              : "border-indigo-500/35 bg-indigo-500/15 text-indigo-800 dark:text-indigo-300"
-                                          }`}
-                                        >
-                                          <span
-                                            className={`h-1.5 w-1.5 rounded-full shrink-0 ${
-                                              acc.subgroup === 1
-                                                ? "bg-sky-600 dark:bg-sky-400"
-                                                : "bg-indigo-600 dark:bg-indigo-400"
-                                            }`}
-                                            aria-hidden="true"
-                                          />
+                                        <span className="inline-flex shrink-0 items-center gap-1 h-5 px-1.5 rounded-md border border-sys-accent/35 bg-sys-accent/15 text-[10px] font-semibold text-sys-accent">
+                                          <span className="h-1.5 w-1.5 rounded-full bg-sys-accent shrink-0" aria-hidden="true" />
                                           <span>{acc.subgroup} підгр.</span>
                                         </span>
                                       ) : null}

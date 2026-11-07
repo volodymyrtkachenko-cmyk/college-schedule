@@ -1493,20 +1493,9 @@ export const LessonCard = memo(function LessonCard({
                           onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleSubgroupToggle(singleSubgroupIdx + 1); }}
                           title={`Ваша підгрупа ${singleSubgroupIdx + 1} (натисніть, щоб скинути або перемкнути)`}
                           aria-label={`Ваша підгрупа ${singleSubgroupIdx + 1} (натисніть, щоб скинути або перемкнути)`}
-                          className={`inline-flex shrink-0 items-center gap-1.5 h-6 px-2 rounded-md border text-xs font-semibold whitespace-nowrap active:scale-95 transition-colors duration-fast ease-smooth shadow-2xs ${
-                            singleSubgroupIdx === 0
-                              ? "bg-sky-500/15 text-sky-800 dark:text-sky-300 border-sky-500/35 hover:bg-sky-500/25"
-                              : "bg-indigo-500/15 text-indigo-800 dark:text-indigo-300 border-indigo-500/35 hover:bg-indigo-500/25"
-                          }`}
+                          className="inline-flex shrink-0 items-center gap-1.5 h-6 px-2 rounded-md border border-sys-accent/35 bg-sys-accent/15 text-xs font-semibold text-sys-accent whitespace-nowrap active:scale-95 transition-colors duration-fast ease-smooth shadow-2xs hover:bg-sys-accent/25"
                         >
-                          <span
-                            className={`h-1.5 w-1.5 rounded-full shrink-0 ${
-                              singleSubgroupIdx === 0
-                                ? "bg-sky-600 dark:bg-sky-400"
-                                : "bg-indigo-600 dark:bg-indigo-400"
-                            }`}
-                            aria-hidden="true"
-                          />
+                          <span className="h-1.5 w-1.5 rounded-full bg-sys-accent shrink-0" aria-hidden="true" />
                           <span>{singleSubgroupIdx + 1} підгр.</span>
                         </button>
                         <svg
@@ -1564,20 +1553,14 @@ export const LessonCard = memo(function LessonCard({
                                   aria-label={effectiveSubgroup === subNum ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${subNum} підгрупу`}
                                   className={`inline-flex shrink-0 items-center gap-1.5 h-6 px-2 rounded-md border text-xs font-semibold whitespace-nowrap active:scale-95 transition-colors duration-fast ease-smooth shadow-2xs ${
                                     effectiveSubgroup === subNum
-                                      ? subNum === 1
-                                        ? "bg-sky-500/15 text-sky-800 dark:text-sky-300 border-sky-500/35 hover:bg-sky-500/25"
-                                        : "bg-indigo-500/15 text-indigo-800 dark:text-indigo-300 border-indigo-500/35 hover:bg-indigo-500/25"
-                                      : subNum === 1
-                                        ? "bg-sys-bg/80 border-sys-border text-sys-text-secondary hover:text-sys-text-primary hover:border-sky-500/40 hover:bg-sky-500/5"
-                                        : "bg-sys-bg/80 border-sys-border text-sys-text-secondary hover:text-sys-text-primary hover:border-indigo-500/40 hover:bg-indigo-500/5"
+                                      ? "border-sys-accent/35 bg-sys-accent/15 text-sys-accent hover:bg-sys-accent/25"
+                                      : "bg-sys-bg/80 border-sys-border text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/40 hover:bg-sys-accent/5"
                                   }`}
                                 >
                                   <span
                                     className={`h-1.5 w-1.5 rounded-full shrink-0 ${
                                       effectiveSubgroup === subNum
-                                        ? subNum === 1
-                                          ? "bg-sky-600 dark:bg-sky-400"
-                                          : "bg-indigo-600 dark:bg-indigo-400"
+                                        ? "bg-sys-accent"
                                         : "bg-sys-text-muted/60"
                                     }`}
                                     aria-hidden="true"
@@ -2125,20 +2108,9 @@ export const LessonCard = memo(function LessonCard({
                     onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleSubgroupToggle(singleSubgroupIdx + 1); }}
                     title={`Ваша підгрупа ${singleSubgroupIdx + 1} (натисніть, щоб скинути або перемкнути)`}
                     aria-label={`Ваша підгрупа ${singleSubgroupIdx + 1} (натисніть, щоб скинути або перемкнути)`}
-                    className={`inline-flex shrink-0 items-center gap-1.5 h-6 px-2 rounded-md border text-xs font-semibold whitespace-nowrap active:scale-95 transition-colors duration-fast ease-smooth shadow-2xs ${
-                      singleSubgroupIdx === 0
-                        ? "bg-sky-500/15 text-sky-800 dark:text-sky-300 border-sky-500/35 hover:bg-sky-500/25"
-                        : "bg-indigo-500/15 text-indigo-800 dark:text-indigo-300 border-indigo-500/35 hover:bg-indigo-500/25"
-                    }`}
+                    className="inline-flex shrink-0 items-center gap-1.5 h-6 px-2 rounded-md border border-sys-accent/35 bg-sys-accent/15 text-xs font-semibold text-sys-accent whitespace-nowrap active:scale-95 transition-colors duration-fast ease-smooth shadow-2xs hover:bg-sys-accent/25"
                   >
-                    <span
-                      className={`h-1.5 w-1.5 rounded-full shrink-0 ${
-                        singleSubgroupIdx === 0
-                          ? "bg-sky-600 dark:bg-sky-400"
-                          : "bg-indigo-600 dark:bg-indigo-400"
-                      }`}
-                      aria-hidden="true"
-                    />
+                    <span className="h-1.5 w-1.5 rounded-full bg-sys-accent shrink-0" aria-hidden="true" />
                     <span>{singleSubgroupIdx + 1} підгр.</span>
                   </button>
                   <svg
@@ -2196,20 +2168,14 @@ export const LessonCard = memo(function LessonCard({
                             aria-label={effectiveSubgroup === subNum ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${subNum} підгрупу`}
                             className={`inline-flex shrink-0 items-center gap-1.5 h-6 px-2 rounded-md border text-xs font-semibold whitespace-nowrap active:scale-95 transition-colors duration-fast ease-smooth shadow-2xs ${
                               effectiveSubgroup === subNum
-                                ? subNum === 1
-                                  ? "bg-sky-500/15 text-sky-800 dark:text-sky-300 border-sky-500/35 hover:bg-sky-500/25"
-                                  : "bg-indigo-500/15 text-indigo-800 dark:text-indigo-300 border-indigo-500/35 hover:bg-indigo-500/25"
-                                : subNum === 1
-                                  ? "bg-sys-bg/80 border-sys-border text-sys-text-secondary hover:text-sys-text-primary hover:border-sky-500/40 hover:bg-sky-500/5"
-                                  : "bg-sys-bg/80 border-sys-border text-sys-text-secondary hover:text-sys-text-primary hover:border-indigo-500/40 hover:bg-indigo-500/5"
+                                ? "border-sys-accent/35 bg-sys-accent/15 text-sys-accent hover:bg-sys-accent/25"
+                                : "bg-sys-bg/80 border-sys-border text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/40 hover:bg-sys-accent/5"
                             }`}
                           >
                             <span
                               className={`h-1.5 w-1.5 rounded-full shrink-0 ${
                                 effectiveSubgroup === subNum
-                                  ? subNum === 1
-                                    ? "bg-sky-600 dark:bg-sky-400"
-                                    : "bg-indigo-600 dark:bg-indigo-400"
+                                  ? "bg-sys-accent"
                                   : "bg-sys-text-muted/60"
                               }`}
                               aria-hidden="true"
@@ -2636,20 +2602,9 @@ export const LessonCard = memo(function LessonCard({
                   onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleSubgroupToggle(singleSubgroupIdx + 1); }}
                   title={`Ваша підгрупа ${singleSubgroupIdx + 1} (натисніть, щоб скинути або перемкнути)`}
                   aria-label={`Ваша підгрупа ${singleSubgroupIdx + 1} (натисніть, щоб скинути або перемкнути)`}
-                  className={`inline-flex shrink-0 items-center gap-1.5 h-5.5 px-2 rounded-md border text-[11px] font-semibold whitespace-nowrap active:scale-95 transition-colors duration-fast ease-smooth shadow-2xs ${
-                    singleSubgroupIdx === 0
-                      ? "bg-sky-500/15 text-sky-800 dark:text-sky-300 border-sky-500/35 hover:bg-sky-500/25"
-                      : "bg-indigo-500/15 text-indigo-800 dark:text-indigo-300 border-indigo-500/35 hover:bg-indigo-500/25"
-                  }`}
+                  className="inline-flex shrink-0 items-center gap-1.5 h-5.5 px-2 rounded-md border border-sys-accent/35 bg-sys-accent/15 text-[11px] font-semibold text-sys-accent whitespace-nowrap active:scale-95 transition-colors duration-fast ease-smooth shadow-2xs hover:bg-sys-accent/25"
                 >
-                  <span
-                    className={`h-1.5 w-1.5 rounded-full shrink-0 ${
-                      singleSubgroupIdx === 0
-                        ? "bg-sky-600 dark:bg-sky-400"
-                        : "bg-indigo-600 dark:bg-indigo-400"
-                    }`}
-                    aria-hidden="true"
-                  />
+                  <span className="h-1.5 w-1.5 rounded-full bg-sys-accent shrink-0" aria-hidden="true" />
                   <span>{singleSubgroupIdx + 1} підгр.</span>
                 </button>
                 <svg
@@ -2707,20 +2662,14 @@ export const LessonCard = memo(function LessonCard({
                           aria-label={effectiveSubgroup === subNum ? "Ваша підгрупа (натисніть для скидання)" : `Обрати ${subNum} підгрупу`}
                           className={`inline-flex shrink-0 items-center gap-1.5 h-5.5 px-2 rounded-md border text-[11px] font-semibold whitespace-nowrap active:scale-95 transition-colors duration-fast ease-smooth shadow-2xs ${
                             effectiveSubgroup === subNum
-                              ? subNum === 1
-                                ? "bg-sky-500/15 text-sky-800 dark:text-sky-300 border-sky-500/35 hover:bg-sky-500/25"
-                                : "bg-indigo-500/15 text-indigo-800 dark:text-indigo-300 border-indigo-500/35 hover:bg-indigo-500/25"
-                              : subNum === 1
-                                ? "bg-sys-bg/80 border-sys-border text-sys-text-secondary hover:text-sys-text-primary hover:border-sky-500/40 hover:bg-sky-500/5"
-                                : "bg-sys-bg/80 border-sys-border text-sys-text-secondary hover:text-sys-text-primary hover:border-indigo-500/40 hover:bg-indigo-500/5"
+                              ? "border-sys-accent/35 bg-sys-accent/15 text-sys-accent hover:bg-sys-accent/25"
+                              : "bg-sys-bg/80 border-sys-border text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/40 hover:bg-sys-accent/5"
                           }`}
                         >
                           <span
                             className={`h-1.5 w-1.5 rounded-full shrink-0 ${
                               effectiveSubgroup === subNum
-                                ? subNum === 1
-                                  ? "bg-sky-600 dark:bg-sky-400"
-                                  : "bg-indigo-600 dark:bg-indigo-400"
+                                ? "bg-sys-accent"
                                 : "bg-sys-text-muted/60"
                             }`}
                             aria-hidden="true"

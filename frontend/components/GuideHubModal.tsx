@@ -473,14 +473,27 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
           </div>
           <div className="space-y-2 pt-1">
             {(demoSubgroup === null || demoSubgroup === 1) && (
-              <div className="flex items-center justify-between rounded-xl border border-sky-500/30 bg-sky-500/10 p-2.5">
+              <div className={`flex items-center justify-between rounded-xl border p-2.5 transition-colors ${
+                demoSubgroup === 1
+                  ? "border-sys-accent/40 bg-sys-accent/10"
+                  : "border-sys-border bg-sys-bg"
+              }`}>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => setDemoSubgroup(demoSubgroup === 1 ? null : 1)}
-                    className="inline-flex shrink-0 items-center gap-1.5 h-6 px-2 rounded-md border border-sky-500/35 bg-sky-500/15 text-xs font-semibold text-sky-800 dark:text-sky-300 active:scale-95 transition-colors duration-fast ease-smooth shadow-2xs hover:bg-sky-500/25"
+                    className={`inline-flex shrink-0 items-center gap-1.5 h-6 px-2 rounded-md border text-xs font-semibold active:scale-95 transition-colors duration-fast ease-smooth shadow-2xs ${
+                      demoSubgroup === 1
+                        ? "border-sys-accent/35 bg-sys-accent/15 text-sys-accent hover:bg-sys-accent/25"
+                        : "bg-sys-bg/80 border-sys-border text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/40 hover:bg-sys-accent/5"
+                    }`}
                   >
-                    <span className="h-1.5 w-1.5 rounded-full bg-sky-600 dark:bg-sky-400 shrink-0" aria-hidden="true" />
+                    <span
+                      className={`h-1.5 w-1.5 rounded-full shrink-0 ${
+                        demoSubgroup === 1 ? "bg-sys-accent" : "bg-sys-text-muted/60"
+                      }`}
+                      aria-hidden="true"
+                    />
                     <span>1 підгр.</span>
                   </button>
                   <span className="text-xs font-semibold text-sys-text-primary">
@@ -493,14 +506,27 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
               </div>
             )}
             {(demoSubgroup === null || demoSubgroup === 2) && (
-              <div className="flex items-center justify-between rounded-xl border border-indigo-500/30 bg-indigo-500/10 p-2.5">
+              <div className={`flex items-center justify-between rounded-xl border p-2.5 transition-colors ${
+                demoSubgroup === 2
+                  ? "border-sys-accent/40 bg-sys-accent/10"
+                  : "border-sys-border bg-sys-bg"
+              }`}>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => setDemoSubgroup(demoSubgroup === 2 ? null : 2)}
-                    className="inline-flex shrink-0 items-center gap-1.5 h-6 px-2 rounded-md border border-indigo-500/35 bg-indigo-500/15 text-xs font-semibold text-indigo-800 dark:text-indigo-300 active:scale-95 transition-colors duration-fast ease-smooth shadow-2xs hover:bg-indigo-500/25"
+                    className={`inline-flex shrink-0 items-center gap-1.5 h-6 px-2 rounded-md border text-xs font-semibold active:scale-95 transition-colors duration-fast ease-smooth shadow-2xs ${
+                      demoSubgroup === 2
+                        ? "border-sys-accent/35 bg-sys-accent/15 text-sys-accent hover:bg-sys-accent/25"
+                        : "bg-sys-bg/80 border-sys-border text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/40 hover:bg-sys-accent/5"
+                    }`}
                   >
-                    <span className="h-1.5 w-1.5 rounded-full bg-indigo-600 dark:bg-indigo-400 shrink-0" aria-hidden="true" />
+                    <span
+                      className={`h-1.5 w-1.5 rounded-full shrink-0 ${
+                        demoSubgroup === 2 ? "bg-sys-accent" : "bg-sys-text-muted/60"
+                      }`}
+                      aria-hidden="true"
+                    />
                     <span>2 підгр.</span>
                   </button>
                   <span className="text-xs font-semibold text-sys-text-primary">
