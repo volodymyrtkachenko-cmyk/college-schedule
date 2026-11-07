@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import { FullTaskItem } from "./MobileTasksView";
-import { useGradesSummary, GradeItem, SubjectSummary } from "../lib/useGradesSummary";
+import { useGradesSummary, GradeItem, SubjectSummary, setSubjectScaleOverride } from "../lib/useGradesSummary";
 
 interface GradesViewProps {
   tasks: FullTaskItem[];
@@ -372,6 +372,17 @@ export function GradesView({ tasks, isLinked, onSyncClassroom }: GradesViewProps
                         <span className="text-[11px] font-medium text-sys-text-muted">
                           {subj.grades.length} {formatGradesWord(subj.grades.length)}
                         </span>
+                        <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-sys-elevated border border-sys-border/60 text-sys-text-secondary font-medium">
+                          {subj.scaleType}-бальна
+                        </span>
+                        {subj.hasCorrectedGrades && (
+                          <span
+                            className="text-[10px] px-1.5 py-0.2 rounded-md bg-sky-500/10 text-sky-700 dark:text-sky-300 font-semibold"
+                            title="Оцінки автоматично скориговано зі 100-б. шкали Classroom"
+                          >
+                            ✨ скориговано
+                          </span>
+                        )}
                         {subj.teacher && (
                           <>
                             <span className="text-[10px] text-slate-500">•</span>
@@ -415,9 +426,17 @@ export function GradesView({ tasks, isLinked, onSyncClassroom }: GradesViewProps
                         className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-bold border ${getGradePillClass(
                           g.grade5
                         )}`}
-                        title={`${g.title}: ${g.rawGrade}/${g.maxPoints} (${g.percentage}%)`}
+                        title={`${g.title}: ${g.rawGrade}/${g.maxPoints} б.${
+                          g.isCorrectedScale && g.originalMaxPoints
+                            ? ` (у Classroom: ${g.originalMaxPoints} б.)`
+                            : ""
+                        } (${g.percentage}%)`}
                       >
-                        {g.maxPoints > 5 && g.maxPoints <= 12 ? `${g.rawGrade} б.` : g.grade5}
+                        {g.maxPoints > 5 && g.maxPoints <= 12
+                          ? `${g.rawGrade} б.`
+                          : g.maxPoints <= 5
+                          ? `${g.rawGrade}`
+                          : g.grade5}
                       </span>
                     ))}
                     {subj.grades.length > 10 && (
@@ -430,8 +449,76 @@ export function GradesView({ tasks, isLinked, onSyncClassroom }: GradesViewProps
 
                 {/* Expanded Detailed Tasks */}
                 {isExpanded && (
-                  <div className="px-3 sm:px-4 pb-3.5 pt-1 border-t border-sys-border/50 bg-sys-bg/40 space-y-2">
-                    <div className="text-[11px] font-semibold uppercase tracking-wider text-sys-text-muted pt-2 pb-0.5">
+                  <div className="px-3 sm:px-4 pb-3.5 pt-2 border-t border-sys-border/50 bg-sys-bg/40 space-y-2.5">
+                    {/* Scale Controller Row */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl bg-sys-card border border-sys-border/60 text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sys-text-secondary font-medium">Шкала:</span>
+                        {subj.isAutoDetectedScale ? (
+                          <span
+                            className="text-[10px] px-1.5 py-0.5 rounded-md bg-sys-accent/10 text-sys-accent font-semibold"
+                            title="Шкалу визначено автоматично на основі балів завдань"
+                          >
+                            ✨ Авто ({subj.scaleType}-б.)
+                          </span>
+                        ) : (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-sys-elevated border border-sys-border text-sys-text-primary font-semibold">
+                            Вручну ({subj.scaleType}-б.)
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        {(["auto", "12", "5", "100"] as const).map((sc) => {
+                          const isSelected =
+                            sc === "auto"
+                              ? subj.scaleOverride == null || subj.scaleOverride === "auto"
+                              : subj.scaleOverride === sc;
+                          const label =
+                            sc === "auto"
+                              ? "Авто"
+                              : sc === "12"
+                              ? "12-б."
+                              : sc === "5"
+                              ? "5-б."
+                              : "100-б.";
+                          const fullTitle =
+                            sc === "auto"
+                              ? `Автоматичне визначення (${subj.scaleType}-бальна)`
+                              : `Встановити ${sc}-бальну шкалу для цього предмета`;
+
+                          return (
+                            <button
+                              key={sc}
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSubjectScaleOverride(subj.subject, sc);
+                              }}
+                              className={`px-2 py-0.5 rounded-lg text-[11px] font-semibold transition-all cursor-pointer border ${
+                                isSelected
+                                  ? "bg-sys-accent text-white border-sys-accent shadow-xs"
+                                  : "border-sys-border/60 bg-sys-bg/60 text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg hover:border-sys-border"
+                              }`}
+                              title={fullTitle}
+                            >
+                              {label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {subj.hasCorrectedGrades && (
+                      <div className="rounded-xl border border-sky-500/25 bg-sky-500/10 p-2.5 text-[11px] text-sky-800 dark:text-sky-300 flex items-start gap-2">
+                        <span className="shrink-0 text-sm">💡</span>
+                        <span className="leading-snug">
+                          Викладач у Classroom залишив максимум за замовчуванням (100 б.), але виставив бали за {subj.scaleType}-бальною шкалою. Система автоматично скоригувала розрахунок середнього балу.
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="text-[11px] font-semibold uppercase tracking-wider text-sys-text-muted pt-1 pb-0.5">
                       Деталізація оцінок
                     </div>
 
@@ -464,9 +551,17 @@ export function GradesView({ tasks, isLinked, onSyncClassroom }: GradesViewProps
                                   {grade.rawGrade}
                                 </span>
                                 <span className="text-[10px] text-sys-text-secondary">
-                                  /{grade.maxPoints}
+                                  /{grade.maxPoints} б.
                                 </span>
                               </div>
+                              {grade.isCorrectedScale && grade.originalMaxPoints && (
+                                <span
+                                  className="text-[10px] text-sys-accent font-medium block"
+                                  title={`У Google Classroom було встановлено ${grade.originalMaxPoints} б.`}
+                                >
+                                  у Classroom: {grade.originalMaxPoints} б.
+                                </span>
+                              )}
                               <span className="text-[10px] text-sys-text-muted block">
                                 {grade.grade5} за 5-б. ({grade.percentage}%)
                               </span>

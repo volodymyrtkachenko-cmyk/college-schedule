@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { FullTaskItem } from "../components/MobileTasksView";
 import {
   normalizeSubjectName,
@@ -10,6 +10,34 @@ import {
   isValidTeacherName,
 } from "./format";
 
+export type GradeScaleType = "auto" | "12" | "5" | "100";
+export type ResolvedScaleType = "12" | "5" | "100";
+
+const GRADE_SCALE_STORAGE_PREFIX = "schedule:grade_scale:";
+
+export function getSubjectScaleOverride(subjectName: string): GradeScaleType | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const val = window.localStorage.getItem(`${GRADE_SCALE_STORAGE_PREFIX}${subjectName.trim()}`);
+    if (val === "12" || val === "5" || val === "100" || val === "auto") {
+      return val;
+    }
+  } catch {}
+  return null;
+}
+
+export function setSubjectScaleOverride(subjectName: string, scale: GradeScaleType): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (scale === "auto") {
+      window.localStorage.removeItem(`${GRADE_SCALE_STORAGE_PREFIX}${subjectName.trim()}`);
+    } else {
+      window.localStorage.setItem(`${GRADE_SCALE_STORAGE_PREFIX}${subjectName.trim()}`, scale);
+    }
+    window.dispatchEvent(new CustomEvent("schedule:grade_scale_change", { detail: { subject: subjectName, scale } }));
+  } catch {}
+}
+
 export interface GradeItem {
   id: string;
   title: string;
@@ -17,6 +45,8 @@ export interface GradeItem {
   teacher?: string | null;
   rawGrade: number;
   maxPoints: number;
+  originalMaxPoints?: number | null;
+  isCorrectedScale: boolean;
   grade5: number;
   grade12: number;
   percentage: number;
@@ -31,6 +61,10 @@ export interface SubjectSummary {
   average5: number;
   average12: number | null;
   has12Scale: boolean;
+  scaleType: ResolvedScaleType;
+  scaleOverride: GradeScaleType | null;
+  isAutoDetectedScale: boolean;
+  hasCorrectedGrades: boolean;
   distribution: {
     count5: number;
     count4: number;
@@ -54,37 +88,138 @@ export interface GradesSummaryResult {
   subjects: SubjectSummary[];
 }
 
-/**
- * Converts a raw score and maxPoints into Ukrainian 5-point and 12-point scales.
- * Rules:
- * - maxPoints <= 5: 5-point scale task
- * - 5 < maxPoints <= 12: 12-point scale task
- * - maxPoints > 12: 100-point / multi-point task
- */
-export function convertGrade(rawGrade: number, maxPointsInput?: number | null): {
+export interface ConvertGradeOptions {
+  targetScale?: ResolvedScaleType;
+}
+
+export interface ConvertGradeResult {
   grade5: number;
   grade12: number;
   percentage: number;
   effectiveMax: number;
   isNative12: boolean;
-} {
-  const effectiveMax =
-    maxPointsInput && maxPointsInput > 0
-      ? maxPointsInput
-      : rawGrade <= 5
-      ? 5
-      : rawGrade <= 12
-      ? 12
-      : 100;
+  isCorrectedScale: boolean;
+  originalMaxPoints: number | null;
+}
+
+/**
+ * Detects the most appropriate grading scale for a subject based on sibling grades
+ * and any manual user override.
+ */
+export function detectSubjectScale(
+  grades: Array<{ rawGrade: number; maxPoints?: number | null }>,
+  override?: GradeScaleType | null
+): { detectedScale: ResolvedScaleType; isAuto: boolean; activeScale: ResolvedScaleType } {
+  if (override && override !== "auto") {
+    return { detectedScale: override, isAuto: false, activeScale: override };
+  }
+
+  // 1. Any raw grade > 12 -> clearly multi-point or 100-point rating scale
+  const hasAbove12 = grades.some((g) => g.rawGrade > 12);
+  if (hasAbove12) {
+    return { detectedScale: "100", isAuto: true, activeScale: "100" };
+  }
+
+  // 2. Any explicit 12-point maxPoints (6..12) OR any rawGrade in 6..12:
+  // Cannot be a 5-point scale. When maxPoints is default 100 (or >= 20) in Ukrainian colleges,
+  // grades like 6..12 represent the Ukrainian national 12-point scale.
+  const has12Indicators = grades.some(
+    (g) =>
+      (g.maxPoints != null && g.maxPoints > 5 && g.maxPoints <= 12) ||
+      (g.rawGrade > 5 && g.rawGrade <= 12)
+  );
+  if (has12Indicators) {
+    return { detectedScale: "12", isAuto: true, activeScale: "12" };
+  }
+
+  // 3. All raw grades are <= 5:
+  if (grades.length > 0 && grades.every((g) => g.rawGrade <= 5)) {
+    return { detectedScale: "5", isAuto: true, activeScale: "5" };
+  }
+
+  // Default fallback for empty or normal assignments
+  return { detectedScale: "12", isAuto: true, activeScale: "12" };
+}
+
+/**
+ * Converts a raw score and maxPoints into Ukrainian 5-point and 12-point scales,
+ * auto-correcting accidental default 100-point assignments when teachers grade on a 12- or 5-point scale.
+ */
+export function convertGrade(
+  rawGrade: number,
+  maxPointsInput?: number | null,
+  options?: ConvertGradeOptions
+): ConvertGradeResult {
+  const rawMax = maxPointsInput && maxPointsInput > 0 ? maxPointsInput : null;
+  let effectiveMax: number;
+  let isCorrectedScale = false;
+  let originalMaxPoints: number | null = null;
+  let isNative12 = false;
+
+  const targetScale = options?.targetScale;
+
+  if (targetScale === "12") {
+    if (rawMax !== null && rawMax >= 20 && rawGrade <= 12) {
+      effectiveMax = 12;
+      isCorrectedScale = true;
+      originalMaxPoints = rawMax;
+      isNative12 = true;
+    } else if (rawMax !== null) {
+      effectiveMax = rawMax;
+      originalMaxPoints = rawMax;
+      isNative12 = rawMax <= 12 && rawMax > 5;
+    } else {
+      effectiveMax = 12;
+      isNative12 = true;
+    }
+  } else if (targetScale === "5") {
+    if (rawMax !== null && rawMax >= 20 && rawGrade <= 5) {
+      effectiveMax = 5;
+      isCorrectedScale = true;
+      originalMaxPoints = rawMax;
+    } else if (rawMax !== null) {
+      effectiveMax = rawMax;
+      originalMaxPoints = rawMax;
+      isNative12 = rawMax <= 12 && rawMax > 5;
+    } else {
+      effectiveMax = 5;
+    }
+  } else if (targetScale === "100") {
+    effectiveMax = rawMax || 100;
+    originalMaxPoints = rawMax;
+    isNative12 = false;
+  } else {
+    // Standalone conversion without subject context
+    if (rawMax !== null && rawMax >= 20) {
+      if (rawGrade > 5 && rawGrade <= 12) {
+        effectiveMax = 12;
+        isCorrectedScale = true;
+        originalMaxPoints = rawMax;
+        isNative12 = true;
+      } else if (rawGrade <= 5) {
+        effectiveMax = 5;
+        isCorrectedScale = true;
+        originalMaxPoints = rawMax;
+      } else {
+        effectiveMax = rawMax;
+        originalMaxPoints = rawMax;
+      }
+    } else if (rawMax !== null) {
+      effectiveMax = rawMax;
+      originalMaxPoints = rawMax;
+      isNative12 = rawMax <= 12 && rawMax > 5;
+    } else {
+      effectiveMax = rawGrade <= 5 ? 5 : rawGrade <= 12 ? 12 : 100;
+      isNative12 = effectiveMax <= 12 && effectiveMax > 5;
+    }
+  }
 
   const percentage = Math.min(100, Math.max(0, Math.round((rawGrade / effectiveMax) * 100)));
 
   let grade5: number;
   let grade12: number;
-  let isNative12 = false;
 
   if (effectiveMax <= 5) {
-    // Native 5-point scale
     grade5 = Math.max(1, Math.min(5, Math.round(rawGrade)));
     // Equivalent 12-point
     if (grade5 === 5) grade12 = 12;
@@ -93,7 +228,6 @@ export function convertGrade(rawGrade: number, maxPointsInput?: number | null): 
     else if (grade5 === 2) grade12 = 3;
     else grade12 = 1;
   } else if (effectiveMax <= 12) {
-    // Native 12-point scale
     isNative12 = true;
     grade12 = Math.max(1, Math.min(12, Math.round(rawGrade)));
     // Official Ukrainian collegiate conversion table
@@ -123,7 +257,46 @@ export function convertGrade(rawGrade: number, maxPointsInput?: number | null): 
     else grade12 = 1;
   }
 
-  return { grade5, grade12, percentage, effectiveMax, isNative12 };
+  return {
+    grade5,
+    grade12,
+    percentage,
+    effectiveMax,
+    isNative12,
+    isCorrectedScale,
+    originalMaxPoints,
+  };
+}
+
+/**
+ * Returns formatted grade text for task items in tasks view and sidebar.
+ */
+export function formatTaskGradeDisplay(
+  assignedGrade?: number | null,
+  maxPoints?: number | null,
+  subject?: string
+): { text: string; isCorrected: boolean; originalMax: number | null } | null {
+  if (assignedGrade === undefined || assignedGrade === null) return null;
+
+  const override = subject ? getSubjectScaleOverride(subject) : null;
+  const targetScale = override && override !== "auto" ? override : undefined;
+
+  const conv = convertGrade(assignedGrade, maxPoints, { targetScale });
+
+  let text: string;
+  if (conv.effectiveMax <= 12 && conv.effectiveMax > 5) {
+    text = `Оцінка: ${assignedGrade} / 12 б.`;
+  } else if (conv.effectiveMax <= 5) {
+    text = `Оцінка: ${assignedGrade} / 5 б.`;
+  } else {
+    text = `Оцінка: ${assignedGrade}/${conv.effectiveMax}`;
+  }
+
+  return {
+    text,
+    isCorrected: conv.isCorrectedScale,
+    originalMax: conv.originalMaxPoints,
+  };
 }
 
 function getScheduleTeacherForSubject(subjectName: string): string | null {
@@ -201,6 +374,18 @@ function getScheduleTeacherForSubject(subjectName: string): string | null {
 }
 
 export function useGradesSummary(tasks: FullTaskItem[]): GradesSummaryResult {
+  const [scaleVersion, setScaleVersion] = useState(0);
+
+  useEffect(() => {
+    const handleScaleChange = () => setScaleVersion((v) => v + 1);
+    window.addEventListener("schedule:grade_scale_change", handleScaleChange);
+    window.addEventListener("storage", handleScaleChange);
+    return () => {
+      window.removeEventListener("schedule:grade_scale_change", handleScaleChange);
+      window.removeEventListener("storage", handleScaleChange);
+    };
+  }, []);
+
   return useMemo(() => {
     // 1. Gather teachers from ALL tasks (not just graded ones), including raw subject extraction
     const teacherMap = new Map<string, string>();
@@ -215,53 +400,35 @@ export function useGradesSummary(tasks: FullTaskItem[]): GradesSummaryResult {
       }
     }
 
-    // 2. Extract graded tasks from Classroom
-    const allGrades: GradeItem[] = [];
+    // 2. Group raw graded tasks by subject FIRST so we can detect subject scale
+    const rawSubjectGrades = new Map<string, Array<{ task: FullTaskItem; rawGrade: number; maxPoints?: number | null }>>();
 
     for (let i = 0; i < tasks.length; i++) {
       const task = tasks[i];
       if (task.assignedGrade !== undefined && task.assignedGrade !== null) {
-        const { grade5, grade12, percentage, effectiveMax } = convertGrade(
-          task.assignedGrade,
-          task.maxPoints
-        );
-        allGrades.push({
-          id: task.id || `task-${task.title}-${task.subject}`,
-          title: task.title,
-          subject: task.subject,
-          teacher: task.teacher || teacherMap.get(task.subject) || null,
-          rawGrade: task.assignedGrade,
-          maxPoints: effectiveMax,
-          grade5,
-          grade12,
-          percentage,
-          date: task.dueDateIso,
-          url: task.url,
-        });
+        const list = rawSubjectGrades.get(task.subject) || [];
+        list.push({ task, rawGrade: task.assignedGrade, maxPoints: task.maxPoints });
+        rawSubjectGrades.set(task.subject, list);
       }
     }
 
-    // 3. Group by subject
-    const subjectMap = new Map<string, GradeItem[]>();
-
-    for (let i = 0; i < allGrades.length; i++) {
-      const g = allGrades[i];
-      const list = subjectMap.get(g.subject) || [];
-      list.push(g);
-      subjectMap.set(g.subject, list);
-    }
+    const allGrades: GradeItem[] = [];
+    const subjects: SubjectSummary[] = [];
 
     let globalCount5 = 0;
     let globalCount4 = 0;
     let globalCount3 = 0;
     let globalCount2 = 0;
 
-    const subjects: SubjectSummary[] = [];
     let sumSubjectAverages5 = 0;
     let sumSubjectAverages12 = 0;
     let subjectsWith12Count = 0;
 
-    subjectMap.forEach((gradesList, subjectName) => {
+    rawSubjectGrades.forEach((rawGrades, subjectName) => {
+      const override = getSubjectScaleOverride(subjectName);
+      const { isAuto, activeScale } = detectSubjectScale(rawGrades, override);
+
+      const gradesList: GradeItem[] = [];
       let count5 = 0;
       let count4 = 0;
       let count3 = 0;
@@ -269,23 +436,49 @@ export function useGradesSummary(tasks: FullTaskItem[]): GradesSummaryResult {
 
       let sum5 = 0;
       let sum12 = 0;
-      let has12 = false;
+      let has12 = activeScale === "12";
+      let hasCorrected = false;
 
-      for (let i = 0; i < gradesList.length; i++) {
-        const g = gradesList[i];
-        sum5 += g.grade5;
-        sum12 += g.grade12;
-        if (g.maxPoints > 5 && g.maxPoints <= 12) {
+      for (let i = 0; i < rawGrades.length; i++) {
+        const item = rawGrades[i];
+        const conv = convertGrade(item.rawGrade, item.maxPoints, { targetScale: activeScale });
+
+        if (conv.isCorrectedScale) {
+          hasCorrected = true;
+        }
+
+        const gradeItem: GradeItem = {
+          id: item.task.id || `task-${item.task.title}-${item.task.subject}`,
+          title: item.task.title,
+          subject: item.task.subject,
+          teacher: item.task.teacher || teacherMap.get(item.task.subject) || null,
+          rawGrade: item.rawGrade,
+          maxPoints: conv.effectiveMax,
+          originalMaxPoints: conv.originalMaxPoints,
+          isCorrectedScale: conv.isCorrectedScale,
+          grade5: conv.grade5,
+          grade12: conv.grade12,
+          percentage: conv.percentage,
+          date: item.task.dueDateIso,
+          url: item.task.url,
+        };
+
+        gradesList.push(gradeItem);
+        allGrades.push(gradeItem);
+
+        sum5 += conv.grade5;
+        sum12 += conv.grade12;
+        if (conv.effectiveMax > 5 && conv.effectiveMax <= 12) {
           has12 = true;
         }
 
-        if (g.grade5 === 5) {
+        if (conv.grade5 === 5) {
           count5++;
           globalCount5++;
-        } else if (g.grade5 === 4) {
+        } else if (conv.grade5 === 4) {
           count4++;
           globalCount4++;
-        } else if (g.grade5 === 3) {
+        } else if (conv.grade5 === 3) {
           count3++;
           globalCount3++;
         } else {
@@ -331,12 +524,16 @@ export function useGradesSummary(tasks: FullTaskItem[]): GradesSummaryResult {
         average5,
         average12,
         has12Scale: has12,
+        scaleType: activeScale,
+        scaleOverride: override,
+        isAutoDetectedScale: isAuto,
+        hasCorrectedGrades: hasCorrected,
         distribution: { count5, count4, count3, count2 },
         level,
       });
     });
 
-    // Sort subjects alphabetically or by lowest/highest grade
+    // Sort subjects alphabetically
     subjects.sort((a: SubjectSummary, b: SubjectSummary) => a.subject.localeCompare(b.subject, "uk"));
 
     const totalSubjectsCount = subjects.length;
@@ -365,5 +562,5 @@ export function useGradesSummary(tasks: FullTaskItem[]): GradesSummaryResult {
       },
       subjects,
     };
-  }, [tasks]);
+  }, [tasks, scaleVersion]);
 }
