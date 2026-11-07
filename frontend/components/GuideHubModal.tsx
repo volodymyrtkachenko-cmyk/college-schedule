@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { useUserSettings } from "../lib/useUserSettings";
 import { api, Lesson, ScheduleResponse } from "../lib/api";
-import { extractOnlineMeetings, formatRoom, checkScheduleHasSubgroups } from "../lib/format";
+import { formatRoom } from "../lib/format";
 import { parseLessonTeachers } from "../lib/quickJump";
 import { DEFAULT_LESSON_TIMES } from "../lib/constants/lessons";
 
@@ -19,12 +20,26 @@ interface DemoData {
   teacher1Room: string;
   teacher2: string;
   teacher2Room: string;
-  onlineSubject: string;
-  onlineTeacher: string;
-  platform: "Meet" | "Zoom" | "Онлайн";
   hwSubject: string;
   hwRoom: string;
+  daysPreview: {
+    day: "Пн" | "Вт" | "Ср" | "Чт" | "Пт";
+    lessonNumber: number;
+    time: string;
+    subject: string;
+    teacher: string;
+    room: string;
+  }[];
 }
+
+const DEFAULT_DAYS: ("Пн" | "Вт" | "Ср" | "Чт" | "Пт")[] = ["Пн", "Вт", "Ср", "Чт", "Пт"];
+const FALLBACK_SUBJECTS = [
+  "Комп'ютерні мережі",
+  "Бази даних та SQL",
+  "Веб-технології та розробка",
+  "Архітектура комп'ютерів",
+  "Операційні системи",
+];
 
 function extractGuideData(weekSchedule: ScheduleResponse[]): DemoData {
   const allLessons: Lesson[] = [];
@@ -70,26 +85,35 @@ function extractGuideData(weekSchedule: ScheduleResponse[]): DemoData {
     }
   }
 
-  // Find online lesson
-  let onlineSubject = "Програмування та алгоритми";
-  let onlineTeacher = teacher1;
-  let platform: "Meet" | "Zoom" | "Онлайн" = "Meet";
-
-  for (const l of allLessons) {
-    if (l.is_cancelled) continue;
-    const meets = extractOnlineMeetings(l.note, l.room, l.teacher_name, l.subject_name);
-    if (meets && meets.length > 0 && meets[0].url) {
-      onlineSubject = l.subject_name;
-      onlineTeacher = l.teacher_name || "Викладач";
-      platform = meets[0].platform === "zoom" ? "Zoom" : "Meet";
-      break;
-    }
-  }
-
   // HW lesson
   const hwL = allLessons.find((l) => !l.is_cancelled && l.subject_name !== subgroupSubject) || allLessons[0];
   const hwSubject = hwL?.subject_name || "Бази даних та SQL";
   const hwRoom = formatRoom(hwL?.room || "204");
+
+  // Days preview
+  const daysPreview = DEFAULT_DAYS.map((d, idx) => {
+    const dayData = weekSchedule[idx];
+    const dayLessons = (dayData?.lessons || []).filter((l) => !l.is_cancelled);
+    if (dayLessons.length > 0) {
+      const l = dayLessons[0];
+      return {
+        day: d,
+        lessonNumber: l.lesson_number || 1,
+        time: l.time || DEFAULT_LESSON_TIMES[1],
+        subject: l.subject_name,
+        teacher: l.teacher_name || teacher1,
+        room: formatRoom(l.room || "101"),
+      };
+    }
+    return {
+      day: d,
+      lessonNumber: 1,
+      time: DEFAULT_LESSON_TIMES[1],
+      subject: FALLBACK_SUBJECTS[idx] || "Спеціальна дисципліна",
+      teacher: teacher1,
+      room: `ауд. ${100 + (idx + 1) * 10}`,
+    };
+  });
 
   return {
     subgroupSubject,
@@ -97,11 +121,9 @@ function extractGuideData(weekSchedule: ScheduleResponse[]): DemoData {
     teacher1Room,
     teacher2,
     teacher2Room,
-    onlineSubject,
-    onlineTeacher,
-    platform,
     hwSubject,
     hwRoom,
+    daysPreview,
   };
 }
 
@@ -120,10 +142,8 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
   const [activeSlide, setActiveSlide] = useState(0);
 
   // Interactive demo states
+  const [demoNavDay, setDemoNavDay] = useState<"Пн" | "Вт" | "Ср" | "Чт" | "Пт">("Пн");
   const [demoSubgroup, setDemoSubgroup] = useState<1 | 2 | null>(null);
-  const [demoMeetUnlocked, setDemoMeetUnlocked] = useState(true);
-  const [demoHwChecked, setDemoHwChecked] = useState(false);
-  const [copiedToast, setCopiedToast] = useState(false);
 
   // PWA detection
   const [pwaPrompt, setPwaPrompt] = useState<any>(null);
@@ -181,12 +201,16 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
 
   const demoData = useMemo(() => extractGuideData(weekSchedule), [weekSchedule]);
 
+  const activeNavLesson = useMemo(() => {
+    return demoData.daysPreview.find((d) => d.day === demoNavDay) || demoData.daysPreview[0];
+  }, [demoData, demoNavDay]);
+
   const slides = [
     {
       id: "live",
       icon: "🔴",
       title: "«Жива» пара в реальному часі",
-      caption: "Заняття, яке триває зараз, автоматично підсвічується акцентним кольором та показує таймер «● ще N хв» і прогрес-лінію.",
+      caption: "Заняття, яке триває просто зараз, автоматично підсвічується акцентним кольором та показує точний таймер до перерви.",
       render: () => (
         <div className="relative rounded-2xl border border-sys-accent bg-gradient-to-br from-sys-accent/15 via-sys-card to-sys-card p-4 space-y-3 shadow-lg">
           <div className="flex items-center justify-between text-xs">
@@ -206,6 +230,76 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
           </div>
           <div className="h-2 w-full rounded-full bg-sys-accent/20 overflow-hidden mt-1">
             <div className="h-full bg-sys-accent rounded-full w-2/3 transition-all duration-500" />
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: "navigation",
+      icon: "📱",
+      title: "Свайпи та швидкі дні тижня",
+      caption: "Гортайте дні природними свайпами вліво чи вправо на смартфоні або миттєво переходьте на потрібний день у верхній смужці.",
+      render: () => (
+        <div className="rounded-2xl border border-sys-border bg-sys-card p-4 space-y-3 shadow-md">
+          {/* Days bar */}
+          <div className="grid grid-cols-5 gap-1 text-center">
+            {DEFAULT_DAYS.map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setDemoNavDay(d)}
+                className={`py-1.5 rounded-xl border text-xs font-bold transition-all ${
+                  demoNavDay === d
+                    ? "bg-sys-accent text-slate-900 border-sys-accent shadow-xs scale-105"
+                    : "bg-sys-bg border-sys-border text-sys-text-secondary hover:text-sys-text-primary"
+                }`}
+              >
+                {d}
+              </button>
+            ))}
+          </div>
+
+          {/* Swipe indicator */}
+          <div className="flex items-center justify-between px-2 text-[11px] text-sys-text-muted">
+            <button
+              type="button"
+              onClick={() => {
+                const idx = DEFAULT_DAYS.indexOf(demoNavDay);
+                if (idx > 0) setDemoNavDay(DEFAULT_DAYS[idx - 1]);
+              }}
+              className="hover:text-sys-text-primary transition-colors font-semibold"
+            >
+              👈 Вчора
+            </button>
+            <span className="text-sys-accent font-medium">Свайпайте вліво / вправо</span>
+            <button
+              type="button"
+              onClick={() => {
+                const idx = DEFAULT_DAYS.indexOf(demoNavDay);
+                if (idx < DEFAULT_DAYS.length - 1) setDemoNavDay(DEFAULT_DAYS[idx + 1]);
+              }}
+              className="hover:text-sys-text-primary transition-colors font-semibold"
+            >
+              Завтра 👉
+            </button>
+          </div>
+
+          {/* Day Card Preview */}
+          <div className="rounded-xl border border-sys-border/80 bg-sys-bg p-3 space-y-1.5 transition-all">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-bold text-sys-text-secondary">
+                {activeNavLesson.lessonNumber} пара · {activeNavLesson.time}
+              </span>
+              <span className="rounded-md border border-sys-border bg-sys-card px-2 py-0.5 text-[11px] font-semibold text-sys-text-secondary">
+                {activeNavLesson.room}
+              </span>
+            </div>
+            <div className="font-bold text-sm text-sys-text-primary truncate">
+              {activeNavLesson.subject}
+            </div>
+            <div className="text-xs text-sys-text-secondary truncate">
+              {activeNavLesson.teacher}
+            </div>
           </div>
         </div>
       ),
@@ -285,53 +379,10 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
       ),
     },
     {
-      id: "online",
-      icon: "💻",
-      title: "Відеоуроки в один клік",
-      caption: "Прямий перехід до Google Meet або Zoom. Посилання захищені позначкою [🔒 Онлайн] від сторонніх і відкриті для вашої групи.",
-      render: () => (
-        <div className="rounded-2xl border border-sys-border bg-sys-card p-4 space-y-3 shadow-md">
-          <div className="flex items-center justify-between text-xs border-b border-sys-border/50 pb-2">
-            <span className="font-bold text-sys-text-secondary">3 пара · 12:30–13:50</span>
-            <button
-              type="button"
-              onClick={() => setDemoMeetUnlocked((v) => !v)}
-              className="text-[11px] text-sys-accent hover:underline"
-            >
-              {demoMeetUnlocked ? "Перемкнути: Гість 🔒" : "Перемкнути: Студент ✓"}
-            </button>
-          </div>
-          <div className="font-bold text-sm sm:text-base text-sys-text-primary">
-            {demoData.onlineSubject}
-          </div>
-          <div className="text-xs text-sys-text-secondary">{demoData.onlineTeacher}</div>
-          <div className="pt-1">
-            {demoMeetUnlocked ? (
-              <button
-                type="button"
-                className="w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-500/15 border border-emerald-500/40 py-2.5 text-xs sm:text-sm font-bold text-emerald-400 shadow-xs"
-              >
-                <span>{demoData.platform} ↗</span>
-                <span className="text-[11px] font-normal opacity-80">(Посилання активне)</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="w-full flex items-center justify-center gap-2 rounded-xl bg-sys-bg border border-sys-border py-2.5 text-xs sm:text-sm font-bold text-sys-text-muted"
-              >
-                <span>🔒 {demoData.platform}</span>
-                <span className="text-[11px] font-normal">(Захищено)</span>
-              </button>
-            )}
-          </div>
-        </div>
-      ),
-    },
-    {
       id: "classroom",
       icon: "📋",
       title: "Classroom: дедлайни та оцінки",
-      caption: "Завдання синхронізуються автоматично. Підключивши пошту, ви бачите зелені мітки «Здано» та оцінки викладача (наприклад, 12/12).",
+      caption: "Усі завдання синхронізуються автоматично. Підключивши студентську пошту, ви бачите особистий статус здачі та оцінки викладачів.",
       render: () => (
         <div className="rounded-2xl border border-sys-border bg-sys-card p-4 space-y-2.5 shadow-md">
           <div className="flex items-center justify-between text-xs">
@@ -362,35 +413,51 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
       ),
     },
     {
-      id: "share",
-      icon: "📸",
-      title: "Поділитися фото розкладу в 1 клік",
-      caption: "Більше жодних скріншотів екрана! Натисніть кнопку «Поділитися» у шапці дня — застосунок створить фірмову листівку для Telegram або Viber.",
+      id: "stats",
+      icon: "📊",
+      title: "Статистика занять та графік семестру",
+      caption: "Слідкуйте за академічним навантаженням, кількістю годин за предметами та офіційними датами сесій і канікул у розділі Статистика.",
       render: () => (
-        <div className="rounded-2xl border border-sys-border bg-sys-card p-4 space-y-3 shadow-md text-center">
-          <div className="mx-auto w-12 h-12 rounded-2xl bg-sys-accent/15 flex items-center justify-center text-2xl shadow-xs">
-            📸
+        <div className="rounded-2xl border border-sys-border bg-sys-card p-4 space-y-3 shadow-md">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-bold text-sys-text-primary">Семестрове навантаження</span>
+            <span className="rounded-full bg-violet-500/15 text-violet-400 px-2 py-0.5 font-bold text-[10px]">
+              2-й семестр
+            </span>
           </div>
+
+          {/* Progress bar */}
           <div className="space-y-1">
-            <div className="font-bold text-sm text-sys-text-primary">
-              Стильна картинка розкладу дня
+            <div className="flex justify-between text-[11px] text-sys-text-secondary font-medium">
+              <span>Пройдено семестру</span>
+              <span className="text-sys-accent font-bold">45%</span>
             </div>
-            <p className="text-xs text-sys-text-secondary max-w-xs mx-auto">
-              Містить слоти дзвінків, назви предметів, викладачів та аудиторії в естетичному форматі.
-            </p>
+            <div className="h-2 w-full rounded-full bg-sys-bg border border-sys-border/60 overflow-hidden">
+              <div className="h-full bg-sys-accent rounded-full w-[45%]" />
+            </div>
           </div>
-          <div className="flex items-center justify-center gap-2 pt-1">
-            <button
-              type="button"
-              onClick={() => {
-                setCopiedToast(true);
-                setTimeout(() => setCopiedToast(false), 2000);
-              }}
-              className="rounded-xl bg-sys-accent px-4 py-2 text-xs font-bold text-slate-900 shadow-md active:scale-95 transition-all"
-            >
-              {copiedToast ? "✓ Згенеровано!" : "Спробувати створити фото"}
-            </button>
+
+          {/* Stats counters */}
+          <div className="grid grid-cols-2 gap-2 text-center text-xs">
+            <div className="rounded-xl border border-sys-border bg-sys-bg p-2 space-y-0.5">
+              <div className="text-base font-black text-sys-text-primary">18 пар</div>
+              <div className="text-[10px] text-sys-text-secondary font-medium">навантаження / тиждень</div>
+            </div>
+            <div className="rounded-xl border border-sys-border bg-sys-bg p-2 space-y-0.5">
+              <div className="text-base font-black text-sys-text-primary">11 дисциплін</div>
+              <div className="text-[10px] text-sys-text-secondary font-medium">у цьому семестрі</div>
+            </div>
           </div>
+
+          {/* Direct link button */}
+          <Link
+            href="/statistics"
+            onClick={onClose}
+            className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-sys-accent px-4 py-2.5 text-xs font-bold text-slate-900 shadow-sm hover:opacity-95 active:scale-95 transition-all"
+          >
+            <span>Відкрити детальну статистику</span>
+            <span>↗</span>
+          </Link>
         </div>
       ),
     },
@@ -398,7 +465,7 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
       id: "pwa",
       icon: "📲",
       title: "Працює без інтернету (PWA)",
-      caption: "Розклад автоматично кешується в пам'яті вашого телефона. Він відкривається в укриттях, метро чи під час відключень світла без мережі.",
+      caption: "Розклад автоматично зберігається на вашому пристрої та відкривається навіть під час відключень зв'язку чи світла.",
       render: () => (
         <div className="rounded-2xl border border-sys-border bg-sys-card p-4 space-y-3 shadow-md">
           <div className="flex items-center gap-3">
