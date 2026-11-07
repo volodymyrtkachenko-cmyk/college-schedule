@@ -26,23 +26,6 @@ function formatDayParts(dateStr?: string): { weekday: string; dayMonth: string }
   };
 }
 
-const dayCarouselVariants = {
-  enter: (dir: number) => ({
-    x: dir > 0 ? 28 : dir < 0 ? -28 : 0,
-    opacity: 0,
-  }),
-  center: {
-    x: 0,
-    opacity: 1,
-    transition: { type: "spring" as const, stiffness: 380, damping: 32, mass: 0.75 },
-  },
-  exit: (dir: number) => ({
-    x: dir > 0 ? -28 : dir < 0 ? 28 : 0,
-    opacity: 0,
-    transition: { type: "spring" as const, stiffness: 380, damping: 32, mass: 0.75 },
-  }),
-};
-
 export function DayPager({
   schedule,
   todayDate,
@@ -278,7 +261,7 @@ export function DayPager({
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       onTouchCancel={handleTouchCancel}
-      className="w-full min-w-0 touch-pan-y flex flex-col flex-1 min-h-[calc(100vh-10rem)]"
+      className="w-full min-w-0 touch-pan-y flex flex-col flex-1 min-h-[calc(100dvh-12rem)] overflow-x-clip"
     >
       {/* Top context banners: weekend or tomorrow */}
       <AnimatePresence>
@@ -380,17 +363,22 @@ export function DayPager({
       )}
 
       {/* Animated Day Schedule List */}
-      <div className="relative flex-1 w-full flex flex-col">
-        <AnimatePresence mode="popLayout" initial={false} custom={shouldReduceMotion ? 0 : daySlideDir}>
-          <motion.div
-            key={`${scheduleMode}-${schedule.date}`}
-            custom={shouldReduceMotion ? 0 : daySlideDir}
-            variants={dayCarouselVariants}
-            initial="enter"
-            animate="center"
-            exit="exit"
-            className="flex flex-col flex-1 gap-3 w-full"
-          >
+      <div className="relative flex-1 w-full flex flex-col overflow-x-clip">
+        <motion.div
+          key={`${scheduleMode}-${schedule.date}`}
+          initial={{
+            opacity: 0,
+            x: shouldReduceMotion ? 0 : daySlideDir > 0 ? 24 : daySlideDir < 0 ? -24 : 0,
+          }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{
+            type: "spring",
+            stiffness: 380,
+            damping: 32,
+            mass: 0.75,
+          }}
+          className="flex flex-col flex-1 gap-3 w-full"
+        >
           {orderedLessons.length > 0 ? (
             orderedLessons.map((lesson, idx) => {
               const lessonKey = `${lesson.id}-${lesson.lesson_number}`;
@@ -452,7 +440,6 @@ export function DayPager({
             </div>
           )}
         </motion.div>
-      </AnimatePresence>
       </div>
     </div>
   );
