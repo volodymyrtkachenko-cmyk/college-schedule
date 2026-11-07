@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition, startTransition } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
@@ -18,8 +18,7 @@ import { useAuth, canAccessAdmin } from "../lib/auth";
 import { getMondayOf, getKyivInitialWeekAnchor, getKyivTomorrowDateIso, KYIV_DATE_FMT, KYIV_TIME_FMT, UKR_WEEKDAY_LONG_FMT, UKR_DAY_MONTH_SHORT_FMT, UKR_MONTH_SHORT_FMT } from "../lib/date";
 import { SplashScreen } from "./SplashScreen";
 import { useMobileNav, MobileTab } from "../lib/useMobileNav";
-import type { FullTaskItem } from "./MobileTasksView";
-import { renderTaskCard } from "./MobileTasksView";
+import { FullTaskItem, renderTaskCard } from "./TaskCardItem";
 import { useTaskGroups, formatTaskWord, TaskFilterState, DEFAULT_TASK_FILTERS } from "../lib/useTaskGroups";
 import { TaskFilters } from "./TaskFilters";
 import { SearchableSelect } from "./SearchableSelect";
@@ -34,6 +33,8 @@ import { useTheme } from "../lib/useTheme";
 import { normalizeSubjectName, formatFullWeekRange, extractTeacherFromSubject, formatTeachers, isValidTeacherName } from "../lib/format";
 import { useRecentSelections } from "../lib/useRecentSelections";
 import { RecentSelectionsChips } from "./RecentSelectionsChips";
+import { useViewportTier } from "../lib/useViewportTier";
+import { useUserSettings } from "../lib/useUserSettings";
 
 const WelcomeScreen = dynamic(() => import("./WelcomeScreen").then((m) => m.WelcomeScreen), { ssr: false });
 const DatePickerModal = dynamic(() => import("./DatePickerModal").then((m) => m.DatePickerModal), { ssr: false });
@@ -58,6 +59,10 @@ export function SchedulePageClient({
   initialTeachers = [],
 }: SchedulePageClientProps) {
   const { theme, resolvedTheme, setTheme, toggleTheme } = useTheme();
+  const { isMounted, isDesktop } = useViewportTier();
+  const { updateSetting } = useUserSettings();
+  const showDesktop = !isMounted || isDesktop;
+  const showMobile = !isMounted || !isDesktop;
   const getInitialAnchor = () => getKyivInitialWeekAnchor();
   const [weekAnchorDate, setWeekAnchorDate] = useState(getInitialAnchor());
   const lastActiveDateRef = useRef<string>(KYIV_DATE_FMT.format(new Date()));
@@ -93,10 +98,12 @@ export function SchedulePageClient({
   }, [weekAnchorDate]);
 
   const shiftWeek = (offset: number) => {
-    setWeekAnchorDate((date) => {
-      const next = new Date(date);
-      next.setDate(next.getDate() + offset * 7);
-      return next;
+    startTransition(() => {
+      setWeekAnchorDate((date) => {
+        const next = new Date(date);
+        next.setDate(next.getDate() + offset * 7);
+        return next;
+      });
     });
   };
 
@@ -646,55 +653,67 @@ export function SchedulePageClient({
 
   const shiftWeekPreservingDay = (offset: number) => {
     setDaySlideDir(offset > 0 ? 1 : -1);
-    setWeekAnchorDate((prev) => {
-      const nextAnchor = new Date(prev);
-      nextAnchor.setDate(nextAnchor.getDate() + offset * 7);
-      return nextAnchor;
+    startTransition(() => {
+      setWeekAnchorDate((prev) => {
+        const nextAnchor = new Date(prev);
+        nextAnchor.setDate(nextAnchor.getDate() + offset * 7);
+        return nextAnchor;
+      });
     });
     resetScroll();
   };
 
   const resetWeekPreservingDay = () => {
     const currentAnchor = getInitialAnchor();
-    setWeekAnchorDate(currentAnchor);
+    startTransition(() => {
+      setWeekAnchorDate(currentAnchor);
+    });
     resetScroll();
   };
 
   const handleJumpToToday = () => {
     const currentAnchor = getInitialAnchor();
-    setWeekAnchorDate(currentAnchor);
-    setSelectedDayIndex(getActualTodayIndex());
-    setDaySlideDir(0);
+    startTransition(() => {
+      setWeekAnchorDate(currentAnchor);
+      setSelectedDayIndex(getActualTodayIndex());
+      setDaySlideDir(0);
+    });
     resetScroll();
   };
 
   const handleJumpToTomorrow = () => {
     const currentAnchor = getInitialAnchor();
-    setWeekAnchorDate(currentAnchor);
     const now = new Date();
     const dow = now.getDay();
-    if (dow >= 1 && dow <= 4) {
-      setSelectedDayIndex(dow);
-    }
-    setDaySlideDir(0);
+    startTransition(() => {
+      setWeekAnchorDate(currentAnchor);
+      if (dow >= 1 && dow <= 4) {
+        setSelectedDayIndex(dow);
+      }
+      setDaySlideDir(0);
+    });
     resetScroll();
   };
 
   const handleDatePickerSelect = (targetDate: Date) => {
     const newAnchor = getMondayOf(targetDate);
-    setWeekAnchorDate(newAnchor);
     const kyivDow = getKyivWeekday(targetDate);
-    if (kyivDow >= 1 && kyivDow <= 5) {
-      setSelectedDayIndex(kyivDow - 1);
-    } else {
-      setSelectedDayIndex(0);
-    }
-    setDaySlideDir(0);
+    startTransition(() => {
+      setWeekAnchorDate(newAnchor);
+      if (kyivDow >= 1 && kyivDow <= 5) {
+        setSelectedDayIndex(kyivDow - 1);
+      } else {
+        setSelectedDayIndex(0);
+      }
+      setDaySlideDir(0);
+    });
     resetScroll();
   };
 
   const handleViewChange = (nextView: "today" | "week") => {
-    setView(nextView);
+    startTransition(() => {
+      setView(nextView);
+    });
     try {
       sessionStorage.setItem("schedule:view", nextView);
       localStorage.setItem("schedule:view", nextView);
@@ -703,8 +722,10 @@ export function SchedulePageClient({
   };
 
   const handleSelectDayFromWeek = (targetDate: string, dayIdx: number) => {
-    setSelectedDayIndex(dayIdx);
-    setView("today");
+    startTransition(() => {
+      setSelectedDayIndex(dayIdx);
+      setView("today");
+    });
     try {
       sessionStorage.setItem("schedule:view", "today");
       localStorage.setItem("schedule:view", "today");
@@ -712,11 +733,18 @@ export function SchedulePageClient({
     resetScroll();
   };
 
-  // Desktop keyboard navigation (ArrowLeft / ArrowRight to switch days or weeks on PC)
+  // Desktop keyboard navigation (ArrowLeft / ArrowRight to switch days or weeks on PC, hotkeys: Ctrl+K, /, T, D, W, 1/2/0)
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Hotkey: Search / Select group or teacher (Ctrl+K or Cmd+K)
+      if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
+        e.preventDefault();
+        setContextModalOpen(true);
+        return;
+      }
+
       if (e.metaKey || e.ctrlKey || e.altKey) return;
 
       const activeEl = document.activeElement;
@@ -737,6 +765,46 @@ export function SchedulePageClient({
         guideHubOpen ||
         contextModalOpen
       ) {
+        return;
+      }
+
+      // Hotkey: Quick search modal with "/"
+      if (e.key === "/") {
+        e.preventDefault();
+        setContextModalOpen(true);
+        return;
+      }
+
+      // Hotkey: Jump to today ("T" or Ukrainian "Е")
+      if (e.key === "t" || e.key === "T" || e.key === "е" || e.key === "Е") {
+        e.preventDefault();
+        handleJumpToToday();
+        return;
+      }
+
+      // Hotkeys: Switch Day ("D") / Week ("W") view
+      if (e.key === "d" || e.key === "D") {
+        e.preventDefault();
+        handleViewChange("today");
+        return;
+      }
+      if (e.key === "w" || e.key === "W") {
+        e.preventDefault();
+        handleViewChange("week");
+        return;
+      }
+
+      // Hotkeys: Subgroups (1 = 1 підгр, 2 = 2 підгр, 0 = обидві)
+      if (e.key === "1") {
+        updateSetting("defaultSubgroup", 1);
+        return;
+      }
+      if (e.key === "2") {
+        updateSetting("defaultSubgroup", 2);
+        return;
+      }
+      if (e.key === "0") {
+        updateSetting("defaultSubgroup", null);
         return;
       }
 
@@ -768,6 +836,7 @@ export function SchedulePageClient({
     teacherPinModalOpen,
     guideHubOpen,
     contextModalOpen,
+    updateSetting,
   ]);
 
   const activeWeekPeriodMeta = useMemo(() => {
@@ -996,24 +1065,7 @@ export function SchedulePageClient({
     document.title = `${owner}Розклад занять | ДФКР`;
   }, [currentName]);
 
-  const dayTasks = useMemo(() => {
-    if (!selectedDaySchedule?.lessons) return [];
-    const tasks: { title: string; subject: string; teacher?: string | null; label: string; url: string; deadline: TaskDeadline }[] = [];
-    for (const l of selectedDaySchedule.lessons) {
-      const extracted = extractClassroomTasks(l.note);
-      for (const t of extracted) {
-        tasks.push({
-          title: t.title || "Домашнє завдання",
-          subject: l.subject_name || l.subject,
-          teacher: t.teacher || l.teacher_name || l.teacher,
-          label: t.label,
-          url: t.url,
-          deadline: t.deadline,
-        });
-      }
-    }
-    return sortTasksByDeadline(tasks);
-  }, [selectedDaySchedule]);
+
 
   const allTasks = useMemo<FullTaskItem[]>(() => {
     if (mode === "teacher") return [];
@@ -1201,8 +1253,9 @@ export function SchedulePageClient({
           <InstallPrompt />
 
       {/* Desktop Toolbar (>= 1024px) */}
-      <header className="sticky top-0 z-40 hidden lg:block h-14 border-b border-sys-border bg-sys-card/90 backdrop-blur-md">
-        <div className="mx-auto grid grid-cols-[1fr_auto_1fr] gap-x-4 h-full max-w-[1800px] items-center px-6">
+      {showDesktop && (
+        <header className="sticky top-0 z-40 hidden lg:block h-14 border-b border-sys-border bg-sys-card/90 backdrop-blur-md">
+          <div className="mx-auto grid grid-cols-[1fr_auto_1fr] gap-x-4 h-full max-w-[1800px] items-center px-6">
           {/* Left Zone: Brand + Context Selector */}
           <div className="flex items-center gap-3 min-w-0 justify-self-start">
             <a
@@ -1455,11 +1508,13 @@ export function SchedulePageClient({
           </div>
         </div>
       </header>
+      )}
 
       {/* Mobile 2-Tier Header (< 1024px) */}
-      <header className="sticky top-0 z-40 border-b border-sys-border bg-sys-card pt-[env(safe-area-inset-top)] lg:hidden">
-        {/* Tier 1 (h-14): [85 ▾]   ‹ 19–25 жовт. ›   [⋯] */}
-        <div className="flex h-14 items-center justify-between px-3 gap-1.5 overflow-hidden">
+      {showMobile && (
+        <header className="sticky top-0 z-40 border-b border-sys-border bg-sys-card pt-[env(safe-area-inset-top)] lg:hidden">
+          {/* Tier 1 (h-14): [85 ▾]   ‹ 19–25 жовт. ›   [⋯] */}
+          <div className="flex h-14 items-center justify-between px-3 gap-1.5 overflow-hidden">
           {/* Left: Context Selector */}
           <div className="flex items-center gap-1 shrink-0">
             <button
@@ -1602,6 +1657,7 @@ export function SchedulePageClient({
           />
         )}
       </header>
+      )}
 
       {/* Context Selection Modal */}
       <AnimatePresence>
@@ -1717,7 +1773,8 @@ export function SchedulePageClient({
 
 
       {/* Mobile Main Content (<1024px) */}
-      <div className="lg:hidden pb-24">
+      {showMobile && (
+        <div className="lg:hidden pb-24">
         {returnTarget && (
           <div className="m-3 flex items-center justify-between rounded-xl border border-sys-accent/30 bg-sys-accent/10 px-3 py-2 text-xs">
             <span className="text-sys-text-secondary truncate mr-2">
@@ -1848,9 +1905,11 @@ export function SchedulePageClient({
           </motion.div>
         </AnimatePresence>
       </div>
+      )}
 
       {/* Desktop Main Content (>= 1024px) */}
-      <div className="hidden lg:block mx-auto max-w-[1600px] px-[27px] py-6">
+      {showDesktop && (
+        <div className="hidden lg:block mx-auto max-w-[1600px] px-[27px] py-6">
         {returnTarget && (
           <div className="mb-4 flex items-center justify-between rounded-xl border border-sys-accent/30 bg-sys-accent/10 px-4 py-2.5 text-sm">
             <span className="text-sys-text-secondary">
@@ -2649,6 +2708,7 @@ export function SchedulePageClient({
           </AnimatePresence>
         )}
       </div>
+      )}
 
       {/* Week Type Bottom Sheet (Чисельник / Знаменник) */}
       <AnimatePresence>

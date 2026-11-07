@@ -200,6 +200,7 @@ export function useSchedule(
 
     let isSubscribed = true;
     let prefetchTimer: ReturnType<typeof setTimeout> | null = null;
+    let idleCallbackId: number | null = null;
     let slowNetworkTimer: ReturnType<typeof setTimeout> | null = null;
 
     // Пошук останнього збереженого тижня цієї ж групи/викладача в localStorage,
@@ -276,6 +277,25 @@ export function useSchedule(
             memoryCache.set(adjMemKey, { time: Date.now(), today: currentToday, week: adjWeek });
           })
           .catch(() => {});
+      }
+    };
+
+    const schedulePrefetch = (currentToday: ScheduleResponse) => {
+      if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+        if (idleCallbackId !== null) {
+          (window as any).cancelIdleCallback(idleCallbackId);
+        }
+        idleCallbackId = (window as any).requestIdleCallback(
+          () => {
+            if (isSubscribed) prefetchAdjacentWeeks(currentToday);
+          },
+          { timeout: 2500 }
+        );
+      } else {
+        if (prefetchTimer) clearTimeout(prefetchTimer);
+        prefetchTimer = setTimeout(() => {
+          if (isSubscribed) prefetchAdjacentWeeks(currentToday);
+        }, 800);
       }
     };
 
@@ -377,8 +397,7 @@ export function useSchedule(
           } catch {}
           memoryCache.set(getMemKey(), { time: Date.now(), today: todayResponse, week: weekResponse });
 
-          if (prefetchTimer) clearTimeout(prefetchTimer);
-          prefetchTimer = setTimeout(() => prefetchAdjacentWeeks(todayResponse), 350);
+          schedulePrefetch(todayResponse);
         })
         .catch(() => {
           if (!isSubscribed) return;
@@ -433,6 +452,9 @@ export function useSchedule(
 
     return () => {
       isSubscribed = false;
+      if (idleCallbackId !== null && typeof window !== "undefined" && "cancelIdleCallback" in window) {
+        (window as any).cancelIdleCallback(idleCallbackId);
+      }
       if (prefetchTimer) clearTimeout(prefetchTimer);
       if (slowNetworkTimer) clearTimeout(slowNetworkTimer);
       window.removeEventListener("visibilitychange", handleVisibility);

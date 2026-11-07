@@ -155,9 +155,15 @@ export function DayPager({
     const touch = e.changedTouches[0];
     const diffX = touch.clientX - start.x;
     const diffY = touch.clientY - start.y;
+    const elapsed = Date.now() - start.time;
     touchStartRef.current = null;
 
-    if (Math.abs(diffX) > 40 && Math.abs(diffX) > Math.abs(diffY) * 1.5) {
+    // Velocity-aware swipe: either a fast flick (<280ms and >25px) or standard distance (>40px)
+    const isHorizontal = Math.abs(diffX) > Math.abs(diffY) * 1.35;
+    const isFlick = elapsed < 280 && Math.abs(diffX) > 25;
+    const isDrag = Math.abs(diffX) > 40;
+
+    if (isHorizontal && (isFlick || isDrag)) {
       if (diffX < 0) {
         onNextDay?.();
       } else {
@@ -316,7 +322,6 @@ export function DayPager({
           duration: shouldReduceMotion ? 0 : 0.1,
           ease: [0.16, 1, 0.3, 1],
         }}
-        style={{ willChange: "transform, opacity" }}
         className="flex flex-col flex-1 gap-3"
       >
           {orderedLessons.length > 0 ? (

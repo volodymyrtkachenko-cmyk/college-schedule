@@ -12,6 +12,7 @@ import { useTeacherAccess } from "../lib/useTeacherAccess";
 import { useUserSettings } from "../lib/useUserSettings";
 import { QuickJumpTarget, parseLessonTeachers, parseLessonGroups } from "../lib/quickJump";
 import { DEFAULT_LESSON_TIMES } from "../lib/constants/lessons";
+import { useViewportTier } from "../lib/useViewportTier";
 
 export type { QuickJumpTarget, MeetingInfo };
 export { extractOnlineMeetings };
@@ -848,6 +849,9 @@ export const LessonCard = memo(function LessonCard({
   currentTeacherId?: number | null;
   currentTeacherName?: string | null;
 }) {
+  const { isMounted, isMobile } = useViewportTier();
+  const showSmPlus = !isMounted || !isMobile;
+  const showMobile = !isMounted || isMobile;
   const isSelectedForMove = movingLesson?.id === lesson.id;
   const isDay = mode !== "week";
   const isEvent = Boolean(lesson.event_type || lesson.event_id);
@@ -1509,7 +1513,7 @@ export const LessonCard = memo(function LessonCard({
       } ${canMove ? "cursor-grab active:cursor-grabbing" : ""}`}
     >
       {/* Desktop/Tablet 3-Zone Horizontal Layout (for Day mode on screens >= sm) */}
-      {isDay && (
+      {isDay && showSmPlus && (
         <div className="hidden sm:flex sm:items-stretch gap-4 w-full">
           {/* Zone 1: Timeline (100px - 110px) */}
           {!hideTimeColumn && (
@@ -2035,7 +2039,7 @@ export const LessonCard = memo(function LessonCard({
       )}
 
       {/* Mobile Day Mode (< sm) */}
-      {isDay && (
+      {isDay && showMobile && (
         <div className="flex sm:hidden flex-col gap-2 w-full">
           {/* Row 1: Number + Time (or badges when hideTimeColumn) on left, Live pill / Room / Meet / Edit actions on right */}
           {(!hideTimeColumn || canEdit || isLive || lesson.is_cancelled || eventBadge || lesson.is_replacement || (isTemplateMode && lesson.week_type !== "both") || (!hasBothRoomAndMeet && !isDualTeachers && (rooms.length > 0 || effectiveHasMeeting))) && (

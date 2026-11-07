@@ -1,10 +1,13 @@
 import { useMemo } from "react";
+import dynamic from "next/dynamic";
 import { Lesson, ScheduleResponse } from "../lib/api";
 import { canMoveLesson } from "../lib/scheduleMove";
 import { ScheduleDay } from "./ScheduleDay";
-import { ScheduleEditGrid } from "./ScheduleEditGrid";
 import { LessonCard, QuickJumpTarget } from "./LessonCard";
 import { CompactSchedulePeriodCard, getPeriodMeta } from "./SchedulePeriodCard";
+import { useViewportTier } from "../lib/useViewportTier";
+
+const ScheduleEditGrid = dynamic(() => import("./ScheduleEditGrid").then((m) => m.ScheduleEditGrid), { ssr: false });
 
 import { KYIV_DATE_FMT, UKR_WEEKDAY_LONG_FMT, UKR_DAY_MONTH_SHORT_FMT } from "../lib/date";
 
@@ -229,10 +232,16 @@ export function ScheduleWeekGrid({
     return week.length > 0 && week.every((d) => Boolean(d.period_info) && d.lessons.length === 0);
   }, [week]);
 
+  const { isMounted, isDesktop, isTablet, isMobile } = useViewportTier();
+  const renderDesktop = !isMounted || isDesktop;
+  const renderTablet = !isMounted || isTablet;
+  const renderMobile = !isMounted || isMobile;
+
   return (
     <div className="w-full pb-4">
       {/* Desktop (>= 1024px): 5-column synchronized CSS Grid by lesson numbers */}
-      <div className="hidden lg:grid lg:grid-cols-5 gap-3 xl:gap-3.5 pb-4">
+      {renderDesktop && (
+        <div className="hidden lg:grid lg:grid-cols-5 gap-3 xl:gap-3.5 pb-4">
         {/* Row 0: Column Headers */}
         {weekDaysMeta.map(({ day, periodMeta }, dIdx) => {
           const isToday = day.date === kyivTodayIso;
@@ -330,7 +339,7 @@ export function ScheduleWeekGrid({
               <div
                 key={`desktop-slot-${num}-${day.date}`}
                 style={{ gridColumn: dIdx + 1 }}
-                className={`flex flex-col min-h-[92px] transition-opacity ${
+                className={`flex flex-col min-h-[92px] transition-opacity contain-layout-style ${
                   isPast && !isToday ? "opacity-80 hover:opacity-100" : ""
                 }`}
               >
@@ -376,10 +385,12 @@ export function ScheduleWeekGrid({
             <span>{summaryText}</span>
           </div>
         ))}
-      </div>
+        </div>
+      )}
 
       {/* Tablet (640px – 1023px): horizontal scroll with snap-start */}
-      <div className="hidden sm:flex lg:hidden items-start gap-3 overflow-x-auto overscroll-x-contain custom-scrollbar snap-x snap-mandatory pb-4">
+      {renderTablet && (
+        <div className="hidden sm:flex lg:hidden items-start gap-3 overflow-x-auto overscroll-x-contain custom-scrollbar snap-x snap-mandatory pb-4">
         {weekDaysMeta.map(({ day, slots, firstLessonNum, lastLessonNum, periodMeta }, dIdx) => {
           const isToday = day.date === kyivTodayIso;
           const isPast = day.date < kyivTodayIso;
@@ -519,30 +530,33 @@ export function ScheduleWeekGrid({
             </div>
           );
         })}
-      </div>
+        </div>
+      )}
 
       {/* Mobile (< 640px): Day list with day headers */}
-      <div className="flex w-full flex-col gap-6 sm:hidden">
-        {week.map((day) => (
-          <div
-            key={`mobile-week-day-${day.date}`}
-            id={`day-section-${day.date}`}
-            data-day-section
-            data-day-date={day.date}
-            className="scroll-mt-16"
-          >
-            <ScheduleDay
-              schedule={day}
-              mode="day"
-              scheduleMode={scheduleMode}
-              onQuickJump={onQuickJump}
-              isToday={day.date === kyivTodayIso}
-              weekNumber={weekNumber}
-              compactPeriod={allDaysInPeriod}
-            />
-          </div>
-        ))}
-      </div>
+      {renderMobile && (
+        <div className="flex w-full flex-col gap-6 sm:hidden">
+          {week.map((day) => (
+            <div
+              key={`mobile-week-day-${day.date}`}
+              id={`day-section-${day.date}`}
+              data-day-section
+              data-day-date={day.date}
+              className="scroll-mt-16 defer-render-day"
+            >
+              <ScheduleDay
+                schedule={day}
+                mode="day"
+                scheduleMode={scheduleMode}
+                onQuickJump={onQuickJump}
+                isToday={day.date === kyivTodayIso}
+                weekNumber={weekNumber}
+                compactPeriod={allDaysInPeriod}
+              />
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

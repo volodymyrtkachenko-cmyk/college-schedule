@@ -677,3 +677,13 @@ html[data-theme="light"][data-accent="cyan"] {
     animation: none !important;
   }
 }
+
+/* Performance & Layout Containment */
+.contain-layout-style {
+  contain: layout style;
+}
+
+.defer-render-day {
+  content-visibility: auto;
+  contain-intrinsic-size: auto none auto 260px;
+}
