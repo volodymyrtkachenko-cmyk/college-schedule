@@ -755,17 +755,36 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+
+      // If user is on slide with id "navigation", arrow keys change the demo day
+      if (slides[activeSlide]?.id === "navigation") {
+        const currentIdx = DEFAULT_DAYS.indexOf(demoNavDay);
+        if (e.key === "ArrowRight") {
+          if (currentIdx < DEFAULT_DAYS.length - 1) {
+            setDemoNavDay(DEFAULT_DAYS[currentIdx + 1]);
+            return;
+          }
+        } else if (e.key === "ArrowLeft") {
+          if (currentIdx > 0) {
+            setDemoNavDay(DEFAULT_DAYS[currentIdx - 1]);
+            return;
+          }
+        }
+      }
+
       if (e.key === "ArrowRight" && activeSlide < total - 1) {
         setActiveSlide((prev) => prev + 1);
       } else if (e.key === "ArrowLeft" && activeSlide > 0) {
         setActiveSlide((prev) => prev - 1);
-      } else if (e.key === "Escape") {
-        onClose();
       }
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [activeSlide, total, onClose]);
+  }, [activeSlide, total, demoNavDay, slides, onClose]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-5 backdrop-blur-md overflow-hidden animate-in fade-in duration-150">

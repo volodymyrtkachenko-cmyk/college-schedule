@@ -644,6 +644,64 @@ export function SchedulePageClient({
     resetScroll();
   };
 
+  // Desktop keyboard navigation (ArrowLeft / ArrowRight to switch days or weeks on PC)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      const activeEl = document.activeElement;
+      if (
+        activeEl &&
+        (activeEl.tagName === "INPUT" ||
+          activeEl.tagName === "TEXTAREA" ||
+          activeEl.tagName === "SELECT" ||
+          (activeEl as HTMLElement).isContentEditable)
+      ) {
+        return;
+      }
+
+      if (
+        weekTypeSheetOpen ||
+        datePickerOpen ||
+        teacherPinModalOpen ||
+        guideHubOpen ||
+        contextModalOpen
+      ) {
+        return;
+      }
+
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        if (view === "today") {
+          goToPrevDay();
+        } else {
+          shiftWeek(-1);
+        }
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        if (view === "today") {
+          goToNextDay();
+        } else {
+          shiftWeek(1);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [
+    view,
+    selectedDayIndex,
+    weekAnchorDate,
+    weekTypeSheetOpen,
+    datePickerOpen,
+    teacherPinModalOpen,
+    guideHubOpen,
+    contextModalOpen,
+  ]);
+
   const activeWeekPeriodMeta = useMemo(() => {
     const p = week?.find((d) => d.period_info)?.period_info;
     return p ? getPeriodMeta(p) : null;
