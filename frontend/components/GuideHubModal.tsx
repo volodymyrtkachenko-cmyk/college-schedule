@@ -30,6 +30,13 @@ interface DemoData {
     teacher: string;
     room: string;
   }[];
+  statSubjects: {
+    name: string;
+    hours: number;
+    plannedHours: number;
+    percent: number;
+  }[];
+  distinctCount: number;
 }
 
 const DEFAULT_DAYS: ("Пн" | "Вт" | "Ср" | "Чт" | "Пт")[] = ["Пн", "Вт", "Ср", "Чт", "Пт"];
@@ -115,6 +122,18 @@ function extractGuideData(weekSchedule: ScheduleResponse[]): DemoData {
     };
   });
 
+  // Distinct subjects for realistic statistics demo
+  const uniqueSubjects = Array.from(
+    new Set(allLessons.map((l) => l.subject_name).filter(Boolean))
+  );
+  const sub1 = uniqueSubjects[0] || "Комп'ютерні мережі";
+  const sub2 = uniqueSubjects[1] || "Бази даних та SQL";
+  const statSubjects = [
+    { name: sub1, hours: 38, plannedHours: 50, percent: 76 },
+    { name: sub2, hours: 24, plannedHours: 50, percent: 48 },
+  ];
+  const distinctCount = uniqueSubjects.length || 10;
+
   return {
     subgroupSubject,
     teacher1,
@@ -124,6 +143,8 @@ function extractGuideData(weekSchedule: ScheduleResponse[]): DemoData {
     hwSubject,
     hwRoom,
     daysPreview,
+    statSubjects,
+    distinctCount,
   };
 }
 
@@ -138,12 +159,20 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
         null
       : null);
 
+  const [groupName, setGroupName] = useState<string>("85 ДФКР");
   const [weekSchedule, setWeekSchedule] = useState<ScheduleResponse[]>([]);
   const [activeSlide, setActiveSlide] = useState(0);
+
+  // Device type detection (desktop vs touch/mobile)
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
 
   // Interactive demo states
   const [demoNavDay, setDemoNavDay] = useState<"Пн" | "Вт" | "Ср" | "Чт" | "Пт">("Пн");
   const [demoSubgroup, setDemoSubgroup] = useState<1 | 2 | null>(null);
+
+  // Touch tracking for demo card (prevents conflict with story slides)
+  const [cardTouchStart, setCardTouchStart] = useState<number | null>(null);
+  const [cardTouchEnd, setCardTouchEnd] = useState<number | null>(null);
 
   // PWA detection
   const [pwaPrompt, setPwaPrompt] = useState<any>(null);
@@ -151,9 +180,38 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
   const [isIos, setIsIos] = useState(false);
   const [pwaFeedback, setPwaFeedback] = useState("");
 
-  // Touch swipe support
+  // Touch swipe support for main story transitions
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const updateModality = () => {
+      const hasTouch =
+        ("ontouchstart" in window || navigator.maxTouchPoints > 0) &&
+        window.matchMedia("(pointer: coarse)").matches;
+      const isNarrow = window.innerWidth < 768;
+      setIsTouchDevice(hasTouch || isNarrow);
+    };
+    updateModality();
+    window.addEventListener("resize", updateModality);
+    return () => window.removeEventListener("resize", updateModality);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const storedName = localStorage.getItem("schedule:groupName");
+    if (storedName) {
+      setGroupName(storedName);
+    } else if (effectiveGroupId) {
+      api.groups()
+        .then((grps) => {
+          const found = grps.find((g) => g.id === effectiveGroupId);
+          if (found?.name) setGroupName(found.name);
+        })
+        .catch(() => {});
+    }
+  }, [effectiveGroupId]);
 
   useEffect(() => {
     let isMounted = true;
@@ -205,6 +263,39 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
     return demoData.daysPreview.find((d) => d.day === demoNavDay) || demoData.daysPreview[0];
   }, [demoData, demoNavDay]);
 
+  // Card swipe gesture handlers (swipes the lesson preview across days, NOT story slides)
+  const handleCardTouchStart = (e: React.TouchEvent) => {
+    e.stopPropagation();
+    setCardTouchEnd(null);
+    setCardTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const handleCardTouchMove = (e: React.TouchEvent) => {
+    e.stopPropagation();
+    setCardTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const handleCardTouchEnd = (e: React.TouchEvent) => {
+    e.stopPropagation();
+    if (cardTouchStart === null || cardTouchEnd === null) return;
+    const diff = cardTouchStart - cardTouchEnd;
+    if (diff > 35) {
+      // Swiped left -> next day
+      const idx = DEFAULT_DAYS.indexOf(demoNavDay);
+      if (idx < DEFAULT_DAYS.length - 1) {
+        setDemoNavDay(DEFAULT_DAYS[idx + 1]);
+      }
+    } else if (diff < -35) {
+      // Swiped right -> prev day
+      const idx = DEFAULT_DAYS.indexOf(demoNavDay);
+      if (idx > 0) {
+        setDemoNavDay(DEFAULT_DAYS[idx - 1]);
+      }
+    }
+    setCardTouchStart(null);
+    setCardTouchEnd(null);
+  };
+
   const slides = [
     {
       id: "live",
@@ -212,7 +303,10 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
       title: "«Жива» пара в реальному часі",
       caption: "Заняття, яке триває просто зараз, автоматично підсвічується акцентним кольором та показує точний таймер до перерви.",
       render: () => (
-        <div className="relative rounded-2xl border border-sys-accent bg-gradient-to-br from-sys-accent/15 via-sys-card to-sys-card p-4 space-y-3 shadow-lg">
+        <div
+          onTouchStart={(e) => e.stopPropagation()}
+          className="guide-interactive-demo relative rounded-2xl border border-sys-accent bg-gradient-to-br from-sys-accent/15 via-sys-card to-sys-card p-4 space-y-3 shadow-lg"
+        >
           <div className="flex items-center justify-between text-xs">
             <span className="font-black text-sys-accent">
               1 пара · 09:00–10:20
@@ -236,11 +330,28 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
     },
     {
       id: "navigation",
-      icon: "📱",
-      title: "Свайпи та швидкі дні тижня",
-      caption: "Гортайте дні природними свайпами вліво чи вправо на смартфоні або миттєво переходьте на потрібний день у верхній смужці.",
+      icon: isTouchDevice ? "📱" : "💻",
+      title: isTouchDevice ? "Свайпи та швидкі дні тижня" : "Сітка тижня та швидкі дні",
+      caption: isTouchDevice
+        ? "Гортайте дні природними свайпами пальцем вліво або вправо, або швидко торкайтеся потрібного дня у верхній смужці."
+        : "На комп'ютері розклад відкривається у повній тижневій сітці (Пн–Пт). Окремі дні можна перемикати кліком або стрілками ← / →.",
       render: () => (
-        <div className="rounded-2xl border border-sys-border bg-sys-card p-4 space-y-3 shadow-md">
+        <div
+          onTouchStart={(e) => e.stopPropagation()}
+          className="guide-interactive-demo rounded-2xl border border-sys-border bg-sys-card p-4 space-y-3 shadow-md"
+        >
+          {/* Desktop badge or mobile mode header */}
+          {!isTouchDevice ? (
+            <div className="flex items-center justify-between text-xs border-b border-sys-border/50 pb-2">
+              <span className="font-bold text-sys-text-primary flex items-center gap-1.5">
+                <span>🖥️</span> Режим перегляду на ПК
+              </span>
+              <span className="rounded-md bg-sys-accent/15 border border-sys-accent/30 text-sys-accent font-semibold px-2 py-0.5 text-[10px]">
+                Тижнева сітка / День
+              </span>
+            </div>
+          ) : null}
+
           {/* Days bar */}
           <div className="grid grid-cols-5 gap-1 text-center">
             {DEFAULT_DAYS.map((d) => (
@@ -259,36 +370,57 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
             ))}
           </div>
 
-          {/* Swipe indicator */}
-          <div className="flex items-center justify-between px-2 text-[11px] text-sys-text-muted">
-            <button
-              type="button"
-              onClick={() => {
-                const idx = DEFAULT_DAYS.indexOf(demoNavDay);
-                if (idx > 0) setDemoNavDay(DEFAULT_DAYS[idx - 1]);
-              }}
-              className="hover:text-sys-text-primary transition-colors font-semibold"
-            >
-              👈 Вчора
-            </button>
-            <span className="text-sys-accent font-medium">Свайпайте вліво / вправо</span>
-            <button
-              type="button"
-              onClick={() => {
-                const idx = DEFAULT_DAYS.indexOf(demoNavDay);
-                if (idx < DEFAULT_DAYS.length - 1) setDemoNavDay(DEFAULT_DAYS[idx + 1]);
-              }}
-              className="hover:text-sys-text-primary transition-colors font-semibold"
-            >
-              Завтра 👉
-            </button>
-          </div>
+          {/* Gesture / Keyboard guidance */}
+          {isTouchDevice ? (
+            <div className="flex items-center justify-between px-2 text-[11px] text-sys-text-muted">
+              <button
+                type="button"
+                onClick={() => {
+                  const idx = DEFAULT_DAYS.indexOf(demoNavDay);
+                  if (idx > 0) setDemoNavDay(DEFAULT_DAYS[idx - 1]);
+                }}
+                className="hover:text-sys-text-primary transition-colors font-semibold"
+              >
+                👈 Вчора
+              </button>
+              <span className="text-sys-accent font-medium">Свайпайте картку</span>
+              <button
+                type="button"
+                onClick={() => {
+                  const idx = DEFAULT_DAYS.indexOf(demoNavDay);
+                  if (idx < DEFAULT_DAYS.length - 1) setDemoNavDay(DEFAULT_DAYS[idx + 1]);
+                }}
+                className="hover:text-sys-text-primary transition-colors font-semibold"
+              >
+                Завтра 👉
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center gap-2 py-0.5 text-[11px] text-sys-text-muted">
+              <span className="inline-flex items-center gap-1 rounded bg-sys-bg border border-sys-border px-1.5 py-0.5 font-mono text-[10px] text-sys-text-secondary">
+                ←
+              </span>
+              <span>або</span>
+              <span className="inline-flex items-center gap-1 rounded bg-sys-bg border border-sys-border px-1.5 py-0.5 font-mono text-[10px] text-sys-text-secondary">
+                →
+              </span>
+              <span>на клавіатурі для швидкої зміни дня</span>
+            </div>
+          )}
 
-          {/* Day Card Preview */}
-          <div className="rounded-xl border border-sys-border/80 bg-sys-bg p-3 space-y-1.5 transition-all">
+          {/* Day Card Preview with local swipe support */}
+          <div
+            onTouchStart={handleCardTouchStart}
+            onTouchMove={handleCardTouchMove}
+            onTouchEnd={handleCardTouchEnd}
+            className="rounded-xl border border-sys-border/80 bg-sys-bg p-3.5 space-y-1.5 transition-all select-none cursor-grab active:cursor-grabbing"
+          >
             <div className="flex items-center justify-between text-xs">
-              <span className="font-bold text-sys-text-secondary">
-                {activeNavLesson.lessonNumber} пара · {activeNavLesson.time}
+              <span className="font-bold text-sys-text-secondary flex items-center gap-1.5">
+                <span className="rounded bg-sys-card border border-sys-border px-1.5 py-0.5 text-[10px] font-bold text-sys-accent">
+                  {activeNavLesson.day}
+                </span>
+                <span>{activeNavLesson.lessonNumber} пара · {activeNavLesson.time}</span>
               </span>
               <span className="rounded-md border border-sys-border bg-sys-card px-2 py-0.5 text-[11px] font-semibold text-sys-text-secondary">
                 {activeNavLesson.room}
@@ -310,7 +442,10 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
       title: "Обидві підгрупи та швидкий фільтр",
       caption: "Розклад показує обох викладачів паралельно. Натискайте прямо на «1 підгр.» чи «2 підгр.», щоб залишити тільки свого викладача.",
       render: () => (
-        <div className="rounded-2xl border border-sys-border bg-sys-card p-4 space-y-3 shadow-md">
+        <div
+          onTouchStart={(e) => e.stopPropagation()}
+          className="guide-interactive-demo rounded-2xl border border-sys-border bg-sys-card p-4 space-y-3 shadow-md"
+        >
           <div className="flex items-center justify-between text-xs border-b border-sys-border/50 pb-2">
             <span className="font-bold text-sys-text-secondary">2 пара · 10:40–12:00</span>
             <span className="text-[11px] text-sys-accent font-semibold">
@@ -384,7 +519,10 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
       title: "Classroom: дедлайни та оцінки",
       caption: "Усі завдання синхронізуються автоматично. Підключивши студентську пошту, ви бачите особистий статус здачі та оцінки викладачів.",
       render: () => (
-        <div className="rounded-2xl border border-sys-border bg-sys-card p-4 space-y-2.5 shadow-md">
+        <div
+          onTouchStart={(e) => e.stopPropagation()}
+          className="guide-interactive-demo rounded-2xl border border-sys-border bg-sys-card p-4 space-y-2.5 shadow-md"
+        >
           <div className="flex items-center justify-between text-xs">
             <span className="font-bold text-sys-text-secondary">{demoData.hwSubject}</span>
             <span className="text-emerald-400 font-bold text-[11px]">Classroom ✓</span>
@@ -416,44 +554,106 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
       id: "stats",
       icon: "📊",
       title: "Статистика занять та графік семестру",
-      caption: "Слідкуйте за академічним навантаженням, кількістю годин за предметами та офіційними датами сесій і канікул у розділі Статистика.",
+      caption: "Слідкуйте за академічним навантаженням групи, годинами за кожним предметом та семестровим планом у розділі «Статистика».",
       render: () => (
-        <div className="rounded-2xl border border-sys-border bg-sys-card p-4 space-y-3 shadow-md">
-          <div className="flex items-center justify-between text-xs">
-            <span className="font-bold text-sys-text-primary">Семестрове навантаження</span>
-            <span className="rounded-full bg-violet-500/15 text-violet-400 px-2 py-0.5 font-bold text-[10px]">
-              2-й семестр
+        <div
+          onTouchStart={(e) => e.stopPropagation()}
+          className="guide-interactive-demo rounded-2xl border border-sys-border bg-sys-card p-4 space-y-3 shadow-md"
+        >
+          {/* Header identical to /statistics */}
+          <div className="flex items-center justify-between text-xs border-b border-sys-border/50 pb-2">
+            <div className="flex items-center gap-1.5">
+              <span className="font-black text-sys-text-primary text-sm sm:text-base">{groupName}</span>
+              <span className="rounded-full bg-sys-accent/15 text-sys-accent px-2 py-0.5 font-bold text-[10px]">
+                Семестр 2
+              </span>
+            </div>
+            <span className="text-[10px] text-sys-text-muted">
+              Розрахунок за семестр
             </span>
           </div>
 
-          {/* Progress bar */}
-          <div className="space-y-1">
-            <div className="flex justify-between text-[11px] text-sys-text-secondary font-medium">
-              <span>Пройдено семестру</span>
-              <span className="text-sys-accent font-bold">45%</span>
+          {/* Top 2 summary hero cards identical to real /statistics */}
+          <div className="grid grid-cols-2 gap-2 text-center">
+            <div className="rounded-xl border border-sys-border bg-sys-bg p-2.5 flex flex-col justify-center items-center">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-sys-text-secondary">
+                Вивчено
+              </span>
+              <span className="mt-1 text-2xl font-black text-sys-accent leading-none">
+                164
+              </span>
+              <span className="mt-1 text-[10px] text-sys-text-muted">
+                акад. год · 82 пари
+              </span>
             </div>
-            <div className="h-2 w-full rounded-full bg-sys-bg border border-sys-border/60 overflow-hidden">
-              <div className="h-full bg-sys-accent rounded-full w-[45%]" />
+            <div className="rounded-xl border border-sys-border bg-sys-bg p-2.5 flex flex-col justify-center items-center">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-sys-text-secondary">
+                Дисциплін
+              </span>
+              <span className="mt-1 text-2xl font-black text-sys-text-primary leading-none">
+                {demoData.distinctCount}
+              </span>
+              <span className="mt-1 text-[10px] text-sys-text-muted">
+                у поточному семестрі
+              </span>
             </div>
           </div>
 
-          {/* Stats counters */}
-          <div className="grid grid-cols-2 gap-2 text-center text-xs">
-            <div className="rounded-xl border border-sys-border bg-sys-bg p-2 space-y-0.5">
-              <div className="text-base font-black text-sys-text-primary">18 пар</div>
-              <div className="text-[10px] text-sys-text-secondary font-medium">навантаження / тиждень</div>
+          {/* Distribution by subjects with radial circles identical to /statistics */}
+          <div className="space-y-1.5 pt-0.5">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-sys-text-secondary px-0.5">
+              Розподіл за предметами
             </div>
-            <div className="rounded-xl border border-sys-border bg-sys-bg p-2 space-y-0.5">
-              <div className="text-base font-black text-sys-text-primary">11 дисциплін</div>
-              <div className="text-[10px] text-sys-text-secondary font-medium">у цьому семестрі</div>
+            <div className="space-y-1.5">
+              {demoData.statSubjects.map((sub, idx) => {
+                const circumference = 2 * Math.PI * 18;
+                const strokeDashoffset = circumference - (sub.percent / 100) * circumference;
+                const colorClass = idx === 0 ? "text-sys-accent" : "text-purple-400";
+
+                return (
+                  <div
+                    key={sub.name}
+                    className="rounded-xl border border-sys-border bg-sys-bg p-2 flex items-center gap-3"
+                  >
+                    <div className="relative w-10 h-10 shrink-0 flex items-center justify-center">
+                      <svg className="w-full h-full transform -rotate-90" viewBox="0 0 44 44">
+                        <circle
+                          cx="22" cy="22" r="18"
+                          stroke="currentColor" strokeWidth="3.5" fill="none"
+                          className="text-sys-border/70"
+                        />
+                        <circle
+                          cx="22" cy="22" r="18"
+                          stroke="currentColor" strokeWidth="3.5" fill="none"
+                          strokeDasharray={circumference}
+                          strokeDashoffset={strokeDashoffset}
+                          className={`${colorClass} transition-all duration-700`}
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                      <span className="absolute text-[10px] font-bold text-sys-text-primary">
+                        {sub.percent}%
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0 text-left">
+                      <div className="font-semibold text-xs text-sys-text-primary truncate">
+                        {sub.name}
+                      </div>
+                      <div className="text-[10px] text-sys-text-secondary">
+                        {sub.hours} з {sub.plannedHours} акад. год · {Math.round(sub.hours / 2)} пар
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
-          {/* Direct link button */}
+          {/* Direct link button to /statistics */}
           <Link
             href="/statistics"
             onClick={onClose}
-            className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-sys-accent px-4 py-2.5 text-xs font-bold text-slate-900 shadow-sm hover:opacity-95 active:scale-95 transition-all"
+            className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-sys-accent px-4 py-2 text-xs font-bold text-slate-900 shadow-sm hover:opacity-95 active:scale-95 transition-all"
           >
             <span>Відкрити детальну статистику</span>
             <span>↗</span>
@@ -467,7 +667,10 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
       title: "Працює без інтернету (PWA)",
       caption: "Розклад автоматично зберігається на вашому пристрої та відкривається навіть під час відключень зв'язку чи світла.",
       render: () => (
-        <div className="rounded-2xl border border-sys-border bg-sys-card p-4 space-y-3 shadow-md">
+        <div
+          onTouchStart={(e) => e.stopPropagation()}
+          className="guide-interactive-demo rounded-2xl border border-sys-border bg-sys-card p-4 space-y-3 shadow-md"
+        >
           <div className="flex items-center gap-3">
             <span className="text-2xl">⚡</span>
             <div className="text-left">
@@ -523,23 +726,31 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
   const total = slides.length;
   const current = slides[activeSlide];
 
-  // Swipe handling
+  // Story swipe handling (only when user swipes OUTSIDE interactive demo components)
   const minSwipeDistance = 50;
   const onTouchStartHandler = (e: React.TouchEvent) => {
+    if ((e.target as HTMLElement).closest(".guide-interactive-demo")) {
+      setTouchStart(null);
+      setTouchEnd(null);
+      return;
+    }
     setTouchEnd(null);
     setTouchStart(e.targetTouches[0].clientX);
   };
   const onTouchMoveHandler = (e: React.TouchEvent) => {
+    if (touchStart === null) return;
     setTouchEnd(e.targetTouches[0].clientX);
   };
   const onTouchEndHandler = () => {
-    if (!touchStart || !touchEnd) return;
+    if (touchStart === null || touchEnd === null) return;
     const distance = touchStart - touchEnd;
     if (distance > minSwipeDistance && activeSlide < total - 1) {
       setActiveSlide((prev) => prev + 1);
     } else if (distance < -minSwipeDistance && activeSlide > 0) {
       setActiveSlide((prev) => prev - 1);
     }
+    setTouchStart(null);
+    setTouchEnd(null);
   };
 
   useEffect(() => {
