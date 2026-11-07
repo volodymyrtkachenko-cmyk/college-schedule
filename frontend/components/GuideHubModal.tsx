@@ -462,9 +462,10 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
                   <button
                     type="button"
                     onClick={() => setDemoSubgroup(demoSubgroup === 1 ? null : 1)}
-                    className="rounded px-1.5 py-0.5 text-xs font-bold bg-sky-500 text-white shadow-xs"
+                    className="inline-flex shrink-0 items-center gap-1.5 h-6 px-2 rounded-md border border-sky-500/35 bg-sky-500/15 text-xs font-semibold text-sky-800 dark:text-sky-300 active:scale-95 transition-colors duration-fast ease-smooth shadow-2xs hover:bg-sky-500/25"
                   >
-                    1 підгр.
+                    <span className="h-1.5 w-1.5 rounded-full bg-sky-600 dark:bg-sky-400 shrink-0" aria-hidden="true" />
+                    <span>1 підгр.</span>
                   </button>
                   <span className="text-xs font-semibold text-sys-text-primary">
                     {demoData.teacher1}
@@ -481,9 +482,10 @@ export function GuideHubModal({ groupId, onClose }: GuideHubModalProps) {
                   <button
                     type="button"
                     onClick={() => setDemoSubgroup(demoSubgroup === 2 ? null : 2)}
-                    className="rounded px-1.5 py-0.5 text-xs font-bold bg-indigo-500 text-white shadow-xs"
+                    className="inline-flex shrink-0 items-center gap-1.5 h-6 px-2 rounded-md border border-indigo-500/35 bg-indigo-500/15 text-xs font-semibold text-indigo-800 dark:text-indigo-300 active:scale-95 transition-colors duration-fast ease-smooth shadow-2xs hover:bg-indigo-500/25"
                   >
-                    2 підгр.
+                    <span className="h-1.5 w-1.5 rounded-full bg-indigo-600 dark:bg-indigo-400 shrink-0" aria-hidden="true" />
+                    <span>2 підгр.</span>
                   </button>
                   <span className="text-xs font-semibold text-sys-text-primary">
                     {demoData.teacher2}
