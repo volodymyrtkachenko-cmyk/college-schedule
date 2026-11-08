@@ -60,6 +60,16 @@ export async function generateMetadata({
   return {
     title,
     description,
+    keywords: [
+      `розклад ${teacher.name}`,
+      `розклад викладача ${teacher.name}`,
+      `${teacher.name} дфкр`,
+      `${teacher.name} кре`,
+      "викладачі дфкр",
+      "розклад викладачів дфкр",
+      "розклад дфкр",
+      "розклад кре",
+    ],
     alternates: {
       canonical: url,
     },

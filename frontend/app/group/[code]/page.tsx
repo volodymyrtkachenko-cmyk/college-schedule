@@ -71,6 +71,17 @@ export async function generateMetadata({
   return {
     title,
     description,
+    keywords: [
+      `розклад ${group.name}`,
+      `розклад групи ${group.name}`,
+      `розклад ${group.name} дфкр`,
+      `розклад групи ${group.name} дфкр`,
+      `група ${group.name} кре`,
+      `розклад занять ${fullCode}`,
+      `дфкр ${course ? `${course} курс` : ""} ${specialty}`,
+      "розклад дфкр",
+      "розклад кре",
+    ],
     alternates: {
       canonical: url,
     },
