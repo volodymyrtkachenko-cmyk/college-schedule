@@ -226,6 +226,24 @@ export function filterAndRankEntities<
   const queryVariants = Array.from(new Set([qLower, qUk, qEn, qTranslit])).filter(Boolean);
   const compactVariants = Array.from(new Set(queryVariants.map(normalizeCompact))).filter(Boolean);
 
+  const isDigits = /^\d+$/.test(rawTrimmed);
+
+  // Parse course intent: e.g. "1 курс", "1к", "курс 1", "3-й курс"
+  const courseMatch = qLower.match(/^([1-4])\s*(?:-?[йяеі])?\s*(?:курс|к)?$/) || qLower.match(/^курс\s*([1-4])$/);
+  const targetCourse = courseMatch && (qLower.includes("курс") || qLower.includes("к")) ? parseInt(courseMatch[1], 10) : null;
+
+  // Parse prefix + group number combo: e.g. "кі-85", "кі 85", "ki85"
+  const comboMatch = qLower.match(/^([а-яіїєґa-z]{2})[\s\-_/]*(\d{1,2})$/i);
+  const comboAbbr = comboMatch
+    ? convertEnToUkLayout(comboMatch[1])
+        .replace(/ki/g, "кі")
+        .replace(/kb/g, "кб")
+        .replace(/rt/g, "рт")
+        .replace(/et/g, "ет")
+        .replace(/ms/g, "мс")
+    : null;
+  const comboNum = comboMatch ? comboMatch[2] : null;
+
   const scored: Array<{ item: T; score: number; index: number }> = [];
 
   items.forEach((item, index) => {
@@ -242,33 +260,53 @@ export function filterAndRankEntities<
       const specialty = getGroupSpecialtyName(item.faculty_id).toLowerCase();
       const abbr = getFacultyAbbreviation(item.faculty_id).toLowerCase();
       const course = item.course ?? getGroupCourse(item.name);
-      const courseStr = course ? `${course} курс` : "";
-      const courseCompact = course ? `${course}курс` : "";
 
-      for (const qv of queryVariants) {
-        if (cleanGroup === qv || primaryName === qv || fullCode === qv || shortName === qv) {
-          bestScore = Math.max(bestScore, 100);
-        } else if (cleanGroup.startsWith(qv) || primaryName.startsWith(qv) || fullCode.startsWith(qv)) {
-          bestScore = Math.max(bestScore, 85);
-        } else if (cleanGroup.includes(qv) || primaryName.includes(qv) || fullCode.includes(qv)) {
-          bestScore = Math.max(bestScore, 65);
-        } else if (abbr === qv || courseStr === qv) {
-          bestScore = Math.max(bestScore, 55);
-        } else if (specialty.includes(qv) || (courseStr && courseStr.includes(qv))) {
-          bestScore = Math.max(bestScore, 35);
+      if (isDigits) {
+        // Purely numeric query (e.g. "6", "8", "85", "123")
+        // Numeric search must ONLY match the group number / name or a 3-digit specialty code.
+        // It must NEVER match internal admission years or /9 in fullCode (e.g. "26" in fullCode for query "6").
+        if (cleanGroup === qLower || primaryName === qLower) {
+          bestScore = 100;
+        } else if (cleanGroup.startsWith(qLower) || primaryName.startsWith(qLower)) {
+          bestScore = 90;
+        } else if (cleanGroup.endsWith(qLower)) {
+          bestScore = 85;
+        } else if (cleanGroup.includes(qLower) || primaryName.includes(qLower)) {
+          bestScore = 80;
+        } else if (qLower.length === 3 && specialty.startsWith(qLower)) {
+          bestScore = 70;
         }
-      }
+      } else {
+        // Text / Alphanumeric / Specialty / Course query
+        if (comboAbbr && comboNum && abbr === comboAbbr && cleanGroup === comboNum) {
+          bestScore = Math.max(bestScore, 100);
+        }
 
-      for (const cv of compactVariants) {
-        if (!cv) continue;
-        if (primaryCompact === cv || fullCodeCompact === cv) {
-          bestScore = Math.max(bestScore, 95);
-        } else if (primaryCompact.startsWith(cv) || fullCodeCompact.startsWith(cv)) {
-          bestScore = Math.max(bestScore, 80);
-        } else if (primaryCompact.includes(cv) || fullCodeCompact.includes(cv)) {
-          bestScore = Math.max(bestScore, 60);
-        } else if (courseCompact && courseCompact === cv) {
-          bestScore = Math.max(bestScore, 50);
+        for (const qv of queryVariants) {
+          if (cleanGroup === qv || primaryName === qv || fullCode === qv || shortName === qv) {
+            bestScore = Math.max(bestScore, 100);
+          } else if (cleanGroup.startsWith(qv) || primaryName.startsWith(qv)) {
+            bestScore = Math.max(bestScore, 90);
+          } else if (cleanGroup.includes(qv) || primaryName.includes(qv)) {
+            bestScore = Math.max(bestScore, 80);
+          } else if (abbr === qv) {
+            bestScore = Math.max(bestScore, 85);
+          } else if (fullCode.startsWith(qv)) {
+            bestScore = Math.max(bestScore, 85);
+          } else if (targetCourse !== null && course === targetCourse) {
+            bestScore = Math.max(bestScore, 75);
+          } else if (qv.length >= 3 && specialty.includes(qv)) {
+            bestScore = Math.max(bestScore, 60);
+          }
+        }
+
+        for (const cv of compactVariants) {
+          if (!cv) continue;
+          if (primaryCompact === cv || fullCodeCompact === cv) {
+            bestScore = Math.max(bestScore, 95);
+          } else if (fullCodeCompact.startsWith(cv)) {
+            bestScore = Math.max(bestScore, 85);
+          }
         }
       }
     } else {
@@ -285,8 +323,8 @@ export function filterAndRankEntities<
           bestScore = Math.max(bestScore, 75);
         } else if (primaryName.includes(qv) || formatted.includes(qv)) {
           bestScore = Math.max(bestScore, 55);
-        } else if (room && room.includes(qv)) {
-          bestScore = Math.max(bestScore, 30);
+        } else if (room && (room === qv || (qv.length >= 2 && room.includes(qv)))) {
+          bestScore = Math.max(bestScore, 40);
         }
       }
 
