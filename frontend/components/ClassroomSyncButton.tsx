@@ -16,6 +16,7 @@ import {
   GOOGLE_CLIENT_ID,
   loadGsiScript,
 } from "../lib/classroomAuth";
+import { SITE_HOST } from "../lib/site";
 
 export function ClassroomSyncButton({
   currentGroupId,
@@ -301,10 +302,10 @@ export function ClassroomSyncButton({
 
     if (typeof window !== "undefined") {
       const host = window.location.hostname;
-      const isVercelPreview = host.endsWith(".vercel.app") && !host.startsWith("college-schedule-flame");
+      const isVercelPreview = host.endsWith(".vercel.app") && host !== SITE_HOST && !host.startsWith("college-schedule-flame");
       if (isVercelPreview) {
         showToast(
-          "Вхід Google працює лише на основному сайті: college-schedule-flame.vercel.app (поточна адреса — прев'ю)",
+          `Вхід Google працює лише на основному сайті: ${SITE_HOST} (поточна адреса — прев'ю)`,
           "error"
         );
         return;

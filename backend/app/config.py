@@ -60,7 +60,7 @@ class Settings(BaseSettings):
     def cors_origins(self) -> list[str]:
         origins = [origin.strip() for origin in self.backend_cors_origins.split(",") if origin.strip() and origin.strip() != "*"]
         if not origins:
-            origins = ["https://college-schedule-flame.vercel.app", "http://localhost:3000"]
+            origins = ["https://rozklad-dfkr.pp.ua", "https://www.rozklad-dfkr.pp.ua", "https://college-schedule-flame.vercel.app", "http://localhost:3000"]
         return origins
 
 

@@ -13,7 +13,7 @@ import { MobileWeekBar } from "./MobileWeekBar";
 import { MobileWeekDaysStrip } from "./MobileWeekDaysStrip";
 import { WeekTypeBadge } from "./WeekTypeBadge";
 import { ScheduleResponse, LearningMode, LearningModeOverride, ReferenceRecord, api } from "../lib/api";
-import { useSchedule, useIsStandalonePwa, downloadForOffline, invalidateScheduleCache } from "../lib/hooks";
+import { useSchedule, invalidateScheduleCache } from "../lib/hooks";
 import { useAuth, canAccessAdmin } from "../lib/auth";
 import { getMondayOf, getKyivInitialWeekAnchor, getKyivTomorrowDateIso, KYIV_DATE_FMT, KYIV_TIME_FMT, UKR_WEEKDAY_LONG_FMT, UKR_DAY_MONTH_SHORT_FMT, UKR_MONTH_SHORT_FMT } from "../lib/date";
 import { SplashScreen } from "./SplashScreen";
@@ -138,33 +138,7 @@ export function SchedulePageClient({
   const { isSetupComplete, completeSetup, mode, toggleMode, teachers, teacherId, setTeacherId, groups, groupId, setGroupId, today, week, semesterStart, loading, isSlowNetwork, isUsingFallbackCache, error } = useSchedule(weekAnchorDate, false, initialGroups, initialTeachers, initialGroupId, initialTeacherId, initialMode);
   const selectedTeacher = useMemo(() => teachers.find((t) => t.id === teacherId) || null, [teachers, teacherId]);
   const { user, loading: authLoading, logout } = useAuth();
-  
-  const isStandalone = useIsStandalonePwa();
-  const [isDownloading, setIsDownloading] = useState(false);
-  const [isDownloaded, setIsDownloaded] = useState(false);
-
-  useEffect(() => {
-    const targetKey = mode === "student" ? `groupId:${groupId}` : `teacherId:${teacherId}`;
-    if (typeof window !== "undefined") {
-      setIsDownloaded(!!localStorage.getItem(`offline_marker:${targetKey}`));
-    }
-  }, [mode, groupId, teacherId]);
   const { showToast: setToast } = useToast();
-
-  const handleDownloadOffline = async () => {
-    setIsDownloading(true);
-    try {
-      const target = mode === "student" ? { groupId: groupId ?? undefined } : { teacherId: teacherId ?? undefined };
-      await downloadForOffline(target, weekAnchorDate);
-      setIsDownloaded(true);
-      setToast("Розклад збережено на пристрій.", "success");
-    } catch (e) {
-      console.error(e);
-      setToast("Не вдалося зберегти розклад на пристрій. Перевірте підключення та спробуйте ще раз.", "error");
-    } finally {
-      setIsDownloading(false);
-    }
-  };
 
   const [view, setView] = useState<"today" | "week">("today");
   const [isFocusMode, setIsFocusMode] = useState<boolean>(false);

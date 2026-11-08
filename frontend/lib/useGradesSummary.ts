@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo } from "react";
 import { FullTaskItem } from "../components/MobileTasksView";
 import {
   normalizeSubjectName,
@@ -12,31 +12,6 @@ import {
 
 export type GradeScaleType = "auto" | "12" | "5" | "100";
 export type ResolvedScaleType = "12" | "5" | "100";
-
-const GRADE_SCALE_STORAGE_PREFIX = "schedule:grade_scale:";
-
-export function getSubjectScaleOverride(subjectName: string): GradeScaleType | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const val = window.localStorage.getItem(`${GRADE_SCALE_STORAGE_PREFIX}${subjectName.trim()}`);
-    if (val === "12" || val === "5" || val === "100" || val === "auto") {
-      return val;
-    }
-  } catch {}
-  return null;
-}
-
-export function setSubjectScaleOverride(subjectName: string, scale: GradeScaleType): void {
-  if (typeof window === "undefined") return;
-  try {
-    if (scale === "auto") {
-      window.localStorage.removeItem(`${GRADE_SCALE_STORAGE_PREFIX}${subjectName.trim()}`);
-    } else {
-      window.localStorage.setItem(`${GRADE_SCALE_STORAGE_PREFIX}${subjectName.trim()}`, scale);
-    }
-    window.dispatchEvent(new CustomEvent("schedule:grade_scale_change", { detail: { subject: subjectName, scale } }));
-  } catch {}
-}
 
 export interface GradeItem {
   id: string;
@@ -274,14 +249,11 @@ export function convertGrade(
 export function formatTaskGradeDisplay(
   assignedGrade?: number | null,
   maxPoints?: number | null,
-  subject?: string
+  _subject?: string
 ): { text: string; isCorrected: boolean; originalMax: number | null } | null {
   if (assignedGrade === undefined || assignedGrade === null) return null;
 
-  const override = subject ? getSubjectScaleOverride(subject) : null;
-  const targetScale = override && override !== "auto" ? override : undefined;
-
-  const conv = convertGrade(assignedGrade, maxPoints, { targetScale });
+  const conv = convertGrade(assignedGrade, maxPoints);
 
   let text: string;
   if (conv.effectiveMax <= 12 && conv.effectiveMax > 5) {
@@ -374,18 +346,6 @@ function getScheduleTeacherForSubject(subjectName: string): string | null {
 }
 
 export function useGradesSummary(tasks: FullTaskItem[]): GradesSummaryResult {
-  const [scaleVersion, setScaleVersion] = useState(0);
-
-  useEffect(() => {
-    const handleScaleChange = () => setScaleVersion((v) => v + 1);
-    window.addEventListener("schedule:grade_scale_change", handleScaleChange);
-    window.addEventListener("storage", handleScaleChange);
-    return () => {
-      window.removeEventListener("schedule:grade_scale_change", handleScaleChange);
-      window.removeEventListener("storage", handleScaleChange);
-    };
-  }, []);
-
   return useMemo(() => {
     // 1. Gather teachers from ALL tasks (not just graded ones), including raw subject extraction
     const teacherMap = new Map<string, string>();
@@ -425,7 +385,7 @@ export function useGradesSummary(tasks: FullTaskItem[]): GradesSummaryResult {
     let subjectsWith12Count = 0;
 
     rawSubjectGrades.forEach((rawGrades, subjectName) => {
-      const override = getSubjectScaleOverride(subjectName);
+      const override = null;
       const { isAuto, activeScale } = detectSubjectScale(rawGrades, override);
 
       const gradesList: GradeItem[] = [];
@@ -562,5 +522,5 @@ export function useGradesSummary(tasks: FullTaskItem[]): GradesSummaryResult {
       },
       subjects,
     };
-  }, [tasks, scaleVersion]);
+  }, [tasks]);
 }

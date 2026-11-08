@@ -40,9 +40,10 @@
    - **Перший вхід викладача (`TeacherOnboardingModal`)**: 15-секундний персоналізований майстер (введення PIN-коду викладача для миттєвого розблокування онлайн-посилань Meet/Zoom, вибір теми й кольору та огляд ключових інструментів).
    - **Інтерактивний Гід (`GuideHubModal`)**: кнопка `💡` у шапці та пункт у Налаштуваннях відкривають візуальний гід у форматі 6 Stories з живими інтерактивними прев'ю та перемикачем `[🎓 Студент | 👨‍🏫 Викладач]` (адаптований під ПК та смартфони: сітка тижня та стрілки `←`/`→` на ПК, ізольований тест свайпу картки пари на смартфонах, живий перемикач підгруп/груп, перевірка PIN-коду, прев'ю оцінок та реальна статистика навантаження).
 
-7. **Статистика занять (`/statistics`) та Графік освітнього процесу (`/educational-process`)**:
+7. **Статистика занять (`/statistics`), Графік освітнього процесу (`/educational-process`), Дзвінки (`/bells`) та SSR SEO**:
    - Аналітика вивчених академічних годин і проведених пар для кожної групи та викладача з круговими SVG-індикаторами прогресу.
    - Інтерактивний календар-таймлайн семестрів, канікул, сесій і практик за курсами.
+   - Окрема сторінка розкладу дзвінків (`/bells`) та індивідуальні SSR/ISR сторінки для всіх навчальних груп (`/group/[code]`) і викладачів (`/teacher/[slug]`) із розміткою Schema.org (`Course`, `Person`, `FAQPage`) та динамічним `sitemap.xml`.
 
 8. **Адмін-панель (`/admin`), Генератор розкладу (CP-SAT) та Автоімпорт (`kre.dp.ua`)**:
    - Редагування разових замін та постійного розкладу, копіювання цілого дня, керування довідниками, режимом навчання та скороченими днями.
@@ -54,20 +55,20 @@
 ## 2. Технологічний стек
 
 ### Frontend
-- **Framework**: Next.js 14 (App Router, SSR для головної сторінки + динамічні клієнтські чанки)
+- **Framework**: Next.js 14 (App Router, SSR/ISR для головної сторінки, груп, викладачів і дзвінків + динамічні клієнтські чанки)
 - **Мова та UI**: React 18, TypeScript (Strict mode)
-- **Стилізація**: Tailwind CSS + система семантичних CSS-токенів (`--sys-bg`, `--sys-card`, `--sys-accent` тощо), підтримка View Transitions API
-- **Анімації**: Framer Motion (`<MotionConfig reducedMotion="user">`)
+- **Стилізація**: Tailwind CSS + система семантичних CSS-токенів (`--sys-bg`, `--sys-card`, `--sys-accent` тощо), 6 акцентних палітр, підтримка View Transitions API
+- **Анімації**: Framer Motion (`<MotionConfig reducedMotion="user">`) + плавні spring- і cubic-bezier переходи (60/120fps)
 - **PWA**: `@ducanh2912/next-pwa`, Service Worker, автономний кеш розкладу та сторінка `/~offline`
-- **Google OAuth**: Google Identity Services (OAuth 2.0 Code & Token flows)
+- **Google OAuth**: Google Identity Services (OAuth 2.0 Code & Token flows з автоматичним отриманням refresh token)
 
 ### Backend
 - **Framework**: FastAPI (Python 3.12)
-- **База даних та ORM**: PostgreSQL + SQLAlchemy 2.0 (`asyncio`, `psycopg` / `asyncpg`)
+- **База даних та ORM**: PostgreSQL + SQLAlchemy 2.0 (`asyncio`, `psycopg` / `aiosqlite` для тестів)
 - **Міграції**: Alembic (усі індекси та схеми консолідовано в міграціях)
 - **Оптимізатор розкладу**: Google OR-Tools (`ortools.sat.python.cp_model`)
-- **HTTP та парсинг**: `httpx`, `BeautifulSoup4` (`lxml`)
-- **Безпека**: JWT (`python-jose`), `bcrypt` (`passlib`), шифрування OAuth-токенів (`Fernet` / `cryptography`)
+- **HTTP та парсинг**: `httpx`, `selectolax` (Lexbor HTML parser)
+- **Безпека**: JWT (`PyJWT`), хешування паролів Argon2 (`pwdlib[argon2]`), rate limiting (`slowapi`), шифрування OAuth-токенів (`Fernet` / `cryptography`)
 
 ---
 
@@ -82,6 +83,7 @@ college-schedule/
 │   │   ├── config.py                   # Конфігурація Pydantic Settings
 │   │   ├── database.py                 # Асинхронний рушій та сесії SQLAlchemy
 │   │   ├── analytics.py                # Метрики активних користувачів (Heartbeat)
+│   │   ├── worker.py                   # Окремий фоновий воркер синхронізації Classroom та автоімпорту
 │   │   ├── core/                       # Криптографія (crypto.py), JWT-безпека (security.py), час Europe/Kyiv (time.py)
 │   │   ├── models/
 │   │   │   ├── entities.py             # Моделі ORM: Schedule, ScheduleOverride, Group, Teacher, Subject, AcademicTerm тощо
@@ -91,7 +93,7 @@ college-schedule/
 │   │   │   ├── schedule_dated.py       # Разові зміни, пакетні операції, копіювання дня
 │   │   │   ├── schedule_template.py    # Редагування постійного шаблону розкладу
 │   │   │   ├── schedule_versions.py    # Історія публікацій, перегляд змін та відкат
-│   │   │   ├── schedule_now.py         # Визначення поточної живої пари (/api/now)
+│   │   │   ├── schedule_now.py         # Визначення поточної живої пари (/api/schedule/now)
 │   │   │   ├── classroom.py            # Синхронізація Google Classroom, прив'язка завдань і здач студентів
 │   │   │   ├── admin_import.py         # Автоімпорт та ручний імпорт розкладу з kre.dp.ua
 │   │   │   ├── generator.py            # Запуск та моніторинг CP-SAT генератора розкладу
@@ -108,16 +110,21 @@ college-schedule/
 │   │       ├── learning_mode.py        # Розрахунок очного/дистанційного формату за курсом і датою
 │   │       ├── statistics.py           # Сервіс агрегації навчального навантаження
 │   │       └── importer/               # Завантаження (fetcher), парсинг (kre_parser) та порівняння (differ) розкладу
-│   └── tests/                          # 305+ тестів pytest
+│   └── tests/                          # 308+ тестів pytest
 ├── frontend/
 │   ├── app/
 │   │   ├── page.tsx                    # SSR Server Component головної сторінки (SEO + початкові дані)
 │   │   ├── layout.tsx                  # Кореневий layout, метадані, Schema.org, перехоплення PWA install
 │   │   ├── globals.css                 # Дизайн-токени світлої і темної тем, стилі View Transitions
+│   │   ├── group/[code]/page.tsx       # SSR/ISR сторінки розкладу кожної навчальної групи
+│   │   ├── teacher/[slug]/page.tsx     # SSR/ISR сторінки розкладу кожного викладача
+│   │   ├── bells/page.tsx              # Сторінка розкладу дзвінків (стандартні та скорочені дні)
 │   │   ├── statistics/page.tsx         # Сторінка статистики занять для груп і викладачів
 │   │   ├── educational-process/page.tsx# Сторінка графіка освітнього процесу
 │   │   ├── settings/page.tsx           # Сторінка налаштувань користувача
-│   │   └── admin/page.tsx              # Адмін-панель керування розкладом і системою
+│   │   ├── admin/page.tsx              # Адмін-панель керування розкладом і системою
+│   │   ├── sitemap.ts                  # Динамічна генерація sitemap.xml (76+ URL)
+│   │   └── robots.ts                   # Конфігурація robots.txt для пошукових систем
 │   ├── components/
 │   │   ├── SchedulePageClient.tsx      # Головний клієнтський контролер розкладу, сайдбара та клавіатурної навігації
 │   │   ├── LessonCard.tsx              # Картка пари (1/2 викладачі, підгрупи, жива пара, онлайн-кнопки, активні ДЗ)
@@ -134,12 +141,16 @@ college-schedule/
 │   │   └── admin/                      # Компоненти адмін-панелі (AdminScheduleEditor, GeneratorPanel, ImportPanel тощо)
 │   └── lib/
 │       ├── api.ts                      # Типізований API-клієнт із підтримкою ETag та кешування
+│       ├── ssrApi.ts                   # Серверне завантаження довідників і розкладу для SSR/SEO
 │       ├── useGradesSummary.ts         # Хук розрахунку GPA та автоматичного визначення 12/5/100-бальної шкали
 │       ├── useTaskGroups.ts            # Категоризація та фільтрація завдань за тижнями і станами
 │       ├── useClassroomSubmissions.ts  # Персональні статуси здачі робіт студента
 │       ├── useUserSettings.ts          # Реактивні налаштування користувача (useSyncExternalStore)
 │       ├── format.ts                   # Форматування аудиторій, імен викладачів, дат і платформ посилань
-│       └── shareImage.ts               # Canvas-генератор зображення денного розкладу
+│       ├── groupInfo.ts                # Визначення курсу та спеціальності групи за кодом
+│       ├── slug.ts                     # Транслітерація ПІБ викладачів для SEO-маршрутів
+│       ├── site.ts                     # Канонічний домен сайту (SITE_URL / SITE_HOST)
+│       └── shareImage.ts               # Canvas-генератор зображення денного та тижневого розкладу
 └── GEMINI.md                           # Цей документ
 ```
 
@@ -203,8 +214,8 @@ college-schedule/
   - `--sys-elevated` (`#1b2333` dark / `#f8fafc` light)
   - `--sys-text-primary`, `--sys-text-secondary`, `--sys-text-muted` (контраст $\ge 4.7:1$)
   - `--sys-accent` (`#38bdf8`), `--sys-accent-solid` (`#2563eb`)
-- **Токени руху**: `duration-fast` (120ms), `duration-base` (200ms), `duration-slow` (280ms), перемикання теми через View Transitions API (240ms).
-- **Перевірка контрасту**: скрипт `npm run check:contrast` автоматично перевіряє всі 40 колірних пар у світлій і темній темах на відповідність стандарту WCAG AA.
+- **Токени руху**: `duration-fast` (150ms), `duration-base` (240ms), `duration-slow` (320ms), `duration-page` (280ms), перемикання теми через View Transitions API (240ms).
+- **Перевірка контрасту**: скрипт `npm run check:contrast` автоматично перевіряє 292 колірних комбінації у 12 темах × акцентах (плюс аудит усіх TSX-файлів) на відповідність стандарту WCAG AA.
 
 ---
 
@@ -221,19 +232,19 @@ cd frontend && npm run dev
 
 ### Обов'язкова перевірка перед кожним комітом:
 ```bash
-# 1. Тести бекенду (305 passed, 0 warnings)
+# 1. Тести бекенду (308 passed, 0 warnings)
 ./.venv/bin/pytest backend/tests
 
-# 2. Перевірка типізації TypeScript
-cd frontend && npx tsc --noEmit
+# 2. Перевірка типізації TypeScript та контрасту WCAG AA
+cd frontend && npx tsc --noEmit && npm run check:contrast
 
 # 3. Продакшен-збірка Next.js
 cd frontend && npm run build
 ```
 
 ### Основні змінні середовища:
-- **Backend**: `DATABASE_URL`, `JWT_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `CLASSROOM_SYNC_INTERVAL_MINUTES`, `CORS_ORIGINS`, `RUN_CRON`.
-- **Frontend**: `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_GOOGLE_CLIENT_ID`.
+- **Backend**: `DATABASE_URL`, `JWT_SECRET_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `CLASSROOM_FERNET_KEY`, `CLASSROOM_SYNC_INTERVAL_MINUTES`, `AUTO_IMPORT_ENABLED`, `AUTO_IMPORT_INTERVAL_MINUTES`, `BACKEND_CORS_ORIGINS`, `TEACHER_PIN`, `ADMIN_PASSWORD`, `RUN_CRON`.
+- **Frontend**: `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_GOOGLE_CLIENT_ID`.
 
 ---
 
