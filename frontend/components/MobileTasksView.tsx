@@ -150,7 +150,7 @@ export function MobileTasksView({
             />
           )}
           <span>📋</span>
-          <span>Завдання ({totalCount})</span>
+          <span>{hasAccess ? `Завдання (${totalCount})` : "Завдання"}</span>
         </button>
         <button
           type="button"
@@ -181,15 +181,7 @@ export function MobileTasksView({
           transition={{ duration: 0.12, ease: "easeOut" }}
           className="w-full"
         >
-          {viewMode === "grades" ? (
-            <GradesView
-              tasks={tasks}
-              isLinked={isLinked}
-              onSyncClassroom={() =>
-                window.dispatchEvent(new CustomEvent("trigger-classroom-sync"))
-              }
-            />
-          ) : !hasAccess ? (
+          {!hasAccess ? (
         <div className="rounded-2xl border border-sky-500/20 bg-sky-500/5 p-6 text-center mt-6">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-500/10 text-sky-700 dark:text-sky-400 border border-sky-500/20">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -198,10 +190,10 @@ export function MobileTasksView({
             </svg>
           </div>
           <h3 className="text-base font-bold text-sys-text-primary mb-1.5">
-            Завдання захищено
+            {viewMode === "grades" ? "Оцінки захищено" : "Завдання захищено"}
           </h3>
           <p className="text-xs text-sys-text-secondary leading-relaxed max-w-sm mx-auto mb-5">
-            Домашні завдання та матеріали доступні лише для студентів цієї групи. Підключіть студентський Google Classroom, щоб отримати доступ.
+            Домашні завдання, оцінки та матеріали доступні лише для студентів цієї групи. Підключіть студентський Google Classroom, щоб отримати доступ.
           </p>
           <button
             type="button"
@@ -218,7 +210,16 @@ export function MobileTasksView({
             <span>Прив&apos;язати Google Classroom</span>
           </button>
         </div>
-      ) : (
+          ) : viewMode === "grades" ? (
+            <GradesView
+              tasks={tasks}
+              isLinked={isLinked}
+              groupId={groupId}
+              onSyncClassroom={() =>
+                window.dispatchEvent(new CustomEvent("trigger-classroom-sync"))
+              }
+            />
+          ) : (
         <>
           {/* Week Switcher & Scope Segment (Section 22.1) */}
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">

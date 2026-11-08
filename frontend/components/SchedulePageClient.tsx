@@ -15,7 +15,7 @@ import { WeekTypeBadge } from "./WeekTypeBadge";
 import { ScheduleResponse, LearningMode, LearningModeOverride, ReferenceRecord, api } from "../lib/api";
 import { useSchedule, invalidateScheduleCache } from "../lib/hooks";
 import { useAuth, canAccessAdmin } from "../lib/auth";
-import { getMondayOf, getKyivInitialWeekAnchor, getKyivTomorrowDateIso, KYIV_DATE_FMT, KYIV_TIME_FMT, UKR_WEEKDAY_LONG_FMT, UKR_DAY_MONTH_SHORT_FMT, UKR_MONTH_SHORT_FMT } from "../lib/date";
+import { getMondayOf, getKyivInitialWeekAnchor, getKyivTomorrowDateIso, getKyivMaxPublicDateIso, getSyncedNow, KYIV_DATE_FMT, KYIV_TIME_FMT, UKR_WEEKDAY_LONG_FMT, UKR_DAY_MONTH_SHORT_FMT, UKR_MONTH_SHORT_FMT } from "../lib/date";
 import { SplashScreen } from "./SplashScreen";
 import { useMobileNav, MobileTab } from "../lib/useMobileNav";
 import { FullTaskItem, renderTaskCard } from "./TaskCardItem";
@@ -26,7 +26,7 @@ import { ClassroomSyncButton } from "./ClassroomSyncButton";
 import { extractClassroomTasks, parseTaskDeadline, sortTasksByDeadline, TaskDeadline, UKR_MONTHS_SHORT, pluralDays } from "./LessonCard";
 import { DEFAULT_LESSON_TIMES } from "../lib/constants/lessons";
 import { useToast } from "./ToastProvider";
-import { QuickJumpTarget, findGroupIdByName, findTeacherIdByName } from "../lib/quickJump";
+import { QuickJumpTarget, findGroupIdByName, findTeacherIdByName, filterAndRankEntities, getGroupSearchBadge } from "../lib/quickJump";
 import { extractClassroomTaskKey, isOwnTask, syncPersonalSubmissions, useClassroomSubmissions } from "../lib/useClassroomSubmissions";
 import { useTeacherAccess } from "../lib/useTeacherAccess";
 import { useTheme } from "../lib/useTheme";
@@ -35,7 +35,7 @@ import { useRecentSelections } from "../lib/useRecentSelections";
 import { RecentSelectionsChips } from "./RecentSelectionsChips";
 import { useViewportTier } from "../lib/useViewportTier";
 import { useUserSettings } from "../lib/useUserSettings";
-import { getGroupFullCode } from "../lib/groupInfo";
+import { getGroupCourse, getGroupFullCode } from "../lib/groupInfo";
 import { toTeacherSlug } from "../lib/slug";
 
 const WelcomeScreen = dynamic(() => import("./WelcomeScreen").then((m) => m.WelcomeScreen), { ssr: false });
@@ -93,12 +93,12 @@ export function SchedulePageClient({
   const showMobile = !isMounted || !isDesktop;
   const getInitialAnchor = () => getKyivInitialWeekAnchor();
   const [weekAnchorDate, setWeekAnchorDate] = useState(getInitialAnchor());
-  const lastActiveDateRef = useRef<string>(KYIV_DATE_FMT.format(new Date()));
+  const lastActiveDateRef = useRef<string>(KYIV_DATE_FMT.format(getSyncedNow()));
 
   useEffect(() => {
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
-        const todayStr = KYIV_DATE_FMT.format(new Date());
+        const todayStr = KYIV_DATE_FMT.format(getSyncedNow());
         if (todayStr !== lastActiveDateRef.current) {
           lastActiveDateRef.current = todayStr;
           setWeekAnchorDate((prev) => {
@@ -125,7 +125,32 @@ export function SchedulePageClient({
     return `${weekAnchorDate.getFullYear()}-${String(weekAnchorDate.getMonth() + 1).padStart(2, "0")}-${String(weekAnchorDate.getDate()).padStart(2, "0")}`;
   }, [weekAnchorDate]);
 
+  const { isSetupComplete, completeSetup, mode, toggleMode, teachers, teacherId, setTeacherId, groups, groupId, setGroupId, today, week, semesterStart, loading, isSlowNetwork, isUsingFallbackCache, error } = useSchedule(weekAnchorDate, false, initialGroups, initialTeachers, initialGroupId, initialTeacherId, initialMode);
+  const selectedTeacher = useMemo(() => teachers.find((t) => t.id === teacherId) || null, [teachers, teacherId]);
+  const { user, loading: authLoading, logout } = useAuth();
+  const { showToast: setToast } = useToast();
+
+  const isPrivilegedUser = Boolean(user && canAccessAdmin(user));
+  const minDateIso = isPrivilegedUser ? null : (semesterStart ?? null);
+  const maxDateIso = useMemo(() => (isPrivilegedUser ? null : getKyivMaxPublicDateIso()), [isPrivilegedUser]);
+
+  const canNavigatePrevWeek = useMemo(() => {
+    if (!minDateIso) return true;
+    const prevWeekEnd = new Date(weekAnchorDate);
+    prevWeekEnd.setDate(prevWeekEnd.getDate() - 3);
+    return KYIV_DATE_FMT.format(prevWeekEnd) >= minDateIso;
+  }, [weekAnchorDate, minDateIso]);
+
+  const canNavigateNextWeek = useMemo(() => {
+    if (!maxDateIso) return true;
+    const nextWeekStart = new Date(weekAnchorDate);
+    nextWeekStart.setDate(nextWeekStart.getDate() + 7);
+    return KYIV_DATE_FMT.format(nextWeekStart) <= maxDateIso;
+  }, [weekAnchorDate, maxDateIso]);
+
   const shiftWeek = (offset: number) => {
+    if (offset < 0 && !canNavigatePrevWeek) return;
+    if (offset > 0 && !canNavigateNextWeek) return;
     startTransition(() => {
       setWeekAnchorDate((date) => {
         const next = new Date(date);
@@ -134,11 +159,6 @@ export function SchedulePageClient({
       });
     });
   };
-
-  const { isSetupComplete, completeSetup, mode, toggleMode, teachers, teacherId, setTeacherId, groups, groupId, setGroupId, today, week, semesterStart, loading, isSlowNetwork, isUsingFallbackCache, error } = useSchedule(weekAnchorDate, false, initialGroups, initialTeachers, initialGroupId, initialTeacherId, initialMode);
-  const selectedTeacher = useMemo(() => teachers.find((t) => t.id === teacherId) || null, [teachers, teacherId]);
-  const { user, loading: authLoading, logout } = useAuth();
-  const { showToast: setToast } = useToast();
 
   const [view, setView] = useState<"today" | "week">("today");
   const [isFocusMode, setIsFocusMode] = useState<boolean>(false);
@@ -208,6 +228,21 @@ export function SchedulePageClient({
     }
   }, [mode, mobileTab, setMobileTab]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const urlMode = params.get("mode");
+      const urlTab = params.get("tab");
+      if (urlMode === "teacher" || urlMode === "student") {
+        toggleMode(urlMode);
+      }
+      if (urlTab === "tasks" || urlTab === "schedule") {
+        setMobileTab(urlTab);
+      }
+    } catch {}
+  }, []);
+
   const [weekTypeSheetOpen, setWeekTypeSheetOpen] = useState(false);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [sidebarTaskFilters, setSidebarTaskFilters] = useState<TaskFilterState>(DEFAULT_TASK_FILTERS);
@@ -274,13 +309,21 @@ export function SchedulePageClient({
     }
   }, [classroomLastSyncedAt]);
 
+  const currentGroupIdRef = useRef<number | null>(groupId);
+  currentGroupIdRef.current = groupId;
+
   const fetchClassroomTasks = useCallback(async (gid: number) => {
     try {
       const res = await api.classroom.groupStatus(gid);
-      if (res?.tasks && res.tasks.length > 0) {
+      if (currentGroupIdRef.current !== gid) return;
+      if (Array.isArray(res?.tasks)) {
         setClassroomTasks(res.tasks);
         try {
-          localStorage.setItem(`schedule:classroom_group_tasks:${gid}`, JSON.stringify(res.tasks));
+          if (res.tasks.length > 0) {
+            localStorage.setItem(`schedule:classroom_group_tasks:${gid}`, JSON.stringify(res.tasks));
+          } else {
+            localStorage.removeItem(`schedule:classroom_group_tasks:${gid}`);
+          }
           localStorage.removeItem(`schedule:classroom_tasks:${gid}`);
         } catch {}
       }
@@ -299,7 +342,7 @@ export function SchedulePageClient({
     } catch {
       // Ignore background fetch error
     }
-    if (isLinked) {
+    if (isLinked && currentGroupIdRef.current === gid) {
       void syncPersonalSubmissions(gid);
     }
   }, [isLinked, isLinkedToGroup]);
@@ -381,9 +424,11 @@ export function SchedulePageClient({
   const [contextModalOpen, setContextModalOpen] = useState(false);
   const [modalTab, setModalTab] = useState<"student" | "teacher">(mode);
   const [modalSearch, setModalSearch] = useState("");
+  const [modalCourseFilter, setModalCourseFilter] = useState<number | null>(null);
+  const [modalHighlightedIndex, setModalHighlightedIndex] = useState(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Останні вибори груп та викладачів (до 3 збережених елементів, без порожніх комірок)
+  // Останні вибори груп та викладачів (до 5 збережених елементів, без порожніх комірок)
   const { recentGroupIds, recentTeacherIds, recordRecentGroup, recordRecentTeacher } = useRecentSelections();
 
   // Автоматично зберігаємо поточний вибір групи та викладача в історію
@@ -403,9 +448,13 @@ export function SchedulePageClient({
     if (contextModalOpen) {
       setModalTab(mode);
       setModalSearch("");
-      setTimeout(() => searchInputRef.current?.focus(), 50);
+      setModalCourseFilter(null);
+      setModalHighlightedIndex(0);
+      if (isDesktop) {
+        setTimeout(() => searchInputRef.current?.focus(), 50);
+      }
     }
-  }, [contextModalOpen, mode]);
+  }, [contextModalOpen, mode, isDesktop]);
 
   const syncBrowserUrl = useCallback(
     (targetMode: "student" | "teacher", id: number) => {
@@ -446,11 +495,26 @@ export function SchedulePageClient({
   );
 
   const filteredModalOptions = useMemo(() => {
-    const list = modalTab === "student" ? groups : teachers;
-    if (!modalSearch.trim()) return list;
-    const q = modalSearch.toLowerCase();
-    return list.filter((item) => item.name.toLowerCase().includes(q));
-  }, [modalTab, groups, teachers, modalSearch]);
+    const baseList =
+      modalTab === "student"
+        ? modalCourseFilter === null
+          ? groups
+          : groups.filter((g) => (g.course ?? getGroupCourse(g.name)) === modalCourseFilter)
+        : teachers;
+    return filterAndRankEntities(baseList, modalSearch, modalTab);
+  }, [modalTab, groups, teachers, modalSearch, modalCourseFilter]);
+
+  useEffect(() => {
+    setModalHighlightedIndex(0);
+  }, [modalSearch, modalTab, modalCourseFilter]);
+
+  useEffect(() => {
+    if (!contextModalOpen || typeof document === "undefined") return;
+    const item = filteredModalOptions[modalHighlightedIndex];
+    if (!item) return;
+    const el = document.getElementById(`context-modal-opt-${modalTab}-${item.id}`);
+    el?.scrollIntoView?.({ block: "nearest" });
+  }, [modalHighlightedIndex, contextModalOpen, filteredModalOptions, modalTab]);
 
   // Автоскрол до поточної пари
   useEffect(() => {
@@ -525,9 +589,10 @@ export function SchedulePageClient({
 
   const currentWeekNumber = useMemo(() => {
     if (!semesterStart) return null;
-    const start = new Date(semesterStart);
-    const diffTime = weekAnchorDate.getTime() - getMondayOf(start).getTime();
-    const diffWeeks = Math.floor(diffTime / (7 * 24 * 60 * 60 * 1000)) + 1;
+    const [sy, sm, sd] = semesterStart.split("-").map(Number);
+    const start = sy && sm && sd ? new Date(sy, sm - 1, sd, 12, 0, 0) : new Date(semesterStart);
+    const diffTime = getMondayOf(weekAnchorDate).getTime() - getMondayOf(start).getTime();
+    const diffWeeks = Math.round(diffTime / (7 * 24 * 60 * 60 * 1000)) + 1;
     return diffWeeks > 0 ? diffWeeks : null;
   }, [semesterStart, weekAnchorDate]);
 
@@ -546,7 +611,7 @@ export function SchedulePageClient({
 
   const { displayDaySchedule, isShowingTomorrow } = useMemo(() => {
     if (!today) return { displayDaySchedule: null, isShowingTomorrow: false };
-    const now = new Date();
+    const now = getSyncedNow();
     const kyivHour = Number(
       new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Kyiv", hour: "2-digit", hour12: false }).format(now)
     );
@@ -585,14 +650,14 @@ export function SchedulePageClient({
   };
 
   const getActualTodayIndex = (): number => {
-    const now = new Date();
+    const now = getSyncedNow();
     const dow = getKyivWeekday(now);
     if (dow >= 1 && dow <= 5) return dow - 1;
     return 0;
   };
 
   const getInitialDayIndex = (): number => {
-    const now = new Date();
+    const now = getSyncedNow();
     const dow = getKyivWeekday(now);
     if (dow === 0 || dow === 6) return 0;
     const [kyivHour, kyivMin] = KYIV_TIME_FMT.format(now).split(":").map(Number);
@@ -615,7 +680,7 @@ export function SchedulePageClient({
   }, [weekAnchorDate, selectedDayIndex]);
 
   const todayActualIso = useMemo(() => {
-    return KYIV_DATE_FMT.format(new Date());
+    return KYIV_DATE_FMT.format(getSyncedNow());
   }, []);
 
   const tomorrowActualIso = useMemo(() => {
@@ -623,7 +688,7 @@ export function SchedulePageClient({
   }, []);
 
   const isEveningAfterLessons = useMemo(() => {
-    const now = new Date();
+    const now = getSyncedNow();
     const dow = getKyivWeekday(now);
     if (dow < 1 || dow > 4) return false;
     const [kyivHour, kyivMin] = KYIV_TIME_FMT.format(now).split(":").map(Number);
@@ -639,12 +704,31 @@ export function SchedulePageClient({
 
   const handleSelectDayIndex = (idx: number) => {
     if (idx === selectedDayIndex) return;
+    const targetD = new Date(weekAnchorDate);
+    targetD.setDate(weekAnchorDate.getDate() + idx);
+    const targetIso = KYIV_DATE_FMT.format(targetD);
+    if ((minDateIso && targetIso < minDateIso) || (maxDateIso && targetIso > maxDateIso)) return;
     setDaySlideDir(idx > selectedDayIndex ? 1 : -1);
     setSelectedDayIndex(idx);
     resetScroll();
   };
 
+  const canNavigatePrevDay = useMemo(() => {
+    if (!minDateIso) return true;
+    const prevD = new Date(weekAnchorDate);
+    prevD.setDate(weekAnchorDate.getDate() + (selectedDayIndex > 0 ? selectedDayIndex - 1 : -3));
+    return KYIV_DATE_FMT.format(prevD) >= minDateIso;
+  }, [weekAnchorDate, selectedDayIndex, minDateIso]);
+
+  const canNavigateNextDay = useMemo(() => {
+    if (!maxDateIso) return true;
+    const nextD = new Date(weekAnchorDate);
+    nextD.setDate(weekAnchorDate.getDate() + (selectedDayIndex < 4 ? selectedDayIndex + 1 : 7));
+    return KYIV_DATE_FMT.format(nextD) <= maxDateIso;
+  }, [weekAnchorDate, selectedDayIndex, maxDateIso]);
+
   const goToPrevDay = () => {
+    if (!canNavigatePrevDay) return;
     if (selectedDayIndex > 0) {
       setDaySlideDir(-1);
       setSelectedDayIndex((prev) => prev - 1);
@@ -662,6 +746,7 @@ export function SchedulePageClient({
   };
 
   const goToNextDay = () => {
+    if (!canNavigateNextDay) return;
     if (selectedDayIndex < 4) {
       setDaySlideDir(1);
       setSelectedDayIndex((prev) => prev + 1);
@@ -679,6 +764,8 @@ export function SchedulePageClient({
   };
 
   const shiftWeekPreservingDay = (offset: number) => {
+    if (offset < 0 && !canNavigatePrevWeek) return;
+    if (offset > 0 && !canNavigateNextWeek) return;
     setDaySlideDir(offset > 0 ? 1 : -1);
     startTransition(() => {
       setWeekAnchorDate((prev) => {
@@ -710,7 +797,7 @@ export function SchedulePageClient({
 
   const handleJumpToTomorrow = () => {
     const currentAnchor = getInitialAnchor();
-    const now = new Date();
+    const now = getSyncedNow();
     const dow = now.getDay();
     startTransition(() => {
       setWeekAnchorDate(currentAnchor);
@@ -723,6 +810,8 @@ export function SchedulePageClient({
   };
 
   const handleDatePickerSelect = (targetDate: Date) => {
+    const targetIso = KYIV_DATE_FMT.format(targetDate);
+    if ((minDateIso && targetIso < minDateIso) || (maxDateIso && targetIso > maxDateIso)) return;
     const newAnchor = getMondayOf(targetDate);
     const kyivDow = getKyivWeekday(targetDate);
     startTransition(() => {
@@ -872,7 +961,7 @@ export function SchedulePageClient({
     return p ? getPeriodMeta(p) : null;
   }, [week]);
 
-  const isWeekend = [0, 6].includes(new Date().getDay());
+  const isWeekend = [0, 6].includes(getSyncedNow().getDay());
   const isAutoSelectedWeekendDay = isWeekend && isCurrentWeek && selectedDayIndex === 0;
 
   const selectedDaySchedule: ScheduleResponse = useMemo(() => {
@@ -957,15 +1046,21 @@ export function SchedulePageClient({
         const dObj = new Date(`${d.date}T12:00:00`);
         const dayName = UKR_WEEKDAY_LONG_FMT.format(dObj);
         const dayDate = UKR_DAY_MONTH_SHORT_FMT.format(dObj);
-        if (!d.lessons || d.lessons.length === 0) {
+        const activeLessons = (d.lessons || []).filter((l) => !l.is_cancelled);
+        if (activeLessons.length === 0) {
           return `▫️ ${dayName.toUpperCase()} (${dayDate}): пар немає`;
         }
-        const lessons = [...d.lessons]
+        const lessons = [...activeLessons]
           .sort((a, b) => a.lesson_number - b.lesson_number)
           .map((l) => {
             const room = l.room ? ` [${l.room}]` : "";
-            const teacher = mode === "student" && l.teacher_name ? ` (${l.teacher_name})` : "";
-            return `  ${l.lesson_number}. ${l.time} ${l.subject_name}${room}${teacher}`;
+            const secondary =
+              mode === "teacher" && l.group_name
+                ? ` (гр. ${l.group_name})`
+                : mode === "student" && l.teacher_name
+                  ? ` (${l.teacher_name})`
+                  : "";
+            return `  ${l.lesson_number}. ${l.time} ${l.subject_name}${room}${secondary}`;
           })
           .join("\n");
         return `▫️ ${dayName.toUpperCase()} (${dayDate}):\n${lessons}`;
@@ -1288,8 +1383,18 @@ export function SchedulePageClient({
   );
 
   const overdueCount = useMemo(() => {
-    return sidebarTaskGroups.overdueTasks.length + sidebarTaskGroups.pastWeekTasks.length;
-  }, [sidebarTaskGroups.overdueTasks, sidebarTaskGroups.pastWeekTasks]);
+    const actualMondayIso = KYIV_DATE_FMT.format(getInitialAnchor());
+    let count = 0;
+    for (const t of allTasks) {
+      const isDone = isLinked && (t.state === "TURNED_IN" || t.state === "RETURNED");
+      if (isDone) continue;
+      const dueIso = t.dueDateIso || (t.deadline.date ? KYIV_DATE_FMT.format(t.deadline.date) : null);
+      if (t.deadline.isOverdue || (dueIso && dueIso < actualMondayIso)) {
+        count++;
+      }
+    }
+    return count;
+  }, [allTasks, isLinked]);
 
   useEffect(() => {
     setOverdueCount(isLinked ? overdueCount : 0);
@@ -1374,10 +1479,11 @@ export function SchedulePageClient({
             <div className="flex items-center rounded-xl border border-sys-border bg-sys-bg p-0.5 text-xs">
               <button
                 type="button"
+                disabled={view === "today" ? !canNavigatePrevDay : !canNavigatePrevWeek}
                 onClick={view === "today" ? goToPrevDay : () => shiftWeek(-1)}
                 aria-label="Попередній період"
                 title="Попередній період"
-                className="flex h-10 w-10 items-center justify-center rounded-lg text-sys-text-secondary hover:bg-sys-card hover:text-sys-text-primary transition-colors"
+                className="flex h-10 w-10 items-center justify-center rounded-lg text-sys-text-secondary hover:bg-sys-card hover:text-sys-text-primary transition-colors disabled:opacity-30 disabled:pointer-events-none"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="m15 18-6-6 6-6" />
@@ -1403,10 +1509,11 @@ export function SchedulePageClient({
               </button>
               <button
                 type="button"
+                disabled={view === "today" ? !canNavigateNextDay : !canNavigateNextWeek}
                 onClick={view === "today" ? goToNextDay : () => shiftWeek(1)}
                 aria-label="Наступний період"
                 title="Наступний період"
-                className="flex h-10 w-10 items-center justify-center rounded-lg text-sys-text-secondary hover:bg-sys-card hover:text-sys-text-primary transition-colors"
+                className="flex h-10 w-10 items-center justify-center rounded-lg text-sys-text-secondary hover:bg-sys-card hover:text-sys-text-primary transition-colors disabled:opacity-30 disabled:pointer-events-none"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="m9 18 6-6-6-6" />
@@ -1649,9 +1756,10 @@ export function SchedulePageClient({
               <div className="flex items-center gap-0.5">
                 <button
                   type="button"
+                  disabled={!canNavigatePrevWeek}
                   onClick={() => shiftWeekPreservingDay(-1)}
                   aria-label="Попередній тиждень"
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg active:scale-90 transition-colors duration-fast ease-smooth shrink-0"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg active:scale-90 transition-colors duration-fast ease-smooth shrink-0 disabled:opacity-30 disabled:pointer-events-none"
                 >
                   <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="m15 18-6-6 6-6" />
@@ -1678,9 +1786,10 @@ export function SchedulePageClient({
 
                 <button
                   type="button"
+                  disabled={!canNavigateNextWeek}
                   onClick={() => shiftWeekPreservingDay(1)}
                   aria-label="Наступний тиждень"
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg active:scale-90 transition-colors duration-fast ease-smooth shrink-0"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg active:scale-90 transition-colors duration-fast ease-smooth shrink-0 disabled:opacity-30 disabled:pointer-events-none"
                 >
                   <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="m9 18 6-6-6-6" />
@@ -1760,7 +1869,7 @@ export function SchedulePageClient({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-            className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4"
+            className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
             onClick={() => setContextModalOpen(false)}
           >
             <motion.div
@@ -1768,22 +1877,23 @@ export function SchedulePageClient({
               role="dialog"
               aria-modal="true"
               aria-labelledby="context-modal-title"
-              initial={{ opacity: 0, scale: 0.94, y: 16 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.94, y: 16 }}
+              initial={{ opacity: 0, y: 24, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 24, scale: 0.98 }}
               transition={{ type: "spring", stiffness: 350, damping: 28 }}
-              className="w-full max-w-md rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-2xl"
+              className="w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 pb-safe shadow-2xl max-h-[85dvh] flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
+              <div className="mx-auto mb-2.5 h-1.5 w-10 rounded-full bg-sys-border sm:hidden shrink-0" aria-hidden="true" />
               <h2 id="context-modal-title" className="sr-only">
                 Оберіть групу або викладача
               </h2>
               {/* Header with tabs */}
-              <div className="flex items-center justify-between gap-2 pb-3 border-b border-sys-border/60">
+              <div className="flex items-center justify-between gap-2 pb-3 border-b border-sys-border/60 shrink-0">
                 <div className="flex rounded-xl border border-sys-border bg-sys-bg p-1 flex-1">
                   <button
                     type="button"
-                    onClick={() => { setModalTab("student"); setModalSearch(""); }}
+                    onClick={() => { setModalTab("student"); setModalSearch(""); setModalCourseFilter(null); }}
                     className={`flex-1 h-9 rounded-lg text-xs font-semibold transition-colors duration-fast ease-smooth ${
                       modalTab === "student" ? "bg-sys-accent text-white shadow-xs" : "text-sys-text-secondary hover:text-sys-text-primary"
                     }`}
@@ -1792,7 +1902,7 @@ export function SchedulePageClient({
                   </button>
                   <button
                     type="button"
-                    onClick={() => { setModalTab("teacher"); setModalSearch(""); }}
+                    onClick={() => { setModalTab("teacher"); setModalSearch(""); setModalCourseFilter(null); }}
                     className={`flex-1 h-9 rounded-lg text-xs font-semibold transition-colors duration-fast ease-smooth ${
                       modalTab === "teacher" ? "bg-sys-accent text-white shadow-xs" : "text-sys-text-secondary hover:text-sys-text-primary"
                     }`}
@@ -1804,58 +1914,152 @@ export function SchedulePageClient({
                   type="button"
                   onClick={() => setContextModalOpen(false)}
                   aria-label="Закрити"
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-sys-border text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg transition-colors"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-sys-border text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg transition-colors"
                 >
                   ✕
                 </button>
               </div>
 
               {/* Search Input */}
-              <search className="mt-3 relative block">
+              <search className="mt-3 relative block shrink-0">
                 <input
                   ref={searchInputRef}
                   type="search"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck={false}
                   aria-label={modalTab === "student" ? "Пошук групи" : "Пошук викладача"}
                   value={modalSearch}
                   onChange={(e) => setModalSearch(e.target.value)}
-                  placeholder={modalTab === "student" ? "Пошук групи (наприклад 85)..." : "Пошук викладача..."}
-                  className="w-full h-10 rounded-xl border border-sys-border bg-sys-bg px-3.5 text-sm text-sys-text-primary placeholder:text-sys-text-muted focus:border-sys-accent focus:ring-2 focus:ring-sys-accent focus:outline-none"
+                  onKeyDown={(e) => {
+                    if (e.nativeEvent.isComposing) return;
+                    if (e.key === "ArrowDown") {
+                      e.preventDefault();
+                      setModalHighlightedIndex((i) =>
+                        filteredModalOptions.length > 0 ? Math.min(i + 1, filteredModalOptions.length - 1) : 0
+                      );
+                    } else if (e.key === "ArrowUp") {
+                      e.preventDefault();
+                      setModalHighlightedIndex((i) => Math.max(i - 1, 0));
+                    } else if (e.key === "Enter" && filteredModalOptions.length > 0) {
+                      e.preventDefault();
+                      const chosen = filteredModalOptions[modalHighlightedIndex] ?? filteredModalOptions[0];
+                      if (chosen) handleSelectContextOption(modalTab, chosen.id);
+                    } else if (e.key === "Tab" && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+                      e.preventDefault();
+                      setModalTab((prev) => (prev === "student" ? "teacher" : "student"));
+                      setModalCourseFilter(null);
+                    }
+                  }}
+                  placeholder={modalTab === "student" ? "Пошук групи, шифру (КІ-24) або курсу..." : "Пошук викладача..."}
+                  className="w-full h-10 rounded-xl border border-sys-border bg-sys-bg pl-3.5 pr-10 text-sm text-sys-text-primary placeholder:text-sys-text-muted focus:border-sys-accent focus:ring-2 focus:ring-sys-accent focus:outline-none"
                 />
+                {modalSearch && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModalSearch("");
+                      if (isDesktop) searchInputRef.current?.focus();
+                    }}
+                    aria-label="Очистити пошук"
+                    className="absolute right-0.5 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-lg text-sys-text-muted hover:text-sys-text-primary transition-colors"
+                  >
+                    ✕
+                  </button>
+                )}
               </search>
+
+              {/* Course filter chips for groups */}
+              {modalTab === "student" && (
+                <div className="mt-2.5 flex items-center gap-1.5 overflow-x-auto pb-1 shrink-0 no-scrollbar" role="group" aria-label="Фільтр за курсом">
+                  {([null, 1, 2, 3, 4] as const).map((course) => {
+                    const active = modalCourseFilter === course;
+                    return (
+                      <button
+                        key={course ?? "all"}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => setModalCourseFilter(course)}
+                        className={`shrink-0 rounded-xl px-2.5 py-1 text-xs font-semibold border transition-colors ${
+                          active
+                            ? "bg-sys-accent text-white border-sys-accent shadow-xs"
+                            : "bg-sys-bg border-sys-border text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/40"
+                        }`}
+                      >
+                        {course === null ? "Всі" : `${course} курс`}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
 
               {/* Recent selections (відображаються лише коли пошук порожній; якщо 1 вибір - рівно 1 кнопка без пустих рамок) */}
               {!modalSearch.trim() && (
-                <RecentSelectionsChips
-                  mode={modalTab}
-                  currentId={modalTab === "student" ? groupId : teacherId}
-                  recentIds={modalTab === "student" ? recentGroupIds : recentTeacherIds}
-                  options={modalTab === "student" ? groups : teachers}
-                  onSelect={(id) => handleSelectContextOption(modalTab, id)}
-                />
+                <div className="shrink-0">
+                  <RecentSelectionsChips
+                    mode={modalTab}
+                    currentId={modalTab === "student" ? groupId : teacherId}
+                    recentIds={modalTab === "student" ? recentGroupIds : recentTeacherIds}
+                    options={modalTab === "student" ? groups : teachers}
+                    onSelect={(id) => handleSelectContextOption(modalTab, id)}
+                  />
+                </div>
               )}
 
               {/* List of items */}
-              <div className="mt-3 max-h-72 overflow-y-auto overscroll-contain custom-scrollbar space-y-1 pr-1">
-                {filteredModalOptions.map((opt) => {
+              <div
+                role="listbox"
+                className={`mt-2.5 flex-1 min-h-0 max-h-72 overflow-y-auto overscroll-contain custom-scrollbar pr-1 pb-2 ${
+                  modalTab === "student" ? "grid grid-cols-2 sm:grid-cols-3 gap-2 content-start" : "space-y-1"
+                }`}
+              >
+                {filteredModalOptions.map((opt, idx) => {
                   const isSelected = modalTab === "student" ? opt.id === groupId : opt.id === teacherId;
+                  const isHighlighted = idx === modalHighlightedIndex;
+                  const groupBadge = modalTab === "student" ? getGroupSearchBadge(opt) : null;
                   return (
                     <button
                       key={`${modalTab}-${opt.id}`}
+                      id={`context-modal-opt-${modalTab}-${opt.id}`}
                       type="button"
+                      role="option"
+                      aria-selected={isSelected}
+                      onMouseEnter={() => setModalHighlightedIndex(idx)}
                       onClick={() => handleSelectContextOption(modalTab, opt.id)}
-                      className={`w-full text-left px-3.5 py-2.5 rounded-xl text-sm transition-colors flex items-center justify-between ${
-                        isSelected
-                          ? "bg-sys-accent/15 text-sys-accent font-semibold border border-sys-accent/30"
-                          : "text-sys-text-primary hover:bg-sys-bg"
-                      }`}
+                      className={
+                        modalTab === "student"
+                          ? `w-full text-left px-3 py-2.5 rounded-xl text-xs transition-colors flex flex-col justify-between border ${
+                              isSelected
+                                ? "bg-sys-accent/15 text-sys-accent font-semibold border-sys-accent/50 shadow-xs"
+                                : isHighlighted
+                                ? "bg-sys-accent/10 text-sys-text-primary border-sys-accent/40"
+                                : "bg-sys-bg/60 text-sys-text-primary border-sys-border/70 hover:bg-sys-bg hover:border-sys-accent/30"
+                            }`
+                          : `w-full text-left px-3.5 py-2.5 rounded-xl text-sm transition-colors flex items-center justify-between border ${
+                              isSelected
+                                ? "bg-sys-accent/15 text-sys-accent font-semibold border-sys-accent/30"
+                                : isHighlighted
+                                ? "bg-sys-accent/10 text-sys-text-primary border-sys-accent/30"
+                                : "border-transparent text-sys-text-primary hover:bg-sys-bg"
+                            }`
+                      }
                     >
-                      <span>{opt.name}</span>
-                      {isSelected && <span className="text-xs">✓</span>}
+                      <div className="flex items-center justify-between gap-1.5 w-full">
+                        <span className="truncate font-bold text-sm">{opt.name}</span>
+                        {isSelected && <span className="text-xs shrink-0" aria-hidden="true">✓</span>}
+                      </div>
+                      {groupBadge && groupBadge !== opt.name && (
+                        <span className="mt-0.5 text-[10px] text-sys-text-muted truncate block">
+                          {groupBadge}
+                        </span>
+                      )}
                     </button>
                   );
                 })}
                 {filteredModalOptions.length === 0 && (
-                  <p className="text-center py-6 text-xs text-sys-text-muted">Нічого не знайдено</p>
+                  <p className="col-span-full text-center py-6 text-xs text-sys-text-muted" role="status">
+                    Нічого не знайдено
+                  </p>
                 )}
               </div>
             </motion.div>
@@ -1972,8 +2176,13 @@ export function SchedulePageClient({
                     isWeekend={isAutoSelectedWeekendDay}
                     isShowingTomorrow={isEveningAfterLessons && isCurrentWeek}
                     weekNumber={currentWeekNumber}
+                    currentGroupName={mode === "student" ? (currentName ?? null) : null}
                     currentTeacherId={mode === "teacher" ? teacherId : null}
                     currentTeacherName={mode === "teacher" ? (selectedTeacher?.name ?? null) : null}
+                    canPrevDay={canNavigatePrevDay}
+                    canNextDay={canNavigateNextDay}
+                    minDateIso={minDateIso}
+                    maxDateIso={maxDateIso}
                   />
                 ) : (
                   <ScheduleWeekGrid
@@ -2220,6 +2429,7 @@ export function SchedulePageClient({
                               hideHeaderOnMobile={false}
                               weekNumber={currentWeekNumber}
                               hideDayTitle={isFocusEffective}
+                              currentGroupName={mode === "student" ? (currentName ?? null) : null}
                               currentTeacherId={mode === "teacher" ? teacherId : null}
                               currentTeacherName={mode === "teacher" ? (selectedTeacher?.name ?? null) : null}
                             />
@@ -2486,17 +2696,7 @@ export function SchedulePageClient({
                           </div>
                         </div>
 
-                        {desktopSidebarTab === "grades" ? (
-                          <div className="mt-4">
-                            <GradesView
-                              tasks={allTasks}
-                              isLinked={isLinked}
-                              onSyncClassroom={() =>
-                                window.dispatchEvent(new CustomEvent("trigger-classroom-sync"))
-                              }
-                            />
-                          </div>
-                        ) : !hasGroupTaskAccess ? (
+                        {!hasGroupTaskAccess ? (
                           <div className="mt-4 rounded-2xl border border-sky-500/20 bg-sky-500/5 p-5 text-center">
                             <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-500/10 text-sky-700 dark:text-sky-400 border border-sky-500/20">
                               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -2505,10 +2705,10 @@ export function SchedulePageClient({
                               </svg>
                             </div>
                             <h3 className="text-sm font-semibold text-sys-text-primary mb-1">
-                              Завдання захищено
+                              {desktopSidebarTab === "grades" ? "Оцінки захищено" : "Завдання захищено"}
                             </h3>
                             <p className="text-xs text-sys-text-secondary leading-relaxed mb-4">
-                              Домашні завдання та матеріали доступні лише для студентів цієї групи. Підключіть студентський Google Classroom, щоб отримати доступ.
+                              Домашні завдання, оцінки та матеріали доступні лише для студентів цієї групи. Підключіть студентський Google Classroom, щоб отримати доступ.
                             </p>
                             <button
                               type="button"
@@ -2524,6 +2724,17 @@ export function SchedulePageClient({
                               </svg>
                               <span>Прив&apos;язати Google Classroom</span>
                             </button>
+                          </div>
+                        ) : desktopSidebarTab === "grades" ? (
+                          <div className="mt-4">
+                            <GradesView
+                              tasks={allTasks}
+                              isLinked={isLinked}
+                              groupId={groupId}
+                              onSyncClassroom={() =>
+                                window.dispatchEvent(new CustomEvent("trigger-classroom-sync"))
+                              }
+                            />
                           </div>
                         ) : (
                           <>
@@ -3001,11 +3212,12 @@ export function SchedulePageClient({
                 <div className="pt-2 border-t border-sys-border/40 space-y-2">
                   <button
                     type="button"
+                    disabled={!canNavigateNextWeek}
                     onClick={() => {
                       shiftWeekPreservingDay(1);
                       setWeekTypeSheetOpen(false);
                     }}
-                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-sys-tabActive border border-sys-border px-4 py-2.5 text-xs font-semibold text-sys-text-primary hover:border-sys-accent hover:text-sys-accent active:scale-[0.98] transition-colors duration-fast ease-smooth"
+                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-sys-tabActive border border-sys-border px-4 py-2.5 text-xs font-semibold text-sys-text-primary hover:border-sys-accent hover:text-sys-accent active:scale-[0.98] transition-colors duration-fast ease-smooth disabled:opacity-40 disabled:pointer-events-none"
                   >
                     <span>Перейти на {weekType === "numerator" ? "знаменник (наступний тиждень)" : "чисельник (наступний тиждень)"}</span>
                     <span>→</span>
@@ -3044,6 +3256,8 @@ export function SchedulePageClient({
         selectedDateIso={activeDayDate}
         todayDateIso={todayActualIso}
         semesterStartIso={semesterStart}
+        minDateIso={minDateIso}
+        maxDateIso={maxDateIso}
         onSelectDate={handleDatePickerSelect}
       />
 

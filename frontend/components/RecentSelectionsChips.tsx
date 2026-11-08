@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import type { ReferenceRecord } from "../lib/api";
+import { removeRecentGroupSelection, removeRecentTeacherSelection } from "../lib/useRecentSelections";
 
 export interface RecentSelectionsChipsProps {
   mode: "student" | "teacher";
@@ -9,6 +10,7 @@ export interface RecentSelectionsChipsProps {
   recentIds: number[];
   options: ReferenceRecord[];
   onSelect: (id: number) => void;
+  onRemove?: (id: number) => void;
   className?: string;
 }
 
@@ -18,6 +20,7 @@ export function RecentSelectionsChips({
   recentIds,
   options,
   onSelect,
+  onRemove,
   className = "",
 }: RecentSelectionsChipsProps) {
   const recentItems = useMemo(() => {
@@ -25,6 +28,16 @@ export function RecentSelectionsChips({
       .map((id) => options.find((opt) => opt.id === id))
       .filter((opt): opt is ReferenceRecord => Boolean(opt));
   }, [recentIds, options]);
+
+  const handleRemove = (id: number) => {
+    if (onRemove) {
+      onRemove(id);
+    } else if (mode === "student") {
+      removeRecentGroupSelection(id);
+    } else {
+      removeRecentTeacherSelection(id);
+    }
+  };
 
   // Якщо історія порожня - не рендеримо нічого (без порожніх рамок)
   if (recentItems.length === 0) return null;
@@ -55,24 +68,42 @@ export function RecentSelectionsChips({
         {recentItems.map((item) => {
           const isSelected = item.id === currentId;
           return (
-            <button
+            <div
               key={`recent-${mode}-${item.id}`}
-              type="button"
-              aria-pressed={isSelected}
-              onClick={() => onSelect(item.id)}
-              className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors duration-fast border flex items-center gap-1.5 active:scale-95 ${
+              className={`rounded-xl text-xs font-semibold transition-colors duration-fast border inline-flex items-center ${
                 isSelected
                   ? "bg-sys-accent/15 border-sys-accent/50 text-sys-accent shadow-xs"
-                  : "bg-sys-bg border-sys-border text-sys-text-primary hover:border-sys-accent/40 hover:text-sys-accent hover:bg-sys-card"
+                  : "bg-sys-bg border-sys-border text-sys-text-primary hover:border-sys-accent/40 hover:bg-sys-card"
               }`}
             >
-              <span>{item.name}</span>
-              {isSelected && (
-                <span className="text-[10px] text-sys-accent font-bold" aria-hidden="true">
-                  ✓
-                </span>
+              <button
+                type="button"
+                aria-pressed={isSelected}
+                onClick={() => onSelect(item.id)}
+                className="pl-3 pr-1.5 py-1.5 inline-flex items-center gap-1.5 hover:text-sys-accent active:scale-95 transition-transform"
+              >
+                <span>{item.name}</span>
+                {isSelected && (
+                  <span className="text-[10px] text-sys-accent font-bold" aria-hidden="true">
+                    ✓
+                  </span>
+                )}
+              </button>
+              {!isSelected && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleRemove(item.id);
+                  }}
+                  aria-label={`Видалити ${item.name} з нещодавніх`}
+                  title="Прибрати з нещодавніх"
+                  className="pr-2 pl-1 py-1.5 text-sys-text-muted hover:text-sys-danger transition-colors"
+                >
+                  ×
+                </button>
               )}
-            </button>
+            </div>
           );
         })}
       </div>

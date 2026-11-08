@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from "react";
 import { usePathname } from "next/navigation";
 
-export type MobileTab = "schedule" | "tasks" | "settings";
+export type MobileTab = "schedule" | "tasks" | "settings" | null;
 
 interface MobileNavContextValue {
   activeTab: MobileTab;
@@ -26,6 +26,10 @@ export function MobileNavProvider({ children }: { children: React.ReactNode }) {
   const [hideTasksTab, setHideTasksTab] = useState<boolean>(false);
   const [scheduleMode, setScheduleMode] = useState<"student" | "teacher">("student");
 
+  const isHomeRoute =
+    pathname === "/" ||
+    Boolean(pathname?.startsWith("/group/") || pathname?.startsWith("/teacher/"));
+
   // Read initial homeTab and mode from URL/localStorage
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -41,11 +45,9 @@ export function MobileNavProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // When pathname is "/", sync homeTab with the current URL query params (?tab=tasks vs none):
-  // If navigating from other routes (e.g. /settings, /statistics) or clicking links to "/",
-  // respect whether ?tab=tasks is present in the URL. If absent, default to "schedule".
+  // When on home route ("/", "/group/*", "/teacher/*"), sync homeTab with current URL query params (?tab=tasks vs none):
   useEffect(() => {
-    if (pathname === "/" && typeof window !== "undefined") {
+    if (isHomeRoute && typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       const tab = params.get("tab");
       if (tab === "tasks") {
@@ -54,12 +56,12 @@ export function MobileNavProvider({ children }: { children: React.ReactNode }) {
         setHomeTabState("schedule");
       }
     }
-  }, [pathname]);
+  }, [pathname, isHomeRoute]);
 
   // Handle browser back/forward history navigation (popstate)
   useEffect(() => {
     const handlePopState = () => {
-      if (pathname === "/" && typeof window !== "undefined") {
+      if (isHomeRoute && typeof window !== "undefined") {
         const params = new URLSearchParams(window.location.search);
         const tab = params.get("tab");
         if (tab === "tasks") {
@@ -71,7 +73,7 @@ export function MobileNavProvider({ children }: { children: React.ReactNode }) {
     };
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
-  }, [pathname]);
+  }, [isHomeRoute]);
 
   const setHomeTab = useCallback((tab: "schedule" | "tasks") => {
     setHomeTabState(tab);
@@ -86,13 +88,16 @@ export function MobileNavProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Compute activeTab: if on /settings, active tab is "settings", else homeTab
+  // Compute activeTab: "settings" on /settings, homeTab on home routes, null on secondary pages (/bells, /statistics, /educational-process)
   const activeTab: MobileTab = useMemo(() => {
     if (pathname?.startsWith("/settings")) {
       return "settings";
     }
-    return homeTab;
-  }, [pathname, homeTab]);
+    if (isHomeRoute) {
+      return homeTab;
+    }
+    return null;
+  }, [pathname, isHomeRoute, homeTab]);
 
   const value = useMemo(
     () => ({

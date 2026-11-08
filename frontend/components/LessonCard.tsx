@@ -14,6 +14,7 @@ import { useUserSettings } from "../lib/useUserSettings";
 import { QuickJumpTarget, parseLessonTeachers, parseLessonGroups } from "../lib/quickJump";
 import { DEFAULT_LESSON_TIMES } from "../lib/constants/lessons";
 import { useViewportTier } from "../lib/useViewportTier";
+import { getSyncedNow } from "../lib/date";
 
 export type { QuickJumpTarget, MeetingInfo };
 export { extractOnlineMeetings };
@@ -125,7 +126,7 @@ const KYIV_TIME_FMT = new Intl.DateTimeFormat("en-GB", {
 });
 
 export function getKyivNow() {
-  const now = new Date();
+  const now = getSyncedNow();
   return {
     dateIso: KYIV_DATE_FMT.format(now),
     minutes: parseMinutes(KYIV_TIME_FMT.format(now)) ?? 0,
@@ -260,7 +261,7 @@ export function parseTaskDeadline(labelOrText: string): TaskDeadline {
   const day = parseInt(match[1], 10);
   const month = parseInt(match[2], 10);
 
-  const now = new Date();
+  const now = getSyncedNow();
   const kyivNowStr = KYIV_DATE_FMT.format(now);
   const [nowYear, nowMonth, nowDay] = kyivNowStr.split("-").map(Number);
 
@@ -268,8 +269,8 @@ export function parseTaskDeadline(labelOrText: string): TaskDeadline {
   if (month - nowMonth > 6) year -= 1;
   else if (nowMonth - month > 6) year += 1;
 
-  const targetDate = new Date(year, month - 1, day);
-  const todayDate = new Date(nowYear, nowMonth - 1, nowDay);
+  const targetDate = new Date(year, month - 1, day, 12, 0, 0);
+  const todayDate = new Date(nowYear, nowMonth - 1, nowDay, 12, 0, 0);
 
   const diffMs = targetDate.getTime() - todayDate.getTime();
   const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));

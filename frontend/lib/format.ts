@@ -1,5 +1,7 @@
 import type { Lesson, ScheduleResponse } from "./api";
-import { KYIV_DATE_FMT } from "./date";
+import { KYIV_DATE_FMT, getMondayOf } from "./date";
+
+export { getMondayOf };
 
 export function formatTeacherName(value: string): string {
   const name = value.trim();
@@ -402,20 +404,12 @@ const NUM_EMOJI: Record<number, string> = {
   8: "8️⃣",
 };
 
-export function getMondayOf(date: Date): Date {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  d.setDate(diff);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
 export function calculateWeekNumber(anchorDate: Date, semesterStart?: string | null): number | null {
   if (!semesterStart) return null;
-  const start = new Date(semesterStart);
-  const diffTime = anchorDate.getTime() - getMondayOf(start).getTime();
-  const diffWeeks = Math.floor(diffTime / (7 * 24 * 60 * 60 * 1000)) + 1;
+  const [sy, sm, sd] = semesterStart.split("-").map(Number);
+  const start = sy && sm && sd ? new Date(sy, sm - 1, sd, 12, 0, 0) : new Date(semesterStart);
+  const diffTime = getMondayOf(anchorDate).getTime() - getMondayOf(start).getTime();
+  const diffWeeks = Math.round(diffTime / (7 * 24 * 60 * 60 * 1000)) + 1;
   return diffWeeks > 0 ? diffWeeks : null;
 }
 
@@ -563,12 +557,19 @@ export function normalizeSubjectName(rawName?: string | null): string {
   if (!rawName) return "";
   let name = rawName.trim();
   // Видаляємо групу в дужках або квадратних дужках: (85 ДФКР), [85-ДФКР], (85), (гр. 85), (група 85)
-  name = name.replace(/\s*[\(\[]\s*(?:гр(?:упа|\.)?\s*)?\d{1,3}[\s\-_–—]?(?:[А-Яа-яA-Za-z]+)?\s*[\)\]]/gi, "");
-  // Видаляємо окремі назви груп у хвості: 85 ДФКР, 85-ДФКР, 85ДФКР
-  name = name.replace(/\s*\b\d{1,3}[\s\-_–—]?(?:[А-Яа-яA-Za-z]+)\b/g, "");
-  name = name.replace(/\s*\b(?:гр(?:упа|\.)?)\s*\d+.*$/gi, "");
+  name = name.replace(
+    /\s*[\(\[]\s*(?:гр(?:упа|\.)?\s*)?\d{1,3}(?:[\s\-_–—]?(?:ДФКР|КРЕ|ДКРЕ|[А-ЯІЇЄҐA-Z]{1,4}(?:[\s\-_–—]?\d{1,2})?))?\s*[\)\]]/gi,
+    ""
+  );
+  // Видаляємо окремі назви груп із відомими абревіатурами коледжу: 85 ДФКР, 85-ДФКР, 85ДФКР
+  name = name.replace(/\s*\b\d{1,3}[\s\-_–—]?(?:ДФКР|КРЕ|ДКРЕ)\b/gi, "");
+  // Видаляємо згадки групи у хвості: гр. 85, група 85, - 85 курс
+  name = name.replace(/\s*(?:[-–—:]\s*)?\b(?:гр(?:упа|\.)?\s*\d+.*|\d{2,3}\s*(?:гр(?:упа|\.)?|курс))$/gi, "");
   // Видаляємо прізвища викладачів або підгрупи у дужках: (Хочинська Н. О.), (Токарь), (підгрупа 1)
-  name = name.replace(/\s*[\(\[]\s*(?:(?:1|2)[\s\-_–—]?(?:ша|га|а)?\s*(?:підгр(?:упа|\.)?)|(?:викл(?:адач|\.)?\s*)?[А-ЯІЇЄҐA-Z][а-яіїєґa-z]+(?:\s+[А-ЯІЇЄҐA-Z]\.?\s*[А-ЯІЇЄҐA-Z]\.?)?)\s*[\)\]]/gi, "");
+  name = name.replace(
+    /\s*[\(\[]\s*(?:(?:1|2)[\s\-_–—]?(?:ша|га|а)?\s*(?:підгр(?:упа|\.)?)|(?:викл(?:адач|\.)?\s*)?[А-ЯІЇЄҐA-Z][а-яіїєґa-z]+(?:\s+[А-ЯІЇЄҐA-Z]\.?\s*[А-ЯІЇЄҐA-Z]\.?)?)\s*[\)\]]/gi,
+    ""
+  );
   // Прибираємо кінцеві дефіси, коми, двокрапки
   name = name.replace(/[\s\-_–—:,.]+$/, "").trim();
   return name || rawName.trim();

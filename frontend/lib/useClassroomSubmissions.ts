@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useSyncExternalStore } from "react";
 import { api } from "./api";
+import { clearScheduleLocalStorageCache, invalidateScheduleCache } from "./hooks";
 
 export interface PersonalSubmission {
   state: string;
@@ -180,6 +181,8 @@ export function unlinkClassroomEmail(): void {
     try {
       localStorage.removeItem("schedule_selected_subgroup");
     } catch {}
+    clearScheduleLocalStorageCache();
+    invalidateScheduleCache(true);
     window.dispatchEvent(new Event(EVENT_NAME));
     window.dispatchEvent(new Event("classroom-access-changed"));
     window.dispatchEvent(new Event("storage"));

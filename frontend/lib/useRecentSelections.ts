@@ -3,7 +3,7 @@
 import { useCallback, useSyncExternalStore } from "react";
 import { getLinkedGroupId } from "./useClassroomSubmissions";
 
-export const MAX_RECENT_SELECTIONS = 3;
+export const MAX_RECENT_SELECTIONS = 5;
 export const RECENT_GROUPS_STORAGE_KEY = "schedule:recent_group_ids";
 export const RECENT_TEACHERS_STORAGE_KEY = "schedule:recent_teacher_ids";
 export const RECENT_SELECTIONS_CHANGE_EVENT = "schedule:recent_selections_changed";
@@ -182,6 +182,26 @@ export function recordRecentTeacherSelection(id: number | null | undefined) {
   notifySubscribers();
 }
 
+export function removeRecentGroupSelection(id: number | null | undefined) {
+  if (typeof window === "undefined" || !id || Number.isNaN(id) || id <= 0) return;
+  const current = parseStoredIds(RECENT_GROUPS_STORAGE_KEY);
+  const next = current.filter((item) => item !== id);
+  try {
+    localStorage.setItem(RECENT_GROUPS_STORAGE_KEY, JSON.stringify(next));
+  } catch {}
+  notifySubscribers();
+}
+
+export function removeRecentTeacherSelection(id: number | null | undefined) {
+  if (typeof window === "undefined" || !id || Number.isNaN(id) || id <= 0) return;
+  const current = parseStoredIds(RECENT_TEACHERS_STORAGE_KEY);
+  const next = current.filter((item) => item !== id);
+  try {
+    localStorage.setItem(RECENT_TEACHERS_STORAGE_KEY, JSON.stringify(next));
+  } catch {}
+  notifySubscribers();
+}
+
 export function useRecentSelections() {
   const store = useSyncExternalStore(
     subscribe,
@@ -197,10 +217,20 @@ export function useRecentSelections() {
     recordRecentTeacherSelection(id);
   }, []);
 
+  const removeGroup = useCallback((id: number | null | undefined) => {
+    removeRecentGroupSelection(id);
+  }, []);
+
+  const removeTeacher = useCallback((id: number | null | undefined) => {
+    removeRecentTeacherSelection(id);
+  }, []);
+
   return {
     recentGroupIds: store.groupIds,
     recentTeacherIds: store.teacherIds,
     recordRecentGroup: recordGroup,
     recordRecentTeacher: recordTeacher,
+    removeRecentGroup: removeGroup,
+    removeRecentTeacher: removeTeacher,
   };
 }

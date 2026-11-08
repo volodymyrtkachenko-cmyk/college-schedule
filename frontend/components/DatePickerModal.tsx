@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { getMondayOf, KYIV_DATE_FMT } from "../lib/date";
+import { getMondayOf, getSyncedNow, KYIV_DATE_FMT } from "../lib/date";
 
 interface DatePickerModalProps {
   isOpen: boolean;
@@ -10,6 +10,8 @@ interface DatePickerModalProps {
   selectedDateIso: string; // YYYY-MM-DD
   todayDateIso: string;    // YYYY-MM-DD
   semesterStartIso?: string | null;
+  minDateIso?: string | null;
+  maxDateIso?: string | null;
   onSelectDate: (targetDate: Date) => void;
 }
 
@@ -32,15 +34,20 @@ export function DatePickerModal({
   selectedDateIso,
   todayDateIso,
   semesterStartIso,
+  minDateIso,
+  maxDateIso,
   onSelectDate,
 }: DatePickerModalProps) {
+  const effectiveMinIso = minDateIso ?? semesterStartIso ?? null;
+  const effectiveMaxIso = maxDateIso ?? null;
+
   // Parsing initial view month/year from selectedDateIso or today
   const initialDate = useMemo(() => {
     if (selectedDateIso) {
       const [y, m, d] = selectedDateIso.split("-").map(Number);
       if (y && m && d) return new Date(y, m - 1, d);
     }
-    return new Date();
+    return getSyncedNow();
   }, [selectedDateIso]);
 
   const [viewYear, setViewYear] = useState<number>(initialDate.getFullYear());
@@ -66,7 +73,20 @@ export function DatePickerModal({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onClose]);
 
+  const canGoPrevMonth = useMemo(() => {
+    if (!effectiveMinIso) return true;
+    const prevMonthEndIso = KYIV_DATE_FMT.format(new Date(viewYear, viewMonth, 0));
+    return prevMonthEndIso >= effectiveMinIso;
+  }, [viewYear, viewMonth, effectiveMinIso]);
+
+  const canGoNextMonth = useMemo(() => {
+    if (!effectiveMaxIso) return true;
+    const nextMonthStartIso = KYIV_DATE_FMT.format(new Date(viewYear, viewMonth + 1, 1));
+    return nextMonthStartIso <= effectiveMaxIso;
+  }, [viewYear, viewMonth, effectiveMaxIso]);
+
   const goToPrevMonth = useCallback(() => {
+    if (!canGoPrevMonth) return;
     setViewMonth((prev) => {
       if (prev === 0) {
         setViewYear((y) => y - 1);
@@ -74,9 +94,10 @@ export function DatePickerModal({
       }
       return prev - 1;
     });
-  }, []);
+  }, [canGoPrevMonth]);
 
   const goToNextMonth = useCallback(() => {
+    if (!canGoNextMonth) return;
     setViewMonth((prev) => {
       if (prev === 11) {
         setViewYear((y) => y + 1);
@@ -84,7 +105,7 @@ export function DatePickerModal({
       }
       return prev + 1;
     });
-  }, []);
+  }, [canGoNextMonth]);
 
   // Compute calendar days grid
   const calendarGrid = useMemo(() => {
@@ -148,11 +169,11 @@ export function DatePickerModal({
     (targetDate: Date) => {
       if (!semesterStartIso) return null;
       const [sy, sm, sd] = semesterStartIso.split("-").map(Number);
-      const start = new Date(sy, sm - 1, sd);
+      const start = new Date(sy, sm - 1, sd, 12, 0, 0);
       const mondayTarget = getMondayOf(targetDate);
       const mondayStart = getMondayOf(start);
       const diffTime = mondayTarget.getTime() - mondayStart.getTime();
-      const diffWeeks = Math.floor(diffTime / (7 * 24 * 60 * 60 * 1000)) + 1;
+      const diffWeeks = Math.round(diffTime / (7 * 24 * 60 * 60 * 1000)) + 1;
       if (diffWeeks <= 0) return null;
       return {
         weekNum: diffWeeks,
@@ -162,7 +183,8 @@ export function DatePickerModal({
     [semesterStartIso]
   );
 
-  const handleSelect = (dObj: Date) => {
+  const handleSelect = (dObj: Date, dIso: string) => {
+    if ((effectiveMinIso && dIso < effectiveMinIso) || (effectiveMaxIso && dIso > effectiveMaxIso)) return;
     vibrateTap(10);
     onSelectDate(dObj);
     onClose();
@@ -170,7 +192,7 @@ export function DatePickerModal({
 
   const handleJumpToToday = () => {
     vibrateTap(10);
-    const today = new Date();
+    const today = getSyncedNow();
     onSelectDate(today);
     onClose();
   };
@@ -214,9 +236,10 @@ export function DatePickerModal({
             <button
               type="button"
               onClick={goToPrevMonth}
+              disabled={!canGoPrevMonth}
               aria-label="Попередній місяць"
               title="Попередній місяць"
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-sys-border/60 bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/40 active:scale-95 transition-colors"
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-sys-border/60 bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/40 active:scale-95 transition-colors disabled:opacity-30 disabled:pointer-events-none"
             >
               <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="m15 18-6-6 6-6" />
@@ -225,9 +248,10 @@ export function DatePickerModal({
             <button
               type="button"
               onClick={goToNextMonth}
+              disabled={!canGoNextMonth}
               aria-label="Наступний місяць"
               title="Наступний місяць"
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-sys-border/60 bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/40 active:scale-95 transition-colors"
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-sys-border/60 bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/40 active:scale-95 transition-colors disabled:opacity-30 disabled:pointer-events-none"
             >
               <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="m9 18 6-6-6-6" />
@@ -268,13 +292,18 @@ export function DatePickerModal({
             const isToday = item.dateIso === todayDateIso;
             const dayOfWeek = (item.dateObj.getDay() + 6) % 7; // 0: Mon ... 6: Sun
             const isWeekend = dayOfWeek >= 5;
+            const isOutOfBounds = Boolean(
+              (effectiveMinIso && item.dateIso < effectiveMinIso) ||
+              (effectiveMaxIso && item.dateIso > effectiveMaxIso)
+            );
 
             return (
               <button
                 key={`${item.dateIso}-${idx}`}
                 type="button"
-                onClick={() => handleSelect(item.dateObj)}
-                className={`relative flex h-10 w-full items-center justify-center rounded-xl text-xs sm:text-[13px] transition-[color,background-color,transform] duration-fast ease-smooth focus:outline-none focus:ring-2 focus:ring-sys-accent active:scale-95 ${
+                disabled={isOutOfBounds}
+                onClick={() => handleSelect(item.dateObj, item.dateIso)}
+                className={`relative flex h-10 w-full items-center justify-center rounded-xl text-xs sm:text-[13px] transition-[color,background-color,transform] duration-fast ease-smooth focus:outline-none focus:ring-2 focus:ring-sys-accent active:scale-95 disabled:opacity-25 disabled:pointer-events-none disabled:cursor-not-allowed ${
                   isSelected
                     ? "bg-sys-accent text-white font-black shadow-sm"
                     : isToday

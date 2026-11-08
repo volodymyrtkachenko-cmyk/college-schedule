@@ -126,11 +126,13 @@ export function LessonNoteModal({
     }
   }
 
+  const hasUnsavedChanges = draft.trim() !== note.trim();
+
   return (
     <div
       className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-xs p-0 sm:p-4"
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget && !hasUnsavedChanges && !busy) onClose();
       }}
     >
       <div
@@ -204,6 +206,12 @@ export function LessonNoteModal({
                 rows={4}
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && !busy && draft.trim()) {
+                    e.preventDefault();
+                    void saveNote(false);
+                  }
+                }}
                 placeholder="Введіть важливу інформацію щодо пари…"
                 disabled={busy}
                 className="form-control w-full p-3 text-sm text-sys-text-primary"

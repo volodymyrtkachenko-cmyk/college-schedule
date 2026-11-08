@@ -1,4 +1,10 @@
 import { formatTeacherName } from "./format";
+import {
+  getFacultyAbbreviation,
+  getGroupCourse,
+  getGroupFullCode,
+  getGroupSpecialtyName,
+} from "./groupInfo";
 
 export interface QuickJumpTarget {
   mode: "student" | "teacher";
@@ -156,4 +162,152 @@ export function parseLessonGroups(lesson: {
       },
     };
   });
+}
+
+const EN_TO_UK_MAP: Record<string, string> = {
+  q: "й", w: "ц", e: "у", r: "к", t: "е", y: "н", u: "г", i: "ш", o: "щ", p: "з", "[": "х", "]": "ї",
+  a: "ф", s: "і", d: "в", f: "а", g: "п", h: "р", j: "о", k: "л", l: "д", ";": "ж", "'": "є",
+  z: "я", x: "ч", c: "с", v: "м", b: "и", n: "т", m: "ь", ",": "б", ".": "ю", "`": "ґ",
+};
+
+const UK_TO_EN_MAP: Record<string, string> = Object.fromEntries(
+  Object.entries(EN_TO_UK_MAP).map(([en, uk]) => [uk, en])
+);
+
+export function convertEnToUkLayout(input: string): string {
+  return Array.from(input.toLowerCase())
+    .map((ch) => EN_TO_UK_MAP[ch] ?? ch)
+    .join("");
+}
+
+export function convertUkToEnLayout(input: string): string {
+  return Array.from(input.toLowerCase())
+    .map((ch) => UK_TO_EN_MAP[ch] ?? ch)
+    .join("");
+}
+
+function normalizeCompact(value: string): string {
+  return value.toLowerCase().replace(/[\s\-/.(),'"«»`’]+/g, "");
+}
+
+export function getGroupSearchBadge(group: { name: string; faculty_id?: number | null }): string {
+  const fullCode = getGroupFullCode(group);
+  const course = getGroupCourse(group.name);
+  if (course) {
+    return `${fullCode} · ${course} курс`;
+  }
+  return fullCode;
+}
+
+export function filterAndRankEntities<
+  T extends {
+    id: number;
+    name: string;
+    short_name?: string | null;
+    full_name?: string | null;
+    faculty_id?: number | null;
+    room?: string | null;
+    course?: number | null;
+  }
+>(items: T[], query: string, mode: "student" | "teacher" | "groups" | "teachers" = "student"): T[] {
+  const rawTrimmed = query.trim();
+  if (!rawTrimmed) return items;
+
+  const isGroupMode = mode === "student" || mode === "groups";
+  const qLower = rawTrimmed.toLowerCase();
+  const qUk = convertEnToUkLayout(qLower);
+  const qEn = convertUkToEnLayout(qLower);
+  const qTranslit = qLower
+    .replace(/ki/g, "кі")
+    .replace(/kb/g, "кб")
+    .replace(/rt/g, "рт")
+    .replace(/et/g, "ет")
+    .replace(/ms/g, "мс");
+
+  const queryVariants = Array.from(new Set([qLower, qUk, qEn, qTranslit])).filter(Boolean);
+  const compactVariants = Array.from(new Set(queryVariants.map(normalizeCompact))).filter(Boolean);
+
+  const scored: Array<{ item: T; score: number; index: number }> = [];
+
+  items.forEach((item, index) => {
+    const primaryName = (item.name || "").trim().toLowerCase();
+    const primaryCompact = normalizeCompact(primaryName);
+    const shortName = (item.short_name || "").trim().toLowerCase();
+
+    let bestScore = 0;
+
+    if (isGroupMode) {
+      const cleanGroup = primaryName.replace(/^(групи|група|гр\.)\s*/i, "").trim();
+      const fullCode = getGroupFullCode(item).toLowerCase();
+      const fullCodeCompact = normalizeCompact(fullCode);
+      const specialty = getGroupSpecialtyName(item.faculty_id).toLowerCase();
+      const abbr = getFacultyAbbreviation(item.faculty_id).toLowerCase();
+      const course = item.course ?? getGroupCourse(item.name);
+      const courseStr = course ? `${course} курс` : "";
+      const courseCompact = course ? `${course}курс` : "";
+
+      for (const qv of queryVariants) {
+        if (cleanGroup === qv || primaryName === qv || fullCode === qv || shortName === qv) {
+          bestScore = Math.max(bestScore, 100);
+        } else if (cleanGroup.startsWith(qv) || primaryName.startsWith(qv) || fullCode.startsWith(qv)) {
+          bestScore = Math.max(bestScore, 85);
+        } else if (cleanGroup.includes(qv) || primaryName.includes(qv) || fullCode.includes(qv)) {
+          bestScore = Math.max(bestScore, 65);
+        } else if (abbr === qv || courseStr === qv) {
+          bestScore = Math.max(bestScore, 55);
+        } else if (specialty.includes(qv) || (courseStr && courseStr.includes(qv))) {
+          bestScore = Math.max(bestScore, 35);
+        }
+      }
+
+      for (const cv of compactVariants) {
+        if (!cv) continue;
+        if (primaryCompact === cv || fullCodeCompact === cv) {
+          bestScore = Math.max(bestScore, 95);
+        } else if (primaryCompact.startsWith(cv) || fullCodeCompact.startsWith(cv)) {
+          bestScore = Math.max(bestScore, 80);
+        } else if (primaryCompact.includes(cv) || fullCodeCompact.includes(cv)) {
+          bestScore = Math.max(bestScore, 60);
+        } else if (courseCompact && courseCompact === cv) {
+          bestScore = Math.max(bestScore, 50);
+        }
+      }
+    } else {
+      const formatted = formatTeacherName(item.name).toLowerCase();
+      const room = (item.room || "").trim().toLowerCase();
+      const words = primaryName.split(/[\s.]+/).filter(Boolean);
+
+      for (const qv of queryVariants) {
+        if (primaryName === qv || formatted === qv || shortName === qv) {
+          bestScore = Math.max(bestScore, 100);
+        } else if (primaryName.startsWith(qv) || formatted.startsWith(qv)) {
+          bestScore = Math.max(bestScore, 85);
+        } else if (words.some((w) => w.startsWith(qv))) {
+          bestScore = Math.max(bestScore, 75);
+        } else if (primaryName.includes(qv) || formatted.includes(qv)) {
+          bestScore = Math.max(bestScore, 55);
+        } else if (room && room.includes(qv)) {
+          bestScore = Math.max(bestScore, 30);
+        }
+      }
+
+      for (const cv of compactVariants) {
+        if (!cv) continue;
+        if (primaryCompact === cv) {
+          bestScore = Math.max(bestScore, 95);
+        } else if (primaryCompact.startsWith(cv)) {
+          bestScore = Math.max(bestScore, 80);
+        } else if (primaryCompact.includes(cv)) {
+          bestScore = Math.max(bestScore, 50);
+        }
+      }
+    }
+
+    if (bestScore > 0) {
+      scored.push({ item, score: bestScore, index });
+    }
+  });
+
+  scored.sort((a, b) => b.score - a.score || a.index - b.index);
+  return scored.map((entry) => entry.item);
 }

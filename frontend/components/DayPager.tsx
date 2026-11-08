@@ -48,8 +48,13 @@ export function DayPager({
   tomorrowDate,
   onJumpToTomorrow,
   weekNumber,
+  currentGroupName,
   currentTeacherId,
   currentTeacherName,
+  canPrevDay = true,
+  canNextDay = true,
+  minDateIso,
+  maxDateIso,
 }: {
   schedule: ScheduleResponse;
   todayDate?: string;
@@ -72,8 +77,13 @@ export function DayPager({
   isWeekend?: boolean;
   isShowingTomorrow?: boolean;
   weekNumber?: number | null;
+  currentGroupName?: string | null;
   currentTeacherId?: number | null;
   currentTeacherName?: string | null;
+  canPrevDay?: boolean;
+  canNextDay?: boolean;
+  minDateIso?: string | null;
+  maxDateIso?: string | null;
 }) {
   const { showToast } = useToast();
   const { resolvedTheme } = useTheme();
@@ -83,6 +93,16 @@ export function DayPager({
   useEffect(() => {
     return subscribeKyivNow(setKyivNow);
   }, []);
+
+  const firstLesson = schedule.lessons[0];
+  const ownerLabel =
+    scheduleMode === "teacher"
+      ? currentTeacherName || firstLesson?.teacher_name || "Розклад викладача"
+      : currentGroupName
+        ? `Група ${currentGroupName}`
+        : firstLesson?.group_name
+          ? `Група ${firstLesson.group_name}`
+          : "Розклад занять";
 
   const handleShareDay = async () => {
     const text = buildTelegramShareText(schedule, scheduleMode, weekNumber);
@@ -106,14 +126,6 @@ export function DayPager({
     if (sharingImage) return;
     setSharingImage(true);
     try {
-      const firstLesson = schedule.lessons[0];
-      const ownerLabel =
-        scheduleMode === "teacher"
-          ? firstLesson?.teacher_name || "Розклад викладача"
-          : firstLesson?.group_name
-            ? `Група ${firstLesson.group_name}`
-            : "Розклад занять";
-
       const { shareScheduleAsImage } = await import("../lib/shareImage");
       const result = await shareScheduleAsImage(schedule, scheduleMode, ownerLabel, weekNumber, resolvedTheme);
       if (result === "copied") {
@@ -189,9 +201,13 @@ export function DayPager({
         containerRef.current.style.transform = "";
       }
       if (diffX < 0) {
-        onNextDay?.();
+        if (canNextDay && (!maxDateIso || schedule.date < maxDateIso)) {
+          onNextDay?.();
+        }
       } else {
-        onPrevDay?.();
+        if (canPrevDay && (!minDateIso || schedule.date > minDateIso)) {
+          onPrevDay?.();
+        }
       }
     } else {
       if (containerRef.current) {

@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ReferenceRecord } from "../lib/api";
 import { StudentOnboardingModal } from "./StudentOnboardingModal";
 import { TeacherOnboardingModal } from "./TeacherOnboardingModal";
+import { filterAndRankEntities, getGroupSearchBadge } from "../lib/quickJump";
+import { getGroupCourse } from "../lib/groupInfo";
+import { useViewportTier } from "../lib/useViewportTier";
 
 interface WelcomeScreenProps {
   groups: ReferenceRecord[];
@@ -35,11 +38,44 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
       opacity: 0
     })
   };
+  const { isDesktop } = useViewportTier();
   const [mode, setMode] = useState<"student" | "teacher">(initialMode);
   const [search, setSearch] = useState("");
-  
-  const options = mode === "student" ? groups : teachers;
-  const filtered = options.filter(o => o.name.toLowerCase().includes(search.toLowerCase()));
+  const [courseFilter, setCourseFilter] = useState<number | null>(null);
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
+
+  const options = useMemo(() => {
+    if (mode !== "student") return teachers;
+    if (courseFilter === null) return groups;
+    return groups.filter((g) => (g.course ?? getGroupCourse(g.name)) === courseFilter);
+  }, [mode, groups, teachers, courseFilter]);
+
+  const filtered = useMemo(
+    () => filterAndRankEntities(options, search, mode),
+    [options, search, mode]
+  );
+
+  useEffect(() => {
+    setHighlightedIndex(0);
+  }, [search, mode, courseFilter]);
+
+  useEffect(() => {
+    if (step !== 2 || typeof document === "undefined") return;
+    const item = filtered[highlightedIndex];
+    if (!item) return;
+    const el = document.getElementById(`welcome-option-${mode}-${item.id}`);
+    el?.scrollIntoView?.({ block: "nearest" });
+  }, [highlightedIndex, step, filtered, mode]);
+
+  const handleSelectItem = (item: ReferenceRecord) => {
+    if (mode === "student") {
+      setSelectedStudentGroupId(item.id);
+      setShowStudentGuide(true);
+    } else {
+      setSelectedTeacherId(item.id);
+      setShowTeacherGuide(true);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-sys-bg p-4 sm:p-6 overflow-hidden">
@@ -104,45 +140,127 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
             exit="exit"
             className="w-full max-w-md flex flex-col h-[85dvh] relative z-10"
           >
-             <div className="mb-6">
-                <button onClick={() => { setDirection(-1); setStep(1); setSearch(""); }} className="mb-4 flex items-center gap-2 text-sm text-sys-text-secondary hover:text-sys-text-primary transition-colors">
+             <div className="mb-4">
+                <button onClick={() => { setDirection(-1); setStep(1); setSearch(""); setCourseFilter(null); }} className="mb-3 flex items-center gap-2 text-sm text-sys-text-secondary hover:text-sys-text-primary transition-colors">
                   <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
                   Назад
                 </button>
-                <h2 className="text-2xl font-bold text-sys-text-primary mb-2">Оберіть {mode === "student" ? "групу" : "викладача"}</h2>
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <h2 className="text-2xl font-bold text-sys-text-primary">Оберіть {mode === "student" ? "групу" : "викладача"}</h2>
+                  <div className="inline-flex rounded-lg border border-sys-border bg-sys-card p-0.5 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => { setMode("student"); setCourseFilter(null); }}
+                      className={`px-2.5 py-1 rounded-md font-semibold transition-colors ${mode === "student" ? "bg-sys-accent text-white" : "text-sys-text-secondary hover:text-sys-text-primary"}`}
+                    >
+                      Групи
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setMode("teacher"); setCourseFilter(null); }}
+                      className={`px-2.5 py-1 rounded-md font-semibold transition-colors ${mode === "teacher" ? "bg-sys-accent text-white" : "text-sys-text-secondary hover:text-sys-text-primary"}`}
+                    >
+                      Викладачі
+                    </button>
+                  </div>
+                </div>
              </div>
              
-             <search className="relative mb-4 shrink-0 block">
+             <search className="relative mb-3 shrink-0 block">
                <svg aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-sys-text-secondary pointer-events-none" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
                <input 
-                 autoFocus
+                 autoFocus={isDesktop}
                  type="search"
+                 autoCorrect="off"
+                 autoCapitalize="off"
+                 spellCheck={false}
                  aria-label={mode === "student" ? "Пошук групи" : "Пошук викладача"}
-                 placeholder={mode === "student" ? "Знайти групу" : "Знайти викладача"}
+                 placeholder={mode === "student" ? "Номер групи, шифр (КІ-24) або курс..." : "Прізвище або ініціали викладача..."}
                  value={search}
                  onChange={(e) => setSearch(e.target.value)}
-                 className="form-control w-full py-3 pl-10 pr-4"
+                 onKeyDown={(e) => {
+                   if (e.nativeEvent.isComposing) return;
+                   if (e.key === "ArrowDown") {
+                     e.preventDefault();
+                     setHighlightedIndex((i) => (filtered.length > 0 ? Math.min(i + 1, filtered.length - 1) : 0));
+                   } else if (e.key === "ArrowUp") {
+                     e.preventDefault();
+                     setHighlightedIndex((i) => Math.max(i - 1, 0));
+                   } else if (e.key === "Enter" && filtered.length > 0) {
+                     e.preventDefault();
+                     const target = filtered[highlightedIndex] ?? filtered[0];
+                     if (target) handleSelectItem(target);
+                   } else if (e.key === "Tab" && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+                     e.preventDefault();
+                     setMode((prev) => (prev === "student" ? "teacher" : "student"));
+                     setCourseFilter(null);
+                   }
+                 }}
+                 className="form-control w-full py-3 pl-10 pr-10"
                />
+               {search && (
+                 <button
+                   type="button"
+                   onClick={() => setSearch("")}
+                   aria-label="Очистити пошук"
+                   className="absolute right-1 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-lg text-sys-text-muted hover:text-sys-text-primary transition-colors"
+                 >
+                   ✕
+                 </button>
+               )}
              </search>
+
+             {mode === "student" && (
+               <div className="flex items-center gap-1.5 overflow-x-auto pb-2 mb-2 shrink-0 no-scrollbar" role="group" aria-label="Фільтр за курсом">
+                 {([null, 1, 2, 3, 4] as const).map((course) => {
+                   const active = courseFilter === course;
+                   return (
+                     <button
+                       key={course ?? "all"}
+                       type="button"
+                       aria-pressed={active}
+                       onClick={() => setCourseFilter(course)}
+                       className={`shrink-0 rounded-xl px-3 py-1.5 text-xs font-semibold border transition-colors ${
+                         active
+                           ? "bg-sys-accent text-white border-sys-accent shadow-xs"
+                           : "bg-sys-card/70 border-sys-border text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/40"
+                       }`}
+                     >
+                       {course === null ? "Всі" : `${course} курс`}
+                     </button>
+                   );
+                 })}
+               </div>
+             )}
              
-             <div className="flex-1 overflow-y-auto overscroll-contain min-h-0 pr-2 space-y-2 custom-scrollbar pb-6">
-                {filtered.map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => {
-                      if (mode === "student") {
-                        setSelectedStudentGroupId(item.id);
-                        setShowStudentGuide(true);
-                      } else {
-                        setSelectedTeacherId(item.id);
-                        setShowTeacherGuide(true);
-                      }
-                    }}
-                    className="w-full rounded-lg border border-transparent bg-sys-card/50 p-4 text-left font-medium text-sys-text-primary transition-[border-color,background-color,transform] duration-fast ease-smooth hover:border-sys-border hover:bg-sys-card active:scale-[0.98]"
-                  >
-                    {item.name}
-                  </button>
-                ))}
+             <div className="flex-1 overflow-y-auto overscroll-contain min-h-0 pr-2 space-y-2 custom-scrollbar pb-6" role="listbox">
+                {filtered.map((item, idx) => {
+                  const isHighlighted = idx === highlightedIndex;
+                  const badge = mode === "student" ? getGroupSearchBadge(item) : null;
+                  return (
+                    <button
+                      key={item.id}
+                      id={`welcome-option-${mode}-${item.id}`}
+                      type="button"
+                      role="option"
+                      aria-selected={isHighlighted}
+                      onMouseEnter={() => setHighlightedIndex(idx)}
+                      onClick={() => handleSelectItem(item)}
+                      className={`w-full rounded-xl border p-3.5 text-left font-medium text-sys-text-primary transition-[border-color,background-color,transform] duration-fast ease-smooth active:scale-[0.98] flex items-center justify-between gap-2 ${
+                        isHighlighted
+                          ? "border-sys-accent/60 bg-sys-accent/10 shadow-xs"
+                          : "border-transparent bg-sys-card/50 hover:border-sys-border hover:bg-sys-card"
+                      }`}
+                    >
+                      <span className="truncate font-semibold">{item.name}</span>
+                      {badge && badge !== item.name && (
+                        <span className="shrink-0 rounded-md bg-sys-bg/80 border border-sys-border/70 px-2 py-0.5 text-[11px] font-medium text-sys-text-secondary">
+                          {badge}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
                 {filtered.length === 0 && (
                   <div className="text-center py-8 text-sys-text-secondary">
                     {options.length === 0

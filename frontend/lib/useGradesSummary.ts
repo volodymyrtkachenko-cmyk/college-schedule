@@ -271,7 +271,7 @@ export function formatTaskGradeDisplay(
   };
 }
 
-function getScheduleTeacherForSubject(subjectName: string): string | null {
+function getScheduleTeacherForSubject(subjectName: string, groupId?: number | null): string | null {
   if (typeof window === "undefined") return null;
   try {
     const normSubj = normalizeSubjectName(subjectName).toLowerCase().trim();
@@ -284,11 +284,29 @@ function getScheduleTeacherForSubject(subjectName: string): string | null {
       if (pRaw) personalTeachers = JSON.parse(pRaw);
     } catch {}
 
-    // 2. Scan cached weekly schedules and today schedules in localStorage
+    // 2. Scan cached weekly schedules and today schedules in localStorage for the active group
+    const resolvedGroupId =
+      groupId ??
+      (() => {
+        try {
+          const saved = window.localStorage.getItem("schedule:groupId");
+          return saved ? Number(saved) || null : null;
+        } catch {
+          return null;
+        }
+      })();
+
+    const weekPrefix = resolvedGroupId
+      ? `schedule:week:groupId:${resolvedGroupId}:`
+      : "schedule:week:";
+    const todayPrefix = resolvedGroupId
+      ? `schedule:today:groupId:${resolvedGroupId}`
+      : "schedule:today:";
+
     const keys: string[] = [];
     for (let i = 0; i < window.localStorage.length; i++) {
       const k = window.localStorage.key(i);
-      if (k && (k.startsWith("schedule:week:") || k.startsWith("schedule:today:"))) {
+      if (k && (k.startsWith(weekPrefix) || k.startsWith(todayPrefix))) {
         keys.push(k);
       }
     }
@@ -345,7 +363,7 @@ function getScheduleTeacherForSubject(subjectName: string): string | null {
   return null;
 }
 
-export function useGradesSummary(tasks: FullTaskItem[]): GradesSummaryResult {
+export function useGradesSummary(tasks: FullTaskItem[], groupId?: number | null): GradesSummaryResult {
   return useMemo(() => {
     // 1. Gather teachers from ALL tasks (not just graded ones), including raw subject extraction
     const teacherMap = new Map<string, string>();
@@ -474,7 +492,7 @@ export function useGradesSummary(tasks: FullTaskItem[]): GradesSummaryResult {
       const validDirectTeacher = directTeacher && isValidTeacherName(directTeacher) ? directTeacher : null;
       const resolvedTeacher =
         validDirectTeacher ||
-        getScheduleTeacherForSubject(subjectName) ||
+        getScheduleTeacherForSubject(subjectName, groupId) ||
         null;
 
       subjects.push({
@@ -522,5 +540,5 @@ export function useGradesSummary(tasks: FullTaskItem[]): GradesSummaryResult {
       },
       subjects,
     };
-  }, [tasks]);
+  }, [tasks, groupId]);
 }

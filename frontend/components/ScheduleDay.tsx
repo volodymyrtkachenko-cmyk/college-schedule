@@ -35,6 +35,7 @@ export function ScheduleDay({
   hideHeaderOnMobile = false,
   weekNumber,
   hideDayTitle = false,
+  currentGroupName,
   currentTeacherId,
   currentTeacherName,
   compactPeriod = false,
@@ -54,6 +55,7 @@ export function ScheduleDay({
   hideHeaderOnMobile?: boolean;
   weekNumber?: number | null;
   hideDayTitle?: boolean;
+  currentGroupName?: string | null;
   currentTeacherId?: number | null;
   currentTeacherName?: string | null;
   compactPeriod?: boolean;
@@ -66,6 +68,16 @@ export function ScheduleDay({
     setKyivNow(getKyivNow());
     return subscribeKyivNow(setKyivNow);
   }, []);
+
+  const firstLesson = schedule.lessons[0];
+  const ownerLabel =
+    scheduleMode === "teacher"
+      ? currentTeacherName || firstLesson?.teacher_name || "Розклад викладача"
+      : currentGroupName
+        ? `Група ${currentGroupName}`
+        : firstLesson?.group_name
+          ? `Група ${firstLesson.group_name}`
+          : "Розклад занять";
 
   const handleShareDay = async () => {
     const text = buildTelegramShareText(schedule, scheduleMode, weekNumber);
@@ -93,14 +105,6 @@ export function ScheduleDay({
     if (sharingImage) return;
     setSharingImage(true);
     try {
-      const firstLesson = schedule.lessons[0];
-      const ownerLabel =
-        scheduleMode === "teacher"
-          ? firstLesson?.teacher_name || "Розклад викладача"
-          : firstLesson?.group_name
-            ? `Група ${firstLesson.group_name}`
-            : "Розклад занять";
-
       const { shareScheduleAsImage } = await import("../lib/shareImage");
       const result = await shareScheduleAsImage(schedule, scheduleMode, ownerLabel, weekNumber, resolvedTheme);
       if (result === "copied") {

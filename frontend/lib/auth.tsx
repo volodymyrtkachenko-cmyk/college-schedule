@@ -26,9 +26,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
       return;
     }
-    if (cachedUser) {
-      setUser(cachedUser);
-    }
     const generation = api.auth.generation();
     api.auth.ensureAuthenticated()
       .then((session) => {
@@ -39,9 +36,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .catch((e) => {
         if (mounted && generation === api.auth.generation() && !(e instanceof AuthSupersededError)) {
           const isExplicitUnauthorized = e instanceof ApiError && (e.status === 401 || e.status === 403);
-          if (isExplicitUnauthorized || !cachedUser) {
+          if (isExplicitUnauthorized || !api.auth.hasValidAccessToken() || !cachedUser) {
             setUser(null);
             api.auth.clear();
+          } else {
+            setUser(cachedUser);
           }
         }
       })

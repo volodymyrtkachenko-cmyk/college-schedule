@@ -3,16 +3,15 @@
 import { useEffect, useState } from "react";
 import { api, DirectoryItem, ScheduleResponse, invalidateEtagCache, invalidateGroupStatusCache } from "./api";
 import { useAuth } from "./auth";
+import { getSyncedNow } from "./date";
 
 
 const memoryCache = new Map<string, { time: number; today: ScheduleResponse; week: ScheduleResponse[] }>();
 const CACHE_TTL = 1000 * 60;
 
-export function invalidateScheduleCache() {
-  memoryCache.clear();
-  invalidateEtagCache();
-  invalidateGroupStatusCache();
-  if (typeof navigator === "undefined" || navigator.onLine) {
+export function clearScheduleLocalStorageCache() {
+  if (typeof window === "undefined") return;
+  try {
     for (let index = 0; index < window.localStorage.length; index++) {
       const key = window.localStorage.key(index);
       if (key?.startsWith("schedule:today:") || key?.startsWith("schedule:week:")) {
@@ -20,8 +19,19 @@ export function invalidateScheduleCache() {
         index--;
       }
     }
+  } catch {}
+}
+
+export function invalidateScheduleCache(forceClearStorage = false) {
+  memoryCache.clear();
+  invalidateEtagCache();
+  invalidateGroupStatusCache();
+  if (forceClearStorage || typeof navigator === "undefined" || navigator.onLine) {
+    clearScheduleLocalStorageCache();
   }
-  window.dispatchEvent(new Event("schedule:refresh"));
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("schedule:refresh"));
+  }
 }
 
 export function useOnlineStatus() {
@@ -51,19 +61,47 @@ export function useSchedule(
   const { user } = useAuth();
   const [isSetupComplete, setIsSetupComplete] = useState(() => {
     if (initialGroupId || initialTeacherId) return true;
+    if (typeof window !== "undefined") {
+      try {
+        return window.localStorage.getItem("schedule:setupComplete") === "1";
+      } catch {}
+    }
     return false;
   });
-  const [mode, setMode] = useState<"student" | "teacher">(initialMode ?? "student");
+  const [mode, setMode] = useState<"student" | "teacher">(() => {
+    if (initialMode) return initialMode;
+    if (typeof window !== "undefined") {
+      try {
+        const cachedMode = window.localStorage.getItem("schedule:mode") as "student" | "teacher" | null;
+        if (cachedMode === "student" || cachedMode === "teacher") return cachedMode;
+      } catch {}
+    }
+    return "student";
+  });
   const [groups, setGroups] = useState<import("./api").ReferenceRecord[]>(initialGroups);
   const [teachers, setTeachers] = useState<import("./api").ReferenceRecord[]>(
     initialTeachers.filter((t) => t.name && !t.name.includes("!"))
   );
-  const [groupId, setGroupId] = useState<number | null>(
-    initialGroupId ?? (initialGroups[0]?.id ?? null)
-  );
-  const [teacherId, setTeacherId] = useState<number | null>(
-    initialTeacherId ?? (initialTeachers[0]?.id ?? null)
-  );
+  const [groupId, setGroupId] = useState<number | null>(() => {
+    if (initialGroupId) return initialGroupId;
+    if (typeof window !== "undefined") {
+      try {
+        const cached = window.localStorage.getItem("schedule:groupId");
+        if (cached && Number.isFinite(Number(cached))) return Number(cached);
+      } catch {}
+    }
+    return initialGroups[0]?.id ?? null;
+  });
+  const [teacherId, setTeacherId] = useState<number | null>(() => {
+    if (initialTeacherId) return initialTeacherId;
+    if (typeof window !== "undefined") {
+      try {
+        const cached = window.localStorage.getItem("schedule:teacherId");
+        if (cached && Number.isFinite(Number(cached))) return Number(cached);
+      } catch {}
+    }
+    return initialTeachers[0]?.id ?? null;
+  });
   const [today, setToday] = useState<ScheduleResponse | null>(null);
   const [week, setWeek] = useState<ScheduleResponse[]>([]);
   const [semesterStart, setSemesterStart] = useState<string | null>(null);
@@ -73,6 +111,14 @@ export function useSchedule(
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (initialGroupId || initialTeacherId) {
+      try {
+        window.localStorage.setItem("schedule:setupComplete", "1");
+        if (initialGroupId) window.localStorage.setItem("schedule:groupId", String(initialGroupId));
+        if (initialTeacherId) window.localStorage.setItem("schedule:teacherId", String(initialTeacherId));
+        if (initialMode) window.localStorage.setItem("schedule:mode", initialMode);
+      } catch {}
+    }
     const cachedSetup = window.localStorage.getItem("schedule:setupComplete");
     if (cachedSetup === "1" || initialGroupId || initialTeacherId) setIsSetupComplete(true);
 
@@ -192,13 +238,13 @@ export function useSchedule(
       (window as any).__scheduleStorageCleaned = true;
       setTimeout(() => {
         try {
-          const cutoff = new Date();
+          const cutoff = getSyncedNow();
           cutoff.setDate(cutoff.getDate() - 14);
           const cutoffIso = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, "0")}-${String(cutoff.getDate()).padStart(2, "0")}`;
           for (let i = 0; i < window.localStorage.length; i++) {
             const k = window.localStorage.key(i);
             if (k && k.startsWith("schedule:week:")) {
-              const dateMatch = k.match(/:(\d{4}-\d{2}-\d{2})(?::all)?$/);
+              const dateMatch = k.match(/:(\d{4}-\d{2}-\d{2})(?::all)?(?::(?:auth|guest))?$/);
               if (dateMatch && dateMatch[1] < cutoffIso) {
                 window.localStorage.removeItem(k);
                 i--;
@@ -212,12 +258,6 @@ export function useSchedule(
     const formatDateKey = (d: Date) =>
       `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
-    const dateKey = formatDateKey(weekAnchorDate);
-    const targetKey = mode === "student" ? `groupId:${groupId}` : `teacherId:${teacherId}`;
-    const cancelSuffix = includeCancelled ? ":all" : "";
-    const todayKey = `schedule:today:${targetKey}${cancelSuffix}`;
-    const weekKey = `schedule:week:${targetKey}:${dateKey}${cancelSuffix}`;
-
     const getAuthSignature = () => {
       if (typeof window === "undefined") return "guest";
       try {
@@ -230,6 +270,25 @@ export function useSchedule(
         return "guest";
       }
     };
+
+    const hasElevatedAccess = () => {
+      if (typeof window === "undefined") return false;
+      try {
+        const pin = Boolean(window.localStorage.getItem("college_schedule_teacher_pin"));
+        const uid = Boolean(window.localStorage.getItem("schedule:classroom_google_user_id"));
+        const email = Boolean(window.localStorage.getItem("schedule:classroom_linked_email"));
+        return pin || uid || email;
+      } catch {
+        return false;
+      }
+    };
+
+    const dateKey = formatDateKey(weekAnchorDate);
+    const targetKey = mode === "student" ? `groupId:${groupId}` : `teacherId:${teacherId}`;
+    const cancelSuffix = includeCancelled ? ":all" : "";
+    const accessSuffix = hasElevatedAccess() ? ":auth" : ":guest";
+    const todayKey = `schedule:today:${targetKey}${cancelSuffix}${accessSuffix}`;
+    const weekKey = `schedule:week:${targetKey}:${dateKey}${cancelSuffix}${accessSuffix}`;
 
     const targetGroupId = mode === "student" ? (groupId as number) : undefined;
     const targetTeacherId = mode === "teacher" ? (teacherId as number) : undefined;
@@ -249,8 +308,8 @@ export function useSchedule(
         let bestRaw: string | null = null;
         for (let i = 0; i < window.localStorage.length; i++) {
           const k = window.localStorage.key(i);
-          if (!k || !k.startsWith(prefix)) continue;
-          const m = k.match(/:(\d{4}-\d{2}-\d{2})(?::all)?$/);
+          if (!k || !k.startsWith(prefix) || !k.endsWith(accessSuffix)) continue;
+          const m = k.match(/:(\d{4}-\d{2}-\d{2})(?::all)?(?::(?:auth|guest))?$/);
           const dStr = m?.[1] ?? "";
           if (dStr >= bestDate) {
             bestDate = dStr;
@@ -294,7 +353,7 @@ export function useSchedule(
         const adjDate = new Date(weekAnchorDate);
         adjDate.setDate(adjDate.getDate() + offsetDays);
         const adjDateKey = formatDateKey(adjDate);
-        const adjWeekKey = `schedule:week:${targetKey}:${adjDateKey}${cancelSuffix}`;
+        const adjWeekKey = `schedule:week:${targetKey}:${adjDateKey}${cancelSuffix}${accessSuffix}`;
         const adjMemKey = getMemKey(adjWeekKey);
 
         const existingMem = memoryCache.get(adjMemKey);
@@ -412,7 +471,7 @@ export function useSchedule(
 
       setError(null);
 
-      const nowKyiv = new Date();
+      const nowKyiv = getSyncedNow();
       const todayIso = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(nowKyiv);
       const isWeekday = nowKyiv.getDay() >= 1 && nowKyiv.getDay() <= 5;
 

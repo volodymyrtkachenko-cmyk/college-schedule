@@ -1,5 +1,7 @@
 "use client";
 
+import { getSyncedNow, updateServerTimeOffset } from "./date";
+
 export interface ScheduleVersion {
   id: number;
   name: string;
@@ -239,7 +241,7 @@ function isJwtFresh(token: string | null | undefined, minSecondsRemaining = 60):
         const payloadJson = atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"));
         const payload = JSON.parse(payloadJson);
         if (typeof payload.exp !== "number") return false;
-        return payload.exp * 1000 - Date.now() > minSecondsRemaining * 1000;
+        return payload.exp * 1000 - getSyncedNow().getTime() > minSecondsRemaining * 1000;
     } catch {
         return false;
     }
@@ -504,6 +506,7 @@ async function rawRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
     } finally {
         if (timeoutId) clearTimeout(timeoutId);
     }
+    updateServerTimeOffset(response.headers?.get ? response.headers.get("Date") : null);
     if (response.status === 304 && cachedEtag) {
         return cachedEtag.data as T;
     }
@@ -1427,9 +1430,11 @@ export const api = {
             return session;
         },
         getCachedUser: (): AuthUser | null => {
-            if (currentSession?.user) return currentSession.user;
-            return loadStoredAdminSession().session?.user ?? null;
+            if (currentSession?.user && isJwtFresh(currentSession.access_token, 5)) return currentSession.user;
+            const stored = loadStoredAdminSession();
+            return stored.session && stored.isAccessFresh ? stored.session.user : null;
         },
+        hasValidAccessToken: (): boolean => Boolean(accessToken && isJwtFresh(accessToken, 5)),
         refresh, bootstrap, ensureAuthenticated: getSession,
         maybeSilentRefresh: async (): Promise<void> => {
             if (logoutPending) return;
@@ -1518,7 +1523,7 @@ export const api = {
         attachClassroomQueryParams(params);
         return request<ScheduleResponse>(`/api/schedule/today?${params.toString()}`);
     },
-    week: (groupId?: number, teacherId?: number, date = new Date(), includeCancelled?: boolean) => {
+    week: (groupId?: number, teacherId?: number, date = getSyncedNow(), includeCancelled?: boolean) => {
         const params = new URLSearchParams({ target_date: localDate(date) });
         if (groupId) params.set("group_id", String(groupId));
         if (teacherId) params.set("teacher_id", String(teacherId));

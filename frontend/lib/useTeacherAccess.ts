@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { api, invalidateEtagCache } from "./api";
+import { clearScheduleLocalStorageCache, invalidateScheduleCache } from "./hooks";
 
 const TEACHER_PIN_KEY = "college_schedule_teacher_pin";
 const EVENT_NAME = "teacher-access-changed";
@@ -53,7 +54,8 @@ export function useTeacherAccess() {
   const lockTeacher = useCallback(() => {
     try {
       localStorage.removeItem(TEACHER_PIN_KEY);
-      invalidateEtagCache();
+      clearScheduleLocalStorageCache();
+      invalidateScheduleCache(true);
       setTeacherPin(null);
       window.dispatchEvent(new CustomEvent(EVENT_NAME));
     } catch {}

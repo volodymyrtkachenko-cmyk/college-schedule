@@ -1,3 +1,17 @@
+export let serverTimeOffsetMs = 0;
+
+export function updateServerTimeOffset(dateHeader: string | null | undefined): void {
+  if (!dateHeader) return;
+  const serverMs = Date.parse(dateHeader);
+  if (Number.isNaN(serverMs)) return;
+  const diff = serverMs - Date.now();
+  serverTimeOffsetMs = Math.abs(diff) > 60_000 ? diff : 0;
+}
+
+export function getSyncedNow(): Date {
+  return new Date(Date.now() + serverTimeOffsetMs);
+}
+
 export function getMondayOf(date: Date): Date {
   const d = new Date(date);
   const day = d.getDay();
@@ -19,22 +33,22 @@ export const UKR_DAY_MONTH_LONG_FMT = new Intl.DateTimeFormat("uk-UA", { day: "n
 export const UKR_FULL_DATE_FMT = new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "long", year: "numeric" });
 export const UKR_MONTH_SHORT_FMT = new Intl.DateTimeFormat("uk-UA", { month: "short" });
 
-export function formatKyivDateIso(date: Date = new Date()): string {
+export function formatKyivDateIso(date: Date = getSyncedNow()): string {
   return KYIV_DATE_FMT.format(date);
 }
 
-export function formatKyivTime(date: Date = new Date()): string {
+export function formatKyivTime(date: Date = getSyncedNow()): string {
   return KYIV_TIME_FMT.format(date);
 }
 
-export function getKyivTomorrowDateIso(date: Date = new Date()): string {
+export function getKyivTomorrowDateIso(date: Date = getSyncedNow()): string {
   const iso = formatKyivDateIso(date);
   const [y, m, d] = iso.split("-").map(Number);
   const dt = new Date(Date.UTC(y, m - 1, d + 1, 12, 0, 0));
   return dt.toISOString().slice(0, 10);
 }
 
-export function getKyivInitialWeekAnchor(date: Date = new Date()): Date {
+export function getKyivInitialWeekAnchor(date: Date = getSyncedNow()): Date {
   const iso = formatKyivDateIso(date);
   const [y, m, d] = iso.split("-").map(Number);
   const kyivMidday = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
@@ -45,4 +59,11 @@ export function getKyivInitialWeekAnchor(date: Date = new Date()): Date {
   const adjustedDay = kyivMidday.getUTCDay();
   kyivMidday.setUTCDate(kyivMidday.getUTCDate() - (adjustedDay || 7) + 1);
   return new Date(kyivMidday.getUTCFullYear(), kyivMidday.getUTCMonth(), kyivMidday.getUTCDate(), 12, 0, 0);
+}
+
+export function getKyivMaxPublicDateIso(date: Date = getSyncedNow()): string {
+  const anchor = getKyivInitialWeekAnchor(date);
+  const maxDate = new Date(anchor);
+  maxDate.setDate(maxDate.getDate() + 13);
+  return formatKyivDateIso(maxDate);
 }

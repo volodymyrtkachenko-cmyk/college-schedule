@@ -36,6 +36,7 @@ interface EducationalProcessMatrix {
 
 const TYPE_NAMES: Record<string, string> = {
   theory: "Теоретичне навчання",
+  practice: "Практика",
   session: "Екзаменаційна сесія",
   holiday: "Канікули",
   diploma: "Дипломне проєктування",
@@ -85,7 +86,7 @@ function getPeriodStyle(periodType: string, name: string | null): PeriodStyle {
 }
 
 function formatDate(dateStr: string) {
-  const d = new Date(dateStr);
+  const d = new Date(`${dateStr}T12:00:00`);
   return `${d.getDate().toString().padStart(2, "0")}.${(d.getMonth() + 1).toString().padStart(2, "0")}`;
 }
 
@@ -139,6 +140,19 @@ export default function EducationalProcessPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedGroups, setSelectedGroups] = useState<number[]>([]);
+  const [savedGroupId, setSavedGroupId] = useState<number | null>(null);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem("schedule:groupId");
+      if (raw) {
+        const parsed = Number(raw);
+        if (!Number.isNaN(parsed) && parsed > 0) {
+          setSavedGroupId(parsed);
+        }
+      }
+    } catch {}
+  }, []);
 
   const year = useMemo(() => {
     const now = new Date();
@@ -173,6 +187,12 @@ export default function EducationalProcessPage() {
       )
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [matrix]);
+
+  useEffect(() => {
+    if (savedGroupId && allGroups.some((g) => g.id === savedGroupId)) {
+      setSelectedGroups((prev) => (prev.length === 0 ? [savedGroupId] : prev));
+    }
+  }, [savedGroupId, allGroups]);
 
   const filteredCourses = useMemo(() => {
     if (!matrix) return [];

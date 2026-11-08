@@ -178,6 +178,52 @@ def serialize_schedule_items(lessons, week_type, target_date, bell_times):
             items.append(item)
     return sorted(items, key=lambda item: (item.lesson_number, item.group_name or "", item.id))
 
+
+async def _has_admin_or_editor_access(request: Request | None, db: AsyncSession) -> bool:
+    if request is None:
+        return False
+    from app.core.security import get_current_user, decode_token
+    override = request.app.dependency_overrides.get(get_current_user) if hasattr(request, "app") and request.app else None
+    if override is not None:
+        try:
+            u = await override()
+            if u and getattr(u, "role", None) in ("admin", "editor"):
+                return True
+        except Exception:
+            pass
+    auth_header = request.headers.get("authorization") or ""
+    if auth_header.lower().startswith("bearer "):
+        token = auth_header[7:].strip()
+        try:
+            payload = decode_token(token, expected_type="access")
+            role = payload.get("role")
+            if role in ("admin", "editor"):
+                return True
+            sub = payload.get("sub")
+            if sub:
+                u = await db.scalar(select(User).where(User.username == str(sub), User.is_active == True))
+                if u and u.role in ("admin", "editor"):
+                    return True
+        except Exception:
+            pass
+    return False
+
+
+async def _resolve_public_schedule_horizon(db: AsyncSession) -> date:
+    today = today_local()
+    anchor_today = today + timedelta(days=8 - today.isoweekday()) if today.isoweekday() > 5 else today
+    curr_monday = anchor_today - timedelta(days=anchor_today.isoweekday() - 1)
+    default_horizon = curr_monday + timedelta(days=13)
+    max_valid_until = await db.scalar(
+        select(ScheduleVersion.valid_until)
+        .where(ScheduleVersion.is_active == True, ScheduleVersion.valid_until >= today)
+        .order_by(ScheduleVersion.valid_until.desc())
+        .limit(1)
+    )
+    if max_valid_until is not None:
+        return max_valid_until
+    return default_horizon
+
 @router.get("/schedule", response_model=ScheduleResponse)
 async def schedule(request: Request = None,
                    group_id: int | None = None, teacher_id: int | None = None,
@@ -188,6 +234,26 @@ async def schedule(request: Request = None,
                    db: AsyncSession = Depends(get_db)):
     try:
         target_date = target_date or today_local()
+        is_privileged = await _has_admin_or_editor_access(request, db)
+        horizon_date = None if is_privileged else await _resolve_public_schedule_horizon(db)
+        if horizon_date is not None and target_date > horizon_date:
+            from app.services.projection import get_week_type
+            semester_start = await settings_service.get_semester_start(db)
+            week_type = get_week_type(target_date, semester_start)
+            shortened_dates = await settings_service.get_shortened_dates_set(db)
+            learning_mode, learning_mode_override = await resolve_group_learning_mode_detail(db, group_id, target_date)
+            active_periods = await _active_periods(db, target_date)
+            period_info = resolve_active_period_info(active_periods, target_date, group_id)
+            return ScheduleResponse(
+                date=target_date,
+                week_type=week_type,
+                lessons=[],
+                learning_mode=learning_mode,
+                learning_mode_override=learning_mode_override,
+                is_shortened_day=(target_date in shortened_dates),
+                period_info=period_info,
+            )
+
         week_type, lessons = await fetch_schedule(
             db=db,
             target_date=target_date,
@@ -442,14 +508,22 @@ async def week(
         from email.utils import format_datetime
         response.headers["Last-Modified"] = format_datetime(last_modified, usegmt=True)
 
-    week_type, lessons_by_day = await fetch_week_schedule(db, start, group_id, teacher_id, include_cancelled=include_cancelled)
+    is_privileged = await _has_admin_or_editor_access(request, db)
+    horizon_date = None if is_privileged else await _resolve_public_schedule_horizon(db)
+    if horizon_date is not None and start > horizon_date:
+        from app.services.projection import get_week_type
+        semester_start = await settings_service.get_semester_start(db)
+        week_type = get_week_type(start, semester_start)
+        lessons_by_day = {}
+    else:
+        week_type, lessons_by_day = await fetch_week_schedule(db, start, group_id, teacher_id, include_cancelled=include_cancelled)
     standard_bells = await get_bell_times(db)
     shortened_dates = await settings_service.get_shortened_dates_set(db)
     from app.services.lesson_notes import attach_week_notes
     days_serialized = [
         (
             start + timedelta(days=i),
-            serialize_schedule_items(
+            [] if (horizon_date is not None and (start + timedelta(days=i)) > horizon_date) else serialize_schedule_items(
                 lessons_by_day.get(i + 1, []),
                 week_type,
                 start + timedelta(days=i),

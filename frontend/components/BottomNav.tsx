@@ -30,7 +30,9 @@ export function BottomNav() {
     return null;
   }
 
-  const isHome = pathname === "/";
+  const isHome =
+    pathname === "/" ||
+    Boolean(pathname?.startsWith("/group/") || pathname?.startsWith("/teacher/"));
   const isSettings = pathname?.startsWith("/settings");
 
   const handleScheduleClick = (e: React.MouseEvent) => {
@@ -76,17 +78,19 @@ export function BottomNav() {
     >
       <div className="relative mx-auto flex h-14 max-w-lg items-stretch justify-around px-2">
         {/* Pure Horizontal Sliding Pill Indicator (Locked to X-axis, never jumps vertically) */}
-        <div
-          aria-hidden="true"
-          className="absolute top-1 bottom-1 pointer-events-none transition-transform duration-fast ease-smooth transform-gpu z-0"
-          style={{
-            left: "8px",
-            width: `calc((100% - 16px) / ${totalTabs})`,
-            transform: `translate3d(calc(${tabIndex} * 100%), 0, 0)`,
-          }}
-        >
-          <div className="mx-1 h-full rounded-xl bg-sys-accent/15 shadow-xs" />
-        </div>
+        {activeTab !== null && (
+          <div
+            aria-hidden="true"
+            className="absolute top-1 bottom-1 pointer-events-none transition-transform duration-fast ease-smooth transform-gpu z-0"
+            style={{
+              left: "8px",
+              width: `calc((100% - 16px) / ${totalTabs})`,
+              transform: `translate3d(calc(${tabIndex} * 100%), 0, 0)`,
+            }}
+          >
+            <div className="mx-1 h-full rounded-xl bg-sys-accent/15 shadow-xs" />
+          </div>
+        )}
 
         {/* Tab 1: Schedule */}
         <Link

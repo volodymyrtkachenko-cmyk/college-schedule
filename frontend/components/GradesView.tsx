@@ -7,6 +7,7 @@ import { useGradesSummary, GradeItem, SubjectSummary } from "../lib/useGradesSum
 interface GradesViewProps {
   tasks: FullTaskItem[];
   isLinked: boolean;
+  groupId?: number | null;
   onSyncClassroom?: () => void;
 }
 
@@ -28,7 +29,7 @@ function formatSubjectsWord(count: number): string {
   return "предметів";
 }
 
-export function GradesView({ tasks, isLinked, onSyncClassroom }: GradesViewProps) {
+export function GradesView({ tasks, isLinked, groupId, onSyncClassroom }: GradesViewProps) {
   const {
     overallGpa5,
     overallAverage12,
@@ -36,7 +37,7 @@ export function GradesView({ tasks, isLinked, onSyncClassroom }: GradesViewProps
     totalSubjectsCount,
     distribution,
     subjects,
-  } = useGradesSummary(tasks);
+  } = useGradesSummary(tasks, groupId);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<string>("all");

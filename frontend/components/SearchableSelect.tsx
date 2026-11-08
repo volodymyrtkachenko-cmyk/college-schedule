@@ -1,6 +1,7 @@
 "use client";
 
 import { KeyboardEvent, useEffect, useId, useMemo, useRef, useState } from "react";
+import { convertEnToUkLayout, convertUkToEnLayout } from "../lib/quickJump";
 
 type Option = { id: number; name: string; disabled?: boolean };
 
@@ -28,11 +29,30 @@ export function SearchableSelect({
   const listId = useId();
 
   const selected = options.find((option) => option.id === value);
-  const filtered = useMemo(
-    () => options.filter((option) => option.name.toLocaleLowerCase().includes(query.toLocaleLowerCase())),
-    [options, query],
-  );
+  const filtered = useMemo(() => {
+    const q = query.trim().toLocaleLowerCase();
+    if (!q) return options;
+    const qUk = convertEnToUkLayout(q);
+    const qEn = convertUkToEnLayout(q);
+    return options.filter((option) => {
+      const nameLower = option.name.toLocaleLowerCase();
+      return nameLower.includes(q) || nameLower.includes(qUk) || nameLower.includes(qEn);
+    });
+  }, [options, query]);
   const enabled = filtered.filter((option) => !option.disabled);
+
+  useEffect(() => {
+    if (!open) return;
+    const targetId =
+      activeIndex === 0
+        ? `${listId}-option-none`
+        : enabled[activeIndex - 1]
+        ? `${listId}-option-${enabled[activeIndex - 1].id}`
+        : null;
+    if (!targetId || typeof document === "undefined") return;
+    const el = document.getElementById(targetId);
+    el?.scrollIntoView?.({ block: "nearest" });
+  }, [activeIndex, open, enabled, listId]);
 
   useEffect(() => {
     function onClickOutside(event: MouseEvent) {
@@ -69,7 +89,7 @@ export function SearchableSelect({
       setActiveIndex((index) => Math.max(index - 1, 0));
       return;
     }
-    if (event.key === "Enter" && open && (activeIndex === 0 || enabled.length > 0)) {
+    if (event.key === "Enter" && open && !event.nativeEvent.isComposing && (activeIndex === 0 || enabled.length > 0)) {
       event.preventDefault();
       select(activeIndex === 0 ? null : enabled[activeIndex - 1]?.id ?? enabled[0].id);
     }
@@ -86,6 +106,9 @@ export function SearchableSelect({
         aria-expanded={open}
         aria-controls={listId}
         aria-activedescendant={open ? activeIndex === 0 ? `${listId}-option-none` : `${listId}-option-${enabled[activeIndex - 1]?.id}` : undefined}
+        autoCorrect="off"
+        autoCapitalize="off"
+        spellCheck={false}
         disabled={disabled}
         placeholder={open && selected ? selected.name : placeholder}
         value={open ? query : (selected ? selected.name : "")}
@@ -97,9 +120,10 @@ export function SearchableSelect({
           setActiveIndex(selectedIndex < 0 ? 0 : selectedIndex + 1);
         }}
         onChange={(event) => {
+          const next = event.target.value;
           setOpen(true);
-          setQuery(event.target.value);
-          setActiveIndex(0);
+          setQuery(next);
+          setActiveIndex(next.trim() ? 1 : 0);
         }}
         onKeyDown={handleKeyDown}
         className="form-control w-full"

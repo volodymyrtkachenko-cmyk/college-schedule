@@ -269,7 +269,7 @@ function AdminContent() {
     .filter(Boolean);
 
   useEffect(() => {
-    if (user?.role !== "admin") return;
+    if (authLoading || user?.role !== "admin") return;
     let cancelled = false;
     api.importer
       .getStatus()
@@ -282,7 +282,7 @@ function AdminContent() {
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [authLoading, user]);
 
   const handleDismissNotification = async () => {
     try {
@@ -317,7 +317,7 @@ function AdminContent() {
   };
 
   useEffect(() => {
-    if (authLoading) return;
+    if (authLoading || !user || !canAccessAdmin(user)) return;
     if (currentTab === "semester" || currentTab === "learning-mode" || !activeResource) return;
     if (user?.role !== "admin" && currentTab !== "groups") return;
     let cancelled = false;
