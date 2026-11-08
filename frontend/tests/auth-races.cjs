@@ -4,12 +4,25 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const ts = require('typescript');
+
+const dateSource = fs.readFileSync(path.join(__dirname, '../lib/date.ts'), 'utf8');
+const dateCode = ts.transpileModule(dateSource, { compilerOptions: {
+  module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020,
+}}).outputText;
+
 const source = fs.readFileSync(path.join(__dirname, '../lib/api.ts'), 'utf8');
 const code = ts.transpileModule(source, { compilerOptions: {
   module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020,
 }}).outputText;
+
 function setup(fetch) {
-  const context = { exports: {}, process: { env: {} }, Headers, console, fetch };
+  const dateCtx = { exports: {}, Intl, Date, Math, Number };
+  vm.runInNewContext(dateCode, dateCtx);
+  const customRequire = (id) => {
+    if (id === './date' || id.endsWith('/date')) return dateCtx.exports;
+    return require(id);
+  };
+  const context = { exports: {}, process: { env: {} }, Headers, console, fetch, require: customRequire };
   vm.runInNewContext(code, context);
   return context.exports.api;
 }
