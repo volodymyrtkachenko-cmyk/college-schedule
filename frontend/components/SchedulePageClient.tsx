@@ -464,7 +464,7 @@ export function SchedulePageClient({
         if (g) {
           const newPath = `/group/${encodeURIComponent(g.name)}`;
           window.history.pushState(null, "", newPath);
-          document.title = `Розклад групи ${g.name} ДФКР (${getGroupFullCode(g)}) | Розклад ДФКР`;
+          document.title = `Розклад групи ${g.name} ДФКР | Розклад ДФКР`;
         }
       } else {
         const t = teachers.find((item) => item.id === id);
@@ -1195,7 +1195,7 @@ export function SchedulePageClient({
     if (mode === "student") {
       const g = groups.find((item) => item.id === groupId);
       if (g) {
-        document.title = `Розклад групи ${g.name} ДФКР (${getGroupFullCode(g)}) | Розклад ДФКР`;
+        document.title = `Розклад групи ${g.name} ДФКР | Розклад ДФКР`;
       }
     } else {
       const t = teachers.find((item) => item.id === teacherId);

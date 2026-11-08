@@ -191,12 +191,11 @@ function normalizeCompact(value: string): string {
 }
 
 export function getGroupSearchBadge(group: { name: string; faculty_id?: number | null }): string {
-  const fullCode = getGroupFullCode(group);
   const course = getGroupCourse(group.name);
   if (course) {
-    return `${fullCode} · ${course} курс`;
+    return `${course} курс`;
   }
-  return fullCode;
+  return "";
 }
 
 export function filterAndRankEntities<

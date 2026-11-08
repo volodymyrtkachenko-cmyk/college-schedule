@@ -229,7 +229,7 @@ export default async function GroupSchedulePage({
             {groups.map((g) => (
               <li key={g.id}>
                 <a href={`/group/${encodeURIComponent(g.name)}`}>
-                  Розклад групи {g.name} ({getGroupFullCode(g)})
+                  Розклад групи {g.name}
                 </a>
               </li>
             ))}
