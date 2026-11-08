@@ -2987,8 +2987,11 @@ async def trigger_background_sync_if_needed(
                         cred.id,
                         _sanitize_error_msg(err_msg or f"status_{status_code}"),
                     )
-                    if err_msg and err_msg.startswith("invalid_grant"):
-                        # 25.5: Помилка invalid_grant деактивує лише цей запис і пише last_error
+                    if err_msg and (
+                        err_msg.startswith("invalid_grant")
+                        or err_msg in ("missing_or_corrupt_refresh_token", "token_is_access_token_not_refresh_token")
+                    ):
+                        # 25.5: Непоправна помилка токена деактивує запис і пише last_error
                         cred.is_active = False
                         cred.fail_count = (cred.fail_count or 0) + 1
                         cred.last_error = _sanitize_error_msg(err_msg)
@@ -3168,17 +3171,24 @@ async def _build_group_accounts_summary(db: AsyncSession, group_id: int) -> dict
         )
     ).all()
 
-    active_creds = [c for c in creds if c.is_active]
-    active_count = len(active_creds)
     reconnect_errors = {
         "missing_or_corrupt_refresh_token",
         "token_is_access_token_not_refresh_token",
     }
-    needs_reconnect = bool(active_creds) and all(
-        (c.last_error or "").split(":", 1)[0] in reconnect_errors
-        or (c.last_error or "").startswith("invalid_grant")
-        for c in active_creds
-    )
+    # Акаунт вважається працездатним для фонової синхронізації, лише якщо він активний і не має фатальних помилок токена
+    effective_active_creds = [
+        c for c in creds
+        if c.is_active
+        and not (
+            c.last_error
+            and (
+                c.last_error.split(":", 1)[0] in reconnect_errors
+                or c.last_error.startswith("invalid_grant")
+            )
+        )
+    ]
+    active_count = len(effective_active_creds)
+    needs_reconnect = bool(creds) and active_count == 0
 
     # Перевіряємо, чи має група пари з поділом на підгрупи (2 викладачі: second_teacher_id IS NOT NULL)
     subgroup_lessons_count = await db.scalar(

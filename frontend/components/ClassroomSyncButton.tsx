@@ -173,7 +173,8 @@ export function ClassroomSyncButton({
           }
         },
       });
-      codeClient.requestCode();
+      // Forcing prompt: "consent" on requestCode guarantees that Google will issue a refresh_token
+      (codeClient as any).requestCode({ prompt: "consent" });
     } catch (err) {
       setSyncing(false);
       showToast("Не вдалося відкрити вікно авторизації Google", "error");

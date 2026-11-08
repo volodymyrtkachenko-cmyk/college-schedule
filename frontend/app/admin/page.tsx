@@ -997,6 +997,15 @@ function AdminContent() {
                           {rosterData.accounts.map((acc, idx) => {
                             const displayName = acc.student_name || `Акаунт #${idx + 1}`;
                             const subtitle = acc.email || "Підключено через Google";
+                            const hasFatalError = Boolean(
+                              acc.last_error && (
+                                acc.last_error.includes("missing_or_corrupt_refresh_token") ||
+                                acc.last_error.includes("invalid_grant") ||
+                                acc.last_error.includes("token_is_access_token_not_refresh_token")
+                              )
+                            );
+                            const isWorking = acc.is_active && !hasFatalError;
+
                             return (
                               <div
                                 key={acc.id || idx}
@@ -1040,11 +1049,23 @@ function AdminContent() {
                                     <div className="flex items-center sm:justify-end gap-1.5 text-[11px]">
                                       <span
                                         className={`h-2 w-2 rounded-full shrink-0 ${
-                                          acc.is_active ? "bg-emerald-500 dark:bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]" : "bg-rose-500 dark:bg-rose-400"
+                                          isWorking
+                                            ? "bg-emerald-500 dark:bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]"
+                                            : hasFatalError
+                                            ? "bg-amber-500 dark:bg-amber-400"
+                                            : "bg-rose-500 dark:bg-rose-400"
                                         }`}
                                       />
-                                      <span className={acc.is_active ? "text-emerald-700 dark:text-emerald-400 font-medium" : "text-rose-700 dark:text-rose-400 font-medium"}>
-                                        {acc.is_active ? "Активний" : "Неактивний"}
+                                      <span
+                                        className={
+                                          isWorking
+                                            ? "text-emerald-700 dark:text-emerald-400 font-medium"
+                                            : hasFatalError
+                                            ? "text-amber-700 dark:text-amber-400 font-medium"
+                                            : "text-rose-700 dark:text-rose-400 font-medium"
+                                        }
+                                      >
+                                        {isWorking ? "Активний" : hasFatalError ? "Потрібна прив'язка" : "Неактивний"}
                                       </span>
                                     </div>
                                     <span className="text-[10px] text-sys-text-secondary block mt-0.5">

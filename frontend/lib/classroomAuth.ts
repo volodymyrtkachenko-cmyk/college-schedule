@@ -169,7 +169,9 @@ export async function requestClassroomAuth(options: ClassroomAuthOptions = {}): 
             }
           },
         });
-        codeClient.requestCode();
+        // Forcing prompt: "consent" on requestCode guarantees that Google will issue a refresh_token
+        // even if the student previously consented to the application.
+        (codeClient as any).requestCode({ prompt: "consent" });
       } catch (err) {
         handleError(err);
       }
