@@ -1,9 +1,27 @@
+import type { Metadata } from "next";
 import { SchedulePageClient } from "../components/SchedulePageClient";
 import { toTeacherSlug } from "../lib/slug";
 import { getGroupFullCode } from "../lib/groupInfo";
 import { fetchDirectoryForSsr } from "../lib/ssrApi";
 
 export const revalidate = 1800; // Revalidate directory data for SEO every 30 minutes
+
+export const metadata: Metadata = {
+  title: {
+    absolute: "Розклад занять ДФКР — електронний розклад коледжу радіоелектроніки",
+  },
+  description:
+    "Офіційний електронний розклад занять Дніпровського фахового коледжу радіоелектроніки (ДФКР / КРЕ). Розклад занять усіх навчальних груп, викладачів, розклад дзвінків, жива пара та Google Classroom.",
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    title: "Розклад занять ДФКР — електронний розклад коледжу радіоелектроніки",
+    description:
+      "Офіційний електронний розклад занять Дніпровського фахового коледжу радіоелектроніки (ДФКР / КРЕ). Розклад усіх навчальних груп, викладачів, розклад дзвінків та Google Classroom.",
+    url: "/",
+  },
+};
 
 export default async function HomePage() {
   const { groups, teachers } = await fetchDirectoryForSsr();

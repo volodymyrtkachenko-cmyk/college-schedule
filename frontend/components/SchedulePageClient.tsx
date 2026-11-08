@@ -35,6 +35,8 @@ import { useRecentSelections } from "../lib/useRecentSelections";
 import { RecentSelectionsChips } from "./RecentSelectionsChips";
 import { useViewportTier } from "../lib/useViewportTier";
 import { useUserSettings } from "../lib/useUserSettings";
+import { getGroupFullCode } from "../lib/groupInfo";
+import { toTeacherSlug } from "../lib/slug";
 
 const WelcomeScreen = dynamic(() => import("./WelcomeScreen").then((m) => m.WelcomeScreen), { ssr: false });
 const DatePickerModal = dynamic(() => import("./DatePickerModal").then((m) => m.DatePickerModal), { ssr: false });
@@ -431,6 +433,28 @@ export function SchedulePageClient({
     }
   }, [contextModalOpen, mode]);
 
+  const syncBrowserUrl = useCallback(
+    (targetMode: "student" | "teacher", id: number) => {
+      if (typeof window === "undefined") return;
+      if (targetMode === "student") {
+        const g = groups.find((item) => item.id === id);
+        if (g) {
+          const newPath = `/group/${encodeURIComponent(g.name)}`;
+          window.history.pushState(null, "", newPath);
+          document.title = `Розклад групи ${g.name} ДФКР (${getGroupFullCode(g)}) | Розклад ДФКР`;
+        }
+      } else {
+        const t = teachers.find((item) => item.id === id);
+        if (t) {
+          const newPath = `/teacher/${toTeacherSlug(t.name)}`;
+          window.history.pushState(null, "", newPath);
+          document.title = `Розклад викладача ${t.name} — ДФКР | Розклад ДФКР`;
+        }
+      }
+    },
+    [groups, teachers],
+  );
+
   const handleSelectContextOption = useCallback(
     (tab: "student" | "teacher", id: number) => {
       toggleMode(tab);
@@ -441,9 +465,10 @@ export function SchedulePageClient({
         setTeacherId(id);
         recordRecentTeacher(id);
       }
+      syncBrowserUrl(tab, id);
       setContextModalOpen(false);
     },
-    [toggleMode, setGroupId, setTeacherId, recordRecentGroup, recordRecentTeacher],
+    [toggleMode, setGroupId, setTeacherId, recordRecentGroup, recordRecentTeacher, syncBrowserUrl],
   );
 
   const filteredModalOptions = useMemo(() => {
@@ -502,7 +527,8 @@ export function SchedulePageClient({
       setTeacherId(targetId);
       recordRecentTeacher(targetId);
     }
-  }, [groups, teachers, mode, groupId, teacherId, setToast, toggleMode, setGroupId, setTeacherId, recordRecentGroup, recordRecentTeacher]);
+    syncBrowserUrl(target.mode, targetId);
+  }, [groups, teachers, mode, groupId, teacherId, setToast, toggleMode, setGroupId, setTeacherId, recordRecentGroup, recordRecentTeacher, syncBrowserUrl]);
 
   const handleReturnBack = useCallback(() => {
     if (!returnTarget) return;
@@ -514,8 +540,9 @@ export function SchedulePageClient({
       setTeacherId(returnTarget.id);
       recordRecentTeacher(returnTarget.id);
     }
+    syncBrowserUrl(returnTarget.mode, returnTarget.id);
     setReturnTarget(null);
-  }, [returnTarget, toggleMode, setGroupId, setTeacherId, recordRecentGroup, recordRecentTeacher]);
+  }, [returnTarget, toggleMode, setGroupId, setTeacherId, recordRecentGroup, recordRecentTeacher, syncBrowserUrl]);
 
   const currentName =
     mode === "student"
@@ -1086,11 +1113,60 @@ export function SchedulePageClient({
 
 
 
+  // CRITICAL SEO FIX:
+  // On the home page ("/"), NEVER overwrite the document.title with a specific group/teacher.
+  // Next.js sets the canonical homepage title in SSR, and overwriting it makes Google think
+  // the entire site is only for group 75.
   useEffect(() => {
-    if (typeof document === "undefined") return;
-    const owner = currentName ? `${currentName} — ` : "";
-    document.title = `${owner}Розклад занять | ДФКР`;
-  }, [currentName]);
+    if (typeof document === "undefined" || typeof window === "undefined") return;
+    if (window.location.pathname === "/") {
+      return;
+    }
+
+    if (mode === "student") {
+      const g = groups.find((item) => item.id === groupId);
+      if (g) {
+        document.title = `Розклад групи ${g.name} ДФКР (${getGroupFullCode(g)}) | Розклад ДФКР`;
+      }
+    } else {
+      const t = teachers.find((item) => item.id === teacherId);
+      if (t) {
+        document.title = `Розклад викладача ${t.name} — ДФКР | Розклад ДФКР`;
+      }
+    }
+  }, [mode, groupId, teacherId, groups, teachers]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handlePopState = () => {
+      const path = window.location.pathname;
+      if (path === "/") {
+        document.title = "Розклад занять ДФКР — електронний розклад коледжу радіоелектроніки";
+        return;
+      }
+      const groupMatch = path.match(/^\/group\/([^/]+)/);
+      if (groupMatch) {
+        const raw = decodeURIComponent(groupMatch[1]);
+        const matched = groups.find((g) => g.name.toLowerCase() === raw.toLowerCase());
+        if (matched && matched.id !== groupId) {
+          toggleMode("student");
+          setGroupId(matched.id);
+        }
+        return;
+      }
+      const teacherMatch = path.match(/^\/teacher\/([^/]+)/);
+      if (teacherMatch) {
+        const rawSlug = decodeURIComponent(teacherMatch[1]);
+        const matched = teachers.find((t) => toTeacherSlug(t.name) === rawSlug);
+        if (matched && matched.id !== teacherId) {
+          toggleMode("teacher");
+          setTeacherId(matched.id);
+        }
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [groups, teachers, groupId, teacherId, toggleMode, setGroupId, setTeacherId]);
 
 
 
@@ -1270,6 +1346,7 @@ export function SchedulePageClient({
               setTeacherId(id);
               recordRecentTeacher(id);
             }
+            syncBrowserUrl(m, id);
             completeSetup();
           }}
         />
