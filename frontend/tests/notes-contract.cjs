@@ -7,9 +7,27 @@ const ts = require('typescript');
 const code = ts.transpileModule(fs.readFileSync(path.join(__dirname,'../lib/api.ts'),'utf8'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 }
 }).outputText;
+const dateCode = ts.transpileModule(fs.readFileSync(path.join(__dirname,'../lib/date.ts'),'utf8'), {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 }
+}).outputText;
 const response = (body,status=200) => ({ok:status<400,status,json:async()=>body});
 function setup(fetch) {
- const ctx={exports:{},process:{env:{}},Headers,console,fetch};vm.runInNewContext(code,ctx);return ctx.exports.api;
+ const dateModule={exports:{}};
+ vm.runInNewContext(dateCode,{exports:dateModule.exports,module:dateModule});
+ const ctx={
+  exports:{},
+  module:{exports:{}},
+  process:{env:{}},
+  Headers,
+  console,
+  fetch,
+  require:(specifier)=>{
+   if(specifier==='./date') return dateModule.exports;
+   throw new Error(`Unexpected import in api.ts test harness: ${specifier}`);
+  },
+ };
+ vm.runInNewContext(code,ctx);
+ return ctx.exports.api||ctx.module.exports.api;
 }
 test('notes save carries the calendar anchor, original revision and bearer authentication',async()=>{
  let sent;
