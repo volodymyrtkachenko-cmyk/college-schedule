@@ -235,6 +235,7 @@ export default async function GroupSchedulePage({
             ))}
           </ul>
           <p>
+            <a href="/">Головна сторінка розкладу ДФКР</a> |{" "}
             <a href="/bells">Розклад дзвінків ДФКР</a> |{" "}
             <a href="/educational-process">Графік освітнього процесу</a> |{" "}
             <a href="/statistics">Статистика пар</a>
