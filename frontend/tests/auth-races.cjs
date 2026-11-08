@@ -8,10 +8,27 @@ const source = fs.readFileSync(path.join(__dirname, '../lib/api.ts'), 'utf8');
 const code = ts.transpileModule(source, { compilerOptions: {
   module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020,
 }}).outputText;
+const dateCode = ts.transpileModule(
+  fs.readFileSync(path.join(__dirname, '../lib/date.ts'), 'utf8'),
+  { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } },
+).outputText;
 function setup(fetch) {
-  const context = { exports: {}, process: { env: {} }, Headers, console, fetch };
+  const dateModule = { exports: {} };
+  vm.runInNewContext(dateCode, { exports: dateModule.exports, module: dateModule });
+  const context = {
+    exports: {},
+    module: { exports: {} },
+    process: { env: {} },
+    Headers,
+    console,
+    fetch,
+    require: specifier => {
+      if (specifier === './date') return dateModule.exports;
+      throw new Error(`Unexpected import in api.ts test harness: ${specifier}`);
+    },
+  };
   vm.runInNewContext(code, context);
-  return context.exports.api;
+  return context.exports.api || context.module.exports.api;
 }
 const session = name => ({ access_token: name, token_type: 'bearer', user: { id: name === 'A' ? 1 : 2, username: name } });
 const response = (body, status = 200) => ({ ok: status < 400, status, json: async () => body });
