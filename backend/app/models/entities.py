@@ -510,8 +510,8 @@ class ClassroomGroupBinding(Base):
     group_id: Mapped[int] = mapped_column(ForeignKey("groups.id", ondelete="CASCADE"), unique=True, nullable=False, index=True)
     course_id: Mapped[str] = mapped_column(String(64), nullable=False)
     course_name: Mapped[str] = mapped_column(String(200), nullable=False)
-    refresh_token: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
-    access_token: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
+    refresh_token: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    access_token: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     last_synced_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 

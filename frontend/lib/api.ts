@@ -1859,7 +1859,7 @@ export const api = {
             return promise;
         },
         sync: (
-            tokenOrPayload: string | { code?: string; access_token?: string; refresh_token?: string; group_id?: number; week_start?: string },
+            tokenOrPayload: string | { code?: string; access_token?: string; refresh_token?: string; google_user_id?: string; email?: string; group_id?: number; week_start?: string },
             groupId?: number
         ) => {
             const body = typeof tokenOrPayload === "string"
@@ -1922,7 +1922,7 @@ export const api = {
                 google_user_id: payload?.google_user_id ?? (typeof window !== "undefined" ? localStorage.getItem("schedule:classroom_google_user_id") || undefined : undefined),
                 email: payload?.email ?? (typeof window !== "undefined" ? localStorage.getItem("schedule:classroom_linked_email") || undefined : undefined),
                 access_token: payload?.access_token ?? (typeof window !== "undefined" ? localStorage.getItem("schedule:classroom_access_token") || undefined : undefined),
-                refresh_token: payload?.refresh_token ?? (typeof window !== "undefined" ? localStorage.getItem("schedule:classroom_refresh_token") || undefined : undefined),
+                refresh_token: payload?.refresh_token,
             };
             return rawRequest<{
                 connected: boolean;

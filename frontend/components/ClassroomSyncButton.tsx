@@ -11,12 +11,7 @@ import {
   syncPersonalSubmissions,
   useClassroomSubmissions,
 } from "../lib/useClassroomSubmissions";
-import {
-  CLASSROOM_SCOPES as SCOPES,
-  GOOGLE_CLIENT_ID,
-  loadGsiScript,
-} from "../lib/classroomAuth";
-import { SITE_HOST } from "../lib/site";
+import { requestClassroomAuth } from "../lib/classroomAuth";
 
 export function ClassroomSyncButton({
   currentGroupId,
@@ -28,22 +23,10 @@ export function ClassroomSyncButton({
   onSynced: (detectedGroupId: number, tasks?: any[], lastSyncedAt?: string | null, isSilent?: boolean) => void;
 }) {
   const [syncing, setSyncing] = useState(false);
-  const [hasClientSecret, setHasClientSecret] = useState<boolean>(false);
   const { showToast } = useToast();
   const { linkedEmail, linkedGroupId } = useClassroomSubmissions();
 
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
-
-  useEffect(() => {
-    api.classroom
-      .status()
-      .then((data) => {
-        if (data && typeof data.has_client_secret === "boolean") {
-          setHasClientSecret(data.has_client_secret);
-        }
-      })
-      .catch(() => {});
-  }, []);
 
   useEffect(() => {
     if (!currentGroupId) {
@@ -54,133 +37,61 @@ export function ClassroomSyncButton({
       .groupStatus(currentGroupId)
       .then((data) => {
         if (data?.last_synced_at) setLastSyncedAt(data.last_synced_at);
-        if (data && typeof data.has_client_secret === "boolean") {
-          setHasClientSecret(data.has_client_secret);
-        }
       })
       .catch(() => {});
   }, [currentGroupId, syncing]);
 
-  const handleSyncSuccess = (
-    res: any,
-    usedCode: boolean,
-    isSilent = false,
-    fallbackAccessToken?: string | null
-  ) => {
-    invalidateScheduleCache();
-    const personalTeachers = [
-      ...(res.synced_teacher_names || []),
-      ...(res.synced_teacher_tokens || []),
-    ];
-    const targetGroupId = res.group_id ?? linkedGroupId ?? currentGroupId ?? null;
+  const handleSyncSuccess = useCallback(
+    (
+      res: any,
+      usedCode: boolean,
+      isSilent = false,
+      fallbackAccessToken?: string | null
+    ) => {
+      invalidateScheduleCache();
+      const personalTeachers = [
+        ...(res.synced_teacher_names || []),
+        ...(res.synced_teacher_tokens || []),
+      ];
+      const targetGroupId = res.group_id ?? linkedGroupId ?? currentGroupId ?? null;
 
-    saveClassroomSyncData(
-      res.user_email,
-      res.personal_tasks ?? res.tasks,
-      res.access_token ?? fallbackAccessToken ?? null,
-      res.refresh_token ?? null,
-      res.google_user_id ?? null,
-      targetGroupId,
-      personalTeachers,
-      res.synced_subgroups ?? null
-    );
-    const switchedGroup = currentGroupId !== null && currentGroupId !== res.group_id;
-    if (res?.last_synced_at) {
-      setLastSyncedAt(res.last_synced_at);
-    }
-    // On silent background sync, NEVER switch the viewed group
-    onSynced(isSilent ? (currentGroupId ?? res.group_id) : res.group_id, res.tasks, res.last_synced_at, isSilent);
-    window.dispatchEvent(new CustomEvent("classroom-synced", { detail: { ...res, is_silent: isSilent } }));
-
-    if (!isSilent) {
-      const parts = [`підтягнуто ${res.synced_links} онлайн-пар`];
-      if (res.synced_tasks > 0) parts.push(`${res.synced_tasks} завдань`);
-      if (res.synced_students > 0) parts.push(`${res.synced_students} студентів`);
-      const prefix = switchedGroup
-        ? `Перемкнуто на вашу групу ${res.group_name}`
-        : `Група ${res.group_name}`;
-      const autoNote = usedCode ? " (фонове автооновлення активне)" : "";
-      const unmappedNote = res.unmapped_tasks && res.unmapped_tasks.length > 0
-        ? ` (${res.unmapped_tasks.length} завдань пропущено через відсутність пар у розкладі)`
-        : "";
-      showToast(
-        `${prefix}: ${parts.join(", ")}${autoNote}${unmappedNote}!`,
-        "success"
+      saveClassroomSyncData(
+        res.user_email,
+        res.personal_tasks ?? res.tasks,
+        res.access_token ?? fallbackAccessToken ?? null,
+        null,
+        res.google_user_id ?? null,
+        targetGroupId,
+        personalTeachers,
+        res.synced_subgroups ?? null
       );
-    }
-  };
+      const switchedGroup = currentGroupId !== null && currentGroupId !== res.group_id;
+      if (res?.last_synced_at) {
+        setLastSyncedAt(res.last_synced_at);
+      }
+      // On silent background sync, NEVER switch the viewed group
+      onSynced(isSilent ? (currentGroupId ?? res.group_id) : res.group_id, res.tasks, res.last_synced_at, isSilent);
+      window.dispatchEvent(new CustomEvent("classroom-synced", { detail: { ...res, is_silent: isSilent } }));
 
-  const syncWithToken = () => {
-    try {
-      const tokenClient = (window as any).google.accounts.oauth2.initTokenClient({
-        client_id: GOOGLE_CLIENT_ID,
-        scope: SCOPES,
-        callback: async (resp: any) => {
-          if (resp.error || !resp.access_token) {
-            setSyncing(false);
-            return;
-          }
-          try {
-            const res = await api.classroom.sync({
-              access_token: resp.access_token,
-              group_id: currentGroupId ?? undefined,
-              week_start: weekStart,
-            });
-            handleSyncSuccess(res, false, false, resp.access_token);
-          } catch (err) {
-            showToast(err instanceof Error ? err.message : "Помилка синхронізації", "error");
-          } finally {
-            setSyncing(false);
-          }
-        },
-      });
-      tokenClient.requestAccessToken();
-    } catch (err) {
-      setSyncing(false);
-      showToast("Не вдалося відкрити вікно авторизації Google", "error");
-    }
-  };
-
-  const syncWithCode = () => {
-    try {
-      const codeClient = (window as any).google.accounts.oauth2.initCodeClient({
-        client_id: GOOGLE_CLIENT_ID,
-        scope: SCOPES,
-        ux_mode: "popup",
-        prompt: "consent",
-        callback: async (resp: any) => {
-          if (resp.error || !resp.code) {
-            setSyncing(false);
-            return;
-          }
-          try {
-            const res = await api.classroom.sync({
-              code: resp.code,
-              group_id: currentGroupId ?? undefined,
-              week_start: weekStart,
-            });
-            handleSyncSuccess(res, true, false);
-          } catch (err: any) {
-            const errMsg = err instanceof Error ? err.message : String(err || "");
-            if (errMsg.includes("GOOGLE_CLIENT_SECRET")) {
-              setHasClientSecret(false);
-              showToast("Сервер не має GOOGLE_CLIENT_SECRET. Перемикаємося на пряму синхронізацію...", "info");
-              syncWithToken();
-              return;
-            }
-            showToast(errMsg || "Помилка синхронізації", "error");
-          } finally {
-            setSyncing(false);
-          }
-        },
-      });
-      // Forcing prompt: "consent" on requestCode guarantees that Google will issue a refresh_token
-      (codeClient as any).requestCode({ prompt: "consent" });
-    } catch (err) {
-      setSyncing(false);
-      showToast("Не вдалося відкрити вікно авторизації Google", "error");
-    }
-  };
+      if (!isSilent) {
+        const parts = [`підтягнуто ${res.synced_links} онлайн-пар`];
+        if (res.synced_tasks > 0) parts.push(`${res.synced_tasks} завдань`);
+        if (res.synced_students > 0) parts.push(`${res.synced_students} студентів`);
+        const prefix = switchedGroup
+          ? `Перемкнуто на вашу групу ${res.group_name}`
+          : `Група ${res.group_name}`;
+        const autoNote = usedCode ? " (фонове автооновлення активне)" : "";
+        const unmappedNote = res.unmapped_tasks && res.unmapped_tasks.length > 0
+          ? ` (${res.unmapped_tasks.length} завдань пропущено через відсутність пар у розкладі)`
+          : "";
+        showToast(
+          `${prefix}: ${parts.join(", ")}${autoNote}${unmappedNote}!`,
+          "success"
+        );
+      }
+    },
+    [currentGroupId, linkedGroupId, onSynced, showToast]
+  );
 
   const performSilentSync = useCallback(async () => {
     if (!currentGroupId || syncing) return;
@@ -233,17 +144,18 @@ export function ClassroomSyncButton({
       }
     } catch {}
 
-    // 2. Якщо є збережений токен, пробуємо синхронізацію Classroom
-    const { accessToken, refreshToken } = getClassroomSilentAuth();
-    if (accessToken || refreshToken) {
+    // 2. Якщо є збережений короткоживучий access_token або серверний google_user_id, пробуємо тиху синхронізацію Classroom
+    const { accessToken, googleUserId } = getClassroomSilentAuth();
+    if (accessToken || googleUserId) {
       try {
         const res = await api.classroom.sync({
           access_token: accessToken ?? undefined,
-          refresh_token: refreshToken ?? undefined,
+          google_user_id: googleUserId ?? undefined,
+          email: linkedEmail && linkedEmail.includes("@") ? linkedEmail : undefined,
           group_id: currentGroupId ?? undefined,
           week_start: weekStart,
         });
-        handleSyncSuccess(res, Boolean(refreshToken), true, accessToken);
+        handleSyncSuccess(res, true, true, accessToken);
         return;
       } catch {
         clearClassroomAccessToken();
@@ -260,7 +172,7 @@ export function ClassroomSyncButton({
     } catch {
       // Silently ignore background network errors
     }
-  }, [currentGroupId, weekStart, syncing, linkedEmail, linkedGroupId, onSynced]);
+  }, [currentGroupId, weekStart, syncing, linkedEmail, linkedGroupId, onSynced, handleSyncSuccess]);
 
   // 1. Silent sync on initial load / group switch if account was previously linked
   useEffect(() => {
@@ -294,36 +206,27 @@ export function ClassroomSyncButton({
     return () => clearInterval(interval);
   }, [currentGroupId, linkedEmail, performSilentSync]);
 
-  const handleSync = async () => {
-    if (!GOOGLE_CLIENT_ID) {
-      showToast("Додайте NEXT_PUBLIC_GOOGLE_CLIENT_ID у .env", "error");
-      return;
-    }
-
-    if (typeof window !== "undefined") {
-      const host = window.location.hostname;
-      const isVercelPreview = host.endsWith(".vercel.app") && host !== SITE_HOST && !host.startsWith("college-schedule-flame");
-      if (isVercelPreview) {
-        showToast(
-          `Вхід Google працює лише на основному сайті: ${SITE_HOST} (поточна адреса — прев'ю)`,
-          "error"
-        );
-        return;
-      }
-    }
+  const handleSync = useCallback(async () => {
+    if (syncing) return;
     setSyncing(true);
     try {
-      await loadGsiScript();
-      if (hasClientSecret) {
-        syncWithCode();
-      } else {
-        syncWithToken();
-      }
-    } catch (err) {
+      await requestClassroomAuth({
+        groupId: currentGroupId,
+        weekStart,
+        hint: linkedEmail && linkedEmail.includes("@") ? linkedEmail : undefined,
+        onSuccess: (res, usedCode) => {
+          handleSyncSuccess(res, usedCode, false);
+        },
+        onError: (err) => {
+          showToast(err.message || "Помилка синхронізації", "error");
+        },
+      });
+    } catch {
+      // Помилка вже оброблена у колбеку onError
+    } finally {
       setSyncing(false);
-      showToast("Не вдалося підключитися до Google Classroom", "error");
     }
-  };
+  }, [syncing, currentGroupId, weekStart, linkedEmail, handleSyncSuccess, showToast]);
 
   useEffect(() => {
     const handleTrigger = () => {
@@ -331,7 +234,7 @@ export function ClassroomSyncButton({
     };
     window.addEventListener("trigger-classroom-sync", handleTrigger);
     return () => window.removeEventListener("trigger-classroom-sync", handleTrigger);
-  }, [hasClientSecret, currentGroupId, weekStart]);
+  }, [handleSync]);
 
   const isLinked = Boolean(linkedEmail);
 

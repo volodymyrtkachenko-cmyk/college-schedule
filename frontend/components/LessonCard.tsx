@@ -532,10 +532,10 @@ export function extractClassroomTasks(note?: string | null): ClassroomTaskItem[]
       (/\|\s*https?:\/\/classroom\.google\.com\//i.test(line));
     if (isTaskLine) {
       const raw = line.replace(/^\[TASK\]\s*/i, "").trim();
-      const pipeIdx = raw.lastIndexOf("|");
-      if (pipeIdx === -1) continue;
-      const leftPart = raw.slice(0, pipeIdx).trim();
-      const urlPart = raw.slice(pipeIdx + 1).trim();
+      const parts = raw.split("|").map((p) => p.trim()).filter(Boolean);
+      if (parts.length < 2) continue;
+      const leftPart = parts[0];
+      const urlPart = parts.find((p, idx) => idx > 0 && /^https?:\/\//i.test(p)) || parts[1];
       if (!leftPart || !urlPart || !urlPart.startsWith("http")) continue;
 
       let teacher: string | null = null;

@@ -10,6 +10,9 @@ export const GOOGLE_CLIENT_ID =
   "1079868158360-ok75uv5l93pcql2iktfcple97sdu180b.apps.googleusercontent.com";
 
 export const CLASSROOM_SCOPES = [
+  "openid",
+  "email",
+  "profile",
   "https://www.googleapis.com/auth/classroom.courses.readonly",
   "https://www.googleapis.com/auth/classroom.announcements.readonly",
   "https://www.googleapis.com/auth/classroom.rosters.readonly",
@@ -40,6 +43,7 @@ export const loadGsiScript = (): Promise<void> =>
 export interface ClassroomAuthOptions {
   groupId?: number | null;
   weekStart?: string;
+  hint?: string | null;
   onSuccess?: (res: any, usedCode: boolean) => void;
   onError?: (err: Error) => void;
 }
@@ -64,8 +68,11 @@ export async function requestClassroomAuth(options: ClassroomAuthOptions = {}): 
   }
 
   await loadGsiScript();
-  const statusData = await api.classroom.status().catch(() => null);
-  const hasClientSecret = Boolean(statusData?.has_client_secret);
+
+  const rawHint =
+    options.hint ??
+    (typeof window !== "undefined" ? localStorage.getItem("schedule:classroom_linked_email") : null);
+  const validHint = rawHint && rawHint.includes("@") ? rawHint.trim() : undefined;
 
   return new Promise<any>((resolve, reject) => {
     let resolved = false;
@@ -85,7 +92,7 @@ export async function requestClassroomAuth(options: ClassroomAuthOptions = {}): 
         res.user_email,
         res.personal_tasks ?? res.tasks,
         res.access_token ?? fallbackAccessToken ?? null,
-        res.refresh_token ?? null,
+        null,
         res.google_user_id ?? null,
         targetGroupId,
         personalTeachers,
@@ -117,6 +124,7 @@ export async function requestClassroomAuth(options: ClassroomAuthOptions = {}): 
         const tokenClient = (window as any).google.accounts.oauth2.initTokenClient({
           client_id: GOOGLE_CLIENT_ID,
           scope: CLASSROOM_SCOPES,
+          ...(validHint ? { hint: validHint } : {}),
           callback: async (resp: any) => {
             if (resp.error || !resp.access_token) {
               handleError(new Error(resp.error || "Авторизацію скасовано"));
@@ -134,7 +142,7 @@ export async function requestClassroomAuth(options: ClassroomAuthOptions = {}): 
             }
           },
         });
-        tokenClient.requestAccessToken();
+        tokenClient.requestAccessToken({ prompt: "select_account consent" });
       } catch (err) {
         handleError(err);
       }
@@ -146,7 +154,8 @@ export async function requestClassroomAuth(options: ClassroomAuthOptions = {}): 
           client_id: GOOGLE_CLIENT_ID,
           scope: CLASSROOM_SCOPES,
           ux_mode: "popup",
-          prompt: "consent",
+          prompt: "select_account consent",
+          ...(validHint ? { hint: validHint } : {}),
           callback: async (resp: any) => {
             if (resp.error || !resp.code) {
               handleError(new Error(resp.error || "Авторизацію скасовано"));
@@ -169,18 +178,19 @@ export async function requestClassroomAuth(options: ClassroomAuthOptions = {}): 
             }
           },
         });
-        // Forcing prompt: "consent" on requestCode guarantees that Google will issue a refresh_token
-        // even if the student previously consented to the application.
-        (codeClient as any).requestCode({ prompt: "consent" });
+        // Завжди викликаємо з prompt: "select_account consent", щоб студент бачив вибір акаунта
+        // і сервер гарантовано отримував refresh_token.
+        (codeClient as any).requestCode({
+          prompt: "select_account consent",
+          ...(validHint ? { hint: validHint } : {}),
+        });
       } catch (err) {
         handleError(err);
       }
     };
 
-    if (hasClientSecret) {
-      syncWithCode();
-    } else {
-      syncWithToken();
-    }
+    // За замовчуванням завжди запускаємо Authorization Code Flow (syncWithCode),
+    // і лише якщо сервер явно поверне помилку відсутності GOOGLE_CLIENT_SECRET — робимо фолбек на Token Flow.
+    syncWithCode();
   });
 }

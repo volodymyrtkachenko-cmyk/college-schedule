@@ -30,6 +30,14 @@ def upgrade() -> None:
             "ALTER TABLE imported_schedule_changes "
             "ADD COLUMN IF NOT EXISTS publication_id INTEGER REFERENCES schedule_publications(id) ON DELETE CASCADE"
         )
+        op.execute(
+            "ALTER TABLE classroom_group_bindings "
+            "ALTER COLUMN refresh_token TYPE TEXT"
+        )
+        op.execute(
+            "ALTER TABLE classroom_group_bindings "
+            "ALTER COLUMN access_token TYPE TEXT"
+        )
 
     # Composite and lookup indexes previously managed in main.py lifespan
     op.execute(

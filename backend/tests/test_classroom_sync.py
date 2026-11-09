@@ -1770,5 +1770,238 @@ async def test_user_submissions_endpoint(classroom_db):
         assert p_data["submissions"]["c_math_1_cw_math_101"]["state"] == "TURNED_IN"
 
 
+@pytest.mark.anyio
+async def test_sync_without_refresh_token_does_not_create_empty_credential_or_overwrite_valid_one(classroom_db):
+    """
+    1.2 & 1.5:
+    - Коли на POST /api/classroom/sync приходить лише access_token (без refresh_token) або ya29 у полі refresh_token,
+      бекенд не створює запис ClassroomCredential з порожнім refresh_token = "".
+    - Якщо у студента вже є робочий ClassroomCredential із валідним refresh_token, повторний синк лише з access_token
+      НЕ затирає існуючий refresh_token.
+    - У відповіді /api/classroom/sync ніколи не повертається сирий refresh_token для збереження в localStorage.
+    """
+    client, state = classroom_db
+    group_id = state["group_id"]
+    monday: date = state["monday"]
+
+    transport = _make_fake_google_transport(
+        courses_by_token={
+            "ya29.only_access_1": [{"id": "101", "name": "Іноземна мова 85 ДФКР (1 підгр)"}],
+            "ya29.with_rt_2": [{"id": "101", "name": "Іноземна мова 85 ДФКР (1 підгр)"}],
+        },
+        profiles_by_token={
+            "ya29.only_access_1": {"id": "uid_no_rt", "emailAddress": "nort@kre.dp.ua"},
+            "ya29.with_rt_2": {"id": "uid_has_rt", "emailAddress": "hasrt@kre.dp.ua"},
+        },
+        teachers_by_course={
+            "101": [{"userId": "t1", "profile": {"name": {"fullName": "Токарєва Тетяна Олександрівна"}}}],
+        },
+        announcements_by_course={"101": []},
+        coursework_by_course={"101": []},
+    )
+    real_async_client = httpx.AsyncClient
+
+    def mocked_client(*args, **kwargs):
+        kwargs["transport"] = transport
+        return real_async_client(*args, **kwargs)
+
+    with patch("app.routers.classroom.httpx.AsyncClient", side_effect=mocked_client):
+        # 1) Синк лише з access_token (або коли в refresh_token випадково передали ya29...)
+        r_no_rt = await client.post(
+            "/api/classroom/sync",
+            json={
+                "access_token": "ya29.only_access_1",
+                "refresh_token": "ya29.accidental_access_token",
+                "group_id": group_id,
+                "week_start": monday.isoformat(),
+            },
+        )
+        assert r_no_rt.status_code == 200
+        assert r_no_rt.json()["refresh_token"] is None
+
+        async with state["sessions"]() as db:
+            cred_no_rt = await db.scalar(
+                select(ClassroomCredential).where(ClassroomCredential.google_user_id == "uid_no_rt")
+            )
+            assert cred_no_rt is None
+
+        # 2) Синк із валідним refresh_token створює запис, а наступний синк без refresh_token не затирає його
+        r_with_rt = await client.post(
+            "/api/classroom/sync",
+            json={
+                "access_token": "ya29.with_rt_2",
+                "refresh_token": "1//valid_refresh_token_student",
+                "group_id": group_id,
+                "week_start": monday.isoformat(),
+            },
+        )
+        assert r_with_rt.status_code == 200
+        assert r_with_rt.json()["refresh_token"] is None
+
+        r_again_without_rt = await client.post(
+            "/api/classroom/sync",
+            json={
+                "access_token": "ya29.with_rt_2",
+                "group_id": group_id,
+                "week_start": monday.isoformat(),
+            },
+        )
+        assert r_again_without_rt.status_code == 200
+
+        async with state["sessions"]() as db:
+            cred_has_rt = await db.scalar(
+                select(ClassroomCredential).where(ClassroomCredential.google_user_id == "uid_has_rt")
+            )
+            assert cred_has_rt is not None
+            assert cred_has_rt.is_active is True
+            assert decrypt_token(cred_has_rt.refresh_token) == "1//valid_refresh_token_student"
+
+
+@pytest.mark.anyio
+async def test_long_tokens_are_not_truncated_and_userinfo_fallback_works(classroom_db):
+    """
+    1.3 & 1.4:
+    - Довгі токени (> 512 символів після шифрування Fernet) зберігаються в ClassroomGroupBinding та ClassroomCredential
+      без обрізання [:512] і успішно розшифровуються.
+    - Якщо userProfiles/me не повертає emailAddress, бекенд робить фолбек на oauth2/v3/userinfo і дістає реальний email та sub.
+    """
+    client, state = classroom_db
+    group_id = state["group_id"]
+    monday: date = state["monday"]
+
+    long_access_token = "ya29." + ("A" * 600)
+    long_refresh_token = "1//" + ("R" * 600)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        if "/v1/courses" in url and "/teachers" not in url and "/announcements" not in url and "/courseWork" not in url and "/topics" not in url and "/students" not in url:
+            return httpx.Response(200, json={"courses": [{"id": "101", "name": "Іноземна мова 85 ДФКР"}]})
+        if url.endswith("/v1/userProfiles/me"):
+            # Імітуємо випадок, коли Classroom API не повернув emailAddress (відсутній або порожній)
+            return httpx.Response(200, json={"id": "uid_from_me_777", "name": {"fullName": "Студент Тест"}})
+        if "oauth2/v3/userinfo" in url:
+            return httpx.Response(200, json={
+                "sub": "uid_from_me_777",
+                "email": "real.student@kre.dp.ua",
+                "name": "Студент Тест",
+                "picture": "https://example.com/avatar.png",
+            })
+        return httpx.Response(200, json={})
+
+    real_async_client = httpx.AsyncClient
+
+    def mocked_client(*args, **kwargs):
+        kwargs["transport"] = httpx.MockTransport(handler)
+        return real_async_client(*args, **kwargs)
+
+    with patch("app.routers.classroom.httpx.AsyncClient", side_effect=mocked_client):
+        resp = await client.post(
+            "/api/classroom/sync",
+            json={
+                "access_token": long_access_token,
+                "refresh_token": long_refresh_token,
+                "group_id": group_id,
+                "week_start": monday.isoformat(),
+            },
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["user_email"] == "real.student@kre.dp.ua"
+        assert data["google_user_id"] == "uid_from_me_777"
+
+    async with state["sessions"]() as db:
+        binding = await db.scalar(
+            select(ClassroomGroupBinding).where(ClassroomGroupBinding.group_id == group_id)
+        )
+        assert binding is not None
+        assert len(binding.access_token) > 512
+        assert len(binding.refresh_token) > 512
+        assert decrypt_token(binding.access_token) == long_access_token
+        assert decrypt_token(binding.refresh_token) == long_refresh_token
+
+
+@pytest.mark.anyio
+async def test_group_detection_prioritizes_explicit_payload_group_id_and_reconstructs_max_points(classroom_db):
+    """
+    2.1 & 2.2:
+    - Якщо студент обрав свою групу (payload.group_id = 85 ДФКР), але в його акаунті є більше старих курсів іншої групи (напр. 75),
+      система НЕ перемикає його примусово на іншу групу.
+    - Після очищення _latest_group_tasks (імітація рестарту сервера) /groups/{id}/status відновлює завдання разом із max_points.
+    """
+    client, state = classroom_db
+    group_85_id = state["group_id"]
+    monday: date = state["monday"]
+    monday_iso = f"{monday.isoformat()}T08:00:00Z"
+
+    async with state["sessions"]() as db:
+        other_group = Group(name="75", is_active=True)
+        db.add(other_group)
+        await db.commit()
+        group_75_id = other_group.id
+
+    transport = _make_fake_google_transport(
+        courses_by_token={
+            "ya29.multi_group_student": [
+                {"id": "c75_1", "name": "Архівний курс 1 — група 75"},
+                {"id": "c75_2", "name": "Архівний курс 2 — група 75"},
+                {"id": "c85_1", "name": "Іноземна мова 85 ДФКР"},
+            ],
+        },
+        profiles_by_token={
+            "ya29.multi_group_student": {"id": "uid_multi_85", "emailAddress": "multi85@kre.dp.ua"},
+        },
+        teachers_by_course={
+            "c85_1": [{"userId": "t1", "profile": {"name": {"fullName": "Токарєва Тетяна Олександрівна"}}}],
+        },
+        announcements_by_course={},
+        coursework_by_course={
+            "c85_1": [{
+                "id": "cw_pts_12",
+                "title": "Контрольна робота з англійської",
+                "alternateLink": "https://classroom.google.com/c/c85_1/a/cw_pts_12/details",
+                "creationTime": monday_iso,
+                "dueDate": {"year": monday.year, "month": monday.month, "day": monday.day},
+                "maxPoints": 12,
+                "creatorUserId": "t1",
+            }],
+        },
+    )
+    real_async_client = httpx.AsyncClient
+
+    def mocked_client(*args, **kwargs):
+        kwargs["transport"] = transport
+        return real_async_client(*args, **kwargs)
+
+    with patch("app.routers.classroom.httpx.AsyncClient", side_effect=mocked_client):
+        resp = await client.post(
+            "/api/classroom/sync",
+            json={
+                "access_token": "ya29.multi_group_student",
+                "refresh_token": "1//rt_multi_85",
+                "group_id": group_85_id,
+                "week_start": monday.isoformat(),
+            },
+        )
+        assert resp.status_code == 200
+        res_data = resp.json()
+        # Незважаючи на 2 курси групи 75 проти 1 курсу групи 85, залишається обрана студентом група 85!
+        assert res_data["group_id"] == group_85_id
+        assert res_data["group_id"] != group_75_id
+
+        # Імітуємо перезапуск сервера: очищуємо оперативний кеш _latest_group_tasks
+        classroom_router._latest_group_tasks.clear()
+
+        with patch("app.routers.classroom.run_background_sync_task") as mock_bg_sync:
+            st_resp = await client.get(f"/api/classroom/groups/{group_85_id}/status")
+            assert st_resp.status_code == 200
+            st_data = st_resp.json()
+            assert len(st_data["tasks"]) == 1
+            reconstructed_task = st_data["tasks"][0]
+            assert reconstructed_task["title"] == "Контрольна робота з англійської"
+            assert reconstructed_task["max_points"] == 12
+            mock_bg_sync.assert_called_once_with(group_85_id, force=True)
+
+
+
 
 

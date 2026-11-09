@@ -74,7 +74,7 @@ export function getPersonalSubgroup(): number | null {
 
 export function saveClassroomTokens(
   accessToken?: string | null,
-  refreshToken?: string | null,
+  _refreshToken?: string | null,
   ttlSeconds: number = 3300
 ): void {
   if (typeof window === "undefined") return;
@@ -83,25 +83,29 @@ export function saveClassroomTokens(
       localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
       localStorage.setItem(ACCESS_TOKEN_EXP_KEY, String(Date.now() + ttlSeconds * 1000));
     }
-    if (refreshToken) {
-      localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
-    }
+    // 1.5: Ніколи не зберігаємо сирий refresh_token у localStorage браузера!
+    // Серверне оновлення токенів здійснюється через зашифрований ClassroomCredential за google_user_id.
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
   } catch {}
 }
 
 export function getClassroomSilentAuth(): {
   accessToken: string | null;
   refreshToken: string | null;
+  googleUserId: string | null;
 } {
-  if (typeof window === "undefined") return { accessToken: null, refreshToken: null };
+  if (typeof window === "undefined") {
+    return { accessToken: null, refreshToken: null, googleUserId: null };
+  }
   try {
     const rawToken = localStorage.getItem(ACCESS_TOKEN_KEY);
     const rawExp = Number(localStorage.getItem(ACCESS_TOKEN_EXP_KEY) || "0");
     const validAccess = rawToken && rawExp > Date.now() ? rawToken : null;
-    const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY) || null;
-    return { accessToken: validAccess, refreshToken };
+    const googleUserId = localStorage.getItem(GOOGLE_USER_ID_KEY) || null;
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
+    return { accessToken: validAccess, refreshToken: null, googleUserId };
   } catch {
-    return { accessToken: null, refreshToken: null };
+    return { accessToken: null, refreshToken: null, googleUserId: null };
   }
 }
 
@@ -387,8 +391,7 @@ export async function syncPersonalSubmissions(groupId?: number | null): Promise<
   const email = getLinkedEmail();
   if (!email) return false;
 
-  const googleUserId = localStorage.getItem(GOOGLE_USER_ID_KEY);
-  const { accessToken, refreshToken } = getClassroomSilentAuth();
+  const { accessToken, googleUserId } = getClassroomSilentAuth();
   const gId = groupId ?? getLinkedGroupId();
 
   _isSyncingPersonalSubmissions = true;
@@ -398,7 +401,6 @@ export async function syncPersonalSubmissions(groupId?: number | null): Promise<
       google_user_id: googleUserId ?? undefined,
       email: email !== "підключено" ? email : undefined,
       access_token: accessToken ?? undefined,
-      refresh_token: refreshToken ?? undefined,
     });
 
     if (res?.connected && res?.tasks) {
@@ -410,7 +412,7 @@ export async function syncPersonalSubmissions(groupId?: number | null): Promise<
         res.user_email || email,
         res.tasks,
         res.access_token ?? accessToken,
-        refreshToken,
+        null,
         res.google_user_id || googleUserId,
         resolvedGroupId,
         personalTeachers,
