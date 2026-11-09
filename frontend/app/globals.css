@@ -504,12 +504,17 @@ html[data-theme="light"][data-accent="cyan"] {
     background-color: var(--page-bg);
     accent-color: var(--accent);
     scrollbar-gutter: stable;
+    overscroll-behavior-y: none;
+    overscroll-behavior-x: none;
   }
 
   body {
     min-height: 100vh;
     min-height: 100dvh;
     margin: 0;
+    padding: 0;
+    overscroll-behavior-y: none;
+    overscroll-behavior-x: none;
     background-color: var(--page-bg);
     background-image: linear-gradient(180deg, rgb(var(--sys-accent) / 0.07) 0%, transparent 200px);
     color: rgb(var(--sys-text-primary));

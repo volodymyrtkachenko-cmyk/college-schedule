@@ -310,7 +310,7 @@ export function DayPager({
 
 
       {/* Day header: як на ПК — «Понеділок, 20 жовтня» + кнопки поділитися (44x44px) */}
-      <header className="mb-3.5 flex items-center justify-between gap-2 px-0 pt-1">
+      <header className="mb-3.5 flex items-center justify-between gap-2 px-0 pt-2">
         <div className="flex flex-wrap items-baseline gap-2 min-w-0">
           <div className="flex items-center gap-2.5 min-w-0">
             <h2 className="text-xl font-bold capitalize tracking-tight truncate text-sys-text-primary">
