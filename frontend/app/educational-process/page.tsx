@@ -41,7 +41,6 @@ const TYPE_CONFIG: Record<
     badgeBg: string;
     badgeText: string;
     badgeBorder: string;
-    barColor: string;
     dotClass: string;
   }
 > = {
@@ -50,7 +49,6 @@ const TYPE_CONFIG: Record<
     badgeBg: "bg-rose-500/10 dark:bg-rose-500/15",
     badgeText: "text-rose-700 dark:text-rose-300",
     badgeBorder: "border-rose-500/30",
-    barColor: "bg-rose-500",
     dotClass: "bg-rose-500",
   },
   holiday: {
@@ -58,7 +56,6 @@ const TYPE_CONFIG: Record<
     badgeBg: "bg-emerald-500/10 dark:bg-emerald-500/15",
     badgeText: "text-emerald-700 dark:text-emerald-300",
     badgeBorder: "border-emerald-500/30",
-    barColor: "bg-emerald-500",
     dotClass: "bg-emerald-500",
   },
   practice: {
@@ -66,7 +63,6 @@ const TYPE_CONFIG: Record<
     badgeBg: "bg-amber-500/10 dark:bg-amber-500/15",
     badgeText: "text-amber-800 dark:text-amber-300",
     badgeBorder: "border-amber-500/30",
-    barColor: "bg-amber-500",
     dotClass: "bg-amber-500",
   },
   diploma: {
@@ -74,7 +70,6 @@ const TYPE_CONFIG: Record<
     badgeBg: "bg-purple-500/10 dark:bg-purple-500/15",
     badgeText: "text-purple-700 dark:text-purple-300",
     badgeBorder: "border-purple-500/30",
-    barColor: "bg-purple-500",
     dotClass: "bg-purple-500",
   },
   attestation: {
@@ -82,7 +77,6 @@ const TYPE_CONFIG: Record<
     badgeBg: "bg-sky-500/10 dark:bg-sky-500/15",
     badgeText: "text-sky-700 dark:text-sky-300",
     badgeBorder: "border-sky-500/30",
-    barColor: "bg-sky-500",
     dotClass: "bg-sky-500",
   },
   theory: {
@@ -90,23 +84,22 @@ const TYPE_CONFIG: Record<
     badgeBg: "bg-sys-bg",
     badgeText: "text-sys-text-secondary",
     badgeBorder: "border-sys-border",
-    barColor: "bg-sys-border/70 dark:bg-sys-border/50",
     dotClass: "bg-slate-400",
   },
 };
 
 const MONTH_NAMES_UA = [
-  "Січ", "Лют", "Бер", "Кві", "Тра", "Чер",
-  "Лип", "Сер", "Вер", "Жов", "Лис", "Гру"
+  "січ.", "лют.", "бер.", "квіт.", "трав.", "черв.",
+  "лип.", "серп.", "вер.", "жовт.", "лист.", "груд."
 ];
 
 function formatDisplayDate(dateStr: string) {
   try {
     const d = new Date(`${dateStr}T12:00:00`);
     const day = d.getDate();
-    const month = MONTH_NAMES_UA[d.getMonth()]?.toLowerCase();
+    const month = MONTH_NAMES_UA[d.getMonth()] || "";
     const year = d.getFullYear();
-    return `${day} ${month}. ${year}`;
+    return `${day} ${month} ${year}`;
   } catch {
     return dateStr;
   }
@@ -188,7 +181,7 @@ export default function EducationalProcessPage() {
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
   const [activeCourseTab, setActiveCourseTab] = useState<number | "all">(3);
   const [searchQuery, setSearchQuery] = useState("");
-  const [viewMode, setViewMode] = useState<"milestones" | "full">("milestones");
+  const [showFullSchedule, setShowFullSchedule] = useState(false);
 
   // Read saved group from local storage on mount
   useEffect(() => {
@@ -204,20 +197,18 @@ export default function EducationalProcessPage() {
     } catch {}
   }, []);
 
-  // Determine academic year start (e.g. 2026)
+  // Determine current academic year (e.g. 2026)
   const currentAcademicYear = useMemo(() => {
     const now = new Date();
     return now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear() - 1;
   }, []);
 
-  const [selectedYear, setSelectedYear] = useState<number>(currentAcademicYear);
-
-  // Fetch educational process matrix
+  // Fetch educational process matrix for active academic year
   useEffect(() => {
     setLoading(true);
     setError(null);
     api
-      .educationalProcess<EducationalProcessMatrix>(selectedYear)
+      .educationalProcess<EducationalProcessMatrix>(currentAcademicYear)
       .then((data) => {
         setMatrix(data);
         setLoading(false);
@@ -227,7 +218,7 @@ export default function EducationalProcessPage() {
         setError("Не вдалося завантажити графік навчального процесу.");
         setLoading(false);
       });
-  }, [selectedYear]);
+  }, [currentAcademicYear]);
 
   // Extract all groups with their course info
   const allGroups = useMemo(() => {
@@ -250,7 +241,7 @@ export default function EducationalProcessPage() {
       });
   }, [matrix]);
 
-  // If selected group is not set yet, set it to savedGroupId or first group
+  // Set initial selected group
   useEffect(() => {
     if (!selectedGroupId && allGroups.length > 0) {
       if (savedGroupId && allGroups.some((g) => g.id === savedGroupId)) {
@@ -287,7 +278,7 @@ export default function EducationalProcessPage() {
     return null;
   }, [matrix, selectedGroupId]);
 
-  // Filter groups for selector based on active course and search
+  // Filter groups for selector
   const visibleGroups = useMemo(() => {
     return allGroups.filter((g) => {
       const matchesCourse = activeCourseTab === "all" || g.course === activeCourseTab;
@@ -341,7 +332,7 @@ export default function EducationalProcessPage() {
       return todayDate >= s && todayDate <= e;
     });
 
-    // Calculate overall academic year progress percentage
+    // Calculate progress percentage
     const firstWeek = matrix.weeks[0];
     const lastWeek = matrix.weeks[matrix.weeks.length - 1];
     let progressPercent = 0;
@@ -364,37 +355,43 @@ export default function EducationalProcessPage() {
     };
   }, [currentGroupData, matrix, todayIso]);
 
-  // Filter key milestones
-  const keyMilestones = useMemo(() => {
-    if (!currentGroupData) return [];
+  // Group milestones by Semester 1 and Semester 2
+  const semesterMilestones = useMemo(() => {
+    if (!currentGroupData) return { semester1: [], semester2: [] };
     const todayDate = new Date(`${todayIso}T12:00:00`);
 
-    return currentGroupData.mergedPeriods
-      .filter((p) => p.period_type !== "theory")
-      .map((p) => {
-        const s = new Date(`${p.start_date}T00:00:00`);
-        const e = new Date(`${p.end_date}T23:59:59`);
-        let status: "past" | "current" | "upcoming" = "upcoming";
-        let daysDiff = 0;
+    const nonTheory = currentGroupData.mergedPeriods.filter((p) => p.period_type !== "theory");
 
-        if (todayDate > e) {
-          status = "past";
-        } else if (todayDate >= s && todayDate <= e) {
-          status = "current";
-        } else {
-          status = "upcoming";
-          daysDiff = Math.ceil((s.getTime() - todayDate.getTime()) / (1000 * 60 * 60 * 24));
-        }
+    const formatItem = (p: MergedPeriod) => {
+      const s = new Date(`${p.start_date}T00:00:00`);
+      const e = new Date(`${p.end_date}T23:59:59`);
+      let status: "past" | "current" | "upcoming" = "upcoming";
+      let daysDiff = 0;
 
-        return {
-          ...p,
-          status,
-          daysDiff,
-        };
-      });
+      if (todayDate > e) {
+        status = "past";
+      } else if (todayDate >= s && todayDate <= e) {
+        status = "current";
+      } else {
+        status = "upcoming";
+        daysDiff = Math.ceil((s.getTime() - todayDate.getTime()) / (1000 * 60 * 60 * 24));
+      }
+
+      return {
+        ...p,
+        status,
+        daysDiff,
+      };
+    };
+
+    // Week <= 21 belongs to Semester 1 (Autumn / Winter), Week >= 22 belongs to Semester 2 (Spring / Summer)
+    const semester1 = nonTheory.filter((p) => p.end_week <= 21).map(formatItem);
+    const semester2 = nonTheory.filter((p) => p.start_week >= 22).map(formatItem);
+
+    return { semester1, semester2 };
   }, [currentGroupData, todayIso]);
 
-  // Select group and save preference
+  // Select group handler
   const handleSelectGroup = (id: number) => {
     setSelectedGroupId(id);
     try {
@@ -403,10 +400,12 @@ export default function EducationalProcessPage() {
     } catch {}
   };
 
+  const academicYearLabel = `${currentAcademicYear}/${currentAcademicYear + 1}`;
+
   return (
     <div className="min-h-screen bg-[var(--page-bg)] text-sys-text-primary">
       {/* Mobile Header (<640px) */}
-      <header className="sticky top-0 z-30 border-b border-sys-border bg-sys-card px-3 py-2.5 sm:hidden shadow-xs backdrop-blur-md">
+      <header className="sticky top-0 z-30 border-b border-sys-border bg-sys-card px-3.5 py-2.5 sm:hidden shadow-xs backdrop-blur-md">
         <div className="flex items-center justify-between gap-2">
           <Link
             href="/"
@@ -416,9 +415,9 @@ export default function EducationalProcessPage() {
             <span className="rounded-md bg-sys-accent/15 px-1.5 py-0.5 text-xs font-black uppercase tracking-wider text-sys-accent">
               ДФКР
             </span>
-            <h1 className="text-sm font-bold tracking-tight text-sys-text-primary">
+            <span className="text-sm font-bold tracking-tight text-sys-text-primary">
               Графік процесу
-            </h1>
+            </span>
           </Link>
           <Link
             href="/"
@@ -432,60 +431,47 @@ export default function EducationalProcessPage() {
 
       {/* Desktop Header (>=640px) */}
       <header className="hidden sm:block border-b border-sys-border bg-sys-card">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-5 sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
           <div>
             <div className="flex items-center gap-2">
               <span className="rounded-md bg-sys-accent/15 px-2 py-0.5 text-xs font-black uppercase tracking-wider text-sys-accent">
                 ДФКР
               </span>
-              <span className="text-xs font-medium text-sys-text-muted">
+              <span className="text-xs text-sys-text-muted">
                 Дніпровський фаховий коледж радіоелектроніки
               </span>
             </div>
-            <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl text-sys-text-primary">
+            <h1 className="mt-1 text-xl font-bold tracking-tight sm:text-2xl text-sys-text-primary">
               Графік освітнього процесу
             </h1>
-            <p className="mt-0.5 text-xs sm:text-sm text-sys-text-secondary">
-              Семестри, екзаменаційні сесії, виробнича практика, диплом та канікули на {selectedYear}/{selectedYear + 1} навч. рік
+            <p className="mt-0.5 text-xs text-sys-text-secondary">
+              Семестри, екзаменаційні сесії, практика та канікули • {academicYearLabel} навчальний рік
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
-            <select
-              aria-label="Навчальний рік"
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(Number(e.target.value))}
-              className="rounded-xl border border-sys-border bg-sys-bg px-3 py-2 text-xs font-semibold text-sys-text-primary hover:border-sys-accent/50 focus:outline-none focus:ring-2 focus:ring-sys-accent transition-colors"
-            >
-              <option value={2026}>2026/2027 рік</option>
-              <option value={2025}>2025/2026 рік</option>
-              <option value={2024}>2024/2025 рік</option>
-            </select>
-
-            <Link
-              href="/"
-              onClick={() => setHomeTab("schedule")}
-              className="flex items-center gap-1.5 rounded-xl border border-sys-border bg-sys-bg px-4 py-2 text-sm font-semibold text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/40 active:scale-[0.98] transition-colors shadow-xs"
-            >
-              ← До розкладу занять
-            </Link>
-          </div>
+          <Link
+            href="/"
+            onClick={() => setHomeTab("schedule")}
+            className="flex items-center gap-1.5 rounded-xl border border-sys-border bg-sys-bg px-3.5 py-2 text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/40 active:scale-[0.98] transition-colors shadow-xs"
+          >
+            ← До розкладу занять
+          </Link>
         </div>
       </header>
 
       {/* Main Content Area */}
-      <main className="mx-auto max-w-7xl px-3 py-4 sm:px-6 sm:py-6 pb-24 lg:pb-8 space-y-6">
-        {/* Selector Panel: Tabs & Groups */}
+      <main className="mx-auto max-w-6xl px-3.5 py-4 sm:px-6 sm:py-5 pb-24 lg:pb-8 space-y-5">
+        {/* Compact Clean Group Selector */}
         <section
-          aria-label="Вибір навчальної групи"
-          className="rounded-2xl border border-sys-border bg-sys-card p-3.5 sm:p-5 shadow-xs"
+          aria-label="Вибір групи"
+          className="rounded-2xl border border-sys-border bg-sys-card p-3 sm:p-4 shadow-xs space-y-3"
         >
-          {/* Top Row: Course Tabs & Search */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pb-3 border-b border-sys-border/60">
-            {/* Course Filter Tabs */}
+          {/* Row 1: Course Tabs & Search */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+            {/* Minimal Course Tabs */}
             <div
               role="tablist"
-              aria-label="Курси коледжу"
+              aria-label="Курс"
               className="flex items-center gap-1 bg-sys-bg p-1 rounded-xl border border-sys-border/70 overflow-x-auto"
             >
               {[1, 2, 3, 4].map((courseNum) => {
@@ -518,15 +504,15 @@ export default function EducationalProcessPage() {
                     : "text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-card"
                 }`}
               >
-                Всі курси
+                Всі
               </button>
             </div>
 
-            {/* Clean Minimal Search Input */}
-            <div className="relative min-w-[180px] sm:max-w-xs">
+            {/* Clean Search Input */}
+            <div className="relative min-w-[160px] sm:w-48">
               <svg
-                width="14"
-                height="14"
+                width="13"
+                height="13"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -542,8 +528,8 @@ export default function EducationalProcessPage() {
                 type="search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Пошук групи (85, 75...)"
-                className="w-full rounded-xl border border-sys-border bg-sys-bg py-1.5 pl-8 pr-7 text-xs text-sys-text-primary placeholder:text-sys-text-muted focus:border-sys-accent focus:outline-none focus:ring-1 focus:ring-sys-accent transition"
+                placeholder="Пошук (85, 75...)"
+                className="w-full rounded-xl border border-sys-border bg-sys-bg py-1.5 pl-8 pr-6 text-xs text-sys-text-primary placeholder:text-sys-text-muted focus:border-sys-accent focus:outline-none focus:ring-1 focus:ring-sys-accent transition"
               />
               {searchQuery && (
                 <button
@@ -557,378 +543,339 @@ export default function EducationalProcessPage() {
             </div>
           </div>
 
-          {/* Group Chips Bar */}
-          <div className="pt-3">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-sys-text-secondary">
-                Навчальна група:
+          {/* Row 2: Pure Compact Number Pills: [ 81 ] [ 82 ] [ 83 ] [ 85 ] */}
+          <div className="flex flex-wrap items-center gap-1.5 pt-1 max-h-32 overflow-y-auto">
+            {visibleGroups.map((g) => {
+              const isSelected = selectedGroupId === g.id;
+              const isSaved = savedGroupId === g.id;
+              return (
+                <button
+                  key={g.id}
+                  type="button"
+                  onClick={() => handleSelectGroup(g.id)}
+                  className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-all active:scale-95 flex items-center gap-1 ${
+                    isSelected
+                      ? "bg-sys-accent text-white shadow-xs"
+                      : "border border-sys-border bg-sys-bg text-sys-text-primary hover:border-sys-accent/50 hover:bg-sys-card"
+                  }`}
+                >
+                  <span>{g.name}</span>
+                  {isSaved && !isSelected && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-sys-accent" title="Збережена група" />
+                  )}
+                </button>
+              );
+            })}
+            {visibleGroups.length === 0 && !loading && (
+              <span className="text-xs text-sys-text-secondary py-1">
+                Групи не знайдені.
               </span>
-              {savedGroupId && (
-                <span className="text-xs text-sys-accent font-medium">
-                  Ваша група: {allGroups.find((g) => g.id === savedGroupId)?.name || savedGroupId}
-                </span>
-              )}
-            </div>
-
-            <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto pr-1">
-              {visibleGroups.map((g) => {
-                const isSelected = selectedGroupId === g.id;
-                const isSaved = savedGroupId === g.id;
-                return (
-                  <button
-                    key={g.id}
-                    type="button"
-                    onClick={() => handleSelectGroup(g.id)}
-                    className={`group rounded-xl border px-3 py-1.5 text-xs font-semibold transition-all active:scale-95 flex items-center gap-1.5 ${
-                      isSelected
-                        ? "border-sys-accent bg-sys-accent text-white shadow-xs"
-                        : "border-sys-border bg-sys-bg text-sys-text-primary hover:border-sys-accent/60 hover:bg-sys-card"
-                    }`}
-                  >
-                    <span>Група {g.name}</span>
-                    {isSaved && !isSelected && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-sys-accent" title="Збережена група" />
-                    )}
-                  </button>
-                );
-              })}
-              {visibleGroups.length === 0 && !loading && (
-                <span className="text-xs text-sys-text-secondary py-2">
-                  Групи не знайдені.
-                </span>
-              )}
-            </div>
+            )}
           </div>
         </section>
 
-        {/* States: Loading, Error */}
+        {/* Loading / Error States */}
         {loading ? (
-          <div className="space-y-4" aria-busy="true" aria-label="Завантаження графіка освітнього процесу">
-            <div className="h-32 rounded-2xl bg-sys-card border border-sys-border animate-pulse" />
-            <div className="h-44 rounded-2xl bg-sys-card border border-sys-border animate-pulse" />
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="space-y-4" aria-busy="true">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="h-36 rounded-2xl bg-sys-card border border-sys-border animate-pulse" />
+                <div key={i} className="h-24 rounded-2xl bg-sys-card border border-sys-border animate-pulse" />
               ))}
             </div>
+            <div className="h-48 rounded-2xl bg-sys-card border border-sys-border animate-pulse" />
           </div>
         ) : error ? (
-          <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-8 text-center text-sm text-rose-700 dark:text-rose-300">
+          <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-6 text-center text-sm text-rose-700 dark:text-rose-300">
             {error}
           </div>
         ) : !currentGroupData ? (
-          <div className="rounded-2xl border border-dashed border-sys-border bg-sys-card/50 p-12 text-center text-sys-text-secondary">
-            Оберіть групу зі списку вище, щоб переглянути графік освітнього процесу.
+          <div className="rounded-2xl border border-dashed border-sys-border bg-sys-card/50 p-8 text-center text-sys-text-secondary text-sm">
+            Оберіть групу вище, щоб переглянути графік освітнього процесу.
           </div>
         ) : (
           <div className="space-y-6">
-            {/* Real-time Status & Countdown Hero Banner */}
+            {/* 3 Equal Clean Stats Cards in One Row */}
             {realTimeStatus && (
               <section
-                aria-label="Поточний навчальний статус"
-                className="relative overflow-hidden rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-6 shadow-xs"
+                aria-label="Поточний стан"
+                className="grid grid-cols-1 sm:grid-cols-3 gap-3"
               >
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-center">
-                  {/* Left Column: Group & Current Period */}
-                  <div className="md:col-span-7 space-y-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded-md bg-sys-accent/15 px-2.5 py-0.5 text-xs font-bold text-sys-accent tracking-wide">
-                        Група {currentGroupData.group.group_name} • {currentGroupData.course} курс
+                {/* Card 1: Current Status */}
+                <div className="rounded-2xl border border-sys-border bg-sys-card p-4 shadow-xs flex flex-col justify-between space-y-2">
+                  <div className="flex items-center justify-between text-xs text-sys-text-secondary">
+                    <span className="font-medium">Зараз триває</span>
+                    {realTimeStatus.currentWeekNumber && (
+                      <span className="text-[11px] font-semibold text-sys-text-muted">
+                        {realTimeStatus.currentWeekNumber}-й тиждень
                       </span>
-                      {realTimeStatus.currentWeekNumber && (
-                        <span className="text-xs font-medium text-sys-text-secondary bg-sys-bg border border-sys-border px-2 py-0.5 rounded-md">
-                          {realTimeStatus.currentWeekNumber}-й тиждень
-                        </span>
-                      )}
-                      <span className="text-xs text-sys-text-muted">
-                        {formatDisplayDate(todayIso)}
-                      </span>
-                    </div>
-
-                    <div className="pt-0.5">
-                      <div className="flex items-center gap-2">
-                        {realTimeStatus.currentPeriod && (
-                          <span
-                            className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-                              TYPE_CONFIG[realTimeStatus.currentPeriod.period_type]?.dotClass || "bg-slate-400"
-                            }`}
-                          />
-                        )}
-                        <h2 className="text-lg sm:text-xl font-bold text-sys-text-primary tracking-tight">
-                          {realTimeStatus.currentPeriod
-                            ? realTimeStatus.currentPeriod.name ||
-                              TYPE_CONFIG[realTimeStatus.currentPeriod.period_type]?.name ||
-                              "Навчальний період"
-                            : "Навчальний період"}
-                        </h2>
-                      </div>
-
-                      {realTimeStatus.currentPeriod && (
-                        <p className="text-xs sm:text-sm text-sys-text-secondary mt-1">
-                          {formatDisplayDate(realTimeStatus.currentPeriod.start_date)} —{" "}
-                          {formatDisplayDate(realTimeStatus.currentPeriod.end_date)} ({realTimeStatus.currentPeriod.weeks_count} тижн.)
-                        </p>
-                      )}
-                    </div>
+                    )}
                   </div>
-
-                  {/* Right Column: Next Milestone Countdown Box */}
-                  <div className="md:col-span-5">
-                    {realTimeStatus.nextMilestone ? (
-                      <div className="rounded-xl border border-sys-border bg-sys-bg/60 p-4">
-                        <div className="flex items-center justify-between text-xs font-semibold text-sys-text-secondary">
-                          <span className="flex items-center gap-1.5">
-                            <span
-                              className={`w-2 h-2 rounded-full ${
-                                TYPE_CONFIG[realTimeStatus.nextMilestone.period.period_type]?.dotClass
-                              }`}
-                            />
-                            <span>Найближчий етап</span>
-                          </span>
-                          <span className="px-2 py-0.5 rounded-full bg-sys-accent text-white font-bold text-xs">
-                            через {realTimeStatus.nextMilestone.daysUntil}{" "}
-                            {realTimeStatus.nextMilestone.daysUntil === 1
-                              ? "день"
-                              : realTimeStatus.nextMilestone.daysUntil >= 2 && realTimeStatus.nextMilestone.daysUntil <= 4
-                              ? "дні"
-                              : "днів"}
-                          </span>
-                        </div>
-                        <p className="font-bold text-sm sm:text-base mt-2 text-sys-text-primary">
-                          {realTimeStatus.nextMilestone.period.name ||
-                            TYPE_CONFIG[realTimeStatus.nextMilestone.period.period_type]?.name}
-                        </p>
-                        <p className="text-xs text-sys-text-secondary mt-0.5">
-                          Початок: {formatDisplayDate(realTimeStatus.nextMilestone.period.start_date)} •{" "}
-                          {realTimeStatus.nextMilestone.period.weeks_count} тижн.
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="rounded-xl border border-sys-border bg-sys-bg/60 p-4 text-center text-xs text-sys-text-secondary">
-                        Усі планові сесії та практики року завершено
-                      </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                          realTimeStatus.currentPeriod
+                            ? TYPE_CONFIG[realTimeStatus.currentPeriod.period_type]?.dotClass || "bg-slate-400"
+                            : "bg-slate-400"
+                        }`}
+                      />
+                      <span className="font-bold text-base text-sys-text-primary tracking-tight">
+                        {realTimeStatus.currentPeriod
+                          ? realTimeStatus.currentPeriod.name ||
+                            TYPE_CONFIG[realTimeStatus.currentPeriod.period_type]?.name ||
+                            "Навчання"
+                          : "Навчання"}
+                      </span>
+                    </div>
+                    {realTimeStatus.currentPeriod && (
+                      <p className="text-xs text-sys-text-secondary mt-1">
+                        до {formatDisplayDate(realTimeStatus.currentPeriod.end_date)}
+                      </p>
                     )}
                   </div>
                 </div>
 
-                {/* Progress bar of academic year */}
-                <div className="mt-5 pt-3.5 border-t border-sys-border/50">
-                  <div className="flex items-center justify-between text-xs text-sys-text-secondary mb-1.5">
-                    <span>Навчальний рік:</span>
-                    <span className="font-semibold text-sys-text-primary">{realTimeStatus.progressPercent}% пройдено</span>
+                {/* Card 2: Next Milestone */}
+                <div className="rounded-2xl border border-sys-border bg-sys-card p-4 shadow-xs flex flex-col justify-between space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-medium text-sys-text-secondary">Найближча подія</span>
+                    {realTimeStatus.nextMilestone && (
+                      <span className="px-2 py-0.5 rounded-full bg-sys-accent text-white font-bold text-[11px]">
+                        через {realTimeStatus.nextMilestone.daysUntil}{" "}
+                        {realTimeStatus.nextMilestone.daysUntil === 1
+                          ? "день"
+                          : realTimeStatus.nextMilestone.daysUntil >= 2 && realTimeStatus.nextMilestone.daysUntil <= 4
+                          ? "дні"
+                          : "днів"}
+                      </span>
+                    )}
                   </div>
-                  <div className="h-1.5 w-full rounded-full bg-sys-bg border border-sys-border/70 overflow-hidden">
-                    <div
-                      className="h-full bg-sys-accent transition-all duration-500 rounded-full"
-                      style={{ width: `${realTimeStatus.progressPercent}%` }}
-                    />
+                  <div>
+                    <p className="font-bold text-base text-sys-text-primary tracking-tight">
+                      {realTimeStatus.nextMilestone
+                        ? realTimeStatus.nextMilestone.period.name ||
+                          TYPE_CONFIG[realTimeStatus.nextMilestone.period.period_type]?.name
+                        : "Усі події завершено"}
+                    </p>
+                    {realTimeStatus.nextMilestone && (
+                      <p className="text-xs text-sys-text-secondary mt-1">
+                        Початок: {formatDisplayDate(realTimeStatus.nextMilestone.period.start_date)} ({realTimeStatus.nextMilestone.period.weeks_count} тижн.)
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Card 3: Academic Year Progress */}
+                <div className="rounded-2xl border border-sys-border bg-sys-card p-4 shadow-xs flex flex-col justify-between space-y-2">
+                  <div className="flex items-center justify-between text-xs text-sys-text-secondary">
+                    <span className="font-medium">Навчальний рік</span>
+                    <span className="text-[11px] font-bold text-sys-accent">
+                      {realTimeStatus.currentWeekNumber || 0} із {matrix?.weeks?.length || 52} тижнів
+                    </span>
+                  </div>
+                  <div>
+                    <div className="flex items-baseline justify-between mb-1.5">
+                      <span className="text-xl font-black text-sys-text-primary tracking-tight">
+                        {realTimeStatus.progressPercent}%
+                      </span>
+                      <span className="text-xs text-sys-text-muted">пройдено</span>
+                    </div>
+                    <div className="h-1.5 w-full rounded-full bg-sys-bg border border-sys-border/70 overflow-hidden">
+                      <div
+                        className="h-full bg-sys-accent rounded-full transition-all duration-500"
+                        style={{ width: `${realTimeStatus.progressPercent}%` }}
+                      />
+                    </div>
                   </div>
                 </div>
               </section>
             )}
 
-            {/* Annual Gantt Timeline Bar */}
-            <section
-              aria-label="Річний графік освітнього процесу"
-              className="rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-xs space-y-4"
-            >
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <h3 className="text-base font-bold text-sys-text-primary">
-                    Річна шкала навчального процесу
-                  </h3>
-                  <p className="text-xs text-sys-text-secondary mt-0.5">
-                    Вересень — Серпень • 52 тижні
-                  </p>
+            {/* Semester 1 Section: Autumn / Winter */}
+            <section aria-label="I семестр" className="space-y-3">
+              <div className="flex items-center justify-between border-b border-sys-border/60 pb-2">
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded-md bg-sys-bg border border-sys-border text-xs font-bold text-sys-text-primary">
+                    I семестр
+                  </span>
+                  <span className="text-xs text-sys-text-secondary font-medium">
+                    Осінь — Зима (вересень – січень)
+                  </span>
                 </div>
-
-                {/* Clean View Mode Toggle */}
-                <div className="flex items-center gap-1 bg-sys-bg p-1 rounded-xl border border-sys-border self-start sm:self-auto">
-                  <button
-                    type="button"
-                    onClick={() => setViewMode("milestones")}
-                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition ${
-                      viewMode === "milestones"
-                        ? "bg-sys-card text-sys-accent shadow-xs"
-                        : "text-sys-text-secondary hover:text-sys-text-primary"
-                    }`}
-                  >
-                    Ключові етапи
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setViewMode("full")}
-                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition ${
-                      viewMode === "full"
-                        ? "bg-sys-card text-sys-accent shadow-xs"
-                        : "text-sys-text-secondary hover:text-sys-text-primary"
-                    }`}
-                  >
-                    Усі тижні
-                  </button>
-                </div>
+                <span className="text-xs text-sys-text-muted">
+                  {semesterMilestones.semester1.length} етапів
+                </span>
               </div>
 
-              {/* Gantt Timeline Strip Container */}
-              <div className="pt-1">
-                {/* Month Headers */}
-                <div className="grid grid-cols-12 text-center text-[10px] sm:text-xs font-medium text-sys-text-muted border-b border-sys-border/50 pb-1.5 mb-2 select-none">
-                  {["Вер", "Жов", "Лис", "Гру", "Січ", "Лют", "Бер", "Кві", "Тра", "Чер", "Лип", "Сер"].map((m, i) => (
-                    <span key={i}>{m}</span>
-                  ))}
-                </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {semesterMilestones.semester1.map((item, idx) => {
+                  const cfg = TYPE_CONFIG[item.period_type] || TYPE_CONFIG.theory;
+                  const isCurrent = item.status === "current";
+                  const isUpcoming = item.status === "upcoming";
+                  const isPast = item.status === "past";
 
-                {/* Minimal Multi-segment Bar */}
-                <div className="relative h-7 w-full rounded-lg bg-sys-bg border border-sys-border overflow-hidden flex shadow-inner">
-                  {currentGroupData.mergedPeriods.map((period, idx) => {
-                    const cfg = TYPE_CONFIG[period.period_type] || TYPE_CONFIG.theory;
-                    const totalWeeks = matrix?.weeks?.length || 52;
-                    const widthPercent = (period.weeks_count / totalWeeks) * 100;
-
-                    return (
-                      <div
-                        key={idx}
-                        style={{ width: `${widthPercent}%` }}
-                        title={`${period.name || cfg.name}: ${formatShortDate(period.start_date)} – ${formatShortDate(period.end_date)} (${period.weeks_count} тижн.)`}
-                        className={`h-full relative group cursor-pointer border-r border-sys-card/60 transition-opacity hover:opacity-90 ${cfg.barColor}`}
-                      >
-                        {/* Clean Hover Tooltip */}
-                        <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center z-30">
-                          <div className="bg-sys-elevated text-sys-text-primary text-[11px] font-semibold rounded-lg px-2.5 py-1 shadow-lg border border-sys-border whitespace-nowrap">
-                            <span>{period.name || cfg.name}</span>
-                            <div className="text-[10px] text-sys-text-secondary font-normal">
-                              {formatShortDate(period.start_date)} – {formatShortDate(period.end_date)} ({period.weeks_count} тижн.)
-                            </div>
-                          </div>
-                          <div className="w-1.5 h-1.5 bg-sys-elevated rotate-45 -mt-0.5 border-r border-b border-sys-border" />
-                        </div>
-                      </div>
-                    );
-                  })}
-
-                  {/* "Today" Needle Indicator */}
-                  {realTimeStatus && (
+                  return (
                     <div
-                      style={{ left: `${realTimeStatus.progressPercent}%` }}
-                      className="absolute top-0 bottom-0 w-0.5 bg-rose-500 z-20 pointer-events-none shadow-[0_0_6px_rgba(244,63,94,0.7)]"
+                      key={idx}
+                      className={`rounded-2xl border p-4 transition-all flex flex-col justify-between shadow-xs ${
+                        isCurrent
+                          ? "border-sys-accent bg-sys-accent/5 ring-1 ring-sys-accent/40"
+                          : isUpcoming
+                          ? "border-sys-border bg-sys-card hover:border-sys-border-elevated"
+                          : "border-sys-border/50 bg-sys-card/50 opacity-60"
+                      }`}
                     >
-                      <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-rose-500 ring-2 ring-white dark:ring-black" />
-                    </div>
-                  )}
-                </div>
+                      <div>
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <span
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-semibold border ${cfg.badgeBg} ${cfg.badgeText} ${cfg.badgeBorder}`}
+                          >
+                            <span className={`w-1.5 h-1.5 rounded-full ${cfg.dotClass}`} />
+                            <span>{cfg.name}</span>
+                          </span>
 
-                {/* Minimal Color Legend without emojis */}
-                <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-xs text-sys-text-secondary select-none">
-                  {Object.entries(TYPE_CONFIG).map(([key, cfg]) => (
-                    <div key={key} className="flex items-center gap-1.5">
-                      <span className={`h-2 w-2 rounded-full ${cfg.dotClass} shrink-0`} />
-                      <span className="text-sys-text-secondary font-medium">{cfg.name}</span>
+                          {isCurrent && (
+                            <span className="px-2 py-0.5 rounded-full bg-rose-500 text-white font-bold text-[10px] uppercase tracking-wide">
+                              Зараз
+                            </span>
+                          )}
+                          {isUpcoming && (
+                            <span className="text-xs font-semibold text-sys-accent">
+                              через {item.daysDiff} дн.
+                            </span>
+                          )}
+                          {isPast && (
+                            <span className="text-[11px] font-medium text-sys-text-muted">
+                              Завершено
+                            </span>
+                          )}
+                        </div>
+
+                        <h3 className="text-sm sm:text-base font-bold text-sys-text-primary mt-1">
+                          {item.name || cfg.name}
+                        </h3>
+                      </div>
+
+                      <div className="mt-4 pt-3 border-t border-sys-border/50 flex items-center justify-between text-xs text-sys-text-secondary">
+                        <span>
+                          {formatDisplayDate(item.start_date)} — {formatDisplayDate(item.end_date)}
+                        </span>
+                        <span className="font-semibold text-sys-text-primary">
+                          {item.weeks_count} тижн.
+                        </span>
+                      </div>
                     </div>
-                  ))}
-                </div>
+                  );
+                })}
+
+                {semesterMilestones.semester1.length === 0 && (
+                  <div className="col-span-full rounded-xl border border-dashed border-sys-border p-4 text-center text-xs text-sys-text-secondary">
+                    Немає додаткових сесійних або практичних етапів у I семестрі.
+                  </div>
+                )}
               </div>
             </section>
 
-            {/* Key Milestones Cards View */}
-            {viewMode === "milestones" ? (
-              <section
-                aria-label="Ключові події та етапи"
-                className="space-y-3.5"
-              >
-                <div className="flex items-center justify-between">
-                  <h3 className="text-base font-bold text-sys-text-primary">
-                    Ключові етапи групи {currentGroupData.group.group_name}
-                  </h3>
-                  <span className="text-xs text-sys-text-muted">
-                    {keyMilestones.length} етапів
+            {/* Semester 2 Section: Spring / Summer */}
+            <section aria-label="II семестр" className="space-y-3 pt-2">
+              <div className="flex items-center justify-between border-b border-sys-border/60 pb-2">
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded-md bg-sys-bg border border-sys-border text-xs font-bold text-sys-text-primary">
+                    II семестр
+                  </span>
+                  <span className="text-xs text-sys-text-secondary font-medium">
+                    Весна — Літо (січень – серпень)
                   </span>
                 </div>
+                <span className="text-xs text-sys-text-muted">
+                  {semesterMilestones.semester2.length} етапів
+                </span>
+              </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {keyMilestones.map((item, idx) => {
-                    const cfg = TYPE_CONFIG[item.period_type] || TYPE_CONFIG.theory;
-                    const isCurrent = item.status === "current";
-                    const isUpcoming = item.status === "upcoming";
-                    const isPast = item.status === "past";
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {semesterMilestones.semester2.map((item, idx) => {
+                  const cfg = TYPE_CONFIG[item.period_type] || TYPE_CONFIG.theory;
+                  const isCurrent = item.status === "current";
+                  const isUpcoming = item.status === "upcoming";
+                  const isPast = item.status === "past";
 
-                    return (
-                      <div
-                        key={idx}
-                        className={`rounded-2xl border p-4 transition-all flex flex-col justify-between shadow-xs ${
-                          isCurrent
-                            ? "border-sys-accent bg-sys-accent/5 ring-1 ring-sys-accent/40"
-                            : isUpcoming
-                            ? "border-sys-border bg-sys-card hover:border-sys-border-elevated"
-                            : "border-sys-border/50 bg-sys-card/50 opacity-60"
-                        }`}
-                      >
-                        {/* Card Header: Type Badge & Status */}
-                        <div>
-                          <div className="flex items-center justify-between gap-2 mb-2">
-                            <span
-                              className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-semibold border ${cfg.badgeBg} ${cfg.badgeText} ${cfg.badgeBorder}`}
-                            >
-                              <span className={`w-1.5 h-1.5 rounded-full ${cfg.dotClass}`} />
-                              <span>{cfg.name}</span>
+                  return (
+                    <div
+                      key={idx}
+                      className={`rounded-2xl border p-4 transition-all flex flex-col justify-between shadow-xs ${
+                        isCurrent
+                          ? "border-sys-accent bg-sys-accent/5 ring-1 ring-sys-accent/40"
+                          : isUpcoming
+                          ? "border-sys-border bg-sys-card hover:border-sys-border-elevated"
+                          : "border-sys-border/50 bg-sys-card/50 opacity-60"
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <span
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-semibold border ${cfg.badgeBg} ${cfg.badgeText} ${cfg.badgeBorder}`}
+                          >
+                            <span className={`w-1.5 h-1.5 rounded-full ${cfg.dotClass}`} />
+                            <span>{cfg.name}</span>
+                          </span>
+
+                          {isCurrent && (
+                            <span className="px-2 py-0.5 rounded-full bg-rose-500 text-white font-bold text-[10px] uppercase tracking-wide">
+                              Зараз
                             </span>
-
-                            {isCurrent && (
-                              <span className="px-2 py-0.5 rounded-full bg-rose-500 text-white font-bold text-[10px] uppercase tracking-wide">
-                                Зараз
-                              </span>
-                            )}
-                            {isUpcoming && (
-                              <span className="text-xs font-semibold text-sys-accent">
-                                через {item.daysDiff} дн.
-                              </span>
-                            )}
-                            {isPast && (
-                              <span className="text-[11px] font-medium text-sys-text-muted">
-                                Завершено
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Period Title / Practice Name */}
-                          <h4 className="text-sm sm:text-base font-bold text-sys-text-primary mt-1">
-                            {item.name || cfg.name}
-                          </h4>
+                          )}
+                          {isUpcoming && (
+                            <span className="text-xs font-semibold text-sys-accent">
+                              через {item.daysDiff} дн.
+                            </span>
+                          )}
+                          {isPast && (
+                            <span className="text-[11px] font-medium text-sys-text-muted">
+                              Завершено
+                            </span>
+                          )}
                         </div>
 
-                        {/* Card Footer: Dates and Duration */}
-                        <div className="mt-4 pt-3 border-t border-sys-border/50 flex items-center justify-between text-xs text-sys-text-secondary">
-                          <span>
-                            {formatDisplayDate(item.start_date)} — {formatDisplayDate(item.end_date)}
-                          </span>
-                          <span className="font-semibold text-sys-text-primary">
-                            {item.weeks_count} тижн.
-                          </span>
-                        </div>
+                        <h3 className="text-sm sm:text-base font-bold text-sys-text-primary mt-1">
+                          {item.name || cfg.name}
+                        </h3>
                       </div>
-                    );
-                  })}
 
-                  {keyMilestones.length === 0 && (
-                    <div className="col-span-full rounded-2xl border border-dashed border-sys-border p-8 text-center text-sys-text-secondary">
-                      Для цієї групи графік містить лише теоретичні заняття.
+                      <div className="mt-4 pt-3 border-t border-sys-border/50 flex items-center justify-between text-xs text-sys-text-secondary">
+                        <span>
+                          {formatDisplayDate(item.start_date)} — {formatDisplayDate(item.end_date)}
+                        </span>
+                        <span className="font-semibold text-sys-text-primary">
+                          {item.weeks_count} тижн.
+                        </span>
+                      </div>
                     </div>
-                  )}
-                </div>
-              </section>
-            ) : (
-              /* Full Chronological Weeks List View */
-              <section
-                aria-label="Повний хронологічний розклад тижнів"
-                className="rounded-2xl border border-sys-border bg-sys-card overflow-hidden shadow-xs"
-              >
-                <div className="border-b border-sys-border/60 bg-sys-card/80 px-4 py-3 font-semibold text-sm text-sys-text-primary flex items-center justify-between">
-                  <span>Повний календарний план</span>
-                  <span className="text-xs font-normal text-sys-text-secondary">
-                    {currentGroupData.mergedPeriods.length} періодів
-                  </span>
-                </div>
+                  );
+                })}
 
-                <div className="divide-y divide-sys-border/40">
+                {semesterMilestones.semester2.length === 0 && (
+                  <div className="col-span-full rounded-xl border border-dashed border-sys-border p-4 text-center text-xs text-sys-text-secondary">
+                    Немає додаткових сесійних або практичних етапів у II семестрі.
+                  </div>
+                )}
+              </div>
+            </section>
+
+            {/* Optional Collapsible Full 52 Weeks Schedule */}
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setShowFullSchedule(!showFullSchedule)}
+                className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-sys-border bg-sys-card text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-border-elevated transition"
+              >
+                <span>Повний календарний план усіх 52 тижнів</span>
+                <span className="text-xs text-sys-text-muted">
+                  {showFullSchedule ? "Згорнути ▲" : "Розгорнути ▼"}
+                </span>
+              </button>
+
+              {showFullSchedule && (
+                <div className="mt-3 rounded-2xl border border-sys-border bg-sys-card overflow-hidden shadow-xs divide-y divide-sys-border/40">
                   {currentGroupData.mergedPeriods.map((period, idx) => {
                     const cfg = TYPE_CONFIG[period.period_type] || TYPE_CONFIG.theory;
                     const isTheory = period.period_type === "theory";
@@ -940,14 +887,12 @@ export default function EducationalProcessPage() {
                           !isTheory ? "bg-sys-accent/[0.03]" : ""
                         }`}
                       >
-                        {/* Dates column */}
                         <div className="w-28 sm:w-36 shrink-0 py-2.5 px-3 flex flex-col justify-center items-center text-xs font-semibold text-sys-text-secondary border-r border-sys-border/40 bg-sys-bg/30">
                           <span>{formatShortDate(period.start_date)}</span>
                           <span className="text-[10px] text-sys-text-muted">до</span>
                           <span>{formatShortDate(period.end_date)}</span>
                         </div>
 
-                        {/* Details column */}
                         <div className="flex-1 py-2.5 px-4 flex items-center justify-between gap-3 min-w-0">
                           <div className="flex items-center gap-2 min-w-0">
                             <span className={`w-2 h-2 rounded-full shrink-0 ${cfg.dotClass}`} />
@@ -971,8 +916,8 @@ export default function EducationalProcessPage() {
                     );
                   })}
                 </div>
-              </section>
-            )}
+              )}
+            </div>
           </div>
         )}
       </main>
