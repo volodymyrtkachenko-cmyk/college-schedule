@@ -1185,7 +1185,7 @@ export function SchedulePageClient({
   // CRITICAL SEO FIX:
   // On the home page ("/"), NEVER overwrite the document.title with a specific group/teacher.
   // Next.js sets the canonical homepage title in SSR, and overwriting it makes Google think
-  // the entire site is only for group 75.
+  // the entire site is only for one specific group or teacher.
   useEffect(() => {
     if (typeof document === "undefined" || typeof window === "undefined") return;
     if (window.location.pathname === "/") {
@@ -1210,7 +1210,7 @@ export function SchedulePageClient({
     const handlePopState = () => {
       const path = window.location.pathname;
       if (path === "/") {
-        document.title = "Розклад занять ДФКР — електронний розклад коледжу радіоелектроніки";
+        document.title = "Розклад ДФКР";
         return;
       }
       const groupMatch = path.match(/^\/group\/([^/]+)/);
@@ -1712,15 +1712,26 @@ export function SchedulePageClient({
       {/* Mobile 2-Tier Header (< 1024px) */}
       {showMobile && (
         <header className="sticky top-0 z-40 border-b border-sys-border bg-sys-card pt-[env(safe-area-inset-top)] lg:hidden">
-          {/* Tier 1 (h-14): [85 ▾]   ‹ 19–25 жовт. ›   [⋯] */}
+          {/* Tier 1 (h-14): [ДФКР Група ▾]   ‹ 19–25 жовт. ›   [⋯] */}
           <div className="flex h-14 items-center justify-between px-3 gap-1.5 overflow-hidden">
-          {/* Left: Context Selector */}
-          <div className="flex items-center gap-1 shrink-0">
+          {/* Left: Brand + Context Selector */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <a
+              href="https://kre.dp.ua/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center shrink-0 hover:opacity-85 transition-opacity"
+              title="Дніпровський фаховий коледж радіоелектроніки"
+            >
+              <span className="rounded bg-sys-accent/15 px-1.5 py-0.5 text-[11px] font-black uppercase tracking-wider text-sys-accent border border-sys-accent/20">
+                ДФКР
+              </span>
+            </a>
             <button
               type="button"
               onClick={() => setContextModalOpen(true)}
               aria-label="Обрати групу або викладача"
-              className="flex h-10 items-center gap-1.5 rounded-xl border border-sys-border bg-sys-bg/90 px-2.5 text-xs font-semibold text-sys-text-primary hover:border-sys-accent/60 active:scale-95 transition-colors duration-fast ease-smooth truncate max-w-[110px] sm:max-w-[150px] shrink-0"
+              className="flex h-10 items-center gap-1 rounded-xl border border-sys-border bg-sys-bg/90 px-2 text-xs font-semibold text-sys-text-primary hover:border-sys-accent/60 active:scale-95 transition-colors duration-fast ease-smooth truncate max-w-[105px] sm:max-w-[145px] shrink-0"
             >
               <span className="truncate">
                 {currentName || (mode === "student" ? "Група" : "Викладач")}

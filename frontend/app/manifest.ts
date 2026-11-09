@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Розклад занять ДФКР",
-    short_name: "Розклад",
+    name: "Розклад ДФКР",
+    short_name: "Розклад ДФКР",
     description: "Актуальний розклад занять ДФКР для студентів і викладачів.",
     start_url: "/",
     display: "standalone",

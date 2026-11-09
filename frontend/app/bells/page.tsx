@@ -302,12 +302,6 @@ export default function BellsPage() {
               📅 Розклад занять на сьогодні та тиждень
             </Link>
             <Link
-              href="/group/85"
-              className="rounded-lg border border-sys-border bg-sys-card px-3 py-1.5 font-medium hover:text-sys-accent"
-            >
-              🎓 Розклад групи 85 (КІ-24-1/9-85)
-            </Link>
-            <Link
               href="/educational-process"
               className="rounded-lg border border-sys-border bg-sys-card px-3 py-1.5 font-medium hover:text-sys-accent"
             >

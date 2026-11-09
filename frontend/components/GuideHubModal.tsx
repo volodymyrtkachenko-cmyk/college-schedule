@@ -185,7 +185,7 @@ function extractTeacherGuideData(weekSchedule: ScheduleResponse[], currentTeache
 
   const firstL = validLessons[0];
   const liveSubject = firstL?.subject_name || "Комп'ютерні мережі";
-  const liveGroup = firstL?.group_name || "85 ДФКР";
+  const liveGroup = firstL?.group_name || "Група коледжу";
   const liveRoom = formatRoom(firstL?.teacher_room || firstL?.room || "309");
 
   // Distinct groups
@@ -193,9 +193,9 @@ function extractTeacherGuideData(weekSchedule: ScheduleResponse[], currentTeache
     new Set(validLessons.map((l) => l.group_name).filter(Boolean) as string[])
   );
   if (uniqueGroups.length === 0) {
-    uniqueGroups.push("85 ДФКР", "86 ДФКР");
+    uniqueGroups.push("Група 1", "Група 2");
   } else if (uniqueGroups.length === 1) {
-    uniqueGroups.push("86 ДФКР");
+    uniqueGroups.push("Група 2");
   }
 
   // Days preview
@@ -209,7 +209,7 @@ function extractTeacherGuideData(weekSchedule: ScheduleResponse[], currentTeache
         lessonNumber: l.lesson_number || 1,
         time: l.time || DEFAULT_LESSON_TIMES[1],
         subject: l.subject_name,
-        group: l.group_name || uniqueGroups[0] || "85 ДФКР",
+        group: l.group_name || uniqueGroups[0] || "Група",
         room: formatRoom(l.teacher_room || l.room || "309"),
       };
     }
@@ -218,7 +218,7 @@ function extractTeacherGuideData(weekSchedule: ScheduleResponse[], currentTeache
       lessonNumber: 1,
       time: DEFAULT_LESSON_TIMES[1],
       subject: FALLBACK_SUBJECTS[idx] || "Спеціальна дисципліна",
-      group: uniqueGroups[idx % uniqueGroups.length] || "85 ДФКР",
+      group: uniqueGroups[idx % uniqueGroups.length] || "Група",
       room: `ауд. ${300 + (idx + 1) * 2}`,
     };
   });
@@ -273,7 +273,7 @@ export function GuideHubModal({ groupId, teacherId, mode, onClose }: GuideHubMod
     return "student";
   });
 
-  const [groupName, setGroupName] = useState<string>("85 ДФКР");
+  const [groupName, setGroupName] = useState<string>("Група коледжу");
   const [teacherName, setTeacherName] = useState<string>("Викладач коледжу");
   const [studentWeekSchedule, setStudentWeekSchedule] = useState<ScheduleResponse[]>([]);
   const [teacherWeekSchedule, setTeacherWeekSchedule] = useState<ScheduleResponse[]>([]);
@@ -288,7 +288,7 @@ export function GuideHubModal({ groupId, teacherId, mode, onClose }: GuideHubMod
 
   // Interactive demo states (Teacher)
   const [demoPinUnlocked, setDemoPinUnlocked] = useState(false);
-  const [demoTeacherGroup, setDemoTeacherGroup] = useState<string>("85 ДФКР");
+  const [demoTeacherGroup, setDemoTeacherGroup] = useState<string>("Група коледжу");
 
   // Touch tracking for demo card (prevents conflict with story slides)
   const [cardTouchStart, setCardTouchStart] = useState<number | null>(null);

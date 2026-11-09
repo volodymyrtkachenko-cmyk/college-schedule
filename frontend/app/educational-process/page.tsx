@@ -179,7 +179,7 @@ export default function EducationalProcessPage() {
   // Group selection state
   const [savedGroupId, setSavedGroupId] = useState<number | null>(null);
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
-  const [activeCourseTab, setActiveCourseTab] = useState<number | "all">(3);
+  const [activeCourseTab, setActiveCourseTab] = useState<number | "all">(1);
   const [searchQuery, setSearchQuery] = useState("");
   const [showFullSchedule, setShowFullSchedule] = useState(false);
 
@@ -547,7 +547,7 @@ export default function EducationalProcessPage() {
                 type="search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Пошук (85, 75...)"
+                placeholder="Пошук групи..."
                 className="w-full rounded-xl border border-sys-border bg-sys-bg py-1.5 pl-8 pr-6 text-xs text-sys-text-primary placeholder:text-sys-text-muted focus:border-sys-accent focus:outline-none focus:ring-1 focus:ring-sys-accent transition"
               />
               {searchQuery && (
@@ -562,7 +562,7 @@ export default function EducationalProcessPage() {
             </div>
           </div>
 
-          {/* Row 2: Pure Compact Number Pills: [ 81 ] [ 82 ] [ 83 ] [ 85 ] */}
+          {/* Row 2: Pure Compact Number Pills: [ 11 ] [ 12 ] [ 21 ] ... */}
           <div className="flex flex-wrap items-center gap-1.5 pt-1 max-h-32 overflow-y-auto">
             {visibleGroups.map((g) => {
               const isSelected = selectedGroupId === g.id;

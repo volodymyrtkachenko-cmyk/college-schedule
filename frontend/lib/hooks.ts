@@ -90,7 +90,7 @@ export function useSchedule(
         if (cached && Number.isFinite(Number(cached))) return Number(cached);
       } catch {}
     }
-    return initialGroups[0]?.id ?? null;
+    return null;
   });
   const [teacherId, setTeacherId] = useState<number | null>(() => {
     if (initialTeacherId) return initialTeacherId;
@@ -100,7 +100,7 @@ export function useSchedule(
         if (cached && Number.isFinite(Number(cached))) return Number(cached);
       } catch {}
     }
-    return initialTeachers[0]?.id ?? null;
+    return null;
   });
   const [today, setToday] = useState<ScheduleResponse | null>(null);
   const [week, setWeek] = useState<ScheduleResponse[]>([]);
@@ -134,8 +134,8 @@ export function useSchedule(
       try {
         const items = JSON.parse(cachedGroups) as import("./api").ReferenceRecord[];
         setGroups(items);
-        if (!initialGroupId) {
-          setGroupId(cachedGroupId ? Number(cachedGroupId) : (items[0]?.id ?? null));
+        if (!initialGroupId && cachedGroupId) {
+          setGroupId(Number(cachedGroupId));
         }
         setLoading(false);
       } catch {
@@ -148,8 +148,8 @@ export function useSchedule(
         const rawItems = JSON.parse(cachedTeachers) as import("./api").ReferenceRecord[];
         const items = rawItems.filter((t) => t.name && !t.name.includes("!"));
         setTeachers(items);
-        if (!initialTeacherId) {
-          setTeacherId(cachedTeacherId ? Number(cachedTeacherId) : (items[0]?.id ?? null));
+        if (!initialTeacherId && cachedTeacherId) {
+          setTeacherId(Number(cachedTeacherId));
         }
       } catch {
         window.localStorage.removeItem("schedule:teachers");
@@ -169,10 +169,10 @@ export function useSchedule(
             setGroups(allowed);
             if (initialGroupId && allowed.some((g: any) => g.id === initialGroupId)) {
                 setGroupId(initialGroupId);
-            } else if (!cachedGroupId && allowed.length > 0) {
-                setGroupId(allowed[0].id);
             } else if (cachedGroupId) {
                 setGroupId(Number(cachedGroupId));
+            } else if (allowed.length > 0) {
+                setGroupId(allowed[0].id);
             }
         } else {
             setTeachers(ts);
@@ -181,8 +181,6 @@ export function useSchedule(
             if (initialTeacherId) {
                 setTeacherId(initialTeacherId);
                 window.localStorage.setItem("schedule:teacherId", String(initialTeacherId));
-            } else if (!cachedTeacherId && ts.length > 0) {
-                setTeacherId(ts[0].id);
             } else if (cachedTeacherId) {
                 setTeacherId(Number(cachedTeacherId));
             }
@@ -190,8 +188,6 @@ export function useSchedule(
             if (initialGroupId) {
                 setGroupId(initialGroupId);
                 window.localStorage.setItem("schedule:groupId", String(initialGroupId));
-            } else if (!cachedGroupId && items.length > 0) {
-                setGroupId(items[0].id);
             } else if (cachedGroupId) {
                 setGroupId(Number(cachedGroupId));
             }

@@ -12,7 +12,7 @@ import { SITE_URL, BACKEND_API_URL } from "../lib/site";
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "Розклад ДФКР — розклад занять коледжу радіоелектроніки",
+    default: "Розклад ДФКР",
     template: "%s | Розклад ДФКР",
   },
   description: "Розклад ДФКР: актуальний електронний розклад занять Дніпровського фахового коледжу радіоелектроніки (ДФКР / КРЕ) для студентів і викладачів. Розклад пар на сьогодні та тиждень, розклад дзвінків, аудиторії, жива пара, чисельник/знаменник, заміни та Google Classroom.",
@@ -89,7 +89,7 @@ export const metadata: Metadata = {
     locale: "uk_UA",
     url: "/",
     siteName: "Розклад ДФКР",
-    title: "Розклад ДФКР — розклад занять коледжу радіоелектроніки",
+    title: "Розклад ДФКР",
     description: "Розклад ДФКР: електронний розклад занять для студентів та викладачів, жива пара, розклад дзвінків, аудиторії та Google Classroom.",
     images: [
       {
@@ -102,7 +102,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Розклад ДФКР — розклад занять коледжу радіоелектроніки",
+    title: "Розклад ДФКР",
     description: "Розклад ДФКР: жива пара, розклад дзвінків, аудиторії та завдання Google Classroom.",
     images: ["/og-image.png"],
   },

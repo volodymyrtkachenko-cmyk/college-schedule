@@ -8,7 +8,7 @@ export const revalidate = 1800; // Revalidate directory data for SEO every 30 mi
 
 export const metadata: Metadata = {
   title: {
-    absolute: "Розклад занять ДФКР — електронний розклад коледжу радіоелектроніки",
+    absolute: "Розклад ДФКР",
   },
   description:
     "Офіційний електронний розклад занять Дніпровського фахового коледжу радіоелектроніки (ДФКР / КРЕ). Розклад занять усіх навчальних груп, викладачів, розклад дзвінків, жива пара та Google Classroom.",
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
     canonical: "/",
   },
   openGraph: {
-    title: "Розклад занять ДФКР — електронний розклад коледжу радіоелектроніки",
+    title: "Розклад ДФКР",
     description:
       "Офіційний електронний розклад занять Дніпровського фахового коледжу радіоелектроніки (ДФКР / КРЕ). Розклад усіх навчальних груп, викладачів, розклад дзвінків та Google Classroom.",
     url: "/",
@@ -33,7 +33,7 @@ export default async function HomePage() {
       className="min-h-dvh bg-transparent text-sys-text-primary outline-none"
     >
       <h1 className="sr-only">
-        Розклад ДФКР — Розклад занять Дніпровського фахового коледжу радіоелектроніки
+        Розклад ДФКР
       </h1>
 
       <section
