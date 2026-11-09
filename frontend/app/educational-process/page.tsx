@@ -245,22 +245,15 @@ export default function EducationalProcessPage() {
   useEffect(() => {
     if (!selectedGroupId && allGroups.length > 0) {
       if (savedGroupId && allGroups.some((g) => g.id === savedGroupId)) {
+        const found = allGroups.find((g) => g.id === savedGroupId);
         setSelectedGroupId(savedGroupId);
+        if (found) setActiveCourseTab(found.course);
       } else {
         setSelectedGroupId(allGroups[0].id);
+        setActiveCourseTab(allGroups[0].course);
       }
     }
   }, [allGroups, selectedGroupId, savedGroupId]);
-
-  // Sync activeCourseTab when selectedGroupId changes
-  useEffect(() => {
-    if (selectedGroupId && allGroups.length > 0) {
-      const g = allGroups.find((x) => x.id === selectedGroupId);
-      if (g && activeCourseTab !== "all" && activeCourseTab !== g.course) {
-        setActiveCourseTab(g.course);
-      }
-    }
-  }, [selectedGroupId, allGroups, activeCourseTab]);
 
   // Current active group object and data
   const currentGroupData = useMemo(() => {
@@ -391,9 +384,35 @@ export default function EducationalProcessPage() {
     return { semester1, semester2 };
   }, [currentGroupData, todayIso]);
 
+  // Select course tab and switch to that course's group
+  const handleSelectCourse = (courseNum: number | "all") => {
+    setActiveCourseTab(courseNum);
+    if (courseNum !== "all") {
+      const courseGroups = allGroups.filter((g) => g.course === courseNum);
+      if (courseGroups.length > 0) {
+        // If current group is already in this course, keep it
+        const currentInCourse = courseGroups.find((g) => g.id === selectedGroupId);
+        if (currentInCourse) return;
+
+        // If user's saved group is in this course, pick it
+        const savedInCourse = courseGroups.find((g) => g.id === savedGroupId);
+        if (savedInCourse) {
+          setSelectedGroupId(savedInCourse.id);
+        } else {
+          // Otherwise pick the first group of the selected course
+          setSelectedGroupId(courseGroups[0].id);
+        }
+      }
+    }
+  };
+
   // Select group handler
   const handleSelectGroup = (id: number) => {
     setSelectedGroupId(id);
+    const g = allGroups.find((x) => x.id === id);
+    if (g && activeCourseTab !== "all" && activeCourseTab !== g.course) {
+      setActiveCourseTab(g.course);
+    }
     try {
       window.localStorage.setItem("schedule:groupId", id.toString());
       setSavedGroupId(id);
@@ -482,7 +501,7 @@ export default function EducationalProcessPage() {
                     type="button"
                     role="tab"
                     aria-selected={isActive}
-                    onClick={() => setActiveCourseTab(courseNum)}
+                    onClick={() => handleSelectCourse(courseNum)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap active:scale-95 ${
                       isActive
                         ? "bg-sys-accent text-white shadow-xs"
@@ -497,7 +516,7 @@ export default function EducationalProcessPage() {
                 type="button"
                 role="tab"
                 aria-selected={activeCourseTab === "all"}
-                onClick={() => setActiveCourseTab("all")}
+                onClick={() => handleSelectCourse("all")}
                 className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap active:scale-95 ${
                   activeCourseTab === "all"
                     ? "bg-sys-accent text-white shadow-xs"
