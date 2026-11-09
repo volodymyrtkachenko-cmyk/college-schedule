@@ -7,7 +7,7 @@ import { ThemeProvider } from "../lib/useTheme";
 import { MotionConfigProvider } from "../components/MotionConfigProvider";
 import { MobileNavProvider } from "../lib/useMobileNav";
 import { BottomNav } from "../components/BottomNav";
-import { SITE_URL } from "../lib/site";
+import { SITE_URL, BACKEND_API_URL } from "../lib/site";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -273,8 +273,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="uk" suppressHydrationWarning>
       <head>
-        <link rel="preconnect" href={process.env.NEXT_PUBLIC_API_URL || "https://backend-agile-driftwood-8589.fly.dev"} crossOrigin="anonymous" />
-        <link rel="dns-prefetch" href={process.env.NEXT_PUBLIC_API_URL || "https://backend-agile-driftwood-8589.fly.dev"} />
+        <link rel="preconnect" href={BACKEND_API_URL} crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href={BACKEND_API_URL} />
         <link rel="preconnect" href="https://accounts.google.com" />
         <link rel="dns-prefetch" href="https://accounts.google.com" />
         <meta name="apple-mobile-web-app-capable" content="yes" />

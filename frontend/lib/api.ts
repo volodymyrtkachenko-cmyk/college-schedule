@@ -304,9 +304,10 @@ export interface LessonMutation {
 }
 
 // NEXT_PUBLIC_* values are embedded by Next.js at build time. Keep the
-// browser-facing local Docker default explicit so an omitted build arg never
-// turns API requests into relative frontend URLs.
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+// production Heroku backend default explicit so an omitted build arg never
+// turns API requests into broken relative frontend URLs or stale hosts.
+const DEFAULT_API_URL = "https://my-college-schedule-api-8ffebe58b2b9.herokuapp.com";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_URL;
 let accessToken: string | null = null;
 let currentSession: AuthSession | null = null;
 let authGeneration = 0;

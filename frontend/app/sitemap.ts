@@ -3,6 +3,8 @@ import { SITE_URL } from "../lib/site";
 import { toTeacherSlug } from "../lib/slug";
 import { fetchDirectoryForSsr } from "../lib/ssrApi";
 
+export const revalidate = 86400;
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const siteUrl = SITE_URL;
   const now = new Date();

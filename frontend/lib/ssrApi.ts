@@ -1,6 +1,7 @@
 import type { ReferenceRecord, ScheduleResponse } from "./api";
+import { BACKEND_API_URL } from "./site";
 
-const PROD_API_URL = "https://backend-agile-driftwood-8589.fly.dev";
+const PROD_API_URL = BACKEND_API_URL;
 const PRIMARY_API_URL = process.env.NEXT_PUBLIC_API_URL || PROD_API_URL;
 
 export async function fetchSsrJson<T>(
@@ -9,7 +10,7 @@ export async function fetchSsrJson<T>(
 ): Promise<T | null> {
   const tryFetch = async (baseUrl: string) => {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 3000);
+    const timeout = setTimeout(() => controller.abort(), 8000);
     try {
       const res = await fetch(`${baseUrl}${path}`, {
         next: { revalidate: revalidateSeconds },

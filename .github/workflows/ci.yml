@@ -5,13 +5,13 @@ on:
     paths:
       - 'backend/**'
       - 'frontend/**'
-      - '.github/workflows/fly-deploy.yml'
+      - '.github/workflows/ci.yml'
   pull_request:
     branches: [main]
     paths:
       - 'backend/**'
       - 'frontend/**'
-      - '.github/workflows/fly-deploy.yml'
+      - '.github/workflows/ci.yml'
 permissions:
   contents: read
 concurrency:

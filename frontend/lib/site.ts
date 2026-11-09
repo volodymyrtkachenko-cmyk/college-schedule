@@ -8,3 +8,10 @@ export const SITE_HOST = (() => {
     return "rozklad-dfkr.pp.ua";
   }
 })();
+
+export const BACKEND_API_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  "https://my-college-schedule-api-8ffebe58b2b9.herokuapp.com";
+
+export const PROD_API_URL = BACKEND_API_URL;
+

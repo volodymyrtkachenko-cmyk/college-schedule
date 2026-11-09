@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useAuth } from "../lib/auth";
 import { api } from "../lib/api";
+import { BACKEND_API_URL } from "../lib/site";
 
 export function Heartbeat() {
     const { user } = useAuth();
@@ -35,7 +36,7 @@ export function Heartbeat() {
         }
 
         const sessionId = `${clientId}_${tabId}`;
-        const baseUrl = process.env.NEXT_PUBLIC_API_URL || "";
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || BACKEND_API_URL;
 
         const ping = async () => {
             const currentUser = userRef.current;
@@ -118,7 +119,7 @@ export function Heartbeat() {
         if (!clientId || !tabId) return;
 
         const sessionId = `${clientId}_${tabId}`;
-        const baseUrl = process.env.NEXT_PUBLIC_API_URL || "";
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || BACKEND_API_URL;
         const role = user?.role || "guest";
         const username = user?.username || "";
         const name = user?.name || "";
