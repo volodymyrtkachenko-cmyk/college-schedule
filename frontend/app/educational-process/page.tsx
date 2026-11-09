@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useRef } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { api } from "../../lib/api";
 import { useMobileNav } from "../../lib/useMobileNav";
@@ -38,7 +38,6 @@ const TYPE_CONFIG: Record<
   string,
   {
     name: string;
-    icon: string;
     badgeBg: string;
     badgeText: string;
     badgeBorder: string;
@@ -48,56 +47,50 @@ const TYPE_CONFIG: Record<
 > = {
   session: {
     name: "Екзаменаційна сесія",
-    icon: "🎯",
-    badgeBg: "bg-rose-500/15 dark:bg-rose-500/20",
+    badgeBg: "bg-rose-500/10 dark:bg-rose-500/15",
     badgeText: "text-rose-700 dark:text-rose-300",
-    badgeBorder: "border-rose-500/35",
+    badgeBorder: "border-rose-500/30",
     barColor: "bg-rose-500",
     dotClass: "bg-rose-500",
   },
   holiday: {
     name: "Канікули",
-    icon: "🏖️",
-    badgeBg: "bg-emerald-500/15 dark:bg-emerald-500/20",
+    badgeBg: "bg-emerald-500/10 dark:bg-emerald-500/15",
     badgeText: "text-emerald-700 dark:text-emerald-300",
-    badgeBorder: "border-emerald-500/35",
+    badgeBorder: "border-emerald-500/30",
     barColor: "bg-emerald-500",
     dotClass: "bg-emerald-500",
   },
   practice: {
     name: "Практика",
-    icon: "🛠️",
-    badgeBg: "bg-amber-500/15 dark:bg-amber-500/20",
+    badgeBg: "bg-amber-500/10 dark:bg-amber-500/15",
     badgeText: "text-amber-800 dark:text-amber-300",
-    badgeBorder: "border-amber-500/35",
+    badgeBorder: "border-amber-500/30",
     barColor: "bg-amber-500",
     dotClass: "bg-amber-500",
   },
   diploma: {
     name: "Дипломне проєктування",
-    icon: "🎓",
-    badgeBg: "bg-purple-500/15 dark:bg-purple-500/20",
+    badgeBg: "bg-purple-500/10 dark:bg-purple-500/15",
     badgeText: "text-purple-700 dark:text-purple-300",
-    badgeBorder: "border-purple-500/35",
+    badgeBorder: "border-purple-500/30",
     barColor: "bg-purple-500",
     dotClass: "bg-purple-500",
   },
   attestation: {
-    name: "Атестація (ЄДКІ / кваліфікація)",
-    icon: "📜",
-    badgeBg: "bg-sky-500/15 dark:bg-sky-500/20",
+    name: "Атестація",
+    badgeBg: "bg-sky-500/10 dark:bg-sky-500/15",
     badgeText: "text-sky-700 dark:text-sky-300",
-    badgeBorder: "border-sky-500/35",
+    badgeBorder: "border-sky-500/30",
     barColor: "bg-sky-500",
     dotClass: "bg-sky-500",
   },
   theory: {
     name: "Теоретичне навчання",
-    icon: "📚",
-    badgeBg: "bg-sys-cardActive/60",
+    badgeBg: "bg-sys-bg",
     badgeText: "text-sys-text-secondary",
     badgeBorder: "border-sys-border",
-    barColor: "bg-sys-border/80 dark:bg-sys-border",
+    barColor: "bg-sys-border/70 dark:bg-sys-border/50",
     dotClass: "bg-slate-400",
   },
 };
@@ -214,7 +207,6 @@ export default function EducationalProcessPage() {
   // Determine academic year start (e.g. 2026)
   const currentAcademicYear = useMemo(() => {
     const now = new Date();
-    // In August or later, current academic year starts in current year
     return now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear() - 1;
   }, []);
 
@@ -249,7 +241,6 @@ export default function EducationalProcessPage() {
         }))
       )
       .sort((a, b) => {
-        // Natural numerical sort for group names (e.g. 75, 85, 92)
         const numA = parseInt(a.name, 10);
         const numB = parseInt(b.name, 10);
         if (!Number.isNaN(numA) && !Number.isNaN(numB)) {
@@ -330,7 +321,7 @@ export default function EducationalProcessPage() {
       }
     }
 
-    // Find next non-theory milestone (session, holiday, practice, diploma, attestation)
+    // Find next non-theory milestone
     let nextMilestone: { period: MergedPeriod; daysUntil: number } | null = null;
     for (const p of mergedPeriods) {
       if (p.period_type === "theory") continue;
@@ -373,7 +364,7 @@ export default function EducationalProcessPage() {
     };
   }, [currentGroupData, matrix, todayIso]);
 
-  // Filter key milestones (sessions, holidays, practices, diplomas, attestations)
+  // Filter key milestones
   const keyMilestones = useMemo(() => {
     if (!currentGroupData) return [];
     const todayDate = new Date(`${todayIso}T12:00:00`);
@@ -402,27 +393,6 @@ export default function EducationalProcessPage() {
         };
       });
   }, [currentGroupData, todayIso]);
-
-  // Timeline year months markers
-  const timelineMonths = useMemo(() => {
-    if (!matrix || !matrix.weeks.length) return [];
-    const firstDate = new Date(`${matrix.weeks[0].start_date}T12:00:00`);
-    const lastDate = new Date(`${matrix.weeks[matrix.weeks.length - 1].end_date}T12:00:00`);
-
-    const months: { label: string; year: number; monthIndex: number }[] = [];
-    const cur = new Date(firstDate);
-    cur.setDate(1);
-
-    while (cur <= lastDate) {
-      months.push({
-        label: `${MONTH_NAMES_UA[cur.getMonth()]} '${cur.getFullYear().toString().slice(-2)}`,
-        year: cur.getFullYear(),
-        monthIndex: cur.getMonth(),
-      });
-      cur.setMonth(cur.getMonth() + 1);
-    }
-    return months;
-  }, [matrix]);
 
   // Select group and save preference
   const handleSelectGroup = (id: number) => {
@@ -516,7 +486,7 @@ export default function EducationalProcessPage() {
             <div
               role="tablist"
               aria-label="Курси коледжу"
-              className="flex items-center gap-1.5 bg-sys-bg p-1 rounded-xl border border-sys-border/70 overflow-x-auto"
+              className="flex items-center gap-1 bg-sys-bg p-1 rounded-xl border border-sys-border/70 overflow-x-auto"
             >
               {[1, 2, 3, 4].map((courseNum) => {
                 const isActive = activeCourseTab === courseNum;
@@ -548,22 +518,33 @@ export default function EducationalProcessPage() {
                     : "text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-card"
                 }`}
               >
-                Всі
+                Всі курси
               </button>
             </div>
 
-            {/* Quick Search Input */}
+            {/* Clean Minimal Search Input */}
             <div className="relative min-w-[180px] sm:max-w-xs">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="absolute left-3 top-2.5 text-sys-text-muted pointer-events-none"
+              >
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
               <input
                 type="search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Пошук групи (напр. 85)..."
-                className="w-full rounded-xl border border-sys-border bg-sys-bg py-1.5 pl-8 pr-3 text-xs text-sys-text-primary placeholder:text-sys-text-muted focus:border-sys-accent focus:outline-none focus:ring-1 focus:ring-sys-accent transition"
+                placeholder="Пошук групи (85, 75...)"
+                className="w-full rounded-xl border border-sys-border bg-sys-bg py-1.5 pl-8 pr-7 text-xs text-sys-text-primary placeholder:text-sys-text-muted focus:border-sys-accent focus:outline-none focus:ring-1 focus:ring-sys-accent transition"
               />
-              <span className="absolute left-2.5 top-2 text-xs text-sys-text-muted pointer-events-none">
-                🔍
-              </span>
               {searchQuery && (
                 <button
                   type="button"
@@ -580,11 +561,11 @@ export default function EducationalProcessPage() {
           <div className="pt-3">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-semibold text-sys-text-secondary">
-                Оберіть групу:
+                Навчальна група:
               </span>
               {savedGroupId && (
                 <span className="text-xs text-sys-accent font-medium">
-                  Збережена: група {allGroups.find((g) => g.id === savedGroupId)?.name || savedGroupId}
+                  Ваша група: {allGroups.find((g) => g.id === savedGroupId)?.name || savedGroupId}
                 </span>
               )}
             </div>
@@ -598,27 +579,22 @@ export default function EducationalProcessPage() {
                     key={g.id}
                     type="button"
                     onClick={() => handleSelectGroup(g.id)}
-                    className={`group relative rounded-xl border px-3 py-1.5 text-xs font-semibold transition-all active:scale-95 flex items-center gap-1.5 ${
+                    className={`group rounded-xl border px-3 py-1.5 text-xs font-semibold transition-all active:scale-95 flex items-center gap-1.5 ${
                       isSelected
                         ? "border-sys-accent bg-sys-accent text-white shadow-xs"
                         : "border-sys-border bg-sys-bg text-sys-text-primary hover:border-sys-accent/60 hover:bg-sys-card"
                     }`}
                   >
                     <span>Група {g.name}</span>
-                    {isSaved && (
-                      <span
-                        title="Ваша збережена група"
-                        className={`text-[10px] leading-none ${isSelected ? "text-amber-200" : "text-amber-500"}`}
-                      >
-                        ★
-                      </span>
+                    {isSaved && !isSelected && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-sys-accent" title="Збережена група" />
                     )}
                   </button>
                 );
               })}
               {visibleGroups.length === 0 && !loading && (
                 <span className="text-xs text-sys-text-secondary py-2">
-                  Групи не знайдені. Спробуйте змінити пошук або курс.
+                  Групи не знайдені.
                 </span>
               )}
             </div>
@@ -650,43 +626,46 @@ export default function EducationalProcessPage() {
             {realTimeStatus && (
               <section
                 aria-label="Поточний навчальний статус"
-                className="relative overflow-hidden rounded-2xl border border-sys-border bg-gradient-to-br from-sys-card via-sys-card to-sys-bg p-4 sm:p-6 shadow-xs"
+                className="relative overflow-hidden rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-6 shadow-xs"
               >
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-center">
                   {/* Left Column: Group & Current Period */}
                   <div className="md:col-span-7 space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded-lg bg-sys-accent/15 px-2.5 py-0.5 text-xs font-black text-sys-accent uppercase tracking-wider">
+                      <span className="rounded-md bg-sys-accent/15 px-2.5 py-0.5 text-xs font-bold text-sys-accent tracking-wide">
                         Група {currentGroupData.group.group_name} • {currentGroupData.course} курс
                       </span>
                       {realTimeStatus.currentWeekNumber && (
-                        <span className="text-xs font-semibold text-sys-text-secondary bg-sys-bg border border-sys-border px-2 py-0.5 rounded-md">
-                          {realTimeStatus.currentWeekNumber}-й тиждень року
+                        <span className="text-xs font-medium text-sys-text-secondary bg-sys-bg border border-sys-border px-2 py-0.5 rounded-md">
+                          {realTimeStatus.currentWeekNumber}-й тиждень
                         </span>
                       )}
                       <span className="text-xs text-sys-text-muted">
-                        Сьогодні: {formatDisplayDate(todayIso)}
+                        {formatDisplayDate(todayIso)}
                       </span>
                     </div>
 
-                    <div className="pt-1">
-                      <h2 className="text-lg sm:text-xl font-extrabold text-sys-text-primary flex items-center gap-2">
-                        <span>
-                          {realTimeStatus.currentPeriod
-                            ? TYPE_CONFIG[realTimeStatus.currentPeriod.period_type]?.icon || "📚"
-                            : "📚"}
-                        </span>
-                        <span>
+                    <div className="pt-0.5">
+                      <div className="flex items-center gap-2">
+                        {realTimeStatus.currentPeriod && (
+                          <span
+                            className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                              TYPE_CONFIG[realTimeStatus.currentPeriod.period_type]?.dotClass || "bg-slate-400"
+                            }`}
+                          />
+                        )}
+                        <h2 className="text-lg sm:text-xl font-bold text-sys-text-primary tracking-tight">
                           {realTimeStatus.currentPeriod
                             ? realTimeStatus.currentPeriod.name ||
                               TYPE_CONFIG[realTimeStatus.currentPeriod.period_type]?.name ||
                               "Навчальний період"
                             : "Навчальний період"}
-                        </span>
-                      </h2>
+                        </h2>
+                      </div>
+
                       {realTimeStatus.currentPeriod && (
-                        <p className="text-xs sm:text-sm text-sys-text-secondary mt-0.5">
-                          Поточний етап триває з {formatDisplayDate(realTimeStatus.currentPeriod.start_date)} до{" "}
+                        <p className="text-xs sm:text-sm text-sys-text-secondary mt-1">
+                          {formatDisplayDate(realTimeStatus.currentPeriod.start_date)} —{" "}
                           {formatDisplayDate(realTimeStatus.currentPeriod.end_date)} ({realTimeStatus.currentPeriod.weeks_count} тижн.)
                         </p>
                       )}
@@ -696,13 +675,17 @@ export default function EducationalProcessPage() {
                   {/* Right Column: Next Milestone Countdown Box */}
                   <div className="md:col-span-5">
                     {realTimeStatus.nextMilestone ? (
-                      <div className="rounded-xl border border-sys-accent/30 bg-sys-accent/10 p-3.5 sm:p-4 text-sys-text-primary">
-                        <div className="flex items-center justify-between text-xs font-bold text-sys-accent">
-                          <span className="flex items-center gap-1.5 uppercase tracking-wide">
-                            <span>{TYPE_CONFIG[realTimeStatus.nextMilestone.period.period_type]?.icon}</span>
-                            <span>Найближча подія</span>
+                      <div className="rounded-xl border border-sys-border bg-sys-bg/60 p-4">
+                        <div className="flex items-center justify-between text-xs font-semibold text-sys-text-secondary">
+                          <span className="flex items-center gap-1.5">
+                            <span
+                              className={`w-2 h-2 rounded-full ${
+                                TYPE_CONFIG[realTimeStatus.nextMilestone.period.period_type]?.dotClass
+                              }`}
+                            />
+                            <span>Найближчий етап</span>
                           </span>
-                          <span className="px-2 py-0.5 rounded-full bg-sys-accent text-white font-extrabold text-xs shadow-xs">
+                          <span className="px-2 py-0.5 rounded-full bg-sys-accent text-white font-bold text-xs">
                             через {realTimeStatus.nextMilestone.daysUntil}{" "}
                             {realTimeStatus.nextMilestone.daysUntil === 1
                               ? "день"
@@ -711,30 +694,30 @@ export default function EducationalProcessPage() {
                               : "днів"}
                           </span>
                         </div>
-                        <p className="font-bold text-sm sm:text-base mt-1.5 text-sys-text-primary">
+                        <p className="font-bold text-sm sm:text-base mt-2 text-sys-text-primary">
                           {realTimeStatus.nextMilestone.period.name ||
                             TYPE_CONFIG[realTimeStatus.nextMilestone.period.period_type]?.name}
                         </p>
                         <p className="text-xs text-sys-text-secondary mt-0.5">
-                          Початок: {formatDisplayDate(realTimeStatus.nextMilestone.period.start_date)} (тривалість{" "}
-                          {realTimeStatus.nextMilestone.period.weeks_count} тижн.)
+                          Початок: {formatDisplayDate(realTimeStatus.nextMilestone.period.start_date)} •{" "}
+                          {realTimeStatus.nextMilestone.period.weeks_count} тижн.
                         </p>
                       </div>
                     ) : (
-                      <div className="rounded-xl border border-sys-border bg-sys-bg/60 p-3.5 text-center text-xs text-sys-text-secondary">
-                        Усі заплановані сесії та практики цього семестру успішно завершено!
+                      <div className="rounded-xl border border-sys-border bg-sys-bg/60 p-4 text-center text-xs text-sys-text-secondary">
+                        Усі планові сесії та практики року завершено
                       </div>
                     )}
                   </div>
                 </div>
 
                 {/* Progress bar of academic year */}
-                <div className="mt-4 pt-3 border-t border-sys-border/50">
+                <div className="mt-5 pt-3.5 border-t border-sys-border/50">
                   <div className="flex items-center justify-between text-xs text-sys-text-secondary mb-1.5">
-                    <span>Прогрес навчального року:</span>
-                    <span className="font-bold text-sys-accent">{realTimeStatus.progressPercent}% пройдено</span>
+                    <span>Навчальний рік:</span>
+                    <span className="font-semibold text-sys-text-primary">{realTimeStatus.progressPercent}% пройдено</span>
                   </div>
-                  <div className="h-2 w-full rounded-full bg-sys-bg border border-sys-border/70 overflow-hidden">
+                  <div className="h-1.5 w-full rounded-full bg-sys-bg border border-sys-border/70 overflow-hidden">
                     <div
                       className="h-full bg-sys-accent transition-all duration-500 rounded-full"
                       style={{ width: `${realTimeStatus.progressPercent}%` }}
@@ -749,18 +732,17 @@ export default function EducationalProcessPage() {
               aria-label="Річний графік освітнього процесу"
               className="rounded-2xl border border-sys-border bg-sys-card p-4 sm:p-5 shadow-xs space-y-4"
             >
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-base sm:text-lg font-bold text-sys-text-primary flex items-center gap-2">
-                    <span>📊</span>
-                    <span>Річна шкала навчального процесу (Вересень — Серпень)</span>
+                  <h3 className="text-base font-bold text-sys-text-primary">
+                    Річна шкала навчального процесу
                   </h3>
-                  <p className="text-xs text-sys-text-secondary">
-                    Наочна смужка всіх 52 тижнів року з відміткою поточної дати
+                  <p className="text-xs text-sys-text-secondary mt-0.5">
+                    Вересень — Серпень • 52 тижні
                   </p>
                 </div>
 
-                {/* View Mode Toggle: Milestones vs Full */}
+                {/* Clean View Mode Toggle */}
                 <div className="flex items-center gap-1 bg-sys-bg p-1 rounded-xl border border-sys-border self-start sm:self-auto">
                   <button
                     type="button"
@@ -771,7 +753,7 @@ export default function EducationalProcessPage() {
                         : "text-sys-text-secondary hover:text-sys-text-primary"
                     }`}
                   >
-                    🎯 Ключові етапи
+                    Ключові етапи
                   </button>
                   <button
                     type="button"
@@ -782,75 +764,65 @@ export default function EducationalProcessPage() {
                         : "text-sys-text-secondary hover:text-sys-text-primary"
                     }`}
                   >
-                    📋 Усі тижні (52)
+                    Усі тижні
                   </button>
                 </div>
               </div>
 
               {/* Gantt Timeline Strip Container */}
-              <div className="pt-2">
+              <div className="pt-1">
                 {/* Month Headers */}
-                <div className="grid grid-cols-12 text-center text-[10px] sm:text-xs font-bold text-sys-text-secondary border-b border-sys-border/60 pb-1.5 mb-2 select-none">
+                <div className="grid grid-cols-12 text-center text-[10px] sm:text-xs font-medium text-sys-text-muted border-b border-sys-border/50 pb-1.5 mb-2 select-none">
                   {["Вер", "Жов", "Лис", "Гру", "Січ", "Лют", "Бер", "Кві", "Тра", "Чер", "Лип", "Сер"].map((m, i) => (
                     <span key={i}>{m}</span>
                   ))}
                 </div>
 
-                {/* Interactive Multi-segment Bar */}
-                <div className="relative h-11 w-full rounded-xl bg-sys-bg border border-sys-border overflow-hidden flex shadow-inner">
+                {/* Minimal Multi-segment Bar */}
+                <div className="relative h-7 w-full rounded-lg bg-sys-bg border border-sys-border overflow-hidden flex shadow-inner">
                   {currentGroupData.mergedPeriods.map((period, idx) => {
                     const cfg = TYPE_CONFIG[period.period_type] || TYPE_CONFIG.theory;
                     const totalWeeks = matrix?.weeks?.length || 52;
                     const widthPercent = (period.weeks_count / totalWeeks) * 100;
-                    const isTheory = period.period_type === "theory";
 
                     return (
                       <div
                         key={idx}
                         style={{ width: `${widthPercent}%` }}
                         title={`${period.name || cfg.name}: ${formatShortDate(period.start_date)} – ${formatShortDate(period.end_date)} (${period.weeks_count} тижн.)`}
-                        className={`h-full relative group cursor-pointer border-r border-sys-card/80 transition-opacity hover:opacity-90 ${cfg.barColor} flex items-center justify-center overflow-hidden`}
+                        className={`h-full relative group cursor-pointer border-r border-sys-card/60 transition-opacity hover:opacity-90 ${cfg.barColor}`}
                       >
-                        {!isTheory && (
-                          <span className="text-xs select-none drop-shadow-xs">
-                            {cfg.icon}
-                          </span>
-                        )}
-
-                        {/* Hover Tooltip */}
+                        {/* Clean Hover Tooltip */}
                         <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center z-30">
-                          <div className="bg-sys-elevated text-sys-text-primary text-[11px] font-semibold rounded-lg px-2.5 py-1.5 shadow-lg border border-sys-border whitespace-nowrap">
-                            <span className="mr-1">{cfg.icon}</span>
+                          <div className="bg-sys-elevated text-sys-text-primary text-[11px] font-semibold rounded-lg px-2.5 py-1 shadow-lg border border-sys-border whitespace-nowrap">
                             <span>{period.name || cfg.name}</span>
                             <div className="text-[10px] text-sys-text-secondary font-normal">
                               {formatShortDate(period.start_date)} – {formatShortDate(period.end_date)} ({period.weeks_count} тижн.)
                             </div>
                           </div>
-                          <div className="w-2 h-2 bg-sys-elevated rotate-45 -mt-1 border-r border-b border-sys-border" />
+                          <div className="w-1.5 h-1.5 bg-sys-elevated rotate-45 -mt-0.5 border-r border-b border-sys-border" />
                         </div>
                       </div>
                     );
                   })}
 
-                  {/* "Today" Vertical Needle Indicator */}
+                  {/* "Today" Needle Indicator */}
                   {realTimeStatus && (
                     <div
                       style={{ left: `${realTimeStatus.progressPercent}%` }}
-                      className="absolute top-0 bottom-0 w-0.5 bg-rose-500 z-20 pointer-events-none shadow-[0_0_8px_rgba(244,63,94,0.8)]"
+                      className="absolute top-0 bottom-0 w-0.5 bg-rose-500 z-20 pointer-events-none shadow-[0_0_6px_rgba(244,63,94,0.7)]"
                     >
-                      <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 rounded-full bg-rose-500 text-white text-[9px] font-black px-1 leading-tight shadow-xs uppercase">
-                        Сьогодні
-                      </div>
+                      <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-rose-500 ring-2 ring-white dark:ring-black" />
                     </div>
                   )}
                 </div>
 
-                {/* Color Legend */}
-                <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-sys-text-secondary select-none">
+                {/* Minimal Color Legend without emojis */}
+                <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-xs text-sys-text-secondary select-none">
                   {Object.entries(TYPE_CONFIG).map(([key, cfg]) => (
                     <div key={key} className="flex items-center gap-1.5">
-                      <span className={`h-3 w-3 rounded-full ${cfg.dotClass} shrink-0`} />
-                      <span className="font-medium text-sys-text-primary">{cfg.name}</span>
+                      <span className={`h-2 w-2 rounded-full ${cfg.dotClass} shrink-0`} />
+                      <span className="text-sys-text-secondary font-medium">{cfg.name}</span>
                     </div>
                   ))}
                 </div>
@@ -861,19 +833,18 @@ export default function EducationalProcessPage() {
             {viewMode === "milestones" ? (
               <section
                 aria-label="Ключові події та етапи"
-                className="space-y-4"
+                className="space-y-3.5"
               >
                 <div className="flex items-center justify-between">
-                  <h3 className="text-base sm:text-lg font-bold text-sys-text-primary flex items-center gap-2">
-                    <span>🎯</span>
-                    <span>Ключові навчальні етапи групи {currentGroupData.group.group_name}</span>
+                  <h3 className="text-base font-bold text-sys-text-primary">
+                    Ключові етапи групи {currentGroupData.group.group_name}
                   </h3>
-                  <span className="text-xs text-sys-text-secondary">
-                    {keyMilestones.length} етапів за рік
+                  <span className="text-xs text-sys-text-muted">
+                    {keyMilestones.length} етапів
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {keyMilestones.map((item, idx) => {
                     const cfg = TYPE_CONFIG[item.period_type] || TYPE_CONFIG.theory;
                     const isCurrent = item.status === "current";
@@ -883,56 +854,53 @@ export default function EducationalProcessPage() {
                     return (
                       <div
                         key={idx}
-                        className={`relative rounded-2xl border p-4 transition-all flex flex-col justify-between shadow-xs ${
+                        className={`rounded-2xl border p-4 transition-all flex flex-col justify-between shadow-xs ${
                           isCurrent
-                            ? "border-sys-accent bg-sys-accent/10 shadow-md ring-2 ring-sys-accent/30"
+                            ? "border-sys-accent bg-sys-accent/5 ring-1 ring-sys-accent/40"
                             : isUpcoming
-                            ? "border-sys-border bg-sys-card hover:border-sys-accent/40"
-                            : "border-sys-border/50 bg-sys-card/50 opacity-70 hover:opacity-90"
+                            ? "border-sys-border bg-sys-card hover:border-sys-border-elevated"
+                            : "border-sys-border/50 bg-sys-card/50 opacity-60"
                         }`}
                       >
                         {/* Card Header: Type Badge & Status */}
                         <div>
-                          <div className="flex items-center justify-between gap-2 mb-2.5">
+                          <div className="flex items-center justify-between gap-2 mb-2">
                             <span
-                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border ${cfg.badgeBg} ${cfg.badgeText} ${cfg.badgeBorder}`}
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-semibold border ${cfg.badgeBg} ${cfg.badgeText} ${cfg.badgeBorder}`}
                             >
-                              <span>{cfg.icon}</span>
+                              <span className={`w-1.5 h-1.5 rounded-full ${cfg.dotClass}`} />
                               <span>{cfg.name}</span>
                             </span>
 
                             {isCurrent && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-500 text-white font-extrabold text-[10px] uppercase tracking-wide animate-pulse shadow-xs">
-                                Зараз триває
+                              <span className="px-2 py-0.5 rounded-full bg-rose-500 text-white font-bold text-[10px] uppercase tracking-wide">
+                                Зараз
                               </span>
                             )}
                             {isUpcoming && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sys-bg border border-sys-accent/40 text-sys-accent font-bold text-[11px]">
-                                Через {item.daysDiff} дн.
+                              <span className="text-xs font-semibold text-sys-accent">
+                                через {item.daysDiff} дн.
                               </span>
                             )}
                             {isPast && (
-                              <span className="text-[11px] font-semibold text-sys-text-muted">
-                                Завершено ✓
+                              <span className="text-[11px] font-medium text-sys-text-muted">
+                                Завершено
                               </span>
                             )}
                           </div>
 
                           {/* Period Title / Practice Name */}
-                          <h4 className="text-sm sm:text-base font-bold text-sys-text-primary leading-snug">
+                          <h4 className="text-sm sm:text-base font-bold text-sys-text-primary mt-1">
                             {item.name || cfg.name}
                           </h4>
                         </div>
 
                         {/* Card Footer: Dates and Duration */}
-                        <div className="mt-4 pt-3 border-t border-sys-border/40 flex items-center justify-between text-xs">
-                          <div className="flex flex-col">
-                            <span className="text-sys-text-secondary text-[11px]">Період:</span>
-                            <span className="font-semibold text-sys-text-primary">
-                              {formatDisplayDate(item.start_date)} — {formatDisplayDate(item.end_date)}
-                            </span>
-                          </div>
-                          <span className="px-2 py-1 rounded-md bg-sys-bg border border-sys-border text-sys-text-secondary font-bold text-[11px]">
+                        <div className="mt-4 pt-3 border-t border-sys-border/50 flex items-center justify-between text-xs text-sys-text-secondary">
+                          <span>
+                            {formatDisplayDate(item.start_date)} — {formatDisplayDate(item.end_date)}
+                          </span>
+                          <span className="font-semibold text-sys-text-primary">
                             {item.weeks_count} тижн.
                           </span>
                         </div>
@@ -953,8 +921,8 @@ export default function EducationalProcessPage() {
                 aria-label="Повний хронологічний розклад тижнів"
                 className="rounded-2xl border border-sys-border bg-sys-card overflow-hidden shadow-xs"
               >
-                <div className="border-b border-sys-border/60 bg-sys-card/80 px-4 py-3 font-bold text-sm sm:text-base text-sys-text-primary flex items-center justify-between">
-                  <span>Повний календарний план (усі періоди)</span>
+                <div className="border-b border-sys-border/60 bg-sys-card/80 px-4 py-3 font-semibold text-sm text-sys-text-primary flex items-center justify-between">
+                  <span>Повний календарний план</span>
                   <span className="text-xs font-normal text-sys-text-secondary">
                     {currentGroupData.mergedPeriods.length} періодів
                   </span>
@@ -969,25 +937,25 @@ export default function EducationalProcessPage() {
                       <div
                         key={idx}
                         className={`flex items-center hover:bg-sys-cardActive/20 transition-colors ${
-                          !isTheory ? "bg-sys-accent/5" : ""
+                          !isTheory ? "bg-sys-accent/[0.03]" : ""
                         }`}
                       >
                         {/* Dates column */}
-                        <div className="w-28 sm:w-36 shrink-0 py-3 px-3 flex flex-col justify-center items-center text-xs font-semibold text-sys-text-secondary border-r border-sys-border/40 bg-sys-bg/30">
+                        <div className="w-28 sm:w-36 shrink-0 py-2.5 px-3 flex flex-col justify-center items-center text-xs font-semibold text-sys-text-secondary border-r border-sys-border/40 bg-sys-bg/30">
                           <span>{formatShortDate(period.start_date)}</span>
-                          <span className="text-[10px] text-sys-text-muted my-0.5">до</span>
+                          <span className="text-[10px] text-sys-text-muted">до</span>
                           <span>{formatShortDate(period.end_date)}</span>
                         </div>
 
                         {/* Details column */}
-                        <div className="flex-1 py-3 px-4 flex items-center justify-between gap-3 min-w-0">
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <span className="text-base shrink-0">{cfg.icon}</span>
+                        <div className="flex-1 py-2.5 px-4 flex items-center justify-between gap-3 min-w-0">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className={`w-2 h-2 rounded-full shrink-0 ${cfg.dotClass}`} />
                             <div className="flex flex-col min-w-0">
-                              <span className="text-xs sm:text-sm font-bold text-sys-text-primary truncate">
+                              <span className="text-xs sm:text-sm font-semibold text-sys-text-primary truncate">
                                 {period.name || cfg.name}
                               </span>
-                              <span className="text-[11px] text-sys-text-secondary">
+                              <span className="text-[11px] text-sys-text-muted">
                                 {period.start_week === period.end_week
                                   ? `${period.start_week}-й тиждень`
                                   : `тижні ${period.start_week} — ${period.end_week}`}
@@ -995,7 +963,7 @@ export default function EducationalProcessPage() {
                             </div>
                           </div>
 
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-bold border shrink-0 ${cfg.badgeBg} ${cfg.badgeText} ${cfg.badgeBorder}`}>
+                          <span className={`px-2 py-0.5 rounded-md text-xs font-medium border shrink-0 ${cfg.badgeBg} ${cfg.badgeText} ${cfg.badgeBorder}`}>
                             {period.weeks_count} тижн.
                           </span>
                         </div>
