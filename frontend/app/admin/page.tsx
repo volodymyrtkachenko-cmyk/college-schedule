@@ -1013,17 +1013,28 @@ function AdminContent() {
                               >
                                 {/* Ліва частина: Аватар + Ім'я + Email + Підгрупа */}
                                 <div className="flex items-center gap-3 min-w-0">
-                                  {acc.photo_url ? (
-                                    <img
-                                      src={acc.photo_url}
-                                      alt={acc.student_name || "Аватар користувача"}
-                                      className="h-8 w-8 rounded-full object-cover shrink-0 border border-sys-border/50"
-                                    />
-                                  ) : (
-                                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sys-tabActive text-xs font-bold text-sys-text-secondary shrink-0 border border-sys-border/40">
+                                  <div className="relative h-8 w-8 shrink-0">
+                                    {acc.photo_url ? (
+                                      <img
+                                        src={acc.photo_url}
+                                        alt={acc.student_name || "Аватар користувача"}
+                                        referrerPolicy="no-referrer"
+                                        className="h-8 w-8 rounded-full object-cover border border-sys-border/50"
+                                        onError={(e) => {
+                                          e.currentTarget.style.display = "none";
+                                          if (e.currentTarget.nextElementSibling) {
+                                            (e.currentTarget.nextElementSibling as HTMLElement).style.display = "flex";
+                                          }
+                                        }}
+                                      />
+                                    ) : null}
+                                    <div
+                                      style={{ display: acc.photo_url ? "none" : "flex" }}
+                                      className="h-8 w-8 items-center justify-center rounded-full bg-sys-tabActive text-xs font-bold text-sys-text-secondary border border-sys-border/40"
+                                    >
                                       {acc.student_name ? acc.student_name.charAt(0) : "👤"}
                                     </div>
-                                  )}
+                                  </div>
 
                                   <div className="min-w-0">
                                     <div className="flex items-center gap-2 flex-wrap">
@@ -1282,17 +1293,28 @@ function AdminContent() {
                                         <span className="w-5 text-[11px] font-bold text-sys-text-muted shrink-0 text-center">
                                           {i + 1}
                                         </span>
-                                        {st.photo_url ? (
-                                          <img
-                                            src={st.photo_url}
-                                            alt={st.full_name || "Аватар студента"}
-                                            className="h-7 w-7 rounded-full object-cover shrink-0 border border-sys-border/40"
-                                          />
-                                        ) : (
-                                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-sys-tabActive text-xs font-bold text-sys-text-secondary shrink-0 border border-sys-border/30">
-                                            {st.full_name.charAt(0)}
+                                        <div className="relative h-7 w-7 shrink-0">
+                                          {st.photo_url ? (
+                                            <img
+                                              src={st.photo_url}
+                                              alt={st.full_name || "Аватар студента"}
+                                              referrerPolicy="no-referrer"
+                                              className="h-7 w-7 rounded-full object-cover border border-sys-border/40"
+                                              onError={(e) => {
+                                                e.currentTarget.style.display = "none";
+                                                if (e.currentTarget.nextElementSibling) {
+                                                  (e.currentTarget.nextElementSibling as HTMLElement).style.display = "flex";
+                                                }
+                                              }}
+                                            />
+                                          ) : null}
+                                          <div
+                                            style={{ display: st.photo_url ? "none" : "flex" }}
+                                            className="h-7 w-7 items-center justify-center rounded-full bg-sys-tabActive text-xs font-bold text-sys-text-secondary border border-sys-border/30"
+                                          >
+                                            {st.full_name ? st.full_name.charAt(0) : "👤"}
                                           </div>
-                                        )}
+                                        </div>
                                         <div className="min-w-0">
                                           <p className="font-semibold text-sys-text-primary text-[13px] truncate">
                                             {st.full_name}

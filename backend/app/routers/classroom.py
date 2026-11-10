@@ -1126,13 +1126,13 @@ async def perform_course_sync(
                                     "classroom_user_id": uid[:64],
                                     "full_name": s_name[:150],
                                     "email": email[:150] or None,
-                                    "photo_url": photo[:500] if photo else None,
+                                    "photo_url": photo[:2048] if photo else None,
                                 }
                             else:
                                 if not students_by_user_id[uid]["email"] and email:
                                     students_by_user_id[uid]["email"] = email[:150]
                                 if not students_by_user_id[uid]["photo_url"] and photo:
-                                    students_by_user_id[uid]["photo_url"] = photo[:500]
+                                    students_by_user_id[uid]["photo_url"] = photo[:2048]
 
                         page_token = s_data.get("nextPageToken")
                         if not page_token:
@@ -1178,7 +1178,7 @@ async def perform_course_sync(
                                         "classroom_user_id": p_uid[:64],
                                         "full_name": full_name[:150],
                                         "email": email[:150] or None,
-                                        "photo_url": photo[:500] if photo else None,
+                                        "photo_url": photo[:2048] if photo else None,
                                     }
                 except Exception as e:
                     logger.warning(f"People API directory search skipped: {_sanitize_error_msg(str(e))}")
@@ -2408,7 +2408,7 @@ async def sync_from_classroom(
             final_email = profile_email or stats.get("user_email") or (payload.email if payload.email and "@" in payload.email else None)
             safe_email = final_email[:150] if final_email else None
             safe_name = profile_name[:150] if profile_name else None
-            safe_photo = profile_photo[:500] if profile_photo else None
+            safe_photo = profile_photo[:2048] if profile_photo else None
             synced_subs = stats.get("synced_subgroups", [])
             detected_subgroup: Optional[int] = None
             if 1 in synced_subs and 2 not in synced_subs:
@@ -3138,6 +3138,32 @@ async def trigger_background_sync_if_needed(
                             cred.refresh_token = current_enc
 
                 headers = {"Authorization": f"Bearer {fresh_token}"}
+
+                # 25.4.3: Автоматично збагачуємо або відновлюємо профіль користувача (ім'я, пошта, аватарка), якщо вони відсутні або були обрізані
+                if not cred.student_name or not cred.email or not cred.photo_url or (cred.photo_url and len(cred.photo_url) == 500):
+                    try:
+                        async with httpx.AsyncClient(timeout=8.0) as prof_client:
+                            me_r = await prof_client.get(
+                                "https://classroom.googleapis.com/v1/userProfiles/me",
+                                headers=headers,
+                            )
+                            if me_r.status_code == 200:
+                                me_j = me_r.json()
+                                n_obj = me_j.get("name") or {}
+                                fn = (n_obj.get("fullName") or "").strip() or None
+                                em = (me_j.get("emailAddress") or "").strip() or None
+                                p_url = (me_j.get("photoUrl") or "").strip() or None
+                                if p_url and p_url.startswith("//"):
+                                    p_url = f"https:{p_url}"
+                                if fn:
+                                    cred.student_name = fn[:150]
+                                if em:
+                                    cred.email = em[:150]
+                                if p_url:
+                                    cred.photo_url = p_url[:2048]
+                    except Exception:
+                        pass
+
                 try:
                     async with httpx.AsyncClient(timeout=15.0) as client:
                         courses_resp = await client.get(
@@ -3361,7 +3387,10 @@ async def _build_group_accounts_summary(db: AsyncSession, group_id: int) -> dict
 
         student_name = c.student_name or (matched.full_name if matched else None)
         email = c.email or (matched.email if matched else None)
-        photo_url = c.photo_url or (matched.photo_url if matched else None)
+        raw_photo = c.photo_url or (matched.photo_url if matched else None)
+        # Якщо URL було обрізано до рівно 500 символів через старий ліміт VARCHAR(500), він повертає 400 і показує биту картинку.
+        # Тимчасово ховаємо битий URL, доки фоновий цикл не оновить повне посилання
+        photo_url = None if (raw_photo and len(raw_photo) == 500 and "googleusercontent.com" in raw_photo) else raw_photo
 
         account_items.append({
             "id": c.id,
