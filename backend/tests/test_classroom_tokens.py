@@ -68,9 +68,6 @@ def test_sanitize_error_msg_redaction():
 
 def test_required_scopes_present():
     assert "classroom.courses.readonly" in REQUIRED_CLASSROOM_SCOPES
-    assert "classroom.coursework.me.readonly" in REQUIRED_CLASSROOM_SCOPES
-    assert "classroom.student-submissions.me.readonly" in REQUIRED_CLASSROOM_SCOPES
-    assert "classroom.announcements.readonly" in REQUIRED_CLASSROOM_SCOPES
 
 
 @pytest.mark.anyio
@@ -86,5 +83,6 @@ async def test_sync_all_endpoint_requires_auth_or_cron_key(classroom_db):
         r_cron = await client.post("/api/classroom/sync-all", headers={"X-Cron-Key": "super_secret_cron_123"})
         assert r_cron.status_code == 200
 
-    assert "classroom.student-submissions.me.readonly" in REQUIRED_CLASSROOM_SCOPES
-    assert "classroom.announcements.readonly" in REQUIRED_CLASSROOM_SCOPES
+    from app.routers.classroom import RECOMMENDED_CLASSROOM_SCOPES
+    assert "classroom.student-submissions.me.readonly" in RECOMMENDED_CLASSROOM_SCOPES
+    assert "classroom.announcements.readonly" in RECOMMENDED_CLASSROOM_SCOPES

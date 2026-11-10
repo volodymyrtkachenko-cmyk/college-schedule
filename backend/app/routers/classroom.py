@@ -2180,6 +2180,8 @@ async def perform_course_sync(
 
 REQUIRED_CLASSROOM_SCOPES = [
     "classroom.courses.readonly",
+]
+RECOMMENDED_CLASSROOM_SCOPES = [
     "classroom.coursework.me.readonly",
     "classroom.student-submissions.me.readonly",
     "classroom.announcements.readonly",
@@ -2224,16 +2226,22 @@ async def sync_from_classroom(
                     refresh_token = token_data.get("refresh_token") or refresh_token
                     granted_scope_str = token_data.get("scope") or ""
                     if granted_scope_str:
-                        missing_scopes = [s for s in REQUIRED_CLASSROOM_SCOPES if s not in granted_scope_str]
-                        if missing_scopes:
+                        missing_required = [s for s in REQUIRED_CLASSROOM_SCOPES if s not in granted_scope_str]
+                        if missing_required:
                             logger.warning(
-                                "Classroom code exchange granted insufficient scopes: %s (missing: %s)",
+                                "Classroom code exchange missing required course scope: %s (missing: %s)",
                                 granted_scope_str,
-                                missing_scopes,
+                                missing_required,
                             )
                             raise HTTPException(
                                 status_code=400,
-                                detail="Ви не надали обов'язковий дозвіл для доступу до завдань Classroom. Підключіть ще раз і залиште всі галочки дозволів у вікні Google.",
+                                detail="Ви не надали обов'язковий дозвіл для доступу до курсів Classroom. Підключіть ще раз і залиште галочки дозволів у вікні Google.",
+                            )
+                        missing_recommended = [s for s in RECOMMENDED_CLASSROOM_SCOPES if s not in granted_scope_str]
+                        if missing_recommended:
+                            logger.info(
+                                "Classroom code exchange granted without optional scopes: %s",
+                                missing_recommended,
                             )
                 else:
                     logger.warning(
