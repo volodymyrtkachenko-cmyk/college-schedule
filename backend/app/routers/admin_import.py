@@ -9,7 +9,7 @@ import logging
 from datetime import datetime, date, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, Security, Header, BackgroundTasks
 from fastapi.security.api_key import APIKeyHeader
-from sqlalchemy import text, delete, select, func, update
+from sqlalchemy import text, delete, select, func, update, insert
 from sqlalchemy.orm import joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
 from types import SimpleNamespace
@@ -1843,6 +1843,70 @@ async def import_data_cron(
         
     logger.info("Cron import accepted")
     return await execute_import_logic(db, 2, actor_id=None)
+
+
+class PermanentSyncRequest(BaseModel):
+    version_id: int = 1
+    lessons: list[dict]
+
+
+@router.post("/sync-permanent-schedule")
+async def sync_permanent_schedule_endpoint(
+    payload: PermanentSyncRequest,
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_roles("admin")),
+):
+    """
+    Транзакційно синхронізує постійний розклад у базовому шаблоні Schedule
+    для вказаної версії (за замовчуванням версія 1).
+    """
+    version = await db.get(ScheduleVersion, payload.version_id)
+    if version is None:
+        raise HTTPException(404, "Версію розкладу не знайдено")
+
+    from app.routers.schedule_versions import lock_versions
+    await lock_versions(db)
+
+    # 1. Відв'язуємо оверрайди від старих записів розкладу
+    schedule_subquery = select(Schedule.id).where(Schedule.version_id == payload.version_id)
+    await db.execute(
+        update(ScheduleOverride)
+        .where(ScheduleOverride.schedule_id.in_(schedule_subquery))
+        .values(schedule_id=None)
+    )
+
+    # 2. Видаляємо старі записи розкладу цієї версії
+    await db.execute(delete(Schedule).where(Schedule.version_id == payload.version_id))
+
+    # 3. Вставляємо нові перевірені слоти
+    fields = (
+        "group_id", "day_of_week", "lesson_number", "subject_id",
+        "teacher_id", "second_teacher_id", "room_override", "week_type",
+    )
+    rows_to_insert = [
+        {
+            **{f: item.get(f) for f in fields},
+            "version_id": payload.version_id,
+            "is_active": True,
+            "is_replacement": False,
+        }
+        for item in payload.lessons
+        if item.get("group_id") and item.get("subject_id") and item.get("day_of_week") and item.get("lesson_number")
+    ]
+
+    if rows_to_insert:
+        await db.execute(insert(Schedule), rows_to_insert)
+
+    # 4. Скидаємо глобальну ревізію кешу
+    from app.services import cache_rev
+    cache_rev.bump(global_=True)
+    await db.commit()
+
+    return {
+        "status": "success",
+        "version_id": payload.version_id,
+        "synced_lessons_count": len(rows_to_insert),
+    }
 
 
 class MigrateRequest(BaseModel):
