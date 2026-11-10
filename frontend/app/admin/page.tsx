@@ -124,7 +124,17 @@ function AdminUserAvatar({
   const initial = name ? name.trim().charAt(0).toUpperCase() : "👤";
   const dim = size === "sm" ? "h-7 w-7 text-xs" : "h-8 w-8 text-xs";
 
-  if (!photoUrl || hasError) {
+  useEffect(() => {
+    setHasError(false);
+  }, [photoUrl]);
+
+  const cleanUrl = photoUrl?.trim();
+  const isValidUrl = Boolean(
+    cleanUrl &&
+    (cleanUrl.startsWith("http://") || cleanUrl.startsWith("https://") || cleanUrl.startsWith("//"))
+  );
+
+  if (!isValidUrl || hasError) {
     return (
       <div
         className={`${dim} flex shrink-0 items-center justify-center rounded-full bg-sys-tabActive font-bold text-sys-text-secondary border border-sys-border/40 select-none`}
@@ -134,14 +144,23 @@ function AdminUserAvatar({
     );
   }
 
+  const resolvedUrl = cleanUrl!.startsWith("//") ? `https:${cleanUrl}` : cleanUrl!;
+
   return (
-    <img
-      src={photoUrl}
-      alt={name || "Аватар"}
-      referrerPolicy="no-referrer"
-      onError={() => setHasError(true)}
-      className={`${dim} shrink-0 rounded-full object-cover border border-sys-border/50`}
-    />
+    <div
+      className={`${dim} shrink-0 relative rounded-full overflow-hidden border border-sys-border/50 bg-sys-tabActive flex items-center justify-center select-none`}
+    >
+      <span className="font-bold text-sys-text-secondary select-none">{initial}</span>
+      <img
+        src={resolvedUrl}
+        alt=""
+        aria-hidden="true"
+        referrerPolicy="no-referrer"
+        crossOrigin="anonymous"
+        onError={() => setHasError(true)}
+        className="absolute inset-0 h-full w-full object-cover"
+      />
+    </div>
   );
 }
 

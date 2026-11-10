@@ -110,9 +110,9 @@ export function TeacherPinModal({
               )}
             </div>
             <div>
-              <h3 id="teacher-pin-modal-title" className="text-base font-bold text-sys-text-primary leading-tight">
+              <h2 id="teacher-pin-modal-title" className="text-base font-bold text-sys-text-primary leading-tight">
                 {isTeacherUnlocked ? "Режим викладача активний" : "Вхід для викладача"}
-              </h3>
+              </h2>
               <p className="text-xs text-sys-text-secondary mt-0.5">
                 {isTeacherUnlocked ? "Доступ до всіх онлайн-пар відкрито" : "PIN-код для доступу до посилань"}
               </p>

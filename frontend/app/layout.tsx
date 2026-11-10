@@ -317,7 +317,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         </a>
         <noscript>
           <div style={{ padding: "24px", maxWidth: "800px", margin: "0 auto", fontFamily: "system-ui, sans-serif" }}>
-            <h2>Розклад занять Дніпровського фахового коледжу радіоелектроніки (ДФКР)</h2>
+            <h1>Розклад занять Дніпровського фахового коледжу радіоелектроніки (ДФКР)</h1>
             <p>Актуальний розклад занять для студентів та викладачів коледжу.</p>
             <h2>Розклад дзвінків</h2>
             <ul>

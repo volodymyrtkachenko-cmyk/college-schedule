@@ -2496,9 +2496,9 @@ export function SchedulePageClient({
                                     </>
                                   )}
                                 </div>
-                                <h3 className="text-base sm:text-lg font-semibold text-sys-text-primary mt-1 leading-snug">
+                                <h2 className="text-base sm:text-lg font-semibold text-sys-text-primary mt-1 leading-snug">
                                   {weekRange}
-                                </h3>
+                                </h2>
                               </div>
 
                               <button
@@ -2566,9 +2566,9 @@ export function SchedulePageClient({
                                 <path d="M16 4h2a2 2 0 0 1 2 2v14l-8-4-8 4V6a2 2 0 0 1 2-2h2" />
                                 <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
                               </svg>
-                              <span className="text-sm font-bold uppercase tracking-wider text-sys-text-primary">
+                              <h2 className="text-sm font-bold uppercase tracking-wider text-sys-text-primary">
                                 Classroom
-                              </span>
+                              </h2>
                             </div>
 
                             {/* Desktop Segmented Toggle: Завдання vs Оцінки */}
@@ -2715,9 +2715,9 @@ export function SchedulePageClient({
                                 <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                               </svg>
                             </div>
-                            <h3 className="text-sm font-semibold text-sys-text-primary mb-1">
+                            <h2 className="text-sm font-semibold text-sys-text-primary mb-1">
                               {desktopSidebarTab === "grades" ? "Оцінки захищено" : "Завдання захищено"}
-                            </h3>
+                            </h2>
                             <p className="text-xs text-sys-text-secondary leading-relaxed mb-4">
                               Домашні завдання, оцінки та матеріали доступні лише для студентів цієї групи. Підключіть студентський Google Classroom, щоб отримати доступ.
                             </p>
@@ -2832,9 +2832,9 @@ export function SchedulePageClient({
                                       >
                                         <div className="flex items-center gap-2">
                                           <span className={`h-2 w-2 rounded-full shadow-xs ${isLinked ? "bg-rose-500" : "bg-sys-text-muted"}`} />
-                                          <h4 className={`text-xs font-bold uppercase tracking-wider ${isLinked ? "text-rose-500 dark:text-rose-400" : "text-sys-text-secondary"}`}>
+                                          <h3 className={`text-xs font-bold uppercase tracking-wider ${isLinked ? "text-rose-500 dark:text-rose-400" : "text-sys-text-secondary"}`}>
                                             З минулих тижнів ({sidebarTaskGroups.pastWeekTasks.length})
-                                          </h4>
+                                          </h3>
                                         </div>
                                         <span className="text-xs text-sys-text-muted">
                                           {sidebarPastWeekOpen || sidebarTaskFilters.status === "overdue" || Boolean(sidebarTaskFilters.subject) ? "Згорнути ▴" : "Показати ▾"}
@@ -2873,7 +2873,7 @@ export function SchedulePageClient({
                                               isLinked ? "bg-rose-500" : "bg-sys-text-muted"
                                             }`}
                                           />
-                                          <h4
+                                          <h3
                                             className={`text-xs font-bold uppercase tracking-wider ${
                                               isLinked ? "text-rose-500 dark:text-rose-400" : "text-sys-text-secondary"
                                             }`}
@@ -2881,7 +2881,7 @@ export function SchedulePageClient({
                                             {isLinked
                                               ? `Прострочено (${sidebarTaskGroups.overdueTasks.length})`
                                               : `Термін минув (${sidebarTaskGroups.overdueTasks.length})`}
-                                          </h4>
+                                          </h3>
                                         </div>
                                         <span className="text-xs text-sys-text-muted">
                                           {sidebarOverdueOpen || sidebarTaskFilters.status === "overdue" || Boolean(sidebarTaskFilters.subject) ? "Згорнути ▴" : "Показати ▾"}
@@ -2916,9 +2916,9 @@ export function SchedulePageClient({
                                       >
                                         <div className="flex items-center gap-2">
                                           <span className="h-2 w-2 rounded-full bg-sys-accent shadow-xs" />
-                                          <h4 className="text-xs font-bold uppercase tracking-wider text-sys-text-secondary">
+                                          <h3 className="text-xs font-bold uppercase tracking-wider text-sys-text-secondary">
                                             Активні ({sidebarTaskGroups.activeTasks.length})
-                                          </h4>
+                                          </h3>
                                         </div>
                                         <span className="text-xs text-sys-text-muted">
                                           {sidebarActiveOpen ? "Згорнути ▴" : "Показати ▾"}
@@ -2953,9 +2953,9 @@ export function SchedulePageClient({
                                       >
                                         <div className="flex items-center gap-2">
                                           <span className="h-2 w-2 rounded-full bg-sys-text-muted shadow-xs" />
-                                          <h4 className="text-xs font-bold uppercase tracking-wider text-sys-text-secondary">
+                                          <h3 className="text-xs font-bold uppercase tracking-wider text-sys-text-secondary">
                                             Без терміну ({sidebarTaskGroups.noDateTasks.length})
-                                          </h4>
+                                          </h3>
                                         </div>
                                         <span className="text-xs text-sys-text-muted">
                                           {sidebarNoDateOpen || (sidebarTaskFilters.status === "pending" && sidebarTaskGroups.activeTasks.length === 0) || Boolean(sidebarTaskFilters.subject) ? "Згорнути ▴" : "Показати ▾"}
@@ -3002,9 +3002,9 @@ export function SchedulePageClient({
                                       >
                                         <div className="flex items-center gap-2">
                                           <span className="h-2 w-2 rounded-full bg-emerald-500 dark:bg-emerald-400 shadow-xs" />
-                                          <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+                                          <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
                                             Здано ({sidebarTaskGroups.turnedInTasks.length})
-                                          </h4>
+                                          </h3>
                                         </div>
                                         <span className="text-xs text-sys-text-muted">
                                           {sidebarTurnedInOpen || sidebarTaskFilters.status === "done" ? "Згорнути ▴" : "Показати ▾"}
@@ -3192,9 +3192,9 @@ export function SchedulePageClient({
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between pb-3 border-b border-sys-border/60">
-                <h3 id="week-type-sheet-title" className="text-base font-bold text-sys-text-primary">
+                <h2 id="week-type-sheet-title" className="text-base font-bold text-sys-text-primary">
                   Тип тижня за графіком
-                </h3>
+                </h2>
                 <button
                   type="button"
                   onClick={() => setWeekTypeSheetOpen(false)}

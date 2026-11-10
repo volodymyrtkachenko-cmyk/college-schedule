@@ -144,9 +144,9 @@ export function LessonNoteModal({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-sys-border/50 px-5 py-4">
           <div>
-            <h3 id="lesson-note-modal-title" className="text-base font-bold text-sys-text-primary">
+            <h2 id="lesson-note-modal-title" className="text-base font-bold text-sys-text-primary">
               {mode === "edit" ? "Примітка до пари" : "Історія змін примітки"}
-            </h3>
+            </h2>
             <p className="text-xs text-sys-text-secondary mt-0.5">
               {date}, {lesson.lesson_number}-та пара · {lesson.subject_name}
             </p>

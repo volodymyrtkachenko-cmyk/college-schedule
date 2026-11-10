@@ -255,9 +255,9 @@ export function LessonEditor({
         {/* Sticky Header */}
         <div className="sticky top-0 z-10 border-b border-sys-border bg-sys-card px-5 py-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-base font-bold text-sys-text-primary tracking-tight">
+            <h2 className="text-base font-bold text-sys-text-primary tracking-tight">
               {lesson ? "Редагування заняття" : "Нове заняття"}
-            </h3>
+            </h2>
             <button
               type="button"
               onClick={onClose}

@@ -3195,7 +3195,7 @@ async def trigger_background_sync_if_needed(
                     not cred.student_name
                     or not cred.email
                     or not cred.photo_url
-                    or (cred.photo_url and len(cred.photo_url) <= 500 and "googleusercontent.com" in cred.photo_url)
+                    or (cred.photo_url and len(cred.photo_url) == 500 and "googleusercontent.com" in cred.photo_url)
                 ):
                     try:
                         async with httpx.AsyncClient(timeout=8.0) as prof_client:
@@ -3463,15 +3463,18 @@ async def _build_group_accounts_summary(db: AsyncSession, group_id: int) -> dict
         student_name = c.student_name or (matched.full_name if matched else None)
         email = c.email or (matched.email if matched else None)
         raw_photo = c.photo_url or (matched.photo_url if matched else None)
+        if raw_photo and raw_photo.startswith("//"):
+            raw_photo = f"https:{raw_photo}"
+
         # Якщо URL було обрізано через старий ліміт VARCHAR(500), він повертає 400 і показує биту картинку.
         # Тимчасово ховаємо битий URL, доки фоновий цикл не оновить повне посилання
         photo_url = (
             None
             if (
                 raw_photo
-                and len(raw_photo) <= 500
+                and len(raw_photo) == 500
                 and "googleusercontent.com" in raw_photo
-                and not raw_photo.endswith(("-c", "=s96-c", "=s100", "=s200", "=s400", "=s64-c", "=s32-c", ".jpg", ".png"))
+                and not raw_photo.endswith(("-c", "=s96-c", "=s100", "=s200", "=s400", "=s64-c", "=s32-c", ".jpg", ".png", ".webp"))
             )
             else raw_photo
         )

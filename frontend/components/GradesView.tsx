@@ -366,9 +366,9 @@ export function GradesView({ tasks, isLinked, groupId, onSyncClassroom }: Grades
                   {/* Top Row: Full Subject Title & Score */}
                   <div className="flex items-start justify-between gap-2.5">
                     <div className="flex-1 min-w-0 pr-1">
-                      <h4 className="font-bold text-sm sm:text-[15px] text-sys-text-primary leading-snug break-words">
+                      <h3 className="font-bold text-sm sm:text-[15px] text-sys-text-primary leading-snug break-words">
                         {subj.subject}
-                      </h4>
+                      </h3>
                       <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
                         <span className="text-[11px] font-medium text-sys-text-muted">
                           {subj.grades.length} {formatGradesWord(subj.grades.length)}

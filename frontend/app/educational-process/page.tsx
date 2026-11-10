@@ -714,9 +714,9 @@ export default function EducationalProcessPage() {
             <section aria-label="I семестр" className="space-y-3">
               <div className="flex items-center justify-between border-b border-sys-border/60 pb-2">
                 <div className="flex items-center gap-2">
-                  <span className="px-2 py-0.5 rounded-md bg-sys-bg border border-sys-border text-xs font-bold text-sys-text-primary">
+                  <h2 className="px-2 py-0.5 rounded-md bg-sys-bg border border-sys-border text-xs font-bold text-sys-text-primary">
                     I семестр
-                  </span>
+                  </h2>
                   <span className="text-xs text-sys-text-secondary font-medium">
                     Осінь — Зима (вересень – січень)
                   </span>
@@ -799,9 +799,9 @@ export default function EducationalProcessPage() {
             <section aria-label="II семестр" className="space-y-3 pt-2">
               <div className="flex items-center justify-between border-b border-sys-border/60 pb-2">
                 <div className="flex items-center gap-2">
-                  <span className="px-2 py-0.5 rounded-md bg-sys-bg border border-sys-border text-xs font-bold text-sys-text-primary">
+                  <h2 className="px-2 py-0.5 rounded-md bg-sys-bg border border-sys-border text-xs font-bold text-sys-text-primary">
                     II семестр
-                  </span>
+                  </h2>
                   <span className="text-xs text-sys-text-secondary font-medium">
                     Весна — Літо (січень – серпень)
                   </span>

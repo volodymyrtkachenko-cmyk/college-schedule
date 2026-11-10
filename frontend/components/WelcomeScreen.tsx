@@ -1,11 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
 import { ReferenceRecord } from "../lib/api";
-import { StudentOnboardingModal } from "./StudentOnboardingModal";
-import { TeacherOnboardingModal } from "./TeacherOnboardingModal";
 import { filterAndRankEntities, getGroupSearchBadge } from "../lib/quickJump";
 import { getGroupCourse } from "../lib/groupInfo";
 import { useViewportTier } from "../lib/useViewportTier";
+
+const StudentOnboardingModal = dynamic(
+  () => import("./StudentOnboardingModal").then((m) => m.StudentOnboardingModal),
+  { ssr: false }
+);
+
+const TeacherOnboardingModal = dynamic(
+  () => import("./TeacherOnboardingModal").then((m) => m.TeacherOnboardingModal),
+  { ssr: false }
+);
 
 interface WelcomeScreenProps {
   groups: ReferenceRecord[];
@@ -96,7 +105,7 @@ export function WelcomeScreen({ groups, teachers, initialMode, onComplete }: Wel
               <div className="mx-auto w-16 h-16 rounded-2xl bg-sys-card border border-sys-border flex items-center justify-center mb-5 shadow-lg shadow-sys-bg">
                 <svg aria-hidden="true" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-sys-accent"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"></path></svg>
               </div>
-              <h1 className="text-3xl font-bold tracking-tight text-sys-text-primary">Розклад ДФКР</h1>
+              <h2 className="text-3xl font-bold tracking-tight text-sys-text-primary">Розклад ДФКР</h2>
               <p className="text-sys-text-secondary text-sm sm:text-base">
                 Дніпровський фаховий коледж радіоелектроніки · Оберіть свій профіль
               </p>
