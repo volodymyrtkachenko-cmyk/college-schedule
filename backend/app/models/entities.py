@@ -498,7 +498,7 @@ class GroupStudent(Base):
     classroom_user_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     full_name: Mapped[str] = mapped_column(String(150), nullable=False)
     email: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
-    photo_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    photo_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     group: Mapped["Group"] = relationship("Group")
 
@@ -529,7 +529,7 @@ class ClassroomCredential(Base):
     google_user_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     email: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
     student_name: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
-    photo_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    photo_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     subgroup: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     refresh_token: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     last_synced_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)

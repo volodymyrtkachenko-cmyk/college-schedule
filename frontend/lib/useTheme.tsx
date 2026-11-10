@@ -157,9 +157,9 @@ function disableTransitionsTemporarily() {
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>(getInitialTheme);
-  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(getInitialResolvedTheme);
-  const [accent, setAccentState] = useState<AccentColor>(getInitialAccent);
+  const [theme, setThemeState] = useState<Theme>("system");
+  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>("dark");
+  const [accent, setAccentState] = useState<AccentColor>("blue");
 
   const applyAccent = useCallback((newAccent: AccentColor) => {
     setAccentState(newAccent);

@@ -59,49 +59,14 @@ export function useSchedule(
   initialMode?: "student" | "teacher"
 ) {
   const { user } = useAuth();
-  const [isSetupComplete, setIsSetupComplete] = useState(() => {
-    if (initialGroupId || initialTeacherId) return true;
-    if (typeof window !== "undefined") {
-      try {
-        return window.localStorage.getItem("schedule:setupComplete") === "1";
-      } catch {}
-    }
-    return false;
-  });
-  const [mode, setMode] = useState<"student" | "teacher">(() => {
-    if (initialMode) return initialMode;
-    if (typeof window !== "undefined") {
-      try {
-        const cachedMode = window.localStorage.getItem("schedule:mode") as "student" | "teacher" | null;
-        if (cachedMode === "student" || cachedMode === "teacher") return cachedMode;
-      } catch {}
-    }
-    return "student";
-  });
+  const [isSetupComplete, setIsSetupComplete] = useState<boolean>(() => Boolean(initialGroupId || initialTeacherId));
+  const [mode, setMode] = useState<"student" | "teacher">(initialMode || "student");
   const [groups, setGroups] = useState<import("./api").ReferenceRecord[]>(initialGroups);
   const [teachers, setTeachers] = useState<import("./api").ReferenceRecord[]>(
     initialTeachers.filter((t) => t.name && !t.name.includes("!"))
   );
-  const [groupId, setGroupId] = useState<number | null>(() => {
-    if (initialGroupId) return initialGroupId;
-    if (typeof window !== "undefined") {
-      try {
-        const cached = window.localStorage.getItem("schedule:groupId");
-        if (cached && Number.isFinite(Number(cached))) return Number(cached);
-      } catch {}
-    }
-    return null;
-  });
-  const [teacherId, setTeacherId] = useState<number | null>(() => {
-    if (initialTeacherId) return initialTeacherId;
-    if (typeof window !== "undefined") {
-      try {
-        const cached = window.localStorage.getItem("schedule:teacherId");
-        if (cached && Number.isFinite(Number(cached))) return Number(cached);
-      } catch {}
-    }
-    return null;
-  });
+  const [groupId, setGroupId] = useState<number | null>(initialGroupId || null);
+  const [teacherId, setTeacherId] = useState<number | null>(initialTeacherId || null);
   const [today, setToday] = useState<ScheduleResponse | null>(null);
   const [week, setWeek] = useState<ScheduleResponse[]>([]);
   const [semesterStart, setSemesterStart] = useState<string | null>(null);
@@ -141,6 +106,8 @@ export function useSchedule(
       } catch {
         window.localStorage.removeItem("schedule:groups");
       }
+    } else if (!initialGroupId && cachedGroupId) {
+      setGroupId(Number(cachedGroupId));
     }
     
     if (cachedTeachers) {
@@ -154,6 +121,8 @@ export function useSchedule(
       } catch {
         window.localStorage.removeItem("schedule:teachers");
       }
+    } else if (!initialTeacherId && cachedTeacherId) {
+      setTeacherId(Number(cachedTeacherId));
     }
 
     const dirSlowTimer = setTimeout(() => {

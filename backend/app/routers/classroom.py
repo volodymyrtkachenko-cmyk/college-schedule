@@ -2234,8 +2234,10 @@ async def sync_from_classroom(
                     google_user_id = str(me_json.get("id") or "").strip() or None
                     profile_email = (me_json.get("emailAddress") or "").strip() or None
                     name_obj = me_json.get("name") or {}
-                    profile_name = name_obj.get("fullName") or None
-                    profile_photo = me_json.get("photoUrl") or None
+                    profile_name = (name_obj.get("fullName") or "").strip() or None
+                    profile_photo = (me_json.get("photoUrl") or "").strip() or None
+                    if profile_photo and profile_photo.startswith("//"):
+                        profile_photo = f"https:{profile_photo}"
             except Exception as exc:
                 logger.warning(f"Failed to read userProfiles/me during sync: {_sanitize_error_msg(str(exc))}")
 
@@ -2404,6 +2406,9 @@ async def sync_from_classroom(
         if effective_user_id:
             effective_user_id = str(effective_user_id)[:128]
             final_email = profile_email or stats.get("user_email") or (payload.email if payload.email and "@" in payload.email else None)
+            safe_email = final_email[:150] if final_email else None
+            safe_name = profile_name[:150] if profile_name else None
+            safe_photo = profile_photo[:500] if profile_photo else None
             synced_subs = stats.get("synced_subgroups", [])
             detected_subgroup: Optional[int] = None
             if 1 in synced_subs and 2 not in synced_subs:
@@ -2422,9 +2427,9 @@ async def sync_from_classroom(
                     cred = ClassroomCredential(
                         group_id=detected_group.id,
                         google_user_id=effective_user_id,
-                        email=final_email,
-                        student_name=profile_name,
-                        photo_url=profile_photo,
+                        email=safe_email,
+                        student_name=safe_name,
+                        photo_url=safe_photo,
                         subgroup=detected_subgroup,
                         refresh_token=encrypted_refresh,
                         last_synced_at=now_utc,
@@ -2437,12 +2442,12 @@ async def sync_from_classroom(
             else:
                 if encrypted_refresh:
                     cred.refresh_token = encrypted_refresh
-                if final_email:
-                    cred.email = final_email
-                if profile_name:
-                    cred.student_name = profile_name
-                if profile_photo:
-                    cred.photo_url = profile_photo
+                if safe_email:
+                    cred.email = safe_email
+                if safe_name:
+                    cred.student_name = safe_name
+                if safe_photo:
+                    cred.photo_url = safe_photo
                 if detected_subgroup:
                     cred.subgroup = detected_subgroup
                 cred.last_synced_at = now_utc
@@ -2458,12 +2463,13 @@ async def sync_from_classroom(
                     cred.is_active = True
 
             # Якщо існував тимчасовий запис міграції legacy_group_{id} з тим самим токеном — прибираємо дубль
-            legacy_cred = await db.scalar(
-                select(ClassroomCredential).where(
-                    ClassroomCredential.group_id == detected_group.id,
-                    ClassroomCredential.google_user_id == f"legacy_group_{detected_group.id}",
+            with db.no_autoflush:
+                legacy_cred = await db.scalar(
+                    select(ClassroomCredential).where(
+                        ClassroomCredential.group_id == detected_group.id,
+                        ClassroomCredential.google_user_id == f"legacy_group_{detected_group.id}",
+                    )
                 )
-            )
             if legacy_cred and legacy_cred.google_user_id != effective_user_id:
                 if plain_refresh and decrypt_token(legacy_cred.refresh_token) == plain_refresh:
                     await db.delete(legacy_cred)

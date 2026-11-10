@@ -87,10 +87,11 @@ export function DayPager({
 }) {
   const { showToast } = useToast();
   const { resolvedTheme } = useTheme();
-  const [kyivNow, setKyivNow] = useState<{ dateIso: string; minutes: number } | null>(() => getKyivNow());
+  const [kyivNow, setKyivNow] = useState<{ dateIso: string; minutes: number } | null>(null);
   const [sharingImage, setSharingImage] = useState(false);
 
   useEffect(() => {
+    setKyivNow(getKyivNow());
     return subscribeKyivNow(setKyivNow);
   }, []);
 

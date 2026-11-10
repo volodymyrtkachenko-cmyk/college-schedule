@@ -17,10 +17,11 @@ export function getStoredTeacherPin(): string | null {
 }
 
 export function useTeacherAccess() {
-  const [teacherPin, setTeacherPin] = useState<string | null>(getStoredTeacherPin);
+  const [teacherPin, setTeacherPin] = useState<string | null>(null);
   const isTeacherUnlocked = Boolean(teacherPin);
 
   useEffect(() => {
+    setTeacherPin(getStoredTeacherPin());
     const handleUpdate = () => {
       setTeacherPin(getStoredTeacherPin());
     };

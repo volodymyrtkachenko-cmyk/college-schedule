@@ -264,14 +264,14 @@ export function GuideHubModal({ groupId, teacherId, mode, onClose }: GuideHubMod
       : null);
 
   // Guide mode: student vs teacher
-  const [guideMode, setGuideMode] = useState<"student" | "teacher">(() => {
-    if (mode) return mode;
-    if (typeof window !== "undefined") {
+  const [guideMode, setGuideMode] = useState<"student" | "teacher">(mode || "student");
+
+  useEffect(() => {
+    if (!mode && typeof window !== "undefined") {
       const stored = localStorage.getItem("schedule:mode");
-      if (stored === "teacher") return "teacher";
+      if (stored === "teacher") setGuideMode("teacher");
     }
-    return "student";
-  });
+  }, [mode]);
 
   const [groupName, setGroupName] = useState<string>("Група коледжу");
   const [teacherName, setTeacherName] = useState<string>("Викладач коледжу");

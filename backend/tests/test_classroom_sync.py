@@ -2002,6 +2002,67 @@ async def test_group_detection_prioritizes_explicit_payload_group_id_and_reconst
             mock_bg_sync.assert_called_once_with(group_85_id, force=True)
 
 
+@pytest.mark.anyio
+async def test_classroom_sync_handles_long_photo_url_and_profile_fields(classroom_db):
+    """25.4.1: Перевірка захисту від StringDataRightTruncation при довгих photoUrl, імені та пошті."""
+    client, state = classroom_db
+    group_id = state["group_id"]
+    long_photo = "//lh3.googleusercontent.com/a-/" + ("A" * 600)
+    long_name = "Студент " + ("ДужеДовгеІм'я" * 20)
+    long_email = ("student_email_" * 15) + "@kre.dp.ua"
+
+    transport = _make_fake_google_transport(
+        courses_by_token={
+            "ya29.long_profile_token": [
+                {"id": "c85_1", "name": "85 ДФКР Іноземна мова"}
+            ],
+        },
+        profiles_by_token={
+            "ya29.long_profile_token": {
+                "id": "101037898429499839148",
+                "emailAddress": long_email,
+                "name": {"fullName": long_name},
+                "photoUrl": long_photo,
+            },
+        },
+        teachers_by_course={
+            "c85_1": [{"userId": "t1", "profile": {"name": {"fullName": "Токарєва Т.О."}}}],
+        },
+        announcements_by_course={},
+        coursework_by_course={},
+    )
+    real_async_client = httpx.AsyncClient
+
+    def mocked_client(*args, **kwargs):
+        kwargs["transport"] = transport
+        return real_async_client(*args, **kwargs)
+
+    with patch("app.routers.classroom.httpx.AsyncClient", side_effect=mocked_client):
+        resp = await client.post(
+            "/api/classroom/sync",
+            json={
+                "access_token": "ya29.long_profile_token",
+                "refresh_token": "1//rt_long_profile_test",
+                "group_id": group_id,
+            },
+        )
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+        assert data["group_id"] == group_id
+
+        # Перевіряємо статус групи та збережені акаунти
+        st_resp = await client.get(f"/api/classroom/groups/{group_id}/status")
+        assert st_resp.status_code == 200
+        st_data = st_resp.json()
+        assert st_data["connected_accounts_count"] == 1
+        acc = st_data["accounts"][0]
+        assert acc["google_user_id"] == "101037898429499839148"
+        assert len(acc["email"]) <= 150
+        assert len(acc["student_name"]) <= 150
+        assert acc["photo_url"].startswith("https://")
+
+
+
 
 
 

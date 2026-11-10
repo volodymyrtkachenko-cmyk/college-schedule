@@ -36,63 +36,43 @@ export default function SettingsPage() {
   const [isLinkingClassroom, setIsLinkingClassroom] = useState(false);
   const [showGuideModal, setShowGuideModal] = useState(false);
 
-  const [groupHasSubgroups, setGroupHasSubgroups] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    const gid =
-      Number(localStorage.getItem("schedule:groupId")) ||
-      Number(localStorage.getItem("schedule:classroom_linked_group_id"));
-    if (!gid) return false;
-    const cachedFlag = localStorage.getItem(`schedule:has_subgroups:${gid}`);
-    if (cachedFlag !== null) return cachedFlag === "1";
-    const prefix = `schedule:week:groupId:${gid}:`;
-    for (let i = 0; i < window.localStorage.length; i++) {
-      const k = window.localStorage.key(i);
-      if (k && k.startsWith(prefix)) {
-        const raw = window.localStorage.getItem(k);
-        if (raw) {
-          try {
-            const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              const lessons = parsed.flatMap((d: any) => d.lessons || []);
-              if (lessons.length > 0) return checkScheduleHasSubgroups(lessons);
-            }
-          } catch {}
-        }
-      }
-    }
-    return false;
-  });
-
-  const [subgroupHints, setSubgroupHints] = useState<{ sub1: SubgroupTeacherHint[]; sub2: SubgroupTeacherHint[] }>(() => {
-    if (typeof window === "undefined") return { sub1: [], sub2: [] };
-    const gid =
-      Number(localStorage.getItem("schedule:groupId")) ||
-      Number(localStorage.getItem("schedule:classroom_linked_group_id"));
-    if (!gid) return { sub1: [], sub2: [] };
-    const prefix = `schedule:week:groupId:${gid}:`;
-    for (let i = 0; i < window.localStorage.length; i++) {
-      const k = window.localStorage.key(i);
-      if (k && k.startsWith(prefix)) {
-        const raw = window.localStorage.getItem(k);
-        if (raw) {
-          try {
-            const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              const lessons = parsed.flatMap((d: any) => d.lessons || []);
-              if (lessons.length > 0) return extractSubgroupTeacherHints(lessons);
-            }
-          } catch {}
-        }
-      }
-    }
-    return { sub1: [], sub2: [] };
-  });
+  const [groupHasSubgroups, setGroupHasSubgroups] = useState<boolean>(false);
+  const [subgroupHints, setSubgroupHints] = useState<{ sub1: SubgroupTeacherHint[]; sub2: SubgroupTeacherHint[] }>({ sub1: [], sub2: [] });
 
   useEffect(() => {
     const gid =
       Number(localStorage.getItem("schedule:groupId")) ||
       Number(localStorage.getItem("schedule:classroom_linked_group_id"));
     if (!gid) return;
+
+    const cachedFlag = localStorage.getItem(`schedule:has_subgroups:${gid}`);
+    if (cachedFlag !== null) {
+      setGroupHasSubgroups(cachedFlag === "1");
+    }
+
+    const prefix = `schedule:week:groupId:${gid}:`;
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const k = window.localStorage.key(i);
+      if (k && k.startsWith(prefix)) {
+        const raw = window.localStorage.getItem(k);
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              const lessons = parsed.flatMap((d: any) => d.lessons || []);
+              if (lessons.length > 0) {
+                if (cachedFlag === null) {
+                  setGroupHasSubgroups(checkScheduleHasSubgroups(lessons));
+                }
+                setSubgroupHints(extractSubgroupTeacherHints(lessons));
+                break;
+              }
+            }
+          } catch {}
+        }
+      }
+    }
+
     api.week(gid)
       .then((data) => {
         if (Array.isArray(data) && data.length > 0) {
