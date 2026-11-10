@@ -1,4 +1,5 @@
 import asyncio
+import os
 import logging
 import re
 import traceback
@@ -13,8 +14,16 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.core.crypto import decrypt_token, encrypt_token, is_fernet_ciphertext
-from app.core.security import require_roles
+from app.core.crypto import (
+    decrypt_token,
+    encrypt_token,
+    is_fernet_ciphertext,
+    decrypt_token_detailed,
+    rotate_token,
+    check_crypto_config,
+)
+from fastapi.security import HTTPAuthorizationCredentials
+from app.core.security import require_roles, bearer_scheme, get_current_user
 from app.database import async_session_factory, get_db
 from app.models import (
     ClassroomCredential,
@@ -844,16 +853,16 @@ def _sanitize_error_msg(msg: str) -> str:
     if not msg:
         return ""
     cleaned = re.sub(r"ya29\.[A-Za-z0-9_\-\.]+", "[REDACTED_TOKEN]", msg)
-    cleaned = re.sub(r"1//[A-Za-z0-9_\-\.]+", "[REDACTED_REFRESH_TOKEN]", msg)
+    cleaned = re.sub(r"1//[A-Za-z0-9_\-\.]+", "[REDACTED_REFRESH_TOKEN]", cleaned)
     cleaned = re.sub(r"gAAAAA[A-Za-z0-9_\-=]+", "[REDACTED_CIPHERTEXT]", cleaned)
     return cleaned[:400]
 
 
 async def _refresh_google_token_detailed(refresh_token: str) -> tuple[Optional[str], Optional[str], Optional[int]]:
     """Returns (access_token, error_code_or_msg, status_code)."""
-    plain_rt = decrypt_token(refresh_token)
+    plain_rt, decrypt_status = decrypt_token_detailed(refresh_token)
     if not plain_rt:
-        return None, "missing_or_corrupt_refresh_token", 400
+        return None, f"missing_or_corrupt_refresh_token:{decrypt_status}", 400
     if plain_rt.startswith("ya29."):
         return None, "token_is_access_token_not_refresh_token", 400
     client_id = get_google_client_id()
@@ -2169,6 +2178,14 @@ async def perform_course_sync(
     }
 
 
+REQUIRED_CLASSROOM_SCOPES = [
+    "classroom.courses.readonly",
+    "classroom.coursework.me.readonly",
+    "classroom.student-submissions.me.readonly",
+    "classroom.announcements.readonly",
+]
+
+
 @router.post("/sync")
 async def sync_from_classroom(
     payload: ClassroomSyncRequest,
@@ -2177,8 +2194,11 @@ async def sync_from_classroom(
     try:
         access_token = payload.access_token
         refresh_token = payload.refresh_token
+        granted_scope_str: Optional[str] = None
+        code_exchanged = False
 
         if payload.code:
+            code_exchanged = True
             client_id = get_google_client_id()
             client_secret = get_google_client_secret()
             if not client_id or not client_secret:
@@ -2202,6 +2222,19 @@ async def sync_from_classroom(
                     token_data = token_resp.json()
                     access_token = token_data.get("access_token")
                     refresh_token = token_data.get("refresh_token") or refresh_token
+                    granted_scope_str = token_data.get("scope") or ""
+                    if granted_scope_str:
+                        missing_scopes = [s for s in REQUIRED_CLASSROOM_SCOPES if s not in granted_scope_str]
+                        if missing_scopes:
+                            logger.warning(
+                                "Classroom code exchange granted insufficient scopes: %s (missing: %s)",
+                                granted_scope_str,
+                                missing_scopes,
+                            )
+                            raise HTTPException(
+                                status_code=400,
+                                detail="Ви не надали обов'язковий дозвіл для доступу до завдань Classroom. Підключіть ще раз і залиште всі галочки дозволів у вікні Google.",
+                            )
                 else:
                     logger.warning(
                         f"Failed to exchange code: {token_resp.status_code} {_sanitize_error_msg(token_resp.text)}"
@@ -2484,6 +2517,10 @@ async def sync_from_classroom(
                         subgroup=detected_subgroup,
                         refresh_token=encrypted_refresh,
                         last_synced_at=now_utc,
+                        last_refresh_ok_at=now_utc if code_exchanged else None,
+                        last_client_seen_at=now_utc,
+                        granted_scopes=granted_scope_str,
+                        needs_relink=False,
                         last_error=None,
                         fail_count=0,
                         next_attempt_at=None,
@@ -2491,8 +2528,37 @@ async def sync_from_classroom(
                     )
                     db.add(cred)
             else:
+                cred.last_client_seen_at = now_utc
                 if encrypted_refresh:
                     cred.refresh_token = encrypted_refresh
+                    cred.last_refresh_ok_at = now_utc
+                    cred.last_synced_at = now_utc
+                    cred.needs_relink = False
+                    cred.last_error = None
+                    cred.fail_count = 0
+                    cred.next_attempt_at = None
+                    cred.is_active = True
+                    if granted_scope_str:
+                        cred.granted_scopes = granted_scope_str
+                else:
+                    dec_rt, dec_status = decrypt_token_detailed(cred.refresh_token)
+                    has_valid_existing_rt = bool(dec_rt and not dec_rt.startswith("ya29."))
+                    if has_valid_existing_rt:
+                        cred.needs_relink = False
+                        cred.is_active = True
+                        cred.last_error = None
+                        cred.fail_count = 0
+                        cred.next_attempt_at = None
+                        cred.last_synced_at = now_utc
+                        rotated = rotate_token(cred.refresh_token)
+                        if rotated:
+                            cred.refresh_token = rotated
+                    else:
+                        cred.needs_relink = True
+                        cred.is_active = False
+                        if not cred.last_error or "missing_or_corrupt" not in cred.last_error:
+                            cred.last_error = f"needs_relink: {dec_status}"
+
                 if safe_email:
                     cred.email = safe_email
                 if safe_name:
@@ -2501,17 +2567,6 @@ async def sync_from_classroom(
                     cred.photo_url = safe_photo
                 if detected_subgroup:
                     cred.subgroup = detected_subgroup
-                cred.last_synced_at = now_utc
-                has_valid_existing_rt = bool(
-                    cred.refresh_token
-                    and cred.refresh_token.strip()
-                    and not (decrypt_token(cred.refresh_token) or "").startswith("ya29.")
-                )
-                if has_valid_existing_rt:
-                    cred.last_error = None
-                    cred.fail_count = 0
-                    cred.next_attempt_at = None
-                    cred.is_active = True
 
             # Якщо існував тимчасовий запис міграції legacy_group_{id} з тим самим токеном — прибираємо дубль
             with db.no_autoflush:
@@ -2536,6 +2591,7 @@ async def sync_from_classroom(
             "last_synced_at": binding.last_synced_at.isoformat() if binding.last_synced_at else now_utc.isoformat(),
             "access_token": access_token,
             "refresh_token": None,
+            "needs_relink": bool(cred and getattr(cred, "needs_relink", False)),
             **stats,
             "google_user_id": effective_user_id,
         }
@@ -2686,6 +2742,7 @@ async def _fetch_user_submissions(
             "submissions": {},
             "tasks": [],
             "reason": "unauthenticated",
+            "needs_relink": bool(cred and getattr(cred, "needs_relink", False)),
         }
 
     try:
@@ -2887,6 +2944,7 @@ async def _fetch_user_submissions(
                 "tasks": tasks_list,
                 "access_token": refreshed_access_token or token,
                 "updated_at": datetime.now(timezone.utc).isoformat(),
+                "needs_relink": bool(cred and getattr(cred, "needs_relink", False)),
             }
     except Exception as exc:
         logger.error(f"User submissions fetch error: {_sanitize_error_msg(str(exc))}")
@@ -3113,7 +3171,7 @@ async def trigger_background_sync_if_needed(
             # 25.5: Беремо активні записи групи, для яких настав час спроби,
             # відсортовані за last_synced_at (найстаріший першим, NULLS FIRST).
             def _is_ready(c: ClassroomCredential) -> bool:
-                if not c.is_active:
+                if not c.is_active or getattr(c, "needs_relink", False):
                     return False
                 if force or c.next_attempt_at is None:
                     return True
@@ -3132,6 +3190,27 @@ async def trigger_background_sync_if_needed(
                 return (1, ts, c.id or 0)
 
             active_creds.sort(key=_cred_sort_key)
+
+            # If group has subgroup split, ensure we pick credentials covering both subgroups
+            has_split = await db.scalar(
+                select(func.count(Schedule.id)).where(
+                    Schedule.group_id == group_id,
+                    Schedule.second_teacher_id.is_not(None),
+                    Schedule.is_active.is_(True),
+                )
+            ) or 0
+            if has_split > 0 and len(active_creds) > 1:
+                sub1 = [c for c in active_creds if c.subgroup == 1]
+                sub2 = [c for c in active_creds if c.subgroup == 2]
+                chosen = []
+                if sub1:
+                    chosen.append(sub1[0])
+                if sub2:
+                    chosen.append(sub2[0])
+                for c in active_creds:
+                    if c not in chosen and len(chosen) < 3:
+                        chosen.append(c)
+                active_creds = chosen
 
             # Якщо навіть найстаріший акаунт синхронізувався менше min_gap тому (і не force) — пропускаємо
             oldest = active_creds[0]
@@ -3166,10 +3245,12 @@ async def trigger_background_sync_if_needed(
                     )
                     if err_msg and (
                         err_msg.startswith("invalid_grant")
+                        or err_msg.startswith("missing_or_corrupt_refresh_token")
                         or err_msg in ("missing_or_corrupt_refresh_token", "token_is_access_token_not_refresh_token")
                     ):
-                        # 25.5: Непоправна помилка токена деактивує запис і пише last_error
+                        # Непоправна помилка токена деактивує запис і вимагає перепідключення
                         cred.is_active = False
+                        cred.needs_relink = True
                         cred.fail_count = (cred.fail_count or 0) + 1
                         cred.last_error = _sanitize_error_msg(err_msg)
                         cred.next_attempt_at = None
@@ -3178,15 +3259,11 @@ async def trigger_background_sync_if_needed(
                     await db.flush()
                     continue
 
-                # Auto-upgrade token in DB if it was decrypted via a legacy fallback key
-                plain_rt = decrypt_token(cred.refresh_token)
-                if plain_rt and cred.refresh_token:
-                    try:
-                        get_fernet().decrypt(cred.refresh_token.strip().encode("utf-8"))
-                    except Exception:
-                        current_enc = encrypt_token(plain_rt)
-                        if current_enc:
-                            cred.refresh_token = current_enc
+                # Auto-upgrade token in DB if it was decrypted via an older or legacy key
+                cred.last_refresh_ok_at = now
+                rotated = rotate_token(cred.refresh_token)
+                if rotated:
+                    cred.refresh_token = rotated
 
                 headers = {"Authorization": f"Bearer {fresh_token}"}
 
@@ -3285,6 +3362,8 @@ async def trigger_background_sync_if_needed(
                 cred.fail_count = 0
                 cred.last_error = None
                 cred.next_attempt_at = None
+                cred.needs_relink = False
+                cred.is_active = True
                 any_synced = True
                 synced_count += 1
                 logger.info(
@@ -3406,11 +3485,13 @@ async def _build_group_accounts_summary(db: AsyncSession, group_id: int) -> dict
     effective_active_creds = [
         c for c in creds
         if c.is_active
+        and not getattr(c, "needs_relink", False)
         and not (
             c.last_error
             and (
                 c.last_error.split(":", 1)[0] in reconnect_errors
                 or c.last_error.startswith("invalid_grant")
+                or c.last_error.startswith("needs_relink")
             )
         )
     ]
@@ -3479,6 +3560,22 @@ async def _build_group_accounts_summary(db: AsyncSession, group_id: int) -> dict
             else raw_photo
         )
 
+        # Determine human-friendly reason code
+        reason_code = None
+        is_relink = bool(getattr(c, "needs_relink", False) or not c.is_active)
+        if is_relink:
+            err = (c.last_error or "").lower()
+            if "undecryptable" in err or "corrupt" in err or "key_" in err:
+                reason_code = "key_changed"
+            elif "invalid_grant" in err:
+                reason_code = "revoked"
+            elif "missing_scopes" in err:
+                reason_code = "missing_scopes"
+            elif "network" in err:
+                reason_code = "network"
+            else:
+                reason_code = "reauth_required"
+
         account_items.append({
             "id": c.id,
             "google_user_id": c.google_user_id,
@@ -3487,10 +3584,15 @@ async def _build_group_accounts_summary(db: AsyncSession, group_id: int) -> dict
             "photo_url": photo_url,
             "subgroup": c.subgroup,
             "last_synced_at": c.last_synced_at.isoformat() if c.last_synced_at else None,
+            "last_refresh_ok_at": c.last_refresh_ok_at.isoformat() if getattr(c, "last_refresh_ok_at", None) else None,
+            "last_client_seen_at": c.last_client_seen_at.isoformat() if getattr(c, "last_client_seen_at", None) else None,
+            "granted_scopes": getattr(c, "granted_scopes", None),
+            "needs_relink": is_relink,
+            "reason_code": reason_code,
             "last_error": c.last_error,
             "fail_count": c.fail_count,
             "next_attempt_at": c.next_attempt_at.isoformat() if c.next_attempt_at else None,
-            "is_active": c.is_active,
+            "is_active": c.is_active and not getattr(c, "needs_relink", False),
         })
 
     return {
@@ -3887,6 +3989,92 @@ async def sync_all_connected_groups_once(force: bool = False) -> dict:
     return {"checked_groups": len(group_ids), "processed": synced_groups}
 
 
+async def perform_daily_credentials_health_check() -> dict:
+    """О 06:00 за Києвом: швидка перевірка валідності refresh_token для всіх активних акаунтів."""
+    logger.info("Classroom: starting daily credentials health check...")
+    results = {"checked": 0, "ok": 0, "failed": 0}
+    now = datetime.now(timezone.utc)
+    async with async_session_factory() as db:
+        creds = (
+            await db.scalars(
+                select(ClassroomCredential).where(
+                    ClassroomCredential.is_active.is_(True),
+                    ClassroomCredential.needs_relink.is_(False),
+                )
+            )
+        ).all()
+        for cred in creds:
+            results["checked"] += 1
+            fresh_tok, err_msg, status_code = await _refresh_google_token_detailed(cred.refresh_token)
+            if fresh_tok:
+                cred.last_refresh_ok_at = now
+                rotated = rotate_token(cred.refresh_token)
+                if rotated:
+                    cred.refresh_token = rotated
+                cred.fail_count = 0
+                results["ok"] += 1
+            else:
+                results["failed"] += 1
+                if err_msg and (
+                    err_msg.startswith("invalid_grant")
+                    or err_msg.startswith("missing_or_corrupt_refresh_token")
+                    or err_msg in ("missing_or_corrupt_refresh_token", "token_is_access_token_not_refresh_token")
+                ):
+                    cred.is_active = False
+                    cred.needs_relink = True
+                    cred.last_error = _sanitize_error_msg(err_msg)
+                else:
+                    _apply_credential_backoff(cred, err_msg or f"status_{status_code}", now)
+        await db.commit()
+    logger.info("Classroom: daily credentials health check complete: %s", results)
+    return results
+
+
+@router.get("/credentials/diagnostics")
+async def get_classroom_credentials_diagnostics(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles("admin")),
+):
+    """Детальна діагностика стану токенів шифрування (доступна лише адміністраторам)."""
+    creds = (
+        await db.scalars(
+            select(ClassroomCredential).order_by(
+                ClassroomCredential.group_id.asc(), ClassroomCredential.id.asc()
+            )
+        )
+    ).all()
+    results = []
+    for c in creds:
+        plain, status = decrypt_token_detailed(c.refresh_token)
+        has_plain = bool(plain)
+        prefix = plain[:4] if plain else None
+        results.append({
+            "id": c.id,
+            "group_id": c.group_id,
+            "google_user_id": c.google_user_id,
+            "email": c.email,
+            "student_name": c.student_name,
+            "subgroup": c.subgroup,
+            "is_active": c.is_active,
+            "needs_relink": getattr(c, "needs_relink", False),
+            "fail_count": c.fail_count,
+            "last_error": c.last_error,
+            "last_synced_at": c.last_synced_at.isoformat() if c.last_synced_at else None,
+            "last_refresh_ok_at": c.last_refresh_ok_at.isoformat() if getattr(c, "last_refresh_ok_at", None) else None,
+            "last_client_seen_at": c.last_client_seen_at.isoformat() if getattr(c, "last_client_seen_at", None) else None,
+            "granted_scopes": getattr(c, "granted_scopes", None),
+            "token_status": status,
+            "token_format_valid": has_plain and not (plain or "").startswith("ya29."),
+            "token_prefix": prefix,
+        })
+    primary_key_configured = bool(os.getenv("CLASSROOM_FERNET_KEY") or getattr(settings, "classroom_fernet_key", ""))
+    return {
+        "primary_key_configured": primary_key_configured,
+        "total_credentials": len(results),
+        "credentials": results,
+    }
+
+
 async def classroom_auto_sync_loop() -> None:
     """Нескінченний фоновий цикл: розумно парсить Classroom за адаптивним інтервалом (під час пар 09:00–15:30 — кожні 10 хв, вечір — 35 хв, ніч — глибокий сон)."""
     now_k = datetime.now(KYIV_TZ)
@@ -3899,8 +4087,18 @@ async def classroom_auto_sync_loop() -> None:
     )
     await asyncio.sleep(45)  # Перший запуск через 45 секунд після старту сервера (після стартового автоімпорту розкладу)
     first_cycle = True
+    last_health_check_date = None
     while True:
         try:
+            now_k = datetime.now(KYIV_TZ)
+            # Щоденна перевірка здоров'я токенів о 06:00 ранку
+            if now_k.hour == 6 and last_health_check_date != now_k.date():
+                try:
+                    await perform_daily_credentials_health_check()
+                except Exception as hc_err:
+                    logger.warning(f"Classroom health check error: {hc_err}")
+                last_health_check_date = now_k.date()
+
             await sync_all_connected_groups_once(force=first_cycle)
             first_cycle = False
         except asyncio.CancelledError:
@@ -3919,6 +4117,22 @@ async def classroom_auto_sync_loop() -> None:
 
 
 @router.post("/sync-all")
-async def manual_trigger_sync_all():
-    """Ендпоінт для примусового запуску автосинхронізації всіх груп (наприклад, із зовнішнього cron)."""
+async def manual_trigger_sync_all(
+    cron_key: Optional[str] = Header(None, alias="X-Cron-Key"),
+    auth: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
+    db: AsyncSession = Depends(get_db),
+):
+    """Ендпоінт для примусового запуску автосинхронізації всіх груп (адмін або валідний X-Cron-Key)."""
+    import hmac
+    cron_secret = (
+        getattr(settings, "IMPORT_CRON_SECRET", None)
+        or os.getenv("IMPORT_CRON_SECRET")
+        or getattr(settings, "classroom_cron_secret", None)
+        or os.getenv("CLASSROOM_CRON_SECRET")
+    )
+    is_valid_cron = bool(cron_secret and cron_key and hmac.compare_digest(cron_key.strip().encode(), cron_secret.strip().encode()))
+    if not is_valid_cron:
+        user = await get_current_user(credentials=auth, db=db)
+        if user.role not in ("admin", "editor"):
+            raise HTTPException(status_code=403, detail="Недостатньо прав")
     return await sync_all_connected_groups_once(force=True)

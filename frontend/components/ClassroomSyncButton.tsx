@@ -8,6 +8,7 @@ import {
   clearClassroomAccessToken,
   getClassroomSilentAuth,
   saveClassroomSyncData,
+  setClassroomNeedsRelink,
   syncPersonalSubmissions,
   useClassroomSubmissions,
 } from "../lib/useClassroomSubmissions";
@@ -155,6 +156,11 @@ export function ClassroomSyncButton({
           group_id: currentGroupId ?? undefined,
           week_start: weekStart,
         });
+        if ((res as any)?.needs_relink) {
+          setClassroomNeedsRelink(true, (res as any).reason_code || (res as any).error);
+        } else {
+          setClassroomNeedsRelink(false);
+        }
         handleSyncSuccess(res, true, true, accessToken);
         return;
       } catch {
@@ -166,6 +172,9 @@ export function ClassroomSyncButton({
     try {
       const data = await api.classroom.groupStatus(currentGroupId);
       if (data?.last_synced_at) setLastSyncedAt(data.last_synced_at);
+      if ((data as any)?.needs_relink && linkedGroupId === currentGroupId) {
+        setClassroomNeedsRelink(true, (data as any).reason_code || (data as any).error);
+      }
       if (data?.tasks && Array.isArray(data.tasks)) {
         onSynced(currentGroupId, data.tasks, data.last_synced_at ?? null, true);
       }

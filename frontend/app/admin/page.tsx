@@ -1050,14 +1050,30 @@ function AdminContent() {
                           {rosterData.accounts.map((acc, idx) => {
                             const displayName = acc.student_name || `Акаунт #${idx + 1}`;
                             const subtitle = acc.email || "Підключено через Google";
-                            const hasFatalError = Boolean(
-                              acc.last_error && (
+                            const needsRelink = Boolean(
+                              acc.needs_relink ||
+                              (acc.last_error && (
                                 acc.last_error.includes("missing_or_corrupt_refresh_token") ||
                                 acc.last_error.includes("invalid_grant") ||
                                 acc.last_error.includes("token_is_access_token_not_refresh_token")
-                              )
+                              ))
                             );
-                            const isWorking = acc.is_active && !hasFatalError;
+                            const isWorking = acc.is_active && !needsRelink;
+
+                            const errorLabel = (() => {
+                              if (acc.reason_code === "key_changed") return "Ключ шифрування змінено — потрібна повторна прив'язка";
+                              if (acc.reason_code === "no_refresh_token") return "Потрібне повторне підключення (відсутній токен фонового оновлення)";
+                              if (acc.reason_code === "revoked") return "Доступ скасовано у Google — потрібна повторна прив'язка";
+                              if (acc.reason_code === "missing_scopes") return "Надано не всі дозволи Classroom — потрібна повторна прив'язка";
+                              if (acc.reason_code === "server_secret_missing") return "На сервері відсутній GOOGLE_CLIENT_SECRET";
+                              if (acc.last_error?.includes("missing_or_corrupt_refresh_token") || acc.last_error?.includes("token_is_access_token_not_refresh_token")) {
+                                return "Потрібне повторне підключення (відсутній токен фонового оновлення)";
+                              }
+                              if (acc.last_error?.includes("invalid_grant")) {
+                                return "Доступ скасовано у Google — потрібна повторна прив'язка";
+                              }
+                              return acc.last_error ? `Помилка: ${acc.last_error}` : null;
+                            })();
 
                             return (
                               <div
@@ -1094,7 +1110,7 @@ function AdminContent() {
                                         className={`h-2 w-2 rounded-full shrink-0 ${
                                           isWorking
                                             ? "bg-emerald-500 dark:bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]"
-                                            : hasFatalError
+                                            : needsRelink
                                             ? "bg-amber-500 dark:bg-amber-400"
                                             : "bg-rose-500 dark:bg-rose-400"
                                         }`}
@@ -1103,17 +1119,19 @@ function AdminContent() {
                                         className={
                                           isWorking
                                             ? "text-emerald-700 dark:text-emerald-400 font-medium"
-                                            : hasFatalError
+                                            : needsRelink
                                             ? "text-amber-700 dark:text-amber-400 font-medium"
                                             : "text-rose-700 dark:text-rose-400 font-medium"
                                         }
                                       >
-                                        {isWorking ? "Активний" : hasFatalError ? "Потрібна прив'язка" : "Неактивний"}
+                                        {isWorking ? "Активний" : needsRelink ? "Потрібна прив'язка" : "Неактивний"}
                                       </span>
                                     </div>
                                     <span className="text-[10px] text-sys-text-secondary block mt-0.5">
                                       {acc.last_synced_at
                                         ? `Синхронізовано ${formatLastSynced(acc.last_synced_at)}`
+                                        : acc.last_client_seen_at
+                                        ? `Активність ${formatLastSynced(acc.last_client_seen_at)}`
                                         : "ще не синхронізовано"}
                                     </span>
                                   </div>
@@ -1130,13 +1148,9 @@ function AdminContent() {
                                   </button>
                                 </div>
 
-                                {acc.last_error && (
-                                  <div className="w-full text-rose-700 dark:text-rose-400 text-[11px] bg-rose-500/10 border border-rose-500/20 rounded-lg p-2 mt-1 truncate" title={acc.last_error}>
-                                    ⚠ {acc.last_error.includes("missing_or_corrupt_refresh_token")
-                                      ? "Потрібне повторне підключення (відсутній токен фонового оновлення)"
-                                      : acc.last_error.includes("invalid_grant")
-                                      ? "Доступ скасовано у Google — потрібна повторна прив'язка"
-                                      : `Помилка доступу: ${acc.last_error}`}
+                                {errorLabel && (
+                                  <div className="w-full text-amber-800 dark:text-amber-300 text-[11px] bg-amber-500/10 border border-amber-500/20 rounded-lg p-2 mt-1 truncate" title={acc.last_error || errorLabel}>
+                                    ⚠ {errorLabel}
                                   </div>
                                 )}
                               </div>

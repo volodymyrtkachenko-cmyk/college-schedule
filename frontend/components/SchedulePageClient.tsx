@@ -23,6 +23,7 @@ import { useTaskGroups, formatTaskWord, TaskFilterState, DEFAULT_TASK_FILTERS } 
 import { TaskFilters } from "./TaskFilters";
 import { SearchableSelect } from "./SearchableSelect";
 import { ClassroomSyncButton } from "./ClassroomSyncButton";
+import { ClassroomRelinkBanner } from "./ClassroomRelinkBanner";
 import { extractClassroomTasks, parseTaskDeadline, sortTasksByDeadline, TaskDeadline, UKR_MONTHS_SHORT, pluralDays } from "./LessonCard";
 import { DEFAULT_LESSON_TIMES } from "../lib/constants/lessons";
 import { useToast } from "./ToastProvider";
@@ -2083,6 +2084,9 @@ export function SchedulePageClient({
       {/* Mobile Main Content (<1024px) */}
       {showMobile && (
         <div className="lg:hidden pb-24 min-w-0 overflow-x-clip">
+        <div className="px-3 pt-2">
+          <ClassroomRelinkBanner />
+        </div>
         {returnTarget && (
           <div className="m-3 flex items-center justify-between rounded-xl border border-sys-accent/30 bg-sys-accent/10 px-3 py-2 text-xs">
             <span className="text-sys-text-secondary truncate mr-2">
@@ -2223,6 +2227,7 @@ export function SchedulePageClient({
       {/* Desktop Main Content (>= 1024px) */}
       {showDesktop && (
         <div className="hidden lg:block mx-auto max-w-[1600px] px-[27px] py-6">
+        <ClassroomRelinkBanner />
         {returnTarget && (
           <div className="mb-4 flex items-center justify-between rounded-xl border border-sys-accent/30 bg-sys-accent/10 px-4 py-2.5 text-sm">
             <span className="text-sys-text-secondary">

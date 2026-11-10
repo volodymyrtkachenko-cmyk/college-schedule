@@ -19,6 +19,8 @@ const PERSONAL_SUBGROUP_KEY = "schedule:classroom_personal_subgroup";
 const ACCESS_TOKEN_KEY = "schedule:classroom_access_token";
 const ACCESS_TOKEN_EXP_KEY = "schedule:classroom_access_token_exp";
 const REFRESH_TOKEN_KEY = "schedule:classroom_refresh_token";
+const NEEDS_RELINK_KEY = "schedule:classroom_needs_relink";
+const NEEDS_RELINK_REASON_KEY = "schedule:classroom_needs_relink_reason";
 const EVENT_NAME = "classroom-linked-change";
 
 export function getLinkedEmail(): string | null {
@@ -70,6 +72,39 @@ export function getPersonalSubgroup(): number | null {
   } catch {
     return null;
   }
+}
+
+export function getClassroomNeedsRelink(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return localStorage.getItem(NEEDS_RELINK_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+export function getClassroomRelinkReason(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return localStorage.getItem(NEEDS_RELINK_REASON_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setClassroomNeedsRelink(val: boolean, reason?: string | null): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (val) {
+      localStorage.setItem(NEEDS_RELINK_KEY, "true");
+      if (reason) localStorage.setItem(NEEDS_RELINK_REASON_KEY, reason);
+    } else {
+      localStorage.removeItem(NEEDS_RELINK_KEY);
+      localStorage.removeItem(NEEDS_RELINK_REASON_KEY);
+    }
+    window.dispatchEvent(new Event(EVENT_NAME));
+    window.dispatchEvent(new Event("storage"));
+  } catch {}
 }
 
 export function saveClassroomTokens(
@@ -182,6 +217,8 @@ export function unlinkClassroomEmail(): void {
     localStorage.removeItem(ACCESS_TOKEN_KEY);
     localStorage.removeItem(ACCESS_TOKEN_EXP_KEY);
     localStorage.removeItem(REFRESH_TOKEN_KEY);
+    localStorage.removeItem(NEEDS_RELINK_KEY);
+    localStorage.removeItem(NEEDS_RELINK_REASON_KEY);
     try {
       localStorage.removeItem("schedule_selected_subgroup");
     } catch {}
@@ -220,6 +257,8 @@ export function saveClassroomSyncData(
     if (groupId) {
       localStorage.setItem(LINKED_GROUP_ID_KEY, String(groupId));
     }
+    localStorage.removeItem(NEEDS_RELINK_KEY);
+    localStorage.removeItem(NEEDS_RELINK_REASON_KEY);
     saveClassroomTokens(accessToken, refreshToken);
 
     const submittedMap: Record<string, PersonalSubmission> = {};
@@ -293,6 +332,8 @@ interface ClassroomSnapshot {
   submissions: Record<string, PersonalSubmission>;
   personalTeachers: string[];
   personalSubgroup: number | null;
+  needsRelink: boolean;
+  relinkReason: string | null;
 }
 
 const DEFAULT_SERVER_CLASSROOM_SNAPSHOT: ClassroomSnapshot = {
@@ -301,6 +342,8 @@ const DEFAULT_SERVER_CLASSROOM_SNAPSHOT: ClassroomSnapshot = {
   submissions: {},
   personalTeachers: [],
   personalSubgroup: null,
+  needsRelink: false,
+  relinkReason: null,
 };
 
 let _cachedClassroomSnapshot: ClassroomSnapshot | null = null;
@@ -316,6 +359,8 @@ function readClassroomSnapshot(): ClassroomSnapshot {
       submissions: getPersonalSubmissions(),
       personalTeachers: getPersonalTeachers(),
       personalSubgroup: getPersonalSubgroup(),
+      needsRelink: getClassroomNeedsRelink(),
+      relinkReason: getClassroomRelinkReason(),
     };
   }
   return {
@@ -324,6 +369,8 @@ function readClassroomSnapshot(): ClassroomSnapshot {
     submissions: {},
     personalTeachers: [],
     personalSubgroup: null,
+    needsRelink: false,
+    relinkReason: null,
   };
 }
 
@@ -378,10 +425,17 @@ export function useClassroomSubmissions() {
     submissions: snapshot.submissions,
     personalTeachers: snapshot.personalTeachers,
     personalSubgroup: snapshot.personalSubgroup,
+    needsRelink: snapshot.needsRelink,
+    relinkReason: snapshot.relinkReason,
     unlink: unlinkClassroomEmail,
     reload: notifyClassroomChange,
     syncSubmissions: syncPersonalSubmissions,
   };
+}
+
+export function useClassroomNeedsRelink(): boolean {
+  const { isLinked, needsRelink } = useClassroomSubmissions();
+  return isLinked && needsRelink;
 }
 
 let _isSyncingPersonalSubmissions = false;
@@ -403,7 +457,12 @@ export async function syncPersonalSubmissions(groupId?: number | null): Promise<
       access_token: accessToken ?? undefined,
     });
 
+    if ((res as any)?.needs_relink) {
+      setClassroomNeedsRelink(true, (res as any).reason_code || (res as any).error || null);
+    }
+
     if (res?.connected && res?.tasks) {
+      setClassroomNeedsRelink(false);
       const personalTeachers = getPersonalTeachers();
       const personalSubgroup = getPersonalSubgroup();
       const existingLinkedGid = getLinkedGroupId();

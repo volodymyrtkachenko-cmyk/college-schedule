@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     google_client_id: str = "1079868158360-ok75uv5l93pcql2iktfcple97sdu180b.apps.googleusercontent.com"
     google_client_secret: str = ""
     classroom_fernet_key: str = ""
+    classroom_fernet_old_keys: str = ""
     teacher_pin: str = "dfkr2026"
     admin_password: str | None = "admin123"
     run_schema_bootstrap: bool = False
@@ -59,8 +60,10 @@ class Settings(BaseSettings):
     @property
     def cors_origins(self) -> list[str]:
         origins = [origin.strip() for origin in self.backend_cors_origins.split(",") if origin.strip() and origin.strip() != "*"]
-        if not origins:
-            origins = ["https://rozklad-dfkr.pp.ua", "https://www.rozklad-dfkr.pp.ua", "https://college-schedule-flame.vercel.app", "http://localhost:3000"]
+        core_origins = ["https://rozklad-dfkr.pp.ua", "https://www.rozklad-dfkr.pp.ua", "https://college-schedule-flame.vercel.app", "http://localhost:3000"]
+        for o in core_origins:
+            if o not in origins:
+                origins.append(o)
         return origins
 
 

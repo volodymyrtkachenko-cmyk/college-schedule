@@ -537,5 +537,9 @@ class ClassroomCredential(Base):
     fail_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
     next_attempt_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1", nullable=False)
+    needs_relink: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0", nullable=False)
+    last_refresh_ok_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_client_seen_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    granted_scopes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     group: Mapped["Group"] = relationship("Group")

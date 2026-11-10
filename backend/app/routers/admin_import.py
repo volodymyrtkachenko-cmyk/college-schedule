@@ -49,7 +49,7 @@ from collections.abc import AsyncIterator
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin", tags=["admin"])
-IMPORT_PAGE_RETRIES = 2
+IMPORT_PAGE_RETRIES = 3
 
 ANOMALY_GROUP_THRESHOLD_DEFAULT = 0.30
 ANOMALY_TOTAL_THRESHOLD_DEFAULT = 0.20
@@ -1311,14 +1311,14 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
             ]
             if any(s["week_type"] in ("both", sub_week) or sub_week == "both" for s in same_cell):
                 continue
-            published = (await db.scalars(select(Schedule).where(
-                Schedule.group_id == sub["group_id"],
-                Schedule.day_of_week == dow,
-                Schedule.lesson_number == sub["lesson_number"],
-                Schedule.is_active.is_(True),
-                Schedule.week_type.in_(("both", sub_week)),
-                Schedule.version_id == import_version_id if import_version_id is not None else Schedule.version_id.is_(None),
-            ))).all()
+            published = [
+                sch for sch in current_schedules
+                if sch.group_id == sub["group_id"]
+                and sch.day_of_week == dow
+                and sch.lesson_number == sub["lesson_number"]
+                and sch.is_active
+                and (sch.week_type in ("both", sub_week))
+            ]
             for sch in published:
                 slot = {
                     "day_of_week": dow,

@@ -31,6 +31,9 @@ async def lifespan(_: FastAPI):
     import logging
     from sqlalchemy import text
 
+    from app.core.crypto import check_crypto_config
+    check_crypto_config()
+
     logger = logging.getLogger("app")
     run_cron = os.environ.get("RUN_CRON", "true").strip().lower() not in ("false", "0", "no")
     classroom_sync_task = asyncio.create_task(classroom_auto_sync_loop()) if run_cron else None

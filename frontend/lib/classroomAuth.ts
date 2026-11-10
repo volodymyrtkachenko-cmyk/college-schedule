@@ -3,7 +3,7 @@
 import { api } from "./api";
 import { invalidateScheduleCache } from "./hooks";
 import { SITE_HOST, SITE_URL } from "./site";
-import { saveClassroomSyncData } from "./useClassroomSubmissions";
+import { saveClassroomSyncData, setClassroomNeedsRelink } from "./useClassroomSubmissions";
 
 export const GOOGLE_CLIENT_ID =
   process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
@@ -84,6 +84,7 @@ export async function requestClassroomAuth(options: ClassroomAuthOptions = {}): 
       resolved = true;
 
       invalidateScheduleCache();
+      setClassroomNeedsRelink(false);
       const personalTeachers = [
         ...(res.synced_teacher_names || []),
         ...(res.synced_teacher_tokens || []),
@@ -173,7 +174,7 @@ export async function requestClassroomAuth(options: ClassroomAuthOptions = {}): 
             } catch (err: any) {
               const errMsg = err instanceof Error ? err.message : String(err || "");
               if (errMsg.includes("GOOGLE_CLIENT_SECRET")) {
-                syncWithToken();
+                handleError(new Error("На сервері не налаштовано GOOGLE_CLIENT_SECRET. Зверніться до адміністратора."));
                 return;
               }
               handleError(err);

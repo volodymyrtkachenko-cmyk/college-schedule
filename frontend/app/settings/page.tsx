@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import { useTheme, ACCENT_OPTIONS } from "../../lib/useTheme";
 import { useUserSettings } from "../../lib/useUserSettings";
 import { useClassroomSubmissions } from "../../lib/useClassroomSubmissions";
+import { ClassroomRelinkBanner } from "../../components/ClassroomRelinkBanner";
 import { useTeacherAccess } from "../../lib/useTeacherAccess";
 import { useAuth } from "../../lib/auth";
 import { useToast } from "../../components/ToastProvider";
@@ -29,7 +30,7 @@ const ROLE_NAMES: Record<string, string> = {
 export default function SettingsPage() {
   const { theme, resolvedTheme, setTheme, accent, setAccent } = useTheme();
   const { settings, updateSetting } = useUserSettings();
-  const { isLinked, linkedEmail, unlink } = useClassroomSubmissions();
+  const { isLinked, linkedEmail, needsRelink, unlink } = useClassroomSubmissions();
   const { isTeacherUnlocked, unlockTeacher, lockTeacher } = useTeacherAccess();
   const auth = useAuth();
   const { showToast } = useToast();
@@ -389,13 +390,27 @@ export default function SettingsPage() {
               </h2>
             </div>
 
+            <ClassroomRelinkBanner />
+
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-sys-border/60 bg-sys-bg/60 p-3 text-xs">
               <div className="space-y-0.5 min-w-0">
                 <span className="text-xs font-semibold text-sys-text-secondary">Студентська пошта Google</span>
                 {isLinked && linkedEmail ? (
                   <div className="flex items-center gap-1.5 font-bold text-sys-text-primary truncate">
-                    <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
-                    <span className="text-emerald-700 dark:text-emerald-400 font-semibold mr-1">Прив&apos;язано ·</span>
+                    <span
+                      className={`h-2 w-2 rounded-full shrink-0 ${
+                        needsRelink ? "bg-amber-500 animate-pulse" : "bg-emerald-500"
+                      }`}
+                    />
+                    <span
+                      className={`font-semibold mr-1 ${
+                        needsRelink
+                          ? "text-amber-700 dark:text-amber-400"
+                          : "text-emerald-700 dark:text-emerald-400"
+                      }`}
+                    >
+                      {needsRelink ? "Потрібна повторна прив'язка ·" : "Прив'язано ·"}
+                    </span>
                     <span className="truncate">{linkedEmail}</span>
                   </div>
                 ) : (
@@ -405,13 +420,25 @@ export default function SettingsPage() {
 
               <div className="flex items-center gap-2 shrink-0">
                 {isLinked ? (
-                  <button
-                    type="button"
-                    onClick={unlink}
-                    className="rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 px-3 py-1.5 text-xs font-semibold text-rose-700 dark:text-rose-400 transition-colors cursor-pointer"
-                  >
-                    Відв&apos;язати
-                  </button>
+                  <>
+                    {needsRelink && (
+                      <button
+                        type="button"
+                        onClick={handleClassroomLinkClick}
+                        disabled={isLinkingClassroom}
+                        className="rounded-lg bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 text-xs font-bold transition-all cursor-pointer disabled:opacity-50 active:scale-95 shadow-xs"
+                      >
+                        {isLinkingClassroom ? "Підключення..." : "Оновити"}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={unlink}
+                      className="rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 px-3 py-1.5 text-xs font-semibold text-rose-700 dark:text-rose-400 transition-colors cursor-pointer"
+                    >
+                      Відв&apos;язати
+                    </button>
+                  </>
                 ) : (
                   <button
                     type="button"

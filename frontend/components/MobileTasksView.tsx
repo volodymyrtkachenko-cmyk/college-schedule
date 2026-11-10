@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import { ClassroomTaskItem, getTaskStatusText } from "./LessonCard";
 import { ClassroomSyncButton } from "./ClassroomSyncButton";
+import { ClassroomRelinkBanner } from "./ClassroomRelinkBanner";
 import { useClassroomSubmissions } from "../lib/useClassroomSubmissions";
 import { useTaskGroups, formatTaskWord, TaskFilterState, DEFAULT_TASK_FILTERS } from "../lib/useTaskGroups";
 import { TaskFilters } from "./TaskFilters";
@@ -92,6 +93,7 @@ export function MobileTasksView({
 
   return (
     <div className="w-full min-w-0 pb-20 px-4 pt-3">
+      <ClassroomRelinkBanner />
       {/* Header - Fixed stable height and top-aligned so title never jumps */}
       <div className="mb-3 flex items-start justify-between min-h-[48px]">
         <div className="min-w-0 flex-1 pr-2">

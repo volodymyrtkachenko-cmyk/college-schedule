@@ -1985,6 +1985,23 @@ export const api = {
                     method: "DELETE",
                 }
             ),
+        syncAll: () =>
+            authenticatedRequest<{ status: string; synced_count: number; errors_count: number }>(
+                "/api/classroom/credentials/sync-all",
+                {
+                    method: "POST",
+                }
+            ),
+        getDiagnostics: () =>
+            authenticatedRequest<{
+                total_credentials: number;
+                active_credentials: number;
+                needs_relink_credentials: number;
+                crypto_status: any;
+                credentials: any[];
+            }>("/api/classroom/credentials/diagnostics", {
+                method: "GET",
+            }),
     },
 };
 export interface ClassroomAccountStat {
@@ -1999,6 +2016,10 @@ export interface ClassroomAccountStat {
     fail_count: number;
     next_attempt_at: string | null;
     is_active: boolean;
+    needs_relink?: boolean;
+    reason_code?: string | null;
+    last_refresh_ok_at?: string | null;
+    last_client_seen_at?: string | null;
 }
 export interface ClassroomSyncResult {
     group_id: number;
