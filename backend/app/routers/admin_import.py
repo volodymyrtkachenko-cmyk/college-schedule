@@ -1262,6 +1262,7 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
                 sub.get("is_explicit_substitution", True)
                 or sub.get("is_swap")
                 or sub.get("is_move")
+                or (not sub.get("is_equal_to_base") and sub.get("subject_id"))
             )
 
         group_lessons_count = Counter()

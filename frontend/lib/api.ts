@@ -486,7 +486,8 @@ async function rawRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
         headers.set("If-None-Match", cachedEtag.etag);
     }
 
-    const timeoutMs = method === "GET" ? 8500 : 15000;
+    const defaultTimeout = method === "GET" ? 8500 : 15000;
+    const timeoutMs = (init as any).timeoutMs ?? (path.includes("/admin/import") ? 90000 : defaultTimeout);
     const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
     const timeoutId = controller && !init.signal
         ? setTimeout(() => controller.abort(), timeoutMs)
