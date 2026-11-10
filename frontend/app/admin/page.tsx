@@ -156,7 +156,6 @@ function AdminUserAvatar({
         alt=""
         aria-hidden="true"
         referrerPolicy="no-referrer"
-        crossOrigin="anonymous"
         onError={() => setHasError(true)}
         className="absolute inset-0 h-full w-full object-cover"
       />

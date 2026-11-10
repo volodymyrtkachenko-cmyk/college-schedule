@@ -158,13 +158,16 @@ export function ClassroomSyncButton({
         });
         if ((res as any)?.needs_relink) {
           setClassroomNeedsRelink(true, (res as any).reason_code || (res as any).error);
-        } else {
-          setClassroomNeedsRelink(false);
+          return;
         }
+        setClassroomNeedsRelink(false);
         handleSyncSuccess(res, true, true, accessToken);
         return;
-      } catch {
+      } catch (err: any) {
         clearClassroomAccessToken();
+        if (err?.status === 400 || err?.status === 401) {
+          setClassroomNeedsRelink(true);
+        }
       }
     }
 

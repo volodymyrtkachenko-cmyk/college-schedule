@@ -2251,7 +2251,7 @@ async def sync_from_classroom(
         # дістаємо зашифрований refresh_token із таблиці ClassroomCredential на сервері.
         db_lookup_cred: Optional[ClassroomCredential] = None
         if (payload.google_user_id or payload.email) and (not access_token or not refresh_token):
-            cred_q = select(ClassroomCredential).where(ClassroomCredential.is_active.is_(True))
+            cred_q = select(ClassroomCredential)
             if payload.google_user_id:
                 cred_q = cred_q.where(ClassroomCredential.google_user_id == payload.google_user_id.strip())
             elif payload.email and "@" in payload.email:
@@ -2264,18 +2264,56 @@ async def sync_from_classroom(
                 db_lookup_cred = await db.scalar(
                     select(ClassroomCredential)
                     .where(
-                        ClassroomCredential.is_active.is_(True),
                         ClassroomCredential.google_user_id == payload.google_user_id.strip(),
                     )
                     .order_by(ClassroomCredential.last_synced_at.desc().nullslast())
                 )
-            if db_lookup_cred and db_lookup_cred.refresh_token:
-                if not refresh_token:
-                    refresh_token = db_lookup_cred.refresh_token
-                if not access_token:
-                    access_token = await _refresh_google_token(db_lookup_cred.refresh_token)
+            if db_lookup_cred:
+                db_lookup_cred.last_client_seen_at = datetime.now(timezone.utc)
+                if db_lookup_cred.refresh_token:
+                    if not refresh_token:
+                        refresh_token = db_lookup_cred.refresh_token
+                    if not access_token:
+                        fresh_tok, err_detail, rotated = await _refresh_google_token_detailed(db_lookup_cred.refresh_token)
+                        if fresh_tok:
+                            access_token = fresh_tok
+                            db_lookup_cred.is_active = True
+                            db_lookup_cred.needs_relink = False
+                            db_lookup_cred.last_refresh_ok_at = datetime.now(timezone.utc)
+                            if rotated:
+                                db_lookup_cred.refresh_token = rotated
+                        else:
+                            db_lookup_cred.needs_relink = True
+                            db_lookup_cred.is_active = False
+                            db_lookup_cred.last_error = f"needs_relink: {err_detail}"
+                else:
+                    db_lookup_cred.needs_relink = True
+                    db_lookup_cred.is_active = False
+                    db_lookup_cred.last_error = "needs_relink: missing_or_corrupt_refresh_token"
+                await db.commit()
 
         if not access_token:
+            if not payload.code and (payload.google_user_id or payload.email):
+                target_gid = payload.group_id or (db_lookup_cred.group_id if db_lookup_cred else 0)
+                target_gname = ""
+                if target_gid:
+                    grp = await db.get(Group, target_gid)
+                    if grp:
+                        target_gname = grp.name
+                return {
+                    "status": "needs_relink",
+                    "needs_relink": True,
+                    "reason_code": "no_refresh_token" if not db_lookup_cred or not db_lookup_cred.refresh_token else "token_refresh_failed",
+                    "error": "Потрібне повторне підключення до Google Classroom",
+                    "group_id": target_gid or 0,
+                    "group_name": target_gname,
+                    "synced_links": 0,
+                    "synced_tasks": 0,
+                    "synced_students": 0,
+                    "tasks": [],
+                    "personal_tasks": [],
+                    "unmapped_tasks": [],
+                }
             raise HTTPException(status_code=400, detail="Не вдалося отримати токен доступу Google")
 
         headers = {"Authorization": f"Bearer {access_token}"}
@@ -2293,7 +2331,7 @@ async def sync_from_classroom(
                 headers=headers,
             )
             if courses_resp.status_code == 401 and refresh_token:
-                fresh_token = await _refresh_google_token(refresh_token)
+                fresh_token, _, _ = await _refresh_google_token_detailed(refresh_token)
                 if fresh_token:
                     access_token = fresh_token
                     headers = {"Authorization": f"Bearer {access_token}"}
@@ -2303,6 +2341,27 @@ async def sync_from_classroom(
                         headers=headers,
                     )
             if courses_resp.status_code != 200:
+                if db_lookup_cred:
+                    db_lookup_cred.needs_relink = True
+                    db_lookup_cred.is_active = False
+                    db_lookup_cred.last_error = f"needs_relink: courses_error_{courses_resp.status_code}"
+                    await db.commit()
+                if not payload.code and (payload.google_user_id or payload.email):
+                    target_gid = payload.group_id or (db_lookup_cred.group_id if db_lookup_cred else 0)
+                    return {
+                        "status": "needs_relink",
+                        "needs_relink": True,
+                        "reason_code": "revoked" if courses_resp.status_code == 401 else "api_error",
+                        "error": "Не вдалося прочитати курси з Google Classroom (потрібна повторна прив'язка)",
+                        "group_id": target_gid or 0,
+                        "group_name": "",
+                        "synced_links": 0,
+                        "synced_tasks": 0,
+                        "synced_students": 0,
+                        "tasks": [],
+                        "personal_tasks": [],
+                        "unmapped_tasks": [],
+                    }
                 raise HTTPException(status_code=401, detail="Не вдалося прочитати курси з Google Classroom")
 
             courses = courses_resp.json().get("courses", [])
@@ -2710,7 +2769,7 @@ async def _fetch_user_submissions(
             refreshed_access_token = fresh_tok
 
     if not token and (eff_user_id or eff_email):
-        query = select(ClassroomCredential).where(ClassroomCredential.is_active.is_(True))
+        query = select(ClassroomCredential)
         if eff_user_id:
             query = query.where(ClassroomCredential.google_user_id == eff_user_id)
         elif eff_email:
@@ -2724,25 +2783,41 @@ async def _fetch_user_submissions(
             cred = await db.scalar(
                 select(ClassroomCredential)
                 .where(
-                    ClassroomCredential.is_active.is_(True),
                     func.lower(ClassroomCredential.email) == eff_email.lower(),
                 )
                 .order_by(ClassroomCredential.last_synced_at.desc().nullslast())
             )
 
-        if cred and cred.refresh_token:
-            fresh_tok, _, _ = await _refresh_google_token_detailed(cred.refresh_token)
-            if fresh_tok:
-                token = fresh_tok
-                refreshed_access_token = fresh_tok
+        if cred:
+            cred.last_client_seen_at = datetime.now(timezone.utc)
+            if cred.refresh_token and cred.is_active:
+                fresh_tok, err_detail, rotated = await _refresh_google_token_detailed(cred.refresh_token)
+                if fresh_tok:
+                    token = fresh_tok
+                    refreshed_access_token = fresh_tok
+                    cred.last_refresh_ok_at = datetime.now(timezone.utc)
+                    cred.needs_relink = False
+                    if rotated:
+                        cred.refresh_token = rotated
+                else:
+                    cred.needs_relink = True
+                    cred.is_active = False
+                    cred.last_error = f"needs_relink: {err_detail}"
+            elif not cred.refresh_token:
+                cred.needs_relink = True
+                cred.is_active = False
+                cred.last_error = "needs_relink: missing_or_corrupt_refresh_token"
+            await db.commit()
 
     if not token:
+        is_relink = bool(cred and (getattr(cred, "needs_relink", False) or not cred.is_active))
         return {
             "connected": False,
             "submissions": {},
             "tasks": [],
             "reason": "unauthenticated",
-            "needs_relink": bool(cred and getattr(cred, "needs_relink", False)),
+            "needs_relink": is_relink,
+            "reason_code": "no_refresh_token" if not cred or not cred.refresh_token else "token_refresh_failed",
         }
 
     try:
@@ -2768,11 +2843,18 @@ async def _fetch_user_submissions(
                         )
 
             if courses_resp.status_code != 200:
+                if cred:
+                    cred.needs_relink = True
+                    cred.is_active = False
+                    cred.last_error = f"needs_relink: courses_error_{courses_resp.status_code}"
+                    await db.commit()
                 return {
                     "connected": False,
                     "submissions": {},
                     "tasks": [],
                     "reason": f"courses_error_{courses_resp.status_code}",
+                    "needs_relink": True,
+                    "reason_code": "revoked" if courses_resp.status_code == 401 else "api_error",
                 }
 
             all_courses = courses_resp.json().get("courses", [])
