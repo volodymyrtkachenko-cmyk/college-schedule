@@ -49,7 +49,7 @@ from collections.abc import AsyncIterator
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin", tags=["admin"])
-IMPORT_PAGE_RETRIES = 3
+IMPORT_PAGE_RETRIES = 2
 
 ANOMALY_GROUP_THRESHOLD_DEFAULT = 0.30
 ANOMALY_TOTAL_THRESHOLD_DEFAULT = 0.20
@@ -629,7 +629,7 @@ async def matches_published_schedule(db: AsyncSession, payload: dict, weeks: int
 @router.post("/import")
 async def trigger_import(
     request: Request,
-    weeks: int = Query(2, ge=1, le=4, description="Number of weeks to fetch"),
+    weeks: int = Query(1, ge=1, le=4, description="Number of weeks to fetch"),
     db: AsyncSession = Depends(get_db),
     user=Depends(require_roles("admin"))
 ):
@@ -907,7 +907,7 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
         group_page_hashes: dict[str, list[str]] = {}
         raw_lessons = 0
 
-        semaphore = asyncio.Semaphore(5)
+        semaphore = asyncio.Semaphore(12)
 
         def _parse_html_sync(raw_html: str):
             p_hash = hashlib.sha256(raw_html.encode("utf-8")).hexdigest()
@@ -940,7 +940,7 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
                             except (httpx.HTTPError, asyncio.TimeoutError) as exc:
                                 last_error = exc
                                 if attempt + 1 < IMPORT_PAGE_RETRIES:
-                                    await asyncio.sleep(0.5 * (attempt + 1))
+                                    await asyncio.sleep(0.25 * (attempt + 1))
                         if html is None:
                             raise last_error or RuntimeError("Unable to fetch import page")
                         page_hash, parsed, href = await asyncio.to_thread(_parse_html_sync, html)
@@ -964,7 +964,8 @@ async def _do_import(db: AsyncSession, weeks: int, error_id: str, actor_id: int 
                 return parsed_results
 
         scraped_weeks: dict[int, set[str]] = {}
-        async with httpx.AsyncClient(timeout=20.0) as client:
+        client_limits = httpx.Limits(max_connections=25, max_keepalive_connections=20)
+        async with httpx.AsyncClient(timeout=10.0, limits=client_limits) as client:
             tasks = [fetch_and_parse(client, g_id) for g_id in group_ids]
             parsed_weeks = await asyncio.gather(*tasks, return_exceptions=True)
 

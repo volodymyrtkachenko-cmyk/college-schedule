@@ -1330,8 +1330,8 @@ export interface ImportSettingsUpdate {
 }
 
 export const apiImporter = {
-  importData: async (token?: string): Promise<ImporterResponse> => {
-    return request<ImporterResponse>("/api/admin/import", {
+  importData: async (token?: string, weeks: number = 1): Promise<ImporterResponse> => {
+    return request<ImporterResponse>(`/api/admin/import?weeks=${weeks}`, {
       method: "POST"
     }, true, true, token);
   },
