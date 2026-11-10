@@ -111,6 +111,40 @@ function formatLastSynced(isoStr: string): string {
   }
 }
 
+function AdminUserAvatar({
+  photoUrl,
+  name,
+  size = "md",
+}: {
+  photoUrl?: string | null;
+  name?: string | null;
+  size?: "sm" | "md";
+}) {
+  const [hasError, setHasError] = useState(false);
+  const initial = name ? name.trim().charAt(0).toUpperCase() : "👤";
+  const dim = size === "sm" ? "h-7 w-7 text-xs" : "h-8 w-8 text-xs";
+
+  if (!photoUrl || hasError) {
+    return (
+      <div
+        className={`${dim} flex shrink-0 items-center justify-center rounded-full bg-sys-tabActive font-bold text-sys-text-secondary border border-sys-border/40 select-none`}
+      >
+        {initial}
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={photoUrl}
+      alt={name || "Аватар"}
+      referrerPolicy="no-referrer"
+      onError={() => setHasError(true)}
+      className={`${dim} shrink-0 rounded-full object-cover border border-sys-border/50`}
+    />
+  );
+}
+
 const resources = Object.keys(referenceLabels) as ReferenceResource[];
 
 const resourceConfig: Record<ReferenceResource, {
@@ -1013,28 +1047,7 @@ function AdminContent() {
                               >
                                 {/* Ліва частина: Аватар + Ім'я + Email + Підгрупа */}
                                 <div className="flex items-center gap-3 min-w-0">
-                                  <div className="relative h-8 w-8 shrink-0">
-                                    {acc.photo_url ? (
-                                      <img
-                                        src={acc.photo_url}
-                                        alt={acc.student_name || "Аватар користувача"}
-                                        referrerPolicy="no-referrer"
-                                        className="h-8 w-8 rounded-full object-cover border border-sys-border/50"
-                                        onError={(e) => {
-                                          e.currentTarget.style.display = "none";
-                                          if (e.currentTarget.nextElementSibling) {
-                                            (e.currentTarget.nextElementSibling as HTMLElement).style.display = "flex";
-                                          }
-                                        }}
-                                      />
-                                    ) : null}
-                                    <div
-                                      style={{ display: acc.photo_url ? "none" : "flex" }}
-                                      className="h-8 w-8 items-center justify-center rounded-full bg-sys-tabActive text-xs font-bold text-sys-text-secondary border border-sys-border/40"
-                                    >
-                                      {acc.student_name ? acc.student_name.charAt(0) : "👤"}
-                                    </div>
-                                  </div>
+                                  <AdminUserAvatar photoUrl={acc.photo_url} name={acc.student_name} size="md" />
 
                                   <div className="min-w-0">
                                     <div className="flex items-center gap-2 flex-wrap">
@@ -1293,28 +1306,7 @@ function AdminContent() {
                                         <span className="w-5 text-[11px] font-bold text-sys-text-muted shrink-0 text-center">
                                           {i + 1}
                                         </span>
-                                        <div className="relative h-7 w-7 shrink-0">
-                                          {st.photo_url ? (
-                                            <img
-                                              src={st.photo_url}
-                                              alt={st.full_name || "Аватар студента"}
-                                              referrerPolicy="no-referrer"
-                                              className="h-7 w-7 rounded-full object-cover border border-sys-border/40"
-                                              onError={(e) => {
-                                                e.currentTarget.style.display = "none";
-                                                if (e.currentTarget.nextElementSibling) {
-                                                  (e.currentTarget.nextElementSibling as HTMLElement).style.display = "flex";
-                                                }
-                                              }}
-                                            />
-                                          ) : null}
-                                          <div
-                                            style={{ display: st.photo_url ? "none" : "flex" }}
-                                            className="h-7 w-7 items-center justify-center rounded-full bg-sys-tabActive text-xs font-bold text-sys-text-secondary border border-sys-border/30"
-                                          >
-                                            {st.full_name ? st.full_name.charAt(0) : "👤"}
-                                          </div>
-                                        </div>
+                                        <AdminUserAvatar photoUrl={st.photo_url} name={st.full_name} size="sm" />
                                         <div className="min-w-0">
                                           <p className="font-semibold text-sys-text-primary text-[13px] truncate">
                                             {st.full_name}

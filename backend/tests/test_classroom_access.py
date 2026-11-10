@@ -142,7 +142,7 @@ async def test_check_teacher_access_and_pin(db_session):
 
 
 @pytest.mark.anyio
-async def test_get_classroom_group_status_returns_tasks_for_guest(db_session):
+async def test_get_classroom_group_status_hides_tasks_for_guest(db_session):
     from app.routers.classroom import get_classroom_group_status, _latest_group_tasks
     _latest_group_tasks[85] = [
         {"id": "task-1", "title": "Лабораторна 1", "subject": "Фізика", "due_date": "2026-10-25"}
@@ -153,6 +153,5 @@ async def test_get_classroom_group_status_returns_tasks_for_guest(db_session):
 
     res = await get_classroom_group_status(group_id=85, request=guest_req, db=db_session)
     assert res["requires_auth"] is True
-    assert len(res["tasks"]) == 1
-    assert res["tasks"][0]["title"] == "Лабораторна 1"
+    assert res["tasks"] == []
 

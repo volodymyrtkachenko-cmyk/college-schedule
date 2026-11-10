@@ -1992,9 +1992,21 @@ async def test_group_detection_prioritizes_explicit_payload_group_id_and_reconst
         classroom_router._latest_group_tasks.clear()
 
         with patch("app.routers.classroom.run_background_sync_task") as mock_bg_sync:
-            st_resp = await client.get(f"/api/classroom/groups/{group_85_id}/status")
+            # Гість без авторизації не отримує завдання групи
+            guest_resp = await client.get(f"/api/classroom/groups/{group_85_id}/status")
+            assert guest_resp.status_code == 200
+            guest_data = guest_resp.json()
+            assert guest_data["requires_auth"] is True
+            assert guest_data["tasks"] == []
+
+            # Авторизований студент групи відновлює завдання разом із max_points
+            st_resp = await client.get(
+                f"/api/classroom/groups/{group_85_id}/status",
+                headers={"X-Classroom-User-Id": "uid_multi_85"},
+            )
             assert st_resp.status_code == 200
             st_data = st_resp.json()
+            assert st_data["requires_auth"] is False
             assert len(st_data["tasks"]) == 1
             reconstructed_task = st_data["tasks"][0]
             assert reconstructed_task["title"] == "Контрольна робота з англійської"
@@ -2060,6 +2072,104 @@ async def test_classroom_sync_handles_long_photo_url_and_profile_fields(classroo
         assert len(acc["email"]) <= 150
         assert len(acc["student_name"]) <= 150
         assert acc["photo_url"].startswith("https://")
+
+
+@pytest.mark.anyio
+async def test_dynamic_subgroup_detection_for_arbitrary_teachers(classroom_db):
+    """
+    Перевірка динамічного визначення підгруп 1 та 2 для будь-яких викладачів (без хардкоду):
+    - Створюємо групу та пару з викладачами Ковальов (1 підгр) та Шевченко (2 підгр)
+    - Студент 1 синхронізує курс Ковальова -> визначається subgroup=1
+    - Студент 2 синхронізує курс Шевченка -> визначається subgroup=2
+    """
+    client, state = classroom_db
+    monday: date = state["monday"]
+
+    async with state["sessions"]() as db:
+        group = Group(name="99-ТЕСТ", is_active=True)
+        t_kovalyov = Teacher(name="Ковальов В.І.", full_name="Ковальов Віктор Іванович", is_active=True)
+        t_shevchenko = Teacher(name="Шевченко М.П.", full_name="Шевченко Михайло Петрович", is_active=True)
+        subj = Subject(name="Комп'ютерна графіка", is_active=True)
+        db.add_all([group, t_kovalyov, t_shevchenko, subj])
+        await db.flush()
+
+        lesson = Schedule(
+            group_id=group.id,
+            subject_id=subj.id,
+            teacher_id=t_kovalyov.id,
+            second_teacher_id=t_shevchenko.id,
+            day_of_week=1,
+            lesson_number=3,
+            week_type="both",
+            is_active=True,
+        )
+        db.add(lesson)
+        await db.commit()
+        g_id = group.id
+
+    transport = _make_fake_google_transport(
+        courses_by_token={
+            "ya29.student_kovalyov": [
+                {"id": "c_kov", "name": "Комп'ютерна графіка 99-ТЕСТ"},
+            ],
+            "ya29.student_shevchenko": [
+                {"id": "c_shev", "name": "Комп'ютерна графіка 99-ТЕСТ"},
+            ],
+        },
+        profiles_by_token={
+            "ya29.student_kovalyov": {"id": "uid_stud_kov", "emailAddress": "kov_student@kre.dp.ua", "name": {"fullName": "Студент Першої Підгрупи"}},
+            "ya29.student_shevchenko": {"id": "uid_stud_shev", "emailAddress": "shev_student@kre.dp.ua", "name": {"fullName": "Студент Другої Підгрупи"}},
+        },
+        teachers_by_course={
+            "c_kov": [{"userId": "t_kov_uid", "profile": {"name": {"fullName": "Ковальов Віктор Іванович"}}}],
+            "c_shev": [{"userId": "t_shev_uid", "profile": {"name": {"fullName": "Шевченко Михайло Петрович"}}}],
+        },
+        announcements_by_course={},
+        coursework_by_course={},
+    )
+    real_async_client = httpx.AsyncClient
+
+    def mocked_client(*args, **kwargs):
+        kwargs["transport"] = transport
+        return real_async_client(*args, **kwargs)
+
+    with patch("app.routers.classroom.httpx.AsyncClient", side_effect=mocked_client):
+        # 1. Синхронізуємо студента першої підгрупи
+        resp1 = await client.post(
+            "/api/classroom/sync",
+            json={
+                "access_token": "ya29.student_kovalyov",
+                "refresh_token": "1//rt_kov",
+                "group_id": g_id,
+                "week_start": monday.isoformat(),
+            },
+        )
+        assert resp1.status_code == 200
+
+        # 2. Синхронізуємо студента другої підгрупи
+        resp2 = await client.post(
+            "/api/classroom/sync",
+            json={
+                "access_token": "ya29.student_shevchenko",
+                "refresh_token": "1//rt_shev",
+                "group_id": g_id,
+                "week_start": monday.isoformat(),
+            },
+        )
+        assert resp2.status_code == 200
+
+        # Перевіряємо збережені акаунти у статусі
+        st_resp = await client.get(f"/api/classroom/groups/{g_id}/status")
+        assert st_resp.status_code == 200
+        st_data = st_resp.json()
+        assert st_data["connected_accounts_count"] == 2
+
+        acc_kov = next(a for a in st_data["accounts"] if a["google_user_id"] == "uid_stud_kov")
+        acc_shev = next(a for a in st_data["accounts"] if a["google_user_id"] == "uid_stud_shev")
+
+        # Перевіряємо, що підгрупи визначено динамічно і правильно
+        assert acc_kov["subgroup"] == 1
+        assert acc_shev["subgroup"] == 2
 
 
 

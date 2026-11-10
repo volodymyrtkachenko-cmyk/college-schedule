@@ -506,9 +506,9 @@ def _resolve_matched_teacher_surname(
         or any(k in comb_fold for k in ("2підгр", "2group", "підгрупа2", "2підгрупа", "2гапідгр"))
     )
     if is_subgroup_1 and not is_subgroup_2:
-        return t1_clean or "Токарєва"
+        return t1_clean or (teacher_parts[0].split()[0] if teacher_parts else None)
     if is_subgroup_2 and not is_subgroup_1:
-        return t2_clean or "Хочинська"
+        return t2_clean or (teacher_parts[1].split()[0] if len(teacher_parts) > 1 else None)
 
     # Порівнюємо прізвища викладачів через _fold
     candidates = [c for c in (t1_clean, t2_clean) if c]
@@ -521,7 +521,7 @@ def _resolve_matched_teacher_surname(
         if cand_fold in comb_fold:
             return cand
 
-    # Специфічні корені для англійської (Токарєва / Хочинська)
+    # Специфічні корені для англійської (якщо в БД прізвище трохи відрізняється)
     if any("токар" in tok for tok in all_tokens_folded) or "токар" in comb_fold:
         return t1_clean or "Токарєва"
     if any("хочин" in tok for tok in all_tokens_folded) or "хочин" in comb_fold:
@@ -547,7 +547,11 @@ def _link_line_prefix(line: str) -> Optional[str]:
     return raw if raw else None
 
 
-def _link_line_belongs_to_sync(line: str, sync_teacher_tokens: set[str]) -> bool:
+def _link_line_belongs_to_sync(
+    line: str,
+    sync_teacher_tokens: set[str],
+    synced_subgroups: Optional[set[int]] = None,
+) -> bool:
     """Чи належить рядок з посиланням викладачу з курсів ПОТОЧНОГО синку.
 
     Рядок без прізвища (пара з одним викладачем) вважаємо належним, як і раніше.
@@ -566,8 +570,16 @@ def _link_line_belongs_to_sync(line: str, sync_teacher_tokens: set[str]) -> bool
 
     # Якщо префікс явно вказує на підгрупу:
     if "1підгр" in p or "1group" in p or p.startswith("1"):
+        if synced_subgroups and 1 in synced_subgroups and 2 not in synced_subgroups:
+            return True
+        if synced_subgroups and 2 in synced_subgroups and 1 not in synced_subgroups:
+            return False
         return any("токар" in tok for tok in folded_sync)
     if "2підгр" in p or "2group" in p or p.startswith("2"):
+        if synced_subgroups and 2 in synced_subgroups and 1 not in synced_subgroups:
+            return True
+        if synced_subgroups and 1 in synced_subgroups and 2 not in synced_subgroups:
+            return False
         return any("хочин" in tok for tok in folded_sync)
 
     return any(p in tok or (len(tok) >= 4 and tok in p) for tok in folded_sync)
@@ -578,6 +590,7 @@ def _task_line_belongs_to_sync(
     task_c_id: Optional[str],
     current_sync_course_ids: set[str],
     sync_teacher_tokens: set[str],
+    synced_subgroups: Optional[set[int]] = None,
 ) -> bool:
     """Чи належить рядок [TASK] викладачу з курсів ПОТОЧНОГО синку.
 
@@ -592,8 +605,16 @@ def _task_line_belongs_to_sync(
         if len(p) >= 3:
             folded_sync = {_fold(tok) for tok in sync_teacher_tokens if tok}
             if "1підгр" in p or "1group" in p or p.startswith("1"):
+                if synced_subgroups and 1 in synced_subgroups and 2 not in synced_subgroups:
+                    return True
+                if synced_subgroups and 2 in synced_subgroups and 1 not in synced_subgroups:
+                    return False
                 return any("токар" in tok for tok in folded_sync)
             if "2підгр" in p or "2group" in p or p.startswith("2"):
+                if synced_subgroups and 2 in synced_subgroups and 1 not in synced_subgroups:
+                    return True
+                if synced_subgroups and 1 in synced_subgroups and 2 not in synced_subgroups:
+                    return False
                 return any("хочин" in tok for tok in folded_sync)
             return any(p in tok or (len(tok) >= 4 and tok in p) for tok in folded_sync)
     if task_c_id and task_c_id in current_sync_course_ids:
@@ -1487,6 +1508,34 @@ async def perform_course_sync(
                 if dominant_uid in teacher_name_by_uid:
                     synced_teacher_names.add(teacher_name_by_uid[dominant_uid])
 
+        # Динамічно визначаємо підгрупи студента (1 або 2) за викладачами в парах розкладу з поділом на підгрупи:
+        for d_lessons in horizon_lessons_by_date.values():
+            for l in d_lessons:
+                if getattr(l, "second_teacher_id", None) or ("/" in (getattr(l, "teacher_name", "") or "")):
+                    t_names = [t.strip() for t in (getattr(l, "teacher_name", "") or "").split("/") if t.strip()]
+                    t1_surname = t_names[0].split()[0].strip() if len(t_names) > 0 else ""
+                    t2_surname = t_names[1].split()[0].strip() if len(t_names) > 1 else ""
+
+                    t1_folded = _fold(t1_surname)
+                    t2_folded = _fold(t2_surname)
+
+                    m1 = any(t1_folded in tok or (len(tok) >= 4 and tok in t1_folded) for tok in synced_teacher_tokens if len(tok) >= 3) if t1_folded else False
+                    m2 = any(t2_folded in tok or (len(tok) >= 4 and tok in t2_folded) for tok in synced_teacher_tokens if len(tok) >= 3) if t2_folded else False
+
+                    if m1 and not m2:
+                        synced_subgroups.add(1)
+                    elif m2 and not m1:
+                        synced_subgroups.add(2)
+
+        # Також перевіряємо назви курсів Classroom на наявність явних позначок підгруп
+        for c in courses:
+            c_title = f"{c.get('name', '')} {c.get('section', '')} {c.get('descriptionHeading', '')}".strip()
+            c_fold = _fold(c_title)
+            if any(k in c_fold for k in ("1підгр", "1group", "1підгрупа", "підгрупа1")):
+                synced_subgroups.add(1)
+            if any(k in c_fold for k in ("2підгр", "2group", "2підгрупа", "підгрупа2")):
+                synced_subgroups.add(2)
+
         # Прохід 2: Миттєва обробка оголошень, матеріалів та ДЗ у пам'яті без жодного HTTP-запиту
         for course, bundle_items in bundles:
             if len(bundle_items) < 5:
@@ -1851,14 +1900,16 @@ async def perform_course_sync(
             if l_str.startswith("[TASK"):
                 c_match = re.search(r"/(?:c|w)/([A-Za-z0-9_\-]+)", l_str)
                 task_c_id = c_match.group(1) if c_match else None
-                if _task_line_belongs_to_sync(l_str, task_c_id, current_sync_course_ids, sync_teacher_tokens):
+                if _task_line_belongs_to_sync(
+                    l_str, task_c_id, current_sync_course_ids, sync_teacher_tokens, synced_subgroups
+                ):
                     changed = True
                     continue
                 kept.append(l_str)
                 continue
             if (
                 URL_RE.search(l_str)
-                and _link_line_belongs_to_sync(l_str, sync_teacher_tokens)
+                and _link_line_belongs_to_sync(l_str, sync_teacher_tokens, synced_subgroups)
             ):
                 # Ніколи не видаляємо посилання з історичних тижнів за межами вікна синхронізації,
                 # з предметів поза поточним синком, або зі слотів, де немає нового посилання на заміну
@@ -2241,8 +2292,8 @@ async def sync_from_classroom(
             except Exception as exc:
                 logger.warning(f"Failed to read userProfiles/me during sync: {_sanitize_error_msg(str(exc))}")
 
-            # 1.4: Фолбек на OAuth2 userinfo, якщо userProfiles/me не повернув emailAddress або google_user_id
-            if not profile_email or not google_user_id:
+            # 1.4: Фолбек на OAuth2 userinfo, якщо userProfiles/me не повернув пошту, id, ім'я або аватарку
+            if not profile_email or not google_user_id or not profile_photo or not profile_name:
                 try:
                     uinfo_resp = await client.get(
                         "https://www.googleapis.com/oauth2/v3/userinfo",
@@ -3140,27 +3191,51 @@ async def trigger_background_sync_if_needed(
                 headers = {"Authorization": f"Bearer {fresh_token}"}
 
                 # 25.4.3: Автоматично збагачуємо або відновлюємо профіль користувача (ім'я, пошта, аватарка), якщо вони відсутні або були обрізані
-                if not cred.student_name or not cred.email or not cred.photo_url or (cred.photo_url and len(cred.photo_url) == 500):
+                if (
+                    not cred.student_name
+                    or not cred.email
+                    or not cred.photo_url
+                    or (cred.photo_url and len(cred.photo_url) <= 500 and "googleusercontent.com" in cred.photo_url)
+                ):
                     try:
                         async with httpx.AsyncClient(timeout=8.0) as prof_client:
-                            me_r = await prof_client.get(
-                                "https://classroom.googleapis.com/v1/userProfiles/me",
+                            # 1. Спершу стандартний Google OAuth2 userinfo (найнадійніший для повнорозмірних аватарок picture)
+                            ui_r = await prof_client.get(
+                                "https://www.googleapis.com/oauth2/v3/userinfo",
                                 headers=headers,
                             )
-                            if me_r.status_code == 200:
-                                me_j = me_r.json()
-                                n_obj = me_j.get("name") or {}
-                                fn = (n_obj.get("fullName") or "").strip() or None
-                                em = (me_j.get("emailAddress") or "").strip() or None
-                                p_url = (me_j.get("photoUrl") or "").strip() or None
-                                if p_url and p_url.startswith("//"):
-                                    p_url = f"https:{p_url}"
-                                if fn:
+                            if ui_r.status_code == 200:
+                                ui_j = ui_r.json()
+                                fn = (ui_j.get("name") or "").strip() or None
+                                em = (ui_j.get("email") or "").strip() or None
+                                p_url = (ui_j.get("picture") or "").strip() or None
+                                if fn and not cred.student_name:
                                     cred.student_name = fn[:150]
-                                if em:
+                                if em and not cred.email:
                                     cred.email = em[:150]
                                 if p_url:
                                     cred.photo_url = p_url[:2048]
+
+                            # 2. Якщо щось досі відсутнє — доповнюємо з Classroom userProfiles/me
+                            if not cred.student_name or not cred.email or not cred.photo_url:
+                                me_r = await prof_client.get(
+                                    "https://classroom.googleapis.com/v1/userProfiles/me",
+                                    headers=headers,
+                                )
+                                if me_r.status_code == 200:
+                                    me_j = me_r.json()
+                                    n_obj = me_j.get("name") or {}
+                                    fn = (n_obj.get("fullName") or "").strip() or None
+                                    em = (me_j.get("emailAddress") or "").strip() or None
+                                    p_url = (me_j.get("photoUrl") or "").strip() or None
+                                    if p_url and p_url.startswith("//"):
+                                        p_url = f"https:{p_url}"
+                                    if fn and not cred.student_name:
+                                        cred.student_name = fn[:150]
+                                    if em and not cred.email:
+                                        cred.email = em[:150]
+                                    if p_url and not cred.photo_url:
+                                        cred.photo_url = p_url[:2048]
                     except Exception:
                         pass
 
@@ -3388,9 +3463,18 @@ async def _build_group_accounts_summary(db: AsyncSession, group_id: int) -> dict
         student_name = c.student_name or (matched.full_name if matched else None)
         email = c.email or (matched.email if matched else None)
         raw_photo = c.photo_url or (matched.photo_url if matched else None)
-        # Якщо URL було обрізано до рівно 500 символів через старий ліміт VARCHAR(500), він повертає 400 і показує биту картинку.
+        # Якщо URL було обрізано через старий ліміт VARCHAR(500), він повертає 400 і показує биту картинку.
         # Тимчасово ховаємо битий URL, доки фоновий цикл не оновить повне посилання
-        photo_url = None if (raw_photo and len(raw_photo) == 500 and "googleusercontent.com" in raw_photo) else raw_photo
+        photo_url = (
+            None
+            if (
+                raw_photo
+                and len(raw_photo) <= 500
+                and "googleusercontent.com" in raw_photo
+                and not raw_photo.endswith(("-c", "=s96-c", "=s100", "=s200", "=s400", "=s64-c", "=s32-c", ".jpg", ".png"))
+            )
+            else raw_photo
+        )
 
         account_items.append({
             "id": c.id,
@@ -3749,7 +3833,7 @@ async def get_classroom_group_status(
         "has_refresh_token": bool(binding and binding.refresh_token) or has_active_creds,
         "has_client_secret": bool(get_google_client_secret()),
         "unmapped_tasks": _latest_unmapped_tasks.get(group_id, []) if has_access else [],
-        "tasks": tasks if tasks is not None else [],
+        "tasks": (tasks if tasks is not None else []) if has_access else [],
         "requires_auth": not has_access,
         **accounts_summary,
         "needs_reconnect": False,
