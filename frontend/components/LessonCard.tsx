@@ -1078,14 +1078,18 @@ export const LessonCard = memo(function LessonCard({
   );
   const visibleNoteText = useMemo(() => getVisibleUserNote(lesson.note), [lesson.note]);
   const hasMeeting = meetings.length > 0;
-  const rooms = useMemo(() => {
+  const rawRooms = useMemo(() => {
     if (!lesson.room) return [];
-    if (learningMode === "online" && meetings.length > 0) return [];
     return lesson.room
       .split(/\s*[,/;]\s*/)
       .map((r) => r.trim())
       .filter(Boolean);
-  }, [lesson.room, learningMode, meetings.length]);
+  }, [lesson.room]);
+  const rooms = useMemo(() => {
+    if (rawRooms.length === 0) return [];
+    if (!isDualTeachers && learningMode === "online" && meetings.length > 0) return [];
+    return rawRooms;
+  }, [rawRooms, isDualTeachers, learningMode, meetings.length]);
 
   const teacherMeetings = useMemo(() => {
     if (!isDualTeachersOrSplit || meetings.length === 0) return [null, null];
@@ -1095,7 +1099,8 @@ export const LessonCard = memo(function LessonCard({
     const s0 = (teacherNames[0] || "").split(/[\s.]+/)[0].toLowerCase();
     const s1 = (teacherNames[1] || "").split(/[\s.]+/)[0].toLowerCase();
 
-    const matchesTeacher = (m: MeetingInfo, s: string, subNum: number) => {
+    const matchesTeacher = (m: MeetingInfo, s: string, subNum: 1 | 2) => {
+      if (m.subgroup === subNum) return true;
       if (!m.label) return false;
       const l = m.label.toLowerCase();
       if (s && (l.includes(s) || s.includes(l))) return true;
@@ -1114,9 +1119,6 @@ export const LessonCard = memo(function LessonCard({
         m1 = meetings.find((m) => m !== m0) || null;
       } else if (m1 && !m0) {
         m0 = meetings.find((m) => m !== m1) || null;
-      } else if (!m0 && !m1) {
-        m0 = meetings[0];
-        m1 = meetings[1];
       }
     }
 
@@ -1126,14 +1128,20 @@ export const LessonCard = memo(function LessonCard({
   const teacherSpecificRoom = useMemo(() => {
     if (!isTeacherView || !hasMultipleTeachers || activeTeacherIdx === null) return null;
     const r = activeTeacherIdx === 1
-      ? (lesson.second_teacher_room || rooms[1] || rooms[0] || lesson.room)
-      : (lesson.teacher_room || rooms[0] || lesson.room);
+      ? (lesson.second_teacher_room || (rawRooms.length > 1 ? rawRooms[1] : null))
+      : (lesson.teacher_room || (rawRooms.length > 0 ? rawRooms[0] : null));
     return r ? r.replace(/^ауд\.?\s*/i, "") : null;
-  }, [isTeacherView, hasMultipleTeachers, activeTeacherIdx, lesson.second_teacher_room, lesson.teacher_room, rooms, lesson.room]);
+  }, [isTeacherView, hasMultipleTeachers, activeTeacherIdx, lesson.second_teacher_room, lesson.teacher_room, rawRooms]);
 
   const teacherSpecificMeeting = useMemo(() => {
     if (!isTeacherView || !hasMultipleTeachers || activeTeacherIdx === null) return null;
-    return teacherMeetings[activeTeacherIdx] || (meetings.length === 1 ? meetings[0] : null);
+    const own = teacherMeetings[activeTeacherIdx];
+    if (own) return own;
+    const otherIdx = activeTeacherIdx === 0 ? 1 : 0;
+    if (meetings.length === 1 && !teacherMeetings[otherIdx]) {
+      return meetings[0];
+    }
+    return null;
   }, [isTeacherView, hasMultipleTeachers, activeTeacherIdx, teacherMeetings, meetings]);
 
   const isTeacherSubgroupShown = isTeacherView && hasMultipleTeachers && activeTeacherIdx !== null;
@@ -1151,14 +1159,26 @@ export const LessonCard = memo(function LessonCard({
 
   const singleSubgroupMeeting = useMemo(() => {
     if (singleSubgroupIdx === null) return null;
-    return teacherMeetings[singleSubgroupIdx] || meetings[0] || null;
-  }, [singleSubgroupIdx, teacherMeetings, meetings]);
+    const own = teacherMeetings[singleSubgroupIdx];
+    if (own) return own;
+    const otherIdx = singleSubgroupIdx === 0 ? 1 : 0;
+    if (meetings.length === 1 && !teacherMeetings[otherIdx]) {
+      const otherSurname = (secondaryItems[otherIdx]?.name || "").split(/[\s.]+/)[0].toLowerCase();
+      const mLabel = (meetings[0].label || "").toLowerCase();
+      if (!otherSurname || !mLabel.includes(otherSurname)) {
+        return meetings[0];
+      }
+    }
+    return null;
+  }, [singleSubgroupIdx, teacherMeetings, meetings, secondaryItems]);
 
   const singleSubgroupRoom = useMemo(() => {
     if (singleSubgroupIdx === null) return null;
-    const r = (singleSubgroupIdx === 0 ? lesson.teacher_room : lesson.second_teacher_room) || rooms[singleSubgroupIdx] || rooms[0] || null;
+    const r = singleSubgroupIdx === 0
+      ? (lesson.teacher_room || (rawRooms.length > 0 ? rawRooms[0] : null))
+      : (lesson.second_teacher_room || (rawRooms.length > 1 ? rawRooms[1] : null));
     return r ? r.replace(/^ауд\.?\s*/i, "") : null;
-  }, [singleSubgroupIdx, lesson.teacher_room, lesson.second_teacher_room, rooms]);
+  }, [singleSubgroupIdx, lesson.teacher_room, lesson.second_teacher_room, rawRooms]);
 
   const row3Meetings = useMemo(() => {
     if (!isDualTeachers) return meetings;
@@ -1176,16 +1196,16 @@ export const LessonCard = memo(function LessonCard({
   const displayRooms = useMemo(() => {
     if (isTeacherSubgroupShown) {
       if (!teacherSpecificRoom) return [];
-      if (learningMode === "online" && teacherSpecificMeeting) return [];
+      if (teacherSpecificMeeting) return [];
       return [teacherSpecificRoom];
     }
     if (isSingleSubgroupShown) {
       if (!singleSubgroupRoom) return [];
-      if (learningMode === "online" && singleSubgroupMeeting) return [];
+      if (singleSubgroupMeeting) return [];
       return [singleSubgroupRoom];
     }
     return rooms;
-  }, [isTeacherSubgroupShown, teacherSpecificRoom, teacherSpecificMeeting, isSingleSubgroupShown, singleSubgroupRoom, learningMode, singleSubgroupMeeting, rooms]);
+  }, [isTeacherSubgroupShown, teacherSpecificRoom, teacherSpecificMeeting, isSingleSubgroupShown, singleSubgroupRoom, singleSubgroupMeeting, rooms]);
 
   const roomsLabel = useMemo(() => formatRoomsList(displayRooms), [displayRooms]);
   const effectiveHasMobileMeeting = hasMobileMeeting || (!hasGroupAccess && Boolean(lesson.has_protected_link || (lesson.is_online && displayRooms.length === 0)));
@@ -1635,7 +1655,7 @@ export const LessonCard = memo(function LessonCard({
                           }
                           const isFaded = selectedSubgroup !== null && selectedSubgroup !== "all" && selectedSubgroup !== subNum;
                           const ownMeeting = teacherMeetings[idx];
-                          const ownRoom = (idx === 0 ? lesson.teacher_room : lesson.second_teacher_room) || rooms[idx] || null;
+                          const ownRoom = (idx === 0 ? lesson.teacher_room : lesson.second_teacher_room) || (idx === 0 ? (rawRooms[0] || null) : (rawRooms[1] || null));
                           return (
                             <div
                               key={idx}
@@ -2278,7 +2298,7 @@ export const LessonCard = memo(function LessonCard({
                     }
                     const isFaded = selectedSubgroup !== null && selectedSubgroup !== "all" && selectedSubgroup !== subNum;
                     const ownMeeting = teacherMeetings[idx];
-                    const ownRoom = (idx === 0 ? lesson.teacher_room : lesson.second_teacher_room) || rooms[idx] || null;
+                    const ownRoom = (idx === 0 ? lesson.teacher_room : lesson.second_teacher_room) || (idx === 0 ? (rawRooms[0] || null) : (rawRooms[1] || null));
                     return (
                       <div
                         key={idx}
@@ -2800,7 +2820,7 @@ export const LessonCard = memo(function LessonCard({
                   }
                   const isFaded = selectedSubgroup !== null && selectedSubgroup !== "all" && selectedSubgroup !== subNum;
                   const ownMeeting = teacherMeetings[idx];
-                  const ownRoom = (idx === 0 ? lesson.teacher_room : lesson.second_teacher_room) || rooms[idx] || null;
+                  const ownRoom = (idx === 0 ? lesson.teacher_room : lesson.second_teacher_room) || (idx === 0 ? (rawRooms[0] || null) : (rawRooms[1] || null));
                   return (
                     <div
                       key={idx}

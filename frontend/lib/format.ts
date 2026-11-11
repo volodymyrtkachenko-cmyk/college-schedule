@@ -147,7 +147,12 @@ export interface MeetingInfo {
   passcode: string | null;
   label?: string;
   isProtected?: boolean;
+  subgroup?: 1 | 2;
 }
+
+const ZOOM_ID_RE = /(?:[ІИіи]дент[иі]ф[иі]катор(?:\s+\S+)?|Meeting\s*ID|\bID(?:\s+\S+)?)\s*[:\-]?\s*(\d[\d\s\-\u00a0]{8,15}\d)/i;
+const ZOOM_PASS_RE = /(?:Код(?:\s+доступ[уае])?|Passcode|Пароль)\s*[:\-]?\s*([A-Za-z0-9_.\-]+)/i;
+const BARE_MEET_RE = /(?<![/\w.-])(?:meet\.google\.com\/)?([a-z]{3}-[a-z]{4}-[a-z]{3})\b/i;
 
 export function extractOnlineMeetings(
   note?: string | null,
@@ -172,126 +177,221 @@ export function extractOnlineMeetings(
     (teacherName && /філімончук/i.test(teacherName))
   );
 
-  const lines = `${room || ""}\n${teacherRoom || ""}\n${secondTeacherRoom || ""}\n${note || ""}`.split("\n");
+  const sources: Array<{ text: string; defaultLabel?: string; subgroup?: 1 | 2 }> = [];
+  if (teacherRoom) {
+    sources.push({
+      text: teacherRoom,
+      defaultLabel: teacherTokens[0] || "1 підгр.",
+      subgroup: 1,
+    });
+  }
+  if (secondTeacherRoom) {
+    sources.push({
+      text: secondTeacherRoom,
+      defaultLabel: teacherTokens[1] || "2 підгр.",
+      subgroup: 2,
+    });
+  }
+  if (room) {
+    sources.push({ text: room });
+  }
+  if (note) {
+    sources.push({ text: note });
+  }
+
   const results: MeetingInfo[] = [];
   const seenUrls = new Set<string>();
 
-  for (const line of lines) {
-    if (line.trim().startsWith("[TASK]")) continue;
+  for (const src of sources) {
+    const lines = src.text.split("\n");
+    for (const line of lines) {
+      if (line.trim().startsWith("[TASK]")) continue;
 
-    const urlMatches = Array.from(
-      line.matchAll(/https?:\/\/(?:meet\.google\.com|[a-z0-9.-]*zoom\.us|teams\.microsoft\.com|teams\.live\.com)\/[^\s<>"')|]+/gi)
-    );
-
-    if (urlMatches.length > 0) {
-      for (const match of urlMatches) {
-        let url = match[0];
-        if (seenUrls.has(url.toLowerCase())) continue;
-        seenUrls.add(url.toLowerCase());
-
-        const lowerUrl = url.toLowerCase();
-        const isMeet = lowerUrl.includes("meet.google.com");
-        const isZoom = lowerUrl.includes("zoom.us");
-        const isTeams = lowerUrl.includes("teams.microsoft.com") || lowerUrl.includes("teams.live.com");
-        const hasPwdInUrl = /[?&]pwd=[^&\s]+/i.test(url);
-
-        const passMatch = line.match(
-          /(?:Код(?:\s+доступ[уа])?|Passcode|Пароль)\s*[:\-]?\s*([A-Za-z0-9_.\-]+)/i
-        );
-        let rawPass = passMatch ? passMatch[1] : null;
-
-        if (isElectronics && !isMeet && !hasPwdInUrl && !rawPass) {
-          rawPass = "dfkr";
-        }
-
-        if (isZoom && !hasPwdInUrl && rawPass) {
-          const sep = url.includes("?") ? "&" : "?";
-          url = `${url}${sep}pwd=${encodeURIComponent(rawPass)}`;
-        }
-
-        let label: string | undefined;
-        const lowerLine = line.toLowerCase();
-        if (lowerLine.includes("токарєв") || lowerLine.includes("токарев")) {
-          label = "Токарєва";
-        } else if (lowerLine.includes("хочинськ") || lowerLine.includes("хочинск")) {
-          label = "Хочинська";
-        } else {
-          const prefixMatch = line.match(
-            /^(?:\[([^\]]+)\]|([А-Яа-яІіЇїЄєҐґa-zA-Z0-9\s.'—–\-]+|\d+\s*підгрупа|підгрупа\s*\d+))\s*[:\-–]?\s*https?/i
-          );
-          if (prefixMatch) {
-            const raw = (prefixMatch[1] || prefixMatch[2] || "").trim();
-            if (raw.length >= 2 && raw.length <= 30) {
-              label = raw;
-            }
-          }
-        }
-
-        if (!label) {
-          if (isLegacy85ForeignLang) {
-            label = isMeet ? "Токарєва" : "Хочинська";
-          } else if (teacherTokens.length === 2) {
-            label = isMeet ? teacherTokens[0] : teacherTokens[1];
-          }
-        }
-
-        const platform: MeetingInfo["platform"] = isMeet
-          ? "meet"
-          : isZoom
-          ? "zoom"
-          : isTeams
-          ? "teams"
-          : "link";
-
-        results.push({
-          url,
-          platform,
-          passcode: null,
-          label,
-        });
-      }
-    } else {
-      const lockedMatches = Array.from(
-        line.matchAll(/\[🔒\s*Онлайн(?::\s*(Meet|Zoom|Teams))?\]|\[🔒\s*(Meet|Zoom|Teams|Онлайн)\]/gi)
+      const urlMatches = Array.from(
+        line.matchAll(/https?:\/\/(?:meet\.google\.com|[a-z0-9.-]*zoom\.us|teams\.microsoft\.com|teams\.live\.com)\/[^\s<>"')|]+/gi)
       );
-      for (const match of lockedMatches) {
-        const rawPlat = (match[1] || match[2] || "").toLowerCase();
-        const platform: MeetingInfo["platform"] =
-          rawPlat === "meet" ? "meet" : rawPlat === "zoom" ? "zoom" : rawPlat === "teams" ? "teams" : "link";
 
-        let label: string | undefined;
-        const lowerLine = line.toLowerCase();
-        if (lowerLine.includes("токарєв") || lowerLine.includes("токарев")) {
-          label = "Токарєва";
-        } else if (lowerLine.includes("хочинськ") || lowerLine.includes("хочинск")) {
-          label = "Хочинська";
-        } else {
-          const prefixMatch = line.match(
-            /^(?:\[([^\]]+)\]|([А-Яа-яІіЇїЄєҐґa-zA-Z0-9\s.'—–\-]+|\d+\s*підгрупа|підгрупа\s*\d+))\s*[:\-–]?\s*\[🔒/i
-          );
-          if (prefixMatch) {
-            const raw = (prefixMatch[1] || prefixMatch[2] || "").trim();
-            if (raw.length >= 2 && raw.length <= 30 && !raw.includes("🔒")) {
-              label = raw;
+      // Якщо прямого URL немає, перевіряємо Zoom ID або чистий код Google Meet
+      let manualMeeting: { url: string; isMeet: boolean; isZoom: boolean; isTeams: boolean; rawPass: string | null } | null = null;
+      if (urlMatches.length === 0) {
+        const idMatch = line.match(ZOOM_ID_RE);
+        const meetMatch = line.match(BARE_MEET_RE);
+        if (idMatch) {
+          const cleanId = idMatch[1].replace(/[\s\-\u00a0]/g, "");
+          const passMatch = line.match(ZOOM_PASS_RE);
+          const rawPass = passMatch ? passMatch[1] : (isElectronics ? "dfkr" : null);
+          const zoomUrl = `https://zoom.us/j/${cleanId}${rawPass ? `?pwd=${encodeURIComponent(rawPass)}` : ""}`;
+          manualMeeting = { url: zoomUrl, isMeet: false, isZoom: true, isTeams: false, rawPass };
+        } else if (meetMatch) {
+          manualMeeting = { url: `https://meet.google.com/${meetMatch[1]}`, isMeet: true, isZoom: false, isTeams: false, rawPass: null };
+        }
+      }
+
+      if (urlMatches.length > 0 || manualMeeting) {
+        const candidateUrls = manualMeeting ? [manualMeeting.url] : urlMatches.map((m) => m[0]);
+        for (const rawCandidateUrl of candidateUrls) {
+          let url = rawCandidateUrl;
+          if (seenUrls.has(url.toLowerCase())) continue;
+          seenUrls.add(url.toLowerCase());
+
+          const lowerUrl = url.toLowerCase();
+          const isMeet = manualMeeting ? manualMeeting.isMeet : lowerUrl.includes("meet.google.com");
+          const isZoom = manualMeeting ? manualMeeting.isZoom : lowerUrl.includes("zoom.us");
+          const isTeams = manualMeeting ? manualMeeting.isTeams : (lowerUrl.includes("teams.microsoft.com") || lowerUrl.includes("teams.live.com"));
+          const hasPwdInUrl = /[?&]pwd=[^&\s]+/i.test(url);
+
+          const passMatch = line.match(ZOOM_PASS_RE);
+          let rawPass = manualMeeting ? manualMeeting.rawPass : (passMatch ? passMatch[1] : null);
+
+          if (isElectronics && !isMeet && !hasPwdInUrl && !rawPass) {
+            rawPass = "dfkr";
+          }
+
+          if (isZoom && !hasPwdInUrl && rawPass) {
+            const sep = url.includes("?") ? "&" : "?";
+            url = `${url}${sep}pwd=${encodeURIComponent(rawPass)}`;
+          }
+
+          let label: string | undefined = src.defaultLabel;
+          let subgroup: 1 | 2 | undefined = src.subgroup;
+          const lowerLine = line.toLowerCase();
+
+          if (lowerLine.includes("токарєв") || lowerLine.includes("токарев")) {
+            label = "Токарєва";
+            subgroup = 1;
+          } else if (lowerLine.includes("хочинськ") || lowerLine.includes("хочинск")) {
+            label = "Хочинська";
+            subgroup = 2;
+          } else {
+            // Перевіряємо вчителів зі списку викладачів пари
+            if (teacherTokens.length >= 1) {
+              const t0 = teacherTokens[0].split(/[\s.]+/)[0].toLowerCase();
+              if (t0 && lowerLine.includes(t0)) {
+                label = teacherTokens[0];
+                subgroup = 1;
+              }
+            }
+            if (!label && teacherTokens.length >= 2) {
+              const t1 = teacherTokens[1].split(/[\s.]+/)[0].toLowerCase();
+              if (t1 && lowerLine.includes(t1)) {
+                label = teacherTokens[1];
+                subgroup = 2;
+              }
+            }
+
+            if (!label) {
+              if (/(?:1\s*[-–]?\s*підгр|1-ша\s*підгр|1\s*підгрупа)/i.test(line)) {
+                subgroup = 1;
+                label = teacherTokens[0] || "1 підгр.";
+              } else if (/(?:2\s*[-–]?\s*підгр|2-га\s*підгр|2\s*підгрупа)/i.test(line)) {
+                subgroup = 2;
+                label = teacherTokens[1] || "2 підгр.";
+              }
+            }
+
+            if (!label) {
+              const prefixMatch = line.match(
+                /^(?:\[([^\]]+)\]|([А-Яа-яІіЇїЄєҐґa-zA-Z0-9\s.'—–\-]+|\d+\s*підгрупа|підгрупа\s*\d+))\s*[:\-–]?\s*https?/i
+              );
+              if (prefixMatch) {
+                const raw = (prefixMatch[1] || prefixMatch[2] || "").trim();
+                if (raw.length >= 2 && raw.length <= 30) {
+                  label = raw;
+                }
+              }
             }
           }
-        }
 
-        if (!label) {
-          if (isLegacy85ForeignLang) {
-            label = platform === "meet" ? "Токарєва" : "Хочинська";
-          } else if (teacherTokens.length === 2) {
-            label = platform === "meet" ? teacherTokens[0] : teacherTokens[1];
+          if (!label && isLegacy85ForeignLang) {
+            label = isMeet ? "Токарєва" : "Хочинська";
+            subgroup = isMeet ? 1 : 2;
           }
-        }
 
-        results.push({
-          url: "",
-          platform,
-          passcode: null,
-          label,
-          isProtected: true,
-        });
+          const platform: MeetingInfo["platform"] = isMeet
+            ? "meet"
+            : isZoom
+            ? "zoom"
+            : isTeams
+            ? "teams"
+            : "link";
+
+          results.push({
+            url,
+            platform,
+            passcode: null,
+            label,
+            subgroup,
+          });
+        }
+      } else {
+        const lockedMatches = Array.from(
+          line.matchAll(/\[🔒\s*Онлайн(?::\s*(Meet|Zoom|Teams))?\]|\[🔒\s*(Meet|Zoom|Teams|Онлайн)\]/gi)
+        );
+        for (const match of lockedMatches) {
+          const rawPlat = (match[1] || match[2] || "").toLowerCase();
+          const platform: MeetingInfo["platform"] =
+            rawPlat === "meet" ? "meet" : rawPlat === "zoom" ? "zoom" : rawPlat === "teams" ? "teams" : "link";
+
+          let label: string | undefined = src.defaultLabel;
+          let subgroup: 1 | 2 | undefined = src.subgroup;
+          const lowerLine = line.toLowerCase();
+          if (lowerLine.includes("токарєв") || lowerLine.includes("токарев")) {
+            label = "Токарєва";
+            subgroup = 1;
+          } else if (lowerLine.includes("хочинськ") || lowerLine.includes("хочинск")) {
+            label = "Хочинська";
+            subgroup = 2;
+          } else {
+            if (teacherTokens.length >= 1) {
+              const t0 = teacherTokens[0].split(/[\s.]+/)[0].toLowerCase();
+              if (t0 && lowerLine.includes(t0)) {
+                label = teacherTokens[0];
+                subgroup = 1;
+              }
+            }
+            if (!label && teacherTokens.length >= 2) {
+              const t1 = teacherTokens[1].split(/[\s.]+/)[0].toLowerCase();
+              if (t1 && lowerLine.includes(t1)) {
+                label = teacherTokens[1];
+                subgroup = 2;
+              }
+            }
+            if (!label) {
+              if (/(?:1\s*[-–]?\s*підгр|1-ша\s*підгр|1\s*підгрупа)/i.test(line)) {
+                subgroup = 1;
+                label = teacherTokens[0] || "1 підгр.";
+              } else if (/(?:2\s*[-–]?\s*підгр|2-га\s*підгр|2\s*підгрупа)/i.test(line)) {
+                subgroup = 2;
+                label = teacherTokens[1] || "2 підгр.";
+              }
+            }
+            if (!label) {
+              const prefixMatch = line.match(
+                /^(?:\[([^\]]+)\]|([А-Яа-яІіЇїЄєҐґa-zA-Z0-9\s.'—–\-]+|\d+\s*підгрупа|підгрупа\s*\d+))\s*[:\-–]?\s*\[🔒/i
+              );
+              if (prefixMatch) {
+                const raw = (prefixMatch[1] || prefixMatch[2] || "").trim();
+                if (raw.length >= 2 && raw.length <= 30 && !raw.includes("🔒")) {
+                  label = raw;
+                }
+              }
+            }
+          }
+
+          if (!label && isLegacy85ForeignLang) {
+            label = platform === "meet" ? "Токарєва" : "Хочинська";
+            subgroup = platform === "meet" ? 1 : 2;
+          }
+
+          results.push({
+            url: "",
+            platform,
+            passcode: null,
+            label,
+            isProtected: true,
+            subgroup,
+          });
+        }
       }
     }
   }

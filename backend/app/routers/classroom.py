@@ -2230,13 +2230,9 @@ async def sync_from_classroom(
                         missing_required = [s for s in REQUIRED_CLASSROOM_SCOPES if s not in granted_scope_str]
                         if missing_required:
                             logger.warning(
-                                "Classroom code exchange missing required course scope: %s (missing: %s)",
+                                "Classroom code exchange missing required course scope in scope string: %s (missing: %s). Will verify with Classroom API.",
                                 granted_scope_str,
                                 missing_required,
-                            )
-                            raise HTTPException(
-                                status_code=400,
-                                detail="Ви не надали обов'язковий дозвіл для доступу до курсів Classroom. Підключіть ще раз і залиште галочки дозволів у вікні Google.",
                             )
                         missing_recommended = [s for s in RECOMMENDED_CLASSROOM_SCOPES if s not in granted_scope_str]
                         if missing_recommended:
