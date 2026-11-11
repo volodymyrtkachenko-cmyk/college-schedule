@@ -1,9 +1,7 @@
 "use client";
 
-
 import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import { motion } from "framer-motion";
 import { ClassroomSyncButton } from "./ClassroomSyncButton";
 import { useClassroomSubmissions } from "../lib/useClassroomSubmissions";
 import {
@@ -23,7 +21,6 @@ export type TasksTabMode = "pending" | "overdue" | "done";
 export function TasksTodoBoard({
   tasks,
   isLinked,
-  layoutPrefix = "mobile-tasks",
 }: {
   tasks: FullTaskItem[];
   isLinked: boolean;
@@ -51,11 +48,21 @@ export function TasksTodoBoard({
     subjects,
   } = useTaskGroups(tasks, "all", undefined, undefined, isLinked, filters);
 
-  // Якщо обраний предмет зник у новій вкладці — скидаємо фільтр предмета
   const effectiveSubject = useMemo(() => {
     if (!selectedSubject) return "";
     return subjects.some((s) => s.name === selectedSubject) ? selectedSubject : "";
   }, [selectedSubject, subjects]);
+
+  const totalStatusTabs = isLinked ? 3 : 2;
+  const activeStatusIndex =
+    activeTab === "pending" ? 0 : activeTab === "overdue" ? 1 : isLinked ? 2 : 0;
+
+  const pillBgColor =
+    activeTab === "overdue" && isLinked && overdueTotalCount > 0
+      ? "bg-rose-600"
+      : activeTab === "done"
+      ? "bg-emerald-600"
+      : "bg-sys-accentSolid";
 
   return (
     <div className="w-full space-y-3.5">
@@ -82,35 +89,40 @@ export function TasksTodoBoard({
         </div>
       )}
 
-      {/* 3 Status Segmented Pills: [ До здачі | Борги | Здано ] */}
+      {/* 3 Status Segmented Pills — Pure GPU translate3d slider (zero layout thrashing) */}
       <div
         role="tablist"
         aria-label="Категорії завдань"
         className={`relative grid ${
           isLinked ? "grid-cols-3" : "grid-cols-2"
-        } gap-1 rounded-xl border border-sys-border bg-sys-bg p-1 text-xs font-semibold shadow-2xs select-none`}
+        } rounded-xl border border-sys-border bg-sys-bg p-1 text-xs font-semibold shadow-2xs select-none isolate`}
       >
+        <div
+          aria-hidden="true"
+          className="absolute top-1 bottom-1 pointer-events-none transition-transform duration-150 ease-out transform-gpu will-change-transform z-0"
+          style={{
+            left: "4px",
+            width: `calc((100% - 8px) / ${totalStatusTabs})`,
+            transform: `translate3d(calc(${activeStatusIndex} * 100%), 0, 0)`,
+          }}
+        >
+          <div className={`h-full w-full rounded-lg shadow-xs transition-colors duration-150 ${pillBgColor}`} />
+        </div>
+
         <button
           type="button"
           role="tab"
           aria-selected={activeTab === "pending"}
           onClick={() => setActiveTab("pending")}
-          className={`relative isolate z-10 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg transition-colors duration-fast ease-smooth cursor-pointer active:scale-[0.98] ${
+          className={`relative z-10 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg transition-colors duration-150 cursor-pointer active:scale-[0.98] ${
             activeTab === "pending"
               ? "text-white font-bold"
               : "text-sys-text-secondary hover:text-sys-text-primary"
           }`}
         >
-          {activeTab === "pending" && (
-            <motion.div
-              layoutId={`${layoutPrefix}-status-pill`}
-              className="absolute inset-0 rounded-lg bg-sys-accentSolid shadow-xs -z-10"
-              transition={{ type: "tween", duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-            />
-          )}
           <span className="truncate">До здачі</span>
           <span
-            className={`inline-flex h-4 min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold ${
+            className={`inline-flex h-4 min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold transition-colors ${
               activeTab === "pending"
                 ? "bg-white/20 text-white"
                 : "bg-sys-card text-sys-text-secondary border border-sys-border/60"
@@ -125,7 +137,7 @@ export function TasksTodoBoard({
           role="tab"
           aria-selected={activeTab === "overdue"}
           onClick={() => setActiveTab("overdue")}
-          className={`relative isolate z-10 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg transition-colors duration-fast ease-smooth cursor-pointer active:scale-[0.98] ${
+          className={`relative z-10 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg transition-colors duration-150 cursor-pointer active:scale-[0.98] ${
             activeTab === "overdue"
               ? "text-white font-bold"
               : overdueTotalCount > 0 && isLinked
@@ -133,18 +145,9 @@ export function TasksTodoBoard({
               : "text-sys-text-secondary hover:text-sys-text-primary"
           }`}
         >
-          {activeTab === "overdue" && (
-            <motion.div
-              layoutId={`${layoutPrefix}-status-pill`}
-              className={`absolute inset-0 rounded-lg shadow-xs -z-10 ${
-                isLinked && overdueTotalCount > 0 ? "bg-rose-600" : "bg-sys-accentSolid"
-              }`}
-              transition={{ type: "tween", duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-            />
-          )}
           <span className="truncate">{isLinked ? "Борги" : "Минув час"}</span>
           <span
-            className={`inline-flex h-4 min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold ${
+            className={`inline-flex h-4 min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold transition-colors ${
               activeTab === "overdue"
                 ? "bg-white/20 text-white"
                 : overdueTotalCount > 0 && isLinked
@@ -162,22 +165,15 @@ export function TasksTodoBoard({
             role="tab"
             aria-selected={activeTab === "done"}
             onClick={() => setActiveTab("done")}
-            className={`relative isolate z-10 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg transition-colors duration-fast ease-smooth cursor-pointer active:scale-[0.98] ${
+            className={`relative z-10 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg transition-colors duration-150 cursor-pointer active:scale-[0.98] ${
               activeTab === "done"
                 ? "text-white font-bold"
                 : "text-sys-text-secondary hover:text-sys-text-primary"
             }`}
           >
-            {activeTab === "done" && (
-              <motion.div
-                layoutId={`${layoutPrefix}-status-pill`}
-                className="absolute inset-0 rounded-lg bg-emerald-600 shadow-xs -z-10"
-                transition={{ type: "tween", duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-              />
-            )}
             <span className="truncate">Здано</span>
             <span
-              className={`inline-flex h-4 min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold ${
+              className={`inline-flex h-4 min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold transition-colors ${
                 activeTab === "done"
                   ? "bg-white/20 text-white"
                   : "bg-sys-card text-sys-text-secondary border border-sys-border/60"
@@ -189,7 +185,7 @@ export function TasksTodoBoard({
         )}
       </div>
 
-      {/* Horizontal Subject Chips (1-tap subject filtering, shown when 2+ subjects exist) */}
+      {/* Horizontal Subject Chips */}
       {subjects.length > 1 && (
         <div
           role="group"
@@ -199,7 +195,7 @@ export function TasksTodoBoard({
           <button
             type="button"
             onClick={() => setSelectedSubject("")}
-            className={`shrink-0 rounded-xl px-3 py-1.5 text-xs font-semibold border transition-colors duration-fast ease-smooth active:scale-95 cursor-pointer ${
+            className={`shrink-0 rounded-xl px-3 py-1.5 text-xs font-semibold border transition-colors duration-150 active:scale-95 cursor-pointer ${
               !effectiveSubject
                 ? "bg-sys-accent/15 border-sys-accent/50 text-sys-accent shadow-2xs"
                 : "bg-sys-card border-sys-border text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/30"
@@ -214,7 +210,7 @@ export function TasksTodoBoard({
                 key={subj.name}
                 type="button"
                 onClick={() => setSelectedSubject(isSelected ? "" : subj.name)}
-                className={`shrink-0 rounded-xl px-3 py-1.5 text-xs font-semibold border transition-colors duration-fast ease-smooth flex items-center gap-1.5 active:scale-95 cursor-pointer ${
+                className={`shrink-0 rounded-xl px-3 py-1.5 text-xs font-semibold border transition-colors duration-150 flex items-center gap-1.5 active:scale-95 cursor-pointer ${
                   isSelected
                     ? "bg-sys-accent/15 border-sys-accent/50 text-sys-accent shadow-2xs"
                     : "bg-sys-card border-sys-border text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/30"
@@ -236,7 +232,7 @@ export function TasksTodoBoard({
         </div>
       )}
 
-      {/* Quick Overdue Alert inside "До здачі" tab so student never misses debts */}
+      {/* Quick Overdue Alert inside "До здачі" tab */}
       {activeTab === "pending" && isLinked && overdueTotalCount > 0 && !effectiveSubject && (
         <button
           type="button"
@@ -394,6 +390,7 @@ export function MobileTasksView({
   ) => void;
 }) {
   const [viewMode, setViewMode] = useState<"tasks" | "grades">("tasks");
+  const [gradesVisited, setGradesVisited] = useState(false);
   const { isLinked, isLinkedToGroup } = useClassroomSubmissions();
   const hasAccess = Boolean(groupId && isLinkedToGroup(groupId));
 
@@ -454,43 +451,44 @@ export function MobileTasksView({
         )}
       </div>
 
-      {/* Top Switcher: [ 📋 Завдання | 📊 Оцінки ] */}
-      <div className="relative mb-4 grid grid-cols-2 gap-1 rounded-xl border border-sys-border bg-sys-card p-1 text-xs font-semibold shadow-xs select-none">
+      {/* Top Switcher: [ 📋 Завдання | 📊 Оцінки ] — Pure GPU translate3d slider */}
+      <div className="relative mb-4 grid grid-cols-2 rounded-xl border border-sys-border bg-sys-card p-1 text-xs font-semibold shadow-xs select-none isolate">
+        <div
+          aria-hidden="true"
+          className="absolute top-1 bottom-1 pointer-events-none transition-transform duration-150 ease-out transform-gpu will-change-transform z-0"
+          style={{
+            left: "4px",
+            width: "calc((100% - 8px) / 2)",
+            transform: `translate3d(${viewMode === "grades" ? "100%" : "0%"}, 0, 0)`,
+          }}
+        >
+          <div className="h-full w-full rounded-lg bg-sys-accentSolid shadow-xs" />
+        </div>
+
         <button
           type="button"
           onClick={() => setViewMode("tasks")}
-          className={`relative isolate z-10 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-colors duration-fast ease-smooth cursor-pointer active:scale-[0.98] ${
+          className={`relative z-10 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-colors duration-150 cursor-pointer active:scale-[0.98] ${
             viewMode === "tasks"
               ? "text-white font-bold"
               : "text-sys-text-secondary hover:text-sys-text-primary"
           }`}
         >
-          {viewMode === "tasks" && (
-            <motion.div
-              layoutId="mobile-view-mode-pill"
-              className="absolute inset-0 rounded-lg bg-sys-accentSolid shadow-xs -z-10"
-              transition={{ type: "tween", duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-            />
-          )}
           <span>📋</span>
           <span>Завдання{hasAccess && badgeCount > 0 ? ` (${badgeCount})` : ""}</span>
         </button>
         <button
           type="button"
-          onClick={() => setViewMode("grades")}
-          className={`relative isolate z-10 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-colors duration-fast ease-smooth cursor-pointer active:scale-[0.98] ${
+          onClick={() => {
+            setGradesVisited(true);
+            setViewMode("grades");
+          }}
+          className={`relative z-10 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-colors duration-150 cursor-pointer active:scale-[0.98] ${
             viewMode === "grades"
               ? "text-white font-bold"
               : "text-sys-text-secondary hover:text-sys-text-primary"
           }`}
         >
-          {viewMode === "grades" && (
-            <motion.div
-              layoutId="mobile-view-mode-pill"
-              className="absolute inset-0 rounded-lg bg-sys-accentSolid shadow-xs -z-10"
-              transition={{ type: "tween", duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-            />
-          )}
           <span>📊</span>
           <span>Оцінки</span>
         </button>
@@ -526,16 +524,23 @@ export function MobileTasksView({
               <span>Прив&apos;язати Google Classroom</span>
             </button>
           </div>
-        ) : viewMode === "grades" ? (
-          <GradesView
-            tasks={tasks}
-            isLinked={isLinked}
-            onSyncClassroom={() =>
-              window.dispatchEvent(new CustomEvent("trigger-classroom-sync"))
-            }
-          />
         ) : (
-          <TasksTodoBoard tasks={tasks} isLinked={isLinked} layoutPrefix="mobile-tasks" />
+          <>
+            <div className={viewMode === "tasks" ? "block" : "hidden"}>
+              <TasksTodoBoard tasks={tasks} isLinked={isLinked} />
+            </div>
+            {(gradesVisited || viewMode === "grades") && (
+              <div className={viewMode === "grades" ? "block" : "hidden"}>
+                <GradesView
+                  tasks={tasks}
+                  isLinked={isLinked}
+                  onSyncClassroom={() =>
+                    window.dispatchEvent(new CustomEvent("trigger-classroom-sync"))
+                  }
+                />
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

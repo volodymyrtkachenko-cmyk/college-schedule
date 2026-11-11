@@ -22,7 +22,8 @@ export function useViewportTier(): {
   isMobile: boolean;
   isTablet: boolean;
 } {
-  const [tier, setTier] = useState<ViewportTier>(() => getTier());
+  // На старті завжди однаково на сервері й клієнті для чистої гідрації без #418
+  const [tier, setTier] = useState<ViewportTier>("desktop");
   const [isMounted, setIsMounted] = useState(false);
 
   useIsomorphicLayoutEffect(() => {
@@ -48,7 +49,7 @@ export function useViewportTier(): {
   return {
     tier,
     isMounted,
-    isDesktop: isMounted ? tier === "desktop" : false,
+    isDesktop: isMounted ? tier === "desktop" : true,
     isMobile: isMounted ? tier === "mobile" : false,
     isTablet: isMounted ? tier === "tablet" : false,
   };

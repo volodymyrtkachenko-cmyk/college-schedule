@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useMobileNav, MobileTab } from "../lib/useMobileNav";
+import { useMobileNav, MobileTab, isScheduleRoutePath } from "../lib/useMobileNav";
 
 export type { MobileTab };
 
-function vibrateTap(ms = 10) {
+function vibrateTap(ms = 8) {
   if (typeof navigator !== "undefined" && "vibrate" in navigator) {
     try {
       navigator.vibrate(ms);
@@ -24,39 +24,33 @@ export function BottomNav() {
     scheduleMode,
   } = useMobileNav();
 
-  // Hidden on admin and login routes, or desktop (lg:hidden)
   const isHiddenRoute = pathname?.startsWith("/admin") || pathname?.startsWith("/login");
   if (isHiddenRoute) {
     return null;
   }
 
-  const isHome =
-    pathname === "/" ||
-    Boolean(pathname?.startsWith("/group/") || pathname?.startsWith("/teacher/"));
+  const isOnSchedulePage = isScheduleRoutePath(pathname);
   const isSettings = pathname?.startsWith("/settings");
 
   const handleScheduleClick = (e: React.MouseEvent) => {
-    vibrateTap(10);
+    vibrateTap(8);
     setHomeTab("schedule");
-    if (isHome) {
-      // Already on home, no route change needed, just switch tab
+    if (isOnSchedulePage) {
       e.preventDefault();
     }
   };
 
   const handleTasksClick = (e: React.MouseEvent) => {
-    vibrateTap(10);
+    vibrateTap(8);
     setHomeTab("tasks");
-    if (isHome) {
-      // Already on home, no route change needed, just switch tab
+    if (isOnSchedulePage) {
       e.preventDefault();
     }
   };
 
   const handleSettingsClick = (e: React.MouseEvent) => {
-    vibrateTap(10);
+    vibrateTap(8);
     if (isSettings) {
-      // Already on settings, smooth scroll to top
       e.preventDefault();
       if (typeof window !== "undefined") {
         window.scrollTo({ top: 0, behavior: "smooth" });
@@ -77,28 +71,27 @@ export function BottomNav() {
       className="fixed inset-x-0 bottom-0 z-40 border-t border-sys-border bg-sys-card pb-[env(safe-area-inset-bottom)] lg:hidden isolate select-none"
     >
       <div className="relative mx-auto flex h-14 max-w-lg items-stretch justify-around px-2">
-        {/* Pure Horizontal Sliding Pill Indicator (Locked to X-axis, never jumps vertically) */}
-        {activeTab !== null && (
-          <div
-            aria-hidden="true"
-            className="absolute top-1 bottom-1 pointer-events-none transition-transform duration-fast ease-smooth transform-gpu z-0"
-            style={{
-              left: "8px",
-              width: `calc((100% - 16px) / ${totalTabs})`,
-              transform: `translate3d(calc(${tabIndex} * 100%), 0, 0)`,
-            }}
-          >
-            <div className="mx-1 h-full rounded-xl bg-sys-accent/15 shadow-xs" />
-          </div>
-        )}
+        {/* Hardware-accelerated GPU sliding pill */}
+        <div
+          aria-hidden="true"
+          className="absolute top-1 bottom-1 pointer-events-none transition-transform duration-150 ease-out transform-gpu will-change-transform z-0"
+          style={{
+            left: "8px",
+            width: `calc((100% - 16px) / ${totalTabs})`,
+            transform: `translate3d(calc(${tabIndex} * 100%), 0, 0)`,
+          }}
+        >
+          <div className="mx-1 h-full rounded-xl bg-sys-accent/15 shadow-xs" />
+        </div>
 
         {/* Tab 1: Schedule */}
         <Link
           href={scheduleHref}
+          prefetch={true}
           onClick={handleScheduleClick}
           aria-label="Розклад"
           aria-pressed={activeTab === "schedule"}
-          className={`relative z-10 flex flex-1 min-h-[48px] flex-col items-center justify-center gap-0.5 rounded-xl transition-colors duration-fast ease-smooth active:scale-95 ${
+          className={`relative z-10 flex flex-1 min-h-[48px] flex-col items-center justify-center gap-0.5 rounded-xl transition-colors duration-150 active:scale-95 ${
             activeTab === "schedule"
               ? "font-bold text-sys-accent"
               : "text-sys-text-secondary hover:text-sys-text-primary font-medium"
@@ -126,10 +119,11 @@ export function BottomNav() {
         {!hideTasksTab && (
           <Link
             href={tasksHref}
+            prefetch={true}
             onClick={handleTasksClick}
             aria-label={`Завдання${overdueCount > 0 ? `, прострочено ${overdueCount}` : ""}`}
             aria-pressed={activeTab === "tasks"}
-            className={`relative z-10 flex flex-1 min-h-[48px] flex-col items-center justify-center gap-0.5 rounded-xl transition-colors duration-fast ease-smooth active:scale-95 ${
+            className={`relative z-10 flex flex-1 min-h-[48px] flex-col items-center justify-center gap-0.5 rounded-xl transition-colors duration-150 active:scale-95 ${
               activeTab === "tasks"
                 ? "font-bold text-sys-accent"
                 : "text-sys-text-secondary hover:text-sys-text-primary font-medium"
@@ -169,11 +163,11 @@ export function BottomNav() {
         {/* Tab 3: Settings */}
         <Link
           href={settingsHref}
-          prefetch={false}
+          prefetch={true}
           onClick={handleSettingsClick}
           aria-label="Налаштування"
           aria-pressed={activeTab === "settings"}
-          className={`relative z-10 flex flex-1 min-h-[48px] flex-col items-center justify-center gap-0.5 rounded-xl transition-colors duration-fast ease-smooth active:scale-95 ${
+          className={`relative z-10 flex flex-1 min-h-[48px] flex-col items-center justify-center gap-0.5 rounded-xl transition-colors duration-150 active:scale-95 ${
             activeTab === "settings"
               ? "font-bold text-sys-accent"
               : "text-sys-text-secondary hover:text-sys-text-primary font-medium"

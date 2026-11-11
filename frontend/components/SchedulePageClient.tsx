@@ -88,7 +88,7 @@ export function SchedulePageClient({
   const { theme, resolvedTheme, setTheme, toggleTheme } = useTheme();
   const { isMounted, isDesktop } = useViewportTier();
   const { updateSetting } = useUserSettings();
-  const showDesktop = isMounted ? isDesktop : false;
+  const showDesktop = !isMounted || isDesktop;
   const showMobile = !isMounted || !isDesktop;
   const getInitialAnchor = () => getKyivInitialWeekAnchor();
   const [weekAnchorDate, setWeekAnchorDate] = useState(getInitialAnchor());
@@ -655,19 +655,21 @@ export function SchedulePageClient({
     return 0;
   };
 
-  const getInitialDayIndex = (): number => {
-    const now = getSyncedNow();
-    const dow = getKyivWeekday(now);
-    if (dow === 0 || dow === 6) return 0;
-    const [kyivHour, kyivMin] = KYIV_TIME_FMT.format(now).split(":").map(Number);
-    const totalMins = (kyivHour || 0) * 60 + (kyivMin || 0);
-    if (dow >= 1 && dow <= 4 && totalMins >= 15 * 60 + 20) {
-      return dow;
-    }
-    return dow - 1;
-  };
+  // На етапі SSR та першої гідрації беремо поточний день тижня (без залежності від години/хвилини),
+  // а вечірній перехід на завтра (після 15:20) виконуємо у useEffect після гідрації!
+  const [selectedDayIndex, setSelectedDayIndex] = useState<number>(() => getActualTodayIndex());
 
-  const [selectedDayIndex, setSelectedDayIndex] = useState<number>(getInitialDayIndex);
+  useEffect(() => {
+    const now = new Date();
+    const dow = getKyivWeekday(now);
+    if (dow >= 1 && dow <= 4) {
+      const [kyivHour, kyivMin] = KYIV_TIME_FMT.format(now).split(":").map(Number);
+      const totalMins = (kyivHour || 0) * 60 + (kyivMin || 0);
+      if (totalMins >= 15 * 60 + 20) {
+        setSelectedDayIndex(dow);
+      }
+    }
+  }, []);
   const [showAllDayTasks, setShowAllDayTasks] = useState(false);
   const [dismissTomorrowBanner, setDismissTomorrowBanner] = useState(false);
   const [dismissTodayBanner, setDismissTodayBanner] = useState(false);
@@ -960,7 +962,7 @@ export function SchedulePageClient({
     return p ? getPeriodMeta(p) : null;
   }, [week]);
 
-  const isWeekend = [0, 6].includes(getSyncedNow().getDay());
+  const isWeekend = [0, 6].includes(getKyivWeekday(new Date()));
   const isAutoSelectedWeekendDay = isWeekend && isCurrentWeek && selectedDayIndex === 0;
 
   const selectedDaySchedule: ScheduleResponse = useMemo(() => {
@@ -2100,125 +2102,112 @@ export function SchedulePageClient({
           </div>
         )}
 
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div
-            key={mobileTab === "tasks" ? "tasks" : view}
-            initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 3 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: shouldReduceMotion ? 0 : -3 }}
-            transition={{
-              duration: shouldReduceMotion ? 0 : 0.12,
-              ease: "easeOut",
-            }}
-          >
-            {mobileTab === "tasks" ? (
-              <MobileTasksView
-                tasks={allTasks}
-                groupId={groupId}
-                weekStart={weekStartStr}
-                weekAnchorDate={weekAnchorDate}
-                weekNumber={currentWeekNumber}
-                onPrevWeek={() => shiftWeekPreservingDay(-1)}
-                onNextWeek={() => shiftWeekPreservingDay(1)}
-                tasksScope={tasksScope}
-                onTasksScopeChange={setTasksScope}
-                lastSyncedAt={classroomLastSyncedAt}
-                onSynced={(detectedId, _tasks, _lastSynced, isSilent) => {
-                  if (!isSilent && !returnTarget && detectedId && detectedId !== groupId) setGroupId(detectedId);
-                }}
-              />
-            ) : (
-              <div className="px-3 py-3">
-                {loading ? (
-                  <div className="space-y-3" aria-busy="true" aria-label="Завантаження розкладу">
-                    {[1, 2, 3].map((num) => (
-                      <div
-                        key={num}
-                        className="flex items-start gap-4 rounded-xl border border-sys-border/60 bg-sys-card/70 p-4 animate-pulse"
-                      >
-                        <div className="flex w-12 shrink-0 flex-col gap-1.5">
-                          <div className="h-5 w-6 rounded bg-sys-elevated" />
-                          <div className="h-3 w-10 rounded bg-sys-elevated/60" />
-                        </div>
-                        <div className="flex flex-1 flex-col gap-2.5">
-                          <div className="h-4 w-3/5 rounded bg-sys-elevated" />
-                          <div className="h-3.5 w-2/5 rounded bg-sys-elevated/60" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : error ? (
-                  <div className="rounded-2xl border border-sys-border bg-sys-card p-6 text-center space-y-3">
-                    <p className="text-sm font-medium text-sys-text-primary">{error}</p>
-                    <p className="text-xs text-sys-text-secondary">
-                      Ви можете обрати іншу збережену групу у шапці або спробувати оновити дані.
-                    </p>
-                    <div className="flex items-center justify-center gap-2 pt-1">
-                      <button
-                        type="button"
-                        onClick={() => invalidateScheduleCache()}
-                        className="rounded-xl bg-sys-accent px-4 py-2 text-xs font-semibold text-white hover:opacity-90 active:scale-95 transition-all cursor-pointer"
-                      >
-                        Спробувати ще раз
-                      </button>
-                      {returnTarget && (
-                        <button
-                          type="button"
-                          onClick={handleReturnBack}
-                          className="rounded-xl border border-sys-border bg-sys-bg px-3.5 py-2 text-xs font-semibold text-sys-text-primary hover:border-sys-accent/50 transition-colors cursor-pointer"
-                        >
-                          ← До {returnTarget.label}
-                        </button>
-                      )}
+        <div className="w-full">
+          <div className={mobileTab === "tasks" ? "block" : "hidden"}>
+            <MobileTasksView
+              tasks={allTasks}
+              groupId={groupId}
+              weekStart={weekStartStr}
+              weekAnchorDate={weekAnchorDate}
+              weekNumber={currentWeekNumber}
+              lastSyncedAt={classroomLastSyncedAt}
+              onSynced={(detectedId, _tasks, _lastSynced, isSilent) => {
+                if (!isSilent && !returnTarget && detectedId && detectedId !== groupId) {
+                  setGroupId(detectedId);
+                }
+              }}
+            />
+          </div>
+
+          <div className={mobileTab === "tasks" ? "hidden" : "block px-3 py-3"}>
+            {loading ? (
+              <div className="space-y-3" aria-busy="true" aria-label="Завантаження розкладу">
+                {[1, 2, 3].map((num) => (
+                  <div
+                    key={num}
+                    className="flex items-start gap-4 rounded-xl border border-sys-border/60 bg-sys-card/70 p-4 animate-pulse"
+                  >
+                    <div className="flex w-12 shrink-0 flex-col gap-1.5">
+                      <div className="h-5 w-6 rounded bg-sys-elevated" />
+                      <div className="h-3 w-10 rounded bg-sys-elevated/60" />
+                    </div>
+                    <div className="flex flex-1 flex-col gap-2.5">
+                      <div className="h-4 w-3/5 rounded bg-sys-elevated" />
+                      <div className="h-3.5 w-2/5 rounded bg-sys-elevated/60" />
                     </div>
                   </div>
-                ) : view === "today" ? (
-                  <DayPager
-                    schedule={selectedDaySchedule}
-                    todayDate={todayActualIso}
-                    tomorrowDate={tomorrowActualIso}
-                    scheduleMode={mode}
-                    canEdit={false}
-                    onQuickJump={handleQuickJump}
-                    onNextDay={goToNextDay}
-                    onPrevDay={goToPrevDay}
-                    onJumpToToday={handleJumpToToday}
-                    onJumpToTomorrow={handleJumpToTomorrow}
-                    daySlideDir={daySlideDir}
-                    shouldReduceMotion={shouldReduceMotion ?? false}
-                    isWeekend={isAutoSelectedWeekendDay}
-                    isShowingTomorrow={isEveningAfterLessons && isCurrentWeek}
-                    weekNumber={currentWeekNumber}
-                    currentGroupName={mode === "student" ? (currentName ?? null) : null}
-                    currentTeacherId={mode === "teacher" ? teacherId : null}
-                    currentTeacherName={mode === "teacher" ? (selectedTeacher?.name ?? null) : null}
-                    canPrevDay={canNavigatePrevDay}
-                    canNextDay={canNavigateNextDay}
-                    minDateIso={minDateIso}
-                    maxDateIso={maxDateIso}
-                  />
-                ) : (
-                  <ScheduleWeekGrid
-                    week={week}
-                    scheduleMode={mode}
-                    canEdit={false}
-                    onQuickJump={handleQuickJump}
-                    weekNumber={currentWeekNumber}
-                    currentTeacherId={mode === "teacher" ? teacherId : null}
-                    currentTeacherName={mode === "teacher" ? (selectedTeacher?.name ?? null) : null}
-                    onSelectDay={handleSelectDayFromWeek}
-                  />
-                )}
+                ))}
+              </div>
+            ) : error ? (
+              <div className="rounded-2xl border border-sys-border bg-sys-card p-6 text-center space-y-3">
+                <p className="text-sm font-medium text-sys-text-primary">{error}</p>
+                <p className="text-xs text-sys-text-secondary">
+                  Ви можете обрати іншу збережену групу у шапці або спробувати оновити дані.
+                </p>
+                <div className="flex items-center justify-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => invalidateScheduleCache()}
+                    className="rounded-xl bg-sys-accent px-4 py-2 text-xs font-semibold text-white hover:opacity-90 active:scale-95 transition-all cursor-pointer"
+                  >
+                    Спробувати ще раз
+                  </button>
+                  {returnTarget && (
+                    <button
+                      type="button"
+                      onClick={handleReturnBack}
+                      className="rounded-xl border border-sys-border bg-sys-bg px-3.5 py-2 text-xs font-semibold text-sys-text-primary hover:border-sys-accent/50 transition-colors cursor-pointer"
+                    >
+                      ← До {returnTarget.label}
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : view === "today" ? (
+              <DayPager
+                schedule={selectedDaySchedule}
+                todayDate={todayActualIso}
+                tomorrowDate={tomorrowActualIso}
+                scheduleMode={mode}
+                canEdit={false}
+                onQuickJump={handleQuickJump}
+                onNextDay={goToNextDay}
+                onPrevDay={goToPrevDay}
+                onJumpToToday={handleJumpToToday}
+                onJumpToTomorrow={handleJumpToTomorrow}
+                daySlideDir={daySlideDir}
+                shouldReduceMotion={shouldReduceMotion ?? false}
+                isWeekend={isAutoSelectedWeekendDay}
+                isShowingTomorrow={isEveningAfterLessons && isCurrentWeek}
+                weekNumber={currentWeekNumber}
+                currentGroupName={mode === "student" ? (currentName ?? null) : null}
+                currentTeacherId={mode === "teacher" ? teacherId : null}
+                currentTeacherName={mode === "teacher" ? (selectedTeacher?.name ?? null) : null}
+                canPrevDay={canNavigatePrevDay}
+                canNextDay={canNavigateNextDay}
+                minDateIso={minDateIso}
+                maxDateIso={maxDateIso}
+              />
+            ) : (
+              <ScheduleWeekGrid
+                week={week}
+                scheduleMode={mode}
+                canEdit={false}
+                onQuickJump={handleQuickJump}
+                weekNumber={currentWeekNumber}
+                currentTeacherId={mode === "teacher" ? teacherId : null}
+                currentTeacherName={mode === "teacher" ? (selectedTeacher?.name ?? null) : null}
+                onSelectDay={handleSelectDayFromWeek}
+              />
+            )}
 
-                {!loading && !error && ((mode === "student" && !groups.length) || (mode === "teacher" && !teachers.length)) && (
-                  <div className="mt-4 rounded-2xl border border-dashed border-sys-border p-8 text-center text-xs text-sys-text-secondary">
-                    {mode === "student" ? "Список груп поки порожній." : "Список викладачів поки порожній."}
-                  </div>
-                )}
+            {!loading && !error && ((mode === "student" && !groups.length) || (mode === "teacher" && !teachers.length)) && (
+              <div className="mt-4 rounded-2xl border border-dashed border-sys-border p-8 text-center text-xs text-sys-text-secondary">
+                {mode === "student" ? "Список груп поки порожній." : "Список викладачів поки порожній."}
               </div>
             )}
-          </motion.div>
-        </AnimatePresence>
+          </div>
+        </div>
       </div>
       )}
 

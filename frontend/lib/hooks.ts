@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import {
   api,
   ScheduleResponse,
@@ -54,6 +54,9 @@ export function useOnlineStatus() {
   return online;
 }
 
+const useIsomorphicLayoutEffect =
+  typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
 export function useSchedule(
   weekAnchorDate: Date,
   includeCancelled = false,
@@ -65,58 +68,61 @@ export function useSchedule(
 ) {
   const { user } = useAuth();
 
-  const [isSetupComplete, setIsSetupComplete] = useState(() => {
-    if (initialGroupId || initialTeacherId) return true;
-    if (typeof window !== "undefined") {
-      return window.localStorage.getItem("schedule:setupComplete") === "1";
-    }
-    return false;
-  });
-
-  const [mode, setMode] = useState<"student" | "teacher">(() => {
-    if (initialMode) return initialMode;
-    if (typeof window !== "undefined") {
-      const saved = window.localStorage.getItem("schedule:mode");
-      if (saved === "student" || saved === "teacher") return saved;
-    }
-    return "student";
-  });
-
+  // ВАЖЛИВО: початковий стан має на 100% збігатися між SSR та першим клієнтським рендером,
+  // щоб уникнути React Error #425 / #418 / #423. Читання localStorage відбувається у useIsomorphicLayoutEffect до відмальовування кадру.
+  const [isSetupComplete, setIsSetupComplete] = useState<boolean>(
+    Boolean(initialGroupId || initialTeacherId)
+  );
+  const [mode, setMode] = useState<"student" | "teacher">(initialMode ?? "student");
   const [groups, setGroups] = useState<import("./api").ReferenceRecord[]>(initialGroups);
   const [teachers, setTeachers] = useState<import("./api").ReferenceRecord[]>(
     initialTeachers.filter((t) => t.name && !t.name.includes("!"))
   );
-
-  const [groupId, setGroupId] = useState<number | null>(() => {
-    if (initialGroupId) return initialGroupId;
-    if (typeof window !== "undefined") {
-      const saved = Number(window.localStorage.getItem("schedule:groupId"));
-      if (saved > 0) return saved;
-    }
-    return initialGroups[0]?.id ?? null;
-  });
-
-  const [teacherId, setTeacherId] = useState<number | null>(() => {
-    if (initialTeacherId) return initialTeacherId;
-    if (typeof window !== "undefined") {
-      const saved = Number(window.localStorage.getItem("schedule:teacherId"));
-      if (saved > 0) return saved;
-    }
-    return initialTeachers[0]?.id ?? null;
-  });
-
+  const [groupId, setGroupId] = useState<number | null>(
+    initialGroupId ?? (initialGroups[0]?.id ?? null)
+  );
+  const [teacherId, setTeacherId] = useState<number | null>(
+    initialTeacherId ?? (initialTeachers[0]?.id ?? null)
+  );
   const [today, setToday] = useState<ScheduleResponse | null>(null);
   const [week, setWeek] = useState<ScheduleResponse[]>([]);
-  const [semesterStart, setSemesterStart] = useState<string | null>(() => {
-    if (typeof window !== "undefined") {
-      return window.localStorage.getItem("schedule:semesterStart");
-    }
-    return null;
-  });
+  const [semesterStart, setSemesterStart] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSlowNetwork, setIsSlowNetwork] = useState(false);
   const [isUsingFallbackCache, setIsUsingFallbackCache] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Миттєва синхронізація з localStorage після гідрації ДО першого відмальовування екрана (0 миготінь і 0 помилок гідрації)
+  useIsomorphicLayoutEffect(() => {
+    try {
+      if (initialGroupId || initialTeacherId) {
+        setIsSetupComplete(true);
+        window.localStorage.setItem("schedule:setupComplete", "1");
+      } else if (window.localStorage.getItem("schedule:setupComplete") === "1") {
+        setIsSetupComplete(true);
+      }
+
+      if (!initialMode) {
+        const savedMode = window.localStorage.getItem("schedule:mode");
+        if (savedMode === "student" || savedMode === "teacher") {
+          setMode(savedMode);
+        }
+      }
+
+      if (!initialGroupId) {
+        const savedGid = Number(window.localStorage.getItem("schedule:groupId"));
+        if (savedGid > 0) setGroupId(savedGid);
+      }
+
+      if (!initialTeacherId) {
+        const savedTid = Number(window.localStorage.getItem("schedule:teacherId"));
+        if (savedTid > 0) setTeacherId(savedTid);
+      }
+
+      const savedSem = window.localStorage.getItem("schedule:semesterStart");
+      if (savedSem) setSemesterStart(savedSem);
+    } catch {}
+  }, [initialGroupId, initialTeacherId, initialMode]);
 
   useEffect(() => {
     if (initialGroupId || initialTeacherId) {
