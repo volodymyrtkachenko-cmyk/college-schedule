@@ -171,12 +171,9 @@ export default function SettingsPage() {
             }).catch(() => {});
           }
         },
-        onError: (err) => {
-          showToast(err.message || "Не вдалося прив'язати Classroom", "error");
-        },
       });
     } catch (err: any) {
-      showToast(err?.message || "Помилка авторизації Google", "error");
+      showToast(err?.message || "Не вдалося прив'язати Classroom", "error");
     } finally {
       setIsLinkingClassroom(false);
     }

@@ -41,12 +41,9 @@ export function ClassroomRelinkBanner({ className = "" }: { className?: string }
         onSuccess: (res) => {
           showToast(`Classroom успішно підключено (${res.group_name || ""})!`, "success");
         },
-        onError: (err) => {
-          showToast(err.message || "Не вдалося оновити підключення", "error");
-        },
       });
     } catch (err: any) {
-      showToast(err?.message || "Помилка авторизації Google", "error");
+      showToast(err?.message || "Не вдалося оновити підключення", "error");
     } finally {
       setIsRelinking(false);
     }

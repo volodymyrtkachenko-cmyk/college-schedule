@@ -1,15 +1,16 @@
 "use client";
 
+
 import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
-import { ClassroomTaskItem, getTaskStatusText } from "./LessonCard";
 import { ClassroomSyncButton } from "./ClassroomSyncButton";
-import { ClassroomRelinkBanner } from "./ClassroomRelinkBanner";
 import { useClassroomSubmissions } from "../lib/useClassroomSubmissions";
-import { useTaskGroups, formatTaskWord, TaskFilterState, DEFAULT_TASK_FILTERS } from "../lib/useTaskGroups";
-import { TaskFilters } from "./TaskFilters";
-import { formatTaskGradeDisplay } from "../lib/useGradesSummary";
+import {
+  useTaskGroups,
+  formatTaskWord,
+  TaskFilterState,
+} from "../lib/useTaskGroups";
 import { FullTaskItem, renderTaskCard, TaskCardItem } from "./TaskCardItem";
 
 const GradesView = dynamic(() => import("./GradesView").then((m) => m.GradesView), { ssr: false });
@@ -17,16 +18,361 @@ const GradesView = dynamic(() => import("./GradesView").then((m) => m.GradesView
 export type { FullTaskItem };
 export { renderTaskCard };
 
+export type TasksTabMode = "pending" | "overdue" | "done";
+
+export function TasksTodoBoard({
+  tasks,
+  isLinked,
+  layoutPrefix = "mobile-tasks",
+}: {
+  tasks: FullTaskItem[];
+  isLinked: boolean;
+  layoutPrefix?: string;
+}) {
+  const [activeTab, setActiveTab] = useState<TasksTabMode>("pending");
+  const [selectedSubject, setSelectedSubject] = useState<string>("");
+
+  const filters: TaskFilterState = useMemo(
+    () => ({
+      status: activeTab,
+      subject: selectedSubject,
+    }),
+    [activeTab, selectedSubject]
+  );
+
+  const {
+    overdueTasks,
+    activeTasks,
+    noDateTasks,
+    turnedInTasks,
+    pendingCount,
+    overdueTotalCount,
+    doneCount,
+    subjects,
+  } = useTaskGroups(tasks, "all", undefined, undefined, isLinked, filters);
+
+  // Якщо обраний предмет зник у новій вкладці — скидаємо фільтр предмета
+  const effectiveSubject = useMemo(() => {
+    if (!selectedSubject) return "";
+    return subjects.some((s) => s.name === selectedSubject) ? selectedSubject : "";
+  }, [selectedSubject, subjects]);
+
+  return (
+    <div className="w-full space-y-3.5">
+      {/* Unlinked Prompt Banner */}
+      {!isLinked && (
+        <div className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-3 text-xs text-sys-text-secondary">
+          <div className="flex items-center justify-between gap-2.5">
+            <div className="flex items-start gap-2 min-w-0">
+              <span className="text-sky-600 dark:text-sky-400 font-bold shrink-0">ⓘ</span>
+              <span className="leading-snug text-sys-text-primary">
+                Це завдання всієї групи. Прив&apos;яжи пошту, щоб бачити свої здачі та оцінки.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                window.dispatchEvent(new CustomEvent("trigger-classroom-sync"));
+              }}
+              className="shrink-0 rounded-lg bg-sky-500/25 hover:bg-sky-500/35 border border-sky-500/40 px-2.5 py-1 text-xs font-semibold text-sky-800 dark:text-sky-200 transition-colors cursor-pointer active:scale-95"
+            >
+              Прив&apos;язати
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 3 Status Segmented Pills: [ До здачі | Борги | Здано ] */}
+      <div
+        role="tablist"
+        aria-label="Категорії завдань"
+        className={`relative grid ${
+          isLinked ? "grid-cols-3" : "grid-cols-2"
+        } gap-1 rounded-xl border border-sys-border bg-sys-bg p-1 text-xs font-semibold shadow-2xs select-none`}
+      >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === "pending"}
+          onClick={() => setActiveTab("pending")}
+          className={`relative isolate z-10 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg transition-colors duration-fast ease-smooth cursor-pointer active:scale-[0.98] ${
+            activeTab === "pending"
+              ? "text-white font-bold"
+              : "text-sys-text-secondary hover:text-sys-text-primary"
+          }`}
+        >
+          {activeTab === "pending" && (
+            <motion.div
+              layoutId={`${layoutPrefix}-status-pill`}
+              className="absolute inset-0 rounded-lg bg-sys-accentSolid shadow-xs -z-10"
+              transition={{ type: "tween", duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+            />
+          )}
+          <span className="truncate">До здачі</span>
+          <span
+            className={`inline-flex h-4 min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold ${
+              activeTab === "pending"
+                ? "bg-white/20 text-white"
+                : "bg-sys-card text-sys-text-secondary border border-sys-border/60"
+            }`}
+          >
+            {pendingCount}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === "overdue"}
+          onClick={() => setActiveTab("overdue")}
+          className={`relative isolate z-10 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg transition-colors duration-fast ease-smooth cursor-pointer active:scale-[0.98] ${
+            activeTab === "overdue"
+              ? "text-white font-bold"
+              : overdueTotalCount > 0 && isLinked
+              ? "text-rose-600 dark:text-rose-400 hover:text-rose-500"
+              : "text-sys-text-secondary hover:text-sys-text-primary"
+          }`}
+        >
+          {activeTab === "overdue" && (
+            <motion.div
+              layoutId={`${layoutPrefix}-status-pill`}
+              className={`absolute inset-0 rounded-lg shadow-xs -z-10 ${
+                isLinked && overdueTotalCount > 0 ? "bg-rose-600" : "bg-sys-accentSolid"
+              }`}
+              transition={{ type: "tween", duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+            />
+          )}
+          <span className="truncate">{isLinked ? "Борги" : "Минув час"}</span>
+          <span
+            className={`inline-flex h-4 min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold ${
+              activeTab === "overdue"
+                ? "bg-white/20 text-white"
+                : overdueTotalCount > 0 && isLinked
+                ? "bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/30"
+                : "bg-sys-card text-sys-text-secondary border border-sys-border/60"
+            }`}
+          >
+            {overdueTotalCount}
+          </span>
+        </button>
+
+        {isLinked && (
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "done"}
+            onClick={() => setActiveTab("done")}
+            className={`relative isolate z-10 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg transition-colors duration-fast ease-smooth cursor-pointer active:scale-[0.98] ${
+              activeTab === "done"
+                ? "text-white font-bold"
+                : "text-sys-text-secondary hover:text-sys-text-primary"
+            }`}
+          >
+            {activeTab === "done" && (
+              <motion.div
+                layoutId={`${layoutPrefix}-status-pill`}
+                className="absolute inset-0 rounded-lg bg-emerald-600 shadow-xs -z-10"
+                transition={{ type: "tween", duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+              />
+            )}
+            <span className="truncate">Здано</span>
+            <span
+              className={`inline-flex h-4 min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold ${
+                activeTab === "done"
+                  ? "bg-white/20 text-white"
+                  : "bg-sys-card text-sys-text-secondary border border-sys-border/60"
+              }`}
+            >
+              {doneCount}
+            </span>
+          </button>
+        )}
+      </div>
+
+      {/* Horizontal Subject Chips (1-tap subject filtering, shown when 2+ subjects exist) */}
+      {subjects.length > 1 && (
+        <div
+          role="group"
+          aria-label="Фільтр за предметом"
+          className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5 -mx-1 px-1"
+        >
+          <button
+            type="button"
+            onClick={() => setSelectedSubject("")}
+            className={`shrink-0 rounded-xl px-3 py-1.5 text-xs font-semibold border transition-colors duration-fast ease-smooth active:scale-95 cursor-pointer ${
+              !effectiveSubject
+                ? "bg-sys-accent/15 border-sys-accent/50 text-sys-accent shadow-2xs"
+                : "bg-sys-card border-sys-border text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/30"
+            }`}
+          >
+            Усі предмети
+          </button>
+          {subjects.map((subj) => {
+            const isSelected = effectiveSubject === subj.name;
+            return (
+              <button
+                key={subj.name}
+                type="button"
+                onClick={() => setSelectedSubject(isSelected ? "" : subj.name)}
+                className={`shrink-0 rounded-xl px-3 py-1.5 text-xs font-semibold border transition-colors duration-fast ease-smooth flex items-center gap-1.5 active:scale-95 cursor-pointer ${
+                  isSelected
+                    ? "bg-sys-accent/15 border-sys-accent/50 text-sys-accent shadow-2xs"
+                    : "bg-sys-card border-sys-border text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/30"
+                }`}
+              >
+                <span className="truncate max-w-[180px]">{subj.name}</span>
+                <span
+                  className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                    isSelected
+                      ? "bg-sys-accent/20 text-sys-accent font-bold"
+                      : "bg-sys-bg text-sys-text-muted"
+                  }`}
+                >
+                  {subj.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Quick Overdue Alert inside "До здачі" tab so student never misses debts */}
+      {activeTab === "pending" && isLinked && overdueTotalCount > 0 && !effectiveSubject && (
+        <button
+          type="button"
+          onClick={() => setActiveTab("overdue")}
+          className="w-full flex items-center justify-between gap-2 rounded-xl border border-rose-500/35 bg-rose-500/10 px-3.5 py-2.5 text-xs text-left transition-colors hover:bg-rose-500/15 active:scale-[0.99] cursor-pointer"
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="h-2 w-2 rounded-full bg-rose-500 shrink-0" />
+            <span className="font-semibold text-rose-800 dark:text-rose-300 truncate">
+              У вас {overdueTotalCount} прострочених {formatTaskWord(overdueTotalCount)}
+            </span>
+          </div>
+          <span className="shrink-0 font-bold text-rose-700 dark:text-rose-300">
+            Переглянути →
+          </span>
+        </button>
+      )}
+
+      {/* Tasks List by Selected Tab */}
+      {activeTab === "pending" && (
+        <div className="space-y-4">
+          {activeTasks.length === 0 && noDateTasks.length === 0 ? (
+            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-sys-border bg-sys-card/30 p-7 text-center">
+              <div className="mb-2.5 flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              </div>
+              <p className="text-sm font-semibold text-sys-text-primary">
+                {effectiveSubject
+                  ? `З предмета «${effectiveSubject}» активних завдань немає`
+                  : "Нових завдань до здачі немає"}
+              </p>
+              <p className="text-xs text-sys-text-muted mt-1">
+                {overdueTotalCount > 0
+                  ? `Але є нездані роботи у вкладці «${isLinked ? "Борги" : "Минув час"}» (${overdueTotalCount})`
+                  : "Усі поточні роботи виконано вчасно"}
+              </p>
+              {effectiveSubject && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedSubject("")}
+                  className="mt-3 rounded-lg bg-sys-accent/15 border border-sys-accent/30 px-3 py-1.5 text-xs font-semibold text-sys-accent hover:bg-sys-accent/25 transition-colors cursor-pointer"
+                >
+                  Показати всі предмети
+                </button>
+              )}
+            </div>
+          ) : (
+            <>
+              {activeTasks.length > 0 && (
+                <section className="space-y-2">
+                  <div className="flex items-center gap-2 px-1">
+                    <span className="h-2 w-2 rounded-full bg-sys-accent" />
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-sys-text-secondary">
+                      За розкладом дедлайнів ({activeTasks.length})
+                    </h3>
+                  </div>
+                  <div className="space-y-2">
+                    {activeTasks.map((t, idx) => (
+                      <TaskCardItem key={t.id || t.url || `act-${idx}`} task={t} isLinked={isLinked} />
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {noDateTasks.length > 0 && (
+                <section className="space-y-2">
+                  <div className="flex items-center gap-2 px-1 pt-1">
+                    <span className="h-2 w-2 rounded-full bg-slate-400" />
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-sys-text-secondary">
+                      Без терміну здачі ({noDateTasks.length})
+                    </h3>
+                  </div>
+                  <div className="space-y-2">
+                    {noDateTasks.map((t, idx) => (
+                      <TaskCardItem key={t.id || t.url || `nodate-${idx}`} task={t} isLinked={isLinked} />
+                    ))}
+                  </div>
+                </section>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {activeTab === "overdue" && (
+        <div className="space-y-2">
+          {overdueTasks.length === 0 ? (
+            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-sys-border bg-sys-card/30 p-7 text-center">
+              <div className="mb-2.5 flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              </div>
+              <p className="text-sm font-semibold text-sys-text-primary">
+                Прострочених завдань немає
+              </p>
+              <p className="text-xs text-sys-text-muted mt-1">
+                Жодних хвостів за попередні тижні!
+              </p>
+            </div>
+          ) : (
+            overdueTasks.map((t, idx) => (
+              <TaskCardItem key={t.id || t.url || `ovr-${idx}`} task={t} isLinked={isLinked} />
+            ))
+          )}
+        </div>
+      )}
+
+      {activeTab === "done" && (
+        <div className="space-y-2">
+          {turnedInTasks.length === 0 ? (
+            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-sys-border bg-sys-card/30 p-7 text-center">
+              <p className="text-sm font-semibold text-sys-text-primary">
+                Зданих робіт поки немає
+              </p>
+              <p className="text-xs text-sys-text-muted mt-1">
+                Тут з&apos;являться ваші здані та оцінені завдання з Classroom
+              </p>
+            </div>
+          ) : (
+            turnedInTasks.map((t, idx) => (
+              <TaskCardItem key={t.id || t.url || `done-${idx}`} task={t} isLinked={isLinked} />
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function MobileTasksView({
   tasks,
   groupId,
   weekStart,
-  weekAnchorDate,
-  weekNumber,
-  onPrevWeek,
-  onNextWeek,
-  tasksScope,
-  onTasksScopeChange,
   lastSyncedAt,
   onSynced,
 }: {
@@ -47,34 +393,12 @@ export function MobileTasksView({
     isSilent?: boolean
   ) => void;
 }) {
-  const [filters, setFilters] = useState<TaskFilterState>(DEFAULT_TASK_FILTERS);
   const [viewMode, setViewMode] = useState<"tasks" | "grades">("tasks");
   const { isLinked, isLinkedToGroup } = useClassroomSubmissions();
   const hasAccess = Boolean(groupId && isLinkedToGroup(groupId));
 
-  const [internalScope, setInternalScope] = useState<"week" | "all">("week");
-  const scope = tasksScope ?? internalScope;
-  const setScope = onTasksScopeChange ?? setInternalScope;
-
-  const [pastWeekOpen, setPastWeekOpen] = useState(false);
-  const [userToggledOverdue, setUserToggledOverdue] = useState<boolean | null>(null);
-  const overdueOpen = userToggledOverdue !== null ? userToggledOverdue : isLinked;
-  const [activeOpen, setActiveOpen] = useState(true);
-  const [noDateOpen, setNoDateOpen] = useState(false);
-  const [turnedInOpen, setTurnedInOpen] = useState(false);
-
-  const anchor = weekAnchorDate ?? new Date();
-
-  const {
-    pastWeekTasks,
-    overdueTasks,
-    activeTasks,
-    noDateTasks,
-    turnedInTasks,
-    totalCount,
-    isOnlyTurnedIn,
-    weekLabel,
-  } = useTaskGroups(tasks, scope, anchor, weekNumber, isLinked, filters);
+  const { activeCount, totalCount } = useTaskGroups(tasks, "all", undefined, undefined, isLinked);
+  const badgeCount = isLinked ? activeCount : totalCount;
 
   const formattedSyncTime = useMemo(() => {
     if (!lastSyncedAt) return null;
@@ -93,8 +417,7 @@ export function MobileTasksView({
 
   return (
     <div className="w-full min-w-0 pb-20 px-4 pt-3">
-      <ClassroomRelinkBanner />
-      {/* Header - Fixed stable height and top-aligned so title never jumps */}
+      {/* Header */}
       <div className="mb-3 flex items-start justify-between min-h-[48px]">
         <div className="min-w-0 flex-1 pr-2">
           <div className="h-7 flex items-center">
@@ -107,14 +430,12 @@ export function MobileTasksView({
               <span className="truncate">
                 {viewMode === "grades"
                   ? "Середній бал та успішність"
-                  : scope === "week"
-                  ? `${totalCount} ${formatTaskWord(totalCount)} на цьому тижні`
-                  : `${totalCount} ${formatTaskWord(totalCount)} загалом`}
+                  : isLinked
+                  ? `Активних до виконання: ${activeCount}`
+                  : `Усього в розкладі: ${totalCount} ${formatTaskWord(totalCount)}`}
               </span>
               {formattedSyncTime && (
-                <span className="shrink-0 text-sys-text-muted">
-                  • {formattedSyncTime}
-                </span>
+                <span className="shrink-0 text-sys-text-muted">• {formattedSyncTime}</span>
               )}
             </div>
           )}
@@ -125,16 +446,16 @@ export function MobileTasksView({
             <ClassroomSyncButton
               currentGroupId={groupId}
               weekStart={weekStart}
-              onSynced={(id, tasks, lastSynced, isSilent) =>
-                onSynced?.(id, tasks, lastSynced, isSilent)
+              onSynced={(id, syncedTasks, lastSynced, isSilent) =>
+                onSynced?.(id, syncedTasks, lastSynced, isSilent)
               }
             />
           </div>
         )}
       </div>
 
-      {/* Segmented Switch: Завдання vs Оцінки (Smooth sliding pill) */}
-      <div className="relative mb-4 grid grid-cols-2 gap-1 rounded-xl border border-sys-border bg-sys-card p-1 text-xs font-semibold shadow-xs">
+      {/* Top Switcher: [ 📋 Завдання | 📊 Оцінки ] */}
+      <div className="relative mb-4 grid grid-cols-2 gap-1 rounded-xl border border-sys-border bg-sys-card p-1 text-xs font-semibold shadow-xs select-none">
         <button
           type="button"
           onClick={() => setViewMode("tasks")}
@@ -148,11 +469,11 @@ export function MobileTasksView({
             <motion.div
               layoutId="mobile-view-mode-pill"
               className="absolute inset-0 rounded-lg bg-sys-accentSolid shadow-xs -z-10"
-              transition={{ type: "tween", duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+              transition={{ type: "tween", duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
             />
           )}
           <span>📋</span>
-          <span>{hasAccess ? `Завдання (${totalCount})` : "Завдання"}</span>
+          <span>Завдання{hasAccess && badgeCount > 0 ? ` (${badgeCount})` : ""}</span>
         </button>
         <button
           type="button"
@@ -167,7 +488,7 @@ export function MobileTasksView({
             <motion.div
               layoutId="mobile-view-mode-pill"
               className="absolute inset-0 rounded-lg bg-sys-accentSolid shadow-xs -z-10"
-              transition={{ type: "tween", duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+              transition={{ type: "tween", duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
             />
           )}
           <span>📊</span>
@@ -176,410 +497,46 @@ export function MobileTasksView({
       </div>
 
       <div className="w-full">
-        <motion.div
-          key={viewMode}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.12, ease: "easeOut" }}
-          className="w-full"
-        >
-          {!hasAccess ? (
-        <div className="rounded-2xl border border-sky-500/20 bg-sky-500/5 p-6 text-center mt-6">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-500/10 text-sky-700 dark:text-sky-400 border border-sky-500/20">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/>
-              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-            </svg>
-          </div>
-          <h3 className="text-base font-bold text-sys-text-primary mb-1.5">
-            {viewMode === "grades" ? "Оцінки захищено" : "Завдання захищено"}
-          </h3>
-          <p className="text-xs text-sys-text-secondary leading-relaxed max-w-sm mx-auto mb-5">
-            Домашні завдання, оцінки та матеріали доступні лише для студентів цієї групи. Підключіть студентський Google Classroom, щоб отримати доступ.
-          </p>
-          <button
-            type="button"
-            onClick={() => {
-              window.dispatchEvent(new CustomEvent("trigger-classroom-sync"));
-            }}
-            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-semibold text-xs px-5 py-2.5 transition-colors shadow-sm cursor-pointer active:scale-95"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
-              <polyline points="10 17 15 12 10 7" />
-              <line x1="15" y1="12" x2="3" y2="12" />
-            </svg>
-            <span>Прив&apos;язати Google Classroom</span>
-          </button>
-        </div>
-          ) : viewMode === "grades" ? (
-            <GradesView
-              tasks={tasks}
-              isLinked={isLinked}
-              groupId={groupId}
-              onSyncClassroom={() =>
-                window.dispatchEvent(new CustomEvent("trigger-classroom-sync"))
-              }
-            />
-          ) : (
-        <>
-          {/* Week Switcher & Scope Segment (Section 22.1) */}
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-            {/* Week Switcher ‹ 19–25 жовт. · 8 тиждень › */}
-            <div className="inline-flex items-center gap-1 rounded-xl border border-sys-border bg-sys-card px-1.5 py-1 text-xs shadow-xs">
-              {onPrevWeek && (
-                <button
-                  type="button"
-                  onClick={onPrevWeek}
-                  aria-label="Попередній тиждень"
-                  className="flex h-7 w-7 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg active:scale-95 transition-colors duration-fast ease-smooth cursor-pointer font-bold"
-                >
-                  ‹
-                </button>
-              )}
-              <span className="px-1.5 font-semibold text-sys-text-primary whitespace-nowrap text-xs">
-                {weekLabel}
-              </span>
-              {onNextWeek && (
-                <button
-                  type="button"
-                  onClick={onNextWeek}
-                  aria-label="Наступний тиждень"
-                  className="flex h-7 w-7 items-center justify-center rounded-lg text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg active:scale-95 transition-colors duration-fast ease-smooth cursor-pointer font-bold"
-                >
-                  ›
-                </button>
-              )}
+        {!hasAccess ? (
+          <div className="rounded-2xl border border-sky-500/20 bg-sky-500/5 p-6 text-center mt-6">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-500/10 text-sky-700 dark:text-sky-400 border border-sky-500/20">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
             </div>
-
-            {/* Scope Segment [Цей тиждень | Усі] (Smooth sliding pill) */}
-            <div className="relative inline-flex items-center rounded-xl border border-sys-border bg-sys-card p-0.5 text-xs shadow-xs">
-              <button
-                type="button"
-                onClick={() => setScope("week")}
-                className={`relative isolate z-10 rounded-lg px-2.5 py-1 font-semibold transition-colors duration-fast ease-smooth cursor-pointer active:scale-[0.97] ${
-                  scope === "week"
-                    ? "text-white font-bold"
-                    : "text-sys-text-secondary hover:text-sys-text-primary"
-                }`}
-              >
-                {scope === "week" && (
-                  <motion.div
-                    layoutId="mobile-tasks-scope-pill"
-                    className="absolute inset-0 rounded-lg bg-sys-accentSolid shadow-xs -z-10"
-                    transition={{ type: "tween", duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                  />
-                )}
-                Цей тиждень
-              </button>
-              <button
-                type="button"
-                onClick={() => setScope("all")}
-                className={`relative isolate z-10 rounded-lg px-2.5 py-1 font-semibold transition-colors duration-fast ease-smooth cursor-pointer active:scale-[0.97] ${
-                  scope === "all"
-                    ? "text-white font-bold"
-                    : "text-sys-text-secondary hover:text-sys-text-primary"
-                }`}
-              >
-                {scope === "all" && (
-                  <motion.div
-                    layoutId="mobile-tasks-scope-pill"
-                    className="absolute inset-0 rounded-lg bg-sys-accentSolid shadow-xs -z-10"
-                    transition={{ type: "tween", duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                  />
-                )}
-                Усі
-              </button>
-            </div>
-          </div>
-
-          {/* Unlinked Prompt Banner (Section 17.2) */}
-          {!isLinked && (
-            <div className="mb-4 rounded-xl border border-sky-500/30 bg-sky-500/10 p-3 text-xs text-sys-text-secondary">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-start gap-2 min-w-0">
-                  <span className="text-sky-600 dark:text-sky-400 font-bold shrink-0">ⓘ</span>
-                  <span className="leading-snug text-sys-text-primary">
-                    Це завдання всієї групи. Прив&apos;яжи пошту, щоб бачити, що ти вже здав.
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    window.dispatchEvent(new CustomEvent("trigger-classroom-sync"));
-                  }}
-                  className="shrink-0 rounded-lg bg-sky-500/25 hover:bg-sky-500/35 border border-sky-500/40 px-2.5 py-1 text-xs font-semibold text-sky-700 dark:text-sky-200 transition-colors cursor-pointer"
-                >
-                  Прив&apos;язати
-                </button>
-              </div>
-              <p className="text-xs text-sys-text-muted mt-1.5 pl-5">
-                Сервер лише читає ваші завдання з Classroom і нічого не змінює.
-              </p>
-            </div>
-          )}
-
-      {/* Filters */}
-      {tasks.length > 0 && (
-        <div className="mb-4">
-          <TaskFilters tasks={tasks} value={filters} onChange={setFilters} isLinked={isLinked} />
-        </div>
-      )}
-
-      {/* Empty State (Section 22.2) */}
-      {totalCount === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-sys-border bg-sys-card/30 p-8 text-center text-sys-text-muted mt-2">
-          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-sys-card border border-sys-border text-sys-text-muted shadow-xs">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
-              <line x1="16" y1="2" y2="6" />
-              <line x1="8" y1="2" y2="6" />
-              <line x1="3" y1="2" y2="10" />
-            </svg>
-          </div>
-          <p className="text-sm font-semibold text-sys-text-primary">
-            {filters.status !== "all" || filters.subject
-              ? "Нічого не знайдено за вибраними фільтрами"
-              : scope === "week"
-                ? "На цьому тижні завдань немає"
-                : "Завдань немає"}
-          </p>
-          {scope === "week" && (filters.status !== "all" || filters.subject) && tasks.length > 0 && (
-            <p className="mt-1 text-xs">Спробуйте «Переглянути всі» або скиньте фільтри</p>
-          )}
-          {scope === "week" && (
+            <h3 className="text-base font-bold text-sys-text-primary mb-1.5">
+              {viewMode === "grades" ? "Оцінки захищено" : "Завдання захищено"}
+            </h3>
+            <p className="text-xs text-sys-text-secondary leading-relaxed max-w-sm mx-auto mb-5">
+              Домашні завдання та оцінки доступні лише для студентів цієї групи. Підключіть студентський Google Classroom, щоб отримати доступ.
+            </p>
             <button
               type="button"
-              onClick={() => setScope("all")}
-              className="mt-3.5 inline-flex items-center gap-1.5 rounded-lg bg-sys-accent/15 border border-sys-accent/30 px-3.5 py-1.5 text-xs font-semibold text-sys-accent hover:bg-sys-accent/25 transition-colors cursor-pointer"
+              onClick={() => {
+                window.dispatchEvent(new CustomEvent("trigger-classroom-sync"));
+              }}
+              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-semibold text-xs px-5 py-2.5 transition-colors shadow-sm cursor-pointer active:scale-95"
             >
-              Переглянути всі
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+                <polyline points="10 17 15 12 10 7" />
+                <line x1="15" y1="12" x2="3" y2="12" />
+              </svg>
+              <span>Прив&apos;язати Google Classroom</span>
             </button>
-          )}
-        </div>
-      ) : (
-        <div className="space-y-5">
-          {/* Group 0: Past weeks uncompleted overdue tasks (Section 22.1) */}
-          {scope === "week" && pastWeekTasks.length > 0 && (
-            <section>
-              <button
-                type="button"
-                onClick={() => setPastWeekOpen(!(pastWeekOpen || filters.status === "overdue" || Boolean(filters.subject)))}
-                className="mb-2.5 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
-                aria-expanded={pastWeekOpen || filters.status === "overdue" || Boolean(filters.subject)}
-              >
-                <div className="flex items-center gap-2">
-                  <span className={`h-2 w-2 rounded-full shadow-xs ${isLinked ? "bg-rose-500" : "bg-slate-500"}`} />
-                  <h3 className={`text-xs font-bold uppercase tracking-wider ${isLinked ? "text-rose-700 dark:text-rose-400" : "text-sys-text-secondary"}`}>
-                    З минулих тижнів ({pastWeekTasks.length})
-                  </h3>
-                </div>
-                <span className="text-xs text-sys-text-muted">
-                  {pastWeekOpen || filters.status === "overdue" || Boolean(filters.subject) ? "Згорнути ▴" : "Показати ▾"}
-                </span>
-              </button>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateRows: (pastWeekOpen || filters.status === "overdue" || Boolean(filters.subject)) ? "1fr" : "0fr",
-                  transition: "grid-template-rows 0.18s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.14s ease",
-                  opacity: (pastWeekOpen || filters.status === "overdue" || Boolean(filters.subject)) ? 1 : 0,
-                }}
-                className="w-full overflow-hidden transform-gpu will-change-[grid-template-rows,opacity]"
-              >
-                <div className="min-h-0 overflow-hidden">
-                  <div className="space-y-2">
-                    {pastWeekTasks.map((t) => (
-                      <TaskCardItem key={t.id || t.url} task={t} isLinked={isLinked} />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </section>
-          )}
-
-          {/* Group 1: Overdue or Past due */}
-          {overdueTasks.length > 0 && (
-            <section>
-              <button
-                type="button"
-                onClick={() => setUserToggledOverdue(!(overdueOpen || filters.status === "overdue" || Boolean(filters.subject)))}
-                className="mb-2.5 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
-                aria-expanded={overdueOpen || filters.status === "overdue" || Boolean(filters.subject)}
-              >
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`h-2 w-2 rounded-full shadow-xs ${
-                      isLinked ? "bg-rose-500" : "bg-slate-500"
-                    }`}
-                  />
-                  <h3
-                    className={`text-xs font-bold uppercase tracking-wider ${
-                      isLinked ? "text-rose-700 dark:text-rose-400" : "text-sys-text-secondary"
-                    }`}
-                  >
-                    {isLinked
-                      ? `Прострочено (${overdueTasks.length})`
-                      : `Термін минув (${overdueTasks.length})`}
-                  </h3>
-                </div>
-                <span className="text-xs text-sys-text-muted">
-                  {overdueOpen || filters.status === "overdue" || Boolean(filters.subject) ? "Згорнути ▴" : "Показати ▾"}
-                </span>
-              </button>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateRows: (overdueOpen || filters.status === "overdue" || Boolean(filters.subject)) ? "1fr" : "0fr",
-                  transition: "grid-template-rows 0.18s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.14s ease",
-                  opacity: (overdueOpen || filters.status === "overdue" || Boolean(filters.subject)) ? 1 : 0,
-                }}
-                className="w-full overflow-hidden transform-gpu will-change-[grid-template-rows,opacity]"
-              >
-                <div className="min-h-0 overflow-hidden">
-                  <div className="space-y-2">
-                    {overdueTasks.map((t) => (
-                      <TaskCardItem key={t.id || t.url} task={t} isLinked={isLinked} />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </section>
-          )}
-
-          {/* Group 2: Active / Upcoming with date */}
-          {activeTasks.length > 0 && (
-            <section>
-              <button
-                type="button"
-                onClick={() => setActiveOpen(!activeOpen)}
-                className="mb-2.5 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
-                aria-expanded={activeOpen}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-sys-accent shadow-xs" />
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-sys-text-secondary">
-                    Активні ({activeTasks.length})
-                  </h3>
-                </div>
-                <span className="text-xs text-sys-text-muted">
-                  {activeOpen ? "Згорнути ▴" : "Показати ▾"}
-                </span>
-              </button>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateRows: activeOpen ? "1fr" : "0fr",
-                  transition: "grid-template-rows 0.18s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.14s ease",
-                  opacity: activeOpen ? 1 : 0,
-                }}
-                className="w-full overflow-hidden transform-gpu will-change-[grid-template-rows,opacity]"
-              >
-                <div className="min-h-0 overflow-hidden">
-                  <div className="space-y-2">
-                    {activeTasks.map((t) => (
-                      <TaskCardItem key={t.id || t.url} task={t} isLinked={isLinked} />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </section>
-          )}
-
-          {/* Group 3: No due date */}
-          {noDateTasks.length > 0 && (
-            <section>
-              <button
-                type="button"
-                onClick={() => setNoDateOpen(!(noDateOpen || (filters.status === "pending" && activeTasks.length === 0) || Boolean(filters.subject)))}
-                className="mb-2.5 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
-                aria-expanded={noDateOpen || (filters.status === "pending" && activeTasks.length === 0) || Boolean(filters.subject)}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-slate-400 shadow-xs" />
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-sys-text-secondary">
-                    Без терміну ({noDateTasks.length})
-                  </h3>
-                </div>
-                <span className="text-xs text-sys-text-muted">
-                  {noDateOpen || (filters.status === "pending" && activeTasks.length === 0) || Boolean(filters.subject) ? "Згорнути ▴" : "Показати ▾"}
-                </span>
-              </button>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateRows: (noDateOpen || (filters.status === "pending" && activeTasks.length === 0) || Boolean(filters.subject)) ? "1fr" : "0fr",
-                  transition: "grid-template-rows 0.18s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.14s ease",
-                  opacity: (noDateOpen || (filters.status === "pending" && activeTasks.length === 0) || Boolean(filters.subject)) ? 1 : 0,
-                }}
-                className="w-full overflow-hidden transform-gpu will-change-[grid-template-rows,opacity]"
-              >
-                <div className="min-h-0 overflow-hidden">
-                  <div className="space-y-2">
-                    {noDateTasks.map((t) => (
-                      <TaskCardItem key={t.id || t.url} task={t} isLinked={isLinked} />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </section>
-          )}
-
-          {/* Empty state when only turned-in tasks exist (Section 22.2) */}
-          {isOnlyTurnedIn && filters.status !== "done" && (
-            <div className="flex items-center gap-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-2.5 text-xs text-emerald-800 dark:text-emerald-200 font-semibold select-none shadow-xs">
-              <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-700 dark:text-emerald-300">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-              </div>
-              <span>Усі завдання виконано</span>
-            </div>
-          )}
-
-          {/* Group 4: Turned In / Returned */}
-          {turnedInTasks.length > 0 && (
-            <section className="pt-1">
-              <button
-                type="button"
-                onClick={() => setTurnedInOpen(!(turnedInOpen || filters.status === "done"))}
-                className="mb-2.5 flex w-full items-center justify-between text-left select-none p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
-                aria-expanded={turnedInOpen || filters.status === "done"}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-xs" />
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
-                    Здано ({turnedInTasks.length})
-                  </h3>
-                </div>
-                <span className="text-xs text-sys-text-muted">
-                  {turnedInOpen || filters.status === "done" ? "Згорнути ▴" : "Показати ▾"}
-                </span>
-              </button>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateRows: (turnedInOpen || filters.status === "done") ? "1fr" : "0fr",
-                  transition: "grid-template-rows 0.18s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.14s ease",
-                  opacity: (turnedInOpen || filters.status === "done") ? 1 : 0,
-                }}
-                className="w-full overflow-hidden transform-gpu will-change-[grid-template-rows,opacity]"
-              >
-                <div className="min-h-0 overflow-hidden">
-                  <div className="space-y-2">
-                    {turnedInTasks.map((t) => (
-                      <TaskCardItem key={t.id || t.url} task={t} isLinked={isLinked} />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </section>
-          )}
-        </div>
-      )}
-        </>
-      )}
-        </motion.div>
+          </div>
+        ) : viewMode === "grades" ? (
+          <GradesView
+            tasks={tasks}
+            isLinked={isLinked}
+            onSyncClassroom={() =>
+              window.dispatchEvent(new CustomEvent("trigger-classroom-sync"))
+            }
+          />
+        ) : (
+          <TasksTodoBoard tasks={tasks} isLinked={isLinked} layoutPrefix="mobile-tasks" />
+        )}
       </div>
     </div>
   );
