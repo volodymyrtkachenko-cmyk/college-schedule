@@ -38,9 +38,11 @@ async def items(model, db: AsyncSession):
     cached = _DIR_CACHE.get(key)
     if cached is not None:
         return cached
-    data = (await db.scalars(
+    data = list((await db.scalars(
         select(model).where(model.is_active.is_(True)).order_by(model.name)
-    )).all()
+    )).all())
+    for row in data:
+        db.expunge(row)
     stale = [k for k in _DIR_CACHE if k[1] != rev]
     for k in stale:
         _DIR_CACHE.pop(k, None)

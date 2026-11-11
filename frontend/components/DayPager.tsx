@@ -127,6 +127,14 @@ export function DayPager({
     if (sharingImage) return;
     setSharingImage(true);
     try {
+      const firstLesson = schedule.lessons[0];
+      const ownerLabel =
+        scheduleMode === "teacher"
+          ? currentTeacherName || firstLesson?.teacher_name || "Розклад викладача"
+          : firstLesson?.group_name
+            ? `Група ${firstLesson.group_name}`
+            : "Розклад занять";
+
       const { shareScheduleAsImage } = await import("../lib/shareImage");
       const result = await shareScheduleAsImage(schedule, scheduleMode, ownerLabel, weekNumber, resolvedTheme);
       if (result === "copied") {
@@ -379,22 +387,21 @@ export function DayPager({
         </div>
       )}
 
-      {/* Animated Day Schedule List */}
+      {/* Animated Day Schedule List (Hardware-composited GPU glide) */}
       <div className="relative flex-1 w-full flex flex-col overflow-x-clip">
         <motion.div
           key={`${scheduleMode}-${schedule.date}`}
           initial={{
             opacity: 0,
-            x: shouldReduceMotion ? 0 : daySlideDir > 0 ? 24 : daySlideDir < 0 ? -24 : 0,
+            x: shouldReduceMotion ? 0 : daySlideDir > 0 ? 28 : daySlideDir < 0 ? -28 : 0,
           }}
           animate={{ opacity: 1, x: 0 }}
           transition={{
-            type: "spring",
-            stiffness: 380,
-            damping: 32,
-            mass: 0.75,
+            type: "tween",
+            duration: shouldReduceMotion ? 0 : 0.2,
+            ease: [0.22, 1, 0.36, 1],
           }}
-          className="flex flex-col flex-1 gap-3 w-full"
+          className="flex flex-col flex-1 gap-3 w-full will-change-[transform,opacity] transform-gpu"
         >
           {orderedLessons.length > 0 ? (
             orderedLessons.map((lesson, idx) => {

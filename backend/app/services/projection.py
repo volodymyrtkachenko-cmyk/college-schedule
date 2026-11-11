@@ -350,10 +350,18 @@ async def build_projection(
 
     def replace_slot(g, n, lesson, uid):
         uids = slot_map.pop((g, n), [])
-        had_template = any(getattr(cells.get((g, n, u)), "has_template", False) for u in uids)
+        had_template = False
+        fallback_subject_id = None
         for u in uids:
-            cells.pop((g, n, u), None)
+            prev = cells.pop((g, n, u), None)
+            if prev is not None:
+                if getattr(prev, "has_template", False):
+                    had_template = True
+                if fallback_subject_id is None and getattr(prev, "subject_id", None) is not None:
+                    fallback_subject_id = prev.subject_id
         lesson.has_template = had_template
+        if lesson.subject_id is None and fallback_subject_id is not None:
+            lesson.subject_id = fallback_subject_id
         put_cell(g, n, uid, lesson)
 
     # A0. Add practice slots
@@ -750,10 +758,18 @@ async def build_week_projection(
 
         def replace_slot(g, n, lesson, uid):
             uids = slot_map.pop((g, n), [])
-            had_template = any(getattr(cells.get((g, n, u)), "has_template", False) for u in uids)
+            had_template = False
+            fallback_subject_id = None
             for u in uids:
-                cells.pop((g, n, u), None)
+                prev = cells.pop((g, n, u), None)
+                if prev is not None:
+                    if getattr(prev, "has_template", False):
+                        had_template = True
+                    if fallback_subject_id is None and getattr(prev, "subject_id", None) is not None:
+                        fallback_subject_id = prev.subject_id
             lesson.has_template = had_template
+            if lesson.subject_id is None and fallback_subject_id is not None:
+                lesson.subject_id = fallback_subject_id
             put_cell(g, n, uid, lesson)
 
         for p in day_periods:

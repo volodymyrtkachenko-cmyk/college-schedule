@@ -62,21 +62,18 @@ export interface SchedulePageClientProps {
 
 const dayCarouselVariants = {
   enter: (dir: number) => ({
-    x: dir > 0 ? 54 : dir < 0 ? -54 : 0,
+    x: dir > 0 ? 36 : dir < 0 ? -36 : 0,
     opacity: 0,
-    scale: 0.985,
   }),
   center: {
     x: 0,
     opacity: 1,
-    scale: 1,
-    transition: { type: "spring" as const, stiffness: 300, damping: 30, mass: 0.85 },
+    transition: { type: "tween" as const, duration: 0.2, ease: [0.22, 1, 0.36, 1] as const },
   },
   exit: (dir: number) => ({
-    x: dir > 0 ? -54 : dir < 0 ? 54 : 0,
+    x: dir > 0 ? -36 : dir < 0 ? 36 : 0,
     opacity: 0,
-    scale: 0.985,
-    transition: { type: "spring" as const, stiffness: 300, damping: 30, mass: 0.85 },
+    transition: { type: "tween" as const, duration: 0.14, ease: [0.4, 0, 1, 1] as const },
   }),
 };
 
@@ -90,7 +87,7 @@ export function SchedulePageClient({
   const { theme, resolvedTheme, setTheme, toggleTheme } = useTheme();
   const { isMounted, isDesktop } = useViewportTier();
   const { updateSetting } = useUserSettings();
-  const showDesktop = !isMounted || isDesktop;
+  const showDesktop = isMounted ? isDesktop : false;
   const showMobile = !isMounted || !isDesktop;
   const getInitialAnchor = () => getKyivInitialWeekAnchor();
   const [weekAnchorDate, setWeekAnchorDate] = useState(getInitialAnchor());

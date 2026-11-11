@@ -1,12 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { api, DirectoryItem, ScheduleResponse, invalidateEtagCache, invalidateGroupStatusCache } from "./api";
+import {
+  api,
+  ScheduleResponse,
+  invalidateEtagCache,
+  invalidateGroupStatusCache,
+} from "./api";
 import { useAuth } from "./auth";
-import { getSyncedNow } from "./date";
+import { formatKyivDateIso } from "./date";
 
-
-const memoryCache = new Map<string, { time: number; today: ScheduleResponse; week: ScheduleResponse[] }>();
+const memoryCache = new Map<
+  string,
+  { time: number; today: ScheduleResponse; week: ScheduleResponse[] }
+>();
 const CACHE_TTL = 1000 * 60;
 
 export function clearScheduleLocalStorageCache() {
@@ -22,13 +29,11 @@ export function clearScheduleLocalStorageCache() {
   } catch {}
 }
 
-export function invalidateScheduleCache(forceClearStorage = false) {
+export function invalidateScheduleCache(forceClearStorage?: boolean) {
   memoryCache.clear();
   invalidateEtagCache();
   invalidateGroupStatusCache();
-  if (forceClearStorage || typeof navigator === "undefined" || navigator.onLine) {
-    clearScheduleLocalStorageCache();
-  }
+  clearScheduleLocalStorageCache();
   if (typeof window !== "undefined") {
     window.dispatchEvent(new Event("schedule:refresh"));
   }
@@ -59,17 +64,55 @@ export function useSchedule(
   initialMode?: "student" | "teacher"
 ) {
   const { user } = useAuth();
-  const [isSetupComplete, setIsSetupComplete] = useState<boolean>(() => Boolean(initialGroupId || initialTeacherId));
-  const [mode, setMode] = useState<"student" | "teacher">(initialMode || "student");
+
+  const [isSetupComplete, setIsSetupComplete] = useState(() => {
+    if (initialGroupId || initialTeacherId) return true;
+    if (typeof window !== "undefined") {
+      return window.localStorage.getItem("schedule:setupComplete") === "1";
+    }
+    return false;
+  });
+
+  const [mode, setMode] = useState<"student" | "teacher">(() => {
+    if (initialMode) return initialMode;
+    if (typeof window !== "undefined") {
+      const saved = window.localStorage.getItem("schedule:mode");
+      if (saved === "student" || saved === "teacher") return saved;
+    }
+    return "student";
+  });
+
   const [groups, setGroups] = useState<import("./api").ReferenceRecord[]>(initialGroups);
   const [teachers, setTeachers] = useState<import("./api").ReferenceRecord[]>(
     initialTeachers.filter((t) => t.name && !t.name.includes("!"))
   );
-  const [groupId, setGroupId] = useState<number | null>(initialGroupId || null);
-  const [teacherId, setTeacherId] = useState<number | null>(initialTeacherId || null);
+
+  const [groupId, setGroupId] = useState<number | null>(() => {
+    if (initialGroupId) return initialGroupId;
+    if (typeof window !== "undefined") {
+      const saved = Number(window.localStorage.getItem("schedule:groupId"));
+      if (saved > 0) return saved;
+    }
+    return initialGroups[0]?.id ?? null;
+  });
+
+  const [teacherId, setTeacherId] = useState<number | null>(() => {
+    if (initialTeacherId) return initialTeacherId;
+    if (typeof window !== "undefined") {
+      const saved = Number(window.localStorage.getItem("schedule:teacherId"));
+      if (saved > 0) return saved;
+    }
+    return initialTeachers[0]?.id ?? null;
+  });
+
   const [today, setToday] = useState<ScheduleResponse | null>(null);
   const [week, setWeek] = useState<ScheduleResponse[]>([]);
-  const [semesterStart, setSemesterStart] = useState<string | null>(null);
+  const [semesterStart, setSemesterStart] = useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      return window.localStorage.getItem("schedule:semesterStart");
+    }
+    return null;
+  });
   const [loading, setLoading] = useState(true);
   const [isSlowNetwork, setIsSlowNetwork] = useState(false);
   const [isUsingFallbackCache, setIsUsingFallbackCache] = useState(false);
@@ -77,113 +120,154 @@ export function useSchedule(
 
   useEffect(() => {
     if (initialGroupId || initialTeacherId) {
+      setIsSetupComplete(true);
       try {
         window.localStorage.setItem("schedule:setupComplete", "1");
-        if (initialGroupId) window.localStorage.setItem("schedule:groupId", String(initialGroupId));
-        if (initialTeacherId) window.localStorage.setItem("schedule:teacherId", String(initialTeacherId));
-        if (initialMode) window.localStorage.setItem("schedule:mode", initialMode);
+      } catch {}
+    } else if (window.localStorage.getItem("schedule:setupComplete") === "1") {
+      setIsSetupComplete(true);
+    }
+
+    if (initialMode) {
+      setMode(initialMode);
+      try {
+        window.localStorage.setItem("schedule:mode", initialMode);
       } catch {}
     }
-    const cachedSetup = window.localStorage.getItem("schedule:setupComplete");
-    if (cachedSetup === "1" || initialGroupId || initialTeacherId) setIsSetupComplete(true);
 
-    const cachedMode = window.localStorage.getItem("schedule:mode") as "student" | "teacher" | null;
-    if (!initialMode && cachedMode) setMode(cachedMode);
+    if (initialGroupId) {
+      setGroupId(initialGroupId);
+      try {
+        window.localStorage.setItem("schedule:groupId", String(initialGroupId));
+      } catch {}
+    }
+
+    if (initialTeacherId) {
+      setTeacherId(initialTeacherId);
+      try {
+        window.localStorage.setItem("schedule:teacherId", String(initialTeacherId));
+      } catch {}
+    }
 
     const cachedGroupId = window.localStorage.getItem("schedule:groupId");
     const cachedTeacherId = window.localStorage.getItem("schedule:teacherId");
     const cachedGroups = window.localStorage.getItem("schedule:groups");
     const cachedTeachers = window.localStorage.getItem("schedule:teachers");
 
+    let hasLocalDirectory = initialGroups.length > 0 && initialTeachers.length > 0;
+
     if (cachedGroups) {
       try {
         const items = JSON.parse(cachedGroups) as import("./api").ReferenceRecord[];
-        setGroups(items);
-        if (!initialGroupId && cachedGroupId) {
-          setGroupId(Number(cachedGroupId));
+        if (items.length > 0) {
+          setGroups(items);
+          hasLocalDirectory = true;
+          if (!initialGroupId) {
+            setGroupId(cachedGroupId ? Number(cachedGroupId) : (items[0]?.id ?? null));
+          }
+          setLoading(false);
         }
-        setLoading(false);
       } catch {
         window.localStorage.removeItem("schedule:groups");
       }
-    } else if (!initialGroupId && cachedGroupId) {
-      setGroupId(Number(cachedGroupId));
     }
-    
+
     if (cachedTeachers) {
       try {
         const rawItems = JSON.parse(cachedTeachers) as import("./api").ReferenceRecord[];
         const items = rawItems.filter((t) => t.name && !t.name.includes("!"));
-        setTeachers(items);
-        if (!initialTeacherId && cachedTeacherId) {
-          setTeacherId(Number(cachedTeacherId));
+        if (items.length > 0) {
+          setTeachers(items);
+          if (!initialTeacherId) {
+            setTeacherId(cachedTeacherId ? Number(cachedTeacherId) : (items[0]?.id ?? null));
+          }
         }
       } catch {
         window.localStorage.removeItem("schedule:teachers");
       }
-    } else if (!initialTeacherId && cachedTeacherId) {
-      setTeacherId(Number(cachedTeacherId));
     }
 
+    let cancelled = false;
     const dirSlowTimer = setTimeout(() => {
-      setLoading(false);
-      setIsSlowNetwork(true);
+      if (!cancelled) {
+        setLoading(false);
+        if (!hasLocalDirectory) setIsSlowNetwork(true);
+      }
     }, 3200);
-    
-    Promise.all([api.directory.groups(), api.directory.teachers()]).then(([items, rawTs]) => {
-        const ts = (rawTs || []).filter((t: any) => t.name && !t.name.includes("!"));
-        if (user && user.role === "editor") {
+
+    const loadDirectory = () => {
+      Promise.all([api.directory.groups(), api.directory.teachers()])
+        .then(([items, rawTs]) => {
+          if (cancelled) return;
+          const ts = (rawTs || []).filter((t: any) => t.name && !t.name.includes("!"));
+          if (user && user.role === "editor") {
             setTeachers([]);
             const allowed = items.filter((g: any) => (user.allowed_groups || []).includes(g.id));
             setGroups(allowed);
             if (initialGroupId && allowed.some((g: any) => g.id === initialGroupId)) {
-                setGroupId(initialGroupId);
+              setGroupId(initialGroupId);
+            } else if (!cachedGroupId && allowed.length > 0) {
+              setGroupId(allowed[0].id);
             } else if (cachedGroupId) {
-                setGroupId(Number(cachedGroupId));
-            } else if (allowed.length > 0) {
-                setGroupId(allowed[0].id);
+              setGroupId(Number(cachedGroupId));
             }
-        } else {
+          } else {
             setTeachers(ts);
             setGroups(items);
-            
+
             if (initialTeacherId) {
-                setTeacherId(initialTeacherId);
-                window.localStorage.setItem("schedule:teacherId", String(initialTeacherId));
+              setTeacherId(initialTeacherId);
+              window.localStorage.setItem("schedule:teacherId", String(initialTeacherId));
+            } else if (!cachedTeacherId && ts.length > 0) {
+              setTeacherId(ts[0].id);
             } else if (cachedTeacherId) {
-                setTeacherId(Number(cachedTeacherId));
-            }
-            
-            if (initialGroupId) {
-                setGroupId(initialGroupId);
-                window.localStorage.setItem("schedule:groupId", String(initialGroupId));
-            } else if (cachedGroupId) {
-                setGroupId(Number(cachedGroupId));
+              setTeacherId(Number(cachedTeacherId));
             }
 
-            if (initialMode) {
-                setMode(initialMode);
-                window.localStorage.setItem("schedule:mode", initialMode);
+            if (initialGroupId) {
+              setGroupId(initialGroupId);
+              window.localStorage.setItem("schedule:groupId", String(initialGroupId));
+            } else if (!cachedGroupId && items.length > 0) {
+              setGroupId(items[0].id);
+            } else if (cachedGroupId) {
+              setGroupId(Number(cachedGroupId));
             }
 
             window.localStorage.setItem("schedule:groups", JSON.stringify(items));
             window.localStorage.setItem("schedule:teachers", JSON.stringify(ts));
-        }
-    })
-      .catch(() => {
-        if (!cachedGroups && initialGroups.length === 0) {
-          setError("Не вдалося завантажити список груп. Перевірте підключення до інтернету та спробуйте ще раз.");
-        }
-      })
-      .finally(() => {
-        clearTimeout(dirSlowTimer);
-        setLoading(false);
-      });
-  }, [initialGroupId, initialTeacherId, initialMode]);
+          }
+        })
+        .catch(() => {
+          if (!cancelled && !cachedGroups && initialGroups.length === 0) {
+            setError(
+              "Не вдалося завантажити список груп. Перевірте підключення до інтернету та спробуйте ще раз."
+            );
+          }
+        })
+        .finally(() => {
+          clearTimeout(dirSlowTimer);
+          if (!cancelled) setLoading(false);
+        });
+    };
+
+    // Якщо довідники вже є з SSR або localStorage — відкладаємо їх фонове оновлення на 4 с,
+    // щоб на слабкому інтернеті миттєво завантажився основний розклад пар
+    const deferTimer = hasLocalDirectory
+      ? setTimeout(loadDirectory, 4000)
+      : (loadDirectory(), null);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(dirSlowTimer);
+      if (deferTimer) clearTimeout(deferTimer);
+    };
+  }, [initialGroupId, initialTeacherId, initialMode, user]);
 
   const toggleMode = (newMode: "student" | "teacher") => {
     setMode(newMode);
-    window.localStorage.setItem("schedule:mode", newMode);
+    try {
+      window.localStorage.setItem("schedule:mode", newMode);
+    } catch {}
   };
 
   useEffect(() => {
@@ -195,21 +279,28 @@ export function useSchedule(
     ) {
       return;
     }
-    if (mode === "student" && !groupId) { setWeek([]); setToday(null); return; }
-    if (mode === "teacher" && !teacherId) { setWeek([]); setToday(null); return; }
+    if (mode === "student" && !groupId) {
+      setWeek([]);
+      setToday(null);
+      return;
+    }
+    if (mode === "teacher" && !teacherId) {
+      setWeek([]);
+      setToday(null);
+      return;
+    }
 
-    // Очищення застарілих ключів schedule:week:* (старших за 14 днів) у фоні один раз за сесію
     if (typeof window !== "undefined" && !(window as any).__scheduleStorageCleaned) {
       (window as any).__scheduleStorageCleaned = true;
       setTimeout(() => {
         try {
-          const cutoff = getSyncedNow();
+          const cutoff = new Date();
           cutoff.setDate(cutoff.getDate() - 14);
-          const cutoffIso = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, "0")}-${String(cutoff.getDate()).padStart(2, "0")}`;
+          const cutoffIso = formatKyivDateIso(cutoff);
           for (let i = 0; i < window.localStorage.length; i++) {
             const k = window.localStorage.key(i);
             if (k && k.startsWith("schedule:week:")) {
-              const dateMatch = k.match(/:(\d{4}-\d{2}-\d{2})(?::all)?(?::(?:auth|guest))?$/);
+              const dateMatch = k.match(/:(\d{4}-\d{2}-\d{2})(?::|$)/);
               if (dateMatch && dateMatch[1] < cutoffIso) {
                 window.localStorage.removeItem(k);
                 i--;
@@ -217,11 +308,10 @@ export function useSchedule(
             }
           }
         } catch {}
-      }, 3000);
+      }, 4000);
     }
 
-    const formatDateKey = (d: Date) =>
-      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const formatDateKey = (d: Date) => formatKyivDateIso(d);
 
     const getAuthSignature = () => {
       if (typeof window === "undefined") return "guest";
@@ -230,30 +320,23 @@ export function useSchedule(
         const email = window.localStorage.getItem("schedule:classroom_linked_email") || "";
         const linkedGid = window.localStorage.getItem("schedule:classroom_linked_group_id") || "";
         const pin = window.localStorage.getItem("college_schedule_teacher_pin") ? "pin" : "";
-        return `${uid}:${email}:${linkedGid}:${pin}`;
+        const hasAuth = Boolean(
+          (mode === "teacher" && pin) ||
+            (mode === "student" && (uid || email) && (!linkedGid || Number(linkedGid) === groupId))
+        );
+        return hasAuth ? `auth:${uid}:${email}:${linkedGid}:${pin}` : "guest";
       } catch {
         return "guest";
       }
     };
 
-    const hasElevatedAccess = () => {
-      if (typeof window === "undefined") return false;
-      try {
-        const pin = Boolean(window.localStorage.getItem("college_schedule_teacher_pin"));
-        const uid = Boolean(window.localStorage.getItem("schedule:classroom_google_user_id"));
-        const email = Boolean(window.localStorage.getItem("schedule:classroom_linked_email"));
-        return pin || uid || email;
-      } catch {
-        return false;
-      }
-    };
-
+    const authSig = getAuthSignature();
+    const storageTier = authSig.startsWith("auth:") ? ":auth" : ":guest";
     const dateKey = formatDateKey(weekAnchorDate);
     const targetKey = mode === "student" ? `groupId:${groupId}` : `teacherId:${teacherId}`;
     const cancelSuffix = includeCancelled ? ":all" : "";
-    const accessSuffix = hasElevatedAccess() ? ":auth" : ":guest";
-    const todayKey = `schedule:today:${targetKey}${cancelSuffix}${accessSuffix}`;
-    const weekKey = `schedule:week:${targetKey}:${dateKey}${cancelSuffix}${accessSuffix}`;
+    const todayKey = `schedule:today:${targetKey}${cancelSuffix}${storageTier}`;
+    const weekKey = `schedule:week:${targetKey}:${dateKey}${cancelSuffix}${storageTier}`;
 
     const targetGroupId = mode === "student" ? (groupId as number) : undefined;
     const targetTeacherId = mode === "teacher" ? (teacherId as number) : undefined;
@@ -264,17 +347,18 @@ export function useSchedule(
     let idleCallbackId: number | null = null;
     let slowNetworkTimer: ReturnType<typeof setTimeout> | null = null;
 
-    // Пошук останнього збереженого тижня цієї ж групи/викладача в localStorage,
-    // якщо для обраного тижня точного кешу ще немає (щоб пустити користувача при слабкому інтернеті)
-    const findFallbackScheduleFromStorage = (): { today: ScheduleResponse | null; week: ScheduleResponse[] } | null => {
+    const findFallbackScheduleFromStorage = (): {
+      today: ScheduleResponse | null;
+      week: ScheduleResponse[];
+    } | null => {
       try {
         const prefix = `schedule:week:${targetKey}:`;
         let bestDate = "";
         let bestRaw: string | null = null;
         for (let i = 0; i < window.localStorage.length; i++) {
           const k = window.localStorage.key(i);
-          if (!k || !k.startsWith(prefix) || !k.endsWith(accessSuffix)) continue;
-          const m = k.match(/:(\d{4}-\d{2}-\d{2})(?::all)?(?::(?:auth|guest))?$/);
+          if (!k || !k.startsWith(prefix) || !k.endsWith(storageTier)) continue;
+          const m = k.match(/:(\d{4}-\d{2}-\d{2})(?::|$)/);
           const dStr = m?.[1] ?? "";
           if (dStr >= bestDate) {
             bestDate = dStr;
@@ -287,14 +371,16 @@ export function useSchedule(
         if (bestRaw) {
           const parsedWeek = JSON.parse(bestRaw) as ScheduleResponse[];
           if (Array.isArray(parsedWeek) && parsedWeek.length > 0) {
-            // Проєктуємо дати обраного тижня на основі збережених уроків (без разових переносів іншого тижня)
             const remappedWeek: ScheduleResponse[] = parsedWeek.map((dayItem, idx) => {
               const d = new Date(weekAnchorDate);
               d.setDate(weekAnchorDate.getDate() + idx);
               const mappedIso = formatDateKey(d);
+              // При фолбеку на інший тиждень відфільтровуємо разові заміни чужого тижня
+              const safeLessons = (dayItem.lessons || []).filter((l) => !l.is_replacement);
               return {
                 ...dayItem,
                 date: mappedIso,
+                lessons: bestDate === dateKey ? dayItem.lessons : safeLessons,
               };
             });
             return {
@@ -310,7 +396,6 @@ export function useSchedule(
       return null;
     };
 
-    // 3.2: Фоновий prefetch сусідніх тижнів (← та →) для миттєвого перемикання без скелетонів
     const prefetchAdjacentWeeks = (currentToday: ScheduleResponse) => {
       if (typeof navigator !== "undefined" && !navigator.onLine) return;
       if (typeof navigator !== "undefined" && (navigator as any).connection?.saveData) return;
@@ -318,7 +403,7 @@ export function useSchedule(
         const adjDate = new Date(weekAnchorDate);
         adjDate.setDate(adjDate.getDate() + offsetDays);
         const adjDateKey = formatDateKey(adjDate);
-        const adjWeekKey = `schedule:week:${targetKey}:${adjDateKey}${cancelSuffix}${accessSuffix}`;
+        const adjWeekKey = `schedule:week:${targetKey}:${adjDateKey}${cancelSuffix}${storageTier}`;
         const adjMemKey = getMemKey(adjWeekKey);
 
         const existingMem = memoryCache.get(adjMemKey);
@@ -330,7 +415,8 @@ export function useSchedule(
           }
         } catch {}
 
-        api.week(targetGroupId, targetTeacherId, adjDate, includeCancelled)
+        api
+          .week(targetGroupId, targetTeacherId, adjDate, includeCancelled)
           .then((adjWeek) => {
             try {
               window.localStorage.setItem(adjWeekKey, JSON.stringify(adjWeek));
@@ -350,22 +436,21 @@ export function useSchedule(
           () => {
             if (isSubscribed) prefetchAdjacentWeeks(currentToday);
           },
-          { timeout: 2500 }
+          { timeout: 3000 }
         );
       } else {
         if (prefetchTimer) clearTimeout(prefetchTimer);
         prefetchTimer = setTimeout(() => {
           if (isSubscribed) prefetchAdjacentWeeks(currentToday);
-        }, 800);
+        }, 1200);
       }
     };
 
-    const fetchSchedule = (forceNetwork = false) => {
+    const fetchSchedule = (forceNetwork = false, silentRevalidate = false) => {
       let hasCachedSchedule = false;
       if (slowNetworkTimer) clearTimeout(slowNetworkTimer);
       const currentMemKey = getMemKey();
 
-      // 5.1: Stale-While-Revalidate — спочатку миттєво показуємо дані з memoryCache або localStorage
       const memCached = memoryCache.get(currentMemKey);
       if (memCached) {
         setToday(memCached.today);
@@ -395,7 +480,6 @@ export function useSchedule(
       }
 
       if (!hasCachedSchedule) {
-        // Якщо клієнт уже знає, що офлайн — підставляємо збережений розклад із кешу
         const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
         if (isOffline) {
           const fallback = findFallbackScheduleFromStorage();
@@ -409,11 +493,8 @@ export function useSchedule(
         }
 
         if (!hasCachedSchedule) {
-          // У звичайному режимі онлайн — чекаємо відповіді сервера зі стандартним станом завантаження,
-          // БЕЗ передчасного показу повідомлення "сервер тимчасово недоступний"
           setLoading(true);
           setIsUsingFallbackCache(false);
-          // Лише якщо сервер не відповідає понад 2.5 с — активуємо fallback-кеш
           slowNetworkTimer = setTimeout(() => {
             if (!isSubscribed) return;
             const fallback = findFallbackScheduleFromStorage();
@@ -426,26 +507,30 @@ export function useSchedule(
             setLoading(false);
           }, 2500);
         }
-      } else {
-        // Якщо точний кеш обраного тижня вже є, але фонове оновлення триває > 2.5 с — м'яко показуємо індикатор
+      } else if (!silentRevalidate) {
         slowNetworkTimer = setTimeout(() => {
           if (!isSubscribed) return;
           setIsSlowNetwork(true);
-        }, 2500);
+        }, 3500);
       }
 
       setError(null);
 
-      const nowKyiv = getSyncedNow();
-      const todayIso = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Kyiv" }).format(nowKyiv);
+      const nowKyiv = new Date();
+      const todayIso = formatKyivDateIso(nowKyiv);
       const isWeekday = nowKyiv.getDay() >= 1 && nowKyiv.getDay() <= 5;
 
-      api.week(targetGroupId, targetTeacherId, weekAnchorDate, includeCancelled)
-        .then(async (weekResponse) => {
+      api
+        .week(targetGroupId, targetTeacherId, weekAnchorDate, includeCancelled)
+        .then((weekResponse) => {
           if (!isSubscribed) return;
           const matchingDay = isWeekday ? weekResponse.find((d) => d.date === todayIso) : undefined;
-          const todayResponse = matchingDay ?? (weekResponse.length > 0 ? weekResponse[0] : (await api.today(targetGroupId, targetTeacherId, includeCancelled)));
-          if (!isSubscribed) return;
+          const todayResponse: ScheduleResponse = matchingDay ??
+            weekResponse[0] ?? {
+              date: todayIso,
+              week_type: "both",
+              lessons: [],
+            };
 
           setToday(todayResponse);
           setWeek(weekResponse);
@@ -456,7 +541,11 @@ export function useSchedule(
             window.localStorage.setItem(todayKey, JSON.stringify(todayResponse));
             window.localStorage.setItem(weekKey, JSON.stringify(weekResponse));
           } catch {}
-          memoryCache.set(getMemKey(), { time: Date.now(), today: todayResponse, week: weekResponse });
+          memoryCache.set(getMemKey(), {
+            time: Date.now(),
+            today: todayResponse,
+            week: weekResponse,
+          });
 
           schedulePrefetch(todayResponse);
         })
@@ -471,9 +560,11 @@ export function useSchedule(
               setIsUsingFallbackCache(true);
               setLoading(false);
             } else {
-              setError("Слабке з'єднання з інтернетом. Не вдалося завантажити розклад із сервера.");
+              setError(
+                "Слабке з'єднання з інтернетом. Не вдалося завантажити розклад із сервера."
+              );
             }
-          } else {
+          } else if (!silentRevalidate) {
             setIsUsingFallbackCache(true);
           }
         })
@@ -485,35 +576,39 @@ export function useSchedule(
 
     fetchSchedule();
 
-    let lastVisibilityRevalidate = 0;
+    let lastVisibilityRevalidate = Date.now();
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
         const now = Date.now();
         if (now - lastVisibilityRevalidate >= 60_000) {
           lastVisibilityRevalidate = now;
-          memoryCache.clear();
-          fetchSchedule();
+          // Тихе оновлення у фоні без стирання memoryCache та без мерехтіння індикаторів
+          fetchSchedule(true, true);
         }
       }
     };
-    const handleOnline = () => fetchSchedule(true);
-    const handleScheduleRefresh = () => fetchSchedule(true);
+    const handleOnline = () => fetchSchedule(true, true);
+    const handleScheduleRefresh = () => fetchSchedule(true, false);
     const handleClassroomAccessChange = () => {
       memoryCache.clear();
       invalidateEtagCache();
       invalidateGroupStatusCache();
-      fetchSchedule(true);
+      fetchSchedule(true, false);
     };
 
     window.addEventListener("visibilitychange", handleVisibility);
     window.addEventListener("online", handleOnline);
     window.addEventListener("schedule:refresh", handleScheduleRefresh);
-    window.addEventListener("teacher-access-changed", handleScheduleRefresh);
+    window.addEventListener("teacher-access-changed", handleClassroomAccessChange);
     window.addEventListener("classroom-access-changed", handleClassroomAccessChange);
 
     return () => {
       isSubscribed = false;
-      if (idleCallbackId !== null && typeof window !== "undefined" && "cancelIdleCallback" in window) {
+      if (
+        idleCallbackId !== null &&
+        typeof window !== "undefined" &&
+        "cancelIdleCallback" in window
+      ) {
         (window as any).cancelIdleCallback(idleCallbackId);
       }
       if (prefetchTimer) clearTimeout(prefetchTimer);
@@ -521,7 +616,7 @@ export function useSchedule(
       window.removeEventListener("visibilitychange", handleVisibility);
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("schedule:refresh", handleScheduleRefresh);
-      window.removeEventListener("teacher-access-changed", handleScheduleRefresh);
+      window.removeEventListener("teacher-access-changed", handleClassroomAccessChange);
       window.removeEventListener("classroom-access-changed", handleClassroomAccessChange);
     };
   }, [isSetupComplete, mode, groupId, teacherId, weekAnchorDate, includeCancelled]);
@@ -531,28 +626,73 @@ export function useSchedule(
     const cachedSemesterStart = window.localStorage.getItem("schedule:semesterStart");
     if (cachedSemesterStart) setSemesterStart(cachedSemesterStart);
 
-    api.settings.semesterStart()
-      .then((setting) => {
-          if (active) setSemesterStart(setting.value);
-          window.localStorage.setItem("schedule:semesterStart", setting.value);
-      })
-      .catch(() => { if (active && !cachedSemesterStart) setSemesterStart(null); });
-    return () => { active = false; };
+    const timer = setTimeout(
+      () => {
+        api.settings
+          .semesterStart()
+          .then((setting) => {
+            if (active) setSemesterStart(setting.value);
+            try {
+              window.localStorage.setItem("schedule:semesterStart", setting.value);
+            } catch {}
+          })
+          .catch(() => {
+            if (active && !cachedSemesterStart) setSemesterStart(null);
+          });
+      },
+      cachedSemesterStart ? 3000 : 0
+    );
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
   }, []);
 
   function updateLesson(lesson: import("./api").Lesson) {
-    setToday((value) => value && { ...value, lessons: value.lessons.map((item) => item.id === lesson.id ? lesson : item) });
-    setWeek((days) => days.map((day) => ({ ...day, lessons: day.lessons.map((item) => item.id === lesson.id ? lesson : item) })));
+    setToday(
+      (value) =>
+        value && {
+          ...value,
+          lessons: value.lessons.map((item) => (item.id === lesson.id ? lesson : item)),
+        }
+    );
+    setWeek((days) =>
+      days.map((day) => ({
+        ...day,
+        lessons: day.lessons.map((item) => (item.id === lesson.id ? lesson : item)),
+      }))
+    );
   }
   function removeLesson(id: number) {
-    setToday((value) => value && { ...value, lessons: value.lessons.filter((item) => item.id !== id) });
-    setWeek((days) => days.map((day) => ({ ...day, lessons: day.lessons.filter((item) => item.id !== id) })));
+    setToday(
+      (value) => value && { ...value, lessons: value.lessons.filter((item) => item.id !== id) }
+    );
+    setWeek((days) =>
+      days.map((day) => ({ ...day, lessons: day.lessons.filter((item) => item.id !== id) }))
+    );
   }
   function addLesson(date: string, lesson: import("./api").Lesson) {
-    setToday((value) => value && value.date === date ? { ...value, lessons: [...value.lessons, lesson].sort((a, b) => a.lesson_number - b.lesson_number) } : value);
-    setWeek((days) => days.map((day) => day.date === date ? { ...day, lessons: [...day.lessons, lesson].sort((a, b) => a.lesson_number - b.lesson_number) } : day));
+    setToday((value) =>
+      value && value.date === date
+        ? {
+            ...value,
+            lessons: [...value.lessons, lesson].sort((a, b) => a.lesson_number - b.lesson_number),
+          }
+        : value
+    );
+    setWeek((days) =>
+      days.map((day) =>
+        day.date === date
+          ? {
+              ...day,
+              lessons: [...day.lessons, lesson].sort((a, b) => a.lesson_number - b.lesson_number),
+            }
+          : day
+      )
+    );
   }
-    const updateGroupId = (id: number | null) => {
+  const updateGroupId = (id: number | null) => {
     setGroupId(id);
     if (id !== null) window.localStorage.setItem("schedule:groupId", id.toString());
   };
@@ -562,9 +702,38 @@ export function useSchedule(
     if (id !== null) window.localStorage.setItem("schedule:teacherId", id.toString());
   };
 
-  const completeSetup = () => { window.localStorage.setItem("schedule:setupComplete", "1"); setIsSetupComplete(true); };
-  const resetSetup = () => { window.localStorage.removeItem("schedule:setupComplete"); setIsSetupComplete(false); };
+  const completeSetup = () => {
+    window.localStorage.setItem("schedule:setupComplete", "1");
+    setIsSetupComplete(true);
+  };
+  const resetSetup = () => {
+    window.localStorage.removeItem("schedule:setupComplete");
+    setIsSetupComplete(false);
+  };
 
-  return { isSetupComplete, completeSetup, resetSetup, mode, toggleMode, teachers, teacherId, setTeacherId: updateTeacherId, groups, groupId, setGroupId: updateGroupId, today, week, semesterStart, loading, isSlowNetwork, isUsingFallbackCache, error, setToday, setWeek, updateLesson, removeLesson, addLesson };
+  return {
+    isSetupComplete,
+    completeSetup,
+    resetSetup,
+    mode,
+    toggleMode,
+    teachers,
+    teacherId,
+    setTeacherId: updateTeacherId,
+    groups,
+    groupId,
+    setGroupId: updateGroupId,
+    today,
+    week,
+    semesterStart,
+    loading,
+    isSlowNetwork,
+    isUsingFallbackCache,
+    error,
+    setToday,
+    setWeek,
+    updateLesson,
+    removeLesson,
+    addLesson,
+  };
 }
-

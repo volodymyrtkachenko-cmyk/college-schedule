@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 
 export type ViewportTier = "mobile" | "tablet" | "desktop";
 
@@ -12,6 +12,9 @@ function getTier(): ViewportTier {
   return "desktop";
 }
 
+const useIsomorphicLayoutEffect =
+  typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
 export function useViewportTier(): {
   tier: ViewportTier;
   isMounted: boolean;
@@ -19,10 +22,10 @@ export function useViewportTier(): {
   isMobile: boolean;
   isTablet: boolean;
 } {
-  const [tier, setTier] = useState<ViewportTier>("desktop");
+  const [tier, setTier] = useState<ViewportTier>(() => getTier());
   const [isMounted, setIsMounted] = useState(false);
 
-  useEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     setIsMounted(true);
     const update = () => setTier(getTier());
     update();
@@ -45,7 +48,7 @@ export function useViewportTier(): {
   return {
     tier,
     isMounted,
-    isDesktop: isMounted ? tier === "desktop" : true,
+    isDesktop: isMounted ? tier === "desktop" : false,
     isMobile: isMounted ? tier === "mobile" : false,
     isTablet: isMounted ? tier === "tablet" : false,
   };

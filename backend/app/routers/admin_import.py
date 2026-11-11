@@ -2273,10 +2273,10 @@ async def prune_stale_data(db: AsyncSession) -> dict:
         try:
             import time as _t
             from app.analytics import _active_users, ACTIVE_WINDOW
-            now_mono = _t.monotonic()
+            now_wall = _t.time()
             expired_keys = [
-                k for k, v in _active_users.items()
-                if now_mono - v.get("last_seen", 0) > ACTIVE_WINDOW * 3
+                k for k, v in list(_active_users.items())
+                if now_wall - (v.get("last_seen", 0) if isinstance(v, dict) else v) > ACTIVE_WINDOW * 3
             ]
             for k in expired_keys:
                 _active_users.pop(k, None)
