@@ -17,7 +17,7 @@ MEETING_URL_RE = re.compile(
     re.IGNORECASE,
 )
 ZOOM_PASS_RE = re.compile(
-    r"(?:Код(?:\s+доступ[уа])?|Passcode|Пароль)\s*[:\-]?\s*([A-Za-z0-9_.\-]+)",
+    r"(?:Код(?:\s+доступ[уае]|\s+конференці[їі])?|Passcode|Пароль(?:\s+конференці[їі])?)\s*[:\-]?\s*([A-Za-z0-9_.\-]+)",
     re.IGNORECASE,
 )
 

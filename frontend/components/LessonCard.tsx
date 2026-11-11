@@ -7,7 +7,8 @@ import { LessonNote } from "./LessonNote";
 const LessonNoteModal = dynamic(() => import("./LessonNote").then((m) => m.LessonNoteModal), { ssr: false });
 import { EditIcon, MoveIcon } from "./LessonIcons";
 import { Lesson } from "../lib/api";
-import { formatRoom, formatRoomsList, extractOnlineMeetings, MeetingInfo } from "../lib/format";
+import { formatRoom, formatRoomsList, extractOnlineMeetings, MeetingInfo, copyTextToClipboard } from "../lib/format";
+import { useOptionalToast } from "./ToastProvider";
 import { extractClassroomTaskKey, isOwnTask, useClassroomSubmissions } from "../lib/useClassroomSubmissions";
 import { useTeacherAccess } from "../lib/useTeacherAccess";
 import { useUserSettings } from "../lib/useUserSettings";
@@ -913,6 +914,17 @@ export const LessonCard = memo(function LessonCard({
     }
   }, [lesson.group_id, lesson.group_name, isTeacherView]);
 
+  const toast = useOptionalToast();
+
+  const handleMeetingLinkClick = useCallback((e: React.MouseEvent<HTMLAnchorElement>, meeting: MeetingInfo) => {
+    e.stopPropagation();
+    vibrateTap(12);
+    if (meeting.passcode) {
+      copyTextToClipboard(meeting.passcode);
+      toast?.showToast(`Код доступу Zoom (${meeting.passcode}) скопійовано!`, "success");
+    }
+  }, [toast]);
+
   const hasMultipleTeachers = Boolean(
     lesson.second_teacher_id ||
     (lesson.teacher_name && /[,/]/.test(lesson.teacher_name)) ||
@@ -1723,7 +1735,7 @@ export const LessonCard = memo(function LessonCard({
                                     href={ownMeeting.url}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
+                                    onClick={(e) => handleMeetingLinkClick(e, ownMeeting)}
                                     className={`inline-flex shrink-0 h-7 px-2.5 items-center gap-1.5 rounded-lg border text-xs font-semibold whitespace-nowrap active:scale-95 transition-colors duration-fast ease-smooth ${
                                       getMeetingBtnStyle(ownMeeting.platform, isLive && isMeetingLiveOrSoon, "compact")
                                     }`}
@@ -1789,7 +1801,7 @@ export const LessonCard = memo(function LessonCard({
                         href={deskMeeting.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
+                        onClick={(e) => handleMeetingLinkClick(e, deskMeeting)}
                         className={`inline-flex h-8 px-3 items-center gap-1.5 rounded-lg font-bold text-xs active:scale-95 transition-colors duration-fast ease-smooth whitespace-nowrap border ${
                           getMeetingBtnStyle(deskMeeting.platform, isMeetingLiveOrSoon, "normal")
                         }`}
@@ -2214,7 +2226,7 @@ export const LessonCard = memo(function LessonCard({
                         href={mobileMeeting.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
+                        onClick={(e) => handleMeetingLinkClick(e, mobileMeeting)}
                         className={`inline-flex h-8 min-h-[32px] px-2.5 items-center gap-1.5 rounded-lg font-bold text-xs shadow-xs active:scale-95 transition-colors duration-fast ease-smooth whitespace-nowrap border ${
                           getMeetingBtnStyle(mobileMeeting.platform, isMeetingLiveOrSoon, "normal")
                         }`}
@@ -2366,7 +2378,7 @@ export const LessonCard = memo(function LessonCard({
                               href={ownMeeting.url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
+                              onClick={(e) => handleMeetingLinkClick(e, ownMeeting)}
                               className={`inline-flex shrink-0 h-7 px-2.5 items-center gap-1.5 rounded-lg border text-xs font-semibold whitespace-nowrap active:scale-95 transition-colors duration-fast ease-smooth ${
                                 getMeetingBtnStyle(ownMeeting.platform, isLive && isMeetingLiveOrSoon, "compact")
                               }`}
@@ -2396,7 +2408,7 @@ export const LessonCard = memo(function LessonCard({
                           href={row3Meetings[0].url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
+                          onClick={(e) => handleMeetingLinkClick(e, row3Meetings[0])}
                           className={`inline-flex shrink-0 h-7 px-2.5 items-center gap-1.5 rounded-lg border text-xs font-semibold whitespace-nowrap active:scale-95 transition-colors duration-fast ease-smooth ${
                             getMeetingBtnStyle(row3Meetings[0].platform, isLive && isMeetingLiveOrSoon, "compact")
                           }`}
@@ -2478,7 +2490,7 @@ export const LessonCard = memo(function LessonCard({
                     href={mobileMeeting.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
+                    onClick={(e) => handleMeetingLinkClick(e, mobileMeeting)}
                     className={`inline-flex min-h-[40px] h-10 px-3.5 items-center gap-2 rounded-xl font-bold text-xs shadow-xs active:scale-95 transition-colors duration-fast ease-smooth whitespace-nowrap border ${
                       getMeetingBtnStyle(mobileMeeting.platform, isMeetingLiveOrSoon, "normal")
                     }`}
@@ -2893,7 +2905,7 @@ export const LessonCard = memo(function LessonCard({
                               href={ownMeeting.url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              onClick={(e) => { e.stopPropagation(); vibrateTap(12); }}
+                              onClick={(e) => handleMeetingLinkClick(e, ownMeeting)}
                               className={`inline-flex shrink-0 h-6 px-2 items-center gap-1.5 rounded-md border text-[11px] font-semibold whitespace-nowrap active:scale-95 transition-colors duration-fast ease-smooth ${
                                 getMeetingBtnStyle(ownMeeting.platform, isLive && isMeetingLiveOrSoon, "tiny")
                               }`}
@@ -2996,10 +3008,7 @@ export const LessonCard = memo(function LessonCard({
                     href={m.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      vibrateTap(12);
-                    }}
+                    onClick={(e) => handleMeetingLinkClick(e, m)}
                     className={`inline-flex h-6 min-h-[24px] items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs font-semibold active:scale-95 transition-colors duration-fast ease-smooth ${
                       getMeetingBtnStyle(m.platform, isLive && isMeetingLiveOrSoon, "tiny")
                     }`}

@@ -151,8 +151,38 @@ export interface MeetingInfo {
 }
 
 const ZOOM_ID_RE = /(?:[ІИіи]дент[иі]ф[иі]катор(?:\s+\S+)?|Meeting\s*ID|\bID(?:\s+\S+)?)\s*[:\-]?\s*(\d[\d\s\-\u00a0]{8,15}\d)/i;
-const ZOOM_PASS_RE = /(?:Код(?:\s+доступ[уае])?|Passcode|Пароль)\s*[:\-]?\s*([A-Za-z0-9_.\-]+)/i;
+const ZOOM_PASS_RE = /(?:Код(?:\s+доступ[уае]|\s+конференці[їі])?|Passcode|Пароль(?:\s+конференці[їі])?)\s*[:\-]?\s*([A-Za-z0-9_.\-]+)/i;
 const BARE_MEET_RE = /(?<![/\w.-])(?:meet\.google\.com\/)?([a-z]{3}-[a-z]{4}-[a-z]{3})\b/i;
+
+/**
+ * Надійне синхронне та асинхронне копіювання тексту в буфер обміну.
+ * Працює надійно навіть при переході на сторонні сайти (Zoom, Meet) на iOS Safari та Android Chrome.
+ */
+export function copyTextToClipboard(text: string): boolean {
+  if (!text || typeof window === "undefined") return false;
+  let ok = false;
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.left = "-9999px";
+    ta.style.top = "0";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    ta.setSelectionRange(0, text.length);
+    ok = document.execCommand("copy");
+    document.body.removeChild(ta);
+  } catch {
+    ok = false;
+  }
+  if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(text).catch(() => {});
+  }
+  return ok;
+}
 
 export function extractOnlineMeetings(
   note?: string | null,
@@ -202,7 +232,13 @@ export function extractOnlineMeetings(
   const results: MeetingInfo[] = [];
   const seenUrls = new Set<string>();
 
+  const allSourcesText = sources.map((s) => s.text).join("\n");
+  const globalPassMatch = allSourcesText.match(ZOOM_PASS_RE);
+  const globalRawPass = globalPassMatch ? globalPassMatch[1].trim() : null;
+
   for (const src of sources) {
+    const srcPassMatch = src.text.match(ZOOM_PASS_RE);
+    const srcRawPass = srcPassMatch ? srcPassMatch[1].trim() : null;
     const lines = src.text.split("\n");
     for (const line of lines) {
       if (line.trim().startsWith("[TASK]")) continue;
@@ -218,8 +254,8 @@ export function extractOnlineMeetings(
         const meetMatch = line.match(BARE_MEET_RE);
         if (idMatch) {
           const cleanId = idMatch[1].replace(/[\s\-\u00a0]/g, "");
-          const passMatch = line.match(ZOOM_PASS_RE);
-          const rawPass = passMatch ? passMatch[1] : (isElectronics ? "dfkr" : null);
+          const passMatch = line.match(ZOOM_PASS_RE) || srcPassMatch || globalPassMatch;
+          const rawPass = passMatch ? passMatch[1].trim() : (isElectronics ? "dfkr" : null);
           const zoomUrl = `https://zoom.us/j/${cleanId}${rawPass ? `?pwd=${encodeURIComponent(rawPass)}` : ""}`;
           manualMeeting = { url: zoomUrl, isMeet: false, isZoom: true, isTeams: false, rawPass };
         } else if (meetMatch) {
@@ -238,18 +274,31 @@ export function extractOnlineMeetings(
           const isMeet = manualMeeting ? manualMeeting.isMeet : lowerUrl.includes("meet.google.com");
           const isZoom = manualMeeting ? manualMeeting.isZoom : lowerUrl.includes("zoom.us");
           const isTeams = manualMeeting ? manualMeeting.isTeams : (lowerUrl.includes("teams.microsoft.com") || lowerUrl.includes("teams.live.com"));
-          const hasPwdInUrl = /[?&]pwd=[^&\s]+/i.test(url);
 
-          const passMatch = line.match(ZOOM_PASS_RE);
-          let rawPass = manualMeeting ? manualMeeting.rawPass : (passMatch ? passMatch[1] : null);
+          const matchPwd = url.match(/[?&]pwd=([^&\s]+)/i);
+          const hasPwdInUrl = Boolean(matchPwd);
+          const existingPwd = matchPwd ? decodeURIComponent(matchPwd[1]) : null;
 
-          if (isElectronics && !isMeet && !hasPwdInUrl && !rawPass) {
-            rawPass = "dfkr";
+          const linePassMatch = line.match(ZOOM_PASS_RE);
+          const lineRawPass = linePassMatch ? linePassMatch[1].trim() : null;
+          const textPass = (manualMeeting?.rawPass || lineRawPass || srcRawPass || globalRawPass) ?? null;
+
+          // Визначаємо зрозумілий людині passcode:
+          // 1. Пріоритет: явний код доступу з тексту (<= 20 символів)
+          // 2. Інакше якщо в URL параметр pwd короткий (<= 18 символів), а не довгий 32-значний хеш
+          // 3. Інакше для «Електроніки» (Філімончук) дефолтний пароль 'dfkr'
+          let humanPasscode: string | null = null;
+          if (textPass && textPass.length <= 20) {
+            humanPasscode = textPass;
+          } else if (existingPwd && existingPwd.length <= 18) {
+            humanPasscode = existingPwd;
+          } else if (isElectronics && !isMeet) {
+            humanPasscode = "dfkr";
           }
 
-          if (isZoom && !hasPwdInUrl && rawPass) {
+          if (isZoom && !hasPwdInUrl && (humanPasscode || textPass)) {
             const sep = url.includes("?") ? "&" : "?";
-            url = `${url}${sep}pwd=${encodeURIComponent(rawPass)}`;
+            url = `${url}${sep}pwd=${encodeURIComponent(humanPasscode || textPass!)}`;
           }
 
           let label: string | undefined = src.defaultLabel;
@@ -318,7 +367,7 @@ export function extractOnlineMeetings(
           results.push({
             url,
             platform,
-            passcode: null,
+            passcode: isZoom ? humanPasscode : null,
             label,
             subgroup,
           });

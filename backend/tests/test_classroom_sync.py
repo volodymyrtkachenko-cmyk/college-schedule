@@ -60,6 +60,27 @@ def test_parse_announcement_evening_weekday_maps_to_creation_date():
     assert parsed["has_explicit_date"] is False
 
 
+def test_parse_announcement_zoom_passcode():
+    monday_dt = datetime(2026, 10, 19, 10, 0, tzinfo=KYIV_TZ)
+
+    # 1. Zoom URL without pwd + passcode in text
+    p1 = _parse_announcement("Пара у Zoom: https://zoom.us/j/123456789 Код доступу: 654321", monday_dt)
+    assert p1 is not None
+    assert "pwd=654321" in p1["url"]
+
+    # 2. Zoom URL with existing ?pwd=hash + human passcode in text
+    p2 = _parse_announcement("Пара у Zoom: https://zoom.us/j/123456789?pwd=YnZ4bW1iVHRwZXhh Код конференції: 778899", monday_dt)
+    assert p2 is not None
+    assert "pwd=YnZ4bW1iVHRwZXhh" in p2["url"]
+    assert "Код доступу: 778899" in p2["url"]
+
+    # 3. Zoom ID + passcode in text
+    p3 = _parse_announcement("ID: 123 456 789 Пароль конференції: mypass123", monday_dt)
+    assert p3 is not None
+    assert "https://zoom.us/j/123456789" in p3["url"]
+    assert "pwd=mypass123" in p3["url"]
+
+
 class DummyLesson:
     def __init__(self, subject_name: str, teacher_name: str, lesson_number: int):
         self.subject_name = subject_name

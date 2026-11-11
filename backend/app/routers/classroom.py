@@ -71,7 +71,7 @@ ZOOM_ID_RE = re.compile(
     re.IGNORECASE,
 )
 ZOOM_PASS_RE = re.compile(
-    r"(?:Код(?:\s+доступ[уае])?|Passcode|Пароль)\s*[:\-]?\s*([A-Za-z0-9_.\-]+)",
+    r"(?:Код(?:\s+доступ[уае]|\s+конференці[їі])?|Passcode|Пароль(?:\s+конференці[їі])?)\s*[:\-]?\s*([A-Za-z0-9_.\-]+)",
     re.IGNORECASE,
 )
 DATE_RE = re.compile(r"(?<!\d)(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?(?!\d)")
@@ -279,9 +279,12 @@ def _parse_announcement(text: str, created_dt: datetime, materials: Optional[lis
         url = f"https://zoom.us/j/{zoom_id}"
         if zoom_pass:
             url = f"{url}?pwd={zoom_pass}"
-    elif url and "zoom.us" in url.lower() and zoom_pass and "pwd=" not in url.lower():
-        sep = "&" if "?" in url else "?"
-        url = f"{url}{sep}pwd={zoom_pass}"
+    elif url and "zoom.us" in url.lower() and zoom_pass:
+        if "pwd=" not in url.lower():
+            sep = "&" if "?" in url else "?"
+            url = f"{url}{sep}pwd={zoom_pass}"
+        elif len(zoom_pass) <= 20:
+            url = f"{url} Код доступу: {zoom_pass}"
 
     if not url:
         return None

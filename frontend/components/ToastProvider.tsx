@@ -48,6 +48,10 @@ export function useToast() {
   return context;
 }
 
+export function useOptionalToast() {
+  return useContext(ToastContext);
+}
+
 function ToastContainer({ toasts }: { toasts: Toast[] }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
