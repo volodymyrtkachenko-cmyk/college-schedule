@@ -17,6 +17,7 @@ from app.config import settings
 from app.core.crypto import (
     decrypt_token,
     encrypt_token,
+    get_fernet,
     is_fernet_ciphertext,
     decrypt_token_detailed,
     rotate_token,
@@ -2489,6 +2490,24 @@ async def sync_from_classroom(
         plain_refresh = plain_refresh.strip()
         if plain_refresh.startswith("ya29."):
             plain_refresh = ""
+
+        # Якщо при повторному логіні Google не надіслав новий refresh_token,
+        # підтягуємо вже збережений у БД refresh_token цього студента, щоб НЕ затерти його!
+        if not plain_refresh and (google_user_id or profile_email):
+            prev_cred = await db.scalar(
+                select(ClassroomCredential)
+                .where(
+                    (ClassroomCredential.google_user_id == google_user_id)
+                    if google_user_id
+                    else (func.lower(ClassroomCredential.email) == profile_email.lower())
+                )
+                .order_by(ClassroomCredential.last_synced_at.desc().nullslast())
+            )
+            if prev_cred and prev_cred.refresh_token:
+                cand_rt = decrypt_token(prev_cred.refresh_token) or ""
+                if cand_rt and not cand_rt.startswith("ya29."):
+                    plain_refresh = cand_rt
+
         encrypted_refresh = encrypt_token(plain_refresh) if plain_refresh else None
 
         binding = await db.scalar(
@@ -2625,6 +2644,16 @@ async def sync_from_classroom(
                         cred.is_active = False
                         if not cred.last_error or "missing_or_corrupt" not in cred.last_error:
                             cred.last_error = f"needs_relink: {dec_status}"
+                        if access_token:
+                            try:
+                                async with httpx.AsyncClient(timeout=5.0) as rev_client:
+                                    await rev_client.post(
+                                        "https://oauth2.googleapis.com/revoke",
+                                        params={"token": access_token},
+                                        headers={"Content-Type": "application/x-www-form-urlencoded"},
+                                    )
+                            except Exception:
+                                pass
 
                 if safe_email:
                     cred.email = safe_email
@@ -2647,7 +2676,10 @@ async def sync_from_classroom(
                 if plain_refresh and decrypt_token(legacy_cred.refresh_token) == plain_refresh:
                     await db.delete(legacy_cred)
 
+        detected_group.updated_at = now_utc
         await db.commit()
+        from app.services import cache_rev
+        cache_rev.bump([detected_group.id])
 
         _sync_backoff_state.pop(detected_group.id, None)
 
@@ -3467,7 +3499,10 @@ async def trigger_background_sync_if_needed(
             if any_synced:
                 if binding:
                     binding.last_synced_at = now
+                group.updated_at = now
                 await db.commit()
+                from app.services import cache_rev
+                cache_rev.bump([group_id])
                 _sync_backoff_state.pop(group_id, None)
                 return
 
@@ -3536,6 +3571,7 @@ async def trigger_background_sync_if_needed(
             courses = courses_resp.json().get("courses", [])
 
         binding.last_synced_at = now
+        group.updated_at = now
         await perform_course_sync(
             db,
             group,
@@ -3545,6 +3581,8 @@ async def trigger_background_sync_if_needed(
             force=force,
         )
         await db.commit()
+        from app.services import cache_rev
+        cache_rev.bump([group_id])
         logger.info("Classroom sync group_id=%s legacy binding synced courses=%d", group_id, len(courses))
         _sync_backoff_state.pop(group_id, None)
     except Exception as e:
@@ -4027,11 +4065,11 @@ async def get_classroom_group_status(
         "last_synced_at": last_synced,
         "has_refresh_token": bool(binding and binding.refresh_token) or has_active_creds,
         "has_client_secret": bool(get_google_client_secret()),
+        "sync_in_progress": group_id in _SYNC_LOCK_GROUPS,
         "unmapped_tasks": _latest_unmapped_tasks.get(group_id, []) if has_access else [],
         "tasks": (tasks if tasks is not None else []) if has_access else [],
         "requires_auth": not has_access,
         **accounts_summary,
-        "needs_reconnect": False,
     }
 
 

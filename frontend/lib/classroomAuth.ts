@@ -16,8 +16,6 @@ export const CLASSROOM_SCOPES = [
   "https://www.googleapis.com/auth/classroom.courses.readonly",
   "https://www.googleapis.com/auth/classroom.announcements.readonly",
   "https://www.googleapis.com/auth/classroom.rosters.readonly",
-  "https://www.googleapis.com/auth/classroom.profile.emails",
-  "https://www.googleapis.com/auth/classroom.profile.photos",
   "https://www.googleapis.com/auth/classroom.coursework.me.readonly",
   "https://www.googleapis.com/auth/classroom.student-submissions.me.readonly",
   "https://www.googleapis.com/auth/classroom.coursework.students.readonly",
@@ -46,8 +44,27 @@ export interface ClassroomAuthOptions {
   groupId?: number | null;
   weekStart?: string;
   hint?: string | null;
+  forceConsentReset?: boolean;
   onSuccess?: (res: any, usedCode: boolean) => void;
   onError?: (err: Error) => void;
+}
+
+async function revokeLegacyTokenIfNeeded(forceReset?: boolean): Promise<void> {
+  if (typeof window === "undefined") return;
+  try {
+    const existingRefresh = localStorage.getItem("schedule:classroom_refresh_token");
+    const existingAccess = localStorage.getItem("schedule:classroom_access_token");
+    // Якщо у браузері застряг лише старий access_token без refresh_token (наслідок initTokenClient),
+    // відкликаємо його перед відкриттям вікна, щоб Google гарантовано видав новий refresh_token.
+    if ((forceReset || !existingRefresh) && existingAccess) {
+      await fetch(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(existingAccess)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      }).catch(() => {});
+      localStorage.removeItem("schedule:classroom_access_token");
+      localStorage.removeItem("schedule:classroom_access_token_exp");
+    }
+  } catch {}
 }
 
 export async function requestClassroomAuth(options: ClassroomAuthOptions = {}): Promise<any> {
@@ -55,10 +72,12 @@ export async function requestClassroomAuth(options: ClassroomAuthOptions = {}): 
     throw new Error("Додайте NEXT_PUBLIC_GOOGLE_CLIENT_ID у .env");
   }
 
-  // Friendly alert if user is trying to auth from an arbitrary temporary Vercel preview deployment
   if (typeof window !== "undefined") {
     const host = window.location.hostname;
-    const isVercelPreview = host.endsWith(".vercel.app") && host !== SITE_HOST && !host.startsWith("college-schedule-flame");
+    const isVercelPreview =
+      host.endsWith(".vercel.app") &&
+      host !== SITE_HOST &&
+      !host.startsWith("college-schedule-flame");
     if (isVercelPreview) {
       const prodUrl = `${SITE_URL}/settings?mode=student`;
       const err = new Error(
@@ -70,6 +89,7 @@ export async function requestClassroomAuth(options: ClassroomAuthOptions = {}): 
   }
 
   await loadGsiScript();
+  await revokeLegacyTokenIfNeeded(options.forceConsentReset);
 
   const rawHint =
     options.hint ??
@@ -83,8 +103,6 @@ export async function requestClassroomAuth(options: ClassroomAuthOptions = {}): 
       if (resolved) return;
       resolved = true;
 
-      invalidateScheduleCache();
-      setClassroomNeedsRelink(false);
       const personalTeachers = [
         ...(res.synced_teacher_names || []),
         ...(res.synced_teacher_tokens || []),
@@ -95,20 +113,25 @@ export async function requestClassroomAuth(options: ClassroomAuthOptions = {}): 
         res.user_email,
         res.personal_tasks ?? res.tasks,
         res.access_token ?? fallbackAccessToken ?? null,
-        null,
+        res.refresh_token ?? null,
         res.google_user_id ?? null,
         targetGroupId,
         personalTeachers,
         res.synced_subgroups ?? null
       );
 
-      if (res.group_id && typeof window !== "undefined") {
+      if (targetGroupId && typeof window !== "undefined") {
         try {
-          localStorage.setItem("schedule:groupId", String(res.group_id));
-          localStorage.setItem("schedule:classroom_linked_group_id", String(res.group_id));
+          localStorage.setItem("schedule:groupId", String(targetGroupId));
+          localStorage.setItem("schedule:classroom_linked_group_id", String(targetGroupId));
+          if (res.last_synced_at) {
+            localStorage.setItem(`schedule:last_synced_at:${targetGroupId}`, String(res.last_synced_at));
+          }
         } catch {}
       }
 
+      invalidateScheduleCache();
+      setClassroomNeedsRelink(false);
       window.dispatchEvent(new CustomEvent("classroom-synced", { detail: res }));
       options.onSuccess?.(res, usedCode);
       resolve(res);
@@ -122,7 +145,7 @@ export async function requestClassroomAuth(options: ClassroomAuthOptions = {}): 
       reject(errorObj);
     };
 
-    const syncWithToken = () => {
+    const syncWithTokenFallback = () => {
       try {
         const tokenClient = (window as any).google.accounts.oauth2.initTokenClient({
           client_id: GOOGLE_CLIENT_ID,
@@ -145,55 +168,44 @@ export async function requestClassroomAuth(options: ClassroomAuthOptions = {}): 
             }
           },
         });
-        tokenClient.requestAccessToken({ prompt: "select_account consent" });
+        tokenClient.requestAccessToken({ prompt: "consent" });
       } catch (err) {
         handleError(err);
       }
     };
 
-    const syncWithCode = () => {
-      try {
-        const codeClient = (window as any).google.accounts.oauth2.initCodeClient({
-          client_id: GOOGLE_CLIENT_ID,
-          scope: CLASSROOM_SCOPES,
-          ux_mode: "popup",
-          prompt: "select_account consent",
-          ...(validHint ? { hint: validHint } : {}),
-          callback: async (resp: any) => {
-            if (resp.error || !resp.code) {
-              handleError(new Error(resp.error || "Авторизацію скасовано"));
+    try {
+      const codeClient = (window as any).google.accounts.oauth2.initCodeClient({
+        client_id: GOOGLE_CLIENT_ID,
+        scope: CLASSROOM_SCOPES,
+        ux_mode: "popup",
+        select_account: true,
+        ...(validHint ? { hint: validHint } : {}),
+        callback: async (resp: any) => {
+          if (resp.error || !resp.code) {
+            handleError(new Error(resp.error || "Авторизацію скасовано"));
+            return;
+          }
+          try {
+            const res = await api.classroom.sync({
+              code: resp.code,
+              group_id: options.groupId ?? undefined,
+              week_start: options.weekStart,
+            });
+            handleSuccess(res, true);
+          } catch (err: any) {
+            const errMsg = err instanceof Error ? err.message : String(err || "");
+            if (errMsg.includes("GOOGLE_CLIENT_SECRET")) {
+              syncWithTokenFallback();
               return;
             }
-            try {
-              const res = await api.classroom.sync({
-                code: resp.code,
-                group_id: options.groupId ?? undefined,
-                week_start: options.weekStart,
-              });
-              handleSuccess(res, true);
-            } catch (err: any) {
-              const errMsg = err instanceof Error ? err.message : String(err || "");
-              if (errMsg.includes("GOOGLE_CLIENT_SECRET")) {
-                handleError(new Error("На сервері не налаштовано GOOGLE_CLIENT_SECRET. Зверніться до адміністратора."));
-                return;
-              }
-              handleError(err);
-            }
-          },
-        });
-        // Завжди викликаємо з prompt: "select_account consent", щоб студент бачив вибір акаунта
-        // і сервер гарантовано отримував refresh_token.
-        (codeClient as any).requestCode({
-          prompt: "select_account consent",
-          ...(validHint ? { hint: validHint } : {}),
-        });
-      } catch (err) {
-        handleError(err);
-      }
-    };
-
-    // За замовчуванням завжди запускаємо Authorization Code Flow (syncWithCode),
-    // і лише якщо сервер явно поверне помилку відсутності GOOGLE_CLIENT_SECRET — робимо фолбек на Token Flow.
-    syncWithCode();
+            handleError(err);
+          }
+        },
+      });
+      codeClient.requestCode();
+    } catch (err) {
+      handleError(err);
+    }
   });
 }

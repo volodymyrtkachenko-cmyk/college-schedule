@@ -1,14 +1,13 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { api } from "../lib/api";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { api, invalidateGroupStatusCache } from "../lib/api";
 import { invalidateScheduleCache } from "../lib/hooks";
 import { useToast } from "./ToastProvider";
 import {
   clearClassroomAccessToken,
   getClassroomSilentAuth,
   saveClassroomSyncData,
-  setClassroomNeedsRelink,
   syncPersonalSubmissions,
   useClassroomSubmissions,
 } from "../lib/useClassroomSubmissions";
@@ -21,101 +20,87 @@ export function ClassroomSyncButton({
 }: {
   currentGroupId: number | null;
   weekStart?: string;
-  onSynced: (detectedGroupId: number, tasks?: any[], lastSyncedAt?: string | null, isSilent?: boolean) => void;
+  onSynced: (
+    detectedGroupId: number,
+    tasks?: any[],
+    lastSyncedAt?: string | null,
+    isSilent?: boolean
+  ) => void;
 }) {
   const [syncing, setSyncing] = useState(false);
   const { showToast } = useToast();
   const { linkedEmail, linkedGroupId } = useClassroomSubmissions();
-
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const checkAndRefreshScheduleIfUpdated = useCallback(
+    (gid: number, serverLastSyncedAt?: string | null) => {
+      if (!serverLastSyncedAt || typeof window === "undefined") return;
+      try {
+        const storageKey = `schedule:last_synced_at:${gid}`;
+        const prevSyncedAt = localStorage.getItem(storageKey);
+        localStorage.setItem(storageKey, serverLastSyncedAt);
+        if (prevSyncedAt && prevSyncedAt !== serverLastSyncedAt) {
+          // Фоновий воркер на сервері оновив розклад/посилання/ДЗ — скидаємо кеш розкладу!
+          invalidateScheduleCache();
+        }
+      } catch {}
+    },
+    []
+  );
+
+  const fetchGroupStatusAndSchedulePoll = useCallback(
+    async (gid: number, isRetry = false) => {
+      try {
+        if (isRetry) {
+          invalidateGroupStatusCache();
+        }
+        const data = await api.classroom.groupStatus(gid);
+        if (!data) return;
+
+        if (data.last_synced_at) {
+          setLastSyncedAt(data.last_synced_at);
+          checkAndRefreshScheduleIfUpdated(gid, data.last_synced_at);
+        }
+
+        if (data.tasks && Array.isArray(data.tasks)) {
+          onSynced(gid, data.tasks, data.last_synced_at ?? null, true);
+        }
+
+        // Якщо при відкритті сайту бекенд запустив фонову синхронізацію (або кеш старший 10 хв),
+        // робимо один контрольний перевірочний запит через 5 секунд, щоб підтягнути свіжі лінки Meet/Zoom
+        const isStale =
+          data.last_synced_at &&
+          Date.now() - new Date(data.last_synced_at).getTime() > 10 * 60 * 1000;
+
+        if (!isRetry && ((data as any).sync_in_progress || isStale)) {
+          if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+          pollTimerRef.current = setTimeout(() => {
+            void fetchGroupStatusAndSchedulePoll(gid, true);
+          }, 5500);
+        }
+      } catch {}
+    },
+    [checkAndRefreshScheduleIfUpdated, onSynced]
+  );
 
   useEffect(() => {
     if (!currentGroupId) {
       setLastSyncedAt(null);
       return;
     }
-    api.classroom
-      .groupStatus(currentGroupId)
-      .then((data) => {
-        if (data?.last_synced_at) setLastSyncedAt(data.last_synced_at);
-      })
-      .catch(() => {});
-  }, [currentGroupId, syncing]);
-
-  const handleSyncSuccess = useCallback(
-    (
-      res: any,
-      usedCode: boolean,
-      isSilent = false,
-      fallbackAccessToken?: string | null
-    ) => {
-      invalidateScheduleCache();
-      const personalTeachers = [
-        ...(res.synced_teacher_names || []),
-        ...(res.synced_teacher_tokens || []),
-      ];
-      const targetGroupId = res.group_id ?? linkedGroupId ?? currentGroupId ?? null;
-
-      saveClassroomSyncData(
-        res.user_email,
-        res.personal_tasks ?? res.tasks,
-        res.access_token ?? fallbackAccessToken ?? null,
-        null,
-        res.google_user_id ?? null,
-        targetGroupId,
-        personalTeachers,
-        res.synced_subgroups ?? null
-      );
-      const switchedGroup = currentGroupId !== null && currentGroupId !== res.group_id;
-      if (res?.last_synced_at) {
-        setLastSyncedAt(res.last_synced_at);
-      }
-      // On silent background sync, NEVER switch the viewed group
-      onSynced(isSilent ? (currentGroupId ?? res.group_id) : res.group_id, res.tasks, res.last_synced_at, isSilent);
-      window.dispatchEvent(new CustomEvent("classroom-synced", { detail: { ...res, is_silent: isSilent } }));
-
-      if (!isSilent) {
-        const parts = [`підтягнуто ${res.synced_links} онлайн-пар`];
-        if (res.synced_tasks > 0) parts.push(`${res.synced_tasks} завдань`);
-        if (res.synced_students > 0) parts.push(`${res.synced_students} студентів`);
-        const prefix = switchedGroup
-          ? `Перемкнуто на вашу групу ${res.group_name}`
-          : `Група ${res.group_name}`;
-        const autoNote = usedCode ? " (фонове автооновлення активне)" : "";
-        const unmappedNote = res.unmapped_tasks && res.unmapped_tasks.length > 0
-          ? ` (${res.unmapped_tasks.length} завдань пропущено через відсутність пар у розкладі)`
-          : "";
-        showToast(
-          `${prefix}: ${parts.join(", ")}${autoNote}${unmappedNote}!`,
-          "success"
-        );
-      }
-    },
-    [currentGroupId, linkedGroupId, onSynced, showToast]
-  );
+    void fetchGroupStatusAndSchedulePoll(currentGroupId, false);
+    return () => {
+      if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+    };
+  }, [currentGroupId, fetchGroupStatusAndSchedulePoll]);
 
   const performSilentSync = useCallback(async () => {
     if (!currentGroupId || syncing) return;
-    if (!linkedEmail) return;
 
-    // Якщо користувач переглядає іншу групу (не свою прив'язану), НЕ викликаємо персональний sync!
-    // Персональні Google OAuth токени належать курсам своєї групи. Для чужої групи
-    // завантажуємо лише її публічні завдання з бекенду.
-    if (linkedGroupId && currentGroupId !== linkedGroupId) {
-      try {
-        const data = await api.classroom.groupStatus(currentGroupId);
-        if (data?.last_synced_at) setLastSyncedAt(data.last_synced_at);
-        if (data?.requires_auth === false) {
-          try {
-            localStorage.setItem("schedule:classroom_linked_group_id", String(currentGroupId));
-            window.dispatchEvent(new Event("classroom-linked-change"));
-            window.dispatchEvent(new Event("classroom-access-changed"));
-          } catch {}
-        }
-        if (data?.tasks && Array.isArray(data.tasks)) {
-          onSynced(currentGroupId, data.tasks, data.last_synced_at ?? null, true);
-        }
-      } catch {}
+    // Якщо користувач дивиться чужу групу або ще не прив'язав пошту — просто перевіряємо публічний статус групи
+    if (!linkedEmail || (linkedGroupId && currentGroupId !== linkedGroupId)) {
+      await fetchGroupStatusAndSchedulePoll(currentGroupId, true);
       return;
     }
 
@@ -123,81 +108,67 @@ export function ClassroomSyncButton({
     const now = Date.now();
     try {
       const lastAttempt = sessionStorage.getItem(throttleKey);
-      if (lastAttempt && now - Number(lastAttempt) < 15 * 60 * 1000) {
+      if (lastAttempt && now - Number(lastAttempt) < 5 * 60 * 1000) {
+        await fetchGroupStatusAndSchedulePoll(currentGroupId, false);
         return;
       }
-    } catch {}
-
-    try {
       sessionStorage.setItem(throttleKey, String(now));
     } catch {}
 
-    // 1. Спочатку пробуємо тихо оновити персональні здачі студента через легкий endpoint (без спливаючих вікон)
+    // 1. Оновлюємо персональні здачі та оцінки студента (сервер сам оновить токен через БД)
     try {
-      const personalOk = await syncPersonalSubmissions(currentGroupId);
-      if (personalOk) {
-        const data = await api.classroom.groupStatus(currentGroupId);
-        if (data?.last_synced_at) setLastSyncedAt(data.last_synced_at);
-        if (data?.tasks && Array.isArray(data.tasks) && data.tasks.length > 0) {
-          onSynced(currentGroupId, data.tasks, data.last_synced_at ?? null, true);
-        }
-        return;
-      }
+      await syncPersonalSubmissions(currentGroupId);
     } catch {}
 
-    // 2. Якщо є збережений короткоживучий access_token або серверний google_user_id, пробуємо тиху синхронізацію Classroom
-    const { accessToken, googleUserId } = getClassroomSilentAuth();
-    if (accessToken || googleUserId) {
-      try {
-        const res = await api.classroom.sync({
-          access_token: accessToken ?? undefined,
-          google_user_id: googleUserId ?? undefined,
-          email: linkedEmail && linkedEmail.includes("@") ? linkedEmail : undefined,
-          group_id: currentGroupId ?? undefined,
-          week_start: weekStart,
-        });
-        if ((res as any)?.needs_relink) {
-          setClassroomNeedsRelink(true, (res as any).reason_code || (res as any).error);
-          return;
-        }
-        setClassroomNeedsRelink(false);
-        handleSyncSuccess(res, true, true, accessToken);
-        return;
-      } catch (err: any) {
-        clearClassroomAccessToken();
-        if (err?.status === 400 || err?.status === 401) {
-          setClassroomNeedsRelink(true);
-        }
-      }
-    }
+    // 2. Перевіряємо актуальний статус групи; якщо бекенд оновив дані — інвалідуємо кеш розкладу
+    await fetchGroupStatusAndSchedulePoll(currentGroupId, true);
 
-    // Фолбек: тихо оновлюємо публічний статус та завдання групи з бекенду без жодних вікон Google
+    // 3. Якщо на сервері для групи досі немає активного refresh_token, але в браузері є токен —
+    // тихо відправляємо його на /api/classroom/sync
     try {
-      const data = await api.classroom.groupStatus(currentGroupId);
-      if (data?.last_synced_at) setLastSyncedAt(data.last_synced_at);
-      if ((data as any)?.needs_relink && linkedGroupId === currentGroupId) {
-        setClassroomNeedsRelink(true, (data as any).reason_code || (data as any).error);
-      }
-      if (data?.tasks && Array.isArray(data.tasks)) {
-        onSynced(currentGroupId, data.tasks, data.last_synced_at ?? null, true);
+      const statusData = await api.classroom.groupStatus(currentGroupId);
+      if (statusData && !statusData.has_refresh_token) {
+        const { accessToken, refreshToken } = getClassroomSilentAuth();
+        if (accessToken || refreshToken) {
+          const res = await api.classroom.sync({
+            access_token: accessToken ?? undefined,
+            refresh_token: refreshToken ?? undefined,
+            group_id: currentGroupId,
+            week_start: weekStart,
+          });
+          if (res?.last_synced_at) {
+            checkAndRefreshScheduleIfUpdated(currentGroupId, res.last_synced_at);
+          }
+          invalidateScheduleCache();
+          onSynced(currentGroupId, res.tasks, res.last_synced_at ?? null, true);
+        }
       }
     } catch {
-      // Silently ignore background network errors
+      clearClassroomAccessToken();
     }
-  }, [currentGroupId, weekStart, syncing, linkedEmail, linkedGroupId, onSynced, handleSyncSuccess]);
+  }, [
+    currentGroupId,
+    syncing,
+    linkedEmail,
+    linkedGroupId,
+    weekStart,
+    fetchGroupStatusAndSchedulePoll,
+    checkAndRefreshScheduleIfUpdated,
+    onSynced,
+  ]);
 
-  // 1. Silent sync on initial load / group switch if account was previously linked
+  // 1. Тиха синхронізація при завантаженні / зміні групи
   useEffect(() => {
-    if (!currentGroupId || !linkedEmail) return;
+    if (!currentGroupId) return;
     const timer = setTimeout(() => {
       void performSilentSync();
-    }, 1500);
+    }, 1200);
     return () => clearTimeout(timer);
   }, [currentGroupId, linkedEmail, performSilentSync]);
 
-  // 2. Silent sync on tab visibility change (e.g. user returns to app after checking Classroom)
+  // 2. Тиха синхронізація при поверненні у вкладку
   useEffect(() => {
-    if (!currentGroupId || !linkedEmail) return;
+    if (!currentGroupId) return;
     const handleVis = () => {
       if (document.visibilityState === "visible") {
         void performSilentSync();
@@ -205,18 +176,18 @@ export function ClassroomSyncButton({
     };
     document.addEventListener("visibilitychange", handleVis);
     return () => document.removeEventListener("visibilitychange", handleVis);
-  }, [currentGroupId, linkedEmail, performSilentSync]);
+  }, [currentGroupId, performSilentSync]);
 
-  // 3. Periodic silent sync every 15 minutes while app is open
+  // 3. Періодична тиха перевірка кожні 10 хвилин, поки вкладка відкрита
   useEffect(() => {
-    if (!currentGroupId || !linkedEmail) return;
+    if (!currentGroupId) return;
     const interval = setInterval(() => {
       if (document.visibilityState === "visible") {
         void performSilentSync();
       }
-    }, 15 * 60 * 1000);
+    }, 10 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [currentGroupId, linkedEmail, performSilentSync]);
+  }, [currentGroupId, performSilentSync]);
 
   const handleSync = useCallback(async () => {
     if (syncing) return;
@@ -225,20 +196,33 @@ export function ClassroomSyncButton({
       await requestClassroomAuth({
         groupId: currentGroupId,
         weekStart,
-        hint: linkedEmail && linkedEmail.includes("@") ? linkedEmail : undefined,
         onSuccess: (res, usedCode) => {
-          handleSyncSuccess(res, usedCode, false);
+          const switchedGroup =
+            currentGroupId !== null && res.group_id && currentGroupId !== res.group_id;
+          if (res?.last_synced_at) {
+            setLastSyncedAt(res.last_synced_at);
+          }
+          onSynced(res.group_id ?? currentGroupId, res.tasks, res.last_synced_at, false);
+
+          const parts = [`підтягнуто ${res.synced_links ?? 0} онлайн-пар`];
+          if (res.synced_tasks > 0) parts.push(`${res.synced_tasks} завдань`);
+          if (res.synced_students > 0) parts.push(`${res.synced_students} студентів`);
+          const prefix = switchedGroup
+            ? `Перемкнуто на вашу групу ${res.group_name}`
+            : `Група ${res.group_name}`;
+          const autoNote = usedCode ? " (фонове автооновлення активне)" : "";
+          showToast(`${prefix}: ${parts.join(", ")}${autoNote}!`, "success");
         },
         onError: (err) => {
-          showToast(err.message || "Помилка синхронізації", "error");
+          showToast(err.message || "Не вдалося підключитися до Google Classroom", "error");
         },
       });
     } catch {
-      // Помилка вже оброблена у колбеку onError
+      // handled in onError
     } finally {
       setSyncing(false);
     }
-  }, [syncing, currentGroupId, weekStart, linkedEmail, handleSyncSuccess, showToast]);
+  }, [syncing, currentGroupId, weekStart, onSynced, showToast]);
 
   useEffect(() => {
     const handleTrigger = () => {
@@ -258,7 +242,7 @@ export function ClassroomSyncButton({
       aria-label={isLinked ? "Classroom прив'язано" : "Прив'язати Classroom"}
       title={
         isLinked
-          ? `Classroom (прив'язано ${linkedEmail}) — натисніть для синхронізації`
+          ? `Classroom (прив'язано ${linkedEmail}) — натисніть для примусової синхронізації`
           : "Прив'язати Google Classroom. Сервер лише читає ваші завдання з Classroom і нічого не змінює"
       }
       className={

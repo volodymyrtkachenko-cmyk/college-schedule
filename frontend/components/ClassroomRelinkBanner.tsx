@@ -37,6 +37,7 @@ export function ClassroomRelinkBanner({ className = "" }: { className?: string }
       await requestClassroomAuth({
         groupId: linkedGroupId ?? undefined,
         hint: linkedEmail && linkedEmail.includes("@") ? linkedEmail : undefined,
+        forceConsentReset: true,
         onSuccess: (res) => {
           showToast(`Classroom успішно підключено (${res.group_name || ""})!`, "success");
         },
