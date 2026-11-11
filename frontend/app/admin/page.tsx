@@ -255,15 +255,17 @@ function AdminContent() {
   } | null>(null);
   const [rosterLoading, setRosterLoading] = useState(false);
 
-  const openGroupRoster = async (group: { id: number; name: string }) => {
+  const openGroupRoster = async (group: { id: number; name: string }, preserveTab = false) => {
     setRosterGroup(group);
-    setRosterTab("students");
-    setStudentSearch("");
-    setStudentSortBy("surname");
-    setStudentSortOrder("asc");
-    setBulkStudentOpen(false);
-    setBulkStudentText("");
-    setBulkStudentReplace(false);
+    if (!preserveTab) {
+      setRosterTab("students");
+      setStudentSearch("");
+      setStudentSortBy("surname");
+      setStudentSortOrder("asc");
+      setBulkStudentOpen(false);
+      setBulkStudentText("");
+      setBulkStudentReplace(false);
+    }
     setRosterLoading(true);
     try {
       const data = await api.classroom.groupStudents(group.id);
@@ -309,7 +311,7 @@ function AdminContent() {
     try {
       await api.classroom.deleteCredential(credId);
       setToast(`Акаунт «${accountName}» відключено`, "success");
-      await openGroupRoster(rosterGroup);
+      await openGroupRoster(rosterGroup, true);
     } catch (err) {
       setToast(err instanceof Error ? err.message : "Не вдалося відключити акаунт", "error");
     }
@@ -1008,7 +1010,11 @@ function AdminContent() {
                       </div>
                       <ClassroomSyncButton
                         currentGroupId={rosterGroup.id}
-                        onSynced={() => openGroupRoster(rosterGroup)}
+                        onSynced={(_gid, _tasks, _lastSynced, isSilent) => {
+                          if (!isSilent) {
+                            void openGroupRoster(rosterGroup, true);
+                          }
+                        }}
                       />
                     </div>
 
