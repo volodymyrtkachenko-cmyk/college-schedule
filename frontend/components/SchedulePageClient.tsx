@@ -213,6 +213,11 @@ export function SchedulePageClient({
   } = useMobileNav();
   const isFocusEffective = isFocusMode || mode === "teacher";
 
+  const [tasksTabMounted, setTasksTabMounted] = useState(false);
+  useEffect(() => {
+    if (mobileTab === "tasks") setTasksTabMounted(true);
+  }, [mobileTab]);
+
   useEffect(() => {
     setHideTasksTab(mode === "teacher");
   }, [mode, setHideTasksTab]);
@@ -2103,21 +2108,23 @@ export function SchedulePageClient({
         )}
 
         <div className="w-full">
-          <div className={mobileTab === "tasks" ? "block" : "hidden"}>
-            <MobileTasksView
-              tasks={allTasks}
-              groupId={groupId}
-              weekStart={weekStartStr}
-              weekAnchorDate={weekAnchorDate}
-              weekNumber={currentWeekNumber}
-              lastSyncedAt={classroomLastSyncedAt}
-              onSynced={(detectedId, _tasks, _lastSynced, isSilent) => {
-                if (!isSilent && !returnTarget && detectedId && detectedId !== groupId) {
-                  setGroupId(detectedId);
-                }
-              }}
-            />
-          </div>
+          {(tasksTabMounted || mobileTab === "tasks") && (
+            <div className={mobileTab === "tasks" ? "block" : "hidden"}>
+              <MobileTasksView
+                tasks={allTasks}
+                groupId={groupId}
+                weekStart={weekStartStr}
+                weekAnchorDate={weekAnchorDate}
+                weekNumber={currentWeekNumber}
+                lastSyncedAt={classroomLastSyncedAt}
+                onSynced={(detectedId, _tasks, _lastSynced, isSilent) => {
+                  if (!isSilent && !returnTarget && detectedId && detectedId !== groupId) {
+                    setGroupId(detectedId);
+                  }
+                }}
+              />
+            </div>
+          )}
 
           <div className={mobileTab === "tasks" ? "hidden" : "block px-3 py-3"}>
             {loading ? (

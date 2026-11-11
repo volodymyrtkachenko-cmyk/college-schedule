@@ -1,56 +1,89 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
 export type ViewportTier = "mobile" | "tablet" | "desktop";
 
-function getTier(): ViewportTier {
-  if (typeof window === "undefined") return "desktop";
-  const w = window.innerWidth;
-  if (w < 640) return "mobile";
-  if (w < 1024) return "tablet";
-  return "desktop";
-}
-
-const useIsomorphicLayoutEffect =
-  typeof window !== "undefined" ? useLayoutEffect : useEffect;
-
-export function useViewportTier(): {
+interface ViewportSnapshot {
   tier: ViewportTier;
   isMounted: boolean;
   isDesktop: boolean;
   isMobile: boolean;
   isTablet: boolean;
-} {
-  // На старті завжди однаково на сервері й клієнті для чистої гідрації без #418
-  const [tier, setTier] = useState<ViewportTier>("desktop");
-  const [isMounted, setIsMounted] = useState(false);
+}
 
-  useIsomorphicLayoutEffect(() => {
-    setIsMounted(true);
-    const update = () => setTier(getTier());
-    update();
+const SERVER_SNAPSHOT: ViewportSnapshot = {
+  tier: "desktop",
+  isMounted: false,
+  isDesktop: true,
+  isMobile: false,
+  isTablet: false,
+};
 
-    const mqlMobile = window.matchMedia("(max-width: 639px)");
-    const mqlTablet = window.matchMedia("(min-width: 640px) and (max-width: 1023px)");
-    const mqlDesktop = window.matchMedia("(min-width: 1024px)");
+let currentSnapshot: ViewportSnapshot = SERVER_SNAPSHOT;
+let listenersInitialized = false;
+const subscribers = new Set<() => void>();
 
-    mqlMobile.addEventListener("change", update);
-    mqlTablet.addEventListener("change", update);
-    mqlDesktop.addEventListener("change", update);
-
-    return () => {
-      mqlMobile.removeEventListener("change", update);
-      mqlTablet.removeEventListener("change", update);
-      mqlDesktop.removeEventListener("change", update);
-    };
-  }, []);
-
-  return {
+function computeClientSnapshot(): ViewportSnapshot {
+  if (typeof window === "undefined") return SERVER_SNAPSHOT;
+  const w = window.innerWidth;
+  const tier: ViewportTier = w < 640 ? "mobile" : w < 1024 ? "tablet" : "desktop";
+  if (
+    currentSnapshot.isMounted &&
+    currentSnapshot.tier === tier
+  ) {
+    return currentSnapshot;
+  }
+  currentSnapshot = {
     tier,
-    isMounted,
-    isDesktop: isMounted ? tier === "desktop" : true,
-    isMobile: isMounted ? tier === "mobile" : false,
-    isTablet: isMounted ? tier === "tablet" : false,
+    isMounted: true,
+    isDesktop: tier === "desktop",
+    isMobile: tier === "mobile",
+    isTablet: tier === "tablet",
   };
+  return currentSnapshot;
+}
+
+function initViewportListeners() {
+  if (listenersInitialized || typeof window === "undefined") return;
+  listenersInitialized = true;
+  computeClientSnapshot();
+
+  const notify = () => {
+    const prev = currentSnapshot;
+    const next = computeClientSnapshot();
+    if (prev !== next) {
+      subscribers.forEach((cb) => cb());
+    }
+  };
+
+  const mqlMobile = window.matchMedia("(max-width: 639px)");
+  const mqlTablet = window.matchMedia("(min-width: 640px) and (max-width: 1023px)");
+  const mqlDesktop = window.matchMedia("(min-width: 1024px)");
+
+  mqlMobile.addEventListener("change", notify);
+  mqlTablet.addEventListener("change", notify);
+  mqlDesktop.addEventListener("change", notify);
+  window.addEventListener("resize", notify);
+}
+
+function subscribe(callback: () => void): () => void {
+  initViewportListeners();
+  subscribers.add(callback);
+  return () => {
+    subscribers.delete(callback);
+  };
+}
+
+function getClientSnapshot(): ViewportSnapshot {
+  initViewportListeners();
+  return computeClientSnapshot();
+}
+
+function getServerSnapshot(): ViewportSnapshot {
+  return SERVER_SNAPSHOT;
+}
+
+export function useViewportTier(): ViewportSnapshot {
+  return useSyncExternalStore(subscribe, getClientSnapshot, getServerSnapshot);
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, startTransition } from "react";
 import dynamic from "next/dynamic";
 import { ClassroomSyncButton } from "./ClassroomSyncButton";
 import { useClassroomSubmissions } from "../lib/useClassroomSubmissions";
@@ -119,7 +119,7 @@ export function TasksTodoBoard({
           type="button"
           role="tab"
           aria-selected={activeTab === "pending"}
-          onClick={() => setActiveTab("pending")}
+          onClick={() => startTransition(() => setActiveTab("pending"))}
           className={`relative z-10 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg transition-colors duration-150 cursor-pointer active:scale-[0.98] ${
             activeTab === "pending"
               ? "text-white font-bold"
@@ -142,7 +142,7 @@ export function TasksTodoBoard({
           type="button"
           role="tab"
           aria-selected={activeTab === "overdue"}
-          onClick={() => setActiveTab("overdue")}
+          onClick={() => startTransition(() => setActiveTab("overdue"))}
           className={`relative z-10 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg transition-colors duration-150 cursor-pointer active:scale-[0.98] ${
             activeTab === "overdue"
               ? "text-white font-bold"
@@ -170,7 +170,7 @@ export function TasksTodoBoard({
             type="button"
             role="tab"
             aria-selected={activeTab === "done"}
-            onClick={() => setActiveTab("done")}
+            onClick={() => startTransition(() => setActiveTab("done"))}
             className={`relative z-10 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg transition-colors duration-150 cursor-pointer active:scale-[0.98] ${
               activeTab === "done"
                 ? "text-white font-bold"
@@ -319,7 +319,7 @@ export function TasksTodoBoard({
       {activeTab === "pending" && isLinked && overdueTotalCount > 0 && !effectiveSubject && (
         <button
           type="button"
-          onClick={() => setActiveTab("overdue")}
+          onClick={() => startTransition(() => setActiveTab("overdue"))}
           className="w-full flex items-center justify-between gap-2 rounded-xl border border-rose-500/35 bg-rose-500/10 px-3.5 py-2.5 text-xs text-left transition-colors hover:bg-rose-500/15 active:scale-[0.99] cursor-pointer"
         >
           <div className="flex items-center gap-2 min-w-0">
@@ -550,7 +550,7 @@ export function MobileTasksView({
 
         <button
           type="button"
-          onClick={() => setViewMode("tasks")}
+          onClick={() => startTransition(() => setViewMode("tasks"))}
           className={`relative z-10 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-colors duration-150 cursor-pointer active:scale-[0.98] ${
             viewMode === "tasks"
               ? "text-white font-bold"
@@ -564,7 +564,9 @@ export function MobileTasksView({
           type="button"
           onClick={() => {
             setGradesVisited(true);
-            setViewMode("grades");
+            startTransition(() => {
+              setViewMode("grades");
+            });
           }}
           className={`relative z-10 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-colors duration-150 cursor-pointer active:scale-[0.98] ${
             viewMode === "grades"

@@ -1,6 +1,14 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  startTransition,
+} from "react";
 import { usePathname } from "next/navigation";
 
 export type MobileTab = "schedule" | "tasks" | "settings";
@@ -58,7 +66,9 @@ export function MobileNavProvider({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
   const setHomeTab = useCallback((tab: "schedule" | "tasks") => {
-    setHomeTabState(tab);
+    startTransition(() => {
+      setHomeTabState(tab);
+    });
   }, []);
 
   const activeTab: MobileTab = useMemo(() => {

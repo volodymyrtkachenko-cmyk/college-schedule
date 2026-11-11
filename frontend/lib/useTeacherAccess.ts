@@ -1,13 +1,17 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 import { api, invalidateEtagCache } from "./api";
 import { clearScheduleLocalStorageCache, invalidateScheduleCache } from "./hooks";
 
 const TEACHER_PIN_KEY = "college_schedule_teacher_pin";
 const EVENT_NAME = "teacher-access-changed";
 
-export function getStoredTeacherPin(): string | null {
+let cachedPin: string | null = null;
+let initialized = false;
+const listeners = new Set<() => void>();
+
+function readPin(): string | null {
   if (typeof window === "undefined") return null;
   try {
     return localStorage.getItem(TEACHER_PIN_KEY);
@@ -16,22 +20,47 @@ export function getStoredTeacherPin(): string | null {
   }
 }
 
-export function useTeacherAccess() {
-  const [teacherPin, setTeacherPin] = useState<string | null>(null);
-  const isTeacherUnlocked = Boolean(teacherPin);
+function initListeners() {
+  if (initialized || typeof window === "undefined") return;
+  initialized = true;
+  cachedPin = readPin();
 
-  useEffect(() => {
-    setTeacherPin(getStoredTeacherPin());
-    const handleUpdate = () => {
-      setTeacherPin(getStoredTeacherPin());
-    };
-    window.addEventListener(EVENT_NAME, handleUpdate);
-    window.addEventListener("storage", handleUpdate);
-    return () => {
-      window.removeEventListener(EVENT_NAME, handleUpdate);
-      window.removeEventListener("storage", handleUpdate);
-    };
-  }, []);
+  const handleUpdate = () => {
+    const next = readPin();
+    if (next !== cachedPin) {
+      cachedPin = next;
+      listeners.forEach((cb) => cb());
+    }
+  };
+
+  window.addEventListener(EVENT_NAME, handleUpdate);
+  window.addEventListener("storage", handleUpdate);
+}
+
+function subscribe(cb: () => void) {
+  initListeners();
+  listeners.add(cb);
+  return () => {
+    listeners.delete(cb);
+  };
+}
+
+function getSnapshot(): string | null {
+  initListeners();
+  return cachedPin;
+}
+
+function getServerSnapshot(): string | null {
+  return null;
+}
+
+export function getStoredTeacherPin(): string | null {
+  return readPin();
+}
+
+export function useTeacherAccess() {
+  const teacherPin = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const isTeacherUnlocked = Boolean(teacherPin);
 
   const unlockTeacher = useCallback(async (pin: string): Promise<{ success: boolean; error?: string }> => {
     if (!pin || !pin.trim()) {
@@ -40,10 +69,13 @@ export function useTeacherAccess() {
     try {
       const res = await api.settings.verifyTeacherPin(pin.trim());
       if (res.valid) {
-        localStorage.setItem(TEACHER_PIN_KEY, pin.trim());
+        if (typeof window !== "undefined") {
+          localStorage.setItem(TEACHER_PIN_KEY, pin.trim());
+        }
+        cachedPin = pin.trim();
         invalidateEtagCache();
-        setTeacherPin(pin.trim());
-        window.dispatchEvent(new CustomEvent(EVENT_NAME));
+        listeners.forEach((cb) => cb());
+        window.dispatchEvent(new Event(EVENT_NAME));
         return { success: true };
       }
       return { success: false, error: "Невірний PIN-код викладача" };
@@ -53,19 +85,39 @@ export function useTeacherAccess() {
   }, []);
 
   const lockTeacher = useCallback(() => {
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.removeItem(TEACHER_PIN_KEY);
+      } catch {}
+    }
+    cachedPin = null;
+    clearScheduleLocalStorageCache();
+    invalidateScheduleCache(true);
+    listeners.forEach((cb) => cb());
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event(EVENT_NAME));
+    }
+  }, []);
+
+  const unlockTeacherAccess = useCallback((pin: string) => {
+    if (typeof window === "undefined") return;
     try {
-      localStorage.removeItem(TEACHER_PIN_KEY);
-      clearScheduleLocalStorageCache();
-      invalidateScheduleCache(true);
-      setTeacherPin(null);
-      window.dispatchEvent(new CustomEvent(EVENT_NAME));
+      localStorage.setItem(TEACHER_PIN_KEY, pin.trim());
+      cachedPin = pin.trim();
+      invalidateEtagCache();
+      listeners.forEach((cb) => cb());
+      window.dispatchEvent(new Event(EVENT_NAME));
     } catch {}
   }, []);
 
+  const lockTeacherAccess = lockTeacher;
+
   return {
-    isTeacherUnlocked,
     teacherPin,
+    isTeacherUnlocked,
     unlockTeacher,
     lockTeacher,
+    unlockTeacherAccess,
+    lockTeacherAccess,
   };
 }

@@ -9,16 +9,21 @@ export const GOOGLE_CLIENT_ID =
   process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
   "1079868158360-ok75uv5l93pcql2iktfcple97sdu180b.apps.googleusercontent.com";
 
+export const COLLEGE_HOSTED_DOMAIN = "kre.dp.ua";
+
+// ВАЖЛИВО: Використовуємо ТІЛЬКИ скоупи classroom.* (без openid/email/profile та directory.readonly).
+// Це вимикає чекбокси (галочки) на екрані згоди Google — усі дозволи надаються одним кліком!
 export const CLASSROOM_SCOPES = [
-  "openid",
-  "email",
-  "profile",
   "https://www.googleapis.com/auth/classroom.courses.readonly",
   "https://www.googleapis.com/auth/classroom.announcements.readonly",
-  "https://www.googleapis.com/auth/classroom.rosters.readonly",
   "https://www.googleapis.com/auth/classroom.coursework.me.readonly",
   "https://www.googleapis.com/auth/classroom.student-submissions.me.readonly",
+  "https://www.googleapis.com/auth/classroom.coursework.students.readonly",
   "https://www.googleapis.com/auth/classroom.courseworkmaterials.readonly",
+  "https://www.googleapis.com/auth/classroom.topics.readonly",
+  "https://www.googleapis.com/auth/classroom.rosters.readonly",
+  "https://www.googleapis.com/auth/classroom.profile.emails",
+  "https://www.googleapis.com/auth/classroom.profile.photos",
 ].join(" ");
 
 export const loadGsiScript = (): Promise<void> =>
@@ -57,11 +62,12 @@ export async function requestClassroomAuth(options: ClassroomAuthOptions = {}): 
     const isVercelPreview =
       host.endsWith(".vercel.app") &&
       host !== SITE_HOST &&
-      !host.startsWith("college-schedule-flame");
+      !host.startsWith("college-schedule-flame") &&
+      !host.startsWith("dfkr-schedule");
     if (isVercelPreview) {
       const prodUrl = `${SITE_URL}/settings?mode=student`;
       const err = new Error(
-        `Вхід через Google працює лише на основному сайті: ${SITE_HOST} (поточна адреса — тимчасове прев'ю). Перейдіть на: ${prodUrl}`
+        `Вхід через Google працює лише на основному сайті: ${SITE_HOST}. Перейдіть на: ${prodUrl}`
       );
       options.onError?.(err);
       return Promise.reject(err);
@@ -129,6 +135,8 @@ export async function requestClassroomAuth(options: ClassroomAuthOptions = {}): 
         const tokenClient = (window as any).google.accounts.oauth2.initTokenClient({
           client_id: GOOGLE_CLIENT_ID,
           scope: CLASSROOM_SCOPES,
+          hd: COLLEGE_HOSTED_DOMAIN,
+          include_granted_scopes: false,
           ...(validHint ? { hint: validHint } : {}),
           callback: async (resp: any) => {
             if (resp.error || !resp.access_token) {
@@ -147,7 +155,7 @@ export async function requestClassroomAuth(options: ClassroomAuthOptions = {}): 
             }
           },
         });
-        tokenClient.requestAccessToken({ prompt: "consent" });
+        tokenClient.requestAccessToken({ prompt: "" });
       } catch (err) {
         handleError(err);
       }
@@ -157,6 +165,8 @@ export async function requestClassroomAuth(options: ClassroomAuthOptions = {}): 
       const codeClient = (window as any).google.accounts.oauth2.initCodeClient({
         client_id: GOOGLE_CLIENT_ID,
         scope: CLASSROOM_SCOPES,
+        hd: COLLEGE_HOSTED_DOMAIN,
+        include_granted_scopes: false,
         ux_mode: "popup",
         select_account: true,
         ...(validHint ? { hint: validHint } : {}),
