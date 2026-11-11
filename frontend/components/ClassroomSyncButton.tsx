@@ -50,7 +50,7 @@ export function ClassroomSyncButton({
   );
 
   const fetchGroupStatusAndSchedulePoll = useCallback(
-    async (gid: number, isRetry = false) => {
+    async (gid: number, isRetry = false, allowGroupTasksFallback = true) => {
       try {
         if (isRetry) {
           invalidateGroupStatusCache();
@@ -63,12 +63,15 @@ export function ClassroomSyncButton({
           checkAndRefreshScheduleIfUpdated(gid, data.last_synced_at);
         }
 
-        if (data.tasks && Array.isArray(data.tasks)) {
+        // ВАЖЛИВО: Якщо у студента прив'язана власна пошта (linkedEmail), його завдання
+        // завантажуються виключно через syncPersonalSubmissions (з його особистих курсів та підгрупи).
+        // Загальні data.tasks із groupStatus використовуємо ТІЛЬКИ якщо власна пошта не прив'язана!
+        if (allowGroupTasksFallback && !linkedEmail && data.tasks && Array.isArray(data.tasks)) {
           onSynced(gid, data.tasks, data.last_synced_at ?? null, true);
+        } else if (data.last_synced_at) {
+          onSynced(gid, undefined, data.last_synced_at, true);
         }
 
-        // Якщо при відкритті сайту бекенд запустив фонову синхронізацію (або кеш старший 10 хв),
-        // робимо один контрольний перевірочний запит через 5 секунд, щоб підтягнути свіжі лінки Meet/Zoom
         const isStale =
           data.last_synced_at &&
           Date.now() - new Date(data.last_synced_at).getTime() > 10 * 60 * 1000;
@@ -76,12 +79,12 @@ export function ClassroomSyncButton({
         if (!isRetry && ((data as any).sync_in_progress || isStale)) {
           if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
           pollTimerRef.current = setTimeout(() => {
-            void fetchGroupStatusAndSchedulePoll(gid, true);
+            void fetchGroupStatusAndSchedulePoll(gid, true, allowGroupTasksFallback);
           }, 5500);
         }
       } catch {}
     },
-    [checkAndRefreshScheduleIfUpdated, onSynced]
+    [checkAndRefreshScheduleIfUpdated, linkedEmail, onSynced]
   );
 
   useEffect(() => {
@@ -89,18 +92,18 @@ export function ClassroomSyncButton({
       setLastSyncedAt(null);
       return;
     }
-    void fetchGroupStatusAndSchedulePoll(currentGroupId, false);
+    void fetchGroupStatusAndSchedulePoll(currentGroupId, false, !linkedEmail);
     return () => {
       if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
     };
-  }, [currentGroupId, fetchGroupStatusAndSchedulePoll]);
+  }, [currentGroupId, linkedEmail, fetchGroupStatusAndSchedulePoll]);
 
   const performSilentSync = useCallback(async () => {
     if (!currentGroupId || syncing) return;
 
-    // Якщо користувач дивиться чужу групу або ще не прив'язав пошту — просто перевіряємо публічний статус групи
+    // Якщо користувач не прив'язав свою пошту або дивиться чужу групу — беремо лише публічний статус
     if (!linkedEmail || (linkedGroupId && currentGroupId !== linkedGroupId)) {
-      await fetchGroupStatusAndSchedulePoll(currentGroupId, true);
+      await fetchGroupStatusAndSchedulePoll(currentGroupId, true, !linkedEmail);
       return;
     }
 
@@ -109,52 +112,26 @@ export function ClassroomSyncButton({
     try {
       const lastAttempt = sessionStorage.getItem(throttleKey);
       if (lastAttempt && now - Number(lastAttempt) < 5 * 60 * 1000) {
-        await fetchGroupStatusAndSchedulePoll(currentGroupId, false);
+        await fetchGroupStatusAndSchedulePoll(currentGroupId, false, false);
         return;
       }
       sessionStorage.setItem(throttleKey, String(now));
     } catch {}
 
-    // 1. Оновлюємо персональні здачі та оцінки студента (сервер сам оновить токен через БД)
+    // 1. Завантажуємо ОСОБИСТІ завдання та здачі поточного студента за його власним google_user_id / email
+    let personalOk = false;
     try {
-      await syncPersonalSubmissions(currentGroupId);
+      personalOk = await syncPersonalSubmissions(currentGroupId);
     } catch {}
 
-    // 2. Перевіряємо актуальний статус групи; якщо бекенд оновив дані — інвалідуємо кеш розкладу
-    await fetchGroupStatusAndSchedulePoll(currentGroupId, true);
-
-    // 3. Якщо на сервері для групи досі немає активного refresh_token, але в браузері є токен —
-    // тихо відправляємо його на /api/classroom/sync
-    try {
-      const statusData = await api.classroom.groupStatus(currentGroupId);
-      if (statusData && !statusData.has_refresh_token) {
-        const { accessToken, refreshToken } = getClassroomSilentAuth();
-        if (accessToken || refreshToken) {
-          const res = await api.classroom.sync({
-            access_token: accessToken ?? undefined,
-            refresh_token: refreshToken ?? undefined,
-            group_id: currentGroupId,
-            week_start: weekStart,
-          });
-          if (res?.last_synced_at) {
-            checkAndRefreshScheduleIfUpdated(currentGroupId, res.last_synced_at);
-          }
-          invalidateScheduleCache();
-          onSynced(currentGroupId, res.tasks, res.last_synced_at ?? null, true);
-        }
-      }
-    } catch {
-      clearClassroomAccessToken();
-    }
+    // 2. Перевіряємо, чи оновилися посилання Meet/Zoom у розкладі групи (БЕЗ перезапису особистих завдань!)
+    await fetchGroupStatusAndSchedulePoll(currentGroupId, true, !personalOk);
   }, [
     currentGroupId,
     syncing,
     linkedEmail,
     linkedGroupId,
-    weekStart,
     fetchGroupStatusAndSchedulePoll,
-    checkAndRefreshScheduleIfUpdated,
-    onSynced,
   ]);
 
   // 1. Тиха синхронізація при завантаженні / зміні групи

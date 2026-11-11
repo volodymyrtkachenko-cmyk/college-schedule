@@ -2648,25 +2648,19 @@ async def sync_from_classroom(
                         cred.granted_scopes = granted_scope_str
                     await db.flush()
 
-                # Видаляємо старі дублікати або неактивні записи цього ж студента в цій групі,
-                # щоб телефон і адмінка бачили лише актуальний робочий акаунт
-                dup_conds = [ClassroomCredential.google_user_id == f"legacy_group_{detected_group.id}"]
+                # Видаляємо старі дублікати цієї ж пошти в цій групі
                 if final_email:
-                    dup_conds.append(func.lower(ClassroomCredential.email) == final_email.lower())
-                if safe_name:
-                    dup_conds.append(ClassroomCredential.student_name == safe_name)
-
-                stale_dups = (
-                    await db.scalars(
-                        select(ClassroomCredential).where(
-                            ClassroomCredential.group_id == detected_group.id,
-                            ClassroomCredential.id != cred.id,
-                            or_(*dup_conds),
+                    stale_dups = (
+                        await db.scalars(
+                            select(ClassroomCredential).where(
+                                ClassroomCredential.group_id == detected_group.id,
+                                ClassroomCredential.id != cred.id,
+                                func.lower(ClassroomCredential.email) == final_email.lower(),
+                            )
                         )
-                    )
-                ).all()
-                for s_dup in stale_dups:
-                    await db.delete(s_dup)
+                    ).all()
+                    for s_dup in stale_dups:
+                        await db.delete(s_dup)
 
         detected_group.updated_at = now_utc
         await db.commit()
@@ -2783,9 +2777,13 @@ async def _fetch_user_submissions(
     refresh_token: Optional[str] = None,
 ) -> dict[str, Any]:
     eff_user_id = (google_user_id or "").strip() or None
+    if eff_user_id and eff_user_id.startswith("legacy_group_"):
+        eff_user_id = None
+
     eff_email = (email or "").strip() or None
-    if eff_email == "підключено":
+    if eff_email in ("підключено", "connected", ""):
         eff_email = None
+
     token = (access_token or "").strip() or None
     plain_rt = decrypt_token(refresh_token) if refresh_token else ""
     cred: Optional[ClassroomCredential] = None
@@ -2794,61 +2792,44 @@ async def _fetch_user_submissions(
     if token and not token.startswith("ya29."):
         token = None
 
-    # 1. ЗАВЖДИ шукаємо актуальний ClassroomCredential у БД (щоб телефон підхоплював оновлення з ПК!)
+    # БЕЗПЕКА: Шукаємо ClassroomCredential ВИКЛЮЧНО за особистим google_user_id або email користувача!
+    # Жодних фолбеків за самим лише group_id, щоб ніколи не підтягнути чужий акаунт одногрупника.
     if eff_user_id or eff_email:
-        match_conds = []
-        if eff_user_id:
-            match_conds.append(ClassroomCredential.google_user_id == eff_user_id)
-        if eff_email:
-            match_conds.append(func.lower(ClassroomCredential.email) == eff_email.lower())
-
-        query = select(ClassroomCredential).where(
-            ClassroomCredential.is_active.is_(True),
-            or_(*match_conds),
-        )
-        if group_id:
-            query = query.where(ClassroomCredential.group_id == group_id)
-        query = query.order_by(ClassroomCredential.last_synced_at.desc().nullslast())
-        cred = await db.scalar(query)
-
-        # Фолбек без фільтра group_id, якщо студент змінив групу або мав старий ID
-        if not cred:
+        if eff_user_id and eff_email:
+            # Якщо є обидва — пріоритет точному збігу ID або пошти цього студента
             cred = await db.scalar(
                 select(ClassroomCredential)
                 .where(
                     ClassroomCredential.is_active.is_(True),
-                    or_(*match_conds),
+                    (ClassroomCredential.google_user_id == eff_user_id)
+                    | (func.lower(ClassroomCredential.email) == eff_email.lower()),
+                )
+                .order_by(ClassroomCredential.last_synced_at.desc().nullslast())
+            )
+        elif eff_user_id:
+            cred = await db.scalar(
+                select(ClassroomCredential)
+                .where(
+                    ClassroomCredential.is_active.is_(True),
+                    ClassroomCredential.google_user_id == eff_user_id,
+                )
+                .order_by(ClassroomCredential.last_synced_at.desc().nullslast())
+            )
+        elif eff_email:
+            cred = await db.scalar(
+                select(ClassroomCredential)
+                .where(
+                    ClassroomCredential.is_active.is_(True),
+                    func.lower(ClassroomCredential.email) == eff_email.lower(),
                 )
                 .order_by(ClassroomCredential.last_synced_at.desc().nullslast())
             )
 
-    # Якщо на телефоні був старий технічний ID ("підключено" або "user_..."), але група вже має активний акаунт у БД
-    if not cred and group_id:
-        cred = await db.scalar(
-            select(ClassroomCredential)
-            .where(
-                ClassroomCredential.group_id == group_id,
-                ClassroomCredential.is_active.is_(True),
-            )
-            .order_by(ClassroomCredential.last_synced_at.desc().nullslast())
-        )
-
-    # 2. Якщо локального access_token немає — одразу беремо свіжий через refresh_token із БД (або клієнта)
     if not token and cred and cred.refresh_token:
-        fresh_tok, err_detail, rotated = await _refresh_google_token_detailed(cred.refresh_token)
+        fresh_tok, _, _ = await _refresh_google_token_detailed(cred.refresh_token)
         if fresh_tok:
             token = fresh_tok
             refreshed_access_token = fresh_tok
-            cred.last_refresh_ok_at = datetime.now(timezone.utc)
-            cred.needs_relink = False
-            if rotated:
-                cred.refresh_token = rotated
-            await db.commit()
-        else:
-            cred.needs_relink = True
-            cred.is_active = False
-            cred.last_error = f"needs_relink: {err_detail}"
-            await db.commit()
 
     if not token and plain_rt:
         fresh_tok, _, _ = await _refresh_google_token_detailed(plain_rt)
@@ -2857,14 +2838,11 @@ async def _fetch_user_submissions(
             refreshed_access_token = fresh_tok
 
     if not token:
-        is_relink = bool(cred and (getattr(cred, "needs_relink", False) or not cred.is_active))
         return {
             "connected": False,
             "submissions": {},
             "tasks": [],
             "reason": "unauthenticated",
-            "needs_relink": is_relink,
-            "reason_code": "no_refresh_token" if not cred or not cred.refresh_token else "token_refresh_failed",
         }
 
     try:
