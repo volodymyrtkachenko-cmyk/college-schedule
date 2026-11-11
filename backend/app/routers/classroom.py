@@ -2595,6 +2595,30 @@ async def sync_from_classroom(
                 detected_subgroup = 1
             elif 2 in synced_subs and 1 not in synced_subs:
                 detected_subgroup = 2
+            elif not synced_subs and stats.get("synced_teacher_names"):
+                # Автовизначення підгрупи за викладачами двовикладацьких пар у розкладі групи
+                dual_lessons = (
+                    await db.scalars(
+                        select(Schedule)
+                        .where(
+                            Schedule.group_id == detected_group.id,
+                            Schedule.second_teacher_id.is_not(None),
+                            Schedule.is_active.is_(True),
+                        )
+                    )
+                ).all()
+                t1_ids = {l.teacher_id for l in dual_lessons if l.teacher_id}
+                t2_ids = {l.second_teacher_id for l in dual_lessons if l.second_teacher_id}
+                if t1_ids or t2_ids:
+                    all_t = (await db.scalars(select(Teacher).where(Teacher.id.in_(t1_ids | t2_ids)))).all()
+                    t_names_by_id = {t.id: t.name.lower() for t in all_t if t.name}
+                    st_names = [n.lower() for n in stats.get("synced_teacher_names", [])]
+                    hits_1 = sum(1 for tid in t1_ids if any( sn.split()[0] in t_names_by_id.get(tid, "") for sn in st_names if sn ))
+                    hits_2 = sum(1 for tid in t2_ids if any( sn.split()[0] in t_names_by_id.get(tid, "") for sn in st_names if sn ))
+                    if hits_1 > 0 and hits_2 == 0:
+                        detected_subgroup = 1
+                    elif hits_2 > 0 and hits_1 == 0:
+                        detected_subgroup = 2
 
             cred = await db.scalar(
                 select(ClassroomCredential)
@@ -3597,38 +3621,64 @@ async def trigger_background_sync_if_needed(
         _SYNC_LOCK_GROUPS.discard(group_id)
 
 
+def _iso_utc(dt: Optional[datetime]) -> Optional[str]:
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    else:
+        dt = dt.astimezone(timezone.utc)
+    return dt.isoformat().replace("+00:00", "Z")
+
+
 async def _build_group_accounts_summary(db: AsyncSession, group_id: int) -> dict:
-    """25.7: Статистика підключених акаунтів групи для адмінки та статусу."""
-    creds = (
+    """25.7: Точна статистика підключених Classroom-акаунтів групи для адмінки та статусу."""
+    raw_creds = (
         await db.scalars(
             select(ClassroomCredential)
             .where(ClassroomCredential.group_id == group_id)
-            .order_by(ClassroomCredential.id.asc())
+            .order_by(ClassroomCredential.last_synced_at.desc().nullslast(), ClassroomCredential.id.desc())
         )
     ).all()
+
+    # Автоматично прибираємо застарілі фейкові записи міграції (legacy_group_*), якщо є реальні акаунти
+    has_real_creds = any(
+        c.google_user_id and not c.google_user_id.startswith("legacy_group_")
+        for c in raw_creds
+    )
+    creds: list[ClassroomCredential] = []
+    seen_identities: set[str] = set()
+
+    for c in raw_creds:
+        if has_real_creds and c.google_user_id and c.google_user_id.startswith("legacy_group_"):
+            continue
+        identity_key = (c.email or c.google_user_id or str(c.id)).strip().lower()
+        if identity_key in seen_identities:
+            continue
+        seen_identities.add(identity_key)
+        creds.append(c)
 
     reconnect_errors = {
         "missing_or_corrupt_refresh_token",
         "token_is_access_token_not_refresh_token",
     }
-    # Акаунт вважається працездатним для фонової синхронізації, лише якщо він активний і не має фатальних помилок токена
-    effective_active_creds = [
-        c for c in creds
-        if c.is_active
-        and not getattr(c, "needs_relink", False)
-        and not (
-            c.last_error
-            and (
-                c.last_error.split(":", 1)[0] in reconnect_errors
-                or c.last_error.startswith("invalid_grant")
-                or c.last_error.startswith("needs_relink")
-            )
-        )
-    ]
+
+    def _is_cred_healthy(c: ClassroomCredential) -> bool:
+        if not c.is_active or not c.refresh_token:
+            return False
+        plain_rt = decrypt_token(c.refresh_token) or ""
+        if not plain_rt or plain_rt.startswith("ya29."):
+            return False
+        if c.last_error:
+            err_code = c.last_error.split(":", 1)[0]
+            if err_code in reconnect_errors or c.last_error.startswith("invalid_grant"):
+                return False
+        return True
+
+    effective_active_creds = [c for c in creds if _is_cred_healthy(c)]
     active_count = len(effective_active_creds)
     needs_reconnect = bool(creds) and active_count == 0
 
-    # Перевіряємо, чи має група пари з поділом на підгрупи (2 викладачі: second_teacher_id IS NOT NULL)
     subgroup_lessons_count = await db.scalar(
         select(func.count(Schedule.id)).where(
             Schedule.group_id == group_id,
@@ -3638,14 +3688,21 @@ async def _build_group_accounts_summary(db: AsyncSession, group_id: int) -> dict
     ) or 0
     has_subgroups = subgroup_lessons_count > 0
 
+    covered_subgroups = {c.subgroup for c in effective_active_creds if c.subgroup in (1, 2)}
+
     subgroup_warning: Optional[str] = None
     if active_count == 0:
-        subgroup_warning = "Для цієї групи немає жодного активного Classroom-акаунта."
-    elif has_subgroups and active_count < 2:
-        subgroup_warning = (
-            "Група має пари з поділом на підгрупи, але підключено лише 1 активний акаунт. "
-            "Для оновлення обох підгруп бажано підключити по одному студенту з кожної підгрупи."
-        )
+        subgroup_warning = "Для цієї групи немає жодного активного Classroom-акаунта з дійсним токеном."
+    elif has_subgroups:
+        if 1 in covered_subgroups and 2 not in covered_subgroups:
+            subgroup_warning = "Підключено лише 1-шу підгрупу. Для повного розкладу додайте 1 студента з 2-ї підгрупи."
+        elif 2 in covered_subgroups and 1 not in covered_subgroups:
+            subgroup_warning = "Підключено лише 2-гу підгрупу. Для повного розкладу додайте 1 студента з 1-ї підгрупи."
+        elif active_count < 2 and len(covered_subgroups) < 2:
+            subgroup_warning = (
+                "Група має поділ на підгрупи, але підключено лише 1 акаунт. "
+                "Бажано підключити по одному студенту з кожної підгрупи."
+            )
 
     latest_sync_dt: Optional[datetime] = None
     for c in creds:
@@ -3654,7 +3711,6 @@ async def _build_group_accounts_summary(db: AsyncSession, group_id: int) -> dict
             if latest_sync_dt is None or ts > latest_sync_dt:
                 latest_sync_dt = ts
 
-    # Підтягуємо список студентів групи для збагачення даних старих акаунтів
     students = (
         await db.scalars(
             select(GroupStudent).where(GroupStudent.group_id == group_id)
@@ -3673,56 +3729,21 @@ async def _build_group_accounts_summary(db: AsyncSession, group_id: int) -> dict
 
         student_name = c.student_name or (matched.full_name if matched else None)
         email = c.email or (matched.email if matched else None)
-        raw_photo = c.photo_url or (matched.photo_url if matched else None)
-        if raw_photo and raw_photo.startswith("//"):
-            raw_photo = f"https:{raw_photo}"
-
-        # Якщо URL було обрізано через старий ліміт VARCHAR(500), він повертає 400 і показує биту картинку.
-        # Тимчасово ховаємо битий URL, доки фоновий цикл не оновить повне посилання
-        photo_url = (
-            None
-            if (
-                raw_photo
-                and len(raw_photo) == 500
-                and "googleusercontent.com" in raw_photo
-                and not raw_photo.endswith(("-c", "=s96-c", "=s100", "=s200", "=s400", "=s64-c", "=s32-c", ".jpg", ".png", ".webp"))
-            )
-            else raw_photo
-        )
-
-        # Determine human-friendly reason code
-        reason_code = None
-        is_relink = bool(getattr(c, "needs_relink", False) or not c.is_active)
-        if is_relink:
-            err = (c.last_error or "").lower()
-            if "undecryptable" in err or "corrupt" in err or "key_" in err:
-                reason_code = "key_changed"
-            elif "invalid_grant" in err:
-                reason_code = "revoked"
-            elif "missing_scopes" in err:
-                reason_code = "missing_scopes"
-            elif "network" in err:
-                reason_code = "network"
-            else:
-                reason_code = "reauth_required"
+        photo_url = c.photo_url or (matched.photo_url if matched else None)
+        healthy = _is_cred_healthy(c)
 
         account_items.append({
             "id": c.id,
             "google_user_id": c.google_user_id,
             "email": email,
-            "student_name": student_name,
+            "student_name": student_name or email or "Студент групи",
             "photo_url": photo_url,
             "subgroup": c.subgroup,
-            "last_synced_at": c.last_synced_at.isoformat() if c.last_synced_at else None,
-            "last_refresh_ok_at": c.last_refresh_ok_at.isoformat() if getattr(c, "last_refresh_ok_at", None) else None,
-            "last_client_seen_at": c.last_client_seen_at.isoformat() if getattr(c, "last_client_seen_at", None) else None,
-            "granted_scopes": getattr(c, "granted_scopes", None),
-            "needs_relink": is_relink,
-            "reason_code": reason_code,
-            "last_error": c.last_error,
-            "fail_count": c.fail_count,
-            "next_attempt_at": c.next_attempt_at.isoformat() if c.next_attempt_at else None,
-            "is_active": c.is_active and not getattr(c, "needs_relink", False),
+            "last_synced_at": _iso_utc(c.last_synced_at),
+            "last_error": c.last_error if not healthy else None,
+            "fail_count": c.fail_count or 0,
+            "next_attempt_at": _iso_utc(c.next_attempt_at) if not healthy else None,
+            "is_active": healthy,
         })
 
     return {
@@ -3730,7 +3751,7 @@ async def _build_group_accounts_summary(db: AsyncSession, group_id: int) -> dict
         "total_accounts_count": len(creds),
         "has_subgroups": has_subgroups,
         "subgroup_warning": subgroup_warning,
-        "latest_cred_synced_at": latest_sync_dt.isoformat() if latest_sync_dt else None,
+        "latest_cred_synced_at": _iso_utc(latest_sync_dt),
         "needs_reconnect": needs_reconnect,
         "accounts": account_items,
     }
@@ -3771,7 +3792,7 @@ async def get_group_students(
     accounts_summary = await _build_group_accounts_summary(db, group_id)
     last_synced = (
         accounts_summary["latest_cred_synced_at"]
-        or (binding.last_synced_at.isoformat() if (binding and binding.last_synced_at) else None)
+        or (_iso_utc(binding.last_synced_at) if (binding and binding.last_synced_at) else None)
     )
     return {
         "course_name": binding.course_name if binding else None,
@@ -4061,7 +4082,7 @@ async def get_classroom_group_status(
 
     last_synced = (
         accounts_summary["latest_cred_synced_at"]
-        or (binding.last_synced_at.isoformat() if (binding and binding.last_synced_at) else None)
+        or (_iso_utc(binding.last_synced_at) if (binding and binding.last_synced_at) else None)
     )
 
     return {

@@ -914,9 +914,9 @@ function AdminContent() {
                           <h3 className="text-base font-bold text-sys-text-primary truncate">
                             Група {rosterGroup.name}
                           </h3>
-                          {rosterData?.course_name && (
+                          {typeof rosterData?.connected_accounts_count === "number" && rosterData.connected_accounts_count > 0 && (
                             <span className="text-xs text-emerald-700 dark:text-emerald-400 font-medium truncate max-w-[200px] sm:max-w-[320px]">
-                              · {rosterData.course_name}
+                              · Classroom активний ({rosterData.connected_accounts_count})
                             </span>
                           )}
                         </div>
