@@ -2147,7 +2147,21 @@ async def perform_course_sync(
             seen_task_keys.add(k)
         combined_tasks.append(pt)
 
-    _latest_group_tasks[group.id] = combined_tasks
+    if skip_course_ids and group.id in _latest_group_tasks:
+        # Якщо частина курсів була пропущена через дедуплікацію між акаунтами групи,
+        # об'єднуємо нові завдання з уже збереженими завданнями інших курсів!
+        merged_by_key: dict[str, dict] = {}
+        for existing_t in _latest_group_tasks.get(group.id, []):
+            k = existing_t.get("url") or existing_t.get("alternate_link") or existing_t.get("id")
+            if k:
+                merged_by_key[str(k)] = existing_t
+        for new_t in combined_tasks:
+            k = new_t.get("url") or new_t.get("alternate_link") or new_t.get("id")
+            if k:
+                merged_by_key[str(k)] = new_t
+        _latest_group_tasks[group.id] = list(merged_by_key.values())
+    elif combined_tasks or group.id not in _latest_group_tasks:
+        _latest_group_tasks[group.id] = combined_tasks
     _latest_scope_missing[group.id] = has_submission_scope_error
 
     for tok in synced_teacher_tokens:
@@ -2921,7 +2935,7 @@ async def _fetch_user_submissions(
                 async with sem:
                     cw_task = client.get(
                         f"https://classroom.googleapis.com/v1/courses/{c_id}/courseWork",
-                        params={"pageSize": 100},
+                        params={"courseWorkStates": "PUBLISHED", "pageSize": 100},
                         headers=headers,
                     )
                     sub_task = client.get(

@@ -477,6 +477,25 @@ export async function syncPersonalSubmissions(groupId?: number | null): Promise<
         personalTeachers,
         personalSubgroup ? [personalSubgroup] : null
       );
+
+      if (Array.isArray(res.tasks) && res.tasks.length > 0) {
+        const targetGid = res.group_id || resolvedGroupId || gId || getLinkedGroupId();
+        try {
+          localStorage.setItem("schedule:classroom_tasks", JSON.stringify(res.tasks));
+          if (targetGid) {
+            localStorage.setItem(
+              `schedule:classroom_group_tasks:${targetGid}`,
+              JSON.stringify(res.tasks)
+            );
+          }
+          window.dispatchEvent(
+            new CustomEvent("classroom-tasks-synced", {
+              detail: { groupId: targetGid, tasks: res.tasks },
+            })
+          );
+        } catch {}
+      }
+
       return true;
     }
   } catch {

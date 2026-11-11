@@ -252,21 +252,80 @@ export function SchedulePageClient({
   const [sidebarTaskFilters, setSidebarTaskFilters] = useState<TaskFilterState>(DEFAULT_TASK_FILTERS);
   const [sidebarFiltersOpen, setSidebarFiltersOpen] = useState(true);
   const sidebarFiltersActive = sidebarTaskFilters.status !== "all" || sidebarTaskFilters.subject !== "";
-  const [classroomTasks, setClassroomTasks] = useState<Array<{
-    id: string;
-    title: string;
-    alternate_link?: string;
-    url?: string;
-    teacher?: string | null;
-    due_date: string | null;
-    due_time?: string | null;
-    creation_time?: string | null;
-    created_at?: string | null;
-    course_name: string;
-    state: string;
-    assigned_grade?: number | null;
-    max_points?: number | null;
-  }>>([]);
+
+  // Допоміжна функція безпечного об'єднання списків завдань без втрати даних при F5
+  const mergeTasksLists = useCallback((existing: any[], incoming: any[]): any[] => {
+    if (!Array.isArray(incoming) || incoming.length === 0) return existing;
+    if (!Array.isArray(existing) || existing.length === 0) return incoming;
+    const map = new Map<string, any>();
+    for (const item of existing) {
+      const key = item?.url || item?.alternate_link || item?.id;
+      if (key) map.set(String(key), item);
+    }
+    for (const item of incoming) {
+      const key = item?.url || item?.alternate_link || item?.id;
+      if (key) {
+        const prev = map.get(String(key));
+        map.set(String(key), prev ? { ...prev, ...item } : item);
+      }
+    }
+    return Array.from(map.values());
+  }, []);
+
+  const readCachedGroupTasks = useCallback((gid: number | null): any[] => {
+    if (typeof window === "undefined" || !gid) return [];
+    try {
+      const groupRaw = localStorage.getItem(`schedule:classroom_group_tasks:${gid}`);
+      const groupList = groupRaw ? JSON.parse(groupRaw) : [];
+      const linkedGid = Number(localStorage.getItem("schedule:classroom_linked_group_id")) || null;
+      if (linkedGid === gid) {
+        const personalRaw = localStorage.getItem("schedule:classroom_tasks");
+        const personalList = personalRaw ? JSON.parse(personalRaw) : [];
+        return mergeTasksLists(
+          Array.isArray(groupList) ? groupList : [],
+          Array.isArray(personalList) ? personalList : []
+        );
+      }
+      return Array.isArray(groupList) ? groupList : [];
+    } catch {
+      return [];
+    }
+  }, [mergeTasksLists]);
+
+  const [classroomTasks, setClassroomTasks] = useState<any[]>([]);
+
+  // При зміні groupId (зокрема одразу після F5) миттєво піднімаємо повний кеш завдань цієї групи
+  useEffect(() => {
+    if (!groupId) {
+      setClassroomTasks([]);
+      return;
+    }
+    const cached = readCachedGroupTasks(groupId);
+    if (cached.length > 0) {
+      setClassroomTasks(cached);
+    }
+  }, [groupId, readCachedGroupTasks]);
+
+  // Слухаємо оновлення повного списку особистих завдань із syncPersonalSubmissions
+  useEffect(() => {
+    const handlePersonalTasksSynced = (e: Event) => {
+      const detail = (e as CustomEvent)?.detail;
+      if (!detail || !Array.isArray(detail.tasks)) return;
+      if (detail.groupId && groupId && Number(detail.groupId) !== Number(groupId)) return;
+      setClassroomTasks((prev) => {
+        const next = mergeTasksLists(prev, detail.tasks);
+        if (groupId) {
+          try {
+            localStorage.setItem(`schedule:classroom_group_tasks:${groupId}`, JSON.stringify(next));
+          } catch {}
+        }
+        return next;
+      });
+    };
+    window.addEventListener("classroom-tasks-synced", handlePersonalTasksSynced);
+    return () => window.removeEventListener("classroom-tasks-synced", handlePersonalTasksSynced);
+  }, [groupId, mergeTasksLists]);
+
   const [classroomLastSyncedAt, setClassroomLastSyncedAt] = useState<string | null>(null);
   const { linkedEmail, isLinked, isLinkedToGroup, submissions, personalTeachers, unlink: unlinkClassroom } = useClassroomSubmissions();
   const { isTeacherUnlocked } = useTeacherAccess();
@@ -320,16 +379,14 @@ export function SchedulePageClient({
     try {
       const res = await api.classroom.groupStatus(gid);
       if (currentGroupIdRef.current !== gid) return;
-      if (Array.isArray(res?.tasks)) {
-        setClassroomTasks(res.tasks);
-        try {
-          if (res.tasks.length > 0) {
-            localStorage.setItem(`schedule:classroom_group_tasks:${gid}`, JSON.stringify(res.tasks));
-          } else {
-            localStorage.removeItem(`schedule:classroom_group_tasks:${gid}`);
-          }
-          localStorage.removeItem(`schedule:classroom_tasks:${gid}`);
-        } catch {}
+      if (Array.isArray(res?.tasks) && res.tasks.length > 0) {
+        setClassroomTasks((prev) => {
+          const merged = mergeTasksLists(prev, res.tasks);
+          try {
+            localStorage.setItem(`schedule:classroom_group_tasks:${gid}`, JSON.stringify(merged));
+          } catch {}
+          return merged;
+        });
       }
       if (res?.last_synced_at) {
         setClassroomLastSyncedAt(res.last_synced_at);
@@ -349,32 +406,20 @@ export function SchedulePageClient({
     if (isLinked && currentGroupIdRef.current === gid) {
       void syncPersonalSubmissions(gid);
     }
-  }, [isLinked, isLinkedToGroup]);
+  }, [isLinked, isLinkedToGroup, mergeTasksLists]);
 
   useEffect(() => {
     if (groupId) {
-      let restoredCached = false;
-      try {
-        localStorage.removeItem(`schedule:classroom_tasks:${groupId}`);
-        const cached = localStorage.getItem(`schedule:classroom_group_tasks:${groupId}`);
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed)) {
-            setClassroomTasks(parsed);
-            restoredCached = true;
-          }
-        }
-      } catch {}
-      if (!restoredCached) {
-        setClassroomTasks([]);
-        setClassroomLastSyncedAt(null);
+      const cached = readCachedGroupTasks(groupId);
+      if (cached.length > 0) {
+        setClassroomTasks(cached);
       }
       void fetchClassroomTasks(groupId);
     } else {
       setClassroomTasks([]);
       setClassroomLastSyncedAt(null);
     }
-  }, [groupId, fetchClassroomTasks]);
+  }, [groupId, readCachedGroupTasks, fetchClassroomTasks]);
 
   useEffect(() => {
     let lastClassroomVisibilitySync = 0;
@@ -402,16 +447,18 @@ export function SchedulePageClient({
         setGroupId(detail.group_id);
       }
       if (detail?.tasks && Array.isArray(detail.tasks) && detail.tasks.length > 0) {
+        const targetGid = detail.group_id ?? groupId;
         if (!isSilent || !detail?.group_id || detail.group_id === groupId) {
-          setClassroomTasks(detail.tasks);
+          setClassroomTasks((prev) => {
+            const merged = mergeTasksLists(prev, detail.tasks);
+            if (targetGid) {
+              try {
+                localStorage.setItem(`schedule:classroom_group_tasks:${targetGid}`, JSON.stringify(merged));
+              } catch {}
+            }
+            return merged;
+          });
         }
-        try {
-          const gid = detail.group_id ?? groupId;
-          if (gid) {
-            localStorage.setItem(`schedule:classroom_group_tasks:${gid}`, JSON.stringify(detail.tasks));
-            localStorage.removeItem(`schedule:classroom_tasks:${gid}`);
-          }
-        } catch {}
       }
       if (detail?.last_synced_at) {
         setClassroomLastSyncedAt(detail.last_synced_at);
@@ -1644,7 +1691,15 @@ export function SchedulePageClient({
                     setGroupId(detectedId);
                   }
                   if (tasks && Array.isArray(tasks)) {
-                    setClassroomTasks(tasks);
+                    setClassroomTasks((prev) => {
+                      const merged = mergeTasksLists(prev, tasks);
+                      if (groupId) {
+                        try {
+                          localStorage.setItem(`schedule:classroom_group_tasks:${groupId}`, JSON.stringify(merged));
+                        } catch {}
+                      }
+                      return merged;
+                    });
                   }
                   if (lastSynced) {
                     setClassroomLastSyncedAt(lastSynced);
