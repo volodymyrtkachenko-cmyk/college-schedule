@@ -1287,6 +1287,18 @@ export function SchedulePageClient({
                 ? KYIV_DATE_FMT.format(t.deadline.date)
                 : null;
 
+              const matchedTask = classroomTasks?.find(
+                (ct) => (ct.alternate_link || (ct as any).url) === t.url || (ct.id && key && ct.id === key)
+              );
+              const rawCreated =
+                (t as any).creationTime ??
+                (t as any).creation_time ??
+                (t as any).created_at ??
+                (matchedTask as any)?.creation_time ??
+                (matchedTask as any)?.created_at ??
+                (matchedTask as any)?.creationTime ??
+                null;
+
               const cleanSubj = normalizeSubjectName(l.subject_name || l.subject || "Дисципліна");
               tasks.push({
                 title: t.title || "Завдання",
@@ -1299,6 +1311,9 @@ export function SchedulePageClient({
                 assignedGrade: effectiveGrade,
                 maxPoints: effectiveMaxPoints,
                 dueDateIso: dueIso,
+                creationTime: rawCreated,
+                creation_time: rawCreated,
+                created_at: rawCreated,
                 isBoundToWeek: true,
               });
             }
@@ -1357,6 +1372,12 @@ export function SchedulePageClient({
           teacherFromRaw ||
           null;
 
+        const rawCreated =
+          (ct as any).creationTime ??
+          (ct as any).creation_time ??
+          (ct as any).created_at ??
+          null;
+
         tasks.push({
           id: ct.id,
           title: ct.title || "Завдання",
@@ -1369,6 +1390,9 @@ export function SchedulePageClient({
           assignedGrade: effectiveGrade,
           maxPoints: effectiveMaxPoints,
           dueDateIso: ct.due_date,
+          creationTime: rawCreated,
+          creation_time: rawCreated,
+          created_at: rawCreated,
           isBoundToWeek: boundUrls.has(url),
         });
       }

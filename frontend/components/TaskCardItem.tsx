@@ -16,6 +16,9 @@ export interface FullTaskItem {
   assignedGrade?: number | null;
   maxPoints?: number | null;
   dueDateIso?: string | null;
+  creationTime?: string | null;
+  creation_time?: string | null;
+  created_at?: string | null;
   isBoundToWeek?: boolean;
 }
 

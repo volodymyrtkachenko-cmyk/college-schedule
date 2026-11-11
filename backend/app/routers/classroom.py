@@ -3028,8 +3028,11 @@ async def _fetch_user_submissions(
                             "alternate_link": alt_link,
                             "state": state,
                             "grade": grade,
+                            "assigned_grade": grade,
                             "max_points": max_pts,
                             "due_date": due_iso,
+                            "creation_time": cw.get("creationTime") or cw.get("updateTime"),
+                            "created_at": cw.get("creationTime") or cw.get("updateTime"),
                         }
                         tasks_list.append(task_obj)
 
@@ -4023,6 +4026,8 @@ async def get_classroom_group_status(
                     "subject": subj,
                     "teacher": teacher,
                     "due_date": due_date_iso,
+                    "creation_time": due_date_iso,
+                    "created_at": due_date_iso,
                     "url": url_part,
                     "alternate_link": url_part,
                     "state": "NEW",

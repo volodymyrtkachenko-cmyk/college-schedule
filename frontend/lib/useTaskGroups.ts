@@ -39,6 +39,26 @@ export function formatTaskWord(count: number): string {
   return "завдань";
 }
 
+/**
+ * Повертає timestamp дати публікації завдання (creationTime / created_at) для сортування від найновіших до найстаріших.
+ * Якщо дата публікації відсутня у старому кеші — використовує дату дедлайну як фолбек.
+ */
+function getTaskPublishedTimestamp(t: FullTaskItem): number {
+  const rawCreated = t.creationTime || t.creation_time || t.created_at;
+  if (rawCreated) {
+    const parsed = Date.parse(rawCreated);
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+  if (t.dueDateIso) {
+    const parsedDue = Date.parse(t.dueDateIso);
+    if (!Number.isNaN(parsedDue)) return parsedDue;
+  }
+  if (t.deadline?.date) {
+    return t.deadline.date.getTime();
+  }
+  return 0;
+}
+
 export function useTaskGroups(
   tasks: FullTaskItem[],
   _scope: "week" | "all" = "all",
@@ -56,7 +76,6 @@ export function useTaskGroups(
   }, [currentWeekMonday, weekNumber]);
 
   return useMemo(() => {
-    // 1. Спочатку рахуємо предмети та глобальні лічильники по категоріях
     const subjectMap = new Map<string, number>();
     let pendingCount = 0;
     let overdueTotalCount = 0;
@@ -66,7 +85,6 @@ export function useTaskGroups(
       const isDone = isLinked && (t.state === "TURNED_IN" || t.state === "RETURNED");
       const isOverdue = !isDone && Boolean(t.deadline.isOverdue);
 
-      // Якщо вибрано конкретний предмет — рахуємо лічильники табів для цього предмета
       const matchesSubject = !filters.subject || isSubjectMatch(t.subject, filters.subject);
       if (matchesSubject) {
         if (isDone) doneCount++;
@@ -74,7 +92,6 @@ export function useTaskGroups(
         else pendingCount++;
       }
 
-      // Для стрічки чіпсів предметів рахуємо кількість завдань у поточному активному табі (або всіх невиконаних)
       const matchesCurrentTab =
         filters.status === "done"
           ? isDone
@@ -82,7 +99,7 @@ export function useTaskGroups(
           ? isOverdue
           : filters.status === "pending"
           ? !isDone && !isOverdue
-          : !isDone; // у режимі "all" чіпси показують кількість актуальних (незданих) завдань
+          : !isDone;
 
       if (matchesCurrentTab) {
         const cleanSubj = normalizeSubjectName(t.subject) || "Дисципліна";
@@ -94,7 +111,6 @@ export function useTaskGroups(
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "uk"));
 
-    // 2. Фільтруємо завдання за обраним предметом
     const subjectFiltered = tasks.filter((t) => {
       if (filters.subject && !isSubjectMatch(t.subject, filters.subject)) return false;
       return true;
@@ -123,12 +139,16 @@ export function useTaskGroups(
       }
     }
 
+    // Сортуємо вкладку «Здано» та «Без терміну» від найновіших до найстаріших за датою публікації
+    turnedInTasks.sort((a, b) => getTaskPublishedTimestamp(b) - getTaskPublishedTimestamp(a));
+    noDateTasks.sort((a, b) => getTaskPublishedTimestamp(b) - getTaskPublishedTimestamp(a));
+
     const activeCount = overdueTasks.length + activeTasks.length + noDateTasks.length;
     const isOnlyTurnedIn = activeCount === 0 && turnedInTasks.length > 0;
     const totalCount = activeCount + turnedInTasks.length;
 
     return {
-      pastWeekTasks: [], // Об'єднано з overdueTasks, щоб не ховати старі борги в окремий закритий акордеон
+      pastWeekTasks: [],
       overdueTasks,
       activeTasks,
       noDateTasks,
