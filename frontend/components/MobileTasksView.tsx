@@ -28,6 +28,7 @@ export function TasksTodoBoard({
 }) {
   const [activeTab, setActiveTab] = useState<TasksTabMode>("pending");
   const [selectedSubject, setSelectedSubject] = useState<string>("");
+  const [subjectMenuOpen, setSubjectMenuOpen] = useState(false);
 
   const filters: TaskFilterState = useMemo(
     () => ({
@@ -52,6 +53,11 @@ export function TasksTodoBoard({
     if (!selectedSubject) return "";
     return subjects.some((s) => s.name === selectedSubject) ? selectedSubject : "";
   }, [selectedSubject, subjects]);
+
+  const selectedSubjectMeta = useMemo(
+    () => subjects.find((s) => s.name === effectiveSubject) ?? null,
+    [subjects, effectiveSubject]
+  );
 
   const totalStatusTabs = isLinked ? 3 : 2;
   const activeStatusIndex =
@@ -185,50 +191,127 @@ export function TasksTodoBoard({
         )}
       </div>
 
-      {/* Horizontal Subject Chips */}
+      {/* Compact Collapsible Subject Selector */}
       {subjects.length > 1 && (
-        <div
-          role="group"
-          aria-label="Фільтр за предметом"
-          className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5 -mx-1 px-1"
-        >
-          <button
-            type="button"
-            onClick={() => setSelectedSubject("")}
-            className={`shrink-0 rounded-xl px-3 py-1.5 text-xs font-semibold border transition-colors duration-150 active:scale-95 cursor-pointer ${
-              !effectiveSubject
-                ? "bg-sys-accent/15 border-sys-accent/50 text-sys-accent shadow-2xs"
-                : "bg-sys-card border-sys-border text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/30"
-            }`}
-          >
-            Усі предмети
-          </button>
-          {subjects.map((subj) => {
-            const isSelected = effectiveSubject === subj.name;
-            return (
+        <div className="relative">
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setSubjectMenuOpen((prev) => !prev)}
+              aria-expanded={subjectMenuOpen}
+              className={`flex-1 min-w-0 flex items-center justify-between gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition-colors duration-150 cursor-pointer active:scale-[0.99] ${
+                effectiveSubject
+                  ? "border-sys-accent/45 bg-sys-accent/10 text-sys-accent"
+                  : "border-sys-border bg-sys-card text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-elevatedBorder"
+              }`}
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="shrink-0 opacity-80"
+                >
+                  <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+                </svg>
+                <span className="truncate">
+                  {effectiveSubject ? effectiveSubject : `Усі предмети (${subjects.length})`}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {selectedSubjectMeta && (
+                  <span className="rounded-full bg-sys-accent/20 px-1.5 py-0.5 text-[10px] font-bold text-sys-accent">
+                    {selectedSubjectMeta.count}
+                  </span>
+                )}
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className={`transition-transform duration-150 ${subjectMenuOpen ? "rotate-180" : ""}`}
+                >
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
+              </div>
+            </button>
+
+            {effectiveSubject && (
               <button
-                key={subj.name}
                 type="button"
-                onClick={() => setSelectedSubject(isSelected ? "" : subj.name)}
-                className={`shrink-0 rounded-xl px-3 py-1.5 text-xs font-semibold border transition-colors duration-150 flex items-center gap-1.5 active:scale-95 cursor-pointer ${
-                  isSelected
-                    ? "bg-sys-accent/15 border-sys-accent/50 text-sys-accent shadow-2xs"
-                    : "bg-sys-card border-sys-border text-sys-text-secondary hover:text-sys-text-primary hover:border-sys-accent/30"
+                onClick={() => {
+                  setSelectedSubject("");
+                  setSubjectMenuOpen(false);
+                }}
+                title="Скинути фільтр предмета"
+                aria-label="Скинути фільтр предмета"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-sys-border bg-sys-card text-sys-text-secondary hover:text-rose-500 hover:border-rose-500/40 active:scale-95 transition-colors cursor-pointer"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
+          {subjectMenuOpen && (
+            <div className="mt-1.5 max-h-60 overflow-y-auto custom-scrollbar rounded-xl border border-sys-border bg-sys-card p-1.5 shadow-lg space-y-0.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedSubject("");
+                  setSubjectMenuOpen(false);
+                }}
+                className={`w-full flex items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition-colors cursor-pointer ${
+                  !effectiveSubject
+                    ? "bg-sys-accent/15 text-sys-accent font-bold"
+                    : "text-sys-text-primary hover:bg-sys-bg font-medium"
                 }`}
               >
-                <span className="truncate max-w-[180px]">{subj.name}</span>
-                <span
-                  className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                    isSelected
-                      ? "bg-sys-accent/20 text-sys-accent font-bold"
-                      : "bg-sys-bg text-sys-text-muted"
-                  }`}
-                >
-                  {subj.count}
+                <span>Усі предмети</span>
+                <span className="text-[11px] text-sys-text-muted shrink-0">
+                  {subjects.reduce((acc, item) => acc + item.count, 0)}
                 </span>
               </button>
-            );
-          })}
+
+              {subjects.map((subj) => {
+                const isSelected = effectiveSubject === subj.name;
+                return (
+                  <button
+                    key={subj.name}
+                    type="button"
+                    onClick={() => {
+                      setSelectedSubject(isSelected ? "" : subj.name);
+                      setSubjectMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between gap-2.5 rounded-lg px-2.5 py-2 text-left text-xs transition-colors cursor-pointer ${
+                      isSelected
+                        ? "bg-sys-accent/15 text-sys-accent font-bold"
+                        : "text-sys-text-primary hover:bg-sys-bg font-medium"
+                    }`}
+                  >
+                    <span className="leading-snug break-words flex-1">{subj.name}</span>
+                    <span
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                        isSelected
+                          ? "bg-sys-accent/25 text-sys-accent"
+                          : "bg-sys-bg text-sys-text-secondary border border-sys-border/60"
+                      }`}
+                    >
+                      {subj.count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 

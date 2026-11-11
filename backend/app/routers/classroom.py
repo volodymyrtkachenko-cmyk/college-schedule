@@ -10,7 +10,7 @@ from zoneinfo import ZoneInfo
 import httpx
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from pydantic import BaseModel
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -2567,7 +2567,7 @@ async def sync_from_classroom(
             import hashlib as _hashlib
             effective_user_id = f"user_{_hashlib.sha256(plain_refresh.encode('utf-8')).hexdigest()[:16]}"
 
-        # 25.4.2 & 1.2: Upsert запису в classroom_credentials за парою (group_id, google_user_id).
+        # 25.4.2 & 1.2: Upsert запису в classroom_credentials за парою (group_id, google_user_id) або email.
         # Ніколи не створюємо запис ClassroomCredential із порожнім refresh_token = ""!
         if effective_user_id:
             effective_user_id = str(effective_user_id)[:128]
@@ -2583,13 +2583,28 @@ async def sync_from_classroom(
                 detected_subgroup = 2
 
             cred = await db.scalar(
-                select(ClassroomCredential).where(
+                select(ClassroomCredential)
+                .where(
                     ClassroomCredential.group_id == detected_group.id,
-                    ClassroomCredential.google_user_id == effective_user_id,
+                    (ClassroomCredential.google_user_id == effective_user_id)
+                    | (
+                        func.lower(ClassroomCredential.email) == final_email.lower()
+                        if final_email
+                        else False
+                    ),
                 )
+                .order_by(ClassroomCredential.is_active.desc(), ClassroomCredential.id.desc())
             )
-            if cred is None:
-                if encrypted_refresh:
+
+            # Якщо у клієнта не прийшов новий refresh_token, зберігаємо існуючий робочий токен із БД
+            if not encrypted_refresh and cred and cred.refresh_token:
+                cand_rt = decrypt_token(cred.refresh_token) or ""
+                if cand_rt and not cand_rt.startswith("ya29."):
+                    plain_refresh = cand_rt
+                    encrypted_refresh = cred.refresh_token
+
+            if encrypted_refresh:
+                if cred is None:
                     cred = ClassroomCredential(
                         group_id=detected_group.id,
                         google_user_id=effective_user_id,
@@ -2609,12 +2624,21 @@ async def sync_from_classroom(
                         is_active=True,
                     )
                     db.add(cred)
-            else:
-                cred.last_client_seen_at = now_utc
-                if encrypted_refresh:
+                    await db.flush()
+                else:
+                    cred.google_user_id = effective_user_id
                     cred.refresh_token = encrypted_refresh
-                    cred.last_refresh_ok_at = now_utc
+                    if safe_email:
+                        cred.email = safe_email
+                    if safe_name:
+                        cred.student_name = safe_name
+                    if safe_photo:
+                        cred.photo_url = safe_photo
+                    if detected_subgroup:
+                        cred.subgroup = detected_subgroup
                     cred.last_synced_at = now_utc
+                    cred.last_refresh_ok_at = now_utc
+                    cred.last_client_seen_at = now_utc
                     cred.needs_relink = False
                     cred.last_error = None
                     cred.fail_count = 0
@@ -2622,55 +2646,27 @@ async def sync_from_classroom(
                     cred.is_active = True
                     if granted_scope_str:
                         cred.granted_scopes = granted_scope_str
-                else:
-                    dec_rt, dec_status = decrypt_token_detailed(cred.refresh_token)
-                    has_valid_existing_rt = bool(dec_rt and not dec_rt.startswith("ya29."))
-                    if has_valid_existing_rt:
-                        cred.needs_relink = False
-                        cred.is_active = True
-                        cred.last_error = None
-                        cred.fail_count = 0
-                        cred.next_attempt_at = None
-                        cred.last_synced_at = now_utc
-                        rotated = rotate_token(cred.refresh_token)
-                        if rotated:
-                            cred.refresh_token = rotated
-                    else:
-                        cred.needs_relink = True
-                        cred.is_active = False
-                        if not cred.last_error or "missing_or_corrupt" not in cred.last_error:
-                            cred.last_error = f"needs_relink: {dec_status}"
-                        if access_token:
-                            try:
-                                async with httpx.AsyncClient(timeout=5.0) as rev_client:
-                                    await rev_client.post(
-                                        "https://oauth2.googleapis.com/revoke",
-                                        params={"token": access_token},
-                                        headers={"Content-Type": "application/x-www-form-urlencoded"},
-                                    )
-                            except Exception:
-                                pass
+                    await db.flush()
 
-                if safe_email:
-                    cred.email = safe_email
+                # Видаляємо старі дублікати або неактивні записи цього ж студента в цій групі,
+                # щоб телефон і адмінка бачили лише актуальний робочий акаунт
+                dup_conds = [ClassroomCredential.google_user_id == f"legacy_group_{detected_group.id}"]
+                if final_email:
+                    dup_conds.append(func.lower(ClassroomCredential.email) == final_email.lower())
                 if safe_name:
-                    cred.student_name = safe_name
-                if safe_photo:
-                    cred.photo_url = safe_photo
-                if detected_subgroup:
-                    cred.subgroup = detected_subgroup
+                    dup_conds.append(ClassroomCredential.student_name == safe_name)
 
-            # Якщо існував тимчасовий запис міграції legacy_group_{id} з тим самим токеном — прибираємо дубль
-            with db.no_autoflush:
-                legacy_cred = await db.scalar(
-                    select(ClassroomCredential).where(
-                        ClassroomCredential.group_id == detected_group.id,
-                        ClassroomCredential.google_user_id == f"legacy_group_{detected_group.id}",
+                stale_dups = (
+                    await db.scalars(
+                        select(ClassroomCredential).where(
+                            ClassroomCredential.group_id == detected_group.id,
+                            ClassroomCredential.id != cred.id,
+                            or_(*dup_conds),
+                        )
                     )
-                )
-            if legacy_cred and legacy_cred.google_user_id != effective_user_id:
-                if plain_refresh and decrypt_token(legacy_cred.refresh_token) == plain_refresh:
-                    await db.delete(legacy_cred)
+                ).all()
+                for s_dup in stale_dups:
+                    await db.delete(s_dup)
 
         detected_group.updated_at = now_utc
         await db.commit()
@@ -2792,58 +2788,73 @@ async def _fetch_user_submissions(
         eff_email = None
     token = (access_token or "").strip() or None
     plain_rt = decrypt_token(refresh_token) if refresh_token else ""
-    cred = None
+    cred: Optional[ClassroomCredential] = None
     refreshed_access_token: Optional[str] = None
 
     if token and not token.startswith("ya29."):
         token = None
+
+    # 1. ЗАВЖДИ шукаємо актуальний ClassroomCredential у БД (щоб телефон підхоплював оновлення з ПК!)
+    if eff_user_id or eff_email:
+        match_conds = []
+        if eff_user_id:
+            match_conds.append(ClassroomCredential.google_user_id == eff_user_id)
+        if eff_email:
+            match_conds.append(func.lower(ClassroomCredential.email) == eff_email.lower())
+
+        query = select(ClassroomCredential).where(
+            ClassroomCredential.is_active.is_(True),
+            or_(*match_conds),
+        )
+        if group_id:
+            query = query.where(ClassroomCredential.group_id == group_id)
+        query = query.order_by(ClassroomCredential.last_synced_at.desc().nullslast())
+        cred = await db.scalar(query)
+
+        # Фолбек без фільтра group_id, якщо студент змінив групу або мав старий ID
+        if not cred:
+            cred = await db.scalar(
+                select(ClassroomCredential)
+                .where(
+                    ClassroomCredential.is_active.is_(True),
+                    or_(*match_conds),
+                )
+                .order_by(ClassroomCredential.last_synced_at.desc().nullslast())
+            )
+
+    # Якщо на телефоні був старий технічний ID ("підключено" або "user_..."), але група вже має активний акаунт у БД
+    if not cred and group_id:
+        cred = await db.scalar(
+            select(ClassroomCredential)
+            .where(
+                ClassroomCredential.group_id == group_id,
+                ClassroomCredential.is_active.is_(True),
+            )
+            .order_by(ClassroomCredential.last_synced_at.desc().nullslast())
+        )
+
+    # 2. Якщо локального access_token немає — одразу беремо свіжий через refresh_token із БД (або клієнта)
+    if not token and cred and cred.refresh_token:
+        fresh_tok, err_detail, rotated = await _refresh_google_token_detailed(cred.refresh_token)
+        if fresh_tok:
+            token = fresh_tok
+            refreshed_access_token = fresh_tok
+            cred.last_refresh_ok_at = datetime.now(timezone.utc)
+            cred.needs_relink = False
+            if rotated:
+                cred.refresh_token = rotated
+            await db.commit()
+        else:
+            cred.needs_relink = True
+            cred.is_active = False
+            cred.last_error = f"needs_relink: {err_detail}"
+            await db.commit()
 
     if not token and plain_rt:
         fresh_tok, _, _ = await _refresh_google_token_detailed(plain_rt)
         if fresh_tok:
             token = fresh_tok
             refreshed_access_token = fresh_tok
-
-    if not token and (eff_user_id or eff_email):
-        query = select(ClassroomCredential)
-        if eff_user_id:
-            query = query.where(ClassroomCredential.google_user_id == eff_user_id)
-        elif eff_email:
-            query = query.where(func.lower(ClassroomCredential.email) == eff_email.lower())
-        if group_id:
-            query = query.where(ClassroomCredential.group_id == group_id)
-        query = query.order_by(ClassroomCredential.last_synced_at.desc().nullslast())
-        cred = await db.scalar(query)
-
-        if not cred and eff_email and group_id:
-            cred = await db.scalar(
-                select(ClassroomCredential)
-                .where(
-                    func.lower(ClassroomCredential.email) == eff_email.lower(),
-                )
-                .order_by(ClassroomCredential.last_synced_at.desc().nullslast())
-            )
-
-        if cred:
-            cred.last_client_seen_at = datetime.now(timezone.utc)
-            if cred.refresh_token and cred.is_active:
-                fresh_tok, err_detail, rotated = await _refresh_google_token_detailed(cred.refresh_token)
-                if fresh_tok:
-                    token = fresh_tok
-                    refreshed_access_token = fresh_tok
-                    cred.last_refresh_ok_at = datetime.now(timezone.utc)
-                    cred.needs_relink = False
-                    if rotated:
-                        cred.refresh_token = rotated
-                else:
-                    cred.needs_relink = True
-                    cred.is_active = False
-                    cred.last_error = f"needs_relink: {err_detail}"
-            elif not cred.refresh_token:
-                cred.needs_relink = True
-                cred.is_active = False
-                cred.last_error = "needs_relink: missing_or_corrupt_refresh_token"
-            await db.commit()
 
     if not token:
         is_relink = bool(cred and (getattr(cred, "needs_relink", False) or not cred.is_active))

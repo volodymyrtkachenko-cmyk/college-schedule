@@ -55,3 +55,26 @@ jobs:
         working-directory: frontend
       - run: npx tsc --noEmit && node --test tests/*.cjs
         working-directory: frontend
+
+  deploy-heroku:
+    name: Deploy to Heroku
+    needs: verify
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Deploy to Heroku
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+          HEROKU_APP_NAME: ${{ secrets.HEROKU_APP_NAME }}
+        run: |
+          set -eu
+          if [ -n "${HEROKU_API_KEY:-}" ] && [ -n "${HEROKU_APP_NAME:-}" ]; then
+            git push --force \
+              "https://heroku:${HEROKU_API_KEY}@git.heroku.com/${HEROKU_APP_NAME}.git" \
+              "HEAD:main"
+          else
+            echo "Heroku credentials not configured; skipping deployment."
+          fi

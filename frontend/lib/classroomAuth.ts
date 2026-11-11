@@ -47,24 +47,6 @@ export interface ClassroomAuthOptions {
   onError?: (err: Error) => void;
 }
 
-async function revokeLegacyTokenIfNeeded(forceReset?: boolean): Promise<void> {
-  if (typeof window === "undefined") return;
-  try {
-    const existingRefresh = localStorage.getItem("schedule:classroom_refresh_token");
-    const existingAccess = localStorage.getItem("schedule:classroom_access_token");
-    // Якщо у браузері застряг лише старий access_token без refresh_token (наслідок initTokenClient),
-    // відкликаємо його перед відкриттям вікна, щоб Google гарантовано видав новий refresh_token.
-    if ((forceReset || !existingRefresh) && existingAccess) {
-      await fetch(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(existingAccess)}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      }).catch(() => {});
-      localStorage.removeItem("schedule:classroom_access_token");
-      localStorage.removeItem("schedule:classroom_access_token_exp");
-    }
-  } catch {}
-}
-
 export async function requestClassroomAuth(options: ClassroomAuthOptions = {}): Promise<any> {
   if (!GOOGLE_CLIENT_ID) {
     throw new Error("Додайте NEXT_PUBLIC_GOOGLE_CLIENT_ID у .env");
@@ -87,7 +69,6 @@ export async function requestClassroomAuth(options: ClassroomAuthOptions = {}): 
   }
 
   await loadGsiScript();
-  await revokeLegacyTokenIfNeeded(options.forceConsentReset);
 
   const rawHint =
     options.hint ??

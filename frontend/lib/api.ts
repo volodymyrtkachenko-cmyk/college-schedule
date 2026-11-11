@@ -1919,12 +1919,30 @@ export const api = {
             access_token?: string | null;
             refresh_token?: string | null;
         }) => {
+            let validLocalAccess: string | undefined = undefined;
+            if (typeof window !== "undefined") {
+                try {
+                    const rawTok = localStorage.getItem("schedule:classroom_access_token");
+                    const rawExp = Number(localStorage.getItem("schedule:classroom_access_token_exp") || "0");
+                    if (rawTok && rawExp > Date.now()) {
+                        validLocalAccess = rawTok;
+                    }
+                } catch {}
+            }
             const body = {
                 group_id: payload?.group_id,
-                google_user_id: payload?.google_user_id ?? (typeof window !== "undefined" ? localStorage.getItem("schedule:classroom_google_user_id") || undefined : undefined),
-                email: payload?.email ?? (typeof window !== "undefined" ? localStorage.getItem("schedule:classroom_linked_email") || undefined : undefined),
-                access_token: payload?.access_token ?? (typeof window !== "undefined" ? localStorage.getItem("schedule:classroom_access_token") || undefined : undefined),
-                refresh_token: payload?.refresh_token,
+                google_user_id:
+                    payload?.google_user_id ??
+                    (typeof window !== "undefined"
+                        ? localStorage.getItem("schedule:classroom_google_user_id") || undefined
+                        : undefined),
+                email:
+                    payload?.email ??
+                    (typeof window !== "undefined"
+                        ? localStorage.getItem("schedule:classroom_linked_email") || undefined
+                        : undefined),
+                access_token: payload?.access_token ?? validLocalAccess,
+                refresh_token: payload?.refresh_token ?? undefined,
             };
             return rawRequest<{
                 connected: boolean;
