@@ -1,22 +1,11 @@
 "use client";
 
-import React, { useEffect, useMemo, useState, startTransition } from "react";
+import React, { useEffect, useState, startTransition } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { ScheduleResponse, Lesson, ReferenceRecord } from "../lib/api";
-import {
-  extractClassroomTaskKey,
-  useClassroomSubmissions,
-} from "../lib/useClassroomSubmissions";
+import { useClassroomSubmissions } from "../lib/useClassroomSubmissions";
 import { useTeacherAccess } from "../lib/useTeacherAccess";
 import { useUserSettings } from "../lib/useUserSettings";
-import { useMobileNav } from "../lib/useMobileNav";
-import {
-  checkScheduleHasSubgroups,
-  extractSubgroupTeacherHints,
-  normalizeSubjectName,
-} from "../lib/format";
-import { getGroupFullCode } from "../lib/groupInfo";
 
 export interface GuideHubModalProps {
   isOpen?: boolean;
@@ -34,48 +23,95 @@ interface GuideStepMeta {
   points: [string, string];
 }
 
-interface PersonalizedContext {
-  groupName: string;
-  groupFullCode: string;
-  teacherName: string;
-  hasSubgroups: boolean;
-  /* Student lessons */
-  mainSubject: string;
-  mainTeacher: string;
-  splitSubject: string;
-  sub1Teacher: string;
-  sub2Teacher: string;
-  sub2Room: string;
-  zoomSubject: string;
-  zoomTeacher: string;
-  jumpSubject: string;
-  jumpTeacher: string;
-  jumpRoom: string;
-  /* Student Classroom data */
-  sampleTaskTitle: string;
-  sampleTaskSubject: string;
-  sampleTaskTeacher: string;
-  sampleTaskDue: string;
-  overdueTaskTitle: string;
-  overdueTaskSubject: string;
-  pendingCount: number;
-  overdueCount: number;
-  doneCount: number;
-  gpa5: string;
-  gpa12: string;
-  gradeSubject: string;
-  gradeTeacher: string;
-  gradeChips: string[];
-  /* Teacher data */
-  teacherSubject: string;
-  teacherSecondSubject: string;
-  teacherGroup: string;
-  teacherSecondGroup: string;
-  teacherRoom: string;
-}
-
 const FINAL_MS = 4800;
 const TICK_MS = 80;
+
+const STUDENT_STEPS: GuideStepMeta[] = [
+  {
+    id: "st-1-classroom",
+    tabLabel: "Classroom",
+    title: "1. Пошта @kre.dp.ua: відкриття Meet/Zoom та ДЗ",
+    points: [
+      "Натисніть на «🔒 Meet / Zoom» або кнопку Classroom у шапці й оберіть свій акаунт @kre.dp.ua.",
+      "Замочки зникнуть, до карток пар підтягнуться актуальні домашні завдання, а дані синхронізуються між ПК і телефоном.",
+    ],
+  },
+  {
+    id: "st-2-subgroup",
+    tabLabel: "Підгрупи",
+    title: "2. Фільтр своєї підгрупи в 1 клік",
+    points: [
+      "Натисніть на бейдж «1 підгр.» або «2 підгр.» прямо на картці пари — другий викладач і чужий кабінет сховаються.",
+      "Повторний клік по бейджу підгрупи миттєво повертає показ обох підгруп.",
+    ],
+  },
+  {
+    id: "st-3-zoom",
+    tabLabel: "Код Zoom",
+    title: "3. Автокопіювання пароля Zoom при кліку",
+    points: [
+      "Система сама знаходить ID та пароль у тексті викладача з Classroom і створює кнопку «Zoom ↗».",
+      "При натисканні на «Zoom ↗» пароль конференції автоматично копіюється в буфер обміну.",
+    ],
+  },
+  {
+    id: "st-4-tasks",
+    tabLabel: "Завдання",
+    title: "4. Усі завдання в одному списку без гортання тижнів",
+    points: [
+      "У вкладці «Завдання» роботи поділені на «До здачі», «Борги» та «Здано», щоб старі борги не губилися.",
+      "Фільтр «Усі предмети» дозволяє залишити завдання лише з потрібної дисципліни.",
+    ],
+  },
+  {
+    id: "st-5-grades",
+    tabLabel: "Оцінки",
+    title: "5. Середній бал та всі оцінки за семестр",
+    points: [
+      "Вкладка «Оцінки» автоматично рахує загальний середній бал (за 5-бальною та 12-бальною шкалами).",
+      "Натисніть на предмет, щоб переглянути всі оцінені роботи з автоматичним перерахунком зі 100-бальної шкали.",
+    ],
+  },
+  {
+    id: "st-7-teacher-jump",
+    tabLabel: "Викладач",
+    title: "6. Швидкий перехід у розклад викладача",
+    points: [
+      "Натисніть на прізвище викладача на картці пари, щоб побачити його розклад та аудиторію на сьогодні.",
+      "Кнопка «← До ...» у верхній плашці поверне вас назад до розкладу своєї групи.",
+    ],
+  },
+];
+
+const TEACHER_STEPS: GuideStepMeta[] = [
+  {
+    id: "tc-1-pin",
+    tabLabel: "PIN-код",
+    title: "1. PIN-код для відкриття посилань Meet та Zoom",
+    points: [
+      "Натисніть на «🔒 Zoom / Meet» або кнопку «Вхід викладача» у шапці та введіть PIN-код один раз.",
+      "Усі посилання на онлайн-пари відкриються на цьому пристрої для всіх навчальних груп.",
+    ],
+  },
+  {
+    id: "tc-4-stats",
+    tabLabel: "Статистика",
+    title: "2. Статистика проведених пар та годин",
+    points: [
+      "Сторінка «Статистика» автоматично рахує вичитані академічні години та пари від початку семестру.",
+      "Доступний розподіл навантаження за кожною дисципліною та кожною навчальною группою.",
+    ],
+  },
+  {
+    id: "tc-5-radar",
+    tabLabel: "Заміни",
+    title: "3. Позначки замін та перенесень у розкладі",
+    points: [
+      "Перенесені заняття підписуються новою датою й номером пари («↪ Перенесено → Четвер, 3 пара»).",
+      "Призначені разові заміни виділяються жовтою рамкою та бейджем «⚡ Заміна».",
+    ],
+  },
+];
 
 function PlatformSvg({ platform }: { platform: "meet" | "zoom" }) {
   if (platform === "zoom") {
@@ -191,267 +227,14 @@ function DemoCursor({
   );
 }
 
-/**
- * Зчитує реальні дані користувача з localStorage (група, викладач, предмети, підгрупи, завдання, оцінки)
- * без жодних мережевих запитів.
- */
-function buildPersonalizedContext(
-  groupId: number | null | undefined,
-  teacherId: number | null | undefined,
-  isLinked: boolean,
-  submissions: Record<string, { state: string; grade?: number | null; maxPoints?: number | null }>
-): PersonalizedContext {
-  const ctx: PersonalizedContext = {
-    groupName: "85",
-    groupFullCode: "КІ-24-1/9-85",
-    teacherName: "Дворніченко Н.Ф.",
-    hasSubgroups: true,
-    mainSubject: "Дискретна математика",
-    mainTeacher: "Гончаров О.М.",
-    splitSubject: "Іноземна мова (за проф. спрямуванням)",
-    sub1Teacher: "Хочинська О.С.",
-    sub2Teacher: "Токарєва О.В.",
-    sub2Room: "419",
-    zoomSubject: "Комп'ютерна електроніка",
-    zoomTeacher: "Філімончук А.В.",
-    jumpSubject: "Комп'ютерна схемотехніка",
-    jumpTeacher: "Дворніченко Н.Ф.",
-    jumpRoom: "305",
-    sampleTaskTitle: "Практична робота №5",
-    sampleTaskSubject: "Комп'ютерна схемотехніка",
-    sampleTaskTeacher: "Дворніченко Н.Ф.",
-    sampleTaskDue: "до 15 лист.",
-    overdueTaskTitle: "Лабораторна робота №2",
-    overdueTaskSubject: "Дискретна математика",
-    pendingCount: 3,
-    overdueCount: 1,
-    doneCount: 14,
-    gpa5: "4.75",
-    gpa12: "11.0",
-    gradeSubject: "Дискретна математика",
-    gradeTeacher: "Гончаров О.М.",
-    gradeChips: ["11 б.", "12 б.", "10 б."],
-    teacherSubject: "Комп'ютерна схемотехніка",
-    teacherSecondSubject: "Мікропроцесорні системи",
-    teacherGroup: "85",
-    teacherSecondGroup: "86",
-    teacherRoom: "305",
-  };
-
-  if (typeof window === "undefined") return ctx;
-
-  try {
-    const resolvedGid =
-      groupId ||
-      Number(window.localStorage.getItem("schedule:groupId")) ||
-      Number(window.localStorage.getItem("schedule:classroom_linked_group_id")) ||
-      null;
-
-    const resolvedTid =
-      teacherId || Number(window.localStorage.getItem("schedule:teacherId")) || null;
-
-    // 1. Назва та шифр групи
-    const rawGroups = window.localStorage.getItem("schedule:groups");
-    if (rawGroups && resolvedGid) {
-      const groups = JSON.parse(rawGroups) as ReferenceRecord[];
-      const foundGroup = groups.find((g) => Number(g.id) === Number(resolvedGid));
-      if (foundGroup?.name) {
-        ctx.groupName = foundGroup.name;
-        ctx.groupFullCode = getGroupFullCode(foundGroup);
-      }
-    }
-
-    // 2. Ім'я викладача
-    const rawTeachers = window.localStorage.getItem("schedule:teachers");
-    if (rawTeachers && resolvedTid) {
-      const teachers = JSON.parse(rawTeachers) as ReferenceRecord[];
-      const foundTeacher = teachers.find((t) => Number(t.id) === Number(resolvedTid));
-      if (foundTeacher?.name) {
-        ctx.teacherName = foundTeacher.name;
-      }
-    }
-
-    // 3. Реальні пари з кешу тижня студента
-    if (resolvedGid) {
-      const prefix = `schedule:week:groupId:${resolvedGid}:`;
-      let studentLessons: Lesson[] = [];
-      for (let i = 0; i < window.localStorage.length; i++) {
-        const k = window.localStorage.key(i);
-        if (k && k.startsWith(prefix)) {
-          const raw = window.localStorage.getItem(k);
-          if (raw) {
-            const parsed = JSON.parse(raw) as ScheduleResponse[];
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              studentLessons = parsed.flatMap((d) => d.lessons || []).filter((l) => !l.is_cancelled);
-              if (studentLessons.length > 0) break;
-            }
-          }
-        }
-      }
-
-      if (studentLessons.length > 0) {
-        ctx.hasSubgroups = checkScheduleHasSubgroups(studentLessons);
-        const hints = extractSubgroupTeacherHints(studentLessons);
-        if (hints.sub1[0]) {
-          ctx.sub1Teacher = hints.sub1[0].teacher;
-          if (hints.sub1[0].subject) ctx.splitSubject = hints.sub1[0].subject;
-        }
-        if (hints.sub2[0]) {
-          ctx.sub2Teacher = hints.sub2[0].teacher;
-        }
-
-        const splitLesson = studentLessons.find(
-          (l) => l.second_teacher_id != null || (l.teacher_name && /[,/]/.test(l.teacher_name))
-        );
-        if (splitLesson) {
-          const r = splitLesson.second_teacher_room || splitLesson.room;
-          if (r) ctx.sub2Room = r.replace(/^ауд\.?\s*/i, "").split(/[,/]/)[0].trim();
-        }
-
-        // Унікальні не-розділені предмети цієї групи
-        const singleLessons = studentLessons.filter(
-          (l) =>
-            l.subject_name &&
-            l.teacher_name &&
-            !l.second_teacher_id &&
-            !/[,/]/.test(l.teacher_name) &&
-            !l.subject_name.toLowerCase().includes("виховна") &&
-            !l.subject_name.toLowerCase().includes("фізичн")
-        );
-
-        const uniqueSingles: Lesson[] = [];
-        const seenSubj = new Set<string>();
-        for (const l of singleLessons) {
-          if (!seenSubj.has(l.subject_name)) {
-            seenSubj.add(l.subject_name);
-            uniqueSingles.push(l);
-          }
-        }
-
-        if (uniqueSingles[0]) {
-          ctx.mainSubject = uniqueSingles[0].subject_name;
-          ctx.mainTeacher = uniqueSingles[0].teacher_name || ctx.mainTeacher;
-          ctx.gradeSubject = uniqueSingles[0].subject_name;
-          ctx.gradeTeacher = uniqueSingles[0].teacher_name || ctx.gradeTeacher;
-        }
-        if (uniqueSingles[1]) {
-          ctx.zoomSubject = uniqueSingles[1].subject_name;
-          ctx.zoomTeacher = uniqueSingles[1].teacher_name || ctx.zoomTeacher;
-        }
-        const jumpCandidate = uniqueSingles[2] || uniqueSingles[1] || uniqueSingles[0];
-        if (jumpCandidate) {
-          ctx.jumpSubject = jumpCandidate.subject_name;
-          ctx.jumpTeacher = jumpCandidate.teacher_name || ctx.jumpTeacher;
-          if (jumpCandidate.room) {
-            ctx.jumpRoom = jumpCandidate.room.replace(/^ауд\.?\s*/i, "").trim();
-          }
-        }
-      }
-
-      // 4. Реальні завдання та оцінки групи з Classroom кешу
-      const rawTasks =
-        window.localStorage.getItem(`schedule:classroom_group_tasks:${resolvedGid}`) ||
-        window.localStorage.getItem("schedule:classroom_tasks");
-      if (rawTasks) {
-        const taskList = JSON.parse(rawTasks);
-        if (Array.isArray(taskList) && taskList.length > 0) {
-          let pending = 0;
-          let overdue = 0;
-          let done = 0;
-          const todayIso = new Date().toISOString().split("T")[0];
-
-          for (const t of taskList) {
-            const url = t?.url || t?.alternate_link;
-            const key = extractClassroomTaskKey(url);
-            const sub = url ? submissions[url] || (key ? submissions[key] : null) : null;
-            const st = sub?.state || t?.state || "NEW";
-            const isTaskDone = isLinked && (st === "TURNED_IN" || st === "RETURNED");
-
-            if (isTaskDone) {
-              done++;
-            } else if (t?.due_date && t.due_date < todayIso) {
-              overdue++;
-              if (overdue === 1 && t.title) {
-                ctx.overdueTaskTitle = t.title;
-                ctx.overdueTaskSubject =
-                  normalizeSubjectName(t.subject || t.course_name) || ctx.mainSubject;
-              }
-            } else {
-              pending++;
-              if (pending === 1 && t.title) {
-                ctx.sampleTaskTitle = t.title;
-                ctx.sampleTaskSubject =
-                  normalizeSubjectName(t.subject || t.course_name) || ctx.jumpSubject;
-                if (t.due_date) {
-                  const parts = String(t.due_date).split("-");
-                  if (parts.length === 3) {
-                    ctx.sampleTaskDue = `до ${parseInt(parts[2], 10)}.${parts[1]}`;
-                  }
-                }
-              }
-            }
-          }
-
-          if (pending + overdue + done > 0) {
-            ctx.pendingCount = pending;
-            ctx.overdueCount = overdue;
-            ctx.doneCount = done;
-          }
-        }
-      }
-    }
-
-    // 5. Реальні пари з кешу тижня викладача
-    if (resolvedTid) {
-      const tPrefix = `schedule:week:teacherId:${resolvedTid}:`;
-      let teacherLessons: Lesson[] = [];
-      for (let i = 0; i < window.localStorage.length; i++) {
-        const k = window.localStorage.key(i);
-        if (k && k.startsWith(tPrefix)) {
-          const raw = window.localStorage.getItem(k);
-          if (raw) {
-            const parsed = JSON.parse(raw) as ScheduleResponse[];
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              teacherLessons = parsed.flatMap((d) => d.lessons || []).filter((l) => !l.is_cancelled);
-              if (teacherLessons.length > 0) break;
-            }
-          }
-        }
-      }
-
-      if (teacherLessons.length > 0) {
-        const firstL = teacherLessons[0];
-        if (firstL.subject_name) ctx.teacherSubject = firstL.subject_name;
-        if (firstL.group_name) ctx.teacherGroup = firstL.group_name;
-        if (firstL.room) ctx.teacherRoom = firstL.room.replace(/^ауд\.?\s*/i, "").trim();
-
-        const otherSubj = teacherLessons.find(
-          (l) => l.subject_name && l.subject_name !== ctx.teacherSubject
-        );
-        if (otherSubj?.subject_name) ctx.teacherSecondSubject = otherSubj.subject_name;
-
-        const otherGrp = teacherLessons.find(
-          (l) => l.group_name && l.group_name !== ctx.teacherGroup
-        );
-        if (otherGrp?.group_name) ctx.teacherSecondGroup = otherGrp.group_name;
-      }
-    }
-  } catch {}
-
-  return ctx;
-}
-
 export function GuideHubModal({
   isOpen = true,
   onClose,
   initialRole,
   mode,
-  groupId,
-  teacherId,
 }: GuideHubModalProps) {
   const router = useRouter();
-  const { setHomeTab } = useMobileNav();
-  const { isLinked, linkedEmail, submissions } = useClassroomSubmissions();
+  const { isLinked, linkedEmail } = useClassroomSubmissions();
   const { isTeacherUnlocked } = useTeacherAccess();
   const { settings, updateSetting } = useUserSettings();
 
@@ -460,136 +243,21 @@ export function GuideHubModal({
   const [slideDir, setSlideDir] = useState(1);
   const [elapsedMs, setElapsedMs] = useState(0);
 
-  // Персоналізовані дані поточного користувача
-  const pCtx = useMemo(
-    () => buildPersonalizedContext(groupId, teacherId, isLinked, submissions),
-    [groupId, teacherId, isLinked, submissions]
-  );
-
-  // Яку підгрупу показувати як цільову в демо (якщо студент обрав 2 — показуємо 2 підгр.)
-  const targetDemoSubgroup: 1 | 2 = settings.defaultSubgroup === 2 ? 2 : 1;
-
-  const studentSteps = useMemo<GuideStepMeta[]>(
-    () => [
-      {
-        id: "st-1-classroom",
-        tabLabel: isLinked ? "Classroom ✓" : "Classroom",
-        title: `1. Пошта @kre.dp.ua для групи ${pCtx.groupName}`,
-        points: [
-          "Натисніть на «🔒 Meet / Zoom» або кнопку Classroom у шапці й оберіть свій акаунт @kre.dp.ua.",
-          "Замочки зникнуть, до карток пар підтягнуться ваші домашні завдання, а дані синхронізуються між ПК і телефоном.",
-        ],
-      },
-      {
-        id: "st-2-subgroup",
-        tabLabel: settings.defaultSubgroup !== "all" ? `Підгрупи (${settings.defaultSubgroup}) ✓` : "Підгрупи",
-        title: `2. Фільтр своєї підгрупи (${pCtx.sub1Teacher} / ${pCtx.sub2Teacher})`,
-        points: [
-          "Натисніть на бейдж «1 підгр.» або «2 підгр.» прямо на картці пари — інший викладач і чужий кабінет сховаються.",
-          "Повторний клік по бейджу підгрупи миттєво повертає показ обох підгруп.",
-        ],
-      },
-      {
-        id: "st-3-zoom",
-        tabLabel: "Код Zoom",
-        title: "3. Автокопіювання пароля Zoom при кліку",
-        points: [
-          "Система сама знаходить ID та пароль у тексті викладача з Classroom і створює кнопку «Zoom ↗».",
-          "При натисканні на «Zoom ↗» пароль конференції автоматично копіюється в буфер обміну.",
-        ],
-      },
-      {
-        id: "st-4-tasks",
-        tabLabel: "Завдання",
-        title: "4. Усі завдання в одному списку без гортання тижнів",
-        points: [
-          "У вкладці «Завдання» роботи поділені на «До здачі», «Борги» та «Здано», щоб старі борги не губилися.",
-          "Фільтр «Усі предмети» дозволяє залишити завдання лише з потрібної дисципліни.",
-        ],
-      },
-      {
-        id: "st-5-grades",
-        tabLabel: "Оцінки",
-        title: "5. Середній бал та всі оцінки за семестр",
-        points: [
-          "Вкладка «Оцінки» автоматично рахує загальний середній бал (за 5-бальною та 12-бальною шкалами).",
-          "Натисніть на предмет, щоб переглянути всі оцінені роботи з автоматичним перерахунком зі 100-бальної шкали.",
-        ],
-      },
-      {
-        id: "st-7-teacher-jump",
-        tabLabel: "Викладач",
-        title: `6. Швидкий перехід у розклад викладача (${pCtx.jumpTeacher})`,
-        points: [
-          "Натисніть на прізвище викладача на картці пари, щоб побачити його розклад та аудиторію на сьогодні.",
-          `Кнопка «← До ${pCtx.groupName}» у верхній плашці миттєво поверне вас назад до розкладу своєї групи.`,
-        ],
-      },
-    ],
-    [isLinked, settings.defaultSubgroup, pCtx]
-  );
-
-  const teacherSteps = useMemo<GuideStepMeta[]>(
-    () => [
-      {
-        id: "tc-1-pin",
-        tabLabel: isTeacherUnlocked ? "PIN-код ✓" : "PIN-код",
-        title: "1. PIN-код для відкриття посилань Meet та Zoom",
-        points: [
-          "Натисніть на «🔒 Zoom / Meet» або кнопку «Вхід викладача» у шапці та введіть PIN-код один раз.",
-          "Усі посилання на онлайн-пари відкриються на цьому пристрої для всіх навчальних груп.",
-        ],
-      },
-      {
-        id: "tc-4-stats",
-        tabLabel: "Статистика",
-        title: `2. Статистика проведених пар та годин (${pCtx.teacherName})`,
-        points: [
-          "Сторінка «Статистика» автоматично рахує вичитані академічні години та пари від початку семестру.",
-          "Доступний розподіл навантаження за кожною дисципліною та кожною навчальною групою.",
-        ],
-      },
-      {
-        id: "tc-5-radar",
-        tabLabel: "Заміни",
-        title: "3. Позначки замін та перенесень у розкладі",
-        points: [
-          "Перенесені заняття підписуються новою датою й номером пари («↪ Перенесено → Четвер, 3 пара»).",
-          "Призначені разові заміни виділяються жовтою рамкою та бейджем «⚡ Заміна».",
-        ],
-      },
-    ],
-    [isTeacherUnlocked, pCtx.teacherName]
-  );
-
-  const steps = role === "student" ? studentSteps : teacherSteps;
+  const steps = role === "student" ? STUDENT_STEPS : TEACHER_STEPS;
   const stepsCount = steps.length;
 
-  // Розумний вибір стартової вкладки: якщо базова дія вже виконана, одразу показуємо наступну корисну фішку
   useEffect(() => {
     if (!isOpen || typeof window === "undefined") return;
+    setStepIdx(0);
     setElapsedMs(0);
-
-    let resolvedRole: "student" | "teacher" = initialRole ?? mode ?? "student";
     try {
       const storedMode = window.localStorage.getItem("schedule:mode");
       if (!initialRole && !mode && (storedMode === "student" || storedMode === "teacher")) {
-        resolvedRole = storedMode;
+        setRole(storedMode);
+      } else if (mode || initialRole) {
+        setRole(initialRole ?? mode ?? "student");
       }
     } catch {}
-    setRole(resolvedRole);
-
-    if (resolvedRole === "student") {
-      if (!isLinked) {
-        setStepIdx(0); // Пошта ще не прив'язана -> показуємо крок 1 (Classroom)
-      } else if (pCtx.hasSubgroups && settings.defaultSubgroup === "all") {
-        setStepIdx(1); // Пошта прив'язана, але підгрупа не обрана -> показуємо крок 2 (Підгрупи)
-      } else {
-        setStepIdx(2); // Обидва базові кроки вже налаштовані -> показуємо крок 3 (Код Zoom)
-      }
-    } else {
-      setStepIdx(isTeacherUnlocked ? 1 : 0);
-    }
   }, [isOpen, initialRole, mode]);
 
   useEffect(() => {
@@ -665,21 +333,12 @@ export function GuideHubModal({
         onClick={(e) => e.stopPropagation()}
         className="w-full sm:max-w-[500px] max-h-[92dvh] flex flex-col rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card text-sys-text-primary shadow-2xl overflow-hidden select-none"
       >
-        {/* 1. ШАПКА З ПЕРСОНАЛЬНИМ КОНТЕКСТОМ ГРУПИ / ВИКЛАДАЧА */}
+        {/* 1. ШАПКА + ПЕРЕМИКАЧ РОЛІ + ВКЛАДКИ */}
         <div className="px-4 pt-3.5 pb-2.5 bg-sys-surface border-b border-sys-border space-y-2.5 shrink-0">
           <div className="flex items-center justify-between gap-2">
-            <div className="min-w-0">
-              <h2 id="guide-title" className="text-sm sm:text-base font-bold text-sys-text-primary truncate">
-                Як користуватися розкладом
-              </h2>
-              <p className="text-[11px] font-medium text-sys-text-secondary truncate">
-                {role === "student"
-                  ? `Група ${pCtx.groupName} (${pCtx.groupFullCode})${
-                      settings.defaultSubgroup !== "all" ? ` · ${settings.defaultSubgroup} підгр.` : ""
-                    }`
-                  : `Викладач: ${pCtx.teacherName}`}
-              </p>
-            </div>
+            <h2 id="guide-title" className="text-sm sm:text-base font-bold text-sys-text-primary truncate">
+              Як користуватися розкладом
+            </h2>
 
             <div className="flex items-center gap-2 shrink-0">
               <div className="relative inline-grid grid-cols-2 rounded-lg border border-sys-border bg-sys-bg p-0.5 text-xs font-semibold isolate">
@@ -728,7 +387,6 @@ export function GuideHubModal({
           <div className="flex items-center gap-1 overflow-x-auto no-scrollbar rounded-xl border border-sys-border bg-sys-bg p-1 text-[11px] font-semibold">
             {steps.map((s, idx) => {
               const isCurrent = idx === safeIdx;
-              const isConfigured = s.tabLabel.endsWith("✓");
               return (
                 <button
                   key={s.id}
@@ -737,8 +395,6 @@ export function GuideHubModal({
                   className={`shrink-0 flex-1 py-1.5 px-2 rounded-lg transition-colors duration-150 cursor-pointer whitespace-nowrap ${
                     isCurrent
                       ? "bg-sys-card text-sys-accent font-bold border border-sys-border shadow-2xs"
-                      : isConfigured
-                      ? "text-sys-status-okText font-semibold hover:text-sys-text-primary"
                       : "text-sys-text-secondary hover:text-sys-text-primary"
                   }`}
                 >
@@ -749,7 +405,7 @@ export function GuideHubModal({
           </div>
         </div>
 
-        {/* 2. СЦЕНА З ВАШИМИ РЕАЛЬНИМИ ПРЕДМЕТАМИ ТА ВИКЛАДАЧАМИ */}
+        {/* 2. ЧИСТА СЦЕНА З РЕАЛЬНИМИ КОМПОНЕНТАМИ САЙТУ */}
         <div className="flex-1 overflow-y-auto custom-scrollbar p-4">
           <AnimatePresence mode="wait" initial={false} custom={slideDir}>
             <motion.div
@@ -774,9 +430,7 @@ export function GuideHubModal({
                   </button>
                 )}
 
-                {/* =====================================================
-                    СТУДЕНТ 0: ПОШТА @kre.dp.ua (Реальна пара вашої групи)
-                   ===================================================== */}
+                {/* СТУДЕНТ 0: ПОШТА @kre.dp.ua */}
                 {role === "student" && safeIdx === 0 && (
                   <div className="relative w-full max-w-[400px] mx-auto">
                     <DemoCursor
@@ -813,12 +467,12 @@ export function GuideHubModal({
                       </div>
 
                       <div>
-                        <div className="text-base font-semibold text-sys-text-subject leading-snug truncate">
-                          {pCtx.mainSubject}
+                        <div className="text-base font-semibold text-sys-text-subject leading-snug">
+                          Вища математика
                         </div>
                         <div className="flex items-center gap-1.5 text-xs text-sys-text-secondary mt-1">
                           <UserSvg />
-                          <span>{pCtx.mainTeacher}</span>
+                          <span>Іваненко О.М.</span>
                         </div>
                       </div>
 
@@ -830,12 +484,12 @@ export function GuideHubModal({
                           <div className="flex items-center gap-2 min-w-0">
                             <ClipboardSvg />
                             <span className="font-semibold text-sys-text-primary truncate">
-                              {pCtx.sampleTaskTitle}
+                              Практична робота №5
                             </span>
                           </div>
                           <div className="flex items-center gap-1.5 shrink-0 ml-2">
                             <span className="h-1.5 w-1.5 rounded-full bg-sys-status-denomBg" />
-                            <span className="text-sys-status-denomText font-medium">{pCtx.sampleTaskDue}</span>
+                            <span className="text-sys-status-denomText font-medium">до 15 лист.</span>
                             <span className="text-sys-text-muted ml-0.5">↗</span>
                           </div>
                         </div>
@@ -844,22 +498,12 @@ export function GuideHubModal({
                   </div>
                 )}
 
-                {/* =====================================================
-                    СТУДЕНТ 1: ПІДГРУПИ (Реальні викладачі 1 і 2 підгрупи вашої групи)
-                   ===================================================== */}
+                {/* СТУДЕНТ 1: ПІДГРУПИ */}
                 {role === "student" && safeIdx === 1 && (
                   <div className="relative w-full max-w-[400px] mx-auto">
                     <DemoCursor
                       x={stage === 0 ? "62%" : stage <= 2 ? "18%" : "78%"}
-                      y={
-                        stage === 0
-                          ? "82%"
-                          : stage <= 2
-                          ? targetDemoSubgroup === 2
-                            ? "78%"
-                            : "56%"
-                          : "24%"
-                      }
+                      y={stage === 0 ? "82%" : stage <= 2 ? "56%" : "24%"}
                       clicking={stage === 2}
                       hidden={isCursorHidden}
                     />
@@ -880,84 +524,60 @@ export function GuideHubModal({
                         )}
                       </div>
 
-                      <div className="text-base font-semibold text-sys-text-subject leading-snug truncate">
-                        {pCtx.splitSubject}
+                      <div className="text-base font-semibold text-sys-text-subject leading-snug">
+                        Іноземна мова (за проф. спрямуванням)
                       </div>
 
-                      {/* Subgroup 1 Row */}
-                      {(stage < 3 || targetDemoSubgroup === 1) && (
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span
-                              className={`inline-flex shrink-0 items-center gap-1.5 h-6 px-2 rounded-md border text-xs font-semibold transition-colors ${
-                                stage >= 3 && targetDemoSubgroup === 1
-                                  ? "border-sys-accent/35 bg-sys-accent/15 text-sys-accent"
-                                  : stage >= 1 && targetDemoSubgroup === 1
-                                  ? "border-sys-accent/50 bg-sys-accent/10 text-sys-text-primary"
-                                  : "bg-sys-bg/80 border-sys-border text-sys-text-secondary"
-                              }`}
-                            >
-                              <span
-                                className={`h-1.5 w-1.5 rounded-full ${
-                                  stage >= 3 && targetDemoSubgroup === 1 ? "bg-sys-accent" : "bg-sys-text-muted/60"
-                                }`}
-                              />
-                              <span>1 підгр.</span>
-                            </span>
-                            <UserSvg />
-                            <span className="text-xs font-medium text-sys-text-secondary truncate">
-                              {pCtx.sub1Teacher}
-                            </span>
-                          </div>
-
-                          {stage < 3 && (
-                            <span className="inline-flex h-7 px-2.5 items-center gap-1.5 rounded-lg border border-sys-status-okBg/50 bg-sys-status-okBg/15 text-sys-status-okText text-xs font-semibold">
-                              <PlatformSvg platform="meet" />
-                              <span>Meet ↗</span>
-                            </span>
-                          )}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span
+                            className={`inline-flex shrink-0 items-center gap-1.5 h-6 px-2 rounded-md border text-xs font-semibold transition-colors ${
+                              stage >= 3
+                                ? "border-sys-accent/35 bg-sys-accent/15 text-sys-accent"
+                                : stage >= 1
+                                ? "border-sys-accent/50 bg-sys-accent/10 text-sys-text-primary"
+                                : "bg-sys-bg/80 border-sys-border text-sys-text-secondary"
+                            }`}
+                          >
+                            <span className={`h-1.5 w-1.5 rounded-full ${stage >= 3 ? "bg-sys-accent" : "bg-sys-text-muted/60"}`} />
+                            <span>1 підгр.</span>
+                          </span>
+                          <UserSvg />
+                          <span className="text-xs font-medium text-sys-text-secondary truncate">
+                            Токарєва О.В.
+                          </span>
                         </div>
-                      )}
 
-                      {/* Subgroup 2 Row */}
-                      {(stage < 3 || targetDemoSubgroup === 2) && (
+                        {stage < 3 && (
+                          <span className="inline-flex h-7 px-2.5 items-center gap-1.5 rounded-lg border border-sys-status-okBg/50 bg-sys-status-okBg/15 text-sys-status-okText text-xs font-semibold">
+                            <PlatformSvg platform="meet" />
+                            <span>Meet ↗</span>
+                          </span>
+                        )}
+                      </div>
+
+                      {stage < 3 && (
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-2 min-w-0">
-                            <span
-                              className={`inline-flex shrink-0 items-center gap-1.5 h-6 px-2 rounded-md border text-xs font-semibold transition-colors ${
-                                stage >= 3 && targetDemoSubgroup === 2
-                                  ? "border-sys-accent/35 bg-sys-accent/15 text-sys-accent"
-                                  : stage >= 1 && targetDemoSubgroup === 2
-                                  ? "border-sys-accent/50 bg-sys-accent/10 text-sys-text-primary"
-                                  : "bg-sys-bg/80 border-sys-border text-sys-text-secondary"
-                              }`}
-                            >
-                              <span
-                                className={`h-1.5 w-1.5 rounded-full ${
-                                  stage >= 3 && targetDemoSubgroup === 2 ? "bg-sys-accent" : "bg-sys-text-muted/60"
-                                }`}
-                              />
+                            <span className="inline-flex shrink-0 items-center gap-1.5 h-6 px-2 rounded-md border border-sys-border bg-sys-bg/80 text-xs font-semibold text-sys-text-secondary">
+                              <span className="h-1.5 w-1.5 rounded-full bg-sys-text-muted/60" />
                               <span>2 підгр.</span>
                             </span>
                             <UserSvg />
                             <span className="text-xs font-medium text-sys-text-secondary truncate">
-                              {pCtx.sub2Teacher}
+                              Хочинська О.С.
                             </span>
                           </div>
-                          {stage < 3 && (
-                            <span className="shrink-0 rounded-md border border-sys-border bg-sys-bg px-2 py-1 text-xs font-semibold leading-none text-sys-text-secondary">
-                              ауд. {pCtx.sub2Room}
-                            </span>
-                          )}
+                          <span className="shrink-0 rounded-md border border-sys-border bg-sys-bg px-2 py-1 text-xs font-semibold leading-none text-sys-text-secondary">
+                            ауд. 419
+                          </span>
                         </div>
                       )}
                     </div>
                   </div>
                 )}
 
-                {/* =====================================================
-                    СТУДЕНТ 2: КОД ZOOM (Реальний предмет і викладач групи)
-                   ===================================================== */}
+                {/* СТУДЕНТ 2: ZOOM ТА АВТОКОПІЮВАННЯ ПАРОЛЯ */}
                 {role === "student" && safeIdx === 2 && (
                   <div className="relative w-full max-w-[400px] mx-auto space-y-2.5">
                     <DemoCursor
@@ -987,12 +607,12 @@ export function GuideHubModal({
                       </div>
 
                       <div>
-                        <div className="text-base font-semibold text-sys-text-subject leading-snug truncate">
-                          {pCtx.zoomSubject}
+                        <div className="text-base font-semibold text-sys-text-subject leading-snug">
+                          Електроніка та мікросхемотехніка
                         </div>
                         <div className="flex items-center gap-1.5 text-xs text-sys-text-secondary mt-1">
                           <UserSvg />
-                          <span>{pCtx.zoomTeacher}</span>
+                          <span>Філімончук А.В.</span>
                         </div>
                       </div>
                     </div>
@@ -1008,9 +628,7 @@ export function GuideHubModal({
                   </div>
                 )}
 
-                {/* =====================================================
-                    СТУДЕНТ 3: ЗАВДАННЯ (Реальні лічильники і предмети групи)
-                   ===================================================== */}
+                {/* СТУДЕНТ 3: ЗАВДАННЯ */}
                 {role === "student" && safeIdx === 3 && (
                   <div className="relative w-full max-w-[400px] mx-auto space-y-2">
                     <DemoCursor
@@ -1035,21 +653,21 @@ export function GuideHubModal({
                       <div className={`relative z-10 flex items-center justify-center gap-1 py-1.5 ${stage < 3 ? "text-white font-bold" : "text-sys-text-secondary"}`}>
                         <span>До здачі</span>
                         <span className={`inline-flex h-4 min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold ${stage < 3 ? "bg-white/20 text-white" : "bg-sys-bg text-sys-text-secondary"}`}>
-                          {pCtx.pendingCount}
+                          3
                         </span>
                       </div>
 
                       <div className={`relative z-10 flex items-center justify-center gap-1 py-1.5 ${stage >= 3 ? "text-white font-bold" : "text-sys-status-dangerText"}`}>
                         <span>Борги</span>
                         <span className={`inline-flex h-4 min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold ${stage >= 3 ? "bg-white/20 text-white" : "bg-sys-status-dangerBg/20 text-sys-status-dangerText"}`}>
-                          {pCtx.overdueCount}
+                          1
                         </span>
                       </div>
 
                       <div className="relative z-10 flex items-center justify-center gap-1 py-1.5 text-sys-text-secondary">
                         <span>Здано</span>
                         <span className="inline-flex h-4 min-w-[18px] items-center justify-center rounded-full bg-sys-bg px-1 text-[10px] font-bold text-sys-text-secondary">
-                          {pCtx.doneCount}
+                          14
                         </span>
                       </div>
                     </div>
@@ -1059,7 +677,7 @@ export function GuideHubModal({
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-80">
                           <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
                         </svg>
-                        <span>Усі предмети групи {pCtx.groupName}</span>
+                        <span>Усі предмети (6)</span>
                       </div>
                       <span>▾</span>
                     </div>
@@ -1070,12 +688,10 @@ export function GuideHubModal({
                         style={{ boxShadow: "inset 3px 0 0 #f59e0b" }}
                       >
                         <div className="flex items-start justify-between gap-2">
-                          <span className="text-xs font-semibold text-sys-text-primary truncate">{pCtx.sampleTaskTitle}</span>
+                          <span className="text-xs font-semibold text-sys-text-primary">Лабораторна робота №4</span>
                           <span className="text-xs text-sys-text-muted">↗</span>
                         </div>
-                        <p className="text-[11px] text-sys-text-muted truncate">
-                          {pCtx.sampleTaskSubject} · {pCtx.sampleTaskTeacher}
-                        </p>
+                        <p className="text-[11px] text-sys-text-muted">Комп&apos;ютерна схемотехніка · Іваненко О.М.</p>
                         <div className="flex items-center gap-1.5 text-xs font-medium text-sys-status-warnText pt-0.5">
                           <span className="h-1.5 w-1.5 rounded-full bg-sys-status-warnBg" />
                           <span>Завтра</span>
@@ -1087,12 +703,10 @@ export function GuideHubModal({
                         style={{ boxShadow: "inset 3px 0 0 #ef4444" }}
                       >
                         <div className="flex items-start justify-between gap-2">
-                          <span className="text-xs font-semibold text-sys-text-primary truncate">{pCtx.overdueTaskTitle}</span>
+                          <span className="text-xs font-semibold text-sys-text-primary">Практична робота №2</span>
                           <span className="text-xs text-sys-text-muted">↗</span>
                         </div>
-                        <p className="text-[11px] text-sys-text-muted truncate">
-                          {pCtx.overdueTaskSubject} · {pCtx.mainTeacher}
-                        </p>
+                        <p className="text-[11px] text-sys-text-muted">Вища математика · Петренко І.В.</p>
                         <div className="flex items-center gap-1.5 text-xs font-medium text-sys-status-dangerText pt-0.5">
                           <span className="h-1.5 w-1.5 rounded-full bg-sys-status-dangerBg" />
                           <span>10 лист. · прострочено 2 дні</span>
@@ -1102,9 +716,7 @@ export function GuideHubModal({
                   </div>
                 )}
 
-                {/* =====================================================
-                    СТУДЕНТ 4: ОЦІНКИ (Реальний предмет і викладач групи)
-                   ===================================================== */}
+                {/* СТУДЕНТ 4: ОЦІНКИ */}
                 {role === "student" && safeIdx === 4 && (
                   <div className="relative w-full max-w-[400px] mx-auto space-y-2">
                     <DemoCursor
@@ -1121,11 +733,11 @@ export function GuideHubModal({
                         </span>
                         <div className="flex items-baseline gap-2.5 mt-0.5">
                           <div className="flex items-baseline gap-1">
-                            <span className="text-xl font-black text-sys-text-primary">{pCtx.gpa5}</span>
+                            <span className="text-xl font-black text-sys-text-primary">4.75</span>
                             <span className="text-xs font-semibold text-sys-text-secondary">/ 5.00</span>
                           </div>
                           <div className="flex items-baseline gap-1 pl-2.5 border-l border-sys-border/80">
-                            <span className="text-base font-bold text-sys-accent">{pCtx.gpa12}</span>
+                            <span className="text-base font-bold text-sys-accent">11.0</span>
                             <span className="text-xs font-semibold text-sys-text-secondary">/ 12 б.</span>
                           </div>
                         </div>
@@ -1146,10 +758,8 @@ export function GuideHubModal({
                     <div className="rounded-2xl border border-sys-border bg-sys-card p-3 shadow-xs space-y-2">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <div className="text-xs font-bold text-sys-text-primary truncate">{pCtx.gradeSubject}</div>
-                          <div className="text-[11px] text-sys-text-muted truncate">
-                            3 оцінки • 👨🏫 {pCtx.gradeTeacher}
-                          </div>
+                          <div className="text-xs font-bold text-sys-text-primary truncate">Вища математика</div>
+                          <div className="text-[11px] text-sys-text-muted">3 оцінки • 👨🏫 Іваненко О.М.</div>
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
                           <div className="text-right">
@@ -1164,7 +774,7 @@ export function GuideHubModal({
 
                       {stage < 3 ? (
                         <div className="flex items-center gap-1 pt-1.5 border-t border-sys-border/40">
-                          {pCtx.gradeChips.map((mark) => (
+                          {["11 б.", "12 б.", "10 б."].map((mark) => (
                             <span
                               key={mark}
                               className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-bold border border-sys-status-okBg/30 bg-sys-status-okBg/15 text-sys-status-okText"
@@ -1175,8 +785,8 @@ export function GuideHubModal({
                         </div>
                       ) : (
                         <div className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 px-2.5 py-1.5 text-xs animate-in fade-in duration-150">
-                          <span className="font-semibold text-sys-text-primary truncate">{pCtx.sampleTaskTitle}</span>
-                          <span className="font-bold text-sys-text-primary shrink-0 ml-2">
+                          <span className="font-semibold text-sys-text-primary">Контрольна робота №1</span>
+                          <span className="font-bold text-sys-text-primary">
                             95<span className="text-[10px] text-sys-text-secondary">/100 б.</span>{" "}
                             <span className="text-sys-status-okText">(5 за 5-б.)</span>
                           </span>
@@ -1186,9 +796,7 @@ export function GuideHubModal({
                   </div>
                 )}
 
-                {/* =====================================================
-                    СТУДЕНТ 5 (#7): ПЕРЕХІД ДО ВИКЛАДАЧА ВАШОЇ ГРУПИ
-                   ===================================================== */}
+                {/* СТУДЕНТ 5 (#7): ПЕРЕХІД ДО ВИКЛАДАЧА */}
                 {role === "student" && safeIdx === 5 && (
                   <div className="relative w-full max-w-[400px] mx-auto">
                     <DemoCursor
@@ -1207,12 +815,12 @@ export function GuideHubModal({
                             <span className="text-xs font-semibold text-sys-text-secondary">10:40–12:00</span>
                           </div>
                           <span className="inline-flex h-8 px-2.5 items-center rounded-lg border border-sys-border bg-sys-bg text-xs font-medium text-sys-text-secondary">
-                            ауд. {pCtx.jumpRoom}
+                            ауд. 305
                           </span>
                         </div>
 
-                        <div className="text-base font-semibold text-sys-text-subject truncate">
-                          {pCtx.jumpSubject}
+                        <div className="text-base font-semibold text-sys-text-subject">
+                          Комп&apos;ютерна схемотехніка
                         </div>
 
                         <div className="flex items-center gap-1.5 text-xs">
@@ -1222,7 +830,7 @@ export function GuideHubModal({
                               stage >= 1 ? "text-sys-accent underline underline-offset-2" : "text-sys-text-secondary"
                             }`}
                           >
-                            {pCtx.jumpTeacher}
+                            Іваненко О.М.
                           </span>
                         </div>
                       </div>
@@ -1230,10 +838,10 @@ export function GuideHubModal({
                       <div className="space-y-2.5 animate-in fade-in duration-150">
                         <div className="flex items-center justify-between rounded-xl border border-sys-accent/30 bg-sys-accent/10 px-3 py-2 text-xs">
                           <span className="text-sys-text-secondary truncate mr-2">
-                            Розклад: <strong className="text-sys-text-primary">{pCtx.jumpTeacher}</strong>
+                            Розклад: <strong className="text-sys-text-primary">Іваненко О.М.</strong>
                           </span>
                           <span className="shrink-0 rounded-lg bg-sys-accent px-2.5 py-1 text-xs font-semibold text-white">
-                            ← До {pCtx.groupName}
+                            ← До 85
                           </span>
                         </div>
 
@@ -1241,16 +849,14 @@ export function GuideHubModal({
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-semibold text-sys-text-secondary">2 · 10:40–12:00</span>
                             <span className="rounded-lg border border-sys-border bg-sys-bg px-2.5 py-1 text-xs font-medium text-sys-text-secondary">
-                              ауд. {pCtx.jumpRoom}
+                              ауд. 305
                             </span>
                           </div>
-                          <div className="text-sm font-semibold text-sys-text-subject truncate">
-                            {pCtx.jumpSubject}
-                          </div>
+                          <div className="text-sm font-semibold text-sys-text-subject">Комп&apos;ютерна схемотехніка</div>
                           <div className="flex items-center gap-1.5 text-xs text-sys-text-secondary">
                             <UserSvg />
                             <span className="text-sys-text-muted">Група:</span>
-                            <span className="font-medium text-sys-text-secondary">{pCtx.groupName}</span>
+                            <span className="font-medium text-sys-text-secondary">85</span>
                           </div>
                         </div>
                       </div>
@@ -1258,9 +864,7 @@ export function GuideHubModal({
                   </div>
                 )}
 
-                {/* =====================================================
-                    ВИКЛАДАЧ 0 (#1): PIN-ДОСТУП (Ваші реальні предмет і група)
-                   ===================================================== */}
+                {/* ВИКЛАДАЧ 0 (#1): PIN-ДОСТУП */}
                 {role === "teacher" && safeIdx === 0 && (
                   <div className="relative w-full max-w-[400px] mx-auto">
                     <DemoCursor
@@ -1313,22 +917,20 @@ export function GuideHubModal({
                             <span className="opacity-75">↗</span>
                           </span>
                         </div>
-                        <div className="text-base font-semibold text-sys-text-subject truncate">
-                          {pCtx.teacherSubject}
+                        <div className="text-base font-semibold text-sys-text-subject">
+                          Комп&apos;ютерна схемотехніка
                         </div>
                         <div className="flex items-center gap-1.5 text-xs text-sys-text-secondary">
                           <UserSvg />
                           <span className="text-sys-text-muted">Група:</span>
-                          <span className="font-medium text-sys-text-secondary">{pCtx.teacherGroup}</span>
+                          <span className="font-medium text-sys-text-secondary">85</span>
                         </div>
                       </div>
                     )}
                   </div>
                 )}
 
-                {/* =====================================================
-                    ВИКЛАДАЧ 1 (#4): СТАТИСТИКА (Ваші реальні предмет і групи)
-                   ===================================================== */}
+                {/* ВИКЛАДАЧ 1 (#4): СТАТИСТИКА */}
                 {role === "teacher" && safeIdx === 1 && (
                   <div className="relative w-full max-w-[400px] mx-auto space-y-2.5">
                     <DemoCursor
@@ -1377,7 +979,7 @@ export function GuideHubModal({
 
                       <div className="flex-1 min-w-0">
                         <div className="text-xs font-semibold text-sys-text-primary truncate">
-                          {pCtx.teacherSubject}
+                          Комп&apos;ютерна схемотехніка
                         </div>
                         <div className="text-[11px] text-sys-text-secondary mt-0.5">
                           68 акад. год · 34 пар
@@ -1385,10 +987,10 @@ export function GuideHubModal({
                         <div className="flex items-center gap-1 mt-1">
                           <span className="text-[10px] text-sys-text-muted">Групи:</span>
                           <span className="rounded bg-sys-elevated border border-sys-border px-1.5 py-0.5 text-[10px] font-medium text-sys-text-secondary">
-                            {pCtx.teacherGroup}
+                            85
                           </span>
                           <span className="rounded bg-sys-elevated border border-sys-border px-1.5 py-0.5 text-[10px] font-medium text-sys-text-secondary">
-                            {pCtx.teacherSecondGroup}
+                            86
                           </span>
                         </div>
                       </div>
@@ -1396,9 +998,7 @@ export function GuideHubModal({
                   </div>
                 )}
 
-                {/* =====================================================
-                    ВИКЛАДАЧ 2 (#5): ЗАМІНИ ТА ПЕРЕНЕСЕННЯ (Ваші предмет і група)
-                   ===================================================== */}
+                {/* ВИКЛАДАЧ 2 (#5): ЗАМІНИ ТА ПЕРЕНЕСЕННЯ */}
                 {role === "teacher" && safeIdx === 2 && (
                   <div className="relative w-full max-w-[400px] mx-auto space-y-2.5">
                     <DemoCursor
@@ -1439,10 +1039,10 @@ export function GuideHubModal({
                             ↪ Перенесено → Четвер, 3 пара
                           </span>
                         </div>
-                        <div className="text-base font-semibold line-through text-sys-text-muted truncate">
-                          {pCtx.teacherSubject}
+                        <div className="text-base font-semibold line-through text-sys-text-muted">
+                          Мікропроцесорні системи
                         </div>
-                        <div className="text-xs text-sys-text-secondary">Група: {pCtx.teacherGroup}</div>
+                        <div className="text-xs text-sys-text-secondary">Група: 85</div>
                       </div>
                     ) : (
                       <div className="rounded-2xl border border-sys-warning/40 ring-1 ring-sys-warning/60 bg-sys-card p-3.5 space-y-1.5 animate-in fade-in duration-150">
@@ -1452,19 +1052,17 @@ export function GuideHubModal({
                             ⚡ Заміна
                           </span>
                         </div>
-                        <div className="text-base font-semibold text-sys-text-subject truncate">
-                          {pCtx.teacherSubject}
+                        <div className="text-base font-semibold text-sys-text-subject">
+                          Мікропроцесорні системи
                         </div>
-                        <div className="text-xs text-sys-text-secondary">
-                          Група: {pCtx.teacherGroup} • ауд. {pCtx.teacherRoom}
-                        </div>
+                        <div className="text-xs text-sys-text-secondary">Група: 85 • ауд. 305</div>
                       </div>
                     )}
                   </div>
                 )}
               </div>
 
-              {/* 3. ОПИС + ПЕРСОНАЛЬНА ШВИДКА ДІЯ ПРЯМО З ПОТОЧНОГО СЛАЙДУ */}
+              {/* 3. ЛАКОНІЧНИЙ ОПИС + РЕАЛЬНІ КНОПКИ КЕРУВАННЯ */}
               <div className="space-y-2.5 px-0.5">
                 <h3 className="text-sm sm:text-base font-bold text-sys-text-primary leading-snug">
                   {activeStep.title}
@@ -1484,7 +1082,7 @@ export function GuideHubModal({
                 {role === "student" && safeIdx === 0 && (
                   <div className="flex items-center justify-between rounded-xl border border-sys-border bg-sys-bg px-3 py-2 text-xs">
                     <span className="font-semibold text-sys-text-secondary truncate mr-2">
-                      {isLinked ? `✓ Підключено: ${linkedEmail}` : `Пошту для групи ${pCtx.groupName} ще не прив'язано`}
+                      {isLinked ? `✓ Підключено: ${linkedEmail}` : "Пошту @kre.dp.ua ще не прив'язано"}
                     </span>
                     <button
                       type="button"
@@ -1501,20 +1099,13 @@ export function GuideHubModal({
 
                 {role === "student" && safeIdx === 1 && (
                   <div className="flex items-center justify-between rounded-xl border border-sys-border bg-sys-bg px-3 py-2 text-xs">
-                    <span className="font-semibold text-sys-text-secondary">
-                      {pCtx.hasSubgroups
-                        ? `Підгрупа в гр. ${pCtx.groupName}:`
-                        : `У гр. ${pCtx.groupName} пари спільні:`}
-                    </span>
+                    <span className="font-semibold text-sys-text-secondary">Ваша підгрупа:</span>
                     <div className="inline-flex gap-1">
                       {(["all", 1, 2] as const).map((sub) => (
                         <button
                           key={String(sub)}
                           type="button"
-                          onClick={() => {
-                            updateSetting("defaultSubgroup", sub);
-                            setElapsedMs(2500);
-                          }}
+                          onClick={() => updateSetting("defaultSubgroup", sub)}
                           className={`rounded-lg px-2.5 py-1 text-[11px] font-bold transition-colors cursor-pointer ${
                             settings.defaultSubgroup === sub
                               ? "bg-sys-accent text-white"
@@ -1526,21 +1117,6 @@ export function GuideHubModal({
                       ))}
                     </div>
                   </div>
-                )}
-
-                {role === "student" && (safeIdx === 3 || safeIdx === 4) && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onClose();
-                      setHomeTab("tasks");
-                    }}
-                    className="w-full rounded-xl bg-sys-accent/15 border border-sys-accent/35 py-2 text-xs font-bold text-sys-accent hover:bg-sys-accent/25 active:scale-[0.99] transition-colors cursor-pointer"
-                  >
-                    {safeIdx === 3
-                      ? `Відкрити завдання групи ${pCtx.groupName} →`
-                      : `Відкрити оцінки групи ${pCtx.groupName} →`}
-                  </button>
                 )}
 
                 {role === "teacher" && safeIdx === 0 && !isTeacherUnlocked && (
@@ -1565,7 +1141,7 @@ export function GuideHubModal({
                     }}
                     className="w-full rounded-xl bg-sys-accent/15 border border-sys-accent/35 py-2 text-xs font-bold text-sys-accent hover:bg-sys-accent/25 active:scale-[0.99] transition-colors cursor-pointer"
                   >
-                    Відкрити статистику ({pCtx.teacherName}) →
+                    Відкрити сторінку Статистики →
                   </button>
                 )}
               </div>
