@@ -99,7 +99,7 @@ const TEACHER_STEPS: GuideStepMeta[] = [
     title: "2. Статистика проведених пар та годин",
     points: [
       "Сторінка «Статистика» автоматично рахує вичитані академічні години та пари від початку семестру.",
-      "Доступний розподіл навантаження за кожною дисципліною та кожною навчальною группою.",
+      "Доступний розподіл навантаження за кожною дисципліною та кожною навчальною групою.",
     ],
   },
   {
@@ -260,6 +260,7 @@ export function GuideHubModal({
     } catch {}
   }, [isOpen, initialRole, mode]);
 
+  // Програє сцену один раз до фінального стану (FINAL_MS) і зупиняється без миготіння
   useEffect(() => {
     if (!isOpen || elapsedMs >= FINAL_MS) return;
     const timer = setInterval(() => {
@@ -292,6 +293,13 @@ export function GuideHubModal({
   const safeIdx = stepIdx < stepsCount ? stepIdx : 0;
   const activeStep = steps[safeIdx] ?? steps[0];
 
+  /**
+   * Простий і наочний таймлайн (0..4800 мс):
+   * stage 0 (0..900 мс): Стан «До»
+   * stage 1 (900..1750 мс): Курсор наводиться на реальну кнопку
+   * stage 2 (1750..2350 мс): Клік по кнопці
+   * stage 3 (2350..4800 мс): Чистий стан «Після» (на >= 3400 мс курсор плавно зникає)
+   */
   const stage =
     elapsedMs < 900
       ? 0
@@ -430,7 +438,9 @@ export function GuideHubModal({
                   </button>
                 )}
 
-                {/* СТУДЕНТ 0: ПОШТА @kre.dp.ua */}
+                {/* =====================================================
+                    СТУДЕНТ 0: ПОШТА @kre.dp.ua (Точна копія LessonCard)
+                   ===================================================== */}
                 {role === "student" && safeIdx === 0 && (
                   <div className="relative w-full max-w-[400px] mx-auto">
                     <DemoCursor
@@ -441,6 +451,7 @@ export function GuideHubModal({
                     />
 
                     <div className="rounded-2xl border border-sys-border bg-sys-card p-4 shadow-sm space-y-2.5">
+                      {/* Row 1: Number + Time on left, Locked/Unlocked Meet on right */}
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
                           <span className="text-base font-black text-sys-text-primary leading-none">1</span>
@@ -466,6 +477,7 @@ export function GuideHubModal({
                         )}
                       </div>
 
+                      {/* Row 2 & 3: Subject + Teacher */}
                       <div>
                         <div className="text-base font-semibold text-sys-text-subject leading-snug">
                           Вища математика
@@ -476,6 +488,7 @@ export function GuideHubModal({
                         </div>
                       </div>
 
+                      {/* Row 4: Exact Homework Strip from LessonCard.tsx */}
                       {stage >= 3 && (
                         <div
                           className="flex items-center justify-between rounded-xl bg-sys-bg/60 border border-sys-border px-3.5 py-2.5 text-xs animate-in fade-in duration-150"
@@ -498,7 +511,9 @@ export function GuideHubModal({
                   </div>
                 )}
 
-                {/* СТУДЕНТ 1: ПІДГРУПИ */}
+                {/* =====================================================
+                    СТУДЕНТ 1: ПІДГРУПИ (Точна копія двовикладацької LessonCard)
+                   ===================================================== */}
                 {role === "student" && safeIdx === 1 && (
                   <div className="relative w-full max-w-[400px] mx-auto">
                     <DemoCursor
@@ -528,6 +543,7 @@ export function GuideHubModal({
                         Іноземна мова (за проф. спрямуванням)
                       </div>
 
+                      {/* Subgroup 1 Row */}
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 min-w-0">
                           <span
@@ -556,6 +572,7 @@ export function GuideHubModal({
                         )}
                       </div>
 
+                      {/* Subgroup 2 Row (зникає після кліку по «1 підгр.») */}
                       {stage < 3 && (
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-2 min-w-0">
@@ -569,7 +586,7 @@ export function GuideHubModal({
                             </span>
                           </div>
                           <span className="shrink-0 rounded-md border border-sys-border bg-sys-bg px-2 py-1 text-xs font-semibold leading-none text-sys-text-secondary">
-                            ауд. 419
+                            ауд. 204
                           </span>
                         </div>
                       )}
@@ -577,7 +594,9 @@ export function GuideHubModal({
                   </div>
                 )}
 
-                {/* СТУДЕНТ 2: ZOOM ТА АВТОКОПІЮВАННЯ ПАРОЛЯ */}
+                {/* =====================================================
+                    СТУДЕНТ 2: ZOOM ТА АВТОКОПІЮВАННЯ ПАРОЛЯ (Точна копія LessonCard + ToastProvider)
+                   ===================================================== */}
                 {role === "student" && safeIdx === 2 && (
                   <div className="relative w-full max-w-[400px] mx-auto space-y-2.5">
                     <DemoCursor
@@ -595,6 +614,7 @@ export function GuideHubModal({
                           <span className="text-xs font-semibold text-sys-text-secondary">12:30–13:50</span>
                         </div>
 
+                        {/* Точна кнопка Zoom із LessonCard.tsx */}
                         <span
                           className={`inline-flex h-8 px-2.5 items-center gap-1.5 rounded-lg border border-sys-status-infoBg/50 bg-sys-status-infoBg/15 text-sys-status-infoText text-xs font-bold shadow-xs transition-transform ${
                             stage === 2 ? "scale-95" : ""
@@ -617,6 +637,7 @@ export function GuideHubModal({
                       </div>
                     </div>
 
+                    {/* Точна копія спливаючого повідомлення з ToastProvider.tsx */}
                     {stage >= 3 && (
                       <div className="flex items-center gap-2 rounded-[8px] border border-sys-status-okBg/40 bg-sys-card px-3.5 py-2.5 text-xs font-semibold text-sys-status-okText shadow-lg animate-in fade-in duration-150">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
@@ -628,7 +649,9 @@ export function GuideHubModal({
                   </div>
                 )}
 
-                {/* СТУДЕНТ 3: ЗАВДАННЯ */}
+                {/* =====================================================
+                    СТУДЕНТ 3: ЗАВДАННЯ (Точна копія TasksTodoBoard + TaskCardItem)
+                   ===================================================== */}
                 {role === "student" && safeIdx === 3 && (
                   <div className="relative w-full max-w-[400px] mx-auto space-y-2">
                     <DemoCursor
@@ -638,6 +661,7 @@ export function GuideHubModal({
                       hidden={isCursorHidden}
                     />
 
+                    {/* Точні 3 вкладки з MobileTasksView.tsx */}
                     <div className="relative grid grid-cols-3 rounded-xl border border-sys-border bg-sys-card p-1 text-xs font-semibold isolate">
                       <div
                         className="absolute top-1 bottom-1 transition-transform duration-150 ease-out transform-gpu z-0"
@@ -672,6 +696,7 @@ export function GuideHubModal({
                       </div>
                     </div>
 
+                    {/* Точний селектор предметів із MobileTasksView.tsx */}
                     <div className="flex items-center justify-between rounded-xl border border-sys-border bg-sys-card px-3 py-1.5 text-xs font-semibold text-sys-text-secondary">
                       <div className="flex items-center gap-2">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-80">
@@ -682,6 +707,7 @@ export function GuideHubModal({
                       <span>▾</span>
                     </div>
 
+                    {/* Точна картка TaskCardItem.tsx */}
                     {stage < 3 ? (
                       <div
                         className="rounded-xl bg-sys-card border border-sys-border p-3 shadow-xs space-y-1"
@@ -716,7 +742,9 @@ export function GuideHubModal({
                   </div>
                 )}
 
-                {/* СТУДЕНТ 4: ОЦІНКИ */}
+                {/* =====================================================
+                    СТУДЕНТ 4: ОЦІНКИ (Точна копія GradesView.tsx)
+                   ===================================================== */}
                 {role === "student" && safeIdx === 4 && (
                   <div className="relative w-full max-w-[400px] mx-auto space-y-2">
                     <DemoCursor
@@ -726,6 +754,7 @@ export function GuideHubModal({
                       hidden={isCursorHidden}
                     />
 
+                    {/* Точна GPA Overview Card із GradesView.tsx */}
                     <div className="rounded-2xl border border-sys-border bg-sys-card px-3.5 py-2.5 shadow-xs flex items-center justify-between">
                       <div>
                         <span className="text-[10px] font-bold uppercase tracking-wider text-sys-text-muted block">
@@ -755,6 +784,7 @@ export function GuideHubModal({
                       </div>
                     </div>
 
+                    {/* Точна картка предмета з GradesView.tsx */}
                     <div className="rounded-2xl border border-sys-border bg-sys-card p-3 shadow-xs space-y-2">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
@@ -796,7 +826,9 @@ export function GuideHubModal({
                   </div>
                 )}
 
-                {/* СТУДЕНТ 5 (#7): ПЕРЕХІД ДО ВИКЛАДАЧА */}
+                {/* =====================================================
+                    СТУДЕНТ 5 (#7): ПЕРЕХІД ДО ВИКЛАДАЧА (Точна копія SchedulePageClient)
+                   ===================================================== */}
                 {role === "student" && safeIdx === 5 && (
                   <div className="relative w-full max-w-[400px] mx-auto">
                     <DemoCursor
@@ -836,6 +868,7 @@ export function GuideHubModal({
                       </div>
                     ) : (
                       <div className="space-y-2.5 animate-in fade-in duration-150">
+                        {/* Точний банер повернення з SchedulePageClient.tsx (рядок 2175) */}
                         <div className="flex items-center justify-between rounded-xl border border-sys-accent/30 bg-sys-accent/10 px-3 py-2 text-xs">
                           <span className="text-sys-text-secondary truncate mr-2">
                             Розклад: <strong className="text-sys-text-primary">Іваненко О.М.</strong>
@@ -864,7 +897,9 @@ export function GuideHubModal({
                   </div>
                 )}
 
-                {/* ВИКЛАДАЧ 0 (#1): PIN-ДОСТУП */}
+                {/* =====================================================
+                    ВИКЛАДАЧ 0 (#1): PIN-ДОСТУП (Точна копія TeacherPinModal.tsx)
+                   ===================================================== */}
                 {role === "teacher" && safeIdx === 0 && (
                   <div className="relative w-full max-w-[400px] mx-auto">
                     <DemoCursor
@@ -875,6 +910,7 @@ export function GuideHubModal({
                     />
 
                     {stage < 3 ? (
+                      /* Точний макет TeacherPinModal.tsx */
                       <div className="rounded-2xl border border-sys-border bg-sys-card p-4 shadow-lg space-y-3">
                         <div className="flex items-center gap-2.5">
                           <div className="w-8 h-8 rounded-xl flex items-center justify-center border border-sys-status-infoBg/30 bg-sys-status-infoBg/15 text-sys-status-infoText shrink-0">
@@ -904,6 +940,7 @@ export function GuideHubModal({
                         </div>
                       </div>
                     ) : (
+                      /* Розблокована картка пари викладача */
                       <div className="rounded-2xl border border-sys-border bg-sys-card p-4 shadow-sm space-y-2.5 animate-in fade-in duration-150">
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-2">
@@ -930,7 +967,9 @@ export function GuideHubModal({
                   </div>
                 )}
 
-                {/* ВИКЛАДАЧ 1 (#4): СТАТИСТИКА */}
+                {/* =====================================================
+                    ВИКЛАДАЧ 1 (#4): СТАТИСТИКА (Точна копія app/statistics/page.tsx)
+                   ===================================================== */}
                 {role === "teacher" && safeIdx === 1 && (
                   <div className="relative w-full max-w-[400px] mx-auto space-y-2.5">
                     <DemoCursor
@@ -940,6 +979,7 @@ export function GuideHubModal({
                       hidden={isCursorHidden}
                     />
 
+                    {/* Точні 2 картки зверху зі сторінки /statistics */}
                     <div className="grid grid-cols-2 gap-2.5">
                       <div className="rounded-2xl border border-sys-border bg-sys-card p-2.5 text-center">
                         <p className="text-[10px] font-semibold uppercase tracking-wider text-sys-text-secondary">
@@ -957,6 +997,7 @@ export function GuideHubModal({
                       </div>
                     </div>
 
+                    {/* Точна картка дисципліни з круговим SVG-кільцем зі сторінки /statistics */}
                     <div className="rounded-2xl border border-sys-border bg-sys-card p-3 flex items-center gap-3.5">
                       <div className="relative w-12 h-12 shrink-0 flex items-center justify-center">
                         <svg className="w-full h-full -rotate-90" viewBox="0 0 48 48">
@@ -998,7 +1039,9 @@ export function GuideHubModal({
                   </div>
                 )}
 
-                {/* ВИКЛАДАЧ 2 (#5): ЗАМІНИ ТА ПЕРЕНЕСЕННЯ */}
+                {/* =====================================================
+                    ВИКЛАДАЧ 2 (#5): ЗАМІНИ ТА ПЕРЕНЕСЕННЯ (Точна копія MobileWeekDaysStrip + LessonCard)
+                   ===================================================== */}
                 {role === "teacher" && safeIdx === 2 && (
                   <div className="relative w-full max-w-[400px] mx-auto space-y-2.5">
                     <DemoCursor
@@ -1008,6 +1051,7 @@ export function GuideHubModal({
                       hidden={isCursorHidden}
                     />
 
+                    {/* Точна копія MobileWeekDaysStrip.tsx */}
                     <div className="relative flex h-10 w-full rounded-xl border border-sys-border bg-sys-card overflow-hidden text-xs">
                       <div
                         className="absolute bottom-0 left-0 h-[3px] bg-sys-accent transition-transform duration-200 ease-out"
@@ -1032,6 +1076,7 @@ export function GuideHubModal({
                     </div>
 
                     {stage < 3 ? (
+                      /* Точний макет перенесеної пари з LessonCard.tsx (рядки 1261, 1282) */
                       <div className="rounded-2xl border border-sys-status-dangerBg/40 border-dashed bg-sys-card p-3.5 space-y-1.5">
                         <div className="flex items-center justify-between gap-2">
                           <span className="text-xs font-semibold text-sys-text-secondary">3 · 12:30–13:50</span>
@@ -1045,6 +1090,7 @@ export function GuideHubModal({
                         <div className="text-xs text-sys-text-secondary">Група: 85</div>
                       </div>
                     ) : (
+                      /* Точний макет заміни з LessonCard.tsx (рядки 1268, 1306) */
                       <div className="rounded-2xl border border-sys-warning/40 ring-1 ring-sys-warning/60 bg-sys-card p-3.5 space-y-1.5 animate-in fade-in duration-150">
                         <div className="flex items-center justify-between gap-2">
                           <span className="text-xs font-semibold text-sys-text-secondary">3 · 12:30–13:50</span>
@@ -1062,7 +1108,7 @@ export function GuideHubModal({
                 )}
               </div>
 
-              {/* 3. ЛАКОНІЧНИЙ ОПИС + РЕАЛЬНІ КНОПКИ КЕРУВАННЯ */}
+              {/* 3. ЛАКОНІЧНИЙ ОПИС (2 короткі пункти) + ШВИДКА ДІЯ */}
               <div className="space-y-2.5 px-0.5">
                 <h3 className="text-sm sm:text-base font-bold text-sys-text-primary leading-snug">
                   {activeStep.title}
