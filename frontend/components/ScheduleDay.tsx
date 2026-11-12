@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
 import { ScheduleResponse, Lesson } from "../lib/api";
 import { buildTelegramShareText } from "../lib/format";
 import { useToast } from "./ToastProvider";
@@ -241,16 +240,7 @@ export function ScheduleDay({
       )}
 
       {orderedLessons.length ? (
-        <motion.div
-          key={schedule.date}
-          initial="hidden"
-          animate="visible"
-          variants={{
-            hidden: { opacity: 1 },
-            visible: { opacity: 1, transition: { staggerChildren: 0.025, delayChildren: 0.01 } },
-          }}
-          className="flex flex-col gap-3"
-        >
+        <div key={schedule.date} className="flex flex-col gap-3">
           {orderedLessons.map((lesson, idx) => {
             const lessonKey = `${lesson.id}-${lesson.lesson_number}`;
             const prev = idx > 0 ? orderedLessons[idx - 1] : null;
@@ -270,12 +260,8 @@ export function ScheduleDay({
             const breakLeft = isBreakNow && currStart !== null && kyivNow ? currStart - kyivNow.minutes : 0;
 
             return (
-              <motion.div
+              <div
                 key={lessonKey}
-                variants={{
-                  hidden: { opacity: 0.7, y: 6 },
-                  visible: { opacity: 1, y: 0, transition: { duration: 0.24, ease: [0.16, 1, 0.3, 1] } },
-                }}
                 className="flex flex-col gap-2.5 relative has-[[data-open]]:z-50"
               >
                 {isBreakNow && (
@@ -302,10 +288,10 @@ export function ScheduleDay({
                   currentTeacherId={currentTeacherId}
                   currentTeacherName={currentTeacherName}
                 />
-              </motion.div>
+              </div>
             );
           })}
-        </motion.div>
+        </div>
       ) : schedule.period_info ? (
         compactPeriod ? (
           <CompactSchedulePeriodCard period={schedule.period_info} />

@@ -537,22 +537,20 @@ html[data-theme="light"][data-accent="cyan"] {
   @media (min-width: 1024px) {
     body {
       background-image:
-        radial-gradient(ellipse 85% 50% at 50% -10%, rgb(var(--sys-accent) / 0.12), transparent 70%),
-        radial-gradient(ellipse 60% 40% at 90% 100%, rgb(var(--sys-accent) / 0.05), transparent 65%);
-      background-attachment: fixed;
+        radial-gradient(ellipse 85% 50% at 50% -10%, rgb(var(--sys-accent) / 0.11), transparent 70%);
     }
   }
 
-  /* View Transitions API (where supported: 280ms) */
+  /* Швидкий і невагомий перехід View Transitions API (140ms) */
   ::view-transition-group(root) {
-    animation-duration: 0.28s;
+    animation-duration: 0.14s;
     animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
   }
   ::view-transition-old(root) {
-    animation: 0.22s cubic-bezier(0.4, 0, 1, 1) both fade-out;
+    animation: 0.1s cubic-bezier(0.4, 0, 1, 1) both fade-out;
   }
   ::view-transition-new(root) {
-    animation: 0.28s cubic-bezier(0.22, 1, 0.36, 1) both fade-in;
+    animation: 0.14s cubic-bezier(0.22, 1, 0.36, 1) both fade-in;
   }
 
   @keyframes fade-out {

@@ -486,29 +486,17 @@ export function useSchedule(
       }
 
       if (!hasCachedSchedule) {
-        const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
-        if (isOffline) {
-          const fallback = findFallbackScheduleFromStorage();
-          if (fallback) {
-            if (fallback.today) setToday(fallback.today);
-            setWeek(fallback.week);
-            setIsUsingFallbackCache(true);
-            setLoading(false);
-            hasCachedSchedule = true;
-          }
-        }
-
-        if (!hasCachedSchedule) {
+        const instantFallback = findFallbackScheduleFromStorage();
+        if (instantFallback) {
+          if (instantFallback.today) setToday(instantFallback.today);
+          setWeek(instantFallback.week);
+          setLoading(false);
+          hasCachedSchedule = true;
+        } else {
           setLoading(true);
           setIsUsingFallbackCache(false);
           slowNetworkTimer = setTimeout(() => {
             if (!isSubscribed) return;
-            const fallback = findFallbackScheduleFromStorage();
-            if (fallback) {
-              if (fallback.today) setToday(fallback.today);
-              setWeek(fallback.week);
-              setIsUsingFallbackCache(true);
-            }
             setIsSlowNetwork(true);
             setLoading(false);
           }, 2500);

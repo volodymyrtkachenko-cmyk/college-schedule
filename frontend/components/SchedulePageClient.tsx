@@ -63,18 +63,18 @@ export interface SchedulePageClientProps {
 
 const dayCarouselVariants = {
   enter: (dir: number) => ({
-    x: dir > 0 ? 36 : dir < 0 ? -36 : 0,
+    x: dir > 0 ? 18 : dir < 0 ? -18 : 0,
     opacity: 0,
   }),
   center: {
     x: 0,
     opacity: 1,
-    transition: { type: "tween" as const, duration: 0.2, ease: [0.22, 1, 0.36, 1] as const },
+    transition: { type: "tween" as const, duration: 0.14, ease: [0.22, 1, 0.36, 1] as const },
   },
   exit: (dir: number) => ({
-    x: dir > 0 ? -36 : dir < 0 ? 36 : 0,
+    x: dir > 0 ? -18 : dir < 0 ? 18 : 0,
     opacity: 0,
-    transition: { type: "tween" as const, duration: 0.14, ease: [0.4, 0, 1, 1] as const },
+    transition: { type: "tween" as const, duration: 0.09, ease: [0.4, 0, 1, 1] as const },
   }),
 };
 
@@ -1615,42 +1615,39 @@ export function SchedulePageClient({
               <span className="truncate">{compactWeekRange}</span>
             </button>
 
-            {/* Segmented Switcher: [ День | Тиждень ] */}
-            <div role="group" aria-label="Режим відображення" className="relative flex rounded-xl border border-sys-border bg-sys-bg p-1 text-xs">
+            {/* Segmented Switcher: [ День | Тиждень ] на чистому GPU translate3d */}
+            <div
+              role="group"
+              aria-label="Режим відображення"
+              className="relative grid grid-cols-2 rounded-xl border border-sys-border bg-sys-bg p-1 text-xs isolate"
+            >
+              <div
+                aria-hidden="true"
+                className="absolute top-1 bottom-1 pointer-events-none transition-transform duration-150 ease-out transform-gpu will-change-transform z-0"
+                style={{
+                  left: "4px",
+                  width: "calc((100% - 8px) / 2)",
+                  transform: `translate3d(${view === "week" ? "100%" : "0%"}, 0, 0)`,
+                }}
+              >
+                <div className="h-full w-full rounded-lg bg-sys-accentSolid shadow-xs" />
+              </div>
               <button
                 type="button"
                 onClick={() => handleViewChange("today")}
-                className={`relative isolate z-10 h-8 px-3.5 rounded-lg font-semibold transition-colors duration-fast ease-smooth ${
-                  view === "today"
-                    ? "text-white"
-                    : "text-sys-text-secondary hover:text-sys-text-primary"
+                className={`relative z-10 h-8 px-3.5 rounded-lg font-semibold transition-colors duration-150 cursor-pointer ${
+                  view === "today" ? "text-white" : "text-sys-text-secondary hover:text-sys-text-primary"
                 }`}
               >
-                {view === "today" && (
-                  <motion.div
-                    layoutId="desktop-view-pill"
-                    className="absolute inset-0 rounded-lg bg-sys-accentSolid shadow-xs -z-10"
-                    transition={{ type: "spring", stiffness: 480, damping: 36 }}
-                  />
-                )}
                 День
               </button>
               <button
                 type="button"
                 onClick={() => handleViewChange("week")}
-                className={`relative isolate z-10 h-8 px-3.5 rounded-lg font-semibold transition-colors duration-fast ease-smooth ${
-                  view === "week"
-                    ? "text-white"
-                    : "text-sys-text-secondary hover:text-sys-text-primary"
+                className={`relative z-10 h-8 px-3.5 rounded-lg font-semibold transition-colors duration-150 cursor-pointer ${
+                  view === "week" ? "text-white" : "text-sys-text-secondary hover:text-sys-text-primary"
                 }`}
               >
-                {view === "week" && (
-                  <motion.div
-                    layoutId="desktop-view-pill"
-                    className="absolute inset-0 rounded-lg bg-sys-accentSolid shadow-xs -z-10"
-                    transition={{ type: "spring", stiffness: 480, damping: 36 }}
-                  />
-                )}
                 Тиждень
               </button>
             </div>
@@ -2365,7 +2362,7 @@ export function SchedulePageClient({
             </div>
           </div>
         ) : (
-          <AnimatePresence mode="popLayout" initial={false}>
+          <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={view}
               initial={{ opacity: 0, scale: shouldReduceMotion ? 1 : 0.985 }}
@@ -2382,12 +2379,7 @@ export function SchedulePageClient({
                 /* Desktop Day Mode: Smooth Animated Focus / 2-Column Dashboard */
                 <div className="w-full min-w-0 flex items-start justify-center overflow-x-clip">
                   {/* Schedule Column (Smoothly glides to center in Focus Mode) */}
-                  <motion.div
-                    layout={shouldReduceMotion ? false : "position"}
-                    transition={{
-                      duration: shouldReduceMotion ? 0 : 0.18,
-                      ease: [0.2, 0, 0, 1],
-                    }}
+                  <div
                     className={`w-full ${mode === "teacher" ? "max-w-[880px]" : "max-w-[760px]"} min-w-0`}
                   >
                     {/* Focus Mode Day Switcher Card (smoothly expands and collapses via CSS grid without unmount snap) */}
@@ -2500,7 +2492,7 @@ export function SchedulePageClient({
                       )}
 
                       <div className="relative w-full">
-                        <AnimatePresence mode="popLayout" initial={false} custom={shouldReduceMotion ? 0 : daySlideDir}>
+                        <AnimatePresence mode="wait" initial={false} custom={shouldReduceMotion ? 0 : daySlideDir}>
                           <motion.div
                             key={`${mode}-${mode === "student" ? groupId : teacherId}-${selectedDaySchedule?.date ?? today?.date ?? "day"}`}
                             custom={shouldReduceMotion ? 0 : daySlideDir}
@@ -2525,7 +2517,7 @@ export function SchedulePageClient({
                           </motion.div>
                         </AnimatePresence>
                       </div>
-                    </motion.div>
+                    </div>
 
                     {/* Right Column: Week Info & Classroom Widget (360px, slides out to right on focus mode) */}
                     <AnimatePresence initial={false}>
