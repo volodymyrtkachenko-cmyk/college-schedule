@@ -391,14 +391,18 @@ export function DayPager({
       <div className="relative flex-1 w-full flex flex-col overflow-x-clip">
         <motion.div
           key={`${scheduleMode}-${schedule.date}`}
-          initial={{
-            opacity: 0,
-            x: shouldReduceMotion ? 0 : daySlideDir > 0 ? 28 : daySlideDir < 0 ? -28 : 0,
-          }}
+          initial={
+            shouldReduceMotion || daySlideDir === 0
+              ? false
+              : {
+                  opacity: 0,
+                  x: daySlideDir > 0 ? 22 : -22,
+                }
+          }
           animate={{ opacity: 1, x: 0 }}
           transition={{
             type: "tween",
-            duration: shouldReduceMotion ? 0 : 0.2,
+            duration: shouldReduceMotion ? 0 : 0.16,
             ease: [0.22, 1, 0.36, 1],
           }}
           className="flex flex-col flex-1 gap-3 w-full will-change-[transform,opacity] transform-gpu"

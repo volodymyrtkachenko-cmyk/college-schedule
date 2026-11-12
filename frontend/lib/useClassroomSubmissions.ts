@@ -289,7 +289,12 @@ export function saveClassroomSyncData(
         }
       }
     }
-    localStorage.setItem(SUBMITTED_TASKS_KEY, JSON.stringify(submittedMap));
+    const prevTasksJson = localStorage.getItem(SUBMITTED_TASKS_KEY) || "{}";
+    const nextTasksJson = JSON.stringify(submittedMap);
+    const tasksChanged = prevTasksJson !== nextTasksJson;
+    if (tasksChanged) {
+      localStorage.setItem(SUBMITTED_TASKS_KEY, nextTasksJson);
+    }
 
     const teachersList = Array.from(extractedTeachers);
     if (teachersList.length > 0) {
@@ -317,12 +322,16 @@ export function saveClassroomSyncData(
     const nextEmail = localStorage.getItem(LINKED_EMAIL_KEY);
     const nextGroupId = localStorage.getItem(LINKED_GROUP_ID_KEY);
     const nextUid = localStorage.getItem(GOOGLE_USER_ID_KEY);
+    const identityChanged =
+      prevEmail !== nextEmail || prevGroupId !== nextGroupId || prevUid !== nextUid;
 
-    window.dispatchEvent(new Event(EVENT_NAME));
-    if (prevEmail !== nextEmail || prevGroupId !== nextGroupId || prevUid !== nextUid) {
-      window.dispatchEvent(new Event("classroom-access-changed"));
+    // Сповіщаємо картки розкладу ТІЛЬКИ якщо реально змінилися здані роботи або акаунт!
+    if (tasksChanged || identityChanged) {
+      window.dispatchEvent(new Event(EVENT_NAME));
+      if (identityChanged) {
+        window.dispatchEvent(new Event("classroom-access-changed"));
+      }
     }
-    window.dispatchEvent(new Event("storage"));
   } catch {}
 }
 

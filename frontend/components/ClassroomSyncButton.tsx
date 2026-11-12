@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { api, invalidateGroupStatusCache } from "../lib/api";
-import { invalidateScheduleCache } from "../lib/hooks";
 import { useToast } from "./ToastProvider";
 import {
   clearClassroomAccessToken,
@@ -38,12 +37,7 @@ export function ClassroomSyncButton({
       if (!serverLastSyncedAt || typeof window === "undefined") return;
       try {
         const storageKey = `schedule:last_synced_at:${gid}`;
-        const prevSyncedAt = localStorage.getItem(storageKey);
         localStorage.setItem(storageKey, serverLastSyncedAt);
-        if (prevSyncedAt && prevSyncedAt !== serverLastSyncedAt) {
-          // Фоновий воркер на сервері оновив розклад/посилання/ДЗ — скидаємо кеш розкладу!
-          invalidateScheduleCache();
-        }
       } catch {}
     },
     []
@@ -143,17 +137,6 @@ export function ClassroomSyncButton({
     return () => clearTimeout(timer);
   }, [currentGroupId, linkedEmail, performSilentSync]);
 
-  // 2. Тиха синхронізація при поверненні у вкладку
-  useEffect(() => {
-    if (!currentGroupId) return;
-    const handleVis = () => {
-      if (document.visibilityState === "visible") {
-        void performSilentSync();
-      }
-    };
-    document.addEventListener("visibilitychange", handleVis);
-    return () => document.removeEventListener("visibilitychange", handleVis);
-  }, [currentGroupId, performSilentSync]);
 
   // 3. Періодична тиха перевірка кожні 10 хвилин, поки вкладка відкрита
   useEffect(() => {
