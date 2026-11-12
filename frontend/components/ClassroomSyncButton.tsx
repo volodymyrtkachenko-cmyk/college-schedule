@@ -128,13 +128,31 @@ export function ClassroomSyncButton({
     fetchGroupStatusAndSchedulePoll,
   ]);
 
-  // 1. Тиха синхронізація при завантаженні / зміні групи
+  // 1. Тиха синхронізація при завантаженні / зміні групи (відкладена, щоб не конкурувати за процесор смартфона під час старту)
   useEffect(() => {
     if (!currentGroupId) return;
+    let cancelled = false;
+    let idleId: number | null = null;
     const timer = setTimeout(() => {
-      void performSilentSync();
-    }, 1200);
-    return () => clearTimeout(timer);
+      if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+        idleId = (window as any).requestIdleCallback(
+          () => {
+            if (!cancelled) void performSilentSync();
+          },
+          { timeout: 2500 }
+        );
+      } else {
+        if (!cancelled) void performSilentSync();
+      }
+    }, 3200);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+      if (idleId !== null && typeof window !== "undefined" && "cancelIdleCallback" in window) {
+        (window as any).cancelIdleCallback(idleId);
+      }
+    };
   }, [currentGroupId, linkedEmail, performSilentSync]);
 
 

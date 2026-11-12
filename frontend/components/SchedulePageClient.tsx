@@ -5,7 +5,6 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { OfflineIndicator } from "./OfflineIndicator";
-import { InstallPrompt } from "./InstallPrompt";
 import { ScheduleDay } from "./ScheduleDay";
 import { getPeriodMeta } from "./SchedulePeriodCard";
 import { DayPager } from "./DayPager";
@@ -23,7 +22,6 @@ import { useTaskGroups, formatTaskWord, TaskFilterState, DEFAULT_TASK_FILTERS } 
 import { TaskFilters } from "./TaskFilters";
 import { SearchableSelect } from "./SearchableSelect";
 import { ClassroomSyncButton } from "./ClassroomSyncButton";
-import { ClassroomRelinkBanner } from "./ClassroomRelinkBanner";
 import { extractClassroomTasks, parseTaskDeadline, sortTasksByDeadline, TaskDeadline, UKR_MONTHS_SHORT, pluralDays } from "./LessonCard";
 import { DEFAULT_LESSON_TIMES } from "../lib/constants/lessons";
 import { useToast } from "./ToastProvider";
@@ -47,6 +45,8 @@ const TasksTodoBoard = dynamic(() => import("./MobileTasksView").then((m) => m.T
 const ScheduleWeekGrid = dynamic(() => import("./ScheduleWeekGrid").then((m) => m.ScheduleWeekGrid), { ssr: false });
 const GradesView = dynamic(() => import("./GradesView").then((m) => m.GradesView), { ssr: false });
 const GuideHubModal = dynamic(() => import("./GuideHubModal").then((m) => m.GuideHubModal), { ssr: false });
+const InstallPrompt = dynamic(() => import("./InstallPrompt").then((m) => m.InstallPrompt), { ssr: false });
+const ClassroomRelinkBanner = dynamic(() => import("./ClassroomRelinkBanner").then((m) => m.ClassroomRelinkBanner), { ssr: false });
 
 const EN_KYIV_DOW_FMT = new Intl.DateTimeFormat("en-US", {
   timeZone: "Europe/Kyiv",

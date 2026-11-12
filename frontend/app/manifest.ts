@@ -17,5 +17,21 @@ export default function manifest(): MetadataRoute.Manifest {
       { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
       { src: "/icon-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],
+    shortcuts: [
+      {
+        name: "Розклад на сьогодні",
+        short_name: "Сьогодні",
+        description: "Переглянути розклад занять на сьогодні",
+        url: "/",
+        icons: [{ src: "/icon-192.png", sizes: "192x192" }],
+      },
+      {
+        name: "Завдання Classroom",
+        short_name: "Завдання",
+        description: "Переглянути домашні завдання та борги",
+        url: "/?tab=tasks",
+        icons: [{ src: "/icon-192.png", sizes: "192x192" }],
+      },
+    ],
   };
 }

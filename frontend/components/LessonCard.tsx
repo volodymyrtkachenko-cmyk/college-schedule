@@ -476,29 +476,49 @@ function findFullTaskMetaByUrl(url: string): { title?: string; teacher?: string 
 export type KyivNowSnapshot = { dateIso: string; minutes: number };
 let _sharedKyivNow: KyivNowSnapshot | null = null;
 let _sharedKyivTimer: ReturnType<typeof setInterval> | null = null;
+let _sharedKyivVisibilityHandler: (() => void) | null = null;
 const _kyivNowSubscribers = new Set<(now: KyivNowSnapshot) => void>();
+
+function notifyKyivNowIfChanged() {
+  const next = getKyivNow();
+  if (
+    !_sharedKyivNow ||
+    _sharedKyivNow.minutes !== next.minutes ||
+    _sharedKyivNow.dateIso !== next.dateIso
+  ) {
+    _sharedKyivNow = next;
+    _kyivNowSubscribers.forEach((sub) => sub(next));
+  }
+}
 
 export function subscribeKyivNow(cb: (now: KyivNowSnapshot) => void) {
   _kyivNowSubscribers.add(cb);
   if (_kyivNowSubscribers.size === 1 && typeof window !== "undefined") {
     _sharedKyivNow = getKyivNow();
     _sharedKyivTimer = setInterval(() => {
-      const next = getKyivNow();
-      if (
-        !_sharedKyivNow ||
-        _sharedKyivNow.minutes !== next.minutes ||
-        _sharedKyivNow.dateIso !== next.dateIso
-      ) {
-        _sharedKyivNow = next;
-        _kyivNowSubscribers.forEach((sub) => sub(next));
-      }
+      // Не будимо React у фоні: PWA згорнута — тиків немає (економія батареї)
+      if (document.visibilityState === "hidden") return;
+      notifyKyivNowIfChanged();
     }, 30_000);
+
+    _sharedKyivVisibilityHandler = () => {
+      if (document.visibilityState === "visible") {
+        notifyKyivNowIfChanged();
+      }
+    };
+    document.addEventListener("visibilitychange", _sharedKyivVisibilityHandler);
   }
   return () => {
     _kyivNowSubscribers.delete(cb);
-    if (_kyivNowSubscribers.size === 0 && _sharedKyivTimer) {
-      clearInterval(_sharedKyivTimer);
-      _sharedKyivTimer = null;
+    if (_kyivNowSubscribers.size === 0) {
+      if (_sharedKyivTimer) {
+        clearInterval(_sharedKyivTimer);
+        _sharedKyivTimer = null;
+      }
+      if (_sharedKyivVisibilityHandler) {
+        document.removeEventListener("visibilitychange", _sharedKyivVisibilityHandler);
+        _sharedKyivVisibilityHandler = null;
+      }
     }
   };
 }

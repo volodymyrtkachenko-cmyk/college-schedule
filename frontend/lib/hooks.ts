@@ -30,6 +30,32 @@ export function clearScheduleLocalStorageCache() {
 }
 
 /**
+ * Очищає застарілі тижні з localStorage (зберігає лише останні maxWeeksToKeep тижнів),
+ * щоб сховище браузера на мобільних телефонах не роздувалося.
+ */
+function pruneOldScheduleCache(targetKey: string, maxWeeksToKeep = 6) {
+  if (typeof window === "undefined") return;
+  try {
+    const prefix = `schedule:week:${targetKey}:`;
+    const entries: { key: string; date: string }[] = [];
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const k = window.localStorage.key(i);
+      if (k && k.startsWith(prefix)) {
+        const m = k.match(/:(\d{4}-\d{2}-\d{2})/);
+        entries.push({ key: k, date: m ? m[1] : "" });
+      }
+    }
+    if (entries.length > maxWeeksToKeep) {
+      entries.sort((a, b) => a.date.localeCompare(b.date));
+      const toRemove = entries.slice(0, entries.length - maxWeeksToKeep);
+      for (const item of toRemove) {
+        window.localStorage.removeItem(item.key);
+      }
+    }
+  } catch {}
+}
+
+/**
  * За замовчуванням НЕ стираємо localStorage, щоб розклад ніколи не зникав у скелетони
  * і не блимав перед очима користувача під час фонової синхронізації.
  */
@@ -438,6 +464,7 @@ export function useSchedule(
           try {
             window.localStorage.setItem(todayKey, incomingTodayJson);
             window.localStorage.setItem(weekKey, incomingWeekJson);
+            pruneOldScheduleCache(targetKey, 6);
           } catch {}
 
           memoryCache.set(getMemKey(), {
