@@ -17,9 +17,9 @@ export interface StudentOnboardingModalProps {
 
 interface OnboardingStep {
   id: "subgroups" | "appearance" | "classroom";
+  tabLabel: string;
   title: string;
   subtitle: string;
-  icon: string;
 }
 
 export function StudentOnboardingModal({
@@ -35,13 +35,10 @@ export function StudentOnboardingModal({
   const [weekSchedule, setWeekSchedule] = useState<ScheduleResponse[]>([]);
   const [hasSubgroups, setHasSubgroups] = useState<boolean>(true);
 
-  // Subgroup selection
-  const [chosenSubgroup, setChosenSubgroup] = useState<1 | 2 | "all" | null>(
+  const [chosenSubgroup, setChosenSubgroup] = useState<1 | 2 | "all">(
     settings.defaultSubgroup === 1 || settings.defaultSubgroup === 2
       ? settings.defaultSubgroup
-      : settings.defaultSubgroup === "all"
-        ? "all"
-        : null
+      : "all"
   );
 
   const subgroupHints = useMemo(() => {
@@ -49,22 +46,20 @@ export function StudentOnboardingModal({
     return extractSubgroupTeacherHints(allLessons);
   }, [weekSchedule]);
 
-  // Classroom auth
   const [isLinkingClassroom, setIsLinkingClassroom] = useState(false);
   const [classroomSuccess, setClassroomSuccess] = useState(false);
   const [classroomError, setClassroomError] = useState("");
   const [groupSwitchNotice, setGroupSwitchNotice] = useState<string | null>(null);
 
-  // Fetch schedule to check subgroups
   useEffect(() => {
     let isMounted = true;
-    api.week(activeGroupId)
+    api
+      .week(activeGroupId)
       .then((data) => {
         if (!isMounted || !Array.isArray(data)) return;
         setWeekSchedule(data);
         const allLessons = data.flatMap((day) => day.lessons || []);
-        const split = checkScheduleHasSubgroups(allLessons);
-        setHasSubgroups(split);
+        setHasSubgroups(checkScheduleHasSubgroups(allLessons));
       })
       .catch(() => {});
     return () => {
@@ -72,29 +67,28 @@ export function StudentOnboardingModal({
     };
   }, [activeGroupId]);
 
-  // Steps definition
   const steps: OnboardingStep[] = useMemo(() => {
     const list: OnboardingStep[] = [];
     if (hasSubgroups) {
       list.push({
         id: "subgroups",
-        title: "Обери свою підгрупу",
-        subtitle: "Розклад автоматично показуватиме твою підгрупу та потрібного викладача.",
-        icon: "👥",
+        tabLabel: "1. Підгрупа",
+        title: "Оберіть свою підгрупу",
+        subtitle: "Зайві кабінети, чужі викладачі та чужі завдання автоматично сховаються з вашого розкладу.",
       });
     }
     list.push(
       {
         id: "appearance",
-        title: "Тема та улюблений колір",
-        subtitle: "Обирай режим та колірний акцент, який тобі до вподоби.",
-        icon: "🎨",
+        tabLabel: hasSubgroups ? "2. Оформлення" : "1. Оформлення",
+        title: "Тема та колірний акцент",
+        subtitle: "Оберіть темний або світлий режим і улюблену палітру — прев'ю картки зверху оновлюється миттєво.",
       },
       {
         id: "classroom",
-        title: "Google Classroom",
-        subtitle: "Підключи студентську пошту для синхронізації домашніх завдань та оцінок.",
-        icon: "📋",
+        tabLabel: hasSubgroups ? "3. Пошта @kre" : "2. Пошта @kre",
+        title: "Підключення Google Classroom (@kre.dp.ua)",
+        subtitle: "Відкриває прямі посилання на онлайн-пари (Meet / Zoom), підтягує ваші ДЗ до пар і рахує середній бал.",
       }
     );
     return list;
@@ -102,7 +96,6 @@ export function StudentOnboardingModal({
 
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
 
-  // Keep step index within bounds if steps change
   useEffect(() => {
     if (currentStepIndex >= steps.length) {
       setCurrentStepIndex(Math.max(0, steps.length - 1));
@@ -111,9 +104,9 @@ export function StudentOnboardingModal({
 
   const currentStep = steps[currentStepIndex] || steps[0];
 
-  const handleSubgroupSelect = (val: 1 | 2 | "all" | null) => {
+  const handleSubgroupSelect = (val: 1 | 2 | "all") => {
     setChosenSubgroup(val);
-    updateSetting("defaultSubgroup", val ?? "all");
+    updateSetting("defaultSubgroup", val);
   };
 
   const handleClassroomAuth = async () => {
@@ -132,7 +125,7 @@ export function StudentOnboardingModal({
             const detectedId = Number(res.group_id);
             if (detectedId && detectedId !== activeGroupId) {
               setGroupSwitchNotice(
-                `Твою реальну групу визначено як «${res.group_name || detectedId}» за курсами Classroom.`
+                `Вашу групу автоматично уточнено як «${res.group_name || detectedId}» за курсами Classroom.`
               );
               setActiveGroupId(detectedId);
               try {
@@ -153,323 +146,355 @@ export function StudentOnboardingModal({
     }
   };
 
-  const handleNext = () => {
-    if (currentStepIndex < steps.length - 1) {
-      setCurrentStepIndex((prev) => prev + 1);
-    } else {
-      handleFinish();
-    }
-  };
-
-  const handlePrev = () => {
-    if (currentStepIndex > 0) {
-      setCurrentStepIndex((prev) => prev - 1);
-    }
-  };
-
   const handleFinish = () => {
     onComplete(activeGroupId);
   };
 
+  const sub1Teacher = subgroupHints.sub1[0]?.teacher || "Токарєва О.В.";
+  const sub2Teacher = subgroupHints.sub2[0]?.teacher || "Хочинська О.С.";
+  const isClassroomReady = isLinked || classroomSuccess;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-5 backdrop-blur-md overflow-hidden animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 sm:bg-black/70 sm:backdrop-blur-xs p-0 sm:p-4 animate-in fade-in duration-150">
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="onboarding-title"
-        className="relative flex flex-col w-full max-w-lg rounded-3xl border border-sys-border bg-sys-card text-sys-text-primary shadow-2xl overflow-hidden"
+        className="w-full sm:max-w-[520px] max-h-[94dvh] sm:max-h-[90vh] flex flex-col rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card text-sys-text-primary shadow-2xl overflow-hidden select-none"
       >
-        {/* Top Header */}
-        <header className="flex items-center justify-between border-b border-sys-border/50 px-5 py-4 bg-sys-card shrink-0">
-          <div className="flex items-center gap-3">
-            <span aria-hidden="true" className="flex h-9 w-9 items-center justify-center rounded-xl bg-sys-accent/15 text-lg shadow-xs">
-              {currentStep.icon}
-            </span>
+        {/* HEADER + STEP TABS */}
+        <header className="px-4 pt-3.5 pb-2.5 bg-sys-surface border-b border-sys-border space-y-2.5 shrink-0">
+          <div className="flex items-center justify-between gap-2">
             <div>
-              <h2 id="onboarding-title" className="text-sm sm:text-base font-bold leading-tight text-sys-text-primary">
-                Швидке налаштування
+              <h2 id="onboarding-title" className="text-sm sm:text-base font-bold text-sys-text-primary">
+                Швидке налаштування студента
               </h2>
               <p className="text-[11px] text-sys-text-secondary">
-                Крок {currentStepIndex + 1} з {steps.length}
+                Крок {currentStepIndex + 1} із {steps.length} • завжди можна змінити в Налаштуваннях
               </p>
             </div>
+
+            <button
+              type="button"
+              onClick={handleFinish}
+              className="rounded-lg border border-sys-border bg-sys-bg px-2.5 py-1 text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary transition-colors cursor-pointer"
+            >
+              Пропустити
+            </button>
           </div>
 
-          <button
-            type="button"
-            onClick={handleFinish}
-            className="rounded-xl px-3 py-1.5 text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg transition-colors"
+          <div
+            className="grid gap-1 rounded-xl border border-sys-border bg-sys-bg p-1 text-[11px] font-semibold"
+            style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }}
           >
-            Пропустити
-          </button>
+            {steps.map((s, idx) => {
+              const isCurrent = idx === currentStepIndex;
+              const isDone = idx < currentStepIndex;
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => setCurrentStepIndex(idx)}
+                  className={`py-1.5 px-2 rounded-lg transition-colors cursor-pointer truncate ${
+                    isCurrent
+                      ? "bg-sys-card text-sys-accent font-bold border border-sys-border shadow-2xs"
+                      : isDone
+                      ? "text-sys-status-okText font-bold"
+                      : "text-sys-text-secondary hover:text-sys-text-primary"
+                  }`}
+                >
+                  {isDone ? `✓ ${s.tabLabel.split(". ")[1]}` : s.tabLabel}
+                </button>
+              );
+            })}
+          </div>
         </header>
 
-        {/* Content Area */}
-        <main className="p-5 sm:p-6 space-y-5 min-h-[290px] flex flex-col justify-center">
+        {/* MAIN CONTENT WITH LIVE PREVIEW STAGE */}
+        <main className="flex-1 overflow-y-auto custom-scrollbar p-4">
           <AnimatePresence mode="wait">
-            {currentStep.id === "subgroups" && (
-              <motion.div
-                key="subgroups"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.15 }}
-                className="space-y-4"
-              >
-                <div>
-                  <h3 className="text-lg sm:text-xl font-black text-sys-text-primary tracking-tight">
-                    {currentStep.title}
-                  </h3>
-                  <p className="text-xs sm:text-sm text-sys-text-secondary mt-1">
-                    {currentStep.subtitle}
-                  </p>
-                </div>
-
-                <div className="flex flex-col gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => handleSubgroupSelect(1)}
-                    className={`flex items-center justify-between rounded-2xl py-3 px-4 border text-left transition-all ${
-                      chosenSubgroup === 1
-                        ? "bg-sys-accent text-white border-sys-accent shadow-md scale-[1.01]"
-                        : "bg-sys-bg border-sys-border text-sys-text-primary hover:border-sys-accent/40"
-                    }`}
-                  >
-                    <div className="min-w-0 pr-2">
-                      <div className="font-bold text-sm">1 підгрупа</div>
-                      {subgroupHints.sub1.length > 0 ? (
-                        <div className={`text-xs mt-0.5 truncate ${chosenSubgroup === 1 ? "text-white/90 font-medium" : "text-sys-text-secondary"}`}>
-                          {subgroupHints.sub1.map((h) => `${h.teacher} (${h.subject})`).join(" • ")}
-                        </div>
-                      ) : (
-                        <div className={`text-xs mt-0.5 ${chosenSubgroup === 1 ? "text-white/90 font-medium" : "text-sys-text-muted"}`}>
-                          Перша половина списку групи
-                        </div>
-                      )}
-                    </div>
-                    {chosenSubgroup === 1 && <span className="font-bold text-white shrink-0">✓</span>}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleSubgroupSelect(2)}
-                    className={`flex items-center justify-between rounded-2xl py-3 px-4 border text-left transition-all ${
-                      chosenSubgroup === 2
-                        ? "bg-sys-accent text-white border-sys-accent shadow-md scale-[1.01]"
-                        : "bg-sys-bg border-sys-border text-sys-text-primary hover:border-sys-accent/40"
-                    }`}
-                  >
-                    <div className="min-w-0 pr-2">
-                      <div className="font-bold text-sm">2 підгрупа</div>
-                      {subgroupHints.sub2.length > 0 ? (
-                        <div className={`text-xs mt-0.5 truncate ${chosenSubgroup === 2 ? "text-white/90 font-medium" : "text-sys-text-secondary"}`}>
-                          {subgroupHints.sub2.map((h) => `${h.teacher} (${h.subject})`).join(" • ")}
-                        </div>
-                      ) : (
-                        <div className={`text-xs mt-0.5 ${chosenSubgroup === 2 ? "text-white/90 font-medium" : "text-sys-text-muted"}`}>
-                          Друга половина списку групи
-                        </div>
-                      )}
-                    </div>
-                    {chosenSubgroup === 2 && <span className="font-bold text-white shrink-0">✓</span>}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleSubgroupSelect("all")}
-                    className={`flex items-center justify-between rounded-2xl py-3 px-4 border text-left transition-all ${
-                      chosenSubgroup === "all" || chosenSubgroup === null
-                        ? "bg-sys-accent text-white border-sys-accent shadow-md scale-[1.01]"
-                        : "bg-sys-bg border-sys-border text-sys-text-primary hover:border-sys-accent/40"
-                    }`}
-                  >
-                    <div className="min-w-0 pr-2">
-                      <div className="font-bold text-sm">Обидві підгрупи</div>
-                      <div className={`text-xs mt-0.5 ${chosenSubgroup === "all" || chosenSubgroup === null ? "text-white/90 font-medium" : "text-sys-text-secondary"}`}>
-                        Показувати викладачів обох підгруп паралельно
-                      </div>
-                    </div>
-                    {(chosenSubgroup === "all" || chosenSubgroup === null) && <span className="font-bold text-white shrink-0">✓</span>}
-                  </button>
-                </div>
-
-                <div className="text-xs text-sys-text-secondary bg-sys-bg/60 border border-sys-border/60 rounded-xl p-3 flex items-center gap-2">
-                  <span className="text-sys-accent font-bold">💡</span>
-                  <span>
-                    Ви завжди можете змінити підгрупу прямо в картці пари в один клік.
+            <motion.div
+              key={currentStep.id}
+              initial={{ opacity: 0, x: 14 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -14 }}
+              transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+              className="space-y-4"
+            >
+              {/* LIVE INTERACTIVE STAGE (реагує на кожен клік користувача) */}
+              <div className="relative w-full rounded-2xl border border-sys-border bg-sys-bg p-3.5 shadow-inner">
+                <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-sys-text-muted mb-2">
+                  <span>Живий вигляд картки пари у вашому розкладі</span>
+                  <span className="text-sys-accent">
+                    {currentStep.id === "subgroups"
+                      ? chosenSubgroup === "all"
+                        ? "Режим: Обидві підгрупи"
+                        : `Режим: Тільки ${chosenSubgroup} підгрупа ✓`
+                      : currentStep.id === "appearance"
+                      ? `${resolvedTheme === "dark" ? "Темна" : "Світла"} • ${accent}`
+                      : isClassroomReady
+                      ? "Classroom підключено ✓"
+                      : "До підключення @kre.dp.ua"}
                   </span>
                 </div>
-              </motion.div>
-            )}
 
-            {currentStep.id === "appearance" && (
-              <motion.div
-                key="appearance"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.15 }}
-                className="space-y-4"
-              >
+                {/* Реальна картка пари */}
+                <div className="rounded-2xl border border-sys-border bg-sys-card p-3.5 shadow-sm space-y-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base font-black text-sys-text-primary leading-none">2</span>
+                      <span className="text-sys-text-muted font-bold text-xs">·</span>
+                      <span className="text-xs font-semibold text-sys-text-secondary">10:40–12:00</span>
+                      <span className="rounded-full border border-sys-accent/30 bg-sys-accent/10 px-2 py-0.5 text-[10px] font-bold text-sys-accent">
+                        Жива пара
+                      </span>
+                    </div>
+
+                    {currentStep.id === "classroom" && !isClassroomReady ? (
+                      <span className="inline-flex h-7 px-2.5 items-center gap-1.5 rounded-lg border border-sys-status-warnBg/45 bg-sys-status-warnBg/15 text-sys-status-warnText text-xs font-bold">
+                        <span>🔒</span>
+                        <span>Meet</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex h-7 px-2.5 items-center gap-1.5 rounded-lg border border-sys-status-okBg/45 bg-sys-status-okBg/15 text-sys-status-okText text-xs font-bold">
+                        <span>Meet ↗</span>
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="text-sm font-bold text-sys-text-subject leading-snug">
+                    Іноземна мова (за професійним спрямуванням)
+                  </div>
+
+                  {(chosenSubgroup === "all" || chosenSubgroup === 1) && (
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span
+                          className={`inline-flex items-center gap-1 h-6 px-2 rounded-md border font-bold ${
+                            chosenSubgroup === 1
+                              ? "border-sys-accent/50 bg-sys-accent/15 text-sys-accent"
+                              : "border-sys-border bg-sys-bg text-sys-text-secondary"
+                          }`}
+                        >
+                          1 підгр.
+                        </span>
+                        <span className="font-semibold text-sys-text-primary truncate">{sub1Teacher}</span>
+                      </div>
+                      <span className="text-[11px] font-semibold text-sys-text-secondary">Онлайн</span>
+                    </div>
+                  )}
+
+                  {(chosenSubgroup === "all" || chosenSubgroup === 2) && (
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span
+                          className={`inline-flex items-center gap-1 h-6 px-2 rounded-md border font-bold ${
+                            chosenSubgroup === 2
+                              ? "border-sys-accent/50 bg-sys-accent/15 text-sys-accent"
+                              : "border-sys-border bg-sys-bg text-sys-text-secondary"
+                          }`}
+                        >
+                          2 підгр.
+                        </span>
+                        <span className="font-semibold text-sys-text-primary truncate">{sub2Teacher}</span>
+                      </div>
+                      <span className="text-[11px] font-semibold text-sys-text-secondary">🚪 ауд. 204</span>
+                    </div>
+                  )}
+
+                  {currentStep.id === "classroom" && (
+                    <div
+                      className={`flex items-center justify-between rounded-xl border px-3 py-1.5 text-xs ${
+                        isClassroomReady
+                          ? "border-sys-status-denomBg/40 bg-sys-bg text-sys-text-primary"
+                          : "border-dashed border-sys-border bg-sys-bg/50 text-sys-text-muted"
+                      }`}
+                    >
+                      {isClassroomReady ? (
+                        <>
+                          <span className="font-semibold truncate">📋 ДЗ: Практична робота №5</span>
+                          <span className="font-bold text-sys-status-denomText shrink-0 ml-2">до 15 лист. ↗</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>🔒 Посилання на пару та ДЗ захищені</span>
+                          <span className="font-bold text-sys-accent">Потрібен @kre.dp.ua</span>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* STEP CONTROLS */}
+              <div className="space-y-3">
                 <div>
-                  <h3 className="text-lg sm:text-xl font-black text-sys-text-primary tracking-tight">
-                    {currentStep.title}
-                  </h3>
-                  <p className="text-xs sm:text-sm text-sys-text-secondary mt-1">
+                  <h3 className="text-base font-bold text-sys-text-primary">{currentStep.title}</h3>
+                  <p className="text-xs text-sys-text-secondary mt-0.5 leading-relaxed">
                     {currentStep.subtitle}
                   </p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2.5">
-                  <button
-                    type="button"
-                    onClick={() => setTheme("dark")}
-                    className={`flex items-center justify-center gap-2 rounded-2xl py-3 px-3 text-xs sm:text-sm font-bold border transition-all ${
-                      resolvedTheme === "dark"
-                        ? "bg-sys-accent text-white border-sys-accent shadow-md scale-[1.02]"
-                        : "bg-sys-bg border-sys-border text-sys-text-secondary hover:text-sys-text-primary"
-                    }`}
-                  >
-                    <span>🌙</span>
-                    <span>Темна тема</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTheme("light")}
-                    className={`flex items-center justify-center gap-2 rounded-2xl py-3 px-3 text-xs sm:text-sm font-bold border transition-all ${
-                      resolvedTheme === "light"
-                        ? "bg-sys-accent text-white border-sys-accent shadow-md scale-[1.02]"
-                        : "bg-sys-bg border-sys-border text-sys-text-secondary hover:text-sys-text-primary"
-                    }`}
-                  >
-                    <span>☀️</span>
-                    <span>Світла тема</span>
-                  </button>
-                </div>
-
-                <div className="space-y-2 pt-1">
-                  <div className="text-xs font-bold text-sys-text-primary">
-                    Колірний акцент:
-                  </div>
-                  <div className="grid grid-cols-6 gap-2">
-                    {ACCENT_OPTIONS.map((opt) => {
-                      const isSelected = accent === opt.id;
+                {currentStep.id === "subgroups" && (
+                  <div className="grid grid-cols-3 gap-2">
+                    {(
+                      [
+                        { val: 1 as const, label: "1 підгрупа", hint: sub1Teacher },
+                        { val: 2 as const, label: "2 підгрупа", hint: sub2Teacher },
+                        { val: "all" as const, label: "Обидві", hint: "Усі викладачі" },
+                      ]
+                    ).map((opt) => {
+                      const active = chosenSubgroup === opt.val;
                       return (
                         <button
-                          key={opt.id}
+                          key={String(opt.val)}
                           type="button"
-                          onClick={() => setAccent(opt.id as AccentColor)}
-                          className={`flex flex-col items-center gap-1.5 rounded-xl p-2 border transition-all ${
-                            isSelected
-                              ? "border-sys-accent bg-sys-accent/15 shadow-xs scale-105"
-                              : "border-sys-border bg-sys-bg hover:border-sys-border/80 text-sys-text-secondary"
+                          onClick={() => handleSubgroupSelect(opt.val)}
+                          className={`rounded-xl border p-3 text-left transition-colors cursor-pointer ${
+                            active
+                              ? "border-sys-accent bg-sys-accent/15 ring-1 ring-sys-accent/50"
+                              : "border-sys-border bg-sys-bg hover:border-sys-accent/40"
                           }`}
                         >
-                          <span
-                            className="h-5 w-5 rounded-full shadow-xs"
-                            style={{ backgroundColor: opt.colorHex }}
-                          />
-                          <span className="text-[10px] font-bold truncate">
-                            {opt.label.split(" ")[0]}
-                          </span>
+                          <div className={`text-xs font-bold ${active ? "text-sys-accent" : "text-sys-text-primary"}`}>
+                            {active ? `✓ ${opt.label}` : opt.label}
+                          </div>
+                          <div className="text-[11px] text-sys-text-secondary truncate mt-0.5">{opt.hint}</div>
                         </button>
                       );
                     })}
                   </div>
-                </div>
-              </motion.div>
-            )}
+                )}
 
-            {currentStep.id === "classroom" && (
-              <motion.div
-                key="classroom"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.15 }}
-                className="space-y-4"
-              >
-                <div>
-                  <h3 className="text-lg sm:text-xl font-black text-sys-text-primary tracking-tight">
-                    {currentStep.title}
-                  </h3>
-                  <p className="text-xs sm:text-sm text-sys-text-secondary mt-1">
-                    {currentStep.subtitle}
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-sys-border bg-sys-bg p-4 space-y-3 shadow-xs">
-                  {isLinked || classroomSuccess ? (
-                    <div className="flex items-center gap-3 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-emerald-700 dark:text-emerald-400 font-bold text-xs sm:text-sm">
-                      <span className="text-xl">✅</span>
-                      <div>
-                        <div>Classroom успішно підключено!</div>
-                        <div className="text-xs font-normal text-emerald-700/80 dark:text-emerald-300/80">
-                          {linkedEmail || "Студентський акаунт синхронізовано"}
-                        </div>
-                        {groupSwitchNotice && (
-                          <div className="text-xs font-semibold text-amber-800 dark:text-amber-300 mt-1">
-                            {groupSwitchNotice}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-2.5">
+                {currentStep.id === "appearance" && (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"
-                        onClick={handleClassroomAuth}
-                        disabled={isLinkingClassroom}
-                        className="w-full flex items-center justify-center gap-2 rounded-xl bg-sys-accent px-4 py-3 text-xs sm:text-sm font-bold text-white hover:opacity-95 active:scale-95 transition-all shadow-md disabled:opacity-50"
+                        onClick={() => setTheme("dark")}
+                        className={`flex items-center justify-center gap-2 rounded-xl py-2.5 px-3 text-xs font-bold border transition-colors cursor-pointer ${
+                          resolvedTheme === "dark"
+                            ? "bg-sys-accent text-white border-sys-accent"
+                            : "bg-sys-bg border-sys-border text-sys-text-secondary hover:text-sys-text-primary"
+                        }`}
                       >
-                        <span>🔗</span>
-                        <span>{isLinkingClassroom ? "Підключення..." : "Підключити студентську пошту"}</span>
+                        <span>🌙</span>
+                        <span>Темна тема</span>
                       </button>
-                      {classroomError && (
-                        <p className="text-xs text-rose-600 dark:text-rose-400 text-center font-medium">{classroomError}</p>
-                      )}
-                      <p className="text-[11px] text-sys-text-muted text-center leading-relaxed">
-                        Необов'язково зараз. Розклад чудово працює і без пошти, а підключитися можна в будь-який момент у Налаштуваннях.
-                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setTheme("light")}
+                        className={`flex items-center justify-center gap-2 rounded-xl py-2.5 px-3 text-xs font-bold border transition-colors cursor-pointer ${
+                          resolvedTheme === "light"
+                            ? "bg-sys-accent text-white border-sys-accent"
+                            : "bg-sys-bg border-sys-border text-sys-text-secondary hover:text-sys-text-primary"
+                        }`}
+                      >
+                        <span>☀️</span>
+                        <span>Світла тема</span>
+                      </button>
                     </div>
-                  )}
-                </div>
-              </motion.div>
-            )}
+
+                    <div className="grid grid-cols-6 gap-1.5">
+                      {ACCENT_OPTIONS.map((opt) => {
+                        const isSelected = accent === opt.id;
+                        return (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() => setAccent(opt.id as AccentColor)}
+                            className={`flex flex-col items-center gap-1 rounded-xl p-2 border transition-colors cursor-pointer ${
+                              isSelected
+                                ? "border-sys-accent bg-sys-accent/15"
+                                : "border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary"
+                            }`}
+                          >
+                            <span className="h-4 w-4 rounded-full" style={{ backgroundColor: opt.colorHex }} />
+                            <span className="text-[10px] font-bold truncate">{opt.label.split(" ")[0]}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {currentStep.id === "classroom" && (
+                  <div className="space-y-2.5">
+                    <div className="rounded-xl border border-sys-border bg-sys-bg p-3 space-y-2">
+                      <div className="grid grid-cols-3 gap-1.5 text-[11px] font-semibold text-sys-text-secondary text-center">
+                        <span className="rounded-lg bg-sys-card border border-sys-border py-1 px-1.5">
+                          🔓 Meet та Zoom
+                        </span>
+                        <span className="rounded-lg bg-sys-card border border-sys-border py-1 px-1.5">
+                          📋 ДЗ і борги
+                        </span>
+                        <span className="rounded-lg bg-sys-card border border-sys-border py-1 px-1.5">
+                          📊 Середній бал
+                        </span>
+                      </div>
+
+                      {isClassroomReady ? (
+                        <div className="rounded-xl border border-sys-status-okBg/45 bg-sys-status-okBg/15 p-3 text-xs font-bold text-sys-status-okText space-y-1">
+                          <div>✓ Google Classroom успішно підключено ({linkedEmail || "активно"})</div>
+                          {groupSwitchNotice && (
+                            <div className="text-[11px] font-semibold text-sys-status-warnText">
+                              {groupSwitchNotice}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={handleClassroomAuth}
+                          disabled={isLinkingClassroom}
+                          className="w-full rounded-xl bg-sys-accent py-2.5 px-4 text-xs font-bold text-white hover:opacity-95 active:scale-[0.99] transition-opacity disabled:opacity-50 cursor-pointer"
+                        >
+                          {isLinkingClassroom
+                            ? "Підключення Google Classroom..."
+                            : "🎓 Прив'язати пошту @kre.dp.ua в 1 клік →"}
+                        </button>
+                      )}
+
+                      {classroomError && (
+                        <p className="text-xs font-semibold text-sys-status-dangerText text-center">
+                          {classroomError}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </motion.div>
           </AnimatePresence>
         </main>
 
-        {/* Persistent Bottom Footer */}
-        <footer className="flex items-center justify-between border-t border-sys-border/50 px-5 py-4 bg-sys-card shrink-0">
+        {/* FOOTER */}
+        <footer className="flex items-center justify-between gap-2 px-4 py-3 border-t border-sys-border bg-sys-surface shrink-0">
           <button
             type="button"
-            onClick={handlePrev}
+            onClick={() => setCurrentStepIndex((p) => Math.max(0, p - 1))}
             disabled={currentStepIndex === 0}
-            className="rounded-xl border border-sys-border bg-sys-bg px-4 py-2 text-xs sm:text-sm font-bold text-sys-text-secondary hover:text-sys-text-primary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            className="rounded-xl border border-sys-border bg-sys-card px-3.5 py-2 text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary disabled:opacity-40 disabled:pointer-events-none active:scale-95 transition-colors cursor-pointer"
           >
             ← Назад
           </button>
 
-          {/* Dots Indicator */}
-          <div className="flex items-center gap-1.5">
-            {steps.map((s, idx) => (
-              <span
-                key={s.id}
-                className={`h-2 rounded-full transition-all duration-200 ${
-                  idx === currentStepIndex
-                    ? "w-6 bg-sys-accent"
-                    : "w-2 bg-sys-border hover:bg-sys-text-muted"
-                }`}
-              />
-            ))}
-          </div>
+          <span className="text-xs font-semibold text-sys-text-muted">
+            {currentStepIndex + 1} / {steps.length}
+          </span>
 
           <button
             type="button"
-            onClick={handleNext}
-            className="rounded-xl bg-sys-accent px-5 py-2 text-xs sm:text-sm font-bold text-white hover:opacity-95 active:scale-95 transition-all shadow-md"
+            onClick={() => {
+              if (currentStepIndex < steps.length - 1) {
+                setCurrentStepIndex((p) => p + 1);
+              } else {
+                handleFinish();
+              }
+            }}
+            className="rounded-xl bg-sys-accent px-4 py-2 text-xs font-bold text-white hover:opacity-95 active:scale-95 transition-opacity cursor-pointer"
           >
-            {currentStepIndex === steps.length - 1 ? "🚀 До розкладу" : "Далі →"}
+            {currentStepIndex === steps.length - 1 ? "Відкрити розклад ✓" : "Далі →"}
           </button>
         </footer>
       </div>

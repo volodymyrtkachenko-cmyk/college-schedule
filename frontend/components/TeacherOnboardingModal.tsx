@@ -14,15 +14,14 @@ export interface TeacherOnboardingModalProps {
 
 interface OnboardingStep {
   id: "pin" | "appearance" | "overview";
+  tabLabel: string;
   title: string;
   subtitle: string;
-  icon: string;
 }
 
 export function TeacherOnboardingModal({
   teacherId,
   teacherName,
-  onClose,
   onComplete,
 }: TeacherOnboardingModalProps) {
   const { resolvedTheme, setTheme, accent, setAccent } = useTheme();
@@ -36,21 +35,21 @@ export function TeacherOnboardingModal({
   const steps: OnboardingStep[] = [
     {
       id: "pin",
-      title: "Персональний PIN-код",
-      subtitle: "Введіть PIN-код викладача, щоб розблокувати онлайн-посилання Meet та Zoom на всіх ваших заняттях.",
-      icon: "🔒",
+      tabLabel: "1. PIN-доступ",
+      title: "Персональний PIN-код викладача",
+      subtitle: "Введіть PIN-код один раз, щоб розблокувати прямі посилання на Google Meet та Zoom на всіх ваших заняттях.",
     },
     {
       id: "appearance",
+      tabLabel: "2. Оформлення",
       title: "Тема та колірний акцент",
-      subtitle: "Обирайте темну або світлу тему та зручний колірний стиль для щоденного перегляду.",
-      icon: "🎨",
+      subtitle: "Оберіть темну або світлу тему та зручну кольорову палітру для щоденної роботи.",
     },
     {
       id: "overview",
-      title: "Ключові можливості розкладу",
-      subtitle: "Короткий огляд головних функцій, адаптованих спеціально для викладачів.",
-      icon: "⚡",
+      tabLabel: "3. Можливості",
+      title: "Інструменти для викладача",
+      subtitle: "Автоматичний підрахунок вичитаних годин за семестр, радар замін та швидкий перехід до розкладу груп.",
     },
   ];
 
@@ -81,316 +80,264 @@ export function TeacherOnboardingModal({
     }
   };
 
-  const handleNext = () => {
-    if (currentStepIndex < steps.length - 1) {
-      setCurrentStepIndex((prev) => prev + 1);
-    } else {
-      handleFinish();
-    }
-  };
-
-  const handlePrev = () => {
-    if (currentStepIndex > 0) {
-      setCurrentStepIndex((prev) => prev - 1);
-    }
-  };
-
   const handleFinish = () => {
     onComplete(teacherId);
   };
 
+  const isUnlocked = pinSuccess || isTeacherUnlocked;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-5 backdrop-blur-md overflow-hidden animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 sm:bg-black/70 sm:backdrop-blur-xs p-0 sm:p-4 animate-in fade-in duration-150">
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="teacher-onboarding-title"
-        className="relative flex flex-col w-full max-w-lg rounded-3xl border border-sys-border bg-sys-card text-sys-text-primary shadow-2xl overflow-hidden"
+        className="w-full sm:max-w-[520px] max-h-[94dvh] sm:max-h-[90vh] flex flex-col rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card text-sys-text-primary shadow-2xl overflow-hidden select-none"
       >
-        {/* Top Header */}
-        <header className="flex items-center justify-between border-b border-sys-border/50 px-5 py-4 bg-sys-card shrink-0">
-          <div className="flex items-center gap-3">
-            <span
-              aria-hidden="true"
-              className="flex h-9 w-9 items-center justify-center rounded-xl bg-sys-accent/15 text-lg shadow-xs"
-            >
-              {currentStep.icon}
-            </span>
-            <div>
-              <h2
-                id="teacher-onboarding-title"
-                className="text-sm sm:text-base font-bold leading-tight text-sys-text-primary truncate max-w-[240px]"
-              >
-                Налаштування викладача
+        {/* HEADER */}
+        <header className="px-4 pt-3.5 pb-2.5 bg-sys-surface border-b border-sys-border space-y-2.5 shrink-0">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <h2 id="teacher-onboarding-title" className="text-sm sm:text-base font-bold text-sys-text-primary truncate">
+                Налаштування викладача {teacherName ? `· ${teacherName}` : ""}
               </h2>
-              <p className="text-[11px] text-sys-text-secondary truncate max-w-[240px]">
-                Крок {currentStepIndex + 1} з {steps.length} {teacherName ? `· ${teacherName}` : ""}
+              <p className="text-[11px] text-sys-text-secondary">
+                Крок {currentStepIndex + 1} із {steps.length}
               </p>
             </div>
+
+            <button
+              type="button"
+              onClick={handleFinish}
+              className="rounded-lg border border-sys-border bg-sys-bg px-2.5 py-1 text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary transition-colors cursor-pointer shrink-0"
+            >
+              Пропустити
+            </button>
           </div>
 
-          <button
-            type="button"
-            onClick={handleFinish}
-            className="rounded-xl px-3 py-1.5 text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary hover:bg-sys-bg transition-colors"
-          >
-            Пропустити
-          </button>
+          <div className="grid grid-cols-3 gap-1 rounded-xl border border-sys-border bg-sys-bg p-1 text-[11px] font-semibold">
+            {steps.map((s, idx) => {
+              const isCurrent = idx === currentStepIndex;
+              const isDone = idx < currentStepIndex;
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => setCurrentStepIndex(idx)}
+                  className={`py-1.5 px-2 rounded-lg transition-colors cursor-pointer truncate ${
+                    isCurrent
+                      ? "bg-sys-card text-sys-accent font-bold border border-sys-border shadow-2xs"
+                      : isDone
+                      ? "text-sys-status-okText font-bold"
+                      : "text-sys-text-secondary hover:text-sys-text-primary"
+                  }`}
+                >
+                  {isDone ? `✓ ${s.tabLabel.split(". ")[1]}` : s.tabLabel}
+                </button>
+              );
+            })}
+          </div>
         </header>
 
-        {/* Content Area */}
-        <main className="p-5 sm:p-6 space-y-4 min-h-[300px] flex flex-col justify-center">
+        {/* MAIN CONTENT WITH LIVE PREVIEW STAGE */}
+        <main className="flex-1 overflow-y-auto custom-scrollbar p-4">
           <AnimatePresence mode="wait">
-            {currentStep.id === "pin" && (
-              <motion.div
-                key="pin"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.15 }}
-                className="space-y-4"
-              >
+            <motion.div
+              key={currentStep.id}
+              initial={{ opacity: 0, x: 14 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -14 }}
+              transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+              className="space-y-4"
+            >
+              {/* LIVE STAGE */}
+              <div className="rounded-2xl border border-sys-border bg-sys-bg p-3.5 shadow-inner space-y-2">
+                <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-sys-text-muted">
+                  <span>Живий вигляд вашого розкладу</span>
+                  <span className={isUnlocked ? "text-sys-status-okText" : "text-sys-status-warnText"}>
+                    {isUnlocked ? "Онлайн-пари розблоковано ✓" : "Онлайн-пари під замком 🔒"}
+                  </span>
+                </div>
+
+                <div className="rounded-2xl border border-sys-border bg-sys-card p-3.5 shadow-sm space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-semibold text-sys-text-secondary">
+                      1 пара · 09:00–10:20
+                    </span>
+                    {isUnlocked ? (
+                      <span className="inline-flex h-7 px-2.5 items-center gap-1.5 rounded-lg border border-sys-status-infoBg/45 bg-sys-status-infoBg/15 text-sys-status-infoText text-xs font-bold">
+                        <span>Zoom · код: dfkr ↗</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex h-7 px-2.5 items-center gap-1.5 rounded-lg border border-sys-status-warnBg/45 bg-sys-status-warnBg/15 text-sys-status-warnText text-xs font-bold">
+                        <span>🔒 Zoom</span>
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="text-sm font-bold text-sys-text-subject">
+                    Комп&apos;ютерна схемотехніка
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs text-sys-text-secondary">
+                    <span>Група: <strong className="text-sys-accent underline underline-offset-2">85 (КІ-24-2/9)</strong></span>
+                    <span>🚪 ауд. 305</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* STEP CONTROLS */}
+              <div className="space-y-3">
                 <div>
-                  <h3 className="text-lg sm:text-xl font-black text-sys-text-primary tracking-tight">
-                    {currentStep.title}
-                  </h3>
-                  <p className="text-xs sm:text-sm text-sys-text-secondary mt-1 leading-relaxed">
+                  <h3 className="text-base font-bold text-sys-text-primary">{currentStep.title}</h3>
+                  <p className="text-xs text-sys-text-secondary mt-0.5 leading-relaxed">
                     {currentStep.subtitle}
                   </p>
                 </div>
 
-                <div className="rounded-2xl border border-sys-border bg-sys-bg p-4 space-y-3 shadow-xs">
-                  {pinSuccess ? (
-                    <div className="flex items-center gap-3 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-emerald-700 dark:text-emerald-400 font-bold text-xs sm:text-sm">
-                      <span className="text-xl">✅</span>
-                      <div>
-                        <div>PIN-код успішно підтверджено!</div>
-                        <div className="text-xs font-normal text-emerald-700/80 dark:text-emerald-300/80">
-                          Усі посилання на онлайн-пари (Google Meet та Zoom) розблоковано.
-                        </div>
+                {currentStep.id === "pin" && (
+                  <div className="rounded-xl border border-sys-border bg-sys-bg p-3.5 space-y-2.5">
+                    {isUnlocked ? (
+                      <div className="rounded-xl border border-sys-status-okBg/45 bg-sys-status-okBg/15 p-3 text-xs font-bold text-sys-status-okText">
+                        ✓ PIN-код викладача підтверджено! Усі посилання на Google Meet та Zoom відкриті.
                       </div>
-                    </div>
-                  ) : (
-                    <form onSubmit={handleVerifyPin} className="space-y-3">
-                      <div className="space-y-1.5">
-                        <label
-                          htmlFor="teacher-pin-input"
-                          className="text-xs font-bold text-sys-text-primary flex items-center justify-between"
-                        >
-                          <span>PIN-код викладача:</span>
-                          <span className="text-[11px] text-sys-text-muted font-normal">
-                            Наприклад: 4 цифри
-                          </span>
-                        </label>
+                    ) : (
+                      <form onSubmit={handleVerifyPin} className="space-y-2">
                         <div className="flex gap-2">
                           <input
-                            id="teacher-pin-input"
                             type="password"
-                            inputMode="numeric"
+                            inputMode="text"
                             autoComplete="off"
-                            maxLength={10}
-                            placeholder="Введіть PIN..."
+                            placeholder="Введіть PIN-код викладача..."
                             value={pinInput}
                             onChange={(e) => {
                               setPinInput(e.target.value);
                               setPinError("");
                             }}
-                            className="flex-1 h-11 rounded-xl border border-sys-border bg-sys-card px-3.5 text-sm font-mono tracking-wider text-sys-text-primary placeholder:text-sys-text-muted focus:border-sys-accent focus:ring-2 focus:ring-sys-accent focus:outline-none"
+                            className="flex-1 h-10 rounded-xl border border-sys-border bg-sys-card px-3.5 text-xs font-mono tracking-wider text-sys-text-primary placeholder:text-sys-text-muted focus:border-sys-accent focus:outline-none"
                           />
                           <button
                             type="submit"
                             disabled={isVerifyingPin || !pinInput.trim()}
-                            className="rounded-xl bg-sys-accent px-4 text-xs font-bold text-white shadow-xs hover:opacity-95 active:scale-95 transition-all disabled:opacity-40"
+                            className="rounded-xl bg-sys-accent px-4 text-xs font-bold text-white hover:opacity-95 active:scale-95 transition-opacity disabled:opacity-40 cursor-pointer"
                           >
                             {isVerifyingPin ? "Перевірка..." : "Підтвердити"}
                           </button>
                         </div>
-                      </div>
-
-                      {pinError && (
-                        <p className="text-xs text-rose-600 dark:text-rose-400 font-medium">
-                          {pinError}
-                        </p>
-                      )}
-
-                      <p className="text-[11px] text-sys-text-muted leading-relaxed">
-                        Не знаєте свій PIN-код? Його можна дізнатися в адміністрації або ввести пізніше в Налаштуваннях.
-                      </p>
-                    </form>
-                  )}
-                </div>
-              </motion.div>
-            )}
-
-            {currentStep.id === "appearance" && (
-              <motion.div
-                key="appearance"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.15 }}
-                className="space-y-4"
-              >
-                <div>
-                  <h3 className="text-lg sm:text-xl font-black text-sys-text-primary tracking-tight">
-                    {currentStep.title}
-                  </h3>
-                  <p className="text-xs sm:text-sm text-sys-text-secondary mt-1">
-                    {currentStep.subtitle}
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2.5">
-                  <button
-                    type="button"
-                    onClick={() => setTheme("dark")}
-                    className={`flex items-center justify-center gap-2 rounded-2xl py-3 px-3 text-xs sm:text-sm font-bold border transition-all ${
-                      resolvedTheme === "dark"
-                        ? "bg-sys-accent text-white border-sys-accent shadow-md scale-[1.02]"
-                        : "bg-sys-bg border-sys-border text-sys-text-secondary hover:text-sys-text-primary"
-                    }`}
-                  >
-                    <span>🌙</span>
-                    <span>Темна тема</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTheme("light")}
-                    className={`flex items-center justify-center gap-2 rounded-2xl py-3 px-3 text-xs sm:text-sm font-bold border transition-all ${
-                      resolvedTheme === "light"
-                        ? "bg-sys-accent text-white border-sys-accent shadow-md scale-[1.02]"
-                        : "bg-sys-bg border-sys-border text-sys-text-secondary hover:text-sys-text-primary"
-                    }`}
-                  >
-                    <span>☀️</span>
-                    <span>Світла тема</span>
-                  </button>
-                </div>
-
-                <div className="space-y-2 pt-1">
-                  <div className="text-xs font-bold text-sys-text-primary">
-                    Колірний акцент інтерфейсу:
+                        {pinError && (
+                          <p className="text-xs font-semibold text-sys-status-dangerText">{pinError}</p>
+                        )}
+                      </form>
+                    )}
                   </div>
-                  <div className="grid grid-cols-6 gap-2">
-                    {ACCENT_OPTIONS.map((opt) => {
-                      const isSelected = accent === opt.id;
-                      return (
-                        <button
-                          key={opt.id}
-                          type="button"
-                          onClick={() => setAccent(opt.id as AccentColor)}
-                          className={`flex flex-col items-center gap-1.5 rounded-xl p-2 border transition-all ${
-                            isSelected
-                              ? "border-sys-accent bg-sys-accent/15 shadow-xs scale-105"
-                              : "border-sys-border bg-sys-bg hover:border-sys-border/80 text-sys-text-secondary"
-                          }`}
-                        >
-                          <span
-                            className="h-5 w-5 rounded-full shadow-xs"
-                            style={{ backgroundColor: opt.colorHex }}
-                          />
-                          <span className="text-[10px] font-bold truncate">
-                            {opt.label.split(" ")[0]}
-                          </span>
-                        </button>
-                      );
-                    })}
+                )}
+
+                {currentStep.id === "appearance" && (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setTheme("dark")}
+                        className={`flex items-center justify-center gap-2 rounded-xl py-2.5 px-3 text-xs font-bold border transition-colors cursor-pointer ${
+                          resolvedTheme === "dark"
+                            ? "bg-sys-accent text-white border-sys-accent"
+                            : "bg-sys-bg border-sys-border text-sys-text-secondary hover:text-sys-text-primary"
+                        }`}
+                      >
+                        <span>🌙</span>
+                        <span>Темна тема</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTheme("light")}
+                        className={`flex items-center justify-center gap-2 rounded-xl py-2.5 px-3 text-xs font-bold border transition-colors cursor-pointer ${
+                          resolvedTheme === "light"
+                            ? "bg-sys-accent text-white border-sys-accent"
+                            : "bg-sys-bg border-sys-border text-sys-text-secondary hover:text-sys-text-primary"
+                        }`}
+                      >
+                        <span>☀️</span>
+                        <span>Світла тема</span>
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-6 gap-1.5">
+                      {ACCENT_OPTIONS.map((opt) => {
+                        const isSelected = accent === opt.id;
+                        return (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() => setAccent(opt.id as AccentColor)}
+                            className={`flex flex-col items-center gap-1 rounded-xl p-2 border transition-colors cursor-pointer ${
+                              isSelected
+                                ? "border-sys-accent bg-sys-accent/15"
+                                : "border-sys-border bg-sys-bg text-sys-text-secondary hover:text-sys-text-primary"
+                            }`}
+                          >
+                            <span className="h-4 w-4 rounded-full" style={{ backgroundColor: opt.colorHex }} />
+                            <span className="text-[10px] font-bold truncate">{opt.label.split(" ")[0]}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              </motion.div>
-            )}
+                )}
 
-            {currentStep.id === "overview" && (
-              <motion.div
-                key="overview"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.15 }}
-                className="space-y-3.5"
-              >
-                <div>
-                  <h3 className="text-lg sm:text-xl font-black text-sys-text-primary tracking-tight">
-                    {currentStep.title}
-                  </h3>
-                  <p className="text-xs sm:text-sm text-sys-text-secondary mt-1 leading-relaxed">
-                    {currentStep.subtitle}
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="rounded-xl border border-sys-border bg-sys-bg p-3 flex items-start gap-3 shadow-xs">
-                    <span className="text-lg shrink-0 mt-0.5">🔴</span>
-                    <div>
-                      <div className="text-xs sm:text-sm font-bold text-sys-text-primary">
-                        «Жива» пара викладача
+                {currentStep.id === "overview" && (
+                  <div className="space-y-2 text-xs">
+                    <div className="rounded-xl border border-sys-border bg-sys-bg p-3 flex items-start gap-2.5">
+                      <span className="font-bold text-sys-accent">📊</span>
+                      <div>
+                        <div className="font-bold text-sys-text-primary">Статистика проведених пар та годин</div>
+                        <div className="text-[11px] text-sys-text-secondary mt-0.5">
+                          Автоматичний підрахунок вичитаних годин по кожній групі та предмету з урахуванням замін.
+                        </div>
                       </div>
-                      <div className="text-[11px] text-sys-text-secondary leading-relaxed mt-0.5">
-                        Поточне заняття виділяється автоматично: показує точний таймер перерви, аудиторію та закріплену групу.
+                    </div>
+                    <div className="rounded-xl border border-sys-border bg-sys-bg p-3 flex items-start gap-2.5">
+                      <span className="font-bold text-sys-status-warnText">⚡</span>
+                      <div>
+                        <div className="font-bold text-sys-text-primary">Радар замін та експорт у Telegram</div>
+                        <div className="text-[11px] text-sys-text-secondary mt-0.5">
+                          Наочні бейджі перенесень та генерація картинки розкладу на день або тиждень в 1 клік.
+                        </div>
                       </div>
                     </div>
                   </div>
-
-                  <div className="rounded-xl border border-sys-border bg-sys-bg p-3 flex items-start gap-3 shadow-xs">
-                    <span className="text-lg shrink-0 mt-0.5">👥</span>
-                    <div>
-                      <div className="text-xs sm:text-sm font-bold text-sys-text-primary">
-                        Групи та потоки
-                      </div>
-                      <div className="text-[11px] text-sys-text-secondary leading-relaxed mt-0.5">
-                        У розкладі чітко видно групу студентів. Спільні лекції об'єднуються, а номер кабінету вказано для кожної пари.
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl border border-sys-border bg-sys-bg p-3 flex items-start gap-3 shadow-xs">
-                    <span className="text-lg shrink-0 mt-0.5">📊</span>
-                    <div>
-                      <div className="text-xs sm:text-sm font-bold text-sys-text-primary">
-                        Академічні години та навантаження
-                      </div>
-                      <div className="text-[11px] text-sys-text-secondary leading-relaxed mt-0.5">
-                        Розділ «Статистика» автоматично підраховує вичитані години за всіма предметами та семестровим планом.
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            )}
+                )}
+              </div>
+            </motion.div>
           </AnimatePresence>
         </main>
 
-        {/* Persistent Bottom Footer */}
-        <footer className="flex items-center justify-between border-t border-sys-border/50 px-5 py-4 bg-sys-card shrink-0">
+        {/* FOOTER */}
+        <footer className="flex items-center justify-between gap-2 px-4 py-3 border-t border-sys-border bg-sys-surface shrink-0">
           <button
             type="button"
-            onClick={handlePrev}
+            onClick={() => setCurrentStepIndex((p) => Math.max(0, p - 1))}
             disabled={currentStepIndex === 0}
-            className="rounded-xl border border-sys-border bg-sys-bg px-4 py-2 text-xs sm:text-sm font-bold text-sys-text-secondary hover:text-sys-text-primary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            className="rounded-xl border border-sys-border bg-sys-card px-3.5 py-2 text-xs font-semibold text-sys-text-secondary hover:text-sys-text-primary disabled:opacity-40 disabled:pointer-events-none active:scale-95 transition-colors cursor-pointer"
           >
             ← Назад
           </button>
 
-          {/* Dots Indicator */}
-          <div className="flex items-center gap-1.5">
-            {steps.map((s, idx) => (
-              <span
-                key={s.id}
-                className={`h-2 rounded-full transition-all duration-200 ${
-                  idx === currentStepIndex
-                    ? "w-6 bg-sys-accent"
-                    : "w-2 bg-sys-border hover:bg-sys-text-muted"
-                }`}
-              />
-            ))}
-          </div>
+          <span className="text-xs font-semibold text-sys-text-muted">
+            {currentStepIndex + 1} / {steps.length}
+          </span>
 
           <button
             type="button"
-            onClick={handleNext}
-            className="rounded-xl bg-sys-accent px-5 py-2 text-xs sm:text-sm font-bold text-white hover:opacity-95 active:scale-95 transition-all shadow-md"
+            onClick={() => {
+              if (currentStepIndex < steps.length - 1) {
+                setCurrentStepIndex((p) => p + 1);
+              } else {
+                handleFinish();
+              }
+            }}
+            className="rounded-xl bg-sys-accent px-4 py-2 text-xs font-bold text-white hover:opacity-95 active:scale-95 transition-opacity cursor-pointer"
           >
-            {currentStepIndex === steps.length - 1 ? "🚀 До розкладу" : "Далі →"}
+            {currentStepIndex === steps.length - 1 ? "Відкрити розклад ✓" : "Далі →"}
           </button>
         </footer>
       </div>

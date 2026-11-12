@@ -423,7 +423,7 @@ export default function SettingsPage() {
                         type="button"
                         onClick={handleClassroomLinkClick}
                         disabled={isLinkingClassroom}
-                        className="rounded-lg bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 text-xs font-bold transition-all cursor-pointer disabled:opacity-50 active:scale-95 shadow-xs"
+                        className="rounded-lg bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 text-xs font-bold transition-colors cursor-pointer disabled:opacity-50 active:scale-95 shadow-xs"
                       >
                         {isLinkingClassroom ? "Підключення..." : "Оновити"}
                       </button>
