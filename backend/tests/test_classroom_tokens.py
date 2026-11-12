@@ -86,3 +86,79 @@ async def test_sync_all_endpoint_requires_auth_or_cron_key(classroom_db):
     from app.routers.classroom import RECOMMENDED_CLASSROOM_SCOPES
     assert "classroom.student-submissions.me.readonly" in RECOMMENDED_CLASSROOM_SCOPES
     assert "classroom.announcements.readonly" in RECOMMENDED_CLASSROOM_SCOPES
+
+
+def test_stable_fernet_keys_and_plaintext_handling():
+    from app.routers.classroom import encrypt_token, decrypt_token, _get_stable_fernet_keys
+    from datetime import datetime, timezone, timedelta
+    from app.models import ClassroomCredential
+    from app.routers.classroom import _build_group_accounts_summary
+
+    # Plaintext 1// and ya29 tokens passthrough
+    assert decrypt_token("1//plain_refresh_token_test") == "1//plain_refresh_token_test"
+    assert decrypt_token("ya29.plain_access_token_test") == "ya29.plain_access_token_test"
+
+    # Encrypt and decrypt with default stable key
+    token = "1//my_permanent_refresh_token"
+    enc = encrypt_token(token)
+    assert enc != token
+    assert decrypt_token(enc) == token
+
+    # Check that stable keys are generated
+    keys = _get_stable_fernet_keys()
+    assert len(keys) >= 1
+
+
+@pytest.mark.anyio
+async def test_is_cred_healthy_logic(classroom_db):
+    from datetime import datetime, timezone, timedelta
+    from app.models import ClassroomCredential
+    from app.routers.classroom import _build_group_accounts_summary, encrypt_token
+
+    client, state = classroom_db
+    now_utc = datetime.now(timezone.utc)
+    gid = state["group_id"]
+
+    # 1. Credential with valid refresh_token 1//... -> healthy
+    c1 = ClassroomCredential(
+        id=101,
+        group_id=gid,
+        google_user_id="user_101",
+        email="student1@kre.dp.ua",
+        refresh_token=encrypt_token("1//valid_google_refresh_token_123"),
+        last_synced_at=now_utc - timedelta(hours=2),
+        is_active=False,
+    )
+    # 2. Credential with recent sync (< 55 min) even without valid refresh_token -> healthy
+    c2 = ClassroomCredential(
+        id=102,
+        group_id=gid,
+        google_user_id="user_102",
+        email="student2@kre.dp.ua",
+        refresh_token="",
+        last_synced_at=now_utc - timedelta(minutes=20),
+        is_active=False,
+    )
+    # 3. Credential with invalid_grant error -> unhealthy
+    c3 = ClassroomCredential(
+        id=103,
+        group_id=gid,
+        google_user_id="user_103",
+        email="student3@kre.dp.ua",
+        refresh_token=encrypt_token("1//revoked_token_123"),
+        last_error="invalid_grant: Token has been expired or revoked.",
+        last_synced_at=now_utc - timedelta(hours=5),
+        is_active=True,
+    )
+
+    async with state["sessions"]() as db:
+        db.add_all([c1, c2, c3])
+        await db.commit()
+        summary = await _build_group_accounts_summary(db, gid)
+    # c1 and c2 should be active (healthy), c3 should be inactive (unhealthy)
+    accs = {a["id"]: a for a in summary["accounts"]}
+    assert accs[101]["is_active"] is True
+    assert accs[102]["is_active"] is True
+    assert accs[103]["is_active"] is False
+    assert summary["connected_accounts_count"] == 2
+    assert summary["needs_reconnect"] is False

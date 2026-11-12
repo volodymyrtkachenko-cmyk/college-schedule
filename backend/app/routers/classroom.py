@@ -1,4 +1,6 @@
 import asyncio
+import base64
+import hashlib
 import os
 import logging
 import re
@@ -8,6 +10,7 @@ from typing import Any, Optional
 from zoneinfo import ZoneInfo
 
 import httpx
+from cryptography.fernet import Fernet
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from pydantic import BaseModel
 from sqlalchemy import delete, func, or_, select
@@ -15,12 +18,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.core.crypto import (
-    decrypt_token,
-    encrypt_token,
     get_fernet,
     is_fernet_ciphertext,
-    decrypt_token_detailed,
-    rotate_token,
     check_crypto_config,
 )
 from fastapi.security import HTTPAuthorizationCredentials
@@ -44,6 +43,111 @@ router = APIRouter(prefix="/api/classroom", tags=["classroom"])
 KYIV_TZ = ZoneInfo("Europe/Kyiv")
 
 DEFAULT_GOOGLE_CLIENT_ID = "1079868158360-ok75uv5l93pcql2iktfcple97sdu180b.apps.googleusercontent.com"
+
+
+def _get_stable_fernet_keys() -> list[Fernet]:
+    """Возвращает список ключей Fernet (основной + резервные), которые не сбрасываются при рестарте сервера."""
+    raw_seeds = [
+        os.getenv("ENCRYPTION_KEY"),
+        os.getenv("SECRET_KEY"),
+        os.getenv("GOOGLE_CLIENT_SECRET"),
+        os.getenv("DATABASE_URL"),
+        "dfkr-college-schedule-persistent-key-2026",
+        os.getenv("CLASSROOM_FERNET_KEY"),
+        os.getenv("FERNET_KEY"),
+        getattr(settings, "classroom_fernet_key", None),
+        getattr(settings, "jwt_secret_key", None),
+        "college-schedule-local-dev-secret-change-me",
+        "college-schedule-fernet",
+    ]
+    old_keys_str = (
+        os.getenv("CLASSROOM_FERNET_OLD_KEYS")
+        or getattr(settings, "classroom_fernet_old_keys", "")
+        or ""
+    ).strip()
+    if old_keys_str:
+        for k in old_keys_str.split(","):
+            raw_seeds.append(k.strip())
+
+    fernets: list[Fernet] = []
+    seen: set[bytes] = set()
+    for seed in raw_seeds:
+        if not seed:
+            continue
+        try:
+            f_direct = Fernet(seed.encode("utf-8"))
+            h_direct = hashlib.sha256(seed.encode("utf-8")).digest()
+            if h_direct not in seen:
+                seen.add(h_direct)
+                fernets.append(f_direct)
+        except Exception:
+            pass
+        digest = hashlib.sha256(seed.strip().encode("utf-8")).digest()
+        fkey = base64.urlsafe_b64encode(digest)
+        if fkey not in seen:
+            seen.add(fkey)
+            fernets.append(Fernet(fkey))
+    return fernets
+
+
+def encrypt_token(token: Optional[str]) -> str:
+    if not token:
+        return ""
+    clean = token.strip()
+    if not clean:
+        return ""
+    # Используем стабильный ключ от GOOGLE_CLIENT_SECRET / DATABASE_URL, если ENCRYPTION_KEY не задан
+    stable_seed = (
+        os.getenv("ENCRYPTION_KEY")
+        or os.getenv("GOOGLE_CLIENT_SECRET")
+        or os.getenv("DATABASE_URL")
+        or "dfkr-college-schedule-persistent-key-2026"
+    )
+    fkey = base64.urlsafe_b64encode(hashlib.sha256(stable_seed.strip().encode("utf-8")).digest())
+    return Fernet(fkey).encrypt(clean.encode("utf-8")).decode("utf-8")
+
+
+def decrypt_token(token_enc: Optional[str]) -> str:
+    if not token_enc:
+        return ""
+    clean = token_enc.strip()
+    if not clean:
+        return ""
+    # Если в БД уже лежит открытый Google refresh_token (1//...) или access_token (ya29.)
+    if clean.startswith("1//") or clean.startswith("ya29."):
+        return clean
+    for f in _get_stable_fernet_keys():
+        try:
+            return f.decrypt(clean.encode("utf-8")).decode("utf-8")
+        except Exception:
+            continue
+    return ""
+
+
+def decrypt_token_detailed(token_enc: Optional[str]) -> tuple[Optional[str], str]:
+    if not token_enc:
+        return None, "empty"
+    clean = token_enc.strip()
+    if not clean:
+        return None, "empty"
+    if clean.startswith("1//") or clean.startswith("ya29."):
+        return clean, "plaintext"
+    for idx, f in enumerate(_get_stable_fernet_keys()):
+        try:
+            return f.decrypt(clean.encode("utf-8")).decode("utf-8"), f"ok:key_{idx}"
+        except Exception:
+            continue
+    return None, "undecryptable"
+
+
+def rotate_token(token_enc: Optional[str]) -> Optional[str]:
+    if not token_enc:
+        return None
+    plain = decrypt_token(token_enc)
+    if not plain:
+        return None
+    return encrypt_token(plain)
+
 
 
 def get_google_client_id() -> str:
@@ -3661,22 +3765,23 @@ async def _build_group_accounts_summary(db: AsyncSession, group_id: int) -> dict
         seen_identities.add(identity_key)
         creds.append(c)
 
-    reconnect_errors = {
-        "missing_or_corrupt_refresh_token",
-        "token_is_access_token_not_refresh_token",
-    }
+    now_utc = datetime.now(timezone.utc)
 
     def _is_cred_healthy(c: ClassroomCredential) -> bool:
-        if not c.is_active or not c.refresh_token:
-            return False
-        plain_rt = decrypt_token(c.refresh_token) or ""
-        if not plain_rt or plain_rt.startswith("ya29."):
-            return False
-        if c.last_error:
-            err_code = c.last_error.split(":", 1)[0]
-            if err_code in reconnect_errors or c.last_error.startswith("invalid_grant"):
+        # 1. Если есть валидный refresh_token (1//...) и нет фатальной ошибки отзыва доступа
+        plain_rt = decrypt_token(c.refresh_token) if c.refresh_token else ""
+        if plain_rt and plain_rt.startswith("1//"):
+            if c.last_error and c.last_error.startswith("invalid_grant"):
                 return False
-        return True
+            return True
+
+        # 2. Если студент синхронизировался недавно (< 55 минут назад), его сессия ещё активна
+        if c.last_synced_at:
+            ts = c.last_synced_at if c.last_synced_at.tzinfo else c.last_synced_at.replace(tzinfo=timezone.utc)
+            if (now_utc - ts).total_seconds() < 55 * 60:
+                return True
+
+        return False
 
     effective_active_creds = [c for c in creds if _is_cred_healthy(c)]
     active_count = len(effective_active_creds)

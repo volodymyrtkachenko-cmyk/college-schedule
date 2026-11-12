@@ -28,10 +28,13 @@ def get_primary_raw_key(override_key: Optional[str] = None) -> str:
     """Return the raw string for the primary encryption key."""
     raw = (
         override_key
+        or os.getenv("ENCRYPTION_KEY")
         or os.getenv("CLASSROOM_FERNET_KEY")
         or os.getenv("FERNET_KEY")
         or getattr(settings, "classroom_fernet_key", "")
-        or ""
+        or os.getenv("GOOGLE_CLIENT_SECRET")
+        or os.getenv("DATABASE_URL")
+        or "dfkr-college-schedule-persistent-key-2026"
     ).strip()
     if raw:
         return raw
@@ -66,6 +69,13 @@ def get_candidate_fernets(override_key: Optional[str] = None) -> list[Fernet]:
         if h not in seen_hashes:
             seen_hashes.add(h)
             fernets.append(f)
+
+    # 0. Persistent fallback seeds
+    _add_raw(os.getenv("ENCRYPTION_KEY"))
+    _add_raw(os.getenv("SECRET_KEY"))
+    _add_raw(os.getenv("GOOGLE_CLIENT_SECRET"))
+    _add_raw(os.getenv("DATABASE_URL"))
+    _add_raw("dfkr-college-schedule-persistent-key-2026")
 
     # 1. Configured old keys (comma-separated)
     old_keys_str = (

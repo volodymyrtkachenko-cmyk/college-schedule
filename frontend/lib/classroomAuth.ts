@@ -166,6 +166,7 @@ export async function requestClassroomAuth(options: ClassroomAuthOptions = {}): 
         client_id: GOOGLE_CLIENT_ID,
         scope: CLASSROOM_SCOPES,
         hd: COLLEGE_HOSTED_DOMAIN,
+        prompt: "select_account consent",
         include_granted_scopes: false,
         ux_mode: "popup",
         select_account: true,
