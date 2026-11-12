@@ -3,7 +3,7 @@ import { SITE_URL } from "../lib/site";
 import { toTeacherSlug } from "../lib/slug";
 import { fetchDirectoryForSsr } from "../lib/ssrApi";
 
-export const revalidate = 3600; // Кешувати Sitemap на 1 годину для миттєвої відповіді Googlebot
+export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const siteUrl = SITE_URL.replace(/\/+$/, "");
@@ -56,5 +56,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }))
     .filter((item) => !item.url.endsWith("/teacher/teacher"));
 
-  return [...staticRoutes, ...groupRoutes, ...teacherRoutes];
+  // Дедуплікація всіх URL за ключем url, щоб уникнути помилки дублів у Google Search Console
+  const uniqueByUrl = new Map<string, MetadataRoute.Sitemap[number]>();
+  for (const entry of [...staticRoutes, ...groupRoutes, ...teacherRoutes]) {
+    if (!uniqueByUrl.has(entry.url)) {
+      uniqueByUrl.set(entry.url, entry);
+    }
+  }
+
+  return Array.from(uniqueByUrl.values());
 }

@@ -1,8 +1,7 @@
 import type { ReferenceRecord, ScheduleResponse } from "./api";
-import { BACKEND_API_URL } from "./site";
+import { BACKEND_API_URL, PROD_API_URL } from "./site";
 
-const PROD_API_URL = BACKEND_API_URL;
-const PRIMARY_API_URL = process.env.NEXT_PUBLIC_API_URL || PROD_API_URL;
+const PRIMARY_API_URL = BACKEND_API_URL;
 
 export async function fetchSsrJson<T>(
   path: string,
@@ -10,7 +9,7 @@ export async function fetchSsrJson<T>(
 ): Promise<T | null> {
   const tryFetch = async (baseUrl: string) => {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
+    const timeout = setTimeout(() => controller.abort(), 3500);
     try {
       const res = await fetch(`${baseUrl}${path}`, {
         next: { revalidate: revalidateSeconds },
@@ -27,10 +26,8 @@ export async function fetchSsrJson<T>(
     }
   };
 
-  // 1. Спроба за первинною адресою
   let data = await tryFetch(PRIMARY_API_URL);
 
-  // 2. Якщо первинна адреса (наприклад, локальна IP) не відповідає, перемикаємось на робочий продакшн бекенд
   if (!data && PRIMARY_API_URL !== PROD_API_URL) {
     data = await tryFetch(PROD_API_URL);
   }
@@ -48,7 +45,7 @@ export async function fetchDirectoryForSsr(): Promise<{
   ]);
 
   const cleanTeachers = (Array.isArray(teachers) ? teachers : []).filter(
-    (t) => t.name && !t.name.includes("!")
+    (t) => t.name && !t.name.includes("!") && !t.name.includes(",")
   );
 
   return {

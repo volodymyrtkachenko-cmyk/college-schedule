@@ -1,5 +1,10 @@
+const rawSiteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "").trim().replace(/\/+$/, "");
+
+// Захист від випадкового потрапляння технічного домену .vercel.app або localhost у Sitemap та канонічні посилання
 export const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL || "https://rozklad-dfkr.pp.ua";
+  rawSiteUrl && !rawSiteUrl.includes("vercel.app") && !rawSiteUrl.includes("localhost")
+    ? rawSiteUrl
+    : "https://rozklad-dfkr.pp.ua";
 
 export const SITE_HOST = (() => {
   try {
@@ -9,9 +14,8 @@ export const SITE_HOST = (() => {
   }
 })();
 
-export const BACKEND_API_URL =
-  process.env.NEXT_PUBLIC_API_URL ||
+export const PROD_API_URL =
   "https://my-college-schedule-api-8ffebe58b2b9.herokuapp.com";
 
-export const PROD_API_URL = BACKEND_API_URL;
-
+export const BACKEND_API_URL =
+  process.env.NEXT_PUBLIC_API_URL?.trim().replace(/\/+$/, "") || PROD_API_URL;
