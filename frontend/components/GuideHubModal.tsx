@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useClassroomSubmissions } from "../lib/useClassroomSubmissions";
 import { useTeacherAccess } from "../lib/useTeacherAccess";
 import { useUserSettings } from "../lib/useUserSettings";
+import { useMobileNav } from "../lib/useMobileNav";
 
 export interface GuideHubModalProps {
   isOpen?: boolean;
@@ -14,6 +15,12 @@ export interface GuideHubModalProps {
   mode?: "student" | "teacher";
   groupId?: number | null;
   teacherId?: number | null;
+  /** Назва обраної групи (з довідника) — лише для бейджа в шапці */
+  groupName?: string | null;
+  /** ПІБ обраного викладача (з довідника) — лише для бейджа в шапці */
+  teacherName?: string | null;
+  /** Реальні лічильники з useTaskGroups (null, якщо Classroom не прив'язано) */
+  taskCounts?: { pending: number; overdue: number; done: number } | null;
 }
 
 interface GuideStepMeta {
@@ -232,8 +239,12 @@ export function GuideHubModal({
   onClose,
   initialRole,
   mode,
+  groupName = null,
+  teacherName = null,
+  taskCounts = null,
 }: GuideHubModalProps) {
   const router = useRouter();
+  const { setHomeTab } = useMobileNav();
   const { isLinked, linkedEmail } = useClassroomSubmissions();
   const { isTeacherUnlocked } = useTeacherAccess();
   const { settings, updateSetting } = useUserSettings();
@@ -344,9 +355,18 @@ export function GuideHubModal({
         {/* 1. ШАПКА + ПЕРЕМИКАЧ РОЛІ + ВКЛАДКИ */}
         <div className="px-4 pt-3.5 pb-2.5 bg-sys-surface border-b border-sys-border space-y-2.5 shrink-0">
           <div className="flex items-center justify-between gap-2">
-            <h2 id="guide-title" className="text-sm sm:text-base font-bold text-sys-text-primary truncate">
-              Як користуватися розкладом
-            </h2>
+            <div className="min-w-0">
+              <h2 id="guide-title" className="text-sm sm:text-base font-bold text-sys-text-primary truncate">
+                Як користуватися розкладом
+              </h2>
+              {(role === "student" ? groupName : teacherName) && (
+                <p className="text-[11px] font-medium text-sys-text-secondary truncate">
+                  {role === "student"
+                    ? `Група ${groupName}${settings.defaultSubgroup !== "all" ? ` · ${settings.defaultSubgroup} підгр.` : ""}`
+                    : `Викладач: ${teacherName}`}
+                </p>
+              )}
+            </div>
 
             <div className="flex items-center gap-2 shrink-0">
               <div className="relative inline-grid grid-cols-2 rounded-lg border border-sys-border bg-sys-bg p-0.5 text-xs font-semibold isolate">
@@ -395,10 +415,16 @@ export function GuideHubModal({
           <div className="flex items-center gap-1 overflow-x-auto no-scrollbar rounded-xl border border-sys-border bg-sys-bg p-1 text-[11px] font-semibold">
             {steps.map((s, idx) => {
               const isCurrent = idx === safeIdx;
+              const isConfigured =
+                role === "student"
+                  ? (idx === 0 && isLinked) || (idx === 1 && settings.defaultSubgroup !== "all")
+                  : idx === 0 && isTeacherUnlocked;
               return (
                 <button
                   key={s.id}
                   type="button"
+                  role="tab"
+                  aria-selected={isCurrent}
                   onClick={() => goToStep(idx)}
                   className={`shrink-0 flex-1 py-1.5 px-2 rounded-lg transition-colors duration-150 cursor-pointer whitespace-nowrap ${
                     isCurrent
@@ -407,6 +433,7 @@ export function GuideHubModal({
                   }`}
                 >
                   {s.tabLabel}
+                  {isConfigured && <span className="ml-1 text-sys-status-okText">✓</span>}
                 </button>
               );
             })}
@@ -560,7 +587,7 @@ export function GuideHubModal({
                           </span>
                           <UserSvg />
                           <span className="text-xs font-medium text-sys-text-secondary truncate">
-                            Токарєва О.В.
+                            Петренко І.В.
                           </span>
                         </div>
 
@@ -582,7 +609,7 @@ export function GuideHubModal({
                             </span>
                             <UserSvg />
                             <span className="text-xs font-medium text-sys-text-secondary truncate">
-                              Хочинська О.С.
+                              Коваленко Н.С.
                             </span>
                           </div>
                           <span className="shrink-0 rounded-md border border-sys-border bg-sys-bg px-2 py-1 text-xs font-semibold leading-none text-sys-text-secondary">
@@ -632,7 +659,7 @@ export function GuideHubModal({
                         </div>
                         <div className="flex items-center gap-1.5 text-xs text-sys-text-secondary mt-1">
                           <UserSvg />
-                          <span>Філімончук А.В.</span>
+                          <span>Мельник В.П.</span>
                         </div>
                       </div>
                     </div>
@@ -874,7 +901,7 @@ export function GuideHubModal({
                             Розклад: <strong className="text-sys-text-primary">Іваненко О.М.</strong>
                           </span>
                           <span className="shrink-0 rounded-lg bg-sys-accent px-2.5 py-1 text-xs font-semibold text-white">
-                            ← До 85
+                            ← До групи
                           </span>
                         </div>
 
@@ -1162,6 +1189,42 @@ export function GuideHubModal({
                         </button>
                       ))}
                     </div>
+                  </div>
+                )}
+
+                {role === "student" && (safeIdx === 3 || safeIdx === 4) && (
+                  <div className="flex items-center justify-between gap-2 rounded-xl border border-sys-border bg-sys-bg px-3 py-2 text-xs">
+                    <span className="font-semibold text-sys-text-secondary truncate">
+                      {taskCounts ? (
+                        <>
+                          У вас зараз: <span className="text-sys-text-primary">{taskCounts.pending} до здачі</span>
+                          {" · "}
+                          <span className={taskCounts.overdue > 0 ? "text-sys-status-dangerText" : ""}>
+                            {taskCounts.overdue} борг.
+                          </span>
+                          {" · "}
+                          <span className="text-sys-status-okText">{taskCounts.done} здано</span>
+                        </>
+                      ) : (
+                        "Прив'яжіть @kre.dp.ua, щоб бачити свої завдання"
+                      )}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        setHomeTab("tasks");
+                      }}
+                      className="shrink-0 rounded-lg bg-sys-accent px-3 py-1.5 text-[11px] font-bold text-white hover:opacity-95 active:scale-95 transition-opacity cursor-pointer"
+                    >
+                      Відкрити →
+                    </button>
+                  </div>
+                )}
+
+                {role === "teacher" && safeIdx === 0 && isTeacherUnlocked && (
+                  <div className="rounded-xl border border-sys-border bg-sys-bg px-3 py-2 text-xs font-semibold text-sys-status-okText">
+                    ✓ Доступ до посилань на цьому пристрої відкрито
                   </div>
                 )}
 

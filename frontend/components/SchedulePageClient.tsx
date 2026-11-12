@@ -1465,6 +1465,9 @@ export function SchedulePageClient({
     sidebarTaskFilters
   );
 
+  // Ті самі лічильники, що й на екрані «Завдання» (scope "all", без фільтрів) — для гіда
+  const guideTaskGroups = useTaskGroups(allTasks, "all", undefined, undefined, isLinked);
+
   const overdueCount = useMemo(() => {
     const actualMondayIso = KYIV_DATE_FMT.format(getInitialAnchor());
     let count = 0;
@@ -2958,6 +2961,17 @@ export function SchedulePageClient({
             groupId={groupId}
             teacherId={teacherId}
             mode={mode}
+            groupName={groups.find((g) => g.id === groupId)?.name ?? null}
+            teacherName={selectedTeacher?.name ?? null}
+            taskCounts={
+              isLinked
+                ? {
+                    pending: guideTaskGroups.pendingCount,
+                    overdue: guideTaskGroups.overdueTotalCount,
+                    done: guideTaskGroups.doneCount,
+                  }
+                : null
+            }
             onClose={() => setGuideHubOpen(false)}
           />
         )}
