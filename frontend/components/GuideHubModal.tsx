@@ -20,79 +20,65 @@ interface GuideStepMeta {
   id: string;
   tabLabel: string;
   title: string;
-  phaseLabels: [string, string, string];
-  points: [string, string, string];
+  points: [string, string];
 }
 
-// Сценарій триває 6.4 с і зупиняється на чистому фінальному стані (stage 5) без різкого скидання
-const FINAL_MS = 6400;
+const FINAL_MS = 4800;
 const TICK_MS = 80;
 
 const STUDENT_STEPS: GuideStepMeta[] = [
   {
     id: "st-1-classroom",
-    tabLabel: "Пошта @kre",
-    title: "1. Прив'язка @kre.dp.ua: посилання на пари, ДЗ та синхронізація",
-    phaseLabels: ["1. Захищена пара", "2. Вхід @kre.dp.ua", "3. Все відкрито ✓"],
+    tabLabel: "Classroom",
+    title: "1. Пошта @kre.dp.ua: відкриття Meet/Zoom та ДЗ",
     points: [
-      "Відкриває посилання на пари: сервер знаходить ваші курси в Google Classroom і автоматично дістає посилання на Meet та Zoom із оголошень викладачів, прибираючи замочки «🔒».",
-      "Прикріплює ДЗ прямо до пар: нездані роботи відображаються внизу картки відповідної пари (щойно ви здаєте роботу в Classroom — плашка зникає, і картка пари стає чистою).",
-      "Синхронізація ПК ↔ Телефон та авто-профіль: система сама визначає вашу групу й підгрупу за курсами Classroom і оновлює дані у фоні кожні 10 хвилин без повторного входу.",
+      "Натисніть на «🔒 Meet / Zoom» або кнопку Classroom у шапці й оберіть свій акаунт @kre.dp.ua.",
+      "Замочки зникнуть, до карток пар підтягнуться актуальні домашні завдання, а дані синхронізуються між ПК і телефоном.",
     ],
   },
   {
     id: "st-2-subgroup",
     tabLabel: "Підгрупи",
-    title: "2. Індивідуальний фільтр підгрупи (1 / 2 / Обидві)",
-    phaseLabels: ["1. Обидві підгрупи", "2. Клік по «1 підгр.»", "3. Чистий розклад ✓"],
+    title: "2. Фільтр своєї підгрупи в 1 клік",
     points: [
-      "Роздільні кабінети та посилання: на парах із поділом навпроти кожного викладача показується саме його аудиторія або його власне посилання на Meet чи Zoom.",
-      "Фільтрація в 1 клік прямо з картки: натисніть на бейдж «1 підгр.» або «2 підгр.» на парі — чужий викладач, його кабінет та чужі ДЗ сховаються з усього розкладу.",
-      "Миттєве повернення: повторний клік по активному бейджу підгрупи (або клавіші «1», «2», «0» на ПК) миттєво повертає паралельний показ обох підгруп.",
+      "Натисніть на бейдж «1 підгр.» або «2 підгр.» прямо на картці пари — другий викладач і чужий кабінет сховаються.",
+      "Повторний клік по бейджу підгрупи миттєво повертає показ обох підгруп.",
     ],
   },
   {
     id: "st-3-zoom",
     tabLabel: "Код Zoom",
-    title: "3. Розумна кнопка Zoom та автокопіювання пароля",
-    phaseLabels: ["1. Текст викладача", "2. Клік по кнопці", "3. Пароль у буфері ✓"],
+    title: "3. Автокопіювання пароля Zoom при кліку",
     points: [
-      "Авто-розпізнавання з тексту: якщо викладач опублікував у Classroom лише текстовий Ідентифікатор конференції (ID) та Код доступу без посилання — система сама створить кнопку «Zoom · код: ...».",
-      "Автокопіювання пароля в буфер: у момент натискання на кнопку пароль конференції автоматично копіюється в буфер обміну — у Zoom достатньо натиснути «Вставити».",
-      "Підсвічування живої пари: за 15 хвилин до початку заняття та під час пари кнопка відеозв'язку автоматично виділяється активним індикатором.",
+      "Система сама знаходить ID та пароль у тексті викладача з Classroom і створює кнопку «Zoom ↗».",
+      "При натисканні на «Zoom ↗» пароль конференції автоматично копіюється в буфер обміну.",
     ],
   },
   {
     id: "st-4-tasks",
     tabLabel: "Завдання",
-    title: "4. Єдиний список завдань за семестр (До здачі / Борги / Здано)",
-    phaseLabels: ["1. До здачі", "2. Контроль боргів", "3. Фільтр предмета ✓"],
+    title: "4. Усі завдання в одному списку без гортання тижнів",
     points: [
-      "Без гортання тижнів: усі завдання з Classroom зібрані в єдиний список і поділені на «До здачі», «Борги» та «Здано» — старі нездані роботи ніколи не загубляться на минулих тижнях.",
-      "Кольоровий радар дедлайнів: система автоматично виділяє термінові роботи (Сьогодні / Завтра), прострочені борги з підрахунком днів та вже оцінені здачі.",
-      "Фільтр за дисципліною та прямий перехід: оберіть потрібний предмет у випадаючому списку й натисніть на картку завдання, щоб одразу відкрити його в Google Classroom.",
+      "У вкладці «Завдання» роботи поділені на «До здачі», «Борги» та «Здано», щоб старі борги не губилися.",
+      "Фільтр «Усі предмети» дозволяє залишити завдання лише з потрібної дисципліни.",
     ],
   },
   {
     id: "st-5-grades",
     tabLabel: "Оцінки",
-    title: "5. Авто-підрахунок середнього бала (GPA) та конвертація шкал",
-    phaseLabels: ["1. Вкладка Оцінки", "2. Перерахунок шкали", "3. Деталізація робіт ✓"],
+    title: "5. Середній бал та всі оцінки за семестр",
     points: [
-      "Середній бал у реальному часі: вкладка «Оцінки» автоматично рахує ваш поточний середній бал з кожного предмета та загальну статистику перевірених робіт.",
-      "Авто-конвертація 100 → 12 / 5 балів: якщо викладач виставляє оцінки у 100-бальній шкалі Classroom, алгоритм автоматично переводить їх у стандартну 12-бальну або 5-бальну систему.",
-      "Повна відомість за семестр: натисніть на картку будь-якої дисципліни, щоб розгорнути список усіх оцінених робіт із датами та прямими посиланнями на Classroom.",
+      "Вкладка «Оцінки» автоматично рахує загальний середній бал (за 5-бальною та 12-бальною шкалами).",
+      "Натисніть на предмет, щоб переглянути всі оцінені роботи з автоматичним перерахунком зі 100-бальної шкали.",
     ],
   },
   {
     id: "st-7-teacher-jump",
     tabLabel: "Викладач",
-    title: "6. Миттєвий перехід у розклад викладача та повернення назад",
-    phaseLabels: ["1. Клік по прізвищу", "2. Розклад викладача", "3. Повернення назад ✓"],
+    title: "6. Швидкий перехід у розклад викладача",
     points: [
-      "Перехід у 1 клік із картки пари: натисніть на прізвище будь-якого викладача на парі, щоб одразу відкрити його розклад на поточний день або тиждень.",
-      "Швидкий пошук аудиторії: ви миттєво побачите, з якою групою та в якому кабінеті зараз перебуває викладач або коли в нього вільне вікно для консультації.",
-      "Банер повернення та швидкий пошук: кнопка «← До групи ...» зверху повертає вас у свій розклад, а останні переглянуті викладачі зберігаються у швидких чіпсах пошуку.",
+      "Натисніть на прізвище викладача на картці пари, щоб побачити його розклад та аудиторію на сьогодні.",
+      "Кнопка «← До ...» у верхній плашці поверне вас назад до розкладу своєї групи.",
     ],
   },
 ];
@@ -100,35 +86,29 @@ const STUDENT_STEPS: GuideStepMeta[] = [
 const TEACHER_STEPS: GuideStepMeta[] = [
   {
     id: "tc-1-pin",
-    tabLabel: "PIN-доступ",
-    title: "1. PIN-код викладача: розблокування всіх онлайн-пар",
-    phaseLabels: ["1. Захист від гостей", "2. Введення PIN-коду", "3. Повний доступ ✓"],
+    tabLabel: "PIN-код",
+    title: "1. PIN-код для відкриття посилань Meet та Zoom",
     points: [
-      "Захист посилань від сторонніх гостей: за замовчуванням усі кнопки Google Meet та Zoom закриті бейджем «🔒», щоб сторонні особи не могли заходити на заняття.",
-      "Одноразове введення PIN-коду: натисніть на замочок «🔒» або відкрийте Налаштування та введіть PIN-код викладача — доступ збережеться у вашому браузері та PWA.",
-      "Перехід на пари та до груп у 1 клік: після активації PIN-коду вам відкриті посилання всіх груп, а клік по шифру групи на картці пари миттєво показує розклад цієї групи.",
+      "Натисніть на «🔒 Zoom / Meet» або кнопку «Вхід викладача» у шапці та введіть PIN-код один раз.",
+      "Усі посилання на онлайн-пари відкриються на цьому пристрої для всіх навчальних груп.",
     ],
   },
   {
     id: "tc-4-stats",
     tabLabel: "Статистика",
-    title: "2. Статистика вичитаних пар, годин та виконання навантаження",
-    phaseLabels: ["1. Зведення семестру", "2. Вибір дисципліни", "3. Години по групах ✓"],
+    title: "2. Статистика проведених пар та годин",
     points: [
-      "Автоматичний облік за семестр: розділ «Статистика» підраховує фактично вичитані пари та академічні години від початку семестру до обраної дати.",
-      "Точне врахування замін і скасувань: проведені вами разові заміни автоматично додаються до вашого активу, а скасовані чи перенесені заняття — віднімаються.",
-      "Деталізація за предметами та групами: переглядайте точну кількість проведених пар і годин окремо по кожній дисципліні та кожній навчальній групі.",
+      "Сторінка «Статистика» автоматично рахує вичитані академічні години та пари від початку семестру.",
+      "Доступний розподіл навантаження за кожною дисципліною та кожною навчальною групою.",
     ],
   },
   {
     id: "tc-5-radar",
     tabLabel: "Заміни",
-    title: "3. Радар замін, перенесень та швидкий експорт у Telegram",
-    phaseLabels: ["1. Звідки перенесено", "2. Перехід на день", "3. Картка заміни ✓"],
+    title: "3. Позначки замін та перенесень у розкладі",
     points: [
-      "Точна адреса перенесення: на місці перенесеної пари завжди відображається підказка з новим днем та слотом («↪ Перенесено → Четвер, 3 пара»).",
-      "Помітні маркери замін та подій: призначені заміни виділяються акцентною рамкою та бейджем «⚡ Заміна», а іспити й консультації — відповідними статусами сесії.",
-      "Швидка відправка студентам: кнопки біля дати дозволяють за 1 клік скопіювати стильний PNG-скріншот або готовий текст розкладу для Telegram-чату групи.",
+      "Перенесені заняття підписуються новою датою й номером пари («↪ Перенесено → Четвер, 3 пара»).",
+      "Призначені разові заміни виділяються жовтою рамкою та бейджем «⚡ Заміна».",
     ],
   },
 ];
@@ -136,13 +116,13 @@ const TEACHER_STEPS: GuideStepMeta[] = [
 function PlatformSvg({ platform }: { platform: "meet" | "zoom" }) {
   if (platform === "zoom") {
     return (
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" className="shrink-0">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="shrink-0">
         <path d="M15 8c0-.55-.45-1-1-1H3c-.55 0-1 .45-1 1v8c0 .55.45 1 1 1h11c.55 0 1-.45 1-1v-3.24l4.39 3.59c.35.29.88 0 .88-.45V7.1c0-.45-.53-.74-.88-.45L15 10.24V8z" />
       </svg>
     );
   }
   return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" className="shrink-0">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="shrink-0">
       <path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z" />
     </svg>
   );
@@ -170,15 +150,15 @@ function UserSvg() {
 function ClipboardSvg() {
   return (
     <svg
-      width="14"
-      height="14"
+      width="15"
+      height="15"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="shrink-0 text-sys-status-denomText"
+      className="shrink-0 text-sys-text-muted"
     >
       <path d="M16 4h2a2 2 0 0 1 2 2v14l-8-4-8 4V6a2 2 0 0 1 2-2h2" />
       <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
@@ -186,10 +166,6 @@ function ClipboardSvg() {
   );
 }
 
-/**
- * Плавний курсор, який точно наводиться на елементи, виконує клік із хвилею,
- * а на фінальній стадії (hidden = true) плавно зникає, щоб не затуляти фінальний інтерфейс.
- */
 function DemoCursor({
   x,
   y,
@@ -224,9 +200,9 @@ function DemoCursor({
           <motion.span
             key="click-ripple"
             initial={{ scale: 0.35, opacity: 0.95 }}
-            animate={{ scale: 2.3, opacity: 0 }}
+            animate={{ scale: 2.25, opacity: 0 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.44, ease: "easeOut" }}
+            transition={{ duration: 0.42, ease: "easeOut" }}
             className="absolute -left-2.5 -top-2.5 h-7 w-7 rounded-full border-2 border-sys-accent bg-sys-accent/35"
           />
         )}
@@ -266,7 +242,6 @@ export function GuideHubModal({
   const [stepIdx, setStepIdx] = useState(0);
   const [slideDir, setSlideDir] = useState(1);
   const [elapsedMs, setElapsedMs] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
 
   const steps = role === "student" ? STUDENT_STEPS : TEACHER_STEPS;
   const stepsCount = steps.length;
@@ -275,7 +250,6 @@ export function GuideHubModal({
     if (!isOpen || typeof window === "undefined") return;
     setStepIdx(0);
     setElapsedMs(0);
-    setIsPaused(false);
     try {
       const storedMode = window.localStorage.getItem("schedule:mode");
       if (!initialRole && !mode && (storedMode === "student" || storedMode === "teacher")) {
@@ -286,45 +260,33 @@ export function GuideHubModal({
     } catch {}
   }, [isOpen, initialRole, mode]);
 
-  // Анімація плавно доходить до фінальної 3-ї фази (FINAL_MS) і зупиняється на ній,
-  // щоб сцена закінчувалася логічним фіналом без миттєвого скидання назад
+  // Програє сцену один раз до фінального стану (FINAL_MS) і зупиняється без миготіння
   useEffect(() => {
-    if (!isOpen || isPaused || elapsedMs >= FINAL_MS) return;
+    if (!isOpen || elapsedMs >= FINAL_MS) return;
     const timer = setInterval(() => {
       setElapsedMs((prev) => Math.min(FINAL_MS, prev + TICK_MS));
     }, TICK_MS);
     return () => clearInterval(timer);
-  }, [isOpen, isPaused, elapsedMs, stepIdx, role]);
+  }, [isOpen, elapsedMs, stepIdx, role]);
 
   useEffect(() => {
     if (!isOpen) return;
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
-      if (e.key === " ") {
-        e.preventDefault();
-        if (elapsedMs >= FINAL_MS) {
-          setElapsedMs(0);
-          setIsPaused(false);
-        } else {
-          setIsPaused((p) => !p);
-        }
-      }
       if (e.key === "ArrowRight") {
         setSlideDir(1);
         setStepIdx((c) => Math.min(stepsCount - 1, c + 1));
         setElapsedMs(0);
-        setIsPaused(false);
       }
       if (e.key === "ArrowLeft") {
         setSlideDir(-1);
         setStepIdx((c) => Math.max(0, c - 1));
         setElapsedMs(0);
-        setIsPaused(false);
       }
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [isOpen, onClose, stepsCount, elapsedMs]);
+  }, [isOpen, onClose, stepsCount]);
 
   if (!isOpen) return null;
 
@@ -332,44 +294,28 @@ export function GuideHubModal({
   const activeStep = steps[safeIdx] ?? steps[0];
 
   /**
-   * 6 стадій 3-актного сценарію (0..6400 мс):
-   * - stage 0 (0..900 мс): Фаза 1 (Початковий стан, курсор у стартовій точці)
-   * - stage 1 (900..1800 мс): Фаза 1 (Курсор навівся на 1-шу кнопку — hover)
-   * - stage 2 (1800..2400 мс): Фаза 1 (Клік по 1-й кнопці — ripple)
-   * - stage 3 (2400..3800 мс): Фаза 2 (Відкрився 2-й стан, курсор наводиться на 2-гу ціль)
-   * - stage 4 (3800..4400 мс): Фаза 2 (Клік по 2-й цілі — ripple)
-   * - stage 5 (4400..6400 мс): Фаза 3 (Фінальний результат! Курсор плавно зникає на >= 5100 мс, сцена фіксується)
+   * Простий і наочний таймлайн (0..4800 мс):
+   * stage 0 (0..900 мс): Стан «До»
+   * stage 1 (900..1750 мс): Курсор наводиться на реальну кнопку
+   * stage 2 (1750..2350 мс): Клік по кнопці
+   * stage 3 (2350..4800 мс): Чистий стан «Після» (на >= 3400 мс курсор плавно зникає)
    */
   const stage =
     elapsedMs < 900
       ? 0
-      : elapsedMs < 1800
+      : elapsedMs < 1750
       ? 1
-      : elapsedMs < 2400
+      : elapsedMs < 2350
       ? 2
-      : elapsedMs < 3800
-      ? 3
-      : elapsedMs < 4400
-      ? 4
-      : 5;
+      : 3;
 
-  const activePhaseIdx: 0 | 1 | 2 = stage <= 2 ? 0 : stage <= 4 ? 1 : 2;
-  const isCursorHidden = elapsedMs >= 5100;
-  const isClicking = stage === 2 || stage === 4;
-
-  const jumpToPhase = (phase: 0 | 1 | 2) => {
-    setIsPaused(false);
-    if (phase === 0) setElapsedMs(0);
-    else if (phase === 1) setElapsedMs(2450);
-    else setElapsedMs(4500);
-  };
+  const isCursorHidden = elapsedMs >= 3400;
 
   const goToStep = (nextIdx: number) => {
     startTransition(() => {
       setSlideDir(nextIdx >= safeIdx ? 1 : -1);
       setStepIdx(nextIdx);
       setElapsedMs(0);
-      setIsPaused(false);
     });
   };
 
@@ -380,7 +326,6 @@ export function GuideHubModal({
       setRole(nextRole);
       setStepIdx(0);
       setElapsedMs(0);
-      setIsPaused(false);
     });
   };
 
@@ -394,11 +339,9 @@ export function GuideHubModal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full sm:max-w-[540px] max-h-[94dvh] sm:max-h-[90vh] flex flex-col rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card text-sys-text-primary shadow-2xl overflow-hidden select-none"
+        className="w-full sm:max-w-[500px] max-h-[92dvh] flex flex-col rounded-t-2xl sm:rounded-2xl border border-sys-border bg-sys-card text-sys-text-primary shadow-2xl overflow-hidden select-none"
       >
-        {/* =========================================================
-            1. HEADER + ROLE SWITCHER + MANUAL FEATURE TABS
-           ========================================================= */}
+        {/* 1. ШАПКА + ПЕРЕМИКАЧ РОЛІ + ВКЛАДКИ */}
         <div className="px-4 pt-3.5 pb-2.5 bg-sys-surface border-b border-sys-border space-y-2.5 shrink-0">
           <div className="flex items-center justify-between gap-2">
             <h2 id="guide-title" className="text-sm sm:text-base font-bold text-sys-text-primary truncate">
@@ -449,7 +392,6 @@ export function GuideHubModal({
             </div>
           </div>
 
-          {/* Вкладки функцій (перемикаються вручну) */}
           <div className="flex items-center gap-1 overflow-x-auto no-scrollbar rounded-xl border border-sys-border bg-sys-bg p-1 text-[11px] font-semibold">
             {steps.map((s, idx) => {
               const isCurrent = idx === safeIdx;
@@ -471,871 +413,722 @@ export function GuideHubModal({
           </div>
         </div>
 
-        {/* =========================================================
-            2. 3-PHASE INTERACTIVE STAGE + FULL FEATURE EXPLANATION
-           ========================================================= */}
+        {/* 2. ЧИСТА СЦЕНА З РЕАЛЬНИМИ КОМПОНЕНТАМИ САЙТУ */}
         <div className="flex-1 overflow-y-auto custom-scrollbar p-4">
           <AnimatePresence mode="wait" initial={false} custom={slideDir}>
             <motion.div
               key={`${role}-${activeStep.id}`}
               custom={slideDir}
-              initial={{ opacity: 0, x: slideDir * 16 }}
+              initial={{ opacity: 0, x: slideDir * 14 }}
               animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: slideDir * -16 }}
-              transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-              className="space-y-4"
+              exit={{ opacity: 0, x: slideDir * -14 }}
+              transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
+              className="space-y-3.5"
             >
-              {/* STAGE CONTAINER (h-[264px]) */}
-              <div className="relative mx-auto w-full h-[264px] rounded-2xl border border-sys-border bg-sys-bg p-3 flex flex-col justify-between overflow-hidden shadow-inner">
-                {/* Верхня панель сцени: 3 клікабельні фази сценарію + кнопка Повторити */}
-                <div className="relative z-40 flex items-center justify-between gap-1.5 border-b border-sys-border/60 pb-2 shrink-0">
-                  <div className="flex items-center gap-1 min-w-0 overflow-x-auto no-scrollbar">
-                    {activeStep.phaseLabels.map((pLabel, pIdx) => {
-                      const isPhaseActive = activePhaseIdx === pIdx;
-                      const isPhaseDone = activePhaseIdx > pIdx;
-                      return (
-                        <button
-                          key={pLabel}
-                          type="button"
-                          onClick={() => jumpToPhase(pIdx as 0 | 1 | 2)}
-                          className={`rounded-lg px-2 py-0.5 text-[10px] font-bold transition-colors cursor-pointer whitespace-nowrap border ${
-                            isPhaseActive
-                              ? "border-sys-accent/50 bg-sys-accent/15 text-sys-accent"
-                              : isPhaseDone
-                              ? "border-sys-status-okBg/35 bg-sys-status-okBg/10 text-sys-status-okText"
-                              : "border-transparent bg-sys-card/70 text-sys-text-muted hover:text-sys-text-secondary"
-                          }`}
-                        >
-                          {pLabel}
-                        </button>
-                      );
-                    })}
-                  </div>
-
+              {/* STAGE (h-[228px]) */}
+              <div className="relative mx-auto w-full h-[228px] rounded-2xl border border-sys-border bg-sys-bg p-3.5 flex flex-col justify-center overflow-hidden shadow-inner">
+                {elapsedMs >= FINAL_MS && (
                   <button
                     type="button"
-                    onClick={() => {
-                      setElapsedMs(0);
-                      setIsPaused(false);
-                    }}
-                    title="Повторити демонстрацію спочатку"
-                    className="shrink-0 rounded-lg border border-sys-border bg-sys-card px-2 py-0.5 text-[10px] font-bold text-sys-text-secondary hover:text-sys-accent hover:border-sys-accent/40 active:scale-95 transition-colors cursor-pointer"
+                    onClick={() => setElapsedMs(0)}
+                    title="Повторити анімацію"
+                    className="absolute top-2.5 right-2.5 z-40 rounded-lg border border-sys-border bg-sys-card/90 px-2 py-0.5 text-[11px] font-semibold text-sys-text-secondary hover:text-sys-accent active:scale-95 transition-colors cursor-pointer shadow-2xs"
                   >
                     ↻ Повторити
                   </button>
-                </div>
+                )}
 
-                {/* Центральна зона сцени */}
-                <div className="relative flex-1 flex flex-col justify-center pt-1">
-                  {/* =====================================================
-                      СТУДЕНТ 0: ПОШТА @kre.dp.ua (3 ПОВНІ ФАЗИ)
-                     ===================================================== */}
-                  {role === "student" && safeIdx === 0 && (
-                    <div className="relative w-full max-w-[420px] mx-auto">
-                      <DemoCursor
-                        x={stage === 0 ? "42%" : stage <= 2 ? "84%" : stage <= 4 ? "80%" : "86%"}
-                        y={stage === 0 ? "76%" : stage <= 2 ? "26%" : stage <= 4 ? "54%" : "78%"}
-                        clicking={isClicking}
-                        hidden={isCursorHidden}
-                      />
+                {/* =====================================================
+                    СТУДЕНТ 0: ПОШТА @kre.dp.ua (Точна копія LessonCard)
+                   ===================================================== */}
+                {role === "student" && safeIdx === 0 && (
+                  <div className="relative w-full max-w-[400px] mx-auto">
+                    <DemoCursor
+                      x={stage === 0 ? "45%" : stage <= 2 ? "84%" : "86%"}
+                      y={stage === 0 ? "78%" : stage <= 2 ? "24%" : "72%"}
+                      clicking={stage === 2}
+                      hidden={isCursorHidden}
+                    />
 
-                      {activePhaseIdx === 0 && (
-                        <div className="rounded-2xl border border-sys-border bg-sys-card p-3.5 shadow-sm space-y-2.5 animate-in fade-in duration-150">
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2">
-                              <span className="text-base font-black text-sys-text-primary leading-none">1</span>
-                              <span className="text-sys-text-muted font-bold text-xs">·</span>
-                              <span className="text-xs font-semibold text-sys-text-secondary">09:00–10:20</span>
-                            </div>
-                            <span
-                              className={`inline-flex h-8 px-2.5 items-center gap-1.5 rounded-xl border text-xs font-bold transition-transform ${
-                                stage >= 1
-                                  ? "border-sys-status-warnBg/60 bg-sys-status-warnBg/25 text-sys-status-warnText ring-2 ring-sys-status-warnBg/30 scale-95"
-                                  : "border-sys-status-warnBg/40 bg-sys-status-warnBg/15 text-sys-status-warnText"
-                              }`}
-                            >
-                              <span>🔒</span>
-                              <span>Meet</span>
-                            </span>
-                          </div>
-                          <div>
-                            <div className="text-sm font-bold text-sys-text-subject">Вища математика</div>
-                            <div className="flex items-center gap-1.5 text-xs text-sys-text-secondary mt-1">
-                              <UserSvg />
-                              <span>Іваненко О.М.</span>
-                            </div>
-                          </div>
-                          <div className="flex items-center justify-between rounded-xl border border-dashed border-sys-border bg-sys-bg/60 px-3 py-2 text-[11px] text-sys-text-muted">
-                            <span>🔒 Дзвінок і завдання приховані</span>
-                            <span className="font-bold text-sys-accent">Натисніть 🔒 Meet →</span>
-                          </div>
+                    <div className="rounded-2xl border border-sys-border bg-sys-card p-4 shadow-sm space-y-2.5">
+                      {/* Row 1: Number + Time on left, Locked/Unlocked Meet on right */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-base font-black text-sys-text-primary leading-none">1</span>
+                          <span className="text-sys-text-muted font-bold text-xs">·</span>
+                          <span className="text-xs font-semibold text-sys-text-secondary">09:00–10:20</span>
                         </div>
-                      )}
 
-                      {activePhaseIdx === 1 && (
-                        <div className="rounded-2xl border border-sys-accent/45 bg-sys-card p-3.5 shadow-md space-y-2.5 animate-in fade-in duration-150">
-                          <div className="flex items-center justify-between border-b border-sys-border/60 pb-2">
-                            <span className="text-xs font-bold text-sys-text-primary">
-                              Оберіть корпоративний акаунт @kre.dp.ua
-                            </span>
-                            <span className="rounded-md border border-sys-status-okBg/35 bg-sys-status-okBg/15 px-1.5 py-0.5 text-[10px] font-bold text-sys-status-okText">
-                              Без галочок • Лише читання
-                            </span>
-                          </div>
-
-                          <div
-                            className={`flex items-center justify-between rounded-xl border px-3 py-2 transition-colors ${
-                              stage === 4
-                                ? "border-sys-accent bg-sys-accent/20"
-                                : "border-sys-accent/50 bg-sys-accent/10"
+                        {stage < 3 ? (
+                          <span
+                            className={`inline-flex h-8 px-2.5 items-center gap-1.5 rounded-lg border border-sys-status-warnBg/40 bg-sys-status-warnBg/15 text-sys-status-warnText text-xs font-bold transition-transform ${
+                              stage === 2 ? "scale-95" : ""
                             }`}
                           >
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sys-accentSolid text-white font-bold text-xs">
-                                С
-                              </span>
-                              <div className="min-w-0">
-                                <p className="text-xs font-bold text-sys-text-primary truncate">Студент Коледжу</p>
-                                <p className="text-[11px] font-semibold text-sys-accent truncate">student@kre.dp.ua</p>
-                              </div>
-                            </div>
-                            <span className="rounded-lg bg-sys-accent px-2.5 py-1 text-[11px] font-bold text-white shrink-0">
-                              Продовжити →
-                            </span>
-                          </div>
+                            <span>🔒</span>
+                            <span>Meet</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex h-8 px-2.5 items-center gap-1.5 rounded-lg border border-sys-status-okBg/50 bg-sys-status-okBg/15 text-sys-status-okText text-xs font-bold shadow-xs animate-in fade-in duration-150">
+                            <PlatformSvg platform="meet" />
+                            <span>Meet</span>
+                            <span className="opacity-75">↗</span>
+                          </span>
+                        )}
+                      </div>
 
-                          <div className="flex items-center justify-between text-[11px] text-sys-text-secondary px-1">
-                            <span>✓ Авто-визначення групи 85</span>
-                            <span>✓ Посилання Meet/Zoom</span>
-                            <span>✓ ДЗ і оцінки</span>
-                          </div>
+                      {/* Row 2 & 3: Subject + Teacher */}
+                      <div>
+                        <div className="text-base font-semibold text-sys-text-subject leading-snug">
+                          Вища математика
                         </div>
-                      )}
+                        <div className="flex items-center gap-1.5 text-xs text-sys-text-secondary mt-1">
+                          <UserSvg />
+                          <span>Іваненко О.М.</span>
+                        </div>
+                      </div>
 
-                      {activePhaseIdx === 2 && (
-                        <div className="rounded-2xl border border-sys-border bg-sys-card p-3 shadow-sm space-y-2 animate-in fade-in duration-150">
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-base font-black text-sys-text-primary leading-none">1</span>
-                              <span className="text-sys-text-muted font-bold text-xs">·</span>
-                              <span className="text-xs font-semibold text-sys-text-secondary">09:00–10:20</span>
-                              <span className="rounded-md border border-sys-status-okBg/35 bg-sys-status-okBg/15 px-1.5 py-0.5 text-[10px] font-bold text-sys-status-okText">
-                                ✓ ПК ↔ Телефон
-                              </span>
-                            </div>
-
-                            <span className="inline-flex h-7 px-2.5 items-center gap-1.5 rounded-lg border border-sys-status-okBg/45 bg-sys-status-okBg/15 text-sys-status-okText text-xs font-bold shadow-2xs">
-                              <PlatformSvg platform="meet" />
-                              <span>Meet ↗</span>
+                      {/* Row 4: Exact Homework Strip from LessonCard.tsx */}
+                      {stage >= 3 && (
+                        <div
+                          className="flex items-center justify-between rounded-xl bg-sys-bg/60 border border-sys-border px-3.5 py-2.5 text-xs animate-in fade-in duration-150"
+                          style={{ boxShadow: "inset 3px 0 0 #8b5cf6" }}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <ClipboardSvg />
+                            <span className="font-semibold text-sys-text-primary truncate">
+                              Практична робота №5
                             </span>
                           </div>
-
-                          <div className="text-sm font-bold text-sys-text-subject leading-tight">
-                            Вища математика · <span className="text-xs font-medium text-sys-text-secondary">Іваненко О.М.</span>
-                          </div>
-
-                          <div className="flex items-center justify-between rounded-xl bg-sys-bg/80 border border-sys-status-denomBg/40 px-3 py-1.5 text-xs">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <ClipboardSvg />
-                              <span className="font-semibold text-sys-text-primary truncate">
-                                Практична робота №5
-                              </span>
-                            </div>
-                            <span className="text-sys-status-denomText font-bold shrink-0 ml-2">
-                              до 15 лист. ↗
-                            </span>
-                          </div>
-
-                          <div className="flex items-center justify-between text-[10px] font-semibold text-sys-status-okText px-1">
-                            <span>✓ Дзвінки відкрито</span>
-                            <span>✓ ДЗ прикріплено до пар</span>
-                            <span>✓ Фонове оновлення 10 хв</span>
+                          <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                            <span className="h-1.5 w-1.5 rounded-full bg-sys-status-denomBg" />
+                            <span className="text-sys-status-denomText font-medium">до 15 лист.</span>
+                            <span className="text-sys-text-muted ml-0.5">↗</span>
                           </div>
                         </div>
                       )}
                     </div>
-                  )}
+                  </div>
+                )}
 
-                  {/* =====================================================
-                      СТУДЕНТ 1: ФІЛЬТР ПІДГРУПИ (3 ПОВНІ ФАЗИ)
-                     ===================================================== */}
-                  {role === "student" && safeIdx === 1 && (
-                    <div className="relative w-full max-w-[420px] mx-auto">
-                      <DemoCursor
-                        x={stage === 0 ? "65%" : stage <= 2 ? "18%" : stage <= 4 ? "78%" : "85%"}
-                        y={stage === 0 ? "82%" : stage <= 2 ? "52%" : stage <= 4 ? "24%" : "78%"}
-                        clicking={isClicking}
-                        hidden={isCursorHidden}
-                      />
+                {/* =====================================================
+                    СТУДЕНТ 1: ПІДГРУПИ (Точна копія двовикладацької LessonCard)
+                   ===================================================== */}
+                {role === "student" && safeIdx === 1 && (
+                  <div className="relative w-full max-w-[400px] mx-auto">
+                    <DemoCursor
+                      x={stage === 0 ? "62%" : stage <= 2 ? "18%" : "78%"}
+                      y={stage === 0 ? "82%" : stage <= 2 ? "56%" : "24%"}
+                      clicking={stage === 2}
+                      hidden={isCursorHidden}
+                    />
 
-                      <div className="rounded-2xl border border-sys-border bg-sys-card p-3.5 shadow-sm space-y-2">
+                    <div className="rounded-2xl border border-sys-border bg-sys-card p-4 shadow-sm space-y-2.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-base font-black text-sys-text-primary leading-none">2</span>
+                          <span className="text-sys-text-muted font-bold text-xs">·</span>
+                          <span className="text-xs font-semibold text-sys-text-secondary">10:40–12:00</span>
+                        </div>
+                        {stage >= 3 && (
+                          <span className="inline-flex h-8 px-2.5 items-center gap-1.5 rounded-lg border border-sys-status-okBg/50 bg-sys-status-okBg/15 text-sys-status-okText text-xs font-bold animate-in fade-in duration-150">
+                            <PlatformSvg platform="meet" />
+                            <span>Meet</span>
+                            <span className="opacity-75">↗</span>
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="text-base font-semibold text-sys-text-subject leading-snug">
+                        Іноземна мова (за проф. спрямуванням)
+                      </div>
+
+                      {/* Subgroup 1 Row */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span
+                            className={`inline-flex shrink-0 items-center gap-1.5 h-6 px-2 rounded-md border text-xs font-semibold transition-colors ${
+                              stage >= 3
+                                ? "border-sys-accent/35 bg-sys-accent/15 text-sys-accent"
+                                : stage >= 1
+                                ? "border-sys-accent/50 bg-sys-accent/10 text-sys-text-primary"
+                                : "bg-sys-bg/80 border-sys-border text-sys-text-secondary"
+                            }`}
+                          >
+                            <span className={`h-1.5 w-1.5 rounded-full ${stage >= 3 ? "bg-sys-accent" : "bg-sys-text-muted/60"}`} />
+                            <span>1 підгр.</span>
+                          </span>
+                          <UserSvg />
+                          <span className="text-xs font-medium text-sys-text-secondary truncate">
+                            Токарєва О.В.
+                          </span>
+                        </div>
+
+                        {stage < 3 && (
+                          <span className="inline-flex h-7 px-2.5 items-center gap-1.5 rounded-lg border border-sys-status-okBg/50 bg-sys-status-okBg/15 text-sys-status-okText text-xs font-semibold">
+                            <PlatformSvg platform="meet" />
+                            <span>Meet ↗</span>
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Subgroup 2 Row (зникає після кліку по «1 підгр.») */}
+                      {stage < 3 && (
                         <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="inline-flex shrink-0 items-center gap-1.5 h-6 px-2 rounded-md border border-sys-border bg-sys-bg/80 text-xs font-semibold text-sys-text-secondary">
+                              <span className="h-1.5 w-1.5 rounded-full bg-sys-text-muted/60" />
+                              <span>2 підгр.</span>
+                            </span>
+                            <UserSvg />
+                            <span className="text-xs font-medium text-sys-text-secondary truncate">
+                              Хочинська О.С.
+                            </span>
+                          </div>
+                          <span className="shrink-0 rounded-md border border-sys-border bg-sys-bg px-2 py-1 text-xs font-semibold leading-none text-sys-text-secondary">
+                            ауд. 204
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* =====================================================
+                    СТУДЕНТ 2: ZOOM ТА АВТОКОПІЮВАННЯ ПАРОЛЯ (Точна копія LessonCard + ToastProvider)
+                   ===================================================== */}
+                {role === "student" && safeIdx === 2 && (
+                  <div className="relative w-full max-w-[400px] mx-auto space-y-2.5">
+                    <DemoCursor
+                      x={stage === 0 ? "35%" : stage <= 2 ? "84%" : "86%"}
+                      y={stage === 0 ? "76%" : stage <= 2 ? "26%" : "72%"}
+                      clicking={stage === 2}
+                      hidden={isCursorHidden}
+                    />
+
+                    <div className="rounded-2xl border border-sys-border bg-sys-card p-4 shadow-sm space-y-2.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-base font-black text-sys-text-primary leading-none">3</span>
+                          <span className="text-sys-text-muted font-bold text-xs">·</span>
+                          <span className="text-xs font-semibold text-sys-text-secondary">12:30–13:50</span>
+                        </div>
+
+                        {/* Точна кнопка Zoom із LessonCard.tsx */}
+                        <span
+                          className={`inline-flex h-8 px-2.5 items-center gap-1.5 rounded-lg border border-sys-status-infoBg/50 bg-sys-status-infoBg/15 text-sys-status-infoText text-xs font-bold shadow-xs transition-transform ${
+                            stage === 2 ? "scale-95" : ""
+                          }`}
+                        >
+                          <PlatformSvg platform="zoom" />
+                          <span>Zoom</span>
+                          <span className="opacity-75">↗</span>
+                        </span>
+                      </div>
+
+                      <div>
+                        <div className="text-base font-semibold text-sys-text-subject leading-snug">
+                          Електроніка та мікросхемотехніка
+                        </div>
+                        <div className="flex items-center gap-1.5 text-xs text-sys-text-secondary mt-1">
+                          <UserSvg />
+                          <span>Філімончук А.В.</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Точна копія спливаючого повідомлення з ToastProvider.tsx */}
+                    {stage >= 3 && (
+                      <div className="flex items-center gap-2 rounded-[8px] border border-sys-status-okBg/40 bg-sys-card px-3.5 py-2.5 text-xs font-semibold text-sys-status-okText shadow-lg animate-in fade-in duration-150">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                          <path d="M5 12l5 5l10 -10" />
+                        </svg>
+                        <span>Код доступу Zoom (dfkr) скопійовано!</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* =====================================================
+                    СТУДЕНТ 3: ЗАВДАННЯ (Точна копія TasksTodoBoard + TaskCardItem)
+                   ===================================================== */}
+                {role === "student" && safeIdx === 3 && (
+                  <div className="relative w-full max-w-[400px] mx-auto space-y-2">
+                    <DemoCursor
+                      x={stage === 0 ? "18%" : stage <= 2 ? "50%" : "82%"}
+                      y={stage === 0 ? "16%" : stage <= 2 ? "16%" : "68%"}
+                      clicking={stage === 2}
+                      hidden={isCursorHidden}
+                    />
+
+                    {/* Точні 3 вкладки з MobileTasksView.tsx */}
+                    <div className="relative grid grid-cols-3 rounded-xl border border-sys-border bg-sys-card p-1 text-xs font-semibold isolate">
+                      <div
+                        className="absolute top-1 bottom-1 transition-transform duration-150 ease-out transform-gpu z-0"
+                        style={{
+                          left: "4px",
+                          width: "calc((100% - 8px) / 3)",
+                          transform: `translate3d(${stage >= 3 ? "100%" : "0%"}, 0, 0)`,
+                        }}
+                      >
+                        <div className={`h-full w-full rounded-lg shadow-xs ${stage >= 3 ? "bg-sys-destructive" : "bg-sys-accentSolid"}`} />
+                      </div>
+
+                      <div className={`relative z-10 flex items-center justify-center gap-1 py-1.5 ${stage < 3 ? "text-white font-bold" : "text-sys-text-secondary"}`}>
+                        <span>До здачі</span>
+                        <span className={`inline-flex h-4 min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold ${stage < 3 ? "bg-white/20 text-white" : "bg-sys-bg text-sys-text-secondary"}`}>
+                          3
+                        </span>
+                      </div>
+
+                      <div className={`relative z-10 flex items-center justify-center gap-1 py-1.5 ${stage >= 3 ? "text-white font-bold" : "text-sys-status-dangerText"}`}>
+                        <span>Борги</span>
+                        <span className={`inline-flex h-4 min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold ${stage >= 3 ? "bg-white/20 text-white" : "bg-sys-status-dangerBg/20 text-sys-status-dangerText"}`}>
+                          1
+                        </span>
+                      </div>
+
+                      <div className="relative z-10 flex items-center justify-center gap-1 py-1.5 text-sys-text-secondary">
+                        <span>Здано</span>
+                        <span className="inline-flex h-4 min-w-[18px] items-center justify-center rounded-full bg-sys-bg px-1 text-[10px] font-bold text-sys-text-secondary">
+                          14
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Точний селектор предметів із MobileTasksView.tsx */}
+                    <div className="flex items-center justify-between rounded-xl border border-sys-border bg-sys-card px-3 py-1.5 text-xs font-semibold text-sys-text-secondary">
+                      <div className="flex items-center gap-2">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-80">
+                          <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+                        </svg>
+                        <span>Усі предмети (6)</span>
+                      </div>
+                      <span>▾</span>
+                    </div>
+
+                    {/* Точна картка TaskCardItem.tsx */}
+                    {stage < 3 ? (
+                      <div
+                        className="rounded-xl bg-sys-card border border-sys-border p-3 shadow-xs space-y-1"
+                        style={{ boxShadow: "inset 3px 0 0 #f59e0b" }}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="text-xs font-semibold text-sys-text-primary">Лабораторна робота №4</span>
+                          <span className="text-xs text-sys-text-muted">↗</span>
+                        </div>
+                        <p className="text-[11px] text-sys-text-muted">Комп&apos;ютерна схемотехніка · Іваненко О.М.</p>
+                        <div className="flex items-center gap-1.5 text-xs font-medium text-sys-status-warnText pt-0.5">
+                          <span className="h-1.5 w-1.5 rounded-full bg-sys-status-warnBg" />
+                          <span>Завтра</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        className="rounded-xl bg-sys-card border border-sys-border p-3 shadow-xs space-y-1 animate-in fade-in duration-150"
+                        style={{ boxShadow: "inset 3px 0 0 #ef4444" }}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="text-xs font-semibold text-sys-text-primary">Практична робота №2</span>
+                          <span className="text-xs text-sys-text-muted">↗</span>
+                        </div>
+                        <p className="text-[11px] text-sys-text-muted">Вища математика · Петренко І.В.</p>
+                        <div className="flex items-center gap-1.5 text-xs font-medium text-sys-status-dangerText pt-0.5">
+                          <span className="h-1.5 w-1.5 rounded-full bg-sys-status-dangerBg" />
+                          <span>10 лист. · прострочено 2 дні</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* =====================================================
+                    СТУДЕНТ 4: ОЦІНКИ (Точна копія GradesView.tsx)
+                   ===================================================== */}
+                {role === "student" && safeIdx === 4 && (
+                  <div className="relative w-full max-w-[400px] mx-auto space-y-2">
+                    <DemoCursor
+                      x={stage === 0 ? "30%" : stage <= 2 ? "88%" : "88%"}
+                      y={stage === 0 ? "24%" : stage <= 2 ? "62%" : "78%"}
+                      clicking={stage === 2}
+                      hidden={isCursorHidden}
+                    />
+
+                    {/* Точна GPA Overview Card із GradesView.tsx */}
+                    <div className="rounded-2xl border border-sys-border bg-sys-card px-3.5 py-2.5 shadow-xs flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-sys-text-muted block">
+                          Середній бал
+                        </span>
+                        <div className="flex items-baseline gap-2.5 mt-0.5">
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-xl font-black text-sys-text-primary">4.75</span>
+                            <span className="text-xs font-semibold text-sys-text-secondary">/ 5.00</span>
+                          </div>
+                          <div className="flex items-baseline gap-1 pl-2.5 border-l border-sys-border/80">
+                            <span className="text-base font-bold text-sys-accent">11.0</span>
+                            <span className="text-xs font-semibold text-sys-text-secondary">/ 12 б.</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        <div className="rounded-lg border border-sys-status-okBg/30 bg-sys-status-okBg/10 px-2 py-1 text-center">
+                          <span className="text-[10px] font-bold text-sys-status-okText block">«5»</span>
+                          <span className="text-xs font-black text-sys-text-primary">8</span>
+                        </div>
+                        <div className="rounded-lg border border-sys-status-infoBg/30 bg-sys-status-infoBg/10 px-2 py-1 text-center">
+                          <span className="text-[10px] font-bold text-sys-status-infoText block">«4»</span>
+                          <span className="text-xs font-black text-sys-text-primary">3</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Точна картка предмета з GradesView.tsx */}
+                    <div className="rounded-2xl border border-sys-border bg-sys-card p-3 shadow-xs space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="text-xs font-bold text-sys-text-primary truncate">Вища математика</div>
+                          <div className="text-[11px] text-sys-text-muted">3 оцінки • 👨🏫 Іваненко О.М.</div>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <div className="text-right">
+                            <div className="text-xs font-black text-sys-text-primary leading-none">
+                              4.83 <span className="text-[10px] font-semibold text-sys-text-secondary">/ 5</span>
+                            </div>
+                            <div className="text-[10px] font-bold text-sys-accent mt-0.5">11.0 / 12 б.</div>
+                          </div>
+                          <span className="text-xs text-sys-text-muted">{stage >= 3 ? "▴" : "▾"}</span>
+                        </div>
+                      </div>
+
+                      {stage < 3 ? (
+                        <div className="flex items-center gap-1 pt-1.5 border-t border-sys-border/40">
+                          {["11 б.", "12 б.", "10 б."].map((mark) => (
+                            <span
+                              key={mark}
+                              className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-bold border border-sys-status-okBg/30 bg-sys-status-okBg/15 text-sys-status-okText"
+                            >
+                              {mark}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between rounded-xl border border-sys-border/60 bg-sys-bg/60 px-2.5 py-1.5 text-xs animate-in fade-in duration-150">
+                          <span className="font-semibold text-sys-text-primary">Контрольна робота №1</span>
+                          <span className="font-bold text-sys-text-primary">
+                            95<span className="text-[10px] text-sys-text-secondary">/100 б.</span>{" "}
+                            <span className="text-sys-status-okText">(5 за 5-б.)</span>
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* =====================================================
+                    СТУДЕНТ 5 (#7): ПЕРЕХІД ДО ВИКЛАДАЧА (Точна копія SchedulePageClient)
+                   ===================================================== */}
+                {role === "student" && safeIdx === 5 && (
+                  <div className="relative w-full max-w-[400px] mx-auto">
+                    <DemoCursor
+                      x={stage === 0 ? "70%" : stage <= 2 ? "26%" : "82%"}
+                      y={stage === 0 ? "28%" : stage <= 2 ? "74%" : "22%"}
+                      clicking={stage === 2}
+                      hidden={isCursorHidden}
+                    />
+
+                    {stage < 3 ? (
+                      <div className="rounded-2xl border border-sys-border bg-sys-card p-4 shadow-sm space-y-2.5">
+                        <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <span className="text-base font-black text-sys-text-primary leading-none">2</span>
                             <span className="text-sys-text-muted font-bold text-xs">·</span>
                             <span className="text-xs font-semibold text-sys-text-secondary">10:40–12:00</span>
                           </div>
-                          {activePhaseIdx >= 1 ? (
-                            <span className="inline-flex h-7 px-2.5 items-center gap-1.5 rounded-lg border border-sys-status-okBg/45 bg-sys-status-okBg/15 text-sys-status-okText text-xs font-bold">
-                              <PlatformSvg platform="meet" />
-                              <span>Meet ↗</span>
-                            </span>
-                          ) : (
-                            <span className="text-[11px] font-semibold text-sys-text-muted">
-                              Показано обидві підгрупи
-                            </span>
-                          )}
+                          <span className="inline-flex h-8 px-2.5 items-center rounded-lg border border-sys-border bg-sys-bg text-xs font-medium text-sys-text-secondary">
+                            ауд. 305
+                          </span>
                         </div>
 
-                        <div className="text-sm font-bold text-sys-text-subject leading-snug">
-                          Іноземна мова (за проф. спрямуванням)
+                        <div className="text-base font-semibold text-sys-text-subject">
+                          Комп&apos;ютерна схемотехніка
                         </div>
 
-                        {/* Рядок 1 підгрупи */}
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span
-                              className={`inline-flex shrink-0 items-center gap-1.5 h-6 px-2 rounded-md border text-xs font-bold transition-colors ${
-                                activePhaseIdx >= 1
-                                  ? "border-sys-accent/50 bg-sys-accent/15 text-sys-accent"
-                                  : stage >= 1
-                                  ? "border-sys-accent bg-sys-accent/10 text-sys-text-primary ring-2 ring-sys-accent/30"
-                                  : "bg-sys-bg border-sys-border text-sys-text-secondary"
-                              }`}
-                            >
-                              <span className={`h-1.5 w-1.5 rounded-full ${activePhaseIdx >= 1 ? "bg-sys-accent" : "bg-sys-text-muted"}`} />
-                              <span>1 підгр.</span>
-                            </span>
-                            <UserSvg />
-                            <span className="text-xs font-semibold text-sys-text-primary truncate">
-                              Токарєва О.В.
-                            </span>
-                          </div>
-
-                          {activePhaseIdx === 0 && (
-                            <span className="inline-flex h-6 px-2 items-center gap-1 rounded-md border border-sys-status-okBg/40 bg-sys-status-okBg/15 text-sys-status-okText text-[11px] font-bold">
-                              <PlatformSvg platform="meet" />
-                              <span>Meet ↗</span>
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Рядок 2 підгрупи (приховується після кліку) */}
-                        {activePhaseIdx === 0 ? (
-                          <div className="flex items-center justify-between gap-2 pt-0.5">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span className="inline-flex shrink-0 items-center gap-1.5 h-6 px-2 rounded-md border border-sys-border bg-sys-bg text-xs font-semibold text-sys-text-secondary">
-                                <span className="h-1.5 w-1.5 rounded-full bg-sys-text-muted" />
-                                <span>2 підгр.</span>
-                              </span>
-                              <UserSvg />
-                              <span className="text-xs font-medium text-sys-text-secondary truncate">
-                                Хочинська О.С.
-                              </span>
-                            </div>
-                            <span className="shrink-0 rounded-md border border-sys-border bg-sys-bg px-2 py-0.5 text-[11px] font-semibold text-sys-text-secondary">
-                              🚪 ауд. 204
-                            </span>
-                          </div>
-                        ) : activePhaseIdx === 1 ? (
-                          <div className="rounded-xl border border-sys-status-denomBg/40 bg-sys-bg/80 px-3 py-1.5 flex items-center justify-between text-xs animate-in fade-in duration-150">
-                            <span className="font-semibold text-sys-text-primary truncate">
-                              📋 ДЗ (1 підгр.): Тест Grammar Unit 4
-                            </span>
-                            <span className="font-bold text-sys-status-denomText shrink-0 ml-2">до 14 лист. ↗</span>
-                          </div>
-                        ) : (
-                          <div className="space-y-1.5 animate-in fade-in duration-150">
-                            <div className="rounded-xl border border-sys-status-denomBg/40 bg-sys-bg/80 px-3 py-1.5 flex items-center justify-between text-xs">
-                              <span className="font-semibold text-sys-text-primary truncate">
-                                📋 ДЗ (1 підгр.): Тест Grammar Unit 4
-                              </span>
-                              <span className="font-bold text-sys-status-denomText shrink-0 ml-2">до 14 лист. ↗</span>
-                            </div>
-                            <div className="flex items-center justify-between text-[10px] font-semibold text-sys-status-okText px-1">
-                              <span>✓ Чужу підгрупу та її ДЗ приховано</span>
-                              <span>✓ Клік по бейджу повертає «Обидві»</span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* =====================================================
-                      СТУДЕНТ 2: АВТО-КОД ZOOM ТА КОПІЮВАННЯ ПАРОЛЯ (3 ФАЗИ)
-                     ===================================================== */}
-                  {role === "student" && safeIdx === 2 && (
-                    <div className="relative w-full max-w-[420px] mx-auto">
-                      <DemoCursor
-                        x={stage === 0 ? "32%" : stage <= 2 ? "76%" : stage <= 4 ? "76%" : "85%"}
-                        y={stage === 0 ? "76%" : stage <= 2 ? "34%" : stage <= 4 ? "34%" : "78%"}
-                        clicking={isClicking}
-                        hidden={isCursorHidden}
-                      />
-
-                      {activePhaseIdx === 0 && (
-                        <div className="rounded-2xl border border-sys-border bg-sys-card p-3.5 shadow-sm space-y-2 animate-in fade-in duration-150">
-                          <div className="text-[11px] font-bold text-sys-text-secondary">
-                            Оголошення викладача в Google Classroom:
-                          </div>
-                          <div className="rounded-xl border border-sys-border bg-sys-bg p-2.5 text-xs font-mono text-sys-text-primary space-y-0.5">
-                            <div>Шановні студенти, пара у Zoom:</div>
-                            <div className="text-sys-accent font-bold">
-                              Ідентифікатор: 842 190 4411 • Код доступу: dfkr26
-                            </div>
-                          </div>
-                          <div className="flex items-center justify-between text-[11px] font-semibold text-sys-status-okText px-1">
-                            <span>↓ Система сама перетворює текст на кнопку з паролем</span>
-                          </div>
-                        </div>
-                      )}
-
-                      {activePhaseIdx === 1 && (
-                        <div className="rounded-2xl border border-sys-border bg-sys-card p-3.5 shadow-sm space-y-2.5 animate-in fade-in duration-150">
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2">
-                              <span className="text-base font-black text-sys-text-primary leading-none">3</span>
-                              <span className="text-sys-text-muted font-bold text-xs">·</span>
-                              <span className="text-xs font-semibold text-sys-text-secondary">12:30–13:50</span>
-                              <span className="rounded-full border border-sys-status-okBg/40 bg-sys-status-okBg/15 px-2 py-0.5 text-[10px] font-bold text-sys-status-okText">
-                                ● Жива пара
-                              </span>
-                            </div>
-
-                            <span
-                              className={`inline-flex h-8 px-2.5 items-center gap-1.5 rounded-xl border text-xs font-bold transition-transform ${
-                                stage === 4
-                                  ? "border-sys-status-infoBg bg-sys-status-infoBg/25 text-sys-status-infoText scale-95 ring-2 ring-sys-status-infoBg/35"
-                                  : "border-sys-status-infoBg/50 bg-sys-status-infoBg/15 text-sys-status-infoText"
-                              }`}
-                            >
-                              <PlatformSvg platform="zoom" />
-                              <span>Zoom · код: dfkr26 ↗</span>
-                            </span>
-                          </div>
-
-                          <div>
-                            <div className="text-sm font-bold text-sys-text-subject">
-                              Електроніка та мікросхемотехніка
-                            </div>
-                            <div className="flex items-center gap-1.5 text-xs text-sys-text-secondary mt-1">
-                              <UserSvg />
-                              <span>Філімончук А.В.</span>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {activePhaseIdx === 2 && (
-                        <div className="space-y-2 animate-in fade-in duration-150">
-                          <div className="flex items-center justify-center gap-2 rounded-xl border border-sys-status-okBg/45 bg-sys-status-okBg/15 px-3 py-2 text-xs font-bold text-sys-status-okText shadow-2xs">
-                            <span>✓</span>
-                            <span>Код доступу Zoom (dfkr26) автоматично скопійовано!</span>
-                          </div>
-
-                          <div className="rounded-2xl border border-sys-border bg-sys-card p-3 flex items-center justify-between gap-3 text-xs">
-                            <div className="space-y-0.5 min-w-0">
-                              <div className="font-bold text-sys-text-primary">
-                                Додаток Zoom відкривається автоматично
-                              </div>
-                              <div className="text-[11px] text-sys-text-secondary">
-                                Пароль <strong className="text-sys-accent">dfkr26</strong> вже у вашому буфері обміну — просто натисніть «Вставити»
-                              </div>
-                            </div>
-                            <span className="shrink-0 rounded-xl bg-sys-accent px-3 py-1.5 text-[11px] font-bold text-white">
-                              Вставити ✓
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* =====================================================
-                      СТУДЕНТ 3: ЄДИНИЙ СПИСОК ЗАВДАНЬ (3 ФАЗИ)
-                     ===================================================== */}
-                  {role === "student" && safeIdx === 3 && (
-                    <div className="relative w-full max-w-[420px] mx-auto space-y-2">
-                      <DemoCursor
-                        x={stage === 0 ? "18%" : stage <= 2 ? "50%" : stage <= 4 ? "75%" : "85%"}
-                        y={stage === 0 ? "18%" : stage <= 2 ? "18%" : stage <= 4 ? "46%" : "78%"}
-                        clicking={isClicking}
-                        hidden={isCursorHidden}
-                      />
-
-                      {/* Перемикач: До здачі | Борги | Здано */}
-                      <div className="relative grid grid-cols-3 rounded-xl border border-sys-border bg-sys-card p-1 text-xs font-semibold isolate">
-                        <div
-                          className="absolute top-1 bottom-1 transition-transform duration-200 ease-out transform-gpu z-0"
-                          style={{
-                            left: "4px",
-                            width: "calc((100% - 8px) / 3)",
-                            transform: `translate3d(${activePhaseIdx >= 1 ? "100%" : "0%"}, 0, 0)`,
-                          }}
-                        >
-                          <div
-                            className={`h-full w-full rounded-lg shadow-2xs ${
-                              activePhaseIdx >= 1 ? "bg-sys-destructive" : "bg-sys-accentSolid"
+                        <div className="flex items-center gap-1.5 text-xs">
+                          <UserSvg />
+                          <span
+                            className={`font-medium transition-colors ${
+                              stage >= 1 ? "text-sys-accent underline underline-offset-2" : "text-sys-text-secondary"
                             }`}
-                          />
-                        </div>
-                        <div className={`relative z-10 text-center py-1 ${activePhaseIdx === 0 ? "text-white font-bold" : "text-sys-text-secondary"}`}>
-                          До здачі 3
-                        </div>
-                        <div className={`relative z-10 text-center py-1 ${activePhaseIdx >= 1 ? "text-white font-bold" : "text-sys-status-dangerText"}`}>
-                          Борги 1
-                        </div>
-                        <div className="relative z-10 text-center py-1 text-sys-text-secondary">
-                          Здано 14
+                          >
+                            Іваненко О.М.
+                          </span>
                         </div>
                       </div>
+                    ) : (
+                      <div className="space-y-2.5 animate-in fade-in duration-150">
+                        {/* Точний банер повернення з SchedulePageClient.tsx (рядок 2175) */}
+                        <div className="flex items-center justify-between rounded-xl border border-sys-accent/30 bg-sys-accent/10 px-3 py-2 text-xs">
+                          <span className="text-sys-text-secondary truncate mr-2">
+                            Розклад: <strong className="text-sys-text-primary">Іваненко О.М.</strong>
+                          </span>
+                          <span className="shrink-0 rounded-lg bg-sys-accent px-2.5 py-1 text-xs font-semibold text-white">
+                            ← До 85
+                          </span>
+                        </div>
 
-                      {/* Фільтр за предметом */}
-                      <div
-                        className={`flex items-center justify-between rounded-xl border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                          activePhaseIdx === 2
-                            ? "border-sys-accent/50 bg-sys-accent/10 text-sys-accent"
-                            : "border-sys-border bg-sys-card text-sys-text-secondary"
-                        }`}
-                      >
-                        <span>
-                          {activePhaseIdx === 2 ? "Фільтр: Вища математика ✓" : "Усі предмети (6 дисциплін)"}
-                        </span>
-                        <span>▾</span>
-                      </div>
-
-                      {/* Картка завдання відповідно до фази */}
-                      {activePhaseIdx === 0 ? (
-                        <div className="rounded-xl bg-sys-card border border-sys-status-warnBg/45 p-2.5 shadow-2xs space-y-1">
-                          <div className="flex items-center justify-between text-xs font-bold text-sys-text-primary">
-                            <span>Лабораторна робота №4</span>
-                            <span className="text-sys-status-warnText">Завтра ↗</span>
+                        <div className="rounded-2xl border border-sys-border bg-sys-card p-3.5 shadow-sm space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-semibold text-sys-text-secondary">2 · 10:40–12:00</span>
+                            <span className="rounded-lg border border-sys-border bg-sys-bg px-2.5 py-1 text-xs font-medium text-sys-text-secondary">
+                              ауд. 305
+                            </span>
                           </div>
-                          <p className="text-[11px] text-sys-text-secondary">
-                            Комп&apos;ютерна схемотехніка · Іваненко О.М.
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="rounded-xl bg-sys-card border border-sys-status-dangerBg/45 p-2.5 shadow-2xs space-y-1 animate-in fade-in duration-150">
-                          <div className="flex items-center justify-between text-xs font-bold text-sys-text-primary">
-                            <span>Практична робота №2 (з минулого місяця)</span>
-                            <span className="text-sys-status-dangerText">Борг · 4 дні ↗</span>
+                          <div className="text-sm font-semibold text-sys-text-subject">Комп&apos;ютерна схемотехніка</div>
+                          <div className="flex items-center gap-1.5 text-xs text-sys-text-secondary">
+                            <UserSvg />
+                            <span className="text-sys-text-muted">Група:</span>
+                            <span className="font-medium text-sys-text-secondary">85</span>
                           </div>
-                          <div className="flex items-center justify-between text-[11px] text-sys-text-secondary">
-                            <span>Вища математика · Петренко І.В.</span>
-                            {activePhaseIdx === 2 && (
-                              <span className="font-bold text-sys-status-okText">✓ Відкривається в Classroom</span>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* =====================================================
-                      СТУДЕНТ 4: ОЦІНКИ ТА СЕРЕДНІЙ БАЛ (3 ФАЗИ)
-                     ===================================================== */}
-                  {role === "student" && safeIdx === 4 && (
-                    <div className="relative w-full max-w-[420px] mx-auto space-y-2">
-                      <DemoCursor
-                        x={stage === 0 ? "24%" : stage <= 2 ? "74%" : stage <= 4 ? "62%" : "86%"}
-                        y={stage === 0 ? "18%" : stage <= 2 ? "18%" : stage <= 4 ? "54%" : "78%"}
-                        clicking={isClicking}
-                        hidden={isCursorHidden}
-                      />
-
-                      <div className="relative grid grid-cols-2 rounded-xl border border-sys-border bg-sys-card p-1 text-xs font-semibold isolate">
-                        <div
-                          className="absolute top-1 bottom-1 transition-transform duration-200 ease-out transform-gpu z-0"
-                          style={{
-                            left: "4px",
-                            width: "calc((100% - 8px) / 2)",
-                            transform: `translate3d(${activePhaseIdx >= 1 ? "100%" : "0%"}, 0, 0)`,
-                          }}
-                        >
-                          <div className="h-full w-full rounded-lg bg-sys-accentSolid shadow-2xs" />
-                        </div>
-                        <div className={`relative z-10 text-center py-1 ${activePhaseIdx === 0 ? "text-white font-bold" : "text-sys-text-secondary"}`}>
-                          📋 Завдання
-                        </div>
-                        <div className={`relative z-10 text-center py-1 ${activePhaseIdx >= 1 ? "text-white font-bold" : "text-sys-text-secondary"}`}>
-                          📊 Оцінки (GPA)
                         </div>
                       </div>
+                    )}
+                  </div>
+                )}
 
-                      <div className="rounded-2xl border border-sys-border bg-sys-card p-3 shadow-sm space-y-2">
+                {/* =====================================================
+                    ВИКЛАДАЧ 0 (#1): PIN-ДОСТУП (Точна копія TeacherPinModal.tsx)
+                   ===================================================== */}
+                {role === "teacher" && safeIdx === 0 && (
+                  <div className="relative w-full max-w-[400px] mx-auto">
+                    <DemoCursor
+                      x={stage === 0 ? "35%" : stage <= 2 ? "74%" : "84%"}
+                      y={stage === 0 ? "25%" : stage <= 2 ? "80%" : "26%"}
+                      clicking={stage === 2}
+                      hidden={isCursorHidden}
+                    />
+
+                    {stage < 3 ? (
+                      /* Точний макет TeacherPinModal.tsx */
+                      <div className="rounded-2xl border border-sys-border bg-sys-card p-4 shadow-lg space-y-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-xl flex items-center justify-center border border-sys-status-infoBg/30 bg-sys-status-infoBg/15 text-sys-status-infoText shrink-0">
+                            🔒
+                          </div>
+                          <div>
+                            <div className="text-xs font-bold text-sys-text-primary">Вхід для викладача</div>
+                            <div className="text-[11px] text-sys-text-secondary">PIN-код для доступу до посилань</div>
+                          </div>
+                        </div>
+
+                        <div className="h-9 px-3 rounded-xl border border-sys-accent bg-sys-bg flex items-center text-xs font-mono tracking-widest text-sys-text-primary">
+                          {stage >= 1 ? "••••••" : "•••"}
+                        </div>
+
+                        <div className="flex gap-2">
+                          <span className="flex-1 h-8 rounded-xl border border-sys-border bg-sys-bg text-xs font-semibold text-sys-text-secondary flex items-center justify-center">
+                            Скасувати
+                          </span>
+                          <span
+                            className={`flex-1 h-8 rounded-xl bg-sys-accent text-white text-xs font-bold flex items-center justify-center transition-transform ${
+                              stage === 2 ? "scale-95" : ""
+                            }`}
+                          >
+                            Розблокувати
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      /* Розблокована картка пари викладача */
+                      <div className="rounded-2xl border border-sys-border bg-sys-card p-4 shadow-sm space-y-2.5 animate-in fade-in duration-150">
                         <div className="flex items-center justify-between gap-2">
-                          <div className="min-w-0">
-                            <div className="text-sm font-bold text-sys-text-primary truncate">
-                              Вища математика
-                            </div>
-                            <div className="text-[11px] text-sys-text-secondary">
-                              Оцінено робіт: 6 • Авто-перерахунок 100 → 12 б.
-                            </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-base font-black text-sys-text-primary leading-none">1</span>
+                            <span className="text-sys-text-muted font-bold text-xs">·</span>
+                            <span className="text-xs font-semibold text-sys-text-secondary">09:00–10:20</span>
                           </div>
-
-                          <div className="shrink-0 rounded-xl border border-sys-status-okBg/45 bg-sys-status-okBg/15 px-3 py-1 text-right">
-                            <div className="text-[10px] font-bold uppercase text-sys-status-okText">
-                              Середній
-                            </div>
-                            <div className="text-base font-black leading-none text-sys-status-okText mt-0.5">
-                              11.0
-                            </div>
-                          </div>
+                          <span className="inline-flex h-8 px-2.5 items-center gap-1.5 rounded-lg border border-sys-status-infoBg/50 bg-sys-status-infoBg/15 text-sys-status-infoText text-xs font-bold shadow-xs">
+                            <PlatformSvg platform="zoom" />
+                            <span>Zoom</span>
+                            <span className="opacity-75">↗</span>
+                          </span>
                         </div>
-
-                        {activePhaseIdx < 2 ? (
-                          <div className="flex items-center justify-between rounded-lg bg-sys-bg px-2.5 py-1.5 text-xs border border-sys-border">
-                            <span className="font-medium text-sys-text-secondary">
-                              Натисніть на предмет, щоб розгорнути всі оцінки
-                            </span>
-                            <span className="font-bold text-sys-accent">Розгорнути ▾</span>
-                          </div>
-                        ) : (
-                          <div className="space-y-1 pt-1 border-t border-sys-border/60 text-xs animate-in fade-in duration-150">
-                            <div className="flex items-center justify-between rounded-lg bg-sys-bg px-2.5 py-1">
-                              <span className="font-medium text-sys-text-primary">Контрольна робота №1</span>
-                              <span className="font-bold text-sys-status-okText">95/100 → 11 б. ↗</span>
-                            </div>
-                            <div className="flex items-center justify-between rounded-lg bg-sys-bg px-2.5 py-1">
-                              <span className="font-medium text-sys-text-primary">Практична робота №4</span>
-                              <span className="font-bold text-sys-status-okText">92/100 → 11 б. ↗</span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* =====================================================
-                      СТУДЕНТ 5 (#7): ПЕРЕХІД У РОЗКЛАД ВИКЛАДАЧА (3 ФАЗИ)
-                     ===================================================== */}
-                  {role === "student" && safeIdx === 5 && (
-                    <div className="relative w-full max-w-[420px] mx-auto">
-                      <DemoCursor
-                        x={stage === 0 ? "72%" : stage <= 2 ? "28%" : stage <= 4 ? "82%" : "86%"}
-                        y={stage === 0 ? "28%" : stage <= 2 ? "74%" : stage <= 4 ? "22%" : "78%"}
-                        clicking={isClicking}
-                        hidden={isCursorHidden}
-                      />
-
-                      {activePhaseIdx === 0 && (
-                        <div className="rounded-2xl border border-sys-border bg-sys-card p-3.5 shadow-sm space-y-2.5 animate-in fade-in duration-150">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <span className="text-base font-black text-sys-text-primary leading-none">2</span>
-                              <span className="text-sys-text-muted font-bold text-xs">·</span>
-                              <span className="text-xs font-semibold text-sys-text-secondary">10:40–12:00</span>
-                            </div>
-                            <span className="rounded-lg border border-sys-border bg-sys-bg px-2.5 py-1 text-xs font-semibold text-sys-text-secondary">
-                              🚪 ауд. 305
-                            </span>
-                          </div>
-
-                          <div className="text-sm font-bold text-sys-text-subject">
-                            Комп&apos;ютерна схемотехніка
-                          </div>
-
-                          <div className="flex items-center justify-between gap-2 text-xs">
-                            <div className="flex items-center gap-1.5">
-                              <UserSvg />
-                              <span
-                                className={`font-bold rounded-md px-2 py-0.5 transition-colors ${
-                                  stage >= 1
-                                    ? "bg-sys-accent/20 text-sys-accent ring-1 ring-sys-accent/50 underline underline-offset-2"
-                                    : "text-sys-text-primary"
-                                }`}
-                              >
-                                Іваненко О.М.
-                              </span>
-                            </div>
-                            <span className="text-[11px] text-sys-text-muted">Клік по прізвищу →</span>
-                          </div>
+                        <div className="text-base font-semibold text-sys-text-subject">
+                          Комп&apos;ютерна схемотехніка
                         </div>
-                      )}
-
-                      {activePhaseIdx === 1 && (
-                        <div className="space-y-2 animate-in fade-in duration-150">
-                          <div className="flex items-center justify-between rounded-xl border border-sys-accent/40 bg-sys-accent/10 px-3 py-2 text-xs">
-                            <span className="text-sys-text-secondary truncate mr-2">
-                              Викладач: <strong className="text-sys-text-primary">Іваненко О.М.</strong>
-                            </span>
-                            <span
-                              className={`shrink-0 rounded-lg bg-sys-accent px-2.5 py-1 text-[11px] font-bold text-white transition-transform ${
-                                stage === 4 ? "scale-95 ring-2 ring-sys-accent/50" : ""
-                              }`}
-                            >
-                              ← До групи 85
-                            </span>
-                          </div>
-
-                          <div className="rounded-xl border border-sys-border bg-sys-card p-3 space-y-1.5 text-xs">
-                            <div className="flex justify-between">
-                              <span className="font-semibold text-sys-text-secondary">1 пара (09:00) • Група 79</span>
-                              <span className="font-bold text-sys-text-primary">ауд. 305</span>
-                            </div>
-                            <div className="flex justify-between pt-1 border-t border-sys-border/60">
-                              <span className="font-bold text-sys-accent">2 пара (10:40) • Група 85 (Ваша)</span>
-                              <span className="font-bold text-sys-accent">ауд. 305</span>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {activePhaseIdx === 2 && (
-                        <div className="rounded-2xl border border-sys-border bg-sys-card p-3.5 shadow-sm space-y-2 animate-in fade-in duration-150">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-sys-status-okText">
-                              ✓ Миттєве повернення у розклад вашої групи
-                            </span>
-                            <span className="rounded-md border border-sys-border bg-sys-bg px-2 py-0.5 text-[10px] font-bold text-sys-text-secondary">
-                              Гаряча клавіша: / або Ctrl+K
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
-                            <span className="text-[11px] text-sys-text-muted">Нещодавні:</span>
-                            <span className="rounded-lg border border-sys-accent/40 bg-sys-accent/15 px-2 py-0.5 text-[11px] font-bold text-sys-accent">
-                              Група 85 ✓
-                            </span>
-                            <span className="rounded-lg border border-sys-border bg-sys-bg px-2 py-0.5 text-[11px] font-semibold text-sys-text-secondary">
-                              Іваненко О.М.
-                            </span>
-                            <span className="rounded-lg border border-sys-border bg-sys-bg px-2 py-0.5 text-[11px] font-semibold text-sys-text-secondary">
-                              Токарєва О.В.
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-sys-text-secondary leading-snug">
-                            Ви завжди знаєте, у якій аудиторії зараз викладач, і повертаєтесь до своєї групи в 1 клік.
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* =====================================================
-                      ВИКЛАДАЧ 0 (#1): PIN-КОД ДЛЯ РОЗБЛОКУВАННЯ ПАР (3 ФАЗИ)
-                     ===================================================== */}
-                  {role === "teacher" && safeIdx === 0 && (
-                    <div className="relative w-full max-w-[420px] mx-auto">
-                      <DemoCursor
-                        x={stage === 0 ? "38%" : stage <= 2 ? "84%" : stage <= 4 ? "82%" : "86%"}
-                        y={stage === 0 ? "75%" : stage <= 2 ? "26%" : stage <= 4 ? "66%" : "78%"}
-                        clicking={isClicking}
-                        hidden={isCursorHidden}
-                      />
-
-                      {activePhaseIdx === 0 && (
-                        <div className="rounded-2xl border border-sys-border bg-sys-card p-3.5 shadow-sm space-y-2.5 animate-in fade-in duration-150">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-xs font-semibold text-sys-text-secondary">1 пара · 09:00–10:20</span>
-                            <span
-                              className={`inline-flex h-8 px-2.5 items-center gap-1.5 rounded-xl border text-xs font-bold transition-transform ${
-                                stage >= 1
-                                  ? "border-sys-status-warnBg/60 bg-sys-status-warnBg/25 text-sys-status-warnText scale-95 ring-2 ring-sys-status-warnBg/30"
-                                  : "border-sys-status-warnBg/40 bg-sys-status-warnBg/15 text-sys-status-warnText"
-                              }`}
-                            >
-                              <span>🔒</span>
-                              <span>Zoom</span>
-                            </span>
-                          </div>
-                          <div className="text-sm font-bold text-sys-text-subject">Комп&apos;ютерна схемотехніка</div>
-                          <div className="text-xs text-sys-text-secondary">Група: 85 (КІ-24-2/9)</div>
-                        </div>
-                      )}
-
-                      {activePhaseIdx === 1 && (
-                        <div className="rounded-2xl border border-sys-accent/45 bg-sys-card p-3.5 shadow-md space-y-2.5 animate-in fade-in duration-150">
-                          <div className="text-xs font-bold text-sys-text-primary">
-                            Введіть PIN-код викладача (один раз на цьому пристрої):
-                          </div>
-                          <div className="flex items-center justify-between gap-2 rounded-xl border border-sys-accent/50 bg-sys-bg px-3 py-2 text-xs">
-                            <span className="font-mono text-sm font-black tracking-widest text-sys-text-primary">
-                              ••••
-                            </span>
-                            <span
-                              className={`rounded-lg bg-sys-accent px-3 py-1 text-[11px] font-bold text-white transition-transform ${
-                                stage === 4 ? "scale-95" : ""
-                              }`}
-                            >
-                              Підтвердити →
-                            </span>
-                          </div>
-                          <div className="text-[11px] text-sys-text-secondary">
-                            PIN-код захищає онлайн-пари коледжу від сторонніх гостей.
-                          </div>
-                        </div>
-                      )}
-
-                      {activePhaseIdx === 2 && (
-                        <div className="rounded-2xl border border-sys-border bg-sys-card p-3.5 shadow-sm space-y-2 animate-in fade-in duration-150">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-xs font-semibold text-sys-text-secondary">1 пара · 09:00–10:20</span>
-                            <span className="inline-flex h-8 px-2.5 items-center gap-1.5 rounded-xl border border-sys-status-infoBg/45 bg-sys-status-infoBg/15 text-sys-status-infoText text-xs font-bold">
-                              <PlatformSvg platform="zoom" />
-                              <span>Zoom · код: dfkr ↗</span>
-                            </span>
-                          </div>
-                          <div className="text-sm font-bold text-sys-text-subject">Комп&apos;ютерна схемотехніка</div>
-                          <div className="flex items-center justify-between rounded-xl border border-sys-status-okBg/40 bg-sys-status-okBg/10 px-3 py-1.5 text-xs font-semibold text-sys-status-okText">
-                            <span>✓ Усі посилання Meet та Zoom відкрито для всіх груп</span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* =====================================================
-                      ВИКЛАДАЧ 1 (#4): СТАТИСТИКА ВИЧИТАНИХ ГОДИН (3 ФАЗИ)
-                     ===================================================== */}
-                  {role === "teacher" && safeIdx === 1 && (
-                    <div className="relative w-full max-w-[420px] mx-auto space-y-2">
-                      <DemoCursor
-                        x={stage === 0 ? "25%" : stage <= 2 ? "65%" : stage <= 4 ? "65%" : "86%"}
-                        y={stage === 0 ? "24%" : stage <= 2 ? "64%" : stage <= 4 ? "78%" : "82%"}
-                        clicking={isClicking}
-                        hidden={isCursorHidden}
-                      />
-
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="rounded-xl border border-sys-border bg-sys-card px-3 py-2">
-                          <div className="text-[10px] font-bold uppercase text-sys-text-muted">Вичитано за семестр</div>
-                          <div className="text-sm font-black text-sys-accent mt-0.5">48 пар • 96 год</div>
-                        </div>
-                        <div className="rounded-xl border border-sys-border bg-sys-card px-3 py-2">
-                          <div className="text-[10px] font-bold uppercase text-sys-text-muted">Заміни / Перенесення</div>
-                          <div className="text-sm font-black text-sys-status-okText mt-0.5">+4 пари враховано</div>
+                        <div className="flex items-center gap-1.5 text-xs text-sys-text-secondary">
+                          <UserSvg />
+                          <span className="text-sys-text-muted">Група:</span>
+                          <span className="font-medium text-sys-text-secondary">85</span>
                         </div>
                       </div>
+                    )}
+                  </div>
+                )}
 
-                      <div className="rounded-xl border border-sys-border bg-sys-card p-3 space-y-2">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="font-bold text-sys-text-primary">Комп&apos;ютерна схемотехніка</span>
-                          <span className="font-bold text-sys-accent">34 пари (68 год) ▾</span>
-                        </div>
+                {/* =====================================================
+                    ВИКЛАДАЧ 1 (#4): СТАТИСТИКА (Точна копія app/statistics/page.tsx)
+                   ===================================================== */}
+                {role === "teacher" && safeIdx === 1 && (
+                  <div className="relative w-full max-w-[400px] mx-auto space-y-2.5">
+                    <DemoCursor
+                      x={stage === 0 ? "30%" : stage <= 2 ? "65%" : "82%"}
+                      y={stage === 0 ? "25%" : stage <= 2 ? "72%" : "72%"}
+                      clicking={stage === 2}
+                      hidden={isCursorHidden}
+                    />
 
-                        {activePhaseIdx === 0 ? (
-                          <div className="text-[11px] text-sys-text-secondary">
-                            Натисніть на предмет, щоб переглянути розбивку годин по кожній групі
-                          </div>
-                        ) : (
-                          <div className="space-y-1 pt-1 border-t border-sys-border/60 text-[11px] animate-in fade-in duration-150">
-                            <div className="flex items-center justify-between px-1">
-                              <span className="text-sys-text-secondary">Група 85 (КІ-24-1/9)</span>
-                              <span className="font-bold text-sys-text-primary">18 пар • 36 год</span>
-                            </div>
-                            <div
-                              className={`flex items-center justify-between rounded-lg px-2 py-1 ${
-                                activePhaseIdx === 2
-                                  ? "bg-sys-status-okBg/15 text-sys-status-okText font-bold"
-                                  : "bg-sys-accent/15 text-sys-accent font-bold"
-                              }`}
-                            >
-                              <span>Група 86 (КІ-24-2/9)</span>
-                              <span>16 пар • 32 год ✓</span>
-                            </div>
-                          </div>
-                        )}
+                    {/* Точні 2 картки зверху зі сторінки /statistics */}
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <div className="rounded-2xl border border-sys-border bg-sys-card p-2.5 text-center">
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-sys-text-secondary">
+                          Проведено
+                        </p>
+                        <p className="text-xl font-black text-sys-accent leading-tight mt-0.5">96</p>
+                        <p className="text-[10px] text-sys-text-muted">акад. год · 48 пар</p>
+                      </div>
+                      <div className="rounded-2xl border border-sys-border bg-sys-card p-2.5 text-center">
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-sys-text-secondary">
+                          Навантаження
+                        </p>
+                        <p className="text-xl font-black text-sys-text-primary leading-tight mt-0.5">16</p>
+                        <p className="text-[10px] text-sys-text-muted">акад. год/тиждень · 8 пар</p>
                       </div>
                     </div>
-                  )}
 
-                  {/* =====================================================
-                      ВИКЛАДАЧ 2 (#5): РАДАР ЗАМІН ТА ПЕРЕНЕСЕНЬ (3 ФАЗИ)
-                     ===================================================== */}
-                  {role === "teacher" && safeIdx === 2 && (
-                    <div className="relative w-full max-w-[420px] mx-auto space-y-2">
-                      <DemoCursor
-                        x={stage === 0 ? "48%" : stage <= 2 ? "70%" : stage <= 4 ? "86%" : "88%"}
-                        y={stage === 0 ? "18%" : stage <= 2 ? "18%" : stage <= 4 ? "54%" : "78%"}
-                        clicking={isClicking}
-                        hidden={isCursorHidden}
+                    {/* Точна картка дисципліни з круговим SVG-кільцем зі сторінки /statistics */}
+                    <div className="rounded-2xl border border-sys-border bg-sys-card p-3 flex items-center gap-3.5">
+                      <div className="relative w-12 h-12 shrink-0 flex items-center justify-center">
+                        <svg className="w-full h-full -rotate-90" viewBox="0 0 48 48">
+                          <circle cx="24" cy="24" r="20" stroke="currentColor" strokeWidth="4" fill="none" className="text-sys-border" />
+                          <circle
+                            cx="24"
+                            cy="24"
+                            r="20"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                            fill="none"
+                            strokeDasharray={125.6}
+                            strokeDashoffset={32}
+                            className="text-sys-accent"
+                            strokeLinecap="round"
+                          />
+                        </svg>
+                        <span className="absolute text-[11px] font-bold text-sys-text-primary">68г</span>
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-semibold text-sys-text-primary truncate">
+                          Комп&apos;ютерна схемотехніка
+                        </div>
+                        <div className="text-[11px] text-sys-text-secondary mt-0.5">
+                          68 акад. год · 34 пар
+                        </div>
+                        <div className="flex items-center gap-1 mt-1">
+                          <span className="text-[10px] text-sys-text-muted">Групи:</span>
+                          <span className="rounded bg-sys-elevated border border-sys-border px-1.5 py-0.5 text-[10px] font-medium text-sys-text-secondary">
+                            85
+                          </span>
+                          <span className="rounded bg-sys-elevated border border-sys-border px-1.5 py-0.5 text-[10px] font-medium text-sys-text-secondary">
+                            86
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* =====================================================
+                    ВИКЛАДАЧ 2 (#5): ЗАМІНИ ТА ПЕРЕНЕСЕННЯ (Точна копія MobileWeekDaysStrip + LessonCard)
+                   ===================================================== */}
+                {role === "teacher" && safeIdx === 2 && (
+                  <div className="relative w-full max-w-[400px] mx-auto space-y-2.5">
+                    <DemoCursor
+                      x={stage === 0 ? "50%" : stage <= 2 ? "70%" : "82%"}
+                      y={stage === 0 ? "18%" : stage <= 2 ? "18%" : "68%"}
+                      clicking={stage === 2}
+                      hidden={isCursorHidden}
+                    />
+
+                    {/* Точна копія MobileWeekDaysStrip.tsx */}
+                    <div className="relative flex h-10 w-full rounded-xl border border-sys-border bg-sys-card overflow-hidden text-xs">
+                      <div
+                        className="absolute bottom-0 left-0 h-[3px] bg-sys-accent transition-transform duration-200 ease-out"
+                        style={{
+                          width: "20%",
+                          transform: `translateX(${(stage >= 3 ? 3 : 2) * 100}%)`,
+                        }}
                       />
-
-                      <div className="relative flex h-9 w-full rounded-xl border border-sys-border bg-sys-card overflow-hidden text-xs">
-                        <div
-                          className="absolute bottom-0 left-0 h-[2.5px] bg-sys-accent transition-transform duration-200 ease-out"
-                          style={{
-                            width: "20%",
-                            transform: `translateX(${(activePhaseIdx >= 1 ? 3 : 2) * 100}%)`,
-                          }}
-                        />
-                        {["Пн 10", "Вт 11", "Ср 12", "Чт 13", "Пт 14"].map((d, i) => {
-                          const active = (activePhaseIdx >= 1 ? 3 : 2) === i;
-                          return (
-                            <div
-                              key={d}
-                              className={`flex-1 flex items-center justify-center font-semibold transition-colors ${
-                                active ? "text-sys-accent font-bold" : "text-sys-text-secondary"
-                              }`}
-                            >
-                              {d}
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      {activePhaseIdx === 0 ? (
-                        <div className="rounded-2xl border border-sys-status-dangerBg/45 border-dashed bg-sys-card p-3 space-y-1.5 animate-in fade-in duration-150">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-xs font-semibold text-sys-text-secondary">3 пара · Середа</span>
-                            <span className="rounded-md px-2 py-0.5 text-[11px] font-bold border border-sys-status-warnBg/45 bg-sys-status-warnBg/15 text-sys-status-warnText">
-                              ↪ Перенесено → Четвер, 3 пара
-                            </span>
+                      {["Пн 10", "Вт 11", "Ср 12", "Чт 13", "Пт 14"].map((d, i) => {
+                        const active = (stage >= 3 ? 3 : 2) === i;
+                        return (
+                          <div
+                            key={d}
+                            className={`flex-1 flex items-center justify-center font-semibold transition-colors ${
+                              active ? "text-sys-text-primary font-bold" : "text-sys-text-secondary"
+                            }`}
+                          >
+                            {d}
                           </div>
-                          <div className="text-sm font-bold line-through text-sys-text-muted">
-                            Мікропроцесорні системи
-                          </div>
-                          <div className="text-xs text-sys-text-secondary">Група 85</div>
-                        </div>
-                      ) : (
-                        <div className="rounded-2xl border border-sys-warning/50 ring-1 ring-sys-warning/50 bg-sys-card p-3 space-y-1.5 animate-in fade-in duration-150">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-xs font-semibold text-sys-text-secondary">3 пара · Четвер (12:30)</span>
-                            <span className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-bold bg-sys-warning uppercase text-sys-warningText">
-                              ⚡ Заміна
-                            </span>
-                          </div>
-                          <div className="text-sm font-bold text-sys-text-subject">
-                            Мікропроцесорні системи
-                          </div>
-                          <div className="flex items-center justify-between text-xs text-sys-text-secondary">
-                            <span>Група 85 • 🚪 ауд. 305</span>
-                            {activePhaseIdx === 2 && (
-                              <span className="font-bold text-sys-status-okText">
-                                ✓ Готово до відправки в Telegram
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      )}
+                        );
+                      })}
                     </div>
-                  )}
-                </div>
+
+                    {stage < 3 ? (
+                      /* Точний макет перенесеної пари з LessonCard.tsx (рядки 1261, 1282) */
+                      <div className="rounded-2xl border border-sys-status-dangerBg/40 border-dashed bg-sys-card p-3.5 space-y-1.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-semibold text-sys-text-secondary">3 · 12:30–13:50</span>
+                          <span className="rounded px-1.5 py-0.5 text-xs font-bold border border-sys-status-warnBg/40 bg-sys-status-warnBg/15 text-sys-status-warnText">
+                            ↪ Перенесено → Четвер, 3 пара
+                          </span>
+                        </div>
+                        <div className="text-base font-semibold line-through text-sys-text-muted">
+                          Мікропроцесорні системи
+                        </div>
+                        <div className="text-xs text-sys-text-secondary">Група: 85</div>
+                      </div>
+                    ) : (
+                      /* Точний макет заміни з LessonCard.tsx (рядки 1268, 1306) */
+                      <div className="rounded-2xl border border-sys-warning/40 ring-1 ring-sys-warning/60 bg-sys-card p-3.5 space-y-1.5 animate-in fade-in duration-150">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-semibold text-sys-text-secondary">3 · 12:30–13:50</span>
+                          <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-bold bg-sys-warning uppercase tracking-wider text-sys-warningText">
+                            ⚡ Заміна
+                          </span>
+                        </div>
+                        <div className="text-base font-semibold text-sys-text-subject">
+                          Мікропроцесорні системи
+                        </div>
+                        <div className="text-xs text-sys-text-secondary">Група: 85 • ауд. 305</div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
-              {/* =====================================================
-                  3. ПОВНИЙ ОПИС ФУНКЦІЇ + ШВИДКА ДІЯ ПРЯМО З СЛАЙДУ
-                 ===================================================== */}
-              <div className="space-y-3 px-0.5">
+              {/* 3. ЛАКОНІЧНИЙ ОПИС (2 короткі пункти) + ШВИДКА ДІЯ */}
+              <div className="space-y-2.5 px-0.5">
                 <h3 className="text-sm sm:text-base font-bold text-sys-text-primary leading-snug">
                   {activeStep.title}
                 </h3>
 
-                <ul className="space-y-2 text-xs text-sys-text-secondary leading-relaxed">
-                  {activeStep.points.map((pt, i) => (
-                    <li key={i} className="flex items-start gap-2">
-                      <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-sys-accent shrink-0" />
-                      <span>{pt}</span>
-                    </li>
-                  ))}
+                <ul className="space-y-1.5 text-xs text-sys-text-secondary leading-relaxed">
+                  <li className="flex items-start gap-2">
+                    <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-sys-accent shrink-0" />
+                    <span>{activeStep.points[0]}</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-sys-accent shrink-0" />
+                    <span>{activeStep.points[1]}</span>
+                  </li>
                 </ul>
 
                 {role === "student" && safeIdx === 0 && (
                   <div className="flex items-center justify-between rounded-xl border border-sys-border bg-sys-bg px-3 py-2 text-xs">
                     <span className="font-semibold text-sys-text-secondary truncate mr-2">
-                      {isLinked ? `✓ Пошту прив'язано: ${linkedEmail}` : "Пошту @kre.dp.ua ще не підключено"}
+                      {isLinked ? `✓ Підключено: ${linkedEmail}` : "Пошту @kre.dp.ua ще не прив'язано"}
                     </span>
                     <button
                       type="button"
@@ -1345,14 +1138,14 @@ export function GuideHubModal({
                       }}
                       className="shrink-0 rounded-lg bg-sys-accent px-3 py-1.5 text-[11px] font-bold text-white hover:opacity-95 active:scale-95 transition-opacity cursor-pointer"
                     >
-                      {isLinked ? "Синхронізувати" : "Прив'язати →"}
+                      {isLinked ? "Оновити" : "Прив'язати →"}
                     </button>
                   </div>
                 )}
 
                 {role === "student" && safeIdx === 1 && (
                   <div className="flex items-center justify-between rounded-xl border border-sys-border bg-sys-bg px-3 py-2 text-xs">
-                    <span className="font-semibold text-sys-text-secondary">Ваша підгрупа за замовчуванням:</span>
+                    <span className="font-semibold text-sys-text-secondary">Ваша підгрупа:</span>
                     <div className="inline-flex gap-1">
                       {(["all", 1, 2] as const).map((sub) => (
                         <button
@@ -1379,9 +1172,9 @@ export function GuideHubModal({
                       onClose();
                       router.push("/settings?mode=teacher");
                     }}
-                    className="w-full rounded-xl bg-sys-accent py-2.5 text-xs font-bold text-white hover:opacity-95 active:scale-[0.99] transition-opacity cursor-pointer"
+                    className="w-full rounded-xl bg-sys-accent py-2 text-xs font-bold text-white hover:opacity-95 active:scale-[0.99] transition-opacity cursor-pointer"
                   >
-                    Ввести PIN-код викладача в Налаштуваннях →
+                    Ввести PIN-код викладача →
                   </button>
                 )}
 
@@ -1402,9 +1195,7 @@ export function GuideHubModal({
           </AnimatePresence>
         </div>
 
-        {/* =========================================================
-            4. FOOTER CONTROLS
-           ========================================================= */}
+        {/* 4. НИЖНЯ НАВІГАЦІЯ */}
         <div className="flex items-center justify-between gap-2 px-4 py-3 border-t border-sys-border bg-sys-surface shrink-0">
           <button
             type="button"
@@ -1416,7 +1207,7 @@ export function GuideHubModal({
           </button>
 
           <span className="text-xs font-semibold text-sys-text-muted">
-            Розділ {safeIdx + 1} із {stepsCount}
+            {safeIdx + 1} / {stepsCount}
           </span>
 
           <button
