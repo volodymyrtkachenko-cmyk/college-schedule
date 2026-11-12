@@ -6,10 +6,12 @@ const withPwa = withPWAInit({
   skipWaiting: true,
   cacheOnFrontEndNav: true,
   cacheStartUrl: true,
+  dynamicStartUrl: false, // Мгновенный запуск App Shell из памяти телефона (0 мс ожидания сети)
+  reloadOnOnline: false,  // Не перезагружать страницу целиком при переключении Wi-Fi / LTE
   disable: process.env.NODE_ENV === "development",
   fallbacks: {
-    document: "/~offline"
-  }
+    document: "/~offline",
+  },
 });
 
 /** @type {import('next').NextConfig} */

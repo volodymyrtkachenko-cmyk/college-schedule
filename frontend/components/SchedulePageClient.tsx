@@ -414,7 +414,13 @@ export function SchedulePageClient({
       if (cached.length > 0) {
         setClassroomTasks(cached);
       }
-      void fetchClassroomTasks(groupId);
+      // Если кеш задач уже есть в памяти телефона — откладываем сетевую проверку Classroom на 1.2 с,
+      // чтобы не нагружать мобильный CPU и сеть в момент открытия PWA
+      const delayMs = cached.length > 0 ? 1200 : 150;
+      const timer = setTimeout(() => {
+        void fetchClassroomTasks(groupId);
+      }, delayMs);
+      return () => clearTimeout(timer);
     } else {
       setClassroomTasks([]);
       setClassroomLastSyncedAt(null);

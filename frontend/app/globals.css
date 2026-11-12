@@ -522,6 +522,14 @@ html[data-theme="light"][data-accent="cyan"] {
     -webkit-font-smoothing: antialiased;
   }
 
+  button,
+  a,
+  [role="button"],
+  [role="tab"] {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
   h1,
   h2,
   h3,

@@ -92,7 +92,7 @@ export function useSchedule(
   const [isUsingFallbackCache, setIsUsingFallbackCache] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Миттєва синхронізація з localStorage після гідрації ДО першого відмальовування екрана (0 миготінь і 0 помилок гідрації)
+  // Мгновенная синхронизация с localStorage ДО первого кадра отрисовки экрана (0 мс старт в PWA без скелетонов)
   useIsomorphicLayoutEffect(() => {
     try {
       if (initialGroupId || initialTeacherId) {
@@ -102,25 +102,60 @@ export function useSchedule(
         setIsSetupComplete(true);
       }
 
+      let resolvedMode: "student" | "teacher" = initialMode ?? mode;
       if (!initialMode) {
         const savedMode = window.localStorage.getItem("schedule:mode");
         if (savedMode === "student" || savedMode === "teacher") {
+          resolvedMode = savedMode;
           setMode(savedMode);
         }
       }
 
+      let resolvedGid = initialGroupId ?? groupId;
       if (!initialGroupId) {
         const savedGid = Number(window.localStorage.getItem("schedule:groupId"));
-        if (savedGid > 0) setGroupId(savedGid);
+        if (savedGid > 0) {
+          resolvedGid = savedGid;
+          setGroupId(savedGid);
+        }
       }
 
+      let resolvedTid = initialTeacherId ?? teacherId;
       if (!initialTeacherId) {
         const savedTid = Number(window.localStorage.getItem("schedule:teacherId"));
-        if (savedTid > 0) setTeacherId(savedTid);
+        if (savedTid > 0) {
+          resolvedTid = savedTid;
+          setTeacherId(savedTid);
+        }
       }
 
       const savedSem = window.localStorage.getItem("schedule:semesterStart");
       if (savedSem) setSemesterStart(savedSem);
+
+      // Поднимаем кеш расписания текущей недели до первой отрисовки кадра
+      const uid = window.localStorage.getItem("schedule:classroom_google_user_id") || "";
+      const email = window.localStorage.getItem("schedule:classroom_linked_email") || "";
+      const linkedGid = window.localStorage.getItem("schedule:classroom_linked_group_id") || "";
+      const pin = window.localStorage.getItem("college_schedule_teacher_pin") ? "pin" : "";
+      const hasAuth = Boolean(
+        (resolvedMode === "teacher" && pin) ||
+          (resolvedMode === "student" && (uid || email) && (!linkedGid || Number(linkedGid) === resolvedGid))
+      );
+      const storageTier = hasAuth ? ":auth" : ":guest";
+      const targetKey = resolvedMode === "student" ? `groupId:${resolvedGid}` : `teacherId:${resolvedTid}`;
+      const cancelSuffix = includeCancelled ? ":all" : "";
+      const dateKey = formatKyivDateIso(weekAnchorDate);
+
+      const todayKey = `schedule:today:${targetKey}${cancelSuffix}${storageTier}`;
+      const weekKey = `schedule:week:${targetKey}:${dateKey}${cancelSuffix}${storageTier}`;
+
+      const cachedToday = window.localStorage.getItem(todayKey);
+      const cachedWeek = window.localStorage.getItem(weekKey);
+      if (cachedToday && cachedWeek) {
+        setToday(JSON.parse(cachedToday) as ScheduleResponse);
+        setWeek(JSON.parse(cachedWeek) as ScheduleResponse[]);
+        setLoading(false);
+      }
     } catch {}
   }, [initialGroupId, initialTeacherId, initialMode]);
 
