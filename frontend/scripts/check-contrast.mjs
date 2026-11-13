@@ -287,6 +287,7 @@ function auditLegacyClasses() {
     "components/OfflineIndicator.tsx",
     "components/AppBackdrop.tsx",
     "components/settings/AppearanceStudioSection.tsx",
+    "components/settings/AppearanceStudioModal.tsx",
     "components/TaskFilters.tsx",
     "components/MobileTasksView.tsx",
     "components/TeacherPinModal.tsx",
